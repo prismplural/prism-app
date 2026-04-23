@@ -48,6 +48,7 @@ class SystemSettingsMapper {
       previousAccentColorHex: row.previousAccentColorHex,
       systemDescription: row.systemDescription,
       systemColor: row.systemColor,
+      pkGroupSyncV2Enabled: row.pkGroupSyncV2Enabled,
       systemTag: row.systemTag,
       systemAvatarData: row.systemAvatarData != null
           ? Uint8List.fromList(row.systemAvatarData!)
@@ -113,6 +114,7 @@ class SystemSettingsMapper {
       previousAccentColorHex: Value(model.previousAccentColorHex),
       systemDescription: Value(model.systemDescription),
       systemColor: Value(model.systemColor),
+      pkGroupSyncV2Enabled: Value(model.pkGroupSyncV2Enabled),
       systemTag: Value(model.systemTag),
       systemAvatarData: Value(model.systemAvatarData),
       remindersEnabled: Value(model.remindersEnabled),

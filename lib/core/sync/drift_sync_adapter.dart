@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
 import 'package:drift/drift.dart';
 import 'package:prism_sync_drift/prism_sync_drift.dart';
 
@@ -18,10 +19,15 @@ import 'package:prism_plurality/core/sync/sync_quarantine.dart';
 /// so callers can await the end of a remote-change batch instead of relying
 /// on a hardcoded delay.
 class SyncAdapterWithCompletion {
-  SyncAdapterWithCompletion(this.adapter, this._pendingQuarantineWrites);
+  SyncAdapterWithCompletion(
+    this.adapter,
+    this._pendingQuarantineWrites,
+    this._runDeferredPkEntryReplay,
+  );
 
   final DriftSyncAdapter adapter;
   final List<Future<void>> _pendingQuarantineWrites;
+  final Future<void> Function() _runDeferredPkEntryReplay;
 
   Completer<void>? _batchCompleter;
 
@@ -51,6 +57,8 @@ class SyncAdapterWithCompletion {
         // Quarantine is diagnostic-only; sync application already succeeded.
       }
     }
+
+    await _runDeferredPkEntryReplay();
 
     if (!completer.isCompleted) {
       completer.complete();
@@ -92,7 +100,15 @@ SyncAdapterWithCompletion buildSyncAdapterWithCompletion(
       _mediaAttachmentsEntity(db, quarantine, pendingQuarantineWrites.add),
     ],
   );
-  return SyncAdapterWithCompletion(adapter, pendingQuarantineWrites);
+  return SyncAdapterWithCompletion(
+    adapter,
+    pendingQuarantineWrites,
+    () => _retryDeferredPkBackedMemberGroupEntryOps(
+      db,
+      quarantine: quarantine,
+      trackQuarantineWrite: pendingQuarantineWrites.add,
+    ),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -137,6 +153,737 @@ Uint8List? _blob(dynamic v) {
     }
   }
   return null;
+}
+
+const String _pkGroupSyncEntityIdPrefix = 'pk-group:';
+const String _pkGroupSyncAliasesTableName = 'pk_group_sync_aliases';
+const String _pkGroupEntryDeferredOpsTableName =
+    'pk_group_entry_deferred_sync_ops';
+const int _maxDeferredPkEntryReplayRetries = 10;
+
+final Expando<Map<String, Set<String>>> _tableColumnsCache = Expando();
+final Expando<Map<String, bool>> _tableExistsCache = Expando();
+
+class _OptionalDynamicValue<T> {
+  const _OptionalDynamicValue._({required this.present, this.value});
+  const _OptionalDynamicValue.absent() : this._(present: false);
+  const _OptionalDynamicValue.present(T? value)
+    : this._(present: true, value: value);
+
+  final bool present;
+  final T? value;
+}
+
+class _PkGroupAliasResolution {
+  const _PkGroupAliasResolution({
+    required this.pkGroupUuid,
+    required this.canonicalEntityId,
+  });
+
+  final String pkGroupUuid;
+  final String canonicalEntityId;
+}
+
+class _PkMemberGroupEntryLogicalEdge {
+  const _PkMemberGroupEntryLogicalEdge({
+    required this.pkGroupUuid,
+    required this.pkMemberUuid,
+  });
+
+  final String pkGroupUuid;
+  final String pkMemberUuid;
+
+  String get key => '$pkGroupUuid\u0000$pkMemberUuid';
+}
+
+class _PreferredDeferredPkEntryOp {
+  const _PreferredDeferredPkEntryOp({
+    required this.deferredId,
+    required this.isCanonical,
+  });
+
+  final String deferredId;
+  final bool isCanonical;
+}
+
+String _canonicalPkGroupEntityId(String pkGroupUuid) =>
+    '$_pkGroupSyncEntityIdPrefix$pkGroupUuid';
+
+String? _pkGroupUuidFromEntityId(String entityId) =>
+    entityId.startsWith(_pkGroupSyncEntityIdPrefix)
+    ? entityId.substring(_pkGroupSyncEntityIdPrefix.length)
+    : null;
+
+_OptionalDynamicValue<String?> _readOptionalStringProperty(
+  dynamic Function() getter,
+) {
+  try {
+    final value = getter();
+    return _OptionalDynamicValue<String?>.present(value as String?);
+  } catch (_) {
+    return const _OptionalDynamicValue<String?>.absent();
+  }
+}
+
+Future<bool> _tableExists(AppDatabase db, String tableName) async {
+  final cache = _tableExistsCache[db] ??= <String, bool>{};
+  final cached = cache[tableName];
+  if (cached != null) return cached;
+
+  final rows = await db
+      .customSelect(
+        '''
+        SELECT 1 AS present
+        FROM sqlite_master
+        WHERE type = 'table' AND name = ?
+        LIMIT 1
+        ''',
+        variables: [Variable<String>(tableName)],
+      )
+      .get();
+  final exists = rows.isNotEmpty;
+  cache[tableName] = exists;
+  return exists;
+}
+
+Future<Set<String>> _tableColumns(AppDatabase db, String tableName) async {
+  final cache = _tableColumnsCache[db] ??= <String, Set<String>>{};
+  final cached = cache[tableName];
+  if (cached != null) return cached;
+
+  if (!await _tableExists(db, tableName)) {
+    const empty = <String>{};
+    cache[tableName] = empty;
+    return empty;
+  }
+
+  final rows = await db.customSelect('PRAGMA table_info($tableName)').get();
+  final columns = rows
+      .map((row) => row.data['name'])
+      .whereType<String>()
+      .toSet();
+  cache[tableName] = columns;
+  return columns;
+}
+
+Future<bool> _tableHasColumn(
+  AppDatabase db,
+  String tableName,
+  String columnName,
+) async => (await _tableColumns(db, tableName)).contains(columnName);
+
+Future<MemberGroupRow?> _memberGroupRowById(AppDatabase db, String id) {
+  return (db.select(
+    db.memberGroups,
+  )..where((t) => t.id.equals(id))).getSingleOrNull();
+}
+
+Future<MemberGroupRow?> _memberGroupRowByPkGroupUuid(
+  AppDatabase db,
+  String pkGroupUuid, {
+  Iterable<String> preferredLocalRowIds = const <String>[],
+}) async {
+  final rows = await (db.select(
+    db.memberGroups,
+  )..where((t) => t.pluralkitUuid.equals(pkGroupUuid))).get();
+  if (rows.isEmpty) return null;
+
+  final preferredIds = preferredLocalRowIds
+      .where((id) => id.isNotEmpty)
+      .toSet();
+  final sorted = [...rows]
+    ..sort((left, right) {
+      if (left.isDeleted != right.isDeleted) {
+        return left.isDeleted ? 1 : -1;
+      }
+
+      final leftPreferred = preferredIds.contains(left.id);
+      final rightPreferred = preferredIds.contains(right.id);
+      if (leftPreferred != rightPreferred) {
+        return leftPreferred ? -1 : 1;
+      }
+
+      if (left.syncSuppressed != right.syncSuppressed) {
+        return left.syncSuppressed ? 1 : -1;
+      }
+
+      if (left.lastSeenFromPkAt != null && right.lastSeenFromPkAt == null) {
+        return -1;
+      }
+      if (left.lastSeenFromPkAt == null && right.lastSeenFromPkAt != null) {
+        return 1;
+      }
+      if (left.lastSeenFromPkAt != null && right.lastSeenFromPkAt != null) {
+        final seenCompare = right.lastSeenFromPkAt!.compareTo(
+          left.lastSeenFromPkAt!,
+        );
+        if (seenCompare != 0) return seenCompare;
+      }
+
+      final createdCompare = left.createdAt.compareTo(right.createdAt);
+      if (createdCompare != 0) return createdCompare;
+
+      return left.id.compareTo(right.id);
+    });
+
+  return sorted.first;
+}
+
+Future<_PkGroupAliasResolution?> _pkGroupAliasForLegacyEntityId(
+  AppDatabase db,
+  String legacyEntityId,
+) async {
+  if (!await _tableExists(db, _pkGroupSyncAliasesTableName)) {
+    return null;
+  }
+
+  final row = await db
+      .customSelect(
+        '''
+        SELECT pk_group_uuid, canonical_entity_id
+        FROM $_pkGroupSyncAliasesTableName
+        WHERE legacy_entity_id = ?
+        LIMIT 1
+        ''',
+        variables: [Variable<String>(legacyEntityId)],
+      )
+      .getSingleOrNull();
+  if (row == null) return null;
+
+  final pkGroupUuid = _asString(row.data['pk_group_uuid']);
+  final canonicalEntityId = _asString(row.data['canonical_entity_id']);
+  if (pkGroupUuid == null || canonicalEntityId == null) {
+    return null;
+  }
+
+  return _PkGroupAliasResolution(
+    pkGroupUuid: pkGroupUuid,
+    canonicalEntityId: canonicalEntityId,
+  );
+}
+
+Future<MemberGroupRow?> _resolveMemberGroupRowForSyncEntity(
+  AppDatabase db,
+  String entityId, {
+  String? payloadPkGroupUuid,
+}) async {
+  _PkGroupAliasResolution? alias;
+  if (payloadPkGroupUuid == null &&
+      _pkGroupUuidFromEntityId(entityId) == null) {
+    alias = await _pkGroupAliasForLegacyEntityId(db, entityId);
+  }
+
+  final pkGroupUuid =
+      payloadPkGroupUuid ??
+      _pkGroupUuidFromEntityId(entityId) ??
+      alias?.pkGroupUuid;
+  if (pkGroupUuid != null) {
+    final byPkUuid = await _memberGroupRowByPkGroupUuid(
+      db,
+      pkGroupUuid,
+      preferredLocalRowIds: {
+        entityId,
+        if (alias != null) alias.canonicalEntityId,
+      },
+    );
+    if (byPkUuid != null) return byPkUuid;
+
+    final byCanonicalId = await _memberGroupRowById(
+      db,
+      alias?.canonicalEntityId ?? _canonicalPkGroupEntityId(pkGroupUuid),
+    );
+    if (byCanonicalId != null) return byCanonicalId;
+  }
+
+  return _memberGroupRowById(db, entityId);
+}
+
+Future<String?> _resolveLocalMemberIdByPkUuid(
+  AppDatabase db,
+  String pkMemberUuid,
+) async {
+  final row = await (db.select(
+    db.members,
+  )..where((t) => t.pluralkitUuid.equals(pkMemberUuid))).getSingleOrNull();
+  return row?.id;
+}
+
+_PkMemberGroupEntryLogicalEdge? _pkMemberGroupEntryLogicalEdge({
+  required String? pkGroupUuid,
+  required String? pkMemberUuid,
+}) {
+  if (pkGroupUuid == null ||
+      pkMemberUuid == null ||
+      pkGroupUuid.isEmpty ||
+      pkMemberUuid.isEmpty) {
+    return null;
+  }
+  return _PkMemberGroupEntryLogicalEdge(
+    pkGroupUuid: pkGroupUuid,
+    pkMemberUuid: pkMemberUuid,
+  );
+}
+
+_PkMemberGroupEntryLogicalEdge? _pkMemberGroupEntryLogicalEdgeFromFields(
+  Map<String, dynamic> fields,
+) {
+  return _pkMemberGroupEntryLogicalEdge(
+    pkGroupUuid: _asString(fields['pk_group_uuid']),
+    pkMemberUuid: _asString(fields['pk_member_uuid']),
+  );
+}
+
+_PkMemberGroupEntryLogicalEdge? _pkMemberGroupEntryLogicalEdgeFromFieldsJson(
+  String fieldsJson,
+) {
+  try {
+    final decoded = jsonDecode(fieldsJson);
+    if (decoded is Map<String, dynamic>) {
+      return _pkMemberGroupEntryLogicalEdgeFromFields(decoded);
+    }
+    if (decoded is Map) {
+      return _pkMemberGroupEntryLogicalEdgeFromFields(
+        decoded.map((key, value) => MapEntry(key.toString(), value)),
+      );
+    }
+  } catch (_) {
+    return null;
+  }
+  return null;
+}
+
+String _canonicalPkMemberGroupEntryEntityId(
+  String pkGroupUuid,
+  String pkMemberUuid,
+) {
+  final digest = sha256.convert(utf8.encode('$pkGroupUuid\u0000$pkMemberUuid'));
+  return digest.toString().substring(0, 16);
+}
+
+bool _isCanonicalPkMemberGroupEntryEntityId(
+  String entityId,
+  _PkMemberGroupEntryLogicalEdge edge,
+) {
+  return entityId ==
+      _canonicalPkMemberGroupEntryEntityId(
+        edge.pkGroupUuid,
+        edge.pkMemberUuid,
+      );
+}
+
+Future<_PkMemberGroupEntryLogicalEdge?> _memberGroupEntryPkEdgeById(
+  AppDatabase db,
+  String id,
+) async {
+  final selectColumns = <String>[];
+  if (await _tableHasColumn(db, 'member_group_entries', 'pk_group_uuid')) {
+    selectColumns.add('pk_group_uuid');
+  }
+  if (await _tableHasColumn(db, 'member_group_entries', 'pk_member_uuid')) {
+    selectColumns.add('pk_member_uuid');
+  }
+  if (selectColumns.length < 2) return null;
+
+  final row = await db
+      .customSelect(
+        'SELECT ${selectColumns.join(', ')} '
+        'FROM member_group_entries '
+        'WHERE id = ?',
+        variables: [Variable<String>(id)],
+      )
+      .getSingleOrNull();
+  if (row == null) return null;
+
+  return _pkMemberGroupEntryLogicalEdge(
+    pkGroupUuid: _asString(row.data['pk_group_uuid']),
+    pkMemberUuid: _asString(row.data['pk_member_uuid']),
+  );
+}
+
+Future<Set<String>> _deleteDeferredPkBackedMemberGroupEntryOpsForLogicalEdge(
+  AppDatabase db, {
+  required _PkMemberGroupEntryLogicalEdge edge,
+}) async {
+  if (!await _tableExists(db, _pkGroupEntryDeferredOpsTableName)) {
+    return const <String>{};
+  }
+
+  final deletedIds = <String>{};
+  final deferredRows = await db.pkGroupEntryDeferredSyncOpsDao.getAll();
+  for (final row in deferredRows) {
+    if (row.entityType != 'member_group_entries') continue;
+    final deferredEdge = _pkMemberGroupEntryLogicalEdgeFromFieldsJson(
+      row.fieldsJson,
+    );
+    if (deferredEdge?.key != edge.key) continue;
+    await db.pkGroupEntryDeferredSyncOpsDao.deleteById(row.id);
+    deletedIds.add(row.id);
+  }
+  return deletedIds;
+}
+
+Future<Set<String>>
+_deleteDeferredPkBackedMemberGroupEntryOpsForCanonicalEntityId(
+  AppDatabase db, {
+  required String entityId,
+}) async {
+  if (!await _tableExists(db, _pkGroupEntryDeferredOpsTableName)) {
+    return const <String>{};
+  }
+
+  final matchingEdgeKeys = <String>{};
+  final deferredRows = await db.pkGroupEntryDeferredSyncOpsDao.getAll();
+  for (final row in deferredRows) {
+    if (row.entityType != 'member_group_entries') continue;
+    final deferredEdge = _pkMemberGroupEntryLogicalEdgeFromFieldsJson(
+      row.fieldsJson,
+    );
+    if (deferredEdge == null) continue;
+    if (_isCanonicalPkMemberGroupEntryEntityId(entityId, deferredEdge)) {
+      matchingEdgeKeys.add(deferredEdge.key);
+    }
+  }
+
+  if (matchingEdgeKeys.isEmpty) {
+    return const <String>{};
+  }
+
+  final deletedIds = <String>{};
+  for (final row in deferredRows) {
+    if (row.entityType != 'member_group_entries') continue;
+    final deferredEdge = _pkMemberGroupEntryLogicalEdgeFromFieldsJson(
+      row.fieldsJson,
+    );
+    if (deferredEdge == null || !matchingEdgeKeys.contains(deferredEdge.key)) {
+      continue;
+    }
+    await db.pkGroupEntryDeferredSyncOpsDao.deleteById(row.id);
+    deletedIds.add(row.id);
+  }
+  return deletedIds;
+}
+
+Future<void> _writeMemberGroupEntryPkFields(
+  AppDatabase db, {
+  required String id,
+  String? pkGroupUuid,
+  String? pkMemberUuid,
+}) async {
+  final assignments = <String>[];
+  final variables = <Object?>[];
+
+  if (await _tableHasColumn(db, 'member_group_entries', 'pk_group_uuid')) {
+    assignments.add('pk_group_uuid = ?');
+    variables.add(pkGroupUuid);
+  }
+  if (await _tableHasColumn(db, 'member_group_entries', 'pk_member_uuid')) {
+    assignments.add('pk_member_uuid = ?');
+    variables.add(pkMemberUuid);
+  }
+
+  if (assignments.isEmpty) return;
+
+  variables.add(id);
+  await db.customStatement(
+    'UPDATE member_group_entries '
+    'SET ${assignments.join(', ')} '
+    'WHERE id = ?',
+    variables,
+  );
+}
+
+Future<void> _appendMemberGroupEntryPkFields(
+  AppDatabase db,
+  String id,
+  Map<String, dynamic> fields,
+) async {
+  final selectColumns = <String>[];
+  if (await _tableHasColumn(db, 'member_group_entries', 'pk_group_uuid')) {
+    selectColumns.add('pk_group_uuid');
+  }
+  if (await _tableHasColumn(db, 'member_group_entries', 'pk_member_uuid')) {
+    selectColumns.add('pk_member_uuid');
+  }
+
+  if (selectColumns.isEmpty) return;
+
+  final row = await db
+      .customSelect(
+        'SELECT ${selectColumns.join(', ')} '
+        'FROM member_group_entries '
+        'WHERE id = ?',
+        variables: [Variable<String>(id)],
+      )
+      .getSingleOrNull();
+  if (row == null) return;
+
+  if (selectColumns.contains('pk_group_uuid')) {
+    fields['pk_group_uuid'] = _asString(row.data['pk_group_uuid']);
+  }
+  if (selectColumns.contains('pk_member_uuid')) {
+    fields['pk_member_uuid'] = _asString(row.data['pk_member_uuid']);
+  }
+}
+
+Future<bool> _deferPkBackedMemberGroupEntryOp(
+  AppDatabase db, {
+  required String entityId,
+  required Map<String, dynamic> fields,
+  required String reason,
+}) async {
+  if (!await _tableExists(db, _pkGroupEntryDeferredOpsTableName)) {
+    return false;
+  }
+
+  await db.customStatement(
+    '''
+    INSERT INTO $_pkGroupEntryDeferredOpsTableName
+      (id, entity_type, entity_id, fields_json, reason, created_at, retry_count)
+    VALUES (?, ?, ?, ?, ?, ?, 0)
+    ON CONFLICT(id) DO UPDATE SET
+      entity_type = excluded.entity_type,
+      entity_id = excluded.entity_id,
+      fields_json = excluded.fields_json,
+      reason = excluded.reason
+    ''',
+    [
+      'member_group_entries:$entityId',
+      'member_group_entries',
+      entityId,
+      jsonEncode(fields),
+      reason,
+      DateTime.now().millisecondsSinceEpoch,
+    ],
+  );
+  return true;
+}
+
+Future<bool> _applyMemberGroupEntryFields(
+  AppDatabase db, {
+  required String id,
+  required Map<String, dynamic> fields,
+  required SyncQuarantineService? quarantine,
+  required void Function(Future<void> write) trackQuarantineWrite,
+  required bool allowDeferral,
+  bool throwOnUnresolved = true,
+}) async {
+  final f = _FieldContext(
+    entityType: 'member_group_entries',
+    entityId: id,
+    fields: fields,
+    quarantine: quarantine,
+    trackQuarantineWrite: trackQuarantineWrite,
+  );
+  final pkGroupUuid = _asString(fields['pk_group_uuid']);
+  final pkMemberUuid = _asString(fields['pk_member_uuid']);
+  final legacyGroupId = _asString(fields['group_id']);
+  final legacyMemberId = _asString(fields['member_id']);
+
+  final resolvedGroupId = pkGroupUuid == null
+      ? legacyGroupId
+      : (await _resolveMemberGroupRowForSyncEntity(
+              db,
+              _canonicalPkGroupEntityId(pkGroupUuid),
+              payloadPkGroupUuid: pkGroupUuid,
+            ))?.id ??
+            legacyGroupId;
+  final resolvedMemberId = pkMemberUuid == null
+      ? legacyMemberId
+      : await _resolveLocalMemberIdByPkUuid(db, pkMemberUuid) ?? legacyMemberId;
+
+  if ((pkGroupUuid != null || pkMemberUuid != null) &&
+      (resolvedGroupId == null || resolvedMemberId == null)) {
+    if (allowDeferral) {
+      final missingRefs = [
+        if (resolvedGroupId == null)
+          'group:${pkGroupUuid ?? legacyGroupId ?? '<missing>'}',
+        if (resolvedMemberId == null)
+          'member:${pkMemberUuid ?? legacyMemberId ?? '<missing>'}',
+      ].join(', ');
+      final deferred = await _deferPkBackedMemberGroupEntryOp(
+        db,
+        entityId: id,
+        fields: fields,
+        reason: 'unresolved_pk_refs:$missingRefs',
+      );
+      if (deferred) return false;
+    }
+    if (!throwOnUnresolved) return false;
+  }
+
+  if (resolvedGroupId == null || resolvedMemberId == null) {
+    if (!throwOnUnresolved) return false;
+    throw StateError(
+      'member_group_entries sync op $id is missing resolvable '
+      'group/member identity',
+    );
+  }
+
+  final companion = MemberGroupEntriesCompanion(
+    id: Value(id),
+    groupId: Value(resolvedGroupId),
+    memberId: Value(resolvedMemberId),
+    isDeleted: f.boolField('is_deleted'),
+  );
+  await db.into(db.memberGroupEntries).insertOnConflictUpdate(companion);
+  await _writeMemberGroupEntryPkFields(
+    db,
+    id: id,
+    pkGroupUuid: pkGroupUuid,
+    pkMemberUuid: pkMemberUuid,
+  );
+  return true;
+}
+
+Future<void> _retryDeferredPkBackedMemberGroupEntryOps(
+  AppDatabase db, {
+  required SyncQuarantineService? quarantine,
+  required void Function(Future<void> write) trackQuarantineWrite,
+}) async {
+  if (!await _tableExists(db, _pkGroupEntryDeferredOpsTableName)) {
+    return;
+  }
+
+  final rows = await db.pkGroupEntryDeferredSyncOpsDao.getAll()
+    ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+  final preferredDeferredIdByEdge = <String, _PreferredDeferredPkEntryOp>{};
+  for (final row in rows) {
+    if (row.entityType != 'member_group_entries') continue;
+    final edge = _pkMemberGroupEntryLogicalEdgeFromFieldsJson(row.fieldsJson);
+    if (edge == null) continue;
+    final isCanonical = _isCanonicalPkMemberGroupEntryEntityId(
+      row.entityId,
+      edge,
+    );
+    final currentPreferred = preferredDeferredIdByEdge[edge.key];
+    if (currentPreferred == null ||
+        (!currentPreferred.isCanonical && isCanonical)) {
+      preferredDeferredIdByEdge[edge.key] = _PreferredDeferredPkEntryOp(
+        deferredId: row.id,
+        isCanonical: isCanonical,
+      );
+    }
+  }
+  final deletedDeferredIds = <String>{};
+
+  for (final row in rows) {
+    if (deletedDeferredIds.contains(row.id)) {
+      continue;
+    }
+
+    final logicalEdge = _pkMemberGroupEntryLogicalEdgeFromFieldsJson(
+      row.fieldsJson,
+    );
+    final preferredDeferred = logicalEdge == null
+        ? null
+        : preferredDeferredIdByEdge[logicalEdge.key];
+    if (preferredDeferred != null && preferredDeferred.deferredId != row.id) {
+      await db.pkGroupEntryDeferredSyncOpsDao.deleteById(row.id);
+      deletedDeferredIds.add(row.id);
+      continue;
+    }
+
+    final deferredId = row.id;
+    final entityId = row.entityId;
+    final fieldsJson = row.fieldsJson;
+    final reason = row.reason;
+    final retryCount = row.retryCount;
+    final decodedFields = (() {
+      try {
+        final decoded = jsonDecode(fieldsJson);
+        if (decoded is Map<String, dynamic>) {
+          return decoded;
+        }
+        if (decoded is Map) {
+          return decoded.map((key, value) => MapEntry(key.toString(), value));
+        }
+      } catch (_) {
+        return null;
+      }
+      return null;
+    })();
+
+    if (decodedFields == null) {
+      await db.pkGroupEntryDeferredSyncOpsDao.deleteById(deferredId);
+      deletedDeferredIds.add(deferredId);
+      continue;
+    }
+
+    final applied = await _applyMemberGroupEntryFields(
+      db,
+      id: entityId,
+      fields: decodedFields,
+      quarantine: quarantine,
+      trackQuarantineWrite: trackQuarantineWrite,
+      allowDeferral: false,
+      throwOnUnresolved: false,
+    );
+
+    if (applied) {
+      await db.pkGroupEntryDeferredSyncOpsDao.deleteById(deferredId);
+      deletedDeferredIds.add(deferredId);
+      if (logicalEdge != null &&
+          _isCanonicalPkMemberGroupEntryEntityId(entityId, logicalEdge)) {
+        deletedDeferredIds.addAll(
+          await _deleteDeferredPkBackedMemberGroupEntryOpsForLogicalEdge(
+            db,
+            edge: logicalEdge,
+          ),
+        );
+      }
+    } else {
+      final nextRetryCount = retryCount + 1;
+      if (nextRetryCount >= _maxDeferredPkEntryReplayRetries) {
+        if (quarantine != null) {
+          await quarantine.quarantineField(
+            entityType: 'member_group_entries',
+            entityId: entityId,
+            expectedType: 'Resolvable PK group/member references',
+            receivedType: 'DeferredPkEntryUnresolved',
+            receivedValue: fieldsJson,
+            errorMessage:
+                'Deferred PK-backed entry exceeded max retries '
+                '($_maxDeferredPkEntryReplayRetries): $reason',
+          );
+        }
+        await db.pkGroupEntryDeferredSyncOpsDao.deleteById(deferredId);
+        deletedDeferredIds.add(deferredId);
+      } else {
+        await db.pkGroupEntryDeferredSyncOpsDao.markRetried(deferredId);
+      }
+    }
+  }
+}
+
+Future<void> _recordPkGroupAliasIfNeeded(
+  AppDatabase db, {
+  required String legacyEntityId,
+  required String pkGroupUuid,
+}) async {
+  if (legacyEntityId.isEmpty ||
+      legacyEntityId == _canonicalPkGroupEntityId(pkGroupUuid)) {
+    return;
+  }
+  if (!await _tableExists(db, _pkGroupSyncAliasesTableName)) {
+    return;
+  }
+
+  await db.customStatement(
+    '''
+    INSERT INTO $_pkGroupSyncAliasesTableName
+      (legacy_entity_id, pk_group_uuid, canonical_entity_id, created_at)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(legacy_entity_id) DO UPDATE SET
+      pk_group_uuid = excluded.pk_group_uuid,
+      canonical_entity_id = excluded.canonical_entity_id
+    ''',
+    [
+      legacyEntityId,
+      pkGroupUuid,
+      _canonicalPkGroupEntityId(pkGroupUuid),
+      DateTime.now().millisecondsSinceEpoch,
+    ],
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -365,6 +1112,11 @@ DriftSyncEntity _membersEntity(
         isDeleted: f.boolField('is_deleted'),
       );
       await db.into(db.members).insertOnConflictUpdate(companion);
+      await _retryDeferredPkBackedMemberGroupEntryOps(
+        db,
+        quarantine: quarantine,
+        trackQuarantineWrite: trackQuarantineWrite,
+      );
     },
     hardDelete: (String id) async {
       await (db.delete(db.members)..where((t) => t.id.equals(id))).go();
@@ -717,6 +1469,7 @@ DriftSyncEntity _systemSettingsEntity(
         'sync_theme_enabled': r.syncThemeEnabled,
         'timing_mode': r.timingMode,
         'notes_enabled': r.notesEnabled,
+        'pk_group_sync_v2_enabled': r.pkGroupSyncV2Enabled,
         'system_description': r.systemDescription,
         'system_color': r.systemColor,
         'system_tag': r.systemTag,
@@ -782,6 +1535,7 @@ DriftSyncEntity _systemSettingsEntity(
         syncThemeEnabled: f.boolField('sync_theme_enabled'),
         timingMode: f.intField('timing_mode'),
         notesEnabled: f.boolField('notes_enabled'),
+        pkGroupSyncV2Enabled: f.boolField('pk_group_sync_v2_enabled'),
         systemDescription: f.stringFieldNullable('system_description'),
         systemColor: f.stringFieldNullable('system_color'),
         systemTag: f.stringFieldNullable('system_tag'),
@@ -842,6 +1596,7 @@ DriftSyncEntity _systemSettingsEntity(
         'sync_theme_enabled': row.syncThemeEnabled,
         'timing_mode': row.timingMode,
         'notes_enabled': row.notesEnabled,
+        'pk_group_sync_v2_enabled': row.pkGroupSyncV2Enabled,
         'system_description': row.systemDescription,
         'system_color': row.systemColor,
         'system_tag': row.systemTag,
@@ -1449,8 +2204,18 @@ DriftSyncEntity _memberGroupsEntity(
         quarantine: quarantine,
         trackQuarantineWrite: trackQuarantineWrite,
       );
+      final resolvedPkGroupUuid =
+          _asString(fields['pluralkit_uuid']) ??
+          _pkGroupUuidFromEntityId(id) ??
+          (await _pkGroupAliasForLegacyEntityId(db, id))?.pkGroupUuid;
+      final existingRow = await _resolveMemberGroupRowForSyncEntity(
+        db,
+        id,
+        payloadPkGroupUuid: resolvedPkGroupUuid,
+      );
+      final localRowId = existingRow?.id ?? id;
       final companion = MemberGroupsCompanion(
-        id: Value(id),
+        id: Value(localRowId),
         name: f.stringField('name'),
         description: f.stringFieldNullable('description'),
         colorHex: f.stringFieldNullable('color_hex'),
@@ -1461,19 +2226,42 @@ DriftSyncEntity _memberGroupsEntity(
         filterRules: f.stringFieldNullable('filter_rules'),
         createdAt: f.dateTimeField('created_at'),
         pluralkitId: f.stringFieldNullable('pluralkit_id'),
-        pluralkitUuid: f.stringFieldNullable('pluralkit_uuid'),
+        pluralkitUuid: fields.containsKey('pluralkit_uuid')
+            ? f.stringFieldNullable('pluralkit_uuid')
+            : resolvedPkGroupUuid != null
+            ? Value(resolvedPkGroupUuid)
+            : const Value.absent(),
         lastSeenFromPkAt: f.dateTimeFieldNullable('last_seen_from_pk_at'),
         isDeleted: f.boolField('is_deleted'),
       );
       await db.into(db.memberGroups).insertOnConflictUpdate(companion);
+      if (resolvedPkGroupUuid != null && resolvedPkGroupUuid.isNotEmpty) {
+        await _recordPkGroupAliasIfNeeded(
+          db,
+          legacyEntityId: id,
+          pkGroupUuid: resolvedPkGroupUuid,
+        );
+        await _recordPkGroupAliasIfNeeded(
+          db,
+          legacyEntityId: localRowId,
+          pkGroupUuid: resolvedPkGroupUuid,
+        );
+      }
+      await _retryDeferredPkBackedMemberGroupEntryOps(
+        db,
+        quarantine: quarantine,
+        trackQuarantineWrite: trackQuarantineWrite,
+      );
     },
     hardDelete: (String id) async {
-      await (db.delete(db.memberGroups)..where((t) => t.id.equals(id))).go();
+      final row = await _resolveMemberGroupRowForSyncEntity(db, id);
+      if (row == null) return;
+      await (db.delete(
+        db.memberGroups,
+      )..where((t) => t.id.equals(row.id))).go();
     },
     readRow: (String id) async {
-      final row = await (db.select(
-        db.memberGroups,
-      )..where((t) => t.id.equals(id))).getSingleOrNull();
+      final row = await _resolveMemberGroupRowForSyncEntity(db, id);
       if (row == null) return null;
       return {
         'name': row.name,
@@ -1492,9 +2280,7 @@ DriftSyncEntity _memberGroupsEntity(
       };
     },
     isDeleted: (String id) async {
-      final row = await (db.select(
-        db.memberGroups,
-      )..where((t) => t.id.equals(id))).getSingleOrNull();
+      final row = await _resolveMemberGroupRowForSyncEntity(db, id);
       return row?.isDeleted ?? true;
     },
   );
@@ -1512,30 +2298,59 @@ DriftSyncEntity _memberGroupEntriesEntity(
   return DriftSyncEntity(
     tableName: 'member_group_entries',
     toSyncFields: (dynamic row) {
-      final r = row as MemberGroupEntryRow;
-      return {
+      final dynamic r = row;
+      final fields = <String, dynamic>{
         'group_id': r.groupId,
         'member_id': r.memberId,
         'is_deleted': r.isDeleted,
       };
+      final pkGroupUuid = _readOptionalStringProperty(() => r.pkGroupUuid);
+      if (pkGroupUuid.present) {
+        fields['pk_group_uuid'] = pkGroupUuid.value;
+      }
+      final pkMemberUuid = _readOptionalStringProperty(() => r.pkMemberUuid);
+      if (pkMemberUuid.present) {
+        fields['pk_member_uuid'] = pkMemberUuid.value;
+      }
+      return fields;
     },
     applyFields: (String id, Map<String, dynamic> fields) async {
-      final f = _FieldContext(
-        entityType: 'member_group_entries',
-        entityId: id,
+      final applied = await _applyMemberGroupEntryFields(
+        db,
+        id: id,
         fields: fields,
         quarantine: quarantine,
         trackQuarantineWrite: trackQuarantineWrite,
+        allowDeferral: true,
       );
-      final companion = MemberGroupEntriesCompanion(
-        id: Value(id),
-        groupId: f.stringField('group_id'),
-        memberId: f.stringField('member_id'),
-        isDeleted: f.boolField('is_deleted'),
-      );
-      await db.into(db.memberGroupEntries).insertOnConflictUpdate(companion);
+      final logicalEdge = _pkMemberGroupEntryLogicalEdgeFromFields(fields);
+      if (applied &&
+          logicalEdge != null &&
+          _isCanonicalPkMemberGroupEntryEntityId(id, logicalEdge)) {
+        await _deleteDeferredPkBackedMemberGroupEntryOpsForLogicalEdge(
+          db,
+          edge: logicalEdge,
+        );
+      }
     },
     hardDelete: (String id) async {
+      if (await _tableExists(db, _pkGroupEntryDeferredOpsTableName)) {
+        await db.pkGroupEntryDeferredSyncOpsDao.deleteById(
+          'member_group_entries:$id',
+        );
+        await _deleteDeferredPkBackedMemberGroupEntryOpsForCanonicalEntityId(
+          db,
+          entityId: id,
+        );
+        final logicalEdge = await _memberGroupEntryPkEdgeById(db, id);
+        if (logicalEdge != null &&
+            _isCanonicalPkMemberGroupEntryEntityId(id, logicalEdge)) {
+          await _deleteDeferredPkBackedMemberGroupEntryOpsForLogicalEdge(
+            db,
+            edge: logicalEdge,
+          );
+        }
+      }
       await (db.delete(
         db.memberGroupEntries,
       )..where((t) => t.id.equals(id))).go();
@@ -1545,11 +2360,13 @@ DriftSyncEntity _memberGroupEntriesEntity(
         db.memberGroupEntries,
       )..where((t) => t.id.equals(id))).getSingleOrNull();
       if (row == null) return null;
-      return {
+      final fields = <String, dynamic>{
         'group_id': row.groupId,
         'member_id': row.memberId,
         'is_deleted': row.isDeleted,
       };
+      await _appendMemberGroupEntryPkFields(db, id, fields);
+      return fields;
     },
     isDeleted: (String id) async {
       final row = await (db.select(
@@ -1992,8 +2809,9 @@ DriftSyncEntity _mediaAttachmentsEntity(
       await db.into(db.mediaAttachments).insertOnConflictUpdate(companion);
     },
     hardDelete: (String id) async {
-      await (db.delete(db.mediaAttachments)..where((t) => t.id.equals(id)))
-          .go();
+      await (db.delete(
+        db.mediaAttachments,
+      )..where((t) => t.id.equals(id))).go();
     },
     readRow: (String id) async {
       final row = await (db.select(

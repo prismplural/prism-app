@@ -3,6 +3,8 @@ import 'package:prism_plurality/core/database/daos/chat_messages_dao.dart';
 import 'package:prism_plurality/core/database/daos/conversations_dao.dart';
 import 'package:prism_plurality/core/database/daos/fronting_sessions_dao.dart';
 import 'package:prism_plurality/core/database/daos/members_dao.dart';
+import 'package:prism_plurality/core/database/daos/pk_group_entry_deferred_sync_ops_dao.dart';
+import 'package:prism_plurality/core/database/daos/pk_group_sync_aliases_dao.dart';
 import 'package:prism_plurality/core/database/daos/poll_options_dao.dart';
 import 'package:prism_plurality/core/database/daos/poll_votes_dao.dart';
 import 'package:prism_plurality/core/database/daos/polls_dao.dart';
@@ -42,6 +44,8 @@ part 'app_database.g.dart';
     SyncQuarantineTable,
     MemberGroups,
     MemberGroupEntries,
+    PkGroupSyncAliases,
+    PkGroupEntryDeferredSyncOps,
     CustomFields,
     CustomFieldValues,
     Notes,
@@ -68,6 +72,8 @@ part 'app_database.g.dart';
     HabitsDao,
     SyncQuarantineDao,
     MemberGroupsDao,
+    PkGroupSyncAliasesDao,
+    PkGroupEntryDeferredSyncOpsDao,
     CustomFieldsDao,
     NotesDao,
     FrontSessionCommentsDao,
@@ -84,12 +90,42 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onUpgrade: (migrator, from, to) async {
-      if (from != to) {
+      var current = from;
+      if (current == 1 && to >= 2) {
+        await migrator.addColumn(
+          memberGroupEntries,
+          memberGroupEntries.pkGroupUuid,
+        );
+        await migrator.addColumn(
+          memberGroupEntries,
+          memberGroupEntries.pkMemberUuid,
+        );
+        await migrator.addColumn(memberGroups, memberGroups.syncSuppressed);
+        await migrator.addColumn(
+          memberGroups,
+          memberGroups.suspectedPkGroupUuid,
+        );
+        await migrator.createTable(pkGroupSyncAliases);
+        await migrator.createTable(pkGroupEntryDeferredSyncOps);
+        await _createCurrentIndexes();
+        await _createPkUniqueIndexes();
+        await _createPkGroupSyncIndexes();
+        await _createChatMessagesFtsArtifacts();
+        current = 2;
+      }
+      if (current == 2 && to >= 3) {
+        await migrator.addColumn(
+          systemSettingsTable,
+          systemSettingsTable.pkGroupSyncV2Enabled,
+        );
+        current = 3;
+      }
+      if (current != to) {
         throw UnsupportedError(
           'Schema baseline was reset to v1 for the private beta. '
           'Databases from earlier builds (schema v$from) cannot be upgraded. '
@@ -101,6 +137,7 @@ class AppDatabase extends _$AppDatabase {
       await migrator.createAll();
       await _createCurrentIndexes();
       await _createPkUniqueIndexes();
+      await _createPkGroupSyncIndexes();
       await _createChatMessagesFtsArtifacts();
     },
     beforeOpen: (details) async {
@@ -211,6 +248,15 @@ class AppDatabase extends _$AppDatabase {
       'ON member_group_entries (group_id, member_id) WHERE is_deleted = 0',
     );
     await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_member_groups_sync_suppressed '
+      'ON member_groups (sync_suppressed, is_deleted)',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_member_groups_suspected_pk_group_uuid '
+      'ON member_groups (suspected_pk_group_uuid) '
+      'WHERE suspected_pk_group_uuid IS NOT NULL',
+    );
+    await customStatement(
       'CREATE INDEX IF NOT EXISTS idx_custom_fields_deleted_order '
       'ON custom_fields (is_deleted, display_order ASC)',
     );
@@ -277,6 +323,27 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
+  Future<void> _createPkGroupSyncIndexes() async {
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_member_group_entries_pk_group_uuid '
+      'ON member_group_entries (pk_group_uuid) '
+      'WHERE pk_group_uuid IS NOT NULL',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_member_group_entries_pk_member_uuid '
+      'ON member_group_entries (pk_member_uuid) '
+      'WHERE pk_member_uuid IS NOT NULL',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_pk_group_sync_aliases_pk_group_uuid '
+      'ON pk_group_sync_aliases (pk_group_uuid)',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_pk_group_entry_deferred_ops_entity '
+      'ON pk_group_entry_deferred_sync_ops (entity_type, entity_id)',
+    );
+  }
+
   Future<void> _createChatMessagesFtsArtifacts() async {
     await customStatement('''
       CREATE VIRTUAL TABLE IF NOT EXISTS chat_messages_fts USING fts5(
@@ -340,6 +407,12 @@ class AppDatabase extends _$AppDatabase {
   SyncQuarantineDao get syncQuarantineDao => SyncQuarantineDao(this);
   @override
   MemberGroupsDao get memberGroupsDao => MemberGroupsDao(this);
+  @override
+  PkGroupSyncAliasesDao get pkGroupSyncAliasesDao =>
+      PkGroupSyncAliasesDao(this);
+  @override
+  PkGroupEntryDeferredSyncOpsDao get pkGroupEntryDeferredSyncOpsDao =>
+      PkGroupEntryDeferredSyncOpsDao(this);
   @override
   CustomFieldsDao get customFieldsDao => CustomFieldsDao(this);
   @override

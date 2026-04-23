@@ -119,9 +119,8 @@ class SystemSettingsDao extends DatabaseAccessor<AppDatabase>
     SystemSettingsTableCompanion(wakeSuggestionAfterHours: Value(hours)),
   );
 
-  Future<void> updateLocaleOverride(String? value) => _updateField(
-    SystemSettingsTableCompanion(localeOverride: Value(value)),
-  );
+  Future<void> updateLocaleOverride(String? value) =>
+      _updateField(SystemSettingsTableCompanion(localeOverride: Value(value)));
 
   Future<void> updateChatLogsFront(bool value) =>
       _updateField(SystemSettingsTableCompanion(chatLogsFront: Value(value)));
@@ -145,6 +144,13 @@ class SystemSettingsDao extends DatabaseAccessor<AppDatabase>
     SystemSettingsTableCompanion(remindersEnabled: Value(value)),
   );
 
+  Future<void> updatePkGroupSyncV2Enabled(bool value) async {
+    await getSettings();
+    await _updateField(
+      SystemSettingsTableCompanion(pkGroupSyncV2Enabled: Value(value)),
+    );
+  }
+
   // --- Text fields (Phase 3) ---
 
   Future<void> updateSystemDescription(String? value) => _updateField(
@@ -165,9 +171,8 @@ class SystemSettingsDao extends DatabaseAccessor<AppDatabase>
 
   // --- Device-local fields (Phase 3) ---
 
-  Future<void> updateGifConsentState(int value) => _updateField(
-    SystemSettingsTableCompanion(gifConsentState: Value(value)),
-  );
+  Future<void> updateGifConsentState(int value) =>
+      _updateField(SystemSettingsTableCompanion(gifConsentState: Value(value)));
 
   Future<void> updateFontScale(double value) =>
       _updateField(SystemSettingsTableCompanion(fontScale: Value(value)));

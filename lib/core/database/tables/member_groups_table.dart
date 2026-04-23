@@ -24,6 +24,16 @@ class MemberGroups extends Table {
   /// agree on the "stale" UI hint for groups that have disappeared from PK.
   DateTimeColumn get lastSeenFromPkAt => dateTime().nullable()();
 
+  /// Local-only migration guard for ambiguous legacy PK duplicates. Suppressed
+  /// rows remain usable locally, but must not emit ordinary Prism sync ops
+  /// until the user resolves them.
+  BoolColumn get syncSuppressed =>
+      boolean().withDefault(const Constant(false))();
+
+  /// Local-only review hint for ambiguous rows that likely map to a canonical
+  /// PK group UUID but cannot be merged safely without user confirmation.
+  TextColumn get suspectedPkGroupUuid => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }

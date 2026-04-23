@@ -32,6 +32,7 @@ Map<String, dynamic> _buildSyncFieldsMap(SystemSettings s) => {
   'chat_logs_front': s.chatLogsFront,
   'sync_theme_enabled': s.syncThemeEnabled,
   'timing_mode': s.timingMode.index,
+  'pk_group_sync_v2_enabled': s.pkGroupSyncV2Enabled,
   'system_color': 'ff0000',
   'is_deleted': false,
 };
@@ -43,8 +44,11 @@ void main() {
     final systemSettingsSchema =
         (schema['entities'] as Map<String, dynamic>)['system_settings']
             as Map<String, dynamic>;
-    final fieldTypes =
-        systemSettingsSchema['fields'] as Map<String, dynamic>;
+    final fieldTypes = systemSettingsSchema['fields'] as Map<String, dynamic>;
+
+    test('schema declares pk_group_sync_v2_enabled as Bool', () {
+      expect(fieldTypes['pk_group_sync_v2_enabled'], 'Bool');
+    });
 
     test('all Int fields in sync schema receive int values (not String)', () {
       // Use every enum variant to exercise all index values.

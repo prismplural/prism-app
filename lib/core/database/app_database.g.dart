@@ -4377,6 +4377,20 @@ class $SystemSettingsTableTable extends SystemSettingsTable
     ),
     defaultValue: const Constant(true),
   );
+  static const VerificationMeta _pkGroupSyncV2EnabledMeta =
+      const VerificationMeta('pkGroupSyncV2Enabled');
+  @override
+  late final GeneratedColumn<bool> pkGroupSyncV2Enabled = GeneratedColumn<bool>(
+    'pk_group_sync_v2_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("pk_group_sync_v2_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _systemDescriptionMeta = const VerificationMeta(
     'systemDescription',
   );
@@ -4655,6 +4669,7 @@ class $SystemSettingsTableTable extends SystemSettingsTable
     timingMode,
     habitsBadgeEnabled,
     notesEnabled,
+    pkGroupSyncV2Enabled,
     systemDescription,
     systemColor,
     systemTag,
@@ -4990,6 +5005,15 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         ),
       );
     }
+    if (data.containsKey('pk_group_sync_v2_enabled')) {
+      context.handle(
+        _pkGroupSyncV2EnabledMeta,
+        pkGroupSyncV2Enabled.isAcceptableOrUnknown(
+          data['pk_group_sync_v2_enabled']!,
+          _pkGroupSyncV2EnabledMeta,
+        ),
+      );
+    }
     if (data.containsKey('system_description')) {
       context.handle(
         _systemDescriptionMeta,
@@ -5302,6 +5326,10 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         DriftSqlType.bool,
         data['${effectivePrefix}notes_enabled'],
       )!,
+      pkGroupSyncV2Enabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}pk_group_sync_v2_enabled'],
+      )!,
       systemDescription: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}system_description'],
@@ -5425,6 +5453,7 @@ class SystemSettingsData extends DataClass
   final int timingMode;
   final bool habitsBadgeEnabled;
   final bool notesEnabled;
+  final bool pkGroupSyncV2Enabled;
   final String? systemDescription;
   final String? systemColor;
   final String? systemTag;
@@ -5481,6 +5510,7 @@ class SystemSettingsData extends DataClass
     required this.timingMode,
     required this.habitsBadgeEnabled,
     required this.notesEnabled,
+    required this.pkGroupSyncV2Enabled,
     this.systemDescription,
     this.systemColor,
     this.systemTag,
@@ -5560,6 +5590,7 @@ class SystemSettingsData extends DataClass
     map['timing_mode'] = Variable<int>(timingMode);
     map['habits_badge_enabled'] = Variable<bool>(habitsBadgeEnabled);
     map['notes_enabled'] = Variable<bool>(notesEnabled);
+    map['pk_group_sync_v2_enabled'] = Variable<bool>(pkGroupSyncV2Enabled);
     if (!nullToAbsent || systemDescription != null) {
       map['system_description'] = Variable<String>(systemDescription);
     }
@@ -5640,6 +5671,7 @@ class SystemSettingsData extends DataClass
       timingMode: Value(timingMode),
       habitsBadgeEnabled: Value(habitsBadgeEnabled),
       notesEnabled: Value(notesEnabled),
+      pkGroupSyncV2Enabled: Value(pkGroupSyncV2Enabled),
       systemDescription: systemDescription == null && nullToAbsent
           ? const Value.absent()
           : Value(systemDescription),
@@ -5742,6 +5774,9 @@ class SystemSettingsData extends DataClass
       timingMode: serializer.fromJson<int>(json['timingMode']),
       habitsBadgeEnabled: serializer.fromJson<bool>(json['habitsBadgeEnabled']),
       notesEnabled: serializer.fromJson<bool>(json['notesEnabled']),
+      pkGroupSyncV2Enabled: serializer.fromJson<bool>(
+        json['pkGroupSyncV2Enabled'],
+      ),
       systemDescription: serializer.fromJson<String?>(
         json['systemDescription'],
       ),
@@ -5833,6 +5868,7 @@ class SystemSettingsData extends DataClass
       'timingMode': serializer.toJson<int>(timingMode),
       'habitsBadgeEnabled': serializer.toJson<bool>(habitsBadgeEnabled),
       'notesEnabled': serializer.toJson<bool>(notesEnabled),
+      'pkGroupSyncV2Enabled': serializer.toJson<bool>(pkGroupSyncV2Enabled),
       'systemDescription': serializer.toJson<String?>(systemDescription),
       'systemColor': serializer.toJson<String?>(systemColor),
       'systemTag': serializer.toJson<String?>(systemTag),
@@ -5894,6 +5930,7 @@ class SystemSettingsData extends DataClass
     int? timingMode,
     bool? habitsBadgeEnabled,
     bool? notesEnabled,
+    bool? pkGroupSyncV2Enabled,
     Value<String?> systemDescription = const Value.absent(),
     Value<String?> systemColor = const Value.absent(),
     Value<String?> systemTag = const Value.absent(),
@@ -5962,6 +5999,7 @@ class SystemSettingsData extends DataClass
     timingMode: timingMode ?? this.timingMode,
     habitsBadgeEnabled: habitsBadgeEnabled ?? this.habitsBadgeEnabled,
     notesEnabled: notesEnabled ?? this.notesEnabled,
+    pkGroupSyncV2Enabled: pkGroupSyncV2Enabled ?? this.pkGroupSyncV2Enabled,
     systemDescription: systemDescription.present
         ? systemDescription.value
         : this.systemDescription,
@@ -6094,6 +6132,9 @@ class SystemSettingsData extends DataClass
       notesEnabled: data.notesEnabled.present
           ? data.notesEnabled.value
           : this.notesEnabled,
+      pkGroupSyncV2Enabled: data.pkGroupSyncV2Enabled.present
+          ? data.pkGroupSyncV2Enabled.value
+          : this.pkGroupSyncV2Enabled,
       systemDescription: data.systemDescription.present
           ? data.systemDescription.value
           : this.systemDescription,
@@ -6189,6 +6230,7 @@ class SystemSettingsData extends DataClass
           ..write('timingMode: $timingMode, ')
           ..write('habitsBadgeEnabled: $habitsBadgeEnabled, ')
           ..write('notesEnabled: $notesEnabled, ')
+          ..write('pkGroupSyncV2Enabled: $pkGroupSyncV2Enabled, ')
           ..write('systemDescription: $systemDescription, ')
           ..write('systemColor: $systemColor, ')
           ..write('systemTag: $systemTag, ')
@@ -6250,6 +6292,7 @@ class SystemSettingsData extends DataClass
     timingMode,
     habitsBadgeEnabled,
     notesEnabled,
+    pkGroupSyncV2Enabled,
     systemDescription,
     systemColor,
     systemTag,
@@ -6312,6 +6355,7 @@ class SystemSettingsData extends DataClass
           other.timingMode == this.timingMode &&
           other.habitsBadgeEnabled == this.habitsBadgeEnabled &&
           other.notesEnabled == this.notesEnabled &&
+          other.pkGroupSyncV2Enabled == this.pkGroupSyncV2Enabled &&
           other.systemDescription == this.systemDescription &&
           other.systemColor == this.systemColor &&
           other.systemTag == this.systemTag &&
@@ -6373,6 +6417,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
   final Value<int> timingMode;
   final Value<bool> habitsBadgeEnabled;
   final Value<bool> notesEnabled;
+  final Value<bool> pkGroupSyncV2Enabled;
   final Value<String?> systemDescription;
   final Value<String?> systemColor;
   final Value<String?> systemTag;
@@ -6430,6 +6475,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.timingMode = const Value.absent(),
     this.habitsBadgeEnabled = const Value.absent(),
     this.notesEnabled = const Value.absent(),
+    this.pkGroupSyncV2Enabled = const Value.absent(),
     this.systemDescription = const Value.absent(),
     this.systemColor = const Value.absent(),
     this.systemTag = const Value.absent(),
@@ -6488,6 +6534,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.timingMode = const Value.absent(),
     this.habitsBadgeEnabled = const Value.absent(),
     this.notesEnabled = const Value.absent(),
+    this.pkGroupSyncV2Enabled = const Value.absent(),
     this.systemDescription = const Value.absent(),
     this.systemColor = const Value.absent(),
     this.systemTag = const Value.absent(),
@@ -6546,6 +6593,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Expression<int>? timingMode,
     Expression<bool>? habitsBadgeEnabled,
     Expression<bool>? notesEnabled,
+    Expression<bool>? pkGroupSyncV2Enabled,
     Expression<String>? systemDescription,
     Expression<String>? systemColor,
     Expression<String>? systemTag,
@@ -6618,6 +6666,8 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
       if (habitsBadgeEnabled != null)
         'habits_badge_enabled': habitsBadgeEnabled,
       if (notesEnabled != null) 'notes_enabled': notesEnabled,
+      if (pkGroupSyncV2Enabled != null)
+        'pk_group_sync_v2_enabled': pkGroupSyncV2Enabled,
       if (systemDescription != null) 'system_description': systemDescription,
       if (systemColor != null) 'system_color': systemColor,
       if (systemTag != null) 'system_tag': systemTag,
@@ -6686,6 +6736,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Value<int>? timingMode,
     Value<bool>? habitsBadgeEnabled,
     Value<bool>? notesEnabled,
+    Value<bool>? pkGroupSyncV2Enabled,
     Value<String?>? systemDescription,
     Value<String?>? systemColor,
     Value<String?>? systemTag,
@@ -6756,6 +6807,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
       timingMode: timingMode ?? this.timingMode,
       habitsBadgeEnabled: habitsBadgeEnabled ?? this.habitsBadgeEnabled,
       notesEnabled: notesEnabled ?? this.notesEnabled,
+      pkGroupSyncV2Enabled: pkGroupSyncV2Enabled ?? this.pkGroupSyncV2Enabled,
       systemDescription: systemDescription ?? this.systemDescription,
       systemColor: systemColor ?? this.systemColor,
       systemTag: systemTag ?? this.systemTag,
@@ -6916,6 +6968,11 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     if (notesEnabled.present) {
       map['notes_enabled'] = Variable<bool>(notesEnabled.value);
     }
+    if (pkGroupSyncV2Enabled.present) {
+      map['pk_group_sync_v2_enabled'] = Variable<bool>(
+        pkGroupSyncV2Enabled.value,
+      );
+    }
     if (systemDescription.present) {
       map['system_description'] = Variable<String>(systemDescription.value);
     }
@@ -7036,6 +7093,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
           ..write('timingMode: $timingMode, ')
           ..write('habitsBadgeEnabled: $habitsBadgeEnabled, ')
           ..write('notesEnabled: $notesEnabled, ')
+          ..write('pkGroupSyncV2Enabled: $pkGroupSyncV2Enabled, ')
           ..write('systemDescription: $systemDescription, ')
           ..write('systemColor: $systemColor, ')
           ..write('systemTag: $systemTag, ')
@@ -12365,6 +12423,32 @@ class $MemberGroupsTable extends MemberGroups
         type: DriftSqlType.dateTime,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _syncSuppressedMeta = const VerificationMeta(
+    'syncSuppressed',
+  );
+  @override
+  late final GeneratedColumn<bool> syncSuppressed = GeneratedColumn<bool>(
+    'sync_suppressed',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("sync_suppressed" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _suspectedPkGroupUuidMeta =
+      const VerificationMeta('suspectedPkGroupUuid');
+  @override
+  late final GeneratedColumn<String> suspectedPkGroupUuid =
+      GeneratedColumn<String>(
+        'suspected_pk_group_uuid',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -12381,6 +12465,8 @@ class $MemberGroupsTable extends MemberGroups
     pluralkitId,
     pluralkitUuid,
     lastSeenFromPkAt,
+    syncSuppressed,
+    suspectedPkGroupUuid,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -12502,6 +12588,24 @@ class $MemberGroupsTable extends MemberGroups
         ),
       );
     }
+    if (data.containsKey('sync_suppressed')) {
+      context.handle(
+        _syncSuppressedMeta,
+        syncSuppressed.isAcceptableOrUnknown(
+          data['sync_suppressed']!,
+          _syncSuppressedMeta,
+        ),
+      );
+    }
+    if (data.containsKey('suspected_pk_group_uuid')) {
+      context.handle(
+        _suspectedPkGroupUuidMeta,
+        suspectedPkGroupUuid.isAcceptableOrUnknown(
+          data['suspected_pk_group_uuid']!,
+          _suspectedPkGroupUuidMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -12567,6 +12671,14 @@ class $MemberGroupsTable extends MemberGroups
         DriftSqlType.dateTime,
         data['${effectivePrefix}last_seen_from_pk_at'],
       ),
+      syncSuppressed: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}sync_suppressed'],
+      )!,
+      suspectedPkGroupUuid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}suspected_pk_group_uuid'],
+      ),
     );
   }
 
@@ -12598,6 +12710,15 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
   /// Last time we observed this group in a PK pull. Synced so all devices
   /// agree on the "stale" UI hint for groups that have disappeared from PK.
   final DateTime? lastSeenFromPkAt;
+
+  /// Local-only migration guard for ambiguous legacy PK duplicates. Suppressed
+  /// rows remain usable locally, but must not emit ordinary Prism sync ops
+  /// until the user resolves them.
+  final bool syncSuppressed;
+
+  /// Local-only review hint for ambiguous rows that likely map to a canonical
+  /// PK group UUID but cannot be merged safely without user confirmation.
+  final String? suspectedPkGroupUuid;
   const MemberGroupRow({
     required this.id,
     required this.name,
@@ -12613,6 +12734,8 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
     this.pluralkitId,
     this.pluralkitUuid,
     this.lastSeenFromPkAt,
+    required this.syncSuppressed,
+    this.suspectedPkGroupUuid,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -12646,6 +12769,10 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
     }
     if (!nullToAbsent || lastSeenFromPkAt != null) {
       map['last_seen_from_pk_at'] = Variable<DateTime>(lastSeenFromPkAt);
+    }
+    map['sync_suppressed'] = Variable<bool>(syncSuppressed);
+    if (!nullToAbsent || suspectedPkGroupUuid != null) {
+      map['suspected_pk_group_uuid'] = Variable<String>(suspectedPkGroupUuid);
     }
     return map;
   }
@@ -12682,6 +12809,10 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
       lastSeenFromPkAt: lastSeenFromPkAt == null && nullToAbsent
           ? const Value.absent()
           : Value(lastSeenFromPkAt),
+      syncSuppressed: Value(syncSuppressed),
+      suspectedPkGroupUuid: suspectedPkGroupUuid == null && nullToAbsent
+          ? const Value.absent()
+          : Value(suspectedPkGroupUuid),
     );
   }
 
@@ -12707,6 +12838,10 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
       lastSeenFromPkAt: serializer.fromJson<DateTime?>(
         json['lastSeenFromPkAt'],
       ),
+      syncSuppressed: serializer.fromJson<bool>(json['syncSuppressed']),
+      suspectedPkGroupUuid: serializer.fromJson<String?>(
+        json['suspectedPkGroupUuid'],
+      ),
     );
   }
   @override
@@ -12727,6 +12862,8 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
       'pluralkitId': serializer.toJson<String?>(pluralkitId),
       'pluralkitUuid': serializer.toJson<String?>(pluralkitUuid),
       'lastSeenFromPkAt': serializer.toJson<DateTime?>(lastSeenFromPkAt),
+      'syncSuppressed': serializer.toJson<bool>(syncSuppressed),
+      'suspectedPkGroupUuid': serializer.toJson<String?>(suspectedPkGroupUuid),
     };
   }
 
@@ -12745,6 +12882,8 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
     Value<String?> pluralkitId = const Value.absent(),
     Value<String?> pluralkitUuid = const Value.absent(),
     Value<DateTime?> lastSeenFromPkAt = const Value.absent(),
+    bool? syncSuppressed,
+    Value<String?> suspectedPkGroupUuid = const Value.absent(),
   }) => MemberGroupRow(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -12766,6 +12905,10 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
     lastSeenFromPkAt: lastSeenFromPkAt.present
         ? lastSeenFromPkAt.value
         : this.lastSeenFromPkAt,
+    syncSuppressed: syncSuppressed ?? this.syncSuppressed,
+    suspectedPkGroupUuid: suspectedPkGroupUuid.present
+        ? suspectedPkGroupUuid.value
+        : this.suspectedPkGroupUuid,
   );
   MemberGroupRow copyWithCompanion(MemberGroupsCompanion data) {
     return MemberGroupRow(
@@ -12797,6 +12940,12 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
       lastSeenFromPkAt: data.lastSeenFromPkAt.present
           ? data.lastSeenFromPkAt.value
           : this.lastSeenFromPkAt,
+      syncSuppressed: data.syncSuppressed.present
+          ? data.syncSuppressed.value
+          : this.syncSuppressed,
+      suspectedPkGroupUuid: data.suspectedPkGroupUuid.present
+          ? data.suspectedPkGroupUuid.value
+          : this.suspectedPkGroupUuid,
     );
   }
 
@@ -12816,7 +12965,9 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
           ..write('isDeleted: $isDeleted, ')
           ..write('pluralkitId: $pluralkitId, ')
           ..write('pluralkitUuid: $pluralkitUuid, ')
-          ..write('lastSeenFromPkAt: $lastSeenFromPkAt')
+          ..write('lastSeenFromPkAt: $lastSeenFromPkAt, ')
+          ..write('syncSuppressed: $syncSuppressed, ')
+          ..write('suspectedPkGroupUuid: $suspectedPkGroupUuid')
           ..write(')'))
         .toString();
   }
@@ -12837,6 +12988,8 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
     pluralkitId,
     pluralkitUuid,
     lastSeenFromPkAt,
+    syncSuppressed,
+    suspectedPkGroupUuid,
   );
   @override
   bool operator ==(Object other) =>
@@ -12855,7 +13008,9 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
           other.isDeleted == this.isDeleted &&
           other.pluralkitId == this.pluralkitId &&
           other.pluralkitUuid == this.pluralkitUuid &&
-          other.lastSeenFromPkAt == this.lastSeenFromPkAt);
+          other.lastSeenFromPkAt == this.lastSeenFromPkAt &&
+          other.syncSuppressed == this.syncSuppressed &&
+          other.suspectedPkGroupUuid == this.suspectedPkGroupUuid);
 }
 
 class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
@@ -12873,6 +13028,8 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
   final Value<String?> pluralkitId;
   final Value<String?> pluralkitUuid;
   final Value<DateTime?> lastSeenFromPkAt;
+  final Value<bool> syncSuppressed;
+  final Value<String?> suspectedPkGroupUuid;
   final Value<int> rowid;
   const MemberGroupsCompanion({
     this.id = const Value.absent(),
@@ -12889,6 +13046,8 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
     this.pluralkitId = const Value.absent(),
     this.pluralkitUuid = const Value.absent(),
     this.lastSeenFromPkAt = const Value.absent(),
+    this.syncSuppressed = const Value.absent(),
+    this.suspectedPkGroupUuid = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   MemberGroupsCompanion.insert({
@@ -12906,6 +13065,8 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
     this.pluralkitId = const Value.absent(),
     this.pluralkitUuid = const Value.absent(),
     this.lastSeenFromPkAt = const Value.absent(),
+    this.syncSuppressed = const Value.absent(),
+    this.suspectedPkGroupUuid = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        name = Value(name),
@@ -12925,6 +13086,8 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
     Expression<String>? pluralkitId,
     Expression<String>? pluralkitUuid,
     Expression<DateTime>? lastSeenFromPkAt,
+    Expression<bool>? syncSuppressed,
+    Expression<String>? suspectedPkGroupUuid,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -12942,6 +13105,9 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
       if (pluralkitId != null) 'pluralkit_id': pluralkitId,
       if (pluralkitUuid != null) 'pluralkit_uuid': pluralkitUuid,
       if (lastSeenFromPkAt != null) 'last_seen_from_pk_at': lastSeenFromPkAt,
+      if (syncSuppressed != null) 'sync_suppressed': syncSuppressed,
+      if (suspectedPkGroupUuid != null)
+        'suspected_pk_group_uuid': suspectedPkGroupUuid,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -12961,6 +13127,8 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
     Value<String?>? pluralkitId,
     Value<String?>? pluralkitUuid,
     Value<DateTime?>? lastSeenFromPkAt,
+    Value<bool>? syncSuppressed,
+    Value<String?>? suspectedPkGroupUuid,
     Value<int>? rowid,
   }) {
     return MemberGroupsCompanion(
@@ -12978,6 +13146,8 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
       pluralkitId: pluralkitId ?? this.pluralkitId,
       pluralkitUuid: pluralkitUuid ?? this.pluralkitUuid,
       lastSeenFromPkAt: lastSeenFromPkAt ?? this.lastSeenFromPkAt,
+      syncSuppressed: syncSuppressed ?? this.syncSuppressed,
+      suspectedPkGroupUuid: suspectedPkGroupUuid ?? this.suspectedPkGroupUuid,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -13027,6 +13197,14 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
     if (lastSeenFromPkAt.present) {
       map['last_seen_from_pk_at'] = Variable<DateTime>(lastSeenFromPkAt.value);
     }
+    if (syncSuppressed.present) {
+      map['sync_suppressed'] = Variable<bool>(syncSuppressed.value);
+    }
+    if (suspectedPkGroupUuid.present) {
+      map['suspected_pk_group_uuid'] = Variable<String>(
+        suspectedPkGroupUuid.value,
+      );
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -13050,6 +13228,8 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
           ..write('pluralkitId: $pluralkitId, ')
           ..write('pluralkitUuid: $pluralkitUuid, ')
           ..write('lastSeenFromPkAt: $lastSeenFromPkAt, ')
+          ..write('syncSuppressed: $syncSuppressed, ')
+          ..write('suspectedPkGroupUuid: $suspectedPkGroupUuid, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -13093,6 +13273,28 @@ class $MemberGroupEntriesTable extends MemberGroupEntries
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _pkGroupUuidMeta = const VerificationMeta(
+    'pkGroupUuid',
+  );
+  @override
+  late final GeneratedColumn<String> pkGroupUuid = GeneratedColumn<String>(
+    'pk_group_uuid',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _pkMemberUuidMeta = const VerificationMeta(
+    'pkMemberUuid',
+  );
+  @override
+  late final GeneratedColumn<String> pkMemberUuid = GeneratedColumn<String>(
+    'pk_member_uuid',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _isDeletedMeta = const VerificationMeta(
     'isDeleted',
   );
@@ -13109,7 +13311,14 @@ class $MemberGroupEntriesTable extends MemberGroupEntries
     defaultValue: const Constant(false),
   );
   @override
-  List<GeneratedColumn> get $columns => [id, groupId, memberId, isDeleted];
+  List<GeneratedColumn> get $columns => [
+    id,
+    groupId,
+    memberId,
+    pkGroupUuid,
+    pkMemberUuid,
+    isDeleted,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -13143,6 +13352,24 @@ class $MemberGroupEntriesTable extends MemberGroupEntries
     } else if (isInserting) {
       context.missing(_memberIdMeta);
     }
+    if (data.containsKey('pk_group_uuid')) {
+      context.handle(
+        _pkGroupUuidMeta,
+        pkGroupUuid.isAcceptableOrUnknown(
+          data['pk_group_uuid']!,
+          _pkGroupUuidMeta,
+        ),
+      );
+    }
+    if (data.containsKey('pk_member_uuid')) {
+      context.handle(
+        _pkMemberUuidMeta,
+        pkMemberUuid.isAcceptableOrUnknown(
+          data['pk_member_uuid']!,
+          _pkMemberUuidMeta,
+        ),
+      );
+    }
     if (data.containsKey('is_deleted')) {
       context.handle(
         _isDeletedMeta,
@@ -13170,6 +13397,14 @@ class $MemberGroupEntriesTable extends MemberGroupEntries
         DriftSqlType.string,
         data['${effectivePrefix}member_id'],
       )!,
+      pkGroupUuid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pk_group_uuid'],
+      ),
+      pkMemberUuid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pk_member_uuid'],
+      ),
       isDeleted: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_deleted'],
@@ -13188,11 +13423,15 @@ class MemberGroupEntryRow extends DataClass
   final String id;
   final String groupId;
   final String memberId;
+  final String? pkGroupUuid;
+  final String? pkMemberUuid;
   final bool isDeleted;
   const MemberGroupEntryRow({
     required this.id,
     required this.groupId,
     required this.memberId,
+    this.pkGroupUuid,
+    this.pkMemberUuid,
     required this.isDeleted,
   });
   @override
@@ -13201,6 +13440,12 @@ class MemberGroupEntryRow extends DataClass
     map['id'] = Variable<String>(id);
     map['group_id'] = Variable<String>(groupId);
     map['member_id'] = Variable<String>(memberId);
+    if (!nullToAbsent || pkGroupUuid != null) {
+      map['pk_group_uuid'] = Variable<String>(pkGroupUuid);
+    }
+    if (!nullToAbsent || pkMemberUuid != null) {
+      map['pk_member_uuid'] = Variable<String>(pkMemberUuid);
+    }
     map['is_deleted'] = Variable<bool>(isDeleted);
     return map;
   }
@@ -13210,6 +13455,12 @@ class MemberGroupEntryRow extends DataClass
       id: Value(id),
       groupId: Value(groupId),
       memberId: Value(memberId),
+      pkGroupUuid: pkGroupUuid == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pkGroupUuid),
+      pkMemberUuid: pkMemberUuid == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pkMemberUuid),
       isDeleted: Value(isDeleted),
     );
   }
@@ -13223,6 +13474,8 @@ class MemberGroupEntryRow extends DataClass
       id: serializer.fromJson<String>(json['id']),
       groupId: serializer.fromJson<String>(json['groupId']),
       memberId: serializer.fromJson<String>(json['memberId']),
+      pkGroupUuid: serializer.fromJson<String?>(json['pkGroupUuid']),
+      pkMemberUuid: serializer.fromJson<String?>(json['pkMemberUuid']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
     );
   }
@@ -13233,6 +13486,8 @@ class MemberGroupEntryRow extends DataClass
       'id': serializer.toJson<String>(id),
       'groupId': serializer.toJson<String>(groupId),
       'memberId': serializer.toJson<String>(memberId),
+      'pkGroupUuid': serializer.toJson<String?>(pkGroupUuid),
+      'pkMemberUuid': serializer.toJson<String?>(pkMemberUuid),
       'isDeleted': serializer.toJson<bool>(isDeleted),
     };
   }
@@ -13241,11 +13496,15 @@ class MemberGroupEntryRow extends DataClass
     String? id,
     String? groupId,
     String? memberId,
+    Value<String?> pkGroupUuid = const Value.absent(),
+    Value<String?> pkMemberUuid = const Value.absent(),
     bool? isDeleted,
   }) => MemberGroupEntryRow(
     id: id ?? this.id,
     groupId: groupId ?? this.groupId,
     memberId: memberId ?? this.memberId,
+    pkGroupUuid: pkGroupUuid.present ? pkGroupUuid.value : this.pkGroupUuid,
+    pkMemberUuid: pkMemberUuid.present ? pkMemberUuid.value : this.pkMemberUuid,
     isDeleted: isDeleted ?? this.isDeleted,
   );
   MemberGroupEntryRow copyWithCompanion(MemberGroupEntriesCompanion data) {
@@ -13253,6 +13512,12 @@ class MemberGroupEntryRow extends DataClass
       id: data.id.present ? data.id.value : this.id,
       groupId: data.groupId.present ? data.groupId.value : this.groupId,
       memberId: data.memberId.present ? data.memberId.value : this.memberId,
+      pkGroupUuid: data.pkGroupUuid.present
+          ? data.pkGroupUuid.value
+          : this.pkGroupUuid,
+      pkMemberUuid: data.pkMemberUuid.present
+          ? data.pkMemberUuid.value
+          : this.pkMemberUuid,
       isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
     );
   }
@@ -13263,13 +13528,16 @@ class MemberGroupEntryRow extends DataClass
           ..write('id: $id, ')
           ..write('groupId: $groupId, ')
           ..write('memberId: $memberId, ')
+          ..write('pkGroupUuid: $pkGroupUuid, ')
+          ..write('pkMemberUuid: $pkMemberUuid, ')
           ..write('isDeleted: $isDeleted')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, groupId, memberId, isDeleted);
+  int get hashCode =>
+      Object.hash(id, groupId, memberId, pkGroupUuid, pkMemberUuid, isDeleted);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -13277,6 +13545,8 @@ class MemberGroupEntryRow extends DataClass
           other.id == this.id &&
           other.groupId == this.groupId &&
           other.memberId == this.memberId &&
+          other.pkGroupUuid == this.pkGroupUuid &&
+          other.pkMemberUuid == this.pkMemberUuid &&
           other.isDeleted == this.isDeleted);
 }
 
@@ -13284,12 +13554,16 @@ class MemberGroupEntriesCompanion extends UpdateCompanion<MemberGroupEntryRow> {
   final Value<String> id;
   final Value<String> groupId;
   final Value<String> memberId;
+  final Value<String?> pkGroupUuid;
+  final Value<String?> pkMemberUuid;
   final Value<bool> isDeleted;
   final Value<int> rowid;
   const MemberGroupEntriesCompanion({
     this.id = const Value.absent(),
     this.groupId = const Value.absent(),
     this.memberId = const Value.absent(),
+    this.pkGroupUuid = const Value.absent(),
+    this.pkMemberUuid = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -13297,6 +13571,8 @@ class MemberGroupEntriesCompanion extends UpdateCompanion<MemberGroupEntryRow> {
     required String id,
     required String groupId,
     required String memberId,
+    this.pkGroupUuid = const Value.absent(),
+    this.pkMemberUuid = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
@@ -13306,6 +13582,8 @@ class MemberGroupEntriesCompanion extends UpdateCompanion<MemberGroupEntryRow> {
     Expression<String>? id,
     Expression<String>? groupId,
     Expression<String>? memberId,
+    Expression<String>? pkGroupUuid,
+    Expression<String>? pkMemberUuid,
     Expression<bool>? isDeleted,
     Expression<int>? rowid,
   }) {
@@ -13313,6 +13591,8 @@ class MemberGroupEntriesCompanion extends UpdateCompanion<MemberGroupEntryRow> {
       if (id != null) 'id': id,
       if (groupId != null) 'group_id': groupId,
       if (memberId != null) 'member_id': memberId,
+      if (pkGroupUuid != null) 'pk_group_uuid': pkGroupUuid,
+      if (pkMemberUuid != null) 'pk_member_uuid': pkMemberUuid,
       if (isDeleted != null) 'is_deleted': isDeleted,
       if (rowid != null) 'rowid': rowid,
     });
@@ -13322,6 +13602,8 @@ class MemberGroupEntriesCompanion extends UpdateCompanion<MemberGroupEntryRow> {
     Value<String>? id,
     Value<String>? groupId,
     Value<String>? memberId,
+    Value<String?>? pkGroupUuid,
+    Value<String?>? pkMemberUuid,
     Value<bool>? isDeleted,
     Value<int>? rowid,
   }) {
@@ -13329,6 +13611,8 @@ class MemberGroupEntriesCompanion extends UpdateCompanion<MemberGroupEntryRow> {
       id: id ?? this.id,
       groupId: groupId ?? this.groupId,
       memberId: memberId ?? this.memberId,
+      pkGroupUuid: pkGroupUuid ?? this.pkGroupUuid,
+      pkMemberUuid: pkMemberUuid ?? this.pkMemberUuid,
       isDeleted: isDeleted ?? this.isDeleted,
       rowid: rowid ?? this.rowid,
     );
@@ -13346,6 +13630,12 @@ class MemberGroupEntriesCompanion extends UpdateCompanion<MemberGroupEntryRow> {
     if (memberId.present) {
       map['member_id'] = Variable<String>(memberId.value);
     }
+    if (pkGroupUuid.present) {
+      map['pk_group_uuid'] = Variable<String>(pkGroupUuid.value);
+    }
+    if (pkMemberUuid.present) {
+      map['pk_member_uuid'] = Variable<String>(pkMemberUuid.value);
+    }
     if (isDeleted.present) {
       map['is_deleted'] = Variable<bool>(isDeleted.value);
     }
@@ -13361,7 +13651,883 @@ class MemberGroupEntriesCompanion extends UpdateCompanion<MemberGroupEntryRow> {
           ..write('id: $id, ')
           ..write('groupId: $groupId, ')
           ..write('memberId: $memberId, ')
+          ..write('pkGroupUuid: $pkGroupUuid, ')
+          ..write('pkMemberUuid: $pkMemberUuid, ')
           ..write('isDeleted: $isDeleted, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $PkGroupSyncAliasesTable extends PkGroupSyncAliases
+    with TableInfo<$PkGroupSyncAliasesTable, PkGroupSyncAliasRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PkGroupSyncAliasesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _legacyEntityIdMeta = const VerificationMeta(
+    'legacyEntityId',
+  );
+  @override
+  late final GeneratedColumn<String> legacyEntityId = GeneratedColumn<String>(
+    'legacy_entity_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _pkGroupUuidMeta = const VerificationMeta(
+    'pkGroupUuid',
+  );
+  @override
+  late final GeneratedColumn<String> pkGroupUuid = GeneratedColumn<String>(
+    'pk_group_uuid',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _canonicalEntityIdMeta = const VerificationMeta(
+    'canonicalEntityId',
+  );
+  @override
+  late final GeneratedColumn<String> canonicalEntityId =
+      GeneratedColumn<String>(
+        'canonical_entity_id',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    legacyEntityId,
+    pkGroupUuid,
+    canonicalEntityId,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'pk_group_sync_aliases';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PkGroupSyncAliasRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('legacy_entity_id')) {
+      context.handle(
+        _legacyEntityIdMeta,
+        legacyEntityId.isAcceptableOrUnknown(
+          data['legacy_entity_id']!,
+          _legacyEntityIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_legacyEntityIdMeta);
+    }
+    if (data.containsKey('pk_group_uuid')) {
+      context.handle(
+        _pkGroupUuidMeta,
+        pkGroupUuid.isAcceptableOrUnknown(
+          data['pk_group_uuid']!,
+          _pkGroupUuidMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_pkGroupUuidMeta);
+    }
+    if (data.containsKey('canonical_entity_id')) {
+      context.handle(
+        _canonicalEntityIdMeta,
+        canonicalEntityId.isAcceptableOrUnknown(
+          data['canonical_entity_id']!,
+          _canonicalEntityIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_canonicalEntityIdMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {legacyEntityId};
+  @override
+  PkGroupSyncAliasRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PkGroupSyncAliasRow(
+      legacyEntityId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}legacy_entity_id'],
+      )!,
+      pkGroupUuid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pk_group_uuid'],
+      )!,
+      canonicalEntityId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}canonical_entity_id'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $PkGroupSyncAliasesTable createAlias(String alias) {
+    return $PkGroupSyncAliasesTable(attachedDatabase, alias);
+  }
+}
+
+class PkGroupSyncAliasRow extends DataClass
+    implements Insertable<PkGroupSyncAliasRow> {
+  /// Legacy sync entity id that may still appear in old delete/read paths.
+  final String legacyEntityId;
+
+  /// Canonical PK group UUID this alias points at.
+  final String pkGroupUuid;
+
+  /// Canonical sync entity id for the PK group, usually `pk-group:<uuid>`.
+  final String canonicalEntityId;
+  final DateTime createdAt;
+  const PkGroupSyncAliasRow({
+    required this.legacyEntityId,
+    required this.pkGroupUuid,
+    required this.canonicalEntityId,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['legacy_entity_id'] = Variable<String>(legacyEntityId);
+    map['pk_group_uuid'] = Variable<String>(pkGroupUuid);
+    map['canonical_entity_id'] = Variable<String>(canonicalEntityId);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  PkGroupSyncAliasesCompanion toCompanion(bool nullToAbsent) {
+    return PkGroupSyncAliasesCompanion(
+      legacyEntityId: Value(legacyEntityId),
+      pkGroupUuid: Value(pkGroupUuid),
+      canonicalEntityId: Value(canonicalEntityId),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory PkGroupSyncAliasRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PkGroupSyncAliasRow(
+      legacyEntityId: serializer.fromJson<String>(json['legacyEntityId']),
+      pkGroupUuid: serializer.fromJson<String>(json['pkGroupUuid']),
+      canonicalEntityId: serializer.fromJson<String>(json['canonicalEntityId']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'legacyEntityId': serializer.toJson<String>(legacyEntityId),
+      'pkGroupUuid': serializer.toJson<String>(pkGroupUuid),
+      'canonicalEntityId': serializer.toJson<String>(canonicalEntityId),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  PkGroupSyncAliasRow copyWith({
+    String? legacyEntityId,
+    String? pkGroupUuid,
+    String? canonicalEntityId,
+    DateTime? createdAt,
+  }) => PkGroupSyncAliasRow(
+    legacyEntityId: legacyEntityId ?? this.legacyEntityId,
+    pkGroupUuid: pkGroupUuid ?? this.pkGroupUuid,
+    canonicalEntityId: canonicalEntityId ?? this.canonicalEntityId,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  PkGroupSyncAliasRow copyWithCompanion(PkGroupSyncAliasesCompanion data) {
+    return PkGroupSyncAliasRow(
+      legacyEntityId: data.legacyEntityId.present
+          ? data.legacyEntityId.value
+          : this.legacyEntityId,
+      pkGroupUuid: data.pkGroupUuid.present
+          ? data.pkGroupUuid.value
+          : this.pkGroupUuid,
+      canonicalEntityId: data.canonicalEntityId.present
+          ? data.canonicalEntityId.value
+          : this.canonicalEntityId,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PkGroupSyncAliasRow(')
+          ..write('legacyEntityId: $legacyEntityId, ')
+          ..write('pkGroupUuid: $pkGroupUuid, ')
+          ..write('canonicalEntityId: $canonicalEntityId, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(legacyEntityId, pkGroupUuid, canonicalEntityId, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PkGroupSyncAliasRow &&
+          other.legacyEntityId == this.legacyEntityId &&
+          other.pkGroupUuid == this.pkGroupUuid &&
+          other.canonicalEntityId == this.canonicalEntityId &&
+          other.createdAt == this.createdAt);
+}
+
+class PkGroupSyncAliasesCompanion extends UpdateCompanion<PkGroupSyncAliasRow> {
+  final Value<String> legacyEntityId;
+  final Value<String> pkGroupUuid;
+  final Value<String> canonicalEntityId;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const PkGroupSyncAliasesCompanion({
+    this.legacyEntityId = const Value.absent(),
+    this.pkGroupUuid = const Value.absent(),
+    this.canonicalEntityId = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PkGroupSyncAliasesCompanion.insert({
+    required String legacyEntityId,
+    required String pkGroupUuid,
+    required String canonicalEntityId,
+    required DateTime createdAt,
+    this.rowid = const Value.absent(),
+  }) : legacyEntityId = Value(legacyEntityId),
+       pkGroupUuid = Value(pkGroupUuid),
+       canonicalEntityId = Value(canonicalEntityId),
+       createdAt = Value(createdAt);
+  static Insertable<PkGroupSyncAliasRow> custom({
+    Expression<String>? legacyEntityId,
+    Expression<String>? pkGroupUuid,
+    Expression<String>? canonicalEntityId,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (legacyEntityId != null) 'legacy_entity_id': legacyEntityId,
+      if (pkGroupUuid != null) 'pk_group_uuid': pkGroupUuid,
+      if (canonicalEntityId != null) 'canonical_entity_id': canonicalEntityId,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PkGroupSyncAliasesCompanion copyWith({
+    Value<String>? legacyEntityId,
+    Value<String>? pkGroupUuid,
+    Value<String>? canonicalEntityId,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return PkGroupSyncAliasesCompanion(
+      legacyEntityId: legacyEntityId ?? this.legacyEntityId,
+      pkGroupUuid: pkGroupUuid ?? this.pkGroupUuid,
+      canonicalEntityId: canonicalEntityId ?? this.canonicalEntityId,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (legacyEntityId.present) {
+      map['legacy_entity_id'] = Variable<String>(legacyEntityId.value);
+    }
+    if (pkGroupUuid.present) {
+      map['pk_group_uuid'] = Variable<String>(pkGroupUuid.value);
+    }
+    if (canonicalEntityId.present) {
+      map['canonical_entity_id'] = Variable<String>(canonicalEntityId.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PkGroupSyncAliasesCompanion(')
+          ..write('legacyEntityId: $legacyEntityId, ')
+          ..write('pkGroupUuid: $pkGroupUuid, ')
+          ..write('canonicalEntityId: $canonicalEntityId, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $PkGroupEntryDeferredSyncOpsTable extends PkGroupEntryDeferredSyncOps
+    with
+        TableInfo<
+          $PkGroupEntryDeferredSyncOpsTable,
+          PkGroupEntryDeferredSyncOpRow
+        > {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PkGroupEntryDeferredSyncOpsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _entityTypeMeta = const VerificationMeta(
+    'entityType',
+  );
+  @override
+  late final GeneratedColumn<String> entityType = GeneratedColumn<String>(
+    'entity_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _entityIdMeta = const VerificationMeta(
+    'entityId',
+  );
+  @override
+  late final GeneratedColumn<String> entityId = GeneratedColumn<String>(
+    'entity_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _fieldsJsonMeta = const VerificationMeta(
+    'fieldsJson',
+  );
+  @override
+  late final GeneratedColumn<String> fieldsJson = GeneratedColumn<String>(
+    'fields_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _reasonMeta = const VerificationMeta('reason');
+  @override
+  late final GeneratedColumn<String> reason = GeneratedColumn<String>(
+    'reason',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _lastRetryAtMeta = const VerificationMeta(
+    'lastRetryAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastRetryAt = GeneratedColumn<DateTime>(
+    'last_retry_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _retryCountMeta = const VerificationMeta(
+    'retryCount',
+  );
+  @override
+  late final GeneratedColumn<int> retryCount = GeneratedColumn<int>(
+    'retry_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    entityType,
+    entityId,
+    fieldsJson,
+    reason,
+    createdAt,
+    lastRetryAt,
+    retryCount,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'pk_group_entry_deferred_sync_ops';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PkGroupEntryDeferredSyncOpRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('entity_type')) {
+      context.handle(
+        _entityTypeMeta,
+        entityType.isAcceptableOrUnknown(data['entity_type']!, _entityTypeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_entityTypeMeta);
+    }
+    if (data.containsKey('entity_id')) {
+      context.handle(
+        _entityIdMeta,
+        entityId.isAcceptableOrUnknown(data['entity_id']!, _entityIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_entityIdMeta);
+    }
+    if (data.containsKey('fields_json')) {
+      context.handle(
+        _fieldsJsonMeta,
+        fieldsJson.isAcceptableOrUnknown(data['fields_json']!, _fieldsJsonMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_fieldsJsonMeta);
+    }
+    if (data.containsKey('reason')) {
+      context.handle(
+        _reasonMeta,
+        reason.isAcceptableOrUnknown(data['reason']!, _reasonMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_reasonMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('last_retry_at')) {
+      context.handle(
+        _lastRetryAtMeta,
+        lastRetryAt.isAcceptableOrUnknown(
+          data['last_retry_at']!,
+          _lastRetryAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('retry_count')) {
+      context.handle(
+        _retryCountMeta,
+        retryCount.isAcceptableOrUnknown(data['retry_count']!, _retryCountMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  PkGroupEntryDeferredSyncOpRow map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PkGroupEntryDeferredSyncOpRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      entityType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}entity_type'],
+      )!,
+      entityId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}entity_id'],
+      )!,
+      fieldsJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}fields_json'],
+      )!,
+      reason: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reason'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      lastRetryAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_retry_at'],
+      ),
+      retryCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}retry_count'],
+      )!,
+    );
+  }
+
+  @override
+  $PkGroupEntryDeferredSyncOpsTable createAlias(String alias) {
+    return $PkGroupEntryDeferredSyncOpsTable(attachedDatabase, alias);
+  }
+}
+
+class PkGroupEntryDeferredSyncOpRow extends DataClass
+    implements Insertable<PkGroupEntryDeferredSyncOpRow> {
+  final String id;
+  final String entityType;
+  final String entityId;
+  final String fieldsJson;
+  final String reason;
+  final DateTime createdAt;
+  final DateTime? lastRetryAt;
+  final int retryCount;
+  const PkGroupEntryDeferredSyncOpRow({
+    required this.id,
+    required this.entityType,
+    required this.entityId,
+    required this.fieldsJson,
+    required this.reason,
+    required this.createdAt,
+    this.lastRetryAt,
+    required this.retryCount,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['entity_type'] = Variable<String>(entityType);
+    map['entity_id'] = Variable<String>(entityId);
+    map['fields_json'] = Variable<String>(fieldsJson);
+    map['reason'] = Variable<String>(reason);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || lastRetryAt != null) {
+      map['last_retry_at'] = Variable<DateTime>(lastRetryAt);
+    }
+    map['retry_count'] = Variable<int>(retryCount);
+    return map;
+  }
+
+  PkGroupEntryDeferredSyncOpsCompanion toCompanion(bool nullToAbsent) {
+    return PkGroupEntryDeferredSyncOpsCompanion(
+      id: Value(id),
+      entityType: Value(entityType),
+      entityId: Value(entityId),
+      fieldsJson: Value(fieldsJson),
+      reason: Value(reason),
+      createdAt: Value(createdAt),
+      lastRetryAt: lastRetryAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastRetryAt),
+      retryCount: Value(retryCount),
+    );
+  }
+
+  factory PkGroupEntryDeferredSyncOpRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PkGroupEntryDeferredSyncOpRow(
+      id: serializer.fromJson<String>(json['id']),
+      entityType: serializer.fromJson<String>(json['entityType']),
+      entityId: serializer.fromJson<String>(json['entityId']),
+      fieldsJson: serializer.fromJson<String>(json['fieldsJson']),
+      reason: serializer.fromJson<String>(json['reason']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      lastRetryAt: serializer.fromJson<DateTime?>(json['lastRetryAt']),
+      retryCount: serializer.fromJson<int>(json['retryCount']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'entityType': serializer.toJson<String>(entityType),
+      'entityId': serializer.toJson<String>(entityId),
+      'fieldsJson': serializer.toJson<String>(fieldsJson),
+      'reason': serializer.toJson<String>(reason),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'lastRetryAt': serializer.toJson<DateTime?>(lastRetryAt),
+      'retryCount': serializer.toJson<int>(retryCount),
+    };
+  }
+
+  PkGroupEntryDeferredSyncOpRow copyWith({
+    String? id,
+    String? entityType,
+    String? entityId,
+    String? fieldsJson,
+    String? reason,
+    DateTime? createdAt,
+    Value<DateTime?> lastRetryAt = const Value.absent(),
+    int? retryCount,
+  }) => PkGroupEntryDeferredSyncOpRow(
+    id: id ?? this.id,
+    entityType: entityType ?? this.entityType,
+    entityId: entityId ?? this.entityId,
+    fieldsJson: fieldsJson ?? this.fieldsJson,
+    reason: reason ?? this.reason,
+    createdAt: createdAt ?? this.createdAt,
+    lastRetryAt: lastRetryAt.present ? lastRetryAt.value : this.lastRetryAt,
+    retryCount: retryCount ?? this.retryCount,
+  );
+  PkGroupEntryDeferredSyncOpRow copyWithCompanion(
+    PkGroupEntryDeferredSyncOpsCompanion data,
+  ) {
+    return PkGroupEntryDeferredSyncOpRow(
+      id: data.id.present ? data.id.value : this.id,
+      entityType: data.entityType.present
+          ? data.entityType.value
+          : this.entityType,
+      entityId: data.entityId.present ? data.entityId.value : this.entityId,
+      fieldsJson: data.fieldsJson.present
+          ? data.fieldsJson.value
+          : this.fieldsJson,
+      reason: data.reason.present ? data.reason.value : this.reason,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      lastRetryAt: data.lastRetryAt.present
+          ? data.lastRetryAt.value
+          : this.lastRetryAt,
+      retryCount: data.retryCount.present
+          ? data.retryCount.value
+          : this.retryCount,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PkGroupEntryDeferredSyncOpRow(')
+          ..write('id: $id, ')
+          ..write('entityType: $entityType, ')
+          ..write('entityId: $entityId, ')
+          ..write('fieldsJson: $fieldsJson, ')
+          ..write('reason: $reason, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('lastRetryAt: $lastRetryAt, ')
+          ..write('retryCount: $retryCount')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    entityType,
+    entityId,
+    fieldsJson,
+    reason,
+    createdAt,
+    lastRetryAt,
+    retryCount,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PkGroupEntryDeferredSyncOpRow &&
+          other.id == this.id &&
+          other.entityType == this.entityType &&
+          other.entityId == this.entityId &&
+          other.fieldsJson == this.fieldsJson &&
+          other.reason == this.reason &&
+          other.createdAt == this.createdAt &&
+          other.lastRetryAt == this.lastRetryAt &&
+          other.retryCount == this.retryCount);
+}
+
+class PkGroupEntryDeferredSyncOpsCompanion
+    extends UpdateCompanion<PkGroupEntryDeferredSyncOpRow> {
+  final Value<String> id;
+  final Value<String> entityType;
+  final Value<String> entityId;
+  final Value<String> fieldsJson;
+  final Value<String> reason;
+  final Value<DateTime> createdAt;
+  final Value<DateTime?> lastRetryAt;
+  final Value<int> retryCount;
+  final Value<int> rowid;
+  const PkGroupEntryDeferredSyncOpsCompanion({
+    this.id = const Value.absent(),
+    this.entityType = const Value.absent(),
+    this.entityId = const Value.absent(),
+    this.fieldsJson = const Value.absent(),
+    this.reason = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.lastRetryAt = const Value.absent(),
+    this.retryCount = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PkGroupEntryDeferredSyncOpsCompanion.insert({
+    required String id,
+    required String entityType,
+    required String entityId,
+    required String fieldsJson,
+    required String reason,
+    required DateTime createdAt,
+    this.lastRetryAt = const Value.absent(),
+    this.retryCount = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       entityType = Value(entityType),
+       entityId = Value(entityId),
+       fieldsJson = Value(fieldsJson),
+       reason = Value(reason),
+       createdAt = Value(createdAt);
+  static Insertable<PkGroupEntryDeferredSyncOpRow> custom({
+    Expression<String>? id,
+    Expression<String>? entityType,
+    Expression<String>? entityId,
+    Expression<String>? fieldsJson,
+    Expression<String>? reason,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? lastRetryAt,
+    Expression<int>? retryCount,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (entityType != null) 'entity_type': entityType,
+      if (entityId != null) 'entity_id': entityId,
+      if (fieldsJson != null) 'fields_json': fieldsJson,
+      if (reason != null) 'reason': reason,
+      if (createdAt != null) 'created_at': createdAt,
+      if (lastRetryAt != null) 'last_retry_at': lastRetryAt,
+      if (retryCount != null) 'retry_count': retryCount,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PkGroupEntryDeferredSyncOpsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? entityType,
+    Value<String>? entityId,
+    Value<String>? fieldsJson,
+    Value<String>? reason,
+    Value<DateTime>? createdAt,
+    Value<DateTime?>? lastRetryAt,
+    Value<int>? retryCount,
+    Value<int>? rowid,
+  }) {
+    return PkGroupEntryDeferredSyncOpsCompanion(
+      id: id ?? this.id,
+      entityType: entityType ?? this.entityType,
+      entityId: entityId ?? this.entityId,
+      fieldsJson: fieldsJson ?? this.fieldsJson,
+      reason: reason ?? this.reason,
+      createdAt: createdAt ?? this.createdAt,
+      lastRetryAt: lastRetryAt ?? this.lastRetryAt,
+      retryCount: retryCount ?? this.retryCount,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (entityType.present) {
+      map['entity_type'] = Variable<String>(entityType.value);
+    }
+    if (entityId.present) {
+      map['entity_id'] = Variable<String>(entityId.value);
+    }
+    if (fieldsJson.present) {
+      map['fields_json'] = Variable<String>(fieldsJson.value);
+    }
+    if (reason.present) {
+      map['reason'] = Variable<String>(reason.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (lastRetryAt.present) {
+      map['last_retry_at'] = Variable<DateTime>(lastRetryAt.value);
+    }
+    if (retryCount.present) {
+      map['retry_count'] = Variable<int>(retryCount.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PkGroupEntryDeferredSyncOpsCompanion(')
+          ..write('id: $id, ')
+          ..write('entityType: $entityType, ')
+          ..write('entityId: $entityId, ')
+          ..write('fieldsJson: $fieldsJson, ')
+          ..write('reason: $reason, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('lastRetryAt: $lastRetryAt, ')
+          ..write('retryCount: $retryCount, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -20275,6 +21441,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $MemberGroupsTable memberGroups = $MemberGroupsTable(this);
   late final $MemberGroupEntriesTable memberGroupEntries =
       $MemberGroupEntriesTable(this);
+  late final $PkGroupSyncAliasesTable pkGroupSyncAliases =
+      $PkGroupSyncAliasesTable(this);
+  late final $PkGroupEntryDeferredSyncOpsTable pkGroupEntryDeferredSyncOps =
+      $PkGroupEntryDeferredSyncOpsTable(this);
   late final $CustomFieldsTable customFields = $CustomFieldsTable(this);
   late final $CustomFieldValuesTable customFieldValues =
       $CustomFieldValuesTable(this);
@@ -20324,6 +21494,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final MemberGroupsDao memberGroupsDao = MemberGroupsDao(
     this as AppDatabase,
   );
+  late final PkGroupSyncAliasesDao pkGroupSyncAliasesDao =
+      PkGroupSyncAliasesDao(this as AppDatabase);
+  late final PkGroupEntryDeferredSyncOpsDao pkGroupEntryDeferredSyncOpsDao =
+      PkGroupEntryDeferredSyncOpsDao(this as AppDatabase);
   late final CustomFieldsDao customFieldsDao = CustomFieldsDao(
     this as AppDatabase,
   );
@@ -20364,6 +21538,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     syncQuarantineTable,
     memberGroups,
     memberGroupEntries,
+    pkGroupSyncAliases,
+    pkGroupEntryDeferredSyncOps,
     customFields,
     customFieldValues,
     notes,
@@ -22159,6 +23335,7 @@ typedef $$SystemSettingsTableTableCreateCompanionBuilder =
       Value<int> timingMode,
       Value<bool> habitsBadgeEnabled,
       Value<bool> notesEnabled,
+      Value<bool> pkGroupSyncV2Enabled,
       Value<String?> systemDescription,
       Value<String?> systemColor,
       Value<String?> systemTag,
@@ -22218,6 +23395,7 @@ typedef $$SystemSettingsTableTableUpdateCompanionBuilder =
       Value<int> timingMode,
       Value<bool> habitsBadgeEnabled,
       Value<bool> notesEnabled,
+      Value<bool> pkGroupSyncV2Enabled,
       Value<String?> systemDescription,
       Value<String?> systemColor,
       Value<String?> systemTag,
@@ -22426,6 +23604,11 @@ class $$SystemSettingsTableTableFilterComposer
 
   ColumnFilters<bool> get notesEnabled => $composableBuilder(
     column: $table.notesEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get pkGroupSyncV2Enabled => $composableBuilder(
+    column: $table.pkGroupSyncV2Enabled,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -22715,6 +23898,11 @@ class $$SystemSettingsTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get pkGroupSyncV2Enabled => $composableBuilder(
+    column: $table.pkGroupSyncV2Enabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get systemDescription => $composableBuilder(
     column: $table.systemDescription,
     builder: (column) => ColumnOrderings(column),
@@ -22995,6 +24183,11 @@ class $$SystemSettingsTableTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<bool> get pkGroupSyncV2Enabled => $composableBuilder(
+    column: $table.pkGroupSyncV2Enabled,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get systemDescription => $composableBuilder(
     column: $table.systemDescription,
     builder: (column) => column,
@@ -23165,6 +24358,7 @@ class $$SystemSettingsTableTableTableManager
                 Value<int> timingMode = const Value.absent(),
                 Value<bool> habitsBadgeEnabled = const Value.absent(),
                 Value<bool> notesEnabled = const Value.absent(),
+                Value<bool> pkGroupSyncV2Enabled = const Value.absent(),
                 Value<String?> systemDescription = const Value.absent(),
                 Value<String?> systemColor = const Value.absent(),
                 Value<String?> systemTag = const Value.absent(),
@@ -23223,6 +24417,7 @@ class $$SystemSettingsTableTableTableManager
                 timingMode: timingMode,
                 habitsBadgeEnabled: habitsBadgeEnabled,
                 notesEnabled: notesEnabled,
+                pkGroupSyncV2Enabled: pkGroupSyncV2Enabled,
                 systemDescription: systemDescription,
                 systemColor: systemColor,
                 systemTag: systemTag,
@@ -23283,6 +24478,7 @@ class $$SystemSettingsTableTableTableManager
                 Value<int> timingMode = const Value.absent(),
                 Value<bool> habitsBadgeEnabled = const Value.absent(),
                 Value<bool> notesEnabled = const Value.absent(),
+                Value<bool> pkGroupSyncV2Enabled = const Value.absent(),
                 Value<String?> systemDescription = const Value.absent(),
                 Value<String?> systemColor = const Value.absent(),
                 Value<String?> systemTag = const Value.absent(),
@@ -23341,6 +24537,7 @@ class $$SystemSettingsTableTableTableManager
                 timingMode: timingMode,
                 habitsBadgeEnabled: habitsBadgeEnabled,
                 notesEnabled: notesEnabled,
+                pkGroupSyncV2Enabled: pkGroupSyncV2Enabled,
                 systemDescription: systemDescription,
                 systemColor: systemColor,
                 systemTag: systemTag,
@@ -25876,6 +27073,8 @@ typedef $$MemberGroupsTableCreateCompanionBuilder =
       Value<String?> pluralkitId,
       Value<String?> pluralkitUuid,
       Value<DateTime?> lastSeenFromPkAt,
+      Value<bool> syncSuppressed,
+      Value<String?> suspectedPkGroupUuid,
       Value<int> rowid,
     });
 typedef $$MemberGroupsTableUpdateCompanionBuilder =
@@ -25894,6 +27093,8 @@ typedef $$MemberGroupsTableUpdateCompanionBuilder =
       Value<String?> pluralkitId,
       Value<String?> pluralkitUuid,
       Value<DateTime?> lastSeenFromPkAt,
+      Value<bool> syncSuppressed,
+      Value<String?> suspectedPkGroupUuid,
       Value<int> rowid,
     });
 
@@ -25973,6 +27174,16 @@ class $$MemberGroupsTableFilterComposer
 
   ColumnFilters<DateTime> get lastSeenFromPkAt => $composableBuilder(
     column: $table.lastSeenFromPkAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get syncSuppressed => $composableBuilder(
+    column: $table.syncSuppressed,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get suspectedPkGroupUuid => $composableBuilder(
+    column: $table.suspectedPkGroupUuid,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -26055,6 +27266,16 @@ class $$MemberGroupsTableOrderingComposer
     column: $table.lastSeenFromPkAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get syncSuppressed => $composableBuilder(
+    column: $table.syncSuppressed,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get suspectedPkGroupUuid => $composableBuilder(
+    column: $table.suspectedPkGroupUuid,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$MemberGroupsTableAnnotationComposer
@@ -26121,6 +27342,16 @@ class $$MemberGroupsTableAnnotationComposer
     column: $table.lastSeenFromPkAt,
     builder: (column) => column,
   );
+
+  GeneratedColumn<bool> get syncSuppressed => $composableBuilder(
+    column: $table.syncSuppressed,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get suspectedPkGroupUuid => $composableBuilder(
+    column: $table.suspectedPkGroupUuid,
+    builder: (column) => column,
+  );
 }
 
 class $$MemberGroupsTableTableManager
@@ -26168,6 +27399,8 @@ class $$MemberGroupsTableTableManager
                 Value<String?> pluralkitId = const Value.absent(),
                 Value<String?> pluralkitUuid = const Value.absent(),
                 Value<DateTime?> lastSeenFromPkAt = const Value.absent(),
+                Value<bool> syncSuppressed = const Value.absent(),
+                Value<String?> suspectedPkGroupUuid = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => MemberGroupsCompanion(
                 id: id,
@@ -26184,6 +27417,8 @@ class $$MemberGroupsTableTableManager
                 pluralkitId: pluralkitId,
                 pluralkitUuid: pluralkitUuid,
                 lastSeenFromPkAt: lastSeenFromPkAt,
+                syncSuppressed: syncSuppressed,
+                suspectedPkGroupUuid: suspectedPkGroupUuid,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -26202,6 +27437,8 @@ class $$MemberGroupsTableTableManager
                 Value<String?> pluralkitId = const Value.absent(),
                 Value<String?> pluralkitUuid = const Value.absent(),
                 Value<DateTime?> lastSeenFromPkAt = const Value.absent(),
+                Value<bool> syncSuppressed = const Value.absent(),
+                Value<String?> suspectedPkGroupUuid = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => MemberGroupsCompanion.insert(
                 id: id,
@@ -26218,6 +27455,8 @@ class $$MemberGroupsTableTableManager
                 pluralkitId: pluralkitId,
                 pluralkitUuid: pluralkitUuid,
                 lastSeenFromPkAt: lastSeenFromPkAt,
+                syncSuppressed: syncSuppressed,
+                suspectedPkGroupUuid: suspectedPkGroupUuid,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -26250,6 +27489,8 @@ typedef $$MemberGroupEntriesTableCreateCompanionBuilder =
       required String id,
       required String groupId,
       required String memberId,
+      Value<String?> pkGroupUuid,
+      Value<String?> pkMemberUuid,
       Value<bool> isDeleted,
       Value<int> rowid,
     });
@@ -26258,6 +27499,8 @@ typedef $$MemberGroupEntriesTableUpdateCompanionBuilder =
       Value<String> id,
       Value<String> groupId,
       Value<String> memberId,
+      Value<String?> pkGroupUuid,
+      Value<String?> pkMemberUuid,
       Value<bool> isDeleted,
       Value<int> rowid,
     });
@@ -26283,6 +27526,16 @@ class $$MemberGroupEntriesTableFilterComposer
 
   ColumnFilters<String> get memberId => $composableBuilder(
     column: $table.memberId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pkGroupUuid => $composableBuilder(
+    column: $table.pkGroupUuid,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pkMemberUuid => $composableBuilder(
+    column: $table.pkMemberUuid,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -26316,6 +27569,16 @@ class $$MemberGroupEntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get pkGroupUuid => $composableBuilder(
+    column: $table.pkGroupUuid,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pkMemberUuid => $composableBuilder(
+    column: $table.pkMemberUuid,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get isDeleted => $composableBuilder(
     column: $table.isDeleted,
     builder: (column) => ColumnOrderings(column),
@@ -26339,6 +27602,16 @@ class $$MemberGroupEntriesTableAnnotationComposer
 
   GeneratedColumn<String> get memberId =>
       $composableBuilder(column: $table.memberId, builder: (column) => column);
+
+  GeneratedColumn<String> get pkGroupUuid => $composableBuilder(
+    column: $table.pkGroupUuid,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get pkMemberUuid => $composableBuilder(
+    column: $table.pkMemberUuid,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<bool> get isDeleted =>
       $composableBuilder(column: $table.isDeleted, builder: (column) => column);
@@ -26387,12 +27660,16 @@ class $$MemberGroupEntriesTableTableManager
                 Value<String> id = const Value.absent(),
                 Value<String> groupId = const Value.absent(),
                 Value<String> memberId = const Value.absent(),
+                Value<String?> pkGroupUuid = const Value.absent(),
+                Value<String?> pkMemberUuid = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => MemberGroupEntriesCompanion(
                 id: id,
                 groupId: groupId,
                 memberId: memberId,
+                pkGroupUuid: pkGroupUuid,
+                pkMemberUuid: pkMemberUuid,
                 isDeleted: isDeleted,
                 rowid: rowid,
               ),
@@ -26401,12 +27678,16 @@ class $$MemberGroupEntriesTableTableManager
                 required String id,
                 required String groupId,
                 required String memberId,
+                Value<String?> pkGroupUuid = const Value.absent(),
+                Value<String?> pkMemberUuid = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => MemberGroupEntriesCompanion.insert(
                 id: id,
                 groupId: groupId,
                 memberId: memberId,
+                pkGroupUuid: pkGroupUuid,
+                pkMemberUuid: pkMemberUuid,
                 isDeleted: isDeleted,
                 rowid: rowid,
               ),
@@ -26437,6 +27718,490 @@ typedef $$MemberGroupEntriesTableProcessedTableManager =
         >,
       ),
       MemberGroupEntryRow,
+      PrefetchHooks Function()
+    >;
+typedef $$PkGroupSyncAliasesTableCreateCompanionBuilder =
+    PkGroupSyncAliasesCompanion Function({
+      required String legacyEntityId,
+      required String pkGroupUuid,
+      required String canonicalEntityId,
+      required DateTime createdAt,
+      Value<int> rowid,
+    });
+typedef $$PkGroupSyncAliasesTableUpdateCompanionBuilder =
+    PkGroupSyncAliasesCompanion Function({
+      Value<String> legacyEntityId,
+      Value<String> pkGroupUuid,
+      Value<String> canonicalEntityId,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+class $$PkGroupSyncAliasesTableFilterComposer
+    extends Composer<_$AppDatabase, $PkGroupSyncAliasesTable> {
+  $$PkGroupSyncAliasesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get legacyEntityId => $composableBuilder(
+    column: $table.legacyEntityId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pkGroupUuid => $composableBuilder(
+    column: $table.pkGroupUuid,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get canonicalEntityId => $composableBuilder(
+    column: $table.canonicalEntityId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PkGroupSyncAliasesTableOrderingComposer
+    extends Composer<_$AppDatabase, $PkGroupSyncAliasesTable> {
+  $$PkGroupSyncAliasesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get legacyEntityId => $composableBuilder(
+    column: $table.legacyEntityId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pkGroupUuid => $composableBuilder(
+    column: $table.pkGroupUuid,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get canonicalEntityId => $composableBuilder(
+    column: $table.canonicalEntityId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PkGroupSyncAliasesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PkGroupSyncAliasesTable> {
+  $$PkGroupSyncAliasesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get legacyEntityId => $composableBuilder(
+    column: $table.legacyEntityId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get pkGroupUuid => $composableBuilder(
+    column: $table.pkGroupUuid,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get canonicalEntityId => $composableBuilder(
+    column: $table.canonicalEntityId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$PkGroupSyncAliasesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PkGroupSyncAliasesTable,
+          PkGroupSyncAliasRow,
+          $$PkGroupSyncAliasesTableFilterComposer,
+          $$PkGroupSyncAliasesTableOrderingComposer,
+          $$PkGroupSyncAliasesTableAnnotationComposer,
+          $$PkGroupSyncAliasesTableCreateCompanionBuilder,
+          $$PkGroupSyncAliasesTableUpdateCompanionBuilder,
+          (
+            PkGroupSyncAliasRow,
+            BaseReferences<
+              _$AppDatabase,
+              $PkGroupSyncAliasesTable,
+              PkGroupSyncAliasRow
+            >,
+          ),
+          PkGroupSyncAliasRow,
+          PrefetchHooks Function()
+        > {
+  $$PkGroupSyncAliasesTableTableManager(
+    _$AppDatabase db,
+    $PkGroupSyncAliasesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PkGroupSyncAliasesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PkGroupSyncAliasesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PkGroupSyncAliasesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> legacyEntityId = const Value.absent(),
+                Value<String> pkGroupUuid = const Value.absent(),
+                Value<String> canonicalEntityId = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PkGroupSyncAliasesCompanion(
+                legacyEntityId: legacyEntityId,
+                pkGroupUuid: pkGroupUuid,
+                canonicalEntityId: canonicalEntityId,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String legacyEntityId,
+                required String pkGroupUuid,
+                required String canonicalEntityId,
+                required DateTime createdAt,
+                Value<int> rowid = const Value.absent(),
+              }) => PkGroupSyncAliasesCompanion.insert(
+                legacyEntityId: legacyEntityId,
+                pkGroupUuid: pkGroupUuid,
+                canonicalEntityId: canonicalEntityId,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PkGroupSyncAliasesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PkGroupSyncAliasesTable,
+      PkGroupSyncAliasRow,
+      $$PkGroupSyncAliasesTableFilterComposer,
+      $$PkGroupSyncAliasesTableOrderingComposer,
+      $$PkGroupSyncAliasesTableAnnotationComposer,
+      $$PkGroupSyncAliasesTableCreateCompanionBuilder,
+      $$PkGroupSyncAliasesTableUpdateCompanionBuilder,
+      (
+        PkGroupSyncAliasRow,
+        BaseReferences<
+          _$AppDatabase,
+          $PkGroupSyncAliasesTable,
+          PkGroupSyncAliasRow
+        >,
+      ),
+      PkGroupSyncAliasRow,
+      PrefetchHooks Function()
+    >;
+typedef $$PkGroupEntryDeferredSyncOpsTableCreateCompanionBuilder =
+    PkGroupEntryDeferredSyncOpsCompanion Function({
+      required String id,
+      required String entityType,
+      required String entityId,
+      required String fieldsJson,
+      required String reason,
+      required DateTime createdAt,
+      Value<DateTime?> lastRetryAt,
+      Value<int> retryCount,
+      Value<int> rowid,
+    });
+typedef $$PkGroupEntryDeferredSyncOpsTableUpdateCompanionBuilder =
+    PkGroupEntryDeferredSyncOpsCompanion Function({
+      Value<String> id,
+      Value<String> entityType,
+      Value<String> entityId,
+      Value<String> fieldsJson,
+      Value<String> reason,
+      Value<DateTime> createdAt,
+      Value<DateTime?> lastRetryAt,
+      Value<int> retryCount,
+      Value<int> rowid,
+    });
+
+class $$PkGroupEntryDeferredSyncOpsTableFilterComposer
+    extends Composer<_$AppDatabase, $PkGroupEntryDeferredSyncOpsTable> {
+  $$PkGroupEntryDeferredSyncOpsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get entityType => $composableBuilder(
+    column: $table.entityType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get entityId => $composableBuilder(
+    column: $table.entityId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fieldsJson => $composableBuilder(
+    column: $table.fieldsJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get reason => $composableBuilder(
+    column: $table.reason,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastRetryAt => $composableBuilder(
+    column: $table.lastRetryAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get retryCount => $composableBuilder(
+    column: $table.retryCount,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PkGroupEntryDeferredSyncOpsTableOrderingComposer
+    extends Composer<_$AppDatabase, $PkGroupEntryDeferredSyncOpsTable> {
+  $$PkGroupEntryDeferredSyncOpsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get entityType => $composableBuilder(
+    column: $table.entityType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get entityId => $composableBuilder(
+    column: $table.entityId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fieldsJson => $composableBuilder(
+    column: $table.fieldsJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get reason => $composableBuilder(
+    column: $table.reason,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastRetryAt => $composableBuilder(
+    column: $table.lastRetryAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get retryCount => $composableBuilder(
+    column: $table.retryCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PkGroupEntryDeferredSyncOpsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PkGroupEntryDeferredSyncOpsTable> {
+  $$PkGroupEntryDeferredSyncOpsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get entityType => $composableBuilder(
+    column: $table.entityType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get entityId =>
+      $composableBuilder(column: $table.entityId, builder: (column) => column);
+
+  GeneratedColumn<String> get fieldsJson => $composableBuilder(
+    column: $table.fieldsJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get reason =>
+      $composableBuilder(column: $table.reason, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get lastRetryAt => $composableBuilder(
+    column: $table.lastRetryAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get retryCount => $composableBuilder(
+    column: $table.retryCount,
+    builder: (column) => column,
+  );
+}
+
+class $$PkGroupEntryDeferredSyncOpsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PkGroupEntryDeferredSyncOpsTable,
+          PkGroupEntryDeferredSyncOpRow,
+          $$PkGroupEntryDeferredSyncOpsTableFilterComposer,
+          $$PkGroupEntryDeferredSyncOpsTableOrderingComposer,
+          $$PkGroupEntryDeferredSyncOpsTableAnnotationComposer,
+          $$PkGroupEntryDeferredSyncOpsTableCreateCompanionBuilder,
+          $$PkGroupEntryDeferredSyncOpsTableUpdateCompanionBuilder,
+          (
+            PkGroupEntryDeferredSyncOpRow,
+            BaseReferences<
+              _$AppDatabase,
+              $PkGroupEntryDeferredSyncOpsTable,
+              PkGroupEntryDeferredSyncOpRow
+            >,
+          ),
+          PkGroupEntryDeferredSyncOpRow,
+          PrefetchHooks Function()
+        > {
+  $$PkGroupEntryDeferredSyncOpsTableTableManager(
+    _$AppDatabase db,
+    $PkGroupEntryDeferredSyncOpsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PkGroupEntryDeferredSyncOpsTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$PkGroupEntryDeferredSyncOpsTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$PkGroupEntryDeferredSyncOpsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> entityType = const Value.absent(),
+                Value<String> entityId = const Value.absent(),
+                Value<String> fieldsJson = const Value.absent(),
+                Value<String> reason = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime?> lastRetryAt = const Value.absent(),
+                Value<int> retryCount = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PkGroupEntryDeferredSyncOpsCompanion(
+                id: id,
+                entityType: entityType,
+                entityId: entityId,
+                fieldsJson: fieldsJson,
+                reason: reason,
+                createdAt: createdAt,
+                lastRetryAt: lastRetryAt,
+                retryCount: retryCount,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String entityType,
+                required String entityId,
+                required String fieldsJson,
+                required String reason,
+                required DateTime createdAt,
+                Value<DateTime?> lastRetryAt = const Value.absent(),
+                Value<int> retryCount = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PkGroupEntryDeferredSyncOpsCompanion.insert(
+                id: id,
+                entityType: entityType,
+                entityId: entityId,
+                fieldsJson: fieldsJson,
+                reason: reason,
+                createdAt: createdAt,
+                lastRetryAt: lastRetryAt,
+                retryCount: retryCount,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PkGroupEntryDeferredSyncOpsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PkGroupEntryDeferredSyncOpsTable,
+      PkGroupEntryDeferredSyncOpRow,
+      $$PkGroupEntryDeferredSyncOpsTableFilterComposer,
+      $$PkGroupEntryDeferredSyncOpsTableOrderingComposer,
+      $$PkGroupEntryDeferredSyncOpsTableAnnotationComposer,
+      $$PkGroupEntryDeferredSyncOpsTableCreateCompanionBuilder,
+      $$PkGroupEntryDeferredSyncOpsTableUpdateCompanionBuilder,
+      (
+        PkGroupEntryDeferredSyncOpRow,
+        BaseReferences<
+          _$AppDatabase,
+          $PkGroupEntryDeferredSyncOpsTable,
+          PkGroupEntryDeferredSyncOpRow
+        >,
+      ),
+      PkGroupEntryDeferredSyncOpRow,
       PrefetchHooks Function()
     >;
 typedef $$CustomFieldsTableCreateCompanionBuilder =
@@ -29921,6 +31686,14 @@ class $AppDatabaseManager {
       $$MemberGroupsTableTableManager(_db, _db.memberGroups);
   $$MemberGroupEntriesTableTableManager get memberGroupEntries =>
       $$MemberGroupEntriesTableTableManager(_db, _db.memberGroupEntries);
+  $$PkGroupSyncAliasesTableTableManager get pkGroupSyncAliases =>
+      $$PkGroupSyncAliasesTableTableManager(_db, _db.pkGroupSyncAliases);
+  $$PkGroupEntryDeferredSyncOpsTableTableManager
+  get pkGroupEntryDeferredSyncOps =>
+      $$PkGroupEntryDeferredSyncOpsTableTableManager(
+        _db,
+        _db.pkGroupEntryDeferredSyncOps,
+      );
   $$CustomFieldsTableTableManager get customFields =>
       $$CustomFieldsTableTableManager(_db, _db.customFields);
   $$CustomFieldValuesTableTableManager get customFieldValues =>

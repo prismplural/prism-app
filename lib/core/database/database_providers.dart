@@ -160,6 +160,7 @@ final memberGroupsRepositoryProvider = Provider<MemberGroupsRepository>(
   (ref) => DriftMemberGroupsRepository(
     ref.watch(memberGroupsDaoProvider),
     _resolveSyncHandle(ref),
+    memberRepository: ref.watch(memberRepositoryProvider),
   ),
 );
 
@@ -245,4 +246,3 @@ final mediaAttachmentRepositoryProvider = Provider<MediaAttachmentRepository>(
     _resolveSyncHandle(ref),
   ),
 );
-

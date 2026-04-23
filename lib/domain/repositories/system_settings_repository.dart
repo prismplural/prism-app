@@ -76,6 +76,7 @@ abstract class SystemSettingsRepository {
   // Phase 3: Synced settings
   Future<void> updateSystemDescription(String? value);
   Future<void> updateSystemColor(String? colorHex);
+  Future<void> updatePkGroupSyncV2Enabled(bool value);
   // Plan 04: PluralKit system tag.
   Future<void> updateSystemTag(String? value);
   Future<void> updateSystemAvatarData(Uint8List? value);

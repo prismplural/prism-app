@@ -107,21 +107,9 @@ enum FontFamily {
   }
 }
 
-enum GifConsentState {
-  unknown,
-  enabled,
-  declined;
-}
+enum GifConsentState { unknown, enabled, declined }
 
-enum SystemTerminology {
-  members,
-  headmates,
-  alters,
-  parts,
-  facets,
-  custom;
-
-}
+enum SystemTerminology { members, headmates, alters, parts, facets, custom }
 
 @freezed
 abstract class SystemSettings with _$SystemSettings {
@@ -167,6 +155,7 @@ abstract class SystemSettings with _$SystemSettings {
     // Phase 3: Synced settings
     String? systemDescription,
     String? systemColor,
+    @Default(false) bool pkGroupSyncV2Enabled,
     // Plan 04: synced PluralKit system profile tag.
     String? systemTag,
     @JsonKey(fromJson: _uint8ListFromJson, toJson: _uint8ListToJson)

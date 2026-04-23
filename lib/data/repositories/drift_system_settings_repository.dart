@@ -352,6 +352,14 @@ class DriftSystemSettingsRepository
   }
 
   @override
+  Future<void> updatePkGroupSyncV2Enabled(bool value) async {
+    final settings = await getSettings();
+    if (settings.pkGroupSyncV2Enabled == value) return;
+    await _dao.updatePkGroupSyncV2Enabled(value);
+    await _syncField('pk_group_sync_v2_enabled', value);
+  }
+
+  @override
   Future<void> updateSystemTag(String? value) async {
     await _dao.updateSystemTag(value);
     await _syncField('system_tag', value);
@@ -498,6 +506,7 @@ class DriftSystemSettingsRepository
       'sync_theme_enabled': s.syncThemeEnabled,
       'timing_mode': s.timingMode.index,
       'notes_enabled': s.notesEnabled,
+      'pk_group_sync_v2_enabled': s.pkGroupSyncV2Enabled,
       'system_description': s.systemDescription,
       'system_color': s.systemColor,
       'system_tag': s.systemTag,

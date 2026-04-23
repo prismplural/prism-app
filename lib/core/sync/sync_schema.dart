@@ -110,6 +110,7 @@ const String prismSyncSchema = '''
         "sync_theme_enabled": "Bool",
         "timing_mode": "Int",
         "notes_enabled": "Bool",
+        "pk_group_sync_v2_enabled": "Bool",
         "system_color": "String",
         "system_description": "String",
         "system_tag": "String",
@@ -212,6 +213,8 @@ const String prismSyncSchema = '''
       "fields": {
         "group_id": "String",
         "member_id": "String",
+        "pk_group_uuid": "String",
+        "pk_member_uuid": "String",
         "is_deleted": "Bool"
       }
     },
