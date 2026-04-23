@@ -280,18 +280,10 @@ void main() {
             ),
           );
 
-      await db.customStatement(
-        '''
-      INSERT INTO pk_group_sync_aliases
-        (legacy_entity_id, pk_group_uuid, canonical_entity_id, created_at)
-      VALUES (?, ?, ?, ?)
-      ''',
-        [
-          'legacy-entity-id',
-          'pk-g-uuid-1',
-          'pk-group:pk-g-uuid-1',
-          DateTime.now().millisecondsSinceEpoch,
-        ],
+      await db.pkGroupSyncAliasesDao.upsertAlias(
+        legacyEntityId: 'legacy-entity-id',
+        pkGroupUuid: 'pk-g-uuid-1',
+        canonicalEntityId: 'pk-group:pk-g-uuid-1',
       );
 
       final readBack = await groupsEntity.readRow('legacy-entity-id');

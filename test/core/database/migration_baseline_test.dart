@@ -92,6 +92,21 @@ void main() {
           )
           .get();
       expect(legacySleepIndex, isEmpty);
+
+      final canonicalizeIndex = await db
+          .customSelect(
+            'SELECT sql FROM sqlite_master '
+            "WHERE name = 'idx_member_group_entries_pk_canonicalize'",
+          )
+          .getSingle();
+      final canonicalizeIndexSql = canonicalizeIndex.read<String>('sql');
+      expect(
+        canonicalizeIndexSql,
+        contains('ON member_group_entries (pk_group_uuid, pk_member_uuid)'),
+      );
+      expect(canonicalizeIndexSql, contains('WHERE is_deleted = 0'));
+      expect(canonicalizeIndexSql, contains('pk_group_uuid IS NOT NULL'));
+      expect(canonicalizeIndexSql, contains('pk_member_uuid IS NOT NULL'));
     });
 
     test(

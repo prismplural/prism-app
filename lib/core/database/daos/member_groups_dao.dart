@@ -417,10 +417,19 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
         }
 
         if (canonicalRow != null && !canonicalRow.isDeleted) {
-          // An active row already occupies the canonical id for a different
-          // edge (shouldn't normally happen because the hash is derived from
-          // the same PK pair, but be defensive). Skip so we don't collapse
-          // two distinct edges; repair continues with the next legacy row.
+          if (canonicalRow.pkGroupUuid == pkGroupUuid &&
+              canonicalRow.pkMemberUuid == pkMemberUuid) {
+            // The logical edge already has an active canonical row. Keep the
+            // canonical row and soft-delete this legacy duplicate so future
+            // canonical updates/deletes target the surviving row.
+            await (update(
+              memberGroupEntries,
+            )..where((e) => e.id.equals(entry.id))).write(
+              const MemberGroupEntriesCompanion(isDeleted: Value(true)),
+            );
+            softDeletedLegacyConflicts++;
+            byId[entry.id] = entry.copyWith(isDeleted: true);
+          }
           continue;
         }
 
@@ -526,12 +535,24 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
     }
 
     return transaction(() async {
-      final loserEntries =
+      final loserEntries = <MemberGroupEntryRow>[];
+      for (
+        var start = 0;
+        start < loserGroupIds.length;
+        start += _lookupBatchSize
+      ) {
+        final end = start + _lookupBatchSize > loserGroupIds.length
+            ? loserGroupIds.length
+            : start + _lookupBatchSize;
+        final batch = loserGroupIds.sublist(start, end);
+        if (batch.isEmpty) continue;
+        loserEntries.addAll(
           await (select(memberGroupEntries)..where(
-                (e) =>
-                    e.groupId.isIn(loserGroupIds) & e.isDeleted.equals(false),
+                (e) => e.groupId.isIn(batch) & e.isDeleted.equals(false),
               ))
-              .get();
+              .get(),
+        );
+      }
       if (loserEntries.isEmpty) return const PkGroupEntryRehomeResult();
 
       final memberIds = {
@@ -623,53 +644,66 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
     if (loserGroupIds.isEmpty) return Future.value(0);
 
     return transaction(() async {
-      final impactedChildren =
-          await (select(memberGroups)..where(
-                (g) =>
-                    g.isDeleted.equals(false) &
-                    g.parentGroupId.isIn(loserGroupIds) &
-                    g.id.equals(winnerGroupId).not(),
-              ))
-              .get();
-      if (impactedChildren.isEmpty) return 0;
+      var rehomed = 0;
+      for (
+        var start = 0;
+        start < loserGroupIds.length;
+        start += _lookupBatchSize
+      ) {
+        final end = start + _lookupBatchSize > loserGroupIds.length
+            ? loserGroupIds.length
+            : start + _lookupBatchSize;
+        final batch = loserGroupIds.sublist(start, end);
+        if (batch.isEmpty) continue;
 
-      await customUpdate(
-        '''
-        UPDATE member_groups
-        SET parent_group_id = ?
-        WHERE is_deleted = 0
-          AND parent_group_id IN (${_placeholders(loserGroupIds.length)})
-          AND id <> ?
-        ''',
-        variables: [
-          Variable.withString(winnerGroupId),
-          ...loserGroupIds.map(Variable.withString),
-          Variable.withString(winnerGroupId),
-        ],
-        updates: {memberGroups},
-      );
-      return impactedChildren.length;
+        rehomed += await customUpdate(
+          '''
+          UPDATE member_groups
+          SET parent_group_id = ?
+          WHERE is_deleted = 0
+            AND parent_group_id IN (${_placeholders(batch.length)})
+            AND id <> ?
+          ''',
+          variables: [
+            Variable.withString(winnerGroupId),
+            ...batch.map(Variable.withString),
+            Variable.withString(winnerGroupId),
+          ],
+          updates: {memberGroups},
+        );
+      }
+      return rehomed;
     });
   }
 
   /// Soft-delete legacy loser rows after their memberships/children are
   /// re-homed.
-  Future<int> softDeleteGroupsForRepair(List<String> groupIds) {
+  Future<int> softDeleteGroupsForRepair(List<String> groupIds) async {
     if (groupIds.isEmpty) return Future.value(0);
 
-    return customUpdate(
-      '''
-      UPDATE member_groups
-      SET
-        is_deleted = 1,
-        sync_suppressed = 1,
-        suspected_pk_group_uuid = NULL
-      WHERE id IN (${_placeholders(groupIds.length)})
-        AND is_deleted = 0
-      ''',
-      variables: groupIds.map(Variable.withString).toList(),
-      updates: {memberGroups},
-    );
+    var deleted = 0;
+    for (var start = 0; start < groupIds.length; start += _lookupBatchSize) {
+      final end = start + _lookupBatchSize > groupIds.length
+          ? groupIds.length
+          : start + _lookupBatchSize;
+      final batch = groupIds.sublist(start, end);
+      if (batch.isEmpty) continue;
+
+      deleted += await customUpdate(
+        '''
+        UPDATE member_groups
+        SET
+          is_deleted = 1,
+          sync_suppressed = 1,
+          suspected_pk_group_uuid = NULL
+        WHERE id IN (${_placeholders(batch.length)})
+          AND is_deleted = 0
+        ''',
+        variables: batch.map(Variable.withString).toList(),
+        updates: {memberGroups},
+      );
+    }
+    return deleted;
   }
 
   /// Mark active plain groups as local-only until the user reviews them.
