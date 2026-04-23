@@ -28,11 +28,23 @@ class PkGroupEntryDeferredSyncOpsDao extends DatabaseAccessor<AppDatabase>
           .get();
 
   Future<void> markRetried(String id) async {
-    await customStatement(
+    // H3: write `last_retry_at` through a Drift companion so the
+    // DateTimeColumn mapping encodes it as seconds-since-epoch. A raw
+    // `UPDATE ... SET last_retry_at = <ms>` bypasses the type mapper and
+    // Drift decodes the 13-digit value as year ~58,000. The retry_count
+    // increment stays in a small customUpdate since Drift has no
+    // SET col = col + 1 helper on companions.
+    await (update(pkGroupEntryDeferredSyncOps)..where((t) => t.id.equals(id)))
+        .write(
+          PkGroupEntryDeferredSyncOpsCompanion(
+            lastRetryAt: Value(DateTime.now()),
+          ),
+        );
+    await customUpdate(
       'UPDATE pk_group_entry_deferred_sync_ops '
-      'SET retry_count = retry_count + 1, last_retry_at = ? '
-      'WHERE id = ?',
-      [DateTime.now().millisecondsSinceEpoch, id],
+      'SET retry_count = retry_count + 1 WHERE id = ?',
+      variables: [Variable<String>(id)],
+      updates: {pkGroupEntryDeferredSyncOps},
     );
   }
 

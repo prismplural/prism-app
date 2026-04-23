@@ -635,25 +635,18 @@ Future<bool> _deferPkBackedMemberGroupEntryOp(
     return false;
   }
 
-  await db.customStatement(
-    '''
-    INSERT INTO $_pkGroupEntryDeferredOpsTableName
-      (id, entity_type, entity_id, fields_json, reason, created_at, retry_count)
-    VALUES (?, ?, ?, ?, ?, ?, 0)
-    ON CONFLICT(id) DO UPDATE SET
-      entity_type = excluded.entity_type,
-      entity_id = excluded.entity_id,
-      fields_json = excluded.fields_json,
-      reason = excluded.reason
-    ''',
-    [
-      'member_group_entries:$entityId',
-      'member_group_entries',
-      entityId,
-      jsonEncode(fields),
-      reason,
-      DateTime.now().millisecondsSinceEpoch,
-    ],
+  // H3: route through the DAO upsert so Drift encodes `created_at` as
+  // seconds-since-epoch. The DAO uses `insertOnConflictUpdate` which preserves
+  // the ON CONFLICT(id) DO UPDATE semantics of the previous raw insert.
+  await db.pkGroupEntryDeferredSyncOpsDao.upsert(
+    PkGroupEntryDeferredSyncOpsCompanion.insert(
+      id: 'member_group_entries:$entityId',
+      entityType: 'member_group_entries',
+      entityId: entityId,
+      fieldsJson: jsonEncode(fields),
+      reason: reason,
+      createdAt: DateTime.now(),
+    ),
   );
   return true;
 }
@@ -868,21 +861,13 @@ Future<void> _recordPkGroupAliasIfNeeded(
     return;
   }
 
-  await db.customStatement(
-    '''
-    INSERT INTO $_pkGroupSyncAliasesTableName
-      (legacy_entity_id, pk_group_uuid, canonical_entity_id, created_at)
-    VALUES (?, ?, ?, ?)
-    ON CONFLICT(legacy_entity_id) DO UPDATE SET
-      pk_group_uuid = excluded.pk_group_uuid,
-      canonical_entity_id = excluded.canonical_entity_id
-    ''',
-    [
-      legacyEntityId,
-      pkGroupUuid,
-      _canonicalPkGroupEntityId(pkGroupUuid),
-      DateTime.now().millisecondsSinceEpoch,
-    ],
+  // H3: route through the DAO upsert so Drift encodes `created_at` as
+  // seconds-since-epoch. The DAO's insertOnConflictUpdate preserves the
+  // original ON CONFLICT(legacy_entity_id) DO UPDATE semantics.
+  await db.pkGroupSyncAliasesDao.upsertAlias(
+    legacyEntityId: legacyEntityId,
+    pkGroupUuid: pkGroupUuid,
+    canonicalEntityId: _canonicalPkGroupEntityId(pkGroupUuid),
   );
 }
 

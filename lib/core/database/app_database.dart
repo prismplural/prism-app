@@ -90,7 +90,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -124,6 +124,29 @@ class AppDatabase extends _$AppDatabase {
           systemSettingsTable.pkGroupSyncV2Enabled,
         );
         current = 3;
+      }
+      if (current == 3 && to >= 4) {
+        // H3: three raw-SQL sites wrote ms-since-epoch into DateTimeColumn
+        // fields that Drift decodes as seconds. Any value > 1e11 (year 5138
+        // AD in seconds) is almost certainly an ms value that should be
+        // seconds. Divide in place so existing rows decode to the right
+        // wall clock.
+        await customStatement(
+          'UPDATE pk_group_entry_deferred_sync_ops '
+          'SET created_at = created_at / 1000 '
+          'WHERE created_at > 100000000000',
+        );
+        await customStatement(
+          'UPDATE pk_group_entry_deferred_sync_ops '
+          'SET last_retry_at = last_retry_at / 1000 '
+          'WHERE last_retry_at IS NOT NULL AND last_retry_at > 100000000000',
+        );
+        await customStatement(
+          'UPDATE pk_group_sync_aliases '
+          'SET created_at = created_at / 1000 '
+          'WHERE created_at > 100000000000',
+        );
+        current = 4;
       }
       if (current != to) {
         throw UnsupportedError(
