@@ -228,5 +228,93 @@ void main() {
         ),
       );
     });
+
+    test(
+      'schema v3 → v4 migration divides ms-encoded DateTime columns by 1000',
+      () async {
+        final tempDir = Directory.systemTemp.createTempSync(
+          'prism_migration_',
+        );
+        addTearDown(() {
+          if (tempDir.existsSync()) {
+            tempDir.deleteSync(recursive: true);
+          }
+        });
+
+        // Bring the file up to current schema, seed ms-encoded rows via raw
+        // SQL (mimicking the pre-H3 raw-insert paths), then downgrade
+        // user_version to 3 so reopening forces the v3 → v4 branch of
+        // onUpgrade to run.
+        final dbFile = File('${tempDir.path}/v3_to_v4.db');
+        final seeded = AppDatabase(NativeDatabase(dbFile));
+        await seeded.customSelect('SELECT 1').get();
+
+        final nowMs = DateTime.now().millisecondsSinceEpoch;
+        await seeded.customStatement(
+          'INSERT INTO pk_group_sync_aliases '
+          '(legacy_entity_id, pk_group_uuid, canonical_entity_id, created_at) '
+          'VALUES (?, ?, ?, ?)',
+          [
+            'legacy-v3',
+            'pk-g-uuid-v3',
+            'pk-group:pk-g-uuid-v3',
+            nowMs,
+          ],
+        );
+        await seeded.customStatement(
+          'INSERT INTO pk_group_entry_deferred_sync_ops '
+          '(id, entity_type, entity_id, fields_json, reason, '
+          'created_at, last_retry_at, retry_count) '
+          'VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+          [
+            'deferred-v3',
+            'member_group_entries',
+            'entry-v3',
+            '{}',
+            'seeded',
+            nowMs,
+            nowMs,
+            0,
+          ],
+        );
+        await seeded.close();
+
+        final rawDb = raw.sqlite3.open(dbFile.path);
+        try {
+          rawDb.execute('PRAGMA user_version = 3;');
+        } finally {
+          rawDb.close();
+        }
+
+        final upgraded = AppDatabase(NativeDatabase(dbFile));
+        addTearDown(upgraded.close);
+
+        final aliasRow = await upgraded.pkGroupSyncAliasesDao
+            .getByLegacyEntityId('legacy-v3');
+        expect(aliasRow, isNotNull);
+        final expectedYear = DateTime.now().year;
+        expect(
+          aliasRow!.createdAt.year,
+          inInclusiveRange(expectedYear - 1, expectedYear + 1),
+          reason:
+              'Migration should divide ms-encoded createdAt by 1000 so '
+              'Drift decodes it as the current wall clock year.',
+        );
+
+        final deferredRows =
+            await upgraded.pkGroupEntryDeferredSyncOpsDao.getAll();
+        expect(deferredRows, hasLength(1));
+        final deferred = deferredRows.single;
+        expect(
+          deferred.createdAt.year,
+          inInclusiveRange(expectedYear - 1, expectedYear + 1),
+        );
+        expect(deferred.lastRetryAt, isNotNull);
+        expect(
+          deferred.lastRetryAt!.year,
+          inInclusiveRange(expectedYear - 1, expectedYear + 1),
+        );
+      },
+    );
   });
 }
