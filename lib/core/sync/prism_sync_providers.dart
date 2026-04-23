@@ -26,6 +26,7 @@ import 'package:prism_plurality/core/services/media/media_providers.dart';
 import 'package:prism_plurality/core/services/backup_exclusion.dart';
 import 'package:prism_plurality/core/sync/sync_runtime_state.dart';
 import 'package:prism_plurality/core/sync/sync_schema.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_group_sync_v2_catchup_service.dart';
 
 // Dart-side sync integration — manages the Rust FFI handle lifecycle, keychain
 // persistence (seed/drain), health state machine, and sync event routing.
@@ -289,6 +290,9 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
       // before the .name → .index fix.
       unawaited(
         _reemitSettingsEnumFieldsOnce(handle, ref.read(databaseProvider)),
+      );
+      unawaited(
+        catchUpPkBackedSyncOnceAfterCutover(handle, ref.read(databaseProvider)),
       );
       try {
         await drainRustStore(handle);
@@ -849,6 +853,32 @@ Future<void> _reemitSettingsEnumFieldsOnce(
     // Non-fatal — will retry on next launch until it succeeds.
     debugPrint('[SYNC_MIGRATE] enum field re-emit failed: $e');
   }
+}
+
+Future<PkGroupSyncV2CatchupResult> catchUpPkBackedSyncOnceAfterCutover(
+  ffi.PrismSyncHandle handle,
+  AppDatabase db,
+) {
+  final service = PkGroupSyncV2CatchupService(
+    db: db,
+    recordGroupUpdate: ({required table, required entityId, required fields}) {
+      return ffi.recordUpdate(
+        handle: handle,
+        table: table,
+        entityId: entityId,
+        changedFieldsJson: jsonEncode(fields),
+      );
+    },
+    recordEntryCreate: ({required table, required entityId, required fields}) {
+      return ffi.recordCreate(
+        handle: handle,
+        table: table,
+        entityId: entityId,
+        fieldsJson: jsonEncode(fields),
+      );
+    },
+  );
+  return service.runOnce();
 }
 
 // ---------------------------------------------------------------------------
