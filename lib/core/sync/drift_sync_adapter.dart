@@ -635,14 +635,16 @@ Future<bool> _deferPkBackedMemberGroupEntryOp(
   // H3: route through the DAO upsert so Drift encodes `created_at` as
   // seconds-since-epoch. The DAO uses `insertOnConflictUpdate` which preserves
   // the ON CONFLICT(id) DO UPDATE semantics of the previous raw insert.
+  final deferredId = 'member_group_entries:$entityId';
+  final existing = await db.pkGroupEntryDeferredSyncOpsDao.getById(deferredId);
   await db.pkGroupEntryDeferredSyncOpsDao.upsert(
     PkGroupEntryDeferredSyncOpsCompanion.insert(
-      id: 'member_group_entries:$entityId',
+      id: deferredId,
       entityType: 'member_group_entries',
       entityId: entityId,
       fieldsJson: jsonEncode(fields),
       reason: reason,
-      createdAt: DateTime.now(),
+      createdAt: existing?.createdAt ?? DateTime.now(),
     ),
   );
   return true;

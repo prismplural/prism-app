@@ -17,6 +17,10 @@ class PkGroupEntryDeferredSyncOpsDao extends DatabaseAccessor<AppDatabase>
   Future<List<PkGroupEntryDeferredSyncOpRow>> getAll() =>
       select(pkGroupEntryDeferredSyncOps).get();
 
+  Future<PkGroupEntryDeferredSyncOpRow?> getById(String id) => (select(
+    pkGroupEntryDeferredSyncOps,
+  )..where((t) => t.id.equals(id))).getSingleOrNull();
+
   Future<List<PkGroupEntryDeferredSyncOpRow>> getForEntity(
     String entityType,
     String entityId,
@@ -34,12 +38,11 @@ class PkGroupEntryDeferredSyncOpsDao extends DatabaseAccessor<AppDatabase>
     // Drift decodes the 13-digit value as year ~58,000. The retry_count
     // increment stays in a small customUpdate since Drift has no
     // SET col = col + 1 helper on companions.
-    await (update(pkGroupEntryDeferredSyncOps)..where((t) => t.id.equals(id)))
-        .write(
-          PkGroupEntryDeferredSyncOpsCompanion(
-            lastRetryAt: Value(DateTime.now()),
-          ),
-        );
+    await (update(
+      pkGroupEntryDeferredSyncOps,
+    )..where((t) => t.id.equals(id))).write(
+      PkGroupEntryDeferredSyncOpsCompanion(lastRetryAt: Value(DateTime.now())),
+    );
     await customUpdate(
       'UPDATE pk_group_entry_deferred_sync_ops '
       'SET retry_count = retry_count + 1 WHERE id = ?',

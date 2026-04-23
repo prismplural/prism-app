@@ -181,11 +181,7 @@ void main() {
       await db
           .into(db.memberGroupEntries)
           .insert(
-            _entry(
-              id: 'plain-entry',
-              groupId: 'group-a',
-              memberId: 'member-a',
-            ),
+            _entry(id: 'plain-entry', groupId: 'group-a', memberId: 'member-a'),
           );
       await db
           .into(db.memberGroupEntries)
@@ -261,6 +257,53 @@ void main() {
       expect(row.groupId, 'group-a');
       expect(row.memberId, 'member-a');
       expect(row.isDeleted, isFalse);
+    },
+  );
+
+  test(
+    'canonicalizePkBackedEntryIds leaves active canonical collisions intact',
+    () async {
+      const pkGroupUuid = 'pk-group-1';
+      const pkMemberUuid = 'pk-member-a';
+      final canonical = _canonicalEntryId(pkGroupUuid, pkMemberUuid);
+
+      await db
+          .into(db.memberGroupEntries)
+          .insert(
+            _entry(
+              id: canonical,
+              groupId: 'group-a',
+              memberId: 'member-a',
+              pkGroupUuid: pkGroupUuid,
+              pkMemberUuid: pkMemberUuid,
+            ),
+          );
+      await db
+          .into(db.memberGroupEntries)
+          .insert(
+            _entry(
+              id: 'random-legacy',
+              groupId: 'group-b',
+              memberId: 'member-b',
+              pkGroupUuid: pkGroupUuid,
+              pkMemberUuid: pkMemberUuid,
+            ),
+          );
+
+      final result = await db.memberGroupsDao.canonicalizePkBackedEntryIds();
+      expect(result.rewritten, 0);
+      expect(result.revivedTombstones, 0);
+      expect(result.softDeletedLegacyConflicts, 0);
+
+      final rows = await (db.select(
+        db.memberGroupEntries,
+      )..where((t) => t.id.isIn([canonical, 'random-legacy']))).get();
+      expect(rows, hasLength(2));
+      expect(rows.every((row) => !row.isDeleted), isTrue);
+      expect(
+        rows.map((row) => row.id),
+        containsAll([canonical, 'random-legacy']),
+      );
     },
   );
 }

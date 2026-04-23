@@ -152,52 +152,47 @@ void main() {
     expect(readBack?['description'], 'updated');
   });
 
-  test(
-    'member_groups: applyFields does NOT record an alias for the local row '
-    'id when it differs from canonical',
-    () async {
-      final db = AppDatabase(NativeDatabase.memory());
-      addTearDown(db.close);
-      await _ensurePkGroupPhase1RuntimeSchema(db);
+  test('member_groups: applyFields does NOT record an alias for the local row '
+      'id when it differs from canonical', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    await _ensurePkGroupPhase1RuntimeSchema(db);
 
-      final groupsEntity = _entityFor(db, 'member_groups');
-      final createdAt = DateTime.utc(2026, 4, 18, 12);
-      const pkUuid = 'pk-g-uuid-cascade';
+    final groupsEntity = _entityFor(db, 'member_groups');
+    final createdAt = DateTime.utc(2026, 4, 18, 12);
+    const pkUuid = 'pk-g-uuid-cascade';
 
-      // Seed a local row whose id uses the importer's hyphen form
-      // ("pk-group-$uuid"), distinct from the canonical ("pk-group:$uuid").
-      await db
-          .into(db.memberGroups)
-          .insert(
-            MemberGroupsCompanion.insert(
-              id: 'pk-group-$pkUuid',
-              name: 'Local',
-              createdAt: createdAt,
-              pluralkitUuid: const Value(pkUuid),
-            ),
-          );
+    // Seed a local row whose id uses the importer's hyphen form
+    // ("pk-group-$uuid"), distinct from the canonical ("pk-group:$uuid").
+    await db
+        .into(db.memberGroups)
+        .insert(
+          MemberGroupsCompanion.insert(
+            id: 'pk-group-$pkUuid',
+            name: 'Local',
+            createdAt: createdAt,
+            pluralkitUuid: const Value(pkUuid),
+          ),
+        );
 
-      // Apply a remote canonical op for the same PK UUID. The incoming
-      // entity id matches canonical, so no alias should be recorded for it;
-      // critically, no alias should be recorded for the device's own local
-      // row id either (this is the C1 fix).
-      await groupsEntity.applyFields('pk-group:$pkUuid', {
-        'name': 'Remote Canonical',
-        'display_order': 1,
-        'group_type': 0,
-        'created_at': createdAt.toIso8601String(),
-        'pluralkit_uuid': pkUuid,
-        'is_deleted': false,
-      });
+    // Apply a remote canonical op for the same PK UUID. The incoming
+    // entity id matches canonical, so no alias should be recorded for it;
+    // critically, no alias should be recorded for the device's own local
+    // row id either (this is the C1 fix).
+    await groupsEntity.applyFields('pk-group:$pkUuid', {
+      'name': 'Remote Canonical',
+      'display_order': 1,
+      'group_type': 0,
+      'created_at': createdAt.toIso8601String(),
+      'pluralkit_uuid': pkUuid,
+      'is_deleted': false,
+    });
 
-      final aliases = await db
-          .customSelect(
-            'SELECT legacy_entity_id FROM pk_group_sync_aliases',
-          )
-          .get();
-      expect(aliases, isEmpty);
-    },
-  );
+    final aliases = await db
+        .customSelect('SELECT legacy_entity_id FROM pk_group_sync_aliases')
+        .get();
+    expect(aliases, isEmpty);
+  });
 
   test(
     'member_groups: applyFields still records an alias for a genuinely-legacy '
@@ -243,7 +238,10 @@ void main() {
           )
           .get();
       expect(aliases, hasLength(1));
-      expect(aliases.single.data['legacy_entity_id'], 'random-legacy-entity-id');
+      expect(
+        aliases.single.data['legacy_entity_id'],
+        'random-legacy-entity-id',
+      );
       expect(aliases.single.data['canonical_entity_id'], 'pk-group:$pkUuid');
       expect(aliases.single.data['pk_group_uuid'], pkUuid);
     },
@@ -391,6 +389,55 @@ void main() {
     expect(readBack?['pk_group_uuid'], 'pk-group-1');
     expect(readBack?['pk_member_uuid'], 'pk-member-1');
   });
+
+  test(
+    'member_group_entries: PK UUID resolution wins over sender-local hints',
+    () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      await _ensurePkGroupPhase1RuntimeSchema(db);
+
+      final entriesEntity = _entityFor(db, 'member_group_entries');
+      final now = DateTime.utc(2026, 4, 18, 12);
+
+      await db
+          .into(db.members)
+          .insert(
+            MembersCompanion.insert(
+              id: 'member-local-correct',
+              name: 'Alice',
+              createdAt: now,
+              pluralkitUuid: const Value('pk-member-1'),
+            ),
+          );
+      await db
+          .into(db.memberGroups)
+          .insert(
+            MemberGroupsCompanion.insert(
+              id: 'group-local-correct',
+              name: 'Core',
+              createdAt: now,
+              pluralkitUuid: const Value('pk-group-1'),
+            ),
+          );
+
+      await entriesEntity.applyFields('entry-pk-wins', {
+        'pk_group_uuid': 'pk-group-1',
+        'pk_member_uuid': 'pk-member-1',
+        'group_id': 'sender-local-wrong-group',
+        'member_id': 'sender-local-wrong-member',
+        'is_deleted': false,
+      });
+
+      final row = await (db.select(
+        db.memberGroupEntries,
+      )..where((t) => t.id.equals('entry-pk-wins'))).getSingle();
+      expect(row.groupId, 'group-local-correct');
+      expect(row.memberId, 'member-local-correct');
+      expect(row.pkGroupUuid, 'pk-group-1');
+      expect(row.pkMemberUuid, 'pk-member-1');
+    },
+  );
 
   test(
     'member_group_entries: PK UUID payload with non-null legacy hints defers '
@@ -623,65 +670,68 @@ void main() {
     expect(deferred, isNull);
   });
 
-  test('member_group_entries: hard delete cancels queued deferred replay', () async {
-    final db = AppDatabase(NativeDatabase.memory());
-    addTearDown(db.close);
-    await _ensurePkGroupPhase1RuntimeSchema(db);
+  test(
+    'member_group_entries: hard delete cancels queued deferred replay',
+    () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      await _ensurePkGroupPhase1RuntimeSchema(db);
 
-    final entriesEntity = _entityFor(db, 'member_group_entries');
-    final groupsEntity = _entityFor(db, 'member_groups');
-    final membersEntity = _entityFor(db, 'members');
-    final now = DateTime.utc(2026, 4, 18, 12);
+      final entriesEntity = _entityFor(db, 'member_group_entries');
+      final groupsEntity = _entityFor(db, 'member_groups');
+      final membersEntity = _entityFor(db, 'members');
+      final now = DateTime.utc(2026, 4, 18, 12);
 
-    await entriesEntity.applyFields('entry-cancelled', {
-      'pk_group_uuid': 'pk-group-1',
-      'pk_member_uuid': 'pk-member-1',
-      'is_deleted': false,
-    });
+      await entriesEntity.applyFields('entry-cancelled', {
+        'pk_group_uuid': 'pk-group-1',
+        'pk_member_uuid': 'pk-member-1',
+        'is_deleted': false,
+      });
 
-    await entriesEntity.hardDelete('entry-cancelled');
+      await entriesEntity.hardDelete('entry-cancelled');
 
-    final deferred = await db
-        .customSelect(
-          '''
+      final deferred = await db
+          .customSelect(
+            '''
             SELECT id
             FROM pk_group_entry_deferred_sync_ops
             WHERE id = ?
             ''',
-          variables: const [
-            Variable<String>('member_group_entries:entry-cancelled'),
-          ],
-        )
-        .getSingleOrNull();
-    expect(deferred, isNull);
+            variables: const [
+              Variable<String>('member_group_entries:entry-cancelled'),
+            ],
+          )
+          .getSingleOrNull();
+      expect(deferred, isNull);
 
-    await groupsEntity.applyFields('pk-group:pk-group-1', {
-      'name': 'Imported',
-      'display_order': 0,
-      'group_type': 0,
-      'created_at': now.toIso8601String(),
-      'pluralkit_uuid': 'pk-group-1',
-      'is_deleted': false,
-    });
-    await membersEntity.applyFields('member-local-1', {
-      'name': 'Alice',
-      'emoji': '❔',
-      'is_active': true,
-      'created_at': now.toIso8601String(),
-      'display_order': 0,
-      'is_admin': false,
-      'custom_color_enabled': false,
-      'markdown_enabled': false,
-      'pluralkit_sync_ignored': false,
-      'pluralkit_uuid': 'pk-member-1',
-      'is_deleted': false,
-    });
+      await groupsEntity.applyFields('pk-group:pk-group-1', {
+        'name': 'Imported',
+        'display_order': 0,
+        'group_type': 0,
+        'created_at': now.toIso8601String(),
+        'pluralkit_uuid': 'pk-group-1',
+        'is_deleted': false,
+      });
+      await membersEntity.applyFields('member-local-1', {
+        'name': 'Alice',
+        'emoji': '❔',
+        'is_active': true,
+        'created_at': now.toIso8601String(),
+        'display_order': 0,
+        'is_admin': false,
+        'custom_color_enabled': false,
+        'markdown_enabled': false,
+        'pluralkit_sync_ignored': false,
+        'pluralkit_uuid': 'pk-member-1',
+        'is_deleted': false,
+      });
 
-    final applied = await (db.select(
-      db.memberGroupEntries,
-    )..where((t) => t.id.equals('entry-cancelled'))).getSingleOrNull();
-    expect(applied, isNull);
-  });
+      final applied = await (db.select(
+        db.memberGroupEntries,
+      )..where((t) => t.id.equals('entry-cancelled'))).getSingleOrNull();
+      expect(applied, isNull);
+    },
+  );
 
   test('member_group_entries: canonical hard delete cancels legacy deferred PK '
       'edge siblings', () async {
@@ -717,14 +767,10 @@ void main() {
 
     await entriesEntity.hardDelete(canonicalEntryId);
 
-    final deferredRows = await db
-        .customSelect(
-          '''
+    final deferredRows = await db.customSelect('''
             SELECT id
             FROM pk_group_entry_deferred_sync_ops
-          ''',
-        )
-        .get();
+          ''').get();
     expect(deferredRows, isEmpty);
   });
 
@@ -883,14 +929,10 @@ void main() {
     expect(rows.single.groupId, 'group-local-1');
     expect(rows.single.memberId, 'member-local-1');
 
-    final deferredRows = await db
-        .customSelect(
-          '''
+    final deferredRows = await db.customSelect('''
             SELECT id
             FROM pk_group_entry_deferred_sync_ops
-          ''',
-        )
-        .get();
+          ''').get();
     expect(deferredRows, isEmpty);
   });
 
