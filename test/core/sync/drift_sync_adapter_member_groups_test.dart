@@ -392,6 +392,61 @@ void main() {
     expect(readBack?['pk_member_uuid'], 'pk-member-1');
   });
 
+  test(
+    'member_group_entries: PK UUID payload with non-null legacy hints defers '
+    'when PK UUID does not resolve',
+    () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      await _ensurePkGroupPhase1RuntimeSchema(db);
+
+      final entriesEntity = _entityFor(db, 'member_group_entries');
+
+      // Plan §5.2: once a PK UUID field is present on the payload,
+      // sender-local `group_id` / `member_id` are compatibility hints only.
+      // They must not be used as authoritative cross-device fallbacks when
+      // PK UUID resolution misses — the op must defer into the retry queue.
+      await entriesEntity.applyFields('entry-h1', {
+        'pk_group_uuid': 'missing-group-uuid',
+        'pk_member_uuid': 'missing-member-uuid',
+        'group_id': 'sender-local-group',
+        'member_id': 'sender-local-member',
+        'is_deleted': false,
+      });
+
+      // No local row inserted under the sender's local ids.
+      final applied = await (db.select(
+        db.memberGroupEntries,
+      )..where((t) => t.id.equals('entry-h1'))).getSingleOrNull();
+      expect(applied, isNull);
+
+      // Deferred op persisted for later replay.
+      final deferred = await db
+          .customSelect(
+            '''
+            SELECT entity_type, entity_id, fields_json, reason
+            FROM pk_group_entry_deferred_sync_ops
+            WHERE id = ?
+            ''',
+            variables: const [
+              Variable<String>('member_group_entries:entry-h1'),
+            ],
+          )
+          .getSingle();
+      expect(deferred.data['entity_type'], 'member_group_entries');
+      expect(deferred.data['entity_id'], 'entry-h1');
+      expect(
+        deferred.data['fields_json'],
+        contains('"pk_group_uuid":"missing-group-uuid"'),
+      );
+      expect(
+        deferred.data['reason'],
+        contains('unresolved_pk_refs:group:missing-group-uuid'),
+      );
+      expect(deferred.data['reason'], contains('member:missing-member-uuid'));
+    },
+  );
+
   test('member_group_entries: unresolved PK UUID payload defers when '
       'deferred-op table exists', () async {
     final db = AppDatabase(NativeDatabase.memory());
