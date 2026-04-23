@@ -465,10 +465,7 @@ bool _isCanonicalPkMemberGroupEntryEntityId(
   _PkMemberGroupEntryLogicalEdge edge,
 ) {
   return entityId ==
-      _canonicalPkMemberGroupEntryEntityId(
-        edge.pkGroupUuid,
-        edge.pkMemberUuid,
-      );
+      _canonicalPkMemberGroupEntryEntityId(edge.pkGroupUuid, edge.pkMemberUuid);
 }
 
 Future<_PkMemberGroupEntryLogicalEdge?> _memberGroupEntryPkEdgeById(
@@ -871,6 +868,9 @@ Future<void> _recordPkGroupAliasIfNeeded(
       legacyEntityId == _canonicalPkGroupEntityId(pkGroupUuid)) {
     return;
   }
+  if (await _isActiveMemberGroupIdForPkUuid(db, legacyEntityId, pkGroupUuid)) {
+    return;
+  }
   if (!await _tableExists(db, _pkGroupSyncAliasesTableName)) {
     return;
   }
@@ -883,6 +883,21 @@ Future<void> _recordPkGroupAliasIfNeeded(
     pkGroupUuid: pkGroupUuid,
     canonicalEntityId: _canonicalPkGroupEntityId(pkGroupUuid),
   );
+}
+
+Future<bool> _isActiveMemberGroupIdForPkUuid(
+  AppDatabase db,
+  String id,
+  String pkGroupUuid,
+) async {
+  final row = await db
+      .customSelect(
+        'SELECT 1 FROM member_groups '
+        'WHERE id = ? AND pluralkit_uuid = ? AND is_deleted = 0 LIMIT 1',
+        variables: [Variable<String>(id), Variable<String>(pkGroupUuid)],
+      )
+      .getSingleOrNull();
+  return row != null;
 }
 
 // ---------------------------------------------------------------------------
