@@ -29,6 +29,9 @@ class PkGroupRepairReport {
   const PkGroupRepairReport({
     required this.referenceMode,
     required this.backfilledEntries,
+    required this.canonicalizedEntryIds,
+    required this.revivedTombstonesDuringCanonicalization,
+    required this.legacyEntriesSoftDeletedDuringCanonicalization,
     required this.duplicateSetsMerged,
     required this.duplicateGroupsSoftDeleted,
     required this.parentReferencesRehomed,
@@ -43,6 +46,9 @@ class PkGroupRepairReport {
 
   final PkGroupRepairReferenceMode referenceMode;
   final int backfilledEntries;
+  final int canonicalizedEntryIds;
+  final int revivedTombstonesDuringCanonicalization;
+  final int legacyEntriesSoftDeletedDuringCanonicalization;
   final int duplicateSetsMerged;
   final int duplicateGroupsSoftDeleted;
   final int parentReferencesRehomed;
@@ -178,6 +184,13 @@ class PkGroupRepairService {
       final backfilledEntries = await _memberGroupsDao
           .backfillActiveEntryPkReferences();
 
+      // H2: canonicalize legacy PK-backed entry ids onto the deterministic
+      // `sha256(pkGroupUuid || 0x00 || pkMemberUuid)[:16]` hash. Reviving
+      // tombstones already occupying the canonical id keeps the partial
+      // `(group_id, member_id) WHERE is_deleted = 0` unique index clean.
+      final canonicalization = await _memberGroupsDao
+          .canonicalizePkBackedEntryIds();
+
       final entryCounts = await _activeEntryCountByGroupId();
       final duplicateSets = await _memberGroupsDao
           .getActiveLinkedPkGroupDuplicateSets();
@@ -243,6 +256,11 @@ class PkGroupRepairService {
       return PkGroupRepairReport(
         referenceMode: referenceResolution.mode,
         backfilledEntries: backfilledEntries,
+        canonicalizedEntryIds: canonicalization.rewritten,
+        revivedTombstonesDuringCanonicalization:
+            canonicalization.revivedTombstones,
+        legacyEntriesSoftDeletedDuringCanonicalization:
+            canonicalization.softDeletedLegacyConflicts,
         duplicateSetsMerged: duplicateSetsMerged,
         duplicateGroupsSoftDeleted: duplicateGroupsSoftDeleted,
         parentReferencesRehomed: parentReferencesRehomed,

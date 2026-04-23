@@ -44,6 +44,9 @@ class _CountingPkGroupRepairService extends PkGroupRepairService {
     return const PkGroupRepairReport(
       referenceMode: PkGroupRepairReferenceMode.none,
       backfilledEntries: 0,
+      canonicalizedEntryIds: 0,
+      revivedTombstonesDuringCanonicalization: 0,
+      legacyEntriesSoftDeletedDuringCanonicalization: 0,
       duplicateSetsMerged: 0,
       duplicateGroupsSoftDeleted: 0,
       parentReferencesRehomed: 0,
