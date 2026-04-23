@@ -5,9 +5,11 @@ import 'package:prism_plurality/core/database/app_database.dart' hide Member;
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_file_parser.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_group_reset_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_groups_importer.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
 
@@ -25,7 +27,15 @@ final pluralKitSyncServiceProvider = Provider<PluralKitSyncService>((ref) {
     groupsImporter: PkGroupsImporter(
       db: db,
       memberRepository: ref.watch(memberRepositoryProvider),
+      syncHandle: ref.watch(prismSyncHandleProvider).value,
     ),
+  );
+});
+
+final pkGroupResetServiceProvider = Provider<PkGroupResetService>((ref) {
+  return PkGroupResetService(
+    db: ref.watch(databaseProvider),
+    memberGroupsRepository: ref.watch(memberGroupsRepositoryProvider),
   );
 });
 
@@ -48,7 +58,8 @@ class PkSyncDirectionNotifier extends Notifier<PkSyncDirection> {
     // The overall direction is stored under the '__global__' key
     final globalConfig = config['__global__'];
     if (globalConfig != null) {
-      state = globalConfig.name; // We reuse the 'name' field for global direction
+      state =
+          globalConfig.name; // We reuse the 'name' field for global direction
     }
   }
 
@@ -77,8 +88,8 @@ class PkSyncDirectionNotifier extends Notifier<PkSyncDirection> {
 
 final pkSyncDirectionProvider =
     NotifierProvider<PkSyncDirectionNotifier, PkSyncDirection>(
-  PkSyncDirectionNotifier.new,
-);
+      PkSyncDirectionNotifier.new,
+    );
 
 // ---------------------------------------------------------------------------
 // Last sync summary
@@ -92,8 +103,8 @@ class _PkLastSyncSummaryNotifier extends Notifier<PkSyncSummary?> {
 
 final pkLastSyncSummaryProvider =
     NotifierProvider<_PkLastSyncSummaryNotifier, PkSyncSummary?>(
-  _PkLastSyncSummaryNotifier.new,
-);
+      _PkLastSyncSummaryNotifier.new,
+    );
 
 // ---------------------------------------------------------------------------
 // Sync state notifier
@@ -127,8 +138,7 @@ class PluralKitSyncNotifier extends Notifier<PluralKitSyncState> {
   Future<PkFileImportResult> importFromFile(
     PkFileExport export, {
     void Function(double progress, String status)? onProgress,
-  }) =>
-      _service.importFromFile(export, onProgress: onProgress);
+  }) => _service.importFromFile(export, onProgress: onProgress);
 
   /// Push any locally-created fronting sessions to PluralKit. Safe to call
   /// on every front change: it no-ops when the service isn't connected /
@@ -158,22 +168,20 @@ class PluralKitSyncNotifier extends Notifier<PluralKitSyncState> {
   Future<PkSyncSummary?> syncRecentData({
     bool isManual = false,
     PkSyncDirection direction = PkSyncDirection.pullOnly,
-  }) =>
-      _service.syncRecentData(isManual: isManual, direction: direction);
+  }) => _service.syncRecentData(isManual: isManual, direction: direction);
 
   Future<PKSystem?> fetchSystemProfile() => _service.fetchSystemProfile();
 
   Future<void> adoptSystemProfile({
     required PKSystem pk,
     required Set<PkProfileField> accepted,
-  }) =>
-      _service.adoptSystemProfile(pk: pk, accepted: accepted);
+  }) => _service.adoptSystemProfile(pk: pk, accepted: accepted);
 }
 
 final pluralKitSyncProvider =
     NotifierProvider<PluralKitSyncNotifier, PluralKitSyncState>(
-  PluralKitSyncNotifier.new,
-);
+      PluralKitSyncNotifier.new,
+    );
 
 // Auto-push-current-front-as-switch was removed in Phase 3 — it created
 // duplicate PK switches on every session change because the returned PK

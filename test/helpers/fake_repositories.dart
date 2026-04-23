@@ -253,6 +253,9 @@ class FakeSystemSettingsRepository implements SystemSettingsRepository {
   Future<void> updateSystemColor(String? colorHex) async =>
       updateSettings(settings.copyWith(systemColor: colorHex));
   @override
+  Future<void> updatePkGroupSyncV2Enabled(bool value) async =>
+      updateSettings(settings.copyWith(pkGroupSyncV2Enabled: value));
+  @override
   Future<void> updateSystemTag(String? value) async =>
       updateSettings(settings.copyWith(systemTag: value));
   @override
@@ -296,7 +299,12 @@ class FakeSystemSettingsRepository implements SystemSettingsRepository {
       updateSettings(settings.copyWith(sleepSuggestionEnabled: value));
   @override
   Future<void> updateSleepSuggestionTime(int hour, int minute) async =>
-      updateSettings(settings.copyWith(sleepSuggestionHour: hour, sleepSuggestionMinute: minute));
+      updateSettings(
+        settings.copyWith(
+          sleepSuggestionHour: hour,
+          sleepSuggestionMinute: minute,
+        ),
+      );
   @override
   Future<void> updateWakeSuggestionEnabled(bool value) async =>
       updateSettings(settings.copyWith(wakeSuggestionEnabled: value));
@@ -619,8 +627,7 @@ class FakeFrontingSessionRepository implements FrontingSessionRepository {
     int? startHour,
     int? endHour,
     int? withinDays,
-  }) async =>
-      {};
+  }) async => {};
 
   @override
   Future<List<FrontingSession>> getDeletedLinkedSessions() async => const [];

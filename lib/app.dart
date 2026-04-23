@@ -11,6 +11,7 @@ import 'core/services/notification_providers.dart';
 import 'core/services/reminder_scheduler_service.dart';
 import 'core/sync/prism_sync_providers.dart';
 import 'features/habits/providers/habit_providers.dart';
+import 'features/pluralkit/providers/pk_group_repair_provider.dart';
 import 'domain/models/system_settings.dart';
 import 'features/settings/providers/settings_providers.dart';
 import 'shared/theme/app_colors.dart';
@@ -105,6 +106,9 @@ class _PrismAppState extends ConsumerState<PrismApp> {
     ref.listen(habitNotificationListenerProvider, (_, _) {});
     // Keep the fronting reminder listener alive — schedules/cancels based on settings.
     ref.listen(frontingReminderListenerProvider, (_, _) {});
+    // Keep PK repair bootstrap alive so local legacy repair can run once sync
+    // is ready, without coupling it to the sync engine internals.
+    ref.listen(pkGroupRepairBootstrapProvider, (_, _) {});
 
     final router = ref.watch(routerProvider);
     final brightness = ref.watch(themeBrightnessProvider);

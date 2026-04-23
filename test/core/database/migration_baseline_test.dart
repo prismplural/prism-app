@@ -125,5 +125,108 @@ void main() {
         );
       },
     );
+
+    test('schema v1 databases upgrade through v2 and v3 additions', () async {
+      final tempDir = Directory.systemTemp.createTempSync('prism_migration_');
+      addTearDown(() {
+        if (tempDir.existsSync()) {
+          tempDir.deleteSync(recursive: true);
+        }
+      });
+
+      final dbFile = File('${tempDir.path}/v1_to_v3.db');
+      final seeded = AppDatabase(NativeDatabase(dbFile));
+      await seeded.customSelect('SELECT 1').get();
+      await seeded.close();
+
+      final rawDb = raw.sqlite3.open(dbFile.path);
+      try {
+        rawDb.execute('PRAGMA foreign_keys = OFF;');
+        rawDb.execute(
+          'DROP INDEX IF EXISTS idx_member_groups_sync_suppressed;',
+        );
+        rawDb.execute(
+          'DROP INDEX IF EXISTS idx_member_groups_suspected_pk_group_uuid;',
+        );
+        rawDb.execute(
+          'DROP INDEX IF EXISTS idx_member_group_entries_pk_group_uuid;',
+        );
+        rawDb.execute(
+          'DROP INDEX IF EXISTS idx_member_group_entries_pk_member_uuid;',
+        );
+        rawDb.execute(
+          'DROP INDEX IF EXISTS idx_pk_group_sync_aliases_pk_group_uuid;',
+        );
+        rawDb.execute(
+          'DROP INDEX IF EXISTS idx_pk_group_entry_deferred_ops_entity;',
+        );
+        rawDb.execute('DROP TABLE IF EXISTS pk_group_sync_aliases;');
+        rawDb.execute('DROP TABLE IF EXISTS pk_group_entry_deferred_sync_ops;');
+        rawDb.execute(
+          'ALTER TABLE member_group_entries DROP COLUMN pk_group_uuid;',
+        );
+        rawDb.execute(
+          'ALTER TABLE member_group_entries DROP COLUMN pk_member_uuid;',
+        );
+        rawDb.execute('ALTER TABLE member_groups DROP COLUMN sync_suppressed;');
+        rawDb.execute(
+          'ALTER TABLE member_groups DROP COLUMN suspected_pk_group_uuid;',
+        );
+        rawDb.execute(
+          'ALTER TABLE system_settings DROP COLUMN pk_group_sync_v2_enabled;',
+        );
+        rawDb.execute('PRAGMA user_version = 1;');
+        rawDb.execute('PRAGMA foreign_keys = ON;');
+      } finally {
+        rawDb.close();
+      }
+
+      final upgraded = AppDatabase(NativeDatabase(dbFile));
+      addTearDown(upgraded.close);
+
+      final entryColumns = await upgraded
+          .customSelect('PRAGMA table_info(member_group_entries)')
+          .get();
+      final groupColumns = await upgraded
+          .customSelect('PRAGMA table_info(member_groups)')
+          .get();
+      final settingsColumns = await upgraded
+          .customSelect('PRAGMA table_info(system_settings)')
+          .get();
+      final pkSyncTables = await upgraded.customSelect('''
+        SELECT name
+        FROM sqlite_master
+        WHERE type = 'table'
+          AND name IN (
+            'pk_group_sync_aliases',
+            'pk_group_entry_deferred_sync_ops'
+          )
+      ''').get();
+
+      expect(
+        entryColumns.map((row) => row.read<String>('name')).toSet(),
+        containsAll({'pk_group_uuid', 'pk_member_uuid'}),
+      );
+      expect(
+        groupColumns.map((row) => row.read<String>('name')).toSet(),
+        containsAll({'sync_suppressed', 'suspected_pk_group_uuid'}),
+      );
+      expect(
+        settingsColumns.map((row) => row.read<String>('name')).toSet(),
+        contains('pk_group_sync_v2_enabled'),
+      );
+      expect(
+        pkSyncTables.map((row) => row.read<String>('name')).toSet(),
+        equals({'pk_group_sync_aliases', 'pk_group_entry_deferred_sync_ops'}),
+      );
+      expect(
+        await upgraded.systemSettingsDao.getSettings(),
+        isA<SystemSettingsData>().having(
+          (row) => row.pkGroupSyncV2Enabled,
+          'pkGroupSyncV2Enabled',
+          isFalse,
+        ),
+      );
+    });
   });
 }

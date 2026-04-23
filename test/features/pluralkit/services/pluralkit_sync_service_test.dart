@@ -21,45 +21,54 @@ import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_servi
 class _SecureStorageStub {
   final _store = <String, String?>{};
   bool throwOnRead = false;
+  int readCount = 0;
+  int writeCount = 0;
+  int deleteCount = 0;
 
   void setup() {
     TestWidgetsFlutterBinding.ensureInitialized();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
-      const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
-      (MethodCall call) async {
-        switch (call.method) {
-          case 'write':
-            final key = call.arguments['key'] as String;
-            final value = call.arguments['value'] as String?;
-            _store[key] = value;
-            return null;
-          case 'read':
-            if (throwOnRead) throw PlatformException(code: 'AuthError');
-            final key = call.arguments['key'] as String;
-            return _store[key];
-          case 'delete':
-            final key = call.arguments['key'] as String;
-            _store.remove(key);
-            return null;
-          case 'containsKey':
-            final key = call.arguments['key'] as String;
-            return _store.containsKey(key);
-          default:
-            return null;
-        }
-      },
-    );
+          const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
+          (MethodCall call) async {
+            switch (call.method) {
+              case 'write':
+                writeCount++;
+                final key = call.arguments['key'] as String;
+                final value = call.arguments['value'] as String?;
+                _store[key] = value;
+                return null;
+              case 'read':
+                readCount++;
+                if (throwOnRead) throw PlatformException(code: 'AuthError');
+                final key = call.arguments['key'] as String;
+                return _store[key];
+              case 'delete':
+                deleteCount++;
+                final key = call.arguments['key'] as String;
+                _store.remove(key);
+                return null;
+              case 'containsKey':
+                final key = call.arguments['key'] as String;
+                return _store.containsKey(key);
+              default:
+                return null;
+            }
+          },
+        );
   }
 
   void teardown() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
-      const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
-      null,
-    );
+          const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
+          null,
+        );
     _store.clear();
     throwOnRead = false;
+    readCount = 0;
+    writeCount = 0;
+    deleteCount = 0;
   }
 }
 
@@ -71,6 +80,8 @@ class FakePluralKitClient implements PluralKitClient {
   int getSystemCallCount = 0;
   int getSwitchesCallCount = 0;
   int getMembersCallCount = 0;
+  int getGroupsCallCount = 0;
+  int disposeCallCount = 0;
 
   // Configurable behavior
   bool throwAuthError = false;
@@ -78,6 +89,7 @@ class FakePluralKitClient implements PluralKitClient {
 
   PKSystem systemToReturn = const PKSystem(id: 'sys-1', name: 'Test System');
   List<PKMember> membersToReturn = const [];
+  List<PKGroup> groupsToReturn = const [];
   List<PKSwitch> switchesToReturn = const [];
 
   /// When set, each getSwitches call pops the first list from this queue.
@@ -99,7 +111,10 @@ class FakePluralKitClient implements PluralKitClient {
   }
 
   @override
-  Future<List<PKSwitch>> getSwitches({DateTime? before, int limit = 100}) async {
+  Future<List<PKSwitch>> getSwitches({
+    DateTime? before,
+    int limit = 100,
+  }) async {
     getSwitchesCallCount++;
     if (switchesPageQueue != null && switchesPageQueue!.isNotEmpty) {
       return switchesPageQueue!.removeAt(0);
@@ -116,17 +131,22 @@ class FakePluralKitClient implements PluralKitClient {
       throw UnimplementedError();
 
   @override
-  Future<PKSwitch> createSwitch(List<String> memberIds, {DateTime? timestamp}) =>
-      throw UnimplementedError();
+  Future<PKSwitch> createSwitch(
+    List<String> memberIds, {
+    DateTime? timestamp,
+  }) => throw UnimplementedError();
 
   @override
-  Future<PKSwitch> updateSwitch(String switchId, {required DateTime timestamp}) =>
-      throw UnimplementedError();
+  Future<PKSwitch> updateSwitch(
+    String switchId, {
+    required DateTime timestamp,
+  }) => throw UnimplementedError();
 
   @override
   Future<PKSwitch> updateSwitchMembers(
-          String switchId, List<String> memberIds) =>
-      throw UnimplementedError();
+    String switchId,
+    List<String> memberIds,
+  ) => throw UnimplementedError();
 
   @override
   Future<void> deleteSwitch(String switchId) => throw UnimplementedError();
@@ -138,7 +158,10 @@ class FakePluralKitClient implements PluralKitClient {
   Future<List<int>> downloadBytes(String url) async => const [];
 
   @override
-  Future<List<PKGroup>> getGroups({bool withMembers = true}) async => const [];
+  Future<List<PKGroup>> getGroups({bool withMembers = true}) async {
+    getGroupsCallCount++;
+    return groupsToReturn;
+  }
 
   @override
   Future<List<String>> getGroupMembers(String groupRef) async => const [];
@@ -147,7 +170,9 @@ class FakePluralKitClient implements PluralKitClient {
   Future<PKSwitch?> getCurrentFronters() => throw UnimplementedError();
 
   @override
-  void dispose() {}
+  void dispose() {
+    disposeCallCount++;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -164,8 +189,7 @@ class FakeMemberRepository implements MemberRepository {
   }
 
   @override
-  Future<List<domain.Member>> getAllMembers() async =>
-      _members.values.toList();
+  Future<List<domain.Member>> getAllMembers() async => _members.values.toList();
 
   @override
   Future<domain.Member?> getMemberById(String id) async => _members[id];
@@ -240,48 +264,37 @@ class FakeFrontingSessionRepository implements FrontingSessionRepository {
       sessions.where((s) => s.isActive).toList();
 
   @override
-  Future<domain.FrontingSession?> getActiveSession() async =>
-      sessions.cast<domain.FrontingSession?>().firstWhere(
-        (s) => s!.isActive,
-        orElse: () => null,
-      );
+  Future<domain.FrontingSession?> getActiveSession() async => sessions
+      .cast<domain.FrontingSession?>()
+      .firstWhere((s) => s!.isActive, orElse: () => null);
 
   @override
-  Future<domain.FrontingSession?> getSessionById(String id) async =>
-      sessions.cast<domain.FrontingSession?>().firstWhere(
-        (s) => s!.id == id,
-        orElse: () => null,
-      );
+  Future<domain.FrontingSession?> getSessionById(String id) async => sessions
+      .cast<domain.FrontingSession?>()
+      .firstWhere((s) => s!.id == id, orElse: () => null);
 
   @override
   Future<List<domain.FrontingSession>> getSessionsForMember(
     String memberId,
-  ) async =>
-      sessions.where((s) => s.memberId == memberId).toList();
+  ) async => sessions.where((s) => s.memberId == memberId).toList();
 
   @override
   Future<List<domain.FrontingSession>> getRecentSessions({
     int limit = 20,
-  }) async =>
-      sessions.take(limit).toList();
+  }) async => sessions.take(limit).toList();
 
   @override
   Future<List<domain.FrontingSession>> getRecentSleepSessions({
     int limit = 10,
-  }) async =>
-      sessions.where((s) => s.isSleep).take(limit).toList();
+  }) async => sessions.where((s) => s.isSleep).take(limit).toList();
 
   @override
   Future<List<domain.FrontingSession>> getSessionsBetween(
     DateTime start,
     DateTime end,
-  ) async =>
-      sessions
-          .where(
-            (s) =>
-                !s.startTime.isBefore(start) && !s.startTime.isAfter(end),
-          )
-          .toList();
+  ) async => sessions
+      .where((s) => !s.startTime.isBefore(start) && !s.startTime.isAfter(end))
+      .toList();
 
   @override
   Future<void> updateSession(domain.FrontingSession session) async {
@@ -309,8 +322,7 @@ class FakeFrontingSessionRepository implements FrontingSessionRepository {
       Stream.value(const []);
 
   @override
-  Stream<domain.FrontingSession?> watchActiveSession() =>
-      Stream.value(null);
+  Stream<domain.FrontingSession?> watchActiveSession() => Stream.value(null);
 
   @override
   Stream<domain.FrontingSession?> watchActiveSleepSession() =>
@@ -325,16 +337,13 @@ class FakeFrontingSessionRepository implements FrontingSessionRepository {
       Stream.value(null);
 
   @override
-  Stream<List<domain.FrontingSession>> watchRecentSessions({
-    int limit = 20,
-  }) =>
+  Stream<List<domain.FrontingSession>> watchRecentSessions({int limit = 20}) =>
       Stream.value(sessions.take(limit).toList());
 
   @override
   Stream<List<domain.FrontingSession>> watchRecentAllSessions({
     int limit = 30,
-  }) =>
-      Stream.value(sessions.take(limit).toList());
+  }) => Stream.value(sessions.take(limit).toList());
 
   @override
   Future<int> getCount() async => sessions.length;
@@ -349,8 +358,7 @@ class FakeFrontingSessionRepository implements FrontingSessionRepository {
     int? startHour,
     int? endHour,
     int? withinDays,
-  }) async =>
-      {};
+  }) async => {};
 
   @override
   Future<List<domain.FrontingSession>> getDeletedLinkedSessions() async =>
@@ -376,13 +384,14 @@ PluralKitSyncService _makeService({
   required AppDatabase db,
   FakeMemberRepository? memberRepo,
   FakeFrontingSessionRepository? sessionRepo,
+  PluralKitClient Function(String token)? clientFactory,
 }) {
   return PluralKitSyncService(
     memberRepository: memberRepo ?? FakeMemberRepository(),
     frontingSessionRepository: sessionRepo ?? FakeFrontingSessionRepository(),
     syncDao: db.pluralKitSyncDao,
     secureStorage: const FlutterSecureStorage(),
-    clientFactory: (_) => fakeClient,
+    clientFactory: clientFactory ?? (_) => fakeClient,
   );
 }
 
@@ -418,27 +427,29 @@ void main() {
       expect(service.state.canAutoSync, isFalse);
     });
 
-    test('acknowledgeMapping clears needsMapping and unlocks auto-sync',
-        () async {
-      final db = _makeDb();
-      addTearDown(db.close);
+    test(
+      'acknowledgeMapping clears needsMapping and unlocks auto-sync',
+      () async {
+        final db = _makeDb();
+        addTearDown(db.close);
 
-      final fakeClient = FakePluralKitClient();
-      final service = _makeService(fakeClient: fakeClient, db: db);
+        final fakeClient = FakePluralKitClient();
+        final service = _makeService(fakeClient: fakeClient, db: db);
 
-      await service.setToken('valid-token');
-      expect(service.state.canAutoSync, isFalse);
+        await service.setToken('valid-token');
+        expect(service.state.canAutoSync, isFalse);
 
-      await service.acknowledgeMapping();
-      expect(service.state.needsMapping, isFalse);
-      expect(service.state.canAutoSync, isTrue);
+        await service.acknowledgeMapping();
+        expect(service.state.needsMapping, isFalse);
+        expect(service.state.canAutoSync, isTrue);
 
-      // Survives reload.
-      final reloaded = _makeService(fakeClient: fakeClient, db: db);
-      await reloaded.loadState();
-      expect(reloaded.state.needsMapping, isFalse);
-      expect(reloaded.state.canAutoSync, isTrue);
-    });
+        // Survives reload.
+        final reloaded = _makeService(fakeClient: fakeClient, db: db);
+        await reloaded.loadState();
+        expect(reloaded.state.needsMapping, isFalse);
+        expect(reloaded.state.canAutoSync, isTrue);
+      },
+    );
 
     test('buildClientIfConnected returns null while mapping pending', () async {
       final db = _makeDb();
@@ -457,105 +468,115 @@ void main() {
       expect(await service.buildClientIfConnected(), isNotNull);
     });
 
-    test('401 from getSystem: isConnected = false, token deleted from storage',
-        () async {
-      final db = _makeDb();
-      addTearDown(db.close);
+    test(
+      '401 from getSystem: isConnected = false, token deleted from storage',
+      () async {
+        final db = _makeDb();
+        addTearDown(db.close);
 
-      final fakeClient = FakePluralKitClient()..throwAuthError = true;
-      final service = _makeService(fakeClient: fakeClient, db: db);
+        final fakeClient = FakePluralKitClient()..throwAuthError = true;
+        final service = _makeService(fakeClient: fakeClient, db: db);
 
-      await service.setToken('bad-token');
+        await service.setToken('bad-token');
 
-      expect(service.state.isConnected, isFalse);
-      expect(storageStub._store.containsKey(_pkTokenKey), isFalse);
-      expect(service.state.syncError, isNotNull);
-    });
+        expect(service.state.isConnected, isFalse);
+        expect(storageStub._store.containsKey(_pkTokenKey), isFalse);
+        expect(service.state.syncError, isNotNull);
+      },
+    );
 
-    test('network error from getSystem: isConnected = false, token deleted',
-        () async {
-      final db = _makeDb();
-      addTearDown(db.close);
+    test(
+      'network error from getSystem: isConnected = false, token deleted',
+      () async {
+        final db = _makeDb();
+        addTearDown(db.close);
 
-      final fakeClient = FakePluralKitClient()..throwNetworkError = true;
-      final service = _makeService(fakeClient: fakeClient, db: db);
+        final fakeClient = FakePluralKitClient()..throwNetworkError = true;
+        final service = _makeService(fakeClient: fakeClient, db: db);
 
-      await service.setToken('some-token');
+        await service.setToken('some-token');
 
-      expect(service.state.isConnected, isFalse);
-      expect(storageStub._store.containsKey(_pkTokenKey), isFalse);
-      expect(service.state.syncError, isNotNull);
-    });
+        expect(service.state.isConnected, isFalse);
+        expect(storageStub._store.containsKey(_pkTokenKey), isFalse);
+        expect(service.state.syncError, isNotNull);
+      },
+    );
   });
 
   // ── clearToken ───────────────────────────────────────────────────────────────
 
   group('clearToken', () {
-    test('resets state: isConnected = false, token gone, lastSyncDate = null',
-        () async {
-      final db = _makeDb();
-      addTearDown(db.close);
+    test(
+      'resets state: isConnected = false, token gone, lastSyncDate = null',
+      () async {
+        final db = _makeDb();
+        addTearDown(db.close);
 
-      final fakeClient = FakePluralKitClient();
-      final service = _makeService(fakeClient: fakeClient, db: db);
+        final fakeClient = FakePluralKitClient();
+        final service = _makeService(fakeClient: fakeClient, db: db);
 
-      // First connect
-      await service.setToken('valid-token');
-      expect(service.state.isConnected, isTrue);
+        // First connect
+        await service.setToken('valid-token');
+        expect(service.state.isConnected, isTrue);
 
-      // Now clear
-      await service.clearToken();
+        // Now clear
+        await service.clearToken();
 
-      expect(service.state.isConnected, isFalse);
-      expect(service.state.lastSyncDate, isNull);
-      expect(storageStub._store.containsKey(_pkTokenKey), isFalse);
-    });
+        expect(service.state.isConnected, isFalse);
+        expect(service.state.lastSyncDate, isNull);
+        expect(storageStub._store.containsKey(_pkTokenKey), isFalse);
+      },
+    );
 
     test(
-        'truncates pk_mapping_state + resets needsMapping (regression B3)',
-        () async {
-      final db = _makeDb();
-      addTearDown(db.close);
+      'truncates pk_mapping_state + resets needsMapping (regression B3)',
+      () async {
+        final db = _makeDb();
+        addTearDown(db.close);
 
-      final fakeClient = FakePluralKitClient();
-      final service = _makeService(fakeClient: fakeClient, db: db);
+        final fakeClient = FakePluralKitClient();
+        final service = _makeService(fakeClient: fakeClient, db: db);
 
-      // Seed a mapping-state row — simulates a prior Skip decision the user
-      // made against the previously-connected PK system.
-      await db.pkMappingStateDao.upsert(
-        PkMappingStateCompanion(
-          id: const Value('local-123:pk-abc'),
-          localMemberId: const Value('local-123'),
-          pkMemberUuid: const Value('pk-abc'),
-          pkMemberId: const Value('abc'),
-          decisionType: const Value('skip'),
-          status: const Value('applied'),
-          createdAt: Value(DateTime(2026, 1, 1)),
-          updatedAt: Value(DateTime(2026, 1, 1)),
-        ),
-      );
+        // Seed a mapping-state row — simulates a prior Skip decision the user
+        // made against the previously-connected PK system.
+        await db.pkMappingStateDao.upsert(
+          PkMappingStateCompanion(
+            id: const Value('local-123:pk-abc'),
+            localMemberId: const Value('local-123'),
+            pkMemberUuid: const Value('pk-abc'),
+            pkMemberId: const Value('abc'),
+            decisionType: const Value('skip'),
+            status: const Value('applied'),
+            createdAt: Value(DateTime(2026, 1, 1)),
+            updatedAt: Value(DateTime(2026, 1, 1)),
+          ),
+        );
 
-      await service.setToken('valid-token');
-      expect(service.state.needsMapping, isTrue);
+        await service.setToken('valid-token');
+        expect(service.state.needsMapping, isTrue);
 
-      // Precondition — row exists.
-      final before = await db.pkMappingStateDao.getAll();
-      expect(before, hasLength(1));
+        // Precondition — row exists.
+        final before = await db.pkMappingStateDao.getAll();
+        expect(before, hasLength(1));
 
-      await service.clearToken();
+        await service.clearToken();
 
-      // Mapping table is wiped so a future reconnect starts clean.
-      final after = await db.pkMappingStateDao.getAll();
-      expect(after, isEmpty,
-          reason: 'clearToken must truncate pk_mapping_state (B3)');
+        // Mapping table is wiped so a future reconnect starts clean.
+        final after = await db.pkMappingStateDao.getAll();
+        expect(
+          after,
+          isEmpty,
+          reason: 'clearToken must truncate pk_mapping_state (B3)',
+        );
 
-      // needsMapping / mappingAcknowledged are reset so a reconnect will
-      // trigger the mapping flow again rather than silently inheriting
-      // the prior acknowledgement.
-      expect(service.state.needsMapping, isFalse);
-      final row = await db.pluralKitSyncDao.getSyncState();
-      expect(row.mappingAcknowledged, isFalse);
-    });
+        // needsMapping / mappingAcknowledged are reset so a reconnect will
+        // trigger the mapping flow again rather than silently inheriting
+        // the prior acknowledgement.
+        expect(service.state.needsMapping, isFalse);
+        final row = await db.pluralKitSyncDao.getSyncState();
+        expect(row.mappingAcknowledged, isFalse);
+      },
+    );
   });
 
   // ── _buildClient / token guards ──────────────────────────────────────────────
@@ -618,6 +639,200 @@ void main() {
       final client = await service.buildClientIfConnected();
       expect(client, isNull);
     });
+  });
+
+  group('repair reference fetch', () {
+    test(
+      'hasRepairToken reports stored and provided token availability',
+      () async {
+        final db = _makeDb();
+        addTearDown(db.close);
+
+        final fakeClient = FakePluralKitClient();
+        final service = _makeService(fakeClient: fakeClient, db: db);
+
+        expect(await service.hasRepairToken(), isFalse);
+        expect(
+          await service.hasRepairToken(token: '  provided-token  '),
+          isTrue,
+        );
+        expect(await service.hasRepairToken(token: '   '), isFalse);
+
+        storageStub._store[_pkTokenKey] = 'stored-token';
+        expect(await service.hasRepairToken(), isTrue);
+      },
+    );
+
+    test(
+      'fetchRepairReferenceData uses stored token and does not mutate storage or sync state',
+      () async {
+        final db = _makeDb();
+        addTearDown(db.close);
+
+        storageStub._store[_pkTokenKey] = 'stored-token';
+
+        final fakeClient = FakePluralKitClient()
+          ..systemToReturn = const PKSystem(
+            id: 'sys-repair',
+            name: 'Repair System',
+          )
+          ..membersToReturn = const [
+            PKMember(id: 'pk001', uuid: 'member-uuid-1', name: 'Alice'),
+          ]
+          ..groupsToReturn = const [
+            PKGroup(
+              id: 'grp01',
+              uuid: 'group-uuid-1',
+              name: 'Cluster',
+              memberIds: ['member-uuid-1'],
+            ),
+          ];
+        final service = _makeService(fakeClient: fakeClient, db: db);
+
+        await db.pluralKitSyncDao.upsertSyncState(
+          PluralKitSyncStateCompanion(
+            id: const Value('pk_config'),
+            systemId: const Value('persisted-system'),
+            isConnected: const Value(true),
+            mappingAcknowledged: const Value(false),
+            lastSyncDate: Value(DateTime(2026, 2, 1)),
+            lastManualSyncDate: Value(DateTime(2026, 2, 2)),
+            linkedAt: Value(DateTime(2026, 1, 31)),
+            linkEpoch: const Value(7),
+          ),
+        );
+        await service.loadState();
+
+        final beforeRow = await db.pluralKitSyncDao.getSyncState();
+        final beforeReadCount = storageStub.readCount;
+        final beforeWriteCount = storageStub.writeCount;
+        final beforeDeleteCount = storageStub.deleteCount;
+        final beforeConnected = service.state.isConnected;
+        final beforeNeedsMapping = service.state.needsMapping;
+        final beforeLastSyncDate = service.state.lastSyncDate;
+        final beforeLastManualSyncDate = service.state.lastManualSyncDate;
+        final beforeLinkedAt = service.state.linkedAt;
+        final beforeSyncError = service.state.syncError;
+
+        final data = await service.fetchRepairReferenceData();
+
+        expect(data.system.id, 'sys-repair');
+        expect(data.system.name, 'Repair System');
+        expect(data.members.map((m) => m.uuid), ['member-uuid-1']);
+        expect(data.groups.map((g) => g.uuid), ['group-uuid-1']);
+        expect(data.groups.single.memberIds, ['member-uuid-1']);
+        expect(fakeClient.getSystemCallCount, 1);
+        expect(fakeClient.getMembersCallCount, 1);
+        expect(fakeClient.getGroupsCallCount, 1);
+        expect(fakeClient.disposeCallCount, 1);
+
+        expect(storageStub._store[_pkTokenKey], 'stored-token');
+        expect(storageStub.readCount, beforeReadCount + 1);
+        expect(storageStub.writeCount, beforeWriteCount);
+        expect(storageStub.deleteCount, beforeDeleteCount);
+
+        final afterRow = await db.pluralKitSyncDao.getSyncState();
+        expect(afterRow, equals(beforeRow));
+        expect(service.state.isConnected, beforeConnected);
+        expect(service.state.needsMapping, beforeNeedsMapping);
+        expect(service.state.lastSyncDate, beforeLastSyncDate);
+        expect(service.state.lastManualSyncDate, beforeLastManualSyncDate);
+        expect(service.state.linkedAt, beforeLinkedAt);
+        expect(service.state.syncError, beforeSyncError);
+      },
+    );
+
+    test(
+      'fetchRepairReferenceData accepts provided token without touching stored state',
+      () async {
+        final db = _makeDb();
+        addTearDown(db.close);
+
+        final createdTokens = <String>[];
+        final fakeClient = FakePluralKitClient()..groupsToReturn = const [];
+        final service = _makeService(
+          fakeClient: fakeClient,
+          db: db,
+          clientFactory: (token) {
+            createdTokens.add(token);
+            return fakeClient;
+          },
+        );
+
+        final beforeReadCount = storageStub.readCount;
+        final beforeWriteCount = storageStub.writeCount;
+        final beforeDeleteCount = storageStub.deleteCount;
+
+        final data = await service.fetchRepairReferenceData(
+          token: '  provided-token  ',
+        );
+
+        expect(data.system.id, 'sys-1');
+        expect(createdTokens, ['provided-token']);
+        expect(
+          storageStub.readCount,
+          beforeReadCount,
+          reason: 'provided repair token should bypass secure storage',
+        );
+        expect(storageStub.writeCount, beforeWriteCount);
+        expect(storageStub.deleteCount, beforeDeleteCount);
+        expect(storageStub._store.containsKey(_pkTokenKey), isFalse);
+        expect(service.state.isConnected, isFalse);
+        expect(service.state.needsMapping, isFalse);
+      },
+    );
+
+    test(
+      'repair auth failure does not clear token or mutate connected sync state',
+      () async {
+        final db = _makeDb();
+        addTearDown(db.close);
+
+        storageStub._store[_pkTokenKey] = 'bad-token';
+
+        final fakeClient = FakePluralKitClient()..throwAuthError = true;
+        final service = _makeService(fakeClient: fakeClient, db: db);
+
+        await db.pluralKitSyncDao.upsertSyncState(
+          PluralKitSyncStateCompanion(
+            id: const Value('pk_config'),
+            systemId: const Value('persisted-system'),
+            isConnected: const Value(true),
+            mappingAcknowledged: const Value(true),
+            lastSyncDate: Value(DateTime(2026, 2, 1)),
+            lastManualSyncDate: Value(DateTime(2026, 2, 2)),
+            linkedAt: Value(DateTime(2026, 1, 31)),
+            linkEpoch: const Value(4),
+          ),
+        );
+        await service.loadState();
+
+        final beforeRow = await db.pluralKitSyncDao.getSyncState();
+        final beforeWriteCount = storageStub.writeCount;
+        final beforeDeleteCount = storageStub.deleteCount;
+        final beforeConnected = service.state.isConnected;
+        final beforeNeedsMapping = service.state.needsMapping;
+        final beforeLastSyncDate = service.state.lastSyncDate;
+        final beforeLinkedAt = service.state.linkedAt;
+
+        await expectLater(
+          service.fetchRepairReferenceData(),
+          throwsA(isA<PluralKitAuthError>()),
+        );
+
+        expect(storageStub._store[_pkTokenKey], 'bad-token');
+        expect(storageStub.writeCount, beforeWriteCount);
+        expect(storageStub.deleteCount, beforeDeleteCount);
+
+        final afterRow = await db.pluralKitSyncDao.getSyncState();
+        expect(afterRow, equals(beforeRow));
+        expect(service.state.isConnected, beforeConnected);
+        expect(service.state.needsMapping, beforeNeedsMapping);
+        expect(service.state.lastSyncDate, beforeLastSyncDate);
+        expect(service.state.linkedAt, beforeLinkedAt);
+        expect(fakeClient.disposeCallCount, 1);
+      },
+    );
   });
 
   // ── canManualSync ─────────────────────────────────────────────────────────────
@@ -704,40 +919,42 @@ void main() {
   // ── switch import — empty-member switch skipped ───────────────────────────────
 
   group('switch import — empty-member switch', () {
-    test('switch with members = [] is skipped: no FrontingSession created',
-        () async {
-      final db = _makeDb();
-      addTearDown(db.close);
+    test(
+      'switch with members = [] is skipped: no FrontingSession created',
+      () async {
+        final db = _makeDb();
+        addTearDown(db.close);
 
-      final sessionRepo = FakeFrontingSessionRepository();
-      final memberRepo = FakeMemberRepository();
+        final sessionRepo = FakeFrontingSessionRepository();
+        final memberRepo = FakeMemberRepository();
 
-      // A switch with no members
-      final emptySwitch = PKSwitch(
-        id: 'sw-empty',
-        timestamp: DateTime.now().subtract(const Duration(minutes: 5)),
-        members: const [],
-      );
+        // A switch with no members
+        final emptySwitch = PKSwitch(
+          id: 'sw-empty',
+          timestamp: DateTime.now().subtract(const Duration(minutes: 5)),
+          members: const [],
+        );
 
-      final fakeClient = FakePluralKitClient()
-        ..membersToReturn = const []
-        ..switchesToReturn = [emptySwitch];
+        final fakeClient = FakePluralKitClient()
+          ..membersToReturn = const []
+          ..switchesToReturn = [emptySwitch];
 
-      final service = _makeService(
-        fakeClient: fakeClient,
-        db: db,
-        memberRepo: memberRepo,
-        sessionRepo: sessionRepo,
-      );
+        final service = _makeService(
+          fakeClient: fakeClient,
+          db: db,
+          memberRepo: memberRepo,
+          sessionRepo: sessionRepo,
+        );
 
-      await service.setToken('valid-token');
-      await service.acknowledgeMapping();
-      // lastSyncDate null → full import path
-      await service.syncRecentData();
+        await service.setToken('valid-token');
+        await service.acknowledgeMapping();
+        // lastSyncDate null → full import path
+        await service.syncRecentData();
 
-      // Switch has no members → primaryMemberId == null → no session created
-      expect(sessionRepo.sessions, isEmpty);
-    });
+        // Switch has no members → primaryMemberId == null → no session created
+        expect(sessionRepo.sessions, isEmpty);
+      },
+    );
   });
 
   // ── switch dedup — pagination early exit ─────────────────────────────────────
@@ -772,9 +989,11 @@ void main() {
           sessionRepo.sessions.add(
             domain.FrontingSession(
               id: 'session-$switchId',
-              startTime: DateTime(2026, 1, 1).subtract(
-                Duration(minutes: knownSwitchIds.indexOf(switchId)),
-              ),
+              startTime: DateTime(
+                2026,
+                1,
+                1,
+              ).subtract(Duration(minutes: knownSwitchIds.indexOf(switchId))),
               memberId: 'local-1',
               pluralkitUuid: switchId,
             ),
@@ -823,72 +1042,74 @@ void main() {
   // ── S3: stale-link surfacing into syncError ─────────────────────────────────
 
   group('syncRecentData stale-link surfacing (regression S3)', () {
-    test('pushPendingSwitches 404 populates syncError with user-facing message',
-        () async {
-      final db = _makeDb();
-      addTearDown(db.close);
+    test(
+      'pushPendingSwitches 404 populates syncError with user-facing message',
+      () async {
+        final db = _makeDb();
+        addTearDown(db.close);
 
-      final sessionRepo = FakeFrontingSessionRepository();
-      final memberRepo = FakeMemberRepository();
+        final sessionRepo = FakeFrontingSessionRepository();
+        final memberRepo = FakeMemberRepository();
 
-      // Linked member so the post-linkedAt session is eligible to push.
-      memberRepo.seed([
-        domain.Member(
-          id: 'local-a',
-          name: 'Alice',
-          emoji: '❔',
-          isActive: true,
-          createdAt: DateTime(2026, 1, 1),
-          pluralkitId: 'pkA',
-        ),
-      ]);
+        // Linked member so the post-linkedAt session is eligible to push.
+        memberRepo.seed([
+          domain.Member(
+            id: 'local-a',
+            name: 'Alice',
+            emoji: '❔',
+            isActive: true,
+            createdAt: DateTime(2026, 1, 1),
+            pluralkitId: 'pkA',
+          ),
+        ]);
 
-      final fakeClient = _StaleCreateSwitchClient();
+        final fakeClient = _StaleCreateSwitchClient();
 
-      final service = PluralKitSyncService(
-        memberRepository: memberRepo,
-        frontingSessionRepository: sessionRepo,
-        syncDao: db.pluralKitSyncDao,
-        secureStorage: const FlutterSecureStorage(),
-        clientFactory: (_) => fakeClient,
-      );
+        final service = PluralKitSyncService(
+          memberRepository: memberRepo,
+          frontingSessionRepository: sessionRepo,
+          syncDao: db.pluralKitSyncDao,
+          secureStorage: const FlutterSecureStorage(),
+          clientFactory: (_) => fakeClient,
+        );
 
-      await service.setToken('valid-token');
-      await service.acknowledgeMapping();
+        await service.setToken('valid-token');
+        await service.acknowledgeMapping();
 
-      // Pin linkedAt to a known point and seed a lastSyncDate so syncRecentData
-      // hits the recent-changes path (not performFullImport). The session
-      // below must start AFTER linkedAt to be push-eligible.
-      final linkedAt = DateTime(2026, 1, 15);
-      await db.pluralKitSyncDao.upsertSyncState(
-        PluralKitSyncStateCompanion(
-          id: const Value('pk_config'),
-          linkedAt: Value(linkedAt),
-          lastSyncDate: Value(DateTime(2026, 1, 20)),
-        ),
-      );
-      await service.loadState();
+        // Pin linkedAt to a known point and seed a lastSyncDate so syncRecentData
+        // hits the recent-changes path (not performFullImport). The session
+        // below must start AFTER linkedAt to be push-eligible.
+        final linkedAt = DateTime(2026, 1, 15);
+        await db.pluralKitSyncDao.upsertSyncState(
+          PluralKitSyncStateCompanion(
+            id: const Value('pk_config'),
+            linkedAt: Value(linkedAt),
+            lastSyncDate: Value(DateTime(2026, 1, 20)),
+          ),
+        );
+        await service.loadState();
 
-      // Session created after linkedAt — should be pushed.
-      sessionRepo.sessions.add(
-        domain.FrontingSession(
-          id: 's-new',
-          startTime: DateTime(2026, 2, 1, 12),
-          memberId: 'local-a',
-        ),
-      );
-      expect(service.state.needsMapping, isFalse);
+        // Session created after linkedAt — should be pushed.
+        sessionRepo.sessions.add(
+          domain.FrontingSession(
+            id: 's-new',
+            startTime: DateTime(2026, 2, 1, 12),
+            memberId: 'local-a',
+          ),
+        );
+        expect(service.state.needsMapping, isFalse);
 
-      final summary = await service.syncRecentData(
-        direction: PkSyncDirection.pushOnly,
-      );
+        final summary = await service.syncRecentData(
+          direction: PkSyncDirection.pushOnly,
+        );
 
-      // Stale message surfaced via the summary and the state.
-      expect(summary, isNotNull);
-      expect(summary!.staleLinkMessages, isNotEmpty);
-      expect(service.state.syncError, isNotNull);
-      expect(service.state.syncError!, contains('server'));
-    });
+        // Stale message surfaced via the summary and the state.
+        expect(summary, isNotNull);
+        expect(summary!.staleLinkMessages, isNotEmpty);
+        expect(service.state.syncError, isNotNull);
+        expect(service.state.syncError!, contains('server'));
+      },
+    );
   });
 }
 

@@ -88,6 +88,8 @@ class SystemSettingsTable extends Table {
   // Notes feature toggle
   BoolColumn get notesEnabled => boolean().withDefault(const Constant(true))();
   // Phase 3: Synced settings
+  BoolColumn get pkGroupSyncV2Enabled =>
+      boolean().withDefault(const Constant(false))();
   TextColumn get systemDescription => text().nullable()();
   TextColumn get systemColor => text().nullable()();
   // PluralKit system profile tag — synced (plan 04).

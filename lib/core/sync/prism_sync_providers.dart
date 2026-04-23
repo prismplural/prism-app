@@ -24,6 +24,7 @@ import 'package:prism_plurality/core/sync/sync_event_loop.dart';
 import 'package:prism_plurality/core/sync/sync_quarantine.dart';
 import 'package:prism_plurality/core/services/media/media_providers.dart';
 import 'package:prism_plurality/core/services/backup_exclusion.dart';
+import 'package:prism_plurality/core/sync/sync_runtime_state.dart';
 import 'package:prism_plurality/core/sync/sync_schema.dart';
 
 // Dart-side sync integration — manages the Rust FFI handle lifecycle, keychain
@@ -237,6 +238,11 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
     await _seedRustStore(handle);
     BootTimings.mark('createHandle:_seedRustStore');
 
+    // Mark startup auto-config as in-progress before publishing the handle so
+    // startup-sensitive listeners never observe a provisional "ready" window
+    // between handle publication and configureEngine.
+    syncAutoConfigureInProgress.value = true;
+
     // Publish the handle before auto-configuring. Startup auto-sync can emit
     // RemoteChanges almost immediately after configureEngine/setAutoSync, and
     // those changes must not beat Dart's event-stream subscription.
@@ -246,10 +252,17 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
     _handle = handle;
     state = AsyncData(handle);
 
-    // Auto-configure sync engine if credentials already exist (app restart)
-    final health = await _autoConfigureIfReady(handle);
-    BootTimings.mark('createHandle:_autoConfigureIfReady');
-    ref.read(syncHealthProvider.notifier).setState(health);
+    // Auto-configure sync engine if credentials already exist (app restart).
+    // Writes that land in this window can see `sync not configured` even
+    // though the same handle will become writable a moment later.
+    late final SyncHealthState health;
+    try {
+      health = await _autoConfigureIfReady(handle);
+      BootTimings.mark('createHandle:_autoConfigureIfReady');
+      ref.read(syncHealthProvider.notifier).setState(health);
+    } finally {
+      syncAutoConfigureInProgress.value = false;
+    }
 
     // Persist any Rust state changes from configureEngine (prevents credential
     // loss if the app crashes before an explicit drain happens).

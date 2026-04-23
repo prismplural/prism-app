@@ -113,6 +113,22 @@ typedef SyncStateCallback = void Function(PluralKitSyncState state);
 /// pull. See [PluralKitSyncService.adoptSystemProfile] (plan 04).
 enum PkProfileField { name, description, tag, avatar }
 
+/// Read-only PK reference data used by local repair flows.
+///
+/// This is fetched via an ephemeral client and does not imply that the service
+/// is connected for sync/import side effects.
+class PkRepairReferenceData {
+  final PKSystem system;
+  final List<PKMember> members;
+  final List<PKGroup> groups;
+
+  const PkRepairReferenceData({
+    required this.system,
+    required this.members,
+    required this.groups,
+  });
+}
+
 /// Core PluralKit synchronization logic.
 ///
 /// Designed to be driven by a Riverpod notifier that passes a
@@ -144,8 +160,7 @@ class PluralKitSyncService {
        _frontingSessionRepository = frontingSessionRepository,
        _syncDao = syncDao,
        _settingsRepository = settingsRepository,
-       _secureStorage =
-           secureStorage ?? storage_config.secureStorage,
+       _secureStorage = secureStorage ?? storage_config.secureStorage,
        _uuid = const Uuid(),
        _clientFactory = clientFactory,
        _tokenOverride = tokenOverride,
@@ -160,21 +175,51 @@ class PluralKitSyncService {
 
   // -- helpers --------------------------------------------------------------
 
+  String? _normalizeToken(String? token) {
+    final trimmed = token?.trim();
+    if (trimmed == null || trimmed.isEmpty) return null;
+    return trimmed;
+  }
+
   Future<String?> _getToken() => _tokenOverride != null
       ? Future.value(_tokenOverride)
       : _secureStorage.read(key: _pkTokenKey);
 
-  PluralKitClient _makeClient(String token) =>
-      _clientFactory != null
-          ? _clientFactory(token)
-          : PluralKitClient(token: token);
+  PluralKitClient _makeClient(String token) => _clientFactory != null
+      ? _clientFactory(token)
+      : PluralKitClient(token: token);
 
-  Future<PluralKitClient?> _buildClient() async {
-    final token = await _getToken();
-    if (token == null) return null;
-    final trimmed = token.trim();
-    if (trimmed.isEmpty) return null;
-    return _makeClient(trimmed);
+  PluralKitClient? _buildClientFromToken(String? token) {
+    final normalized = _normalizeToken(token);
+    if (normalized == null) return null;
+    return _makeClient(normalized);
+  }
+
+  Future<PluralKitClient?> _buildClient() async =>
+      _buildClientFromToken(await _getToken());
+
+  Future<String?> _getRepairToken({String? token}) async {
+    if (token != null) return _normalizeToken(token);
+    return _normalizeToken(await _getToken());
+  }
+
+  Future<PluralKitClient?> _buildRepairClient({String? token}) async =>
+      _buildClientFromToken(await _getRepairToken(token: token));
+
+  Future<PkRepairReferenceData> _fetchReferenceData(
+    PluralKitClient client, {
+    bool includeGroups = true,
+  }) async {
+    final system = await client.getSystem();
+    final members = await client.getMembers();
+    final groups = includeGroups
+        ? await client.getGroups(withMembers: true)
+        : const <PKGroup>[];
+    return PkRepairReferenceData(
+      system: system,
+      members: members,
+      groups: groups,
+    );
   }
 
   // -- public API -----------------------------------------------------------
@@ -195,6 +240,33 @@ class PluralKitSyncService {
   Future<PluralKitClient?> buildClientIgnoringMappingGate() async {
     if (!_state.isConnected) return null;
     return _buildClient();
+  }
+
+  /// Whether repair can use a stored or explicitly-provided PK token.
+  ///
+  /// This is read-only: it does not validate the token, persist it, or change
+  /// sync state.
+  Future<bool> hasRepairToken({String? token}) async =>
+      (await _getRepairToken(token: token)) != null;
+
+  /// Read-only PK fetch for repair reference data.
+  ///
+  /// This intentionally does not call [setToken], write secure storage, update
+  /// the sync DAO, or emit connected/syncing state changes. A future repair
+  /// coordinator can pass a one-off [token] or fall back to the stored token.
+  Future<PkRepairReferenceData> fetchRepairReferenceData({
+    String? token,
+  }) async {
+    final client = await _buildRepairClient(token: token);
+    if (client == null) {
+      throw StateError('No PluralKit token available for repair');
+    }
+
+    try {
+      return await _fetchReferenceData(client);
+    } finally {
+      client.dispose();
+    }
   }
 
   /// Load persisted sync state from the database.
@@ -280,12 +352,14 @@ class PluralKitSyncService {
         await _syncDao.bumpLinkEpoch();
       }
 
-      _emit(_state.copyWith(
-        isConnected: true,
-        needsMapping: true,
-        linkedAt: linkedAt,
-        clearError: true,
-      ));
+      _emit(
+        _state.copyWith(
+          isConnected: true,
+          needsMapping: true,
+          linkedAt: linkedAt,
+          clearError: true,
+        ),
+      );
     } on PluralKitAuthError catch (e) {
       debugPrint('[PK_SVC] setToken: PluralKitAuthError: $e');
       await _secureStorage.delete(key: _pkTokenKey);
@@ -360,9 +434,8 @@ class PluralKitSyncService {
     if (client == null) throw StateError('Not connected');
 
     try {
-      final system = await client.getSystem();
-      final pkMembers = await client.getMembers();
-      return (system.name, pkMembers);
+      final data = await _fetchReferenceData(client, includeGroups: false);
+      return (data.system.name, data.members);
     } finally {
       client.dispose();
     }
@@ -374,8 +447,10 @@ class PluralKitSyncService {
     debugPrint('[PK_SVC] importMembersOnly: building client...');
     final client = await _buildClient();
     if (client == null) {
-      debugPrint('[PK_SVC] importMembersOnly: _buildClient returned null '
-          '(token missing from secure storage?)');
+      debugPrint(
+        '[PK_SVC] importMembersOnly: _buildClient returned null '
+        '(token missing from secure storage?)',
+      );
       throw StateError('Not connected');
     }
 
@@ -482,7 +557,9 @@ class PluralKitSyncService {
       }
 
       // -- Groups (10-15%) --
-      _emit(_state.copyWith(syncProgress: 0.10, syncStatus: 'Importing groups...'));
+      _emit(
+        _state.copyWith(syncProgress: 0.10, syncStatus: 'Importing groups...'),
+      );
       await _importGroups(client, overwriteMetadata: true);
       _emit(_state.copyWith(syncProgress: 0.15));
 
@@ -524,8 +601,8 @@ class PluralKitSyncService {
       allSwitches.sort((a, b) => a.timestamp.compareTo(b.timestamp));
 
       // Precompute existing PK UUIDs (O(N²) → O(N)).
-      final existingSessions =
-          await _frontingSessionRepository.getAllSessions();
+      final existingSessions = await _frontingSessionRepository
+          .getAllSessions();
       final existingPkUuids = <String>{
         for (final s in existingSessions)
           if (s.pluralkitUuid != null) s.pluralkitUuid!,
@@ -615,12 +692,14 @@ class PluralKitSyncService {
       _emit(_state.copyWith(syncProgress: p, syncStatus: s));
     }
 
-    _emit(_state.copyWith(
-      isSyncing: true,
-      syncProgress: 0.0,
-      syncStatus: 'Importing from file…',
-      clearError: true,
-    ));
+    _emit(
+      _state.copyWith(
+        isSyncing: true,
+        syncProgress: 0.0,
+        syncStatus: 'Importing from file…',
+        clearError: true,
+      ),
+    );
 
     try {
       progress(0.05, 'Importing ${export.members.length} members…');
@@ -661,10 +740,11 @@ class PluralKitSyncService {
       }
 
       // Dedup against existing rows keyed by (timestamp epoch, sorted member IDs).
-      final existingSessions =
-          await _frontingSessionRepository.getAllSessions();
+      final existingSessions = await _frontingSessionRepository
+          .getAllSessions();
       final existingKeys = <String>{
-        for (final s in existingSessions) _fileSwitchKey(s.startTime, _pkIdsOf(s)),
+        for (final s in existingSessions)
+          _fileSwitchKey(s.startTime, _pkIdsOf(s)),
       };
 
       // Process oldest-first so sequential `endTime` assignment is correct.
@@ -724,13 +804,16 @@ class PluralKitSyncService {
           lastSyncDate: Value(now),
         ),
       );
-      _emit(_state.copyWith(
-        isSyncing: false,
-        syncProgress: 1.0,
-        syncStatus: 'Imported ${export.members.length} members, '
-            '$created switches.',
-        lastSyncDate: now,
-      ));
+      _emit(
+        _state.copyWith(
+          isSyncing: false,
+          syncProgress: 1.0,
+          syncStatus:
+              'Imported ${export.members.length} members, '
+              '$created switches.',
+          lastSyncDate: now,
+        ),
+      );
 
       return PkFileImportResult(
         systemName: export.system.name,
@@ -740,10 +823,9 @@ class PluralKitSyncService {
         switchesSkipped: skipped,
       );
     } catch (e) {
-      _emit(_state.copyWith(
-        isSyncing: false,
-        syncError: 'File import failed: $e',
-      ));
+      _emit(
+        _state.copyWith(isSyncing: false, syncError: 'File import failed: $e'),
+      );
       rethrow;
     }
   }
@@ -795,7 +877,10 @@ class PluralKitSyncService {
     try {
       final decoded = jsonDecode(raw);
       if (decoded is List) {
-        return [for (final e in decoded) if (e is String) e];
+        return [
+          for (final e in decoded)
+            if (e is String) e,
+        ];
       }
     } catch (_) {}
     return const [];
@@ -864,10 +949,7 @@ class PluralKitSyncService {
       PkSyncSummary? summary;
       if (direction.pushEnabled) {
         _emit(
-          _state.copyWith(
-            syncProgress: 0.1,
-            syncStatus: 'Syncing members...',
-          ),
+          _state.copyWith(syncProgress: 0.1, syncStatus: 'Syncing members...'),
         );
 
         final pkMembers = await client.getMembers();
@@ -940,8 +1022,8 @@ class PluralKitSyncService {
           '[PK_PULL] start lastSyncDate=${_state.lastSyncDate?.toIso8601String()} '
           'linkedMembers=${pkIdToLocalId.length}',
         );
-        final existingSessions =
-            await _frontingSessionRepository.getAllSessions();
+        final existingSessions = await _frontingSessionRepository
+            .getAllSessions();
         final existingPkUuids = <String>{
           for (final s in existingSessions)
             if (s.pluralkitUuid != null) s.pluralkitUuid!,
@@ -1029,11 +1111,11 @@ class PluralKitSyncService {
         // Repair any prior "ongoing" sessions whose chains broke because
         // the newer switch lived in a different sync cycle (or different
         // page, or was a switch-out).
-        await _closePkSessionChainGaps(
-          extraBoundaries: switchOutTimestamps,
-        );
+        await _closePkSessionChainGaps(extraBoundaries: switchOutTimestamps);
       } else {
-        debugPrint('[PK_PULL] skipped — pullEnabled=false direction=$direction');
+        debugPrint(
+          '[PK_PULL] skipped — pullEnabled=false direction=$direction',
+        );
       }
 
       // Phase 4: run a pure-local re-attribution pass after any member sync
@@ -1046,9 +1128,7 @@ class PluralKitSyncService {
       // auto-push-current-front block which silently created duplicates on
       // every sync (it never persisted the returned PK switch ID).
       final int switchesPushed = direction.pushEnabled
-          ? await pushPendingSwitches(
-              onStaleLink: staleLinkMessages.add,
-            )
+          ? await pushPendingSwitches(onStaleLink: staleLinkMessages.add)
           : 0;
 
       // Plan 02: deletions. Switches-first so PK's cascade doesn't 404 every
@@ -1115,8 +1195,9 @@ class PluralKitSyncService {
           // Surface stale-link events so the UI can render them. Uses
           // `syncError` (there's no dedicated warnings channel) — callers
           // read `state.syncError` to show a banner/toast.
-          syncError:
-              staleLinkMessages.isEmpty ? null : staleLinkMessages.join('\n'),
+          syncError: staleLinkMessages.isEmpty
+              ? null
+              : staleLinkMessages.join('\n'),
           clearError: staleLinkMessages.isEmpty,
           lastSyncDate: now,
           lastManualSyncDate: isManual ? now : _state.lastManualSyncDate,
@@ -1187,7 +1268,8 @@ class PluralKitSyncService {
     final failures = <String>[];
 
     if (accepted.contains(PkProfileField.name) &&
-        pk.name != null && pk.name!.isNotEmpty) {
+        pk.name != null &&
+        pk.name!.isNotEmpty) {
       try {
         await _settingsRepository.updateSystemName(pk.name);
       } catch (e) {
@@ -1195,7 +1277,8 @@ class PluralKitSyncService {
       }
     }
     if (accepted.contains(PkProfileField.description) &&
-        pk.description != null && pk.description!.isNotEmpty) {
+        pk.description != null &&
+        pk.description!.isNotEmpty) {
       try {
         await _settingsRepository.updateSystemDescription(pk.description);
       } catch (e) {
@@ -1203,7 +1286,8 @@ class PluralKitSyncService {
       }
     }
     if (accepted.contains(PkProfileField.tag) &&
-        pk.tag != null && pk.tag!.isNotEmpty) {
+        pk.tag != null &&
+        pk.tag!.isNotEmpty) {
       try {
         await _settingsRepository.updateSystemTag(pk.tag);
       } catch (e) {
@@ -1211,7 +1295,8 @@ class PluralKitSyncService {
       }
     }
     if (accepted.contains(PkProfileField.avatar) &&
-        pk.avatarUrl != null && pk.avatarUrl!.isNotEmpty) {
+        pk.avatarUrl != null &&
+        pk.avatarUrl!.isNotEmpty) {
       try {
         await importSystemAvatar();
       } catch (e) {
@@ -1220,10 +1305,13 @@ class PluralKitSyncService {
     }
 
     if (failures.isNotEmpty) {
-      _emit(_state.copyWith(
-        syncError: 'Some profile fields did not import: '
-            '${failures.join(', ')}',
-      ));
+      _emit(
+        _state.copyWith(
+          syncError:
+              'Some profile fields did not import: '
+              '${failures.join(', ')}',
+        ),
+      );
     }
   }
 
@@ -1413,10 +1501,11 @@ class PluralKitSyncService {
   Future<int> _closePkSessionChainGaps({
     Iterable<DateTime> extraBoundaries = const [],
   }) async {
-    final pk = (await _frontingSessionRepository.getAllSessions())
-        .where((s) => s.pluralkitUuid != null || s.pkMemberIdsJson != null)
-        .toList()
-      ..sort((a, b) => a.startTime.compareTo(b.startTime));
+    final pk =
+        (await _frontingSessionRepository.getAllSessions())
+            .where((s) => s.pluralkitUuid != null || s.pkMemberIdsJson != null)
+            .toList()
+          ..sort((a, b) => a.startTime.compareTo(b.startTime));
     if (pk.isEmpty) return 0;
 
     final boundaries = <DateTime>[
@@ -1481,12 +1570,14 @@ class PluralKitSyncService {
     if (client == null) throw StateError('Not connected');
 
     try {
-      _emit(_state.copyWith(
-        isSyncing: true,
-        syncProgress: 0.0,
-        syncStatus: 'Fetching PK switch history...',
-        clearError: true,
-      ));
+      _emit(
+        _state.copyWith(
+          isSyncing: true,
+          syncProgress: 0.0,
+          syncStatus: 'Fetching PK switch history...',
+          clearError: true,
+        ),
+      );
 
       final allMembers = await _memberRepository.getAllMembers();
       final pkIdToLocalId = <String, String>{};
@@ -1519,8 +1610,8 @@ class PluralKitSyncService {
 
       // Precompute existing PK switch UUIDs so _importSwitch doesn't rescan
       // the full session list for every switch (O(N²) → O(N)).
-      final existingSessions =
-          await _frontingSessionRepository.getAllSessions();
+      final existingSessions = await _frontingSessionRepository
+          .getAllSessions();
       final existingPkUuids = <String>{
         for (final s in existingSessions)
           if (s.pluralkitUuid != null) s.pluralkitUuid!,
@@ -1532,16 +1623,17 @@ class PluralKitSyncService {
       final switchOutTimestamps = <DateTime>[];
       for (var i = 0; i < allSwitches.length; i++) {
         final sw = allSwitches[i];
-        final endTime =
-            i + 1 < allSwitches.length ? allSwitches[i + 1].timestamp : null;
+        final endTime = i + 1 < allSwitches.length
+            ? allSwitches[i + 1].timestamp
+            : null;
         if (sw.members.isEmpty) switchOutTimestamps.add(sw.timestamp);
         if (i % 50 == 0) {
-          _emit(_state.copyWith(
-            syncProgress: allSwitches.isEmpty
-                ? 1.0
-                : i / allSwitches.length,
-            syncStatus: 'Importing switch ${i + 1}/${allSwitches.length}...',
-          ));
+          _emit(
+            _state.copyWith(
+              syncProgress: allSwitches.isEmpty ? 1.0 : i / allSwitches.length,
+              syncStatus: 'Importing switch ${i + 1}/${allSwitches.length}...',
+            ),
+          );
         }
         if (fileIndex.isNotEmpty &&
             await _adoptFileImportedSwitch(sw, fileIndex, existingPkUuids)) {
@@ -1570,16 +1662,20 @@ class PluralKitSyncService {
         }
       }
 
-      _emit(_state.copyWith(
-        isSyncing: false,
-        syncProgress: 1.0,
-        syncStatus: 'Imported ${allSwitches.length} switches.',
-      ));
+      _emit(
+        _state.copyWith(
+          isSyncing: false,
+          syncProgress: 1.0,
+          syncStatus: 'Imported ${allSwitches.length} switches.',
+        ),
+      );
     } catch (e) {
-      _emit(_state.copyWith(
-        isSyncing: false,
-        syncError: 'Switch history import failed: $e',
-      ));
+      _emit(
+        _state.copyWith(
+          isSyncing: false,
+          syncError: 'Switch history import failed: $e',
+        ),
+      );
       rethrow;
     } finally {
       client.dispose();
@@ -1622,7 +1718,8 @@ class PluralKitSyncService {
 
       // Skip write if nothing changed. Comparing lists: same length AND
       // element-by-element equal (order matters — first is primary).
-      final sameCofronters = session.coFronterIds.length == coFronters.length &&
+      final sameCofronters =
+          session.coFronterIds.length == coFronters.length &&
           _listEquals(session.coFronterIds, coFronters);
       if (session.memberId == primary && sameCofronters) continue;
 
@@ -1655,11 +1752,11 @@ class PluralKitSyncService {
     PkPushService? pushServiceOverride,
   }) async {
     final currentEpoch = await _syncDao.getLinkEpoch();
-    final candidates =
-        await _frontingSessionRepository.getDeletedLinkedSessions();
+    final candidates = await _frontingSessionRepository
+        .getDeletedLinkedSessions();
     if (candidates.isEmpty) return 0;
 
-    final push = pushServiceOverride ?? PkPushService();
+    final push = pushServiceOverride ?? const PkPushService();
     int deleted = 0;
 
     for (final session in candidates) {
@@ -1686,8 +1783,7 @@ class PluralKitSyncService {
       }
 
       // R2: re-read and re-check every invariant at execution time.
-      final fresh =
-          await _frontingSessionRepository.getSessionById(session.id);
+      final fresh = await _frontingSessionRepository.getSessionById(session.id);
       if (fresh == null) continue;
       if (!fresh.isDeleted) {
         debugPrint(
@@ -1756,7 +1852,7 @@ class PluralKitSyncService {
       if (mid != null) membersWithLiveLinkedSessions.add(mid);
     }
 
-    final push = pushServiceOverride ?? PkPushService();
+    final push = pushServiceOverride ?? const PkPushService();
     int deleted = 0;
 
     for (final member in candidates) {
@@ -1798,7 +1894,8 @@ class PluralKitSyncService {
         );
         continue;
       }
-      if (fresh.pluralkitId == null || fresh.pluralkitId != member.pluralkitId) {
+      if (fresh.pluralkitId == null ||
+          fresh.pluralkitId != member.pluralkitId) {
         debugPrint(
           '[PK] Member ${member.id} pluralkit_id changed since dequeue; '
           'aborting DELETE.',
@@ -1921,11 +2018,7 @@ class PluralKitSyncService {
           // start already succeeded we can roll the start back below so
           // the session stays retriable.
           if (session.endTime != null) {
-            await push.pushSwitch(
-              const [],
-              client,
-              timestamp: session.endTime,
-            );
+            await push.pushSwitch(const [], client, timestamp: session.endTime);
           }
 
           // Only persist the PK UUID once BOTH pushes succeed — otherwise a

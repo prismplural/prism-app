@@ -2,20 +2,27 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pk_auto_poll_provider.dart';
+import 'package:prism_plurality/features/pluralkit/providers/pk_group_repair_provider.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pk_mapping_controller.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_group_reset_service.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_group_repair_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
 import 'package:prism_plurality/features/pluralkit/views/pk_file_import_screen.dart';
 import 'package:prism_plurality/features/pluralkit/views/pk_mapping_screen.dart';
+import 'package:prism_plurality/features/pluralkit/widgets/pk_group_repair_card.dart';
 import 'package:prism_plurality/features/pluralkit/widgets/pk_sync_direction_picker.dart';
 import 'package:prism_plurality/features/pluralkit/widgets/pk_sync_summary_card.dart';
 import 'package:prism_plurality/features/pluralkit/widgets/pk_system_profile_disclosure.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
@@ -26,6 +33,7 @@ import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_chip.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
+import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// PluralKit integration setup and sync management screen.
@@ -53,8 +61,9 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
     _cooldownTimer?.cancel();
     if (syncState.lastManualSyncDate == null) return;
 
-    final elapsed =
-        DateTime.now().difference(syncState.lastManualSyncDate!).inSeconds;
+    final elapsed = DateTime.now()
+        .difference(syncState.lastManualSyncDate!)
+        .inSeconds;
     final remaining = 60 - elapsed;
     if (remaining <= 0) return;
 
@@ -95,7 +104,8 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
     }
     if (pkSystem == null) return;
     // Short-circuit if PK has nothing worth offering.
-    final anyField = (pkSystem.name?.isNotEmpty ?? false) ||
+    final anyField =
+        (pkSystem.name?.isNotEmpty ?? false) ||
         (pkSystem.description?.isNotEmpty ?? false) ||
         (pkSystem.tag?.isNotEmpty ?? false) ||
         (pkSystem.avatarUrl?.isNotEmpty ?? false);
@@ -107,8 +117,9 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
     final sentinelKey = 'pk_profile_disclosure_shown_${pkSystem.id}';
     if (prefs.getBool(sentinelKey) == true) return;
 
-    final currentSettings =
-        await ref.read(systemSettingsRepositoryProvider).getSettings();
+    final currentSettings = await ref
+        .read(systemSettingsRepositoryProvider)
+        .getSettings();
     if (!mounted) return;
 
     final accepted = await PrismSheet.show<Set<PkProfileField>?>(
@@ -144,11 +155,9 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
   Future<void> _openMappingScreen() async {
     // Reset the controller so the mapping screen fetches fresh data.
     ref.invalidate(pkMappingControllerProvider);
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => const PkMappingScreen(),
-      ),
-    );
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const PkMappingScreen()));
   }
 
   Future<void> _importFromPK() async {
@@ -156,19 +165,16 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
   }
 
   Future<void> _importFromFile() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => const PkFileImportScreen(),
-      ),
-    );
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const PkFileImportScreen()));
   }
 
   Future<void> _syncRecent() async {
     final direction = ref.read(pkSyncDirectionProvider);
-    final summary = await ref.read(pluralKitSyncProvider.notifier).syncRecentData(
-          isManual: true,
-          direction: direction,
-        );
+    final summary = await ref
+        .read(pluralKitSyncProvider.notifier)
+        .syncRecentData(isManual: true, direction: direction);
     if (summary != null) {
       ref.read(pkLastSyncSummaryProvider.notifier).set(summary);
     }
@@ -176,8 +182,402 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
     _startCooldownTimer(syncState);
   }
 
+  Future<void> _runGroupRepair({String? token}) async {
+    try {
+      final report = await ref
+          .read(pkGroupRepairControllerProvider.notifier)
+          .run(token: token, allowStoredToken: token == null);
+      if (!mounted) return;
+      _showRepairToast(report);
+    } catch (error) {
+      if (!mounted) return;
+      PrismToast.error(
+        context,
+        message:
+            'PluralKit group repair failed: ${_formatRepairError(error.toString())}',
+      );
+    }
+  }
+
+  Future<void> _dismissGroupReview(String groupId) async {
+    await _runGroupReviewAction(
+      () => ref
+          .read(pkGroupRepairControllerProvider.notifier)
+          .dismissReviewItem(groupId),
+      successMessage: 'Group review dismissed. Sync suppression was cleared.',
+      errorPrefix: 'Could not dismiss this repair review item',
+    );
+  }
+
+  Future<void> _keepGroupLocalOnly(String groupId) async {
+    await _runGroupReviewAction(
+      () => ref
+          .read(pkGroupRepairControllerProvider.notifier)
+          .keepReviewItemLocalOnly(groupId),
+      successMessage: 'Group kept local-only. It will stay out of sync.',
+      errorPrefix: 'Could not keep this group local-only',
+    );
+  }
+
+  Future<void> _mergeGroupIntoCanonical(String groupId) async {
+    await _runGroupReviewAction(
+      () => ref
+          .read(pkGroupRepairControllerProvider.notifier)
+          .mergeReviewItemIntoCanonical(groupId),
+      successMessage: 'Group merged into the canonical PK-backed group.',
+      errorPrefix: 'Could not merge this group into the canonical PK group',
+    );
+  }
+
+  Future<void> _runGroupReviewAction(
+    Future<void> Function() action, {
+    required String successMessage,
+    required String errorPrefix,
+  }) async {
+    try {
+      await action();
+      if (!mounted) return;
+      PrismToast.success(context, message: successMessage);
+    } catch (error) {
+      if (!mounted) return;
+      PrismToast.error(
+        context,
+        message: '$errorPrefix: ${_formatRepairError(error.toString())}',
+      );
+    }
+  }
+
+  Future<void> _enablePkGroupSyncV2() async {
+    final repairState = ref.read(pkGroupRepairControllerProvider).asData?.value;
+    final settings = ref.read(systemSettingsProvider).asData?.value;
+
+    if (settings == null) {
+      if (!mounted) return;
+      PrismToast.error(
+        context,
+        message:
+            'Could not verify the shared cutover setting yet. Wait for repair '
+            'status to finish loading and try again.',
+      );
+      return;
+    }
+
+    if (settings.pkGroupSyncV2Enabled) {
+      if (!mounted) return;
+      PrismToast.show(
+        context,
+        message: 'PK group sync v2 is already enabled for this sync group.',
+      );
+      return;
+    }
+
+    if (repairState == null || repairState.isRunning) {
+      if (!mounted) return;
+      PrismToast.error(
+        context,
+        message:
+            'Repair status is still loading or running. Wait for it to '
+            'finish before enabling PK group sync v2.',
+      );
+      return;
+    }
+
+    if (repairState.lastReport == null) {
+      if (!mounted) return;
+      PrismToast.error(
+        context,
+        message:
+            'Run PluralKit group repair first. PK group sync v2 stays off '
+            'until this client completes a repair pass.',
+      );
+      return;
+    }
+
+    if (repairState.pendingReviewCount > 0) {
+      if (!mounted) return;
+      final noun = repairState.pendingReviewCount == 1 ? 'item' : 'items';
+      PrismToast.error(
+        context,
+        message:
+            'Resolve or keep local-only the ${repairState.pendingReviewCount} '
+            'pending review $noun before enabling PK group sync v2.',
+      );
+      return;
+    }
+
+    try {
+      await ref
+          .read(systemSettingsRepositoryProvider)
+          .updatePkGroupSyncV2Enabled(true);
+      if (!mounted) return;
+      PrismToast.success(
+        context,
+        message:
+            'PK group sync v2 enabled for this sync group. Manual/local-only '
+            'groups are unchanged.',
+      );
+    } catch (error) {
+      if (!mounted) return;
+      PrismToast.error(
+        context,
+        message:
+            'Could not enable PK group sync v2: '
+            '${_formatRepairError(error.toString())}',
+      );
+    }
+  }
+
+  Future<void> _resetPkGroupsOnly() async {
+    final syncState = ref.read(pluralKitSyncProvider);
+
+    try {
+      final result = await ref
+          .read(pkGroupResetServiceProvider)
+          .resetPkGroupsOnly();
+      ref.invalidate(pkGroupRepairControllerProvider);
+
+      if (!mounted) return;
+
+      if (!result.changedAnything) {
+        PrismToast.show(
+          context,
+          message:
+              'No PK-backed or repair-suppressed groups needed reset on this '
+              'device.',
+        );
+        return;
+      }
+
+      if (!syncState.isConnected) {
+        PrismToast.success(
+          context,
+          message:
+              'PK group reset finished. ${_pkGroupResetSummary(result)} '
+              'Reconnect PluralKit or import from a file to rebuild them.',
+        );
+        return;
+      }
+
+      try {
+        await ref.read(pluralKitSyncProvider.notifier).performFullImport();
+        if (!mounted) return;
+        PrismToast.success(
+          context,
+          message:
+              'PK group reset finished. ${_pkGroupResetSummary(result)} '
+              'Current PK groups were re-imported.',
+        );
+      } catch (error) {
+        if (!mounted) return;
+        PrismToast.show(
+          context,
+          message:
+              'PK group reset finished, but re-import failed: '
+              '${_formatRepairError(error.toString())}. '
+              '${_pkGroupResetSummary(result)}',
+          icon: AppIcons.warningAmberRounded,
+          iconColor: Theme.of(context).colorScheme.secondary,
+        );
+      }
+    } catch (error) {
+      if (!mounted) return;
+      PrismToast.error(
+        context,
+        message:
+            'Could not reset PK groups: '
+            '${_formatRepairError(error.toString())}',
+      );
+    }
+  }
+
+  void _openExportDataFirst() {
+    context.push(AppRoutePaths.settingsImportExport);
+  }
+
+  Future<void> _promptForRepairTokenAndRun() async {
+    final controller = TextEditingController();
+    try {
+      final token = await PrismDialog.show<String>(
+        context: context,
+        title: 'Temporary PluralKit token',
+        message:
+            'Use a one-off token for this repair run only. Prism will not save '
+            'it or reconnect sync automatically.',
+        builder: (dialogContext) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              PrismTextField(
+                controller: controller,
+                autofocus: true,
+                obscureText: true,
+                labelText: 'PluralKit token',
+                hintText: 'Paste a temporary token',
+                isDense: true,
+                onSubmitted: (_) {
+                  final trimmed = controller.text.trim();
+                  if (trimmed.isEmpty) return;
+                  Navigator.of(dialogContext).pop(trimmed);
+                },
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'This token is only used to compare your local groups against '
+                'current PluralKit groups during repair.',
+                style: Theme.of(dialogContext).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(dialogContext).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 16),
+              ValueListenableBuilder<TextEditingValue>(
+                valueListenable: controller,
+                builder: (_, value, child) {
+                  return Wrap(
+                    alignment: WrapAlignment.end,
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      PrismButton(
+                        label: context.l10n.cancel,
+                        onPressed: () => Navigator.of(dialogContext).pop(),
+                        tone: PrismButtonTone.outlined,
+                      ),
+                      PrismButton(
+                        label: 'Run token-backed repair',
+                        icon: AppIcons.autoFixHigh,
+                        onPressed: () =>
+                            Navigator.of(dialogContext).pop(value.text.trim()),
+                        enabled: value.text.trim().isNotEmpty,
+                        tone: PrismButtonTone.filled,
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ],
+          );
+        },
+      );
+
+      if (!mounted || token == null || token.trim().isEmpty) return;
+      await _runGroupRepair(token: token.trim());
+    } finally {
+      controller.dispose();
+    }
+  }
+
+  void _showRepairToast(PkGroupRepairReport report) {
+    final message = _repairSuccessMessage(report);
+    if (report.referenceError != null || report.pendingReviewCount > 0) {
+      PrismToast.show(
+        context,
+        message: message,
+        icon: AppIcons.warningAmberRounded,
+        iconColor: Theme.of(context).colorScheme.secondary,
+      );
+      return;
+    }
+    PrismToast.success(context, message: message);
+  }
+
+  String _repairSuccessMessage(PkGroupRepairReport report) {
+    final outcomeFragments = _repairOutcomeFragments(report);
+    final detailMessage = outcomeFragments.isEmpty
+        ? 'No new PK group repairs were needed.'
+        : '${_sentenceCase(_joinFragments(outcomeFragments))}.';
+    final followUpMessage = _repairFollowUpMessage(report);
+
+    if (report.referenceError != null) {
+      final followUpSuffix = followUpMessage == null ? '' : ' $followUpMessage';
+      return 'Repair finished locally. $detailMessage$followUpSuffix Live PK '
+          'lookup failed, so a token-backed rerun is still recommended.';
+    }
+    if (followUpMessage != null) {
+      return 'Repair finished. $detailMessage $followUpMessage';
+    }
+    return 'Repair finished. $detailMessage';
+  }
+
+  List<String> _repairOutcomeFragments(PkGroupRepairReport report) {
+    final primary = <String>[
+      if (report.parentReferencesRehomed > 0)
+        'updated ${_countPhrase(report.parentReferencesRehomed, "child-group parent link", "child-group parent links")}',
+      if (report.entriesRehomed > 0)
+        'moved ${_countPhrase(report.entriesRehomed, "group membership", "group memberships")}',
+      if (report.duplicateGroupsSoftDeleted > 0)
+        'removed ${_countPhrase(report.duplicateGroupsSoftDeleted, "duplicate local group", "duplicate local groups")}',
+      if (report.entryConflictsSoftDeleted > 0)
+        'removed ${_countPhrase(report.entryConflictsSoftDeleted, "conflicting group membership", "conflicting group memberships")}',
+      if (report.ambiguousGroupsSuppressed > 0)
+        'suppressed ${_countPhrase(report.ambiguousGroupsSuppressed, "ambiguous group", "ambiguous groups")} for review',
+    ];
+    if (primary.isNotEmpty) return primary;
+
+    return <String>[
+      if (report.backfilledEntries > 0)
+        'restored ${_countPhrase(report.backfilledEntries, "missing PK membership link", "missing PK membership links")}',
+      if (report.aliasesRecorded > 0)
+        'recorded ${_countPhrase(report.aliasesRecorded, "legacy group alias", "legacy group aliases")}',
+    ];
+  }
+
+  String? _repairFollowUpMessage(PkGroupRepairReport report) {
+    if (report.pendingReviewCount <= report.ambiguousGroupsSuppressed ||
+        report.pendingReviewCount == 0) {
+      return null;
+    }
+
+    final noun = report.pendingReviewCount == 1 ? 'group' : 'groups';
+    return '${report.pendingReviewCount} suppressed $noun still need '
+        'follow-up review.';
+  }
+
+  String _countPhrase(int count, String singular, String plural) {
+    final noun = count == 1 ? singular : plural;
+    return '$count $noun';
+  }
+
+  String _joinFragments(List<String> fragments) {
+    if (fragments.length == 1) return fragments.first;
+    if (fragments.length == 2) {
+      return '${fragments.first} and ${fragments.last}';
+    }
+
+    final head = fragments.sublist(0, fragments.length - 1).join(', ');
+    return '$head, and ${fragments.last}';
+  }
+
+  String _sentenceCase(String value) {
+    if (value.isEmpty) return value;
+    return '${value[0].toUpperCase()}${value.substring(1)}';
+  }
+
+  String _pkGroupResetSummary(PkGroupResetResult result) {
+    final fragments = <String>[
+      if (result.groupsReset > 0)
+        'removed ${_countPhrase(result.groupsReset, "PK-backed or suppressed group", "PK-backed or suppressed groups")}',
+      if (result.promotedChildGroups > 0)
+        'promoted ${_countPhrase(result.promotedChildGroups, "local child group", "local child groups")} to root',
+      if (result.deferredOpsCleared > 0)
+        'cleared ${_countPhrase(result.deferredOpsCleared, "deferred PK membership op", "deferred PK membership ops")}',
+    ];
+    if (fragments.isEmpty) {
+      return 'No PK-backed groups needed reset.';
+    }
+    return '${_sentenceCase(_joinFragments(fragments))}.';
+  }
+
+  String _formatRepairError(String value) {
+    return value
+        .replaceFirst('Exception: ', '')
+        .replaceFirst('StateError: ', '')
+        .trim();
+  }
+
   @override
   Widget build(BuildContext context) {
+    ref.watch(pkGroupRepairBootstrapProvider);
     final syncState = ref.watch(pluralKitSyncProvider);
     final theme = Theme.of(context);
 
@@ -205,20 +605,22 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
               borderColor: theme.colorScheme.error.withValues(alpha: 0.3),
               padding: const EdgeInsets.all(12),
               child: Row(
-                  children: [
-                    Icon(AppIcons.errorOutline,
-                        color: theme.colorScheme.onErrorContainer),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        syncState.syncError!,
-                        style: TextStyle(
-                          color: theme.colorScheme.onErrorContainer,
-                        ),
+                children: [
+                  Icon(
+                    AppIcons.errorOutline,
+                    color: theme.colorScheme.onErrorContainer,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      syncState.syncError!,
+                      style: TextStyle(
+                        color: theme.colorScheme.onErrorContainer,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
+              ),
             ),
           ],
 
@@ -227,6 +629,11 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
             const SizedBox(height: 16),
             _buildMappingBanner(theme),
           ],
+
+          const SizedBox(height: 24),
+          const _SectionHeader(title: 'Group repair'),
+          const SizedBox(height: 8),
+          _buildGroupRepairSection(syncState, theme),
 
           // -- Section 2: Sync Direction --
           if (syncState.canAutoSync) ...[
@@ -266,9 +673,7 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
           ],
 
           // -- Section 4: Sync Summary --
-          if (syncState.canAutoSync) ...[
-            _buildSyncSummarySection(),
-          ],
+          if (syncState.canAutoSync) ...[_buildSyncSummarySection()],
 
           // -- How It Works --
           const SizedBox(height: 24),
@@ -329,14 +734,18 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
           if (syncState.lastSyncDate != null) ...[
             const SizedBox(height: 8),
             Text(
-              context.l10n.pluralkitLastSync(_formatDate(syncState.lastSyncDate!)),
+              context.l10n.pluralkitLastSync(
+                _formatDate(syncState.lastSyncDate!),
+              ),
               style: theme.textTheme.bodySmall,
             ),
           ],
           if (syncState.lastManualSyncDate != null) ...[
             const SizedBox(height: 4),
             Text(
-              context.l10n.pluralkitLastManualSync(_formatDate(syncState.lastManualSyncDate!)),
+              context.l10n.pluralkitLastManualSync(
+                _formatDate(syncState.lastManualSyncDate!),
+              ),
               style: theme.textTheme.bodySmall,
             ),
           ],
@@ -406,10 +815,7 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
             value: syncState.syncProgress > 0 ? syncState.syncProgress : null,
           ),
           const SizedBox(height: 12),
-          Text(
-            syncState.syncStatus,
-            style: theme.textTheme.bodyMedium,
-          ),
+          Text(syncState.syncStatus, style: theme.textTheme.bodyMedium),
           if (syncState.syncProgress > 0) ...[
             const SizedBox(height: 4),
             Text(
@@ -468,6 +874,71 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
           ),
         ],
       ],
+    );
+  }
+
+  Widget _buildGroupRepairSection(
+    PluralKitSyncState syncState,
+    ThemeData theme,
+  ) {
+    final repairStateAsync = ref.watch(pkGroupRepairControllerProvider);
+    final hasStoredTokenAsync = ref.watch(pkGroupRepairHasStoredTokenProvider);
+    final systemSettingsAsync = ref.watch(systemSettingsProvider);
+    final hasStoredToken = syncState.isConnected
+        ? true
+        : hasStoredTokenAsync.asData?.value;
+    final pkGroupSyncV2Enabled =
+        systemSettingsAsync.asData?.value.pkGroupSyncV2Enabled;
+
+    return repairStateAsync.when(
+      loading: () => PrismSectionCard(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            PrismSpinner(color: theme.colorScheme.primary, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Loading repair status...',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      error: (error, _) => PkGroupRepairCard(
+        state: PkGroupRepairState(
+          error:
+              'Could not load repair status: ${_formatRepairError(error.toString())}',
+        ),
+        isConnected: syncState.isConnected,
+        hasStoredToken: hasStoredToken,
+        pkGroupSyncV2Enabled: pkGroupSyncV2Enabled,
+        onRunRepair: () => unawaited(_runGroupRepair()),
+        onUseTemporaryToken: () => unawaited(_promptForRepairTokenAndRun()),
+        onDismissReviewItem: _dismissGroupReview,
+        onKeepReviewItemLocalOnly: _keepGroupLocalOnly,
+        onMergeReviewItemIntoCanonical: _mergeGroupIntoCanonical,
+        onEnablePkGroupSyncV2: _enablePkGroupSyncV2,
+        onResetPkGroupsOnly: _resetPkGroupsOnly,
+        onExportDataFirst: _openExportDataFirst,
+      ),
+      data: (repairState) => PkGroupRepairCard(
+        state: repairState,
+        isConnected: syncState.isConnected,
+        hasStoredToken: hasStoredToken,
+        pkGroupSyncV2Enabled: pkGroupSyncV2Enabled,
+        onRunRepair: () => unawaited(_runGroupRepair()),
+        onUseTemporaryToken: () => unawaited(_promptForRepairTokenAndRun()),
+        onDismissReviewItem: _dismissGroupReview,
+        onKeepReviewItemLocalOnly: _keepGroupLocalOnly,
+        onMergeReviewItemIntoCanonical: _mergeGroupIntoCanonical,
+        onEnablePkGroupSyncV2: _enablePkGroupSyncV2,
+        onResetPkGroupsOnly: _resetPkGroupsOnly,
+        onExportDataFirst: _openExportDataFirst,
+      ),
     );
   }
 
@@ -553,7 +1024,9 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
       child: settingsAsync.when(
         loading: () => SizedBox(
           height: 48,
-          child: Center(child: PrismSpinner(color: theme.colorScheme.primary, size: 20)),
+          child: Center(
+            child: PrismSpinner(color: theme.colorScheme.primary, size: 20),
+          ),
         ),
         error: (e, _) => Text(
           'Could not load auto-sync settings.',
@@ -600,10 +1073,7 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
             ),
             if (settings.enabled) ...[
               const SizedBox(height: 12),
-              Text(
-                'Check every',
-                style: theme.textTheme.labelLarge,
-              ),
+              Text('Check every', style: theme.textTheme.labelLarge),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
@@ -647,7 +1117,9 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
     final now = DateTime.now();
     final diff = now.difference(date);
     if (diff.inMinutes < 1) return context.l10n.pluralkitJustNow;
-    if (diff.inHours < 1) return context.l10n.pluralkitMinutesAgo(diff.inMinutes);
+    if (diff.inHours < 1) {
+      return context.l10n.pluralkitMinutesAgo(diff.inMinutes);
+    }
     if (diff.inDays < 1) return context.l10n.pluralkitHoursAgo(diff.inHours);
     return context.l10n.pluralkitDaysAgo(diff.inDays);
   }
@@ -666,9 +1138,9 @@ class _SectionHeader extends StatelessWidget {
     return Text(
       title,
       style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            color: Theme.of(context).colorScheme.primary,
-            fontWeight: FontWeight.w600,
-          ),
+        color: Theme.of(context).colorScheme.primary,
+        fontWeight: FontWeight.w600,
+      ),
     );
   }
 }
