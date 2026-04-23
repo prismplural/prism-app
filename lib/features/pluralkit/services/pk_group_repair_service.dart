@@ -338,21 +338,27 @@ class PkGroupRepairService {
   ) {
     final sorted = [...groups]
       ..sort((left, right) {
+        final leftCount = entryCounts[left.id] ?? 0;
+        final rightCount = entryCounts[right.id] ?? 0;
         if (candidatePkMemberUuids != null) {
+          final leftPkMembers =
+              localPkMembersByGroupId[left.id] ?? const <String>{};
+          final rightPkMembers =
+              localPkMembersByGroupId[right.id] ?? const <String>{};
           final leftMatch = _membershipMatchScore(
-            localPkMembersByGroupId[left.id] ?? const <String>{},
+            leftPkMembers,
             candidatePkMemberUuids,
+            totalActiveMembershipCount: leftCount,
           );
           final rightMatch = _membershipMatchScore(
-            localPkMembersByGroupId[right.id] ?? const <String>{},
+            rightPkMembers,
             candidatePkMemberUuids,
+            totalActiveMembershipCount: rightCount,
           );
           final matchCompare = rightMatch.compareTo(leftMatch);
           if (matchCompare != 0) return matchCompare;
         }
 
-        final leftCount = entryCounts[left.id] ?? 0;
-        final rightCount = entryCounts[right.id] ?? 0;
         final countCompare = rightCount.compareTo(leftCount);
         if (countCompare != 0) return countCompare;
 
@@ -556,18 +562,22 @@ class PkGroupRepairService {
 
   static int _membershipMatchScore(
     Set<String> localPkMemberUuids,
-    Set<String> candidatePkMemberUuids,
-  ) {
+    Set<String> candidatePkMemberUuids, {
+    required int totalActiveMembershipCount,
+  }) {
     var matched = 0;
-    var extra = 0;
+    var extraPkMembers = 0;
     for (final localPkMemberUuid in localPkMemberUuids) {
       if (candidatePkMemberUuids.contains(localPkMemberUuid)) {
         matched++;
       } else {
-        extra++;
+        extraPkMembers++;
       }
     }
-    return matched - extra;
+    final missingPkMembers = candidatePkMemberUuids.length - matched;
+    final localOnlyMembers =
+        totalActiveMembershipCount - localPkMemberUuids.length;
+    return matched - extraPkMembers - missingPkMembers - localOnlyMembers;
   }
 }
 

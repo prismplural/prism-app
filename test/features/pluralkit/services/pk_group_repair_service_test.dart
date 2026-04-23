@@ -534,6 +534,145 @@ void main() {
   );
 
   test(
+    'token-backed repair keeps exact live-match row and rehomes local extras',
+    () async {
+      await db.customStatement('DROP INDEX idx_member_groups_pluralkit_uuid');
+
+      final members = <MembersCompanion>[
+        _member(id: 'member-a', name: 'Alice', pluralkitUuid: 'pk-member-a'),
+        _member(id: 'member-b', name: 'Bob', pluralkitUuid: 'pk-member-b'),
+        _member(id: 'member-c', name: 'Charlie', pluralkitUuid: 'pk-member-c'),
+        _member(id: 'local-extra', name: 'Local Extra'),
+      ];
+      for (final member in members) {
+        await db.into(db.members).insert(member);
+      }
+
+      await db
+          .into(db.memberGroups)
+          .insert(
+            _group(
+              id: 'exact-live-match',
+              name: 'Cluster',
+              createdAt: DateTime(2024, 1, 1),
+              pluralkitUuid: 'pk-group-1',
+            ),
+          );
+      await db
+          .into(db.memberGroups)
+          .insert(
+            _group(
+              id: 'same-pk-plus-local',
+              name: 'Cluster',
+              createdAt: DateTime(2024, 1, 2),
+              pluralkitUuid: 'pk-group-1',
+            ),
+          );
+
+      final entries = <MemberGroupEntriesCompanion>[
+        _entry(
+          id: 'exact-a',
+          groupId: 'exact-live-match',
+          memberId: 'member-a',
+          pkGroupUuid: 'stale-exact-group-ref',
+          pkMemberUuid: 'pk-member-a',
+        ),
+        _entry(
+          id: 'exact-b',
+          groupId: 'exact-live-match',
+          memberId: 'member-b',
+          pkGroupUuid: 'stale-exact-group-ref',
+          pkMemberUuid: 'pk-member-b',
+        ),
+        _entry(
+          id: 'exact-c',
+          groupId: 'exact-live-match',
+          memberId: 'member-c',
+          pkGroupUuid: 'stale-exact-group-ref',
+          pkMemberUuid: 'pk-member-c',
+        ),
+        _entry(
+          id: 'extra-a',
+          groupId: 'same-pk-plus-local',
+          memberId: 'member-a',
+          pkGroupUuid: 'stale-extra-group-ref',
+          pkMemberUuid: 'pk-member-a',
+        ),
+        _entry(
+          id: 'extra-b',
+          groupId: 'same-pk-plus-local',
+          memberId: 'member-b',
+          pkGroupUuid: 'stale-extra-group-ref',
+          pkMemberUuid: 'pk-member-b',
+        ),
+        _entry(
+          id: 'extra-c',
+          groupId: 'same-pk-plus-local',
+          memberId: 'member-c',
+          pkGroupUuid: 'stale-extra-group-ref',
+          pkMemberUuid: 'pk-member-c',
+        ),
+        _entry(
+          id: 'local-extra-entry',
+          groupId: 'same-pk-plus-local',
+          memberId: 'local-extra',
+        ),
+      ];
+      for (final entry in entries) {
+        await db.into(db.memberGroupEntries).insert(entry);
+      }
+
+      final service = PkGroupRepairService(
+        memberGroupsDao: db.memberGroupsDao,
+        aliasesDao: db.pkGroupSyncAliasesDao,
+        hasRepairToken: ({String? token}) async => token != null,
+        fetchRepairReferenceData: ({String? token}) async {
+          return const PkRepairReferenceData(
+            system: PKSystem(id: 'system-1', name: 'Test'),
+            members: [
+              PKMember(id: 'm1', uuid: 'pk-member-a', name: 'Alice'),
+              PKMember(id: 'm2', uuid: 'pk-member-b', name: 'Bob'),
+              PKMember(id: 'm3', uuid: 'pk-member-c', name: 'Charlie'),
+            ],
+            groups: [
+              PKGroup(
+                id: 'g1',
+                uuid: 'pk-group-1',
+                name: 'Cluster',
+                memberIds: ['pk-member-a', 'pk-member-b', 'pk-member-c'],
+              ),
+            ],
+          );
+        },
+      );
+
+      final report = await service.run(token: 'provided-token');
+
+      expect(report.duplicateSetsMerged, 1);
+      expect(report.entriesRehomed, 1);
+      expect(report.entryConflictsSoftDeleted, 3);
+
+      final exactGroup = await (db.select(
+        db.memberGroups,
+      )..where((t) => t.id.equals('exact-live-match'))).getSingle();
+      expect(exactGroup.isDeleted, isFalse);
+
+      final extraGroup = await (db.select(
+        db.memberGroups,
+      )..where((t) => t.id.equals('same-pk-plus-local'))).getSingle();
+      expect(extraGroup.isDeleted, isTrue);
+
+      final localExtra = await (db.select(
+        db.memberGroupEntries,
+      )..where((t) => t.memberId.equals('local-extra'))).getSingle();
+      expect(localExtra.groupId, 'exact-live-match');
+      expect(localExtra.isDeleted, isFalse);
+      expect(localExtra.pkGroupUuid, 'pk-group-1');
+      expect(localExtra.pkMemberUuid, null);
+    },
+  );
+
+  test(
     'exact-match suppression rejects plain group with extra local-only members',
     () async {
       final members = <MembersCompanion>[
