@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/utils/member_filter.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
@@ -193,7 +193,7 @@ class MemberSearchSheet extends StatefulWidget {
     List<MemberSearchGroup> groups = const [],
     List<MemberSearchSpecialRow> specialRows = const [],
     Widget? Function(Member member)? trailingBuilder,
-  }) {
+  }) async {
     return PrismSheet.showFullScreen<Set<String>>(
       context: context,
       builder: (sheetContext, scrollController) => MemberSearchSheet(
@@ -273,71 +273,105 @@ class _MemberSearchSheetState extends State<MemberSearchSheet> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final filtered = _filteredMembers;
+    final hasGroups = widget.groups.isNotEmpty;
     final title = widget.multiSelect
         ? l10n.memberSelectedCount(_selectedIds.length)
         : l10n.selectMembers(widget.termPlural);
 
-    return Column(
-      children: [
-        PrismSheetTopBar(
-          title: title,
-          trailing: widget.multiSelect
-              ? PrismGlassIconButton(
-                  icon: AppIcons.check,
-                  onPressed: _selectedIds.isEmpty ? null : _confirmMulti,
-                )
-              : null,
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-          child: PrismTextField(
-            controller: _searchController,
-            focusNode: _searchFocus,
-            autofocus: true,
-            hintText: l10n.frontingSearchMembersHint(widget.termPlural),
-            prefixIcon: Icon(AppIcons.search),
-            onChanged: _onQueryChanged,
-            textInputAction: TextInputAction.search,
+    final body = CustomScrollView(
+      controller: widget.scrollController,
+      primary: widget.scrollController == null,
+      slivers: [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+            child: PrismTextField(
+              controller: _searchController,
+              focusNode: _searchFocus,
+              autofocus: false,
+              hintText: l10n.frontingSearchMembersHint(widget.termPlural),
+              prefixIcon: Icon(AppIcons.search),
+              onChanged: _onQueryChanged,
+              textInputAction: TextInputAction.search,
+            ),
           ),
         ),
 
         // ── Group chip bar ────────────────────────────────────────────────
-        SizedBox(
-          height: _kChipBarHeight,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            children: [
-              _buildChip(0, 'All ${widget.termPlural}'),
-              ...widget.groups.asMap().entries.map(
-                (e) => Padding(
-                  padding: const EdgeInsets.only(left: 8),
-                  child: _buildChip(e.key + 1, e.value.name, group: e.value),
+        if (hasGroups)
+          SliverToBoxAdapter(
+            child: SizedBox(
+              height: _kChipBarHeight,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
                 ),
+                children: [
+                  _buildChip(0, 'All ${widget.termPlural}'),
+                  ...widget.groups.asMap().entries.map(
+                    (e) => Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: _buildChip(
+                        e.key + 1,
+                        e.value.name,
+                        group: e.value,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
 
         // ── Member list ───────────────────────────────────────────────────
-        Expanded(
-          child: filtered.isEmpty && widget.specialRows.isEmpty
-              ? _buildEmptyState()
-              : ListView.builder(
-                  controller: widget.scrollController,
-                  primary: widget.scrollController == null,
-                  itemCount: widget.specialRows.length + filtered.length,
-                  itemExtent: _kRowExtent,
-                  itemBuilder: (context, index) {
-                    if (index < widget.specialRows.length) {
-                      return _buildSpecialRow(widget.specialRows[index]);
-                    }
-                    final member = filtered[index - widget.specialRows.length];
-                    return _buildMemberRow(member);
-                  },
-                ),
-        ),
+        if (filtered.isEmpty && widget.specialRows.isEmpty)
+          SliverFillRemaining(hasScrollBody: false, child: _buildEmptyState())
+        else
+          SliverFixedExtentList(
+            itemExtent: _kRowExtent,
+            delegate: SliverChildBuilderDelegate((context, index) {
+              if (index < widget.specialRows.length) {
+                return _buildSpecialRow(widget.specialRows[index]);
+              }
+              final member = filtered[index - widget.specialRows.length];
+              return _buildMemberRow(member);
+            }, childCount: widget.specialRows.length + filtered.length),
+          ),
       ],
+    );
+
+    final topBar = PrismSheetTopBar(
+      title: title,
+      trailing: widget.multiSelect
+          ? PrismGlassIconButton(
+              icon: AppIcons.check,
+              onPressed: _selectedIds.isEmpty ? null : _confirmMulti,
+            )
+          : null,
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxHeight < PrismTokens.topBarHeight) {
+          return CustomScrollView(
+            controller: widget.scrollController,
+            primary: widget.scrollController == null,
+            slivers: [
+              SliverToBoxAdapter(child: topBar),
+              ...body.slivers,
+            ],
+          );
+        }
+
+        return Column(
+          children: [
+            topBar,
+            Expanded(child: body),
+          ],
+        );
+      },
     );
   }
 

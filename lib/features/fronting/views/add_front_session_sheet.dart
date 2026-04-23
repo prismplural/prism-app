@@ -5,6 +5,7 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/members/utils/member_search_groups.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
@@ -138,11 +139,13 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
   Future<void> _openCoFronterSearch(
     List<Member> available,
     String termPlural,
+    List<MemberSearchGroup> groups,
   ) async {
     final result = await MemberSearchSheet.showMulti(
       context,
       members: available,
       termPlural: termPlural,
+      groups: groups,
       initialSelected: Set.from(_coFronterIds),
     );
     if (!mounted || result == null) return;
@@ -333,6 +336,7 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
                   final available = members
                       .where((m) => m.id != _selectedMemberId)
                       .toList();
+                  final searchGroups = watchMemberSearchGroups(ref, available);
                   if (available.isEmpty) {
                     return Text(
                       context.l10n.frontingNoOtherMembers(terms.pluralLower),
@@ -350,8 +354,11 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
                         ),
                         members: available,
                         selectedMemberIds: _coFronterIds,
-                        onPressed: () =>
-                            _openCoFronterSearch(available, terms.plural),
+                        onPressed: () => _openCoFronterSearch(
+                          available,
+                          terms.plural,
+                          searchGroups,
+                        ),
                       ),
                     ],
                   );
@@ -408,7 +415,7 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
 
 /// Switches between a large grid (≤12 members) and an inline expandable picker
 /// with search (>12 members) for selecting the fronting member.
-class _MemberGrid extends StatefulWidget {
+class _MemberGrid extends ConsumerStatefulWidget {
   const _MemberGrid({
     required this.members,
     required this.selectedId,
@@ -431,10 +438,10 @@ class _MemberGrid extends StatefulWidget {
   static const int _compactThreshold = 12;
 
   @override
-  State<_MemberGrid> createState() => _MemberGridState();
+  ConsumerState<_MemberGrid> createState() => _MemberGridState();
 }
 
-class _MemberGridState extends State<_MemberGrid> {
+class _MemberGridState extends ConsumerState<_MemberGrid> {
   @override
   Widget build(BuildContext context) {
     if (widget.members.length > _MemberGrid._compactThreshold) {
@@ -619,6 +626,7 @@ class _MemberGridState extends State<_MemberGrid> {
               .where((member) => !widget.frontingMemberIds.contains(member.id))
               .toList()
         : widget.members;
+    final searchGroups = watchMemberSearchGroups(ref, availableMembers);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -631,7 +639,7 @@ class _MemberGridState extends State<_MemberGrid> {
               : widget.selectedId,
           includeUnknown: !widget.coFrontMode,
           unknownSelected: widget.selectedId == widget.unknownId,
-          onPressed: () => _openSearch(context),
+          onPressed: () => _openSearch(context, availableMembers, searchGroups),
         ),
       ],
     );
@@ -662,19 +670,17 @@ class _MemberGridState extends State<_MemberGrid> {
   /// In co-front mode, already-fronting members are excluded (they are
   /// disabled in the inline list for the same reason).  The "Unknown" special
   /// row is only shown in normal session-creation mode.
-  Future<void> _openSearch(BuildContext context) async {
-    final candidates = widget.coFrontMode
-        ? widget.members
-              .where((m) => !widget.frontingMemberIds.contains(m.id))
-              .toList()
-        : List<Member>.from(widget.members);
-
+  Future<void> _openSearch(
+    BuildContext context,
+    List<Member> candidates,
+    List<MemberSearchGroup> groups,
+  ) async {
     final specialRows = widget.coFrontMode
         ? <MemberSearchSpecialRow>[]
         : [
             MemberSearchSpecialRow(
               rowKey: '__unknown__',
-              title: 'Unknown',
+              title: context.l10n.unknown,
               leading: _unknownLeading(context),
               result: const MemberSearchResultUnknown(),
             ),
@@ -684,6 +690,7 @@ class _MemberGridState extends State<_MemberGrid> {
       context,
       members: candidates,
       termPlural: widget.pluralTerm,
+      groups: groups,
       specialRows: specialRows,
     );
 

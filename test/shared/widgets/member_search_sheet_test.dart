@@ -135,12 +135,31 @@ void main() {
       expect(find.text('Carol'), findsOneWidget);
     });
 
-    testWidgets('shows "All members" chip selected by default', (tester) async {
+    testWidgets('does not show chip bar when no groups are provided', (
+      tester,
+    ) async {
       await tester.pumpWidget(_buildSheet(members: members));
       await tester.pumpAndSettle();
 
-      expect(find.text('All members'), findsOneWidget);
+      expect(find.text('All members'), findsNothing);
     });
+
+    testWidgets(
+      'shows "All members" chip selected by default when groups exist',
+      (tester) async {
+        await tester.pumpWidget(
+          _buildSheet(
+            members: members,
+            groups: const [
+              MemberSearchGroup(id: 'g1', name: 'Front Team', memberIds: {'a'}),
+            ],
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('All members'), findsOneWidget);
+      },
+    );
 
     testWidgets('preserves incoming member order when query is empty', (
       tester,
@@ -433,20 +452,27 @@ void main() {
   // ══════════════════════════════════════════════════════════════════════════
 
   group('accessibility', () {
-    testWidgets('search field is focused on open', (tester) async {
+    testWidgets('search field is not focused on open', (tester) async {
       await tester.pumpWidget(_buildSheet(members: members));
       await tester.pumpAndSettle();
 
-      // autofocus: true causes the search field to receive primary focus.
-      // Verify that the focus manager has a primary focused node after settle.
-      final focused = tester.binding.focusManager.primaryFocus;
-      expect(focused, isNotNull);
+      final editableText = tester.widget<EditableText>(
+        find.byType(EditableText),
+      );
+      expect(editableText.focusNode.hasFocus, isFalse);
     });
 
     testWidgets('"All members" chip exposes selected semantics', (
       tester,
     ) async {
-      await tester.pumpWidget(_buildSheet(members: members));
+      await tester.pumpWidget(
+        _buildSheet(
+          members: members,
+          groups: const [
+            MemberSearchGroup(id: 'g1', name: 'Front Team', memberIds: {'a'}),
+          ],
+        ),
+      );
       await tester.pumpAndSettle();
 
       final semantics = tester.getSemantics(find.text('All members'));

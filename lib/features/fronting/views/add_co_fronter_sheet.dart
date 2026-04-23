@@ -6,6 +6,7 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/members/utils/member_search_groups.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
@@ -39,11 +40,16 @@ class _AddCoFronterSheetState extends ConsumerState<AddCoFronterSheet> {
     ...widget.existingCoFronterIds,
   };
 
-  Future<void> _openSearch(List<Member> available, String termPlural) async {
+  Future<void> _openSearch(
+    List<Member> available,
+    String termPlural,
+    List<MemberSearchGroup> groups,
+  ) async {
     final result = await MemberSearchSheet.showMulti(
       context,
       members: available,
       termPlural: termPlural,
+      groups: groups,
       initialSelected: Set.from(_selectedIds),
     );
     if (!mounted || result == null) return;
@@ -67,7 +73,10 @@ class _AddCoFronterSheetState extends ConsumerState<AddCoFronterSheet> {
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) {
-        PrismToast.error(context, message: context.l10n.frontingErrorAddingCoFronters(e));
+        PrismToast.error(
+          context,
+          message: context.l10n.frontingErrorAddingCoFronters(e),
+        );
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -81,10 +90,12 @@ class _AddCoFronterSheetState extends ConsumerState<AddCoFronterSheet> {
     final membersAsync = ref.watch(activeMembersProvider);
 
     // Pre-compute available members so the header search action can use them.
-    final availableForSearch = membersAsync.value
+    final availableForSearch =
+        membersAsync.value
             ?.where((m) => !_excludedIds.contains(m.id))
             .toList() ??
         [];
+    final searchGroups = watchMemberSearchGroups(ref, availableForSearch);
 
     return Container(
       decoration: BoxDecoration(
@@ -104,7 +115,9 @@ class _AddCoFronterSheetState extends ConsumerState<AddCoFronterSheet> {
                 color: theme.colorScheme.onSurfaceVariant.withValues(
                   alpha: 0.4,
                 ),
-                borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(2)),
+                borderRadius: BorderRadius.circular(
+                  PrismShapes.of(context).radius(2),
+                ),
               ),
             ),
           ),
@@ -135,7 +148,11 @@ class _AddCoFronterSheetState extends ConsumerState<AddCoFronterSheet> {
                         tooltip: context.l10n.search,
                         onPressed: _saving
                             ? null
-                            : () => _openSearch(availableForSearch, terms.plural),
+                            : () => _openSearch(
+                                availableForSearch,
+                                terms.plural,
+                                searchGroups,
+                              ),
                       ),
                     PrismButton(
                       onPressed: _add,

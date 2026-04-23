@@ -4,6 +4,7 @@ import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/members/utils/member_search_groups.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -62,6 +63,7 @@ class WhosFrontingStep extends ConsumerWidget {
         }
 
         if (members.length >= _kOnboardingFrontingSearchThreshold) {
+          final searchGroups = watchMemberSearchGroups(ref, members);
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Column(
@@ -89,6 +91,7 @@ class WhosFrontingStep extends ConsumerWidget {
                           notifier,
                           members,
                           terms.plural,
+                          searchGroups,
                         ),
                       ),
                     ),
@@ -219,11 +222,13 @@ class WhosFrontingStep extends ConsumerWidget {
     OnboardingNotifier notifier,
     List<Member> members,
     String termPlural,
+    List<MemberSearchGroup> groups,
   ) async {
     final result = await MemberSearchSheet.showSingle(
       context,
       members: members,
       termPlural: termPlural,
+      groups: groups,
     );
     if (!context.mounted) return;
     if (result is MemberSearchResultSelected) {

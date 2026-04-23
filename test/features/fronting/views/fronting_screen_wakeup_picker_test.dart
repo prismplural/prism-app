@@ -42,25 +42,24 @@ class _FakeFrontingNotifier extends FrontingNotifier {
   Future<void> build() async {}
 
   @override
-  Future<void> startFronting(String memberId, {List<String> coFronterIds = const []}) async =>
-      startedIds.add(memberId);
+  Future<void> startFronting(
+    String memberId, {
+    List<String> coFronterIds = const [],
+  }) async => startedIds.add(memberId);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-Member _member(String id, String name) => Member(
-      id: id,
-      name: name,
-      createdAt: DateTime(2024),
-    );
+Member _member(String id, String name) =>
+    Member(id: id, name: name, createdAt: DateTime(2024));
 
 FrontingSession _sleepSession() => FrontingSession(
-      id: 'sleep-1',
-      startTime: DateTime(2024),
-      sessionType: SessionType.sleep,
-    );
+  id: 'sleep-1',
+  startTime: DateTime(2024),
+  sessionType: SessionType.sleep,
+);
 
 /// Minimal harness that mirrors the logic of _showWakeUpPicker after the
 /// MemberSearchSheet migration.  A tap on the "Wake up as" button triggers
@@ -79,8 +78,7 @@ class _WakeUpPickerHarness extends ConsumerStatefulWidget {
       _WakeUpPickerHarnessState();
 }
 
-class _WakeUpPickerHarnessState
-    extends ConsumerState<_WakeUpPickerHarness> {
+class _WakeUpPickerHarnessState extends ConsumerState<_WakeUpPickerHarness> {
   Future<void> _showPicker() async {
     final result = await MemberSearchSheet.showSingle(
       context,
@@ -105,10 +103,8 @@ class _WakeUpPickerHarnessState
   }
 
   @override
-  Widget build(BuildContext context) => ElevatedButton(
-        onPressed: _showPicker,
-        child: const Text('Wake up as'),
-      );
+  Widget build(BuildContext context) =>
+      ElevatedButton(onPressed: _showPicker, child: const Text('Wake up as'));
 }
 
 Widget _buildSubject({
@@ -126,10 +122,7 @@ Widget _buildSubject({
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: const [Locale('en')],
       home: Scaffold(
-        body: _WakeUpPickerHarness(
-          sleepSession: _sleepSession(),
-          members: ms,
-        ),
+        body: _WakeUpPickerHarness(sleepSession: _sleepSession(), members: ms),
       ),
     ),
   );
@@ -141,12 +134,15 @@ Widget _buildSubject({
 
 void main() {
   group('wake-up picker', () {
-    testWidgets('tapping Wake up as opens the shared single-select sheet',
-        (tester) async {
-      await tester.pumpWidget(_buildSubject(
-        sleepNotifier: _FakeSleepNotifier(),
-        frontingNotifier: _FakeFrontingNotifier(),
-      ));
+    testWidgets('tapping Wake up as opens the shared single-select sheet', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _buildSubject(
+          sleepNotifier: _FakeSleepNotifier(),
+          frontingNotifier: _FakeFrontingNotifier(),
+        ),
+      );
 
       await tester.tap(find.text('Wake up as'));
       await tester.pumpAndSettle();
@@ -154,15 +150,15 @@ void main() {
       expect(find.byType(MemberSearchSheet), findsOneWidget);
     });
 
-    testWidgets('selecting a member ends sleep then starts fronting',
-        (tester) async {
+    testWidgets('selecting a member ends sleep then starts fronting', (
+      tester,
+    ) async {
       final sleep = _FakeSleepNotifier();
       final fronting = _FakeFrontingNotifier();
 
-      await tester.pumpWidget(_buildSubject(
-        sleepNotifier: sleep,
-        frontingNotifier: fronting,
-      ));
+      await tester.pumpWidget(
+        _buildSubject(sleepNotifier: sleep, frontingNotifier: fronting),
+      );
 
       await tester.tap(find.text('Wake up as'));
       await tester.pumpAndSettle();
@@ -171,33 +167,45 @@ void main() {
       await tester.tap(find.text('Alice').last);
       await tester.pumpAndSettle();
 
-      expect(sleep.endedIds, ['sleep-1'],
-          reason: 'endSleep must be called with the sleep session id');
-      expect(fronting.startedIds, ['m1'],
-          reason: 'startFronting must be called with the selected member id');
+      expect(
+        sleep.endedIds,
+        ['sleep-1'],
+        reason: 'endSleep must be called with the sleep session id',
+      );
+      expect(
+        fronting.startedIds,
+        ['m1'],
+        reason: 'startFronting must be called with the selected member id',
+      );
     });
 
-    testWidgets('dismissing the sheet does not trigger the wake-up flow',
-        (tester) async {
+    testWidgets('dismissing the sheet does not trigger the wake-up flow', (
+      tester,
+    ) async {
       final sleep = _FakeSleepNotifier();
       final fronting = _FakeFrontingNotifier();
 
-      await tester.pumpWidget(_buildSubject(
-        sleepNotifier: sleep,
-        frontingNotifier: fronting,
-      ));
+      await tester.pumpWidget(
+        _buildSubject(sleepNotifier: sleep, frontingNotifier: fronting),
+      );
 
       await tester.tap(find.text('Wake up as'));
       await tester.pumpAndSettle();
 
       // Close via the X button in the sheet's top bar.
-      await tester.tap(find.byTooltip('Cancel'));
+      await tester.tap(find.bySemanticsLabel('Close'));
       await tester.pumpAndSettle();
 
-      expect(sleep.endedIds, isEmpty,
-          reason: 'endSleep must not be called on dismiss');
-      expect(fronting.startedIds, isEmpty,
-          reason: 'startFronting must not be called on dismiss');
+      expect(
+        sleep.endedIds,
+        isEmpty,
+        reason: 'endSleep must not be called on dismiss',
+      );
+      expect(
+        fronting.startedIds,
+        isEmpty,
+        reason: 'startFronting must not be called on dismiss',
+      );
     });
   });
 }

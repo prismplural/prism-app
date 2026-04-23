@@ -25,6 +25,8 @@ import 'package:prism_plurality/features/chat/widgets/attachment_preview.dart';
 import 'package:prism_plurality/features/chat/widgets/gif_picker_sheet.dart';
 import 'package:prism_plurality/features/chat/widgets/mention_overlay.dart';
 import 'package:prism_plurality/features/chat/widgets/voice_recorder.dart';
+import 'package:prism_plurality/features/members/utils/member_search_groups.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
@@ -33,6 +35,7 @@ import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
+import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
@@ -513,8 +516,10 @@ class _MessageInputState extends ConsumerState<MessageInput> {
             .watch(useProxyTagsForAuthoringProvider)
             .whenOrNull(data: (v) => v) ??
         false;
+    final terms = watchTerminology(context, ref);
 
     final members = membersAsync.value ?? [];
+    final memberSearchGroups = watchMemberSearchGroups(ref, members);
     final memberMap = {for (final m in members) m.id: m};
     final currentMember = speakingAs != null
         ? members.where((m) => m.id == speakingAs).firstOrNull
@@ -605,12 +610,46 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                   button: true,
                   child: BlurPopupAnchor(
                     preferredDirection: BlurPopupDirection.up,
-                    itemCount: members.length,
+                    itemCount: members.length + 1,
                     itemBuilder: (context, index, close) {
-                      final member = members[index];
+                      if (index == 0) {
+                        return PrismListRow(
+                          dense: true,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          leading: Icon(AppIcons.search, size: 20),
+                          title: Text(context.l10n.search),
+                          onTap: () async {
+                            close();
+                            await Future<void>.delayed(Duration.zero);
+                            if (!mounted) return;
+                            final result = await MemberSearchSheet.showSingle(
+                              context,
+                              members: members,
+                              termPlural: terms.plural,
+                              groups: memberSearchGroups,
+                            );
+                            if (!mounted ||
+                                result is! MemberSearchResultSelected) {
+                              return;
+                            }
+                            ref
+                                .read(speakingAsProvider.notifier)
+                                .setMember(result.memberId);
+                          },
+                        );
+                      }
+
+                      final member = members[index - 1];
                       final isSelected = member.id == speakingAs;
                       return PrismListRow(
                         dense: true,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
                         leading: MemberAvatar(
                           avatarImageData: member.avatarImageData,
                           memberName: member.name,

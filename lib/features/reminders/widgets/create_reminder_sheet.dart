@@ -1,14 +1,22 @@
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/reminder.dart';
+import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/members/utils/member_search_groups.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/features/reminders/providers/reminders_providers.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
-import 'package:prism_plurality/shared/widgets/headmate_picker.dart';
 import 'package:prism_plurality/shared/widgets/info_banner.dart';
+import 'package:prism_plurality/shared/widgets/member_avatar.dart';
+import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
+import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_select.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
@@ -59,7 +67,8 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
     // frequency). If editing a reminder that arrived here with intervalDays=1
     // under the interval frequency, bump it up to a valid option.
     final editingInterval = r?.intervalDays;
-    _intervalDays = (_frequency == ReminderFrequency.interval &&
+    _intervalDays =
+        (_frequency == ReminderFrequency.interval &&
             (editingInterval == null || editingInterval < 2))
         ? 2
         : (editingInterval ?? 2);
@@ -85,16 +94,49 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
     super.dispose();
   }
 
+  Future<void> _openTargetPicker(
+    List<Member> members,
+    List<MemberSearchGroup> groups,
+  ) async {
+    final result = await MemberSearchSheet.showSingle(
+      context,
+      members: members,
+      termPlural: readTerminology(context, ref).plural,
+      groups: groups,
+      specialRows: [
+        MemberSearchSpecialRow(
+          rowKey: '__any__',
+          title: context.l10n.remindersTargetAny,
+          leading: Icon(AppIcons.peopleOutline),
+          result: const MemberSearchResultCleared(),
+        ),
+      ],
+    );
+    if (!mounted) return;
+    switch (result) {
+      case MemberSearchResultSelected(:final memberId):
+        setState(() => _targetMemberId = memberId);
+      case MemberSearchResultCleared():
+        setState(() => _targetMemberId = null);
+      case MemberSearchResultDismissed():
+      case MemberSearchResultUnknown():
+        break;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final canSave = _canSave;
+    final membersAsync = ref.watch(activeMembersProvider);
 
     return SafeArea(
       child: Column(
         children: [
           PrismSheetTopBar(
-            title: _isEditing ? context.l10n.remindersEditTitle : context.l10n.remindersNewTitle,
+            title: _isEditing
+                ? context.l10n.remindersEditTitle
+                : context.l10n.remindersNewTitle,
             trailing: PrismGlassIconButton(
               icon: AppIcons.check,
               size: PrismTokens.topBarActionSize,
@@ -129,7 +171,10 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
                 const SizedBox(height: 16),
 
                 // Trigger type
-                Text(context.l10n.remindersTriggerLabel, style: theme.textTheme.labelLarge),
+                Text(
+                  context.l10n.remindersTriggerLabel,
+                  style: theme.textTheme.labelLarge,
+                ),
                 const SizedBox(height: 8),
                 PrismSegmentedControl<ReminderTrigger>(
                   segments: [
@@ -150,7 +195,10 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
                 // Conditional fields
                 if (_trigger == ReminderTrigger.scheduled) ...[
                   // Schedule section: frequency + frequency-specific fields.
-                  Text(context.l10n.remindersScheduleLabel, style: theme.textTheme.labelLarge),
+                  Text(
+                    context.l10n.remindersScheduleLabel,
+                    style: theme.textTheme.labelLarge,
+                  ),
                   const SizedBox(height: 8),
                   PrismSegmentedControl<ReminderFrequency>(
                     segments: [
@@ -182,8 +230,7 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
                   if (_frequency == ReminderFrequency.weekly) ...[
                     WeekdayPicker(
                       selected: _weeklyDays,
-                      onChanged: (days) =>
-                          setState(() => _weeklyDays = days),
+                      onChanged: (days) => setState(() => _weeklyDays = days),
                     ),
                     if (_weeklyDays.isEmpty) ...[
                       const SizedBox(height: 8),
@@ -202,11 +249,26 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
                         value: _intervalDays ?? 2,
                         menuWidth: 180,
                         items: [
-                          PrismSelectItem(value: 2, label: context.l10n.remindersIntervalDays(2)),
-                          PrismSelectItem(value: 3, label: context.l10n.remindersIntervalDays(3)),
-                          PrismSelectItem(value: 7, label: context.l10n.remindersIntervalDays(7)),
-                          PrismSelectItem(value: 14, label: context.l10n.remindersIntervalDays(14)),
-                          PrismSelectItem(value: 30, label: context.l10n.remindersIntervalDays(30)),
+                          PrismSelectItem(
+                            value: 2,
+                            label: context.l10n.remindersIntervalDays(2),
+                          ),
+                          PrismSelectItem(
+                            value: 3,
+                            label: context.l10n.remindersIntervalDays(3),
+                          ),
+                          PrismSelectItem(
+                            value: 7,
+                            label: context.l10n.remindersIntervalDays(7),
+                          ),
+                          PrismSelectItem(
+                            value: 14,
+                            label: context.l10n.remindersIntervalDays(14),
+                          ),
+                          PrismSelectItem(
+                            value: 30,
+                            label: context.l10n.remindersIntervalDays(30),
+                          ),
                         ],
                         onChanged: (v) => setState(() => _intervalDays = v),
                       ),
@@ -224,7 +286,8 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
                           final picked = await showPrismTimePicker(
                             context: context,
                             anchorContext: anchorContext,
-                            initialTime: _timeOfDay ??
+                            initialTime:
+                                _timeOfDay ??
                                 const TimeOfDay(hour: 9, minute: 0),
                           );
                           if (picked != null) {
@@ -242,12 +305,30 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
                       value: _delayHours ?? 0,
                       menuWidth: 180,
                       items: [
-                        PrismSelectItem(value: 0, label: context.l10n.remindersImmediately),
-                        PrismSelectItem(value: 1, label: context.l10n.remindersDelayHours(1)),
-                        PrismSelectItem(value: 2, label: context.l10n.remindersDelayHours(2)),
-                        PrismSelectItem(value: 4, label: context.l10n.remindersDelayHours(4)),
-                        PrismSelectItem(value: 8, label: context.l10n.remindersDelayHours(8)),
-                        PrismSelectItem(value: 12, label: context.l10n.remindersDelayHours(12)),
+                        PrismSelectItem(
+                          value: 0,
+                          label: context.l10n.remindersImmediately,
+                        ),
+                        PrismSelectItem(
+                          value: 1,
+                          label: context.l10n.remindersDelayHours(1),
+                        ),
+                        PrismSelectItem(
+                          value: 2,
+                          label: context.l10n.remindersDelayHours(2),
+                        ),
+                        PrismSelectItem(
+                          value: 4,
+                          label: context.l10n.remindersDelayHours(4),
+                        ),
+                        PrismSelectItem(
+                          value: 8,
+                          label: context.l10n.remindersDelayHours(8),
+                        ),
+                        PrismSelectItem(
+                          value: 12,
+                          label: context.l10n.remindersDelayHours(12),
+                        ),
                       ],
                       onChanged: (v) => setState(() => _delayHours = v),
                     ),
@@ -262,11 +343,41 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
                     style: theme.textTheme.labelLarge,
                   ),
                   const SizedBox(height: 8),
-                  HeadmatePicker(
-                    selectedMemberId: _targetMemberId,
-                    includeUnknown: true,
-                    label: context.l10n.remindersTargetAny,
-                    onSelected: (id) => setState(() => _targetMemberId = id),
+                  membersAsync.when(
+                    loading: () =>
+                        const SizedBox(height: 56, child: PrismLoadingState()),
+                    error: (e, _) => Text(context.l10n.errorWithDetail(e)),
+                    data: (members) {
+                      final selectedMember = members.firstWhereOrNull(
+                        (member) => member.id == _targetMemberId,
+                      );
+                      final searchGroups = watchMemberSearchGroups(
+                        ref,
+                        members,
+                      );
+                      return PrismListRow(
+                        leading: selectedMember != null
+                            ? MemberAvatar(
+                                avatarImageData: selectedMember.avatarImageData,
+                                memberName: selectedMember.name,
+                                emoji: selectedMember.emoji,
+                                customColorEnabled:
+                                    selectedMember.customColorEnabled,
+                                customColorHex: selectedMember.customColorHex,
+                                size: 32,
+                              )
+                            : Icon(AppIcons.peopleOutline),
+                        title: Text(
+                          selectedMember?.name ??
+                              context.l10n.remindersTargetAny,
+                        ),
+                        subtitle: selectedMember != null
+                            ? Text(context.l10n.remindersTargetLabel)
+                            : null,
+                        trailing: Icon(AppIcons.expandMore),
+                        onTap: () => _openTargetPicker(members, searchGroups),
+                      );
+                    },
                   ),
                   if (_targetMemberId != null) ...[
                     const SizedBox(height: 12),
@@ -316,17 +427,16 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
 
     final isScheduled = _trigger == ReminderTrigger.scheduled;
     final frequency = isScheduled ? _frequency : ReminderFrequency.daily;
-    final weeklyDays =
-        isScheduled && _frequency == ReminderFrequency.weekly
-            ? (_weeklyDays.toList()..sort())
-            : null;
-    final intervalDays =
-        isScheduled && _frequency == ReminderFrequency.interval
-            ? _intervalDays
-            : null;
+    final weeklyDays = isScheduled && _frequency == ReminderFrequency.weekly
+        ? (_weeklyDays.toList()..sort())
+        : null;
+    final intervalDays = isScheduled && _frequency == ReminderFrequency.interval
+        ? _intervalDays
+        : null;
 
-    final targetMemberId =
-        _trigger == ReminderTrigger.onFrontChange ? _targetMemberId : null;
+    final targetMemberId = _trigger == ReminderTrigger.onFrontChange
+        ? _targetMemberId
+        : null;
 
     if (_isEditing) {
       notifier.updateReminder(

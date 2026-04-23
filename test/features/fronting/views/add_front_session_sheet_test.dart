@@ -4,9 +4,12 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/domain/models/member_group.dart';
+import 'package:prism_plurality/domain/models/member_group_entry.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/fronting/views/add_front_session_sheet.dart';
+import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
@@ -49,6 +52,12 @@ Widget _buildSheetTrigger({
   return ProviderScope(
     overrides: [
       activeMembersProvider.overrideWith((ref) => Stream.value(members)),
+      allGroupsProvider.overrideWith(
+        (ref) => Stream.value(const <MemberGroup>[]),
+      ),
+      allGroupEntriesProvider.overrideWith(
+        (ref) => Stream.value(const <MemberGroupEntry>[]),
+      ),
       activeSessionsProvider.overrideWith(
         (ref) => Stream.value(activeSessions),
       ),

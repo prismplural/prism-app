@@ -13,6 +13,7 @@ import 'package:prism_plurality/features/fronting/providers/fronting_providers.d
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/utils/group_tree_utils.dart';
+import 'package:prism_plurality/features/members/utils/member_search_groups.dart';
 import 'package:prism_plurality/features/members/widgets/create_edit_group_sheet.dart';
 import 'package:prism_plurality/features/members/widgets/delete_group_sheet.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
@@ -20,8 +21,8 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
-import 'package:prism_plurality/shared/widgets/headmate_picker.dart';
 import 'package:prism_plurality/shared/widgets/member_card.dart';
+import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
@@ -79,6 +80,9 @@ class _GroupDetailBody extends ConsumerWidget {
     final l10n = context.l10n;
     final terms = watchTerminology(context, ref);
     final entriesAsync = ref.watch(groupEntriesProvider(group.id));
+    ref.watch(activeMembersProvider);
+    ref.watch(allGroupsProvider);
+    ref.watch(allGroupEntriesProvider);
     final tree = ref.watch(groupTreeProvider);
     final groupDepth = GroupTreeUtils.getGroupDepth(group.id, tree);
     final canAddSubGroup = groupDepth < 3;
@@ -113,45 +117,50 @@ class _GroupDetailBody extends ConsumerWidget {
             const SizedBox(height: 24),
 
             entriesAsync.whenOrNull(
-              data: (entries) {
-                if (entries.isEmpty) return null;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: PrismButton(
-                          label: l10n.memberGroupFrontGroup,
-                          icon: Icons.group_outlined,
-                          tone: PrismButtonTone.outlined,
-                          expanded: true,
-                          semanticLabel: l10n.memberGroupFrontGroupSemantics(group.name),
-                          onPressed: () =>
-                              _onFrontGroup(context, ref, group, entries),
-                        ),
+                  data: (entries) {
+                    if (entries.isEmpty) return null;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: PrismButton(
+                              label: l10n.memberGroupFrontGroup,
+                              icon: Icons.group_outlined,
+                              tone: PrismButtonTone.outlined,
+                              expanded: true,
+                              semanticLabel: l10n
+                                  .memberGroupFrontGroupSemantics(group.name),
+                              onPressed: () =>
+                                  _onFrontGroup(context, ref, group, entries),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: PrismButton(
+                              label: l10n.memberGroupStartChat,
+                              icon: Icons.chat_bubble_outline,
+                              tone: PrismButtonTone.outlined,
+                              expanded: true,
+                              onPressed: () => _onStartChat(context, entries),
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: PrismButton(
-                          label: l10n.memberGroupStartChat,
-                          icon: Icons.chat_bubble_outline,
-                          tone: PrismButtonTone.outlined,
-                          expanded: true,
-                          onPressed: () => _onStartChat(context, entries),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ) ?? const SizedBox.shrink(),
+                    );
+                  },
+                ) ??
+                const SizedBox.shrink(),
 
             _SubGroupsSection(groupId: group.id),
 
             Row(
               children: [
-                Icon(AppIcons.peopleOutline,
-                    size: 18, color: theme.colorScheme.primary),
+                Icon(
+                  AppIcons.peopleOutline,
+                  size: 18,
+                  color: theme.colorScheme.primary,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   l10n.memberGroupSectionMembers,
@@ -174,7 +183,9 @@ class _GroupDetailBody extends ConsumerWidget {
                     child: EmptyState(
                       icon: Icon(AppIcons.personAddOutlined),
                       title: l10n.memberGroupNoMembers(terms.pluralLower),
-                      subtitle: l10n.memberGroupNoMembersSubtitle(terms.pluralLower),
+                      subtitle: l10n.memberGroupNoMembersSubtitle(
+                        terms.pluralLower,
+                      ),
                     ),
                   );
                 }
@@ -267,35 +278,43 @@ class _GroupDetailBody extends ConsumerWidget {
       Haptics.heavy();
       unawaited(ref.read(groupNotifierProvider.notifier).deleteGroup(group.id));
       if (context.mounted) {
-        PrismToast.show(context, message: context.l10n.memberGroupDeleted(group.name));
+        PrismToast.show(
+          context,
+          message: context.l10n.memberGroupDeleted(group.name),
+        );
         Navigator.of(context).pop();
       }
     }
   }
 
-  void _addMember(BuildContext context, WidgetRef ref) {
-    final l10n = context.l10n;
+  Future<void> _addMember(BuildContext context, WidgetRef ref) async {
     final entries =
         ref.read(groupEntriesProvider(group.id)).whenOrNull(data: (e) => e) ??
-            [];
+        [];
     final existingMemberIds = entries.map((e) => e.memberId).toSet();
+    final availableMembers =
+        (ref.read(activeMembersProvider).value ?? const <Member>[])
+            .where((member) => !existingMemberIds.contains(member.id))
+            .toList();
 
-    PrismDialog.show<void>(
-      context: context,
-      title: l10n.memberGroupAddMember,
-      builder: (ctx) => HeadmatePicker(
-        excludeIds: existingMemberIds,
-        onSelected: (memberId) {
-          if (memberId != null) {
-            ref
-                .read(groupNotifierProvider.notifier)
-                .addMemberToGroup(group.id, memberId);
-            Haptics.success();
-            Navigator.of(ctx).pop();
-            PrismToast.show(context, message: context.l10n.memberAdded(readTerminology(context, ref).singular));
-          }
-        },
-      ),
+    final selectedIds = await MemberSearchSheet.showMulti(
+      context,
+      members: availableMembers,
+      termPlural: readTerminology(context, ref).plural,
+      groups: readMemberSearchGroups(ref, availableMembers),
+    );
+    if (!context.mounted || selectedIds == null || selectedIds.isEmpty) return;
+
+    final notifier = ref.read(groupNotifierProvider.notifier);
+    for (final memberId in selectedIds) {
+      await notifier.addMemberToGroup(group.id, memberId);
+    }
+
+    if (!context.mounted) return;
+    Haptics.success();
+    PrismToast.show(
+      context,
+      message: context.l10n.memberAdded(readTerminology(context, ref).singular),
     );
   }
 
@@ -328,8 +347,9 @@ class _GroupDetailBody extends ConsumerWidget {
         .expand((s) => [s.memberId, ...s.coFronterIds])
         .whereType<String>()
         .toSet();
-    final toAdd =
-        memberIds.where((id) => !alreadyFronting.contains(id)).toList();
+    final toAdd = memberIds
+        .where((id) => !alreadyFronting.contains(id))
+        .toList();
 
     if (toAdd.isEmpty) {
       // All members already fronting — show a toast instead of a dialog
@@ -341,8 +361,7 @@ class _GroupDetailBody extends ConsumerWidget {
       return;
     }
 
-    final alreadyInGroup =
-        alreadyFronting.intersection(memberIds.toSet());
+    final alreadyInGroup = alreadyFronting.intersection(memberIds.toSet());
 
     if (alreadyInGroup.isNotEmpty) {
       // Some are already fronting — confirm adding the rest
@@ -364,8 +383,9 @@ class _GroupDetailBody extends ConsumerWidget {
     // Check if all group members are inactive
     final allMembers =
         ref.read(allMembersProvider).whenOrNull(data: (m) => m) ?? [];
-    final groupMembers =
-        allMembers.where((m) => memberIds.contains(m.id)).toList();
+    final groupMembers = allMembers
+        .where((m) => memberIds.contains(m.id))
+        .toList();
     final allInactive =
         groupMembers.isNotEmpty && groupMembers.every((m) => !m.isActive);
 
@@ -387,7 +407,9 @@ class _GroupDetailBody extends ConsumerWidget {
       if (!confirmed || !context.mounted) return;
     }
 
-    await ref.read(frontingNotifierProvider.notifier).startFrontingWithDetails(
+    await ref
+        .read(frontingNotifierProvider.notifier)
+        .startFrontingWithDetails(
           memberId: toAdd.first,
           coFronterIds: toAdd.length > 1 ? toAdd.skip(1).toList() : [],
         );
@@ -424,10 +446,7 @@ class _GroupInfoHeader extends StatelessWidget {
             width: 56,
             height: 56,
             child: Center(
-              child: Text(
-                group.emoji!,
-                style: const TextStyle(fontSize: 36),
-              ),
+              child: Text(group.emoji!, style: const TextStyle(fontSize: 36)),
             ),
           )
         else
@@ -508,8 +527,11 @@ class _SubGroupsSection extends ConsumerWidget {
       children: [
         Row(
           children: [
-            Icon(AppIcons.folderOutlined,
-                size: 18, color: theme.colorScheme.primary),
+            Icon(
+              AppIcons.folderOutlined,
+              size: 18,
+              color: theme.colorScheme.primary,
+            ),
             const SizedBox(width: 8),
             Text(
               l10n.memberGroupSubGroupsLabel,
@@ -543,11 +565,13 @@ class _SubGroupTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final count = ref.watch(
-        groupMemberCountsProvider.select((m) => m[group.id] ?? 0));
+      groupMemberCountsProvider.select((m) => m[group.id] ?? 0),
+    );
     final hasColor = group.colorHex != null && group.colorHex!.isNotEmpty;
     final accentColor = hasColor ? AppColors.fromHex(group.colorHex!) : null;
-    final tileRadius =
-        BorderRadius.circular(PrismShapes.of(context).radius(14));
+    final tileRadius = BorderRadius.circular(
+      PrismShapes.of(context).radius(14),
+    );
 
     return Semantics(
       label: '${group.name}, sub-group, $count members, navigate',
@@ -566,11 +590,7 @@ class _SubGroupTile extends ConsumerWidget {
             child: Row(
               children: [
                 if (hasColor)
-                  Container(
-                    width: 4,
-                    height: 56,
-                    color: accentColor,
-                  ),
+                  Container(width: 4, height: 56, color: accentColor),
                 Expanded(
                   child: Padding(
                     padding: EdgeInsets.only(
@@ -598,7 +618,8 @@ class _SubGroupTile extends ConsumerWidget {
                             height: 32,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: accentColor ??
+                              color:
+                                  accentColor ??
                                   theme.colorScheme.primaryContainer,
                             ),
                             child: Icon(
@@ -624,11 +645,14 @@ class _SubGroupTile extends ConsumerWidget {
                         if (count > 0)
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 2),
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: theme.colorScheme.primaryContainer,
                               borderRadius: BorderRadius.circular(
-                                  PrismShapes.of(context).radius(12)),
+                                PrismShapes.of(context).radius(12),
+                              ),
                             ),
                             child: Text(
                               '$count',
@@ -652,10 +676,7 @@ class _SubGroupTile extends ConsumerWidget {
 }
 
 class _GroupMemberTile extends ConsumerWidget {
-  const _GroupMemberTile({
-    required this.entry,
-    required this.groupId,
-  });
+  const _GroupMemberTile({required this.entry, required this.groupId});
 
   final MemberGroupEntry entry;
   final String groupId;
@@ -678,14 +699,15 @@ class _GroupMemberTile extends ConsumerWidget {
             alignment: Alignment.centerRight,
             padding: const EdgeInsets.only(right: 24),
             color: theme.colorScheme.error,
-            child: Icon(AppIcons.removeCircleOutline,
-                color: theme.colorScheme.onError),
+            child: Icon(
+              AppIcons.removeCircleOutline,
+              color: theme.colorScheme.onError,
+            ),
           ),
           confirmDismiss: (_) => _confirmRemove(context, ref, member),
           child: MemberCard(
             member: member,
-            onTap: () =>
-                context.push(AppRoutePaths.settingsMember(member.id)),
+            onTap: () => context.push(AppRoutePaths.settingsMember(member.id)),
           ),
         );
       },
@@ -693,23 +715,34 @@ class _GroupMemberTile extends ConsumerWidget {
   }
 
   Future<bool> _confirmRemove(
-      BuildContext context, WidgetRef ref, Member member) async {
+    BuildContext context,
+    WidgetRef ref,
+    Member member,
+  ) async {
     final l10n = context.l10n;
     final terms = readTerminology(context, ref);
     final confirmed = await PrismDialog.confirm(
       context: context,
       title: l10n.memberRemoveFromGroupTitle(terms.singular),
-      message: l10n.memberRemoveFromGroupMessage(member.name, terms.singularLower),
+      message: l10n.memberRemoveFromGroupMessage(
+        member.name,
+        terms.singularLower,
+      ),
       confirmLabel: l10n.confirm,
       destructive: true,
     );
     if (confirmed) {
       Haptics.selection();
-      unawaited(ref
-          .read(groupNotifierProvider.notifier)
-          .removeMemberFromGroup(groupId, entry.memberId));
+      unawaited(
+        ref
+            .read(groupNotifierProvider.notifier)
+            .removeMemberFromGroup(groupId, entry.memberId),
+      );
       if (context.mounted) {
-        PrismToast.show(context, message: context.l10n.memberRemoved(member.name));
+        PrismToast.show(
+          context,
+          message: context.l10n.memberRemoved(member.name),
+        );
       }
     }
     return false; // Don't auto-dismiss; provider stream will update

@@ -9,6 +9,7 @@ import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart
 import 'package:prism_plurality/features/fronting/utils/member_frequency_sort.dart';
 import 'package:prism_plurality/features/fronting/utils/sleep_quality_l10n.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/members/utils/member_search_groups.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/duration_extensions.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
@@ -62,10 +63,7 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
         quality: _quality != SleepQuality.unknown ? _quality : null,
         frontingMemberId: _selectedMemberId,
       );
-      result.when(
-        success: (_) {},
-        failure: (failure) => throw failure,
-      );
+      result.when(success: (_) {}, failure: (failure) => throw failure);
       invalidateFrontingProviders(ref);
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
@@ -78,7 +76,9 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
   Future<void> _handleSkip() async {
     setState(() => _saving = true);
     try {
-      await ref.read(sleepNotifierProvider.notifier).endSleep(widget.session.id);
+      await ref
+          .read(sleepNotifierProvider.notifier)
+          .endSleep(widget.session.id);
       invalidateFrontingProviders(ref);
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
@@ -95,17 +95,16 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
 
   Future<void> _showOthersPicker(
     BuildContext context,
-    List<Member> allMembers,
-    List<Member> topMembers,
+    List<Member> others,
+    List<MemberSearchGroup> groups,
   ) async {
-    final topIds = topMembers.map((m) => m.id).toSet();
-    final others = allMembers.where((m) => !topIds.contains(m.id)).toList();
     final termPlural = readTerminology(context, ref).plural;
 
     final result = await MemberSearchSheet.showSingle(
       context,
       members: others,
       termPlural: termPlural,
+      groups: groups,
     );
 
     if (result is MemberSearchResultSelected && mounted) {
@@ -172,10 +171,12 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
                 ])
                   Semantics(
                     button: true,
-                    selected: _quality != SleepQuality.unknown &&
+                    selected:
+                        _quality != SleepQuality.unknown &&
                         _quality.index >= q.index,
-                    label: context.l10n
-                        .frontingRateSleepAs(q.localizedLabel(context.l10n)),
+                    label: context.l10n.frontingRateSleepAs(
+                      q.localizedLabel(context.l10n),
+                    ),
                     child: IconButton(
                       onPressed: () => setState(() => _quality = q),
                       icon: Icon(
@@ -183,11 +184,13 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
                                 _quality.index >= q.index)
                             ? AppIcons.starRounded
                             : AppIcons.starOutlineRounded,
-                        color: (_quality != SleepQuality.unknown &&
+                        color:
+                            (_quality != SleepQuality.unknown &&
                                 _quality.index >= q.index)
                             ? Colors.amber
-                            : theme.colorScheme.onSurface
-                                .withValues(alpha: 0.2),
+                            : theme.colorScheme.onSurface.withValues(
+                                alpha: 0.2,
+                              ),
                         size: 28,
                       ),
                       padding: EdgeInsets.zero,
@@ -219,6 +222,11 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
                   morningCounts,
                   take: 4,
                 );
+                final topIds = topMembers.map((member) => member.id).toSet();
+                final others = members
+                    .where((member) => !topIds.contains(member.id))
+                    .toList();
+                final otherSearchGroups = watchMemberSearchGroups(ref, others);
                 final hasOthers = members.length > 4;
 
                 return Column(
@@ -228,7 +236,8 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: topMembers.map((member) {
                         final isSelected = _selectedMemberId == member.id;
-                        final accentColor = member.customColorEnabled &&
+                        final accentColor =
+                            member.customColorEnabled &&
                                 member.customColorHex != null
                             ? AppColors.fromHex(member.customColorHex!)
                             : theme.colorScheme.primary;
@@ -243,8 +252,8 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
                               onTap: () => setState(
                                 () => _selectedMemberId =
                                     _selectedMemberId == member.id
-                                        ? null
-                                        : member.id,
+                                    ? null
+                                    : member.id,
                               ),
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
@@ -278,12 +287,12 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
                                     width: 64,
                                     child: Text(
                                       member.name,
-                                      style:
-                                          theme.textTheme.bodySmall?.copyWith(
-                                        fontWeight: isSelected
-                                            ? FontWeight.bold
-                                            : FontWeight.normal,
-                                      ),
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                            fontWeight: isSelected
+                                                ? FontWeight.bold
+                                                : FontWeight.normal,
+                                          ),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       textAlign: TextAlign.center,
@@ -299,9 +308,14 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
                     if (hasOthers) ...[
                       const SizedBox(height: 4),
                       InkWell(
-                        onTap: () =>
-                            _showOthersPicker(context, members, topMembers),
-                        borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(8)),
+                        onTap: () => _showOthersPicker(
+                          context,
+                          others,
+                          otherSearchGroups,
+                        ),
+                        borderRadius: BorderRadius.circular(
+                          PrismShapes.of(context).radius(8),
+                        ),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 8),
                           child: Row(
@@ -313,12 +327,13 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
                                           (m) => m.id == _selectedMemberId,
                                         )
                                     ? (members
-                                            .where(
-                                              (m) => m.id == _selectedMemberId,
-                                            )
-                                            .firstOrNull
-                                            ?.name ??
-                                        context.l10n.sleepWakeUpOthers)
+                                              .where(
+                                                (m) =>
+                                                    m.id == _selectedMemberId,
+                                              )
+                                              .firstOrNull
+                                              ?.name ??
+                                          context.l10n.sleepWakeUpOthers)
                                     : context.l10n.sleepWakeUpOthers,
                                 style: theme.textTheme.bodyMedium?.copyWith(
                                   color: theme.colorScheme.primary,

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/domain/models/conversation.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/members/utils/member_search_groups.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
@@ -28,10 +29,6 @@ class AddMembersSheet {
     Conversation conversation,
   ) async {
     final container = ProviderScope.containerOf(context);
-
-    // _AddMembersContent watches activeMembersProvider reactively, so the
-    // sheet appears immediately and populates once the stream emits.
-    // MemberSearchSheet's "Done" button pops with Set<String>.
     final selectedIds = await PrismSheet.show<Set<String>>(
       context: context,
       maxHeightFactor: 0.95,
@@ -53,7 +50,9 @@ class AddMembersSheet {
     }
 
     try {
-      await container.read(chatNotifierProvider.notifier).addParticipants(
+      await container
+          .read(chatNotifierProvider.notifier)
+          .addParticipants(
             conversation.id,
             selectedIds.toList(),
             addedByName: speakingAsName,
@@ -61,14 +60,16 @@ class AddMembersSheet {
       return true;
     } catch (e) {
       if (context.mounted) {
-        PrismToast.error(context, message: context.l10n.chatAddMembersFailed(e));
+        PrismToast.error(
+          context,
+          message: context.l10n.chatAddMembersFailed(e),
+        );
       }
       return null;
     }
   }
 }
 
-// Internal widget — shown inside PrismSheet.show, watches providers reactively.
 class _AddMembersContent extends ConsumerWidget {
   const _AddMembersContent({required this.conversation});
 
@@ -90,11 +91,13 @@ class _AddMembersContent extends ConsumerWidget {
 
     return membersAsync.when(
       data: (members) {
-        final available =
-            members.where((m) => !existingIds.contains(m.id)).toList();
+        final available = members
+            .where((member) => !existingIds.contains(member.id))
+            .toList();
         return MemberSearchSheet(
           members: available,
           termPlural: termPlural,
+          groups: watchMemberSearchGroups(ref, available),
           multiSelect: true,
         );
       },

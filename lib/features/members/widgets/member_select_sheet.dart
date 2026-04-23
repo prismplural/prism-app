@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/members/utils/member_search_groups.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
@@ -18,10 +19,7 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 /// Returns the selected member's ID, or an empty string `''` to indicate
 /// "none" (clear the current selection). Returns `null` if dismissed.
 class MemberSelectSheet extends ConsumerWidget {
-  const MemberSelectSheet({
-    super.key,
-    this.currentMemberId,
-  });
+  const MemberSelectSheet({super.key, this.currentMemberId});
 
   static const double _kSheetBodyHeightFactor = 0.45;
 
@@ -34,15 +32,13 @@ class MemberSelectSheet extends ConsumerWidget {
   ///
   /// The sheet opens with a fixed-height scrolling body so longer lists stay
   /// scrollable without becoming full-screen.
-  static Future<String?> show(
-    BuildContext context, {
-    String? currentMemberId,
-  }) {
+  static Future<String?> show(BuildContext context, {String? currentMemberId}) {
     return PrismSheet.show<String>(
       context: context,
       title: context.l10n.memberNoteChooseHeadmate,
       builder: (sheetContext) => SizedBox(
-        height: MediaQuery.sizeOf(sheetContext).height * _kSheetBodyHeightFactor,
+        height:
+            MediaQuery.sizeOf(sheetContext).height * _kSheetBodyHeightFactor,
         child: MemberSelectSheet(currentMemberId: currentMemberId),
       ),
     );
@@ -73,6 +69,8 @@ class MemberSelectSheet extends ConsumerWidget {
           );
         }
 
+        final searchGroups = watchMemberSearchGroups(ref, members);
+
         return Column(
           children: [
             // Search action in top-right corner — opens the shared search sheet.
@@ -86,6 +84,7 @@ class MemberSelectSheet extends ConsumerWidget {
                     context,
                     members: members,
                     termPlural: terminology.plural,
+                    groups: searchGroups,
                     specialRows: [
                       MemberSearchSpecialRow(
                         rowKey: 'none',
@@ -149,8 +148,9 @@ class MemberSelectSheet extends ConsumerWidget {
                         size: 36,
                       ),
                       title: Text(member.name),
-                      subtitle:
-                          member.pronouns != null ? Text(member.pronouns!) : null,
+                      subtitle: member.pronouns != null
+                          ? Text(member.pronouns!)
+                          : null,
                       trailing: isSelected ? Icon(AppIcons.check) : null,
                       onTap: () => Navigator.of(context).pop(member.id),
                     );
