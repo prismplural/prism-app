@@ -7,10 +7,14 @@ import 'package:prism_plurality/features/pluralkit/widgets/pk_group_repair_card.
 import 'package:prism_plurality/l10n/app_localizations.dart';
 
 void main() {
-  Widget buildTestApp({required Widget child}) {
+  Widget buildTestApp({
+    required Widget child,
+    Locale locale = const Locale('en'),
+  }) {
     return MaterialApp(
+      locale: locale,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: const [Locale('en')],
+      supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(body: SingleChildScrollView(child: child)),
     );
   }
@@ -181,8 +185,8 @@ void main() {
     expect(find.text('1 only in PK'), findsOneWidget);
     expect(
       find.text(
-        'Merge will link this local group to the suspected PK group, preserve '
-        '2 shared PK memberships, keep 1 local-only membership, and leave 1 '
+        'Merge will link this local group to the suspected PK group · preserve '
+        '2 shared PK memberships · keep 1 local-only membership · leave 1 '
         'PK-only member unmatched.',
       ),
       findsOneWidget,
@@ -227,6 +231,47 @@ void main() {
       find.text('Reconnect PluralKit to see comparison details'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('renders candidate comparison in Spanish', (tester) async {
+    await tester.pumpWidget(
+      buildTestApp(
+        locale: const Locale('es'),
+        child: PkGroupRepairCard(
+          state: const PkGroupRepairState(
+            pendingReviewCount: 1,
+            pendingReviewItems: [
+              PkGroupReviewItem(
+                groupId: 'group-1',
+                name: 'Grupo local',
+                suspectedPkGroupUuid: 'pk-group-1',
+                syncSuppressed: true,
+                candidateName: 'Grupo PK',
+                sharedPkMemberUuids: {'pk-member-a'},
+                extraLocalMemberIds: {'local-extra'},
+              ),
+            ],
+          ),
+          isConnected: true,
+          hasStoredToken: true,
+          pkGroupSyncV2Enabled: false,
+          onRunRepair: () {},
+          onDismissReviewItem: (_) async {},
+          onKeepReviewItemLocalOnly: (_) async {},
+          onMergeReviewItemIntoCanonical: (_) async {},
+          onEnablePkGroupSyncV2: () async {},
+          onResetPkGroupsOnly: () async {},
+          onExportDataFirst: () {},
+        ),
+      ),
+    );
+
+    expect(find.text('Este grupo'), findsOneWidget);
+    expect(find.text('Grupo PK'), findsNWidgets(2));
+    expect(find.text('1 integrante PK compartido'), findsNWidgets(2));
+    expect(find.text('1 integrante solo local'), findsOneWidget);
+    expect(find.textContaining('La fusión va a'), findsOneWidget);
+    expect(find.text('Mantener solo local'), findsOneWidget);
   });
 
   testWidgets(

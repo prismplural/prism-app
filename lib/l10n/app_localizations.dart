@@ -2658,6 +2658,24 @@ abstract class AppLocalizations {
   /// **'Sync credentials cleared'**
   String get syncTroubleshootingCredentialsCleared;
 
+  /// Section header for PluralKit-related sync troubleshooting actions
+  ///
+  /// In en, this message translates to:
+  /// **'PluralKit'**
+  String get syncTroubleshootingPluralKitSection;
+
+  /// Row title linking to PluralKit group repair from sync troubleshooting
+  ///
+  /// In en, this message translates to:
+  /// **'Open PluralKit group repair'**
+  String get syncTroubleshootingPkRepairTitle;
+
+  /// Row subtitle linking to PluralKit group repair from sync troubleshooting
+  ///
+  /// In en, this message translates to:
+  /// **'Use the PluralKit setup screen to run group repair and check any suppressed PK group matches.'**
+  String get syncTroubleshootingPkRepairSubtitle;
+
   /// Description text on chat feature settings screen
   ///
   /// In en, this message translates to:
@@ -8532,6 +8550,150 @@ abstract class AppLocalizations {
   /// **'Just now'**
   String get pluralkitJustNow;
 
+  /// Review comparison heading for the local group
+  ///
+  /// In en, this message translates to:
+  /// **'This group'**
+  String get pluralkitRepairThisGroup;
+
+  /// Review comparison heading for a known PluralKit candidate group
+  ///
+  /// In en, this message translates to:
+  /// **'PK group'**
+  String get pluralkitRepairPkGroup;
+
+  /// Review comparison heading when only a suspected PluralKit UUID is known
+  ///
+  /// In en, this message translates to:
+  /// **'PluralKit group'**
+  String get pluralkitRepairPluralKitGroup;
+
+  /// Fallback chip shown when no live PK reference data is available
+  ///
+  /// In en, this message translates to:
+  /// **'Reconnect PluralKit to see comparison details'**
+  String get pluralkitRepairReconnectForComparison;
+
+  /// Chip showing shared PK member count
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 shared PK member} other{{count} shared PK members}}'**
+  String pluralkitRepairSharedPkMembers(int count);
+
+  /// Chip showing local-only member count
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 local-only member} other{{count} local-only members}}'**
+  String pluralkitRepairLocalOnlyMembers(int count);
+
+  /// Chip showing candidate-only PK member count
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 only in PK} other{{count} only in PK}}'**
+  String pluralkitRepairOnlyInPkMembers(int count);
+
+  /// Label for suspected PK UUID in repair review
+  ///
+  /// In en, this message translates to:
+  /// **'Suspected PK UUID: {uuid}'**
+  String pluralkitRepairSuspectedPkUuid(String uuid);
+
+  /// Action preview sentence for repair review merge
+  ///
+  /// In en, this message translates to:
+  /// **'Merge will {summary}.'**
+  String pluralkitRepairMergeActionPreview(String summary);
+
+  /// Merge action preview fragment
+  ///
+  /// In en, this message translates to:
+  /// **'link this local group to the suspected PK group'**
+  String get pluralkitRepairPreviewLinkLocalGroup;
+
+  /// Merge action preview fragment
+  ///
+  /// In en, this message translates to:
+  /// **'preserve {count, plural, =1{1 shared PK membership} other{{count} shared PK memberships}}'**
+  String pluralkitRepairPreviewPreserveShared(int count);
+
+  /// Merge action preview fragment
+  ///
+  /// In en, this message translates to:
+  /// **'keep {count, plural, =1{1 local-only membership} other{{count} local-only memberships}}'**
+  String pluralkitRepairPreviewKeepLocalOnly(int count);
+
+  /// Merge action preview fragment
+  ///
+  /// In en, this message translates to:
+  /// **'leave {count, plural, =1{1 PK-only member} other{{count} PK-only members}} unmatched'**
+  String pluralkitRepairPreviewLeavePkOnly(int count);
+
+  /// Button label for merging a review item into the canonical PK group
+  ///
+  /// In en, this message translates to:
+  /// **'Merge into canonical'**
+  String get pluralkitRepairMergeIntoCanonical;
+
+  /// Button label for keeping a review item local-only
+  ///
+  /// In en, this message translates to:
+  /// **'Keep local-only'**
+  String get pluralkitRepairKeepLocalOnly;
+
+  /// Button label for dismissing a review item false positive
+  ///
+  /// In en, this message translates to:
+  /// **'Dismiss false positive'**
+  String get pluralkitRepairDismissFalsePositive;
+
+  /// Section header for PluralKit group repair
+  ///
+  /// In en, this message translates to:
+  /// **'Group repair'**
+  String get pluralkitRepairSection;
+
+  /// Dialog title for entering a temporary PK token for group repair
+  ///
+  /// In en, this message translates to:
+  /// **'Temporary PluralKit token'**
+  String get pluralkitRepairTemporaryTokenTitle;
+
+  /// Dialog body for entering a temporary PK token for group repair
+  ///
+  /// In en, this message translates to:
+  /// **'Use a one-off token for this repair run only. Prism will not save it.'**
+  String get pluralkitRepairTemporaryTokenBody;
+
+  /// Temporary PK token field label
+  ///
+  /// In en, this message translates to:
+  /// **'PluralKit token'**
+  String get pluralkitRepairTokenLabel;
+
+  /// Temporary PK token field hint
+  ///
+  /// In en, this message translates to:
+  /// **'Paste a temporary token'**
+  String get pluralkitRepairTokenHint;
+
+  /// Temporary PK token help text
+  ///
+  /// In en, this message translates to:
+  /// **'This token is only used to compare your local groups against live PluralKit group data for one repair run.'**
+  String get pluralkitRepairTemporaryTokenHelp;
+
+  /// Button label to run PK group repair with a temporary token
+  ///
+  /// In en, this message translates to:
+  /// **'Run token-backed repair'**
+  String get pluralkitRepairRunTokenBacked;
+
+  /// Loading label for PK group repair status
+  ///
+  /// In en, this message translates to:
+  /// **'Loading repair status...'**
+  String get pluralkitRepairLoadingStatus;
+
   /// Relative time label for minutes ago in PluralKit
   ///
   /// In en, this message translates to:
@@ -10901,6 +11063,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Word {n}: {word}, not recognized'**
   String mnemonicFieldWordChipInvalid(String n, String word);
+
+  /// Tooltip for scanning a recovery phrase QR code
+  ///
+  /// In en, this message translates to:
+  /// **'Scan QR code'**
+  String get mnemonicFieldScanQrTooltip;
+
+  /// Tooltip for showing the recovery phrase as a QR code
+  ///
+  /// In en, this message translates to:
+  /// **'Show QR code'**
+  String get mnemonicFieldShowQrTooltip;
+
+  /// Dialog title for showing a recovery phrase QR code
+  ///
+  /// In en, this message translates to:
+  /// **'Recovery Phrase QR'**
+  String get mnemonicFieldQrTitle;
+
+  /// Dialog body for showing a recovery phrase QR code
+  ///
+  /// In en, this message translates to:
+  /// **'Scan this QR code to fill the 12-word recovery phrase on another device.'**
+  String get mnemonicFieldQrDescription;
+
+  /// Dialog title for scanning a recovery phrase QR code
+  ///
+  /// In en, this message translates to:
+  /// **'Scan Recovery QR'**
+  String get mnemonicFieldScanQrTitle;
+
+  /// Dialog body for scanning a recovery phrase QR code
+  ///
+  /// In en, this message translates to:
+  /// **'Scan a QR code that contains your 12-word recovery phrase.'**
+  String get mnemonicFieldScanQrDescription;
+
+  /// Error shown when a scanned QR code does not contain a valid recovery phrase
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid QR code. Scan a 12-word recovery phrase.'**
+  String get mnemonicFieldInvalidQr;
 
   /// Wake-up sheet greeting shown between 5am and noon
   ///

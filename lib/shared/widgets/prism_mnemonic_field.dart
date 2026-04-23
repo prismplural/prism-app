@@ -431,7 +431,7 @@ class _PrismMnemonicFieldState extends State<PrismMnemonicField> {
                 padding: const EdgeInsets.only(right: 4),
                 child: IconButton(
                   icon: Icon(AppIcons.qrCodeScanner, size: 20),
-                  tooltip: 'Scan QR Code',
+                  tooltip: context.l10n.mnemonicFieldScanQrTooltip,
                   onPressed: widget.enabled ? _scanQrCode : null,
                   visualDensity: VisualDensity.compact,
                 ),
@@ -441,7 +441,7 @@ class _PrismMnemonicFieldState extends State<PrismMnemonicField> {
                   padding: const EdgeInsets.only(right: 4),
                   child: IconButton(
                     icon: Icon(AppIcons.qrCode, size: 20),
-                    tooltip: 'Show QR Code',
+                    tooltip: context.l10n.mnemonicFieldShowQrTooltip,
                     onPressed: widget.enabled ? _showQrCode : null,
                     visualDensity: VisualDensity.compact,
                   ),
@@ -523,7 +523,7 @@ class _MnemonicQrDialog extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Recovery Phrase QR',
+                context.l10n.mnemonicFieldQrTitle,
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
@@ -531,7 +531,7 @@ class _MnemonicQrDialog extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'Scan this QR code to fill the 12-word recovery phrase on another device.',
+                context.l10n.mnemonicFieldQrDescription,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                 ),
@@ -558,7 +558,7 @@ class _MnemonicQrDialog extends StatelessWidget {
               const SizedBox(height: 16),
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Close'),
+                child: Text(context.l10n.close),
               ),
             ],
           ),
@@ -596,7 +596,7 @@ class _MnemonicQrScannerDialogState extends State<_MnemonicQrScannerDialog> {
     final words = normalized.split(' ');
     if (words.length != 12 || !validateBip39Mnemonic(normalized)) {
       setState(() {
-        _error = 'Invalid QR code. Scan a 12-word recovery phrase.';
+        _error = context.l10n.mnemonicFieldInvalidQr;
       });
       return;
     }
@@ -618,7 +618,7 @@ class _MnemonicQrScannerDialogState extends State<_MnemonicQrScannerDialog> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Scan Recovery QR',
+                context.l10n.mnemonicFieldScanQrTitle,
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
@@ -626,7 +626,7 @@ class _MnemonicQrScannerDialogState extends State<_MnemonicQrScannerDialog> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Scan a QR code that contains your 12-word recovery phrase.',
+                context.l10n.mnemonicFieldScanQrDescription,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                 ),
@@ -658,7 +658,7 @@ class _MnemonicQrScannerDialogState extends State<_MnemonicQrScannerDialog> {
               const SizedBox(height: 8),
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Cancel'),
+                child: Text(context.l10n.cancel),
               ),
             ],
           ),

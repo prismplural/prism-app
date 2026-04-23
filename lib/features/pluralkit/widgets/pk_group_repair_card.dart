@@ -4,8 +4,11 @@ import 'package:flutter/material.dart';
 
 import 'package:prism_plurality/features/pluralkit/providers/pk_group_repair_provider.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_group_repair_service.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
+import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_chip.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
@@ -889,7 +892,8 @@ class _ReviewItemCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final actionPreview = _actionPreview();
+    final l10n = context.l10n;
+    final actionPreview = _actionPreview(context);
 
     return PrismSurface(
       tone: PrismSurfaceTone.accent,
@@ -902,44 +906,36 @@ class _ReviewItemCard extends StatelessWidget {
             builder: (context, constraints) {
               final useColumns = constraints.maxWidth >= 560;
               final localPanel = _ComparisonPanel(
-                title: 'This group',
+                title: l10n.pluralkitRepairThisGroup,
                 name: item.name,
                 description: item.description,
                 colorHex: item.colorHex,
                 chips: [
-                  _countChip(
+                  l10n.pluralkitRepairSharedPkMembers(
                     item.sharedPkMemberUuids.length,
-                    'shared PK member',
-                    'shared PK members',
                   ),
-                  _countChip(
+                  l10n.pluralkitRepairLocalOnlyMembers(
                     item.extraLocalMemberIds.length,
-                    'local-only member',
-                    'local-only members',
                   ),
                 ],
               );
               final candidatePanel = _ComparisonPanel(
                 title: item.candidateName == null
-                    ? 'PluralKit group'
-                    : 'PK group',
+                    ? l10n.pluralkitRepairPluralKitGroup
+                    : l10n.pluralkitRepairPkGroup,
                 name: item.candidateName ?? item.suspectedPkGroupUuid,
                 description: item.candidateDescription,
                 colorHex: item.candidateColorHex,
                 chips: item.hasCandidateComparison
                     ? [
-                        _countChip(
+                        l10n.pluralkitRepairSharedPkMembers(
                           item.sharedPkMemberUuids.length,
-                          'shared PK member',
-                          'shared PK members',
                         ),
-                        _countChip(
+                        l10n.pluralkitRepairOnlyInPkMembers(
                           item.onlyInCandidateMemberUuids.length,
-                          'only in PK',
-                          'only in PK',
                         ),
                       ]
-                    : const ['Reconnect PluralKit to see comparison details'],
+                    : [l10n.pluralkitRepairReconnectForComparison],
               );
 
               if (!useColumns) {
@@ -964,7 +960,7 @@ class _ReviewItemCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            'Suspected PK UUID: ${item.suspectedPkGroupUuid}',
+            l10n.pluralkitRepairSuspectedPkUuid(item.suspectedPkGroupUuid),
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -982,7 +978,7 @@ class _ReviewItemCard extends StatelessWidget {
             runSpacing: 8,
             children: [
               PrismButton(
-                label: 'Merge into canonical',
+                label: l10n.pluralkitRepairMergeIntoCanonical,
                 icon: AppIcons.autoFixHigh,
                 onPressed: () =>
                     unawaited(onMergeReviewItemIntoCanonical(item.groupId)),
@@ -990,7 +986,7 @@ class _ReviewItemCard extends StatelessWidget {
                 tone: PrismButtonTone.filled,
               ),
               PrismButton(
-                label: 'Keep local-only',
+                label: l10n.pluralkitRepairKeepLocalOnly,
                 icon: AppIcons.lockOutline,
                 onPressed: () =>
                     unawaited(onKeepReviewItemLocalOnly(item.groupId)),
@@ -998,7 +994,7 @@ class _ReviewItemCard extends StatelessWidget {
                 tone: PrismButtonTone.outlined,
               ),
               PrismButton(
-                label: 'Dismiss false positive',
+                label: l10n.pluralkitRepairDismissFalsePositive,
                 icon: AppIcons.checkCircle,
                 onPressed: () => unawaited(onDismissReviewItem(item.groupId)),
                 enabled: !isRunning,
@@ -1011,29 +1007,31 @@ class _ReviewItemCard extends StatelessWidget {
     );
   }
 
-  String _actionPreview() {
+  String _actionPreview(BuildContext context) {
+    final l10n = context.l10n;
     final fragments = <String>[
-      'link this local group to the suspected PK group',
+      l10n.pluralkitRepairPreviewLinkLocalGroup,
       if (item.sharedPkMemberUuids.isNotEmpty)
-        'preserve ${_countChip(item.sharedPkMemberUuids.length, "shared PK membership", "shared PK memberships")}',
+        l10n.pluralkitRepairPreviewPreserveShared(
+          item.sharedPkMemberUuids.length,
+        ),
       if (item.extraLocalMemberIds.isNotEmpty)
-        'keep ${_countChip(item.extraLocalMemberIds.length, "local-only membership", "local-only memberships")}',
+        l10n.pluralkitRepairPreviewKeepLocalOnly(
+          item.extraLocalMemberIds.length,
+        ),
       if (item.onlyInCandidateMemberUuids.isNotEmpty)
-        'leave ${_countChip(item.onlyInCandidateMemberUuids.length, "PK-only member", "PK-only members")} unmatched',
+        l10n.pluralkitRepairPreviewLeavePkOnly(
+          item.onlyInCandidateMemberUuids.length,
+        ),
     ];
-    return 'Merge will ${_joinPreviewFragments(fragments)}.';
-  }
-
-  static String _countChip(int count, String singular, String plural) {
-    return '$count ${count == 1 ? singular : plural}';
+    return l10n.pluralkitRepairMergeActionPreview(
+      _joinPreviewFragments(fragments),
+    );
   }
 
   static String _joinPreviewFragments(List<String> fragments) {
     if (fragments.length == 1) return fragments.first;
-    if (fragments.length == 2) {
-      return '${fragments.first} and ${fragments.last}';
-    }
-    return '${fragments.sublist(0, fragments.length - 1).join(', ')}, and ${fragments.last}';
+    return fragments.join(' · ');
   }
 }
 
@@ -1115,15 +1113,42 @@ class _ComparisonPanel extends StatelessWidget {
           runSpacing: 6,
           children: [
             for (final chip in chips)
-              PrismChip(
-                label: chip,
-                selected: true,
-                tintColor: theme.colorScheme.secondary,
-                onTap: null,
-              ),
+              _ComparisonChip(label: chip, color: theme.colorScheme.secondary),
           ],
         ),
       ],
+    );
+  }
+}
+
+class _ComparisonChip extends StatelessWidget {
+  const _ComparisonChip({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 260),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(
+          PrismShapes.of(context).radius(PrismTokens.radiusPill),
+        ),
+        border: Border.all(color: color.withValues(alpha: 0.22)),
+      ),
+      child: Text(
+        label,
+        maxLines: 3,
+        overflow: TextOverflow.ellipsis,
+        style: theme.textTheme.labelMedium?.copyWith(
+          color: theme.colorScheme.onSurface,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 }

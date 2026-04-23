@@ -1430,6 +1430,16 @@ class AppLocalizationsEn extends AppLocalizations {
       'Sync credentials cleared';
 
   @override
+  String get syncTroubleshootingPluralKitSection => 'PluralKit';
+
+  @override
+  String get syncTroubleshootingPkRepairTitle => 'Open PluralKit group repair';
+
+  @override
+  String get syncTroubleshootingPkRepairSubtitle =>
+      'Use the PluralKit setup screen to run group repair and check any suppressed PK group matches.';
+
+  @override
   String featureChatDescription(String term) {
     return 'Internal messaging between system $term.';
   }
@@ -4934,6 +4944,134 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pluralkitJustNow => 'Just now';
 
   @override
+  String get pluralkitRepairThisGroup => 'This group';
+
+  @override
+  String get pluralkitRepairPkGroup => 'PK group';
+
+  @override
+  String get pluralkitRepairPluralKitGroup => 'PluralKit group';
+
+  @override
+  String get pluralkitRepairReconnectForComparison =>
+      'Reconnect PluralKit to see comparison details';
+
+  @override
+  String pluralkitRepairSharedPkMembers(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count shared PK members',
+      one: '1 shared PK member',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String pluralkitRepairLocalOnlyMembers(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count local-only members',
+      one: '1 local-only member',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String pluralkitRepairOnlyInPkMembers(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count only in PK',
+      one: '1 only in PK',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String pluralkitRepairSuspectedPkUuid(String uuid) {
+    return 'Suspected PK UUID: $uuid';
+  }
+
+  @override
+  String pluralkitRepairMergeActionPreview(String summary) {
+    return 'Merge will $summary.';
+  }
+
+  @override
+  String get pluralkitRepairPreviewLinkLocalGroup =>
+      'link this local group to the suspected PK group';
+
+  @override
+  String pluralkitRepairPreviewPreserveShared(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count shared PK memberships',
+      one: '1 shared PK membership',
+    );
+    return 'preserve $_temp0';
+  }
+
+  @override
+  String pluralkitRepairPreviewKeepLocalOnly(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count local-only memberships',
+      one: '1 local-only membership',
+    );
+    return 'keep $_temp0';
+  }
+
+  @override
+  String pluralkitRepairPreviewLeavePkOnly(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count PK-only members',
+      one: '1 PK-only member',
+    );
+    return 'leave $_temp0 unmatched';
+  }
+
+  @override
+  String get pluralkitRepairMergeIntoCanonical => 'Merge into canonical';
+
+  @override
+  String get pluralkitRepairKeepLocalOnly => 'Keep local-only';
+
+  @override
+  String get pluralkitRepairDismissFalsePositive => 'Dismiss false positive';
+
+  @override
+  String get pluralkitRepairSection => 'Group repair';
+
+  @override
+  String get pluralkitRepairTemporaryTokenTitle => 'Temporary PluralKit token';
+
+  @override
+  String get pluralkitRepairTemporaryTokenBody =>
+      'Use a one-off token for this repair run only. Prism will not save it.';
+
+  @override
+  String get pluralkitRepairTokenLabel => 'PluralKit token';
+
+  @override
+  String get pluralkitRepairTokenHint => 'Paste a temporary token';
+
+  @override
+  String get pluralkitRepairTemporaryTokenHelp =>
+      'This token is only used to compare your local groups against live PluralKit group data for one repair run.';
+
+  @override
+  String get pluralkitRepairRunTokenBacked => 'Run token-backed repair';
+
+  @override
+  String get pluralkitRepairLoadingStatus => 'Loading repair status...';
+
+  @override
   String pluralkitMinutesAgo(int minutes) {
     return '${minutes}m ago';
   }
@@ -6319,6 +6457,30 @@ class AppLocalizationsEn extends AppLocalizations {
   String mnemonicFieldWordChipInvalid(String n, String word) {
     return 'Word $n: $word, not recognized';
   }
+
+  @override
+  String get mnemonicFieldScanQrTooltip => 'Scan QR code';
+
+  @override
+  String get mnemonicFieldShowQrTooltip => 'Show QR code';
+
+  @override
+  String get mnemonicFieldQrTitle => 'Recovery Phrase QR';
+
+  @override
+  String get mnemonicFieldQrDescription =>
+      'Scan this QR code to fill the 12-word recovery phrase on another device.';
+
+  @override
+  String get mnemonicFieldScanQrTitle => 'Scan Recovery QR';
+
+  @override
+  String get mnemonicFieldScanQrDescription =>
+      'Scan a QR code that contains your 12-word recovery phrase.';
+
+  @override
+  String get mnemonicFieldInvalidQr =>
+      'Invalid QR code. Scan a 12-word recovery phrase.';
 
   @override
   String get sleepWakeUpMorning => 'Good morning!';

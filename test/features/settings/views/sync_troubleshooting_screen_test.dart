@@ -7,24 +7,27 @@ import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/features/settings/views/sync_troubleshooting_screen.dart';
 
 void main() {
-  testWidgets('re-pair dialog offers export-first recovery', (tester) async {
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          relayUrlProvider.overrideWithValue(
-            const AsyncValue<String?>.data('https://relay.example.com'),
-          ),
-          syncIdProvider.overrideWithValue(
-            const AsyncValue<String?>.data('sync-123'),
-          ),
-        ],
-        child: const MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: [Locale('en')],
-          home: SyncTroubleshootingScreen(),
+  Widget buildScreen({Locale locale = const Locale('en')}) {
+    return ProviderScope(
+      overrides: [
+        relayUrlProvider.overrideWithValue(
+          const AsyncValue<String?>.data('https://relay.example.com'),
         ),
+        syncIdProvider.overrideWithValue(
+          const AsyncValue<String?>.data('sync-123'),
+        ),
+      ],
+      child: MaterialApp(
+        locale: locale,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const SyncTroubleshootingScreen(),
       ),
     );
+  }
+
+  testWidgets('re-pair dialog offers export-first recovery', (tester) async {
+    await tester.pumpWidget(buildScreen());
 
     await tester.scrollUntilVisible(
       find.text('Re-pair Device'),
@@ -41,23 +44,7 @@ void main() {
   });
 
   testWidgets('shows a PluralKit repair entry point', (tester) async {
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          relayUrlProvider.overrideWithValue(
-            const AsyncValue<String?>.data('https://relay.example.com'),
-          ),
-          syncIdProvider.overrideWithValue(
-            const AsyncValue<String?>.data('sync-123'),
-          ),
-        ],
-        child: const MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: [Locale('en')],
-          home: SyncTroubleshootingScreen(),
-        ),
-      ),
-    );
+    await tester.pumpWidget(buildScreen());
 
     await tester.scrollUntilVisible(
       find.text('Open PluralKit group repair'),
@@ -68,6 +55,27 @@ void main() {
     expect(find.text('Open PluralKit group repair'), findsOneWidget);
     expect(
       find.textContaining('run group repair and check any suppressed PK group'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('shows the PluralKit repair entry point in Spanish', (
+    tester,
+  ) async {
+    await tester.pumpWidget(buildScreen(locale: const Locale('es')));
+
+    await tester.scrollUntilVisible(
+      find.text('Abrir reparación de grupos de PluralKit'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    expect(
+      find.text('Abrir reparación de grupos de PluralKit'),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('revisar coincidencias de grupos PK'),
       findsOneWidget,
     );
   });
