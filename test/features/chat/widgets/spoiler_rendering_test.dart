@@ -5,14 +5,14 @@ import 'package:prism_plurality/features/chat/utils/chat_markdown_syntax.dart';
 import 'package:prism_plurality/features/chat/widgets/chat_message_text.dart';
 
 void main() {
-  List<double> _spoilerOpacities(WidgetTester tester) {
+  List<double> spoilerOpacities(WidgetTester tester) {
     return tester
         .widgetList<AnimatedOpacity>(find.byType(AnimatedOpacity))
         .map((w) => w.opacity)
         .toList();
   }
 
-  Widget _harness({
+  Widget harness({
     required SpoilerRevealController controller,
     required int start,
     ThemeData? theme,
@@ -40,7 +40,7 @@ void main() {
     );
   }
 
-  BoxDecoration _hiddenDecoration(WidgetTester tester) {
+  BoxDecoration hiddenDecoration(WidgetTester tester) {
     final hiddenLayer = find.byType(AnimatedOpacity).first;
     final hiddenContainer = find.descendant(
       of: hiddenLayer,
@@ -54,21 +54,21 @@ void main() {
 
   testWidgets('renders pill when not revealed', (tester) async {
     final controller = SpoilerRevealController();
-    await tester.pumpWidget(_harness(controller: controller, start: 0));
-    expect(_spoilerOpacities(tester), [1.0, 0.0]);
+    await tester.pumpWidget(harness(controller: controller, start: 0));
+    expect(spoilerOpacities(tester), [1.0, 0.0]);
     controller.dispose();
   });
 
   testWidgets('renders revealed state when flag is true', (tester) async {
     final controller = SpoilerRevealController()..toggle(0);
-    await tester.pumpWidget(_harness(controller: controller, start: 0));
-    expect(_spoilerOpacities(tester), [0.0, 1.0]);
+    await tester.pumpWidget(harness(controller: controller, start: 0));
+    expect(spoilerOpacities(tester), [0.0, 1.0]);
     controller.dispose();
   });
 
   testWidgets('tap toggles reveal via controller', (tester) async {
     final controller = SpoilerRevealController();
-    await tester.pumpWidget(_harness(controller: controller, start: 7));
+    await tester.pumpWidget(harness(controller: controller, start: 7));
     await tester.tap(find.byType(GestureDetector));
     expect(controller.isRevealed(7), isTrue);
     controller.dispose();
@@ -77,7 +77,7 @@ void main() {
   testWidgets('hidden pill stays dark in dark theme', (tester) async {
     final controller = SpoilerRevealController();
     await tester.pumpWidget(
-      _harness(
+      harness(
         controller: controller,
         start: 0,
         theme: ThemeData(
@@ -86,7 +86,7 @@ void main() {
         ),
       ),
     );
-    final decoration = _hiddenDecoration(tester);
+    final decoration = hiddenDecoration(tester);
     expect(decoration.color, isNotNull);
     expect(decoration.color!.computeLuminance(), lessThan(0.05));
     expect(decoration.border, isNotNull);
@@ -94,7 +94,7 @@ void main() {
   });
 
   group('ChatMessageText integration', () {
-    Widget _mount(String content) {
+    Widget mount(String content) {
       return MaterialApp(
         home: Scaffold(
           body: ChatMessageText(
@@ -108,12 +108,12 @@ void main() {
     }
 
     testWidgets('renders a spoiler pill in a message', (tester) async {
-      await tester.pumpWidget(_mount('hi ||secret|| world'));
-      expect(_spoilerOpacities(tester), [1.0, 0.0]);
+      await tester.pumpWidget(mount('hi ||secret|| world'));
+      expect(spoilerOpacities(tester), [1.0, 0.0]);
     });
 
     testWidgets('tapping pill reveals the spoiler', (tester) async {
-      await tester.pumpWidget(_mount('say ||hi|| now'));
+      await tester.pumpWidget(mount('say ||hi|| now'));
       // Find and tap the GestureDetector inside the spoiler span.
       final spoilerGesture = find.byWidgetPredicate(
         (w) => w is GestureDetector && w.behavior == HitTestBehavior.opaque,
@@ -121,17 +121,17 @@ void main() {
       expect(spoilerGesture, findsOneWidget);
       await tester.tap(spoilerGesture);
       await tester.pump();
-      expect(_spoilerOpacities(tester), [0.0, 1.0]);
+      expect(spoilerOpacities(tester), [0.0, 1.0]);
       // Tap again to re-hide.
       await tester.tap(spoilerGesture);
       await tester.pump();
-      expect(_spoilerOpacities(tester), [1.0, 0.0]);
+      expect(spoilerOpacities(tester), [1.0, 0.0]);
     });
 
     testWidgets('multiple spoilers have independent reveal state', (
       tester,
     ) async {
-      await tester.pumpWidget(_mount('first ||a|| second ||bb||'));
+      await tester.pumpWidget(mount('first ||a|| second ||bb||'));
       final gestures = find.byWidgetPredicate(
         (w) => w is GestureDetector && w.behavior == HitTestBehavior.opaque,
       );
@@ -139,22 +139,22 @@ void main() {
       // Reveal only the first.
       await tester.tap(gestures.first);
       await tester.pump();
-      expect(_spoilerOpacities(tester), [0.0, 1.0, 1.0, 0.0]);
+      expect(spoilerOpacities(tester), [0.0, 1.0, 1.0, 0.0]);
     });
 
     testWidgets('reveal state resets when content prop changes', (
       tester,
     ) async {
-      await tester.pumpWidget(_mount('say ||hi|| now'));
+      await tester.pumpWidget(mount('say ||hi|| now'));
       final gesture = find.byWidgetPredicate(
         (w) => w is GestureDetector && w.behavior == HitTestBehavior.opaque,
       );
       await tester.tap(gesture);
       await tester.pump();
       // Rebuild with different content — reveal state should clear.
-      await tester.pumpWidget(_mount('new ||hello|| msg'));
+      await tester.pumpWidget(mount('new ||hello|| msg'));
       expect(
-        _spoilerOpacities(tester),
+        spoilerOpacities(tester),
         [1.0, 0.0],
         reason: 'didUpdateWidget should clear reveals on content change',
       );
@@ -162,12 +162,12 @@ void main() {
 
     testWidgets('animates opacity over 150ms on reveal', (tester) async {
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: ChatMessageText(
               content: 'hi ||secret|| ok',
               authorMap: null,
-              baseStyle: const TextStyle(),
+              baseStyle: TextStyle(),
               defaultColor: Colors.black,
             ),
           ),
@@ -179,7 +179,7 @@ void main() {
       await tester.tap(gesture);
       // Pump once to start the animation tick.
       await tester.pump();
-      expect(_spoilerOpacities(tester), [0.0, 1.0]);
+      expect(spoilerOpacities(tester), [0.0, 1.0]);
 
       final hiddenOpacity = find.byType(AnimatedOpacity).at(0);
       final revealedOpacity = find.byType(AnimatedOpacity).at(1);

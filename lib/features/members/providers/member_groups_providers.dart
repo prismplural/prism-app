@@ -201,11 +201,11 @@ final _groupedMemberListStructureProvider =
 
   void visitGroup(MemberGroup group, int depth) {
     result.add(GroupSectionItem(group: group, depth: depth, isCollapsed: false));
-    for (final member in directMembersByGroup[group.id] ?? []) {
-      result.add(MemberRowItem(member: member, depth: depth));
-    }
     for (final child in tree[group.id] ?? []) {
       visitGroup(child, depth + 1);
+    }
+    for (final member in directMembersByGroup[group.id] ?? []) {
+      result.add(MemberRowItem(member: member, depth: depth));
     }
   }
 

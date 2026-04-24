@@ -252,6 +252,7 @@ class _CreateConversationSheetState
           : PrismGlassIconButton(
               icon: AppIcons.check,
               size: PrismTokens.topBarActionSize,
+              tooltip: context.l10n.chatCreateConversationTooltip,
               tint: _canCreate ? theme.colorScheme.primary : null,
               accentIcon: _canCreate,
               onPressed: _canCreate ? _createConversation : null,

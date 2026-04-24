@@ -24,11 +24,11 @@ void main() {
             useEnglish: false,
           )),
         ],
-        child: MaterialApp(
+        child: const MaterialApp(
           localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: const [Locale('en'), Locale('es')],
-          locale: const Locale('es'),
-          home: const Scaffold(body: NoteSheet()),
+          supportedLocales: [Locale('en'), Locale('es')],
+          locale: Locale('es'),
+          home: Scaffold(body: NoteSheet()),
         ),
       ),
     );

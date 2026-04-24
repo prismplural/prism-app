@@ -99,7 +99,10 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
         .write(const MemberGroupEntriesCompanion(isDeleted: Value(true)));
     // Soft-delete the group itself
     await (update(memberGroups)..where((g) => g.id.equals(id))).write(
-      const MemberGroupsCompanion(isDeleted: Value(true)),
+      const MemberGroupsCompanion(
+        isDeleted: Value(true),
+        pluralkitUuid: Value(null),
+      ),
     );
   }
 

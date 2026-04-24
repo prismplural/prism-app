@@ -3258,6 +3258,18 @@ abstract class AppLocalizations {
   /// **'Add Co-Fronter'**
   String get frontingAddCoFronterTitle;
 
+  /// Tooltip and semantics label for confirming a new fronting session
+  ///
+  /// In en, this message translates to:
+  /// **'Start session'**
+  String get frontingStartSessionTooltip;
+
+  /// Tooltip and semantics label for confirming a new co-front session
+  ///
+  /// In en, this message translates to:
+  /// **'Add co-fronter'**
+  String get frontingAddCoFronterTooltip;
+
   /// Section header when selecting the primary fronter
   ///
   /// In en, this message translates to:
@@ -4950,6 +4962,18 @@ abstract class AppLocalizations {
   /// **'{count, plural, =1{1 selected} other{{count} selected}}'**
   String memberSelectedCount(int count);
 
+  /// Tooltip and semantics label for confirming selected members in the member search sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm selected members'**
+  String get memberSearchConfirmSelectionTooltip;
+
+  /// Tooltip and semantics label for saving a member from the add/edit member sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Save member'**
+  String get memberSaveTooltip;
+
   /// Bulk action button: activate selected members
   ///
   /// In en, this message translates to:
@@ -5489,6 +5513,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'New Conversation'**
   String get chatCreateTitle;
+
+  /// Tooltip and semantics label for confirming conversation creation
+  ///
+  /// In en, this message translates to:
+  /// **'Create conversation'**
+  String get chatCreateConversationTooltip;
 
   /// Segmented control option: group conversation
   ///

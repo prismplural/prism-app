@@ -381,7 +381,7 @@ void main() {
 
   group('SyncSetupProgress — phase transitions', () {
     /// Build a minimal container with both providers and a no-op event stream.
-    ProviderContainer _makeContainer() {
+    ProviderContainer makeContainer() {
       final eventController = StreamController<SyncEvent>.broadcast();
       final container = ProviderContainer(
         overrides: [
@@ -403,14 +403,14 @@ void main() {
       // Keep the notifiers alive.
       container.listen<SyncSetupProgressState>(
         syncSetupProgressProvider,
-        (_, __) {},
+        (_, _) {},
       );
-      container.listen<PairingState>(devicePairingProvider, (_, __) {});
+      container.listen<PairingState>(devicePairingProvider, (_, _) {});
       return container;
     }
 
     test('setPhase advancing from connecting to downloading works', () async {
-      final container = _makeContainer();
+      final container = makeContainer();
       addTearDown(container.dispose);
 
       final notifier = container.read(syncSetupProgressProvider.notifier);
@@ -421,7 +421,7 @@ void main() {
     });
 
     test('phases advance monotonically through full sequence', () async {
-      final container = _makeContainer();
+      final container = makeContainer();
       addTearDown(container.dispose);
 
       final notifier = container.read(syncSetupProgressProvider.notifier);
@@ -436,7 +436,7 @@ void main() {
     });
 
     test('backwards setPhase is a no-op (monotonic invariant)', () async {
-      final container = _makeContainer();
+      final container = makeContainer();
       addTearDown(container.dispose);
 
       final notifier = container.read(syncSetupProgressProvider.notifier);
@@ -453,7 +453,7 @@ void main() {
     test(
       'markTimedOut sets timedOut=true; setPhase(finishing) still advances',
       () async {
-        final container = _makeContainer();
+        final container = makeContainer();
         addTearDown(container.dispose);
 
         final notifier = container.read(syncSetupProgressProvider.notifier);
@@ -469,7 +469,7 @@ void main() {
     );
 
     test('reset() on DevicePairingNotifier clears progress state', () async {
-      final container = _makeContainer();
+      final container = makeContainer();
       addTearDown(container.dispose);
 
       // Advance progress to a non-initial phase.
@@ -500,7 +500,7 @@ void main() {
         // the progress notifier are still respected (they're independent of the
         // pairing generation — the guard lives in device_pairing_provider.dart
         // and wraps the FFI await boundaries).
-        final container = _makeContainer();
+        final container = makeContainer();
         addTearDown(container.dispose);
 
         final pairingNotifier = container.read(devicePairingProvider.notifier);

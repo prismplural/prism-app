@@ -53,14 +53,16 @@ class FakePluralKitClient implements PluralKitClient {
   }
 
   @override
-  Future<PKSwitch> updateSwitch(String switchId,
-          {required DateTime timestamp}) =>
-      throw UnimplementedError();
+  Future<PKSwitch> updateSwitch(
+    String switchId, {
+    required DateTime timestamp,
+  }) => throw UnimplementedError();
 
   @override
   Future<PKSwitch> updateSwitchMembers(
-          String switchId, List<String> memberIds) =>
-      throw UnimplementedError();
+    String switchId,
+    List<String> memberIds,
+  ) => throw UnimplementedError();
 
   @override
   Future<void> deleteSwitch(String switchId) => throw UnimplementedError();
@@ -224,8 +226,13 @@ void main() {
       final throwing = _Throw404OnCreateSwitchClient();
       expect(
         () => pushService.pushSwitch(['pk001'], throwing),
-        throwsA(isA<PkStaleLinkException>()
-            .having((e) => e.kind, 'kind', PkStaleLinkKind.switchRecord)),
+        throwsA(
+          isA<PkStaleLinkException>().having(
+            (e) => e.kind,
+            'kind',
+            PkStaleLinkKind.switchRecord,
+          ),
+        ),
       );
     });
 
@@ -233,8 +240,13 @@ void main() {
       final throwing = _Throw500OnCreateSwitchClient();
       expect(
         () => pushService.pushSwitch(['pk001'], throwing),
-        throwsA(isA<PluralKitApiError>()
-            .having((e) => e is PkStaleLinkException, 'isStale', false)),
+        throwsA(
+          isA<PluralKitApiError>().having(
+            (e) => e is PkStaleLinkException,
+            'isStale',
+            false,
+          ),
+        ),
       );
     });
   });
@@ -244,16 +256,18 @@ void main() {
 
 class _Throw404OnCreateSwitchClient extends FakePluralKitClient {
   @override
-  Future<PKSwitch> createSwitch(List<String> memberIds,
-          {DateTime? timestamp}) async =>
-      throw const PluralKitApiError(404, 'not found');
+  Future<PKSwitch> createSwitch(
+    List<String> memberIds, {
+    DateTime? timestamp,
+  }) async => throw const PluralKitApiError(404, 'not found');
 }
 
 class _Throw500OnCreateSwitchClient extends FakePluralKitClient {
   @override
-  Future<PKSwitch> createSwitch(List<String> memberIds,
-          {DateTime? timestamp}) async =>
-      throw const PluralKitApiError(500, 'boom');
+  Future<PKSwitch> createSwitch(
+    List<String> memberIds, {
+    DateTime? timestamp,
+  }) async => throw const PluralKitApiError(500, 'boom');
 }
 
 // ---------------------------------------------------------------------------
@@ -281,10 +295,7 @@ class _ScriptedDeletionClient implements PluralKitClient {
     final status = memberScript[memberCalls++];
     if (status == null) return;
     if (status == 429) {
-      throw const PluralKitRateLimitError(
-        'rate limited',
-        Duration.zero,
-      );
+      throw const PluralKitRateLimitError('rate limited', Duration.zero);
     }
     throw PluralKitApiError(status, 'err');
   }
@@ -294,10 +305,7 @@ class _ScriptedDeletionClient implements PluralKitClient {
     final status = switchScript[switchCalls++];
     if (status == null) return;
     if (status == 429) {
-      throw const PluralKitRateLimitError(
-        'rate limited',
-        Duration.zero,
-      );
+      throw const PluralKitRateLimitError('rate limited', Duration.zero);
     }
     throw PluralKitApiError(status, 'err');
   }
@@ -310,17 +318,20 @@ class _ScriptedDeletionClient implements PluralKitClient {
   Future<PKMember> updateMember(String id, Map<String, dynamic> data) =>
       throw UnimplementedError();
   @override
-  Future<PKSwitch> createSwitch(List<String> memberIds,
-          {DateTime? timestamp}) =>
-      throw UnimplementedError();
+  Future<PKSwitch> createSwitch(
+    List<String> memberIds, {
+    DateTime? timestamp,
+  }) => throw UnimplementedError();
   @override
-  Future<PKSwitch> updateSwitch(String switchId,
-          {required DateTime timestamp}) =>
-      throw UnimplementedError();
+  Future<PKSwitch> updateSwitch(
+    String switchId, {
+    required DateTime timestamp,
+  }) => throw UnimplementedError();
   @override
   Future<PKSwitch> updateSwitchMembers(
-          String switchId, List<String> memberIds) =>
-      throw UnimplementedError();
+    String switchId,
+    List<String> memberIds,
+  ) => throw UnimplementedError();
   @override
   Future<PKSystem> getSystem() => throw UnimplementedError();
   @override
@@ -344,33 +355,35 @@ void _registerDeletionTests() {
   group('pushMemberDeletion', () {
     test('204 success completes normally', () async {
       final client = _ScriptedDeletionClient(memberScript: [null]);
-      final svc = PkPushService();
+      const svc = PkPushService();
       await svc.pushMemberDeletion('local-1', 'pk123', client);
       expect(client.memberCalls, 1);
     });
 
     test('404 swallowed as success (R4 gated by caller)', () async {
       final client = _ScriptedDeletionClient(memberScript: [404]);
-      final svc = PkPushService();
+      const svc = PkPushService();
       await svc.pushMemberDeletion('local-1', 'pk123', client);
       expect(client.memberCalls, 1);
     });
 
     test('403 throws PkDeletionForbiddenException', () async {
       final client = _ScriptedDeletionClient(memberScript: [403]);
-      final svc = PkPushService();
+      const svc = PkPushService();
       await expectLater(
         svc.pushMemberDeletion('local-1', 'pk123', client),
-        throwsA(isA<PkDeletionForbiddenException>()
-            .having((e) => e.kind, 'kind', PkStaleLinkKind.member)
-            .having((e) => e.localId, 'localId', 'local-1')
-            .having((e) => e.pkId, 'pkId', 'pk123')),
+        throwsA(
+          isA<PkDeletionForbiddenException>()
+              .having((e) => e.kind, 'kind', PkStaleLinkKind.member)
+              .having((e) => e.localId, 'localId', 'local-1')
+              .having((e) => e.pkId, 'pkId', 'pk123'),
+        ),
       );
     });
 
     test('429 propagates — retry is handled inside PluralKitClient', () async {
       final client = _ScriptedDeletionClient(memberScript: [429]);
-      final svc = PkPushService();
+      const svc = PkPushService();
       await expectLater(
         svc.pushMemberDeletion('local-1', 'pk123', client),
         throwsA(isA<PluralKitRateLimitError>()),
@@ -381,34 +394,38 @@ void _registerDeletionTests() {
   group('pushSwitchDeletion', () {
     test('204 success completes normally', () async {
       final client = _ScriptedDeletionClient(switchScript: [null]);
-      final svc = PkPushService();
+      const svc = PkPushService();
       await svc.pushSwitchDeletion('sess-1', 'uuid-1', client);
       expect(client.switchCalls, 1);
     });
 
     test('404 swallowed as success', () async {
       final client = _ScriptedDeletionClient(switchScript: [404]);
-      final svc = PkPushService();
+      const svc = PkPushService();
       await svc.pushSwitchDeletion('sess-1', 'uuid-1', client);
       expect(client.switchCalls, 1);
     });
 
-    test('403 throws PkDeletionForbiddenException with switchRecord kind',
-        () async {
-      final client = _ScriptedDeletionClient(switchScript: [403]);
-      final svc = PkPushService();
-      await expectLater(
-        svc.pushSwitchDeletion('sess-1', 'uuid-1', client),
-        throwsA(isA<PkDeletionForbiddenException>()
-            .having((e) => e.kind, 'kind', PkStaleLinkKind.switchRecord)
-            .having((e) => e.localId, 'localId', 'sess-1')
-            .having((e) => e.pkId, 'pkId', 'uuid-1')),
-      );
-    });
+    test(
+      '403 throws PkDeletionForbiddenException with switchRecord kind',
+      () async {
+        final client = _ScriptedDeletionClient(switchScript: [403]);
+        const svc = PkPushService();
+        await expectLater(
+          svc.pushSwitchDeletion('sess-1', 'uuid-1', client),
+          throwsA(
+            isA<PkDeletionForbiddenException>()
+                .having((e) => e.kind, 'kind', PkStaleLinkKind.switchRecord)
+                .having((e) => e.localId, 'localId', 'sess-1')
+                .having((e) => e.pkId, 'pkId', 'uuid-1'),
+          ),
+        );
+      },
+    );
 
     test('429 propagates — retry is handled inside PluralKitClient', () async {
       final client = _ScriptedDeletionClient(switchScript: [429]);
-      final svc = PkPushService();
+      const svc = PkPushService();
       await expectLater(
         svc.pushSwitchDeletion('sess-1', 'uuid-1', client),
         throwsA(isA<PluralKitRateLimitError>()),

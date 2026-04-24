@@ -80,18 +80,20 @@ class _WakeUpPickerHarness extends ConsumerStatefulWidget {
 
 class _WakeUpPickerHarnessState extends ConsumerState<_WakeUpPickerHarness> {
   Future<void> _showPicker() async {
+    final session = widget.sleepSession;
     final result = await MemberSearchSheet.showSingle(
       context,
       members: widget.members,
       termPlural: 'Members',
     );
 
+    if (!mounted || !context.mounted) return;
     if (result is! MemberSearchResultSelected) return;
+    final activeSession = ref.read(activeSleepSessionProvider).value;
+    if (activeSession?.id != session.id) return;
 
     try {
-      await ref
-          .read(sleepNotifierProvider.notifier)
-          .endSleep(widget.sleepSession.id);
+      await ref.read(sleepNotifierProvider.notifier).endSleep(session.id);
       await ref
           .read(frontingNotifierProvider.notifier)
           .startFronting(result.memberId);
@@ -103,20 +105,28 @@ class _WakeUpPickerHarnessState extends ConsumerState<_WakeUpPickerHarness> {
   }
 
   @override
-  Widget build(BuildContext context) =>
-      ElevatedButton(onPressed: _showPicker, child: const Text('Wake up as'));
+  Widget build(BuildContext context) {
+    ref.watch(activeSleepSessionProvider);
+    return ElevatedButton(
+      onPressed: _showPicker,
+      child: const Text('Wake up as'),
+    );
+  }
 }
 
 Widget _buildSubject({
   required _FakeSleepNotifier sleepNotifier,
   required _FakeFrontingNotifier frontingNotifier,
   List<Member>? members,
+  FrontingSession? activeSleepSession,
 }) {
   final ms = members ?? [_member('m1', 'Alice'), _member('m2', 'Bob')];
+  final sleep = activeSleepSession ?? _sleepSession();
   return ProviderScope(
     overrides: [
       sleepNotifierProvider.overrideWith(() => sleepNotifier),
       frontingNotifierProvider.overrideWith(() => frontingNotifier),
+      activeSleepSessionProvider.overrideWith((ref) => Stream.value(sleep)),
     ],
     child: MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -206,6 +216,33 @@ void main() {
         isEmpty,
         reason: 'startFronting must not be called on dismiss',
       );
+    });
+
+    testWidgets('does not end sleep after active sleep session changes', (
+      tester,
+    ) async {
+      final sleep = _FakeSleepNotifier();
+      final fronting = _FakeFrontingNotifier();
+
+      await tester.pumpWidget(
+        _buildSubject(
+          sleepNotifier: sleep,
+          frontingNotifier: fronting,
+          activeSleepSession: FrontingSession(
+            id: 'other-sleep',
+            startTime: DateTime(2024),
+            sessionType: SessionType.sleep,
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Wake up as'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Alice').last);
+      await tester.pumpAndSettle();
+
+      expect(sleep.endedIds, isEmpty);
+      expect(fronting.startedIds, isEmpty);
     });
   });
 }

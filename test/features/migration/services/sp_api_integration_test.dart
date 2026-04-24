@@ -1,7 +1,7 @@
 /// Integration test: full SP API import pipeline against a live SP account.
 ///
 /// Excluded from CI. Run manually with an SP token in SP_TOKEN:
-///   SP_TOKEN=<your-token> flutter test --tags integration \
+///   SP_TOKEN=your-token flutter test --tags integration \
 ///     test/features/migration/services/sp_api_integration_test.dart
 ///
 /// The test hits the live Simply Plural API — use a dedicated test account,
@@ -64,32 +64,51 @@ void main() {
           },
         );
 
-        expect(exportData.isEmpty, isFalse,
-            reason: 'Test account should have at least one entity');
+        expect(
+          exportData.isEmpty,
+          isFalse,
+          reason: 'Test account should have at least one entity',
+        );
 
         // -- 2. Import into a fresh in-memory DB -----------------------------------
         final result = await SpImporter().executeImport(
           db: db,
           data: exportData,
           memberRepo: DriftMemberRepository(db.membersDao, null),
-          sessionRepo:
-              DriftFrontingSessionRepository(db.frontingSessionsDao, null),
-          conversationRepo:
-              DriftConversationRepository(db.conversationsDao, null),
+          sessionRepo: DriftFrontingSessionRepository(
+            db.frontingSessionsDao,
+            null,
+          ),
+          conversationRepo: DriftConversationRepository(
+            db.conversationsDao,
+            null,
+          ),
           messageRepo: DriftChatMessageRepository(db.chatMessagesDao, null),
           pollRepo: DriftPollRepository(
-              db.pollsDao, db.pollOptionsDao, db.pollVotesDao, null),
+            db.pollsDao,
+            db.pollOptionsDao,
+            db.pollVotesDao,
+            null,
+          ),
           notesRepo: DriftNotesRepository(db.notesDao, null),
           commentsRepo: DriftFrontSessionCommentsRepository(
-              db.frontSessionCommentsDao, null),
-          customFieldsRepo:
-              DriftCustomFieldsRepository(db.customFieldsDao, null),
+            db.frontSessionCommentsDao,
+            null,
+          ),
+          customFieldsRepo: DriftCustomFieldsRepository(
+            db.customFieldsDao,
+            null,
+          ),
           groupsRepo: DriftMemberGroupsRepository(db.memberGroupsDao, null),
           remindersRepo: DriftRemindersRepository(db.remindersDao, null),
-          settingsRepo:
-              DriftSystemSettingsRepository(db.systemSettingsDao, null),
+          settingsRepo: DriftSystemSettingsRepository(
+            db.systemSettingsDao,
+            null,
+          ),
           categoriesRepo: DriftConversationCategoriesRepository(
-              db.conversationCategoriesDao, null),
+            db.conversationCategoriesDao,
+            null,
+          ),
           spImportDao: db.spImportDao,
           downloadAvatars: false,
         );
@@ -97,28 +116,42 @@ void main() {
         // -- 3. Result counts are internally consistent ----------------------------
         // SP data may include soft-deleted members or custom fronts that are
         // filtered/counted separately — just verify we got something.
-        expect(result.membersImported, greaterThan(0),
-            reason: 'Test account has members');
+        expect(
+          result.membersImported,
+          greaterThan(0),
+          reason: 'Test account has members',
+        );
         expect(result.sessionsImported, greaterThanOrEqualTo(0));
 
         // -- 4. DB reflects the import result -------------------------------------
         final membersInDb = await db.membersDao.getAllMembers();
-        expect(membersInDb.length, result.membersImported,
-            reason: 'DB member count should match import result');
+        expect(
+          membersInDb.length,
+          result.membersImported,
+          reason: 'DB member count should match import result',
+        );
 
         // -- 5. ID map was persisted -----------------------------------------------
         final idMappings = await db.spImportDao.getAllMappings();
-        expect(idMappings, isNotEmpty,
-            reason: 'At least member ID mappings should be in the id-map table');
+        expect(
+          idMappings,
+          isNotEmpty,
+          reason: 'At least member ID mappings should be in the id-map table',
+        );
         // Every imported member should have a mapping row.
-        final memberMappings =
-            idMappings.where((r) => r.entityType == 'member').toList();
+        final memberMappings = idMappings
+            .where((r) => r.entityType == 'member')
+            .toList();
         expect(memberMappings.length, result.membersImported);
 
         // -- 6. Sync state was written --------------------------------------------
         final syncState = await db.spImportDao.getSyncState();
-        expect(syncState, isNotNull,
-            reason: 'SpImporter should write SpSyncState after a successful import');
+        expect(
+          syncState,
+          isNotNull,
+          reason:
+              'SpImporter should write SpSyncState after a successful import',
+        );
         expect(syncState!.lastImportAt, isNotNull);
 
         // Diagnostic output — helpful when running manually.
@@ -127,11 +160,13 @@ void main() {
         // ignore: avoid_print
         print('Progress: $progressLog');
         // ignore: avoid_print
-        print('Members: ${result.membersImported}, '
-            'Sessions: ${result.sessionsImported}, '
-            'Conversations: ${result.conversationsImported}, '
-            'Messages: ${result.messagesImported}, '
-            'Polls: ${result.pollsImported}');
+        print(
+          'Members: ${result.membersImported}, '
+          'Sessions: ${result.sessionsImported}, '
+          'Conversations: ${result.conversationsImported}, '
+          'Messages: ${result.messagesImported}, '
+          'Polls: ${result.pollsImported}',
+        );
         // ignore: avoid_print
         print('Warnings (${result.warnings.length}): ${result.warnings}');
         // ignore: avoid_print
@@ -155,24 +190,40 @@ void main() {
             db: db,
             data: exportData,
             memberRepo: DriftMemberRepository(db.membersDao, null),
-            sessionRepo:
-                DriftFrontingSessionRepository(db.frontingSessionsDao, null),
-            conversationRepo:
-                DriftConversationRepository(db.conversationsDao, null),
+            sessionRepo: DriftFrontingSessionRepository(
+              db.frontingSessionsDao,
+              null,
+            ),
+            conversationRepo: DriftConversationRepository(
+              db.conversationsDao,
+              null,
+            ),
             messageRepo: DriftChatMessageRepository(db.chatMessagesDao, null),
             pollRepo: DriftPollRepository(
-                db.pollsDao, db.pollOptionsDao, db.pollVotesDao, null),
+              db.pollsDao,
+              db.pollOptionsDao,
+              db.pollVotesDao,
+              null,
+            ),
             notesRepo: DriftNotesRepository(db.notesDao, null),
             commentsRepo: DriftFrontSessionCommentsRepository(
-                db.frontSessionCommentsDao, null),
-            customFieldsRepo:
-                DriftCustomFieldsRepository(db.customFieldsDao, null),
+              db.frontSessionCommentsDao,
+              null,
+            ),
+            customFieldsRepo: DriftCustomFieldsRepository(
+              db.customFieldsDao,
+              null,
+            ),
             groupsRepo: DriftMemberGroupsRepository(db.memberGroupsDao, null),
             remindersRepo: DriftRemindersRepository(db.remindersDao, null),
-            settingsRepo:
-                DriftSystemSettingsRepository(db.systemSettingsDao, null),
+            settingsRepo: DriftSystemSettingsRepository(
+              db.systemSettingsDao,
+              null,
+            ),
             categoriesRepo: DriftConversationCategoriesRepository(
-                db.conversationCategoriesDao, null),
+              db.conversationCategoriesDao,
+              null,
+            ),
             spImportDao: db.spImportDao,
             downloadAvatars: false,
           );
@@ -181,39 +232,64 @@ void main() {
 
         final firstCount = await runImport();
         // Second import uses clearExistingData to wipe and re-import cleanly.
-        final secondCount = await SpImporter().executeImport(
-          db: db,
-          data: exportData,
-          memberRepo: DriftMemberRepository(db.membersDao, null),
-          sessionRepo:
-              DriftFrontingSessionRepository(db.frontingSessionsDao, null),
-          conversationRepo:
-              DriftConversationRepository(db.conversationsDao, null),
-          messageRepo: DriftChatMessageRepository(db.chatMessagesDao, null),
-          pollRepo: DriftPollRepository(
-              db.pollsDao, db.pollOptionsDao, db.pollVotesDao, null),
-          notesRepo: DriftNotesRepository(db.notesDao, null),
-          commentsRepo: DriftFrontSessionCommentsRepository(
-              db.frontSessionCommentsDao, null),
-          customFieldsRepo:
-              DriftCustomFieldsRepository(db.customFieldsDao, null),
-          groupsRepo: DriftMemberGroupsRepository(db.memberGroupsDao, null),
-          remindersRepo: DriftRemindersRepository(db.remindersDao, null),
-          settingsRepo:
-              DriftSystemSettingsRepository(db.systemSettingsDao, null),
-          categoriesRepo: DriftConversationCategoriesRepository(
-              db.conversationCategoriesDao, null),
-          spImportDao: db.spImportDao,
-          downloadAvatars: false,
-          clearExistingData: true,
-        ).then((r) => r.membersImported);
+        final secondCount = await SpImporter()
+            .executeImport(
+              db: db,
+              data: exportData,
+              memberRepo: DriftMemberRepository(db.membersDao, null),
+              sessionRepo: DriftFrontingSessionRepository(
+                db.frontingSessionsDao,
+                null,
+              ),
+              conversationRepo: DriftConversationRepository(
+                db.conversationsDao,
+                null,
+              ),
+              messageRepo: DriftChatMessageRepository(db.chatMessagesDao, null),
+              pollRepo: DriftPollRepository(
+                db.pollsDao,
+                db.pollOptionsDao,
+                db.pollVotesDao,
+                null,
+              ),
+              notesRepo: DriftNotesRepository(db.notesDao, null),
+              commentsRepo: DriftFrontSessionCommentsRepository(
+                db.frontSessionCommentsDao,
+                null,
+              ),
+              customFieldsRepo: DriftCustomFieldsRepository(
+                db.customFieldsDao,
+                null,
+              ),
+              groupsRepo: DriftMemberGroupsRepository(db.memberGroupsDao, null),
+              remindersRepo: DriftRemindersRepository(db.remindersDao, null),
+              settingsRepo: DriftSystemSettingsRepository(
+                db.systemSettingsDao,
+                null,
+              ),
+              categoriesRepo: DriftConversationCategoriesRepository(
+                db.conversationCategoriesDao,
+                null,
+              ),
+              spImportDao: db.spImportDao,
+              downloadAvatars: false,
+              clearExistingData: true,
+            )
+            .then((r) => r.membersImported);
 
-        expect(secondCount, firstCount,
-            reason: 're-import with clearExistingData should yield the same member count');
+        expect(
+          secondCount,
+          firstCount,
+          reason:
+              're-import with clearExistingData should yield the same member count',
+        );
 
         final membersInDb = await db.membersDao.getAllMembers();
-        expect(membersInDb.length, secondCount,
-            reason: 'DB should have exactly secondCount members after re-import');
+        expect(
+          membersInDb.length,
+          secondCount,
+          reason: 'DB should have exactly secondCount members after re-import',
+        );
       },
       timeout: const Timeout(Duration(minutes: 4)),
     );

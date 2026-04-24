@@ -203,6 +203,9 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
             : context.l10n.frontingNewSession,
         trailing: PrismGlassIconButton(
           icon: AppIcons.check,
+          tooltip: _coFrontMode
+              ? context.l10n.frontingAddCoFronterTooltip
+              : context.l10n.frontingStartSessionTooltip,
           onPressed: (_saving || _selectedId == null)
               ? null
               : _coFrontMode

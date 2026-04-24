@@ -276,19 +276,20 @@ void main() {
     testWidgets(
       'preview no longer loses an extra inner gutter width inside the card',
       (tester) async {
-      await tester.binding.setSurfaceSize(const Size(390, 800));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
+        await tester.binding.setSurfaceSize(const Size(390, 800));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
 
-      await tester.pumpWidget(
-        buildSubjectWithMedia(mediaSize: const Size(390, 800)),
-      );
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(
+          buildSubjectWithMedia(mediaSize: const Size(390, 800)),
+        );
+        await tester.pumpAndSettle();
 
-      expect(
-        tester.getSize(find.byKey(const Key('navigation_preview'))).width,
-        closeTo(390 - (kFloatingNavBarSideMargin * 2) - 2, 0.01),
-      );
-    });
+        expect(
+          tester.getSize(find.byKey(const Key('navigation_preview'))).width,
+          closeTo(390 - (kFloatingNavBarSideMargin * 2) - 2, 0.01),
+        );
+      },
+    );
 
     testWidgets(
       'uses the real label style when deciding whether a tab fits in primary',
@@ -321,10 +322,10 @@ void main() {
       'adaptive persistence helper keeps a fitting overflow tab in primary',
       (tester) async {
         await tester.pumpWidget(
-          MaterialApp(
+          const MaterialApp(
             localizationsDelegates: AppLocalizations.localizationsDelegates,
-            supportedLocales: const [Locale('en')],
-            home: const MediaQuery(
+            supportedLocales: [Locale('en')],
+            home: MediaQuery(
               data: MediaQueryData(size: Size(700, 900)),
               child: Builder(builder: _buildAdaptiveLayoutForWideDevice),
             ),
@@ -351,10 +352,10 @@ void main() {
       'adaptive persistence helper spills an impossible primary move back into overflow',
       (tester) async {
         await tester.pumpWidget(
-          MaterialApp(
+          const MaterialApp(
             localizationsDelegates: AppLocalizations.localizationsDelegates,
-            supportedLocales: const [Locale('en')],
-            home: const MediaQuery(
+            supportedLocales: [Locale('en')],
+            home: MediaQuery(
               data: MediaQueryData(
                 size: Size(320, 800),
                 textScaler: TextScaler.linear(1.6),

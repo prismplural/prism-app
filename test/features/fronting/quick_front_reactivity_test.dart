@@ -26,10 +26,10 @@ Member _m(String id, String name) =>
     Member(id: id, name: name, createdAt: DateTime(2026, 1, 1));
 
 FrontingSession _activeSession(String memberId) => FrontingSession(
-      id: 'session-$memberId',
-      startTime: DateTime(2026, 1, 1, 12),
-      memberId: memberId,
-    );
+  id: 'session-$memberId',
+  startTime: DateTime(2026, 1, 1, 12),
+  memberId: memberId,
+);
 
 Widget _harness({
   required List<Member> members,
@@ -45,12 +45,10 @@ Widget _harness({
       if (notifier != null)
         frontingNotifierProvider.overrideWith(() => notifier),
     ],
-    child: MaterialApp(
+    child: const MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: const [Locale('en')],
-      home: const Scaffold(
-        body: SizedBox(width: 400, child: QuickFrontSection()),
-      ),
+      supportedLocales: [Locale('en')],
+      home: Scaffold(body: SizedBox(width: 400, child: QuickFrontSection())),
     ),
   );
 }
@@ -74,23 +72,31 @@ void main() {
       addTearDown(controller.close);
       controller.onListen = () => controller.add([_activeSession('a')]);
 
-      await tester.pumpWidget(_harness(
-        members: members,
-        sessionsStream: controller.stream,
-        counts: {'a': 50, 'b': 30},
-      ));
+      await tester.pumpWidget(
+        _harness(
+          members: members,
+          sessionsStream: controller.stream,
+          counts: {'a': 50, 'b': 30},
+        ),
+      );
       await tester.pumpAndSettle();
 
-      expect(tester.widget<Text>(find.text('Alex')).style?.fontWeight,
-          FontWeight.bold);
+      expect(
+        tester.widget<Text>(find.text('Alex')).style?.fontWeight,
+        FontWeight.bold,
+      );
 
       controller.add([_activeSession('b')]);
       await tester.pumpAndSettle();
 
-      expect(tester.widget<Text>(find.text('Alex')).style?.fontWeight,
-          FontWeight.normal);
-      expect(tester.widget<Text>(find.text('Bea')).style?.fontWeight,
-          FontWeight.bold);
+      expect(
+        tester.widget<Text>(find.text('Alex')).style?.fontWeight,
+        FontWeight.normal,
+      );
+      expect(
+        tester.widget<Text>(find.text('Bea')).style?.fontWeight,
+        FontWeight.bold,
+      );
     },
   );
 
@@ -114,12 +120,14 @@ void main() {
 
       final notifier = _FakeFrontingNotifier();
 
-      await tester.pumpWidget(_harness(
-        members: members,
-        sessionsStream: controller.stream,
-        counts: {'a': 50, 'b': 30},
-        notifier: notifier,
-      ));
+      await tester.pumpWidget(
+        _harness(
+          members: members,
+          sessionsStream: controller.stream,
+          counts: {'a': 50, 'b': 30},
+          notifier: notifier,
+        ),
+      );
       await tester.pumpAndSettle();
 
       // Long-press B in 50ms ticks so the long-press recognizer (500ms) and
@@ -132,8 +140,11 @@ void main() {
       await gesture.up();
       await tester.pumpAndSettle();
 
-      expect(notifier.switches, ['b'],
-          reason: 'long-press should have triggered switchFronter("b")');
+      expect(
+        notifier.switches,
+        ['b'],
+        reason: 'long-press should have triggered switchFronter("b")',
+      );
 
       // B becomes the fronter, then A becomes the fronter again.
       controller.add([_activeSession('b')]);
@@ -141,16 +152,23 @@ void main() {
       controller.add([_activeSession('a')]);
       await tester.pumpAndSettle();
 
-      expect(tester.widget<Text>(find.text('Alex')).style?.fontWeight,
-          FontWeight.bold);
-      expect(tester.widget<Text>(find.text('Bea')).style?.fontWeight,
-          FontWeight.normal);
+      expect(
+        tester.widget<Text>(find.text('Alex')).style?.fontWeight,
+        FontWeight.bold,
+      );
+      expect(
+        tester.widget<Text>(find.text('Bea')).style?.fontWeight,
+        FontWeight.normal,
+      );
 
-      expect(_progressRingPainterCount(tester), 0,
-          reason:
-              'No progress ring should be painted after the held member '
-              'loses fronter status. A non-zero count means the controller '
-              'leaked at value 1.0.');
+      expect(
+        _progressRingPainterCount(tester),
+        0,
+        reason:
+            'No progress ring should be painted after the held member '
+            'loses fronter status. A non-zero count means the controller '
+            'leaked at value 1.0.',
+      );
     },
   );
 }

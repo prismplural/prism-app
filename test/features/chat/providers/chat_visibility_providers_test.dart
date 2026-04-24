@@ -78,7 +78,7 @@ void main() {
   test('non-participant does not see DM in conversation list', () async {
     final container = buildContainer('carol');
     addTearDown(container.dispose);
-    final sub = container.listen(conversationsProvider, (_, __) {});
+    final sub = container.listen(conversationsProvider, (_, _) {});
     addTearDown(sub.close);
 
     await Future<void>.delayed(Duration.zero);
@@ -90,7 +90,7 @@ void main() {
   test('admin can see DM in conversation list', () async {
     final container = buildContainer('admin');
     addTearDown(container.dispose);
-    final sub = container.listen(conversationsProvider, (_, __) {});
+    final sub = container.listen(conversationsProvider, (_, _) {});
     addTearDown(sub.close);
 
     await Future<void>.delayed(Duration.zero);
@@ -102,7 +102,7 @@ void main() {
   test('non-participant cannot open DM by id', () async {
     final container = buildContainer('carol');
     addTearDown(container.dispose);
-    final sub = container.listen(conversationByIdProvider('dm-1'), (_, __) {});
+    final sub = container.listen(conversationByIdProvider('dm-1'), (_, _) {});
     addTearDown(sub.close);
 
     await Future<void>.delayed(Duration.zero);
@@ -114,7 +114,7 @@ void main() {
   test('admin can open DM by id in read-only mode', () async {
     final container = buildContainer('admin');
     addTearDown(container.dispose);
-    final sub = container.listen(conversationByIdProvider('dm-1'), (_, __) {});
+    final sub = container.listen(conversationByIdProvider('dm-1'), (_, _) {});
     addTearDown(sub.close);
 
     await Future<void>.delayed(Duration.zero);
@@ -128,7 +128,7 @@ void main() {
     addTearDown(container.dispose);
     final sub = container.listen(
       conversationByIdProvider('legacy-dm-1'),
-      (_, __) {},
+      (_, _) {},
     );
     addTearDown(sub.close);
 

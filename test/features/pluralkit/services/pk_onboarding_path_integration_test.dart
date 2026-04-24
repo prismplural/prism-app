@@ -11,7 +11,7 @@
 @Tags(['integration'])
 library;
 
-import 'dart:io' show HttpClient, HttpOverrides, Platform, SecurityContext;
+import 'dart:io' show HttpOverrides, Platform;
 
 import 'package:drift/native.dart';
 import 'package:flutter/services.dart';
@@ -33,11 +33,7 @@ String? get _tokenOrNull {
 
 bool get _skipAll => _tokenOrNull == null;
 
-class _NoOverrides extends HttpOverrides {
-  @override
-  HttpClient createHttpClient(SecurityContext? context) =>
-      super.createHttpClient(context);
-}
+class _NoOverrides extends HttpOverrides {}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -47,38 +43,38 @@ void main() {
 
   // Stub flutter_secure_storage's MethodChannel with an in-memory map so
   // setToken's write/read path works without a real platform binding.
-  final _memStore = <String, String>{};
+  final memStore = <String, String>{};
   TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
       .setMockMethodCallHandler(
-    const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
-    (call) async {
-      switch (call.method) {
-        case 'write':
-          final args = (call.arguments as Map).cast<String, dynamic>();
-          _memStore[args['key'] as String] = args['value'] as String;
+        const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
+        (call) async {
+          switch (call.method) {
+            case 'write':
+              final args = (call.arguments as Map).cast<String, dynamic>();
+              memStore[args['key'] as String] = args['value'] as String;
+              return null;
+            case 'read':
+              final args = (call.arguments as Map).cast<String, dynamic>();
+              return memStore[args['key'] as String];
+            case 'delete':
+              final args = (call.arguments as Map).cast<String, dynamic>();
+              memStore.remove(args['key'] as String);
+              return null;
+            case 'readAll':
+              return Map<String, String>.from(memStore);
+            case 'deleteAll':
+              memStore.clear();
+              return null;
+          }
           return null;
-        case 'read':
-          final args = (call.arguments as Map).cast<String, dynamic>();
-          return _memStore[args['key'] as String];
-        case 'delete':
-          final args = (call.arguments as Map).cast<String, dynamic>();
-          _memStore.remove(args['key'] as String);
-          return null;
-        case 'readAll':
-          return Map<String, String>.from(_memStore);
-        case 'deleteAll':
-          _memStore.clear();
-          return null;
-      }
-      return null;
-    },
-  );
+        },
+      );
 
   group('PluralKit onboarding _handleImport path', () {
     late AppDatabase db;
 
     setUp(() {
-      _memStore.clear();
+      memStore.clear();
       db = AppDatabase(NativeDatabase.memory());
     });
 
@@ -88,8 +84,10 @@ void main() {
       'setToken -> testConnection -> importMembersOnly imports members',
       () async {
         final memberRepo = DriftMemberRepository(db.membersDao, null);
-        final sessionRepo =
-            DriftFrontingSessionRepository(db.frontingSessionsDao, null);
+        final sessionRepo = DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+        );
 
         // tokenOverride bypasses FlutterSecureStorage so we don't need a
         // platform binding. setToken still runs its full body (getSystem +
@@ -105,18 +103,18 @@ void main() {
           // TestWidgetsFlutterBinding intercepts HttpClient → all requests
           // return 400. Inject a real http.Client via IOClient so we can
           // talk to the live PK API.
-          clientFactory: (token) => PluralKitClient(
-            token: token,
-            httpClient: http_io.IOClient(),
-          ),
+          clientFactory: (token) =>
+              PluralKitClient(token: token, httpClient: http_io.IOClient()),
         );
 
         // Mirror import_data_step.dart:_handleImport step-for-step.
         await service.setToken(_tokenOrNull!);
         // ignore: avoid_print
-        print('after setToken: isConnected=${service.state.isConnected} '
-            'needsMapping=${service.state.needsMapping} '
-            'syncError=${service.state.syncError}');
+        print(
+          'after setToken: isConnected=${service.state.isConnected} '
+          'needsMapping=${service.state.needsMapping} '
+          'syncError=${service.state.syncError}',
+        );
 
         final connected = await service.testConnection();
         // ignore: avoid_print
@@ -125,20 +123,31 @@ void main() {
 
         final (systemName, importedMembers) = await service.importMembersOnly();
         // ignore: avoid_print
-        print('importMembersOnly: systemName=$systemName '
-            'importedMembers=${importedMembers.length} '
-            'syncError=${service.state.syncError}');
+        print(
+          'importMembersOnly: systemName=$systemName '
+          'importedMembers=${importedMembers.length} '
+          'syncError=${service.state.syncError}',
+        );
 
-        expect(importedMembers, isNotEmpty,
-            reason: 'PK system has 7 members — import should not return 0');
+        expect(
+          importedMembers,
+          isNotEmpty,
+          reason: 'PK system has 7 members — import should not return 0',
+        );
 
         final membersInDb = await db.membersDao.getAllMembers();
         // ignore: avoid_print
         print('members in DB: ${membersInDb.length}');
-        expect(membersInDb, isNotEmpty,
-            reason: 'members should be persisted to the local DB');
-        expect(membersInDb.length, equals(importedMembers.length),
-            reason: 'every PK member should land in the DB');
+        expect(
+          membersInDb,
+          isNotEmpty,
+          reason: 'members should be persisted to the local DB',
+        );
+        expect(
+          membersInDb.length,
+          equals(importedMembers.length),
+          reason: 'every PK member should land in the DB',
+        );
       },
       skip: _skipAll ? 'PK_TOKEN not set' : null,
     );

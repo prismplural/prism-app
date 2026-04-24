@@ -21,11 +21,7 @@ import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 /// Auto-starts recording on mount. Cancel and send are rendered separately by
 /// the parent as [VoiceRecorderCancelButton] and [VoiceRecorderSendButton].
 class VoiceRecorder extends ConsumerStatefulWidget {
-  const VoiceRecorder({
-    super.key,
-    required this.onCancel,
-    this.height = 38,
-  });
+  const VoiceRecorder({super.key, required this.onCancel, this.height = 38});
 
   /// Called when the user cancels — includes auto-cancel on permission or
   /// recording errors (see [ref.listen] block in [build]).
@@ -126,7 +122,9 @@ class _VoiceRecorderState extends ConsumerState<VoiceRecorder> {
       child: Container(
         decoration: BoxDecoration(
           color: fillColor,
-          borderRadius: BorderRadius.circular(PrismShapes.of(context).pill(widget.height)),
+          borderRadius: BorderRadius.circular(
+            PrismShapes.of(context).pill(widget.height),
+          ),
           border: Border.all(
             color: borderColor,
             width: PrismTokens.hairlineBorderWidth,
@@ -421,8 +419,8 @@ class _AnimatedWaveformState extends State<_AnimatedWaveform>
 
     for (var i = 0; i < _model.barProgress.length; i++) {
       if (_model.barProgress[i] < 1.0) {
-        _model.barProgress[i] =
-            (_model.barProgress[i] + dt / _animDuration).clamp(0.0, 1.0);
+        _model.barProgress[i] = (_model.barProgress[i] + dt / _animDuration)
+            .clamp(0.0, 1.0);
         dirty = true;
       }
     }
@@ -447,11 +445,9 @@ class _AnimatedWaveformState extends State<_AnimatedWaveform>
 class _WaveformModel extends ChangeNotifier {
   _WaveformModel({
     required List<double> samples,
-    required List<double> barProgress,
-    required Color color,
-  })  : _samples = samples,
-        barProgress = barProgress,
-        color = color;
+    required this.barProgress,
+    required this.color,
+  }) : _samples = samples;
 
   List<double> _samples;
   List<double> barProgress;
@@ -488,8 +484,7 @@ class _WaveformPainter extends CustomPainter {
       return;
     }
 
-    final startIndex =
-        samples.length > maxBars ? samples.length - maxBars : 0;
+    final startIndex = samples.length > maxBars ? samples.length - maxBars : 0;
     final visibleCount = samples.length - startIndex;
 
     var minVal = double.infinity;

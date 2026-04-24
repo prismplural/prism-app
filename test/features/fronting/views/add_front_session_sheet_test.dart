@@ -100,6 +100,15 @@ void main() {
   // ══════════════════════════════════════════════════════════════════════════
 
   group('selected member picker', () {
+    testWidgets('start button has an accessible name', (tester) async {
+      await tester.pumpWidget(_buildSheetTrigger(members: _bigMemberList()));
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      expect(find.byTooltip('Start session'), findsOneWidget);
+      expect(find.bySemanticsLabel('Start session'), findsOneWidget);
+    });
+
     testWidgets(
       'large systems use the shared selected-member picker instead of raw rows',
       (tester) async {

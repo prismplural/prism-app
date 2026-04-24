@@ -12,13 +12,17 @@ def asc_api_key
 end
 
 # Build the --dart-define flag string that bakes the beta relay registration
-# token and BuildInfo fields into the binary — matches app/build.sh's
-# compute_build_info. The token is read from .env.testflight at the monorepo
-# root (gitignored) and is required for internal/TestFlight lanes so beta
-# testers don't have to type it by hand.
+# token and BuildInfo fields into the binary -- matches app/build.sh's
+# compute_build_info. The token is read from ~/.config/prism/.env.testflight
+# by default and is required for internal/TestFlight lanes so beta testers
+# don't have to type it by hand.
 def build_info_defines
-  env_file = File.expand_path("../../.env.testflight", __dir__)
-  UI.user_error!(".env.testflight not found at #{env_file}") unless File.exist?(env_file)
+  config_env_file = ENV["PRISM_TESTFLIGHT_ENV_FILE"] || File.expand_path("~/.config/prism/.env.testflight")
+  legacy_env_file = File.expand_path("../../.env.testflight", __dir__)
+  env_file = File.exist?(config_env_file) ? config_env_file : legacy_env_file
+  unless File.exist?(env_file)
+    UI.user_error!("TestFlight env file not found at #{config_env_file} or #{legacy_env_file}")
+  end
   File.foreach(env_file) do |line|
     line = line.strip
     next if line.empty? || line.start_with?("#")
@@ -102,10 +106,17 @@ platform :android do
     defines = build_info_defines
     sh("cd .. && flutter build appbundle --release #{defines}")
 
+    play_store_json_key = ENV["PLAY_STORE_JSON_KEY"]
+    default_play_store_json_key = File.expand_path("~/.config/prism/play-store-key.json")
+    if (play_store_json_key.nil? || play_store_json_key.empty?) && File.exist?(default_play_store_json_key)
+      play_store_json_key = default_play_store_json_key
+    end
+    UI.user_error!("PLAY_STORE_JSON_KEY not set and #{default_play_store_json_key} not found") if play_store_json_key.nil? || play_store_json_key.empty?
+
     upload_to_play_store(
       track: "internal",
       aab: File.expand_path("../build/app/outputs/bundle/release/app-release.aab", __dir__),
-      json_key: ENV["PLAY_STORE_JSON_KEY"],
+      json_key: play_store_json_key,
       package_name: "com.prismplural.prism",
       release_status: "draft",
     )

@@ -58,6 +58,10 @@ void main() {
     });
 
     testWidgets('toggling persists to SharedPreferences', (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'prism.pref.use_proxy_tags_for_authoring': false,
+      });
+
       await tester.pumpWidget(buildSubject());
       await tester.pumpAndSettle();
 

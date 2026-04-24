@@ -236,12 +236,12 @@ void main() {
     );
 
     await tester.pumpWidget(
-      ProviderScope(
+      const ProviderScope(
         child: MaterialApp(
           localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: const [Locale('en'), Locale('es')],
-          locale: const Locale('es'),
-          home: const Scaffold(body: PrismSheetTopBar(title: 'Test title')),
+          supportedLocales: [Locale('en'), Locale('es')],
+          locale: Locale('es'),
+          home: Scaffold(body: PrismSheetTopBar(title: 'Test title')),
         ),
       ),
     );

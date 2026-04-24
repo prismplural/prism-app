@@ -479,6 +479,16 @@ void main() {
       expect(semantics.flagsCollection.isSelected, ui.Tristate.isTrue);
     });
 
+    testWidgets('multi-select confirm button has an accessible name', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_buildSheet(members: members, multiSelect: true));
+      await tester.pumpAndSettle();
+
+      expect(find.byTooltip('Confirm selected members'), findsOneWidget);
+      expect(find.bySemanticsLabel('Confirm selected members'), findsOneWidget);
+    });
+
     testWidgets('unselected group chip does not expose selected semantics', (
       tester,
     ) async {

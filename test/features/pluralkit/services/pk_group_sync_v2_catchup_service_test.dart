@@ -180,6 +180,41 @@ void main() {
     expect(prefs.getBool(PkGroupSyncV2CatchupService.flagKey), isTrue);
   });
 
+  test('skips PK group entries whose member has no PK UUID', () async {
+    await db.systemSettingsDao.getSettings();
+    await db.systemSettingsDao.updatePkGroupSyncV2Enabled(true);
+
+    await db
+        .into(db.members)
+        .insert(_member(id: 'member-local', name: 'Local Only'));
+    await db
+        .into(db.memberGroups)
+        .insert(
+          _group(
+            id: 'pk-group-local-1',
+            name: 'Cluster',
+            createdAt: DateTime.utc(2024, 1, 1),
+            pluralkitUuid: 'pk-group-1',
+          ),
+        );
+    await db
+        .into(db.memberGroupEntries)
+        .insert(
+          _entry(
+            id: 'local-only-entry',
+            groupId: 'pk-group-local-1',
+            memberId: 'member-local',
+          ),
+        );
+
+    final result = await service().runOnce();
+
+    expect(result.groupsEmitted, 1);
+    expect(result.entriesEmitted, 0);
+    expect(groupOps.single.entityId, 'pk-group:pk-group-1');
+    expect(entryOps, isEmpty);
+  });
+
   test('skips suppressed groups and their entries', () async {
     await db.systemSettingsDao.getSettings();
     await db.systemSettingsDao.updatePkGroupSyncV2Enabled(true);

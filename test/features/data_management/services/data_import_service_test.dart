@@ -369,16 +369,16 @@ void main() {
   group('DataImportService.resolveBytes — media manifest validation', () {
     const password = 'test-password-manifest-2026';
 
-    Uint8List _makeEncrypted(
+    Uint8List makeEncrypted(
       String json,
       List<({String mediaId, Uint8List blob})> blobs,
     ) => ExportCrypto.encrypt(json, blobs, password);
 
     test('blob whose mediaId is not in manifest throws FormatException', () {
       // JSON has empty mediaAttachments; binary has 1 blob — mismatch
-      final json = '{"mediaAttachments":[]}';
+      const json = '{"mediaAttachments":[]}';
       final blob = Uint8List.fromList([1, 2, 3]);
-      final encrypted = _makeEncrypted(json, [
+      final encrypted = makeEncrypted(json, [
         (mediaId: 'extra-id', blob: blob),
       ]);
       expect(
@@ -397,12 +397,10 @@ void main() {
       'blob whose mediaId matches a thumbnailMediaId in the manifest is accepted',
       () {
         const thumbId = 'thumb-abc-123';
-        final json =
+        const json =
             '{"mediaAttachments":[{"mediaId":"main-abc","thumbnailMediaId":"$thumbId"}]}';
         final blob = Uint8List.fromList([10, 20, 30]);
-        final encrypted = _makeEncrypted(json, [
-          (mediaId: thumbId, blob: blob),
-        ]);
+        final encrypted = makeEncrypted(json, [(mediaId: thumbId, blob: blob)]);
         final result = DataImportService.resolveBytes(
           encrypted,
           password: password,
@@ -414,10 +412,10 @@ void main() {
 
     test('blob whose mediaId matches a mediaId in the manifest is accepted', () {
       const mainId = 'main-abc-456';
-      final json =
+      const json =
           '{"mediaAttachments":[{"mediaId":"$mainId","thumbnailMediaId":""}]}';
       final blob = Uint8List.fromList([7, 8, 9]);
-      final encrypted = _makeEncrypted(json, [(mediaId: mainId, blob: blob)]);
+      final encrypted = makeEncrypted(json, [(mediaId: mainId, blob: blob)]);
       final result = DataImportService.resolveBytes(
         encrypted,
         password: password,
@@ -426,8 +424,8 @@ void main() {
     });
 
     test('no blobs skips manifest validation (no JSON parse needed)', () {
-      final json = '{"mediaAttachments":[]}';
-      final encrypted = _makeEncrypted(json, const []);
+      const json = '{"mediaAttachments":[]}';
+      final encrypted = makeEncrypted(json, const []);
       final result = DataImportService.resolveBytes(
         encrypted,
         password: password,

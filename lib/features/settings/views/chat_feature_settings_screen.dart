@@ -15,6 +15,7 @@ import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_grouped_section_card.dart';
+import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -28,7 +29,8 @@ class ChatFeatureSettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final chatEnabled = ref.watch(chatEnabledProvider);
     final chatLogsFront = ref.watch(chatLogsFrontProvider);
-    final useProxyTagsForAuthoring = ref
+    final useProxyTagsForAuthoring =
+        ref
             .watch(useProxyTagsForAuthoringProvider)
             .whenOrNull(data: (v) => v) ??
         false;
@@ -39,22 +41,30 @@ class ChatFeatureSettingsScreen extends ConsumerWidget {
     final terms = watchTerminology(context, ref);
     final speakingAs = ref.watch(speakingAsProvider);
     final badgePrefs = ref.watch(chatBadgePreferencesProvider);
-    final isMentionsOnly = speakingAs != null &&
-        badgePrefs[speakingAs] == 'mentions_only';
+    final isMentionsOnly =
+        speakingAs != null && badgePrefs[speakingAs] == 'mentions_only';
     final memberName = speakingAs == null
         ? null
-        : ref.watch(memberByIdProvider(speakingAs)).whenOrNull(data: (m) => m?.name);
+        : ref
+              .watch(memberByIdProvider(speakingAs))
+              .whenOrNull(data: (m) => m?.name);
     final gifAvailable = gifConfig?.enabled == true;
     final gifConsentSubtitle = !gifAvailable
         ? context.l10n.featureChatGifSearchSyncRequiredSubtitle
         : switch (gifConsentState) {
-            GifConsentState.unknown => context.l10n.featureChatGifSearchUndecidedSubtitle,
-            GifConsentState.enabled => context.l10n.featureChatGifSearchEnabledSubtitle,
-            GifConsentState.declined => context.l10n.featureChatGifSearchDeclinedSubtitle,
+            GifConsentState.unknown =>
+              context.l10n.featureChatGifSearchUndecidedSubtitle,
+            GifConsentState.enabled =>
+              context.l10n.featureChatGifSearchEnabledSubtitle,
+            GifConsentState.declined =>
+              context.l10n.featureChatGifSearchDeclinedSubtitle,
           };
 
     return PrismPageScaffold(
-      topBar: PrismTopBar(title: context.l10n.featureChatTitle, showBackButton: true),
+      topBar: PrismTopBar(
+        title: context.l10n.featureChatTitle,
+        showBackButton: true,
+      ),
       bodyPadding: EdgeInsets.zero,
       body: ListView(
         padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
@@ -75,7 +85,9 @@ class ChatFeatureSettingsScreen extends ConsumerWidget {
                 icon: AppIcons.chatOutlined,
                 iconColor: Colors.blue,
                 title: context.l10n.featureChatEnable,
-                subtitle: context.l10n.featureChatEnableSubtitle(terms.pluralLower),
+                subtitle: context.l10n.featureChatEnableSubtitle(
+                  terms.pluralLower,
+                ),
                 value: chatEnabled,
                 onChanged: (value) => ref
                     .read(settingsNotifierProvider.notifier)
@@ -111,10 +123,7 @@ class ChatFeatureSettingsScreen extends ConsumerWidget {
                           .set(value),
                     ),
                     PrismListRow(
-                      leading: Icon(
-                        AppIcons.gif,
-                        color: Colors.deepPurple,
-                      ),
+                      leading: Icon(AppIcons.gif, color: Colors.deepPurple),
                       title: Text(context.l10n.featureChatGifSearch),
                       subtitle: Text(gifConsentSubtitle),
                       showChevron: true,
@@ -186,22 +195,12 @@ class ChatFeatureSettingsScreen extends ConsumerWidget {
 
 Future<void> _showSyncRequiredDialog(BuildContext context) async {
   final l10n = context.l10n;
-  final goToSetup = await showDialog<bool>(
+  final goToSetup = await PrismDialog.confirm(
     context: context,
-    builder: (dialogContext) => AlertDialog(
-      title: Text(l10n.featureChatGifSearchSyncRequiredDialogTitle),
-      content: Text(l10n.featureChatGifSearchSyncRequiredDialogBody),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(dialogContext).pop(false),
-          child: Text(l10n.cancel),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.of(dialogContext).pop(true),
-          child: Text(l10n.featureChatGifSearchSyncRequiredDialogAction),
-        ),
-      ],
-    ),
+    title: l10n.featureChatGifSearchSyncRequiredDialogTitle,
+    message: l10n.featureChatGifSearchSyncRequiredDialogBody,
+    cancelLabel: l10n.cancel,
+    confirmLabel: l10n.featureChatGifSearchSyncRequiredDialogAction,
   );
   if (goToSetup == true && context.mounted) {
     await context.push(AppRoutePaths.syncSetup);
