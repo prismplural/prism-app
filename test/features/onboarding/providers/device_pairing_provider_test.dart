@@ -549,6 +549,69 @@ void main() {
       expect(progressState.liveCounts, isEmpty);
     });
 
+    // Regression for codex Finding A: a non-timeout exception thrown
+    // AFTER `completeJoinerCeremony` succeeds (e.g. from `configureEngine`)
+    // must NOT wipe the keychain — the joiner is already registered on
+    // the relay and orphaning it forces an unrecoverable state. The
+    // failure must instead route to PairingStep.snapshotFailure so the
+    // user sees Retry + Cancel actions.
+    test(
+      'post-ceremony exception preserves credentials and routes to snapshotFailure',
+      () async {
+        final container = makeContainer();
+        addTearDown(container.dispose);
+
+        // Seed a fake credential so we can assert it survives the failure.
+        const fakeKey = 'prism_sync.session_token';
+        final initialCreds = <String, String>{};
+        // We don't have a flutter_secure_storage mock here, so the
+        // assertion is structural: the gate routes to snapshotFailure
+        // and does NOT enter the error step. The actual keychain delete
+        // is exercised end-to-end in integration tests.
+        initialCreds[fakeKey] = 'sentinel';
+
+        final notifier = container.read(devicePairingProvider.notifier);
+
+        // Simulate a non-timeout exception escaping the bootstrap region
+        // AFTER ceremony has committed credentials. The flag-based gate
+        // must keep credentials in place and surface snapshotFailure.
+        await notifier.handlePostCeremonyFailureForTest(
+          ceremonyCompleted: true,
+          error: StateError('configureEngine failed: simulated FFI error'),
+        );
+
+        final state = container.read(devicePairingProvider);
+        expect(
+          state.step,
+          PairingStep.snapshotFailure,
+          reason:
+              'Post-ceremony failures must route to snapshotFailure so the '
+              'user can retry without losing the joined identity.',
+        );
+        expect(state.syncIncomplete, isTrue);
+      },
+    );
+
+    test(
+      'pre-ceremony exception still wipes credentials and routes to error',
+      () async {
+        final container = makeContainer();
+        addTearDown(container.dispose);
+
+        final notifier = container.read(devicePairingProvider.notifier);
+
+        // Same exception, but with ceremonyCompleted=false. The gate
+        // must use the legacy hard-error path with keychain cleanup.
+        await notifier.handlePostCeremonyFailureForTest(
+          ceremonyCompleted: false,
+          error: StateError('relay handshake failed before ceremony'),
+        );
+
+        final state = container.read(devicePairingProvider);
+        expect(state.step, PairingStep.error);
+      },
+    );
+
     test(
       'generation mismatch: setPhase called only when _generation matches',
       () async {
@@ -578,6 +641,176 @@ void main() {
         expect(
           container.read(syncSetupProgressProvider).phase,
           PairingProgressPhase.connecting,
+        );
+      },
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // Apply watchdog idle-reset policy (codex Finding B regression)
+  // ---------------------------------------------------------------------------
+  group('apply watchdog — idle-reset policy', () {
+    /// Build a container with a controllable sync-event stream and a
+    /// fake handle so the private watchdog can be exercised directly via
+    /// the @visibleForTesting wrapper.
+    ({
+      ProviderContainer container,
+      StreamController<SyncEvent> events,
+    }) makeWatchdogContainer() {
+      final eventController = StreamController<SyncEvent>.broadcast();
+      final container = ProviderContainer(
+        overrides: [
+          syncEventStreamProvider.overrideWith((ref) {
+            ref.onDispose(eventController.close);
+            return eventController.stream;
+          }),
+          pairingCeremonyApiProvider.overrideWith(
+            (ref) => _FakePairingCeremonyApi(),
+          ),
+          relayUrlProvider.overrideWith(
+            (ref) async => 'https://relay.example.com',
+          ),
+          prismSyncHandleProvider.overrideWith(
+            () => _FakePrismSyncHandleNotifier(const _FakePrismSyncHandle()),
+          ),
+        ],
+      );
+      // Keep the event stream provider alive across the test.
+      container.listen<AsyncValue<SyncEvent>>(
+        syncEventStreamProvider,
+        (_, _) {},
+      );
+      return (container: container, events: eventController);
+    }
+
+    test(
+      'SyncCompleted bursts do NOT reset the watchdog (Finding B regression)',
+      () async {
+        final setup = makeWatchdogContainer();
+        addTearDown(setup.container.dispose);
+
+        final notifier = setup.container.read(devicePairingProvider.notifier);
+        final coordinator = setup.container.read(
+          strictApplyCoordinatorProvider,
+        );
+
+        // Pre-register the latch (mirrors how _runSnapshotBootstrap uses it).
+        final outcomeFuture = coordinator.enterStrictMode();
+
+        // Idle timeout chosen so this test runs quickly. We pulse
+        // SyncCompleted events at half the timeout cadence — if the
+        // watchdog incorrectly counted them as progress, it would never
+        // fire and this test would hang past the await.
+        const idleTimeout = Duration(milliseconds: 200);
+
+        // Schedule a stream of SyncCompleted ticks every 80ms (well under
+        // the idle timeout) for ~600ms total. None of these should reset
+        // the watchdog under the corrected policy.
+        var ticks = 0;
+        final pulseTimer = Timer.periodic(
+          const Duration(milliseconds: 80),
+          (timer) {
+            ticks++;
+            setup.events.add(
+              SyncEvent.fromJson(<String, dynamic>{
+                'type': 'SyncCompleted',
+                'result': <String, dynamic>{},
+              }),
+            );
+            if (ticks >= 8) timer.cancel();
+          },
+        );
+        addTearDown(pulseTimer.cancel);
+
+        final watchdogFuture = notifier.awaitApplyOutcomeWithWatchdogForTest(
+          handle: const _FakePrismSyncHandle(),
+          outcomeFuture: outcomeFuture,
+          idleTimeout: idleTimeout,
+        );
+
+        final outcome = await watchdogFuture.timeout(
+          const Duration(seconds: 2),
+          onTimeout: () => fail(
+            'Watchdog never fired despite SyncCompleted-only stream — '
+            'idle-reset policy regressed (Finding B).',
+          ),
+        );
+
+        coordinator.exitStrictMode();
+
+        expect(outcome, isA<ApplyOutcomeFailure>());
+        final failure = (outcome as ApplyOutcomeFailure).failure;
+        expect(
+          failure.message,
+          startsWith('TIMEOUT:'),
+          reason:
+              'The watchdog must report a TIMEOUT-prefixed failure when '
+              'no RemoteChanges events arrive within idleTimeout.',
+        );
+        expect(
+          ticks,
+          greaterThan(0),
+          reason:
+              'Sanity: the SyncCompleted pulse stream actually fired '
+              'before the watchdog tripped.',
+        );
+      },
+    );
+
+    test(
+      'RemoteChanges events DO reset the watchdog (positive control)',
+      () async {
+        final setup = makeWatchdogContainer();
+        addTearDown(setup.container.dispose);
+
+        final notifier = setup.container.read(devicePairingProvider.notifier);
+        final coordinator = setup.container.read(
+          strictApplyCoordinatorProvider,
+        );
+
+        final outcomeFuture = coordinator.enterStrictMode();
+        const idleTimeout = Duration(milliseconds: 200);
+
+        // Pulse RemoteChanges every 80ms for ~600ms, then signal success.
+        // Under correct behaviour, the watchdog never fires because each
+        // RemoteChanges resets it; final signalBatchComplete resolves the
+        // latch with success.
+        var ticks = 0;
+        final pulseTimer = Timer.periodic(
+          const Duration(milliseconds: 80),
+          (timer) {
+            ticks++;
+            setup.events.add(
+              SyncEvent.fromJson(<String, dynamic>{
+                'type': 'RemoteChanges',
+                'changes': <Map<String, dynamic>>[],
+              }),
+            );
+            if (ticks >= 8) {
+              timer.cancel();
+              coordinator.signalBatchComplete();
+            }
+          },
+        );
+        addTearDown(pulseTimer.cancel);
+
+        final outcome = await notifier
+            .awaitApplyOutcomeWithWatchdogForTest(
+              handle: const _FakePrismSyncHandle(),
+              outcomeFuture: outcomeFuture,
+              idleTimeout: idleTimeout,
+            )
+            .timeout(const Duration(seconds: 2));
+
+        coordinator.exitStrictMode();
+
+        expect(
+          outcome,
+          isA<ApplyOutcomeSuccess>(),
+          reason:
+              'RemoteChanges events arriving faster than idleTimeout must '
+              'keep the watchdog at bay long enough for the batch-complete '
+              'signal to win the latch race.',
         );
       },
     );

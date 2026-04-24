@@ -308,6 +308,16 @@ class DevicePairingNotifier extends Notifier<PairingState> {
       errorCode: null,
     );
 
+    // Tracks whether `completeJoinerCeremony` has returned successfully.
+    // Once true, credentials are committed on the relay and in Rust's
+    // secure store; the only sanctioned wipe paths from that point on
+    // are explicit user cancel (`cancelAndRemoveDevice`) or a
+    // server-confirmed `device_revoked` event. Any unexpected exception
+    // after this flips routes to `PairingStep.snapshotFailure` so the
+    // user can retry the snapshot phase without losing the joined
+    // identity (see Finding A in the codex follow-up review).
+    var ceremonyCompleted = false;
+
     try {
       final pairingApi = ref.read(pairingCeremonyApiProvider);
       final handle = ref.read(prismSyncHandleProvider).value;
@@ -336,6 +346,10 @@ class DevicePairingNotifier extends Notifier<PairingState> {
         return;
       }
 
+      // Ceremony returned successfully — credentials are now committed.
+      // Subsequent failures must NOT wipe the keychain (see catch below).
+      ceremonyCompleted = true;
+
       if (_generation != myGeneration) return;
 
       // PHASE 2+3 — bootstrap + apply. Own timeout boundaries live inside
@@ -344,23 +358,77 @@ class DevicePairingNotifier extends Notifier<PairingState> {
       // wipe the keychain on timeout — they route to snapshotFailure
       // instead (see _runSnapshotBootstrap).
       await _bootstrapAfterJoin(handle, myGeneration);
-    } catch (e) {
+    } catch (e, st) {
       _pendingPin = null;
-      final structuredError = PrismSyncStructuredError.tryParse(e);
-      // Only wipe creds here when we're still in the early ceremony /
-      // pre-bootstrap region. Once _runSnapshotBootstrap is responsible
-      // for its own credential lifecycle, it lands the user in
-      // snapshotFailure rather than throwing back up here, so reaching
-      // this catch block implies the failure happened BEFORE creds were
-      // established.
+      await _handlePostCeremonyFailure(
+        ceremonyCompleted: ceremonyCompleted,
+        error: e,
+        stackTrace: st,
+        myGeneration: myGeneration,
+      );
+    }
+  }
+
+  /// Routes an exception escaping the joiner pipeline to either
+  /// [PairingStep.error] (with keychain wipe) when the ceremony hasn't
+  /// completed yet, or to [PairingStep.snapshotFailure] (preserving
+  /// credentials) when it has.
+  ///
+  /// Extracted so the credential-lifecycle gate can be exercised by unit
+  /// tests without mocking the Rust FFI surface.
+  @visibleForTesting
+  Future<void> handlePostCeremonyFailureForTest({
+    required bool ceremonyCompleted,
+    required Object error,
+    StackTrace? stackTrace,
+  }) {
+    return _handlePostCeremonyFailure(
+      ceremonyCompleted: ceremonyCompleted,
+      error: error,
+      stackTrace: stackTrace ?? StackTrace.current,
+      myGeneration: _generation,
+    );
+  }
+
+  Future<void> _handlePostCeremonyFailure({
+    required bool ceremonyCompleted,
+    required Object error,
+    required StackTrace stackTrace,
+    required int myGeneration,
+  }) async {
+    final structuredError = PrismSyncStructuredError.tryParse(error);
+
+    if (!ceremonyCompleted) {
+      // Failure happened BEFORE credentials were committed — safe to
+      // wipe partial keychain state and surface a hard error so the
+      // user can restart pairing from scratch.
       await _cleanupKeychainOnFailure();
       if (_generation != myGeneration) return;
       state = state.copyWith(
         step: PairingStep.error,
-        errorMessage: structuredError?.userMessage ?? e.toString(),
+        errorMessage: structuredError?.userMessage ?? error.toString(),
         errorCode: structuredError?.code,
       );
+      return;
     }
+
+    // Ceremony already succeeded. Preserve credentials and route to
+    // `snapshotFailure` so the user sees Retry + Cancel actions instead
+    // of being orphaned on the relay with a wiped local keychain.
+    ErrorReportingService.instance.report(
+      'Pairing bootstrap failed after ceremony (preserving creds): $error',
+      severity: ErrorSeverity.error,
+      stackTrace: stackTrace,
+    );
+    if (_generation != myGeneration) return;
+    state = state.copyWith(
+      step: PairingStep.snapshotFailure,
+      errorMessage: structuredError?.userMessage ??
+          'Pairing succeeded but setup failed. You can retry without '
+              're-running the pairing handshake.',
+      errorCode: structuredError?.code,
+      syncIncomplete: true,
+    );
   }
 
   /// Shared bootstrap logic after the relay ceremony succeeds.
@@ -628,10 +696,15 @@ class DevicePairingNotifier extends Notifier<PairingState> {
   }
 
   /// Wait for a strict-apply outcome while enforcing an idle (activity)
-  /// watchdog. The watchdog resets on every `RemoteChanges` event observed
-  /// on the sync event stream and on the coordinator's own batch-complete
-  /// signal, so arbitrarily large snapshots can ingest as long as progress
-  /// is visible; [idleTimeout] of silence is treated as failure.
+  /// watchdog. The watchdog only resets on `RemoteChanges` events — the
+  /// single sync-event variant that represents actual apply progress.
+  /// `SyncCompleted` and `WebSocketStateChanged` are intentionally NOT
+  /// treated as progress: they can fire from auto-sync completions or
+  /// reconnect churn while an apply handler is stuck inside `asyncMap`,
+  /// which would mask a real hang indefinitely (codex Finding B).
+  ///
+  /// Arbitrarily large snapshots still succeed as long as `RemoteChanges`
+  /// keeps firing; [idleTimeout] of silence is treated as failure.
   ///
   /// On timeout this writes a failure into the pre-registered strict-apply
   /// latch (message prefixed `TIMEOUT:` so the caller can distinguish) and
@@ -668,15 +741,14 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     // Rust but the Dart stream never fires, we still want a deadline.
     resetWatchdog();
 
-    // Observe every SyncEvent — RemoteChanges ticks reset the idle timer,
-    // and SyncCompleted / WebSocket activity also count as progress.
+    // Only RemoteChanges events represent actual apply progress. See
+    // doc-comment above for why SyncCompleted / WebSocketStateChanged
+    // are excluded.
     final subscription = ref.listen<AsyncValue<SyncEvent>>(
       syncEventStreamProvider,
       (_, next) {
         next.whenData((event) {
-          if (event.isRemoteChanges ||
-              event.isSyncCompleted ||
-              event.isWebSocketStateChanged) {
+          if (event.isRemoteChanges) {
             resetWatchdog();
           }
         });
@@ -689,6 +761,21 @@ class DevicePairingNotifier extends Notifier<PairingState> {
       watchdog?.cancel();
       subscription.close();
     }
+  }
+
+  /// Test-only wrapper around the private apply-outcome watchdog so unit
+  /// tests can verify the idle-reset policy (Finding B regression).
+  @visibleForTesting
+  Future<ApplyOutcome> awaitApplyOutcomeWithWatchdogForTest({
+    required ffi.PrismSyncHandle handle,
+    required Future<ApplyOutcome> outcomeFuture,
+    required Duration idleTimeout,
+  }) {
+    return _awaitApplyOutcomeWithWatchdog(
+      handle: handle,
+      outcomeFuture: outcomeFuture,
+      idleTimeout: idleTimeout,
+    );
   }
 
   /// Retry the snapshot bootstrap after a [PairingStep.snapshotFailure].
