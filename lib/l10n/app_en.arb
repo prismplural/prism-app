@@ -1516,6 +1516,10 @@
   "@systemInfoChangeAvatar": {
     "description": "Avatar action: change avatar"
   },
+  "avatarCropTitle": "Crop avatar",
+  "@avatarCropTitle": {
+    "description": "Title for the native avatar cropper"
+  },
   "systemInfoRemoveAvatar": "Remove avatar",
   "@systemInfoRemoveAvatar": {
     "description": "Avatar action: remove avatar"

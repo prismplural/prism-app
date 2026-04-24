@@ -1152,6 +1152,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get systemInfoChangeAvatar => 'Cambiar avatar';
 
   @override
+  String get avatarCropTitle => 'Recortar avatar';
+
+  @override
   String get systemInfoRemoveAvatar => 'Eliminar avatar';
 
   @override

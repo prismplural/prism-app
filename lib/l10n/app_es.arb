@@ -335,6 +335,7 @@
   "errorHistoryCopied": "Detalles del error copiados",
   "systemInfoTitle": "Información del sistema",
   "systemInfoChangeAvatar": "Cambiar avatar",
+  "avatarCropTitle": "Recortar avatar",
   "systemInfoRemoveAvatar": "Eliminar avatar",
   "systemInfoNameLabel": "Nombre",
   "systemInfoSystemNameHint": "Nombre del sistema",

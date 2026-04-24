@@ -176,9 +176,12 @@ class _SyncDeviceStepState extends ConsumerState<SyncDeviceStep> {
 
   Future<void> _requestToJoin() async {
     final relayUrl = _relayUrlController.text.trim();
-    if (_showRelayConfiguration && relayUrl.isNotEmpty) {
+    if (relayUrl.isNotEmpty) {
       if (!relayUrl.startsWith('https://')) {
-        setState(() => _relayUrlError = context.l10n.syncSetupRelayUrlError);
+        setState(() {
+          _showRelayConfiguration = true;
+          _relayUrlError = context.l10n.syncSetupRelayUrlError;
+        });
         return;
       }
     }

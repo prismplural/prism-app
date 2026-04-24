@@ -56,4 +56,34 @@ void main() {
     expect(find.text('Relay URL'), findsOneWidget);
     expect(find.text('Registration token'), findsOneWidget);
   });
+
+  testWidgets('validates typed relay URL even after section is collapsed', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: const [Locale('en')],
+          home: Scaffold(
+            body: SyncDeviceStep(onBack: () {}, onComplete: () {}),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Self-hosted relay?'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'http://relay.local');
+
+    await tester.tap(find.text('Self-hosted relay?'));
+    await tester.pumpAndSettle();
+    expect(find.text('Relay URL'), findsNothing);
+
+    await tester.tap(find.text('Request to Join'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Relay URL'), findsOneWidget);
+    expect(find.text('Relay URL must start with https://'), findsOneWidget);
+  });
 }

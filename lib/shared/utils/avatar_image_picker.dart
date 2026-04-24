@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 @visibleForTesting
 class AvatarPickRequest {
@@ -25,12 +26,18 @@ class AvatarCropRequest {
     required this.maxWidth,
     required this.maxHeight,
     required this.compressQuality,
+    required this.title,
+    required this.doneButtonTitle,
+    required this.cancelButtonTitle,
   });
 
   final String sourcePath;
   final int maxWidth;
   final int maxHeight;
   final int compressQuality;
+  final String title;
+  final String doneButtonTitle;
+  final String cancelButtonTitle;
 }
 
 @visibleForTesting
@@ -99,6 +106,9 @@ class AvatarImagePicker {
         maxWidth: _cropOutputSize,
         maxHeight: _cropOutputSize,
         compressQuality: _quality,
+        title: context.l10n.avatarCropTitle,
+        doneButtonTitle: context.l10n.done,
+        cancelButtonTitle: context.l10n.cancel,
       ),
       context: context,
     );
@@ -166,7 +176,7 @@ class _ImageCropperAvatarNativeCropper implements AvatarNativeCropper {
       aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
       uiSettings: [
         AndroidUiSettings(
-          toolbarTitle: 'Crop avatar',
+          toolbarTitle: request.title,
           toolbarColor: colors.surface,
           toolbarWidgetColor: colors.onSurface,
           activeControlsWidgetColor: colors.primary,
@@ -179,14 +189,14 @@ class _ImageCropperAvatarNativeCropper implements AvatarNativeCropper {
           hideBottomControls: true,
         ),
         IOSUiSettings(
-          title: 'Crop avatar',
+          title: request.title,
           aspectRatioLockEnabled: true,
           resetAspectRatioEnabled: false,
           aspectRatioPickerButtonHidden: true,
           rotateButtonsHidden: false,
           rotateClockwiseButtonHidden: false,
-          doneButtonTitle: 'Done',
-          cancelButtonTitle: 'Cancel',
+          doneButtonTitle: request.doneButtonTitle,
+          cancelButtonTitle: request.cancelButtonTitle,
           aspectRatioPresets: const [CropAspectRatioPreset.square],
         ),
         if (kIsWeb)

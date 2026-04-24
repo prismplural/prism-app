@@ -1123,6 +1123,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get systemInfoChangeAvatar => 'Change avatar';
 
   @override
+  String get avatarCropTitle => 'Crop avatar';
+
+  @override
   String get systemInfoRemoveAvatar => 'Remove avatar';
 
   @override
