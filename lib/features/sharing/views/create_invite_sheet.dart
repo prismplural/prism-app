@@ -46,15 +46,18 @@ class _CreateInviteSheetState extends ConsumerState<CreateInviteSheet> {
       child: Column(
         children: [
           PrismSheetTopBar(
-            title: _invite != null ? context.l10n.sharingShareYourCode : context.l10n.sharingEnableSharing,
+            title: _invite != null
+                ? context.l10n.sharingShareYourCode
+                : context.l10n.sharingEnableSharing,
             trailing: _invite == null
                 ? PrismGlassIconButton(
-                          icon: AppIcons.check,
-                          size: PrismTokens.topBarActionSize,
-                          isLoading: _generating,
-                          accentIcon: true,
-                          onPressed: _generate,
-                        )
+                    icon: AppIcons.check,
+                    tooltip: context.l10n.sharingEnableSharing,
+                    size: PrismTokens.topBarActionSize,
+                    isLoading: _generating,
+                    accentIcon: true,
+                    onPressed: _generate,
+                  )
                 : null,
           ),
           const SizedBox(height: 8),
@@ -115,7 +118,9 @@ class _CreateInviteSheetState extends ConsumerState<CreateInviteSheet> {
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
                             color: theme.colorScheme.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(8)),
+                            borderRadius: BorderRadius.circular(
+                              PrismShapes.of(context).radius(8),
+                            ),
                           ),
                           child: SelectableText(
                             _invite!.toShareString(),
@@ -198,9 +203,6 @@ class _CreateInviteSheetState extends ConsumerState<CreateInviteSheet> {
   void _copyToClipboard() {
     if (_invite == null) return;
     SensitiveClipboard.copy(_invite!.toShareString());
-    PrismToast.show(
-      context,
-      message: context.l10n.sharingCodeCopied,
-    );
+    PrismToast.show(context, message: context.l10n.sharingCodeCopied);
   }
 }

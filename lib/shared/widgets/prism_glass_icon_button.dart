@@ -19,7 +19,10 @@ class PrismGlassIconButton extends StatefulWidget {
     this.enabled = true,
     this.isLoading = false,
     this.accentIcon = false,
-  });
+  }) : assert(
+         tooltip != null || semanticLabel != null,
+         'PrismGlassIconButton requires a tooltip or semanticLabel.',
+       );
 
   final IconData icon;
   final VoidCallback? onPressed;
@@ -47,7 +50,8 @@ class _PrismGlassIconButtonState extends State<PrismGlassIconButton> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final canPress = widget.onPressed != null && widget.enabled && !widget.isLoading;
+    final canPress =
+        widget.onPressed != null && widget.enabled && !widget.isLoading;
     final visuallyEnabled = canPress;
 
     Widget button = Semantics(
@@ -94,10 +98,11 @@ class _PrismGlassIconButtonState extends State<PrismGlassIconButton> {
                         size: widget.iconSize,
                         color: visuallyEnabled
                             ? (widget.accentIcon && widget.tint != null
-                                ? widget.tint!
-                                : theme.colorScheme.onSurface)
-                            : theme.colorScheme.onSurface
-                                .withValues(alpha: 0.35),
+                                  ? widget.tint!
+                                  : theme.colorScheme.onSurface)
+                            : theme.colorScheme.onSurface.withValues(
+                                alpha: 0.35,
+                              ),
                       ),
               ),
             ),

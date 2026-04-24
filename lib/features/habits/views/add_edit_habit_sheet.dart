@@ -114,6 +114,7 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
                 : context.l10n.habitsNewHabit,
             trailing: PrismGlassIconButton(
               icon: AppIcons.check,
+              tooltip: context.l10n.save,
               size: PrismTokens.topBarActionSize,
               tint: canSave ? theme.colorScheme.primary : null,
               accentIcon: canSave,

@@ -68,6 +68,16 @@ class PkGroupRepairCard extends StatelessWidget {
     final resetLabel = isConnected
         ? l10n.pluralkitRepairResetAndReimport
         : l10n.pluralkitRepairResetOnly;
+    final enablementColor = _enablementColor(theme);
+    final enablementIcon = _enablementIcon();
+    final referenceRecommendation = _referenceRecommendation(l10n);
+    final referenceError = report?.referenceError;
+    final referenceErrorText = referenceError == null
+        ? null
+        : l10n.pluralkitRepairReferenceError(_compactError(referenceError));
+    final repairErrorText = state.error == null
+        ? null
+        : l10n.pluralkitRepairError(_compactError(state.error!));
 
     return PrismSectionCard(
       padding: const EdgeInsets.all(16),
@@ -75,353 +85,95 @@ class PkGroupRepairCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(statusTone.icon, color: statusTone.color, size: 22),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l10n.pluralkitRepairCardTitle,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _headline(l10n, report),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          _RepairCardHeader(
+            statusTone: statusTone,
+            title: l10n.pluralkitRepairCardTitle,
+            headline: _headline(l10n, report),
           ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              PrismChip(
-                label: _statusChipLabel(l10n),
-                selected: true,
-                tintColor: statusTone.color,
-                onTap: null,
-              ),
-              PrismChip(
-                label: _tokenChipLabel(l10n),
-                selected: hasStoredToken == true,
-                tintColor: hasStoredToken == true
-                    ? theme.colorScheme.primary
-                    : theme.colorScheme.secondary,
-                onTap: null,
-              ),
-              if (report != null)
-                PrismChip(
-                  label: _lastRunModeLabel(l10n, report.referenceMode),
-                  selected: true,
-                  tintColor: theme.colorScheme.tertiary,
-                  onTap: null,
-                ),
-              PrismChip(
-                label: _enablementChipLabel(l10n),
-                selected: pkGroupSyncV2Enabled == true,
-                tintColor: _enablementColor(theme),
-                onTap: null,
-              ),
-            ],
+          _RepairStatusChips(
+            statusLabel: _statusChipLabel(l10n),
+            statusColor: statusTone.color,
+            tokenLabel: _tokenChipLabel(l10n),
+            tokenSelected: hasStoredToken == true,
+            tokenTintColor: hasStoredToken == true
+                ? theme.colorScheme.primary
+                : theme.colorScheme.secondary,
+            lastRunModeLabel: report == null
+                ? null
+                : _lastRunModeLabel(l10n, report.referenceMode),
+            lastRunModeColor: theme.colorScheme.tertiary,
+            enablementLabel: _enablementChipLabel(l10n),
+            enablementSelected: pkGroupSyncV2Enabled == true,
+            enablementColor: enablementColor,
           ),
-          const SizedBox(height: 12),
-          PrismListRow(
-            dense: true,
-            padding: EdgeInsets.zero,
-            leading: Icon(statusTone.icon, size: 18, color: statusTone.color),
-            title: Text(l10n.pluralkitRepairCurrentStatus),
-            subtitle: Text(_currentStatusText(l10n, report)),
+          _RepairStatusRows(
+            statusTone: statusTone,
+            currentStatusLabel: l10n.pluralkitRepairCurrentStatus,
+            currentStatusText: _currentStatusText(l10n, report),
+            pendingReviewCount: state.pendingReviewCount,
+            pendingReviewLabel: l10n.pluralkitRepairPendingReview,
+            pendingReviewText: _pendingReviewText(l10n),
           ),
-          const SizedBox(height: 10),
-          PrismListRow(
-            dense: true,
-            padding: EdgeInsets.zero,
-            leading: Icon(
-              AppIcons.warningAmberRounded,
-              size: 18,
-              color: state.pendingReviewCount > 0
-                  ? theme.colorScheme.secondary
-                  : theme.colorScheme.onSurfaceVariant,
+          if (state.pendingReviewItems.isNotEmpty)
+            _PendingReviewItemsSection(
+              items: state.pendingReviewItems,
+              isRunning: state.isRunning,
+              onMergeReviewItemIntoCanonical: onMergeReviewItemIntoCanonical,
+              onKeepReviewItemLocalOnly: onKeepReviewItemLocalOnly,
+              onDismissReviewItem: onDismissReviewItem,
             ),
-            title: Text(l10n.pluralkitRepairPendingReview),
-            subtitle: Text(_pendingReviewText(l10n)),
-          ),
-          if (state.pendingReviewItems.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            for (final item in state.pendingReviewItems) ...[
-              _ReviewItemCard(
-                item: item,
-                isRunning: state.isRunning,
-                onMergeReviewItemIntoCanonical: onMergeReviewItemIntoCanonical,
-                onKeepReviewItemLocalOnly: onKeepReviewItemLocalOnly,
-                onDismissReviewItem: onDismissReviewItem,
-              ),
-              const SizedBox(height: 8),
-            ],
-          ],
-          if (report != null) ...[
-            const SizedBox(height: 10),
-            PrismListRow(
-              dense: true,
-              padding: EdgeInsets.zero,
-              leading: Icon(
-                AppIcons.schedule,
-                size: 18,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-              title: Text(l10n.pluralkitRepairLastRun),
-              subtitle: Text(_lastRunSummary(l10n, report)),
+          if (report != null)
+            _RepairLastRunSection(
+              title: l10n.pluralkitRepairLastRun,
+              summary: _lastRunSummary(l10n, report),
+              detailTitle: l10n.pluralkitRepairWhatChanged,
+              detailLines: repairDetailLines,
             ),
-            if (repairDetailLines.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              PrismSurface(
-                tone: PrismSurfaceTone.accent,
-                accentColor: theme.colorScheme.primary,
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l10n.pluralkitRepairWhatChanged,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    for (
-                      var index = 0;
-                      index < repairDetailLines.length;
-                      index++
-                    ) ...[
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '- ',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                          Expanded(
-                            child: Text(
-                              repairDetailLines[index],
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      if (index != repairDetailLines.length - 1)
-                        const SizedBox(height: 6),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ],
-          if (_referenceRecommendation(l10n) case final recommendation?) ...[
-            const SizedBox(height: 14),
-            PrismSurface(
-              tone: PrismSurfaceTone.accent,
-              accentColor: theme.colorScheme.secondary,
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(
-                    AppIcons.link,
-                    color: theme.colorScheme.secondary,
-                    size: 18,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      recommendation,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+          if (referenceRecommendation != null)
+            _ReferenceRecommendationSurface(
+              recommendation: referenceRecommendation,
             ),
-          ],
-          if (report?.referenceError case final referenceError?) ...[
-            const SizedBox(height: 12),
-            PrismSurface(
+          if (referenceErrorText != null)
+            _RepairMessageSurface(
+              message: referenceErrorText,
+              icon: AppIcons.warningAmberRounded,
               fillColor: theme.colorScheme.secondaryContainer,
               borderColor: theme.colorScheme.secondary.withValues(alpha: 0.28),
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(
-                    AppIcons.warningAmberRounded,
-                    color: theme.colorScheme.onSecondaryContainer,
-                    size: 18,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      l10n.pluralkitRepairReferenceError(
-                        _compactError(referenceError),
-                      ),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSecondaryContainer,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+              contentColor: theme.colorScheme.onSecondaryContainer,
             ),
-          ],
-          if (state.error case final error?) ...[
-            const SizedBox(height: 12),
-            PrismSurface(
+          if (repairErrorText != null)
+            _RepairMessageSurface(
+              message: repairErrorText,
+              icon: AppIcons.errorOutline,
               fillColor: theme.colorScheme.errorContainer,
               borderColor: theme.colorScheme.error.withValues(alpha: 0.28),
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(
-                    AppIcons.errorOutline,
-                    color: theme.colorScheme.onErrorContainer,
-                    size: 18,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      l10n.pluralkitRepairError(_compactError(error)),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onErrorContainer,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+              contentColor: theme.colorScheme.onErrorContainer,
             ),
-          ],
-          const SizedBox(height: 12),
-          PrismSurface(
-            tone: PrismSurfaceTone.accent,
-            accentColor: _enablementColor(theme),
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      _enablementIcon(),
-                      color: _enablementColor(theme),
-                      size: 18,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            l10n.pluralkitRepairCutoverTitle,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _enablementHeadline(l10n),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                PrismListRow(
-                  dense: true,
-                  padding: EdgeInsets.zero,
-                  leading: Icon(
-                    _enablementIcon(),
-                    color: _enablementColor(theme),
-                    size: 18,
-                  ),
-                  title: Text(l10n.pluralkitRepairSharedEnablement),
-                  subtitle: Text(_enablementStatusText(l10n)),
-                ),
-                if (_enablementRecommendation(l10n)
-                    case final recommendation?) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    recommendation,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-                if (_canEnablePkGroupSyncV2) ...[
-                  const SizedBox(height: 12),
-                  PrismButton(
-                    label: l10n.pluralkitRepairEnablePkGroupSync,
-                    icon: AppIcons.checkCircle,
-                    onPressed: () =>
-                        unawaited(_confirmEnablePkGroupSyncV2(context)),
-                    tone: PrismButtonTone.filled,
-                    expanded: true,
-                  ),
-                ],
-              ],
-            ),
+          _RepairCutoverSection(
+            accentColor: enablementColor,
+            icon: enablementIcon,
+            title: l10n.pluralkitRepairCutoverTitle,
+            headline: _enablementHeadline(l10n),
+            statusTitle: l10n.pluralkitRepairSharedEnablement,
+            statusText: _enablementStatusText(l10n),
+            recommendation: _enablementRecommendation(l10n),
+            canEnable: _canEnablePkGroupSyncV2,
+            enableLabel: l10n.pluralkitRepairEnablePkGroupSync,
+            onEnablePressed: () =>
+                unawaited(_confirmEnablePkGroupSyncV2(context)),
           ),
-          const SizedBox(height: 16),
-          PrismButton(
-            label: primaryLabel,
-            icon: AppIcons.autoFixHigh,
-            onPressed: onRunRepair,
-            isLoading: state.isRunning,
-            enabled: !state.isRunning,
-            tone: PrismButtonTone.filled,
-            expanded: true,
+          _RepairActionButtons(
+            primaryLabel: primaryLabel,
+            isRunning: state.isRunning,
+            onRunRepair: onRunRepair,
+            showTemporaryTokenAction: showTemporaryTokenAction,
+            temporaryTokenLabel: l10n.pluralkitRepairUseTemporaryToken,
+            onUseTemporaryToken: onUseTemporaryToken,
+            showResetPkGroupsOnlyAction: showResetPkGroupsOnlyAction,
+            resetLabel: resetLabel,
+            onResetPkGroupsOnly: () =>
+                unawaited(_confirmResetPkGroupsOnly(context)),
           ),
-          if (showTemporaryTokenAction) ...[
-            const SizedBox(height: 8),
-            PrismButton(
-              label: l10n.pluralkitRepairUseTemporaryToken,
-              icon: AppIcons.link,
-              onPressed: onUseTemporaryToken!,
-              enabled: !state.isRunning,
-              tone: PrismButtonTone.outlined,
-              expanded: true,
-            ),
-          ],
-          if (showResetPkGroupsOnlyAction) ...[
-            const SizedBox(height: 8),
-            PrismButton(
-              label: resetLabel,
-              icon: AppIcons.restartAlt,
-              onPressed: () => unawaited(_confirmResetPkGroupsOnly(context)),
-              enabled: !state.isRunning,
-              tone: PrismButtonTone.destructive,
-              expanded: true,
-            ),
-          ],
         ],
       ),
     );
@@ -887,6 +639,543 @@ class PkGroupRepairCard extends StatelessWidget {
         .replaceFirst('Exception: ', '')
         .replaceFirst('StateError: ', '')
         .trim();
+  }
+}
+
+class _RepairCardHeader extends StatelessWidget {
+  const _RepairCardHeader({
+    required this.statusTone,
+    required this.title,
+    required this.headline,
+  });
+
+  final _RepairStatusTone statusTone;
+  final String title;
+  final String headline;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(statusTone.icon, color: statusTone.color, size: 22),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                headline,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RepairStatusChips extends StatelessWidget {
+  const _RepairStatusChips({
+    required this.statusLabel,
+    required this.statusColor,
+    required this.tokenLabel,
+    required this.tokenSelected,
+    required this.tokenTintColor,
+    required this.lastRunModeLabel,
+    required this.lastRunModeColor,
+    required this.enablementLabel,
+    required this.enablementSelected,
+    required this.enablementColor,
+  });
+
+  final String statusLabel;
+  final Color statusColor;
+  final String tokenLabel;
+  final bool tokenSelected;
+  final Color tokenTintColor;
+  final String? lastRunModeLabel;
+  final Color lastRunModeColor;
+  final String enablementLabel;
+  final bool enablementSelected;
+  final Color enablementColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          PrismChip(
+            label: statusLabel,
+            selected: true,
+            tintColor: statusColor,
+            onTap: null,
+          ),
+          PrismChip(
+            label: tokenLabel,
+            selected: tokenSelected,
+            tintColor: tokenTintColor,
+            onTap: null,
+          ),
+          if (lastRunModeLabel != null)
+            PrismChip(
+              label: lastRunModeLabel!,
+              selected: true,
+              tintColor: lastRunModeColor,
+              onTap: null,
+            ),
+          PrismChip(
+            label: enablementLabel,
+            selected: enablementSelected,
+            tintColor: enablementColor,
+            onTap: null,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RepairStatusRows extends StatelessWidget {
+  const _RepairStatusRows({
+    required this.statusTone,
+    required this.currentStatusLabel,
+    required this.currentStatusText,
+    required this.pendingReviewCount,
+    required this.pendingReviewLabel,
+    required this.pendingReviewText,
+  });
+
+  final _RepairStatusTone statusTone;
+  final String currentStatusLabel;
+  final String currentStatusText;
+  final int pendingReviewCount;
+  final String pendingReviewLabel;
+  final String pendingReviewText;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          PrismListRow(
+            dense: true,
+            padding: EdgeInsets.zero,
+            leading: Icon(statusTone.icon, size: 18, color: statusTone.color),
+            title: Text(currentStatusLabel),
+            subtitle: Text(currentStatusText),
+          ),
+          const SizedBox(height: 10),
+          PrismListRow(
+            dense: true,
+            padding: EdgeInsets.zero,
+            leading: Icon(
+              AppIcons.warningAmberRounded,
+              size: 18,
+              color: pendingReviewCount > 0
+                  ? theme.colorScheme.secondary
+                  : theme.colorScheme.onSurfaceVariant,
+            ),
+            title: Text(pendingReviewLabel),
+            subtitle: Text(pendingReviewText),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PendingReviewItemsSection extends StatelessWidget {
+  const _PendingReviewItemsSection({
+    required this.items,
+    required this.isRunning,
+    required this.onMergeReviewItemIntoCanonical,
+    required this.onKeepReviewItemLocalOnly,
+    required this.onDismissReviewItem,
+  });
+
+  final List<PkGroupReviewItem> items;
+  final bool isRunning;
+  final Future<void> Function(String groupId) onMergeReviewItemIntoCanonical;
+  final Future<void> Function(String groupId) onKeepReviewItemLocalOnly;
+  final Future<void> Function(String groupId) onDismissReviewItem;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 12),
+        for (final item in items) ...[
+          _ReviewItemCard(
+            item: item,
+            isRunning: isRunning,
+            onMergeReviewItemIntoCanonical: onMergeReviewItemIntoCanonical,
+            onKeepReviewItemLocalOnly: onKeepReviewItemLocalOnly,
+            onDismissReviewItem: onDismissReviewItem,
+          ),
+          const SizedBox(height: 8),
+        ],
+      ],
+    );
+  }
+}
+
+class _RepairLastRunSection extends StatelessWidget {
+  const _RepairLastRunSection({
+    required this.title,
+    required this.summary,
+    required this.detailTitle,
+    required this.detailLines,
+  });
+
+  final String title;
+  final String summary;
+  final String detailTitle;
+  final List<String> detailLines;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          PrismListRow(
+            dense: true,
+            padding: EdgeInsets.zero,
+            leading: Icon(
+              AppIcons.schedule,
+              size: 18,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+            title: Text(title),
+            subtitle: Text(summary),
+          ),
+          if (detailLines.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            _RepairDetailLinesSurface(title: detailTitle, lines: detailLines),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _RepairDetailLinesSurface extends StatelessWidget {
+  const _RepairDetailLinesSurface({required this.title, required this.lines});
+
+  final String title;
+  final List<String> lines;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return PrismSurface(
+      tone: PrismSurfaceTone.accent,
+      accentColor: theme.colorScheme.primary,
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          for (var index = 0; index < lines.length; index++) ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '- ',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    lines[index],
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (index != lines.length - 1) const SizedBox(height: 6),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ReferenceRecommendationSurface extends StatelessWidget {
+  const _ReferenceRecommendationSurface({required this.recommendation});
+
+  final String recommendation;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 14),
+      child: PrismSurface(
+        tone: PrismSurfaceTone.accent,
+        accentColor: theme.colorScheme.secondary,
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(AppIcons.link, color: theme.colorScheme.secondary, size: 18),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                recommendation,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RepairMessageSurface extends StatelessWidget {
+  const _RepairMessageSurface({
+    required this.message,
+    required this.icon,
+    required this.fillColor,
+    required this.borderColor,
+    required this.contentColor,
+  });
+
+  final String message;
+  final IconData icon;
+  final Color fillColor;
+  final Color borderColor;
+  final Color contentColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: PrismSurface(
+        fillColor: fillColor,
+        borderColor: borderColor,
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: contentColor, size: 18),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                message,
+                style: theme.textTheme.bodySmall?.copyWith(color: contentColor),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RepairCutoverSection extends StatelessWidget {
+  const _RepairCutoverSection({
+    required this.accentColor,
+    required this.icon,
+    required this.title,
+    required this.headline,
+    required this.statusTitle,
+    required this.statusText,
+    required this.recommendation,
+    required this.canEnable,
+    required this.enableLabel,
+    required this.onEnablePressed,
+  });
+
+  final Color accentColor;
+  final IconData icon;
+  final String title;
+  final String headline;
+  final String statusTitle;
+  final String statusText;
+  final String? recommendation;
+  final bool canEnable;
+  final String enableLabel;
+  final VoidCallback onEnablePressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: PrismSurface(
+        tone: PrismSurfaceTone.accent,
+        accentColor: accentColor,
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(icon, color: accentColor, size: 18),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        headline,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            PrismListRow(
+              dense: true,
+              padding: EdgeInsets.zero,
+              leading: Icon(icon, color: accentColor, size: 18),
+              title: Text(statusTitle),
+              subtitle: Text(statusText),
+            ),
+            if (recommendation != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                recommendation!,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+            if (canEnable) ...[
+              const SizedBox(height: 12),
+              PrismButton(
+                label: enableLabel,
+                icon: AppIcons.checkCircle,
+                onPressed: onEnablePressed,
+                tone: PrismButtonTone.filled,
+                expanded: true,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RepairActionButtons extends StatelessWidget {
+  const _RepairActionButtons({
+    required this.primaryLabel,
+    required this.isRunning,
+    required this.onRunRepair,
+    required this.showTemporaryTokenAction,
+    required this.temporaryTokenLabel,
+    required this.onUseTemporaryToken,
+    required this.showResetPkGroupsOnlyAction,
+    required this.resetLabel,
+    required this.onResetPkGroupsOnly,
+  });
+
+  final String primaryLabel;
+  final bool isRunning;
+  final VoidCallback onRunRepair;
+  final bool showTemporaryTokenAction;
+  final String temporaryTokenLabel;
+  final VoidCallback? onUseTemporaryToken;
+  final bool showResetPkGroupsOnlyAction;
+  final String resetLabel;
+  final VoidCallback onResetPkGroupsOnly;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          PrismButton(
+            label: primaryLabel,
+            icon: AppIcons.autoFixHigh,
+            onPressed: onRunRepair,
+            isLoading: isRunning,
+            enabled: !isRunning,
+            tone: PrismButtonTone.filled,
+            expanded: true,
+          ),
+          if (showTemporaryTokenAction) ...[
+            const SizedBox(height: 8),
+            PrismButton(
+              label: temporaryTokenLabel,
+              icon: AppIcons.link,
+              onPressed: onUseTemporaryToken!,
+              enabled: !isRunning,
+              tone: PrismButtonTone.outlined,
+              expanded: true,
+            ),
+          ],
+          if (showResetPkGroupsOnlyAction) ...[
+            const SizedBox(height: 8),
+            PrismButton(
+              label: resetLabel,
+              icon: AppIcons.restartAlt,
+              onPressed: onResetPkGroupsOnly,
+              enabled: !isRunning,
+              tone: PrismButtonTone.destructive,
+              expanded: true,
+            ),
+          ],
+        ],
+      ),
+    );
   }
 }
 

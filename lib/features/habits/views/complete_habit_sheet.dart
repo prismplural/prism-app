@@ -16,13 +16,16 @@ import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 class CompleteHabitSheet extends ConsumerStatefulWidget {
-  const CompleteHabitSheet({super.key, required this.habit, this.scrollController});
+  const CompleteHabitSheet({
+    super.key,
+    required this.habit,
+    this.scrollController,
+  });
   final Habit habit;
   final ScrollController? scrollController;
 
   @override
-  ConsumerState<CompleteHabitSheet> createState() =>
-      _CompleteHabitSheetState();
+  ConsumerState<CompleteHabitSheet> createState() => _CompleteHabitSheetState();
 }
 
 class _CompleteHabitSheetState extends ConsumerState<CompleteHabitSheet> {
@@ -58,6 +61,7 @@ class _CompleteHabitSheetState extends ConsumerState<CompleteHabitSheet> {
           title: context.l10n.habitsCompleteHabit,
           trailing: PrismGlassIconButton(
             icon: AppIcons.check,
+            tooltip: context.l10n.save,
             size: PrismTokens.topBarActionSize,
             tint: theme.colorScheme.primary,
             accentIcon: true,
@@ -107,8 +111,7 @@ class _CompleteHabitSheetState extends ConsumerState<CompleteHabitSheet> {
                       tooltip: context.l10n.habitsRateNStarsTooltip(i + 1),
                       onPressed: () {
                         setState(() {
-                          _rating =
-                              _rating == starValue ? null : starValue;
+                          _rating = _rating == starValue ? null : starValue;
                         });
                       },
                     ),
@@ -139,7 +142,9 @@ class _CompleteHabitSheetState extends ConsumerState<CompleteHabitSheet> {
         currentFronter != null &&
         _completedByMemberId == currentFronter.id;
 
-    await ref.read(habitNotifierProvider.notifier).completeHabit(
+    await ref
+        .read(habitNotifierProvider.notifier)
+        .completeHabit(
           habitId: widget.habit.id,
           completedByMemberId: _completedByMemberId,
           notes: _notesController.text.trim().isEmpty

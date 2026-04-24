@@ -167,13 +167,14 @@ class _CreatePollSheetState extends ConsumerState<CreatePollSheet> {
           PrismSheetTopBar(
             title: context.l10n.pollsNewPoll,
             trailing: PrismGlassIconButton(
-                    icon: AppIcons.check,
-                    size: PrismTokens.topBarActionSize,
-                    isLoading: _isCreating,
-                    tint: _canCreate ? theme.colorScheme.primary : null,
-                    accentIcon: _canCreate,
-                    onPressed: _canCreate ? _createPoll : null,
-                  ),
+              icon: AppIcons.check,
+              tooltip: context.l10n.pollsCreateTooltip,
+              size: PrismTokens.topBarActionSize,
+              isLoading: _isCreating,
+              tint: _canCreate ? theme.colorScheme.primary : null,
+              accentIcon: _canCreate,
+              onPressed: _canCreate ? _createPoll : null,
+            ),
           ),
           const SizedBox(height: 8),
           Expanded(
@@ -208,7 +209,10 @@ class _CreatePollSheetState extends ConsumerState<CreatePollSheet> {
                 const SizedBox(height: 16),
 
                 // Options header
-                Text(context.l10n.pollsOptionsHeader, style: theme.textTheme.titleSmall),
+                Text(
+                  context.l10n.pollsOptionsHeader,
+                  style: theme.textTheme.titleSmall,
+                ),
                 const SizedBox(height: 8),
 
                 // Option fields
@@ -277,7 +281,9 @@ class _CreatePollSheetState extends ConsumerState<CreatePollSheet> {
                 ),
                 PrismSwitchRow(
                   title: context.l10n.pollsAllowMultipleVotes,
-                  subtitle: context.l10n.pollsAllowMultipleVotesSubtitle(watchTerminology(context, ref).plural),
+                  subtitle: context.l10n.pollsAllowMultipleVotesSubtitle(
+                    watchTerminology(context, ref).plural,
+                  ),
                   value: _allowsMultipleVotes,
                   onChanged: (v) => setState(() => _allowsMultipleVotes = v),
                 ),
@@ -302,8 +308,9 @@ class _CreatePollSheetState extends ConsumerState<CreatePollSheet> {
                     child: Builder(
                       builder: (anchorContext) => PrismButton(
                         label: _expiresAt != null
-                            ? context.l10n
-                                .pollsChangeDateTime(_formatDateTime(_expiresAt!))
+                            ? context.l10n.pollsChangeDateTime(
+                                _formatDateTime(_expiresAt!),
+                              )
                             : context.l10n.pollsPickDateTime,
                         onPressed: () => _pickExpiration(anchorContext),
                         icon: AppIcons.schedule,

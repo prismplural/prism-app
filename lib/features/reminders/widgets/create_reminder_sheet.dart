@@ -139,6 +139,7 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
                 : context.l10n.remindersNewTitle,
             trailing: PrismGlassIconButton(
               icon: AppIcons.check,
+              tooltip: context.l10n.save,
               size: PrismTokens.topBarActionSize,
               tint: canSave ? theme.colorScheme.primary : null,
               accentIcon: canSave,
