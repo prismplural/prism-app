@@ -11,6 +11,27 @@ import 'package:prism_plurality/domain/models/member.dart';
 /// from this function.
 String _normalizeForSearch(String text) => unorm.nfkc(text).toLowerCase();
 
+class MemberSearchIndex {
+  MemberSearchIndex(List<Member> members)
+    : _members = members,
+      _entries = [
+        for (final member in members)
+          (member: member, searchKey: _searchKey(member)),
+      ];
+
+  final List<Member> _members;
+  final List<({Member member, String searchKey})> _entries;
+
+  List<Member> filter(String query) {
+    if (query.isEmpty) return _members;
+    final normalizedQuery = _normalizeForSearch(query);
+    return [
+      for (final entry in _entries)
+        if (entry.searchKey.contains(normalizedQuery)) entry.member,
+    ];
+  }
+}
+
 /// Returns the subset of [members] whose name or pronouns match [query].
 ///
 /// Matching is performed against NFKC-normalised, lowercased search keys so
@@ -21,9 +42,7 @@ String _normalizeForSearch(String text) => unorm.nfkc(text).toLowerCase();
 ///
 /// An empty [query] returns [members] unchanged (no allocation).
 List<Member> filterMembers(List<Member> members, String query) {
-  if (query.isEmpty) return members;
-  final normalizedQuery = _normalizeForSearch(query);
-  return members.where((m) => _searchKey(m).contains(normalizedQuery)).toList();
+  return MemberSearchIndex(members).filter(query);
 }
 
 String _searchKey(Member member) {

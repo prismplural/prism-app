@@ -425,6 +425,10 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
       }
 
       final byId = <String, MemberGroupEntryRow>{};
+      final legacySoftDeleteIds = <String>[];
+      final canonicalRevivals =
+          <({String id, MemberGroupEntriesCompanion companion})>[];
+      final idRewrites = <({String from, String to})>[];
       final idsList = idsToLoad.toList(growable: false);
       for (var start = 0; start < idsList.length; start += _lookupBatchSize) {
         final end = start + _lookupBatchSize > idsList.length
@@ -459,20 +463,17 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
           // Soft-delete the legacy active row first so the partial unique
           // index on (group_id, member_id) WHERE is_deleted = 0 is clear,
           // then revive the tombstoned canonical row onto the logical edge.
-          await (update(memberGroupEntries)
-                ..where((e) => e.id.equals(entry.id)))
-              .write(const MemberGroupEntriesCompanion(isDeleted: Value(true)));
-          await (update(
-            memberGroupEntries,
-          )..where((e) => e.id.equals(canonical))).write(
-            MemberGroupEntriesCompanion(
+          legacySoftDeleteIds.add(entry.id);
+          canonicalRevivals.add((
+            id: canonical,
+            companion: MemberGroupEntriesCompanion(
               groupId: Value(entry.groupId),
               memberId: Value(entry.memberId),
               pkGroupUuid: Value(pkGroupUuid),
               pkMemberUuid: Value(pkMemberUuid),
               isDeleted: const Value(false),
             ),
-          );
+          ));
           revivedTombstones++;
           softDeletedLegacyConflicts++;
           byId[entry.id] = entry.copyWith(isDeleted: true);
@@ -492,11 +493,7 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
             // The logical edge already has an active canonical row. Keep the
             // canonical row and soft-delete this legacy duplicate so future
             // canonical updates/deletes target the surviving row.
-            await (update(
-              memberGroupEntries,
-            )..where((e) => e.id.equals(entry.id))).write(
-              const MemberGroupEntriesCompanion(isDeleted: Value(true)),
-            );
+            legacySoftDeleteIds.add(entry.id);
             softDeletedLegacyConflicts++;
             byId[entry.id] = entry.copyWith(isDeleted: true);
           }
@@ -506,19 +503,18 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
         // Primary-key rewrite. SQLite permits `UPDATE ... SET id = ?`; the
         // member_group_entries table declares no foreign keys, so this is
         // safe. `member_groups` tables never join on entry ids either.
-        await customUpdate(
-          'UPDATE member_group_entries SET id = ? WHERE id = ?',
-          variables: [
-            Variable.withString(canonical),
-            Variable.withString(entry.id),
-          ],
-          updates: {memberGroupEntries},
-        );
+        idRewrites.add((from: entry.id, to: canonical));
         rewritten++;
         byId
           ..remove(entry.id)
           ..[canonical] = entry.copyWith(id: canonical);
       }
+
+      await _applyCanonicalEntryMutations(
+        legacySoftDeleteIds: legacySoftDeleteIds,
+        canonicalRevivals: canonicalRevivals,
+        idRewrites: idRewrites,
+      );
 
       return (
         rewritten: rewritten,
@@ -526,6 +522,48 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
         softDeletedLegacyConflicts: softDeletedLegacyConflicts,
       );
     });
+  }
+
+  Future<void> _applyCanonicalEntryMutations({
+    required List<String> legacySoftDeleteIds,
+    required List<({String id, MemberGroupEntriesCompanion companion})>
+    canonicalRevivals,
+    required List<({String from, String to})> idRewrites,
+  }) async {
+    if (legacySoftDeleteIds.isNotEmpty) {
+      await batch((batch) {
+        for (final id in legacySoftDeleteIds) {
+          batch.update(
+            memberGroupEntries,
+            const MemberGroupEntriesCompanion(isDeleted: Value(true)),
+            where: (entry) => entry.id.equals(id),
+          );
+        }
+      });
+    }
+
+    if (canonicalRevivals.isNotEmpty) {
+      await batch((batch) {
+        for (final revival in canonicalRevivals) {
+          batch.update(
+            memberGroupEntries,
+            revival.companion,
+            where: (entry) => entry.id.equals(revival.id),
+          );
+        }
+      });
+    }
+
+    for (final rewrite in idRewrites) {
+      await customUpdate(
+        'UPDATE member_group_entries SET id = ? WHERE id = ?',
+        variables: [
+          Variable.withString(rewrite.to),
+          Variable.withString(rewrite.from),
+        ],
+        updates: {memberGroupEntries},
+      );
+    }
   }
 
   static String _canonicalPkEntryId(String pkGroupUuid, String pkMemberUuid) {

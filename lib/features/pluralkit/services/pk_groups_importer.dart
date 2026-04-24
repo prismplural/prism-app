@@ -11,6 +11,7 @@ import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_group_repair_run_gate.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 
 typedef PkGroupSyncCreateOverride =
@@ -70,6 +71,12 @@ class PkGroupsImportResult {
     groupsWithUnknownMembership:
         groupsWithUnknownMembership ?? this.groupsWithUnknownMembership,
   );
+
+  bool get changedRepairInputs =>
+      groupsInserted > 0 ||
+      groupsUpdated > 0 ||
+      entriesInserted > 0 ||
+      entriesRemoved > 0;
 }
 
 /// Imports PluralKit groups and memberships into Prism.
@@ -308,6 +315,7 @@ class PkGroupsImporter with SyncRecordMixin {
       );
     }
 
+    await _markRepairDirtyIfNeeded(result);
     return result;
   }
 
@@ -348,7 +356,17 @@ class PkGroupsImporter with SyncRecordMixin {
         entriesInserted: result.entriesInserted + delta.entriesInserted,
       );
     }
+    await _markRepairDirtyIfNeeded(result);
     return result;
+  }
+
+  Future<void> _markRepairDirtyIfNeeded(PkGroupsImportResult result) async {
+    if (!result.changedRepairInputs) return;
+    try {
+      await PkGroupRepairRunGate.markDirtyInDefaultStore();
+    } catch (error) {
+      debugPrint('[PK groups] failed to mark repair dirty: $error');
+    }
   }
 
   Future<_ReconcileDelta> _reconcileMembership({
