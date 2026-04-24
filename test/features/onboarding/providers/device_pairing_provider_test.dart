@@ -368,8 +368,44 @@ void main() {
           PairingStep.connecting,
           PairingStep.success,
           PairingStep.error,
+          PairingStep.snapshotFailure,
         ]),
       );
+    });
+  });
+
+  group('snapshotFailure step — UI gating', () {
+    test('retrySnapshotBootstrap is a no-op outside snapshotFailure', () async {
+      final container = ProviderContainer(
+        overrides: [
+          pairingCeremonyApiProvider.overrideWith(
+            (ref) => _FakePairingCeremonyApi(),
+          ),
+          relayUrlProvider.overrideWith(
+            (ref) async => 'https://relay.example.com',
+          ),
+          prismSyncHandleProvider.overrideWith(
+            () => _FakePrismSyncHandleNotifier(const _FakePrismSyncHandle()),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final notifier = container.read(devicePairingProvider.notifier);
+      // Default step is enterUrl — retry should be a silent no-op.
+      await notifier.retrySnapshotBootstrap();
+      expect(container.read(devicePairingProvider).step, PairingStep.enterUrl);
+    });
+
+    test('PairingState can transition into snapshotFailure', () {
+      final state = const PairingState().copyWith(
+        step: PairingStep.snapshotFailure,
+        errorMessage: "Couldn't load your system from the pairing device.",
+        syncIncomplete: true,
+      );
+      expect(state.step, PairingStep.snapshotFailure);
+      expect(state.syncIncomplete, isTrue);
+      expect(state.errorMessage, contains("Couldn't load"));
     });
   });
 

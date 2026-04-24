@@ -924,6 +924,7 @@ final syncEventStreamProvider = StreamProvider<SyncEvent>((ref) {
 
   final syncAdapter = ref.watch(driftSyncAdapterProvider);
   final db = ref.watch(databaseProvider);
+  final strictCoordinator = ref.watch(strictApplyCoordinatorProvider);
 
   return createSyncEventStream(handle).asyncMap((event) async {
     if (kDebugMode) {
@@ -932,7 +933,38 @@ final syncEventStreamProvider = StreamProvider<SyncEvent>((ref) {
       );
     }
     if (event.isRemoteChanges) {
-      await _applyRemoteChanges(db, syncAdapter.adapter, event);
+      final strict = strictCoordinator.isStrict;
+      try {
+        final result = await applyRemoteChanges(
+          db,
+          syncAdapter.adapter,
+          event,
+          strict: strict,
+        );
+        if (strict && result.failedTables.isNotEmpty) {
+          // Defensive — strict mode should rethrow on first failure.
+          strictCoordinator.signalFailure(
+            StrictApplyFailure(
+              message: 'Strict apply reported failures without throwing',
+              failedTables: result.failedTables,
+            ),
+          );
+        }
+      } catch (e, st) {
+        if (strict) {
+          strictCoordinator.signalFailure(
+            e is StrictApplyFailure
+                ? e
+                : StrictApplyFailure(
+                    message: e.toString(),
+                    failedTables: const [],
+                  ),
+            st,
+          );
+        } else {
+          rethrow;
+        }
+      }
       await syncAdapter.completeSyncBatch();
       await catchUpPkBackedSyncOnceAfterCutover(handle, db);
       if (kDebugMode) {
@@ -1032,17 +1064,122 @@ class SyncEventLogNotifier extends Notifier<List<SyncEventLogEntry>> {
   }
 }
 
-Future<void> _applyRemoteChanges(
+/// Result of applying a batch of remote changes.
+///
+/// [rowsApplied] counts rows that were successfully written to Drift.
+/// [failedTables] is always empty in non-strict mode (failures are logged and
+/// skipped). In strict mode, when the first per-row failure occurs the function
+/// rethrows a [StrictApplyFailure]; callers observe the failure via the
+/// thrown exception, not this field.
+class ApplyResult {
+  const ApplyResult({required this.rowsApplied, this.failedTables = const []});
+
+  final int rowsApplied;
+  final List<String> failedTables;
+}
+
+/// Thrown by [applyRemoteChanges] when `strict: true` and a per-row apply
+/// fails. Surfaces the row context plus the list of tables that were
+/// hit (typically one, since strict rethrows on the first failure).
+class StrictApplyFailure implements Exception {
+  const StrictApplyFailure({
+    required this.message,
+    this.failedTables = const [],
+    this.table,
+    this.entityId,
+    this.cause,
+  });
+
+  final String message;
+  final List<String> failedTables;
+  final String? table;
+  final String? entityId;
+  final Object? cause;
+
+  @override
+  String toString() {
+    final ctx = table != null ? ' ($table/$entityId)' : '';
+    return 'StrictApplyFailure$ctx: $message';
+  }
+}
+
+/// Coordinator for "strict apply" mode during snapshot bootstrap.
+///
+/// The joiner flow enables strict mode before `bootstrapFromSnapshot` so that
+/// any per-row Drift failure while ingesting the snapshot aborts pairing
+/// instead of silently skipping rows. The sync event stream observes
+/// [isStrict] when dispatching remote-changes events and, on failure, calls
+/// [signalFailure] so the joiner can surface a fatal-retry UI.
+class StrictApplyCoordinator {
+  bool _strict = false;
+  Completer<void>? _failure;
+
+  bool get isStrict => _strict;
+
+  /// Enter strict mode and return a future that completes with an error as
+  /// soon as a strict apply fails. Calling this replaces any in-flight
+  /// listener — only one snapshot bootstrap runs at a time.
+  Future<void> enterStrictMode() {
+    _strict = true;
+    final completer = Completer<void>();
+    _failure = completer;
+    return completer.future;
+  }
+
+  /// Exit strict mode. Any pending failure completer is completed with a
+  /// success so stale awaiters unblock.
+  void exitStrictMode() {
+    _strict = false;
+    final pending = _failure;
+    _failure = null;
+    if (pending != null && !pending.isCompleted) {
+      pending.complete();
+    }
+  }
+
+  /// Record a strict-mode failure. Idempotent — only the first failure wins.
+  void signalFailure(StrictApplyFailure failure, [StackTrace? stackTrace]) {
+    final pending = _failure;
+    if (pending != null && !pending.isCompleted) {
+      pending.completeError(failure, stackTrace ?? StackTrace.current);
+    }
+  }
+}
+
+final strictApplyCoordinatorProvider = Provider<StrictApplyCoordinator>((ref) {
+  return StrictApplyCoordinator();
+});
+
+/// Apply a batch of remote changes from a [SyncEvent] to the local Drift
+/// database.
+///
+/// Non-strict mode (default): per-row failures are caught, reported to the
+/// error-reporting service, and processing continues with the remaining
+/// rows. Returns an [ApplyResult] with `rowsApplied` equal to the number of
+/// rows that were written (NOT the number of input rows, since failures are
+/// skipped). `failedTables` is always empty.
+///
+/// Strict mode (`strict: true`): the first per-row failure rethrows a
+/// [StrictApplyFailure] describing the failing row. No further rows are
+/// applied. Used by the joiner during snapshot bootstrap so a corrupt
+/// snapshot aborts pairing rather than silently dropping rows.
+///
+/// Public (not `_`-prefixed) so the joiner/bootstrap test harness and the
+/// sync event stream can both drive it; the stream is still the only
+/// production caller.
+Future<ApplyResult> applyRemoteChanges(
   AppDatabase db,
   DriftSyncAdapter adapter,
-  SyncEvent event,
-) async {
+  SyncEvent event, {
+  bool strict = false,
+}) async {
   // Apply changes in chunked transactions — each chunk of 20 changes runs
   // inside a single Drift transaction for fewer WAL commits, while per-row
   // try/catch keeps error handling granular (caught exceptions do NOT trigger
   // Drift transaction rollback).
   const chunkSize = 20;
   final changes = event.changes;
+  var rowsApplied = 0;
 
   for (var offset = 0; offset < changes.length; offset += chunkSize) {
     final end = min(offset + chunkSize, changes.length);
@@ -1050,9 +1187,11 @@ Future<void> _applyRemoteChanges(
 
     await db.transaction(() async {
       for (final change in chunk) {
+        final tableRaw = change['table'];
+        final entityIdRaw = change['entity_id'];
         try {
-          final table = change['table'] as String;
-          final entityId = change['entity_id'] as String;
+          final table = tableRaw as String;
+          final entityId = entityIdRaw as String;
           final isDelete = change['is_delete'] as bool? ?? false;
           final fields = (change['fields'] as Map<String, dynamic>?) ?? {};
 
@@ -1067,12 +1206,24 @@ Future<void> _applyRemoteChanges(
           } else {
             await adapter.applyFields(table, entityId, fields);
           }
+          rowsApplied++;
         } catch (e, st) {
-          final table = change['table'];
-          final entityId = change['entity_id'];
           final fieldKeys = (change['fields'] as Map?)?.keys.toList() ?? [];
+          if (strict) {
+            // Abort the entire batch. Callers catch StrictApplyFailure to
+            // surface a retry UI without ACKing the snapshot.
+            throw StrictApplyFailure(
+              message:
+                  'Sync apply failed for $tableRaw/$entityIdRaw: $e '
+                  '(fields: $fieldKeys)',
+              failedTables: [if (tableRaw is String) tableRaw],
+              table: tableRaw is String ? tableRaw : null,
+              entityId: entityIdRaw is String ? entityIdRaw : null,
+              cause: e,
+            );
+          }
           ErrorReportingService.instance.report(
-            'Sync apply failed for $table/$entityId: $e '
+            'Sync apply failed for $tableRaw/$entityIdRaw: $e '
             '(fields: $fieldKeys)',
             severity: ErrorSeverity.warning,
             stackTrace: st,
@@ -1082,6 +1233,8 @@ Future<void> _applyRemoteChanges(
       }
     });
   }
+
+  return ApplyResult(rowsApplied: rowsApplied);
 }
 
 // ---------------------------------------------------------------------------

@@ -1016,17 +1016,17 @@ abstract class AppLocalizations {
   /// **'Securing keys...'**
   String get syncSetupProgressCachingKeys;
 
-  /// Sync setup progress: bootstrapping data
+  /// Sync setup progress: preparing local data for sync (offline)
   ///
   /// In en, this message translates to:
-  /// **'Uploading your data...'**
+  /// **'Preparing your data for sync'**
   String get syncSetupProgressBootstrapping;
 
-  /// Sync setup progress: syncing
+  /// Sync setup progress: measuring local snapshot size (offline)
   ///
   /// In en, this message translates to:
-  /// **'Syncing...'**
-  String get syncSetupProgressSyncing;
+  /// **'Checking data size'**
+  String get syncSetupProgressMeasuringSnapshot;
 
   /// Sheet title when secret key is revealed
   ///
@@ -6059,6 +6059,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Pairing Failed'**
   String get syncSetupPairingFailed;
+
+  /// Title of the progress card shown while the encrypted pairing snapshot is uploading to the relay
+  ///
+  /// In en, this message translates to:
+  /// **'Uploading your system to the new device'**
+  String get syncSetupSnapshotUploadingTitle;
+
+  /// Label under the snapshot upload progress bar, showing bytes uploaded out of total
+  ///
+  /// In en, this message translates to:
+  /// **'{sent} of {total}'**
+  String syncSetupSnapshotUploadProgress(String sent, String total);
+
+  /// Placeholder label shown before the first upload progress event arrives
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing upload...'**
+  String get syncSetupSnapshotUploadStarting;
+
+  /// Title shown when the pair-time snapshot upload fails; accompanied by a retry button
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t upload your system'**
+  String get syncSetupSnapshotUploadFailedTitle;
+
+  /// Retry button label on the snapshot upload failure view
+  ///
+  /// In en, this message translates to:
+  /// **'Retry upload'**
+  String get syncSetupSnapshotUploadRetry;
+
+  /// Title of the confirmation shown after a successful snapshot upload, before the sheet closes
+  ///
+  /// In en, this message translates to:
+  /// **'Pairing ready'**
+  String get syncSetupPairingReadyTitle;
+
+  /// Body of the pairing-ready confirmation shown briefly after a successful snapshot upload
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for the other device to finish setting up.'**
+  String get syncSetupPairingReadyWaiting;
 
   /// Semantics label for a member avatar image
   ///
