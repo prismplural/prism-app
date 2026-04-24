@@ -328,7 +328,7 @@ class _SessionTile extends ConsumerWidget {
             TextSpan(
               children: [
                 TextSpan(
-                  text: displaySession.displayDuration.toShortString(),
+                  text: displaySession.displayDuration.toRoundedString(),
                   style: TextStyle(
                     color: durationColor,
                     fontWeight: FontWeight.w600,
@@ -478,7 +478,7 @@ class _InlineSleepTile extends ConsumerWidget {
 
     return Semantics(
       label: context.l10n.frontingSleepSessionSemantics(
-            displaySession.displayDuration.toShortString(), timeRange),
+            displaySession.displayDuration.toRoundedString(), timeRange),
       child: Container(
         color: AppColors.sleep(theme.brightness).withValues(alpha: 0.12),
         child: Material(
@@ -522,7 +522,7 @@ class _InlineSleepTile extends ConsumerWidget {
                             children: [
                               TextSpan(
                                 text: displaySession.displayDuration
-                                    .toShortString(),
+                                    .toRoundedString(),
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w600,
                                 ),
