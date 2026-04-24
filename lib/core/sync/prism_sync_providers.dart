@@ -967,6 +967,11 @@ final syncEventStreamProvider = StreamProvider<SyncEvent>((ref) {
       }
       await syncAdapter.completeSyncBatch();
       await catchUpPkBackedSyncOnceAfterCutover(handle, db);
+      // Signal the strict-apply coordinator so the joiner's pre-registered
+      // latch resolves with success. No-op when not in strict mode.
+      if (strict) {
+        strictCoordinator.signalBatchComplete();
+      }
       if (kDebugMode) {
         debugPrint(
           '[SYNC_STREAM] Applied ${event.changes.length} remote changes',
@@ -1103,45 +1108,86 @@ class StrictApplyFailure implements Exception {
   }
 }
 
+/// Outcome of a strict-apply batch: either success or a structured failure.
+/// Used as the return value of [StrictApplyCoordinator.outcome] so a single
+/// awaiter can observe whichever event fires first without racing futures.
+sealed class ApplyOutcome {
+  const ApplyOutcome();
+}
+
+class ApplyOutcomeSuccess extends ApplyOutcome {
+  const ApplyOutcomeSuccess();
+}
+
+class ApplyOutcomeFailure extends ApplyOutcome {
+  const ApplyOutcomeFailure(this.failure, [this.stackTrace]);
+
+  final StrictApplyFailure failure;
+  final StackTrace? stackTrace;
+}
+
 /// Coordinator for "strict apply" mode during snapshot bootstrap.
 ///
 /// The joiner flow enables strict mode before `bootstrapFromSnapshot` so that
 /// any per-row Drift failure while ingesting the snapshot aborts pairing
-/// instead of silently skipping rows. The sync event stream observes
-/// [isStrict] when dispatching remote-changes events and, on failure, calls
-/// [signalFailure] so the joiner can surface a fatal-retry UI.
+/// instead of silently skipping rows.
+///
+/// Uses a pre-registered latch so signal ordering is preserved regardless of
+/// when the joiner registers its await. [enterStrictMode] creates a fresh
+/// [Completer<ApplyOutcome>] BEFORE any bootstrap work kicks off; the sync
+/// event stream writes into it from either [signalFailure] (strict apply
+/// failed) or [signalBatchComplete] (the batch that followed bootstrap
+/// applied cleanly). Whichever fires first wins — subsequent calls are
+/// idempotent because both signal methods guard on `isCompleted`.
 class StrictApplyCoordinator {
   bool _strict = false;
-  Completer<void>? _failure;
+  Completer<ApplyOutcome>? _outcome;
 
   bool get isStrict => _strict;
 
-  /// Enter strict mode and return a future that completes with an error as
-  /// soon as a strict apply fails. Calling this replaces any in-flight
-  /// listener — only one snapshot bootstrap runs at a time.
-  Future<void> enterStrictMode() {
+  /// The future that resolves with the bootstrap batch outcome. Only valid
+  /// between [enterStrictMode] and [exitStrictMode] — callers should capture
+  /// it immediately after entering strict mode.
+  Future<ApplyOutcome>? get outcome => _outcome?.future;
+
+  /// Enter strict mode and return a future that completes with either a
+  /// success or a failure outcome — whichever signal arrives first. Calling
+  /// this replaces any in-flight completer — only one snapshot bootstrap
+  /// runs at a time.
+  Future<ApplyOutcome> enterStrictMode() {
     _strict = true;
-    final completer = Completer<void>();
-    _failure = completer;
+    final completer = Completer<ApplyOutcome>();
+    _outcome = completer;
     return completer.future;
   }
 
-  /// Exit strict mode. Any pending failure completer is completed with a
-  /// success so stale awaiters unblock.
+  /// Exit strict mode. Any pending outcome completer is completed with
+  /// success so stale awaiters unblock cleanly (callers are expected to
+  /// already have observed the outcome or abandoned it).
   void exitStrictMode() {
     _strict = false;
-    final pending = _failure;
-    _failure = null;
+    final pending = _outcome;
+    _outcome = null;
     if (pending != null && !pending.isCompleted) {
-      pending.complete();
+      pending.complete(const ApplyOutcomeSuccess());
     }
   }
 
-  /// Record a strict-mode failure. Idempotent — only the first failure wins.
+  /// Record a strict-mode failure. Idempotent — only the first signal wins.
   void signalFailure(StrictApplyFailure failure, [StackTrace? stackTrace]) {
-    final pending = _failure;
+    final pending = _outcome;
     if (pending != null && !pending.isCompleted) {
-      pending.completeError(failure, stackTrace ?? StackTrace.current);
+      pending.complete(ApplyOutcomeFailure(failure, stackTrace));
+    }
+  }
+
+  /// Record a successful batch-complete. Idempotent — only the first signal
+  /// wins. Called from the sync event stream once the RemoteChanges batch
+  /// has applied and [SyncAdapterWithCompletion.completeSyncBatch] has run.
+  void signalBatchComplete() {
+    final pending = _outcome;
+    if (pending != null && !pending.isCompleted) {
+      pending.complete(const ApplyOutcomeSuccess());
     }
   }
 }

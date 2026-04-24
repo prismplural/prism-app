@@ -11,6 +11,7 @@ import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/core/sync/pairing_ceremony_api.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
+import 'package:prism_plurality/core/sync/sync_event_loop.dart';
 import 'package:prism_plurality/features/onboarding/providers/sync_setup_progress_provider.dart';
 import 'package:prism_plurality/features/settings/providers/pin_lock_providers.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
@@ -309,36 +310,49 @@ class DevicePairingNotifier extends Notifier<PairingState> {
 
     try {
       final pairingApi = ref.read(pairingCeremonyApiProvider);
-      await Future(() async {
-        final handle = ref.read(prismSyncHandleProvider).value;
-        if (handle == null) {
-          throw StateError('No sync handle available');
-        }
+      final handle = ref.read(prismSyncHandleProvider).value;
+      if (handle == null) {
+        throw StateError('No sync handle available');
+      }
 
-        if (_generation != myGeneration) return;
-
-        await pairingApi.completeJoinerCeremony(
-          handle: handle,
-          password: password,
-        );
-
-        if (_generation != myGeneration) return;
-
-        await _bootstrapAfterJoin(handle, myGeneration);
-      }).timeout(const Duration(seconds: 60));
-    } on TimeoutException {
-      _pendingPin = null;
-      await _cleanupKeychainOnFailure();
       if (_generation != myGeneration) return;
-      state = state.copyWith(
-        step: PairingStep.error,
-        errorMessage:
-            'Connection timed out. Check your internet connection and try again.',
-        errorCode: null,
-      );
+
+      // PHASE 1 — Ceremony (45 s hard timeout). Credentials are not yet
+      // established, so a timeout here is safe to clean up the keychain.
+      try {
+        await pairingApi
+            .completeJoinerCeremony(handle: handle, password: password)
+            .timeout(const Duration(seconds: 45));
+      } on TimeoutException {
+        _pendingPin = null;
+        await _cleanupKeychainOnFailure();
+        if (_generation != myGeneration) return;
+        state = state.copyWith(
+          step: PairingStep.error,
+          errorMessage:
+              'Connection timed out. Check your internet connection and try again.',
+          errorCode: null,
+        );
+        return;
+      }
+
+      if (_generation != myGeneration) return;
+
+      // PHASE 2+3 — bootstrap + apply. Own timeout boundaries live inside
+      // _bootstrapAfterJoin / _runSnapshotBootstrap. Credentials may be
+      // established by the time bootstrap starts, so those phases MUST NOT
+      // wipe the keychain on timeout — they route to snapshotFailure
+      // instead (see _runSnapshotBootstrap).
+      await _bootstrapAfterJoin(handle, myGeneration);
     } catch (e) {
       _pendingPin = null;
       final structuredError = PrismSyncStructuredError.tryParse(e);
+      // Only wipe creds here when we're still in the early ceremony /
+      // pre-bootstrap region. Once _runSnapshotBootstrap is responsible
+      // for its own credential lifecycle, it lands the user in
+      // snapshotFailure rather than throwing back up here, so reaching
+      // this catch block implies the failure happened BEFORE creds were
+      // established.
       await _cleanupKeychainOnFailure();
       if (_generation != myGeneration) return;
       state = state.copyWith(
@@ -393,14 +407,15 @@ class DevicePairingNotifier extends Notifier<PairingState> {
       debugPrint('[PAIRING] Activating syncEventStreamProvider...');
     }
     final syncAdapter = ref.read(driftSyncAdapterProvider);
-    syncAdapter.beginSyncBatch();
-
-    // Enter strict-apply mode: per-row failures while ingesting the
-    // snapshot must abort pairing so we never ACK a partially applied
-    // snapshot. The returned future completes with an error as soon as
-    // the sync event stream observes a strict-apply failure.
     final strictCoordinator = ref.read(strictApplyCoordinatorProvider);
-    final strictFailureFuture = strictCoordinator.enterStrictMode();
+
+    // Enter strict-apply mode + begin the sync batch BEFORE kicking off
+    // bootstrap so the pre-registered latch honours signal ordering
+    // regardless of when the await is scheduled. First writer wins:
+    // either strict-apply fails (signalFailure) or the batch finishes
+    // (signalBatchComplete).
+    final outcomeFuture = strictCoordinator.enterStrictMode();
+    syncAdapter.beginSyncBatch();
 
     var fatalSnapshotError = false;
     String? fatalSnapshotMessage;
@@ -408,16 +423,33 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     var bootstrapRestored = BigInt.zero;
 
     try {
-      // Bootstrap from the ephemeral snapshot. Empty result (0 restored)
-      // is treated as fatal below — a joiner that couldn't read the
-      // initiator's snapshot must not fall through to an empty success.
+      // PHASE 2 — snapshot download + Rust import. 10-minute hard ceiling
+      // covers a realistic large-system ingest on slow mobile links while
+      // still bounding worst-case hang. Credentials may be established
+      // inside the FFI call, so a timeout here routes to snapshotFailure
+      // (retry-safe) rather than wiping the keychain.
       try {
-        bootstrapRestored = await ffi.bootstrapFromSnapshot(handle: handle);
+        bootstrapRestored = await ffi
+            .bootstrapFromSnapshot(handle: handle)
+            .timeout(const Duration(minutes: 10));
         if (kDebugMode) {
           debugPrint(
             '[PAIRING] bootstrapFromSnapshot returned $bootstrapRestored',
           );
         }
+      } on TimeoutException catch (e, stackTrace) {
+        fatalSnapshotError = true;
+        fatalSnapshotMessage =
+            'Timed out downloading your system from the pairing device. '
+            'Please try again.';
+        if (_generation == myGeneration) {
+          progressNotifier.markTimedOut();
+        }
+        ErrorReportingService.instance.report(
+          'Snapshot bootstrap timed out (fatal): $e',
+          severity: ErrorSeverity.error,
+          stackTrace: stackTrace,
+        );
       } catch (e, stackTrace) {
         fatalSnapshotError = true;
         final structuredError = PrismSyncStructuredError.tryParse(e);
@@ -447,51 +479,42 @@ class DevicePairingNotifier extends Notifier<PairingState> {
       }
 
       if (!fatalSnapshotError) {
-        // Race the normal "batch applied" signal against the strict-apply
-        // failure signal. Either resolves the wait.
-        var syncTimedOut = false;
-        try {
-          await Future.any([
-            syncAdapter.syncBatchComplete.timeout(
-              const Duration(seconds: 30),
-              onTimeout: () {
-                syncTimedOut = true;
-                if (kDebugMode) {
-                  debugPrint(
-                    '[PAIRING] syncBatchComplete timed out during snapshot apply',
-                  );
-                }
-              },
-            ),
-            strictFailureFuture,
-          ]);
-        } on StrictApplyFailure catch (e, st) {
-          fatalSnapshotError = true;
-          fatalSnapshotMessage =
-              'Failed to apply your system to this device (${e.table ?? 'unknown'}). '
-              'Please try again.';
-          ErrorReportingService.instance.report(
-            'Strict snapshot apply failed: $e',
-            severity: ErrorSeverity.error,
-            stackTrace: st,
-          );
-        } catch (e, st) {
-          fatalSnapshotError = true;
-          fatalSnapshotMessage = e.toString();
-          ErrorReportingService.instance.report(
-            'Snapshot apply failed (fatal): $e',
-            severity: ErrorSeverity.error,
-            stackTrace: st,
-          );
-        }
+        // PHASE 3 — Dart-side apply. Activity watchdog: 60 s of silence
+        // is treated as failure, but each RemoteChanges / batch-complete
+        // tick resets the timer, so arbitrarily large snapshots still
+        // succeed as long as progress is visible. The watchdog writes
+        // failure into the strict-apply latch, so the single awaiter
+        // below observes whichever event fired first.
+        final applyOutcome = await _awaitApplyOutcomeWithWatchdog(
+          handle: handle,
+          outcomeFuture: outcomeFuture,
+          idleTimeout: const Duration(seconds: 60),
+        );
 
-        if (!fatalSnapshotError && syncTimedOut) {
-          fatalSnapshotError = true;
-          fatalSnapshotMessage =
-              'Timed out applying your system. Please try again.';
-          if (_generation == myGeneration) {
-            progressNotifier.markTimedOut();
-          }
+        switch (applyOutcome) {
+          case ApplyOutcomeSuccess():
+            // fall through to post-bootstrap work
+            break;
+          case ApplyOutcomeFailure(:final failure, :final stackTrace):
+            fatalSnapshotError = true;
+            final isTimeout = failure.message.startsWith('TIMEOUT:');
+            if (isTimeout) {
+              fatalSnapshotMessage =
+                  'Timed out applying your system. Please try again.';
+              if (_generation == myGeneration) {
+                progressNotifier.markTimedOut();
+              }
+            } else {
+              fatalSnapshotMessage =
+                  'Failed to apply your system to this device '
+                  '(${failure.table ?? 'unknown'}). Please try again.';
+            }
+            ErrorReportingService.instance.report(
+              'Snapshot apply failed (fatal): $failure',
+              severity: ErrorSeverity.error,
+              stackTrace: stackTrace ?? StackTrace.current,
+            );
+            break;
         }
       }
     } finally {
@@ -602,6 +625,70 @@ class DevicePairingNotifier extends Notifier<PairingState> {
       counts: counts,
       syncIncomplete: false,
     );
+  }
+
+  /// Wait for a strict-apply outcome while enforcing an idle (activity)
+  /// watchdog. The watchdog resets on every `RemoteChanges` event observed
+  /// on the sync event stream and on the coordinator's own batch-complete
+  /// signal, so arbitrarily large snapshots can ingest as long as progress
+  /// is visible; [idleTimeout] of silence is treated as failure.
+  ///
+  /// On timeout this writes a failure into the pre-registered strict-apply
+  /// latch (message prefixed `TIMEOUT:` so the caller can distinguish) and
+  /// returns the resulting [ApplyOutcomeFailure]. Credentials are NOT wiped
+  /// on timeout — the caller routes to `snapshotFailure` so the user can
+  /// retry or explicitly cancel.
+  Future<ApplyOutcome> _awaitApplyOutcomeWithWatchdog({
+    required ffi.PrismSyncHandle handle,
+    required Future<ApplyOutcome> outcomeFuture,
+    required Duration idleTimeout,
+  }) async {
+    final coordinator = ref.read(strictApplyCoordinatorProvider);
+    Timer? watchdog;
+
+    void resetWatchdog() {
+      watchdog?.cancel();
+      watchdog = Timer(idleTimeout, () {
+        if (kDebugMode) {
+          debugPrint(
+            '[PAIRING] Apply watchdog fired after ${idleTimeout.inSeconds}s of inactivity',
+          );
+        }
+        coordinator.signalFailure(
+          StrictApplyFailure(
+            message:
+                'TIMEOUT: no apply activity for ${idleTimeout.inSeconds}s',
+            failedTables: const [],
+          ),
+        );
+      });
+    }
+
+    // Start the watchdog immediately — if bootstrap already wrote rows to
+    // Rust but the Dart stream never fires, we still want a deadline.
+    resetWatchdog();
+
+    // Observe every SyncEvent — RemoteChanges ticks reset the idle timer,
+    // and SyncCompleted / WebSocket activity also count as progress.
+    final subscription = ref.listen<AsyncValue<SyncEvent>>(
+      syncEventStreamProvider,
+      (_, next) {
+        next.whenData((event) {
+          if (event.isRemoteChanges ||
+              event.isSyncCompleted ||
+              event.isWebSocketStateChanged) {
+            resetWatchdog();
+          }
+        });
+      },
+    );
+
+    try {
+      return await outcomeFuture;
+    } finally {
+      watchdog?.cancel();
+      subscription.close();
+    }
   }
 
   /// Retry the snapshot bootstrap after a [PairingStep.snapshotFailure].

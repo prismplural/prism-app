@@ -407,6 +407,27 @@ void main() {
       expect(state.syncIncomplete, isTrue);
       expect(state.errorMessage, contains("Couldn't load"));
     });
+
+    // Regression: the snapshot-failure path is distinct from the generic
+    // error path precisely because credentials must survive it. Only the
+    // latter invokes `_cleanupKeychainOnFailure`. Asserting the enum
+    // distinction exists keeps the credential-lifecycle contract visible.
+    test('snapshotFailure is distinct from error (credential lifecycle)', () {
+      final errorState = const PairingState().copyWith(
+        step: PairingStep.error,
+        errorMessage: 'ceremony failed',
+      );
+      final snapshotFailureState = const PairingState().copyWith(
+        step: PairingStep.snapshotFailure,
+        errorMessage: 'snapshot failed',
+        syncIncomplete: true,
+      );
+      expect(errorState.step, isNot(snapshotFailureState.step));
+      // snapshotFailure carries syncIncomplete=true so the UI can show
+      // "retry or cancel" instead of "start over from scratch".
+      expect(snapshotFailureState.syncIncomplete, isTrue);
+      expect(errorState.syncIncomplete, isFalse);
+    });
   });
 
   // ---------------------------------------------------------------------------
