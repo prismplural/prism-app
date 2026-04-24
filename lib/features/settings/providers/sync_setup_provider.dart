@@ -85,13 +85,21 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
   /// Validate the relay URL, create the sync handle, and proceed to the
   /// enter-phrase step.
   Future<void> proceedToEnterPhrase() async {
-    // Validate relay URL before proceeding
+    // Validate relay URL before proceeding. Match the joiner flow
+    // (SyncDeviceStep): require https:// unless the host is a loopback
+    // address, in which case plain http:// is allowed for local dev.
     final uri = Uri.tryParse(state.relayUrl);
     if (uri == null ||
         (uri.scheme != 'http' && uri.scheme != 'https') ||
         uri.host.isEmpty) {
       state = state.copyWith(
         error: 'Invalid relay URL. Must be a valid http or https URL.',
+      );
+      return;
+    }
+    if (uri.scheme == 'http' && !_isLoopbackHost(uri.host)) {
+      state = state.copyWith(
+        error: 'Relay URL must use https://.',
       );
       return;
     }
@@ -418,3 +426,12 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
 final syncSetupProvider = NotifierProvider<SyncSetupNotifier, SyncSetupState>(
   SyncSetupNotifier.new,
 );
+
+/// Returns true if [host] names a loopback address suitable for allowing
+/// plain `http://` during first-device relay setup. Matches the joiner
+/// flow's scheme rule with a carve-out for local dev relays.
+bool _isLoopbackHost(String host) {
+  if (host.isEmpty) return false;
+  // Uri.host strips IPv6 brackets, so compare against the raw address form.
+  return host == 'localhost' || host == '127.0.0.1' || host == '::1';
+}

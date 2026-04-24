@@ -15,6 +15,11 @@
     <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
         <item name="android:windowBackground">?android:colorBackground</item>
     </style>
+    <!-- Pre-frame paint surface for the native uCrop activity. The hex
+         colors below are approximations of Prism design tokens
+         (theme.colorScheme.surface, theme.colorScheme.primary) used before
+         Flutter's AndroidUiSettings takes over. Keep in sync with
+         app/lib/shared/theme/ if brand colors change. -->
     <style name="PrismUCropTheme" parent="Theme.AppCompat.Light.NoActionBar">
         <item name="android:windowBackground">#FFF9F5</item>
         <item name="android:colorAccent">#8B5CF6</item>
