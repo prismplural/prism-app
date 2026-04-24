@@ -402,7 +402,10 @@ class SoLoudMobileVoicePlaybackPlayer implements MobileVoicePlaybackPlayer {
     final soLoudTrack = track as _SoLoudMobileVoicePlaybackTrack;
     return soLoudTrack.source.soundEvents
         .where((event) => event.event == SoundEventType.handleIsNoMoreValid)
-        .map((event) => _SoLoudMobileVoicePlaybackHandle(event.handle));
+        .map(
+          (event) =>
+              _SoLoudMobileVoicePlaybackHandle(event.handle, soLoudTrack.source),
+        );
   }
 
   @override
@@ -464,12 +467,16 @@ class SoLoudMobileVoicePlaybackPlayer implements MobileVoicePlaybackPlayer {
       bufferingTimeNeeds: 0.05,
       maxBufferSizeDuration: const Duration(seconds: 660),
     );
+    // Activating the pitch-shift filter before play() enables
+    // timeStretch() — which changes playback speed without raising
+    // the pitch (no chipmunk effect at 1.5x/2x).
+    source.filters.pitchShiftFilter.activate();
     final handle = _soLoud.play(source, paused: true);
     await Future<void>.delayed(const Duration(milliseconds: 50));
     _soLoud.addAudioDataStream(source, bytes);
     _soLoud.setDataIsEnded(source);
     // Stash the pre-created handle so play() can unpause it.
-    _pendingHandle = _SoLoudMobileVoicePlaybackHandle(handle);
+    _pendingHandle = _SoLoudMobileVoicePlaybackHandle(handle, source);
     return _SoLoudMobileVoicePlaybackTrack(source);
   }
 
@@ -485,15 +492,18 @@ class SoLoudMobileVoicePlaybackPlayer implements MobileVoicePlaybackPlayer {
     final pending = _pendingHandle;
     _pendingHandle = null;
     if (pending != null) {
-      _soLoud.setRelativePlaySpeed(pending.handle, speed);
+      pending.source.filters.pitchShiftFilter.timeStretch(
+        pending.handle,
+        speed,
+      );
       _soLoud.setPause(pending.handle, false);
       return pending;
     }
     // Fallback for replay after completion — start fresh.
     final soLoudTrack = track as _SoLoudMobileVoicePlaybackTrack;
     final handle = _soLoud.play(soLoudTrack.source);
-    _soLoud.setRelativePlaySpeed(handle, speed);
-    return _SoLoudMobileVoicePlaybackHandle(handle);
+    soLoudTrack.source.filters.pitchShiftFilter.timeStretch(handle, speed);
+    return _SoLoudMobileVoicePlaybackHandle(handle, soLoudTrack.source);
   }
 
   @override
@@ -511,7 +521,10 @@ class SoLoudMobileVoicePlaybackPlayer implements MobileVoicePlaybackPlayer {
   @override
   void setSpeed(MobileVoicePlaybackHandle handle, double speed) {
     final soLoudHandle = handle as _SoLoudMobileVoicePlaybackHandle;
-    _soLoud.setRelativePlaySpeed(soLoudHandle.handle, speed);
+    soLoudHandle.source.filters.pitchShiftFilter.timeStretch(
+      soLoudHandle.handle,
+      speed,
+    );
   }
 
   @override
@@ -539,9 +552,10 @@ final class _SoLoudMobileVoicePlaybackTrack
 
 final class _SoLoudMobileVoicePlaybackHandle
     implements MobileVoicePlaybackHandle {
-  const _SoLoudMobileVoicePlaybackHandle(this.handle);
+  const _SoLoudMobileVoicePlaybackHandle(this.handle, this.source);
 
   final SoundHandle handle;
+  final AudioSource source;
 
   @override
   bool operator ==(Object other) {
