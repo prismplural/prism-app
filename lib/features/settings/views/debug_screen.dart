@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:drift/drift.dart' as drift;
+import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,6 +17,7 @@ import 'package:prism_plurality/features/pluralkit/providers/pk_group_repair_pro
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_group_repair_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
+import 'package:prism_plurality/features/pluralkit/widgets/pk_group_repair_card.dart';
 import 'package:prism_plurality/features/settings/providers/reset_data_provider.dart';
 import 'package:prism_plurality/features/settings/services/stress_data_generator.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
@@ -321,7 +323,9 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
                     'Preview live groups and seed a repair review card',
                   ),
                   trailing: Icon(AppIcons.chevronRight),
-                  onTap: () => _showPluralKitGroupTester(context),
+                  onTap: () => context.push(
+                    AppRoutePaths.settingsDebugPluralKitGroupTester,
+                  ),
                 ),
                 PrismListRow(
                   leading: Icon(AppIcons.gridView),
@@ -403,280 +407,426 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
     );
   }
 
-  Future<void> _showPluralKitGroupTester(BuildContext context) async {
-    final tokenController = TextEditingController();
+  String _formatDateTime(DateTime dt) {
+    return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-'
+        '${dt.day.toString().padLeft(2, '0')} '
+        '${dt.hour.toString().padLeft(2, '0')}:'
+        '${dt.minute.toString().padLeft(2, '0')}';
+  }
+}
 
-    try {
-      await PrismSheet.show<void>(
-        context: context,
+class PluralKitGroupTesterScreen extends ConsumerStatefulWidget {
+  const PluralKitGroupTesterScreen({super.key});
+
+  @override
+  ConsumerState<PluralKitGroupTesterScreen> createState() =>
+      _PluralKitGroupTesterScreenState();
+}
+
+class _PluralKitGroupTesterScreenState
+    extends ConsumerState<PluralKitGroupTesterScreen> {
+  final TextEditingController _tokenController = TextEditingController();
+  late final bool _previousMultipleDbWarningSetting;
+  late final AppDatabase _sandboxDb;
+  late final PkGroupRepairService _sandboxRepairService;
+
+  bool _isBusy = false;
+  String? _errorText;
+  PkRepairReferenceData? _referenceData;
+  String? _referenceToken;
+  PkGroupRepairReport? _lastReport;
+  PkGroupRepairState? _sandboxRepairState;
+  String? _seedSummary;
+
+  @override
+  void initState() {
+    super.initState();
+    _previousMultipleDbWarningSetting =
+        drift.driftRuntimeOptions.dontWarnAboutMultipleDatabases;
+    _sandboxDb = _createSandboxDb();
+    _sandboxRepairService = PkGroupRepairService(
+      memberGroupsDao: _sandboxDb.memberGroupsDao,
+      aliasesDao: _sandboxDb.pkGroupSyncAliasesDao,
+      hasRepairToken: ({String? token}) async =>
+          token?.trim().isNotEmpty == true,
+      fetchRepairReferenceData: _fetchSandboxReferenceData,
+    );
+  }
+
+  @override
+  void dispose() {
+    _tokenController.dispose();
+    unawaited(_sandboxDb.close());
+    drift.driftRuntimeOptions.dontWarnAboutMultipleDatabases =
+        _previousMultipleDbWarningSetting;
+    super.dispose();
+  }
+
+  AppDatabase _createSandboxDb() {
+    // This page intentionally owns a second, isolated in-memory Drift database
+    // so the live-token tester never mutates the user's production DB. The
+    // `dontWarnAboutMultipleDatabases` flag is global; dispose() restores the
+    // previous value so other screens aren't affected after this one closes.
+    drift.driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
+    return AppDatabase(NativeDatabase.memory());
+  }
+
+  Future<PkRepairReferenceData> _fetchSandboxReferenceData({String? token}) {
+    final trimmed = token?.trim();
+    final cached = _referenceData;
+    if (trimmed != null &&
+        trimmed.isNotEmpty &&
+        trimmed == _referenceToken &&
+        cached != null) {
+      return Future.value(cached);
+    }
+    return ref
+        .read(pluralKitSyncServiceProvider)
+        .fetchRepairReferenceData(token: token);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final data = _referenceData;
+    final groups = data?.groups ?? const <PKGroup>[];
+    final previewGroups = groups.take(8).toList(growable: false);
+
+    return PrismPageScaffold(
+      topBar: const PrismTopBar(
         title: 'PluralKit group tester',
-        subtitle:
-            'Uses a one-off token for this sheet. The token is not saved.',
-        maxHeightFactor: 0.92,
-        builder: (sheetContext) {
-          var isBusy = false;
-          String? errorText;
-          PkRepairReferenceData? referenceData;
-          PkGroupRepairReport? lastReport;
-          String? seedSummary;
-
-          Future<void> fetchReference(StateSetter setSheetState) async {
-            final token = tokenController.text.trim();
-            if (token.isEmpty) {
-              setSheetState(() => errorText = 'Paste a PluralKit token first.');
-              return;
-            }
-
-            setSheetState(() {
-              isBusy = true;
-              errorText = null;
-            });
-            try {
-              final data = await ref
-                  .read(pluralKitSyncServiceProvider)
-                  .fetchRepairReferenceData(token: token);
-              setSheetState(() {
-                referenceData = data;
-                seedSummary = null;
-              });
-            } catch (error) {
-              setSheetState(() {
-                errorText = 'Could not fetch PluralKit data: $error';
-              });
-            } finally {
-              setSheetState(() => isBusy = false);
-            }
-          }
-
-          Future<void> runRepair(StateSetter setSheetState) async {
-            final token = tokenController.text.trim();
-            if (token.isEmpty) {
-              setSheetState(() => errorText = 'Paste a PluralKit token first.');
-              return;
-            }
-
-            setSheetState(() {
-              isBusy = true;
-              errorText = null;
-            });
-            try {
-              final report = await ref
-                  .read(pkGroupRepairControllerProvider.notifier)
-                  .run(token: token, allowStoredToken: false);
-              setSheetState(() => lastReport = report);
-              if (sheetContext.mounted) {
-                PrismToast.show(
-                  sheetContext,
-                  message:
-                      'Repair complete: ${report.pendingReviewCount} pending review item(s).',
-                );
-              }
-            } catch (error) {
-              setSheetState(() {
-                errorText = 'Repair failed: $error';
-              });
-            } finally {
-              setSheetState(() => isBusy = false);
-            }
-          }
-
-          Future<void> seedReview(StateSetter setSheetState) async {
-            final data = referenceData;
-            if (data == null) {
-              setSheetState(() {
-                errorText = 'Fetch PluralKit groups before seeding a review.';
-              });
-              return;
-            }
-            if (data.groups.isEmpty) {
-              setSheetState(() {
-                errorText = 'This token did not return any PluralKit groups.';
-              });
-              return;
-            }
-
-            setSheetState(() {
-              isBusy = true;
-              errorText = null;
-            });
-            try {
-              final summary = await _seedPkGroupReviewFixture(data);
-              final report = await ref
-                  .read(pkGroupRepairControllerProvider.notifier)
-                  .run(
-                    token: tokenController.text.trim(),
-                    allowStoredToken: false,
-                  );
-              setSheetState(() {
-                seedSummary = summary;
-                lastReport = report;
-              });
-              if (sheetContext.mounted) {
-                PrismToast.show(sheetContext, message: summary);
-              }
-            } catch (error) {
-              setSheetState(() {
-                errorText = 'Seed failed: $error';
-              });
-            } finally {
-              setSheetState(() => isBusy = false);
-            }
-          }
-
-          return StatefulBuilder(
-            builder: (context, setSheetState) {
-              final theme = Theme.of(context);
-              final data = referenceData;
-              final groups = data?.groups ?? const <PKGroup>[];
-              final previewGroups = groups.take(8).toList(growable: false);
-
-              return SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    PrismTextField(
-                      controller: tokenController,
-                      labelText: 'PluralKit token',
-                      hintText: 'Paste token',
-                      obscureText: true,
-                      textInputAction: TextInputAction.done,
+        subtitle: 'Uses a one-off token. The token is not saved.',
+        showBackButton: true,
+      ),
+      bodyPadding: EdgeInsets.zero,
+      body: ListView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        padding: EdgeInsets.fromLTRB(16, 16, 16, NavBarInset.of(context)),
+        children: [
+          PrismTextField(
+            controller: _tokenController,
+            labelText: 'PluralKit token',
+            hintText: 'Paste token',
+            obscureText: true,
+            textInputAction: TextInputAction.done,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'This page uses a disposable in-memory database. It does not require sync setup and does not write to your Prism data.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 12),
+          PrismButton(
+            label: 'Fetch groups',
+            icon: AppIcons.cloudDownload,
+            tone: PrismButtonTone.outlined,
+            expanded: true,
+            enabled: !_isBusy,
+            isLoading: _isBusy,
+            onPressed: () => unawaited(_fetchReference()),
+          ),
+          const SizedBox(height: 8),
+          PrismButton(
+            label: 'Run sandbox repair',
+            icon: AppIcons.healing,
+            tone: PrismButtonTone.filled,
+            expanded: true,
+            enabled: !_isBusy,
+            onPressed: () => unawaited(_runRepair()),
+          ),
+          if (data != null) ...[
+            const SizedBox(height: 16),
+            PrismSurface(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    data.system.name ?? data.system.id,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
                     ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '${data.groups.length} group(s), '
+                    '${data.members.length} member(s)',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  if (previewGroups.isNotEmpty) ...[
                     const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: PrismButton(
-                            label: 'Fetch groups',
-                            icon: AppIcons.cloudDownload,
-                            tone: PrismButtonTone.outlined,
-                            enabled: !isBusy,
-                            isLoading: isBusy,
-                            onPressed: () =>
-                                unawaited(fetchReference(setSheetState)),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: PrismButton(
-                            label: 'Run repair',
-                            icon: AppIcons.healing,
-                            tone: PrismButtonTone.filled,
-                            enabled: !isBusy,
-                            onPressed: () =>
-                                unawaited(runRepair(setSheetState)),
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (data != null) ...[
-                      const SizedBox(height: 16),
-                      PrismSurface(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              data.system.name ?? data.system.id,
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              '${data.groups.length} group(s), '
-                              '${data.members.length} member(s)',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                            if (previewGroups.isNotEmpty) ...[
-                              const SizedBox(height: 12),
-                              for (final group in previewGroups)
-                                Padding(
-                                  padding: const EdgeInsets.only(bottom: 8),
-                                  child: _PkDebugGroupPreview(group: group),
-                                ),
-                            ],
-                          ],
-                        ),
+                    for (final group in previewGroups)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: _PkDebugGroupPreview(group: group),
                       ),
-                      const SizedBox(height: 8),
-                      PrismButton(
-                        label: 'Seed repair review from first group',
-                        icon: AppIcons.addCircle,
-                        tone: PrismButtonTone.outlined,
-                        expanded: true,
-                        enabled: !isBusy && groups.isNotEmpty,
-                        onPressed: () => unawaited(seedReview(setSheetState)),
-                      ),
-                    ],
-                    if (lastReport != null) ...[
-                      const SizedBox(height: 12),
-                      Text(
-                        'Last repair: ${lastReport!.pendingReviewCount} pending, '
-                        '${lastReport!.duplicateSetsMerged} merged, '
-                        '${lastReport!.backfilledEntries} backfilled.',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                    if (seedSummary != null) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        seedSummary!,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.primary,
-                        ),
-                      ),
-                    ],
-                    if (errorText != null) ...[
-                      const SizedBox(height: 12),
-                      Text(
-                        errorText!,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.error,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 16),
-                    PrismButton(
-                      label: 'Open PluralKit setup',
-                      icon: AppIcons.arrowForward,
-                      tone: PrismButtonTone.subtle,
-                      expanded: true,
-                      onPressed: () {
-                        Navigator.of(sheetContext).pop();
-                        context.push(AppRoutePaths.settingsPluralkit);
-                      },
-                    ),
                   ],
-                ),
-              );
-            },
-          );
-        },
-      );
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            PrismButton(
+              label: 'Seed sandbox review from first group',
+              icon: AppIcons.addCircle,
+              tone: PrismButtonTone.outlined,
+              expanded: true,
+              enabled: !_isBusy && groups.isNotEmpty,
+              onPressed: () => unawaited(_seedReview()),
+            ),
+          ],
+          if (_sandboxRepairState != null) ...[
+            const SizedBox(height: 16),
+            PkGroupRepairCard(
+              state: _sandboxRepairState!,
+              isConnected: false,
+              hasStoredToken: false,
+              onRunRepair: () => unawaited(_runRepair()),
+              onDismissReviewItem: _dismissSandboxReviewItem,
+              onKeepReviewItemLocalOnly: _keepSandboxReviewItemLocalOnly,
+              onMergeReviewItemIntoCanonical: _mergeSandboxReviewItem,
+              pkGroupSyncV2Enabled: true,
+              onEnablePkGroupSyncV2: () async {},
+              onResetPkGroupsOnly: () async {},
+              onExportDataFirst: () {},
+            ),
+          ],
+          if (_lastReport != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              'Last repair: ${_lastReport!.pendingReviewCount} pending, '
+              '${_lastReport!.duplicateSetsMerged} merged, '
+              '${_lastReport!.backfilledEntries} backfilled.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+          if (_seedSummary != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              _seedSummary!,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.primary,
+              ),
+            ),
+          ],
+          if (_errorText != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              _errorText!,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.error,
+              ),
+            ),
+          ],
+          const SizedBox(height: 16),
+          PrismButton(
+            label: 'Open real PluralKit setup',
+            icon: AppIcons.arrowForward,
+            tone: PrismButtonTone.subtle,
+            expanded: true,
+            onPressed: () => context.push(AppRoutePaths.settingsPluralkit),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'The setup screen uses your real database; the sandbox repair card above stays isolated here.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _fetchReference() async {
+    final token = _tokenController.text.trim();
+    if (token.isEmpty) {
+      setState(() => _errorText = 'Paste a PluralKit token first.');
+      return;
+    }
+
+    setState(() {
+      _isBusy = true;
+      _errorText = null;
+    });
+    try {
+      final data = await ref
+          .read(pluralKitSyncServiceProvider)
+          .fetchRepairReferenceData(token: token);
+      if (!mounted) return;
+      setState(() {
+        _referenceData = data;
+        _referenceToken = token;
+        _seedSummary = null;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorText = 'Could not fetch PluralKit data: $error';
+      });
     } finally {
-      tokenController.dispose();
+      if (mounted) {
+        setState(() => _isBusy = false);
+      }
     }
   }
 
-  Future<String> _seedPkGroupReviewFixture(PkRepairReferenceData data) async {
-    final group = data.groups.firstWhere(
-      (group) => group.memberIds != null,
-      orElse: () => data.groups.first,
+  Future<void> _runRepair() async {
+    final token = _tokenController.text.trim();
+    if (token.isEmpty) {
+      setState(() => _errorText = 'Paste a PluralKit token first.');
+      return;
+    }
+
+    setState(() {
+      _isBusy = true;
+      _errorText = null;
+    });
+    try {
+      final report = await _sandboxRepairService.run(
+        token: token,
+        allowStoredToken: false,
+      );
+      if (!mounted) return;
+      final state = await _sandboxStateForReport(report);
+      if (!mounted) return;
+      setState(() {
+        _lastReport = report;
+        _sandboxRepairState = state;
+      });
+      PrismToast.show(
+        context,
+        message:
+            'Repair complete: ${report.pendingReviewCount} pending review item(s).',
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorText = 'Repair failed: $error';
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _isBusy = false);
+      }
+    }
+  }
+
+  Future<void> _seedReview() async {
+    final data = _referenceData;
+    final token = _tokenController.text.trim();
+    if (data == null) {
+      setState(() {
+        _errorText = 'Fetch PluralKit groups before seeding a review.';
+      });
+      return;
+    }
+    if (token.isEmpty || token != _referenceToken) {
+      setState(() {
+        _errorText = 'Fetch PluralKit groups again after changing the token.';
+      });
+      return;
+    }
+    if (data.groups.isEmpty) {
+      setState(() {
+        _errorText = 'This token did not return any PluralKit groups.';
+      });
+      return;
+    }
+
+    setState(() {
+      _isBusy = true;
+      _errorText = null;
+    });
+    try {
+      final summary = await _seedPkGroupReviewFixture(_sandboxDb, data);
+      final report = await _sandboxRepairService.run(
+        token: token,
+        allowStoredToken: false,
+      );
+      final state = await _sandboxStateForReport(report);
+      if (!mounted) return;
+      setState(() {
+        _seedSummary = summary;
+        _lastReport = report;
+        _sandboxRepairState = state;
+      });
+      PrismToast.show(context, message: summary);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorText = 'Seed failed: $error';
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _isBusy = false);
+      }
+    }
+  }
+
+  Future<PkGroupRepairState> _sandboxStateForReport(
+    PkGroupRepairReport? report,
+  ) async {
+    final items = await _sandboxRepairService.getPendingReviewItems();
+    return PkGroupRepairState(
+      pendingReviewCount: items.length,
+      pendingReviewItems: items,
+      lastReport: report,
     );
+  }
+
+  Future<void> _refreshSandboxState({PkGroupRepairReport? report}) async {
+    final state = await _sandboxStateForReport(report ?? _lastReport);
+    if (!mounted) return;
+    setState(() => _sandboxRepairState = state);
+  }
+
+  Future<void> _dismissSandboxReviewItem(String groupId) async {
+    await _sandboxRepairService.dismissReviewItems([groupId]);
+    await _refreshSandboxState();
+  }
+
+  Future<void> _keepSandboxReviewItemLocalOnly(String groupId) async {
+    await _sandboxRepairService.keepReviewItemsLocalOnly([groupId]);
+    await _refreshSandboxState();
+  }
+
+  Future<void> _mergeSandboxReviewItem(String groupId) async {
+    await _sandboxRepairService.mergeReviewItemIntoCanonical(groupId);
+    await _refreshSandboxState();
+  }
+
+  Future<String> _seedPkGroupReviewFixture(
+    AppDatabase db,
+    PkRepairReferenceData data,
+  ) async {
     final membersByUuid = {
       for (final member in data.members) member.uuid: member,
     };
-    final memberUuids = (group.memberIds ?? const <String>[])
+    PKGroup? group;
+    for (final candidate in data.groups) {
+      final memberIds = candidate.memberIds;
+      if (memberIds == null) continue;
+      if (memberIds.any(membersByUuid.containsKey)) {
+        group = candidate;
+        break;
+      }
+    }
+    if (group == null) {
+      throw StateError(
+        'No PluralKit group with visible members was found for this token.',
+      );
+    }
+    final selectedGroup = group;
+
+    final memberUuids = selectedGroup.memberIds!
         .where(membersByUuid.containsKey)
-        .take(12)
         .toList(growable: false);
-    final db = ref.read(databaseProvider);
     final now = DateTime.now();
-    final reviewGroupId = 'debug-pk-review-${_debugSafeId(group.uuid)}';
+    final reviewGroupId = 'debug-pk-review-${_debugSafeId(selectedGroup.uuid)}';
 
     await db.transaction(() async {
       await db
@@ -684,15 +834,12 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
           .insertOnConflictUpdate(
             MemberGroupsCompanion.insert(
               id: reviewGroupId,
-              name: 'Debug review: ${group.displayName ?? group.name}',
-              description: drift.Value(group.description),
+              name: selectedGroup.name,
+              description: drift.Value(selectedGroup.description),
               colorHex: drift.Value(
-                group.color == null ? null : '#${group.color}',
+                selectedGroup.color == null ? null : '#${selectedGroup.color}',
               ),
               createdAt: now,
-              pluralkitId: drift.Value(group.id),
-              syncSuppressed: const drift.Value(true),
-              suspectedPkGroupUuid: drift.Value(group.uuid),
             ),
           );
 
@@ -726,11 +873,9 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
             .into(db.memberGroupEntries)
             .insertOnConflictUpdate(
               MemberGroupEntriesCompanion.insert(
-                id: 'debug-pk-review-entry-${_debugSafeId(group.uuid)}-${_debugSafeId(memberUuid)}',
+                id: 'debug-pk-review-entry-${_debugSafeId(selectedGroup.uuid)}-${_debugSafeId(memberUuid)}',
                 groupId: reviewGroupId,
                 memberId: localMemberId,
-                pkGroupUuid: drift.Value(group.uuid),
-                pkMemberUuid: drift.Value(memberUuid),
                 isDeleted: const drift.Value(false),
               ),
             );
@@ -738,8 +883,8 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
     });
 
     final memberText = memberUuids.length == 1 ? 'member' : 'members';
-    return 'Seeded review card for ${group.displayName ?? group.name} '
-        'with ${memberUuids.length} $memberText.';
+    return 'Seeded sandbox group ${selectedGroup.name} with '
+        '${memberUuids.length} $memberText.';
   }
 
   Future<String?> _localMemberIdForPkUuid(
@@ -757,14 +902,9 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
   String _debugSafeId(String value) {
     return value.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_');
   }
+}
 
-  String _formatDateTime(DateTime dt) {
-    return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-'
-        '${dt.day.toString().padLeft(2, '0')} '
-        '${dt.hour.toString().padLeft(2, '0')}:'
-        '${dt.minute.toString().padLeft(2, '0')}';
-  }
-
+extension on _DebugScreenState {
   Future<void> _confirmReset(BuildContext context) async {
     // First confirmation.
     final first = await PrismDialog.confirm(
@@ -851,6 +991,7 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
   }
 
   Future<void> _runGeneration(StressPreset preset) async {
+    // ignore: invalid_use_of_protected_member
     setState(() {
       _isGenerating = true;
       _progress = null;
@@ -863,6 +1004,7 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
 
       await for (final progress in generator.generate(preset)) {
         if (mounted) {
+          // ignore: invalid_use_of_protected_member
           setState(() => _progress = progress);
         }
       }
@@ -882,6 +1024,7 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
       }
     } finally {
       if (mounted) {
+        // ignore: invalid_use_of_protected_member
         setState(() {
           _isGenerating = false;
           _progress = null;
@@ -913,6 +1056,7 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
 
     if (!confirmed || !mounted) return;
 
+    // ignore: invalid_use_of_protected_member
     setState(() => _isClearing = true);
     try {
       await generator.clearStressData();
@@ -927,7 +1071,10 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
         );
       }
     } finally {
-      if (mounted) setState(() => _isClearing = false);
+      if (mounted) {
+        // ignore: invalid_use_of_protected_member
+        setState(() => _isClearing = false);
+      }
     }
   }
 }

@@ -5082,7 +5082,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String pluralkitRepairMergeActionPreview(String summary) {
-    return 'La fusión va a $summary.';
+    return 'Usar esta coincidencia va a $summary.';
   }
 
   @override
@@ -5123,10 +5123,11 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get pluralkitRepairMergeIntoCanonical => 'Fusionar con el canónico';
+  String get pluralkitRepairUsePluralKitMatch =>
+      'Usar esta coincidencia de PluralKit';
 
   @override
-  String get pluralkitRepairKeepLocalOnly => 'Mantener solo local';
+  String get pluralkitRepairKeepMyPrismGroup => 'Mantener mi grupo de Prism';
 
   @override
   String get pluralkitRepairDismissFalsePositive => 'Descartar falso positivo';
@@ -5658,7 +5659,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get pluralkitRepairMergedSuccess =>
-      'Grupo fusionado con el grupo canónico respaldado por PK.';
+      'Grupo vinculado con la coincidencia de PluralKit.';
 
   @override
   String pluralkitRepairDismissReviewFailed(Object error) {
@@ -5672,7 +5673,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String pluralkitRepairMergeFailed(Object error) {
-    return 'No se pudo fusionar este grupo con el grupo PK canónico: $error';
+    return 'No se pudo usar esta coincidencia de PluralKit: $error';
   }
 
   @override

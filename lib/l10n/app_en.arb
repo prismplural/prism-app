@@ -6408,7 +6408,7 @@
     "description": "Label for suspected PK UUID in repair review",
     "placeholders": { "uuid": { "type": "String" } }
   },
-  "pluralkitRepairMergeActionPreview": "Merge will {summary}.",
+  "pluralkitRepairMergeActionPreview": "Using this match will {summary}.",
   "@pluralkitRepairMergeActionPreview": {
     "description": "Action preview sentence for repair review merge",
     "placeholders": { "summary": { "type": "String" } }
@@ -6430,10 +6430,10 @@
     "description": "Merge action preview fragment",
     "placeholders": { "count": { "type": "int" } }
   },
-  "pluralkitRepairMergeIntoCanonical": "Merge into canonical",
-  "@pluralkitRepairMergeIntoCanonical": { "description": "Button label for merging a review item into the canonical PK group" },
-  "pluralkitRepairKeepLocalOnly": "Keep local-only",
-  "@pluralkitRepairKeepLocalOnly": { "description": "Button label for keeping a review item local-only" },
+  "pluralkitRepairUsePluralKitMatch": "Use this PluralKit match",
+  "@pluralkitRepairUsePluralKitMatch": { "description": "Button label for accepting the suggested PluralKit group match" },
+  "pluralkitRepairKeepMyPrismGroup": "Keep my Prism group",
+  "@pluralkitRepairKeepMyPrismGroup": { "description": "Button label for keeping a reviewed local group separate from the suggested PluralKit group" },
   "pluralkitRepairDismissFalsePositive": "Dismiss false positive",
   "@pluralkitRepairDismissFalsePositive": { "description": "Button label for dismissing a review item false positive" },
   "pluralkitRepairSection": "Group repair",
@@ -6549,10 +6549,10 @@
   "pluralkitRepairFailedToast": "PluralKit group repair failed: {error}",
   "pluralkitRepairReviewDismissed": "Group review dismissed. Sync suppression was cleared.",
   "pluralkitRepairKeepLocalOnlySuccess": "Group kept local-only. It will stay out of sync.",
-  "pluralkitRepairMergedSuccess": "Group merged into the canonical PK-backed group.",
+  "pluralkitRepairMergedSuccess": "Group linked to the PluralKit match.",
   "pluralkitRepairDismissReviewFailed": "Could not dismiss this repair review item: {error}",
   "pluralkitRepairKeepLocalOnlyFailed": "Could not keep this group local-only: {error}",
-  "pluralkitRepairMergeFailed": "Could not merge this group into the canonical PK group: {error}",
+  "pluralkitRepairMergeFailed": "Could not use this PluralKit match: {error}",
   "pluralkitRepairCutoverSettingsLoadingError": "Could not verify the shared cutover setting yet. Wait for repair status to finish loading and try again.",
   "pluralkitRepairCutoverAlreadyEnabled": "PK group sync v2 is already enabled for this sync group.",
   "pluralkitRepairCutoverRepairLoadingError": "Repair status is still loading or running. Wait for it to finish before enabling PK group sync v2.",

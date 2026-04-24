@@ -375,6 +375,15 @@ final routerProvider = Provider<GoRouter>((ref) {
                     redirect: (context, state) =>
                         !kReleaseMode ? null : AppRoutePaths.settings,
                     builder: (context, state) => const DebugScreen(),
+                    routes: [
+                      GoRoute(
+                        path: 'pluralkit-group-tester',
+                        redirect: (context, state) =>
+                            !kReleaseMode ? null : AppRoutePaths.settings,
+                        builder: (context, state) =>
+                            const PluralKitGroupTesterScreen(),
+                      ),
+                    ],
                   ),
                   GoRoute(
                     path: 'component-gallery',

@@ -18,6 +18,8 @@ MemberGroupsCompanion _group({
   String? pluralkitUuid,
   String? parentGroupId,
   DateTime? lastSeenFromPkAt,
+  bool syncSuppressed = false,
+  String? suspectedPkGroupUuid,
 }) => MemberGroupsCompanion.insert(
   id: id,
   name: name,
@@ -26,6 +28,8 @@ MemberGroupsCompanion _group({
   parentGroupId: Value(parentGroupId),
   pluralkitUuid: Value(pluralkitUuid),
   lastSeenFromPkAt: Value(lastSeenFromPkAt),
+  syncSuppressed: Value(syncSuppressed),
+  suspectedPkGroupUuid: Value(suspectedPkGroupUuid),
 );
 
 MembersCompanion _member({
@@ -976,6 +980,151 @@ void main() {
       expect(group.syncSuppressed, isFalse);
       expect(group.suspectedPkGroupUuid, null);
       expect(await service.getPendingReviewCount(), 0);
+    },
+  );
+
+  test(
+    'kept-local review item is not re-flagged by later repair runs',
+    () async {
+      await db
+          .into(db.members)
+          .insert(
+            _member(
+              id: 'member-a',
+              name: 'Alice',
+              pluralkitUuid: 'pk-member-a',
+            ),
+          );
+      await db
+          .into(db.memberGroups)
+          .insert(
+            _group(
+              id: 'plain-group',
+              name: 'Cluster',
+              createdAt: DateTime(2024, 1, 1),
+            ),
+          );
+      await db
+          .into(db.memberGroupEntries)
+          .insert(
+            _entry(
+              id: 'plain-entry',
+              groupId: 'plain-group',
+              memberId: 'member-a',
+              pkMemberUuid: 'pk-member-a',
+            ),
+          );
+
+      final service = PkGroupRepairService(
+        memberGroupsDao: db.memberGroupsDao,
+        aliasesDao: db.pkGroupSyncAliasesDao,
+        hasRepairToken: ({String? token}) async => true,
+        fetchRepairReferenceData: ({String? token}) async {
+          return const PkRepairReferenceData(
+            system: PKSystem(id: 'system-1', name: 'Test'),
+            members: [PKMember(id: 'm1', uuid: 'pk-member-a', name: 'Alice')],
+            groups: [
+              PKGroup(
+                id: 'g1',
+                uuid: 'pk-group-1',
+                name: 'Cluster',
+                memberIds: ['pk-member-a'],
+              ),
+            ],
+          );
+        },
+      );
+
+      final firstReport = await service.run(token: 'provided-token');
+      expect(firstReport.ambiguousGroupsSuppressed, 1);
+      expect(await service.getPendingReviewCount(), 1);
+
+      await service.keepReviewItemsLocalOnly(['plain-group']);
+      var group = await (db.select(
+        db.memberGroups,
+      )..where((t) => t.id.equals('plain-group'))).getSingle();
+      expect(group.syncSuppressed, isTrue);
+      expect(group.suspectedPkGroupUuid, null);
+      expect(await service.getPendingReviewCount(), 0);
+
+      final secondReport = await service.run(token: 'provided-token');
+      expect(secondReport.ambiguousGroupsSuppressed, 0);
+      expect(secondReport.pendingReviewCount, 0);
+      expect(await service.getPendingReviewCount(), 0);
+
+      group = await (db.select(
+        db.memberGroups,
+      )..where((t) => t.id.equals('plain-group'))).getSingle();
+      expect(group.syncSuppressed, isTrue);
+      expect(group.suspectedPkGroupUuid, null);
+    },
+  );
+
+  test(
+    'mid-review suppressed group with a pending UUID is not re-evaluated',
+    () async {
+      await db
+          .into(db.members)
+          .insert(
+            _member(
+              id: 'member-a',
+              name: 'Alice',
+              pluralkitUuid: 'pk-member-a',
+            ),
+          );
+      await db
+          .into(db.memberGroups)
+          .insert(
+            _group(
+              id: 'plain-group',
+              name: 'Cluster',
+              createdAt: DateTime(2024, 1, 1),
+              syncSuppressed: true,
+              suspectedPkGroupUuid: 'pk-group-1',
+            ),
+          );
+      await db
+          .into(db.memberGroupEntries)
+          .insert(
+            _entry(
+              id: 'plain-entry',
+              groupId: 'plain-group',
+              memberId: 'member-a',
+              pkMemberUuid: 'pk-member-a',
+            ),
+          );
+
+      final service = PkGroupRepairService(
+        memberGroupsDao: db.memberGroupsDao,
+        aliasesDao: db.pkGroupSyncAliasesDao,
+        hasRepairToken: ({String? token}) async => true,
+        fetchRepairReferenceData: ({String? token}) async {
+          return const PkRepairReferenceData(
+            system: PKSystem(id: 'system-1', name: 'Test'),
+            members: [PKMember(id: 'm1', uuid: 'pk-member-a', name: 'Alice')],
+            groups: [
+              PKGroup(
+                id: 'g1',
+                uuid: 'pk-group-1',
+                name: 'Cluster',
+                memberIds: ['pk-member-a'],
+              ),
+            ],
+          );
+        },
+      );
+
+      final report = await service.run(token: 'provided-token');
+      // The group already carries suspectedPkGroupUuid + syncSuppressed.
+      // The simplified skip check should leave it alone on re-run.
+      expect(report.ambiguousGroupsSuppressed, 0);
+      expect(report.pendingReviewCount, 1);
+
+      final group = await (db.select(
+        db.memberGroups,
+      )..where((t) => t.id.equals('plain-group'))).getSingle();
+      expect(group.syncSuppressed, isTrue);
+      expect(group.suspectedPkGroupUuid, 'pk-group-1');
     },
   );
 

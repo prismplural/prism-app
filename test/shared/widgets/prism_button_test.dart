@@ -7,20 +7,21 @@ import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import '../../helpers/widget_test_helpers.dart';
 
 void main() {
-
   group('PrismButton', () {
     testWidgets('renders label text', (tester) async {
-      await tester.pumpWidget(testApp(
-        PrismButton(label: 'Save', onPressed: () {}),
-      ));
+      await tester.pumpWidget(
+        testApp(PrismButton(label: 'Save', onPressed: () {})),
+      );
 
       expect(find.text('Save'), findsOneWidget);
     });
 
     testWidgets('renders icon when provided', (tester) async {
-      await tester.pumpWidget(testApp(
-        PrismButton(label: 'Add', icon: AppIcons.add, onPressed: () {}),
-      ));
+      await tester.pumpWidget(
+        testApp(
+          PrismButton(label: 'Add', icon: AppIcons.add, onPressed: () {}),
+        ),
+      );
 
       expect(find.byIcon(AppIcons.add), findsOneWidget);
       expect(find.text('Add'), findsOneWidget);
@@ -28,9 +29,9 @@ void main() {
 
     testWidgets('fires onPressed when tapped', (tester) async {
       var tapped = false;
-      await tester.pumpWidget(testApp(
-        PrismButton(label: 'Go', onPressed: () => tapped = true),
-      ));
+      await tester.pumpWidget(
+        testApp(PrismButton(label: 'Go', onPressed: () => tapped = true)),
+      );
 
       await tester.tap(find.text('Go'));
       expect(tapped, isTrue);
@@ -38,13 +39,15 @@ void main() {
 
     testWidgets('does not fire onPressed when disabled', (tester) async {
       var tapped = false;
-      await tester.pumpWidget(testApp(
-        PrismButton(
-          label: 'Go',
-          onPressed: () => tapped = true,
-          enabled: false,
+      await tester.pumpWidget(
+        testApp(
+          PrismButton(
+            label: 'Go',
+            onPressed: () => tapped = true,
+            enabled: false,
+          ),
         ),
-      ));
+      );
 
       await tester.tap(find.text('Go'));
       expect(tapped, isFalse);
@@ -52,13 +55,15 @@ void main() {
 
     testWidgets('does not fire onPressed when loading', (tester) async {
       var tapped = false;
-      await tester.pumpWidget(testApp(
-        PrismButton(
-          label: 'Go',
-          onPressed: () => tapped = true,
-          isLoading: true,
+      await tester.pumpWidget(
+        testApp(
+          PrismButton(
+            label: 'Go',
+            onPressed: () => tapped = true,
+            isLoading: true,
+          ),
         ),
-      ));
+      );
 
       // Label is hidden during loading, tap the progress indicator area
       await tester.tap(find.byType(PrismButton));
@@ -66,22 +71,24 @@ void main() {
     });
 
     testWidgets('shows CircularProgressIndicator when loading', (tester) async {
-      await tester.pumpWidget(testApp(
-        PrismButton(label: 'Go', onPressed: () {}, isLoading: true),
-      ));
+      await tester.pumpWidget(
+        testApp(PrismButton(label: 'Go', onPressed: () {}, isLoading: true)),
+      );
 
       expect(find.byType(PrismSpinner), findsOneWidget);
       expect(find.text('Go'), findsNothing);
     });
 
     testWidgets('uses semanticLabel when provided', (tester) async {
-      await tester.pumpWidget(testApp(
-        PrismButton(
-          label: 'X',
-          onPressed: () {},
-          semanticLabel: 'Close dialog',
+      await tester.pumpWidget(
+        testApp(
+          PrismButton(
+            label: 'X',
+            onPressed: () {},
+            semanticLabel: 'Close dialog',
+          ),
         ),
-      ));
+      );
 
       final semantics = tester.getSemantics(find.byType(PrismButton));
       expect(semantics.label, contains('Close dialog'));
@@ -90,9 +97,11 @@ void main() {
     group('tones', () {
       for (final tone in PrismButtonTone.values) {
         testWidgets('renders with $tone tone', (tester) async {
-          await tester.pumpWidget(testApp(
-            PrismButton(label: tone.name, onPressed: () {}, tone: tone),
-          ));
+          await tester.pumpWidget(
+            testApp(
+              PrismButton(label: tone.name, onPressed: () {}, tone: tone),
+            ),
+          );
 
           expect(find.text(tone.name), findsOneWidget);
           // Verify it doesn't crash and renders an AnimatedContainer
@@ -103,33 +112,62 @@ void main() {
 
     group('expanded', () {
       testWidgets('uses MainAxisSize.min by default', (tester) async {
-        await tester.pumpWidget(testApp(
-          PrismButton(label: 'Narrow', onPressed: () {}),
-        ));
+        await tester.pumpWidget(
+          testApp(PrismButton(label: 'Narrow', onPressed: () {})),
+        );
 
         final row = tester.widget<Row>(find.byType(Row));
         expect(row.mainAxisSize, MainAxisSize.min);
       });
 
       testWidgets('uses MainAxisSize.max when expanded', (tester) async {
-        await tester.pumpWidget(testApp(
-          PrismButton(label: 'Wide', onPressed: () {}, expanded: true),
-        ));
+        await tester.pumpWidget(
+          testApp(PrismButton(label: 'Wide', onPressed: () {}, expanded: true)),
+        );
 
         final row = tester.widget<Row>(find.byType(Row));
         expect(row.mainAxisSize, MainAxisSize.max);
+      });
+
+      testWidgets('wraps long expanded labels in narrow layouts', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          testApp(
+            Center(
+              child: SizedBox(
+                width: 150,
+                child: PrismButton(
+                  label: 'Seed sandbox review from first group',
+                  icon: AppIcons.add,
+                  onPressed: () {},
+                  expanded: true,
+                ),
+              ),
+            ),
+          ),
+        );
+
+        final exception = tester.takeException();
+        expect(exception, isNull);
+        final text = tester.widget<Text>(
+          find.text('Seed sandbox review from first group'),
+        );
+        expect(text.maxLines, 2);
       });
     });
 
     group('density', () {
       testWidgets('compact density uses smaller padding', (tester) async {
-        await tester.pumpWidget(testApp(
-          PrismButton(
-            label: 'Compact',
-            onPressed: () {},
-            density: PrismControlDensity.compact,
+        await tester.pumpWidget(
+          testApp(
+            PrismButton(
+              label: 'Compact',
+              onPressed: () {},
+              density: PrismControlDensity.compact,
+            ),
           ),
-        ));
+        );
 
         final container = tester.widget<AnimatedContainer>(
           find.byType(AnimatedContainer),
@@ -140,13 +178,15 @@ void main() {
       });
 
       testWidgets('regular density uses larger padding', (tester) async {
-        await tester.pumpWidget(testApp(
-          PrismButton(
-            label: 'Regular',
-            onPressed: () {},
-            density: PrismControlDensity.regular,
+        await tester.pumpWidget(
+          testApp(
+            PrismButton(
+              label: 'Regular',
+              onPressed: () {},
+              density: PrismControlDensity.regular,
+            ),
           ),
-        ));
+        );
 
         final container = tester.widget<AnimatedContainer>(
           find.byType(AnimatedContainer),
@@ -160,18 +200,20 @@ void main() {
 
   group('PrismIconButton', () {
     testWidgets('renders icon', (tester) async {
-      await tester.pumpWidget(testApp(
-        PrismIconButton(icon: AppIcons.navSettings, onPressed: () {}),
-      ));
+      await tester.pumpWidget(
+        testApp(PrismIconButton(icon: AppIcons.navSettings, onPressed: () {})),
+      );
 
       expect(find.byIcon(AppIcons.navSettings), findsOneWidget);
     });
 
     testWidgets('fires onPressed when tapped', (tester) async {
       var tapped = false;
-      await tester.pumpWidget(testApp(
-        PrismIconButton(icon: AppIcons.add, onPressed: () => tapped = true),
-      ));
+      await tester.pumpWidget(
+        testApp(
+          PrismIconButton(icon: AppIcons.add, onPressed: () => tapped = true),
+        ),
+      );
 
       await tester.tap(find.byType(PrismIconButton));
       expect(tapped, isTrue);
@@ -179,39 +221,45 @@ void main() {
 
     testWidgets('does not fire when disabled', (tester) async {
       var tapped = false;
-      await tester.pumpWidget(testApp(
-        PrismIconButton(
-          icon: AppIcons.add,
-          onPressed: () => tapped = true,
-          enabled: false,
+      await tester.pumpWidget(
+        testApp(
+          PrismIconButton(
+            icon: AppIcons.add,
+            onPressed: () => tapped = true,
+            enabled: false,
+          ),
         ),
-      ));
+      );
 
       await tester.tap(find.byType(PrismIconButton));
       expect(tapped, isFalse);
     });
 
     testWidgets('shows tooltip when provided', (tester) async {
-      await tester.pumpWidget(testApp(
-        PrismIconButton(
-          icon: AppIcons.add,
-          onPressed: () {},
-          tooltip: 'Add item',
+      await tester.pumpWidget(
+        testApp(
+          PrismIconButton(
+            icon: AppIcons.add,
+            onPressed: () {},
+            tooltip: 'Add item',
+          ),
         ),
-      ));
+      );
 
       expect(find.byType(Tooltip), findsOneWidget);
     });
 
     testWidgets('fires onLongPress', (tester) async {
       var longPressed = false;
-      await tester.pumpWidget(testApp(
-        PrismIconButton(
-          icon: AppIcons.add,
-          onPressed: () {},
-          onLongPress: () => longPressed = true,
+      await tester.pumpWidget(
+        testApp(
+          PrismIconButton(
+            icon: AppIcons.add,
+            onPressed: () {},
+            onLongPress: () => longPressed = true,
+          ),
         ),
-      ));
+      );
 
       await tester.longPress(find.byType(PrismIconButton));
       expect(longPressed, isTrue);

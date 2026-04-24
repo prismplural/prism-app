@@ -480,7 +480,7 @@ class PkGroupRepairService {
       if (group.pluralkitUuid != null && group.pluralkitUuid!.isNotEmpty) {
         continue;
       }
-      if (group.syncSuppressed && group.suspectedPkGroupUuid != null) {
+      if (group.syncSuppressed) {
         continue;
       }
 

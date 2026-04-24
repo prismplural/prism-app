@@ -35,6 +35,8 @@ abstract final class AppRoutePaths {
   static const settingsDatabase = '/settings/database';
   static const settingsAbout = '/settings/about';
   static const settingsDebug = '/settings/debug';
+  static const settingsDebugPluralKitGroupTester =
+      '/settings/debug/pluralkit-group-tester';
   static const settingsComponentGallery = '/settings/component-gallery';
   static const settingsSyncDebug = '/settings/sync-debug';
   static const settingsErrors = '/settings/errors';
@@ -44,7 +46,7 @@ abstract final class AppRoutePaths {
   static const settingsDevices = '/settings/devices';
   static const settingsDataBrowser = '/settings/data-browser';
   static const settingsTimelineSanitization = '/settings/timeline-sanitization';
-static const settingsMembersManage = '/settings/members/manage';
+  static const settingsMembersManage = '/settings/members/manage';
   static const settingsGroups = '/settings/members/groups';
   static const settingsCustomFields = '/settings/custom-fields';
   static const settingsAnalytics = '/settings/analytics';
