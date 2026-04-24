@@ -5,10 +5,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
+import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pk_auto_poll_provider.dart';
+import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
+import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/features/settings/providers/pin_lock_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
@@ -213,6 +216,8 @@ void main() {
               isPinSetProvider.overrideWith((ref) async => false),
               syncStatusProvider.overrideWith(_FakeSyncStatusNotifier.new),
               pkAutoPollProvider.overrideWith(_FakePkAutoPollNotifier.new),
+              pluralKitSyncProvider.overrideWith(_FakePluralKitSyncNotifier.new),
+              habitsBadgeEnabledProvider.overrideWith((ref) => false),
               activeSessionProvider.overrideWith((ref) => Stream.value(null)),
               allMembersProvider.overrideWith((ref) => Stream.value(const [])),
               unreadConversationCountProvider.overrideWith((ref) {
@@ -324,6 +329,8 @@ void main() {
               isPinSetProvider.overrideWith((ref) async => false),
               syncStatusProvider.overrideWith(_FakeSyncStatusNotifier.new),
               pkAutoPollProvider.overrideWith(_FakePkAutoPollNotifier.new),
+              pluralKitSyncProvider.overrideWith(_FakePluralKitSyncNotifier.new),
+              habitsBadgeEnabledProvider.overrideWith((ref) => false),
               activeSessionProvider.overrideWith((ref) => Stream.value(null)),
               allMembersProvider.overrideWith((ref) => Stream.value(const [])),
               unreadConversationCountProvider.overrideWith((ref) => 0),
@@ -440,4 +447,15 @@ class _FakePkAutoPollNotifier extends PkAutoPollNotifier {
 
   @override
   void noteLocalPush() {}
+}
+
+class _FakePluralKitSyncNotifier extends PluralKitSyncNotifier {
+  @override
+  PluralKitSyncState build() => const PluralKitSyncState();
+
+  @override
+  Future<int> pushPendingSwitches() async => 0;
+
+  @override
+  Future<void> pushMemberUpdate(domain.Member member) async {}
 }
