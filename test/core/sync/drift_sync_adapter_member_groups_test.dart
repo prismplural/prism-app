@@ -1165,6 +1165,70 @@ void main() {
       });
     },
   );
+
+  test('member_groups: canonical-id tombstone with nulled pluralkit_uuid '
+      'is still recognized as deleted and updates in place on replay', () async {
+    // Regression for batch 1: `deleteGroup` now nulls `pluralkit_uuid` in
+    // addition to flipping `is_deleted`. CRDT identity is the canonical
+    // entity id (`pk-group:<uuid>`), not the Drift column value, so a peer
+    // sync op addressed to the canonical id must match the tombstone by id
+    // and update the existing row rather than inserting a sibling.
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+
+    final groupsEntity = _entityFor(db, 'member_groups');
+    const pkUuid = 'pk-g-uuid-tombstoned';
+    const canonicalId = 'pk-group:$pkUuid';
+    final createdAt = DateTime.utc(2026, 4, 18, 12);
+
+    // Seed the tombstoned row with id=canonical, pluralkit_uuid=NULL,
+    // is_deleted=true — mirroring the post-deleteGroup shape.
+    await db
+        .into(db.memberGroups)
+        .insert(
+          MemberGroupsCompanion.insert(
+            id: canonicalId,
+            name: 'Deleted Group',
+            createdAt: createdAt,
+            pluralkitUuid: const Value(null),
+            isDeleted: const Value(true),
+          ),
+        );
+
+    expect(
+      await groupsEntity.isDeleted(canonicalId),
+      isTrue,
+      reason:
+          'tombstone addressed by canonical id must still resolve to the '
+          'existing row even with pluralkit_uuid nulled',
+    );
+
+    final readBack = await groupsEntity.readRow(canonicalId);
+    expect(readBack, isNotNull);
+    expect(readBack!['is_deleted'], isTrue);
+    expect(readBack['pluralkit_uuid'], isNull);
+    expect(readBack['name'], 'Deleted Group');
+
+    // A late-arriving peer op for the same canonical id should match the
+    // tombstone by entity id and update the existing row, not insert a
+    // sibling under a different local row id.
+    await groupsEntity.applyFields(canonicalId, {
+      'name': 'Replayed Remote',
+      'display_order': 1,
+      'group_type': 0,
+      'created_at': createdAt.toIso8601String(),
+      'pluralkit_uuid': pkUuid,
+      'is_deleted': false,
+    });
+
+    final rows = await (db.select(db.memberGroups)
+          ..where((t) => t.pluralkitUuid.equals(pkUuid)))
+        .get();
+    expect(rows, hasLength(1), reason: 'no sibling row should be inserted');
+    expect(rows.single.id, canonicalId);
+    expect(rows.single.name, 'Replayed Remote');
+    expect(rows.single.isDeleted, isFalse);
+  });
 }
 
 DriftSyncEntity _entityFor(AppDatabase db, String tableName) {
