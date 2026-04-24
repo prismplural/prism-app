@@ -12,7 +12,9 @@ import 'package:prism_plurality/core/constants/app_constants.dart';
 import 'package:prism_plurality/core/crypto/bip39_validate.dart';
 import 'package:prism_plurality/core/sync/pairing_ceremony_api.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
+import 'package:prism_plurality/core/sync/sync_event_loop.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/utils/human_bytes.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_mnemonic_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
@@ -69,7 +71,13 @@ enum _InitiatorStep {
   connecting,
   sasVerification,
   passwordEntry,
+  // Uploading the encrypted snapshot to the relay. Progress bar visible.
+  uploading,
+  // Snapshot upload finished; finishing the credential handshake.
   completing,
+  // Snapshot uploaded and handshake done. Brief confirmation before we
+  // reset back to the prompt so the user sees the pair succeeded.
+  uploadComplete,
   done,
   error,
 }
@@ -83,6 +91,22 @@ class _SetupDeviceSheetContentState
   String? _error;
   MobileScannerController? _joinerScannerController;
 
+  /// Joiner's device_id captured from `startInitiatorCeremony`'s return
+  /// JSON so we can thread it into `uploadPairingSnapshot(forDeviceId:)`.
+  /// The relay scopes the snapshot and ACK-DELETE to this device_id.
+  String? _joinerDeviceId;
+
+  /// Latest upload progress for the pair-time snapshot, in bytes.
+  /// Reset each time `_completeInitiator` runs.
+  int? _uploadBytesSent;
+  int? _uploadBytesTotal;
+
+  /// Set when a `SnapshotUploadFailed` event arrives during the upload
+  /// phase. Drives the retry button in the progress card.
+  String? _uploadFailureReason;
+
+  ProviderSubscription<AsyncValue<SyncEvent>>? _uploadEventSubscription;
+
   // Recovery phrase typed by the user; required because the mnemonic is
   // never persisted in the keychain. Zeroed on dispose.
   String? _mnemonic;
@@ -94,6 +118,8 @@ class _SetupDeviceSheetContentState
   @override
   void dispose() {
     _joinerScannerController?.dispose();
+    _uploadEventSubscription?.close();
+    _uploadEventSubscription = null;
     _mnemonic = null;
     super.dispose();
   }
@@ -101,11 +127,17 @@ class _SetupDeviceSheetContentState
   void _reset() {
     _joinerScannerController?.dispose();
     _joinerScannerController = null;
+    _uploadEventSubscription?.close();
+    _uploadEventSubscription = null;
     setState(() {
       _step = _InitiatorStep.enterMnemonic;
       _joinerScanned = false;
       _sasWords = null;
       _sasDecimal = null;
+      _joinerDeviceId = null;
+      _uploadBytesSent = null;
+      _uploadBytesTotal = null;
+      _uploadFailureReason = null;
       _error = null;
       _mnemonic = null;
     });
@@ -126,11 +158,16 @@ class _SetupDeviceSheetContentState
       final json = jsonDecode(jsonString) as Map<String, dynamic>;
       final sasWords = json['sas_words'] as String;
       final sasDecimal = json['sas_decimal'] as String;
+      // Captured for uploadPairingSnapshot(forDeviceId:) in _completeInitiator.
+      // May be absent on older Rust builds; threading it through lets the
+      // joiner DELETE the snapshot once it has applied the bootstrap.
+      final joinerDeviceId = json['joiner_device_id'] as String?;
 
       if (!mounted) return;
       setState(() {
         _sasWords = sasWords;
         _sasDecimal = sasDecimal;
+        _joinerDeviceId = joinerDeviceId;
         _step = _InitiatorStep.sasVerification;
       });
     } catch (e) {
@@ -144,9 +181,40 @@ class _SetupDeviceSheetContentState
 
   Future<void> _completeInitiator(String pin) async {
     setState(() {
-      _step = _InitiatorStep.completing;
+      _step = _InitiatorStep.uploading;
       _error = null;
+      _uploadBytesSent = null;
+      _uploadBytesTotal = null;
+      _uploadFailureReason = null;
     });
+
+    // Subscribe to the sync event stream to drive the upload progress
+    // bar. The stream emits SnapshotUploadProgress during the streamed
+    // PUT and SnapshotUploadFailed if the relay rejects the body.
+    _uploadEventSubscription?.close();
+    _uploadEventSubscription = ref.listenManual<AsyncValue<SyncEvent>>(
+      syncEventStreamProvider,
+      (prev, next) {
+        next.whenData((event) {
+          if (!mounted) return;
+          if (event.type == 'SnapshotUploadProgress') {
+            final sent = _asInt(event.data['bytes_sent']);
+            final total = _asInt(event.data['bytes_total']);
+            if (sent != null && total != null) {
+              setState(() {
+                _uploadBytesSent = sent;
+                _uploadBytesTotal = total;
+              });
+            }
+          } else if (event.type == 'SnapshotUploadFailed') {
+            setState(() {
+              _uploadFailureReason =
+                  (event.data['reason'] as String?) ?? 'Upload failed';
+            });
+          }
+        });
+      },
+    );
 
     try {
       // Upload the ephemeral snapshot BEFORE sending credentials. The joiner
@@ -169,7 +237,13 @@ class _SetupDeviceSheetContentState
       await ffi.uploadPairingSnapshot(
         handle: widget.handle,
         ttlSecs: BigInt.from(86400),
+        forDeviceId: _joinerDeviceId,
       );
+
+      if (!mounted) return;
+      setState(() {
+        _step = _InitiatorStep.completing;
+      });
 
       final mnemonic = _mnemonic;
       if (mnemonic == null) {
@@ -189,16 +263,36 @@ class _SetupDeviceSheetContentState
       await drainRustStore(widget.handle);
 
       if (!mounted) return;
+      // Brief confirmation so the user sees the upload actually finished
+      // before we route forward.
+      setState(() {
+        _step = _InitiatorStep.uploadComplete;
+      });
+      _uploadEventSubscription?.close();
+      _uploadEventSubscription = null;
+      await Future<void>.delayed(const Duration(seconds: 2));
+      if (!mounted) return;
       setState(() {
         _step = _InitiatorStep.done;
       });
     } catch (e) {
+      _uploadEventSubscription?.close();
+      _uploadEventSubscription = null;
       if (!mounted) return;
       setState(() {
         _error = e.toString();
         _step = _InitiatorStep.error;
       });
     }
+  }
+
+  static int? _asInt(Object? raw) {
+    if (raw == null) return null;
+    if (raw is int) return raw;
+    if (raw is BigInt) return raw.toInt();
+    if (raw is num) return raw.toInt();
+    if (raw is String) return int.tryParse(raw);
+    return null;
   }
 
   @override
@@ -285,6 +379,16 @@ class _SetupDeviceSheetContentState
         onPinEntered: _completeInitiator,
         onBack: () => setState(() => _step = _InitiatorStep.sasVerification),
       ),
+      _InitiatorStep.uploading => _InitiatorUploadingView(
+        bytesSent: _uploadBytesSent,
+        bytesTotal: _uploadBytesTotal,
+        failureReason: _uploadFailureReason,
+        // Re-run the upload + completion. PIN was consumed on the first
+        // attempt, so bounce back to the start of the flow so the user
+        // re-enters the mnemonic and PIN.
+        onRetry: _reset,
+      ),
+      _InitiatorStep.uploadComplete => const _InitiatorUploadCompleteView(),
       _InitiatorStep.completing => Center(
         child: Padding(
           padding: const EdgeInsets.all(48),
@@ -888,6 +992,145 @@ class _InitiatorErrorView extends StatelessWidget {
           onPressed: onTryAgain,
         ),
       ],
+    );
+  }
+}
+
+/// Progress card while the encrypted pairing snapshot streams to the relay.
+///
+/// Shows a linear progress bar driven by `SnapshotUploadProgress` events and
+/// a human-readable label ("Uploading X of Y"). On `SnapshotUploadFailed`,
+/// swaps the progress bar for a retry button.
+class _InitiatorUploadingView extends StatelessWidget {
+  const _InitiatorUploadingView({
+    required this.bytesSent,
+    required this.bytesTotal,
+    required this.failureReason,
+    required this.onRetry,
+  });
+
+  final int? bytesSent;
+  final int? bytesTotal;
+  final String? failureReason;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final sent = bytesSent ?? 0;
+    final total = bytesTotal ?? 0;
+    final progress = total > 0 ? (sent / total).clamp(0.0, 1.0) : null;
+
+    if (failureReason != null) {
+      return Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              AppIcons.errorOutline,
+              color: theme.colorScheme.error,
+              size: 40,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              context.l10n.syncSetupSnapshotUploadFailedTitle,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              failureReason!,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            PrismButton(
+              label: context.l10n.syncSetupSnapshotUploadRetry,
+              icon: AppIcons.refresh,
+              onPressed: onRetry,
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            context.l10n.syncSetupSnapshotUploadingTitle,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(8)),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 8,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            total > 0
+                ? context.l10n.syncSetupSnapshotUploadProgress(
+                    humanBytes(sent),
+                    humanBytes(total),
+                  )
+                : context.l10n.syncSetupSnapshotUploadStarting,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Brief "pairing ready" confirmation shown after the snapshot has been
+/// uploaded and credentials exchanged, before routing back out of the sheet.
+class _InitiatorUploadCompleteView extends StatelessWidget {
+  const _InitiatorUploadCompleteView();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.all(32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(AppIcons.checkCircle, color: Colors.green, size: 40),
+          const SizedBox(height: 16),
+          Text(
+            context.l10n.syncSetupPairingReadyTitle,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            context.l10n.syncSetupPairingReadyWaiting,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
     );
   }
 }

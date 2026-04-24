@@ -164,6 +164,25 @@ class _SyncDeviceStepState extends ConsumerState<SyncDeviceStep> {
               context.l10n.onboardingSyncUnknownError,
           onTryAgain: () => ref.read(devicePairingProvider.notifier).reset(),
         );
+      case PairingStep.snapshotFailure:
+        // Joiner-side: pairing ceremony succeeded but bootstrap couldn't
+        // apply the snapshot. Offer a retry (re-run snapshot download) or
+        // an explicit cancel (deregister this device + wipe keychain).
+        child = _SnapshotFailureView(
+          key: const ValueKey('snapshot-failure'),
+          message:
+              pairingState.errorMessage ??
+              context.l10n.onboardingSyncUnknownError,
+          onRetry: () => ref
+              .read(devicePairingProvider.notifier)
+              .retrySnapshotBootstrap(),
+          onCancel: () async {
+            await ref
+                .read(devicePairingProvider.notifier)
+                .cancelAndRemoveDevice();
+            widget.onBack();
+          },
+        );
     }
 
     return SecureScope(
@@ -821,6 +840,71 @@ class _ErrorView extends StatelessWidget {
             color: Colors.redAccent,
             tone: PrismButtonTone.destructive,
             onPressed: onTryAgain,
+          ),
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+}
+
+/// Joiner-side fatal-but-recoverable snapshot bootstrap failure.
+///
+/// Distinct from [_ErrorView] in that the pairing ceremony itself succeeded —
+/// this device is registered on the relay and holds valid session credentials.
+/// Retry re-runs just the snapshot download. Cancel explicitly deregisters
+/// the device before wiping keychain state.
+class _SnapshotFailureView extends StatelessWidget {
+  const _SnapshotFailureView({
+    super.key,
+    required this.message,
+    required this.onRetry,
+    required this.onCancel,
+  });
+
+  final String message;
+  final VoidCallback onRetry;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: 8),
+          Icon(AppIcons.errorOutline, color: Colors.amber, size: 56),
+          const SizedBox(height: 16),
+          Text(
+            'Pairing incomplete',
+            style: theme.textTheme.headlineSmall?.copyWith(
+              color: AppColors.warmWhite,
+              fontWeight: FontWeight.w700,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            message,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: AppColors.warmWhite.withValues(alpha: 0.75),
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          _ActionButton(
+            label: 'Retry',
+            color: theme.colorScheme.primary,
+            onPressed: onRetry,
+          ),
+          const SizedBox(height: 12),
+          _ActionButton(
+            label: 'Cancel and remove this device',
+            color: Colors.redAccent,
+            tone: PrismButtonTone.destructive,
+            onPressed: onCancel,
           ),
           const SizedBox(height: 16),
         ],

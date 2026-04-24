@@ -32,6 +32,10 @@ enum PairingStep {
   success,
   // An error occurred
   error,
+  // Snapshot bootstrap failed after successful ceremony; the joiner is
+  // registered on the relay and can retry without re-running the ceremony.
+  // Offers Retry + Cancel (deregister) actions.
+  snapshotFailure,
 }
 
 class PairingState {
@@ -370,6 +374,17 @@ class DevicePairingNotifier extends Notifier<PairingState> {
 
     if (_generation != myGeneration) return;
 
+    await _runSnapshotBootstrap(handle, myGeneration, progressNotifier);
+  }
+
+  /// Run the snapshot-download + apply phase. Extracted so the retry path can
+  /// re-invoke just this chunk (the relay-side ceremony state is already
+  /// committed by [completeJoinerCeremony]).
+  Future<void> _runSnapshotBootstrap(
+    ffi.PrismSyncHandle handle,
+    int myGeneration,
+    SyncSetupProgressNotifier progressNotifier,
+  ) async {
     // Activate the sync event stream BEFORE bootstrap so RemoteChanges
     // events from bootstrapFromSnapshot are consumed as they arrive.
     // Without this, the bootstrap emits entities to Rust's broadcast
@@ -380,65 +395,147 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     final syncAdapter = ref.read(driftSyncAdapterProvider);
     syncAdapter.beginSyncBatch();
 
-    // Try to bootstrap from ephemeral snapshot (fast path for new device)
+    // Enter strict-apply mode: per-row failures while ingesting the
+    // snapshot must abort pairing so we never ACK a partially applied
+    // snapshot. The returned future completes with an error as soon as
+    // the sync event stream observes a strict-apply failure.
+    final strictCoordinator = ref.read(strictApplyCoordinatorProvider);
+    final strictFailureFuture = strictCoordinator.enterStrictMode();
+
+    var fatalSnapshotError = false;
+    String? fatalSnapshotMessage;
+    String? fatalSnapshotCode;
+    var bootstrapRestored = BigInt.zero;
+
     try {
-      final restored = await ffi.bootstrapFromSnapshot(handle: handle);
-      if (kDebugMode && restored > BigInt.zero) {
-        debugPrint('[PAIRING] Bootstrapped $restored entities from snapshot');
+      // Bootstrap from the ephemeral snapshot. Empty result (0 restored)
+      // is treated as fatal below — a joiner that couldn't read the
+      // initiator's snapshot must not fall through to an empty success.
+      try {
+        bootstrapRestored = await ffi.bootstrapFromSnapshot(handle: handle);
+        if (kDebugMode) {
+          debugPrint(
+            '[PAIRING] bootstrapFromSnapshot returned $bootstrapRestored',
+          );
+        }
+      } catch (e, stackTrace) {
+        fatalSnapshotError = true;
+        final structuredError = PrismSyncStructuredError.tryParse(e);
+        fatalSnapshotMessage = structuredError?.userMessage ?? e.toString();
+        fatalSnapshotCode = structuredError?.code;
+        if (kDebugMode) {
+          debugPrint('[PAIRING] bootstrapFromSnapshot threw: $e');
+        }
+        ErrorReportingService.instance.report(
+          'Snapshot bootstrap failed (fatal): $e',
+          severity: ErrorSeverity.error,
+          stackTrace: stackTrace,
+        );
       }
-    } catch (e, stackTrace) {
-      // Non-fatal — will sync incrementally
-      if (kDebugMode) {
-        debugPrint('[PAIRING] Snapshot bootstrap failed (non-fatal): $e');
+
+      if (!fatalSnapshotError && bootstrapRestored == BigInt.zero) {
+        fatalSnapshotError = true;
+        fatalSnapshotMessage =
+            "Couldn't load your system from the pairing device. "
+            'Please try again.';
       }
-      ErrorReportingService.instance.report(
-        'Snapshot bootstrap failed (non-fatal): $e',
-        severity: ErrorSeverity.warning,
-        stackTrace: stackTrace,
-      );
-    }
-    // BOUNDARY 2: snapshot bootstrap resolved (success or failure) — now
-    // applying remote changes to the local database (restoring phase).
-    if (_generation == myGeneration) {
-      progressNotifier.setPhase(PairingProgressPhase.restoring);
+
+      // BOUNDARY 2: snapshot bootstrap resolved — now applying remote
+      // changes to the local database (restoring phase).
+      if (_generation == myGeneration) {
+        progressNotifier.setPhase(PairingProgressPhase.restoring);
+      }
+
+      if (!fatalSnapshotError) {
+        // Race the normal "batch applied" signal against the strict-apply
+        // failure signal. Either resolves the wait.
+        var syncTimedOut = false;
+        try {
+          await Future.any([
+            syncAdapter.syncBatchComplete.timeout(
+              const Duration(seconds: 30),
+              onTimeout: () {
+                syncTimedOut = true;
+                if (kDebugMode) {
+                  debugPrint(
+                    '[PAIRING] syncBatchComplete timed out during snapshot apply',
+                  );
+                }
+              },
+            ),
+            strictFailureFuture,
+          ]);
+        } on StrictApplyFailure catch (e, st) {
+          fatalSnapshotError = true;
+          fatalSnapshotMessage =
+              'Failed to apply your system to this device (${e.table ?? 'unknown'}). '
+              'Please try again.';
+          ErrorReportingService.instance.report(
+            'Strict snapshot apply failed: $e',
+            severity: ErrorSeverity.error,
+            stackTrace: st,
+          );
+        } catch (e, st) {
+          fatalSnapshotError = true;
+          fatalSnapshotMessage = e.toString();
+          ErrorReportingService.instance.report(
+            'Snapshot apply failed (fatal): $e',
+            severity: ErrorSeverity.error,
+            stackTrace: st,
+          );
+        }
+
+        if (!fatalSnapshotError && syncTimedOut) {
+          fatalSnapshotError = true;
+          fatalSnapshotMessage =
+              'Timed out applying your system. Please try again.';
+          if (_generation == myGeneration) {
+            progressNotifier.markTimedOut();
+          }
+        }
+      }
+    } finally {
+      strictCoordinator.exitStrictMode();
     }
 
-    // Pull any changes that arrived after the snapshot was created
+    if (_generation != myGeneration) return;
+
+    if (fatalSnapshotError) {
+      // Drain credentials so retry + cancel paths can read sync_id /
+      // device_id / session_token from the keychain without needing the
+      // Rust handle to survive. Best-effort; retry will re-enter the
+      // bootstrap phase regardless.
+      try {
+        await drainRustStore(handle);
+      } catch (e, st) {
+        ErrorReportingService.instance.report(
+          'drainRustStore after snapshot failure failed (non-fatal): $e',
+          severity: ErrorSeverity.warning,
+          stackTrace: st,
+        );
+      }
+      state = state.copyWith(
+        step: PairingStep.snapshotFailure,
+        errorMessage: fatalSnapshotMessage,
+        errorCode: fatalSnapshotCode,
+        syncIncomplete: true,
+      );
+      return;
+    }
+
+    // Snapshot applied cleanly — ACK so the relay drops it now rather
+    // than waiting for TTL. Best-effort: errors here don't undo a good
+    // pairing, and older relays respond 405 which the FFI folds to Ok.
     try {
-      if (kDebugMode) {
-        debugPrint('[PAIRING] Calling syncNow...');
-      }
-      final syncResult = await ffi.syncNow(handle: handle);
-      if (kDebugMode) {
-        debugPrint('[PAIRING] syncNow result: $syncResult');
-      }
+      await ffi.acknowledgeSnapshotApplied(handle: handle);
     } catch (e, st) {
       ErrorReportingService.instance.report(
-        'Pairing syncNow failed (non-fatal): $e',
+        'acknowledgeSnapshotApplied failed (non-fatal): $e',
         severity: ErrorSeverity.warning,
         stackTrace: st,
       );
     }
 
-    // Wait for ALL remote changes (from both bootstrap and syncNow)
-    // to finish being applied to the Drift database. The batch was
-    // started before the bootstrap, so it captures everything.
-    var syncTimedOut = false;
-    await syncAdapter.syncBatchComplete.timeout(
-      const Duration(seconds: 10),
-      onTimeout: () {
-        syncTimedOut = true;
-        if (kDebugMode) {
-          debugPrint(
-            '[PAIRING] syncBatchComplete timed out — continuing with incomplete data',
-          );
-        }
-        // BOUNDARY 3 (timeout path): mark timed out before advancing phase.
-        if (_generation == myGeneration) {
-          progressNotifier.markTimedOut();
-        }
-      },
-    );
     // BOUNDARY 3: syncBatchComplete resolved — entering finishing phase.
     if (_generation == myGeneration) {
       progressNotifier.setPhase(PairingProgressPhase.finishing);
@@ -503,8 +600,111 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     state = state.copyWith(
       step: PairingStep.success,
       counts: counts,
-      syncIncomplete: syncTimedOut,
+      syncIncomplete: false,
     );
+  }
+
+  /// Retry the snapshot bootstrap after a [PairingStep.snapshotFailure].
+  ///
+  /// The joiner is already registered on the relay at this point, so we
+  /// re-run only the snapshot download + apply. Keychain credentials
+  /// (sync_id, device_id, session_token) are already persisted from the
+  /// failure path's drain, so the existing handle can pick up where it
+  /// left off. Idempotent: re-applying snapshot rows is safe under LWW.
+  Future<void> retrySnapshotBootstrap() async {
+    if (state.step != PairingStep.snapshotFailure) return;
+    _generation++;
+    final myGeneration = _generation;
+
+    state = state.copyWith(
+      step: PairingStep.connecting,
+      errorMessage: null,
+      errorCode: null,
+      syncIncomplete: false,
+    );
+
+    try {
+      final handle = ref.read(prismSyncHandleProvider).value;
+      if (handle == null) {
+        throw StateError('No sync handle available for retry');
+      }
+      final progressNotifier = ref.read(syncSetupProgressProvider.notifier);
+      // Reset progress so the UI doesn't show a stale "finishing" phase.
+      progressNotifier.reset();
+      progressNotifier.setPhase(PairingProgressPhase.downloading);
+      await _runSnapshotBootstrap(handle, myGeneration, progressNotifier);
+    } catch (e) {
+      final structuredError = PrismSyncStructuredError.tryParse(e);
+      if (_generation != myGeneration) return;
+      state = state.copyWith(
+        step: PairingStep.snapshotFailure,
+        errorMessage: structuredError?.userMessage ?? e.toString(),
+        errorCode: structuredError?.code,
+      );
+    }
+  }
+
+  /// Cancel pairing explicitly after a snapshot failure, removing this
+  /// device from the relay and wiping the joiner's local keychain.
+  ///
+  /// Distinct from dismissing the sheet: dismissal preserves creds so the
+  /// user can retry later (e.g. if they minimized the app mid-pair).
+  /// This path runs only when the user clicks "Cancel and remove this
+  /// device" in the snapshot-failure view.
+  Future<void> cancelAndRemoveDevice() async {
+    _generation++;
+    const prefix = 'prism_sync.';
+
+    final handle = ref.read(prismSyncHandleProvider).value;
+    if (handle != null) {
+      try {
+        final syncId = await _readDecodedSecureValue('${prefix}sync_id');
+        final deviceId = await _readDecodedSecureValue('${prefix}device_id');
+        final sessionToken = await _readDecodedSecureValue(
+          '${prefix}session_token',
+        );
+        if (syncId != null && deviceId != null && sessionToken != null) {
+          try {
+            await ffi.deregisterDevice(
+              handle: handle,
+              syncId: syncId,
+              deviceId: deviceId,
+              sessionToken: sessionToken,
+            );
+          } catch (e, st) {
+            ErrorReportingService.instance.report(
+              'deregisterDevice during cancel failed (non-fatal): $e',
+              severity: ErrorSeverity.warning,
+              stackTrace: st,
+            );
+          }
+        }
+      } catch (e, st) {
+        ErrorReportingService.instance.report(
+          'Cancel deregister prep failed (non-fatal): $e',
+          severity: ErrorSeverity.warning,
+          stackTrace: st,
+        );
+      }
+    }
+
+    await _cleanupKeychainOnFailure();
+    _pendingPin = null;
+    _pairingRelayUrl = null;
+    ref.invalidate(relayUrlProvider);
+    ref.invalidate(syncIdProvider);
+    ref.read(syncSetupProgressProvider.notifier).reset();
+    state = const PairingState();
+  }
+
+  Future<String?> _readDecodedSecureValue(String key) async {
+    final raw = await secureStorage.read(key: key);
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      return utf8.decode(base64Decode(raw));
+    } catch (_) {
+      return raw; // legacy plain-text fallback
+    }
   }
 
   /// Remove any keychain keys that may have been written during a failed

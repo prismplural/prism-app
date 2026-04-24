@@ -7,6 +7,7 @@ import 'package:prism_plurality/core/crypto/bip39_english_wordlist.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/services/build_info.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
+import 'package:prism_plurality/core/sync/drift_sync_adapter_bootstrap.dart';
 import 'package:prism_plurality/core/sync/first_device_admission_service.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/shared/widgets/prism_mnemonic_field.dart';
@@ -19,7 +20,7 @@ enum SyncSetupProgress {
   configuringEngine,
   cachingKeys,
   bootstrappingData,
-  syncing,
+  measuringSnapshot,
 }
 
 const _sentinel = Object();
@@ -263,8 +264,9 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
       // Cache raw DEK so subsequent launches bypass Argon2id (Signal-style)
       await cacheRuntimeKeys(handle, ref.read(databaseProvider));
 
-      // Bootstrap: push all existing data as record_create ops so the
-      // relay has it for other devices to pull.
+      // Bootstrap: seed the Rust engine's field_versions from existing Drift
+      // state so the snapshot export has everything it needs. No relay
+      // traffic here — bulk data only moves across the network at pair time.
       state = state.copyWith(
         currentProgress: SyncSetupProgress.bootstrappingData,
       );
@@ -306,113 +308,176 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
   String _friendlySetupError(
     PrismSyncStructuredError? structured,
     Object rawError,
-  ) {
-    if (structured != null) {
-      final msg = structured.message.toLowerCase();
+  ) => friendlySyncSetupError(structured, rawError);
 
-      // Unsupported first-device admission challenge (e.g., PoW version mismatch)
-      if (msg.contains('unsupported') &&
-          msg.contains('first-device admission')) {
-        return "Your app version doesn't support this relay's security "
-            'requirements. Please update the app.';
-      }
+  /// Seed the Rust sync engine with every existing Drift row so first-device
+  /// setup finishes with a fully-populated `field_versions` table ready for
+  /// snapshot export. This is offline-only: no `syncNow`, no `record_create`,
+  /// no relay traffic. Bulk data only moves across the network at pair time.
+  Future<void> _bootstrapExistingData(ffi.PrismSyncHandle handle) async {
+    final db = ref.read(databaseProvider);
+    final adapter = ref.read(driftSyncAdapterProvider).adapter;
+    final fetchers = bootstrapFetchersFor(adapter, db);
 
-      // Rate limiting on registration
-      if (msg.contains('registration failed') &&
-          (msg.contains('rate limit') || structured.status == 429)) {
-        return 'Too many registration attempts. Please wait and try again.';
-      }
+    final records = await buildBootstrapRecords(fetchers);
 
-      // Generic relay / network errors
-      if (structured.errorType == 'relay' || structured.relayKind != null) {
-        return 'Could not connect to relay server. Check your internet '
-            'connection and relay URL.';
-      }
-
-      // Fall back to the structured user message
-      return structured.userMessage;
+    if (kDebugMode) {
+      debugPrint(
+        '[BOOTSTRAP] Seeding ${records.length} records across '
+        '${fetchers.length} tables',
+      );
     }
 
-    // No structured error — check for common network patterns
-    final raw = rawError.toString().toLowerCase();
-    if (raw.contains('socketexception') ||
-        raw.contains('connection refused') ||
-        raw.contains('timed out')) {
+    // Flip to the measuring-snapshot stage before calling FFI: the Rust side
+    // upserts field_versions, computes the HLC watermark, then exports the
+    // zstd snapshot and checks its size.
+    state = state.copyWith(
+      currentProgress: SyncSetupProgress.measuringSnapshot,
+    );
+
+    // Errors propagate to the outer try/catch in `_complete`, which restores
+    // the keychain snapshot. Structured errors (`snapshot_too_large`,
+    // `bootstrap_not_allowed`) are translated to friendly copy by
+    // `_friendlySetupError`.
+    final resultJson = await ffi.bootstrapExistingState(
+      handle: handle,
+      recordsJson: jsonEncode(records),
+    );
+
+    if (kDebugMode) {
+      try {
+        final result = jsonDecode(resultJson) as Map<String, dynamic>;
+        debugPrint(
+          '[BOOTSTRAP] seeded ${result['entity_count']} entities, '
+          'snapshot size ${result['snapshot_bytes']} bytes',
+        );
+      } catch (_) {
+        debugPrint('[BOOTSTRAP] seeded (unparsed result): $resultJson');
+      }
+    }
+  }
+}
+
+/// Top-level version of [SyncSetupNotifier._friendlySetupError] so tests can
+/// exercise the error-translation matrix without spinning up a full Riverpod
+/// + FFI graph.
+@visibleForTesting
+String friendlySyncSetupError(
+  PrismSyncStructuredError? structured,
+  Object rawError,
+) {
+  if (structured != null) {
+    final msg = structured.message.toLowerCase();
+
+    // Bootstrap-specific structured errors surfaced by the new offline
+    // bootstrap primitive. These come from `bootstrap_existing_state` in
+    // the Rust sync core.
+    if (structured.code == 'snapshot_too_large') {
+      final parsed = _parseSnapshotTooLarge(rawError);
+      if (parsed != null) {
+        return 'Your system is ${_humanBytes(parsed.bytes)} of data, '
+            'which exceeds the current sync limit of '
+            '${_humanBytes(parsed.limitBytes)}. Please reach out to '
+            "support — we're working on larger systems.";
+      }
+      return 'Your system exceeds the current sync data limit. Please '
+          "reach out to support — we're working on larger systems.";
+    }
+    if (structured.code == 'bootstrap_not_allowed') {
+      final reason =
+          _parseBootstrapNotAllowedReason(rawError) ?? structured.message;
+      return "Couldn't prepare sync on this device. Details: $reason. "
+          'Please report this with logs.';
+    }
+
+    // Unsupported first-device admission challenge (e.g., PoW version mismatch)
+    if (msg.contains('unsupported') &&
+        msg.contains('first-device admission')) {
+      return "Your app version doesn't support this relay's security "
+          'requirements. Please update the app.';
+    }
+
+    // Rate limiting on registration
+    if (msg.contains('registration failed') &&
+        (msg.contains('rate limit') || structured.status == 429)) {
+      return 'Too many registration attempts. Please wait and try again.';
+    }
+
+    // Generic relay / network errors
+    if (structured.errorType == 'relay' || structured.relayKind != null) {
       return 'Could not connect to relay server. Check your internet '
           'connection and relay URL.';
     }
 
-    return rawError.toString();
+    // Fall back to the structured user message
+    return structured.userMessage;
   }
 
-  /// Push all existing local data to the sync engine so it gets synced
-  /// to other devices. This is needed because data created before sync
-  /// was enabled has no pending ops.
-  Future<void> _bootstrapExistingData(ffi.PrismSyncHandle handle) async {
-    final db = ref.read(databaseProvider);
-
-    final tables = <String, Future<List<dynamic>> Function()>{
-      'members': () => db.select(db.members).get(),
-      'fronting_sessions': () => db.select(db.frontingSessions).get(),
-      'conversations': () => db.select(db.conversations).get(),
-      'chat_messages': () => db.select(db.chatMessages).get(),
-      'system_settings': () => db.select(db.systemSettingsTable).get(),
-      'polls': () => db.select(db.polls).get(),
-      'poll_options': () => db.select(db.pollOptions).get(),
-      'poll_votes': () => db.select(db.pollVotes).get(),
-      'habits': () => db.select(db.habits).get(),
-      'habit_completions': () => db.select(db.habitCompletions).get(),
-    };
-
-    final adapter = ref.read(driftSyncAdapterProvider).adapter;
-    var totalOps = 0;
-
-    for (final entry in tables.entries) {
-      final tableName = entry.key;
-      final entity = adapter.entityForTable(tableName);
-      if (entity == null) continue;
-
-      final rows = await entry.value();
-      for (final row in rows) {
-        try {
-          final fields = entity.toSyncFields(row);
-          // Extract the id from the row — all entity tables have an 'id' field
-          final id = (row as dynamic).id as String;
-          await ffi.recordCreate(
-            handle: handle,
-            table: tableName,
-            entityId: id,
-            fieldsJson: jsonEncode(fields),
-          );
-          totalOps++;
-        } catch (e) {
-          if (kDebugMode) debugPrint('[BOOTSTRAP] Failed to push $tableName row: $e');
-        }
-      }
-    }
-
-    if (kDebugMode) {
-      debugPrint('[BOOTSTRAP] Pushed $totalOps existing records to sync engine');
-    }
-
-    // Trigger an immediate sync to push the bootstrap data to the relay.
-    //
-    // UX follow-up (deferred, see Appendix B.3 of the 2026-04-11
-    // sync-robustness plan): with the inner retry rewrite, `syncNow` now
-    // throws `CoreError::Relay` on exhausted retries instead of burying the
-    // error in the result JSON. This path only logs in debug mode; a future
-    // improvement is to surface a `SyncSetupProgress.error` state variant
-    // so the user can retry without restarting the onboarding flow. The
-    // auto-sync driver will retry in the background regardless, so data is
-    // never lost — only the bootstrap UX is affected.
-    state = state.copyWith(currentProgress: SyncSetupProgress.syncing);
-    try {
-      final result = await ffi.syncNow(handle: handle);
-      if (kDebugMode) debugPrint('[BOOTSTRAP] syncNow result: $result');
-    } catch (e) {
-      if (kDebugMode) debugPrint('[BOOTSTRAP] syncNow failed: $e');
-    }
+  // No structured error — check for common network patterns
+  final raw = rawError.toString().toLowerCase();
+  if (raw.contains('socketexception') ||
+      raw.contains('connection refused') ||
+      raw.contains('timed out')) {
+    return 'Could not connect to relay server. Check your internet '
+        'connection and relay URL.';
   }
+
+  return rawError.toString();
+}
+
+/// Parsed payload of a `SnapshotTooLarge` structured error, surfaced by
+/// `bootstrap_existing_state` when the local zstd blob exceeds the cap.
+class _SnapshotTooLargeInfo {
+  const _SnapshotTooLargeInfo({required this.bytes, required this.limitBytes});
+
+  final int bytes;
+  final int limitBytes;
+}
+
+_SnapshotTooLargeInfo? _parseSnapshotTooLarge(Object rawError) {
+  final payload = _extractStructuredErrorPayload(rawError);
+  if (payload == null) return null;
+  final bytes = (payload['bytes'] as num?)?.toInt();
+  final limit = (payload['limit_bytes'] as num?)?.toInt();
+  if (bytes == null || limit == null) return null;
+  return _SnapshotTooLargeInfo(bytes: bytes, limitBytes: limit);
+}
+
+String? _parseBootstrapNotAllowedReason(Object rawError) {
+  final payload = _extractStructuredErrorPayload(rawError);
+  if (payload == null) return null;
+  return payload['reason'] as String?;
+}
+
+/// Decode the inline JSON payload that follows the `PRISM_SYNC_ERROR_JSON:`
+/// marker when structured errors cross the FFI boundary.
+Map<String, dynamic>? _extractStructuredErrorPayload(Object rawError) {
+  final raw = rawError.toString();
+  const marker = 'PRISM_SYNC_ERROR_JSON:';
+  final idx = raw.indexOf(marker);
+  if (idx == -1) return null;
+  final payload = raw.substring(idx + marker.length).trim();
+  try {
+    final decoded = jsonDecode(payload);
+    if (decoded is Map<String, dynamic>) return decoded;
+  } catch (_) {
+    return null;
+  }
+  return null;
+}
+
+String _humanBytes(int bytes) {
+  const units = ['B', 'KB', 'MB', 'GB'];
+  var value = bytes.toDouble();
+  var unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit++;
+  }
+  final rounded = value >= 10 || unit == 0
+      ? value.toStringAsFixed(0)
+      : value.toStringAsFixed(1);
+  return '$rounded ${units[unit]}';
 }
 
 final syncSetupProvider = NotifierProvider<SyncSetupNotifier, SyncSetupState>(
