@@ -17,73 +17,83 @@ class FeaturesStep extends ConsumerWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final primary = Theme.of(context).colorScheme.primary;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          _FeatureToggle(
-            icon: AppIcons.duotoneChat,
-            isDark: isDark,
-            primary: primary,
-            title: context.l10n.onboardingFeaturesChat,
-            description: context.l10n.onboardingFeaturesChatDescription,
-            value: onboarding.chatEnabled,
-            onChanged: (v) => notifier.setFeatureToggle(chatEnabled: v),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _FeatureToggle(
+                  icon: AppIcons.duotoneChat,
+                  isDark: isDark,
+                  primary: primary,
+                  title: context.l10n.onboardingFeaturesChat,
+                  description: context.l10n.onboardingFeaturesChatDescription,
+                  value: onboarding.chatEnabled,
+                  onChanged: (v) => notifier.setFeatureToggle(chatEnabled: v),
+                ),
+                const SizedBox(height: 12),
+                _FeatureToggle(
+                  icon: AppIcons.duotonePolls,
+                  isDark: isDark,
+                  primary: primary,
+                  title: context.l10n.onboardingFeaturesPolls,
+                  description: context.l10n.onboardingFeaturesPollsDescription,
+                  value: onboarding.pollsEnabled,
+                  onChanged: (v) => notifier.setFeatureToggle(pollsEnabled: v),
+                ),
+                const SizedBox(height: 12),
+                _FeatureToggle(
+                  icon: AppIcons.duotoneHabits,
+                  isDark: isDark,
+                  primary: primary,
+                  title: context.l10n.onboardingFeaturesHabits,
+                  description: context.l10n.onboardingFeaturesHabitsDescription,
+                  value: onboarding.habitsEnabled,
+                  onChanged: (v) => notifier.setFeatureToggle(habitsEnabled: v),
+                ),
+                const SizedBox(height: 12),
+                _FeatureToggle(
+                  icon: AppIcons.duotoneSleep,
+                  isDark: isDark,
+                  primary: primary,
+                  title: context.l10n.onboardingFeaturesSleepTracking,
+                  description:
+                      context.l10n.onboardingFeaturesSleepTrackingDescription,
+                  value: onboarding.sleepTrackingEnabled,
+                  onChanged: (v) =>
+                      notifier.setFeatureToggle(sleepTrackingEnabled: v),
+                ),
+                const SizedBox(height: 12),
+                _FeatureToggle(
+                  icon: AppIcons.duotoneNotes,
+                  isDark: isDark,
+                  primary: primary,
+                  title: context.l10n.onboardingFeaturesNotes,
+                  description: context.l10n.onboardingFeaturesNotesDescription,
+                  value: onboarding.notesEnabled,
+                  onChanged: (v) => notifier.setFeatureToggle(notesEnabled: v),
+                ),
+                const SizedBox(height: 12),
+                _FeatureToggle(
+                  icon: AppIcons.duotoneReminders,
+                  isDark: isDark,
+                  primary: primary,
+                  title: context.l10n.onboardingFeaturesReminders,
+                  description:
+                      context.l10n.onboardingFeaturesRemindersDescription,
+                  value: onboarding.remindersEnabled,
+                  onChanged: (v) =>
+                      notifier.setFeatureToggle(remindersEnabled: v),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 12),
-          _FeatureToggle(
-            icon: AppIcons.duotonePolls,
-            isDark: isDark,
-            primary: primary,
-            title: context.l10n.onboardingFeaturesPolls,
-            description: context.l10n.onboardingFeaturesPollsDescription,
-            value: onboarding.pollsEnabled,
-            onChanged: (v) => notifier.setFeatureToggle(pollsEnabled: v),
-          ),
-          const SizedBox(height: 12),
-          _FeatureToggle(
-            icon: AppIcons.duotoneHabits,
-            isDark: isDark,
-            primary: primary,
-            title: context.l10n.onboardingFeaturesHabits,
-            description: context.l10n.onboardingFeaturesHabitsDescription,
-            value: onboarding.habitsEnabled,
-            onChanged: (v) => notifier.setFeatureToggle(habitsEnabled: v),
-          ),
-          const SizedBox(height: 12),
-          _FeatureToggle(
-            icon: AppIcons.duotoneSleep,
-            isDark: isDark,
-            primary: primary,
-            title: context.l10n.onboardingFeaturesSleepTracking,
-            description: context.l10n.onboardingFeaturesSleepTrackingDescription,
-            value: onboarding.sleepTrackingEnabled,
-            onChanged: (v) =>
-                notifier.setFeatureToggle(sleepTrackingEnabled: v),
-          ),
-          const SizedBox(height: 12),
-          _FeatureToggle(
-            icon: AppIcons.duotoneNotes,
-            isDark: isDark,
-            primary: primary,
-            title: context.l10n.onboardingFeaturesNotes,
-            description: context.l10n.onboardingFeaturesNotesDescription,
-            value: onboarding.notesEnabled,
-            onChanged: (v) => notifier.setFeatureToggle(notesEnabled: v),
-          ),
-          const SizedBox(height: 12),
-          _FeatureToggle(
-            icon: AppIcons.duotoneReminders,
-            isDark: isDark,
-            primary: primary,
-            title: context.l10n.onboardingFeaturesReminders,
-            description: context.l10n.onboardingFeaturesRemindersDescription,
-            value: onboarding.remindersEnabled,
-            onChanged: (v) => notifier.setFeatureToggle(remindersEnabled: v),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -126,9 +136,7 @@ class _FeatureToggle extends StatelessWidget {
               shape: BoxShape.circle,
               color: primary.withValues(alpha: 0.15),
             ),
-            child: Center(
-              child: PhosphorIcon(icon, size: 22, color: primary),
-            ),
+            child: Center(child: PhosphorIcon(icon, size: 22, color: primary)),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -138,9 +146,7 @@ class _FeatureToggle extends StatelessWidget {
                 Text(
                   title,
                   style: TextStyle(
-                    color: isDark
-                        ? AppColors.warmWhite
-                        : AppColors.warmBlack,
+                    color: isDark ? AppColors.warmWhite : AppColors.warmBlack,
                     fontWeight: FontWeight.w600,
                     fontSize: 16,
                   ),
