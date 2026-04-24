@@ -216,6 +216,8 @@ class MemberSearchSheet extends StatefulWidget {
 class _MemberSearchSheetState extends State<MemberSearchSheet> {
   late final TextEditingController _searchController;
   late final FocusNode _searchFocus;
+  late MemberSearchIndex _allMembersIndex;
+  late List<MemberSearchIndex> _groupMemberIndexes;
 
   // 0 = "All", 1+ = widget.groups[index - 1]
   int _selectedChip = 0;
@@ -228,6 +230,19 @@ class _MemberSearchSheetState extends State<MemberSearchSheet> {
     _searchController = TextEditingController();
     _searchFocus = FocusNode();
     _selectedIds = Set.from(widget.initialSelected);
+    _rebuildSearchIndexes();
+  }
+
+  @override
+  void didUpdateWidget(covariant MemberSearchSheet oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(widget.members, oldWidget.members) ||
+        !identical(widget.groups, oldWidget.groups)) {
+      _rebuildSearchIndexes();
+      if (_selectedChip > widget.groups.length) {
+        _selectedChip = 0;
+      }
+    }
   }
 
   @override
@@ -239,13 +254,24 @@ class _MemberSearchSheetState extends State<MemberSearchSheet> {
 
   // ─── Filtered list helpers ───────────────────────────────────────────────
 
-  List<Member> get _baseMembers {
-    if (_selectedChip == 0) return widget.members;
-    final group = widget.groups[_selectedChip - 1];
-    return widget.members.where((m) => group.memberIds.contains(m.id)).toList();
+  void _rebuildSearchIndexes() {
+    _allMembersIndex = MemberSearchIndex(widget.members);
+    _groupMemberIndexes = [
+      for (final group in widget.groups)
+        MemberSearchIndex(
+          widget.members
+              .where((member) => group.memberIds.contains(member.id))
+              .toList(growable: false),
+        ),
+    ];
   }
 
-  List<Member> get _filteredMembers => filterMembers(_baseMembers, _query);
+  List<Member> get _filteredMembers {
+    final index = _selectedChip == 0
+        ? _allMembersIndex
+        : _groupMemberIndexes[_selectedChip - 1];
+    return index.filter(_query);
+  }
 
   // ─── Actions ─────────────────────────────────────────────────────────────
 

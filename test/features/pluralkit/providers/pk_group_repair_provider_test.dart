@@ -7,7 +7,9 @@ import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/core/sync/sync_runtime_state.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pk_group_repair_provider.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_group_repair_run_gate.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_group_repair_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class _FakePrismSyncHandle implements ffi.PrismSyncHandle {
   const _FakePrismSyncHandle();
@@ -71,6 +73,10 @@ ProviderContainer _createContainer(_CountingPkGroupRepairService service) {
 }
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
   tearDown(() {
     syncAutoConfigureInProgress.value = false;
   });
@@ -96,7 +102,9 @@ void main() {
       await pumpEventQueue();
 
       expect(service.runCalls, 0);
-      final state = await container.read(pkGroupRepairControllerProvider.future);
+      final state = await container.read(
+        pkGroupRepairControllerProvider.future,
+      );
       expect(state.automaticRunAttempted, isFalse);
     },
   );
@@ -127,7 +135,9 @@ void main() {
 
       expect(service.runCalls, 1);
       expect(
-        container.read(pkGroupRepairControllerProvider).requireValue
+        container
+            .read(pkGroupRepairControllerProvider)
+            .requireValue
             .automaticRunAttempted,
         isTrue,
       );
@@ -160,15 +170,91 @@ void main() {
           .setState(SyncHealthState.disconnected);
       await pumpEventQueue();
 
-      container.read(syncHealthProvider.notifier).setState(SyncHealthState.healthy);
+      container
+          .read(syncHealthProvider.notifier)
+          .setState(SyncHealthState.healthy);
       await pumpEventQueue();
 
       expect(service.runCalls, 1);
       expect(
-        container.read(pkGroupRepairControllerProvider).requireValue
+        container
+            .read(pkGroupRepairControllerProvider)
+            .requireValue
             .automaticRunAttempted,
         isTrue,
       );
+    },
+  );
+
+  test(
+    'stable healthy state skips automatic repair when persistent gate is clean',
+    () async {
+      SharedPreferences.setMockInitialValues({
+        PkGroupRepairRunGate.checkedVersionKey:
+            PkGroupRepairRunGate.currentVersion,
+        PkGroupRepairRunGate.dirtyKey: false,
+      });
+      syncAutoConfigureInProgress.value = false;
+
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+
+      final service = _CountingPkGroupRepairService(db);
+      final container = _createContainer(service);
+      addTearDown(container.dispose);
+
+      final bootstrap = container.listen(
+        pkGroupRepairBootstrapProvider,
+        (_, _) {},
+      );
+      addTearDown(bootstrap.close);
+
+      await pumpEventQueue();
+
+      expect(service.runCalls, 0);
+      expect(
+        container
+            .read(pkGroupRepairControllerProvider)
+            .requireValue
+            .automaticRunAttempted,
+        isTrue,
+      );
+    },
+  );
+
+  test(
+    'dirty persistent gate forces one automatic repair and clears dirty',
+    () async {
+      SharedPreferences.setMockInitialValues({
+        PkGroupRepairRunGate.checkedVersionKey:
+            PkGroupRepairRunGate.currentVersion,
+        PkGroupRepairRunGate.dirtyKey: true,
+      });
+      syncAutoConfigureInProgress.value = false;
+
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+
+      final service = _CountingPkGroupRepairService(db);
+      final container = _createContainer(service);
+      addTearDown(container.dispose);
+
+      final bootstrap = container.listen(
+        pkGroupRepairBootstrapProvider,
+        (_, _) {},
+      );
+      addTearDown(bootstrap.close);
+
+      await pumpEventQueue();
+
+      expect(service.runCalls, 1);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool(PkGroupRepairRunGate.dirtyKey), isFalse);
+      expect(
+        prefs.getInt(PkGroupRepairRunGate.checkedVersionKey),
+        PkGroupRepairRunGate.currentVersion,
+      );
+      expect(prefs.getString(PkGroupRepairRunGate.checkedAtKey), isNotNull);
     },
   );
 }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' show Platform;
 import 'dart:ui' show PlatformDispatcher;
 
@@ -50,18 +51,6 @@ void main() async {
   // iOS Keychain survives app uninstall — clear stale data on fresh install.
   await clearKeychainIfFreshInstall();
   await migrateRelayUrl();
-
-  // Linux: register the bundled NotoColorEmoji font as a runtime fallback.
-  // The .ttf is platform-gated in pubspec.yaml (`platforms: [linux]`) so it
-  // only ships in Linux builds; we declare it as an asset (not a pubspec
-  // `fonts:` entry) because Flutter's `platforms:` key isn't supported on
-  // font entries. AppTheme's textTheme sets `fontFamilyFallback:
-  // ['NotoColorEmoji']` on Linux so this picks up transparently.
-  if (!kIsWeb && Platform.isLinux) {
-    final loader = FontLoader('NotoColorEmoji')
-      ..addFont(rootBundle.load('assets/fonts/NotoColorEmoji.ttf'));
-    await loader.load();
-  }
 
   // On iOS/macOS, the Rust library is statically linked via -force_load in the
   // podspec. Use ExternalLibrary.process() to find symbols in the current process
@@ -134,6 +123,8 @@ void main() async {
     ),
   );
 
+  _scheduleLinuxEmojiFontLoad();
+
   // TODO(background-sync): workmanager initialization is intentionally disabled.
   // callbackDispatcher in pluralkit_background_service.dart is a no-op stub.
   // Before enabling, a lightweight background entry point is needed that can
@@ -145,6 +136,22 @@ void main() async {
   //     Workmanager().initialize(callbackDispatcher);
   //   });
   // }
+}
+
+void _scheduleLinuxEmojiFontLoad() {
+  if (kIsWeb || !Platform.isLinux) return;
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    unawaited(_loadLinuxEmojiFont());
+  });
+}
+
+Future<void> _loadLinuxEmojiFont() async {
+  // The .ttf is platform-gated in pubspec.yaml (`platforms: [linux]`) so it
+  // only ships in Linux builds. AppTheme's Linux text theme names this family
+  // as a fallback; loading it after the first frame keeps startup responsive.
+  final loader = FontLoader('NotoColorEmoji')
+    ..addFont(rootBundle.load('assets/fonts/NotoColorEmoji.ttf'));
+  await loader.load();
 }
 
 /// F24: Logs Riverpod provider errors in debug builds.

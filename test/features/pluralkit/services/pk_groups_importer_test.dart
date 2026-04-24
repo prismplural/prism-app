@@ -6,8 +6,10 @@ import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_group_repair_run_gate.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_groups_importer.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class _FakeMemberRepo implements MemberRepository {
   final List<domain.Member> members;
@@ -77,6 +79,7 @@ domain.Member _member({required String id, String? pkUuid, String? pkId}) =>
 void main() {
   late AppDatabase db;
   setUp(() async {
+    SharedPreferences.setMockInitialValues({});
     db = AppDatabase(NativeDatabase.memory());
     await db.systemSettingsDao.getSettings();
     await db.systemSettingsDao.updatePkGroupSyncV2Enabled(true);
@@ -115,6 +118,28 @@ void main() {
     // Different inputs differ.
     expect(PkGroupsImporter.deriveEntryId('g-uuid2', 'm-uuid'), isNot(a));
   });
+
+  test(
+    'import marks automatic repair gate dirty after PK membership changes',
+    () async {
+      final repo = _FakeMemberRepo([
+        _member(id: 'local-1', pkUuid: 'pk-mem-1'),
+      ]);
+      final importer = PkGroupsImporter(db: db, memberRepository: repo);
+
+      await importer.importGroups(_NoopClient(), [
+        const PKGroup(
+          id: 'abcde',
+          uuid: 'pk-g-1',
+          name: 'Core',
+          memberIds: ['pk-mem-1'],
+        ),
+      ]);
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool(PkGroupRepairRunGate.dirtyKey), isTrue);
+    },
+  );
 
   test('inserts new group + memberships, preserves local emoji on insert '
       '(no PK emoji written)', () async {

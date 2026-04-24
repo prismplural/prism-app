@@ -6,6 +6,7 @@ import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/core/sync/sync_runtime_state.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_group_repair_run_gate.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_group_repair_service.dart';
 
 class PkGroupRepairState {
@@ -151,8 +152,18 @@ class PkGroupRepairController extends AsyncNotifier<PkGroupRepairState> {
   Future<void> runAutomaticIfNeeded() async {
     final current = state.value ?? await future;
     if (current.automaticRunAttempted) return;
+
+    final runGate = await PkGroupRepairRunGate.load();
+    if (!runGate.shouldRun) {
+      state = AsyncData(
+        current.copyWith(automaticRunAttempted: true, clearError: true),
+      );
+      return;
+    }
+
     try {
       await run(allowStoredToken: false, automatic: true);
+      await runGate.markCheckedClean(DateTime.now());
     } catch (_) {
       // Automatic local repair is best-effort; the controller state still
       // captures the error for UI/debug surfaces.
