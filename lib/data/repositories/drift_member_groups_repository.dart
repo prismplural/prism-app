@@ -316,14 +316,14 @@ class DriftMemberGroupsRepository
       membersById[member.id] = member;
     }
     for (final entry in entries) {
+      final member = membersById[entry.memberId];
+      if (!_canEmitPkBackedEntry(entry, group: group, member: member)) {
+        continue;
+      }
       await syncRecordUpdate(
         _entryTable,
-        _entryEntityIdFromStoredEntry(
-          entry,
-          group: group,
-          member: membersById[entry.memberId],
-        ),
-        _entryFields(entry, group: group, member: membersById[entry.memberId]),
+        _entryEntityIdFromStoredEntry(entry, group: group, member: member),
+        _entryFields(entry, group: group, member: member),
       );
     }
   }
@@ -359,6 +359,9 @@ class DriftMemberGroupsRepository
         member ?? await _memberRepository.getMemberById(entry.memberId);
     final group = await _requireGroupRow(entry.groupId);
     if (!await _shouldEmitPkBackedGroupSync(group)) return;
+    if (!_canEmitPkBackedEntry(entry, group: group, member: resolvedMember)) {
+      return;
+    }
     await syncRecordCreate(
       _entryTable,
       _entryEntityIdFromStoredEntry(
@@ -376,6 +379,19 @@ class DriftMemberGroupsRepository
     final settings = await _dao.attachedDatabase.systemSettingsDao
         .getSettings();
     return settings.pkGroupSyncV2Enabled;
+  }
+
+  bool _canEmitPkBackedEntry(
+    MemberGroupEntryRow entry, {
+    required MemberGroupRow group,
+    required member_domain.Member? member,
+  }) {
+    final pkGroupUuid = (entry.pkGroupUuid ?? group.pluralkitUuid ?? '').trim();
+    if (pkGroupUuid.isEmpty) return true;
+
+    final pkMemberUuid = (entry.pkMemberUuid ?? member?.pluralkitUuid ?? '')
+        .trim();
+    return pkMemberUuid.isNotEmpty;
   }
 
   Future<void> _syncLegacyPkGroupAliasDeletes(MemberGroupRow? group) async {

@@ -427,8 +427,9 @@ class _UnreadCountNotifier extends Notifier<int> {
   set value(int newValue) => state = newValue;
 }
 
-final _unreadCountStateProvider =
-    NotifierProvider<_UnreadCountNotifier, int>(_UnreadCountNotifier.new);
+final _unreadCountStateProvider = NotifierProvider<_UnreadCountNotifier, int>(
+  _UnreadCountNotifier.new,
+);
 
 class _FakePkAutoPollNotifier extends PkAutoPollNotifier {
   @override
@@ -440,4 +441,3 @@ class _FakePkAutoPollNotifier extends PkAutoPollNotifier {
   @override
   void noteLocalPush() {}
 }
-
