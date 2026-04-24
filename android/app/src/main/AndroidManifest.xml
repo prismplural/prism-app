@@ -14,8 +14,9 @@
         android:fullBackupContent="@xml/backup_rules">
         <activity
             android:name="com.yalantis.ucrop.UCropActivity"
+            android:exported="false"
             android:screenOrientation="portrait"
-            android:theme="@style/Theme.AppCompat.Light.NoActionBar" />
+            android:theme="@style/PrismUCropTheme" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

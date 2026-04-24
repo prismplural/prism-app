@@ -2112,6 +2112,12 @@ abstract class AppLocalizations {
   /// **'Change avatar'**
   String get systemInfoChangeAvatar;
 
+  /// Title for the native avatar cropper
+  ///
+  /// In en, this message translates to:
+  /// **'Crop avatar'**
+  String get avatarCropTitle;
+
   /// Avatar action: remove avatar
   ///
   /// In en, this message translates to:

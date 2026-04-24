@@ -15,4 +15,11 @@
     <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
         <item name="android:windowBackground">?android:colorBackground</item>
     </style>
+    <style name="PrismUCropTheme" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="android:windowBackground">#FFF9F5</item>
+        <item name="android:colorAccent">#8B5CF6</item>
+        <item name="android:navigationBarColor">#FFF9F5</item>
+        <item name="android:statusBarColor">#FFF9F5</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
 </resources>

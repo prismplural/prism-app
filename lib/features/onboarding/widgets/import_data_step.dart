@@ -1109,8 +1109,7 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
         final repo = ref.read(memberRepositoryProvider);
         final inDb = await repo.getAllMembers();
         debugPrint(
-          '[PK_ONBOARDING] DB read-back: members in DB=${inDb.length} '
-          '(first 3 names=${inDb.take(3).map((m) => m.name).toList()})',
+          '[PK_ONBOARDING] DB read-back: members in DB=${inDb.length}',
         );
       } catch (e, st) {
         debugPrint('[PK_ONBOARDING] DB read-back FAILED: $e\n$st');
@@ -1262,10 +1261,10 @@ class _PrismExportImportFlowState
     final bytes = _fileBytes!;
     final pass = password;
     try {
-      final resolved = await compute(
-        DataImportService.resolveForCompute,
-        (bytes: bytes, password: pass),
-      );
+      final resolved = await compute(DataImportService.resolveForCompute, (
+        bytes: bytes,
+        password: pass,
+      ));
       final service = ref.read(dataImportServiceProvider);
       final preview = service.parsePreview(resolved.json);
       if (!mounted) return;

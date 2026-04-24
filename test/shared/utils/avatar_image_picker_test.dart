@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/utils/avatar_image_picker.dart';
 
 void main() {
@@ -57,9 +58,39 @@ void main() {
         expect(request.maxWidth, 512);
         expect(request.maxHeight, 512);
         expect(request.compressQuality, 85);
+        expect(request.title, 'Crop avatar');
+        expect(request.doneButtonTitle, 'Done');
+        expect(request.cancelButtonTitle, 'Cancel');
         expect(imageSource.pickedImage!.readCount, 0);
       });
     }
+
+    testWidgets('passes localized cropper strings to native cropper', (
+      tester,
+    ) async {
+      final imageSource = _FakeAvatarImageSource(
+        pickedImage: _FakeAvatarPickedImage(
+          path: '/tmp/avatar-source.png',
+          bytes: Uint8List.fromList([1, 2, 3]),
+        ),
+      );
+      final cropper = _FakeAvatarNativeCropper(
+        croppedImage: _FakeAvatarCroppedImage(Uint8List.fromList([9, 8, 7])),
+      );
+
+      await _pick(
+        tester,
+        imageSource: imageSource,
+        cropper: cropper,
+        platform: TargetPlatform.iOS,
+        locale: const Locale('es'),
+      );
+
+      final request = cropper.requests.single;
+      expect(request.title, 'Recortar avatar');
+      expect(request.doneButtonTitle, 'Listo');
+      expect(request.cancelButtonTitle, 'Cancelar');
+    });
 
     testWidgets('returns null when native cropper is cancelled', (
       tester,
@@ -157,10 +188,14 @@ Future<Uint8List?> _pick(
   required AvatarImageSource imageSource,
   required AvatarNativeCropper cropper,
   required TargetPlatform platform,
+  Locale locale = const Locale('en'),
 }) async {
   late BuildContext context;
   await tester.pumpWidget(
     MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      locale: locale,
       home: Builder(
         builder: (builderContext) {
           context = builderContext;
