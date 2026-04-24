@@ -141,6 +141,20 @@ class DevicePairingNotifier extends Notifier<PairingState> {
   /// sync settings exist in platform storage.
   String? _pairingRelayUrl;
 
+  /// Test-only override for [drainRustStore]. When non-null, the notifier
+  /// invokes this in place of the real top-level function. Used by unit
+  /// tests to assert ordering between credential persistence and the
+  /// `ceremonyCompleted` flag without standing up a real FFI handle +
+  /// platform keychain. Always reset to `null` in test teardown.
+  @visibleForTesting
+  static Future<void> Function(ffi.PrismSyncHandle handle)? drainRustStoreOverride;
+
+  Future<void> _drainRustStore(ffi.PrismSyncHandle handle) {
+    final override = drainRustStoreOverride;
+    if (override != null) return override(handle);
+    return drainRustStore(handle);
+  }
+
   @override
   PairingState build() {
     _generation++;
@@ -308,14 +322,24 @@ class DevicePairingNotifier extends Notifier<PairingState> {
       errorCode: null,
     );
 
-    // Tracks whether `completeJoinerCeremony` has returned successfully.
-    // Once true, credentials are committed on the relay and in Rust's
-    // secure store; the only sanctioned wipe paths from that point on
-    // are explicit user cancel (`cancelAndRemoveDevice`) or a
-    // server-confirmed `device_revoked` event. Any unexpected exception
-    // after this flips routes to `PairingStep.snapshotFailure` so the
-    // user can retry the snapshot phase without losing the joined
-    // identity (see Finding A in the codex follow-up review).
+    // Tracks whether `completeJoinerCeremony` has returned successfully
+    // AND the resulting credentials have been persisted to the platform
+    // keychain via `drainRustStore`. Once true, credentials are committed
+    // on the relay AND durable on this device; the only sanctioned wipe
+    // paths from that point on are explicit user cancel
+    // (`cancelAndRemoveDevice`) or a server-confirmed `device_revoked`
+    // event. Any unexpected exception after this flips routes to
+    // `PairingStep.snapshotFailure` so the user can retry the snapshot
+    // phase without losing the joined identity (see Finding A and the
+    // follow-up drain-ordering finding in the codex review).
+    //
+    // Critically: the flag is NOT flipped between ceremony returning and
+    // drain succeeding. If drain itself throws we are still effectively
+    // pre-persistence (credentials live only in Rust's in-memory store
+    // and would evaporate on app restart), so we treat that window as a
+    // ceremony-phase failure and wipe partial keychain state. The relay
+    // device registration becomes orphaned but the relay's TTL-based
+    // cleanup for unACKed brand-new registrations will reap it.
     var ceremonyCompleted = false;
 
     try {
@@ -346,8 +370,47 @@ class DevicePairingNotifier extends Notifier<PairingState> {
         return;
       }
 
-      // Ceremony returned successfully — credentials are now committed.
-      // Subsequent failures must NOT wipe the keychain (see catch below).
+      // Ceremony returned — credentials live in Rust's in-memory secure
+      // store but are NOT yet on the platform keychain. Persist them now,
+      // BEFORE flipping `ceremonyCompleted`, so that "ceremony done" and
+      // "credentials durable on this device" are the same moment. If we
+      // flipped the flag first and drain fired later (e.g. inside
+      // `_bootstrapAfterJoin`), a `configureEngine` / `setAutoSync` throw
+      // would route to `snapshotFailure` while:
+      //   - retrySnapshotBootstrap re-runs against an unconfigured handle
+      //     with no keychain backing
+      //   - cancelAndRemoveDevice can't read sync_id/device_id/session_token
+      //     to call `deregisterDevice`, orphaning the relay registration
+      // Doing the drain here closes that window.
+      try {
+        await _drainRustStore(handle);
+      } catch (e, st) {
+        // Drain itself failed — we are still pre-persistence, so treat
+        // as a ceremony-phase failure. The relay device is registered
+        // but unACKed; its TTL-based cleanup will reap it.
+        _pendingPin = null;
+        await _cleanupKeychainOnFailure();
+        ErrorReportingService.instance.report(
+          'Pairing drain after ceremony failed (pre-persistence) — '
+          'relay device will be reaped by TTL cleanup: $e',
+          severity: ErrorSeverity.warning,
+          stackTrace: st,
+        );
+        if (_generation != myGeneration) return;
+        final structuredError = PrismSyncStructuredError.tryParse(e);
+        state = state.copyWith(
+          step: PairingStep.error,
+          errorMessage: structuredError?.userMessage ??
+              "Couldn't save pairing credentials to this device. "
+                  'Please try pairing again.',
+          errorCode: structuredError?.code,
+        );
+        return;
+      }
+
+      // Ceremony AND credential persistence both succeeded. From this
+      // point forward, failures preserve credentials so cancel/retry
+      // paths remain functional.
       ceremonyCompleted = true;
 
       if (_generation != myGeneration) return;
@@ -592,12 +655,15 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     if (_generation != myGeneration) return;
 
     if (fatalSnapshotError) {
-      // Drain credentials so retry + cancel paths can read sync_id /
+      // Defensive re-drain: credentials were already persisted to the
+      // keychain immediately after the ceremony returned, so this is
+      // expected to be a no-op (drainRustStore is idempotent — it reads
+      // current Rust state and writes the same keys). Kept as a belt-and-
+      // braces guarantee that retry + cancel paths can read sync_id /
       // device_id / session_token from the keychain without needing the
-      // Rust handle to survive. Best-effort; retry will re-enter the
-      // bootstrap phase regardless.
+      // Rust handle to survive.
       try {
-        await drainRustStore(handle);
+        await _drainRustStore(handle);
       } catch (e, st) {
         ErrorReportingService.instance.report(
           'drainRustStore after snapshot failure failed (non-fatal): $e',
@@ -634,15 +700,19 @@ class DevicePairingNotifier extends Notifier<PairingState> {
 
     if (_generation != myGeneration) return;
 
-    // Drain Rust credentials to platform keychain so they persist
-    // across app restarts and the sync handle can auto-create.
-    // Deferred until after all validation and cancellation checks so
-    // partial credentials are never persisted on cancel.
-    await drainRustStore(handle);
-
-    // Also ensure relay_url and sync_id are written under the keys
-    // that relayUrlProvider / syncIdProvider read from. drainRustStore
-    // should already do this; these writes are a final defensive fallback.
+    // Credentials were already drained to the keychain immediately after
+    // `completeJoinerCeremony` returned — see `completeJoinerWithPassword`
+    // for the rationale. We intentionally do NOT re-drain here: the
+    // ceremony-time drain captures the same Rust secure-store state
+    // (sync_id, device_id, session_token, wrapped_dek, etc.) that would
+    // have been written at this point, and `configureEngine` /
+    // `setAutoSync` / `bootstrapFromSnapshot` do not mint new credentials
+    // that need persisting.
+    //
+    // Defensively ensure relay_url and sync_id are written under the keys
+    // that relayUrlProvider / syncIdProvider read from. The post-ceremony
+    // drainRustStore should already cover these; these writes are a
+    // final fallback for older code paths.
     const storage = secureStorage;
     final syncId = await storage.read(key: kSyncIdKey);
     final storedRelay = await storage.read(key: kSyncRelayUrlKey);
