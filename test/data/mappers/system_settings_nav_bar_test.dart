@@ -42,6 +42,7 @@ void main() {
         habitsBadgeEnabled: true,
         timingMode: 0,
         notesEnabled: true,
+        pkGroupSyncV2Enabled: false,
         previousAccentColorHex: '',
         systemDescription: null,
         systemAvatarData: null,
@@ -71,8 +72,11 @@ void main() {
     });
 
     test('encodeNavBarItems with items returns valid JSON', () {
-      final encoded =
-          SystemSettingsMapper.encodeNavBarItems(['home', 'chat', 'settings']);
+      final encoded = SystemSettingsMapper.encodeNavBarItems([
+        'home',
+        'chat',
+        'settings',
+      ]);
       final decoded = jsonDecode(encoded);
       expect(decoded, isA<List>());
       expect(decoded, ['home', 'chat', 'settings']);

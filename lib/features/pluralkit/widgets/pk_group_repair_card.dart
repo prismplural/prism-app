@@ -49,14 +49,15 @@ class PkGroupRepairCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     final report = state.lastReport;
     final repairDetailLines = report == null
         ? const <String>[]
-        : _repairDetailLines(report);
+        : _repairDetailLines(l10n, report);
     final statusTone = _statusTone(theme);
     final primaryLabel = hasStoredToken == false
-        ? 'Run local repair'
-        : 'Run repair';
+        ? l10n.pluralkitRepairRunLocal
+        : l10n.pluralkitRepairRun;
     final showTemporaryTokenAction =
         onUseTemporaryToken != null &&
         (hasStoredToken != true || report?.referenceError != null);
@@ -65,8 +66,8 @@ class PkGroupRepairCard extends StatelessWidget {
         (state.pendingReviewCount > 0 ||
             report?.requiresReconnectForMissingPkGroupIdentity == true);
     final resetLabel = isConnected
-        ? 'Reset PK groups and re-import'
-        : 'Reset PK groups only';
+        ? l10n.pluralkitRepairResetAndReimport
+        : l10n.pluralkitRepairResetOnly;
 
     return PrismSectionCard(
       padding: const EdgeInsets.all(16),
@@ -84,14 +85,14 @@ class PkGroupRepairCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'PluralKit group repair',
+                      l10n.pluralkitRepairCardTitle,
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      _headline(report),
+                      _headline(l10n, report),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -107,13 +108,13 @@ class PkGroupRepairCard extends StatelessWidget {
             runSpacing: 8,
             children: [
               PrismChip(
-                label: _statusChipLabel(),
+                label: _statusChipLabel(l10n),
                 selected: true,
                 tintColor: statusTone.color,
                 onTap: null,
               ),
               PrismChip(
-                label: _tokenChipLabel(),
+                label: _tokenChipLabel(l10n),
                 selected: hasStoredToken == true,
                 tintColor: hasStoredToken == true
                     ? theme.colorScheme.primary
@@ -122,13 +123,13 @@ class PkGroupRepairCard extends StatelessWidget {
               ),
               if (report != null)
                 PrismChip(
-                  label: _lastRunModeLabel(report.referenceMode),
+                  label: _lastRunModeLabel(l10n, report.referenceMode),
                   selected: true,
                   tintColor: theme.colorScheme.tertiary,
                   onTap: null,
                 ),
               PrismChip(
-                label: _enablementChipLabel(),
+                label: _enablementChipLabel(l10n),
                 selected: pkGroupSyncV2Enabled == true,
                 tintColor: _enablementColor(theme),
                 onTap: null,
@@ -140,8 +141,8 @@ class PkGroupRepairCard extends StatelessWidget {
             dense: true,
             padding: EdgeInsets.zero,
             leading: Icon(statusTone.icon, size: 18, color: statusTone.color),
-            title: const Text('Current status'),
-            subtitle: Text(_currentStatusText(report)),
+            title: Text(l10n.pluralkitRepairCurrentStatus),
+            subtitle: Text(_currentStatusText(l10n, report)),
           ),
           const SizedBox(height: 10),
           PrismListRow(
@@ -154,8 +155,8 @@ class PkGroupRepairCard extends StatelessWidget {
                   ? theme.colorScheme.secondary
                   : theme.colorScheme.onSurfaceVariant,
             ),
-            title: const Text('Pending review'),
-            subtitle: Text(_pendingReviewText()),
+            title: Text(l10n.pluralkitRepairPendingReview),
+            subtitle: Text(_pendingReviewText(l10n)),
           ),
           if (state.pendingReviewItems.isNotEmpty) ...[
             const SizedBox(height: 12),
@@ -180,8 +181,8 @@ class PkGroupRepairCard extends StatelessWidget {
                 size: 18,
                 color: theme.colorScheme.onSurfaceVariant,
               ),
-              title: const Text('Last run'),
-              subtitle: Text(_lastRunSummary(report)),
+              title: Text(l10n.pluralkitRepairLastRun),
+              subtitle: Text(_lastRunSummary(l10n, report)),
             ),
             if (repairDetailLines.isNotEmpty) ...[
               const SizedBox(height: 10),
@@ -193,7 +194,7 @@ class PkGroupRepairCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'What changed',
+                      l10n.pluralkitRepairWhatChanged,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
@@ -231,7 +232,7 @@ class PkGroupRepairCard extends StatelessWidget {
               ),
             ],
           ],
-          if (_referenceRecommendation() case final recommendation?) ...[
+          if (_referenceRecommendation(l10n) case final recommendation?) ...[
             const SizedBox(height: 14),
             PrismSurface(
               tone: PrismSurfaceTone.accent,
@@ -275,8 +276,9 @@ class PkGroupRepairCard extends StatelessWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Live PK lookup failed on the last run, so Prism fell back '
-                      'to the local repair pass. ${_compactError(referenceError)}',
+                      l10n.pluralkitRepairReferenceError(
+                        _compactError(referenceError),
+                      ),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSecondaryContainer,
                       ),
@@ -303,7 +305,7 @@ class PkGroupRepairCard extends StatelessWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Repair failed: ${_compactError(error)}',
+                      l10n.pluralkitRepairError(_compactError(error)),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onErrorContainer,
                       ),
@@ -335,14 +337,14 @@ class PkGroupRepairCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'PK group sync v2 cutover',
+                            l10n.pluralkitRepairCutoverTitle,
                             style: theme.textTheme.bodyMedium?.copyWith(
                               fontWeight: FontWeight.w700,
                             ),
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            _enablementHeadline(),
+                            _enablementHeadline(l10n),
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
@@ -361,10 +363,11 @@ class PkGroupRepairCard extends StatelessWidget {
                     color: _enablementColor(theme),
                     size: 18,
                   ),
-                  title: const Text('Shared enablement'),
-                  subtitle: Text(_enablementStatusText()),
+                  title: Text(l10n.pluralkitRepairSharedEnablement),
+                  subtitle: Text(_enablementStatusText(l10n)),
                 ),
-                if (_enablementRecommendation() case final recommendation?) ...[
+                if (_enablementRecommendation(l10n)
+                    case final recommendation?) ...[
                   const SizedBox(height: 8),
                   Text(
                     recommendation,
@@ -376,7 +379,7 @@ class PkGroupRepairCard extends StatelessWidget {
                 if (_canEnablePkGroupSyncV2) ...[
                   const SizedBox(height: 12),
                   PrismButton(
-                    label: 'Enable PK group sync',
+                    label: l10n.pluralkitRepairEnablePkGroupSync,
                     icon: AppIcons.checkCircle,
                     onPressed: () =>
                         unawaited(_confirmEnablePkGroupSyncV2(context)),
@@ -400,7 +403,7 @@ class PkGroupRepairCard extends StatelessWidget {
           if (showTemporaryTokenAction) ...[
             const SizedBox(height: 8),
             PrismButton(
-              label: 'Use temporary token',
+              label: l10n.pluralkitRepairUseTemporaryToken,
               icon: AppIcons.link,
               onPressed: onUseTemporaryToken!,
               enabled: !state.isRunning,
@@ -455,232 +458,256 @@ class PkGroupRepairCard extends StatelessWidget {
       state.lastReport != null &&
       state.pendingReviewCount == 0;
 
-  String _headline(PkGroupRepairReport? report) {
+  String _headline(AppLocalizations l10n, PkGroupRepairReport? report) {
     if (state.isRunning) {
-      return 'Scanning linked groups, repairing obvious duplicates, and '
-          'cross-checking live PK groups when a token is available.';
+      return l10n.pluralkitRepairHeadlineRunning;
     }
     if (state.pendingReviewCount > 0) {
-      return 'Ambiguous imported groups are currently suppressed so Prism '
-          'does not create duplicate sync links.';
+      return l10n.pluralkitRepairHeadlinePending;
     }
     if (report?.requiresReconnectForMissingPkGroupIdentity == true) {
-      return 'Local repair can still restore directly provable PK links, but '
-          'reconnecting PluralKit is still required to reconstruct missing PK '
-          'group identity automatically.';
+      return l10n.pluralkitRepairHeadlineReconnectRequired;
     }
     if (report != null && _hasRepairChanges(report)) {
-      return 'The last run made concrete local repair changes. Review the '
-          'summary below before enabling PK-backed group sync.';
+      return l10n.pluralkitRepairHeadlineChanged;
     }
     if (report != null) {
-      return 'The last run completed. You can rerun repair after reconnecting '
-          'or importing more PluralKit data.';
+      return l10n.pluralkitRepairHeadlineCompleted;
     }
-    return 'Fixes obvious PK group duplicates locally and flags ambiguous '
-        'matches for follow-up review.';
+    return l10n.pluralkitRepairHeadlineDefault;
   }
 
-  String _statusChipLabel() {
-    if (state.isRunning) return 'Repair running';
-    if (state.error != null) return 'Retry needed';
+  String _statusChipLabel(AppLocalizations l10n) {
+    if (state.isRunning) return l10n.pluralkitRepairStatusRunning;
+    if (state.error != null) return l10n.pluralkitRepairStatusRetryNeeded;
     if (state.pendingReviewCount > 0) {
-      return '${state.pendingReviewCount} pending review';
+      return l10n.pluralkitRepairStatusPendingReview(state.pendingReviewCount);
     }
-    if (state.lastReport != null) return 'Last run complete';
-    return 'Ready to run';
+    if (state.lastReport != null) {
+      return l10n.pluralkitRepairStatusLastRunComplete;
+    }
+    return l10n.pluralkitRepairStatusReadyToRun;
   }
 
-  String _tokenChipLabel() {
-    if (hasStoredToken == true) return 'Token-backed ready';
-    if (hasStoredToken == false) return 'Local-only until token';
-    return 'Checking token access';
+  String _tokenChipLabel(AppLocalizations l10n) {
+    if (hasStoredToken == true) return l10n.pluralkitRepairTokenBackedReady;
+    if (hasStoredToken == false) return l10n.pluralkitRepairLocalOnlyUntilToken;
+    return l10n.pluralkitRepairCheckingTokenAccess;
   }
 
-  String _enablementChipLabel() {
-    if (pkGroupSyncV2Enabled == true) return 'PK sync v2 enabled';
-    if (pkGroupSyncV2Enabled == false) return 'PK sync v2 off';
-    return 'Checking cutover';
+  String _enablementChipLabel(AppLocalizations l10n) {
+    if (pkGroupSyncV2Enabled == true) {
+      return l10n.pluralkitRepairCutoverEnabledChip;
+    }
+    if (pkGroupSyncV2Enabled == false) {
+      return l10n.pluralkitRepairCutoverOffChip;
+    }
+    return l10n.pluralkitRepairCheckingCutover;
   }
 
-  String _currentStatusText(PkGroupRepairReport? report) {
+  String _currentStatusText(
+    AppLocalizations l10n,
+    PkGroupRepairReport? report,
+  ) {
     if (state.isRunning) {
-      return 'Repair is running now.';
+      return l10n.pluralkitRepairCurrentRunning;
     }
     if (state.error != null) {
-      return 'The last manual run failed. Retry below when you are ready.';
+      return l10n.pluralkitRepairCurrentError;
     }
     if (state.pendingReviewCount > 0) {
-      return '${_countPhrase(state.pendingReviewCount, "group", "groups")} '
-          'still need review before they can be linked or cleared.';
+      return l10n.pluralkitRepairCurrentPending(state.pendingReviewCount);
     }
     if (report == null) {
-      return 'No repair run has been recorded in this app session yet.';
+      return l10n.pluralkitRepairCurrentNoRun;
     }
     if (report.requiresReconnectForMissingPkGroupIdentity) {
-      return 'The last run finished the safe local repair pass, but missing PK '
-          'group identity still needs a live PluralKit reference source to be '
-          'reconstructed automatically.';
+      return l10n.pluralkitRepairCurrentReconnectRequired;
     }
     if (_hasRepairChanges(report)) {
-      return 'The last run changed local PK group data. See the last-run '
-          'summary below for the exact repairs applied.';
+      return l10n.pluralkitRepairCurrentChanged;
     }
-    return 'The last run did not find any new PK group repairs to apply.';
+    return l10n.pluralkitRepairCurrentNoChanges;
   }
 
-  String _enablementHeadline() {
+  String _enablementHeadline(AppLocalizations l10n) {
     if (pkGroupSyncV2Enabled == true) {
-      return 'PK-backed group sync is enabled for this sync group. '
-          'Manual/local-only groups still stay local.';
+      return l10n.pluralkitRepairCutoverHeadlineEnabled;
     }
     if (_canEnablePkGroupSyncV2) {
-      return 'Local repair prerequisites are satisfied. The remaining safety '
-          'boundary is explicit operator confirmation of cutover.';
+      return l10n.pluralkitRepairCutoverHeadlineReady;
     }
-    return 'PK-backed group sync stays off until repair is complete and you '
-        'explicitly confirm that legacy devices are no longer paired.';
+    return l10n.pluralkitRepairCutoverHeadlineBlocked;
   }
 
-  String _enablementStatusText() {
+  String _enablementStatusText(AppLocalizations l10n) {
     if (pkGroupSyncV2Enabled == null) {
-      return 'Loading the shared cutover setting for this sync group.';
+      return l10n.pluralkitRepairCutoverStatusLoading;
     }
     if (pkGroupSyncV2Enabled == true) {
-      return 'Enabled for this sync group after explicit confirmation.';
+      return l10n.pluralkitRepairCutoverStatusEnabled;
     }
     if (state.isRunning) {
-      return 'Unavailable while repair is still running.';
+      return l10n.pluralkitRepairCutoverStatusRunning;
     }
     if (state.lastReport == null) {
-      return 'Unavailable until a repair run completes in this app session.';
+      return l10n.pluralkitRepairCutoverStatusNoRun;
     }
     if (state.pendingReviewCount > 0) {
-      return 'Unavailable until pending review items are resolved or kept '
-          'local-only.';
+      return l10n.pluralkitRepairCutoverStatusPending;
     }
-    return 'Ready to enable after explicit cutover confirmation.';
+    return l10n.pluralkitRepairCutoverStatusReady;
   }
 
-  String? _enablementRecommendation() {
+  String? _enablementRecommendation(AppLocalizations l10n) {
     if (pkGroupSyncV2Enabled == null) return null;
     if (pkGroupSyncV2Enabled == true) {
-      return 'This only affects PK-backed group sync. Manual/local-only groups '
-          'remain unaffected.';
+      return l10n.pluralkitRepairCutoverRecommendationEnabled;
     }
     if (state.lastReport == null) {
-      return 'Run repair first. Prism keeps PK group sync v2 off until this '
-          'client has completed a repair pass.';
+      return l10n.pluralkitRepairCutoverRecommendationRunFirst;
     }
     if (state.pendingReviewCount > 0) {
-      return 'Resolve each pending review item or explicitly keep it '
-          'local-only before enabling cutover.';
+      return l10n.pluralkitRepairCutoverRecommendationPending;
     }
-    return 'Only enable after every legacy 0.4.0+1-era device in this sync '
-        'group has been upgraded, reset/re-paired, removed, or after you '
-        'moved testing to a fresh sync group.';
+    return l10n.pluralkitRepairCutoverRecommendationReady;
   }
 
-  String _pendingReviewText() {
+  String _pendingReviewText(AppLocalizations l10n) {
     if (state.pendingReviewCount == 0) {
-      return 'No ambiguous PK group matches are waiting for review.';
+      return l10n.pluralkitRepairPendingNone;
     }
-    return '${_countPhrase(state.pendingReviewCount, "group", "groups")} '
-        'still need follow-up review.';
+    return l10n.pluralkitRepairPendingCount(state.pendingReviewCount);
   }
 
-  String _lastRunModeLabel(PkGroupRepairReferenceMode mode) {
+  String _lastRunModeLabel(
+    AppLocalizations l10n,
+    PkGroupRepairReferenceMode mode,
+  ) {
     return switch (mode) {
-      PkGroupRepairReferenceMode.none => 'Local-only run',
-      PkGroupRepairReferenceMode.storedToken => 'Stored-token run',
-      PkGroupRepairReferenceMode.providedToken => 'Temporary-token run',
+      PkGroupRepairReferenceMode.none => l10n.pluralkitRepairModeLocalOnlyRun,
+      PkGroupRepairReferenceMode.storedToken =>
+        l10n.pluralkitRepairModeStoredTokenRun,
+      PkGroupRepairReferenceMode.providedToken =>
+        l10n.pluralkitRepairModeTemporaryTokenRun,
     };
   }
 
-  String _lastRunSummary(PkGroupRepairReport report) {
-    final prefix = switch (report.referenceMode) {
-      PkGroupRepairReferenceMode.none => 'Local run',
-      PkGroupRepairReferenceMode.storedToken => 'Stored-token run',
-      PkGroupRepairReferenceMode.providedToken => 'Temporary-token run',
+  String _lastRunPrefix(
+    AppLocalizations l10n,
+    PkGroupRepairReferenceMode mode,
+  ) {
+    return switch (mode) {
+      PkGroupRepairReferenceMode.none => l10n.pluralkitRepairLastRunPrefixLocal,
+      PkGroupRepairReferenceMode.storedToken =>
+        l10n.pluralkitRepairLastRunPrefixStoredToken,
+      PkGroupRepairReferenceMode.providedToken =>
+        l10n.pluralkitRepairLastRunPrefixTemporaryToken,
     };
-    final fragments = _summaryRepairFragments(report);
+  }
+
+  String _lastRunSummary(AppLocalizations l10n, PkGroupRepairReport report) {
+    final prefix = _lastRunPrefix(l10n, report.referenceMode);
+    final fragments = _summaryRepairFragments(l10n, report);
 
     if (fragments.isEmpty) {
-      return '$prefix found no new PK group changes to apply.';
+      return l10n.pluralkitRepairLastRunNoChanges(prefix);
     }
 
-    return '$prefix ${_joinFragments(fragments)}.';
+    return l10n.pluralkitRepairLastRunChanged(
+      prefix,
+      _joinFragments(l10n, fragments),
+    );
   }
 
-  List<String> _summaryRepairFragments(PkGroupRepairReport report) {
+  List<String> _summaryRepairFragments(
+    AppLocalizations l10n,
+    PkGroupRepairReport report,
+  ) {
     final primary = <String>[
       if (report.parentReferencesRehomed > 0)
-        'updated ${_countPhrase(report.parentReferencesRehomed, "child-group parent link", "child-group parent links")}',
+        l10n.pluralkitRepairSummaryUpdatedParentLinks(
+          report.parentReferencesRehomed,
+        ),
       if (report.entriesRehomed > 0)
-        'moved ${_countPhrase(report.entriesRehomed, "group membership", "group memberships")}',
+        l10n.pluralkitRepairSummaryMovedMemberships(report.entriesRehomed),
       if (report.duplicateGroupsSoftDeleted > 0)
-        'removed ${_countPhrase(report.duplicateGroupsSoftDeleted, "duplicate local group", "duplicate local groups")}',
+        l10n.pluralkitRepairSummaryRemovedDuplicateGroups(
+          report.duplicateGroupsSoftDeleted,
+        ),
       if (report.entryConflictsSoftDeleted > 0)
-        'removed ${_countPhrase(report.entryConflictsSoftDeleted, "conflicting group membership", "conflicting group memberships")}',
+        l10n.pluralkitRepairSummaryRemovedConflictingMemberships(
+          report.entryConflictsSoftDeleted,
+        ),
       if (report.ambiguousGroupsSuppressed > 0)
-        'suppressed ${_countPhrase(report.ambiguousGroupsSuppressed, "ambiguous group", "ambiguous groups")} for review',
+        l10n.pluralkitRepairSummarySuppressedAmbiguousGroups(
+          report.ambiguousGroupsSuppressed,
+        ),
     ];
     if (primary.isNotEmpty) return primary;
 
     return <String>[
       if (report.backfilledEntries > 0)
-        'restored ${_countPhrase(report.backfilledEntries, "missing PK membership link", "missing PK membership links")}',
+        l10n.pluralkitRepairSummaryRestoredMissingMemberships(
+          report.backfilledEntries,
+        ),
       if (report.aliasesRecorded > 0)
-        'recorded ${_countPhrase(report.aliasesRecorded, "legacy group alias", "legacy group aliases")}',
+        l10n.pluralkitRepairSummaryRecordedLegacyAliases(
+          report.aliasesRecorded,
+        ),
     ];
   }
 
-  List<String> _repairDetailLines(PkGroupRepairReport report) {
+  List<String> _repairDetailLines(
+    AppLocalizations l10n,
+    PkGroupRepairReport report,
+  ) {
     return <String>[
       if (report.parentReferencesRehomed > 0)
-        'Updated ${_countPhrase(report.parentReferencesRehomed, "child-group parent link", "child-group parent links")} to point at the surviving group.',
+        l10n.pluralkitRepairDetailUpdatedParentLinks(
+          report.parentReferencesRehomed,
+        ),
       if (report.entriesRehomed > 0)
-        'Moved ${_countPhrase(report.entriesRehomed, "group membership", "group memberships")} onto the surviving group.',
+        l10n.pluralkitRepairDetailMovedMemberships(report.entriesRehomed),
       if (report.duplicateGroupsSoftDeleted > 0)
-        'Removed ${_countPhrase(report.duplicateGroupsSoftDeleted, "duplicate local group", "duplicate local groups")}.',
+        l10n.pluralkitRepairDetailRemovedDuplicateGroups(
+          report.duplicateGroupsSoftDeleted,
+        ),
       if (report.entryConflictsSoftDeleted > 0)
-        'Removed ${_countPhrase(report.entryConflictsSoftDeleted, "conflicting group membership", "conflicting group memberships")} while merging duplicates.',
+        l10n.pluralkitRepairDetailRemovedConflictingMemberships(
+          report.entryConflictsSoftDeleted,
+        ),
       if (report.ambiguousGroupsSuppressed > 0)
-        'Suppressed ${_countPhrase(report.ambiguousGroupsSuppressed, "ambiguous group", "ambiguous groups")} for review before sync can continue.',
+        l10n.pluralkitRepairDetailSuppressedAmbiguousGroups(
+          report.ambiguousGroupsSuppressed,
+        ),
       if (report.backfilledEntries > 0)
-        'Restored ${_countPhrase(report.backfilledEntries, "missing PK membership link", "missing PK membership links")}.',
+        l10n.pluralkitRepairDetailRestoredMissingMemberships(
+          report.backfilledEntries,
+        ),
       if (report.aliasesRecorded > 0)
-        'Recorded ${_countPhrase(report.aliasesRecorded, "legacy group alias", "legacy group aliases")} so older group IDs still resolve.',
+        l10n.pluralkitRepairDetailRecordedLegacyAliases(report.aliasesRecorded),
     ];
   }
 
-  String? _referenceRecommendation() {
+  String? _referenceRecommendation(AppLocalizations l10n) {
     if (hasStoredToken == false &&
         state.lastReport?.requiresReconnectForMissingPkGroupIdentity == true) {
-      return 'This looks like import-only PK data with no local PK-linked '
-          'groups left to use as repair references. Prism can still repair '
-          'directly linked rows locally, but reconnecting PluralKit or using '
-          'a temporary token is the only way to reconstruct missing PK group '
-          'identity automatically.';
+      return l10n.pluralkitRepairReferenceImportOnly;
     }
     if (hasStoredToken == true && state.lastReport?.referenceError == null) {
       return null;
     }
     if (hasStoredToken == true && state.lastReport?.referenceError != null) {
-      return 'A stored token exists, but the last live reference lookup failed. '
-          'Reconnect PluralKit or use a temporary token if you want a full '
-          'token-backed repair pass.';
+      return l10n.pluralkitRepairReferenceStoredTokenFailed;
     }
     if (hasStoredToken == false && !isConnected) {
-      return 'Reconnect PluralKit above or use a temporary token for a fuller '
-          'repair pass. Local repair still handles the obvious duplicates.';
+      return l10n.pluralkitRepairReferenceReconnectOrToken;
     }
     if (hasStoredToken == false) {
-      return 'A token-backed repair run is recommended when you can provide '
-          'one. Until then, Prism will only run the safe local repair pass.';
+      return l10n.pluralkitRepairReferenceTokenRecommended;
     }
-    return 'Repair can run locally now. Live PK cross-checks appear once '
-        'token access is confirmed.';
+    return l10n.pluralkitRepairReferenceLocalNow;
   }
 
   Color _enablementColor(ThemeData theme) {
@@ -696,9 +723,10 @@ class PkGroupRepairCard extends StatelessWidget {
   }
 
   Future<void> _confirmEnablePkGroupSyncV2(BuildContext context) async {
+    final l10n = context.l10n;
     final confirmed = await PrismSheet.show<bool>(
       context: context,
-      title: 'Enable PK sync v2?',
+      title: l10n.pluralkitRepairConfirmEnableTitle,
       maxHeightFactor: 0.8,
       builder: (sheetContext) {
         final theme = Theme.of(sheetContext);
@@ -718,9 +746,7 @@ class PkGroupRepairCard extends StatelessWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Only enable this after every legacy 0.4.0+1-era device '
-                      'has been upgraded, reset/re-paired, removed, or after '
-                      'you moved to a fresh sync group.',
+                      l10n.pluralkitRepairConfirmEnableBody,
                       style: theme.textTheme.bodyMedium,
                     ),
                   ),
@@ -728,8 +754,7 @@ class PkGroupRepairCard extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                'If any device is unaccounted for, keep this off. '
-                'Manual/local-only groups stay local either way.',
+                l10n.pluralkitRepairConfirmEnableFootnote,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -741,12 +766,12 @@ class PkGroupRepairCard extends StatelessWidget {
                 runSpacing: 8,
                 children: [
                   PrismButton(
-                    label: 'Cancel',
+                    label: l10n.cancel,
                     tone: PrismButtonTone.outlined,
                     onPressed: () => Navigator.of(sheetContext).pop(false),
                   ),
                   PrismButton(
-                    label: 'Enable PK sync v2',
+                    label: l10n.pluralkitRepairConfirmEnableAction,
                     tone: PrismButtonTone.filled,
                     onPressed: () => Navigator.of(sheetContext).pop(true),
                   ),
@@ -762,20 +787,16 @@ class PkGroupRepairCard extends StatelessWidget {
   }
 
   Future<void> _confirmResetPkGroupsOnly(BuildContext context) async {
+    final l10n = context.l10n;
     final action = await PrismSheet.show<String>(
       context: context,
-      title: 'Reset PK groups only?',
+      title: l10n.pluralkitRepairConfirmResetTitle,
       maxHeightFactor: 0.84,
       builder: (sheetContext) {
         final theme = Theme.of(sheetContext);
         final detail = isConnected
-            ? 'Prism will remove PK-linked and repair-suppressed groups, keep '
-                  'manual/local-only groups, clear deferred PK membership ops, '
-                  'and then re-import your current PK groups.'
-            : 'Prism will remove PK-linked and repair-suppressed groups, keep '
-                  'manual/local-only groups, and clear deferred PK membership '
-                  'ops. Reconnect PluralKit or import again afterward to rebuild '
-                  'them.';
+            ? l10n.pluralkitRepairConfirmResetConnectedBody
+            : l10n.pluralkitRepairConfirmResetDisconnectedBody;
         return SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -797,7 +818,7 @@ class PkGroupRepairCard extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                'Export data first if you want a full backup before the reset.',
+                l10n.pluralkitRepairConfirmResetExportHint,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -809,19 +830,19 @@ class PkGroupRepairCard extends StatelessWidget {
                 runSpacing: 8,
                 children: [
                   PrismButton(
-                    label: 'Cancel',
+                    label: l10n.cancel,
                     tone: PrismButtonTone.outlined,
                     onPressed: () => Navigator.of(sheetContext).pop(),
                   ),
                   PrismButton(
-                    label: 'Export data first',
+                    label: l10n.pluralkitRepairConfirmResetExportFirst,
                     tone: PrismButtonTone.outlined,
                     onPressed: () => Navigator.of(sheetContext).pop('export'),
                   ),
                   PrismButton(
                     label: isConnected
-                        ? 'Reset and re-import'
-                        : 'Reset PK groups',
+                        ? l10n.pluralkitRepairConfirmResetActionConnected
+                        : l10n.pluralkitRepairConfirmResetActionDisconnected,
                     tone: PrismButtonTone.destructive,
                     onPressed: () => Navigator.of(sheetContext).pop('reset'),
                   ),
@@ -851,19 +872,14 @@ class PkGroupRepairCard extends StatelessWidget {
         report.ambiguousGroupsSuppressed > 0;
   }
 
-  String _countPhrase(int count, String singular, String plural) {
-    final noun = count == 1 ? singular : plural;
-    return '$count $noun';
-  }
-
-  String _joinFragments(List<String> fragments) {
+  String _joinFragments(AppLocalizations l10n, List<String> fragments) {
     if (fragments.length == 1) return fragments.first;
     if (fragments.length == 2) {
-      return '${fragments.first} and ${fragments.last}';
+      return l10n.pluralkitRepairJoinPair(fragments.first, fragments.last);
     }
 
     final head = fragments.sublist(0, fragments.length - 1).join(', ');
-    return '$head, and ${fragments.last}';
+    return l10n.pluralkitRepairJoinSerial(fragments.last, head);
   }
 
   String _compactError(String value) {

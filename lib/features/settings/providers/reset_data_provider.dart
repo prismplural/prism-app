@@ -18,6 +18,7 @@ import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_group_sync_v2_catchup_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 abstract class ResetSecureStore {
@@ -105,6 +106,16 @@ class ResetDataNotifier extends AsyncNotifier<void> {
       return;
     }
     db.notifyUpdates(updates);
+  }
+
+  Future<void> _clearSyncOneTimeFlags() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('sync.enum_fields_reemit_v1');
+      await prefs.remove(PkGroupSyncV2CatchupService.flagKey);
+    } catch (e) {
+      _log('SharedPreferences reset failed (non-fatal): $e');
+    }
   }
 
   Future<String?> _readDecodedSecureValue(String key) async {
@@ -375,7 +386,11 @@ class ResetDataNotifier extends AsyncNotifier<void> {
     await ref.read(syncQuarantineServiceProvider).clearAll();
     ref.invalidate(quarantinedItemsProvider);
 
-    // 6. Dispose the old FFI handle before invalidating the provider.
+    // 6. Reset sync-group-scoped one-time flags so a fresh pairing can run the
+    // catch-up/migration passes for the new group.
+    await _clearSyncOneTimeFlags();
+
+    // 7. Dispose the old FFI handle before invalidating the provider.
     //    dispose() eagerly drops the Rust-side Arc<Mutex<PrismSync>>,
     //    releasing SQLite connections and WebSocket handles immediately
     //    rather than waiting for Dart GC to collect the orphaned object.
@@ -384,7 +399,7 @@ class ResetDataNotifier extends AsyncNotifier<void> {
     //    old handle's resources are freed before build() creates a new one.
     handle?.dispose();
 
-    // 7. Reset providers so UI reverts to setup state
+    // 8. Reset providers so UI reverts to setup state
     ref.invalidate(prismSyncHandleProvider);
     ref.invalidate(relayUrlProvider);
     ref.invalidate(syncIdProvider);
@@ -420,6 +435,8 @@ class ResetDataNotifier extends AsyncNotifier<void> {
       await db.customStatement('DELETE FROM custom_fields');
       await db.customStatement('DELETE FROM member_group_entries');
       await db.customStatement('DELETE FROM member_groups');
+      await db.customStatement('DELETE FROM pk_group_entry_deferred_sync_ops');
+      await db.customStatement('DELETE FROM pk_group_sync_aliases');
       await db.customStatement('DELETE FROM notes');
       await db.customStatement('DELETE FROM reminders');
       await db.customStatement('DELETE FROM friends');
@@ -478,14 +495,6 @@ class ResetDataNotifier extends AsyncNotifier<void> {
     // prism_pluralkit_token and any future keys without an explicit listing.
     await ref.read(resetSecureStoreProvider).deleteAll();
 
-    // Reset one-time migration flags so they re-run after fresh onboarding.
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('sync.enum_fields_reemit_v1');
-    } catch (e) {
-      _log('SharedPreferences reset failed (non-fatal): $e');
-    }
-
     _notifyTableChanges([
       'habit_completions',
       'habits',
@@ -502,6 +511,8 @@ class ResetDataNotifier extends AsyncNotifier<void> {
       'custom_fields',
       'member_group_entries',
       'member_groups',
+      'pk_group_entry_deferred_sync_ops',
+      'pk_group_sync_aliases',
       'notes',
       'reminders',
       'friends',
@@ -519,6 +530,5 @@ class ResetDataNotifier extends AsyncNotifier<void> {
   }
 }
 
-final resetDataNotifierProvider = AsyncNotifierProvider<ResetDataNotifier, void>(
-  ResetDataNotifier.new,
-);
+final resetDataNotifierProvider =
+    AsyncNotifierProvider<ResetDataNotifier, void>(ResetDataNotifier.new);

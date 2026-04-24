@@ -40,6 +40,7 @@ void main() {
       habitsBadgeEnabled: true,
       timingMode: 0,
       notesEnabled: true,
+      pkGroupSyncV2Enabled: false,
       previousAccentColorHex: '',
       systemDescription: null,
       systemColor: null,
