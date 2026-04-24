@@ -994,7 +994,7 @@ class _ReviewItemCard extends StatelessWidget {
             runSpacing: 8,
             children: [
               PrismButton(
-                label: l10n.pluralkitRepairMergeIntoCanonical,
+                label: l10n.pluralkitRepairUsePluralKitMatch,
                 icon: AppIcons.autoFixHigh,
                 onPressed: () =>
                     unawaited(onMergeReviewItemIntoCanonical(item.groupId)),
@@ -1002,7 +1002,7 @@ class _ReviewItemCard extends StatelessWidget {
                 tone: PrismButtonTone.filled,
               ),
               PrismButton(
-                label: l10n.pluralkitRepairKeepLocalOnly,
+                label: l10n.pluralkitRepairKeepMyPrismGroup,
                 icon: AppIcons.lockOutline,
                 onPressed: () =>
                     unawaited(onKeepReviewItemLocalOnly(item.groupId)),

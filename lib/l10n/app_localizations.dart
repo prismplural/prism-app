@@ -8601,7 +8601,7 @@ abstract class AppLocalizations {
   /// Action preview sentence for repair review merge
   ///
   /// In en, this message translates to:
-  /// **'Merge will {summary}.'**
+  /// **'Using this match will {summary}.'**
   String pluralkitRepairMergeActionPreview(String summary);
 
   /// Merge action preview fragment
@@ -8628,17 +8628,17 @@ abstract class AppLocalizations {
   /// **'leave {count, plural, =1{1 PK-only member} other{{count} PK-only members}} unmatched'**
   String pluralkitRepairPreviewLeavePkOnly(int count);
 
-  /// Button label for merging a review item into the canonical PK group
+  /// Button label for accepting the suggested PluralKit group match
   ///
   /// In en, this message translates to:
-  /// **'Merge into canonical'**
-  String get pluralkitRepairMergeIntoCanonical;
+  /// **'Use this PluralKit match'**
+  String get pluralkitRepairUsePluralKitMatch;
 
-  /// Button label for keeping a review item local-only
+  /// Button label for keeping a reviewed local group separate from the suggested PluralKit group
   ///
   /// In en, this message translates to:
-  /// **'Keep local-only'**
-  String get pluralkitRepairKeepLocalOnly;
+  /// **'Keep my Prism group'**
+  String get pluralkitRepairKeepMyPrismGroup;
 
   /// Button label for dismissing a review item false positive
   ///
@@ -9279,7 +9279,7 @@ abstract class AppLocalizations {
   /// No description provided for @pluralkitRepairMergedSuccess.
   ///
   /// In en, this message translates to:
-  /// **'Group merged into the canonical PK-backed group.'**
+  /// **'Group linked to the PluralKit match.'**
   String get pluralkitRepairMergedSuccess;
 
   /// No description provided for @pluralkitRepairDismissReviewFailed.
@@ -9297,7 +9297,7 @@ abstract class AppLocalizations {
   /// No description provided for @pluralkitRepairMergeFailed.
   ///
   /// In en, this message translates to:
-  /// **'Could not merge this group into the canonical PK group: {error}'**
+  /// **'Could not use this PluralKit match: {error}'**
   String pluralkitRepairMergeFailed(Object error);
 
   /// No description provided for @pluralkitRepairCutoverSettingsLoadingError.

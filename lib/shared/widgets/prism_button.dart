@@ -57,9 +57,10 @@ class _PrismButtonState extends State<PrismButton> {
         : 24.0;
     final verticalPadding = density == PrismControlDensity.compact ? 8.0 : 12.0;
     final foregroundColor = switch (tone) {
-      PrismButtonTone.filled => canPress
-          ? theme.colorScheme.onPrimary
-          : theme.colorScheme.onPrimary.withValues(alpha: 0.6),
+      PrismButtonTone.filled =>
+        canPress
+            ? theme.colorScheme.onPrimary
+            : theme.colorScheme.onPrimary.withValues(alpha: 0.6),
       _ => canPress ? color : color.withValues(alpha: 0.4),
     };
 
@@ -136,45 +137,92 @@ class _PrismButtonState extends State<PrismButton> {
                 border: Border.all(color: borderColor),
               ),
               child: widget.isLoading
-                  ? PrismSpinner(
-                      color: foregroundColor,
-                      size: 20,
-                    )
-                  : Row(
-                      mainAxisSize:
-                          widget.expanded ? MainAxisSize.max : MainAxisSize.min,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        if (widget.icon != null) ...[
-                          Icon(
-                            widget.icon,
-                            size: density == PrismControlDensity.compact
-                                ? 16
-                                : 18,
-                            color: foregroundColor,
-                          ),
-                          SizedBox(
-                            width: density == PrismControlDensity.compact
-                                ? 6
-                                : 8,
-                          ),
-                        ],
-                        Text(
-                          widget.label,
-                          style: TextStyle(
-                            color: foregroundColor,
-                            fontSize: density == PrismControlDensity.compact
-                                ? 13
-                                : 15,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
+                  ? PrismSpinner(color: foregroundColor, size: 20)
+                  : _PrismButtonContent(
+                      label: widget.label,
+                      icon: widget.icon,
+                      expanded: widget.expanded,
+                      density: density,
+                      foregroundColor: foregroundColor,
                     ),
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+class _PrismButtonContent extends StatelessWidget {
+  const _PrismButtonContent({
+    required this.label,
+    required this.icon,
+    required this.expanded,
+    required this.density,
+    required this.foregroundColor,
+  });
+
+  final String label;
+  final IconData? icon;
+  final bool expanded;
+  final PrismControlDensity density;
+  final Color foregroundColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Text(
+      label,
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      softWrap: true,
+      textAlign: TextAlign.center,
+      style: TextStyle(
+        color: foregroundColor,
+        fontSize: density == PrismControlDensity.compact ? 13 : 15,
+        fontWeight: FontWeight.w600,
+      ),
+    );
+    final iconWidget = icon == null
+        ? null
+        : Padding(
+            padding: EdgeInsets.only(
+              right: density == PrismControlDensity.compact ? 6 : 8,
+            ),
+            child: Icon(
+              icon,
+              size: density == PrismControlDensity.compact ? 16 : 18,
+              color: foregroundColor,
+            ),
+          );
+
+    // Fast path: when the button is expanded, the Row already has
+    // MainAxisSize.max and the Text gets bounded width from the parent, so
+    // Flexible is unnecessary and LayoutBuilder's extra layout pass is wasted.
+    if (expanded) {
+      return Row(
+        mainAxisSize: MainAxisSize.max,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          ?iconWidget,
+          Flexible(child: text),
+        ],
+      );
+    }
+
+    // Non-expanded buttons may sit inside bounded or unbounded horizontal
+    // contexts. LayoutBuilder picks the right branch once; the cost is paid
+    // only on these less common call sites.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            ?iconWidget,
+            if (constraints.hasBoundedWidth) Flexible(child: text) else text,
+          ],
+        );
+      },
     );
   }
 }

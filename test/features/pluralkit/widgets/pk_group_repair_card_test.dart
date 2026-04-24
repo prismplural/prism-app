@@ -78,8 +78,8 @@ void main() {
       expect(find.text('PK sync v2 off'), findsOneWidget);
       expect(find.text('Run local repair'), findsOneWidget);
       expect(find.text('Use temporary token'), findsOneWidget);
-      expect(find.text('Merge into canonical'), findsNWidgets(2));
-      expect(find.text('Keep local-only'), findsNWidgets(2));
+      expect(find.text('Use this PluralKit match'), findsNWidgets(2));
+      expect(find.text('Keep my Prism group'), findsNWidgets(2));
       expect(find.text('Dismiss false positive'), findsNWidgets(2));
       expect(find.text('What changed'), findsOneWidget);
       expect(
@@ -185,12 +185,15 @@ void main() {
     expect(find.text('1 only in PK'), findsOneWidget);
     expect(
       find.text(
-        'Merge will link this local group to the suspected PK group · preserve '
-        '2 shared PK memberships · keep 1 local-only membership · leave 1 '
-        'PK-only member unmatched.',
+        'Using this match will link this local group to the suspected PK group '
+        '· preserve 2 shared PK memberships · keep 1 local-only membership · '
+        'leave 1 PK-only member unmatched.',
       ),
       findsOneWidget,
     );
+    expect(find.text('Use this PluralKit match'), findsOneWidget);
+    expect(find.text('Keep my Prism group'), findsOneWidget);
+    expect(find.text('Dismiss false positive'), findsOneWidget);
   });
 
   testWidgets('renders fallback copy when reference data is absent', (
@@ -231,6 +234,7 @@ void main() {
       find.text('Reconnect PluralKit to see comparison details'),
       findsOneWidget,
     );
+    expect(find.text('Use this PluralKit match'), findsOneWidget);
   });
 
   testWidgets('renders candidate comparison in Spanish', (tester) async {
@@ -270,8 +274,67 @@ void main() {
     expect(find.text('Grupo PK'), findsNWidgets(2));
     expect(find.text('1 integrante PK compartido'), findsNWidgets(2));
     expect(find.text('1 integrante solo local'), findsOneWidget);
-    expect(find.textContaining('La fusión va a'), findsOneWidget);
-    expect(find.text('Mantener solo local'), findsOneWidget);
+    expect(find.textContaining('Usar esta coincidencia va a'), findsOneWidget);
+    expect(find.text('Usar esta coincidencia de PluralKit'), findsOneWidget);
+    expect(find.text('Mantener mi grupo de Prism'), findsOneWidget);
+    expect(find.text('Descartar falso positivo'), findsOneWidget);
+  });
+
+  testWidgets('uses honest review action labels', (tester) async {
+    await tester.pumpWidget(
+      buildTestApp(
+        child: PkGroupRepairCard(
+          state: const PkGroupRepairState(
+            pendingReviewCount: 3,
+            pendingReviewItems: [
+              PkGroupReviewItem(
+                groupId: 'exact',
+                name: 'Exact',
+                suspectedPkGroupUuid: 'pk-exact',
+                syncSuppressed: true,
+                candidateName: 'Exact',
+                sharedPkMemberUuids: {'pk-a'},
+              ),
+              PkGroupReviewItem(
+                groupId: 'missing',
+                name: 'Missing',
+                suspectedPkGroupUuid: 'pk-missing',
+                syncSuppressed: true,
+                candidateName: 'Missing',
+                sharedPkMemberUuids: {'pk-a'},
+                onlyInCandidateMemberUuids: {'pk-b'},
+              ),
+              PkGroupReviewItem(
+                groupId: 'metadata',
+                name: 'Local',
+                description: 'Local notes',
+                suspectedPkGroupUuid: 'pk-metadata',
+                syncSuppressed: true,
+                candidateName: 'Local',
+                candidateDescription: 'PluralKit notes',
+                sharedPkMemberUuids: {'pk-a'},
+              ),
+            ],
+          ),
+          isConnected: true,
+          hasStoredToken: true,
+          pkGroupSyncV2Enabled: false,
+          onRunRepair: () {},
+          onDismissReviewItem: (_) async {},
+          onKeepReviewItemLocalOnly: (_) async {},
+          onMergeReviewItemIntoCanonical: (_) async {},
+          onEnablePkGroupSyncV2: () async {},
+          onResetPkGroupsOnly: () async {},
+          onExportDataFirst: () {},
+        ),
+      ),
+    );
+
+    expect(find.text('Use this PluralKit match'), findsNWidgets(3));
+    expect(find.text('Keep my Prism group'), findsNWidgets(3));
+    expect(find.text('Dismiss false positive'), findsNWidgets(3));
+    expect(find.text('Import missing members'), findsNothing);
+    expect(find.text('Update group details'), findsNothing);
   });
 
   testWidgets(
