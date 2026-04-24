@@ -25,8 +25,8 @@ class PkRequestQueue {
   PkRequestQueue({
     Duration minInterval = defaultMinInterval,
     int maxRetries = defaultMaxRetries,
-  })  : _minInterval = minInterval,
-        _maxRetries = maxRetries;
+  }) : _minInterval = minInterval,
+       _maxRetries = maxRetries;
 
   /// Enqueue a request. Returns a Future that completes with the result
   /// once the request has been executed (respecting rate limits).
@@ -71,7 +71,8 @@ class PkRequestQueue {
           // Prefer server-provided delay (Retry-After / X-RateLimit-Reset).
           // Fall back to exponential backoff if the server didn't tell us.
           final serverDelay = e.retryAfter;
-          final backoff = serverDelay ??
+          final backoff =
+              serverDelay ??
               Duration(milliseconds: 1000 * pow(2, attempt).toInt());
           await Future<void>.delayed(backoff);
           // Treat the rate-limit event as a "request" for pacing purposes so
@@ -84,7 +85,6 @@ class PkRequestQueue {
       }
     }
   }
-
 }
 
 class _QueueEntry<T> {

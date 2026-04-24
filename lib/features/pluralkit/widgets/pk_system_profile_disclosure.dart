@@ -48,12 +48,12 @@ class _PkSystemProfileDisclosureSheetState
       widget.pkSystem.name != null && widget.pkSystem.name!.isNotEmpty;
   bool get _hasDescription =>
       widget.pkSystem.description != null &&
-          widget.pkSystem.description!.isNotEmpty;
+      widget.pkSystem.description!.isNotEmpty;
   bool get _hasTag =>
       widget.pkSystem.tag != null && widget.pkSystem.tag!.isNotEmpty;
   bool get _hasAvatar =>
       widget.pkSystem.avatarUrl != null &&
-          widget.pkSystem.avatarUrl!.isNotEmpty;
+      widget.pkSystem.avatarUrl!.isNotEmpty;
 
   bool get _prismNameBlank {
     final n = widget.currentPrismSettings.systemName;
@@ -103,44 +103,52 @@ class _PkSystemProfileDisclosureSheetState
 
     final rows = <Widget>[];
     if (_hasName) {
-      rows.add(_row(
-        field: PkProfileField.name,
-        label: l10n.pkProfileFieldName,
-        preview: widget.pkSystem.name!,
-        overwrite: !_prismNameBlank,
-        l10nHint: l10n.pkProfileFieldOverwriteHint,
-        theme: theme,
-      ));
+      rows.add(
+        _row(
+          field: PkProfileField.name,
+          label: l10n.pkProfileFieldName,
+          preview: widget.pkSystem.name!,
+          overwrite: !_prismNameBlank,
+          l10nHint: l10n.pkProfileFieldOverwriteHint,
+          theme: theme,
+        ),
+      );
     }
     if (_hasDescription) {
-      rows.add(_row(
-        field: PkProfileField.description,
-        label: l10n.pkProfileFieldDescription,
-        preview: widget.pkSystem.description!,
-        overwrite: !_prismDescriptionBlank,
-        l10nHint: l10n.pkProfileFieldOverwriteHint,
-        theme: theme,
-      ));
+      rows.add(
+        _row(
+          field: PkProfileField.description,
+          label: l10n.pkProfileFieldDescription,
+          preview: widget.pkSystem.description!,
+          overwrite: !_prismDescriptionBlank,
+          l10nHint: l10n.pkProfileFieldOverwriteHint,
+          theme: theme,
+        ),
+      );
     }
     if (_hasTag) {
-      rows.add(_row(
-        field: PkProfileField.tag,
-        label: l10n.pkProfileFieldTag,
-        preview: widget.pkSystem.tag!,
-        overwrite: !_prismTagBlank,
-        l10nHint: l10n.pkProfileFieldOverwriteHint,
-        theme: theme,
-      ));
+      rows.add(
+        _row(
+          field: PkProfileField.tag,
+          label: l10n.pkProfileFieldTag,
+          preview: widget.pkSystem.tag!,
+          overwrite: !_prismTagBlank,
+          l10nHint: l10n.pkProfileFieldOverwriteHint,
+          theme: theme,
+        ),
+      );
     }
     if (_hasAvatar) {
-      rows.add(_row(
-        field: PkProfileField.avatar,
-        label: l10n.pkProfileFieldAvatar,
-        preview: widget.pkSystem.avatarUrl!,
-        overwrite: !_prismAvatarBlank,
-        l10nHint: l10n.pkProfileFieldOverwriteHint,
-        theme: theme,
-      ));
+      rows.add(
+        _row(
+          field: PkProfileField.avatar,
+          label: l10n.pkProfileFieldAvatar,
+          preview: widget.pkSystem.avatarUrl!,
+          overwrite: !_prismAvatarBlank,
+          l10nHint: l10n.pkProfileFieldOverwriteHint,
+          theme: theme,
+        ),
+      );
     }
 
     return Padding(
@@ -164,7 +172,8 @@ class _PkSystemProfileDisclosureSheetState
           ...rows,
           const SizedBox(height: 16),
           PrismButton(
-            onPressed: () => widget.onConfirm(Set<PkProfileField>.from(_selected)),
+            onPressed: () =>
+                widget.onConfirm(Set<PkProfileField>.from(_selected)),
             label: l10n.pkProfileDisclosureImport,
             tone: PrismButtonTone.filled,
             expanded: true,

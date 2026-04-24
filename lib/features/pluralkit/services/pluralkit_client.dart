@@ -22,7 +22,7 @@ class PluralKitApiError implements Exception {
 /// 401 Unauthorized — invalid or missing token.
 class PluralKitAuthError extends PluralKitApiError {
   const PluralKitAuthError([String message = 'Unauthorized — check your token'])
-      : super(401, message);
+    : super(401, message);
 }
 
 /// 429 Too Many Requests — rate-limited.
@@ -33,10 +33,10 @@ class PluralKitAuthError extends PluralKitApiError {
 class PluralKitRateLimitError extends PluralKitApiError {
   final Duration? retryAfter;
 
-  const PluralKitRateLimitError(
-      [String message = 'Rate limited — please wait and try again',
-      this.retryAfter])
-      : super(429, message);
+  const PluralKitRateLimitError([
+    String message = 'Rate limited — please wait and try again',
+    this.retryAfter,
+  ]) : super(429, message);
 }
 
 // ---------------------------------------------------------------------------
@@ -58,17 +58,17 @@ class PluralKitClient {
     required String token,
     http.Client? httpClient,
     PkRequestQueue? queue,
-  })  : _token = token,
-        _http = httpClient ?? http.Client(),
-        _queue = queue ?? PkRequestQueue();
+  }) : _token = token,
+       _http = httpClient ?? http.Client(),
+       _queue = queue ?? PkRequestQueue();
 
   // -- helpers --------------------------------------------------------------
 
   Map<String, String> get _headers => {
-        'Authorization': _token,
-        'Content-Type': 'application/json',
-        'User-Agent': 'PrismPlurality/1.0',
-      };
+    'Authorization': _token,
+    'Content-Type': 'application/json',
+    'User-Agent': 'PrismPlurality/1.0',
+  };
 
   /// Extract a retry delay from 429 response headers, if any. Prefers
   /// the HTTP standard `Retry-After` header (seconds) and falls back to
@@ -87,8 +87,10 @@ class PluralKitClient {
     if (reset != null) {
       final epochSeconds = int.tryParse(reset.trim());
       if (epochSeconds != null) {
-        final resetAt =
-            DateTime.fromMillisecondsSinceEpoch(epochSeconds * 1000, isUtc: true);
+        final resetAt = DateTime.fromMillisecondsSinceEpoch(
+          epochSeconds * 1000,
+          isUtc: true,
+        );
         final delta = resetAt.difference(DateTime.now().toUtc());
         if (delta > Duration.zero) return delta;
       }
@@ -116,38 +118,34 @@ class PluralKitClient {
   }
 
   Future<dynamic> _get(String url) => _queue.enqueue(() async {
-        final response = await _http
-            .get(Uri.parse(url), headers: _headers)
-            .timeout(_httpTimeout);
-        return _handleResponse(response);
-      });
+    final response = await _http
+        .get(Uri.parse(url), headers: _headers)
+        .timeout(_httpTimeout);
+    return _handleResponse(response);
+  });
 
   Future<dynamic> _post(String url, Map<String, dynamic> body) =>
       _queue.enqueue(() async {
-        final response = await _http.post(
-          Uri.parse(url),
-          headers: _headers,
-          body: jsonEncode(body),
-        ).timeout(_httpTimeout);
+        final response = await _http
+            .post(Uri.parse(url), headers: _headers, body: jsonEncode(body))
+            .timeout(_httpTimeout);
         return _handleResponse(response);
       });
 
   Future<dynamic> _patch(String url, Map<String, dynamic> body) =>
       _queue.enqueue(() async {
-        final response = await _http.patch(
-          Uri.parse(url),
-          headers: _headers,
-          body: jsonEncode(body),
-        ).timeout(_httpTimeout);
+        final response = await _http
+            .patch(Uri.parse(url), headers: _headers, body: jsonEncode(body))
+            .timeout(_httpTimeout);
         return _handleResponse(response);
       });
 
   Future<dynamic> _delete(String url) => _queue.enqueue(() async {
-        final response = await _http
-            .delete(Uri.parse(url), headers: _headers)
-            .timeout(_httpTimeout);
-        return _handleResponse(response);
-      });
+    final response = await _http
+        .delete(Uri.parse(url), headers: _headers)
+        .timeout(_httpTimeout);
+    return _handleResponse(response);
+  });
 
   // -- public API -----------------------------------------------------------
 
@@ -173,15 +171,14 @@ class PluralKitClient {
     DateTime? before,
     int limit = 100,
   }) async {
-    final params = <String, String>{
-      'limit': limit.toString(),
-    };
+    final params = <String, String>{'limit': limit.toString()};
     if (before != null) {
       params['before'] = before.toUtc().toIso8601String();
     }
 
-    final uri = Uri.parse('$_baseUrl/systems/@me/switches')
-        .replace(queryParameters: params);
+    final uri = Uri.parse(
+      '$_baseUrl/systems/@me/switches',
+    ).replace(queryParameters: params);
     final json = await _get(uri.toString()) as List<dynamic>;
     return json
         .map((e) => PKSwitch.fromJson(e as Map<String, dynamic>))
@@ -206,9 +203,9 @@ class PluralKitClient {
   /// inline list is absent (privacy or a server-side filter), callers can fall
   /// back to [getGroupMembers].
   Future<List<PKGroup>> getGroups({bool withMembers = true}) async {
-    final uri = Uri.parse('$_baseUrl/systems/@me/groups').replace(
-      queryParameters: withMembers ? {'with_members': 'true'} : null,
-    );
+    final uri = Uri.parse(
+      '$_baseUrl/systems/@me/groups',
+    ).replace(queryParameters: withMembers ? {'with_members': 'true'} : null);
     final json = await _get(uri.toString()) as List<dynamic>;
     return json
         .map((e) => PKGroup.fromJson(e as Map<String, dynamic>))
@@ -237,15 +234,14 @@ class PluralKitClient {
 
   /// POST /members — create a new member.
   Future<PKMember> createMember(Map<String, dynamic> data) async {
-    final json =
-        await _post('$_baseUrl/members', data) as Map<String, dynamic>;
+    final json = await _post('$_baseUrl/members', data) as Map<String, dynamic>;
     return PKMember.fromJson(json);
   }
 
   /// PATCH /members/{id} — update an existing member.
   Future<PKMember> updateMember(String id, Map<String, dynamic> data) async {
-    final json = await _patch('$_baseUrl/members/$id', data)
-        as Map<String, dynamic>;
+    final json =
+        await _patch('$_baseUrl/members/$id', data) as Map<String, dynamic>;
     return PKMember.fromJson(json);
   }
 
@@ -254,14 +250,13 @@ class PluralKitClient {
     List<String> memberIds, {
     DateTime? timestamp,
   }) async {
-    final body = <String, dynamic>{
-      'members': memberIds,
-    };
+    final body = <String, dynamic>{'members': memberIds};
     if (timestamp != null) {
       body['timestamp'] = timestamp.toUtc().toIso8601String();
     }
-    final json = await _post('$_baseUrl/systems/@me/switches', body)
-        as Map<String, dynamic>;
+    final json =
+        await _post('$_baseUrl/systems/@me/switches', body)
+            as Map<String, dynamic>;
     return PKSwitch.fromJson(json);
   }
 
@@ -276,10 +271,9 @@ class PluralKitClient {
     final body = <String, dynamic>{
       'timestamp': timestamp.toUtc().toIso8601String(),
     };
-    final json = await _patch(
-      '$_baseUrl/systems/@me/switches/$switchId',
-      body,
-    ) as Map<String, dynamic>;
+    final json =
+        await _patch('$_baseUrl/systems/@me/switches/$switchId', body)
+            as Map<String, dynamic>;
     return PKSwitch.fromJson(json);
   }
 
@@ -312,14 +306,12 @@ class PluralKitClient {
   /// concurrent bursts during import. Avatar CDNs don't share the API's
   /// 3/s budget, but single-path pacing is a safe default.
   Future<List<int>> downloadBytes(String url) => _queue.enqueue(() async {
-        final response =
-            await _http.get(Uri.parse(url)).timeout(_httpTimeout);
-        if (response.statusCode != 200) {
-          throw PluralKitApiError(
-              response.statusCode, 'Failed to download $url');
-        }
-        return response.bodyBytes;
-      });
+    final response = await _http.get(Uri.parse(url)).timeout(_httpTimeout);
+    if (response.statusCode != 200) {
+      throw PluralKitApiError(response.statusCode, 'Failed to download $url');
+    }
+    return response.bodyBytes;
+  });
 
   /// Dispose the underlying HTTP client.
   void dispose() => _http.close();

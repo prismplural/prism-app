@@ -47,7 +47,7 @@ class PkSkipDecision extends PkMappingDecision {
   final String? localMemberId;
   final String? pkMemberUuid;
   const PkSkipDecision({this.localMemberId, this.pkMemberUuid})
-      : assert(localMemberId != null || pkMemberUuid != null);
+    : assert(localMemberId != null || pkMemberUuid != null);
   @override
   String get id => localMemberId != null
       ? 'skip:local:$localMemberId'
@@ -92,12 +92,12 @@ class PkMappingApplier {
     required PluralKitClient client,
     Uuid? uuid,
     DateTime Function()? now,
-  })  : _members = members,
-        _state = state,
-        _pushService = pushService,
-        _client = client,
-        _uuid = uuid ?? const Uuid(),
-        _now = now ?? DateTime.now;
+  }) : _members = members,
+       _state = state,
+       _pushService = pushService,
+       _client = client,
+       _uuid = uuid ?? const Uuid(),
+       _now = now ?? DateTime.now;
 
   Future<List<PkApplyResult>> apply(List<PkMappingDecision> decisions) async {
     final results = <PkApplyResult>[];
@@ -130,10 +130,7 @@ class PkMappingApplier {
           await _applySkip(decision);
       }
       await _state.markApplied(decision.id);
-      return PkApplyResult(
-        decision: decision,
-        outcome: PkApplyOutcome.applied,
-      );
+      return PkApplyResult(decision: decision, outcome: PkApplyOutcome.applied);
     } catch (e) {
       final msg = e.toString();
       await _state.markFailed(decision.id, msg);
@@ -169,17 +166,19 @@ class PkMappingApplier {
         pkMemberUuid = decision.pkMemberUuid;
         localId = decision.localMemberId;
     }
-    await _state.upsert(PkMappingStateCompanion(
-      id: Value(decision.id),
-      decisionType: Value(type),
-      pkMemberId: Value(pkMemberId),
-      pkMemberUuid: Value(pkMemberUuid),
-      localMemberId: Value(localId),
-      status: const Value('pending'),
-      errorMessage: const Value(null),
-      createdAt: Value(now),
-      updatedAt: Value(now),
-    ));
+    await _state.upsert(
+      PkMappingStateCompanion(
+        id: Value(decision.id),
+        decisionType: Value(type),
+        pkMemberId: Value(pkMemberId),
+        pkMemberUuid: Value(pkMemberUuid),
+        localMemberId: Value(localId),
+        status: const Value('pending'),
+        errorMessage: const Value(null),
+        createdAt: Value(now),
+        updatedAt: Value(now),
+      ),
+    );
   }
 
   Future<void> _applyLink(PkLinkDecision d) async {
@@ -309,10 +308,12 @@ class PkMappingApplier {
     // Crash-recovery: prior run POSTed but never wrote the local member.
     // pk_mapping_state has the PK id/uuid — reuse them instead of re-POSTing.
     if (priorState?.pkMemberId != null && priorState?.pkMemberUuid != null) {
-      await _members.updateMember(local.copyWith(
-        pluralkitId: priorState!.pkMemberId,
-        pluralkitUuid: priorState.pkMemberUuid,
-      ));
+      await _members.updateMember(
+        local.copyWith(
+          pluralkitId: priorState!.pkMemberId,
+          pluralkitUuid: priorState.pkMemberUuid,
+        ),
+      );
       return;
     }
 
@@ -324,10 +325,9 @@ class PkMappingApplier {
         orElse: () => _pkSentinel,
       );
       if (!identical(match, _pkSentinel)) {
-        await _members.updateMember(local.copyWith(
-          pluralkitUuid: match.uuid,
-          pluralkitId: match.id,
-        ));
+        await _members.updateMember(
+          local.copyWith(pluralkitUuid: match.uuid, pluralkitId: match.id),
+        );
         return;
       }
     }
@@ -346,21 +346,22 @@ class PkMappingApplier {
     // the member, so a crash between here and the member update doesn't cause
     // a duplicate POST on retry.
     final now = _now();
-    await _state.upsert(PkMappingStateCompanion(
-      id: Value(d.id),
-      decisionType: const Value('push'),
-      pkMemberId: Value(createdId),
-      pkMemberUuid: Value(createdUuid),
-      localMemberId: Value(d.localMemberId),
-      status: const Value('pending'),
-      createdAt: Value(priorState?.createdAt ?? now),
-      updatedAt: Value(now),
-    ));
+    await _state.upsert(
+      PkMappingStateCompanion(
+        id: Value(d.id),
+        decisionType: const Value('push'),
+        pkMemberId: Value(createdId),
+        pkMemberUuid: Value(createdUuid),
+        localMemberId: Value(d.localMemberId),
+        status: const Value('pending'),
+        createdAt: Value(priorState?.createdAt ?? now),
+        updatedAt: Value(now),
+      ),
+    );
 
-    await _members.updateMember(local.copyWith(
-      pluralkitId: createdId,
-      pluralkitUuid: createdUuid,
-    ));
+    await _members.updateMember(
+      local.copyWith(pluralkitId: createdId, pluralkitUuid: createdUuid),
+    );
   }
 
   Future<void> _applySkip(PkSkipDecision d) async {
@@ -368,9 +369,7 @@ class PkMappingApplier {
       final local = await _members.getMemberById(d.localMemberId!);
       if (local == null) return;
       if (local.pluralkitSyncIgnored) return;
-      await _members.updateMember(
-        local.copyWith(pluralkitSyncIgnored: true),
-      );
+      await _members.updateMember(local.copyWith(pluralkitSyncIgnored: true));
     }
     // PK-side skip is recorded purely in pk_mapping_state; no local write.
   }
@@ -381,6 +380,9 @@ class PkMappingApplier {
     name: '',
     createdAt: DateTime.fromMillisecondsSinceEpoch(0),
   );
-  static const PKMember _pkSentinel =
-      PKMember(id: '__sentinel__', uuid: '__sentinel__', name: '');
+  static const PKMember _pkSentinel = PKMember(
+    id: '__sentinel__',
+    uuid: '__sentinel__',
+    name: '',
+  );
 }

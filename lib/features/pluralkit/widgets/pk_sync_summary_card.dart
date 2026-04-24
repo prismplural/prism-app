@@ -38,31 +38,41 @@ class PkSyncSummaryCard extends StatelessWidget {
             if (summary.membersPulled > 0)
               _SummaryRow(
                 icon: AppIcons.download,
-                label: context.l10n.pluralkitMembersPulled(summary.membersPulled),
+                label: context.l10n.pluralkitMembersPulled(
+                  summary.membersPulled,
+                ),
                 color: theme.colorScheme.primary,
               ),
             if (summary.membersPushed > 0)
               _SummaryRow(
                 icon: AppIcons.upload,
-                label: context.l10n.pluralkitMembersPushed(summary.membersPushed),
+                label: context.l10n.pluralkitMembersPushed(
+                  summary.membersPushed,
+                ),
                 color: theme.colorScheme.tertiary,
               ),
             if (summary.switchesPulled > 0)
               _SummaryRow(
                 icon: AppIcons.download,
-                label: context.l10n.pluralkitSwitchesPulled(summary.switchesPulled),
+                label: context.l10n.pluralkitSwitchesPulled(
+                  summary.switchesPulled,
+                ),
                 color: theme.colorScheme.primary,
               ),
             if (summary.switchesPushed > 0)
               _SummaryRow(
                 icon: AppIcons.upload,
-                label: context.l10n.pluralkitSwitchesPushed(summary.switchesPushed),
+                label: context.l10n.pluralkitSwitchesPushed(
+                  summary.switchesPushed,
+                ),
                 color: theme.colorScheme.tertiary,
               ),
             if (summary.membersSkipped > 0)
               _SummaryRow(
                 icon: AppIcons.skipNext,
-                label: context.l10n.pluralkitMembersUnchanged(summary.membersSkipped),
+                label: context.l10n.pluralkitMembersUnchanged(
+                  summary.membersSkipped,
+                ),
                 color: theme.colorScheme.onSurfaceVariant,
               ),
           ],
@@ -93,9 +103,9 @@ class _SummaryRow extends StatelessWidget {
           const SizedBox(width: 8),
           Text(
             label,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: color,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: color),
           ),
         ],
       ),

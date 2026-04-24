@@ -19,9 +19,18 @@ class PkSyncDirectionPicker extends StatelessWidget {
   Widget build(BuildContext context) {
     return PrismSegmentedControl<PkSyncDirection>(
       segments: [
-        PrismSegment(value: PkSyncDirection.pullOnly, label: context.l10n.pluralkitPull),
-        PrismSegment(value: PkSyncDirection.bidirectional, label: context.l10n.pluralkitBoth),
-        PrismSegment(value: PkSyncDirection.pushOnly, label: context.l10n.pluralkitPush),
+        PrismSegment(
+          value: PkSyncDirection.pullOnly,
+          label: context.l10n.pluralkitPull,
+        ),
+        PrismSegment(
+          value: PkSyncDirection.bidirectional,
+          label: context.l10n.pluralkitBoth,
+        ),
+        PrismSegment(
+          value: PkSyncDirection.pushOnly,
+          label: context.l10n.pluralkitPush,
+        ),
       ],
       selected: selected,
       onChanged: onChanged,

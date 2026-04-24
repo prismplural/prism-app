@@ -82,27 +82,34 @@ class PkFieldSyncConfig {
   }
 
   Map<String, dynamic> toJson() => {
-        'name': name.toJson(),
-        'displayName': displayName.toJson(),
-        'pronouns': pronouns.toJson(),
-        'description': description.toJson(),
-        'color': color.toJson(),
-        'birthday': birthday.toJson(),
-      };
+    'name': name.toJson(),
+    'displayName': displayName.toJson(),
+    'pronouns': pronouns.toJson(),
+    'description': description.toJson(),
+    'color': color.toJson(),
+    'birthday': birthday.toJson(),
+  };
 
   factory PkFieldSyncConfig.fromJson(Map<String, dynamic> json) {
     return PkFieldSyncConfig(
-      name: PkSyncDirection.fromJson(json['name'] as String? ?? 'bidirectional'),
+      name: PkSyncDirection.fromJson(
+        json['name'] as String? ?? 'bidirectional',
+      ),
       displayName: PkSyncDirection.fromJson(
-          json['displayName'] as String? ?? 'bidirectional'),
-      pronouns:
-          PkSyncDirection.fromJson(json['pronouns'] as String? ?? 'bidirectional'),
+        json['displayName'] as String? ?? 'bidirectional',
+      ),
+      pronouns: PkSyncDirection.fromJson(
+        json['pronouns'] as String? ?? 'bidirectional',
+      ),
       description: PkSyncDirection.fromJson(
-          json['description'] as String? ?? 'bidirectional'),
-      color:
-          PkSyncDirection.fromJson(json['color'] as String? ?? 'bidirectional'),
+        json['description'] as String? ?? 'bidirectional',
+      ),
+      color: PkSyncDirection.fromJson(
+        json['color'] as String? ?? 'bidirectional',
+      ),
       birthday: PkSyncDirection.fromJson(
-          json['birthday'] as String? ?? 'bidirectional'),
+        json['birthday'] as String? ?? 'bidirectional',
+      ),
     );
   }
 
@@ -168,15 +175,15 @@ class PkSyncSummary {
       switchesDeletedOnPk;
 
   Map<String, dynamic> toJson() => {
-        'membersPulled': membersPulled,
-        'membersPushed': membersPushed,
-        'membersSkipped': membersSkipped,
-        'switchesPulled': switchesPulled,
-        'switchesPushed': switchesPushed,
-        'membersDeletedOnPk': membersDeletedOnPk,
-        'switchesDeletedOnPk': switchesDeletedOnPk,
-        'staleLinkMessages': staleLinkMessages,
-      };
+    'membersPulled': membersPulled,
+    'membersPushed': membersPushed,
+    'membersSkipped': membersSkipped,
+    'switchesPulled': switchesPulled,
+    'switchesPushed': switchesPushed,
+    'membersDeletedOnPk': membersDeletedOnPk,
+    'switchesDeletedOnPk': switchesDeletedOnPk,
+    'staleLinkMessages': staleLinkMessages,
+  };
 
   factory PkSyncSummary.fromJson(Map<String, dynamic> json) {
     return PkSyncSummary(
@@ -187,9 +194,8 @@ class PkSyncSummary {
       switchesPushed: json['switchesPushed'] as int? ?? 0,
       membersDeletedOnPk: json['membersDeletedOnPk'] as int? ?? 0,
       switchesDeletedOnPk: json['switchesDeletedOnPk'] as int? ?? 0,
-      staleLinkMessages: (json['staleLinkMessages'] as List?)
-              ?.whereType<String>()
-              .toList() ??
+      staleLinkMessages:
+          (json['staleLinkMessages'] as List?)?.whereType<String>().toList() ??
           const [],
     );
   }

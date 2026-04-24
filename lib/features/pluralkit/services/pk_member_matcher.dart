@@ -40,9 +40,7 @@ class PkMemberMatcher {
     for (final local in unlinkedLocals) {
       final trimmed = local.name.trim();
       localsByExactName.putIfAbsent(trimmed, () => []).add(local);
-      localsByLowerName
-          .putIfAbsent(trimmed.toLowerCase(), () => [])
-          .add(local);
+      localsByLowerName.putIfAbsent(trimmed.toLowerCase(), () => []).add(local);
     }
 
     final pkByExactName = <String, int>{};
@@ -65,55 +63,67 @@ class PkMemberMatcher {
       // Ambiguous on PK side → force user choice.
       if ((pkByExactName[trimmed] ?? 0) > 1 ||
           (pkByLowerName[lower] ?? 0) > 1) {
-        suggestions.add(PkMatchSuggestion(
-          pkMember: pk,
-          suggestedLocal: null,
-          confidence: PkMatchConfidence.none,
-        ));
+        suggestions.add(
+          PkMatchSuggestion(
+            pkMember: pk,
+            suggestedLocal: null,
+            confidence: PkMatchConfidence.none,
+          ),
+        );
         continue;
       }
 
       final exactMatches = localsByExactName[trimmed] ?? const [];
       if (exactMatches.length == 1) {
-        suggestions.add(PkMatchSuggestion(
-          pkMember: pk,
-          suggestedLocal: exactMatches.first,
-          confidence: PkMatchConfidence.exact,
-        ));
+        suggestions.add(
+          PkMatchSuggestion(
+            pkMember: pk,
+            suggestedLocal: exactMatches.first,
+            confidence: PkMatchConfidence.exact,
+          ),
+        );
         continue;
       }
       if (exactMatches.length > 1) {
-        suggestions.add(PkMatchSuggestion(
-          pkMember: pk,
-          suggestedLocal: null,
-          confidence: PkMatchConfidence.none,
-        ));
+        suggestions.add(
+          PkMatchSuggestion(
+            pkMember: pk,
+            suggestedLocal: null,
+            confidence: PkMatchConfidence.none,
+          ),
+        );
         continue;
       }
 
       final ciMatches = localsByLowerName[lower] ?? const [];
       if (ciMatches.length == 1) {
-        suggestions.add(PkMatchSuggestion(
-          pkMember: pk,
-          suggestedLocal: ciMatches.first,
-          confidence: PkMatchConfidence.caseInsensitive,
-        ));
+        suggestions.add(
+          PkMatchSuggestion(
+            pkMember: pk,
+            suggestedLocal: ciMatches.first,
+            confidence: PkMatchConfidence.caseInsensitive,
+          ),
+        );
         continue;
       }
       if (ciMatches.length > 1) {
-        suggestions.add(PkMatchSuggestion(
-          pkMember: pk,
-          suggestedLocal: null,
-          confidence: PkMatchConfidence.none,
-        ));
+        suggestions.add(
+          PkMatchSuggestion(
+            pkMember: pk,
+            suggestedLocal: null,
+            confidence: PkMatchConfidence.none,
+          ),
+        );
         continue;
       }
 
-      suggestions.add(PkMatchSuggestion(
-        pkMember: pk,
-        suggestedLocal: null,
-        confidence: PkMatchConfidence.none,
-      ));
+      suggestions.add(
+        PkMatchSuggestion(
+          pkMember: pk,
+          suggestedLocal: null,
+          confidence: PkMatchConfidence.none,
+        ),
+      );
     }
 
     return suggestions;
