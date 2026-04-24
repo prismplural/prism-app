@@ -296,6 +296,38 @@ class DriftMemberGroupsRepository
     await syncRecordDelete(_entryTable, entryEntityId);
   }
 
+  @override
+  Future<void> emitGroupSyncState(String groupId) async {
+    final group = await _dao.getGroupById(groupId);
+    if (group == null) return;
+    // Intentionally bypass `isGroupSyncSuppressed` — callers invoke this after
+    // clearing review flags, and the goal is precisely to re-broadcast the
+    // current state so accumulated local edits reach peers.
+    if (!await _shouldEmitPkBackedGroupSync(group)) return;
+    await syncRecordUpdate(
+      _groupTable,
+      _groupEntityId(group),
+      _groupFields(group),
+    );
+    final entries = await _dao.entriesForGroup(groupId);
+    final memberIds = entries.map((entry) => entry.memberId).toSet().toList();
+    final membersById = <String, member_domain.Member>{};
+    for (final member in await _memberRepository.getMembersByIds(memberIds)) {
+      membersById[member.id] = member;
+    }
+    for (final entry in entries) {
+      await syncRecordUpdate(
+        _entryTable,
+        _entryEntityIdFromStoredEntry(
+          entry,
+          group: group,
+          member: membersById[entry.memberId],
+        ),
+        _entryFields(entry, group: group, member: membersById[entry.memberId]),
+      );
+    }
+  }
+
   Future<void> _syncGroupCreateIfAllowed(MemberGroupRow group) async {
     if (await _dao.isGroupSyncSuppressed(group.id)) return;
     if (!await _shouldEmitPkBackedGroupSync(group)) return;

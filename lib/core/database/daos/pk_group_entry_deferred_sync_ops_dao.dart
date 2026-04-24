@@ -32,7 +32,7 @@ class PkGroupEntryDeferredSyncOpsDao extends DatabaseAccessor<AppDatabase>
           .get();
 
   Future<void> markRetried(String id) async {
-    // H3: write `last_retry_at` through a Drift companion so the
+    // Write `last_retry_at` through a Drift companion so the
     // DateTimeColumn mapping encodes it as seconds-since-epoch. A raw
     // `UPDATE ... SET last_retry_at = <ms>` bypasses the type mapper and
     // Drift decodes the 13-digit value as year ~58,000. The retry_count

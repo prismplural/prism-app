@@ -264,39 +264,44 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
                 ),
                 children: [
                   Center(
-                    child: GestureDetector(
-                      onTap: _pickAvatar,
-                      child: Stack(
-                        children: [
-                          MemberAvatar(
-                            avatarImageData: _avatarImageData,
-                            emoji: _emojiController.text.isNotEmpty
-                                ? _emojiController.text
-                                : '❔',
-                            customColorEnabled: _customColorEnabled,
-                            customColorHex: _colorHexController.text.isNotEmpty
-                                ? _colorHexController.text
-                                : null,
-                            size: 96,
-                            showBorder: true,
-                          ),
-                          Positioned(
-                            right: 0,
-                            bottom: 0,
-                            child: Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.primaryContainer,
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                AppIcons.cameraAlt,
-                                size: 18,
-                                color: theme.colorScheme.onPrimaryContainer,
+                    child: Semantics(
+                      button: true,
+                      label: l10n.memberChangeAvatar,
+                      child: GestureDetector(
+                        onTap: _pickAvatar,
+                        child: Stack(
+                          children: [
+                            MemberAvatar(
+                              avatarImageData: _avatarImageData,
+                              emoji: _emojiController.text.isNotEmpty
+                                  ? _emojiController.text
+                                  : '❔',
+                              customColorEnabled: _customColorEnabled,
+                              customColorHex:
+                                  _colorHexController.text.isNotEmpty
+                                  ? _colorHexController.text
+                                  : null,
+                              size: 96,
+                              showBorder: true,
+                            ),
+                            Positioned(
+                              right: 0,
+                              bottom: 0,
+                              child: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.primaryContainer,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  AppIcons.cameraAlt,
+                                  size: 18,
+                                  color: theme.colorScheme.onPrimaryContainer,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),

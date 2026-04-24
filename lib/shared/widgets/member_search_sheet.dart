@@ -446,32 +446,32 @@ class _MemberSearchSheetState extends State<MemberSearchSheet> {
       trailing = null;
     }
 
-    return Semantics(
+    // `PrismListRow` already emits `Semantics(button: true, selected: ...)`
+    // for accessibility — don't wrap it again, or screen readers announce
+    // twice.
+    return PrismListRow(
+      key: ValueKey(member.id),
       selected: isSelected,
-      child: PrismListRow(
-        key: ValueKey(member.id),
-        selected: isSelected,
-        leading: MemberAvatar(
-          memberName: member.name,
-          emoji: member.emoji,
-          avatarImageData: member.avatarImageData,
-          customColorEnabled: member.customColorEnabled,
-          customColorHex: member.customColorHex,
-          size: 36,
-        ),
-        title: Text(member.name),
-        subtitle: member.pronouns != null && member.pronouns!.isNotEmpty
-            ? Text(member.pronouns!)
-            : null,
-        trailing: trailing,
-        onTap: () {
-          if (widget.multiSelect) {
-            _toggleMember(member.id);
-          } else {
-            _popSingle(MemberSearchResultSelected(member.id));
-          }
-        },
+      leading: MemberAvatar(
+        memberName: member.name,
+        emoji: member.emoji,
+        avatarImageData: member.avatarImageData,
+        customColorEnabled: member.customColorEnabled,
+        customColorHex: member.customColorHex,
+        size: 36,
       ),
+      title: Text(member.name),
+      subtitle: member.pronouns != null && member.pronouns!.isNotEmpty
+          ? Text(member.pronouns!)
+          : null,
+      trailing: trailing,
+      onTap: () {
+        if (widget.multiSelect) {
+          _toggleMember(member.id);
+        } else {
+          _popSingle(MemberSearchResultSelected(member.id));
+        }
+      },
     );
   }
 

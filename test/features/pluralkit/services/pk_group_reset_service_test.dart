@@ -9,6 +9,8 @@ import 'package:prism_plurality/domain/models/member.dart' as member_domain;
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_group_reset_service.dart';
 
+import '../../../helpers/pk_fixtures.dart';
+
 class _FakeMemberRepository implements MemberRepository {
   _FakeMemberRepository(this._membersById);
 
@@ -118,17 +120,15 @@ MemberGroupsCompanion _group({
   String? pluralkitUuid,
   bool syncSuppressed = false,
   String? suspectedPkGroupUuid,
-}) {
-  return MemberGroupsCompanion.insert(
-    id: id,
-    name: name,
-    createdAt: createdAt,
-    parentGroupId: Value(parentGroupId),
-    pluralkitUuid: Value(pluralkitUuid),
-    syncSuppressed: Value(syncSuppressed),
-    suspectedPkGroupUuid: Value(suspectedPkGroupUuid),
-  );
-}
+}) => pkFixtureGroup(
+      id: id,
+      name: name,
+      createdAt: createdAt,
+      parentGroupId: parentGroupId,
+      pluralkitUuid: pluralkitUuid,
+      syncSuppressed: syncSuppressed,
+      suspectedPkGroupUuid: suspectedPkGroupUuid,
+    );
 
 MemberGroupEntriesCompanion _entry({
   required String id,
@@ -136,15 +136,13 @@ MemberGroupEntriesCompanion _entry({
   required String memberId,
   String? pkGroupUuid,
   String? pkMemberUuid,
-}) {
-  return MemberGroupEntriesCompanion.insert(
-    id: id,
-    groupId: groupId,
-    memberId: memberId,
-    pkGroupUuid: Value(pkGroupUuid),
-    pkMemberUuid: Value(pkMemberUuid),
-  );
-}
+}) => pkFixtureEntry(
+      id: id,
+      groupId: groupId,
+      memberId: memberId,
+      pkGroupUuid: pkGroupUuid,
+      pkMemberUuid: pkMemberUuid,
+    );
 
 PkGroupEntryDeferredSyncOpsCompanion _deferredOp({
   required String id,

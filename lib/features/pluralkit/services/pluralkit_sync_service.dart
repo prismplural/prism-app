@@ -1131,7 +1131,7 @@ class PluralKitSyncService {
           ? await pushPendingSwitches(onStaleLink: staleLinkMessages.add)
           : 0;
 
-      // Plan 02: deletions. Switches-first so PK's cascade doesn't 404 every
+      // Push deletions with switches first so PK's cascade doesn't 404 every
       // switch-delete we queued after a member-delete succeeds.
       int switchesDeletedOnPk = 0;
       int membersDeletedOnPk = 0;

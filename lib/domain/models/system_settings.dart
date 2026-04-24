@@ -156,7 +156,7 @@ abstract class SystemSettings with _$SystemSettings {
     String? systemDescription,
     String? systemColor,
     @Default(false) bool pkGroupSyncV2Enabled,
-    // Plan 04: synced PluralKit system profile tag.
+    /// Synced PluralKit system profile tag.
     String? systemTag,
     @JsonKey(fromJson: _uint8ListFromJson, toJson: _uint8ListToJson)
     Uint8List? systemAvatarData,

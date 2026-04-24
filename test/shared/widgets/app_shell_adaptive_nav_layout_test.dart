@@ -162,6 +162,111 @@ void main() {
   });
 
   testWidgets(
+    'memoizes mobile nav layout across rebuilds with identical inputs',
+    (tester) async {
+      const textScaler = TextScaler.linear(1);
+
+      tester.view.physicalSize = const Size(400, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final semantics = tester.ensureSemantics();
+      try {
+        const settings = SystemSettings();
+        final configuredPrimaryTabs = appShellTabs.take(5).toList();
+        const configuredOverflowTabs = <AppShellTab>[];
+
+        final router = GoRouter(
+          initialLocation: AppRoutePaths.home,
+          routes: [
+            StatefulShellRoute.indexedStack(
+              builder: (context, state, navigationShell) {
+                return AppShell(navigationShell: navigationShell);
+              },
+              branches: [
+                StatefulShellBranch(
+                  routes: [
+                    GoRoute(
+                      path: AppRoutePaths.home,
+                      builder: (context, state) =>
+                          const Scaffold(body: SizedBox.expand()),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        );
+        addTearDown(router.dispose);
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              activeNavBarTabsProvider.overrideWithValue(configuredPrimaryTabs),
+              navBarOverflowTabsProvider.overrideWithValue(
+                configuredOverflowTabs,
+              ),
+              systemSettingsProvider.overrideWith(
+                (ref) => Stream.value(settings),
+              ),
+              isPinSetProvider.overrideWith((ref) async => false),
+              syncStatusProvider.overrideWith(_FakeSyncStatusNotifier.new),
+              pkAutoPollProvider.overrideWith(_FakePkAutoPollNotifier.new),
+              activeSessionProvider.overrideWith((ref) => Stream.value(null)),
+              allMembersProvider.overrideWith((ref) => Stream.value(const [])),
+              unreadConversationCountProvider.overrideWith((ref) {
+                return ref.watch(_unreadCountStateProvider);
+              }),
+            ],
+            child: MaterialApp.router(
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: const [Locale('en')],
+              theme: ThemeData(fontFamily: 'OpenDyslexic'),
+              builder: (context, child) {
+                return MediaQuery(
+                  data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+                  child: child!,
+                );
+              },
+              routerConfig: router,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(AppShell)),
+        );
+
+        // Initial pump should have computed the layout once. Reset the
+        // counter so we can measure rebuild-triggered recomputes only.
+        debugAdaptiveMobileNavLayoutComputeCount = 0;
+
+        // Trigger rebuilds of AppShell via an unrelated provider. A single
+        // build computes layout once the first time; subsequent equal rebuilds
+        // should hit the memoization cache.
+        for (var i = 0; i < 5; i++) {
+          container.read(_unreadCountStateProvider.notifier).value = i + 1;
+          await tester.pump();
+        }
+
+        expect(
+          debugAdaptiveMobileNavLayoutComputeCount,
+          0,
+          reason:
+              'Layout should stay cached when labels/scale/width do not change.',
+        );
+
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+      } finally {
+        semantics.dispose();
+      }
+    },
+  );
+
+  testWidgets(
     'renders the real mobile shell without layout overflow and expands to the computed height',
     (tester) async {
       const textScaler = TextScaler.linear(1);
@@ -316,6 +421,15 @@ class _FakeSyncStatusNotifier extends SyncStatusNotifier {
   SyncStatus build() => const SyncStatus();
 }
 
+class _UnreadCountNotifier extends Notifier<int> {
+  @override
+  int build() => 0;
+  set value(int newValue) => state = newValue;
+}
+
+final _unreadCountStateProvider =
+    NotifierProvider<_UnreadCountNotifier, int>(_UnreadCountNotifier.new);
+
 class _FakePkAutoPollNotifier extends PkAutoPollNotifier {
   @override
   void build() {}
@@ -326,3 +440,4 @@ class _FakePkAutoPollNotifier extends PkAutoPollNotifier {
   @override
   void noteLocalPush() {}
 }
+

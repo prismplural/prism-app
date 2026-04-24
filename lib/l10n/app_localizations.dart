@@ -2112,6 +2112,12 @@ abstract class AppLocalizations {
   /// **'Change avatar'**
   String get systemInfoChangeAvatar;
 
+  /// Semantic label for the member avatar change button
+  ///
+  /// In en, this message translates to:
+  /// **'Change member avatar'**
+  String get memberChangeAvatar;
+
   /// Title for the native avatar cropper
   ///
   /// In en, this message translates to:
@@ -11891,6 +11897,90 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Invalid QR code. Scan a 12-word recovery phrase.'**
   String get mnemonicFieldInvalidQr;
+
+  /// Title shown when the user needs to grant camera access before the QR scanner can open
+  ///
+  /// In en, this message translates to:
+  /// **'Camera permission needed'**
+  String get mnemonicFieldCameraPermissionTitle;
+
+  /// Body shown when the user denied camera access one time
+  ///
+  /// In en, this message translates to:
+  /// **'Prism needs the camera to scan your recovery QR code. Try again and allow camera access when prompted.'**
+  String get mnemonicFieldCameraPermissionDeniedBody;
+
+  /// Body shown when camera access is permanently denied or restricted
+  ///
+  /// In en, this message translates to:
+  /// **'Camera access is blocked. Open Settings to grant Prism camera permission, then try again.'**
+  String get mnemonicFieldCameraPermissionPermanentlyDeniedBody;
+
+  /// Button that deep-links to the OS app settings page so the user can grant camera permission
+  ///
+  /// In en, this message translates to:
+  /// **'Open Settings'**
+  String get mnemonicFieldCameraPermissionOpenSettings;
+
+  /// PluralKit setup section heading for automatic polling
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-sync'**
+  String get pluralkitAutoSyncSection;
+
+  /// Title for the PluralKit auto-poll toggle
+  ///
+  /// In en, this message translates to:
+  /// **'Pull new switches automatically'**
+  String get pluralkitAutoSyncTitle;
+
+  /// Body for the PluralKit auto-poll toggle
+  ///
+  /// In en, this message translates to:
+  /// **'While Prism is open, check PluralKit for new switches on an interval. Pauses in the background.'**
+  String get pluralkitAutoSyncDescription;
+
+  /// Label for the PluralKit auto-poll interval chips
+  ///
+  /// In en, this message translates to:
+  /// **'Check every'**
+  String get pluralkitAutoSyncIntervalLabel;
+
+  /// Shown when PluralKit auto-poll settings fail to load
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load auto-sync settings.'**
+  String get pluralkitAutoSyncLoadFailed;
+
+  /// Button label to re-open the PK member mapping flow
+  ///
+  /// In en, this message translates to:
+  /// **'Re-run member mapping'**
+  String get pluralkitRerunMemberMapping;
+
+  /// Button label to import a PluralKit pk;export JSON file
+  ///
+  /// In en, this message translates to:
+  /// **'Import from pk;export file'**
+  String get pluralkitImportFromFile;
+
+  /// Title for the post-connect mapping required banner
+  ///
+  /// In en, this message translates to:
+  /// **'One more step: link your members'**
+  String get pluralkitMappingBannerTitle;
+
+  /// Body for the post-connect mapping required banner
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re connected. Before sync turns on, match each PluralKit member to a member in Prism — or import them as new. This prevents duplicates and keeps switch history attached to the right person.'**
+  String get pluralkitMappingBannerBody;
+
+  /// Button label inside the mapping banner that opens the mapping flow
+  ///
+  /// In en, this message translates to:
+  /// **'Link members'**
+  String get pluralkitMappingBannerButton;
 
   /// Wake-up sheet greeting shown between 5am and noon
   ///

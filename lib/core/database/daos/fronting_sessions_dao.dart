@@ -159,7 +159,7 @@ class FrontingSessionsDao extends DatabaseAccessor<AppDatabase>
         const FrontingSessionsCompanion(isDeleted: Value(true)),
       );
 
-  /// Plan 02: tombstoned sessions that still carry a PK switch UUID and a
+  /// Tombstoned sessions that still carry a PK switch UUID and a
   /// delete intent epoch. See `MembersDao.getDeletedLinkedMembers` for the
   /// epoch-gated guard that callers must still apply before pushing.
   Future<List<FrontingSession>> getDeletedLinkedSessions() =>
