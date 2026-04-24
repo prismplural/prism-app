@@ -13,7 +13,7 @@ class PrismTopBarAction extends StatelessWidget {
     this.tint,
     this.size = PrismTokens.topBarActionSize,
     this.iconSize = 20,
-  });
+  }) : assert(tooltip != null, 'PrismTopBarAction requires a tooltip.');
 
   final IconData icon;
   final VoidCallback? onPressed;

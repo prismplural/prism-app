@@ -11,6 +11,7 @@ import 'package:prism_plurality/features/fronting/providers/fronting_providers.d
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/providers/member_stats_providers.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
+import 'package:prism_plurality/features/members/utils/member_search_groups.dart';
 import 'package:prism_plurality/features/members/widgets/member_group_filter_bar.dart';
 import 'package:prism_plurality/features/members/widgets/group_section_header.dart';
 import 'package:prism_plurality/features/members/views/add_edit_member_sheet.dart';
@@ -22,7 +23,7 @@ import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/shared/widgets/member_card.dart';
-import 'package:prism_plurality/shared/widgets/member_search_delegate.dart';
+import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
@@ -225,16 +226,20 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
 
   Future<void> _openSearch(List<Member> members) async {
     final terms = readTerminology(context, ref);
-    final result = await showSearch<String?>(
-      context: context,
-      delegate: MemberSearchDelegate(
-        members: members,
-        searchHint: context.l10n.terminologySearchHint(terms.pluralLower),
-        emptyLabel: context.l10n.terminologyNoFound(terms.pluralLower),
-      ),
+    final result = await MemberSearchSheet.showSingle(
+      context,
+      members: members,
+      termPlural: terms.plural,
+      groups: readMemberSearchGroups(ref, members),
     );
-    if (result != null && mounted) {
-      unawaited(context.push(_memberPath(context, result)));
+    if (!mounted) return;
+    switch (result) {
+      case MemberSearchResultSelected(:final memberId):
+        unawaited(context.push(_memberPath(context, memberId)));
+      case MemberSearchResultDismissed():
+      case MemberSearchResultCleared():
+      case MemberSearchResultUnknown():
+        break;
     }
   }
 

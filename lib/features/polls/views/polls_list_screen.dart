@@ -134,6 +134,9 @@ class _PollsListScreenState extends ConsumerState<PollsListScreen> {
                     },
                     child: PrismGlassIconButton(
                       icon: AppIcons.filterList,
+                      tooltip: MaterialLocalizations.of(
+                        context,
+                      ).showMenuTooltip,
                       onPressed: null,
                       enabled: true,
                       size: PrismTokens.topBarActionSize,

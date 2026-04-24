@@ -81,7 +81,10 @@ class _EditSleepSheetState extends ConsumerState<EditSleepSheet> {
 
     if (endTime != null && !endTime.isAfter(_startTime)) {
       if (!mounted) return;
-      PrismToast.error(context, message: context.l10n.frontingEndTimeMustBeAfterStart);
+      PrismToast.error(
+        context,
+        message: context.l10n.frontingEndTimeMustBeAfterStart,
+      );
       return;
     }
 
@@ -95,7 +98,9 @@ class _EditSleepSheetState extends ConsumerState<EditSleepSheet> {
     // Detect cross-type overlaps with fronting neighbors so sleep edits go
     // through the same trim flow as fronting edits. The timeline is one
     // continuous stream regardless of session type.
-    final originalSnapshot = FrontingSanitizerService.toSnapshot(widget.session);
+    final originalSnapshot = FrontingSanitizerService.toSnapshot(
+      widget.session,
+    );
     final editedSnapshot = FrontingSessionSnapshot(
       id: widget.session.id,
       memberId: widget.session.memberId,
@@ -197,7 +202,10 @@ class _EditSleepSheetState extends ConsumerState<EditSleepSheet> {
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) {
-        PrismToast.error(context, message: context.l10n.frontingErrorSavingSleepSession(e));
+        PrismToast.error(
+          context,
+          message: context.l10n.frontingErrorSavingSleepSession(e),
+        );
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -216,6 +224,7 @@ class _EditSleepSheetState extends ConsumerState<EditSleepSheet> {
           title: context.l10n.frontingEditSleepTitle,
           trailing: PrismGlassIconButton(
             icon: AppIcons.check,
+            tooltip: context.l10n.save,
             onPressed: _saving ? null : _save,
           ),
         ),

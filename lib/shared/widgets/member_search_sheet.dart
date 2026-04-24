@@ -13,10 +13,6 @@ import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Result contract — single-select
-// ─────────────────────────────────────────────────────────────────────────────
-
 /// Typed result returned by [MemberSearchSheet.showSingle].
 ///
 /// Using a sealed class avoids sentinel-string drift: callers switch
@@ -46,10 +42,6 @@ final class MemberSearchResultUnknown extends MemberSearchSingleResult {
   const MemberSearchResultUnknown();
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Caller-provided group metadata
-// ─────────────────────────────────────────────────────────────────────────────
-
 /// A group chip offered to the user in the filter bar.
 ///
 /// The caller supplies which member IDs belong to this group; the sheet
@@ -72,10 +64,6 @@ class MemberSearchGroup {
   final String? emoji;
   final String? colorHex;
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Special-row escape hatch
-// ─────────────────────────────────────────────────────────────────────────────
 
 /// A caller-defined row placed above the member list (e.g. "None", "Unknown").
 ///
@@ -101,10 +89,6 @@ class MemberSearchSpecialRow {
   /// Custom tap override — takes precedence over [result].
   final VoidCallback? onTap;
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Widget
-// ─────────────────────────────────────────────────────────────────────────────
 
 const double _kRowExtent = 64.0;
 const double _kChipBarHeight = 56.0;
@@ -158,8 +142,6 @@ class MemberSearchSheet extends StatefulWidget {
   /// Scroll controller supplied by [PrismSheet.showFullScreen] when the sheet
   /// is presented modally, allowing drag-to-dismiss to follow list scrolling.
   final ScrollController? scrollController;
-
-  // ─── Factory show methods ────────────────────────────────────────────────
 
   /// Show in single-select mode. Never returns `null` — maps a dismissed sheet
   /// to [MemberSearchResultDismissed].
@@ -252,8 +234,6 @@ class _MemberSearchSheetState extends State<MemberSearchSheet> {
     super.dispose();
   }
 
-  // ─── Filtered list helpers ───────────────────────────────────────────────
-
   void _rebuildSearchIndexes() {
     _allMembersIndex = MemberSearchIndex(widget.members);
     _groupMemberIndexes = [
@@ -273,8 +253,6 @@ class _MemberSearchSheetState extends State<MemberSearchSheet> {
     return index.filter(_query);
   }
 
-  // ─── Actions ─────────────────────────────────────────────────────────────
-
   void _onQueryChanged(String q) => setState(() => _query = q);
 
   void _selectChip(int index) => setState(() => _selectedChip = index);
@@ -292,8 +270,6 @@ class _MemberSearchSheetState extends State<MemberSearchSheet> {
 
   void _popSingle(MemberSearchSingleResult result) =>
       Navigator.of(context).pop(result);
-
-  // ─── Build ───────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -323,7 +299,6 @@ class _MemberSearchSheetState extends State<MemberSearchSheet> {
           ),
         ),
 
-        // ── Group chip bar ────────────────────────────────────────────────
         if (hasGroups)
           SliverToBoxAdapter(
             child: SizedBox(
@@ -351,7 +326,6 @@ class _MemberSearchSheetState extends State<MemberSearchSheet> {
             ),
           ),
 
-        // ── Member list ───────────────────────────────────────────────────
         if (filtered.isEmpty && widget.specialRows.isEmpty)
           SliverFillRemaining(hasScrollBody: false, child: _buildEmptyState())
         else

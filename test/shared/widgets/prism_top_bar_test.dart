@@ -28,7 +28,11 @@ void main() {
           home: Scaffold(
             appBar: PrismTopBar(
               title: 'Settings',
-              trailing: PrismTopBarAction(icon: AppIcons.add, onPressed: () {}),
+              trailing: PrismTopBarAction(
+                icon: AppIcons.add,
+                tooltip: 'Add',
+                onPressed: () {},
+              ),
             ),
           ),
         ),
@@ -54,6 +58,7 @@ void main() {
                 title: 'Settings',
                 trailing: PrismTopBarAction(
                   icon: AppIcons.add,
+                  tooltip: 'Add',
                   onPressed: null,
                 ),
               ),

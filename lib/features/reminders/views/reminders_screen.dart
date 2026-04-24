@@ -34,6 +34,7 @@ class RemindersScreen extends ConsumerWidget {
         actions: [
           PrismTopBarAction(
             icon: AppIcons.add,
+            tooltip: context.l10n.remindersEmptyAction,
             onPressed: () => _showCreateSheet(context),
           ),
         ],
@@ -41,7 +42,8 @@ class RemindersScreen extends ConsumerWidget {
       bodyPadding: EdgeInsets.zero,
       body: remindersAsync.when(
         loading: () => const PrismLoadingState(),
-        error: (e, _) => Center(child: Text(context.l10n.remindersLoadError(e.toString()))),
+        error: (e, _) =>
+            Center(child: Text(context.l10n.remindersLoadError(e.toString()))),
         data: (reminders) {
           if (reminders.isEmpty) {
             return EmptyState(
@@ -54,10 +56,7 @@ class RemindersScreen extends ConsumerWidget {
           }
 
           return ListView.builder(
-            padding: EdgeInsets.only(
-              top: 8,
-              bottom: NavBarInset.of(context),
-            ),
+            padding: EdgeInsets.only(top: 8, bottom: NavBarInset.of(context)),
             itemCount: reminders.length,
             itemBuilder: (context, index) {
               final reminder = reminders[index];
@@ -72,9 +71,8 @@ class RemindersScreen extends ConsumerWidget {
   void _showCreateSheet(BuildContext context) {
     PrismSheet.showFullScreen(
       context: context,
-      builder: (context, scrollController) => CreateReminderSheet(
-        scrollController: scrollController,
-      ),
+      builder: (context, scrollController) =>
+          CreateReminderSheet(scrollController: scrollController),
     );
   }
 }
@@ -114,7 +112,10 @@ class _ReminderTile extends ConsumerWidget {
       ),
       onDismissed: (_) {
         notifier.deleteReminder(reminder.id);
-        PrismToast.show(context, message: context.l10n.remindersDeletedSnackbar(reminder.name));
+        PrismToast.show(
+          context,
+          message: context.l10n.remindersDeletedSnackbar(reminder.name),
+        );
       },
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -140,7 +141,9 @@ class _ReminderTile extends ConsumerWidget {
             subtitle: Text(
               _formatReminderSubtitle(context, reminder, targetName),
               style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                color: theme.colorScheme.onSurfaceVariant.withValues(
+                  alpha: 0.7,
+                ),
               ),
             ),
             trailing: Switch.adaptive(

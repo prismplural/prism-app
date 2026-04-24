@@ -13,10 +13,6 @@ import 'package:prism_plurality/shared/widgets/prism_chip.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
 Member _member({required String id, required String name, String? pronouns}) =>
     Member(id: id, name: name, pronouns: pronouns, createdAt: DateTime(2024));
 
@@ -107,10 +103,6 @@ Widget _buildMultiShowWidget({
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Tests
-// ─────────────────────────────────────────────────────────────────────────────
-
 void main() {
   final members = [
     _member(id: 'a', name: 'Alice', pronouns: 'she/her'),
@@ -120,10 +112,6 @@ void main() {
   Finder checkButton() => find.byWidgetPredicate(
     (widget) => widget is PrismGlassIconButton && widget.icon == AppIcons.check,
   );
-
-  // ══════════════════════════════════════════════════════════════════════════
-  // Default list display
-  // ══════════════════════════════════════════════════════════════════════════
 
   group('default list display', () {
     testWidgets('shows all members by default', (tester) async {
@@ -182,10 +170,6 @@ void main() {
     });
   });
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // Group chip filtering
-  // ══════════════════════════════════════════════════════════════════════════
-
   group('group chip filtering', () {
     final groups = [
       const MemberSearchGroup(
@@ -241,10 +225,6 @@ void main() {
       expect(chip.tintColor, isNotNull);
     });
   });
-
-  // ══════════════════════════════════════════════════════════════════════════
-  // Single-select result contract
-  // ══════════════════════════════════════════════════════════════════════════
 
   group('single-select result contract', () {
     testWidgets('selected(memberId) result when member is tapped', (
@@ -369,10 +349,6 @@ void main() {
     });
   });
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // Multi-select
-  // ══════════════════════════════════════════════════════════════════════════
-
   group('multi-select', () {
     testWidgets('dismiss returns null', (tester) async {
       bool resultCalled = false;
@@ -446,10 +422,6 @@ void main() {
       expect(find.text('2 selected'), findsOneWidget);
     });
   });
-
-  // ══════════════════════════════════════════════════════════════════════════
-  // Accessibility
-  // ══════════════════════════════════════════════════════════════════════════
 
   group('accessibility', () {
     testWidgets('search field is not focused on open', (tester) async {

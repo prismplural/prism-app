@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
+import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
@@ -13,6 +15,8 @@ import 'package:prism_plurality/features/members/providers/members_providers.dar
 import 'package:prism_plurality/features/members/views/members_screen.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 
 Member _member(String id, {int displayOrder = 0}) => Member(
   id: id,
@@ -33,7 +37,34 @@ Widget _buildSubject({
   required List<Member> members,
   required List<MemberGroup> groups,
   required List<MemberGroupEntry> entries,
+  bool withRouter = false,
 }) {
+  final child = withRouter
+      ? MaterialApp.router(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: const [Locale('en')],
+          routerConfig: GoRouter(
+            initialLocation: AppRoutePaths.members,
+            routes: [
+              GoRoute(
+                path: AppRoutePaths.members,
+                builder: (context, state) =>
+                    const MembersScreen(showBackButton: false),
+              ),
+              GoRoute(
+                path: '/members/:id',
+                builder: (context, state) =>
+                    Text('Member detail ${state.pathParameters['id']}'),
+              ),
+            ],
+          ),
+        )
+      : const MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: [Locale('en')],
+          home: MembersScreen(showBackButton: false),
+        );
+
   return ProviderScope(
     overrides: [
       systemSettingsProvider.overrideWith(
@@ -47,11 +78,7 @@ Widget _buildSubject({
       allGroupsProvider.overrideWith((ref) => Stream.value(groups)),
       allGroupEntriesProvider.overrideWith((ref) => Stream.value(entries)),
     ],
-    child: const MaterialApp(
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: [Locale('en')],
-      home: MembersScreen(showBackButton: false),
-    ),
+    child: child,
   );
 }
 
@@ -102,5 +129,55 @@ void main() {
     expect(find.text('Member later-0'), findsOneWidget);
     expect(tester.getTopLeft(allChip).dy, initialChipTop);
     expect(tester.getTopLeft(allChip).dy, greaterThanOrEqualTo(0));
+  });
+
+  testWidgets('options search opens shared sheet and navigates on selection', (
+    tester,
+  ) async {
+    final group = _group('crew', 'Crew');
+    final members = [_member('alice'), _member('bob', displayOrder: 1)];
+
+    await tester.pumpWidget(
+      _buildSubject(
+        members: members,
+        groups: [group],
+        entries: const [
+          MemberGroupEntry(
+            id: 'entry-alice',
+            groupId: 'crew',
+            memberId: 'alice',
+          ),
+        ],
+        withRouter: true,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(AppIcons.moreVert));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Search headmates...'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(MemberSearchSheet), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(MemberSearchSheet),
+        matching: find.text('Crew'),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.enterText(find.byType(TextField), 'bob');
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(
+        of: find.byType(MemberSearchSheet),
+        matching: find.text('Member bob'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(MemberSearchSheet), findsNothing);
+    expect(find.text('Member detail bob'), findsOneWidget);
   });
 }

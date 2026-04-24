@@ -93,7 +93,10 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
       }
     } catch (e) {
       if (mounted) {
-        PrismToast.error(context, message: context.l10n.settingsCreateEditFieldSaveError(e.toString()));
+        PrismToast.error(
+          context,
+          message: context.l10n.settingsCreateEditFieldSaveError(e.toString()),
+        );
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -109,7 +112,9 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
       child: Column(
         children: [
           PrismSheetTopBar(
-            title: widget.isEditing ? context.l10n.settingsCreateEditFieldEditTitle : context.l10n.settingsCreateEditFieldNewTitle,
+            title: widget.isEditing
+                ? context.l10n.settingsCreateEditFieldEditTitle
+                : context.l10n.settingsCreateEditFieldNewTitle,
             trailing: _saving
                 ? SizedBox(
                     width: PrismTokens.topBarActionSize,
@@ -123,6 +128,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
                   )
                 : PrismGlassIconButton(
                     icon: AppIcons.check,
+                    tooltip: context.l10n.save,
                     size: PrismTokens.topBarActionSize,
                     onPressed: canSave ? _save : null,
                   ),
@@ -229,8 +235,8 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
   }
 
   IconData _iconForType(CustomFieldType type) => switch (type) {
-        CustomFieldType.text => AppIcons.textFields,
-        CustomFieldType.color => AppIcons.palette,
-        CustomFieldType.date => AppIcons.calendarToday,
-      };
+    CustomFieldType.text => AppIcons.textFields,
+    CustomFieldType.color => AppIcons.palette,
+    CustomFieldType.date => AppIcons.calendarToday,
+  };
 }
