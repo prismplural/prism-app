@@ -29,15 +29,19 @@ import 'package:prism_plurality/data/repositories/drift_system_settings_reposito
 import 'package:prism_plurality/features/migration/services/sp_api_client.dart';
 import 'package:prism_plurality/features/migration/services/sp_importer.dart';
 
+final String? _spToken = Platform.environment['SP_TOKEN'];
+
+Object? get _skipWithoutSpToken =>
+    _spToken == null || _spToken!.isEmpty
+        ? 'SP_TOKEN env var not set — skipping live Simply Plural integration tests'
+        : false;
+
 String get _testToken {
-  final env = Platform.environment['SP_TOKEN'];
-  if (env == null || env.isEmpty) {
-    throw StateError(
-      'SP_TOKEN env var is required to run this integration test. '
-      'Set it to a Simply Plural API token (use a dedicated test account).',
-    );
+  final token = _spToken;
+  if (token == null || token.isEmpty) {
+    throw StateError('SP_TOKEN env var is required for this integration test.');
   }
-  return env;
+  return token;
 }
 
 void main() {
@@ -175,6 +179,7 @@ void main() {
         print('Sync state last import: ${syncState.lastImportAt}');
       },
       timeout: const Timeout(Duration(minutes: 2)),
+      skip: _skipWithoutSpToken,
     );
 
     test(
@@ -292,6 +297,7 @@ void main() {
         );
       },
       timeout: const Timeout(Duration(minutes: 4)),
+      skip: _skipWithoutSpToken,
     );
   });
 }
