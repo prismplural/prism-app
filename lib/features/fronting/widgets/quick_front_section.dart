@@ -171,7 +171,7 @@ class _QuickFrontButtonState extends ConsumerState<_QuickFrontButton>
             }),
       );
     }
-    if (_controller.isAnimating) {
+    if (_controller.value != 0) {
       _controller.reset();
     }
   }
