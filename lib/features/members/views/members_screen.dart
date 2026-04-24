@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -87,9 +88,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
             PrismListRow(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               leading: Icon(AppIcons.search),
-              title: Text(
-                ctxL10n.terminologySearchHint(terms.pluralLower),
-              ),
+              title: Text(ctxL10n.terminologySearchHint(terms.pluralLower)),
               enabled: canSearch,
               onTap: canSearch
                   ? () {
@@ -101,14 +100,22 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
             const Divider(height: 1),
             PrismListRow(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              leading: Icon(_showInactive
-                  ? AppIcons.visibility
-                  : AppIcons.visibilityOutlined),
+              leading: Icon(
+                _showInactive
+                    ? AppIcons.visibility
+                    : AppIcons.visibilityOutlined,
+              ),
               title: Text(
-                  _showInactive ? ctxL10n.memberHideInactive : ctxL10n.memberShowInactive),
+                _showInactive
+                    ? ctxL10n.memberHideInactive
+                    : ctxL10n.memberShowInactive,
+              ),
               trailing: _showInactive
-                  ? Icon(AppIcons.check,
-                      size: 18, color: theme.colorScheme.primary)
+                  ? Icon(
+                      AppIcons.check,
+                      size: 18,
+                      color: theme.colorScheme.primary,
+                    )
                   : null,
               onTap: () {
                 Navigator.of(ctx).pop();
@@ -131,39 +138,57 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                 ),
               ),
               PrismListRow(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 dense: true,
                 title: Text(ctxL10n.memberSortNameAZ),
                 onTap: () {
                   Navigator.of(ctx).pop();
-                  _reorderBy(members, (a, b) => a.name
-                      .toLowerCase()
-                      .compareTo(b.name.toLowerCase()));
+                  _reorderBy(
+                    members,
+                    (a, b) =>
+                        a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+                  );
                 },
               ),
               PrismListRow(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 dense: true,
                 title: Text(ctxL10n.memberSortNameZA),
                 onTap: () {
                   Navigator.of(ctx).pop();
-                  _reorderBy(members, (a, b) => b.name
-                      .toLowerCase()
-                      .compareTo(a.name.toLowerCase()));
+                  _reorderBy(
+                    members,
+                    (a, b) =>
+                        b.name.toLowerCase().compareTo(a.name.toLowerCase()),
+                  );
                 },
               ),
               PrismListRow(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 dense: true,
                 title: Text(ctxL10n.memberSortRecentlyCreated),
                 onTap: () {
                   Navigator.of(ctx).pop();
                   _reorderBy(
-                      members, (a, b) => b.createdAt.compareTo(a.createdAt));
+                    members,
+                    (a, b) => b.createdAt.compareTo(a.createdAt),
+                  );
                 },
               ),
               PrismListRow(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 dense: true,
                 title: Text(ctxL10n.memberSortMostFronting),
                 onTap: () {
@@ -172,7 +197,10 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                 },
               ),
               PrismListRow(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 dense: true,
                 title: Text(ctxL10n.memberSortLeastFronting),
                 onTap: () {
@@ -190,9 +218,8 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
   void _openAddSheet() {
     PrismSheet.showFullScreen(
       context: context,
-      builder: (context, scrollController) => AddEditMemberSheet(
-        scrollController: scrollController,
-      ),
+      builder: (context, scrollController) =>
+          AddEditMemberSheet(scrollController: scrollController),
     );
   }
 
@@ -218,23 +245,28 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
   ) async {
     final confirmed = await PrismDialog.confirm(
       context: context,
-      title: context.l10n.terminologyDeleteItem(readTerminology(context, ref).singular),
-      message: 'Are you sure you want to delete $memberName? This action cannot be undone.',
+      title: context.l10n.terminologyDeleteItem(
+        readTerminology(context, ref).singular,
+      ),
+      message:
+          'Are you sure you want to delete $memberName? This action cannot be undone.',
       confirmLabel: context.l10n.delete,
       destructive: true,
     );
     if (confirmed) {
       Haptics.heavy();
-      unawaited(ref.read(membersNotifierProvider.notifier).deleteMember(memberId));
+      unawaited(
+        ref.read(membersNotifierProvider.notifier).deleteMember(memberId),
+      );
     }
     return confirmed;
   }
 
   void _toggleMemberActive(Member member) {
     final newActive = !member.isActive;
-    ref.read(membersNotifierProvider.notifier).updateMember(
-          member.copyWith(isActive: newActive),
-        );
+    ref
+        .read(membersNotifierProvider.notifier)
+        .updateMember(member.copyWith(isActive: newActive));
     Haptics.selection();
     PrismToast.show(
       context,
@@ -244,14 +276,24 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     );
   }
 
-  Future<void> _reorderBy(List<Member> members, int Function(Member a, Member b) compare) async {
+  Future<void> _reorderBy(
+    List<Member> members,
+    int Function(Member a, Member b) compare,
+  ) async {
     final sorted = [...members]..sort(compare);
-    unawaited(ref.read(membersNotifierProvider.notifier).reorderMembers(sorted));
+    unawaited(
+      ref.read(membersNotifierProvider.notifier).reorderMembers(sorted),
+    );
     Haptics.selection();
-    if (mounted) PrismToast.show(context, message: context.l10n.memberOrderUpdated);
+    if (mounted) {
+      PrismToast.show(context, message: context.l10n.memberOrderUpdated);
+    }
   }
 
-  Future<void> _reorderByFronting(List<Member> members, {required bool descending}) async {
+  Future<void> _reorderByFronting(
+    List<Member> members, {
+    required bool descending,
+  }) async {
     final statsFutures = members.map(
       (m) => ref.read(memberFrontingStatsProvider(m.id).future),
     );
@@ -260,14 +302,19 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
       for (var i = 0; i < members.length; i++)
         members[i].id: allStats[i].totalSessions,
     };
-    final sorted = [...members]..sort((a, b) {
-      final aCount = statsMap[a.id] ?? 0;
-      final bCount = statsMap[b.id] ?? 0;
-      return descending ? bCount.compareTo(aCount) : aCount.compareTo(bCount);
-    });
-    unawaited(ref.read(membersNotifierProvider.notifier).reorderMembers(sorted));
+    final sorted = [...members]
+      ..sort((a, b) {
+        final aCount = statsMap[a.id] ?? 0;
+        final bCount = statsMap[b.id] ?? 0;
+        return descending ? bCount.compareTo(aCount) : aCount.compareTo(bCount);
+      });
+    unawaited(
+      ref.read(membersNotifierProvider.notifier).reorderMembers(sorted),
+    );
     Haptics.selection();
-    if (mounted) PrismToast.show(context, message: context.l10n.memberOrderUpdated);
+    if (mounted) {
+      PrismToast.show(context, message: context.l10n.memberOrderUpdated);
+    }
   }
 
   void _onReorder(List<Member> members, int oldIndex, int newIndex) {
@@ -301,9 +348,23 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
 
     void doScroll() {
       final ctx = key?.currentContext;
-      if (ctx == null) return;
-      Scrollable.ensureVisible(
-        ctx,
+      final renderObject = ctx?.findRenderObject();
+      if (renderObject == null || !_scrollController.hasClients) return;
+
+      final viewport = RenderAbstractViewport.maybeOf(renderObject);
+      if (viewport == null) return;
+
+      final position = _scrollController.position;
+      // Keep the jump scoped to the grouped list. Scrollable.ensureVisible
+      // also walks the outer NestedScrollView, which can hide the chip bar
+      // under the pinned top bar.
+      final targetOffset = viewport
+          .getOffsetToReveal(renderObject, 0)
+          .offset
+          .clamp(position.minScrollExtent, position.maxScrollExtent);
+
+      _scrollController.animateTo(
+        targetOffset,
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
       );
@@ -325,7 +386,8 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     final terms = watchTerminology(context, ref);
 
     // Build a set of currently-fronting member IDs.
-    final frontingIds = activeSessionsAsync.whenOrNull(
+    final frontingIds =
+        activeSessionsAsync.whenOrNull(
           data: (sessions) =>
               sessions.map((s) => s.memberId).whereType<String>().toSet(),
         ) ??
@@ -354,9 +416,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
       bodyPadding: EdgeInsets.zero,
       body: Column(
         children: [
-          MemberGroupFilterBar(
-            onChipTap: hasGroups ? _scrollToGroup : null,
-          ),
+          MemberGroupFilterBar(onChipTap: hasGroups ? _scrollToGroup : null),
           Expanded(
             child: AnimatedSwitcher(
               duration: Anim.md,
@@ -368,7 +428,10 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                     child: Padding(
                       padding: const EdgeInsets.all(24),
                       child: Text(
-                        context.l10n.terminologyLoadError(terms.pluralLower, e.toString()),
+                        context.l10n.terminologyLoadError(
+                          terms.pluralLower,
+                          e.toString(),
+                        ),
                         textAlign: TextAlign.center,
                       ),
                     ),
@@ -378,10 +441,18 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                       return EmptyState(
                         icon: Icon(AppIcons.peopleOutline),
                         title: _showInactive
-                            ? context.l10n.terminologyEmptyTitle(terms.pluralLower)
-                            : context.l10n.terminologyEmptyActiveTitle(terms.pluralLower),
-                        subtitle: context.l10n.terminologyAddFirstSubtitle(terms.singularLower),
-                        actionLabel: context.l10n.terminologyAddButton(terms.singular),
+                            ? context.l10n.terminologyEmptyTitle(
+                                terms.pluralLower,
+                              )
+                            : context.l10n.terminologyEmptyActiveTitle(
+                                terms.pluralLower,
+                              ),
+                        subtitle: context.l10n.terminologyAddFirstSubtitle(
+                          terms.singularLower,
+                        ),
+                        actionLabel: context.l10n.terminologyAddButton(
+                          terms.singular,
+                        ),
                         onAction: _openAddSheet,
                       );
                     }
@@ -390,11 +461,14 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                       return _buildFlatList(rawMembers, frontingIds, terms);
                     }
 
-                    final groupedItems =
-                        ref.watch(groupedMemberListProvider);
+                    final groupedItems = ref.watch(groupedMemberListProvider);
                     final counts = ref.watch(groupMemberCountsProvider);
                     return _buildGroupedList(
-                        groupedItems, counts, frontingIds, terms);
+                      groupedItems,
+                      counts,
+                      frontingIds,
+                      terms,
+                    );
                   },
                 ),
               ),
@@ -421,8 +495,9 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
           builder: (context, child) => Material(
             elevation: 4,
             color: Theme.of(context).colorScheme.surface,
-            borderRadius:
-                BorderRadius.circular(PrismShapes.of(context).radius(12)),
+            borderRadius: BorderRadius.circular(
+              PrismShapes.of(context).radius(12),
+            ),
             clipBehavior: Clip.antiAlias,
             child: child,
           ),
@@ -432,12 +507,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
       itemBuilder: (context, index) {
         final member = members[index];
         final isFronting = frontingIds.contains(member.id);
-        return _buildMemberTile(
-          member,
-          isFronting,
-          terms,
-          reorderIndex: index,
-        );
+        return _buildMemberTile(member, isFronting, terms, reorderIndex: index);
       },
     );
   }
@@ -454,62 +524,61 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
         SliverPadding(
           padding: EdgeInsets.only(top: 4, bottom: NavBarInset.of(context)),
           sliver: SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                final item = items[index];
-                if (item is GroupSectionItem) {
-                  final key = _sectionKeys.putIfAbsent(
-                      item.group.id, GlobalKey.new);
-                  final header = GroupSectionHeader(
-                    key: key,
-                    group: item.group,
-                    depth: item.depth.clamp(0, 2),
-                    memberCount: counts[item.group.id] ?? 0,
-                    isCollapsed: item.isCollapsed,
-                    canCollapse: true,
-                    onToggle: () => ref
-                        .read(collapsedGroupsProvider.notifier)
-                        .toggle(item.group.id),
-                  );
-                  if (item.depth == 0 && index > 0) {
-                    return Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Divider(height: 1, indent: 16, endIndent: 16),
-                        const SizedBox(height: 4),
-                        header,
-                      ],
-                    );
-                  }
-                  return header;
-                }
-                if (item is UngroupedSectionItem) {
-                  final ungroupedCount = items
-                      .skip(index + 1)
-                      .whereType<MemberRowItem>()
-                      .length;
-                  return GroupSectionHeader(
-                    key: _ungroupedKey,
-                    group: null,
-                    depth: 0,
-                    memberCount: ungroupedCount,
-                    isCollapsed: false,
-                    canCollapse: false,
-                    onToggle: null,
+            delegate: SliverChildBuilderDelegate((context, index) {
+              final item = items[index];
+              if (item is GroupSectionItem) {
+                final key = _sectionKeys.putIfAbsent(
+                  item.group.id,
+                  GlobalKey.new,
+                );
+                final header = GroupSectionHeader(
+                  key: key,
+                  group: item.group,
+                  depth: item.depth.clamp(0, 2),
+                  memberCount: counts[item.group.id] ?? 0,
+                  isCollapsed: item.isCollapsed,
+                  canCollapse: true,
+                  onToggle: () => ref
+                      .read(collapsedGroupsProvider.notifier)
+                      .toggle(item.group.id),
+                );
+                if (item.depth == 0 && index > 0) {
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Divider(height: 1, indent: 16, endIndent: 16),
+                      const SizedBox(height: 4),
+                      header,
+                    ],
                   );
                 }
-                if (item is MemberRowItem) {
-                  final isFronting = frontingIds.contains(item.member.id);
-                  final indent = item.depth.clamp(0, 2) * 16.0;
-                  return Padding(
-                    padding: EdgeInsets.only(left: indent),
-                    child: _buildMemberTile(item.member, isFronting, terms),
-                  );
-                }
-                return const SizedBox.shrink();
-              },
-              childCount: items.length,
-            ),
+                return header;
+              }
+              if (item is UngroupedSectionItem) {
+                final ungroupedCount = items
+                    .skip(index + 1)
+                    .whereType<MemberRowItem>()
+                    .length;
+                return GroupSectionHeader(
+                  key: _ungroupedKey,
+                  group: null,
+                  depth: 0,
+                  memberCount: ungroupedCount,
+                  isCollapsed: false,
+                  canCollapse: false,
+                  onToggle: null,
+                );
+              }
+              if (item is MemberRowItem) {
+                final isFronting = frontingIds.contains(item.member.id);
+                final indent = item.depth.clamp(0, 2) * 16.0;
+                return Padding(
+                  padding: EdgeInsets.only(left: indent),
+                  child: _buildMemberTile(item.member, isFronting, terms),
+                );
+              }
+              return const SizedBox.shrink();
+            }, childCount: items.length),
           ),
         ),
       ],
@@ -531,7 +600,9 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
         padding: const EdgeInsets.only(left: 24),
         color: member.isActive ? Colors.orange : Colors.green,
         child: Icon(
-          member.isActive ? AppIcons.archiveOutlined : AppIcons.unarchiveOutlined,
+          member.isActive
+              ? AppIcons.archiveOutlined
+              : AppIcons.unarchiveOutlined,
           color: AppColors.warmWhite,
         ),
       ),
@@ -568,8 +639,9 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                 index: reorderIndex,
                 child: Icon(
                   AppIcons.dragHandle,
-                  color: theme.colorScheme.onSurfaceVariant
-                      .withValues(alpha: 0.4),
+                  color: theme.colorScheme.onSurfaceVariant.withValues(
+                    alpha: 0.4,
+                  ),
                 ),
               ),
           ],
