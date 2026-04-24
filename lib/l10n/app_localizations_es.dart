@@ -5159,6 +5159,669 @@ class AppLocalizationsEs extends AppLocalizations {
   String get pluralkitRepairLoadingStatus => 'Cargando estado de reparación...';
 
   @override
+  String get pluralkitRepairCardTitle => 'Reparación de grupos de PluralKit';
+
+  @override
+  String get pluralkitRepairRunLocal => 'Ejecutar reparación local';
+
+  @override
+  String get pluralkitRepairRun => 'Ejecutar reparación';
+
+  @override
+  String get pluralkitRepairResetAndReimport =>
+      'Restablecer grupos PK y reimportar';
+
+  @override
+  String get pluralkitRepairResetOnly => 'Restablecer solo grupos PK';
+
+  @override
+  String get pluralkitRepairCurrentStatus => 'Estado actual';
+
+  @override
+  String get pluralkitRepairPendingReview => 'Revisión pendiente';
+
+  @override
+  String get pluralkitRepairLastRun => 'Última ejecución';
+
+  @override
+  String get pluralkitRepairWhatChanged => 'Qué cambió';
+
+  @override
+  String get pluralkitRepairUseTemporaryToken => 'Usar token temporal';
+
+  @override
+  String get pluralkitRepairCutoverTitle => 'Cambio a sync v2 de grupos PK';
+
+  @override
+  String get pluralkitRepairSharedEnablement => 'Activación compartida';
+
+  @override
+  String get pluralkitRepairEnablePkGroupSync => 'Activar sync de grupos PK';
+
+  @override
+  String get pluralkitRepairHeadlineRunning =>
+      'Escaneando grupos vinculados, reparando duplicados obvios y verificando grupos PK actuales cuando hay un token disponible.';
+
+  @override
+  String get pluralkitRepairHeadlinePending =>
+      'Los grupos importados ambiguos están suprimidos por ahora para que Prism no cree enlaces de sincronización duplicados.';
+
+  @override
+  String get pluralkitRepairHeadlineReconnectRequired =>
+      'La reparación local aún puede restaurar enlaces PK directamente comprobables, pero todavía debes reconectar PluralKit para reconstruir automáticamente la identidad faltante de grupos PK.';
+
+  @override
+  String get pluralkitRepairHeadlineChanged =>
+      'La última ejecución hizo cambios locales concretos de reparación. Revisa el resumen antes de activar sync de grupos respaldados por PK.';
+
+  @override
+  String get pluralkitRepairHeadlineCompleted =>
+      'La última ejecución terminó. Puedes volver a ejecutar la reparación después de reconectar o importar más datos de PluralKit.';
+
+  @override
+  String get pluralkitRepairHeadlineDefault =>
+      'Corrige localmente duplicados obvios de grupos PK y marca coincidencias ambiguas para revisión.';
+
+  @override
+  String get pluralkitRepairStatusRunning => 'Reparación en curso';
+
+  @override
+  String get pluralkitRepairStatusRetryNeeded => 'Reintento necesario';
+
+  @override
+  String pluralkitRepairStatusPendingReview(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count pendientes de revisión',
+      one: '1 pendiente de revisión',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get pluralkitRepairStatusLastRunComplete =>
+      'Última ejecución completa';
+
+  @override
+  String get pluralkitRepairStatusReadyToRun => 'Lista para ejecutar';
+
+  @override
+  String get pluralkitRepairTokenBackedReady => 'Lista con token';
+
+  @override
+  String get pluralkitRepairLocalOnlyUntilToken =>
+      'Solo local hasta tener token';
+
+  @override
+  String get pluralkitRepairCheckingTokenAccess =>
+      'Verificando acceso al token';
+
+  @override
+  String get pluralkitRepairCutoverEnabledChip => 'Sync v2 PK activado';
+
+  @override
+  String get pluralkitRepairCutoverOffChip => 'Sync v2 PK desactivado';
+
+  @override
+  String get pluralkitRepairCheckingCutover => 'Verificando cambio';
+
+  @override
+  String get pluralkitRepairCurrentRunning =>
+      'La reparación se está ejecutando ahora.';
+
+  @override
+  String get pluralkitRepairCurrentError =>
+      'La última ejecución manual falló. Reintenta abajo cuando estés listo.';
+
+  @override
+  String pluralkitRepairCurrentPending(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          '$count grupos todavía necesitan revisión antes de poder vincularse o limpiarse.',
+      one:
+          '1 grupo todavía necesita revisión antes de poder vincularse o limpiarse.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get pluralkitRepairCurrentNoRun =>
+      'Aún no se ha registrado ninguna reparación en esta sesión de la app.';
+
+  @override
+  String get pluralkitRepairCurrentReconnectRequired =>
+      'La última ejecución terminó la reparación local segura, pero la identidad faltante de grupos PK todavía necesita una fuente de referencia activa de PluralKit para reconstruirse automáticamente.';
+
+  @override
+  String get pluralkitRepairCurrentChanged =>
+      'La última ejecución cambió datos locales de grupos PK. Revisa el resumen de la última ejecución para ver las reparaciones aplicadas.';
+
+  @override
+  String get pluralkitRepairCurrentNoChanges =>
+      'La última ejecución no encontró reparaciones nuevas de grupos PK para aplicar.';
+
+  @override
+  String get pluralkitRepairCutoverHeadlineEnabled =>
+      'La sincronización de grupos respaldados por PK está activada para este grupo de sync. Los grupos manuales o solo locales siguen siendo locales.';
+
+  @override
+  String get pluralkitRepairCutoverHeadlineReady =>
+      'Los requisitos de reparación local están completos. El límite de seguridad restante es la confirmación explícita del cambio.';
+
+  @override
+  String get pluralkitRepairCutoverHeadlineBlocked =>
+      'La sincronización de grupos respaldados por PK permanece desactivada hasta que la reparación termine y confirmes explícitamente que ya no hay dispositivos heredados emparejados.';
+
+  @override
+  String get pluralkitRepairCutoverStatusLoading =>
+      'Cargando la configuración compartida de cambio para este grupo de sync.';
+
+  @override
+  String get pluralkitRepairCutoverStatusEnabled =>
+      'Activado para este grupo de sync después de confirmación explícita.';
+
+  @override
+  String get pluralkitRepairCutoverStatusRunning =>
+      'No disponible mientras la reparación sigue en curso.';
+
+  @override
+  String get pluralkitRepairCutoverStatusNoRun =>
+      'No disponible hasta que una reparación termine en esta sesión de la app.';
+
+  @override
+  String get pluralkitRepairCutoverStatusPending =>
+      'No disponible hasta resolver los elementos pendientes o mantenerlos solo locales.';
+
+  @override
+  String get pluralkitRepairCutoverStatusReady =>
+      'Listo para activar después de confirmar explícitamente el cambio.';
+
+  @override
+  String get pluralkitRepairCutoverRecommendationEnabled =>
+      'Esto solo afecta la sincronización de grupos respaldados por PK. Los grupos manuales o solo locales no cambian.';
+
+  @override
+  String get pluralkitRepairCutoverRecommendationRunFirst =>
+      'Ejecuta la reparación primero. Prism mantiene sync v2 de grupos PK desactivado hasta que este cliente complete una reparación.';
+
+  @override
+  String get pluralkitRepairCutoverRecommendationPending =>
+      'Resuelve cada elemento pendiente o mantenlo explícitamente solo local antes de activar el cambio.';
+
+  @override
+  String get pluralkitRepairCutoverRecommendationReady =>
+      'Actívalo solo después de que todos los dispositivos heredados de la era 0.4.0+1 en este grupo de sync se hayan actualizado, restablecido/reemparejado, eliminado, o después de mover las pruebas a un grupo de sync nuevo.';
+
+  @override
+  String get pluralkitRepairPendingNone =>
+      'No hay coincidencias ambiguas de grupos PK esperando revisión.';
+
+  @override
+  String pluralkitRepairPendingCount(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count grupos todavía necesitan revisión de seguimiento.',
+      one: '1 grupo todavía necesita revisión de seguimiento.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get pluralkitRepairModeLocalOnlyRun => 'Ejecución solo local';
+
+  @override
+  String get pluralkitRepairModeStoredTokenRun =>
+      'Ejecución con token guardado';
+
+  @override
+  String get pluralkitRepairModeTemporaryTokenRun =>
+      'Ejecución con token temporal';
+
+  @override
+  String get pluralkitRepairLastRunPrefixLocal => 'La ejecución local';
+
+  @override
+  String get pluralkitRepairLastRunPrefixStoredToken =>
+      'La ejecución con token guardado';
+
+  @override
+  String get pluralkitRepairLastRunPrefixTemporaryToken =>
+      'La ejecución con token temporal';
+
+  @override
+  String pluralkitRepairLastRunNoChanges(Object prefix) {
+    return '$prefix no encontró cambios nuevos de grupos PK para aplicar.';
+  }
+
+  @override
+  String pluralkitRepairLastRunChanged(Object prefix, Object summary) {
+    return '$prefix $summary.';
+  }
+
+  @override
+  String pluralkitRepairJoinPair(Object first, Object second) {
+    return '$first y $second';
+  }
+
+  @override
+  String pluralkitRepairJoinSerial(Object last, Object leading) {
+    return '$leading y $last';
+  }
+
+  @override
+  String pluralkitRepairSummaryUpdatedParentLinks(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'actualizó $count enlaces de grupo padre',
+      one: 'actualizó 1 enlace de grupo padre',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String pluralkitRepairSummaryMovedMemberships(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'movió $count membresías de grupo',
+      one: 'movió 1 membresía de grupo',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String pluralkitRepairSummaryRemovedDuplicateGroups(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'eliminó $count grupos locales duplicados',
+      one: 'eliminó 1 grupo local duplicado',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String pluralkitRepairSummaryRemovedConflictingMemberships(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'eliminó $count membresías de grupo conflictivas',
+      one: 'eliminó 1 membresía de grupo conflictiva',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String pluralkitRepairSummarySuppressedAmbiguousGroups(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'suprimió $count grupos ambiguos para revisión',
+      one: 'suprimió 1 grupo ambiguo para revisión',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String pluralkitRepairSummaryRestoredMissingMemberships(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'restauró $count enlaces de membresía PK faltantes',
+      one: 'restauró 1 enlace de membresía PK faltante',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String pluralkitRepairSummaryRecordedLegacyAliases(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'registró $count alias heredados de grupo',
+      one: 'registró 1 alias heredado de grupo',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String pluralkitRepairDetailUpdatedParentLinks(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'Actualizó $count enlaces de grupo padre para apuntar al grupo sobreviviente.',
+      one:
+          'Actualizó 1 enlace de grupo padre para apuntar al grupo sobreviviente.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String pluralkitRepairDetailMovedMemberships(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Movió $count membresías de grupo al grupo sobreviviente.',
+      one: 'Movió 1 membresía de grupo al grupo sobreviviente.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String pluralkitRepairDetailRemovedDuplicateGroups(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Eliminó $count grupos locales duplicados.',
+      one: 'Eliminó 1 grupo local duplicado.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String pluralkitRepairDetailRemovedConflictingMemberships(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'Eliminó $count membresías de grupo conflictivas al fusionar duplicados.',
+      one: 'Eliminó 1 membresía de grupo conflictiva al fusionar duplicados.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String pluralkitRepairDetailSuppressedAmbiguousGroups(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'Suprimió $count grupos ambiguos para revisión antes de continuar la sincronización.',
+      one:
+          'Suprimió 1 grupo ambiguo para revisión antes de continuar la sincronización.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String pluralkitRepairDetailRestoredMissingMemberships(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Restauró $count enlaces de membresía PK faltantes.',
+      one: 'Restauró 1 enlace de membresía PK faltante.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String pluralkitRepairDetailRecordedLegacyAliases(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'Registró $count alias heredados de grupo para que los ID antiguos aún se resuelvan.',
+      one:
+          'Registró 1 alias heredado de grupo para que los ID antiguos aún se resuelvan.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get pluralkitRepairReferenceImportOnly =>
+      'Esto parece datos PK solo importados, sin grupos locales vinculados a PK que sirvan como referencias de reparación. Prism aún puede reparar filas vinculadas directamente de forma local, pero reconectar PluralKit o usar un token temporal es la única forma de reconstruir automáticamente la identidad faltante de grupos PK.';
+
+  @override
+  String get pluralkitRepairReferenceStoredTokenFailed =>
+      'Existe un token guardado, pero falló la última consulta de referencia en vivo. Reconecta PluralKit o usa un token temporal si quieres una reparación completa respaldada por token.';
+
+  @override
+  String get pluralkitRepairReferenceReconnectOrToken =>
+      'Reconecta PluralKit arriba o usa un token temporal para una reparación más completa. La reparación local aún maneja los duplicados obvios.';
+
+  @override
+  String get pluralkitRepairReferenceTokenRecommended =>
+      'Se recomienda una reparación respaldada por token cuando puedas proporcionar uno. Hasta entonces, Prism solo ejecutará la reparación local segura.';
+
+  @override
+  String get pluralkitRepairReferenceLocalNow =>
+      'La reparación puede ejecutarse localmente ahora. Las verificaciones PK en vivo aparecen cuando se confirme el acceso al token.';
+
+  @override
+  String pluralkitRepairReferenceError(Object error) {
+    return 'La consulta PK en vivo falló en la última ejecución, así que Prism volvió a la reparación local. $error';
+  }
+
+  @override
+  String pluralkitRepairError(Object error) {
+    return 'La reparación falló: $error';
+  }
+
+  @override
+  String get pluralkitRepairConfirmEnableTitle => '¿Activar sync v2 PK?';
+
+  @override
+  String get pluralkitRepairConfirmEnableBody =>
+      'Activa esto solo después de que todos los dispositivos heredados de la era 0.4.0+1 se hayan actualizado, restablecido/reemparejado, eliminado, o después de moverte a un grupo de sync nuevo.';
+
+  @override
+  String get pluralkitRepairConfirmEnableFootnote =>
+      'Si falta confirmar algún dispositivo, déjalo desactivado. Los grupos manuales o solo locales siguen siendo locales de cualquier forma.';
+
+  @override
+  String get pluralkitRepairConfirmEnableAction => 'Activar sync v2 PK';
+
+  @override
+  String get pluralkitRepairConfirmResetTitle => '¿Restablecer solo grupos PK?';
+
+  @override
+  String get pluralkitRepairConfirmResetConnectedBody =>
+      'Prism eliminará grupos vinculados a PK y suprimidos por reparación, conservará grupos manuales o solo locales, limpiará operaciones diferidas de membresía PK y luego reimportará tus grupos PK actuales.';
+
+  @override
+  String get pluralkitRepairConfirmResetDisconnectedBody =>
+      'Prism eliminará grupos vinculados a PK y suprimidos por reparación, conservará grupos manuales o solo locales y limpiará operaciones diferidas de membresía PK. Reconecta PluralKit o importa de nuevo después para reconstruirlos.';
+
+  @override
+  String get pluralkitRepairConfirmResetExportHint =>
+      'Exporta los datos primero si quieres una copia completa antes del restablecimiento.';
+
+  @override
+  String get pluralkitRepairConfirmResetExportFirst => 'Exportar datos primero';
+
+  @override
+  String get pluralkitRepairConfirmResetActionConnected =>
+      'Restablecer y reimportar';
+
+  @override
+  String get pluralkitRepairConfirmResetActionDisconnected =>
+      'Restablecer grupos PK';
+
+  @override
+  String pluralkitRepairFailedToast(Object error) {
+    return 'La reparación de grupos de PluralKit falló: $error';
+  }
+
+  @override
+  String get pluralkitRepairReviewDismissed =>
+      'Revisión de grupo descartada. Se limpió la supresión de sync.';
+
+  @override
+  String get pluralkitRepairKeepLocalOnlySuccess =>
+      'Grupo mantenido solo local. Quedará fuera de sync.';
+
+  @override
+  String get pluralkitRepairMergedSuccess =>
+      'Grupo fusionado con el grupo canónico respaldado por PK.';
+
+  @override
+  String pluralkitRepairDismissReviewFailed(Object error) {
+    return 'No se pudo descartar este elemento de revisión: $error';
+  }
+
+  @override
+  String pluralkitRepairKeepLocalOnlyFailed(Object error) {
+    return 'No se pudo mantener este grupo solo local: $error';
+  }
+
+  @override
+  String pluralkitRepairMergeFailed(Object error) {
+    return 'No se pudo fusionar este grupo con el grupo PK canónico: $error';
+  }
+
+  @override
+  String get pluralkitRepairCutoverSettingsLoadingError =>
+      'Aún no se pudo verificar la configuración compartida de cambio. Espera a que termine de cargar el estado de reparación e inténtalo de nuevo.';
+
+  @override
+  String get pluralkitRepairCutoverAlreadyEnabled =>
+      'Sync v2 de grupos PK ya está activado para este grupo de sync.';
+
+  @override
+  String get pluralkitRepairCutoverRepairLoadingError =>
+      'El estado de reparación todavía está cargando o ejecutándose. Espera a que termine antes de activar sync v2 de grupos PK.';
+
+  @override
+  String get pluralkitRepairCutoverRunRepairFirstError =>
+      'Ejecuta primero la reparación de grupos de PluralKit. Sync v2 de grupos PK permanece desactivado hasta que este cliente complete una reparación.';
+
+  @override
+  String pluralkitRepairCutoverPendingReviewError(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'Resuelve o mantén solo locales los $count elementos pendientes antes de activar sync v2 de grupos PK.',
+      one:
+          'Resuelve o mantén solo local el 1 elemento pendiente antes de activar sync v2 de grupos PK.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get pluralkitRepairCutoverEnabledSuccess =>
+      'Sync v2 de grupos PK activado para este grupo de sync. Los grupos manuales o solo locales no cambian.';
+
+  @override
+  String pluralkitRepairCutoverEnableFailed(Object error) {
+    return 'No se pudo activar sync v2 de grupos PK: $error';
+  }
+
+  @override
+  String get pluralkitRepairResetNoGroupsNeeded =>
+      'Ningún grupo respaldado por PK o suprimido por reparación necesitaba restablecerse en este dispositivo.';
+
+  @override
+  String pluralkitRepairResetFinishedReconnect(Object summary) {
+    return 'Restablecimiento de grupos PK terminado. $summary Reconecta PluralKit o importa desde un archivo para reconstruirlos.';
+  }
+
+  @override
+  String pluralkitRepairResetFinishedReimported(Object summary) {
+    return 'Restablecimiento de grupos PK terminado. $summary Se reimportaron los grupos PK actuales.';
+  }
+
+  @override
+  String pluralkitRepairResetFinishedReimportFailed(
+    Object error,
+    Object summary,
+  ) {
+    return 'Restablecimiento de grupos PK terminado, pero falló la reimportación: $error. $summary';
+  }
+
+  @override
+  String pluralkitRepairResetFailed(Object error) {
+    return 'No se pudieron restablecer los grupos PK: $error';
+  }
+
+  @override
+  String get pluralkitRepairNoNewNeeded =>
+      'No se necesitaban reparaciones nuevas de grupos PK.';
+
+  @override
+  String pluralkitRepairSuccessLocalLookupFailed(Object detail) {
+    return 'Reparación local terminada. $detail La consulta PK en vivo falló, así que todavía se recomienda volver a ejecutar con token.';
+  }
+
+  @override
+  String pluralkitRepairSuccessLocalLookupFailedWithFollowUp(
+    Object detail,
+    Object followUp,
+  ) {
+    return 'Reparación local terminada. $detail $followUp La consulta PK en vivo falló, así que todavía se recomienda volver a ejecutar con token.';
+  }
+
+  @override
+  String pluralkitRepairSuccessWithFollowUp(Object detail, Object followUp) {
+    return 'Reparación terminada. $detail $followUp';
+  }
+
+  @override
+  String pluralkitRepairSuccess(Object detail) {
+    return 'Reparación terminada. $detail';
+  }
+
+  @override
+  String pluralkitRepairFollowUpPendingReview(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          '$count grupos suprimidos todavía necesitan revisión de seguimiento.',
+      one: '1 grupo suprimido todavía necesita revisión de seguimiento.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String pluralkitRepairStatusLoadFailed(Object error) {
+    return 'No se pudo cargar el estado de reparación: $error';
+  }
+
+  @override
+  String pluralkitRepairResetSummaryRemovedGroups(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'eliminó $count grupos respaldados por PK o suprimidos',
+      one: 'eliminó 1 grupo respaldado por PK o suprimido',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String pluralkitRepairResetSummaryPromotedChildGroups(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'promovió $count grupos locales hijos a raíz',
+      one: 'promovió 1 grupo local hijo a raíz',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String pluralkitRepairResetSummaryClearedDeferredOps(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'limpió $count operaciones diferidas de membresía PK',
+      one: 'limpió 1 operación diferida de membresía PK',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get pluralkitRepairResetSummaryNoGroupsNeeded =>
+      'Ningún grupo respaldado por PK necesitaba restablecerse.';
+
+  @override
   String pluralkitMinutesAgo(int minutes) {
     return 'hace ${minutes}m';
   }

@@ -14,7 +14,9 @@ import 'package:prism_plurality/core/services/media/download_manager.dart';
 import 'package:prism_plurality/core/services/media/media_encryption_service.dart';
 import 'package:prism_plurality/core/services/media/media_providers.dart';
 import 'package:prism_plurality/data/repositories/drift_system_settings_repository.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_group_sync_v2_catchup_service.dart';
 import 'package:prism_plurality/features/settings/providers/reset_data_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Every user-data table in the database. When a new table is added to the
 /// Drift schema, add it here — the completeness guard test will fail if any
@@ -35,6 +37,8 @@ const _allUserDataTables = [
   'sync_quarantine',
   'member_groups',
   'member_group_entries',
+  'pk_group_sync_aliases',
+  'pk_group_entry_deferred_sync_ops',
   'custom_fields',
   'custom_field_values',
   'notes',
@@ -55,6 +59,7 @@ void main() {
   // Stub flutter_secure_storage platform channel for tests that trigger
   // clearDatabaseEncryptionState() during full reset.
   setUp(() {
+    SharedPreferences.setMockInitialValues({});
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
           const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
@@ -268,41 +273,61 @@ void main() {
       expect(await harness.syncShmFile.exists(), isFalse);
     });
 
-    test('sync reset deletes dynamic epoch_key_* and runtime_keys_* entries',
-        () async {
+    test(
+      'sync reset deletes dynamic epoch_key_* and runtime_keys_* entries',
+      () async {
+        final harness = await _ResetHarness.create();
+        addTearDown(harness.dispose);
+
+        await harness.seedAllData();
+        // Seed a mix of dynamic keys that would have been left behind by
+        // the old reset path (which only deleted the static allow-list).
+        harness.secureStore.seedSyncValue('prism_sync.epoch_key_1', 'AAAA');
+        harness.secureStore.seedSyncValue('prism_sync.epoch_key_7', 'BBBB');
+        harness.secureStore.seedSyncValue(
+          'prism_sync.runtime_keys_default',
+          'CCCC',
+        );
+        // Foreign-prefixed entry should NOT be touched.
+        harness.secureStore.seedSyncValue('other_app.epoch_key_1', 'DDDD');
+
+        await harness.reset(ResetCategory.sync);
+
+        expect(
+          harness.secureStore.readSyncValue('prism_sync.epoch_key_1'),
+          isNull,
+        );
+        expect(
+          harness.secureStore.readSyncValue('prism_sync.epoch_key_7'),
+          isNull,
+        );
+        expect(
+          harness.secureStore.readSyncValue('prism_sync.runtime_keys_default'),
+          isNull,
+        );
+        expect(
+          harness.secureStore.readSyncValue('other_app.epoch_key_1'),
+          'DDDD',
+        );
+      },
+    );
+
+    test('sync reset clears sync one-time SharedPreferences flags', () async {
+      SharedPreferences.setMockInitialValues({
+        'sync.enum_fields_reemit_v1': true,
+        PkGroupSyncV2CatchupService.flagKey: true,
+        'unrelated_flag': true,
+      });
       final harness = await _ResetHarness.create();
       addTearDown(harness.dispose);
 
       await harness.seedAllData();
-      // Seed a mix of dynamic keys that would have been left behind by
-      // the old reset path (which only deleted the static allow-list).
-      harness.secureStore.seedSyncValue('prism_sync.epoch_key_1', 'AAAA');
-      harness.secureStore.seedSyncValue('prism_sync.epoch_key_7', 'BBBB');
-      harness.secureStore.seedSyncValue(
-        'prism_sync.runtime_keys_default',
-        'CCCC',
-      );
-      // Foreign-prefixed entry should NOT be touched.
-      harness.secureStore.seedSyncValue('other_app.epoch_key_1', 'DDDD');
-
       await harness.reset(ResetCategory.sync);
 
-      expect(
-        harness.secureStore.readSyncValue('prism_sync.epoch_key_1'),
-        isNull,
-      );
-      expect(
-        harness.secureStore.readSyncValue('prism_sync.epoch_key_7'),
-        isNull,
-      );
-      expect(
-        harness.secureStore.readSyncValue('prism_sync.runtime_keys_default'),
-        isNull,
-      );
-      expect(
-        harness.secureStore.readSyncValue('other_app.epoch_key_1'),
-        'DDDD',
-      );
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool('sync.enum_fields_reemit_v1'), isNull);
+      expect(prefs.getBool(PkGroupSyncV2CatchupService.flagKey), isNull);
+      expect(prefs.getBool('unrelated_flag'), isTrue);
     });
 
     // ── Full reset ──────────────────────────────────────────────────
@@ -655,6 +680,28 @@ class _ResetHarness {
             memberId: Value('member-1'),
           ),
         );
+    await db
+        .into(db.pkGroupSyncAliases)
+        .insert(
+          PkGroupSyncAliasesCompanion.insert(
+            legacyEntityId: 'legacy-group-1',
+            pkGroupUuid: 'pk-group-uuid-1',
+            canonicalEntityId: 'pk-group:pk-group-uuid-1',
+            createdAt: now,
+          ),
+        );
+    await db
+        .into(db.pkGroupEntryDeferredSyncOps)
+        .insert(
+          PkGroupEntryDeferredSyncOpsCompanion.insert(
+            id: 'deferred-entry-1',
+            entityType: 'member_group_entries',
+            entityId: 'entry-1',
+            fieldsJson: '{}',
+            reason: 'missing_pk_refs',
+            createdAt: now,
+          ),
+        );
 
     // ── Custom fields ─────────────────────────────────────────────────
     await db
@@ -781,11 +828,7 @@ class _ResetHarness {
     // ── SP sync state ─────────────────────────────────────────────────
     await db
         .into(db.spSyncStateTable)
-        .insert(
-          const SpSyncStateTableCompanion(
-            id: Value('singleton'),
-          ),
-        );
+        .insert(const SpSyncStateTableCompanion(id: Value('singleton')));
     await db
         .into(db.spIdMapTable)
         .insert(
@@ -797,7 +840,9 @@ class _ResetHarness {
         );
 
     // ── PK mapping state ──────────────────────────────────────────────
-    await db.into(db.pkMappingState).insert(
+    await db
+        .into(db.pkMappingState)
+        .insert(
           PkMappingStateCompanion(
             id: const Value('link:pk-uuid-1'),
             decisionType: const Value('link'),
@@ -813,9 +858,9 @@ class _ResetHarness {
     // Seed a fake encrypted media cache file (mirrors what DownloadManager
     // writes at <appSupport>/prism_media/<mediaId>.enc).
     await mediaCacheDir.create(recursive: true);
-    await File(p.join(mediaCacheDir.path, 'media-1.enc')).writeAsString(
-      'fake-ciphertext',
-    );
+    await File(
+      p.join(mediaCacheDir.path, 'media-1.enc'),
+    ).writeAsString('fake-ciphertext');
 
     await syncDbFile.writeAsString('sync-db');
     await syncWalFile.writeAsString('wal');

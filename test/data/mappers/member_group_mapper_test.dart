@@ -3,7 +3,8 @@ import 'package:prism_plurality/core/database/app_database.dart' as db;
 import 'package:prism_plurality/data/mappers/member_group_mapper.dart';
 import 'package:prism_plurality/data/mappers/member_group_entry_mapper.dart';
 import 'package:prism_plurality/domain/models/member_group.dart' as domain;
-import 'package:prism_plurality/domain/models/member_group_entry.dart' as domain;
+import 'package:prism_plurality/domain/models/member_group_entry.dart'
+    as domain;
 
 import '../../helpers/mapper_test_helpers.dart';
 
@@ -100,6 +101,7 @@ void main() {
         filterRules: companion.filterRules.value,
         createdAt: companion.createdAt.value,
         isDeleted: false,
+        syncSuppressed: false,
       );
 
       final restored = MemberGroupMapper.toDomain(row);

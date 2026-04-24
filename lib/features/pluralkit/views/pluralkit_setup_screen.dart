@@ -185,6 +185,7 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
   }
 
   Future<void> _runGroupRepair({String? token}) async {
+    final l10n = context.l10n;
     try {
       final report = await ref
           .read(pkGroupRepairControllerProvider.notifier)
@@ -195,46 +196,50 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
       if (!mounted) return;
       PrismToast.error(
         context,
-        message:
-            'PluralKit group repair failed: ${_formatRepairError(error.toString())}',
+        message: l10n.pluralkitRepairFailedToast(
+          _formatRepairError(error.toString()),
+        ),
       );
     }
   }
 
   Future<void> _dismissGroupReview(String groupId) async {
+    final l10n = context.l10n;
     await _runGroupReviewAction(
       () => ref
           .read(pkGroupRepairControllerProvider.notifier)
           .dismissReviewItem(groupId),
-      successMessage: 'Group review dismissed. Sync suppression was cleared.',
-      errorPrefix: 'Could not dismiss this repair review item',
+      successMessage: l10n.pluralkitRepairReviewDismissed,
+      errorMessage: l10n.pluralkitRepairDismissReviewFailed,
     );
   }
 
   Future<void> _keepGroupLocalOnly(String groupId) async {
+    final l10n = context.l10n;
     await _runGroupReviewAction(
       () => ref
           .read(pkGroupRepairControllerProvider.notifier)
           .keepReviewItemLocalOnly(groupId),
-      successMessage: 'Group kept local-only. It will stay out of sync.',
-      errorPrefix: 'Could not keep this group local-only',
+      successMessage: l10n.pluralkitRepairKeepLocalOnlySuccess,
+      errorMessage: l10n.pluralkitRepairKeepLocalOnlyFailed,
     );
   }
 
   Future<void> _mergeGroupIntoCanonical(String groupId) async {
+    final l10n = context.l10n;
     await _runGroupReviewAction(
       () => ref
           .read(pkGroupRepairControllerProvider.notifier)
           .mergeReviewItemIntoCanonical(groupId),
-      successMessage: 'Group merged into the canonical PK-backed group.',
-      errorPrefix: 'Could not merge this group into the canonical PK group',
+      successMessage: l10n.pluralkitRepairMergedSuccess,
+      errorMessage: l10n.pluralkitRepairMergeFailed,
     );
   }
 
   Future<void> _runGroupReviewAction(
     Future<void> Function() action, {
     required String successMessage,
-    required String errorPrefix,
+    required String Function(String error) errorMessage,
   }) async {
     try {
       await action();
@@ -244,12 +249,13 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
       if (!mounted) return;
       PrismToast.error(
         context,
-        message: '$errorPrefix: ${_formatRepairError(error.toString())}',
+        message: errorMessage(_formatRepairError(error.toString())),
       );
     }
   }
 
   Future<void> _enablePkGroupSyncV2() async {
+    final l10n = context.l10n;
     final repairState = ref.read(pkGroupRepairControllerProvider).asData?.value;
     final settings = ref.read(systemSettingsProvider).asData?.value;
 
@@ -257,9 +263,7 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
       if (!mounted) return;
       PrismToast.error(
         context,
-        message:
-            'Could not verify the shared cutover setting yet. Wait for repair '
-            'status to finish loading and try again.',
+        message: l10n.pluralkitRepairCutoverSettingsLoadingError,
       );
       return;
     }
@@ -268,7 +272,7 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
       if (!mounted) return;
       PrismToast.show(
         context,
-        message: 'PK group sync v2 is already enabled for this sync group.',
+        message: l10n.pluralkitRepairCutoverAlreadyEnabled,
       );
       return;
     }
@@ -277,9 +281,7 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
       if (!mounted) return;
       PrismToast.error(
         context,
-        message:
-            'Repair status is still loading or running. Wait for it to '
-            'finish before enabling PK group sync v2.',
+        message: l10n.pluralkitRepairCutoverRepairLoadingError,
       );
       return;
     }
@@ -288,21 +290,18 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
       if (!mounted) return;
       PrismToast.error(
         context,
-        message:
-            'Run PluralKit group repair first. PK group sync v2 stays off '
-            'until this client completes a repair pass.',
+        message: l10n.pluralkitRepairCutoverRunRepairFirstError,
       );
       return;
     }
 
     if (repairState.pendingReviewCount > 0) {
       if (!mounted) return;
-      final noun = repairState.pendingReviewCount == 1 ? 'item' : 'items';
       PrismToast.error(
         context,
-        message:
-            'Resolve or keep local-only the ${repairState.pendingReviewCount} '
-            'pending review $noun before enabling PK group sync v2.',
+        message: l10n.pluralkitRepairCutoverPendingReviewError(
+          repairState.pendingReviewCount,
+        ),
       );
       return;
     }
@@ -321,22 +320,21 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
       if (!mounted) return;
       PrismToast.success(
         context,
-        message:
-            'PK group sync v2 enabled for this sync group. Manual/local-only '
-            'groups are unchanged.',
+        message: l10n.pluralkitRepairCutoverEnabledSuccess,
       );
     } catch (error) {
       if (!mounted) return;
       PrismToast.error(
         context,
-        message:
-            'Could not enable PK group sync v2: '
-            '${_formatRepairError(error.toString())}',
+        message: l10n.pluralkitRepairCutoverEnableFailed(
+          _formatRepairError(error.toString()),
+        ),
       );
     }
   }
 
   Future<void> _resetPkGroupsOnly() async {
+    final l10n = context.l10n;
     final syncState = ref.read(pluralKitSyncProvider);
 
     try {
@@ -350,9 +348,7 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
       if (!result.changedAnything) {
         PrismToast.show(
           context,
-          message:
-              'No PK-backed or repair-suppressed groups needed reset on this '
-              'device.',
+          message: l10n.pluralkitRepairResetNoGroupsNeeded,
         );
         return;
       }
@@ -360,9 +356,9 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
       if (!syncState.isConnected) {
         PrismToast.success(
           context,
-          message:
-              'PK group reset finished. ${_pkGroupResetSummary(result)} '
-              'Reconnect PluralKit or import from a file to rebuild them.',
+          message: l10n.pluralkitRepairResetFinishedReconnect(
+            _pkGroupResetSummary(l10n, result),
+          ),
         );
         return;
       }
@@ -372,18 +368,18 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
         if (!mounted) return;
         PrismToast.success(
           context,
-          message:
-              'PK group reset finished. ${_pkGroupResetSummary(result)} '
-              'Current PK groups were re-imported.',
+          message: l10n.pluralkitRepairResetFinishedReimported(
+            _pkGroupResetSummary(l10n, result),
+          ),
         );
       } catch (error) {
         if (!mounted) return;
         PrismToast.show(
           context,
-          message:
-              'PK group reset finished, but re-import failed: '
-              '${_formatRepairError(error.toString())}. '
-              '${_pkGroupResetSummary(result)}',
+          message: l10n.pluralkitRepairResetFinishedReimportFailed(
+            _formatRepairError(error.toString()),
+            _pkGroupResetSummary(l10n, result),
+          ),
           icon: AppIcons.warningAmberRounded,
           iconColor: Theme.of(context).colorScheme.secondary,
         );
@@ -392,9 +388,9 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
       if (!mounted) return;
       PrismToast.error(
         context,
-        message:
-            'Could not reset PK groups: '
-            '${_formatRepairError(error.toString())}',
+        message: l10n.pluralkitRepairResetFailed(
+          _formatRepairError(error.toString()),
+        ),
       );
     }
   }
@@ -474,7 +470,8 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
   }
 
   void _showRepairToast(PkGroupRepairReport report) {
-    final message = _repairSuccessMessage(report);
+    final l10n = context.l10n;
+    final message = _repairSuccessMessage(l10n, report);
     if (report.referenceError != null || report.pendingReviewCount > 0) {
       PrismToast.show(
         context,
@@ -487,71 +484,92 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
     PrismToast.success(context, message: message);
   }
 
-  String _repairSuccessMessage(PkGroupRepairReport report) {
-    final outcomeFragments = _repairOutcomeFragments(report);
+  String _repairSuccessMessage(
+    AppLocalizations l10n,
+    PkGroupRepairReport report,
+  ) {
+    final outcomeFragments = _repairOutcomeFragments(l10n, report);
     final detailMessage = outcomeFragments.isEmpty
-        ? 'No new PK group repairs were needed.'
-        : '${_sentenceCase(_joinFragments(outcomeFragments))}.';
-    final followUpMessage = _repairFollowUpMessage(report);
+        ? l10n.pluralkitRepairNoNewNeeded
+        : '${_sentenceCase(_joinFragments(l10n, outcomeFragments))}.';
+    final followUpMessage = _repairFollowUpMessage(l10n, report);
 
     if (report.referenceError != null) {
-      final followUpSuffix = followUpMessage == null ? '' : ' $followUpMessage';
-      return 'Repair finished locally. $detailMessage$followUpSuffix Live PK '
-          'lookup failed, so a token-backed rerun is still recommended.';
+      if (followUpMessage != null) {
+        return l10n.pluralkitRepairSuccessLocalLookupFailedWithFollowUp(
+          detailMessage,
+          followUpMessage,
+        );
+      }
+      return l10n.pluralkitRepairSuccessLocalLookupFailed(detailMessage);
     }
     if (followUpMessage != null) {
-      return 'Repair finished. $detailMessage $followUpMessage';
+      return l10n.pluralkitRepairSuccessWithFollowUp(
+        detailMessage,
+        followUpMessage,
+      );
     }
-    return 'Repair finished. $detailMessage';
+    return l10n.pluralkitRepairSuccess(detailMessage);
   }
 
-  List<String> _repairOutcomeFragments(PkGroupRepairReport report) {
+  List<String> _repairOutcomeFragments(
+    AppLocalizations l10n,
+    PkGroupRepairReport report,
+  ) {
     final primary = <String>[
       if (report.parentReferencesRehomed > 0)
-        'updated ${_countPhrase(report.parentReferencesRehomed, "child-group parent link", "child-group parent links")}',
+        l10n.pluralkitRepairSummaryUpdatedParentLinks(
+          report.parentReferencesRehomed,
+        ),
       if (report.entriesRehomed > 0)
-        'moved ${_countPhrase(report.entriesRehomed, "group membership", "group memberships")}',
+        l10n.pluralkitRepairSummaryMovedMemberships(report.entriesRehomed),
       if (report.duplicateGroupsSoftDeleted > 0)
-        'removed ${_countPhrase(report.duplicateGroupsSoftDeleted, "duplicate local group", "duplicate local groups")}',
+        l10n.pluralkitRepairSummaryRemovedDuplicateGroups(
+          report.duplicateGroupsSoftDeleted,
+        ),
       if (report.entryConflictsSoftDeleted > 0)
-        'removed ${_countPhrase(report.entryConflictsSoftDeleted, "conflicting group membership", "conflicting group memberships")}',
+        l10n.pluralkitRepairSummaryRemovedConflictingMemberships(
+          report.entryConflictsSoftDeleted,
+        ),
       if (report.ambiguousGroupsSuppressed > 0)
-        'suppressed ${_countPhrase(report.ambiguousGroupsSuppressed, "ambiguous group", "ambiguous groups")} for review',
+        l10n.pluralkitRepairSummarySuppressedAmbiguousGroups(
+          report.ambiguousGroupsSuppressed,
+        ),
     ];
     if (primary.isNotEmpty) return primary;
 
     return <String>[
       if (report.backfilledEntries > 0)
-        'restored ${_countPhrase(report.backfilledEntries, "missing PK membership link", "missing PK membership links")}',
+        l10n.pluralkitRepairSummaryRestoredMissingMemberships(
+          report.backfilledEntries,
+        ),
       if (report.aliasesRecorded > 0)
-        'recorded ${_countPhrase(report.aliasesRecorded, "legacy group alias", "legacy group aliases")}',
+        l10n.pluralkitRepairSummaryRecordedLegacyAliases(
+          report.aliasesRecorded,
+        ),
     ];
   }
 
-  String? _repairFollowUpMessage(PkGroupRepairReport report) {
+  String? _repairFollowUpMessage(
+    AppLocalizations l10n,
+    PkGroupRepairReport report,
+  ) {
     if (report.pendingReviewCount <= report.ambiguousGroupsSuppressed ||
         report.pendingReviewCount == 0) {
       return null;
     }
 
-    final noun = report.pendingReviewCount == 1 ? 'group' : 'groups';
-    return '${report.pendingReviewCount} suppressed $noun still need '
-        'follow-up review.';
+    return l10n.pluralkitRepairFollowUpPendingReview(report.pendingReviewCount);
   }
 
-  String _countPhrase(int count, String singular, String plural) {
-    final noun = count == 1 ? singular : plural;
-    return '$count $noun';
-  }
-
-  String _joinFragments(List<String> fragments) {
+  String _joinFragments(AppLocalizations l10n, List<String> fragments) {
     if (fragments.length == 1) return fragments.first;
     if (fragments.length == 2) {
-      return '${fragments.first} and ${fragments.last}';
+      return l10n.pluralkitRepairJoinPair(fragments.first, fragments.last);
     }
 
     final head = fragments.sublist(0, fragments.length - 1).join(', ');
-    return '$head, and ${fragments.last}';
+    return l10n.pluralkitRepairJoinSerial(fragments.last, head);
   }
 
   String _sentenceCase(String value) {
@@ -559,19 +577,26 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
     return '${value[0].toUpperCase()}${value.substring(1)}';
   }
 
-  String _pkGroupResetSummary(PkGroupResetResult result) {
+  String _pkGroupResetSummary(
+    AppLocalizations l10n,
+    PkGroupResetResult result,
+  ) {
     final fragments = <String>[
       if (result.groupsReset > 0)
-        'removed ${_countPhrase(result.groupsReset, "PK-backed or suppressed group", "PK-backed or suppressed groups")}',
+        l10n.pluralkitRepairResetSummaryRemovedGroups(result.groupsReset),
       if (result.promotedChildGroups > 0)
-        'promoted ${_countPhrase(result.promotedChildGroups, "local child group", "local child groups")} to root',
+        l10n.pluralkitRepairResetSummaryPromotedChildGroups(
+          result.promotedChildGroups,
+        ),
       if (result.deferredOpsCleared > 0)
-        'cleared ${_countPhrase(result.deferredOpsCleared, "deferred PK membership op", "deferred PK membership ops")}',
+        l10n.pluralkitRepairResetSummaryClearedDeferredOps(
+          result.deferredOpsCleared,
+        ),
     ];
     if (fragments.isEmpty) {
-      return 'No PK-backed groups needed reset.';
+      return l10n.pluralkitRepairResetSummaryNoGroupsNeeded;
     }
-    return '${_sentenceCase(_joinFragments(fragments))}.';
+    return '${_sentenceCase(_joinFragments(l10n, fragments))}.';
   }
 
   String _formatRepairError(String value) {
@@ -916,8 +941,9 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
       ),
       error: (error, _) => PkGroupRepairCard(
         state: PkGroupRepairState(
-          error:
-              'Could not load repair status: ${_formatRepairError(error.toString())}',
+          error: context.l10n.pluralkitRepairStatusLoadFailed(
+            _formatRepairError(error.toString()),
+          ),
         ),
         isConnected: syncState.isConnected,
         hasStoredToken: hasStoredToken,

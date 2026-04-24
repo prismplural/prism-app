@@ -140,6 +140,11 @@ db.MemberGroupRow makeDbMemberGroup({
   String? parentGroupId,
   int groupType = 0,
   String? filterRules,
+  String? pluralkitId,
+  String? pluralkitUuid,
+  DateTime? lastSeenFromPkAt,
+  bool syncSuppressed = false,
+  String? suspectedPkGroupUuid,
   DateTime? createdAt,
 }) {
   return db.MemberGroupRow(
@@ -154,6 +159,11 @@ db.MemberGroupRow makeDbMemberGroup({
     filterRules: filterRules,
     createdAt: createdAt ?? DateTime(2026, 3, 20, 12, 0),
     isDeleted: false,
+    pluralkitId: pluralkitId,
+    pluralkitUuid: pluralkitUuid,
+    lastSeenFromPkAt: lastSeenFromPkAt,
+    syncSuppressed: syncSuppressed,
+    suspectedPkGroupUuid: suspectedPkGroupUuid,
   );
 }
 

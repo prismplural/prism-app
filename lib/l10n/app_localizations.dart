@@ -8694,6 +8694,756 @@ abstract class AppLocalizations {
   /// **'Loading repair status...'**
   String get pluralkitRepairLoadingStatus;
 
+  /// No description provided for @pluralkitRepairCardTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'PluralKit group repair'**
+  String get pluralkitRepairCardTitle;
+
+  /// No description provided for @pluralkitRepairRunLocal.
+  ///
+  /// In en, this message translates to:
+  /// **'Run local repair'**
+  String get pluralkitRepairRunLocal;
+
+  /// No description provided for @pluralkitRepairRun.
+  ///
+  /// In en, this message translates to:
+  /// **'Run repair'**
+  String get pluralkitRepairRun;
+
+  /// No description provided for @pluralkitRepairResetAndReimport.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset PK groups and re-import'**
+  String get pluralkitRepairResetAndReimport;
+
+  /// No description provided for @pluralkitRepairResetOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset PK groups only'**
+  String get pluralkitRepairResetOnly;
+
+  /// No description provided for @pluralkitRepairCurrentStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Current status'**
+  String get pluralkitRepairCurrentStatus;
+
+  /// No description provided for @pluralkitRepairPendingReview.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending review'**
+  String get pluralkitRepairPendingReview;
+
+  /// No description provided for @pluralkitRepairLastRun.
+  ///
+  /// In en, this message translates to:
+  /// **'Last run'**
+  String get pluralkitRepairLastRun;
+
+  /// No description provided for @pluralkitRepairWhatChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'What changed'**
+  String get pluralkitRepairWhatChanged;
+
+  /// No description provided for @pluralkitRepairUseTemporaryToken.
+  ///
+  /// In en, this message translates to:
+  /// **'Use temporary token'**
+  String get pluralkitRepairUseTemporaryToken;
+
+  /// No description provided for @pluralkitRepairCutoverTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'PK group sync v2 cutover'**
+  String get pluralkitRepairCutoverTitle;
+
+  /// No description provided for @pluralkitRepairSharedEnablement.
+  ///
+  /// In en, this message translates to:
+  /// **'Shared enablement'**
+  String get pluralkitRepairSharedEnablement;
+
+  /// No description provided for @pluralkitRepairEnablePkGroupSync.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable PK group sync'**
+  String get pluralkitRepairEnablePkGroupSync;
+
+  /// No description provided for @pluralkitRepairHeadlineRunning.
+  ///
+  /// In en, this message translates to:
+  /// **'Scanning linked groups, repairing obvious duplicates, and cross-checking live PK groups when a token is available.'**
+  String get pluralkitRepairHeadlineRunning;
+
+  /// No description provided for @pluralkitRepairHeadlinePending.
+  ///
+  /// In en, this message translates to:
+  /// **'Ambiguous imported groups are currently suppressed so Prism does not create duplicate sync links.'**
+  String get pluralkitRepairHeadlinePending;
+
+  /// No description provided for @pluralkitRepairHeadlineReconnectRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Local repair can still restore directly provable PK links, but reconnecting PluralKit is still required to reconstruct missing PK group identity automatically.'**
+  String get pluralkitRepairHeadlineReconnectRequired;
+
+  /// No description provided for @pluralkitRepairHeadlineChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'The last run made concrete local repair changes. Review the summary below before enabling PK-backed group sync.'**
+  String get pluralkitRepairHeadlineChanged;
+
+  /// No description provided for @pluralkitRepairHeadlineCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'The last run completed. You can rerun repair after reconnecting or importing more PluralKit data.'**
+  String get pluralkitRepairHeadlineCompleted;
+
+  /// No description provided for @pluralkitRepairHeadlineDefault.
+  ///
+  /// In en, this message translates to:
+  /// **'Fixes obvious PK group duplicates locally and flags ambiguous matches for follow-up review.'**
+  String get pluralkitRepairHeadlineDefault;
+
+  /// No description provided for @pluralkitRepairStatusRunning.
+  ///
+  /// In en, this message translates to:
+  /// **'Repair running'**
+  String get pluralkitRepairStatusRunning;
+
+  /// No description provided for @pluralkitRepairStatusRetryNeeded.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry needed'**
+  String get pluralkitRepairStatusRetryNeeded;
+
+  /// No description provided for @pluralkitRepairStatusPendingReview.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 pending review} other{{count} pending review}}'**
+  String pluralkitRepairStatusPendingReview(num count);
+
+  /// No description provided for @pluralkitRepairStatusLastRunComplete.
+  ///
+  /// In en, this message translates to:
+  /// **'Last run complete'**
+  String get pluralkitRepairStatusLastRunComplete;
+
+  /// No description provided for @pluralkitRepairStatusReadyToRun.
+  ///
+  /// In en, this message translates to:
+  /// **'Ready to run'**
+  String get pluralkitRepairStatusReadyToRun;
+
+  /// No description provided for @pluralkitRepairTokenBackedReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Token-backed ready'**
+  String get pluralkitRepairTokenBackedReady;
+
+  /// No description provided for @pluralkitRepairLocalOnlyUntilToken.
+  ///
+  /// In en, this message translates to:
+  /// **'Local-only until token'**
+  String get pluralkitRepairLocalOnlyUntilToken;
+
+  /// No description provided for @pluralkitRepairCheckingTokenAccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking token access'**
+  String get pluralkitRepairCheckingTokenAccess;
+
+  /// No description provided for @pluralkitRepairCutoverEnabledChip.
+  ///
+  /// In en, this message translates to:
+  /// **'PK sync v2 enabled'**
+  String get pluralkitRepairCutoverEnabledChip;
+
+  /// No description provided for @pluralkitRepairCutoverOffChip.
+  ///
+  /// In en, this message translates to:
+  /// **'PK sync v2 off'**
+  String get pluralkitRepairCutoverOffChip;
+
+  /// No description provided for @pluralkitRepairCheckingCutover.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking cutover'**
+  String get pluralkitRepairCheckingCutover;
+
+  /// No description provided for @pluralkitRepairCurrentRunning.
+  ///
+  /// In en, this message translates to:
+  /// **'Repair is running now.'**
+  String get pluralkitRepairCurrentRunning;
+
+  /// No description provided for @pluralkitRepairCurrentError.
+  ///
+  /// In en, this message translates to:
+  /// **'The last manual run failed. Retry below when you are ready.'**
+  String get pluralkitRepairCurrentError;
+
+  /// No description provided for @pluralkitRepairCurrentPending.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 group still needs review before it can be linked or cleared.} other{{count} groups still need review before they can be linked or cleared.}}'**
+  String pluralkitRepairCurrentPending(num count);
+
+  /// No description provided for @pluralkitRepairCurrentNoRun.
+  ///
+  /// In en, this message translates to:
+  /// **'No repair run has been recorded in this app session yet.'**
+  String get pluralkitRepairCurrentNoRun;
+
+  /// No description provided for @pluralkitRepairCurrentReconnectRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'The last run finished the safe local repair pass, but missing PK group identity still needs a live PluralKit reference source to be reconstructed automatically.'**
+  String get pluralkitRepairCurrentReconnectRequired;
+
+  /// No description provided for @pluralkitRepairCurrentChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'The last run changed local PK group data. See the last-run summary below for the exact repairs applied.'**
+  String get pluralkitRepairCurrentChanged;
+
+  /// No description provided for @pluralkitRepairCurrentNoChanges.
+  ///
+  /// In en, this message translates to:
+  /// **'The last run did not find any new PK group repairs to apply.'**
+  String get pluralkitRepairCurrentNoChanges;
+
+  /// No description provided for @pluralkitRepairCutoverHeadlineEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'PK-backed group sync is enabled for this sync group. Manual/local-only groups still stay local.'**
+  String get pluralkitRepairCutoverHeadlineEnabled;
+
+  /// No description provided for @pluralkitRepairCutoverHeadlineReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Local repair prerequisites are satisfied. The remaining safety boundary is explicit operator confirmation of cutover.'**
+  String get pluralkitRepairCutoverHeadlineReady;
+
+  /// No description provided for @pluralkitRepairCutoverHeadlineBlocked.
+  ///
+  /// In en, this message translates to:
+  /// **'PK-backed group sync stays off until repair is complete and you explicitly confirm that legacy devices are no longer paired.'**
+  String get pluralkitRepairCutoverHeadlineBlocked;
+
+  /// No description provided for @pluralkitRepairCutoverStatusLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading the shared cutover setting for this sync group.'**
+  String get pluralkitRepairCutoverStatusLoading;
+
+  /// No description provided for @pluralkitRepairCutoverStatusEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Enabled for this sync group after explicit confirmation.'**
+  String get pluralkitRepairCutoverStatusEnabled;
+
+  /// No description provided for @pluralkitRepairCutoverStatusRunning.
+  ///
+  /// In en, this message translates to:
+  /// **'Unavailable while repair is still running.'**
+  String get pluralkitRepairCutoverStatusRunning;
+
+  /// No description provided for @pluralkitRepairCutoverStatusNoRun.
+  ///
+  /// In en, this message translates to:
+  /// **'Unavailable until a repair run completes in this app session.'**
+  String get pluralkitRepairCutoverStatusNoRun;
+
+  /// No description provided for @pluralkitRepairCutoverStatusPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Unavailable until pending review items are resolved or kept local-only.'**
+  String get pluralkitRepairCutoverStatusPending;
+
+  /// No description provided for @pluralkitRepairCutoverStatusReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Ready to enable after explicit cutover confirmation.'**
+  String get pluralkitRepairCutoverStatusReady;
+
+  /// No description provided for @pluralkitRepairCutoverRecommendationEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'This only affects PK-backed group sync. Manual/local-only groups remain unaffected.'**
+  String get pluralkitRepairCutoverRecommendationEnabled;
+
+  /// No description provided for @pluralkitRepairCutoverRecommendationRunFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Run repair first. Prism keeps PK group sync v2 off until this client has completed a repair pass.'**
+  String get pluralkitRepairCutoverRecommendationRunFirst;
+
+  /// No description provided for @pluralkitRepairCutoverRecommendationPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Resolve each pending review item or explicitly keep it local-only before enabling cutover.'**
+  String get pluralkitRepairCutoverRecommendationPending;
+
+  /// No description provided for @pluralkitRepairCutoverRecommendationReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Only enable after every legacy 0.4.0+1-era device in this sync group has been upgraded, reset/re-paired, removed, or after you moved testing to a fresh sync group.'**
+  String get pluralkitRepairCutoverRecommendationReady;
+
+  /// No description provided for @pluralkitRepairPendingNone.
+  ///
+  /// In en, this message translates to:
+  /// **'No ambiguous PK group matches are waiting for review.'**
+  String get pluralkitRepairPendingNone;
+
+  /// No description provided for @pluralkitRepairPendingCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 group still needs follow-up review.} other{{count} groups still need follow-up review.}}'**
+  String pluralkitRepairPendingCount(num count);
+
+  /// No description provided for @pluralkitRepairModeLocalOnlyRun.
+  ///
+  /// In en, this message translates to:
+  /// **'Local-only run'**
+  String get pluralkitRepairModeLocalOnlyRun;
+
+  /// No description provided for @pluralkitRepairModeStoredTokenRun.
+  ///
+  /// In en, this message translates to:
+  /// **'Stored-token run'**
+  String get pluralkitRepairModeStoredTokenRun;
+
+  /// No description provided for @pluralkitRepairModeTemporaryTokenRun.
+  ///
+  /// In en, this message translates to:
+  /// **'Temporary-token run'**
+  String get pluralkitRepairModeTemporaryTokenRun;
+
+  /// No description provided for @pluralkitRepairLastRunPrefixLocal.
+  ///
+  /// In en, this message translates to:
+  /// **'Local run'**
+  String get pluralkitRepairLastRunPrefixLocal;
+
+  /// No description provided for @pluralkitRepairLastRunPrefixStoredToken.
+  ///
+  /// In en, this message translates to:
+  /// **'Stored-token run'**
+  String get pluralkitRepairLastRunPrefixStoredToken;
+
+  /// No description provided for @pluralkitRepairLastRunPrefixTemporaryToken.
+  ///
+  /// In en, this message translates to:
+  /// **'Temporary-token run'**
+  String get pluralkitRepairLastRunPrefixTemporaryToken;
+
+  /// No description provided for @pluralkitRepairLastRunNoChanges.
+  ///
+  /// In en, this message translates to:
+  /// **'{prefix} found no new PK group changes to apply.'**
+  String pluralkitRepairLastRunNoChanges(Object prefix);
+
+  /// No description provided for @pluralkitRepairLastRunChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'{prefix} {summary}.'**
+  String pluralkitRepairLastRunChanged(Object prefix, Object summary);
+
+  /// No description provided for @pluralkitRepairJoinPair.
+  ///
+  /// In en, this message translates to:
+  /// **'{first} and {second}'**
+  String pluralkitRepairJoinPair(Object first, Object second);
+
+  /// No description provided for @pluralkitRepairJoinSerial.
+  ///
+  /// In en, this message translates to:
+  /// **'{leading}, and {last}'**
+  String pluralkitRepairJoinSerial(Object last, Object leading);
+
+  /// No description provided for @pluralkitRepairSummaryUpdatedParentLinks.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{updated 1 child-group parent link} other{updated {count} child-group parent links}}'**
+  String pluralkitRepairSummaryUpdatedParentLinks(num count);
+
+  /// No description provided for @pluralkitRepairSummaryMovedMemberships.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{moved 1 group membership} other{moved {count} group memberships}}'**
+  String pluralkitRepairSummaryMovedMemberships(num count);
+
+  /// No description provided for @pluralkitRepairSummaryRemovedDuplicateGroups.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{removed 1 duplicate local group} other{removed {count} duplicate local groups}}'**
+  String pluralkitRepairSummaryRemovedDuplicateGroups(num count);
+
+  /// No description provided for @pluralkitRepairSummaryRemovedConflictingMemberships.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{removed 1 conflicting group membership} other{removed {count} conflicting group memberships}}'**
+  String pluralkitRepairSummaryRemovedConflictingMemberships(num count);
+
+  /// No description provided for @pluralkitRepairSummarySuppressedAmbiguousGroups.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{suppressed 1 ambiguous group for review} other{suppressed {count} ambiguous groups for review}}'**
+  String pluralkitRepairSummarySuppressedAmbiguousGroups(num count);
+
+  /// No description provided for @pluralkitRepairSummaryRestoredMissingMemberships.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{restored 1 missing PK membership link} other{restored {count} missing PK membership links}}'**
+  String pluralkitRepairSummaryRestoredMissingMemberships(num count);
+
+  /// No description provided for @pluralkitRepairSummaryRecordedLegacyAliases.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{recorded 1 legacy group alias} other{recorded {count} legacy group aliases}}'**
+  String pluralkitRepairSummaryRecordedLegacyAliases(num count);
+
+  /// No description provided for @pluralkitRepairDetailUpdatedParentLinks.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Updated 1 child-group parent link to point at the surviving group.} other{Updated {count} child-group parent links to point at the surviving group.}}'**
+  String pluralkitRepairDetailUpdatedParentLinks(num count);
+
+  /// No description provided for @pluralkitRepairDetailMovedMemberships.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Moved 1 group membership onto the surviving group.} other{Moved {count} group memberships onto the surviving group.}}'**
+  String pluralkitRepairDetailMovedMemberships(num count);
+
+  /// No description provided for @pluralkitRepairDetailRemovedDuplicateGroups.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Removed 1 duplicate local group.} other{Removed {count} duplicate local groups.}}'**
+  String pluralkitRepairDetailRemovedDuplicateGroups(num count);
+
+  /// No description provided for @pluralkitRepairDetailRemovedConflictingMemberships.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Removed 1 conflicting group membership while merging duplicates.} other{Removed {count} conflicting group memberships while merging duplicates.}}'**
+  String pluralkitRepairDetailRemovedConflictingMemberships(num count);
+
+  /// No description provided for @pluralkitRepairDetailSuppressedAmbiguousGroups.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Suppressed 1 ambiguous group for review before sync can continue.} other{Suppressed {count} ambiguous groups for review before sync can continue.}}'**
+  String pluralkitRepairDetailSuppressedAmbiguousGroups(num count);
+
+  /// No description provided for @pluralkitRepairDetailRestoredMissingMemberships.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Restored 1 missing PK membership link.} other{Restored {count} missing PK membership links.}}'**
+  String pluralkitRepairDetailRestoredMissingMemberships(num count);
+
+  /// No description provided for @pluralkitRepairDetailRecordedLegacyAliases.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Recorded 1 legacy group alias so older group IDs still resolve.} other{Recorded {count} legacy group aliases so older group IDs still resolve.}}'**
+  String pluralkitRepairDetailRecordedLegacyAliases(num count);
+
+  /// No description provided for @pluralkitRepairReferenceImportOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'This looks like import-only PK data with no local PK-linked groups left to use as repair references. Prism can still repair directly linked rows locally, but reconnecting PluralKit or using a temporary token is the only way to reconstruct missing PK group identity automatically.'**
+  String get pluralkitRepairReferenceImportOnly;
+
+  /// No description provided for @pluralkitRepairReferenceStoredTokenFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'A stored token exists, but the last live reference lookup failed. Reconnect PluralKit or use a temporary token if you want a full token-backed repair pass.'**
+  String get pluralkitRepairReferenceStoredTokenFailed;
+
+  /// No description provided for @pluralkitRepairReferenceReconnectOrToken.
+  ///
+  /// In en, this message translates to:
+  /// **'Reconnect PluralKit above or use a temporary token for a fuller repair pass. Local repair still handles the obvious duplicates.'**
+  String get pluralkitRepairReferenceReconnectOrToken;
+
+  /// No description provided for @pluralkitRepairReferenceTokenRecommended.
+  ///
+  /// In en, this message translates to:
+  /// **'A token-backed repair run is recommended when you can provide one. Until then, Prism will only run the safe local repair pass.'**
+  String get pluralkitRepairReferenceTokenRecommended;
+
+  /// No description provided for @pluralkitRepairReferenceLocalNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Repair can run locally now. Live PK cross-checks appear once token access is confirmed.'**
+  String get pluralkitRepairReferenceLocalNow;
+
+  /// No description provided for @pluralkitRepairReferenceError.
+  ///
+  /// In en, this message translates to:
+  /// **'Live PK lookup failed on the last run, so Prism fell back to the local repair pass. {error}'**
+  String pluralkitRepairReferenceError(Object error);
+
+  /// No description provided for @pluralkitRepairError.
+  ///
+  /// In en, this message translates to:
+  /// **'Repair failed: {error}'**
+  String pluralkitRepairError(Object error);
+
+  /// No description provided for @pluralkitRepairConfirmEnableTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable PK sync v2?'**
+  String get pluralkitRepairConfirmEnableTitle;
+
+  /// No description provided for @pluralkitRepairConfirmEnableBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Only enable this after every legacy 0.4.0+1-era device has been upgraded, reset/re-paired, removed, or after you moved to a fresh sync group.'**
+  String get pluralkitRepairConfirmEnableBody;
+
+  /// No description provided for @pluralkitRepairConfirmEnableFootnote.
+  ///
+  /// In en, this message translates to:
+  /// **'If any device is unaccounted for, keep this off. Manual/local-only groups stay local either way.'**
+  String get pluralkitRepairConfirmEnableFootnote;
+
+  /// No description provided for @pluralkitRepairConfirmEnableAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable PK sync v2'**
+  String get pluralkitRepairConfirmEnableAction;
+
+  /// No description provided for @pluralkitRepairConfirmResetTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset PK groups only?'**
+  String get pluralkitRepairConfirmResetTitle;
+
+  /// No description provided for @pluralkitRepairConfirmResetConnectedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Prism will remove PK-linked and repair-suppressed groups, keep manual/local-only groups, clear deferred PK membership ops, and then re-import your current PK groups.'**
+  String get pluralkitRepairConfirmResetConnectedBody;
+
+  /// No description provided for @pluralkitRepairConfirmResetDisconnectedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Prism will remove PK-linked and repair-suppressed groups, keep manual/local-only groups, and clear deferred PK membership ops. Reconnect PluralKit or import again afterward to rebuild them.'**
+  String get pluralkitRepairConfirmResetDisconnectedBody;
+
+  /// No description provided for @pluralkitRepairConfirmResetExportHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Export data first if you want a full backup before the reset.'**
+  String get pluralkitRepairConfirmResetExportHint;
+
+  /// No description provided for @pluralkitRepairConfirmResetExportFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Export data first'**
+  String get pluralkitRepairConfirmResetExportFirst;
+
+  /// No description provided for @pluralkitRepairConfirmResetActionConnected.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset and re-import'**
+  String get pluralkitRepairConfirmResetActionConnected;
+
+  /// No description provided for @pluralkitRepairConfirmResetActionDisconnected.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset PK groups'**
+  String get pluralkitRepairConfirmResetActionDisconnected;
+
+  /// No description provided for @pluralkitRepairFailedToast.
+  ///
+  /// In en, this message translates to:
+  /// **'PluralKit group repair failed: {error}'**
+  String pluralkitRepairFailedToast(Object error);
+
+  /// No description provided for @pluralkitRepairReviewDismissed.
+  ///
+  /// In en, this message translates to:
+  /// **'Group review dismissed. Sync suppression was cleared.'**
+  String get pluralkitRepairReviewDismissed;
+
+  /// No description provided for @pluralkitRepairKeepLocalOnlySuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Group kept local-only. It will stay out of sync.'**
+  String get pluralkitRepairKeepLocalOnlySuccess;
+
+  /// No description provided for @pluralkitRepairMergedSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Group merged into the canonical PK-backed group.'**
+  String get pluralkitRepairMergedSuccess;
+
+  /// No description provided for @pluralkitRepairDismissReviewFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not dismiss this repair review item: {error}'**
+  String pluralkitRepairDismissReviewFailed(Object error);
+
+  /// No description provided for @pluralkitRepairKeepLocalOnlyFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not keep this group local-only: {error}'**
+  String pluralkitRepairKeepLocalOnlyFailed(Object error);
+
+  /// No description provided for @pluralkitRepairMergeFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not merge this group into the canonical PK group: {error}'**
+  String pluralkitRepairMergeFailed(Object error);
+
+  /// No description provided for @pluralkitRepairCutoverSettingsLoadingError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not verify the shared cutover setting yet. Wait for repair status to finish loading and try again.'**
+  String get pluralkitRepairCutoverSettingsLoadingError;
+
+  /// No description provided for @pluralkitRepairCutoverAlreadyEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'PK group sync v2 is already enabled for this sync group.'**
+  String get pluralkitRepairCutoverAlreadyEnabled;
+
+  /// No description provided for @pluralkitRepairCutoverRepairLoadingError.
+  ///
+  /// In en, this message translates to:
+  /// **'Repair status is still loading or running. Wait for it to finish before enabling PK group sync v2.'**
+  String get pluralkitRepairCutoverRepairLoadingError;
+
+  /// No description provided for @pluralkitRepairCutoverRunRepairFirstError.
+  ///
+  /// In en, this message translates to:
+  /// **'Run PluralKit group repair first. PK group sync v2 stays off until this client completes a repair pass.'**
+  String get pluralkitRepairCutoverRunRepairFirstError;
+
+  /// No description provided for @pluralkitRepairCutoverPendingReviewError.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Resolve or keep local-only the 1 pending review item before enabling PK group sync v2.} other{Resolve or keep local-only the {count} pending review items before enabling PK group sync v2.}}'**
+  String pluralkitRepairCutoverPendingReviewError(num count);
+
+  /// No description provided for @pluralkitRepairCutoverEnabledSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'PK group sync v2 enabled for this sync group. Manual/local-only groups are unchanged.'**
+  String get pluralkitRepairCutoverEnabledSuccess;
+
+  /// No description provided for @pluralkitRepairCutoverEnableFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not enable PK group sync v2: {error}'**
+  String pluralkitRepairCutoverEnableFailed(Object error);
+
+  /// No description provided for @pluralkitRepairResetNoGroupsNeeded.
+  ///
+  /// In en, this message translates to:
+  /// **'No PK-backed or repair-suppressed groups needed reset on this device.'**
+  String get pluralkitRepairResetNoGroupsNeeded;
+
+  /// No description provided for @pluralkitRepairResetFinishedReconnect.
+  ///
+  /// In en, this message translates to:
+  /// **'PK group reset finished. {summary} Reconnect PluralKit or import from a file to rebuild them.'**
+  String pluralkitRepairResetFinishedReconnect(Object summary);
+
+  /// No description provided for @pluralkitRepairResetFinishedReimported.
+  ///
+  /// In en, this message translates to:
+  /// **'PK group reset finished. {summary} Current PK groups were re-imported.'**
+  String pluralkitRepairResetFinishedReimported(Object summary);
+
+  /// No description provided for @pluralkitRepairResetFinishedReimportFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'PK group reset finished, but re-import failed: {error}. {summary}'**
+  String pluralkitRepairResetFinishedReimportFailed(
+    Object error,
+    Object summary,
+  );
+
+  /// No description provided for @pluralkitRepairResetFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not reset PK groups: {error}'**
+  String pluralkitRepairResetFailed(Object error);
+
+  /// No description provided for @pluralkitRepairNoNewNeeded.
+  ///
+  /// In en, this message translates to:
+  /// **'No new PK group repairs were needed.'**
+  String get pluralkitRepairNoNewNeeded;
+
+  /// No description provided for @pluralkitRepairSuccessLocalLookupFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Repair finished locally. {detail} Live PK lookup failed, so a token-backed rerun is still recommended.'**
+  String pluralkitRepairSuccessLocalLookupFailed(Object detail);
+
+  /// No description provided for @pluralkitRepairSuccessLocalLookupFailedWithFollowUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Repair finished locally. {detail} {followUp} Live PK lookup failed, so a token-backed rerun is still recommended.'**
+  String pluralkitRepairSuccessLocalLookupFailedWithFollowUp(
+    Object detail,
+    Object followUp,
+  );
+
+  /// No description provided for @pluralkitRepairSuccessWithFollowUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Repair finished. {detail} {followUp}'**
+  String pluralkitRepairSuccessWithFollowUp(Object detail, Object followUp);
+
+  /// No description provided for @pluralkitRepairSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Repair finished. {detail}'**
+  String pluralkitRepairSuccess(Object detail);
+
+  /// No description provided for @pluralkitRepairFollowUpPendingReview.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 suppressed group still needs follow-up review.} other{{count} suppressed groups still need follow-up review.}}'**
+  String pluralkitRepairFollowUpPendingReview(num count);
+
+  /// No description provided for @pluralkitRepairStatusLoadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load repair status: {error}'**
+  String pluralkitRepairStatusLoadFailed(Object error);
+
+  /// No description provided for @pluralkitRepairResetSummaryRemovedGroups.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{removed 1 PK-backed or suppressed group} other{removed {count} PK-backed or suppressed groups}}'**
+  String pluralkitRepairResetSummaryRemovedGroups(num count);
+
+  /// No description provided for @pluralkitRepairResetSummaryPromotedChildGroups.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{promoted 1 local child group to root} other{promoted {count} local child groups to root}}'**
+  String pluralkitRepairResetSummaryPromotedChildGroups(num count);
+
+  /// No description provided for @pluralkitRepairResetSummaryClearedDeferredOps.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{cleared 1 deferred PK membership op} other{cleared {count} deferred PK membership ops}}'**
+  String pluralkitRepairResetSummaryClearedDeferredOps(num count);
+
+  /// No description provided for @pluralkitRepairResetSummaryNoGroupsNeeded.
+  ///
+  /// In en, this message translates to:
+  /// **'No PK-backed groups needed reset.'**
+  String get pluralkitRepairResetSummaryNoGroupsNeeded;
+
   /// Relative time label for minutes ago in PluralKit
   ///
   /// In en, this message translates to:
