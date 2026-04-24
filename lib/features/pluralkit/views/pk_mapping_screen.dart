@@ -32,10 +32,7 @@ class PkMappingScreen extends ConsumerWidget {
 
     return PrismPageScaffold(
       // TODO(l10n): localize "Link members".
-      topBar: const PrismTopBar(
-        title: 'Link members',
-        showBackButton: true,
-      ),
+      topBar: const PrismTopBar(title: 'Link members', showBackButton: true),
       bodyPadding: EdgeInsets.zero,
       body: async.when(
         loading: () => const PrismLoadingState(),
@@ -80,8 +77,7 @@ class _MappingBody extends ConsumerWidget {
     if (!context.mounted) return;
     if (latest != null &&
         latest.lastResults != null &&
-        latest.lastResults!
-            .every((r) => r.outcome != PkApplyOutcome.failed) &&
+        latest.lastResults!.every((r) => r.outcome != PkApplyOutcome.failed) &&
         latest.error == null) {
       Navigator.of(context).pop();
     }
@@ -131,10 +127,7 @@ class _MappingBody extends ConsumerWidget {
           const _SectionHeader(title: 'PluralKit members'), // TODO(l10n)
           const SizedBox(height: 8),
           PrismSectionCard(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 8,
-              vertical: 8,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             child: Column(
               children: [
                 for (final pk in state.pkMembers) ...[
@@ -151,10 +144,7 @@ class _MappingBody extends ConsumerWidget {
           const _SectionHeader(title: 'Local members to push'), // TODO(l10n)
           const SizedBox(height: 8),
           PrismSectionCard(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 8,
-              vertical: 8,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             child: Column(
               children: [
                 for (final local in unlinkedLocals)
@@ -172,10 +162,7 @@ class _MappingBody extends ConsumerWidget {
 
         if (state.error != null) ...[
           const SizedBox(height: 16),
-          Text(
-            state.error!,
-            style: TextStyle(color: theme.colorScheme.error),
-          ),
+          Text(state.error!, style: TextStyle(color: theme.colorScheme.error)),
         ],
 
         // -- Apply progress --
@@ -273,7 +260,9 @@ class _PkMemberRow extends ConsumerWidget {
         label: 'Skip', // TODO(l10n)
         leading: Icon(AppIcons.linkOff),
       ),
-      for (final local in state.localMembers.where((m) => m.pluralkitUuid == null))
+      for (final local in state.localMembers.where(
+        (m) => m.pluralkitUuid == null,
+      ))
         PrismSelectItem(
           value: local.id,
           label: 'Link → ${local.name}', // TODO(l10n)
@@ -323,8 +312,9 @@ class _PkMemberRow extends ConsumerWidget {
                   items: items,
                   onChanged: (value) {
                     if (value == null) return;
-                    final controller =
-                        ref.read(pkMappingControllerProvider.notifier);
+                    final controller = ref.read(
+                      pkMappingControllerProvider.notifier,
+                    );
                     if (value == kPkRowImportSentinel) {
                       controller.setPkDecision(
                         pkMember.uuid,
@@ -385,10 +375,7 @@ class _LocalMemberRow extends ConsumerWidget {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Text(
-                  localMember.name,
-                  style: theme.textTheme.bodyLarge,
-                ),
+                child: Text(localMember.name, style: theme.textTheme.bodyLarge),
               ),
               const SizedBox(width: 12),
               SizedBox(
@@ -407,8 +394,9 @@ class _LocalMemberRow extends ConsumerWidget {
                   ],
                   onChanged: (value) {
                     if (value == null) return;
-                    final controller =
-                        ref.read(pkMappingControllerProvider.notifier);
+                    final controller = ref.read(
+                      pkMappingControllerProvider.notifier,
+                    );
                     if (value == 'push') {
                       controller.setLocalDecision(
                         localMember.id,

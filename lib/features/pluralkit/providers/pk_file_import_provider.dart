@@ -7,14 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_file_parser.dart';
 
-enum PkFileImportStep {
-  idle,
-  parsing,
-  previewing,
-  importing,
-  complete,
-  error,
-}
+enum PkFileImportStep { idle, parsing, previewing, importing, complete, error }
 
 class PkFileImportState {
   final PkFileImportStep step;
@@ -73,15 +66,9 @@ class PkFileImportNotifier extends Notifier<PkFileImportState> {
       final raw = await File(path).readAsString();
       final export = await parsePkExportFile(raw);
 
-      state = state.copyWith(
-        step: PkFileImportStep.previewing,
-        export: export,
-      );
+      state = state.copyWith(step: PkFileImportStep.previewing, export: export);
     } on PkFileParseException catch (e) {
-      state = state.copyWith(
-        step: PkFileImportStep.error,
-        error: e.message,
-      );
+      state = state.copyWith(step: PkFileImportStep.error, error: e.message);
     } catch (e, st) {
       debugPrint('[PK_FILE_IMPORT] selectAndParseFile failed: $e\n$st');
       state = state.copyWith(
@@ -132,5 +119,5 @@ class PkFileImportNotifier extends Notifier<PkFileImportState> {
 
 final pkFileImportProvider =
     NotifierProvider<PkFileImportNotifier, PkFileImportState>(
-  PkFileImportNotifier.new,
-);
+      PkFileImportNotifier.new,
+    );

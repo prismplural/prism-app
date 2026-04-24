@@ -49,15 +49,15 @@ class _PkFileImportScreenState extends ConsumerState<PkFileImportScreen> {
         PkFileImportStep.parsing => const _BusyView(label: 'Reading file…'),
         PkFileImportStep.previewing => _PreviewView(export: state.export!),
         PkFileImportStep.importing => _BusyView(
-            label: state.progressLabel.isNotEmpty
-                ? state.progressLabel
-                : 'Importing…',
-            progress: state.progress,
-          ),
+          label: state.progressLabel.isNotEmpty
+              ? state.progressLabel
+              : 'Importing…',
+          progress: state.progress,
+        ),
         PkFileImportStep.complete => _CompleteView(result: state.result!),
         PkFileImportStep.error => _ErrorView(
-            message: state.error ?? 'Import failed.',
-          ),
+          message: state.error ?? 'Import failed.',
+        ),
       },
     );
   }
@@ -79,8 +79,9 @@ class _IdleView extends ConsumerWidget {
         const SizedBox(height: 16),
         Text(
           'Import from a pk;export file',
-          style: theme.textTheme.headlineSmall
-              ?.copyWith(fontWeight: FontWeight.bold),
+          style: theme.textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 8),
@@ -137,7 +138,9 @@ class _BusyView extends StatelessWidget {
               const SizedBox(height: 16),
               LinearProgressIndicator(
                 value: progress,
-                borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(4)),
+                borderRadius: BorderRadius.circular(
+                  PrismShapes.of(context).radius(4),
+                ),
               ),
             ],
           ],
@@ -161,8 +164,9 @@ class _PreviewView extends ConsumerWidget {
         const SizedBox(height: 16),
         Text(
           'Ready to import',
-          style: theme.textTheme.headlineSmall
-              ?.copyWith(fontWeight: FontWeight.bold),
+          style: theme.textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 16),
@@ -183,8 +187,7 @@ class _PreviewView extends ConsumerWidget {
         ),
         const SizedBox(height: 16),
         PrismSurface(
-          fillColor:
-              theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
+          fillColor: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
           padding: const EdgeInsets.all(12),
           child: Text(
             'Existing members with the same PluralKit ID will be updated. '
@@ -233,8 +236,9 @@ class _CompleteView extends ConsumerWidget {
         const SizedBox(height: 16),
         Text(
           'Import complete',
-          style: theme.textTheme.headlineSmall
-              ?.copyWith(fontWeight: FontWeight.bold),
+          style: theme.textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 16),
@@ -286,13 +290,17 @@ class _ErrorView extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(AppIcons.errorOutline,
-                size: 64, color: theme.colorScheme.error),
+            Icon(
+              AppIcons.errorOutline,
+              size: 64,
+              color: theme.colorScheme.error,
+            ),
             const SizedBox(height: 16),
             Text(
               'Import failed',
-              style: theme.textTheme.titleLarge
-                  ?.copyWith(fontWeight: FontWeight.bold),
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
@@ -332,8 +340,9 @@ class _PreviewRow extends StatelessWidget {
           Expanded(child: Text(label, style: theme.textTheme.bodyMedium)),
           Text(
             count.toString(),
-            style: theme.textTheme.bodyMedium
-                ?.copyWith(fontWeight: FontWeight.w600),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),

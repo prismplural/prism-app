@@ -99,11 +99,14 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
 
     // Exclude already-linked locals from mapping choices entirely — they're
     // considered done.
-    final unlinkedLocals =
-        locals.where((m) => m.pluralkitUuid == null).toList();
+    final unlinkedLocals = locals
+        .where((m) => m.pluralkitUuid == null)
+        .toList();
 
-    final suggestions =
-        const PkMemberMatcher().suggest(unlinkedLocals, pkMembers);
+    final suggestions = const PkMemberMatcher().suggest(
+      unlinkedLocals,
+      pkMembers,
+    );
 
     final pkDecisions = <String, PkMappingDecision>{};
     final consumedLocalIds = <String>{};
@@ -157,17 +160,20 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
     final prior = current.decisionsByPkUuid[pkUuid];
     final newPk = Map<String, PkMappingDecision>.from(current.decisionsByPkUuid)
       ..[pkUuid] = decision;
-    final newLocal =
-        Map<String, PkMappingDecision>.from(current.decisionsByLocalId);
+    final newLocal = Map<String, PkMappingDecision>.from(
+      current.decisionsByLocalId,
+    );
 
     // If prior was a Link, the local was removed from newLocal. Restore it
     // with a default push decision unless it's now linked elsewhere.
     if (prior is PkLinkDecision) {
-      final stillLinked = newPk.values.any((d) =>
-          d is PkLinkDecision && d.localMemberId == prior.localMemberId);
+      final stillLinked = newPk.values.any(
+        (d) => d is PkLinkDecision && d.localMemberId == prior.localMemberId,
+      );
       if (!stillLinked) {
-        newLocal[prior.localMemberId] =
-            PkPushNewDecision(localMemberId: prior.localMemberId);
+        newLocal[prior.localMemberId] = PkPushNewDecision(
+          localMemberId: prior.localMemberId,
+        );
       }
     }
 
@@ -186,19 +192,18 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
       }
     }
 
-    state = AsyncData(current.copyWith(
-      decisionsByPkUuid: newPk,
-      decisionsByLocalId: newLocal,
-    ));
+    state = AsyncData(
+      current.copyWith(decisionsByPkUuid: newPk, decisionsByLocalId: newLocal),
+    );
   }
 
   /// Update the decision for a local member (push-new / skip).
   void setLocalDecision(String localId, PkMappingDecision decision) {
     final current = state.value;
     if (current == null) return;
-    final newLocal =
-        Map<String, PkMappingDecision>.from(current.decisionsByLocalId)
-          ..[localId] = decision;
+    final newLocal = Map<String, PkMappingDecision>.from(
+      current.decisionsByLocalId,
+    )..[localId] = decision;
     state = AsyncData(current.copyWith(decisionsByLocalId: newLocal));
   }
 
@@ -207,12 +212,14 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
     final current = state.value;
     if (current == null || current.isApplying) return;
 
-    state = AsyncData(current.copyWith(
-      isApplying: true,
-      applyProgress: 0.0,
-      clearError: true,
-      clearResults: true,
-    ));
+    state = AsyncData(
+      current.copyWith(
+        isApplying: true,
+        applyProgress: 0.0,
+        clearError: true,
+        clearResults: true,
+      ),
+    );
 
     final syncService = ref.read(pluralKitSyncServiceProvider);
     final client = await syncService.buildClientIgnoringMappingGate();
@@ -223,10 +230,12 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
     if (client == null) {
       final after = state.value;
       if (after != null) {
-        state = AsyncData(after.copyWith(
-          isApplying: false,
-          error: 'Not connected to PluralKit',
-        ));
+        state = AsyncData(
+          after.copyWith(
+            isApplying: false,
+            error: 'Not connected to PluralKit',
+          ),
+        );
       }
       return;
     }
@@ -255,14 +264,15 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
         results.addAll(r);
         final next = state.value;
         if (next != null) {
-          state = AsyncData(next.copyWith(
-            applyProgress: (i + 1) / decisions.length,
-          ));
+          state = AsyncData(
+            next.copyWith(applyProgress: (i + 1) / decisions.length),
+          );
         }
       }
 
-      final hasFailures =
-          results.any((r) => r.outcome == PkApplyOutcome.failed);
+      final hasFailures = results.any(
+        (r) => r.outcome == PkApplyOutcome.failed,
+      );
 
       if (!hasFailures) {
         await syncService.acknowledgeMapping();
@@ -290,20 +300,21 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
 
       final after = state.value;
       if (after != null) {
-        state = AsyncData(after.copyWith(
-          isApplying: false,
-          applyProgress: 1.0,
-          lastResults: results,
-        ));
+        state = AsyncData(
+          after.copyWith(
+            isApplying: false,
+            applyProgress: 1.0,
+            lastResults: results,
+          ),
+        );
       }
     } catch (e, st) {
       if (!ref.mounted) return;
       final after = state.value;
       if (after != null) {
-        state = AsyncData(after.copyWith(
-          isApplying: false,
-          error: e.toString(),
-        ));
+        state = AsyncData(
+          after.copyWith(isApplying: false, error: e.toString()),
+        );
       } else {
         state = AsyncError(e, st);
       }
@@ -328,5 +339,5 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
 
 final pkMappingControllerProvider =
     AsyncNotifierProvider<PkMappingController, PkMappingState>(
-  PkMappingController.new,
-);
+      PkMappingController.new,
+    );

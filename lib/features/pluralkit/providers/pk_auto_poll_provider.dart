@@ -89,8 +89,8 @@ class PkAutoPollSettingsNotifier extends AsyncNotifier<PkAutoPollSettings> {
 
 final pkAutoPollSettingsProvider =
     AsyncNotifierProvider<PkAutoPollSettingsNotifier, PkAutoPollSettings>(
-  PkAutoPollSettingsNotifier.new,
-);
+      PkAutoPollSettingsNotifier.new,
+    );
 
 // ---------------------------------------------------------------------------
 // Runtime notifier — owns the Timer
