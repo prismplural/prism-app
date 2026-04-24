@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:image_picker/image_picker.dart';
 
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
@@ -14,6 +13,7 @@ import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
+import 'package:prism_plurality/shared/utils/avatar_image_picker.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_emoji_picker.dart';
@@ -44,7 +44,6 @@ class AddEditMemberSheet extends ConsumerStatefulWidget {
 
 class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
   final _formKey = GlobalKey<FormState>();
-  final _imagePicker = ImagePicker();
   late final String _memberId;
 
   late final TextEditingController _nameController;
@@ -110,14 +109,8 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
   }
 
   Future<void> _pickAvatar() async {
-    final picked = await _imagePicker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 512,
-      maxHeight: 512,
-      imageQuality: 80,
-    );
-    if (picked != null) {
-      final bytes = await picked.readAsBytes();
+    final bytes = await AvatarImagePicker.pickCroppedAvatarBytes(context);
+    if (bytes != null && mounted) {
       setState(() => _avatarImageData = bytes);
     }
   }
