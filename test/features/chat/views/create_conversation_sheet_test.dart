@@ -131,6 +131,14 @@ void main() {
   // ══════════════════════════════════════════════════════════════════════════
 
   group('selected member picker', () {
+    testWidgets('create button has an accessible name', (tester) async {
+      await tester.pumpWidget(_buildSheet(members: [alice, bob]));
+      await tester.pumpAndSettle();
+
+      expect(find.byTooltip('Create conversation'), findsOneWidget);
+      expect(find.bySemanticsLabel('Create conversation'), findsOneWidget);
+    });
+
     testWidgets(
       'uses shared selected-member picker instead of expandable list',
       (tester) async {

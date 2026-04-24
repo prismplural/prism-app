@@ -5,8 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:prism_plurality/core/router/app_routes.dart';
-import 'package:prism_plurality/domain/models/fronting_session.dart'
-    show SleepQuality;
 import 'package:prism_plurality/domain/models/models.dart' hide CornerStyle;
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart' as domain;
@@ -22,7 +20,8 @@ const _kUseProxyTagsForAuthoring = 'prism.pref.use_proxy_tags_for_authoring';
 /// Auto-disposed when no longer watched (Riverpod 3 auto-disposes by default).
 final pendingMnemonicProvider =
     NotifierProvider<PendingMnemonicNotifier, String?>(
-        PendingMnemonicNotifier.new);
+      PendingMnemonicNotifier.new,
+    );
 
 class PendingMnemonicNotifier extends Notifier<String?> {
   @override
@@ -449,7 +448,9 @@ class IgnoreSyncedAppearanceNotifier extends AsyncNotifier<bool> {
 /// Current brightness preference.
 /// When ignoreSyncedAppearance is ON, reads the cached (local) value.
 final themeBrightnessProvider = Provider<ThemeBrightness>((ref) {
-  final ignoreSynced = ref.watch(ignoreSyncedAppearanceProvider).whenOrNull(data: (v) => v) ?? false;
+  final ignoreSynced =
+      ref.watch(ignoreSyncedAppearanceProvider).whenOrNull(data: (v) => v) ??
+      false;
   if (ignoreSynced) return ref.watch(cachedThemeBrightnessProvider);
   return ref
           .watch(systemSettingsProvider)
@@ -460,7 +461,9 @@ final themeBrightnessProvider = Provider<ThemeBrightness>((ref) {
 /// Current theme style preference.
 /// When ignoreSyncedAppearance is ON, reads the cached (local) value.
 final themeStyleProvider = Provider<ThemeStyle>((ref) {
-  final ignoreSynced = ref.watch(ignoreSyncedAppearanceProvider).whenOrNull(data: (v) => v) ?? false;
+  final ignoreSynced =
+      ref.watch(ignoreSyncedAppearanceProvider).whenOrNull(data: (v) => v) ??
+      false;
   if (ignoreSynced) return ref.watch(cachedThemeStyleProvider);
   return ref
           .watch(systemSettingsProvider)
@@ -472,7 +475,9 @@ final themeStyleProvider = Provider<ThemeStyle>((ref) {
 /// When ignoreSyncedAppearance is ON, reads the cached (local) value.
 /// Exposes the UI-layer CornerStyle for consumption by app_theme.dart.
 final cornerStyleProvider = Provider<CornerStyle>((ref) {
-  final ignoreSynced = ref.watch(ignoreSyncedAppearanceProvider).whenOrNull(data: (v) => v) ?? false;
+  final ignoreSynced =
+      ref.watch(ignoreSyncedAppearanceProvider).whenOrNull(data: (v) => v) ??
+      false;
   if (ignoreSynced) return ref.watch(cachedCornerStyleProvider);
   final settings = ref.watch(systemSettingsProvider).whenOrNull(data: (s) => s);
   if (settings == null) return ref.watch(cachedCornerStyleProvider);
@@ -491,7 +496,8 @@ final syncAppearanceEnabledProvider = Provider<bool>((ref) {
 /// enabled state and deduplicating against [seen].
 List<AppShellTab> _resolveTabIds(
   List<String> ids,
-  ({bool chat, bool polls, bool habits, bool sleep, bool notes, bool reminders}) flags,
+  ({bool chat, bool polls, bool habits, bool sleep, bool notes, bool reminders})
+  flags,
   Map<String, AppShellTab> tabById,
   Set<String> seen,
 ) {
@@ -523,7 +529,15 @@ typedef NavLayout = ({List<AppShellTab> primary, List<AppShellTab> overflow});
 NavLayout normalizeNavLayout({
   required List<String> primaryIds,
   required List<String> overflowIds,
-  required ({bool chat, bool polls, bool habits, bool sleep, bool notes, bool reminders}) flags,
+  required ({
+    bool chat,
+    bool polls,
+    bool habits,
+    bool sleep,
+    bool notes,
+    bool reminders,
+  })
+  flags,
 }) {
   final tabById = {for (final t in appShellTabs) t.id.name: t};
   final seen = <String>{};
@@ -576,40 +590,45 @@ final navBarOverflowTabsProvider = Provider<List<AppShellTab>>((ref) {
 /// Narrow provider for accent color — only rebuilds dependents when accent color changes.
 /// When ignoreSyncedAppearance is ON, returns null so accent defaults to the cached/local value.
 final accentColorHexProvider = Provider<String?>((ref) {
-  final ignoreSynced = ref.watch(ignoreSyncedAppearanceProvider).whenOrNull(data: (v) => v) ?? false;
+  final ignoreSynced =
+      ref.watch(ignoreSyncedAppearanceProvider).whenOrNull(data: (v) => v) ??
+      false;
   if (ignoreSynced) return null;
-  return ref.watch(systemSettingsProvider).whenOrNull(
-    data: (s) => s.accentColorHex,
-  );
+  return ref
+      .watch(systemSettingsProvider)
+      .whenOrNull(data: (s) => s.accentColorHex);
 });
 
 /// Narrow provider for font family selection.
 final fontFamilySettingProvider = Provider<FontFamily>((ref) {
-  return ref.watch(systemSettingsProvider).whenOrNull(
-    data: (s) => s.fontFamily,
-  ) ?? FontFamily.system;
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.fontFamily) ??
+      FontFamily.system;
 });
 
 /// Narrow provider for font scale.
 final fontScaleSettingProvider = Provider<double>((ref) {
-  return ref.watch(systemSettingsProvider).whenOrNull(
-    data: (s) => s.fontScale,
-  ) ?? 1.0;
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.fontScale) ??
+      1.0;
 });
 
 /// Chat badge preferences map (memberId → 'all' | 'mentions_only').
 final chatBadgePreferencesProvider = Provider<Map<String, String>>((ref) {
-  return ref.watch(systemSettingsProvider).whenOrNull(
-        data: (s) => s.chatBadgePreferences,
-      ) ??
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.chatBadgePreferences) ??
       {};
 });
 
 /// Narrow provider for habits badge enabled flag.
 final habitsBadgeEnabledProvider = Provider<bool>((ref) {
-  return ref.watch(systemSettingsProvider).whenOrNull(
-    data: (s) => s.habitsBadgeEnabled,
-  ) ?? false;
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.habitsBadgeEnabled) ??
+      false;
 });
 
 /// Current fronting timing mode preference (local-only, not synced).
@@ -622,87 +641,87 @@ final timingModeProvider = Provider<FrontingTimingMode>((ref) {
 
 /// Narrow provider for `hasCompletedOnboarding` flag.
 final hasCompletedOnboardingProvider = Provider<bool>((ref) {
-  return ref.watch(systemSettingsProvider).whenOrNull(
-            data: (s) => s.hasCompletedOnboarding,
-          ) ??
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.hasCompletedOnboarding) ??
       false;
 });
 
 /// Narrow provider for `notesEnabled` flag.
 final notesEnabledProvider = Provider<bool>((ref) {
-  return ref.watch(systemSettingsProvider).whenOrNull(
-            data: (s) => s.notesEnabled,
-          ) ??
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.notesEnabled) ??
       true;
 });
 
 /// Narrow provider for system name.
 final systemNameProvider = Provider<String?>((ref) {
-  return ref.watch(systemSettingsProvider).whenOrNull(
-        data: (s) => s.systemName,
-      );
+  return ref
+      .watch(systemSettingsProvider)
+      .whenOrNull(data: (s) => s.systemName);
 });
 
 /// Narrow provider for display font in home app bar.
 final displayFontInAppBarProvider = Provider<bool>((ref) {
-  return ref.watch(systemSettingsProvider).whenOrNull(
-            data: (s) => s.displayFontInAppBar,
-          ) ??
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.displayFontInAppBar) ??
       true;
 });
 
 /// Narrow provider for `syncThemeEnabled` flag.
 final syncThemeEnabledProvider = Provider<bool>((ref) {
-  return ref.watch(systemSettingsProvider).whenOrNull(
-            data: (s) => s.syncThemeEnabled,
-          ) ??
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.syncThemeEnabled) ??
       false;
 });
 
 /// Narrow provider for `syncNavigationEnabled` flag.
 final syncNavigationEnabledProvider = Provider<bool>((ref) {
-  return ref.watch(systemSettingsProvider).whenOrNull(
-            data: (s) => s.syncNavigationEnabled,
-          ) ??
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.syncNavigationEnabled) ??
       true;
 });
 
 /// Narrow provider for `chatEnabled` flag.
 final chatEnabledProvider = Provider<bool>((ref) {
-  return ref.watch(systemSettingsProvider).whenOrNull(
-            data: (s) => s.chatEnabled,
-          ) ??
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.chatEnabled) ??
       true;
 });
 
 /// Narrow provider for `gifSearchEnabled` flag.
 final gifSearchEnabledProvider = Provider<bool>((ref) {
-  return ref.watch(systemSettingsProvider).whenOrNull(
-            data: (s) => s.gifSearchEnabled,
-          ) ??
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.gifSearchEnabled) ??
       true;
 });
 
 final gifConsentStateProvider = Provider<GifConsentState>((ref) {
-  return ref.watch(systemSettingsProvider).whenOrNull(
-            data: (s) => s.gifConsentState,
-          ) ??
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.gifConsentState) ??
       GifConsentState.unknown;
 });
 
 /// Narrow provider for `voiceNotesEnabled` flag.
 final voiceNotesEnabledProvider = Provider<bool>((ref) {
-  return ref.watch(systemSettingsProvider).whenOrNull(
-            data: (s) => s.voiceNotesEnabled,
-          ) ??
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.voiceNotesEnabled) ??
       true;
 });
 
 /// Narrow provider for locale override. Returns null for system default.
 final localeOverrideProvider = Provider<Locale?>((ref) {
-  final code = ref.watch(systemSettingsProvider).whenOrNull(
-            data: (s) => s.localeOverride,
-          );
+  final code = ref
+      .watch(systemSettingsProvider)
+      .whenOrNull(data: (s) => s.localeOverride);
   if (code == null || code.isEmpty) return null;
   const supported = [Locale('en'), Locale('es')];
   final locale = Locale(code);
@@ -714,57 +733,57 @@ final localeOverrideProvider = Provider<Locale?>((ref) {
 
 /// Narrow provider for `pollsEnabled` flag.
 final pollsEnabledProvider = Provider<bool>((ref) {
-  return ref.watch(systemSettingsProvider).whenOrNull(
-            data: (s) => s.pollsEnabled,
-          ) ??
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.pollsEnabled) ??
       true;
 });
 
 /// Narrow provider for `habitsEnabled` flag.
 final habitsEnabledProvider = Provider<bool>((ref) {
-  return ref.watch(systemSettingsProvider).whenOrNull(
-            data: (s) => s.habitsEnabled,
-          ) ??
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.habitsEnabled) ??
       true;
 });
 
 /// Narrow provider for `sleepTrackingEnabled` flag.
 final sleepTrackingEnabledProvider = Provider<bool>((ref) {
-  return ref.watch(systemSettingsProvider).whenOrNull(
-            data: (s) => s.sleepTrackingEnabled,
-          ) ??
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.sleepTrackingEnabled) ??
       true;
 });
 
 /// Narrow provider for `remindersEnabled` flag.
 final remindersEnabledProvider = Provider<bool>((ref) {
-  return ref.watch(systemSettingsProvider).whenOrNull(
-            data: (s) => s.remindersEnabled,
-          ) ??
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.remindersEnabled) ??
       true;
 });
 
 /// Narrow provider for `frontingRemindersEnabled` flag.
 final frontingRemindersEnabledProvider = Provider<bool>((ref) {
-  return ref.watch(systemSettingsProvider).whenOrNull(
-            data: (s) => s.frontingRemindersEnabled,
-          ) ??
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.frontingRemindersEnabled) ??
       false;
 });
 
 /// Narrow provider for `frontingReminderIntervalMinutes`.
 final frontingReminderIntervalProvider = Provider<int>((ref) {
-  return ref.watch(systemSettingsProvider).whenOrNull(
-            data: (s) => s.frontingReminderIntervalMinutes,
-          ) ??
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.frontingReminderIntervalMinutes) ??
       60;
 });
 
 /// Narrow provider for `chatLogsFront` flag.
 final chatLogsFrontProvider = Provider<bool>((ref) {
-  return ref.watch(systemSettingsProvider).whenOrNull(
-            data: (s) => s.chatLogsFront,
-          ) ??
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.chatLogsFront) ??
       false;
 });
 
@@ -794,125 +813,130 @@ class UseProxyTagsForAuthoringNotifier extends AsyncNotifier<bool> {
 
 /// Narrow provider for `quickSwitchThresholdSeconds`.
 final quickSwitchThresholdProvider = Provider<int>((ref) {
-  return ref.watch(systemSettingsProvider).whenOrNull(
-            data: (s) => s.quickSwitchThresholdSeconds,
-          ) ??
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.quickSwitchThresholdSeconds) ??
       30;
 });
 
 /// Narrow provider for `showQuickFront` flag.
 final showQuickFrontProvider = Provider<bool>((ref) {
-  return ref.watch(systemSettingsProvider).whenOrNull(
-            data: (s) => s.showQuickFront,
-          ) ??
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.showQuickFront) ??
       true;
 });
 
 /// Narrow provider for `pinLockEnabled` flag.
 final pinLockEnabledProvider = Provider<bool>((ref) {
-  return ref.watch(systemSettingsProvider).whenOrNull(
-            data: (s) => s.pinLockEnabled,
-          ) ??
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.pinLockEnabled) ??
       false;
 });
 
 /// Narrow provider for `biometricLockEnabled` flag.
 final biometricLockEnabledProvider = Provider<bool>((ref) {
-  return ref.watch(systemSettingsProvider).whenOrNull(
-            data: (s) => s.biometricLockEnabled,
-          ) ??
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.biometricLockEnabled) ??
       false;
 });
 
 /// Narrow provider for `autoLockDelaySeconds`.
 final autoLockDelaySecondsProvider = Provider<int>((ref) {
-  return ref.watch(systemSettingsProvider).whenOrNull(
-            data: (s) => s.autoLockDelaySeconds,
-          ) ??
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.autoLockDelaySeconds) ??
       0;
 });
 
 /// Narrow provider for `perMemberAccentColors` flag.
 final perMemberAccentColorsProvider = Provider<bool>((ref) {
-  return ref.watch(systemSettingsProvider).whenOrNull(
-            data: (s) => s.perMemberAccentColors,
-          ) ??
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.perMemberAccentColors) ??
       true;
 });
 
 /// Grouped provider for all feature flags.
-final featureFlagsProvider = Provider<
-    ({
-      bool chat,
-      bool polls,
-      bool habits,
-      bool sleep,
-      bool notes,
-      bool reminders,
-    })>((ref) {
-  final s = ref.watch(systemSettingsProvider).whenOrNull(data: (s) => s);
-  return (
-    chat: s?.chatEnabled ?? true,
-    polls: s?.pollsEnabled ?? true,
-    habits: s?.habitsEnabled ?? true,
-    sleep: s?.sleepTrackingEnabled ?? true,
-    notes: s?.notesEnabled ?? true,
-    reminders: s?.remindersEnabled ?? true,
-  );
-});
+final featureFlagsProvider =
+    Provider<
+      ({
+        bool chat,
+        bool polls,
+        bool habits,
+        bool sleep,
+        bool notes,
+        bool reminders,
+      })
+    >((ref) {
+      final s = ref.watch(systemSettingsProvider).whenOrNull(data: (s) => s);
+      return (
+        chat: s?.chatEnabled ?? true,
+        polls: s?.pollsEnabled ?? true,
+        habits: s?.habitsEnabled ?? true,
+        sleep: s?.sleepTrackingEnabled ?? true,
+        notes: s?.notesEnabled ?? true,
+        reminders: s?.remindersEnabled ?? true,
+      );
+    });
 
 /// Narrow provider for nav bar items.
 final navBarItemsProvider = Provider<List<String>>((ref) {
-  return ref.watch(systemSettingsProvider).whenOrNull(
-            data: (s) => s.navBarItems,
-          ) ??
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.navBarItems) ??
       const [];
 });
 
 /// Narrow provider for nav bar overflow items.
 final navBarOverflowItemsProvider = Provider<List<String>>((ref) {
-  return ref.watch(systemSettingsProvider).whenOrNull(
-            data: (s) => s.navBarOverflowItems,
-          ) ??
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.navBarOverflowItems) ??
       const [];
 });
 
 /// Narrow provider for `sleepSuggestionEnabled` flag.
 final sleepSuggestionEnabledProvider = Provider<bool>((ref) {
-  return ref.watch(systemSettingsProvider).whenOrNull(
-        data: (s) => s.sleepSuggestionEnabled,
-      ) ??
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.sleepSuggestionEnabled) ??
       false;
 });
 
 /// Narrow provider for sleep suggestion time (hour + minute).
 final sleepSuggestionTimeProvider = Provider<({int hour, int minute})>((ref) {
   final settings = ref.watch(systemSettingsProvider).whenOrNull(data: (s) => s);
-  return (hour: settings?.sleepSuggestionHour ?? 22, minute: settings?.sleepSuggestionMinute ?? 0);
+  return (
+    hour: settings?.sleepSuggestionHour ?? 22,
+    minute: settings?.sleepSuggestionMinute ?? 0,
+  );
 });
 
 /// Narrow provider for `wakeSuggestionEnabled` flag.
 final wakeSuggestionEnabledProvider = Provider<bool>((ref) {
-  return ref.watch(systemSettingsProvider).whenOrNull(
-        data: (s) => s.wakeSuggestionEnabled,
-      ) ??
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.wakeSuggestionEnabled) ??
       false;
 });
 
 /// Narrow provider for `wakeSuggestionAfterHours`.
 final wakeSuggestionAfterHoursProvider = Provider<double>((ref) {
-  return ref.watch(systemSettingsProvider).whenOrNull(
-        data: (s) => s.wakeSuggestionAfterHours,
-      ) ??
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.wakeSuggestionAfterHours) ??
       8.0;
 });
 
 /// Narrow provider for `defaultSleepQuality` (device-local).
 /// Returns null when no default is set (user picks each time).
 final defaultSleepQualityProvider = Provider<SleepQuality?>((ref) {
-  return ref.watch(systemSettingsProvider).whenOrNull(
-        data: (s) => s.defaultSleepQuality,
-      );
+  return ref
+      .watch(systemSettingsProvider)
+      .whenOrNull(data: (s) => s.defaultSleepQuality);
 });
 
 const _kShowFrontingViewToggle = 'prism.local.show_fronting_view_toggle';
@@ -933,5 +957,5 @@ class ShowFrontingViewToggleNotifier extends AsyncNotifier<bool> {
 
 final showFrontingViewToggleProvider =
     AsyncNotifierProvider<ShowFrontingViewToggleNotifier, bool>(
-  ShowFrontingViewToggleNotifier.new,
-);
+      ShowFrontingViewToggleNotifier.new,
+    );

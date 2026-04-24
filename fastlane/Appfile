@@ -4,4 +4,4 @@ app_identifier "com.prismplural.prism"
 # Set ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_FILEPATH env vars
 
 # Google Play service account
-# Set PLAY_STORE_JSON_KEY env var or pass json_key to upload lane
+# Defaults to ~/.config/prism/play-store-key.json; override with PLAY_STORE_JSON_KEY

@@ -70,6 +70,7 @@ class PkGroupSyncV2CatchupService {
           final group = groupsById[entry.groupId];
           if (group == null) continue;
           final member = membersById[entry.memberId];
+          if (!_canEmitPkEntry(entry, group: group, member: member)) continue;
           await _recordEntryCreate(
             table: _entryTable,
             entityId: _entryEntityId(entry, group: group, member: member),
@@ -146,6 +147,19 @@ class PkGroupSyncV2CatchupService {
       return 'pk-group:$pkUuid';
     }
     return group.id;
+  }
+
+  static bool _canEmitPkEntry(
+    MemberGroupEntryRow entry, {
+    required MemberGroupRow group,
+    required Member? member,
+  }) {
+    final pkGroupUuid = (entry.pkGroupUuid ?? group.pluralkitUuid ?? '').trim();
+    if (pkGroupUuid.isEmpty) return true;
+
+    final pkMemberUuid = (entry.pkMemberUuid ?? member?.pluralkitUuid ?? '')
+        .trim();
+    return pkMemberUuid.isNotEmpty;
   }
 
   static String _entryEntityId(

@@ -226,6 +226,7 @@ class PkGroupsImporter with SyncRecordMixin {
             emoji: const Value(null),
             displayOrder: Value(displayOrder),
             createdAt: now,
+            isDeleted: const Value(false),
             pluralkitId: Value(pk.id),
             pluralkitUuid: Value(pk.uuid),
             lastSeenFromPkAt: Value(now),

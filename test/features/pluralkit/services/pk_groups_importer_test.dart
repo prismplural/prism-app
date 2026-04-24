@@ -151,6 +151,43 @@ void main() {
   });
 
   test(
+    're-imports a PK group when a deleted tombstone has the same UUID',
+    () async {
+      await db
+          .into(db.memberGroups)
+          .insert(
+            MemberGroupsCompanion.insert(
+              id: 'deleted-local-group',
+              name: 'Deleted',
+              createdAt: DateTime.utc(2024, 1, 1),
+              isDeleted: const Value(true),
+              pluralkitUuid: const Value('pk-g-1'),
+            ),
+          );
+
+      final repo = _FakeMemberRepo([
+        _member(id: 'local-1', pkUuid: 'pk-mem-1'),
+      ]);
+      final importer = PkGroupsImporter(db: db, memberRepository: repo);
+
+      final result = await importer.importGroups(_NoopClient(), [
+        const PKGroup(
+          id: 'abcde',
+          uuid: 'pk-g-1',
+          name: 'Core',
+          memberIds: ['pk-mem-1'],
+        ),
+      ], overwriteMetadata: true);
+
+      expect(result.groupsInserted, 1);
+      final active = await db.memberGroupsDao.findByPluralkitUuid('pk-g-1');
+      expect(active, isNotNull);
+      expect(active!.id, PkGroupsImporter.deriveGroupId('pk-g-1'));
+      expect(active.isDeleted, isFalse);
+    },
+  );
+
+  test(
     'emits sync create payloads for imported groups and memberships',
     () async {
       await setPkGroupSyncV2Enabled(true);

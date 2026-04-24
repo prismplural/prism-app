@@ -90,7 +90,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -168,6 +168,10 @@ class AppDatabase extends _$AppDatabase {
         );
         current = 4;
       }
+      if (current == 4 && to >= 5) {
+        await _recreateMemberGroupPkUniqueIndex();
+        current = 5;
+      }
       if (current != to) {
         throw UnsupportedError(
           'Schema baseline was reset to v1 for the private beta. '
@@ -217,11 +221,23 @@ class AppDatabase extends _$AppDatabase {
     );
     await customStatement(
       'CREATE UNIQUE INDEX IF NOT EXISTS idx_member_groups_pluralkit_uuid '
-      'ON member_groups(pluralkit_uuid) WHERE pluralkit_uuid IS NOT NULL',
+      'ON member_groups(pluralkit_uuid) '
+      'WHERE pluralkit_uuid IS NOT NULL AND is_deleted = 0',
     );
     await customStatement(
       'CREATE INDEX IF NOT EXISTS idx_member_groups_pluralkit_id '
       'ON member_groups(pluralkit_id) WHERE pluralkit_id IS NOT NULL',
+    );
+  }
+
+  Future<void> _recreateMemberGroupPkUniqueIndex() async {
+    await customStatement(
+      'DROP INDEX IF EXISTS idx_member_groups_pluralkit_uuid',
+    );
+    await customStatement(
+      'CREATE UNIQUE INDEX idx_member_groups_pluralkit_uuid '
+      'ON member_groups(pluralkit_uuid) '
+      'WHERE pluralkit_uuid IS NOT NULL AND is_deleted = 0',
     );
   }
 

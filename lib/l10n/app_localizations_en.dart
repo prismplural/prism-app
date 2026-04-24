@@ -1787,6 +1787,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get frontingAddCoFronterTitle => 'Add Co-Fronter';
 
   @override
+  String get frontingStartSessionTooltip => 'Start session';
+
+  @override
+  String get frontingAddCoFronterTooltip => 'Add co-fronter';
+
+  @override
   String get frontingSelectFronter => 'Select Fronter';
 
   @override
@@ -2819,6 +2825,12 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get memberSearchConfirmSelectionTooltip => 'Confirm selected members';
+
+  @override
+  String get memberSaveTooltip => 'Save member';
+
+  @override
   String get memberBulkActivate => 'Activate';
 
   @override
@@ -3122,6 +3134,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get chatCreateTitle => 'New Conversation';
+
+  @override
+  String get chatCreateConversationTooltip => 'Create conversation';
 
   @override
   String get chatCreateGroupTab => 'Group';

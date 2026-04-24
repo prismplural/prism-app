@@ -52,6 +52,7 @@ void main() {
     participantIds: const ['alice-id', 'bob-id'],
     createdAt: DateTime(2025, 1, 1),
     lastActivityAt: DateTime(2025, 1, 1),
+    title: 'Proxy tag test group',
     isDirectMessage: false,
   );
   final dmConversation = Conversation(
@@ -97,10 +98,10 @@ void main() {
           () => _FixedProxyTagNotifier(proxyTagsEnabled),
         ),
       ],
-      child: MaterialApp(
+      child: const MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: const [Locale('en')],
-        home: const Scaffold(body: MessageInput(conversationId: 'conv-1')),
+        supportedLocales: [Locale('en')],
+        home: Scaffold(body: MessageInput(conversationId: 'conv-1')),
       ),
     );
   }
@@ -186,10 +187,10 @@ void main() {
               () => _FixedProxyTagNotifier(false),
             ),
           ],
-          child: MaterialApp(
+          child: const MaterialApp(
             localizationsDelegates: AppLocalizations.localizationsDelegates,
-            supportedLocales: const [Locale('en')],
-            home: const Scaffold(body: MessageInput(conversationId: 'dm-1')),
+            supportedLocales: [Locale('en')],
+            home: Scaffold(body: MessageInput(conversationId: 'dm-1')),
           ),
         ),
       );

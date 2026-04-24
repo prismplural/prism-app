@@ -5,6 +5,7 @@ import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
@@ -30,7 +31,9 @@ class _DeleteGroupSheetState extends ConsumerState<DeleteGroupSheet> {
   Future<void> _promote() async {
     setState(() => _isLoading = true);
     Haptics.medium();
-    await ref.read(groupNotifierProvider.notifier).promoteChildrenToRoot(widget.group.id);
+    await ref
+        .read(groupNotifierProvider.notifier)
+        .promoteChildrenToRoot(widget.group.id);
     if (!mounted) return;
     final hasError = ref.read(groupNotifierProvider).hasError;
     Navigator.of(context).pop();
@@ -93,8 +96,9 @@ class _DeleteGroupSheetState extends ConsumerState<DeleteGroupSheet> {
             // Group name
             Text(
               '"${widget.group.name}"',
-              style: theme.textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w600),
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -122,12 +126,11 @@ class _DeleteGroupSheetState extends ConsumerState<DeleteGroupSheet> {
             ),
             const SizedBox(height: 8),
             // Cancel
-            TextButton(
-              onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
-              child: Text(
-                MaterialLocalizations.of(context).cancelButtonLabel,
-                style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
-              ),
+            PrismButton(
+              label: MaterialLocalizations.of(context).cancelButtonLabel,
+              enabled: !_isLoading,
+              onPressed: () => Navigator.of(context).pop(),
+              tone: PrismButtonTone.outlined,
             ),
           ],
         ),
@@ -170,11 +173,13 @@ class _OptionTile extends StatelessWidget {
               color: destructive
                   ? theme.colorScheme.error.withValues(alpha: 0.08)
                   : theme.colorScheme.onSurface.withValues(alpha: 0.06),
-              borderRadius:
-                  BorderRadius.circular(PrismShapes.of(context).radius(14)),
+              borderRadius: BorderRadius.circular(
+                PrismShapes.of(context).radius(14),
+              ),
               border: destructive
                   ? Border.all(
-                      color: theme.colorScheme.error.withValues(alpha: 0.25))
+                      color: theme.colorScheme.error.withValues(alpha: 0.25),
+                    )
                   : null,
             ),
             child: Row(
@@ -201,8 +206,11 @@ class _OptionTile extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Icon(AppIcons.chevronRight,
-                    color: color.withValues(alpha: 0.4), size: 18),
+                Icon(
+                  AppIcons.chevronRight,
+                  color: color.withValues(alpha: 0.4),
+                  size: 18,
+                ),
               ],
             ),
           ),

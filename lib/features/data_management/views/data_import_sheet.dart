@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
@@ -18,7 +17,15 @@ import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 
-enum _ImportState { idle, password, decrypting, preview, importing, complete, error }
+enum _ImportState {
+  idle,
+  password,
+  decrypting,
+  preview,
+  importing,
+  complete,
+  error,
+}
 
 class DataImportSheet extends ConsumerStatefulWidget {
   const DataImportSheet({super.key, this.scrollController});
@@ -94,7 +101,9 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
   Future<void> _onPasswordSubmit() async {
     final password = _passwordController.text;
     if (password.isEmpty) {
-      setState(() => _passwordError = context.l10n.dataManagementPasswordEmptyImport);
+      setState(
+        () => _passwordError = context.l10n.dataManagementPasswordEmptyImport,
+      );
       return;
     }
     setState(() {
@@ -104,10 +113,10 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
     final bytes = _fileBytes!;
     final pass = password;
     try {
-      final resolved = await compute(
-        DataImportService.resolveForCompute,
-        (bytes: bytes, password: pass),
-      );
+      final resolved = await compute(DataImportService.resolveForCompute, (
+        bytes: bytes,
+        password: pass,
+      ));
       final service = ref.read(dataImportServiceProvider);
       final preview = service.parsePreview(resolved.json);
       if (!mounted) return;
@@ -125,14 +134,16 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
         _passwordError = msg == 'unencrypted-prism-backup'
             ? context.l10n.dataManagementUnencryptedBackup
             : msg.contains('mac check') || msg.contains('wrong')
-                ? context.l10n.dataManagementIncorrectPassword
-                : context.l10n.dataManagementDecryptionFailed(msg);
+            ? context.l10n.dataManagementIncorrectPassword
+            : context.l10n.dataManagementDecryptionFailed(msg);
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _state = _ImportState.password;
-        _passwordError = context.l10n.dataManagementDecryptionFailed(e.toString());
+        _passwordError = context.l10n.dataManagementDecryptionFailed(
+          e.toString(),
+        );
       });
     }
   }
@@ -280,7 +291,9 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
             icon: _obscurePassword
                 ? AppIcons.visibilityOff
                 : AppIcons.visibility,
-            tooltip: _obscurePassword ? context.l10n.dataManagementShowPassword : context.l10n.dataManagementHidePassword,
+            tooltip: _obscurePassword
+                ? context.l10n.dataManagementShowPassword
+                : context.l10n.dataManagementHidePassword,
             onPressed: () =>
                 setState(() => _obscurePassword = !_obscurePassword),
           ),
@@ -341,23 +354,53 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: theme.colorScheme.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
+            borderRadius: BorderRadius.circular(
+              PrismShapes.of(context).radius(12),
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _previewRow(context.l10n.dataManagementPreviewMembers, p.headmates),
-              _previewRow(context.l10n.dataManagementPreviewFrontSessions, p.frontSessions),
-              _previewRow(context.l10n.dataManagementPreviewSleepSessions, p.sleepSessions),
-              _previewRow(context.l10n.dataManagementPreviewConversations, p.conversations),
-              _previewRow(context.l10n.dataManagementPreviewMessages, p.messages),
+              _previewRow(
+                context.l10n.dataManagementPreviewMembers,
+                p.headmates,
+              ),
+              _previewRow(
+                context.l10n.dataManagementPreviewFrontSessions,
+                p.frontSessions,
+              ),
+              _previewRow(
+                context.l10n.dataManagementPreviewSleepSessions,
+                p.sleepSessions,
+              ),
+              _previewRow(
+                context.l10n.dataManagementPreviewConversations,
+                p.conversations,
+              ),
+              _previewRow(
+                context.l10n.dataManagementPreviewMessages,
+                p.messages,
+              ),
               _previewRow(context.l10n.dataManagementPreviewPolls, p.polls),
-              _previewRow(context.l10n.dataManagementPreviewPollOptions, p.pollOptions),
-              _previewRow(context.l10n.dataManagementPreviewSettings, p.systemSettings),
+              _previewRow(
+                context.l10n.dataManagementPreviewPollOptions,
+                p.pollOptions,
+              ),
+              _previewRow(
+                context.l10n.dataManagementPreviewSettings,
+                p.systemSettings,
+              ),
               _previewRow(context.l10n.dataManagementPreviewHabits, p.habits),
-              _previewRow(context.l10n.dataManagementPreviewHabitCompletions, p.habitCompletions),
+              _previewRow(
+                context.l10n.dataManagementPreviewHabitCompletions,
+                p.habitCompletions,
+              ),
               const Divider(),
-              _previewRow(context.l10n.dataManagementPreviewTotal, p.totalRecords, bold: true),
+              _previewRow(
+                context.l10n.dataManagementPreviewTotal,
+                p.totalRecords,
+                bold: true,
+              ),
             ],
           ),
         ),
@@ -412,7 +455,10 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
         const SizedBox(height: 16),
         const PrismLoadingState(),
         const SizedBox(height: 24),
-        Text(context.l10n.dataManagementImporting, style: theme.textTheme.titleMedium),
+        Text(
+          context.l10n.dataManagementImporting,
+          style: theme.textTheme.titleMedium,
+        ),
         const SizedBox(height: 8),
         Text(
           context.l10n.dataManagementImportingMessage,
@@ -444,23 +490,59 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: theme.colorScheme.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
+            borderRadius: BorderRadius.circular(
+              PrismShapes.of(context).radius(12),
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _previewRow(context.l10n.dataManagementPreviewMembers, r.membersCreated),
-              _previewRow(context.l10n.dataManagementPreviewFrontSessions, r.frontSessionsCreated),
-              _previewRow(context.l10n.dataManagementPreviewSleepSessions, r.sleepSessionsCreated),
-              _previewRow(context.l10n.dataManagementPreviewConversations, r.conversationsCreated),
-              _previewRow(context.l10n.dataManagementPreviewMessages, r.messagesCreated),
-              _previewRow(context.l10n.dataManagementPreviewPolls, r.pollsCreated),
-              _previewRow(context.l10n.dataManagementPreviewPollOptions, r.pollOptionsCreated),
-              _previewRow(context.l10n.dataManagementPreviewSettings, r.settingsUpdated ? 1 : 0),
-              _previewRow(context.l10n.dataManagementPreviewHabits, r.habitsCreated),
-              _previewRow(context.l10n.dataManagementPreviewHabitCompletions, r.habitCompletionsCreated),
+              _previewRow(
+                context.l10n.dataManagementPreviewMembers,
+                r.membersCreated,
+              ),
+              _previewRow(
+                context.l10n.dataManagementPreviewFrontSessions,
+                r.frontSessionsCreated,
+              ),
+              _previewRow(
+                context.l10n.dataManagementPreviewSleepSessions,
+                r.sleepSessionsCreated,
+              ),
+              _previewRow(
+                context.l10n.dataManagementPreviewConversations,
+                r.conversationsCreated,
+              ),
+              _previewRow(
+                context.l10n.dataManagementPreviewMessages,
+                r.messagesCreated,
+              ),
+              _previewRow(
+                context.l10n.dataManagementPreviewPolls,
+                r.pollsCreated,
+              ),
+              _previewRow(
+                context.l10n.dataManagementPreviewPollOptions,
+                r.pollOptionsCreated,
+              ),
+              _previewRow(
+                context.l10n.dataManagementPreviewSettings,
+                r.settingsUpdated ? 1 : 0,
+              ),
+              _previewRow(
+                context.l10n.dataManagementPreviewHabits,
+                r.habitsCreated,
+              ),
+              _previewRow(
+                context.l10n.dataManagementPreviewHabitCompletions,
+                r.habitCompletionsCreated,
+              ),
               const Divider(),
-              _previewRow(context.l10n.dataManagementPreviewTotalCreated, r.totalRecordsCreated, bold: true),
+              _previewRow(
+                context.l10n.dataManagementPreviewTotalCreated,
+                r.totalRecordsCreated,
+                bold: true,
+              ),
             ],
           ),
         ),

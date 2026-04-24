@@ -36,9 +36,8 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
   void _openCreateSheet() {
     PrismSheet.showFullScreen(
       context: context,
-      builder: (context, scrollController) => CreateEditGroupSheet(
-        scrollController: scrollController,
-      ),
+      builder: (context, scrollController) =>
+          CreateEditGroupSheet(scrollController: scrollController),
     );
   }
 
@@ -46,9 +45,11 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
     final hasChildren = ref.read(childGroupsProvider(group.id)).isNotEmpty;
 
     if (hasChildren) {
-      PrismSheet.show(
-        context: context,
-        builder: (context) => DeleteGroupSheet(group: group),
+      unawaited(
+        PrismSheet.show(
+          context: context,
+          builder: (context) => DeleteGroupSheet(group: group),
+        ),
       );
       return;
     }
@@ -65,7 +66,10 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
       Haptics.heavy();
       unawaited(ref.read(groupNotifierProvider.notifier).deleteGroup(group.id));
       if (mounted) {
-        PrismToast.show(context, message: context.l10n.memberGroupDeleted(group.name));
+        PrismToast.show(
+          context,
+          message: context.l10n.memberGroupDeleted(group.name),
+        );
       }
     }
   }
@@ -94,13 +98,13 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
               icon: Icon(AppIcons.folderOutlined),
               title: l10n.memberGroupEmptyList,
               subtitle: l10n.memberGroupEmptySubtitle(
-                  watchTerminology(context, ref).pluralLower),
+                watchTerminology(context, ref).pluralLower,
+              ),
               actionLabel: l10n.memberNewGroupTooltip,
               onAction: _openCreateSheet,
             )
           : ReorderableListView.builder(
-              padding:
-                  EdgeInsets.only(top: 8, bottom: NavBarInset.of(context)),
+              padding: EdgeInsets.only(top: 8, bottom: NavBarInset.of(context)),
               itemCount: flatItems.length,
               onReorder: (oldIndex, newIndex) {
                 if (newIndex > oldIndex) newIndex--;
@@ -115,8 +119,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
 
                 final parentGroupId = entry.group.parentGroupId;
                 final siblings = flatItems
-                    .where((e) =>
-                        e.group.parentGroupId == parentGroupId)
+                    .where((e) => e.group.parentGroupId == parentGroupId)
                     .map((e) => e.group)
                     .toList();
 
@@ -141,7 +144,8 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
                   builder: (context, child) => Material(
                     elevation: 4,
                     borderRadius: BorderRadius.circular(
-                        PrismShapes.of(context).radius(12)),
+                      PrismShapes.of(context).radius(12),
+                    ),
                     child: child,
                   ),
                   child: child,
@@ -155,8 +159,8 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
                   depth: entry.depth.clamp(0, 2),
                   reorderIndex: index,
                   memberCount: counts[entry.group.id] ?? 0,
-                  onTap: () => context
-                      .push(AppRoutePaths.settingsGroup(entry.group.id)),
+                  onTap: () =>
+                      context.push(AppRoutePaths.settingsGroup(entry.group.id)),
                   onDelete: () => _confirmDelete(entry.group),
                 );
               },
@@ -192,135 +196,136 @@ class _GroupTile extends StatelessWidget {
     final leftPadding = 16.0 + depth * 24.0;
 
     return Semantics(
-      label: '${group.name}${depth > 0 ? ', sub-group' : ''}, $memberCount members',
+      label:
+          '${group.name}${depth > 0 ? ', sub-group' : ''}, $memberCount members',
       button: true,
       child: Padding(
-      padding: EdgeInsets.only(left: depth > 0 ? leftPadding - 16.0 : 0.0),
-      child: Dismissible(
-        key: ValueKey('dismiss_${group.id}'),
-        direction: DismissDirection.endToStart,
-        background: Container(
-          alignment: Alignment.centerRight,
-          padding: const EdgeInsets.only(right: 24),
-          color: theme.colorScheme.error,
-          child: Icon(AppIcons.delete, color: theme.colorScheme.onError),
-        ),
-        confirmDismiss: (_) async {
-          onDelete();
-          return false;
-        },
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(shapes.radius(14)),
-          child: Container(
-            margin: EdgeInsets.only(
-              left: 16,
-              right: 16,
-              top: 4,
-              bottom: 4,
-            ),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(shapes.radius(14)),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Row(
-              children: [
-                if (hasColor)
-                  Container(
-                    width: 4,
-                    height: 56,
-                    color: accentColor,
-                  ),
-                Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.only(
-                      left: hasColor ? 12 : 16,
-                      right: 16,
-                      top: 12,
-                      bottom: 12,
-                    ),
-                    child: Row(
-                      children: [
-                        if (group.emoji != null && group.emoji!.isNotEmpty)
-                          SizedBox(
-                            width: 32,
-                            height: 32,
-                            child: Center(
-                              child: Text(
-                                group.emoji!,
-                                style: const TextStyle(fontSize: 20),
+        padding: EdgeInsets.only(left: depth > 0 ? leftPadding - 16.0 : 0.0),
+        child: Dismissible(
+          key: ValueKey('dismiss_${group.id}'),
+          direction: DismissDirection.endToStart,
+          background: Container(
+            alignment: Alignment.centerRight,
+            padding: const EdgeInsets.only(right: 24),
+            color: theme.colorScheme.error,
+            child: Icon(AppIcons.delete, color: theme.colorScheme.onError),
+          ),
+          confirmDismiss: (_) async {
+            onDelete();
+            return false;
+          },
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(shapes.radius(14)),
+            child: Container(
+              margin: const EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 4,
+                bottom: 4,
+              ),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(shapes.radius(14)),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Row(
+                children: [
+                  if (hasColor)
+                    Container(width: 4, height: 56, color: accentColor),
+                  Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                        left: hasColor ? 12 : 16,
+                        right: 16,
+                        top: 12,
+                        bottom: 12,
+                      ),
+                      child: Row(
+                        children: [
+                          if (group.emoji != null && group.emoji!.isNotEmpty)
+                            SizedBox(
+                              width: 32,
+                              height: 32,
+                              child: Center(
+                                child: Text(
+                                  group.emoji!,
+                                  style: const TextStyle(fontSize: 20),
+                                ),
+                              ),
+                            )
+                          else
+                            Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color:
+                                    accentColor ??
+                                    theme.colorScheme.primaryContainer,
+                              ),
+                              child: Icon(
+                                AppIcons.folderOutlined,
+                                size: 16,
+                                color: accentColor != null
+                                    ? AppColors.warmWhite
+                                    : theme.colorScheme.onPrimaryContainer,
                               ),
                             ),
-                          )
-                        else
-                          Container(
-                            width: 32,
-                            height: 32,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: accentColor ??
-                                  theme.colorScheme.primaryContainer,
-                            ),
-                            child: Icon(
-                              AppIcons.folderOutlined,
-                              size: 16,
-                              color: accentColor != null
-                                  ? AppColors.warmWhite
-                                  : theme.colorScheme.onPrimaryContainer,
-                            ),
-                          ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            group.name,
-                            style: theme.textTheme.bodyLarge?.copyWith(
-                              fontWeight: FontWeight.w500,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        if (memberCount > 0)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.primaryContainer,
-                              borderRadius:
-                                  BorderRadius.circular(shapes.radius(12)),
-                            ),
+                          const SizedBox(width: 12),
+                          Expanded(
                             child: Text(
-                              '$memberCount',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: theme.colorScheme.onPrimaryContainer,
-                                fontWeight: FontWeight.w600,
+                              group.name,
+                              style: theme.textTheme.bodyLarge?.copyWith(
+                                fontWeight: FontWeight.w500,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          if (memberCount > 0)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.primaryContainer,
+                                borderRadius: BorderRadius.circular(
+                                  shapes.radius(12),
+                                ),
+                              ),
+                              child: Text(
+                                '$memberCount',
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: theme.colorScheme.onPrimaryContainer,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          const SizedBox(width: 4),
+                          ReorderableDragStartListener(
+                            index: reorderIndex,
+                            child: Tooltip(
+                              message: 'Drag to reorder',
+                              child: Icon(
+                                AppIcons.dragHandle,
+                                color: theme.colorScheme.onSurfaceVariant
+                                    .withValues(alpha: 0.4),
                               ),
                             ),
                           ),
-                        const SizedBox(width: 4),
-                        ReorderableDragStartListener(
-                          index: reorderIndex,
-                          child: Tooltip(
-                            message: 'Drag to reorder',
-                            child: Icon(
-                              AppIcons.dragHandle,
-                              color: theme.colorScheme.onSurfaceVariant
-                                  .withValues(alpha: 0.4),
-                            ),
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
       ),
-    ),
     );
   }
 }

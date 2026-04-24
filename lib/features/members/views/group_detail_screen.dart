@@ -259,9 +259,11 @@ class _GroupDetailBody extends ConsumerWidget {
     final hasChildren = ref.read(childGroupsProvider(group.id)).isNotEmpty;
 
     if (hasChildren) {
-      PrismSheet.show(
-        context: context,
-        builder: (context) => DeleteGroupSheet(group: group),
+      unawaited(
+        PrismSheet.show(
+          context: context,
+          builder: (context) => DeleteGroupSheet(group: group),
+        ),
       );
       return;
     }

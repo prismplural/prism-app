@@ -495,6 +495,9 @@ class _AddButtonState extends ConsumerState<_AddButton> {
     String termPlural,
     List<MemberSearchGroup> groups,
   ) async {
+    final session = sleepSession;
+    if (session == null) return;
+
     final result = await MemberSearchSheet.showSingle(
       context,
       members: members,
@@ -502,10 +505,13 @@ class _AddButtonState extends ConsumerState<_AddButton> {
       groups: groups,
     );
 
+    if (!mounted || !context.mounted) return;
     if (result is! MemberSearchResultSelected) return;
+    final activeSession = ref.read(activeSleepSessionProvider).value;
+    if (activeSession?.id != session.id) return;
 
     try {
-      await ref.read(sleepNotifierProvider.notifier).endSleep(sleepSession!.id);
+      await ref.read(sleepNotifierProvider.notifier).endSleep(session.id);
       await ref
           .read(frontingNotifierProvider.notifier)
           .startFronting(result.memberId);

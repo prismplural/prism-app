@@ -305,8 +305,22 @@ void main() {
   // ---------------------------------------------------------------------------
 
   group('useProxyTagsForAuthoringProvider', () {
-    test('defaults to false when no prefs entry exists', () async {
+    test('defaults to true when no prefs entry exists', () async {
       SharedPreferences.setMockInitialValues({});
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      await container.read(useProxyTagsForAuthoringProvider.future);
+      expect(
+        container.read(useProxyTagsForAuthoringProvider).value,
+        isTrue,
+      );
+    });
+
+    test('reads false from SharedPreferences when pre-seeded', () async {
+      SharedPreferences.setMockInitialValues({
+        'prism.pref.use_proxy_tags_for_authoring': false,
+      });
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
@@ -331,8 +345,10 @@ void main() {
       );
     });
 
-    test('set(true) updates state and persists to SharedPreferences', () async {
-      SharedPreferences.setMockInitialValues({});
+    test('set(true) flips a previously-false value and persists', () async {
+      SharedPreferences.setMockInitialValues({
+        'prism.pref.use_proxy_tags_for_authoring': false,
+      });
       final container = ProviderContainer();
       addTearDown(container.dispose);
 

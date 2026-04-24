@@ -7,6 +7,7 @@ import 'package:prism_plurality/features/members/utils/group_tree_utils.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 
 /// Modal picker for selecting a parent group.
@@ -46,14 +47,9 @@ class GroupParentPicker extends ConsumerWidget {
     final tree = ref.watch(groupTreeProvider);
 
     return allGroupsAsync.when(
-      loading: () => const SizedBox(
-        height: 200,
-        child: PrismLoadingState(),
-      ),
-      error: (e, _) => Padding(
-        padding: const EdgeInsets.all(16),
-        child: Text(l10n.error),
-      ),
+      loading: () => const SizedBox(height: 200, child: PrismLoadingState()),
+      error: (e, _) =>
+          Padding(padding: const EdgeInsets.all(16), child: Text(l10n.error)),
       data: (allGroups) {
         // How tall is the group being edited (1 = leaf, 2 = has children, 3 = has grandchildren)?
         final editedSubtreeHeight = excludeGroupId != null
@@ -69,7 +65,11 @@ class GroupParentPicker extends ConsumerWidget {
 
           // Skip descendants (cycle prevention).
           if (excludeGroupId != null &&
-              GroupTreeUtils.wouldCreateCycle(excludeGroupId!, group.id, tree)) {
+              GroupTreeUtils.wouldCreateCycle(
+                excludeGroupId!,
+                group.id,
+                tree,
+              )) {
             continue;
           }
 
@@ -90,13 +90,18 @@ class GroupParentPicker extends ConsumerWidget {
                   width: 36,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                    color: theme.colorScheme.onSurfaceVariant.withValues(
+                      alpha: 0.4,
+                    ),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 child: Text(
                   l10n.memberGroupParentLabel,
                   style: theme.textTheme.titleMedium,
@@ -109,16 +114,19 @@ class GroupParentPicker extends ConsumerWidget {
                   itemCount: candidates.length + 2,
                   itemBuilder: (context, index) {
                     if (index == 0) {
-                      return ListTile(
+                      return PrismListRow(
                         leading: Icon(
                           AppIcons.folderOutlined,
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
                         title: Text(l10n.memberGroupParentNone),
                         trailing: currentParentId == null
-                            ? Icon(Icons.check,
-                                color: theme.colorScheme.primary)
+                            ? Icon(
+                                AppIcons.check,
+                                color: theme.colorScheme.primary,
+                              )
                             : null,
+                        dense: true,
                         onTap: () {
                           onSelected(null);
                           Navigator.of(context).pop();
@@ -126,8 +134,13 @@ class GroupParentPicker extends ConsumerWidget {
                       );
                     }
                     if (index == 1) return const Divider(height: 1);
-                    return _buildGroupTile(context, candidates[index - 2],
-                        theme, l10n, editedSubtreeHeight);
+                    return _buildGroupTile(
+                      context,
+                      candidates[index - 2],
+                      theme,
+                      l10n,
+                      editedSubtreeHeight,
+                    );
                   },
                 ),
               ),
@@ -154,7 +167,7 @@ class GroupParentPicker extends ConsumerWidget {
       groupColor = AppColors.fromHex(group.colorHex!);
     }
 
-    Widget tile = ListTile(
+    final tile = PrismListRow(
       leading: group.emoji != null
           ? Text(group.emoji!, style: const TextStyle(fontSize: 22))
           : Icon(
@@ -171,14 +184,14 @@ class GroupParentPicker extends ConsumerWidget {
             )
           : null,
       trailing: isSelected
-          ? Icon(Icons.check, color: theme.colorScheme.primary)
+          ? Icon(AppIcons.check, color: theme.colorScheme.primary)
           : null,
-      onTap: isAtDepthLimit
-          ? null
-          : () {
-              onSelected(group.id);
-              Navigator.of(context).pop();
-            },
+      dense: true,
+      enabled: !isAtDepthLimit,
+      onTap: () {
+        onSelected(group.id);
+        Navigator.of(context).pop();
+      },
     );
 
     if (isAtDepthLimit) {
@@ -193,8 +206,8 @@ class GroupParentPicker extends ConsumerWidget {
     final depthLabel = item.depth == 1
         ? 'top level group'
         : item.depth == 2
-            ? 'sub-group'
-            : 'sub-sub-group';
+        ? 'sub-group'
+        : 'sub-sub-group';
     return Semantics(
       button: true,
       label: '${group.name}, $depthLabel${isSelected ? ', selected' : ''}',

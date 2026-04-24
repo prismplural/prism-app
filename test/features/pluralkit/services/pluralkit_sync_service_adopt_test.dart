@@ -20,33 +20,33 @@ class _SecureStorageStub {
     TestWidgetsFlutterBinding.ensureInitialized();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
-      const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
-      (MethodCall call) async {
-        switch (call.method) {
-          case 'write':
-            _store[call.arguments['key'] as String] =
-                call.arguments['value'] as String?;
-            return null;
-          case 'read':
-            return _store[call.arguments['key'] as String];
-          case 'delete':
-            _store.remove(call.arguments['key'] as String);
-            return null;
-          case 'containsKey':
-            return _store.containsKey(call.arguments['key'] as String);
-          default:
-            return null;
-        }
-      },
-    );
+          const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
+          (MethodCall call) async {
+            switch (call.method) {
+              case 'write':
+                _store[call.arguments['key'] as String] =
+                    call.arguments['value'] as String?;
+                return null;
+              case 'read':
+                return _store[call.arguments['key'] as String];
+              case 'delete':
+                _store.remove(call.arguments['key'] as String);
+                return null;
+              case 'containsKey':
+                return _store.containsKey(call.arguments['key'] as String);
+              default:
+                return null;
+            }
+          },
+        );
   }
 
   void teardown() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
-      const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
-      null,
-    );
+          const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
+          null,
+        );
     _store.clear();
   }
 }
@@ -69,9 +69,10 @@ class _FakeClient implements PluralKitClient {
   void dispose() {}
 
   @override
-  dynamic noSuchMethod(Invocation invocation) =>
-      throw UnimplementedError('Unexpected PK client call: '
-          '${invocation.memberName}');
+  dynamic noSuchMethod(Invocation invocation) => throw UnimplementedError(
+    'Unexpected PK client call: '
+    '${invocation.memberName}',
+  );
 }
 
 void main() {
@@ -101,7 +102,7 @@ void main() {
       final db = AppDatabase(NativeDatabase.memory());
       addTearDown(db.close);
       final settings = FakeSystemSettingsRepository();
-      final pk = const PKSystem(
+      const pk = PKSystem(
         id: 'sysid',
         name: 'The Example System',
         description: 'we are many',
@@ -109,8 +110,7 @@ void main() {
         avatarUrl: 'https://example.invalid/avatar.png',
       );
       final client = _FakeClient(pk);
-      final service =
-          makeService(db: db, settings: settings, client: client);
+      final service = makeService(db: db, settings: settings, client: client);
 
       await service.adoptSystemProfile(
         pk: pk,
@@ -129,52 +129,48 @@ void main() {
       expect(client.getSystemCalls, 0);
     });
 
-    test('avatar selection invokes importSystemAvatar (calls client)',
-        () async {
-      final db = AppDatabase(NativeDatabase.memory());
-      addTearDown(db.close);
-      final settings = FakeSystemSettingsRepository();
-      final pk = const PKSystem(
-        id: 'sysid',
-        name: 'Ignored',
-        avatarUrl: 'https://example.invalid/avatar.png',
-      );
-      final client = _FakeClient(pk);
-      final service =
-          makeService(db: db, settings: settings, client: client);
+    test(
+      'avatar selection invokes importSystemAvatar (calls client)',
+      () async {
+        final db = AppDatabase(NativeDatabase.memory());
+        addTearDown(db.close);
+        final settings = FakeSystemSettingsRepository();
+        const pk = PKSystem(
+          id: 'sysid',
+          name: 'Ignored',
+          avatarUrl: 'https://example.invalid/avatar.png',
+        );
+        final client = _FakeClient(pk);
+        final service = makeService(db: db, settings: settings, client: client);
 
-      await service.adoptSystemProfile(
-        pk: pk,
-        accepted: {PkProfileField.avatar},
-      );
+        await service.adoptSystemProfile(
+          pk: pk,
+          accepted: {PkProfileField.avatar},
+        );
 
-      // importSystemAvatar() builds a client and calls getSystem() before
-      // fetching the avatar URL. The URL here points to an invalid host, so
-      // fetchAvatarBytes returns null and no avatar is persisted — but the
-      // fact that the client was invoked confirms the avatar path was taken.
-      expect(client.getSystemCalls, 1);
-      // Name must NOT have been written (not in accepted set).
-      expect(settings.settings.systemName, isNull);
-      // Avatar URL was unreachable, so no blob was written. That's fine — we
-      // only assert the avatar path was entered, not that the network call
-      // succeeded.
-      expect(settings.settings.systemAvatarData, isNull);
-    });
+        // importSystemAvatar() builds a client and calls getSystem() before
+        // fetching the avatar URL. The URL here points to an invalid host, so
+        // fetchAvatarBytes returns null and no avatar is persisted — but the
+        // fact that the client was invoked confirms the avatar path was taken.
+        expect(client.getSystemCalls, 1);
+        // Name must NOT have been written (not in accepted set).
+        expect(settings.settings.systemName, isNull);
+        // Avatar URL was unreachable, so no blob was written. That's fine — we
+        // only assert the avatar path was entered, not that the network call
+        // succeeded.
+        expect(settings.settings.systemAvatarData, isNull);
+      },
+    );
 
     test('skips null/empty PK fields even when accepted', () async {
       final db = AppDatabase(NativeDatabase.memory());
       addTearDown(db.close);
       final settings = FakeSystemSettingsRepository();
       // Pre-seed a tag to verify it isn't wiped by an empty PK tag.
-      settings.settings =
-          settings.settings.copyWith(systemTag: 'existing-tag');
-      final pk = const PKSystem(
-        id: 'sysid',
-        name: 'Only Name',
-      );
+      settings.settings = settings.settings.copyWith(systemTag: 'existing-tag');
+      const pk = PKSystem(id: 'sysid', name: 'Only Name');
       final client = _FakeClient(pk);
-      final service =
-          makeService(db: db, settings: settings, client: client);
+      final service = makeService(db: db, settings: settings, client: client);
 
       await service.adoptSystemProfile(
         pk: pk,
@@ -197,18 +193,14 @@ void main() {
       final db = AppDatabase(NativeDatabase.memory());
       addTearDown(db.close);
       final settings = FakeSystemSettingsRepository();
-      final pk = const PKSystem(id: 'sysid', tag: '| newtag');
+      const pk = PKSystem(id: 'sysid', tag: '| newtag');
       final client = _FakeClient(pk);
-      final service =
-          makeService(db: db, settings: settings, client: client);
+      final service = makeService(db: db, settings: settings, client: client);
 
       // Initially blank.
       expect(settings.settings.systemTag, isNull);
 
-      await service.adoptSystemProfile(
-        pk: pk,
-        accepted: {PkProfileField.tag},
-      );
+      await service.adoptSystemProfile(pk: pk, accepted: {PkProfileField.tag});
 
       expect(settings.settings.systemTag, '| newtag');
       // NOTE: pending_ops observation deferred — the fake repo used here

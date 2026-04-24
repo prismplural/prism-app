@@ -362,7 +362,7 @@ Future<_PkGroupAliasResolution?> _pkGroupAliasForLegacyEntityId(
   );
 }
 
-Future<MemberGroupRow?> _resolveMemberGroupRowForSyncEntity(
+Future<MemberGroupRow?> _resolveMemberGroupRowForSyncId(
   AppDatabase db,
   String entityId, {
   String? payloadPkGroupUuid,
@@ -403,7 +403,7 @@ Future<MemberGroupRow?> _resolveMemberGroupRowForSyncDelete(
   String entityId,
 ) async {
   if (_pkGroupUuidFromEntityId(entityId) != null) {
-    return _resolveMemberGroupRowForSyncEntity(db, entityId);
+    return _resolveMemberGroupRowForSyncId(db, entityId);
   }
 
   final alias = await _pkGroupAliasForLegacyEntityId(db, entityId);
@@ -693,7 +693,7 @@ Future<bool> _applyMemberGroupEntryFields(
   // back to the sender's local ids for PK-present payloads.
   final pkGroupResolvedId = pkGroupUuid == null
       ? null
-      : (await _resolveMemberGroupRowForSyncEntity(
+      : (await _resolveMemberGroupRowForSyncId(
           db,
           _canonicalPkGroupEntityId(pkGroupUuid),
           payloadPkGroupUuid: pkGroupUuid,
@@ -2251,7 +2251,7 @@ DriftSyncEntity _memberGroupsEntity(
           _asString(fields['pluralkit_uuid']) ??
           _pkGroupUuidFromEntityId(id) ??
           (await _pkGroupAliasForLegacyEntityId(db, id))?.pkGroupUuid;
-      final existingRow = await _resolveMemberGroupRowForSyncEntity(
+      final existingRow = await _resolveMemberGroupRowForSyncId(
         db,
         id,
         payloadPkGroupUuid: resolvedPkGroupUuid,
@@ -2305,7 +2305,7 @@ DriftSyncEntity _memberGroupsEntity(
       )..where((t) => t.id.equals(row.id))).go();
     },
     readRow: (String id) async {
-      final row = await _resolveMemberGroupRowForSyncEntity(db, id);
+      final row = await _resolveMemberGroupRowForSyncId(db, id);
       if (row == null) return null;
       return {
         'name': row.name,
@@ -2324,7 +2324,7 @@ DriftSyncEntity _memberGroupsEntity(
       };
     },
     isDeleted: (String id) async {
-      final row = await _resolveMemberGroupRowForSyncEntity(db, id);
+      final row = await _resolveMemberGroupRowForSyncId(db, id);
       return row?.isDeleted ?? true;
     },
   );

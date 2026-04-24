@@ -86,7 +86,7 @@ Widget _buildTrigger({
       systemSettingsProvider.overrideWith(
         (ref) => Stream.value(const SystemSettings()),
       ),
-      speakingAsProvider.overrideWith(() => _FakeSpeakingAsNotifier()),
+      speakingAsProvider.overrideWith(_FakeSpeakingAsNotifier.new),
       if (fakeNotifier != null)
         chatNotifierProvider.overrideWith(() => fakeNotifier),
     ],

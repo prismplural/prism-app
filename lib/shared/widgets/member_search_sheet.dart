@@ -347,6 +347,7 @@ class _MemberSearchSheetState extends State<MemberSearchSheet> {
       trailing: widget.multiSelect
           ? PrismGlassIconButton(
               icon: AppIcons.check,
+              tooltip: l10n.memberSearchConfirmSelectionTooltip,
               onPressed: _selectedIds.isEmpty ? null : _confirmMulti,
             )
           : null,

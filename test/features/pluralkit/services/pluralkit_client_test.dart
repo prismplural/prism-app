@@ -1,8 +1,8 @@
-/// Unit tests for PluralKitClient — request shape, error mapping, and
-/// rate-limit retry behavior.
-///
-/// These tests inject a mock http.Client and a zero-interval PkRequestQueue
-/// so the suite stays fast while still exercising the real queue wiring.
+// Unit tests for PluralKitClient — request shape, error mapping, and
+// rate-limit retry behavior.
+//
+// These tests inject a mock http.Client and a zero-interval PkRequestQueue
+// so the suite stays fast while still exercising the real queue wiring.
 
 import 'dart:convert';
 
@@ -19,10 +19,7 @@ import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dar
 
 /// Build a client with a recording mock http.Client and a queue with zero
 /// pacing / fast retries for tests.
-({
-  PluralKitClient client,
-  List<http.Request> requests,
-}) buildClient(
+({PluralKitClient client, List<http.Request> requests}) buildClient(
   Future<http.Response> Function(http.Request req, int callIndex) handler, {
   String token = 'test-token',
   int maxRetries = 3,
@@ -40,18 +37,17 @@ import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dar
   final client = PluralKitClient(
     token: token,
     httpClient: mock,
-    queue: PkRequestQueue(
-      minInterval: Duration.zero,
-      maxRetries: maxRetries,
-    ),
+    queue: PkRequestQueue(minInterval: Duration.zero, maxRetries: maxRetries),
   );
 
   return (client: client, requests: requests);
 }
 
-http.Response jsonResponse(Object body, {int status = 200}) =>
-    http.Response(jsonEncode(body), status,
-        headers: {'content-type': 'application/json'});
+http.Response jsonResponse(Object body, {int status = 200}) => http.Response(
+  jsonEncode(body),
+  status,
+  headers: {'content-type': 'application/json'},
+);
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -96,10 +92,7 @@ void main() {
       final h = buildClient((req, _) async {
         expect(req.url.path, '/v2/systems/@me/switches');
         expect(req.url.queryParameters['limit'], '50');
-        expect(
-          req.url.queryParameters['before'],
-          before.toIso8601String(),
-        );
+        expect(req.url.queryParameters['before'], before.toIso8601String());
         return jsonResponse(<Map<String, dynamic>>[]);
       });
 
@@ -165,8 +158,7 @@ void main() {
         });
       });
 
-      final sw =
-          await h.client.createSwitch(['aaaaa', 'bbbbb'], timestamp: ts);
+      final sw = await h.client.createSwitch(['aaaaa', 'bbbbb'], timestamp: ts);
       expect(sw.id, 'sw-1');
     });
 
@@ -191,8 +183,11 @@ void main() {
         expect(req.url.path, '/v2/systems/@me/switches/sw-1');
         final body = jsonDecode(req.body) as Map<String, dynamic>;
         expect(body['timestamp'], ts.toIso8601String());
-        expect(body.containsKey('members'), isFalse,
-            reason: 'updateSwitch must not send members — PK rejects it');
+        expect(
+          body.containsKey('members'),
+          isFalse,
+          reason: 'updateSwitch must not send members — PK rejects it',
+        );
         return jsonResponse({
           'id': 'sw-1',
           'timestamp': ts.toIso8601String(),
@@ -245,7 +240,7 @@ void main() {
 
   group('PluralKitClient — error mapping', () {
     test('401 throws PluralKitAuthError', () async {
-      final h = buildClient((_, __) async => http.Response('nope', 401));
+      final h = buildClient((_, _) async => http.Response('nope', 401));
 
       await expectLater(
         h.client.getSystem(),
@@ -255,7 +250,7 @@ void main() {
 
     test('500 throws PluralKitApiError with status + body', () async {
       final h = buildClient(
-        (_, __) async => http.Response('kaboom', 500),
+        (_, _) async => http.Response('kaboom', 500),
         maxRetries: 0,
       );
 
@@ -272,37 +267,47 @@ void main() {
 
     test('downloadBytes maps non-200 to PluralKitApiError', () async {
       final h = buildClient(
-        (_, __) async => http.Response('missing', 404),
+        (_, _) async => http.Response('missing', 404),
         maxRetries: 0,
       );
 
       await expectLater(
         h.client.downloadBytes('https://cdn.example/missing.png'),
-        throwsA(isA<PluralKitApiError>()
-            .having((e) => e.statusCode, 'statusCode', 404)),
+        throwsA(
+          isA<PluralKitApiError>().having(
+            (e) => e.statusCode,
+            'statusCode',
+            404,
+          ),
+        ),
       );
     });
   });
 
   group('PluralKitClient — rate limit handling', () {
-    test('retries on 429, honors Retry-After seconds, eventually succeeds',
-        () async {
-      final h = buildClient((req, call) async {
-        if (call == 0) {
-          return http.Response(
-            'slow down',
-            429,
-            headers: {'retry-after': '0'},
-          );
-        }
-        return jsonResponse({'id': 'sys'});
-      });
+    test(
+      'retries on 429, honors Retry-After seconds, eventually succeeds',
+      () async {
+        final h = buildClient((req, call) async {
+          if (call == 0) {
+            return http.Response(
+              'slow down',
+              429,
+              headers: {'retry-after': '0'},
+            );
+          }
+          return jsonResponse({'id': 'sys'});
+        });
 
-      final system = await h.client.getSystem();
-      expect(system.id, 'sys');
-      expect(h.requests, hasLength(2),
-          reason: 'should retry once after the 429');
-    });
+        final system = await h.client.getSystem();
+        expect(system.id, 'sys');
+        expect(
+          h.requests,
+          hasLength(2),
+          reason: 'should retry once after the 429',
+        );
+      },
+    );
 
     test('retries on 429 honoring X-RateLimit-Reset epoch', () async {
       final pastEpoch =
@@ -331,7 +336,7 @@ void main() {
       final futureEpoch =
           (DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000) + 5;
       final h = buildClient(
-        (_, __) async => http.Response(
+        (_, _) async => http.Response(
           '',
           429,
           headers: {'x-ratelimit-reset': futureEpoch.toString()},
@@ -343,21 +348,24 @@ void main() {
         await h.client.getSystem();
         fail('expected PluralKitRateLimitError');
       } on PluralKitRateLimitError catch (e) {
-        expect(e.retryAfter, isNotNull,
-            reason: 'future X-RateLimit-Reset should parse to a Duration');
-        expect(e.retryAfter!.inSeconds, inInclusiveRange(1, 10),
-            reason:
-                'parsed delay should be the delta from now (~5s), not the raw epoch');
+        expect(
+          e.retryAfter,
+          isNotNull,
+          reason: 'future X-RateLimit-Reset should parse to a Duration',
+        );
+        expect(
+          e.retryAfter!.inSeconds,
+          inInclusiveRange(1, 10),
+          reason:
+              'parsed delay should be the delta from now (~5s), not the raw epoch',
+        );
       }
     });
 
     test('gives up after max retries of persistent 429', () async {
       final h = buildClient(
-        (_, __) async => http.Response(
-          'nope',
-          429,
-          headers: {'retry-after': '0'},
-        ),
+        (_, _) async =>
+            http.Response('nope', 429, headers: {'retry-after': '0'}),
         maxRetries: 2,
       );
 
@@ -371,11 +379,7 @@ void main() {
 
     test('PluralKitRateLimitError carries parsed Retry-After', () async {
       final h = buildClient(
-        (_, __) async => http.Response(
-          '',
-          429,
-          headers: {'retry-after': '7'},
-        ),
+        (_, _) async => http.Response('', 429, headers: {'retry-after': '7'}),
         maxRetries: 0,
       );
 
@@ -387,24 +391,23 @@ void main() {
       }
     });
 
-    test('malformed Retry-After falls through to exponential backoff',
-        () async {
-      final h = buildClient(
-        (_, __) async => http.Response(
-          '',
-          429,
-          headers: {'retry-after': 'not-a-number'},
-        ),
-        maxRetries: 0,
-      );
+    test(
+      'malformed Retry-After falls through to exponential backoff',
+      () async {
+        final h = buildClient(
+          (_, _) async =>
+              http.Response('', 429, headers: {'retry-after': 'not-a-number'}),
+          maxRetries: 0,
+        );
 
-      try {
-        await h.client.getSystem();
-        fail('expected PluralKitRateLimitError');
-      } on PluralKitRateLimitError catch (e) {
-        expect(e.retryAfter, isNull);
-      }
-    });
+        try {
+          await h.client.getSystem();
+          fail('expected PluralKitRateLimitError');
+        } on PluralKitRateLimitError catch (e) {
+          expect(e.retryAfter, isNull);
+        }
+      },
+    );
 
     test('back-to-back calls are paced by the client-owned queue', () async {
       // Regression guard: if someone unwraps a client method from
@@ -434,21 +437,22 @@ void main() {
       // Second call must wait for the pacing window. Lower threshold
       // accounts for timer imprecision; upper bound catches regressions
       // where pacing accidentally stacks (e.g. 2x).
-      expect(sw.elapsedMilliseconds, greaterThanOrEqualTo(80),
-          reason: 'second call should be paced ~100ms after the first');
-      expect(sw.elapsedMilliseconds, lessThan(500),
-          reason:
-              'pacing should be ~100ms, not stacked or mis-applied per call');
+      expect(
+        sw.elapsedMilliseconds,
+        greaterThanOrEqualTo(80),
+        reason: 'second call should be paced ~100ms after the first',
+      );
+      expect(
+        sw.elapsedMilliseconds,
+        lessThan(500),
+        reason: 'pacing should be ~100ms, not stacked or mis-applied per call',
+      );
     });
 
     test('retries cover write endpoints (createMember)', () async {
       final h = buildClient((req, call) async {
         if (call == 0) {
-          return http.Response(
-            'slow down',
-            429,
-            headers: {'retry-after': '0'},
-          );
+          return http.Response('slow down', 429, headers: {'retry-after': '0'});
         }
         return jsonResponse({
           'id': 'new01',

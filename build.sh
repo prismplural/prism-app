@@ -113,11 +113,14 @@ compute_build_info() {
 
     # Optional: bake a beta relay registration token into the binary so
     # TestFlight / beta testers don't have to type it by hand. The token
-    # itself is NEVER committed to this repo; it lives in .env.testflight
-    # at the monorepo root (gitignored) and is auto-loaded below. Matches
-    # the Fastlane pattern in fastlane/Fastfile. If the env file is absent
-    # the token stays unset and the app builds cleanly for self-hosters.
-    local env_file="../.env.testflight"
+    # itself is NEVER committed to this repo; it lives in
+    # ~/.config/prism/.env.testflight by default and is auto-loaded below.
+    # Matches the Fastlane pattern in fastlane/Fastfile. If the env file is
+    # absent the token stays unset and the app builds cleanly for self-hosters.
+    local env_file="${PRISM_TESTFLIGHT_ENV_FILE:-$HOME/.config/prism/.env.testflight}"
+    if [ ! -f "$env_file" ] && [ -f "../.env.testflight" ]; then
+        env_file="../.env.testflight"
+    fi
     if [ -f "$env_file" ]; then
         set -a
         # shellcheck disable=SC1090

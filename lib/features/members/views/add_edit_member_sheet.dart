@@ -244,6 +244,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
             trailing: PrismGlassIconButton(
               icon: AppIcons.check,
               size: PrismTokens.topBarActionSize,
+              tooltip: l10n.memberSaveTooltip,
               isLoading: _saving,
               tint: canSave ? theme.colorScheme.primary : null,
               accentIcon: canSave,

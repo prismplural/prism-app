@@ -2407,6 +2407,14 @@
   "@frontingAddCoFronterTitle": {
     "description": "Sheet title when adding a co-fronter to the active session"
   },
+  "frontingStartSessionTooltip": "Start session",
+  "@frontingStartSessionTooltip": {
+    "description": "Tooltip and semantics label for confirming a new fronting session"
+  },
+  "frontingAddCoFronterTooltip": "Add co-fronter",
+  "@frontingAddCoFronterTooltip": {
+    "description": "Tooltip and semantics label for confirming a new co-front session"
+  },
   "frontingSelectFronter": "Select Fronter",
   "@frontingSelectFronter": {
     "description": "Section header when selecting the primary fronter"
@@ -3793,6 +3801,14 @@
       }
     }
   },
+  "memberSearchConfirmSelectionTooltip": "Confirm selected members",
+  "@memberSearchConfirmSelectionTooltip": {
+    "description": "Tooltip and semantics label for confirming selected members in the member search sheet"
+  },
+  "memberSaveTooltip": "Save member",
+  "@memberSaveTooltip": {
+    "description": "Tooltip and semantics label for saving a member from the add/edit member sheet"
+  },
   "memberBulkActivate": "Activate",
   "@memberBulkActivate": {
     "description": "Bulk action button: activate selected members"
@@ -4230,6 +4246,10 @@
   "chatCreateTitle": "New Conversation",
   "@chatCreateTitle": {
     "description": "Sheet title for creating a new conversation"
+  },
+  "chatCreateConversationTooltip": "Create conversation",
+  "@chatCreateConversationTooltip": {
+    "description": "Tooltip and semantics label for confirming conversation creation"
   },
   "chatCreateGroupTab": "Group",
   "@chatCreateGroupTab": {

@@ -517,6 +517,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
             .whenOrNull(data: (v) => v) ??
         false;
     final terms = watchTerminology(context, ref);
+    final parentContext = context;
 
     final members = membersAsync.value ?? [];
     final memberSearchGroups = watchMemberSearchGroups(ref, members);
@@ -611,7 +612,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                   child: BlurPopupAnchor(
                     preferredDirection: BlurPopupDirection.up,
                     itemCount: members.length + 1,
-                    itemBuilder: (context, index, close) {
+                    itemBuilder: (popupContext, index, close) {
                       if (index == 0) {
                         return PrismListRow(
                           dense: true,
@@ -620,13 +621,13 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                             vertical: 10,
                           ),
                           leading: Icon(AppIcons.search, size: 20),
-                          title: Text(context.l10n.search),
+                          title: Text(popupContext.l10n.search),
                           onTap: () async {
                             close();
                             await Future<void>.delayed(Duration.zero);
-                            if (!mounted) return;
+                            if (!mounted || !parentContext.mounted) return;
                             final result = await MemberSearchSheet.showSingle(
-                              context,
+                              parentContext,
                               members: members,
                               termPlural: terms.plural,
                               groups: memberSearchGroups,
