@@ -1111,6 +1111,15 @@ DriftSyncEntity _membersEntity(
       };
     },
     applyFields: (String id, Map<String, dynamic> fields) async {
+      final shouldCheckPkUuidChange = fields.containsKey('pluralkit_uuid');
+      final priorPkUuid = shouldCheckPkUuidChange
+          ? (await (db.select(
+              db.members,
+            )..where((t) => t.id.equals(id))).getSingleOrNull())?.pluralkitUuid
+          : null;
+      final nextPkUuid = shouldCheckPkUuidChange
+          ? _asString(fields['pluralkit_uuid'])
+          : null;
       final f = _FieldContext(
         entityType: 'members',
         entityId: id,
@@ -1144,11 +1153,13 @@ DriftSyncEntity _membersEntity(
         isDeleted: f.boolField('is_deleted'),
       );
       await db.into(db.members).insertOnConflictUpdate(companion);
-      await _retryDeferredPkBackedMemberGroupEntryOps(
-        db,
-        quarantine: quarantine,
-        trackQuarantineWrite: trackQuarantineWrite,
-      );
+      if (shouldCheckPkUuidChange && priorPkUuid != nextPkUuid) {
+        await _retryDeferredPkBackedMemberGroupEntryOps(
+          db,
+          quarantine: quarantine,
+          trackQuarantineWrite: trackQuarantineWrite,
+        );
+      }
     },
     hardDelete: (String id) async {
       await (db.delete(db.members)..where((t) => t.id.equals(id))).go();

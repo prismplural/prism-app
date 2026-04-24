@@ -83,6 +83,33 @@ void main() {
 
   tearDown(() => db.close());
 
+  test('provided token wins over stored token access', () async {
+    final capturedTokens = <String?>[];
+    final service = PkGroupRepairService(
+      memberGroupsDao: db.memberGroupsDao,
+      aliasesDao: db.pkGroupSyncAliasesDao,
+      hasRepairToken: ({String? token}) async {
+        throw StateError('stored token should not be checked');
+      },
+      fetchRepairReferenceData: ({String? token}) async {
+        capturedTokens.add(token);
+        return const PkRepairReferenceData(
+          system: PKSystem(id: 'system-1', name: 'Test'),
+          members: [],
+          groups: [],
+        );
+      },
+    );
+
+    final report = await service.run(
+      token: 'provided-token',
+      allowStoredToken: true,
+    );
+
+    expect(report.referenceMode, PkGroupRepairReferenceMode.providedToken);
+    expect(capturedTokens, ['provided-token']);
+  });
+
   test(
     'run without token backfills and merges linked duplicate PK groups',
     () async {
@@ -1025,11 +1052,21 @@ void main() {
       )..where((t) => t.id.equals('child'))).getSingle();
       expect(child.parentGroupId, 'canonical');
 
-      final movedEntry = await (db.select(
-        db.memberGroupEntries,
-      )..where((t) => t.id.equals('review-entry'))).getSingle();
+      final movedEntry =
+          await (db.select(db.memberGroupEntries)..where(
+                (t) =>
+                    t.id.equals(_canonicalEntryId('pk-group-1', 'pk-member-a')),
+              ))
+              .getSingle();
       expect(movedEntry.groupId, 'canonical');
       expect(movedEntry.pkGroupUuid, 'pk-group-1');
+      expect(movedEntry.pkMemberUuid, 'pk-member-a');
+      expect(
+        await (db.select(
+          db.memberGroupEntries,
+        )..where((t) => t.id.equals('review-entry'))).getSingleOrNull(),
+        null,
+      );
 
       final review = await (db.select(
         db.memberGroups,
