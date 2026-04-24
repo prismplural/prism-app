@@ -1123,6 +1123,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get systemInfoChangeAvatar => 'Change avatar';
 
   @override
+  String get memberChangeAvatar => 'Change member avatar';
+
+  @override
   String get avatarCropTitle => 'Crop avatar';
 
   @override
@@ -7148,6 +7151,53 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get mnemonicFieldInvalidQr =>
       'Invalid QR code. Scan a 12-word recovery phrase.';
+
+  @override
+  String get mnemonicFieldCameraPermissionTitle => 'Camera permission needed';
+
+  @override
+  String get mnemonicFieldCameraPermissionDeniedBody =>
+      'Prism needs the camera to scan your recovery QR code. Try again and allow camera access when prompted.';
+
+  @override
+  String get mnemonicFieldCameraPermissionPermanentlyDeniedBody =>
+      'Camera access is blocked. Open Settings to grant Prism camera permission, then try again.';
+
+  @override
+  String get mnemonicFieldCameraPermissionOpenSettings => 'Open Settings';
+
+  @override
+  String get pluralkitAutoSyncSection => 'Auto-sync';
+
+  @override
+  String get pluralkitAutoSyncTitle => 'Pull new switches automatically';
+
+  @override
+  String get pluralkitAutoSyncDescription =>
+      'While Prism is open, check PluralKit for new switches on an interval. Pauses in the background.';
+
+  @override
+  String get pluralkitAutoSyncIntervalLabel => 'Check every';
+
+  @override
+  String get pluralkitAutoSyncLoadFailed =>
+      'Could not load auto-sync settings.';
+
+  @override
+  String get pluralkitRerunMemberMapping => 'Re-run member mapping';
+
+  @override
+  String get pluralkitImportFromFile => 'Import from pk;export file';
+
+  @override
+  String get pluralkitMappingBannerTitle => 'One more step: link your members';
+
+  @override
+  String get pluralkitMappingBannerBody =>
+      'You\'re connected. Before sync turns on, match each PluralKit member to a member in Prism — or import them as new. This prevents duplicates and keeps switch history attached to the right person.';
+
+  @override
+  String get pluralkitMappingBannerButton => 'Link members';
 
   @override
   String get sleepWakeUpMorning => 'Good morning!';

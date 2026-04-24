@@ -28,7 +28,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   BootTimings.mark('binding');
 
-  // F1: Global error boundaries — install immediately so startup failures are reported.
+  // Global error boundaries — install immediately so startup failures are reported.
   FlutterError.onError = (details) {
     FlutterError.presentError(details);
     ErrorReportingService.instance.report(
@@ -63,7 +63,7 @@ void main() async {
     await RustLib.init();
   }
 
-  // F5: Show a plain error message instead of the red/yellow error screen in
+  // Show a plain error message instead of the red/yellow error screen in
   // release builds. Cannot use Theme.of or l10n here — runs outside the widget tree.
   if (kReleaseMode) {
     ErrorWidget.builder = (FlutterErrorDetails details) {
@@ -109,7 +109,7 @@ void main() async {
         cachedThemeStyleProvider.overrideWithValue(cachedStyle),
         cachedCornerStyleProvider.overrideWithValue(cachedCornerStyle),
       ],
-      // F7: Explicit retry filter — prevent infinite retry on programmer bugs.
+      // Explicit retry filter — prevent infinite retry on programmer bugs.
       retry: (retryCount, error) {
         // Don't retry format/type errors (programmer bugs)
         if (error is FormatException || error is TypeError) return null;
@@ -117,7 +117,6 @@ void main() async {
         if (retryCount >= 3) return null;
         return Duration(seconds: 1 << retryCount); // 1s, 2s, 4s
       },
-      // F24: Log provider errors in debug builds.
       observers: [if (kDebugMode) _DebugProviderObserver()],
       child: const PrismApp(),
     ),
@@ -154,7 +153,7 @@ Future<void> _loadLinuxEmojiFont() async {
   await loader.load();
 }
 
-/// F24: Logs Riverpod provider errors in debug builds.
+/// Logs Riverpod provider errors in debug builds.
 ///
 /// Only logs [AsyncError] state transitions and [providerDidFail] events to
 /// avoid flooding the console with every state change.

@@ -10,6 +10,12 @@ typedef HasRepairTokenCallback = Future<bool> Function({String? token});
 typedef FetchRepairReferenceDataCallback =
     Future<PkRepairReferenceData> Function({String? token});
 
+/// Callback that re-emits the current state of [groupId] (and its active
+/// entries) through the sync record layer. Used after clearing review-state
+/// flags so edits that happened during the suppression window are pushed to
+/// peers instead of staying silently local.
+typedef EmitGroupSyncStateCallback = Future<void> Function(String groupId);
+
 class PkGroupReviewItem {
   const PkGroupReviewItem({
     required this.groupId,
@@ -86,15 +92,18 @@ class PkGroupRepairService {
     required PkGroupSyncAliasesDao aliasesDao,
     required HasRepairTokenCallback hasRepairToken,
     required FetchRepairReferenceDataCallback fetchRepairReferenceData,
+    EmitGroupSyncStateCallback? emitGroupSyncState,
   }) : _memberGroupsDao = memberGroupsDao,
        _aliasesDao = aliasesDao,
        _hasRepairToken = hasRepairToken,
-       _fetchRepairReferenceData = fetchRepairReferenceData;
+       _fetchRepairReferenceData = fetchRepairReferenceData,
+       _emitGroupSyncState = emitGroupSyncState;
 
   final MemberGroupsDao _memberGroupsDao;
   final PkGroupSyncAliasesDao _aliasesDao;
   final HasRepairTokenCallback _hasRepairToken;
   final FetchRepairReferenceDataCallback _fetchRepairReferenceData;
+  final EmitGroupSyncStateCallback? _emitGroupSyncState;
 
   Future<PkGroupRepairReport>? _inFlight;
   PkRepairReferenceData? _lastReferenceData;
@@ -180,10 +189,17 @@ class PkGroupRepairService {
     return future;
   }
 
-  Future<void> dismissReviewItems(List<String> groupIds) {
-    return _memberGroupsDao.transaction(() async {
+  Future<void> dismissReviewItems(List<String> groupIds) async {
+    await _memberGroupsDao.transaction(() async {
       await _memberGroupsDao.dismissGroupsFromPkReview(groupIds);
     });
+    // After clearing review flags, emit sync ops for the accumulated current
+    // state so edits made during the suppression window reach peers.
+    final emit = _emitGroupSyncState;
+    if (emit == null) return;
+    for (final groupId in groupIds) {
+      await emit(groupId);
+    }
   }
 
   Future<void> keepReviewItemsLocalOnly(List<String> groupIds) {
@@ -251,7 +267,7 @@ class PkGroupRepairService {
       final backfilledEntries = await _memberGroupsDao
           .backfillActiveEntryPkReferences();
 
-      // H2: canonicalize legacy PK-backed entry ids onto the deterministic
+      // Canonicalize legacy PK-backed entry ids onto the deterministic
       // `sha256(pkGroupUuid || 0x00 || pkMemberUuid)[:16]` hash. Reviving
       // tombstones already occupying the canonical id keeps the partial
       // `(group_id, member_id) WHERE is_deleted = 0` unique index clean.

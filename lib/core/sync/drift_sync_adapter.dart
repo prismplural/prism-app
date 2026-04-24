@@ -648,7 +648,7 @@ Future<bool> _deferPkBackedMemberGroupEntryOp(
     return false;
   }
 
-  // H3: route through the DAO upsert so Drift encodes `created_at` as
+  // Route through the DAO upsert so Drift encodes `created_at` as
   // seconds-since-epoch. The DAO uses `insertOnConflictUpdate` which preserves
   // the ON CONFLICT(id) DO UPDATE semantics of the previous raw insert.
   final deferredId = 'member_group_entries:$entityId';
@@ -687,8 +687,8 @@ Future<bool> _applyMemberGroupEntryFields(
   final legacyGroupId = _asString(fields['group_id']);
   final legacyMemberId = _asString(fields['member_id']);
 
-  // H1: when a PK UUID field is present on the payload, sender-local
-  // `group_id` / `member_id` become compatibility hints only (plan §5.2).
+  // When a PK UUID field is present on the payload, sender-local
+  // `group_id` / `member_id` become compatibility hints only.
   // Resolve PK UUIDs independently and defer if they miss — never fall
   // back to the sender's local ids for PK-present payloads.
   final pkGroupResolvedId = pkGroupUuid == null
@@ -893,7 +893,7 @@ Future<void> _recordPkGroupAliasIfNeeded(
     return;
   }
 
-  // H3: route through the DAO upsert so Drift encodes `created_at` as
+  // Route through the DAO upsert so Drift encodes `created_at` as
   // seconds-since-epoch. The DAO's insertOnConflictUpdate preserves the
   // original ON CONFLICT(legacy_entity_id) DO UPDATE semantics.
   await db.pkGroupSyncAliasesDao.upsertAlias(

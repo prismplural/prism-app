@@ -4,42 +4,9 @@ import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
-@visibleForTesting
-class AvatarPickRequest {
-  const AvatarPickRequest({
-    required this.source,
-    required this.maxWidth,
-    required this.maxHeight,
-    required this.imageQuality,
-  });
-
-  final ImageSource source;
-  final double maxWidth;
-  final double maxHeight;
-  final int imageQuality;
-}
-
-@visibleForTesting
-class AvatarCropRequest {
-  const AvatarCropRequest({
-    required this.sourcePath,
-    required this.maxWidth,
-    required this.maxHeight,
-    required this.compressQuality,
-    required this.title,
-    required this.doneButtonTitle,
-    required this.cancelButtonTitle,
-  });
-
-  final String sourcePath;
-  final int maxWidth;
-  final int maxHeight;
-  final int compressQuality;
-  final String title;
-  final String doneButtonTitle;
-  final String cancelButtonTitle;
-}
-
+/// What a picked raw image has to expose for the cropper step to run.
+///
+/// Tests substitute a fake; production wraps `XFile`.
 @visibleForTesting
 abstract interface class AvatarPickedImage {
   String get path;
@@ -47,52 +14,49 @@ abstract interface class AvatarPickedImage {
   Future<Uint8List> readAsBytes();
 }
 
+/// Bytes returned by the cropper step. Tests substitute a fake; production
+/// wraps `CroppedFile`.
 @visibleForTesting
 abstract interface class AvatarCroppedImage {
   Future<Uint8List> readAsBytes();
 }
 
+/// Injectable image picker. Only exists so widget tests can bypass the
+/// `image_picker` platform channel.
 @visibleForTesting
-abstract interface class AvatarImageSource {
-  Future<AvatarPickedImage?> pickImage(AvatarPickRequest request);
-}
+typedef AvatarPickImageFn = Future<AvatarPickedImage?> Function(
+  ImageSource source,
+);
 
+/// Injectable cropper. Only exists so widget tests can bypass the
+/// `image_cropper` platform channel.
 @visibleForTesting
-abstract interface class AvatarNativeCropper {
-  Future<AvatarCroppedImage?> cropImage(
-    AvatarCropRequest request, {
-    required BuildContext context,
-  });
-}
+typedef AvatarCropImageFn = Future<AvatarCroppedImage?> Function(
+  String sourcePath,
+  BuildContext context, {
+  required String title,
+  required String doneButtonTitle,
+  required String cancelButtonTitle,
+});
 
 /// Picks an avatar image and opens the native crop UI where the cropper plugin
 /// supports the current platform.
 class AvatarImagePicker {
   AvatarImagePicker._();
 
-  static final AvatarImageSource _imageSource = _ImagePickerAvatarSource();
-  static final AvatarNativeCropper _nativeCropper =
-      _ImageCropperAvatarNativeCropper();
-
-  static const double _pickerMaxDimension = 512;
   static const int _cropOutputSize = 512;
   static const int _quality = 85;
 
   static Future<Uint8List?> pickCroppedAvatarBytes(
     BuildContext context, {
     ImageSource source = ImageSource.gallery,
-    @visibleForTesting AvatarImageSource? imageSource,
-    @visibleForTesting AvatarNativeCropper? nativeCropper,
+    @visibleForTesting AvatarPickImageFn? pickImage,
+    @visibleForTesting AvatarCropImageFn? cropImage,
     @visibleForTesting TargetPlatform? platform,
   }) async {
-    final picked = await (imageSource ?? _imageSource).pickImage(
-      AvatarPickRequest(
-        source: source,
-        maxWidth: _pickerMaxDimension,
-        maxHeight: _pickerMaxDimension,
-        imageQuality: _quality,
-      ),
-    );
+    // Skip maxWidth/maxHeight/imageQuality here so image_picker passes the
+    // raw image through. The cropper performs a single resize + re-encode.
+    final picked = await (pickImage ?? _defaultPickImage)(source);
     if (picked == null) return null;
     if (!context.mounted) return null;
 
@@ -100,17 +64,12 @@ class AvatarImagePicker {
       return picked.readAsBytes();
     }
 
-    final cropped = await (nativeCropper ?? _nativeCropper).cropImage(
-      AvatarCropRequest(
-        sourcePath: picked.path,
-        maxWidth: _cropOutputSize,
-        maxHeight: _cropOutputSize,
-        compressQuality: _quality,
-        title: context.l10n.avatarCropTitle,
-        doneButtonTitle: context.l10n.done,
-        cancelButtonTitle: context.l10n.cancel,
-      ),
-      context: context,
+    final cropped = await (cropImage ?? _defaultCropImage)(
+      picked.path,
+      context,
+      title: context.l10n.avatarCropTitle,
+      doneButtonTitle: context.l10n.done,
+      cancelButtonTitle: context.l10n.cancel,
     );
 
     return cropped?.readAsBytes();
@@ -125,22 +84,61 @@ class AvatarImagePicker {
   }
 }
 
-class _ImagePickerAvatarSource implements AvatarImageSource {
-  _ImagePickerAvatarSource({ImagePicker? picker})
-    : _picker = picker ?? ImagePicker();
+Future<AvatarPickedImage?> _defaultPickImage(ImageSource source) async {
+  final picked = await ImagePicker().pickImage(source: source);
+  return picked == null ? null : _XFileAvatarPickedImage(picked);
+}
 
-  final ImagePicker _picker;
+Future<AvatarCroppedImage?> _defaultCropImage(
+  String sourcePath,
+  BuildContext context, {
+  required String title,
+  required String doneButtonTitle,
+  required String cancelButtonTitle,
+}) async {
+  final colors = Theme.of(context).colorScheme;
+  final cropped = await ImageCropper().cropImage(
+    sourcePath: sourcePath,
+    maxWidth: AvatarImagePicker._cropOutputSize,
+    maxHeight: AvatarImagePicker._cropOutputSize,
+    compressFormat: ImageCompressFormat.jpg,
+    compressQuality: AvatarImagePicker._quality,
+    aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+    uiSettings: [
+      AndroidUiSettings(
+        toolbarTitle: title,
+        toolbarColor: colors.surface,
+        toolbarWidgetColor: colors.onSurface,
+        activeControlsWidgetColor: colors.primary,
+        backgroundColor: colors.surface,
+        cropFrameColor: colors.primary,
+        cropGridColor: colors.onSurface.withValues(alpha: 0.32),
+        cropStyle: CropStyle.rectangle,
+        initAspectRatio: CropAspectRatioPreset.square,
+        lockAspectRatio: true,
+        hideBottomControls: true,
+      ),
+      IOSUiSettings(
+        title: title,
+        aspectRatioLockEnabled: true,
+        resetAspectRatioEnabled: false,
+        aspectRatioPickerButtonHidden: true,
+        rotateButtonsHidden: false,
+        rotateClockwiseButtonHidden: false,
+        doneButtonTitle: doneButtonTitle,
+        cancelButtonTitle: cancelButtonTitle,
+        aspectRatioPresets: const [CropAspectRatioPreset.square],
+      ),
+      if (kIsWeb)
+        WebUiSettings(
+          context: context,
+          presentStyle: WebPresentStyle.dialog,
+          size: const CropperSize(width: 480, height: 480),
+        ),
+    ],
+  );
 
-  @override
-  Future<AvatarPickedImage?> pickImage(AvatarPickRequest request) async {
-    final picked = await _picker.pickImage(
-      source: request.source,
-      maxWidth: request.maxWidth,
-      maxHeight: request.maxHeight,
-      imageQuality: request.imageQuality,
-    );
-    return picked == null ? null : _XFileAvatarPickedImage(picked);
-  }
+  return cropped == null ? null : _CroppedFileAvatarCroppedImage(cropped);
 }
 
 class _XFileAvatarPickedImage implements AvatarPickedImage {
@@ -153,63 +151,6 @@ class _XFileAvatarPickedImage implements AvatarPickedImage {
 
   @override
   Future<Uint8List> readAsBytes() => _file.readAsBytes();
-}
-
-class _ImageCropperAvatarNativeCropper implements AvatarNativeCropper {
-  _ImageCropperAvatarNativeCropper({ImageCropper? cropper})
-    : _cropper = cropper ?? ImageCropper();
-
-  final ImageCropper _cropper;
-
-  @override
-  Future<AvatarCroppedImage?> cropImage(
-    AvatarCropRequest request, {
-    required BuildContext context,
-  }) async {
-    final colors = Theme.of(context).colorScheme;
-    final cropped = await _cropper.cropImage(
-      sourcePath: request.sourcePath,
-      maxWidth: request.maxWidth,
-      maxHeight: request.maxHeight,
-      compressFormat: ImageCompressFormat.jpg,
-      compressQuality: request.compressQuality,
-      aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
-      uiSettings: [
-        AndroidUiSettings(
-          toolbarTitle: request.title,
-          toolbarColor: colors.surface,
-          toolbarWidgetColor: colors.onSurface,
-          activeControlsWidgetColor: colors.primary,
-          backgroundColor: colors.surface,
-          cropFrameColor: colors.primary,
-          cropGridColor: colors.onSurface.withValues(alpha: 0.32),
-          cropStyle: CropStyle.rectangle,
-          initAspectRatio: CropAspectRatioPreset.square,
-          lockAspectRatio: true,
-          hideBottomControls: true,
-        ),
-        IOSUiSettings(
-          title: request.title,
-          aspectRatioLockEnabled: true,
-          resetAspectRatioEnabled: false,
-          aspectRatioPickerButtonHidden: true,
-          rotateButtonsHidden: false,
-          rotateClockwiseButtonHidden: false,
-          doneButtonTitle: request.doneButtonTitle,
-          cancelButtonTitle: request.cancelButtonTitle,
-          aspectRatioPresets: const [CropAspectRatioPreset.square],
-        ),
-        if (kIsWeb)
-          WebUiSettings(
-            context: context,
-            presentStyle: WebPresentStyle.dialog,
-            size: const CropperSize(width: 480, height: 480),
-          ),
-      ],
-    );
-
-    return cropped == null ? null : _CroppedFileAvatarCroppedImage(cropped);
-  }
 }
 
 class _CroppedFileAvatarCroppedImage implements AvatarCroppedImage {

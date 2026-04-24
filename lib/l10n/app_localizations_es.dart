@@ -1152,6 +1152,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get systemInfoChangeAvatar => 'Cambiar avatar';
 
   @override
+  String get memberChangeAvatar => 'Cambiar avatar de integrante';
+
+  @override
   String get avatarCropTitle => 'Recortar avatar';
 
   @override
@@ -7279,6 +7282,55 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get mnemonicFieldInvalidQr =>
       'Código QR no válido. Escanea una frase de recuperación de 12 palabras.';
+
+  @override
+  String get mnemonicFieldCameraPermissionTitle =>
+      'Permiso de cámara necesario';
+
+  @override
+  String get mnemonicFieldCameraPermissionDeniedBody =>
+      'Prism necesita la cámara para escanear tu código QR de recuperación. Intenta de nuevo y permite el acceso a la cámara cuando se solicite.';
+
+  @override
+  String get mnemonicFieldCameraPermissionPermanentlyDeniedBody =>
+      'El acceso a la cámara está bloqueado. Abre Ajustes para conceder el permiso de cámara a Prism y vuelve a intentarlo.';
+
+  @override
+  String get mnemonicFieldCameraPermissionOpenSettings => 'Abrir Ajustes';
+
+  @override
+  String get pluralkitAutoSyncSection => 'Auto-sincronización';
+
+  @override
+  String get pluralkitAutoSyncTitle => 'Obtener cambios automáticamente';
+
+  @override
+  String get pluralkitAutoSyncDescription =>
+      'Mientras Prism esté abierto, consulta PluralKit para ver nuevos cambios de frente cada cierto intervalo. Se pausa en segundo plano.';
+
+  @override
+  String get pluralkitAutoSyncIntervalLabel => 'Consultar cada';
+
+  @override
+  String get pluralkitAutoSyncLoadFailed =>
+      'No se pudieron cargar los ajustes de auto-sincronización.';
+
+  @override
+  String get pluralkitRerunMemberMapping => 'Volver a vincular integrantes';
+
+  @override
+  String get pluralkitImportFromFile => 'Importar desde archivo pk;export';
+
+  @override
+  String get pluralkitMappingBannerTitle =>
+      'Un paso más: vincula a tus integrantes';
+
+  @override
+  String get pluralkitMappingBannerBody =>
+      'Estás conectado. Antes de activar la sincronización, empareja cada integrante de PluralKit con un integrante de Prism — o impórtalos como nuevos. Esto evita duplicados y mantiene el historial de fronts ligado a la persona correcta.';
+
+  @override
+  String get pluralkitMappingBannerButton => 'Vincular integrantes';
 
   @override
   String get sleepWakeUpMorning => '¡Buenos días!';

@@ -1516,6 +1516,10 @@
   "@systemInfoChangeAvatar": {
     "description": "Avatar action: change avatar"
   },
+  "memberChangeAvatar": "Change member avatar",
+  "@memberChangeAvatar": {
+    "description": "Semantic label for the member avatar change button"
+  },
   "avatarCropTitle": "Crop avatar",
   "@avatarCropTitle": {
     "description": "Title for the native avatar cropper"
@@ -7694,6 +7698,62 @@
   "mnemonicFieldInvalidQr": "Invalid QR code. Scan a 12-word recovery phrase.",
   "@mnemonicFieldInvalidQr": {
     "description": "Error shown when a scanned QR code does not contain a valid recovery phrase"
+  },
+  "mnemonicFieldCameraPermissionTitle": "Camera permission needed",
+  "@mnemonicFieldCameraPermissionTitle": {
+    "description": "Title shown when the user needs to grant camera access before the QR scanner can open"
+  },
+  "mnemonicFieldCameraPermissionDeniedBody": "Prism needs the camera to scan your recovery QR code. Try again and allow camera access when prompted.",
+  "@mnemonicFieldCameraPermissionDeniedBody": {
+    "description": "Body shown when the user denied camera access one time"
+  },
+  "mnemonicFieldCameraPermissionPermanentlyDeniedBody": "Camera access is blocked. Open Settings to grant Prism camera permission, then try again.",
+  "@mnemonicFieldCameraPermissionPermanentlyDeniedBody": {
+    "description": "Body shown when camera access is permanently denied or restricted"
+  },
+  "mnemonicFieldCameraPermissionOpenSettings": "Open Settings",
+  "@mnemonicFieldCameraPermissionOpenSettings": {
+    "description": "Button that deep-links to the OS app settings page so the user can grant camera permission"
+  },
+  "pluralkitAutoSyncSection": "Auto-sync",
+  "@pluralkitAutoSyncSection": {
+    "description": "PluralKit setup section heading for automatic polling"
+  },
+  "pluralkitAutoSyncTitle": "Pull new switches automatically",
+  "@pluralkitAutoSyncTitle": {
+    "description": "Title for the PluralKit auto-poll toggle"
+  },
+  "pluralkitAutoSyncDescription": "While Prism is open, check PluralKit for new switches on an interval. Pauses in the background.",
+  "@pluralkitAutoSyncDescription": {
+    "description": "Body for the PluralKit auto-poll toggle"
+  },
+  "pluralkitAutoSyncIntervalLabel": "Check every",
+  "@pluralkitAutoSyncIntervalLabel": {
+    "description": "Label for the PluralKit auto-poll interval chips"
+  },
+  "pluralkitAutoSyncLoadFailed": "Could not load auto-sync settings.",
+  "@pluralkitAutoSyncLoadFailed": {
+    "description": "Shown when PluralKit auto-poll settings fail to load"
+  },
+  "pluralkitRerunMemberMapping": "Re-run member mapping",
+  "@pluralkitRerunMemberMapping": {
+    "description": "Button label to re-open the PK member mapping flow"
+  },
+  "pluralkitImportFromFile": "Import from pk;export file",
+  "@pluralkitImportFromFile": {
+    "description": "Button label to import a PluralKit pk;export JSON file"
+  },
+  "pluralkitMappingBannerTitle": "One more step: link your members",
+  "@pluralkitMappingBannerTitle": {
+    "description": "Title for the post-connect mapping required banner"
+  },
+  "pluralkitMappingBannerBody": "You're connected. Before sync turns on, match each PluralKit member to a member in Prism — or import them as new. This prevents duplicates and keeps switch history attached to the right person.",
+  "@pluralkitMappingBannerBody": {
+    "description": "Body for the post-connect mapping required banner"
+  },
+  "pluralkitMappingBannerButton": "Link members",
+  "@pluralkitMappingBannerButton": {
+    "description": "Button label inside the mapping banner that opens the mapping flow"
   },
   "sleepWakeUpMorning": "Good morning!",
   "@sleepWakeUpMorning": {

@@ -126,7 +126,7 @@ class AppDatabase extends _$AppDatabase {
         current = 3;
       }
       if (current == 3 && to >= 4) {
-        // H3: three raw-SQL sites wrote ms-since-epoch into DateTimeColumn
+        // Three raw-SQL sites wrote ms-since-epoch into DateTimeColumn
         // fields that Drift decodes as seconds. Any value > 1e11 (year
         // 5138 AD in seconds) is almost certainly an ms value that should
         // be seconds. Divide in place so existing rows decode to the
