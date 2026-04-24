@@ -189,38 +189,31 @@ void main() {
       },
     );
 
-    test(
-      'startSleep ends a prior active sleep session',
-      () async {
-        final repo = FakeFrontingSessionRepository();
-        final priorSleep = FrontingSession(
-          id: 'sleep-old',
-          startTime: DateTime(2026, 3, 11, 0),
-          memberId: null,
-          sessionType: SessionType.sleep,
-        );
-        await repo.createSession(priorSleep);
+    test('startSleep ends a prior active sleep session', () async {
+      final repo = FakeFrontingSessionRepository();
+      final priorSleep = FrontingSession(
+        id: 'sleep-old',
+        startTime: DateTime(2026, 3, 11, 0),
+        memberId: null,
+        sessionType: SessionType.sleep,
+      );
+      await repo.createSession(priorSleep);
 
-        final svc = FrontingMutationService(
-          repository: repo,
-          mutationRunner: MutationRunner(
-            transactionRunner: _passthroughTransactionRunner,
-          ),
-        );
+      final svc = FrontingMutationService(
+        repository: repo,
+        mutationRunner: MutationRunner(
+          transactionRunner: _passthroughTransactionRunner,
+        ),
+      );
 
-        final result = await svc.startSleep(
-          startTime: DateTime(2026, 3, 11, 8),
-        );
+      final result = await svc.startSleep(startTime: DateTime(2026, 3, 11, 8));
 
-        expect(result.isSuccess, isTrue);
-        final endedPrior = repo.sessions
-            .where((s) => s.id == 'sleep-old')
-            .single;
-        expect(endedPrior.endTime, DateTime(2026, 3, 11, 8));
-        final newSleep = repo.sessions.where((s) => s.isSleep && s.isActive);
-        expect(newSleep, hasLength(1));
-      },
-    );
+      expect(result.isSuccess, isTrue);
+      final endedPrior = repo.sessions.where((s) => s.id == 'sleep-old').single;
+      expect(endedPrior.endTime, DateTime(2026, 3, 11, 8));
+      final newSleep = repo.sessions.where((s) => s.isSleep && s.isActive);
+      expect(newSleep, hasLength(1));
+    });
 
     test('endSleep sets endTime on a sleep session', () async {
       final repo = FakeFrontingSessionRepository();
@@ -318,53 +311,50 @@ void main() {
       expect(repo.sessions, hasLength(1));
     });
 
-    test(
-      'splitSession preserves sleep fields on both halves',
-      () async {
-        final repo = FakeFrontingSessionRepository();
-        final sleep = FrontingSession(
-          id: 'sleep-1',
-          startTime: DateTime(2026, 3, 11, 22),
-          endTime: DateTime(2026, 3, 12, 8),
-          memberId: null,
-          sessionType: SessionType.sleep,
-          quality: SleepQuality.good,
-          isHealthKitImport: true,
-        );
-        await repo.createSession(sleep);
+    test('splitSession preserves sleep fields on both halves', () async {
+      final repo = FakeFrontingSessionRepository();
+      final sleep = FrontingSession(
+        id: 'sleep-1',
+        startTime: DateTime(2026, 3, 11, 22),
+        endTime: DateTime(2026, 3, 12, 8),
+        memberId: null,
+        sessionType: SessionType.sleep,
+        quality: SleepQuality.good,
+        isHealthKitImport: true,
+      );
+      await repo.createSession(sleep);
 
-        final svc = FrontingMutationService(
-          repository: repo,
-          mutationRunner: MutationRunner(
-            transactionRunner: _passthroughTransactionRunner,
-          ),
-        );
+      final svc = FrontingMutationService(
+        repository: repo,
+        mutationRunner: MutationRunner(
+          transactionRunner: _passthroughTransactionRunner,
+        ),
+      );
 
-        final result = await svc.splitSession(
-          sessionId: 'sleep-1',
-          splitTime: DateTime(2026, 3, 12, 3),
-        );
-        expect(result.isSuccess, isTrue);
+      final result = await svc.splitSession(
+        sessionId: 'sleep-1',
+        splitTime: DateTime(2026, 3, 12, 3),
+      );
+      expect(result.isSuccess, isTrue);
 
-        final sessions = repo.sessions
-          ..sort((a, b) => a.startTime.compareTo(b.startTime));
-        expect(sessions, hasLength(2));
+      final sessions = repo.sessions
+        ..sort((a, b) => a.startTime.compareTo(b.startTime));
+      expect(sessions, hasLength(2));
 
-        final first = sessions[0];
-        final second = sessions[1];
+      final first = sessions[0];
+      final second = sessions[1];
 
-        expect(first.sessionType, SessionType.sleep);
-        expect(first.quality, SleepQuality.good);
-        expect(first.isHealthKitImport, isTrue);
-        expect(first.endTime, DateTime(2026, 3, 12, 3));
+      expect(first.sessionType, SessionType.sleep);
+      expect(first.quality, SleepQuality.good);
+      expect(first.isHealthKitImport, isTrue);
+      expect(first.endTime, DateTime(2026, 3, 12, 3));
 
-        expect(second.sessionType, SessionType.sleep);
-        expect(second.quality, SleepQuality.good);
-        expect(second.isHealthKitImport, isTrue);
-        expect(second.startTime, DateTime(2026, 3, 12, 3));
-        expect(second.endTime, DateTime(2026, 3, 12, 8));
-      },
-    );
+      expect(second.sessionType, SessionType.sleep);
+      expect(second.quality, SleepQuality.good);
+      expect(second.isHealthKitImport, isTrue);
+      expect(second.startTime, DateTime(2026, 3, 12, 3));
+      expect(second.endTime, DateTime(2026, 3, 12, 8));
+    });
 
     test('wakeUp ends a sleep session', () async {
       final repo = FakeFrontingSessionRepository();
@@ -444,9 +434,7 @@ void main() {
       expect(result.isSuccess, isTrue);
 
       // Sleep session should be ended with quality recorded
-      final endedSleep = repo.sessions
-          .where((s) => s.id == 'sleep-1')
-          .single;
+      final endedSleep = repo.sessions.where((s) => s.id == 'sleep-1').single;
       expect(endedSleep.endTime, isNotNull);
       expect(endedSleep.quality, SleepQuality.good);
 
@@ -480,7 +468,82 @@ void main() {
       final result = await svc.wakeUp('front-1');
       expect(result.isFailure, isTrue);
     });
+
+    test('repository sync payloads include raw PK member ids JSON', () async {
+      final recorded = <Map<String, Object?>>[];
+      final recordingRepo = _RecordingFrontingSessionRepository(
+        db.frontingSessionsDao,
+        null,
+        recorded,
+      );
+      final session = FrontingSession(
+        id: 'pk-session',
+        startTime: DateTime.utc(2026, 4, 23, 12),
+        memberId: 'local-a',
+        pkMemberIdsJson: '["pkA","pkB"]',
+      );
+
+      await recordingRepo.createSession(session);
+      await recordingRepo.updateSession(
+        session.copyWith(notes: 'updated', pkMemberIdsJson: '["pkA"]'),
+      );
+
+      expect(recorded, hasLength(2));
+      expect(recorded.first['operation'], 'create');
+      expect(recorded.first['table'], 'fronting_sessions');
+      expect(recorded.first['entityId'], 'pk-session');
+      expect(
+        (recorded.first['fields']!
+            as Map<String, dynamic>)['pk_member_ids_json'],
+        '["pkA","pkB"]',
+      );
+      expect(recorded.last['operation'], 'update');
+      expect(
+        (recorded.last['fields']!
+            as Map<String, dynamic>)['pk_member_ids_json'],
+        '["pkA"]',
+      );
+    });
   });
+}
+
+class _RecordingFrontingSessionRepository
+    extends DriftFrontingSessionRepository {
+  _RecordingFrontingSessionRepository(
+    super.dao,
+    super.syncHandle,
+    this.records,
+  );
+
+  final List<Map<String, Object?>> records;
+
+  @override
+  Future<void> syncRecordCreate(
+    String table,
+    String entityId,
+    Map<String, dynamic> fields,
+  ) async {
+    records.add({
+      'operation': 'create',
+      'table': table,
+      'entityId': entityId,
+      'fields': Map<String, dynamic>.from(fields),
+    });
+  }
+
+  @override
+  Future<void> syncRecordUpdate(
+    String table,
+    String entityId,
+    Map<String, dynamic> fields,
+  ) async {
+    records.add({
+      'operation': 'update',
+      'table': table,
+      'entityId': entityId,
+      'fields': Map<String, dynamic>.from(fields),
+    });
+  }
 }
 
 class _ThrowOnTargetUpdateRepository extends DriftFrontingSessionRepository {

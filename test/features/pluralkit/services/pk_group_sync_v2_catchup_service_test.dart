@@ -235,6 +235,51 @@ void main() {
     expect(second.alreadyCompleted, isTrue);
     expect(groupOps, hasLength(1));
   });
+
+  test('does not mark complete after emit failure and retries later', () async {
+    await db.systemSettingsDao.getSettings();
+    await db.systemSettingsDao.updatePkGroupSyncV2Enabled(true);
+    await db
+        .into(db.memberGroups)
+        .insert(
+          _group(
+            id: 'pk-group-local-1',
+            name: 'Cluster',
+            createdAt: DateTime.utc(2024, 1, 1),
+            pluralkitUuid: 'pk-group-1',
+          ),
+        );
+
+    var shouldThrow = true;
+    PkGroupSyncV2CatchupService flakyService() {
+      return PkGroupSyncV2CatchupService(
+        db: db,
+        recordGroupUpdate:
+            ({required table, required entityId, required fields}) async {
+              if (shouldThrow) throw StateError('temporary sync failure');
+              groupOps.add(_RecordedOp(table, entityId, fields));
+            },
+        recordEntryCreate:
+            ({required table, required entityId, required fields}) async {
+              entryOps.add(_RecordedOp(table, entityId, fields));
+            },
+      );
+    }
+
+    final first = await flakyService().runOnce();
+    final prefs = await SharedPreferences.getInstance();
+    expect(first.error, contains('temporary sync failure'));
+    expect(prefs.getBool(PkGroupSyncV2CatchupService.flagKey), isNot(isTrue));
+    expect(groupOps, isEmpty);
+
+    shouldThrow = false;
+    final second = await flakyService().runOnce();
+
+    expect(second.succeeded, isTrue);
+    expect(second.groupsEmitted, 1);
+    expect(groupOps.single.entityId, 'pk-group:pk-group-1');
+    expect(prefs.getBool(PkGroupSyncV2CatchupService.flagKey), isTrue);
+  });
 }
 
 class _RecordedOp {

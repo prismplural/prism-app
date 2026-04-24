@@ -218,6 +218,8 @@ class PkGroupRepairService {
           loserGroupIds: loserIds,
           canonicalPkGroupUuid: suspectedPkGroupUuid,
         );
+        await _memberGroupsDao.backfillActiveEntryPkReferences();
+        await _memberGroupsDao.canonicalizePkBackedEntryIds();
         await _aliasesDao.upsertAlias(
           legacyEntityId: group.id,
           pkGroupUuid: suspectedPkGroupUuid,
@@ -231,6 +233,8 @@ class PkGroupRepairService {
         groupId: group.id,
         pluralkitUuid: suspectedPkGroupUuid,
       );
+      await _memberGroupsDao.backfillActiveEntryPkReferences();
+      await _memberGroupsDao.canonicalizePkBackedEntryIds();
     });
   }
 

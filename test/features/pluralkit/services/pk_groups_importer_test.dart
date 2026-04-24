@@ -812,7 +812,26 @@ void main() {
     // First pull: member B not yet linked locally → entry deferred.
     final members = [_member(id: 'local-A', pkUuid: 'pk-A')];
     final repo = _FakeMemberRepo(members);
-    final importer = PkGroupsImporter(db: db, memberRepository: repo);
+    final creates = <Map<String, Object?>>[];
+    final updates = <Map<String, Object?>>[];
+    final importer = PkGroupsImporter(
+      db: db,
+      memberRepository: repo,
+      recordCreateOverride: (table, entityId, fields) async {
+        creates.add({
+          'table': table,
+          'entityId': entityId,
+          'fields': Map<String, dynamic>.from(fields),
+        });
+      },
+      recordUpdateOverride: (table, entityId, fields) async {
+        updates.add({
+          'table': table,
+          'entityId': entityId,
+          'fields': Map<String, dynamic>.from(fields),
+        });
+      },
+    );
 
     const pkGroup = PKGroup(
       id: 'abcde',
@@ -837,6 +856,19 @@ void main() {
     final g = (await db.memberGroupsDao.getAllActiveGroups()).single;
     final entries = await db.memberGroupsDao.entriesForGroup(g.id);
     expect(entries.map((e) => e.memberId).toSet(), {'local-A', 'local-B'});
+    final reattributedSyncCreate = creates.singleWhere(
+      (call) =>
+          call['table'] == 'member_group_entries' &&
+          call['entityId'] == PkGroupsImporter.deriveEntryId('pk-g-1', 'pk-B'),
+    );
+    expect(updates, isEmpty);
+    expect(reattributedSyncCreate['fields'], {
+      'group_id': g.id,
+      'member_id': 'local-B',
+      'pk_group_uuid': 'pk-g-1',
+      'pk_member_uuid': 'pk-B',
+      'is_deleted': false,
+    });
   });
 
   test(

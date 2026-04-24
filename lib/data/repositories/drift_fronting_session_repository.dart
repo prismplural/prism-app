@@ -21,9 +21,11 @@ class DriftFrontingSessionRepository
 
   static const _table = 'fronting_sessions';
 
-  DriftFrontingSessionRepository(this._dao, this._syncHandle,
-      {PluralKitSyncDao? pkSyncDao})
-      : _pkSyncDao = pkSyncDao;
+  DriftFrontingSessionRepository(
+    this._dao,
+    this._syncHandle, {
+    PluralKitSyncDao? pkSyncDao,
+  }) : _pkSyncDao = pkSyncDao;
 
   @override
   Future<List<domain.FrontingSession>> getAllSessions() async {
@@ -137,7 +139,9 @@ class DriftFrontingSessionRepository
   }
 
   @override
-  Stream<List<domain.FrontingSession>> watchRecentAllSessions({int limit = 30}) {
+  Stream<List<domain.FrontingSession>> watchRecentAllSessions({
+    int limit = 30,
+  }) {
     return _dao
         .watchRecentAllSessions(limit: limit)
         .map((rows) => rows.map(FrontingSessionMapper.toDomain).toList());
@@ -173,7 +177,8 @@ class DriftFrontingSessionRepository
     int? epoch;
     final pkDao = _pkSyncDao;
     final existing = await _dao.getSessionById(id);
-    final isLinked = existing != null &&
+    final isLinked =
+        existing != null &&
         existing.pluralkitUuid != null &&
         existing.pluralkitUuid!.isNotEmpty;
     if (pkDao != null && isLinked) {
@@ -196,17 +201,13 @@ class DriftFrontingSessionRepository
   @override
   Future<void> clearPluralKitLink(String id) async {
     await _dao.clearPluralKitLinkRaw(id);
-    await syncRecordUpdate(_table, id, {
-      'pluralkit_uuid': null,
-    });
+    await syncRecordUpdate(_table, id, {'pluralkit_uuid': null});
   }
 
   @override
   Future<void> stampDeletePushStartedAt(String id, int timestampMs) async {
     await _dao.stampDeletePushStartedAt(id, timestampMs);
-    await syncRecordUpdate(_table, id, {
-      'delete_push_started_at': timestampMs,
-    });
+    await syncRecordUpdate(_table, id, {'delete_push_started_at': timestampMs});
   }
 
   @override
@@ -221,13 +222,12 @@ class DriftFrontingSessionRepository
     int? startHour,
     int? endHour,
     int? withinDays,
-  }) =>
-      _dao.getMemberFrontingCounts(
-        recentLimit: recentLimit,
-        startHour: startHour,
-        endHour: endHour,
-        withinDays: withinDays,
-      );
+  }) => _dao.getMemberFrontingCounts(
+    recentLimit: recentLimit,
+    startHour: startHour,
+    endHour: endHour,
+    withinDays: withinDays,
+  );
 
   @override
   Future<List<domain.FrontingSession>> getSessionsBetween(
@@ -247,6 +247,7 @@ class DriftFrontingSessionRepository
       'notes': s.notes,
       'confidence': s.confidence?.index,
       'pluralkit_uuid': s.pluralkitUuid,
+      'pk_member_ids_json': s.pkMemberIdsJson,
       'session_type': s.sessionType.index,
       'quality': s.quality?.index,
       'is_health_kit_import': s.isHealthKitImport,

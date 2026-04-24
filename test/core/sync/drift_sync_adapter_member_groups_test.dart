@@ -681,6 +681,84 @@ void main() {
   });
 
   test(
+    'member writes retry deferred PK entries only when PK UUID changes',
+    () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      await _ensurePkGroupPhase1RuntimeSchema(db);
+
+      final entriesEntity = _entityFor(db, 'member_group_entries');
+      final groupsEntity = _entityFor(db, 'member_groups');
+      final membersEntity = _entityFor(db, 'members');
+      final now = DateTime.utc(2026, 4, 18, 12);
+
+      await groupsEntity.applyFields('pk-group:pk-group-1', {
+        'name': 'Imported',
+        'display_order': 0,
+        'group_type': 0,
+        'created_at': now.toIso8601String(),
+        'pluralkit_uuid': 'pk-group-1',
+        'is_deleted': false,
+      });
+
+      await entriesEntity.applyFields('entry-replay-on-pk-change', {
+        'pk_group_uuid': 'pk-group-1',
+        'pk_member_uuid': 'pk-member-1',
+        'is_deleted': false,
+      });
+
+      await membersEntity.applyFields('member-local-1', {
+        'name': 'Alice',
+        'emoji': '❔',
+        'is_active': true,
+        'created_at': now.toIso8601String(),
+        'display_order': 0,
+        'is_admin': false,
+        'custom_color_enabled': false,
+        'markdown_enabled': false,
+        'pluralkit_sync_ignored': false,
+        'pluralkit_uuid': null,
+        'is_deleted': false,
+      });
+
+      expect(
+        await (db.select(db.memberGroupEntries)
+              ..where((t) => t.id.equals('entry-replay-on-pk-change')))
+            .getSingleOrNull(),
+        isNull,
+      );
+      final deferredBeforePkLink = await db.pkGroupEntryDeferredSyncOpsDao
+          .getById('member_group_entries:entry-replay-on-pk-change');
+      expect(deferredBeforePkLink?.retryCount, 0);
+
+      await membersEntity.applyFields('member-local-1', {
+        'name': 'Alice',
+        'emoji': '❔',
+        'is_active': true,
+        'created_at': now.toIso8601String(),
+        'display_order': 0,
+        'is_admin': false,
+        'custom_color_enabled': false,
+        'markdown_enabled': false,
+        'pluralkit_sync_ignored': false,
+        'pluralkit_uuid': 'pk-member-1',
+        'is_deleted': false,
+      });
+
+      final applied = await (db.select(
+        db.memberGroupEntries,
+      )..where((t) => t.id.equals('entry-replay-on-pk-change'))).getSingle();
+      expect(applied.memberId, 'member-local-1');
+      expect(
+        await db.pkGroupEntryDeferredSyncOpsDao.getById(
+          'member_group_entries:entry-replay-on-pk-change',
+        ),
+        isNull,
+      );
+    },
+  );
+
+  test(
     'member_group_entries: hard delete cancels queued deferred replay',
     () async {
       final db = AppDatabase(NativeDatabase.memory());
