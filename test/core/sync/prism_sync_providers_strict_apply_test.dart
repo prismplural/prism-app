@@ -190,20 +190,96 @@ void main() {
       expect(c.isStrict, isFalse);
     });
 
-    test('signalFailure completes the in-flight future with error', () async {
+    test('signalFailure resolves outcome with ApplyOutcomeFailure', () async {
       final c = StrictApplyCoordinator();
       final future = c.enterStrictMode();
       c.signalFailure(const StrictApplyFailure(message: 'boom'));
-      await expectLater(future, throwsA(isA<StrictApplyFailure>()));
+      final outcome = await future;
+      expect(outcome, isA<ApplyOutcomeFailure>());
+      expect(
+        (outcome as ApplyOutcomeFailure).failure.message,
+        'boom',
+      );
       c.exitStrictMode();
     });
 
-    test('exitStrictMode completes a still-pending future successfully',
+    test('signalBatchComplete resolves outcome with success', () async {
+      final c = StrictApplyCoordinator();
+      final future = c.enterStrictMode();
+      c.signalBatchComplete();
+      final outcome = await future;
+      expect(outcome, isA<ApplyOutcomeSuccess>());
+      c.exitStrictMode();
+    });
+
+    test('exitStrictMode completes a still-pending outcome as success',
         () async {
       final c = StrictApplyCoordinator();
       final future = c.enterStrictMode();
       c.exitStrictMode();
-      await expectLater(future, completes);
+      final outcome = await future;
+      expect(outcome, isA<ApplyOutcomeSuccess>());
+    });
+
+    // Regression: reproduces the Future.any race the latch pattern fixes.
+    // If the failure signal is recorded BEFORE the awaiter is registered
+    // (as happens when bootstrap's synchronous prologue emits failing
+    // RemoteChanges before the joiner reaches its `await outcome`),
+    // the outcome must still observe the failure — no lost signals.
+    test('signalFailure before first await still observed', () async {
+      final c = StrictApplyCoordinator();
+      final future = c.enterStrictMode();
+      c.signalFailure(
+        const StrictApplyFailure(message: 'early', table: 'members'),
+      );
+      // Force a microtask hop to mimic the real caller awaiting something
+      // else first, then finally awaiting outcome.
+      await Future<void>.value();
+      final outcome = await future;
+      expect(outcome, isA<ApplyOutcomeFailure>());
+      expect((outcome as ApplyOutcomeFailure).failure.table, 'members');
+      c.exitStrictMode();
+    });
+
+    // Regression: first writer wins. Once signalFailure has resolved the
+    // latch, a later signalBatchComplete must not flip the outcome to
+    // success (or throw).
+    test('first signal wins — later signals are ignored', () async {
+      final c = StrictApplyCoordinator();
+      final future = c.enterStrictMode();
+      c.signalFailure(const StrictApplyFailure(message: 'first'));
+      c.signalBatchComplete(); // must be a no-op
+      c.signalFailure(const StrictApplyFailure(message: 'second'));
+      final outcome = await future;
+      expect(outcome, isA<ApplyOutcomeFailure>());
+      expect((outcome as ApplyOutcomeFailure).failure.message, 'first');
+      c.exitStrictMode();
+    });
+
+    test('outcome getter returns null when not in strict mode', () {
+      final c = StrictApplyCoordinator();
+      expect(c.outcome, isNull);
+      c.enterStrictMode();
+      expect(c.outcome, isNotNull);
+      c.exitStrictMode();
+      expect(c.outcome, isNull);
+    });
+
+    test('enterStrictMode resets the completer between attempts', () async {
+      final c = StrictApplyCoordinator();
+      // First attempt: signalled a failure, caller observed it.
+      final first = c.enterStrictMode();
+      c.signalFailure(const StrictApplyFailure(message: 'attempt-1'));
+      expect(await first, isA<ApplyOutcomeFailure>());
+      c.exitStrictMode();
+
+      // Second attempt: fresh completer — a new signalBatchComplete must
+      // resolve this completer, not the prior one.
+      final second = c.enterStrictMode();
+      expect(identical(first, second), isFalse);
+      c.signalBatchComplete();
+      expect(await second, isA<ApplyOutcomeSuccess>());
+      c.exitStrictMode();
     });
   });
 }
