@@ -5,7 +5,6 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:image_picker/image_picker.dart';
 
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
@@ -26,6 +25,7 @@ import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/utils/avatar_image_picker.dart';
 
 class SystemInfoScreen extends ConsumerStatefulWidget {
   const SystemInfoScreen({super.key});
@@ -95,8 +95,10 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
 
   void _scheduleDescriptionSave() {
     _descriptionSaveDebounce?.cancel();
-    _descriptionSaveDebounce =
-        Timer(const Duration(milliseconds: 300), _saveDescriptionNow);
+    _descriptionSaveDebounce = Timer(
+      const Duration(milliseconds: 300),
+      _saveDescriptionNow,
+    );
   }
 
   void _saveNameNow() {
@@ -124,21 +126,18 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
   }
 
   Future<void> _pickAvatar() async {
-    final picker = ImagePicker();
-    final image = await picker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 512,
-      maxHeight: 512,
-      imageQuality: 85,
-    );
-    if (image == null) return;
+    final bytes = await AvatarImagePicker.pickCroppedAvatarBytes(context);
+    if (bytes == null) return;
 
-    final bytes = await image.readAsBytes();
-    unawaited(ref.read(settingsNotifierProvider.notifier).updateSystemAvatarData(bytes));
+    unawaited(
+      ref.read(settingsNotifierProvider.notifier).updateSystemAvatarData(bytes),
+    );
   }
 
   Future<void> _removeAvatar() async {
-    unawaited(ref.read(settingsNotifierProvider.notifier).updateSystemAvatarData(null));
+    unawaited(
+      ref.read(settingsNotifierProvider.notifier).updateSystemAvatarData(null),
+    );
   }
 
   void _openColorPicker(BuildContext context, String? currentColorHex) {
@@ -176,9 +175,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                 .toRadixString(16)
                 .padLeft(6, '0')
                 .toLowerCase();
-            ref
-                .read(settingsNotifierProvider.notifier)
-                .updateSystemColor(hex);
+            ref.read(settingsNotifierProvider.notifier).updateSystemColor(hex);
           },
           label: l10n.systemInfoColorPickAction,
           tone: PrismButtonTone.filled,
@@ -214,8 +211,9 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
           final members = membersAsync.whenOrNull(data: (m) => m) ?? [];
           final Uint8List? avatarData = settings.systemAvatarData;
           final String? colorHex = settings.systemColor;
-          final Color? systemColor =
-              colorHex != null ? AppColors.fromHex(colorHex) : null;
+          final Color? systemColor = colorHex != null
+              ? AppColors.fromHex(colorHex)
+              : null;
           final theme = Theme.of(context);
           final l10n = context.l10n;
 
@@ -358,12 +356,16 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                             height: 32,
                             decoration: BoxDecoration(
                               shape: PrismShapes.of(context).avatarShape(),
-                              borderRadius: PrismShapes.of(context).avatarBorderRadius(),
-                              color: systemColor ??
+                              borderRadius: PrismShapes.of(
+                                context,
+                              ).avatarBorderRadius(),
+                              color:
+                                  systemColor ??
                                   theme.colorScheme.surfaceContainerHighest,
                               border: Border.all(
-                                color: theme.colorScheme.outline
-                                    .withValues(alpha: 0.3),
+                                color: theme.colorScheme.outline.withValues(
+                                  alpha: 0.3,
+                                ),
                                 width: 1,
                               ),
                             ),
@@ -388,7 +390,8 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                         ),
                         Semantics(
                           button: true,
-                          label: l10n.systemInfoColorPickAction +
+                          label:
+                              l10n.systemInfoColorPickAction +
                               (colorHex != null
                                   ? ', currently #$colorHex'
                                   : ', ${l10n.systemInfoColorNoneSet}'),
