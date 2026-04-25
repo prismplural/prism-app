@@ -133,6 +133,13 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
   }
 
   @override
+  Stream<List<domain.Member>> watchMembersByIds(List<String> ids) {
+    return _dao
+        .watchMembersByIds(ids)
+        .map((rows) => rows.map(MemberMapper.toDomain).toList());
+  }
+
+  @override
   Future<int> getCount() => _dao.getCount();
 
   domain.Member _normalizeMember(domain.Member member) {

@@ -560,4 +560,8 @@ class _NoopMemberRepository implements MemberRepository {
   @override
   Stream<member_domain.Member?> watchMemberById(String id) =>
       const Stream.empty();
+
+  @override
+  Stream<List<member_domain.Member>> watchMembersByIds(List<String> ids) =>
+      const Stream.empty();
 }

@@ -59,6 +59,10 @@ class _FakeMemberRepository implements MemberRepository {
   }
 
   @override
+  Stream<List<member_domain.Member>> watchMembersByIds(List<String> ids) =>
+      throw UnimplementedError();
+
+  @override
   Future<void> stampDeletePushStartedAt(String id, int timestampMs) {
     throw UnimplementedError();
   }

@@ -10,6 +10,7 @@ abstract class MemberRepository {
   Future<void> updateMember(domain.Member member);
   Future<void> deleteMember(String id);
   Future<List<domain.Member>> getMembersByIds(List<String> ids);
+  Stream<List<domain.Member>> watchMembersByIds(List<String> ids);
   Future<int> getCount();
 
   // -- Plan 02 (PK deletion push) ------------------------------------------
