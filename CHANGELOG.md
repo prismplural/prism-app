@@ -14,6 +14,7 @@ All notable changes to Prism will be documented in this file.
 - PluralKit concurrent sync (auto-poll firing alongside a manual sync) could crash with a SQLite unique constraint error; fixed with an `isSyncing` guard and a defensive catch at the insert site
 - PluralKit member display name (PK alias) is now shown as a subtitle in Prism rather than replacing the member's name
 - Android: removed deprecated bar color attributes in the avatar crop screen on SDK 35+
+- Android: dropped remaining custom theme attributes on the avatar crop screen for SDK 35+ — the previous strip-down still left `windowBackground` and `colorAccent` on `PrismUCropTheme`, which kept triggering crashes when opening the cropper on Android 16 stable. The activity now inherits a bare `Theme.AppCompat[.Light].NoActionBar` (matching the upstream uCrop sample) and brand colors are applied at call time via `AndroidUiSettings`, including the new `statusBarLight` / `navBarLight` properties for proper edge-to-edge contrast.
 
 ## [0.6.0] - 2026-04-24
 
