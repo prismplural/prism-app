@@ -1175,6 +1175,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                                         return Expanded(
                                           child: _NavBarItem(
                                             tab: tab,
+                                            terminologyPlural: terms.plural,
                                             isSelected: isSelected,
                                             accentColor: widget.accentColor,
                                             isDark: isDark,
@@ -1219,7 +1220,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
   Widget _buildOverflowSlot({
     required ({int index, AppShellTab tab})? slot,
     required double expandProgress,
-    required String? terminologyPlural,
+    required String terminologyPlural,
     required bool isDark,
     required bool showSyncBadge,
     required int dueCount,
@@ -1261,7 +1262,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
   Widget _buildOverflowRow({
     required List<({int index, AppShellTab tab})?> slots,
     required double expandProgress,
-    required String? terminologyPlural,
+    required String terminologyPlural,
     required bool isDark,
     required bool showSyncBadge,
     required int dueCount,
@@ -1515,7 +1516,7 @@ class _MoreTrigger extends StatelessWidget {
 class _NavBarItem extends StatelessWidget {
   const _NavBarItem({
     required this.tab,
-    this.terminologyPlural,
+    required this.terminologyPlural,
     required this.isSelected,
     required this.accentColor,
     required this.isDark,
@@ -1528,7 +1529,7 @@ class _NavBarItem extends StatelessWidget {
   });
 
   final AppShellTab tab;
-  final String? terminologyPlural;
+  final String terminologyPlural;
   final bool isSelected;
   final Color accentColor;
   final bool isDark;
