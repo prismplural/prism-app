@@ -19,7 +19,7 @@ mixin _$SystemSettings {
  AppThemeMode get themeMode;// New two-axis theme controls.
  ThemeBrightness get themeBrightness; ThemeStyle get themeStyle; CornerStyle get cornerStyle; bool get chatEnabled; bool get pollsEnabled; bool get habitsEnabled; bool get sleepTrackingEnabled; bool get gifSearchEnabled; bool get voiceNotesEnabled; bool get sleepSuggestionEnabled; int get sleepSuggestionHour; int get sleepSuggestionMinute; bool get wakeSuggestionEnabled; double get wakeSuggestionAfterHours; int get quickSwitchThresholdSeconds;// Sharing identity generation — incremented on DEK rotation
  int get identityGeneration; bool get chatLogsFront; bool get terminologyUseEnglish; bool get hasCompletedOnboarding; bool get syncThemeEnabled; bool get habitsBadgeEnabled; FrontingTimingMode get timingMode; bool get notesEnabled; String get previousAccentColorHex;// Phase 3: Synced settings
- String? get systemDescription; String? get systemColor; bool get pkGroupSyncV2Enabled;// Plan 04: synced PluralKit system profile tag.
+ String? get systemDescription; String? get systemColor; bool get pkGroupSyncV2Enabled;/// Synced PluralKit system profile tag.
  String? get systemTag;@JsonKey(fromJson: _uint8ListFromJson, toJson: _uint8ListToJson) Uint8List? get systemAvatarData; bool get remindersEnabled; String? get localeOverride;// Phase 3: Device-local settings
  GifConsentState get gifConsentState; double get fontScale; FontFamily get fontFamily; bool get pinLockEnabled; bool get biometricLockEnabled; int get autoLockDelaySeconds;// Display font in home app bar (device-local)
  bool get displayFontInAppBar;// Nav bar configuration (optionally synced)
@@ -318,7 +318,7 @@ class _SystemSettings implements SystemSettings {
 @override final  String? systemDescription;
 @override final  String? systemColor;
 @override@JsonKey() final  bool pkGroupSyncV2Enabled;
-// Plan 04: synced PluralKit system profile tag.
+/// Synced PluralKit system profile tag.
 @override final  String? systemTag;
 @override@JsonKey(fromJson: _uint8ListFromJson, toJson: _uint8ListToJson) final  Uint8List? systemAvatarData;
 @override@JsonKey() final  bool remindersEnabled;

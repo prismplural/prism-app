@@ -58,14 +58,6 @@ class _FakeMemberRepo implements MemberRepository {
   Future<void> stampDeletePushStartedAt(String id, int timestampMs) async {}
 }
 
-class _NoopClient implements PluralKitClient {
-  @override
-  Future<List<PKGroup>> getGroups({bool withMembers = true}) async => const [];
-
-  @override
-  noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
 domain.Member _member({required String id, String? pkUuid, String? pkId}) =>
     domain.Member(
       id: id,
@@ -127,7 +119,7 @@ void main() {
       ]);
       final importer = PkGroupsImporter(db: db, memberRepository: repo);
 
-      await importer.importGroups(_NoopClient(), [
+      await importer.importGroups([
         const PKGroup(
           id: 'abcde',
           uuid: 'pk-g-1',
@@ -147,7 +139,7 @@ void main() {
     final repo = _FakeMemberRepo([m]);
     final importer = PkGroupsImporter(db: db, memberRepository: repo);
 
-    final result = await importer.importGroups(_NoopClient(), [
+    final result = await importer.importGroups([
       const PKGroup(
         id: 'abcde',
         uuid: 'pk-g-1',
@@ -195,7 +187,7 @@ void main() {
       ]);
       final importer = PkGroupsImporter(db: db, memberRepository: repo);
 
-      final result = await importer.importGroups(_NoopClient(), [
+      final result = await importer.importGroups([
         const PKGroup(
           id: 'abcde',
           uuid: 'pk-g-1',
@@ -244,7 +236,7 @@ void main() {
         },
       );
 
-      await importer.importGroups(_NoopClient(), [
+      await importer.importGroups([
         const PKGroup(
           id: 'abcde',
           uuid: 'pk-g-1',
@@ -348,7 +340,7 @@ void main() {
         },
       );
 
-      await importer.importGroups(_NoopClient(), [
+      await importer.importGroups([
         const PKGroup(
           id: 'abcde',
           uuid: pkGroupUuid,
@@ -402,7 +394,7 @@ void main() {
         },
       );
 
-      final result = await importer.importGroups(_NoopClient(), [
+      final result = await importer.importGroups([
         const PKGroup(
           id: 'abcde',
           uuid: 'pk-g-1',
@@ -435,7 +427,7 @@ void main() {
     final repo = _FakeMemberRepo([_member(id: 'local-A', pkUuid: 'pk-A')]);
     final importer = PkGroupsImporter(db: db, memberRepository: repo);
 
-    final result = await importer.importGroups(_NoopClient(), [
+    final result = await importer.importGroups([
       const PKGroup(
         id: 'abcde',
         uuid: 'pk-g-1',
@@ -453,7 +445,7 @@ void main() {
     final repo = _FakeMemberRepo([_member(id: 'local-A', pkUuid: 'pk-A')]);
     final importer = PkGroupsImporter(db: db, memberRepository: repo);
 
-    await importer.importGroups(_NoopClient(), [
+    await importer.importGroups([
       const PKGroup(
         id: 'abcde',
         uuid: 'pk-g-1',
@@ -465,7 +457,7 @@ void main() {
     final localGroupId = initialGroups.single.id;
 
     // Second pull: memberIds = null (unknown).
-    final result = await importer.importGroups(_NoopClient(), [
+    final result = await importer.importGroups([
       const PKGroup(id: 'abcde', uuid: 'pk-g-1', name: 'Core', memberIds: null),
     ], overwriteMetadata: false);
     expect(result.groupsWithUnknownMembership, 1);
@@ -484,7 +476,7 @@ void main() {
       ]);
       final importer = PkGroupsImporter(db: db, memberRepository: repo);
 
-      await importer.importGroups(_NoopClient(), [
+      await importer.importGroups([
         const PKGroup(
           id: 'abcde',
           uuid: 'pk-g-1',
@@ -497,7 +489,7 @@ void main() {
       expect(entries, hasLength(2));
 
       // Re-import with only A; B should be removed.
-      final r = await importer.importGroups(_NoopClient(), [
+      final r = await importer.importGroups([
         const PKGroup(
           id: 'abcde',
           uuid: 'pk-g-1',
@@ -517,7 +509,7 @@ void main() {
       final repo = _FakeMemberRepo([]);
       final importer = PkGroupsImporter(db: db, memberRepository: repo);
 
-      await importer.importGroups(_NoopClient(), [
+      await importer.importGroups([
         const PKGroup(
           id: 'abcde',
           uuid: 'pk-g-1',
@@ -525,7 +517,7 @@ void main() {
           memberIds: [],
         ),
       ], overwriteMetadata: true);
-      await importer.importGroups(_NoopClient(), [
+      await importer.importGroups([
         const PKGroup(
           // Same 5-char, but different UUID (e.g. recycled).
           id: 'abcde',
@@ -547,7 +539,7 @@ void main() {
     final repo = _FakeMemberRepo([]);
     final importer = PkGroupsImporter(db: db, memberRepository: repo);
 
-    await importer.importGroups(_NoopClient(), [
+    await importer.importGroups([
       const PKGroup(id: 'abcde', uuid: 'pk-g-1', name: 'Core', memberIds: []),
     ], overwriteMetadata: true);
     var g = (await db.memberGroupsDao.getAllActiveGroups()).single;
@@ -556,7 +548,7 @@ void main() {
       const MemberGroupsCompanion(emoji: Value('🎨')),
     );
 
-    await importer.importGroups(_NoopClient(), [
+    await importer.importGroups([
       const PKGroup(id: 'abcde', uuid: 'pk-g-1', name: 'Core', memberIds: []),
     ], overwriteMetadata: true);
     g = (await db.memberGroupsDao.getAllActiveGroups()).single;
@@ -573,7 +565,7 @@ void main() {
       final repo = _FakeMemberRepo([]);
       final importer = PkGroupsImporter(db: db, memberRepository: repo);
 
-      await importer.importGroups(_NoopClient(), [
+      await importer.importGroups([
         const PKGroup(
           id: 'abcde',
           uuid: 'pk-g-1',
@@ -594,7 +586,7 @@ void main() {
       );
 
       // Background sync — PK has different values.
-      await importer.importGroups(_NoopClient(), [
+      await importer.importGroups([
         const PKGroup(
           id: 'abcde',
           uuid: 'pk-g-1',
@@ -642,7 +634,7 @@ void main() {
       },
     );
 
-    await importer.importGroups(_NoopClient(), [
+    await importer.importGroups([
       const PKGroup(
         id: 'abcde',
         uuid: 'pk-g-1',
@@ -655,7 +647,7 @@ void main() {
     updates.clear();
     deletes.clear();
 
-    await importer.importGroups(_NoopClient(), [
+    await importer.importGroups([
       const PKGroup(
         id: 'abcde',
         uuid: 'pk-g-1',
@@ -760,7 +752,7 @@ void main() {
         },
       );
 
-      await importer.importGroups(_NoopClient(), [
+      await importer.importGroups([
         const PKGroup(
           id: 'abcde',
           uuid: pkGroupUuid,
@@ -790,7 +782,7 @@ void main() {
       final repo = _FakeMemberRepo([]);
       final importer = PkGroupsImporter(db: db, memberRepository: repo);
 
-      await importer.importGroups(_NoopClient(), [
+      await importer.importGroups([
         const PKGroup(
           id: 'abcde',
           uuid: 'pk-g-1',
@@ -798,7 +790,7 @@ void main() {
           memberIds: [],
         ),
       ], overwriteMetadata: true);
-      await importer.importGroups(_NoopClient(), [
+      await importer.importGroups([
         const PKGroup(
           id: 'abcde',
           uuid: 'pk-g-1',
@@ -847,8 +839,8 @@ void main() {
       memberIds: ['pk-A'],
     );
 
-    await iA.importGroups(_NoopClient(), [pkGroup], overwriteMetadata: true);
-    await iB.importGroups(_NoopClient(), [pkGroup], overwriteMetadata: true);
+    await iA.importGroups([pkGroup], overwriteMetadata: true);
+    await iB.importGroups([pkGroup], overwriteMetadata: true);
 
     final gA = (await dbA.memberGroupsDao.getAllActiveGroups()).single;
     final gB = (await dbB.memberGroupsDao.getAllActiveGroups()).single;
@@ -902,7 +894,7 @@ void main() {
       memberIds: ['pk-A', 'pk-B'],
     );
 
-    final r1 = await importer.importGroups(_NoopClient(), [
+    final r1 = await importer.importGroups([
       pkGroup,
     ], overwriteMetadata: true);
     expect(r1.entriesDeferred, 1);
@@ -962,7 +954,7 @@ void main() {
             ),
           );
 
-      final result = await importer.importGroups(_NoopClient(), [
+      final result = await importer.importGroups([
         const PKGroup(
           id: 'abcde',
           uuid: 'pk-g-1',

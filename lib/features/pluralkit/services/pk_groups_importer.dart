@@ -193,7 +193,6 @@ class PkGroupsImporter with SyncRecordMixin {
   /// only membership is reconciled. When true (explicit re-import / user
   /// action), metadata is replaced with PK's values.
   Future<PkGroupsImportResult> importGroups(
-    PluralKitClient client,
     List<PKGroup> pkGroups, {
     bool overwriteMetadata = false,
   }) async {

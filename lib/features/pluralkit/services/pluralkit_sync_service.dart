@@ -713,26 +713,13 @@ class PluralKitSyncService {
 
       if (export.groups.isNotEmpty && _groupsImporter != null) {
         progress(0.40, 'Importing ${export.groups.length} groups…');
-        final client = await _buildClient();
-        if (client != null) {
-          try {
-            await _groupsImporter.importGroups(
-              client,
-              export.groups,
-              overwriteMetadata: true,
-            );
-          } catch (e) {
-            debugPrint('[PK_FILE] group import failed (non-fatal): $e');
-          } finally {
-            client.dispose();
-          }
-        } else {
-          // No token wired yet — groups import needs a client right now.
-          // Users who connect a token afterward will backfill groups via the
-          // normal sync path.
-          debugPrint(
-            '[PK_FILE] skipping ${export.groups.length} groups — no token yet',
+        try {
+          await _groupsImporter.importGroups(
+            export.groups,
+            overwriteMetadata: true,
           );
+        } catch (e) {
+          debugPrint('[PK_FILE] group import failed (non-fatal): $e');
         }
       }
 
@@ -1348,7 +1335,6 @@ class PluralKitSyncService {
     try {
       final pkGroups = await client.getGroups(withMembers: true);
       return await importer.importGroups(
-        client,
         pkGroups,
         overwriteMetadata: overwriteMetadata,
       );
@@ -1401,6 +1387,7 @@ class PluralKitSyncService {
               customColorHex: pk.color,
               customColorEnabled: pk.color != null && pk.color!.isNotEmpty,
               proxyTagsJson: pk.proxyTagsJson ?? localMember.proxyTagsJson,
+              pkBannerUrl: pk.bannerUrl ?? localMember.pkBannerUrl,
               pluralkitUuid: pk.uuid,
               pluralkitId: pk.id,
               avatarImageData: avatarData ?? localMember.avatarImageData,
@@ -1422,6 +1409,7 @@ class PluralKitSyncService {
               customColorHex: pk.color,
               customColorEnabled: pk.color != null && pk.color!.isNotEmpty,
               proxyTagsJson: pk.proxyTagsJson,
+              pkBannerUrl: pk.bannerUrl,
               pluralkitUuid: pk.uuid,
               pluralkitId: pk.id,
               avatarImageData: avatarData,
