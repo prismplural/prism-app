@@ -3,11 +3,11 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
-import 'package:sqlite3/sqlite3.dart' show SqliteException;
 import 'package:prism_sync/generated/api.dart' as ffi;
 
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/daos/member_groups_dao.dart';
+import 'package:prism_plurality/core/database/sqlite_constraint.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
@@ -436,10 +436,10 @@ class PkGroupsImporter with SyncRecordMixin {
               isDeleted: const Value(false),
             ),
           );
-        } on SqliteException catch (e) {
+        } catch (e) {
           // SQLITE_CONSTRAINT_UNIQUE (2067): concurrent sync already inserted
           // this entry. Treat as already-inserted.
-          if (e.resultCode != 2067) rethrow;
+          if (!isUniqueConstraintViolation(e)) rethrow;
         }
         inserted++;
         insertedEntries.add(
