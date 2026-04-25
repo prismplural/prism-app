@@ -2,13 +2,13 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
-import 'package:sqlite3/sqlite3.dart' show SqliteException;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:prism_plurality/core/services/secure_storage.dart'
     as storage_config;
 import 'package:prism_plurality/core/database/app_database.dart';
+import 'package:prism_plurality/core/database/sqlite_constraint.dart';
 import 'package:prism_plurality/core/database/daos/pk_mapping_state_dao.dart';
 import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart' as domain;
@@ -1485,10 +1485,10 @@ class PluralKitSyncService {
           pkMemberIdsJson: jsonEncode(sw.members),
         ),
       );
-    } on SqliteException catch (e) {
+    } catch (e) {
       // SQLITE_CONSTRAINT_UNIQUE (2067): a concurrent sync already inserted
       // this switch between our snapshot read and this INSERT. Treat as dup.
-      if (e.resultCode == 2067) return true;
+      if (isUniqueConstraintViolation(e)) return true;
       rethrow;
     }
 
