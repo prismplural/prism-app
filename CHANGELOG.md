@@ -4,6 +4,17 @@ All notable changes to Prism will be documented in this file.
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-04-25
+
+### Added
+- PluralKit member banner URL is now stored locally (UI to follow in a future release)
+
+### Fixed
+- PluralKit groups were silently dropped during file import when no API token was linked — they now always import from the file
+- PluralKit concurrent sync (auto-poll firing alongside a manual sync) could crash with a SQLite unique constraint error; fixed with an `isSyncing` guard and a defensive catch at the insert site
+- PluralKit member display name (PK alias) is now shown as a subtitle in Prism rather than replacing the member's name
+- Android: removed deprecated bar color attributes in the avatar crop screen on SDK 35+
+
 ## [0.6.0] - 2026-04-24
 
 ### Added
