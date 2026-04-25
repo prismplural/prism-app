@@ -459,7 +459,13 @@ class FrontingMutationService {
           coFronterIds: session.coFronterIds,
           confidence: session.confidence,
           notes: session.notes,
-          pluralkitUuid: session.pluralkitUuid,
+          // The PK link belongs to the original session — that row is the
+          // one that corresponds to the existing PluralKit switch UUID. The
+          // split-half is a new local segment with no matching PK switch yet;
+          // pushPendingSwitches will create one on the next push if the half
+          // qualifies (post-linkedAt). Sharing the UUID would violate the
+          // partial unique index on fronting_sessions(pluralkit_uuid).
+          pluralkitUuid: null,
           sessionType: session.sessionType,
           quality: session.quality,
           isHealthKitImport: session.isHealthKitImport,
