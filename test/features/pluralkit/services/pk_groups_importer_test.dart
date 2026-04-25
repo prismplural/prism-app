@@ -28,6 +28,10 @@ class _FakeMemberRepo implements MemberRepository {
       members.where((m) => ids.contains(m.id)).toList();
 
   @override
+  Stream<List<domain.Member>> watchMembersByIds(List<String> ids) =>
+      throw UnimplementedError();
+
+  @override
   Future<void> createMember(domain.Member m) async => members.add(m);
   @override
   Future<void> updateMember(domain.Member m) async {

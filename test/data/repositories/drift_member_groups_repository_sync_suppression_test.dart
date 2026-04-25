@@ -104,6 +104,10 @@ class _FakeMemberRepository implements MemberRepository {
       _members.where((member) => ids.contains(member.id)).toList();
 
   @override
+  Stream<List<member_domain.Member>> watchMembersByIds(List<String> ids) =>
+      throw UnimplementedError();
+
+  @override
   Future<void> stampDeletePushStartedAt(String id, int timestampMs) async {}
 
   @override

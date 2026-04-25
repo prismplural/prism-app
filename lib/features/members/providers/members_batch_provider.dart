@@ -9,12 +9,13 @@ import 'package:prism_plurality/domain/models/member.dart';
 /// `Set<String>` has reference equality, so we use a sorted comma-joined
 /// String key instead.
 final membersByIdsProvider =
-    FutureProvider.autoDispose.family<Map<String, Member>, String>((ref, idsKey) async {
-  if (idsKey.isEmpty) return {};
+    StreamProvider.autoDispose.family<Map<String, Member>, String>((ref, idsKey) {
+  if (idsKey.isEmpty) return Stream.value(<String, Member>{});
   final ids = idsKey.split(',');
   final repo = ref.watch(memberRepositoryProvider);
-  final members = await repo.getMembersByIds(ids);
-  return {for (final m in members) m.id: m};
+  return repo
+      .watchMembersByIds(ids)
+      .map((members) => {for (final m in members) m.id: m});
 });
 
 /// Helper to create a stable cache key from member IDs.

@@ -112,6 +112,9 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
   Future<List<Member>> getMembersByIds(List<String> ids) =>
       (select(members)..where((m) => m.id.isIn(ids))).get();
 
+  Stream<List<Member>> watchMembersByIds(List<String> ids) =>
+      (select(members)..where((m) => m.id.isIn(ids))).watch();
+
   Future<List<Member>> getSubsystemMembers(String parentId) =>
       (select(members)
             ..where((m) =>

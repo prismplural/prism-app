@@ -29,6 +29,10 @@ class _FakeMemberRepository implements MemberRepository {
   }
 
   @override
+  Stream<List<member_domain.Member>> watchMembersByIds(List<String> ids) =>
+      throw UnimplementedError();
+
+  @override
   Future<List<member_domain.Member>> getAllMembers() async {
     return _membersById.values.toList();
   }

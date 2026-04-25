@@ -81,6 +81,13 @@ class FakeMemberRepository implements MemberRepository {
   }
 
   @override
+  Stream<List<Member>> watchMembersByIds(List<String> ids) {
+    return Stream.value(
+      _members.where((member) => ids.contains(member.id)).toList(),
+    );
+  }
+
+  @override
   Future<int> getCount() async => _members.length;
 
   @override
