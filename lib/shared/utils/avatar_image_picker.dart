@@ -97,6 +97,10 @@ Future<AvatarCroppedImage?> _defaultCropImage(
   required String cancelButtonTitle,
 }) async {
   final colors = Theme.of(context).colorScheme;
+  final isLightSurface = ThemeData.estimateBrightnessForColor(
+        colors.surface,
+      ) ==
+      Brightness.light;
   final cropped = await ImageCropper().cropImage(
     sourcePath: sourcePath,
     maxWidth: AvatarImagePicker._cropOutputSize,
@@ -109,6 +113,8 @@ Future<AvatarCroppedImage?> _defaultCropImage(
         toolbarTitle: title,
         toolbarColor: colors.surface,
         toolbarWidgetColor: colors.onSurface,
+        statusBarLight: isLightSurface,
+        navBarLight: isLightSurface,
         activeControlsWidgetColor: colors.primary,
         backgroundColor: colors.surface,
         cropFrameColor: colors.primary,
