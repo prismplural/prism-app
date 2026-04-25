@@ -47,6 +47,13 @@ class DriftNotesRepository
   }
 
   @override
+  Stream<domain.Note?> watchNoteById(String id) {
+    return _dao
+        .watchNoteById(id)
+        .map((row) => row != null ? NoteMapper.toDomain(row) : null);
+  }
+
+  @override
   Future<void> createNote(domain.Note note) async {
     final companion = NoteMapper.toCompanion(note);
     await _dao.createNote(companion);

@@ -33,6 +33,9 @@ class NotesDao extends DatabaseAccessor<AppDatabase> with _$NotesDaoMixin {
   Future<NoteRow?> getNoteById(String id) =>
       (select(notes)..where((n) => n.id.equals(id))).getSingleOrNull();
 
+  Stream<NoteRow?> watchNoteById(String id) =>
+      (select(notes)..where((n) => n.id.equals(id))).watchSingleOrNull();
+
   Future<int> createNote(NotesCompanion companion) =>
       into(notes).insert(companion);
 

@@ -6,6 +6,7 @@ abstract class NotesRepository {
       {int limit = 5});
   Stream<List<domain.Note>> watchAllNotes();
   Future<domain.Note?> getNoteById(String id);
+  Stream<domain.Note?> watchNoteById(String id);
   Future<void> createNote(domain.Note note);
   Future<void> updateNote(domain.Note note);
   Future<void> deleteNote(String id);

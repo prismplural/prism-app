@@ -22,7 +22,7 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 
 /// Provider to watch a single note by ID.
 final noteByIdProvider =
-    StreamProvider.autoDispose.family<Note?, String>((ref, id) async* {
+    StreamProvider.autoDispose.family<Note?, String>((ref, id) {
   final link = ref.keepAlive();
   Timer? timer;
   ref.onDispose(() => timer?.cancel());
@@ -31,8 +31,7 @@ final noteByIdProvider =
   });
   ref.onResume(() => timer?.cancel());
   final repo = ref.watch(notesRepositoryProvider);
-  final note = await repo.getNoteById(id);
-  yield note;
+  return repo.watchNoteById(id);
 });
 
 /// Full-screen detail view for a single note.
