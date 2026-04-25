@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/members/utils/member_search_groups.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
-import 'package:prism_plurality/shared/widgets/member_avatar.dart';
-import 'package:prism_plurality/shared/widgets/prism_select.dart';
+import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
+import 'package:prism_plurality/shared/widgets/selected_member_picker.dart';
 
-/// Reusable member selection dropdown.
+/// Reusable member selector.
 ///
-/// Shows a [PrismSelect] populated with active system members.
-/// Each item can render an avatar, emoji, and optional pronouns.
+/// Shows the selected member summary and opens [MemberSearchSheet] to choose
+/// from active system members.
 /// Optionally includes an "Unknown" option at the top when [includeUnknown]
 /// is true.
 class HeadmatePicker extends ConsumerWidget {
@@ -44,60 +46,78 @@ class HeadmatePicker extends ConsumerWidget {
     final membersAsync = ref.watch(activeMembersProvider);
 
     return membersAsync.when(
-      loading: () => const SizedBox(
-        height: 56,
-        child: PrismLoadingState(),
-      ),
+      loading: () => const SizedBox(height: 56, child: PrismLoadingState()),
       error: (e, _) => Text(
-        context.l10n.errorLoadingMembers(readTerminology(context, ref).pluralLower, e),
+        context.l10n.errorLoadingMembers(
+          readTerminology(context, ref).pluralLower,
+          e,
+        ),
       ),
       data: (members) {
         final filtered = members
             .where((m) => !excludeIds.contains(m.id))
             .toList();
         final effectiveLabel = label ?? watchTerminology(context, ref).singular;
-        const unknownLeading = Text('\u2753', style: TextStyle(fontSize: 18));
+        final terminology = readTerminology(context, ref);
+        final searchGroups = watchMemberSearchGroups(ref, filtered);
 
-        return PrismSelect<String?>(
-          value: selectedMemberId,
-          labelText: effectiveLabel,
-          items: [
-            if (includeUnknown)
-              PrismSelectItem<String?>(
-                value: null,
-                label: context.l10n.unknown,
-                leading: unknownLeading,
-                fieldLeading: unknownLeading,
-              ),
-            ...filtered.map(
-              (member) => PrismSelectItem<String?>(
-                value: member.id,
-                label: member.name,
-                subtitle: member.pronouns != null && member.pronouns!.isNotEmpty
-                    ? member.pronouns
-                    : null,
-                leading: MemberAvatar(
-                  avatarImageData: member.avatarImageData,
-                  memberName: member.name,
-                  emoji: member.emoji,
-                  customColorEnabled: member.customColorEnabled,
-                  customColorHex: member.customColorHex,
-                  size: 28,
-                ),
-                fieldLeading: MemberAvatar(
-                  avatarImageData: member.avatarImageData,
-                  memberName: member.name,
-                  emoji: member.emoji,
-                  customColorEnabled: member.customColorEnabled,
-                  customColorHex: member.customColorHex,
-                  size: 24,
-                ),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(effectiveLabel, style: Theme.of(context).textTheme.labelLarge),
+            const SizedBox(height: 8),
+            SelectedMemberPicker(
+              selectedMemberId: selectedMemberId,
+              includeUnknown: includeUnknown,
+              unknownSelected: includeUnknown && selectedMemberId == null,
+              members: filtered,
+              onPressed: () => _openSearch(
+                context,
+                filtered,
+                terminology.plural,
+                context.l10n.selectMember(terminology.singular),
+                searchGroups,
               ),
             ),
           ],
-          onChanged: onSelected,
         );
       },
     );
+  }
+
+  Future<void> _openSearch(
+    BuildContext context,
+    List<Member> members,
+    String termPlural,
+    String title,
+    List<MemberSearchGroup> groups,
+  ) async {
+    final result = await MemberSearchSheet.showSingle(
+      context,
+      members: members,
+      termPlural: termPlural,
+      title: title,
+      groups: groups,
+      specialRows: [
+        if (includeUnknown)
+          MemberSearchSpecialRow(
+            rowKey: '__unknown__',
+            title: context.l10n.unknown,
+            leading: const Text('\u2753', style: TextStyle(fontSize: 18)),
+            result: const MemberSearchResultUnknown(),
+          ),
+      ],
+    );
+
+    if (!context.mounted) return;
+    switch (result) {
+      case MemberSearchResultSelected(:final memberId):
+        onSelected(memberId);
+      case MemberSearchResultUnknown():
+      case MemberSearchResultCleared():
+        onSelected(null);
+      case MemberSearchResultDismissed():
+        break;
+    }
   }
 }
