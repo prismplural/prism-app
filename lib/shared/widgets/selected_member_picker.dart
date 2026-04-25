@@ -96,15 +96,14 @@ class _SelectedMemberPickerBody extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Align(
-          alignment: Alignment.centerRight,
-          child: _PickerAddButton(onPressed: onPressed),
-        ),
-        const SizedBox(height: 8),
         if (includeUnknown && unknownSelected)
-          const _SelectedUnknownTile()
+          _SelectedUnknownTile(onPressed: onPressed)
         else if (selected != null)
-          _SelectedMemberTile(member: selected, showPronouns: showPronouns),
+          _SelectedMemberTile(
+            member: selected,
+            showPronouns: showPronouns,
+            onPressed: onPressed,
+          ),
       ],
     );
   }
@@ -250,88 +249,122 @@ class _PickerAddButton extends StatelessWidget {
 }
 
 class _SelectedMemberTile extends StatelessWidget {
-  const _SelectedMemberTile({required this.member, required this.showPronouns});
+  const _SelectedMemberTile({
+    required this.member,
+    required this.showPronouns,
+    this.onPressed,
+  });
 
   final Member member;
   final bool showPronouns;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final radius = BorderRadius.circular(PrismShapes.of(context).radius(16));
     return DecoratedBox(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(
-          alpha: 0.55,
-        ),
-        borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(16)),
-        border: Border.all(
-          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: Row(
-          children: [
-            MemberAvatar(
-              avatarImageData: member.avatarImageData,
-              memberName: member.name,
-              emoji: member.emoji,
-              customColorEnabled: member.customColorEnabled,
-              customColorHex: member.customColorHex,
-              size: 40,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(member.name, style: theme.textTheme.titleSmall),
-                  if (showPronouns && member.pronouns != null)
-                    Text(
-                      member.pronouns!,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
+      decoration: _selectedTileDecoration(theme, radius),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: radius,
+          onTap: onPressed,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              children: [
+                MemberAvatar(
+                  avatarImageData: member.avatarImageData,
+                  memberName: member.name,
+                  emoji: member.emoji,
+                  customColorEnabled: member.customColorEnabled,
+                  customColorHex: member.customColorHex,
+                  size: 40,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(member.name, style: theme.textTheme.titleSmall),
+                      if (showPronouns && member.pronouns != null)
+                        Text(
+                          member.pronouns!,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                if (onPressed != null) ...[
+                  const SizedBox(width: 12),
+                  Icon(
+                    AppIcons.chevronRight,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ],
-              ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
   }
 }
 
+BoxDecoration _selectedTileDecoration(
+  ThemeData theme,
+  BorderRadius borderRadius,
+) {
+  return BoxDecoration(
+    color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
+    borderRadius: borderRadius,
+    border: Border.all(
+      color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+    ),
+  );
+}
+
 class _SelectedUnknownTile extends StatelessWidget {
-  const _SelectedUnknownTile();
+  const _SelectedUnknownTile({this.onPressed});
+
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final radius = BorderRadius.circular(PrismShapes.of(context).radius(16));
     return DecoratedBox(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(
-          alpha: 0.55,
-        ),
-        borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(16)),
-        border: Border.all(
-          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: Row(
-          children: [
-            const MemberAvatar(emoji: '\u2754', size: 40),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                context.l10n.unknown,
-                style: theme.textTheme.titleSmall,
-              ),
+      decoration: _selectedTileDecoration(theme, radius),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: radius,
+          onTap: onPressed,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              children: [
+                const MemberAvatar(emoji: '\u2754', size: 40),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    context.l10n.unknown,
+                    style: theme.textTheme.titleSmall,
+                  ),
+                ),
+                if (onPressed != null) ...[
+                  const SizedBox(width: 12),
+                  Icon(
+                    AppIcons.chevronRight,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ],
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
