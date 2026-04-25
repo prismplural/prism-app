@@ -1,11 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Android 15+ enforces edge-to-edge: status/nav bars float over content,
-         so statusBarColor and navigationBarColor are no-ops. Strip them here;
-         windowLightStatusBar is also redundant (parent Theme.AppCompat
-         already defaults to false). Keep windowBackground and colorAccent. -->
-    <style name="PrismUCropTheme" parent="Theme.AppCompat.NoActionBar">
-        <item name="android:windowBackground">#121016</item>
-        <item name="android:colorAccent">#A78BFA</item>
-    </style>
+    <!-- See values-v35/styles.xml for rationale. Inherit AppCompat with no
+         overrides; uCrop and AndroidUiSettings drive the look. -->
+    <style name="PrismUCropTheme" parent="Theme.AppCompat.NoActionBar" />
 </resources>
