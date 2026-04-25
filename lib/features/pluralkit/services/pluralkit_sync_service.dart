@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
+import 'package:sqlite3/sqlite3.dart' show SqliteException;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:uuid/uuid.dart';
 
@@ -518,18 +519,23 @@ class PluralKitSyncService {
         'Mapping pending — complete the mapping flow before auto-syncing.',
       );
     }
+    if (_state.isSyncing) return;
+    _emit(
+      _state.copyWith(
+        isSyncing: true,
+        syncProgress: 0.0,
+        syncStatus: 'Fetching system info...',
+        clearError: true,
+      ),
+    );
+
     final client = await _buildClient();
-    if (client == null) throw StateError('Not connected');
+    if (client == null) {
+      _emit(_state.copyWith(isSyncing: false));
+      throw StateError('Not connected');
+    }
 
     try {
-      _emit(
-        _state.copyWith(
-          isSyncing: true,
-          syncProgress: 0.0,
-          syncStatus: 'Fetching system info...',
-          clearError: true,
-        ),
-      );
 
       // -- Members (0-10%) --
       await client.getSystem();
@@ -901,6 +907,9 @@ class PluralKitSyncService {
         'Mapping pending — complete the mapping flow before auto-syncing.',
       );
     }
+    // Claim isSyncing before the first await so no concurrent caller can
+    // slip through the flag check during an await gap.
+    if (_state.isSyncing) return null;
     if (_state.lastSyncDate == null) {
       // Never synced before — perform full import
       await performFullImport();
@@ -917,18 +926,22 @@ class PluralKitSyncService {
       return null;
     }
 
+    _emit(
+      _state.copyWith(
+        isSyncing: true,
+        syncProgress: 0.0,
+        syncStatus: 'Syncing recent changes...',
+        clearError: true,
+      ),
+    );
+
     final client = await _buildClient();
-    if (client == null) throw StateError('Not connected');
+    if (client == null) {
+      _emit(_state.copyWith(isSyncing: false));
+      throw StateError('Not connected');
+    }
 
     try {
-      _emit(
-        _state.copyWith(
-          isSyncing: true,
-          syncProgress: 0.0,
-          syncStatus: 'Syncing recent changes...',
-          clearError: true,
-        ),
-      );
 
       // Build PK ID -> local member ID map
       final allMembers = await _memberRepository.getAllMembers();
@@ -1472,17 +1485,24 @@ class PluralKitSyncService {
       pkIdToLocalId,
     );
 
-    await _frontingSessionRepository.createSession(
-      domain.FrontingSession(
-        id: _uuid.v4(),
-        startTime: sw.timestamp,
-        endTime: endTime,
-        memberId: primaryMemberId,
-        coFronterIds: coFronterLocalIds,
-        pluralkitUuid: sw.id,
-        pkMemberIdsJson: jsonEncode(sw.members),
-      ),
-    );
+    try {
+      await _frontingSessionRepository.createSession(
+        domain.FrontingSession(
+          id: _uuid.v4(),
+          startTime: sw.timestamp,
+          endTime: endTime,
+          memberId: primaryMemberId,
+          coFronterIds: coFronterLocalIds,
+          pluralkitUuid: sw.id,
+          pkMemberIdsJson: jsonEncode(sw.members),
+        ),
+      );
+    } on SqliteException catch (e) {
+      // SQLITE_CONSTRAINT_UNIQUE (2067): a concurrent sync already inserted
+      // this switch between our snapshot read and this INSERT. Treat as dup.
+      if (e.resultCode == 2067) return true;
+      rethrow;
+    }
 
     return false;
   }
@@ -1566,18 +1586,23 @@ class PluralKitSyncService {
     if (!_state.isConnected) {
       throw StateError('Not connected — cannot import switch history');
     }
+    if (_state.isSyncing) return;
+    _emit(
+      _state.copyWith(
+        isSyncing: true,
+        syncProgress: 0.0,
+        syncStatus: 'Fetching PK switch history...',
+        clearError: true,
+      ),
+    );
+
     final client = await _buildClient();
-    if (client == null) throw StateError('Not connected');
+    if (client == null) {
+      _emit(_state.copyWith(isSyncing: false));
+      throw StateError('Not connected');
+    }
 
     try {
-      _emit(
-        _state.copyWith(
-          isSyncing: true,
-          syncProgress: 0.0,
-          syncStatus: 'Fetching PK switch history...',
-          clearError: true,
-        ),
-      );
 
       final allMembers = await _memberRepository.getAllMembers();
       final pkIdToLocalId = <String, String>{};
@@ -2134,6 +2159,7 @@ class PluralKitSyncService {
   /// otherwise. Errors are swallowed with a debugPrint.
   Future<bool> pollFrontersOnly() async {
     if (!_state.canAutoSync) return false;
+    if (_state.isSyncing) return false;
     final client = await _buildClient();
     if (client == null) return false;
 

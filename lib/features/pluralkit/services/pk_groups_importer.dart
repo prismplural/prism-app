@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
+import 'package:sqlite3/sqlite3.dart' show SqliteException;
 import 'package:prism_sync/generated/api.dart' as ffi;
 
 import 'package:prism_plurality/core/database/app_database.dart';
@@ -425,16 +426,22 @@ class PkGroupsImporter with SyncRecordMixin {
 
         final entryId = deriveEntryId(groupPkUuid, pkMemberUuid);
         final existedBefore = entries.any((e) => e.id == entryId);
-        await _dao.upsertEntry(
-          MemberGroupEntriesCompanion.insert(
-            id: entryId,
-            groupId: groupLocalId,
-            memberId: localMemberId,
-            pkGroupUuid: Value(groupPkUuid),
-            pkMemberUuid: Value(pkMemberUuid),
-            isDeleted: const Value(false),
-          ),
-        );
+        try {
+          await _dao.upsertEntry(
+            MemberGroupEntriesCompanion.insert(
+              id: entryId,
+              groupId: groupLocalId,
+              memberId: localMemberId,
+              pkGroupUuid: Value(groupPkUuid),
+              pkMemberUuid: Value(pkMemberUuid),
+              isDeleted: const Value(false),
+            ),
+          );
+        } on SqliteException catch (e) {
+          // SQLITE_CONSTRAINT_UNIQUE (2067): concurrent sync already inserted
+          // this entry. Treat as already-inserted.
+          if (e.resultCode != 2067) rethrow;
+        }
         inserted++;
         insertedEntries.add(
           _SyncedEntry(
