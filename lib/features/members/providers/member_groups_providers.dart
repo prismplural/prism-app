@@ -256,7 +256,15 @@ final groupedMemberListProvider =
           group: item.group, depth: item.depth, isCollapsed: isCollapsed));
       if (isCollapsed) hiddenAtDepth = item.depth;
     } else if (item is MemberRowItem) {
-      if (hiddenAtDepth != null) continue;
+      if (hiddenAtDepth != null) {
+        // Member row inside a collapsed subtree (same depth as collapsed
+        // section = the collapsed group's own members; greater depth = a
+        // descendant's members). Both should be hidden.
+        if (item.depth >= hiddenAtDepth) continue;
+        // Shallower depth means we've resurfaced to an ancestor's direct
+        // members — those are emitted after the subtree in DFS order.
+        hiddenAtDepth = null;
+      }
       result.add(item);
     } else if (item is UngroupedSectionItem) {
       hiddenAtDepth = null;
