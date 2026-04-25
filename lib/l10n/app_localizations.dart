@@ -9639,7 +9639,7 @@ abstract class AppLocalizations {
   /// Hint for the export password field
   ///
   /// In en, this message translates to:
-  /// **'Use a passphrase of 15+ words for best protection'**
+  /// **'At least 12 characters — a long passphrase is best'**
   String get dataManagementPasswordHint;
 
   /// Tooltip to show the password

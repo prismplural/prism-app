@@ -5935,7 +5935,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get dataManagementPasswordHint =>
-      'Usa una frase de 15+ palabras para mayor protección';
+      'Al menos 12 caracteres — una frase larga es mejor';
 
   @override
   String get dataManagementShowPassword => 'Mostrar contraseña';

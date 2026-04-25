@@ -1340,7 +1340,7 @@
   "dataManagementMayTakeMoment": "Esto puede tardar un momento.",
   "dataManagementPasswordEmpty": "La contraseña no puede estar vacía",
   "dataManagementPasswordEmptyImport": "La contraseña no puede estar vacía",
-  "dataManagementPasswordHint": "Usa una frase de 15+ palabras para mayor protección",
+  "dataManagementPasswordHint": "Al menos 12 caracteres — una frase larga es mejor",
   "dataManagementPasswordLabel": "Contraseña",
   "dataManagementPasswordMismatch": "Las contraseñas no coinciden",
   "dataManagementPasswordTooShort": "La contraseña debe tener al menos 12 caracteres",

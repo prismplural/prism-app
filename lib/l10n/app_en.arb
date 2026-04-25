@@ -6674,7 +6674,7 @@
   "@dataManagementUnencryptedWarning": { "description": "Warning about unencrypted exports" },
   "dataManagementPasswordLabel": "Password",
   "@dataManagementPasswordLabel": { "description": "Label for the export password field" },
-  "dataManagementPasswordHint": "Use a passphrase of 15+ words for best protection",
+  "dataManagementPasswordHint": "At least 12 characters — a long passphrase is best",
   "@dataManagementPasswordHint": { "description": "Hint for the export password field" },
   "dataManagementShowPassword": "Show password",
   "@dataManagementShowPassword": { "description": "Tooltip to show the password" },
