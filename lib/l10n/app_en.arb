@@ -4188,6 +4188,10 @@
   "@chatInfoArchiveConversation": {
     "description": "Action row to archive a conversation"
   },
+  "chatInfoUnarchiveConversation": "Unarchive conversation",
+  "@chatInfoUnarchiveConversation": {
+    "description": "Action row to unarchive a conversation"
+  },
   "chatInfoLeaveConversation": "Leave conversation",
   "@chatInfoLeaveConversation": {
     "description": "Action row to leave a conversation"
@@ -4199,6 +4203,10 @@
   "chatInfoConversationArchived": "Conversation archived",
   "@chatInfoConversationArchived": {
     "description": "Toast shown after archiving a conversation"
+  },
+  "chatInfoConversationUnarchived": "Conversation unarchived",
+  "@chatInfoConversationUnarchived": {
+    "description": "Toast shown after unarchiving a conversation"
   },
   "chatInfoFailedSaveTitle": "Failed to save title: {error}",
   "@chatInfoFailedSaveTitle": {

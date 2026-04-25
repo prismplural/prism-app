@@ -5448,6 +5448,12 @@ abstract class AppLocalizations {
   /// **'Archive conversation'**
   String get chatInfoArchiveConversation;
 
+  /// Action row to unarchive a conversation
+  ///
+  /// In en, this message translates to:
+  /// **'Unarchive conversation'**
+  String get chatInfoUnarchiveConversation;
+
   /// Action row to leave a conversation
   ///
   /// In en, this message translates to:
@@ -5465,6 +5471,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Conversation archived'**
   String get chatInfoConversationArchived;
+
+  /// Toast shown after unarchiving a conversation
+  ///
+  /// In en, this message translates to:
+  /// **'Conversation unarchived'**
+  String get chatInfoConversationUnarchived;
 
   /// Toast when saving conversation title fails
   ///

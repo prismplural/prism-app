@@ -3157,6 +3157,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get chatInfoArchiveConversation => 'Archivar conversación';
 
   @override
+  String get chatInfoUnarchiveConversation => 'Desarchivar conversación';
+
+  @override
   String get chatInfoLeaveConversation => 'Salir de la conversación';
 
   @override
@@ -3164,6 +3167,9 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get chatInfoConversationArchived => 'Conversación archivada';
+
+  @override
+  String get chatInfoConversationUnarchived => 'Conversación desarchivada';
 
   @override
   String chatInfoFailedSaveTitle(Object error) {
