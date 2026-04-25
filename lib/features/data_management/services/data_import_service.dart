@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:prism_plurality/core/database/app_database.dart'
     show AppDatabase, MediaAttachmentsCompanion, PluralKitSyncStateCompanion;
 import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
+import 'package:prism_plurality/core/database/sqlite_constraint.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/domain/repositories/chat_message_repository.dart';
 import 'package:prism_plurality/domain/repositories/conversation_repository.dart';
@@ -356,44 +357,120 @@ class DataImportService {
     try {
       result = await db.transaction(() async {
       // 1. Import members (first pass: create)
+      //
+      // Dedup against ALL local members, including soft-deleted tombstones.
+      // The partial unique indexes idx_members_pluralkit_uuid /
+      // idx_members_pluralkit_id cover tombstones (no `is_deleted = 0` clause
+      // in the index \u2014 tombstones still hold `pluralkit_uuid` / `pluralkit_id`
+      // until the corresponding delete-push completes), so an import row whose
+      // PK link matches a tombstoned local row would otherwise hit the unique
+      // index and roll back the entire import transaction. See
+      // docs/plans/data-import-tombstone-collision.md.
       var membersCreated = 0;
-      final existingMembers = await memberRepository.getAllMembers();
-      final existingMemberIds = existingMembers.map((m) => m.id).toSet();
+      final allMemberRows = await db.membersDao.getAllMembersIncludingDeleted();
+      final existingMemberIds = {for (final m in allMemberRows) m.id};
+      final existingMemberPkUuids = {
+        for (final m in allMemberRows)
+          if (m.pluralkitUuid != null && m.pluralkitUuid!.isNotEmpty)
+            m.pluralkitUuid!,
+      };
+      final existingMemberPkIds = {
+        for (final m in allMemberRows)
+          if (m.pluralkitId != null && m.pluralkitId!.isNotEmpty)
+            m.pluralkitId!,
+      };
+      // Members eligible for the second-pass parentSystemId update \u2014 only
+      // active rows we either already had or just created. Tombstones are
+      // excluded so the second pass can't accidentally revive a deletion.
+      final activeMemberIdsAfterImport = <String>{
+        for (final m in allMemberRows) if (!m.isDeleted) m.id,
+      };
 
       for (final h in export.headmates) {
         if (existingMemberIds.contains(h.id)) continue;
-        await memberRepository.createMember(
-          Member(
-            id: h.id,
-            name: h.name,
-            pronouns: h.pronouns,
-            emoji: h.emoji ?? '\u2754',
-            age: h.age,
-            bio: h.notes,
-            avatarImageData: h.avatarImageData,
-            isActive: h.isActive,
-            createdAt: DateTime.parse(h.createdAt),
-            displayOrder: h.displayOrder,
-            isAdmin: h.isAdmin,
-            customColorEnabled: h.customColorEnabled,
-            customColorHex: h.customColorHex,
-            pluralkitUuid: h.pluralkitUuid,
-            pluralkitId: h.pluralkitId,
-            markdownEnabled: h.markdownEnabled,
-            displayName: h.displayName,
-            birthday: h.birthday,
-            proxyTagsJson: h.proxyTagsJson,
-            pluralkitSyncIgnored: h.pluralkitSyncIgnored,
-          ),
-        );
+        // Tombstone PK-link collision: skip rather than throw on the unique
+        // index. The user's local intent is "deleted"; we preserve that.
+        if (h.pluralkitUuid != null &&
+            h.pluralkitUuid!.isNotEmpty &&
+            existingMemberPkUuids.contains(h.pluralkitUuid)) {
+          debugPrint(
+            '[Import] Skipped member ${h.id}: pluralkitUuid='
+            '${h.pluralkitUuid} collides with an existing local member.',
+          );
+          continue;
+        }
+        if (h.pluralkitId != null &&
+            h.pluralkitId!.isNotEmpty &&
+            existingMemberPkIds.contains(h.pluralkitId)) {
+          debugPrint(
+            '[Import] Skipped member ${h.id}: pluralkitId=${h.pluralkitId} '
+            'collides with an existing local member.',
+          );
+          continue;
+        }
+        try {
+          await memberRepository.createMember(
+            Member(
+              id: h.id,
+              name: h.name,
+              pronouns: h.pronouns,
+              emoji: h.emoji ?? '\u2754',
+              age: h.age,
+              bio: h.notes,
+              avatarImageData: h.avatarImageData,
+              isActive: h.isActive,
+              createdAt: DateTime.parse(h.createdAt),
+              displayOrder: h.displayOrder,
+              isAdmin: h.isAdmin,
+              customColorEnabled: h.customColorEnabled,
+              customColorHex: h.customColorHex,
+              pluralkitUuid: h.pluralkitUuid,
+              pluralkitId: h.pluralkitId,
+              markdownEnabled: h.markdownEnabled,
+              displayName: h.displayName,
+              birthday: h.birthday,
+              proxyTagsJson: h.proxyTagsJson,
+              pluralkitSyncIgnored: h.pluralkitSyncIgnored,
+            ),
+          );
+        } catch (e) {
+          // Belt-and-braces: if a future code path introduces a hole the
+          // dedup above missed, swallow the unique-constraint and skip
+          // rather than abort the entire import transaction. The dedup
+          // is the primary defense; this is the safety net.
+          if (isUniqueConstraintViolation(e)) {
+            debugPrint(
+              '[Import] Member ${h.id} insert hit a unique-constraint '
+              'collision past dedup; skipping.',
+            );
+            continue;
+          }
+          rethrow;
+        }
         membersCreated++;
+        existingMemberIds.add(h.id);
+        activeMemberIdsAfterImport.add(h.id);
+        if (h.pluralkitUuid != null && h.pluralkitUuid!.isNotEmpty) {
+          existingMemberPkUuids.add(h.pluralkitUuid!);
+        }
+        if (h.pluralkitId != null && h.pluralkitId!.isNotEmpty) {
+          existingMemberPkIds.add(h.pluralkitId!);
+        }
       }
 
-      // Second pass: set parentSystemId for members
+      // Second pass: set parentSystemId for members.
+      //
+      // Gate by the active-id set so we never call updateMember on a
+      // tombstone \u2014 `getMemberById` does NOT filter `is_deleted`, and
+      // `updateMember` would emit a sync op with `is_deleted: false`,
+      // effectively reviving the row and undoing the user's local delete.
       for (final h in export.headmates) {
         if (h.parentSystemId == null) continue;
+        if (!activeMemberIdsAfterImport.contains(h.id)) continue;
         final member = await memberRepository.getMemberById(h.id);
-        if (member != null && member.parentSystemId != h.parentSystemId) {
+        if (member != null &&
+            !member.isDeleted &&
+            member.parentSystemId != h.parentSystemId) {
           await memberRepository.updateMember(
             member.copyWith(parentSystemId: h.parentSystemId),
           );
@@ -401,55 +478,107 @@ class DataImportService {
       }
 
       // 2. Import fronting sessions
+      //
+      // Same shape as members: dedup against all sessions including
+      // tombstones, because idx_fronting_sessions_pluralkit_uuid covers
+      // tombstones too. existingSessionIds is also reused for the sleep
+      // loop below since both session types share the same primary key
+      // namespace in `fronting_sessions`.
       var frontSessionsCreated = 0;
-      final existingSessions = await frontingSessionRepository.getAllSessions();
-      final existingSessionIds = existingSessions.map((s) => s.id).toSet();
+      final allSessionRows = await db.frontingSessionsDao
+          .getAllSessionsIncludingDeleted();
+      final existingSessionIds = {for (final s in allSessionRows) s.id};
+      final existingSessionPkUuids = {
+        for (final s in allSessionRows)
+          if (s.pluralkitUuid != null && s.pluralkitUuid!.isNotEmpty)
+            s.pluralkitUuid!,
+      };
 
       for (final s in export.frontSessions) {
         if (existingSessionIds.contains(s.id)) continue;
-        await frontingSessionRepository.createSession(
-          FrontingSession(
-            id: s.id,
-            startTime: DateTime.parse(s.startTime),
-            endTime: s.endTime != null ? DateTime.parse(s.endTime!) : null,
-            memberId: s.headmateId,
-            coFronterIds: s.coFronterIds,
-            notes: s.notes,
-            sessionType: SessionType.normal,
-            confidence:
-                s.confidence != null &&
-                    s.confidence! >= 0 &&
-                    s.confidence! < FrontConfidence.values.length
-                ? FrontConfidence.values[s.confidence!]
-                : null,
-            pluralkitUuid: s.pluralkitUuid,
-            pkMemberIdsJson: s.pkMemberIdsJson,
-          ),
-        );
+        if (s.pluralkitUuid != null &&
+            s.pluralkitUuid!.isNotEmpty &&
+            existingSessionPkUuids.contains(s.pluralkitUuid)) {
+          debugPrint(
+            '[Import] Skipped fronting session ${s.id}: pluralkitUuid='
+            '${s.pluralkitUuid} collides with an existing local session.',
+          );
+          continue;
+        }
+        try {
+          await frontingSessionRepository.createSession(
+            FrontingSession(
+              id: s.id,
+              startTime: DateTime.parse(s.startTime),
+              endTime: s.endTime != null ? DateTime.parse(s.endTime!) : null,
+              memberId: s.headmateId,
+              coFronterIds: s.coFronterIds,
+              notes: s.notes,
+              sessionType: SessionType.normal,
+              confidence:
+                  s.confidence != null &&
+                      s.confidence! >= 0 &&
+                      s.confidence! < FrontConfidence.values.length
+                  ? FrontConfidence.values[s.confidence!]
+                  : null,
+              pluralkitUuid: s.pluralkitUuid,
+              pkMemberIdsJson: s.pkMemberIdsJson,
+            ),
+          );
+        } catch (e) {
+          if (isUniqueConstraintViolation(e)) {
+            debugPrint(
+              '[Import] Fronting session ${s.id} insert hit a unique-'
+              'constraint collision past dedup; skipping.',
+            );
+            continue;
+          }
+          rethrow;
+        }
         frontSessionsCreated++;
+        existingSessionIds.add(s.id);
+        if (s.pluralkitUuid != null && s.pluralkitUuid!.isNotEmpty) {
+          existingSessionPkUuids.add(s.pluralkitUuid!);
+        }
       }
 
       // 3. Import sleep sessions
+      //
+      // Sleep and normal sessions share the same `fronting_sessions` table
+      // and primary-key namespace, so dedup against the table-wide
+      // existingSessionIds (already populated above and including
+      // tombstones). Sleep rows don't carry a `pluralkit_uuid` so the
+      // PK-link sets aren't relevant here.
       var sleepSessionsCreated = 0;
-      final existingSleep = existingSessions.where((s) => s.isSleep).toList();
-      final existingSleepIds = existingSleep.map((s) => s.id).toSet();
 
       for (final s in export.sleepSessions) {
-        if (existingSleepIds.contains(s.id)) continue;
-        await frontingSessionRepository.createSession(
-          FrontingSession(
-            id: s.id,
-            startTime: DateTime.parse(s.startTime),
-            endTime: s.endTime != null ? DateTime.parse(s.endTime!) : null,
-            sessionType: SessionType.sleep,
-            quality: s.quality >= 0 && s.quality < SleepQuality.values.length
-                ? SleepQuality.values[s.quality]
-                : SleepQuality.unknown,
-            notes: s.notes,
-            isHealthKitImport: s.isHealthKitImport,
-          ),
-        );
+        if (existingSessionIds.contains(s.id)) continue;
+        try {
+          await frontingSessionRepository.createSession(
+            FrontingSession(
+              id: s.id,
+              startTime: DateTime.parse(s.startTime),
+              endTime: s.endTime != null ? DateTime.parse(s.endTime!) : null,
+              sessionType: SessionType.sleep,
+              quality: s.quality >= 0 && s.quality < SleepQuality.values.length
+                  ? SleepQuality.values[s.quality]
+                  : SleepQuality.unknown,
+              notes: s.notes,
+              isHealthKitImport: s.isHealthKitImport,
+            ),
+          );
+        } catch (e) {
+          if (isUniqueConstraintViolation(e)) {
+            debugPrint(
+              '[Import] Sleep session ${s.id} insert hit a unique-'
+              'constraint collision past dedup; skipping.',
+            );
+            continue;
+          }
+          rethrow;
+        }
         sleepSessionsCreated++;
+        existingSessionIds.add(s.id);
       }
 
       // 4. Import conversations

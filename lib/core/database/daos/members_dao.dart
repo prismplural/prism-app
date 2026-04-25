@@ -13,6 +13,15 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
         ..orderBy([(m) => OrderingTerm.asc(m.displayOrder)]))
       .get();
 
+  /// Like [getAllMembers] but includes soft-deleted tombstones. Used by
+  /// the export importer to detect unique-constraint collisions on
+  /// `pluralkit_uuid` / `pluralkit_id` against tombstones — the partial
+  /// unique indexes `idx_members_pluralkit_uuid` /
+  /// `idx_members_pluralkit_id` cover tombstones (no `is_deleted = 0`
+  /// clause), so dedup off the active-only `getAllMembers` set is unsafe.
+  Future<List<Member>> getAllMembersIncludingDeleted() =>
+      select(members).get();
+
   Stream<List<Member>> watchAllMembers() => (select(members)
         ..where((m) => m.isDeleted.equals(false))
         ..orderBy([(m) => OrderingTerm.asc(m.displayOrder)]))
