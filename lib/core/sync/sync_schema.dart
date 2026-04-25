@@ -25,6 +25,7 @@ const String prismSyncSchema = '''
         "display_name": "String",
         "birthday": "String",
         "proxy_tags_json": "String",
+        "pk_banner_url": "String",
         "pluralkit_sync_ignored": "Bool",
         "delete_push_started_at": "Int",
         "is_deleted": "Bool"

@@ -90,7 +90,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -171,6 +171,10 @@ class AppDatabase extends _$AppDatabase {
       if (current == 4 && to >= 5) {
         await _recreateMemberGroupPkUniqueIndex();
         current = 5;
+      }
+      if (current == 5 && to >= 6) {
+        await migrator.addColumn(members, members.pkBannerUrl);
+        current = 6;
       }
       if (current != to) {
         throw UnsupportedError(

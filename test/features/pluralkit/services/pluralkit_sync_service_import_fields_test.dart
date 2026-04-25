@@ -53,7 +53,7 @@ void main() {
     setUp(() => db = AppDatabase(NativeDatabase.memory()));
     tearDown(() => db.close());
 
-    test('create: proxy_tags, birthday, display_name, pronouns, bio, color',
+    test('create: proxy_tags, birthday, display_name, pronouns, bio, color, banner',
         () async {
       final service = PluralKitSyncService(
         memberRepository: DriftMemberRepository(db.membersDao, null),
@@ -73,6 +73,7 @@ void main() {
               'description': 'A bio',
               'color': 'ff00aa',
               'birthday': '2020-06-15',
+              'banner': 'https://example.com/banner.png',
               'proxy_tags': [
                 {'prefix': 'A:', 'suffix': null},
                 {'prefix': null, 'suffix': ' -A'},
@@ -90,11 +91,10 @@ void main() {
       expect(rows, hasLength(1));
       final row = rows.single;
 
-      // Display-name fallback for `name` is preserved (existing UX).
+      // PK display_name collapsed into local name for display.
       expect(row.name, 'Alice!');
-      // But the raw display_name must also be persisted for downstream
-      // consumers (push service, data export).
-      expect(row.displayName, 'Alice!');
+      // PK raw name stored as displayName subtitle (used by push + data export).
+      expect(row.displayName, 'alice');
       expect(row.pronouns, 'she/her');
       expect(row.bio, 'A bio');
       expect(row.birthday, '2020-06-15');
@@ -102,6 +102,7 @@ void main() {
       expect(row.customColorEnabled, isTrue);
       expect(row.pluralkitId, 'aaaaa');
       expect(row.pluralkitUuid, 'u-alice');
+      expect(row.pkBannerUrl, 'https://example.com/banner.png');
 
       // Proxy tags round-trip as valid JSON with both entries.
       expect(row.proxyTagsJson, isNotNull);

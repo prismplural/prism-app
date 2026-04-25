@@ -221,6 +221,17 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _pkBannerUrlMeta = const VerificationMeta(
+    'pkBannerUrl',
+  );
+  @override
+  late final GeneratedColumn<String> pkBannerUrl = GeneratedColumn<String>(
+    'pk_banner_url',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _pluralkitSyncIgnoredMeta =
       const VerificationMeta('pluralkitSyncIgnored');
   @override
@@ -307,6 +318,7 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
     displayName,
     birthday,
     proxyTagsJson,
+    pkBannerUrl,
     pluralkitSyncIgnored,
     markdownEnabled,
     isDeleted,
@@ -469,6 +481,15 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
         ),
       );
     }
+    if (data.containsKey('pk_banner_url')) {
+      context.handle(
+        _pkBannerUrlMeta,
+        pkBannerUrl.isAcceptableOrUnknown(
+          data['pk_banner_url']!,
+          _pkBannerUrlMeta,
+        ),
+      );
+    }
     if (data.containsKey('pluralkit_sync_ignored')) {
       context.handle(
         _pluralkitSyncIgnoredMeta,
@@ -596,6 +617,10 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
         DriftSqlType.string,
         data['${effectivePrefix}proxy_tags_json'],
       ),
+      pkBannerUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pk_banner_url'],
+      ),
       pluralkitSyncIgnored: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}pluralkit_sync_ignored'],
@@ -645,6 +670,7 @@ class Member extends DataClass implements Insertable<Member> {
   final String? displayName;
   final String? birthday;
   final String? proxyTagsJson;
+  final String? pkBannerUrl;
   final bool pluralkitSyncIgnored;
   final bool markdownEnabled;
   final bool isDeleted;
@@ -670,6 +696,7 @@ class Member extends DataClass implements Insertable<Member> {
     this.displayName,
     this.birthday,
     this.proxyTagsJson,
+    this.pkBannerUrl,
     required this.pluralkitSyncIgnored,
     required this.markdownEnabled,
     required this.isDeleted,
@@ -719,6 +746,9 @@ class Member extends DataClass implements Insertable<Member> {
     }
     if (!nullToAbsent || proxyTagsJson != null) {
       map['proxy_tags_json'] = Variable<String>(proxyTagsJson);
+    }
+    if (!nullToAbsent || pkBannerUrl != null) {
+      map['pk_banner_url'] = Variable<String>(pkBannerUrl);
     }
     map['pluralkit_sync_ignored'] = Variable<bool>(pluralkitSyncIgnored);
     map['markdown_enabled'] = Variable<bool>(markdownEnabled);
@@ -771,6 +801,9 @@ class Member extends DataClass implements Insertable<Member> {
       proxyTagsJson: proxyTagsJson == null && nullToAbsent
           ? const Value.absent()
           : Value(proxyTagsJson),
+      pkBannerUrl: pkBannerUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pkBannerUrl),
       pluralkitSyncIgnored: Value(pluralkitSyncIgnored),
       markdownEnabled: Value(markdownEnabled),
       isDeleted: Value(isDeleted),
@@ -808,6 +841,7 @@ class Member extends DataClass implements Insertable<Member> {
       displayName: serializer.fromJson<String?>(json['displayName']),
       birthday: serializer.fromJson<String?>(json['birthday']),
       proxyTagsJson: serializer.fromJson<String?>(json['proxyTagsJson']),
+      pkBannerUrl: serializer.fromJson<String?>(json['pkBannerUrl']),
       pluralkitSyncIgnored: serializer.fromJson<bool>(
         json['pluralkitSyncIgnored'],
       ),
@@ -842,6 +876,7 @@ class Member extends DataClass implements Insertable<Member> {
       'displayName': serializer.toJson<String?>(displayName),
       'birthday': serializer.toJson<String?>(birthday),
       'proxyTagsJson': serializer.toJson<String?>(proxyTagsJson),
+      'pkBannerUrl': serializer.toJson<String?>(pkBannerUrl),
       'pluralkitSyncIgnored': serializer.toJson<bool>(pluralkitSyncIgnored),
       'markdownEnabled': serializer.toJson<bool>(markdownEnabled),
       'isDeleted': serializer.toJson<bool>(isDeleted),
@@ -870,6 +905,7 @@ class Member extends DataClass implements Insertable<Member> {
     Value<String?> displayName = const Value.absent(),
     Value<String?> birthday = const Value.absent(),
     Value<String?> proxyTagsJson = const Value.absent(),
+    Value<String?> pkBannerUrl = const Value.absent(),
     bool? pluralkitSyncIgnored,
     bool? markdownEnabled,
     bool? isDeleted,
@@ -905,6 +941,7 @@ class Member extends DataClass implements Insertable<Member> {
     proxyTagsJson: proxyTagsJson.present
         ? proxyTagsJson.value
         : this.proxyTagsJson,
+    pkBannerUrl: pkBannerUrl.present ? pkBannerUrl.value : this.pkBannerUrl,
     pluralkitSyncIgnored: pluralkitSyncIgnored ?? this.pluralkitSyncIgnored,
     markdownEnabled: markdownEnabled ?? this.markdownEnabled,
     isDeleted: isDeleted ?? this.isDeleted,
@@ -954,6 +991,9 @@ class Member extends DataClass implements Insertable<Member> {
       proxyTagsJson: data.proxyTagsJson.present
           ? data.proxyTagsJson.value
           : this.proxyTagsJson,
+      pkBannerUrl: data.pkBannerUrl.present
+          ? data.pkBannerUrl.value
+          : this.pkBannerUrl,
       pluralkitSyncIgnored: data.pluralkitSyncIgnored.present
           ? data.pluralkitSyncIgnored.value
           : this.pluralkitSyncIgnored,
@@ -992,6 +1032,7 @@ class Member extends DataClass implements Insertable<Member> {
           ..write('displayName: $displayName, ')
           ..write('birthday: $birthday, ')
           ..write('proxyTagsJson: $proxyTagsJson, ')
+          ..write('pkBannerUrl: $pkBannerUrl, ')
           ..write('pluralkitSyncIgnored: $pluralkitSyncIgnored, ')
           ..write('markdownEnabled: $markdownEnabled, ')
           ..write('isDeleted: $isDeleted, ')
@@ -1022,6 +1063,7 @@ class Member extends DataClass implements Insertable<Member> {
     displayName,
     birthday,
     proxyTagsJson,
+    pkBannerUrl,
     pluralkitSyncIgnored,
     markdownEnabled,
     isDeleted,
@@ -1054,6 +1096,7 @@ class Member extends DataClass implements Insertable<Member> {
           other.displayName == this.displayName &&
           other.birthday == this.birthday &&
           other.proxyTagsJson == this.proxyTagsJson &&
+          other.pkBannerUrl == this.pkBannerUrl &&
           other.pluralkitSyncIgnored == this.pluralkitSyncIgnored &&
           other.markdownEnabled == this.markdownEnabled &&
           other.isDeleted == this.isDeleted &&
@@ -1081,6 +1124,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
   final Value<String?> displayName;
   final Value<String?> birthday;
   final Value<String?> proxyTagsJson;
+  final Value<String?> pkBannerUrl;
   final Value<bool> pluralkitSyncIgnored;
   final Value<bool> markdownEnabled;
   final Value<bool> isDeleted;
@@ -1107,6 +1151,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
     this.displayName = const Value.absent(),
     this.birthday = const Value.absent(),
     this.proxyTagsJson = const Value.absent(),
+    this.pkBannerUrl = const Value.absent(),
     this.pluralkitSyncIgnored = const Value.absent(),
     this.markdownEnabled = const Value.absent(),
     this.isDeleted = const Value.absent(),
@@ -1134,6 +1179,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
     this.displayName = const Value.absent(),
     this.birthday = const Value.absent(),
     this.proxyTagsJson = const Value.absent(),
+    this.pkBannerUrl = const Value.absent(),
     this.pluralkitSyncIgnored = const Value.absent(),
     this.markdownEnabled = const Value.absent(),
     this.isDeleted = const Value.absent(),
@@ -1163,6 +1209,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
     Expression<String>? displayName,
     Expression<String>? birthday,
     Expression<String>? proxyTagsJson,
+    Expression<String>? pkBannerUrl,
     Expression<bool>? pluralkitSyncIgnored,
     Expression<bool>? markdownEnabled,
     Expression<bool>? isDeleted,
@@ -1191,6 +1238,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
       if (displayName != null) 'display_name': displayName,
       if (birthday != null) 'birthday': birthday,
       if (proxyTagsJson != null) 'proxy_tags_json': proxyTagsJson,
+      if (pkBannerUrl != null) 'pk_banner_url': pkBannerUrl,
       if (pluralkitSyncIgnored != null)
         'pluralkit_sync_ignored': pluralkitSyncIgnored,
       if (markdownEnabled != null) 'markdown_enabled': markdownEnabled,
@@ -1222,6 +1270,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
     Value<String?>? displayName,
     Value<String?>? birthday,
     Value<String?>? proxyTagsJson,
+    Value<String?>? pkBannerUrl,
     Value<bool>? pluralkitSyncIgnored,
     Value<bool>? markdownEnabled,
     Value<bool>? isDeleted,
@@ -1249,6 +1298,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
       displayName: displayName ?? this.displayName,
       birthday: birthday ?? this.birthday,
       proxyTagsJson: proxyTagsJson ?? this.proxyTagsJson,
+      pkBannerUrl: pkBannerUrl ?? this.pkBannerUrl,
       pluralkitSyncIgnored: pluralkitSyncIgnored ?? this.pluralkitSyncIgnored,
       markdownEnabled: markdownEnabled ?? this.markdownEnabled,
       isDeleted: isDeleted ?? this.isDeleted,
@@ -1318,6 +1368,9 @@ class MembersCompanion extends UpdateCompanion<Member> {
     if (proxyTagsJson.present) {
       map['proxy_tags_json'] = Variable<String>(proxyTagsJson.value);
     }
+    if (pkBannerUrl.present) {
+      map['pk_banner_url'] = Variable<String>(pkBannerUrl.value);
+    }
     if (pluralkitSyncIgnored.present) {
       map['pluralkit_sync_ignored'] = Variable<bool>(
         pluralkitSyncIgnored.value,
@@ -1363,6 +1416,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
           ..write('displayName: $displayName, ')
           ..write('birthday: $birthday, ')
           ..write('proxyTagsJson: $proxyTagsJson, ')
+          ..write('pkBannerUrl: $pkBannerUrl, ')
           ..write('pluralkitSyncIgnored: $pluralkitSyncIgnored, ')
           ..write('markdownEnabled: $markdownEnabled, ')
           ..write('isDeleted: $isDeleted, ')
@@ -21576,6 +21630,7 @@ typedef $$MembersTableCreateCompanionBuilder =
       Value<String?> displayName,
       Value<String?> birthday,
       Value<String?> proxyTagsJson,
+      Value<String?> pkBannerUrl,
       Value<bool> pluralkitSyncIgnored,
       Value<bool> markdownEnabled,
       Value<bool> isDeleted,
@@ -21604,6 +21659,7 @@ typedef $$MembersTableUpdateCompanionBuilder =
       Value<String?> displayName,
       Value<String?> birthday,
       Value<String?> proxyTagsJson,
+      Value<String?> pkBannerUrl,
       Value<bool> pluralkitSyncIgnored,
       Value<bool> markdownEnabled,
       Value<bool> isDeleted,
@@ -21713,6 +21769,11 @@ class $$MembersTableFilterComposer
 
   ColumnFilters<String> get proxyTagsJson => $composableBuilder(
     column: $table.proxyTagsJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pkBannerUrl => $composableBuilder(
+    column: $table.pkBannerUrl,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -21846,6 +21907,11 @@ class $$MembersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get pkBannerUrl => $composableBuilder(
+    column: $table.pkBannerUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get pluralkitSyncIgnored => $composableBuilder(
     column: $table.pluralkitSyncIgnored,
     builder: (column) => ColumnOrderings(column),
@@ -21956,6 +22022,11 @@ class $$MembersTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get pkBannerUrl => $composableBuilder(
+    column: $table.pkBannerUrl,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<bool> get pluralkitSyncIgnored => $composableBuilder(
     column: $table.pluralkitSyncIgnored,
     builder: (column) => column,
@@ -22027,6 +22098,7 @@ class $$MembersTableTableManager
                 Value<String?> displayName = const Value.absent(),
                 Value<String?> birthday = const Value.absent(),
                 Value<String?> proxyTagsJson = const Value.absent(),
+                Value<String?> pkBannerUrl = const Value.absent(),
                 Value<bool> pluralkitSyncIgnored = const Value.absent(),
                 Value<bool> markdownEnabled = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
@@ -22053,6 +22125,7 @@ class $$MembersTableTableManager
                 displayName: displayName,
                 birthday: birthday,
                 proxyTagsJson: proxyTagsJson,
+                pkBannerUrl: pkBannerUrl,
                 pluralkitSyncIgnored: pluralkitSyncIgnored,
                 markdownEnabled: markdownEnabled,
                 isDeleted: isDeleted,
@@ -22081,6 +22154,7 @@ class $$MembersTableTableManager
                 Value<String?> displayName = const Value.absent(),
                 Value<String?> birthday = const Value.absent(),
                 Value<String?> proxyTagsJson = const Value.absent(),
+                Value<String?> pkBannerUrl = const Value.absent(),
                 Value<bool> pluralkitSyncIgnored = const Value.absent(),
                 Value<bool> markdownEnabled = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
@@ -22107,6 +22181,7 @@ class $$MembersTableTableManager
                 displayName: displayName,
                 birthday: birthday,
                 proxyTagsJson: proxyTagsJson,
+                pkBannerUrl: pkBannerUrl,
                 pluralkitSyncIgnored: pluralkitSyncIgnored,
                 markdownEnabled: markdownEnabled,
                 isDeleted: isDeleted,

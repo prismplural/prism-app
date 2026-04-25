@@ -27,6 +27,8 @@ class Members extends Table {
   // PK `proxy_tags` raw JSON array: `[{"prefix": "...", "suffix": "..."}]`.
   // Read-only in Prism — no editor UI.
   TextColumn get proxyTagsJson => text().nullable()();
+  // PK `banner` URL. Stored for future banner UI; no bytes download yet.
+  TextColumn get pkBannerUrl => text().nullable()();
   // Set when the user picked "Skip" or "Don't push" for this member in the
   // mapping flow. Durable — never re-offered until the user clears it.
   BoolColumn get pluralkitSyncIgnored =>
