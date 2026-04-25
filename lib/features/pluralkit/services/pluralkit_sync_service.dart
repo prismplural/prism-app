@@ -1381,7 +1381,7 @@ class PluralKitSyncService {
           await _memberRepository.updateMember(
             localMember.copyWith(
               name: pk.displayName ?? pk.name,
-              displayName: pk.displayName,
+              displayName: pk.displayName != null ? pk.name : null,
               pronouns: pk.pronouns,
               bio: pk.description,
               birthday: pk.birthday,
@@ -1399,7 +1399,7 @@ class PluralKitSyncService {
             domain.Member(
               id: _uuid.v4(),
               name: pk.displayName ?? pk.name,
-              displayName: pk.displayName,
+              displayName: pk.displayName != null ? pk.name : null,
               pronouns: pk.pronouns,
               bio: pk.description,
               birthday: pk.birthday,
