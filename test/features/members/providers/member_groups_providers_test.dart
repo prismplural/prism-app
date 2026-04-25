@@ -150,6 +150,89 @@ void main() {
       expect(memberIds, isNot(contains('m-a')));
     });
 
+    test(
+        'collapsing the LAST child does not hide the parent\'s direct members',
+        () {
+      // Reproduces the bug where collapsing the last child subgroup hid
+      // ancestor groups' direct members because the depth-reset only fired on
+      // a subsequent GroupSectionItem.
+      //
+      //   root  ──── m-root          (parent's direct members emitted last)
+      //    ├── child-a
+      //    └── child-b ── m-child-b  (LAST child)
+      //
+      // Collapsing child-b should leave m-root and child-a visible.
+      final c = makeContainer(
+        groups: [
+          _group(id: 'root'),
+          _group(id: 'child-a', parentGroupId: 'root'),
+          _group(id: 'child-b', parentGroupId: 'root'),
+        ],
+        entries: [
+          _entry(groupId: 'root', memberId: 'm-root'),
+          _entry(groupId: 'child-b', memberId: 'm-child-b'),
+        ],
+        members: [_member(id: 'm-root'), _member(id: 'm-child-b')],
+      );
+      addTearDown(c.dispose);
+
+      c.read(collapsedGroupsProvider.notifier).toggle('child-b');
+
+      final list = c.read(groupedMemberListProvider);
+      final memberIds = list.whereType<MemberRowItem>().map((e) => e.member.id);
+      // child-b is collapsed: its own member hidden, but root's direct member
+      // (emitted after child-b's subtree in DFS) must still appear.
+      expect(memberIds, contains('m-root'));
+      expect(memberIds, isNot(contains('m-child-b')));
+    });
+
+    test(
+        'collapsing the LAST grandchild does not hide ancestor members two levels up',
+        () {
+      // User-reported scenario:
+      //   group-b
+      //    ├── subgroup-a
+      //    │    └── subsubgroup-a (LAST child of subgroup-a)
+      //    └── subgroup-b
+      //         ├── subsubgroup-b
+      //         └── subsubgroup-c (LAST child of subgroup-b, LAST overall)
+      //
+      // Collapsing subsubgroup-c must leave subgroup-b's and group-b's
+      // direct members visible.
+      final c = makeContainer(
+        groups: [
+          _group(id: 'group-b'),
+          _group(id: 'subgroup-a', parentGroupId: 'group-b'),
+          _group(id: 'subsubgroup-a', parentGroupId: 'subgroup-a'),
+          _group(id: 'subgroup-b', parentGroupId: 'group-b'),
+          _group(id: 'subsubgroup-b', parentGroupId: 'subgroup-b'),
+          _group(id: 'subsubgroup-c', parentGroupId: 'subgroup-b'),
+        ],
+        entries: [
+          _entry(groupId: 'group-b', memberId: 'm-gb'),
+          _entry(groupId: 'subgroup-a', memberId: 'm-sga'),
+          _entry(groupId: 'subgroup-b', memberId: 'm-sgb'),
+          _entry(groupId: 'subsubgroup-c', memberId: 'm-ssc'),
+        ],
+        members: [
+          _member(id: 'm-gb'),
+          _member(id: 'm-sga'),
+          _member(id: 'm-sgb'),
+          _member(id: 'm-ssc'),
+        ],
+      );
+      addTearDown(c.dispose);
+
+      c.read(collapsedGroupsProvider.notifier).toggle('subsubgroup-c');
+
+      final list = c.read(groupedMemberListProvider);
+      final memberIds = list.whereType<MemberRowItem>().map((e) => e.member.id);
+      expect(memberIds, contains('m-gb'));
+      expect(memberIds, contains('m-sgb'));
+      expect(memberIds, contains('m-sga'));
+      expect(memberIds, isNot(contains('m-ssc')));
+    });
+
     test('collapsing mid-level group hides its sub-group header and members',
         () {
       // 3-level: root → mid → leaf (with a member in leaf)
