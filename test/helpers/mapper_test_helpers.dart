@@ -50,6 +50,7 @@ db.Member makeDbMember({
     markdownEnabled: markdownEnabled,
     pluralkitSyncIgnored: false,
     isDeleted: false,
+    isAlwaysFronting: false,
   );
 }
 
@@ -208,5 +209,7 @@ db.FrontSessionCommentRow makeDbFrontSessionComment({
     timestamp: timestamp ?? DateTime(2026, 3, 20, 10, 45),
     createdAt: createdAt ?? DateTime(2026, 3, 20, 12, 0),
     isDeleted: false,
+    targetTime: null,
+    authorMemberId: null,
   );
 }
