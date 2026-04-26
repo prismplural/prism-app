@@ -206,5 +206,187 @@ void main() {
             greaterThanOrEqualTo(insights[i + 1].signalStrength));
       }
     });
+
+    test('coFrontingHighlight names both members when names provided', () {
+      const pair = CoFrontingPair(
+          memberIdA: 'a',
+          memberIdB: 'b',
+          totalTime: Duration(hours: 5));
+      final current = makeAnalytics(topCoFrontingPairs: [pair]);
+      final insights = computeInsights(
+        current,
+        null,
+        names: const {'a': 'Alice', 'b': 'Bob'},
+      );
+      final coFront = insights.firstWhere(
+          (i) => i.type == AnalyticsInsightType.coFrontingHighlight);
+      expect(coFront.headline, contains('Alice'));
+      expect(coFront.headline, contains('Bob'));
+    });
+
+    test('coFrontingHighlight falls back when either name is missing', () {
+      const pair = CoFrontingPair(
+          memberIdA: 'a',
+          memberIdB: 'b',
+          totalTime: Duration(hours: 5));
+      final current = makeAnalytics(topCoFrontingPairs: [pair]);
+      // Only one of the pair has a name in the map.
+      final insights = computeInsights(
+        current,
+        null,
+        names: const {'a': 'Alice'},
+      );
+      final coFront = insights.firstWhere(
+          (i) => i.type == AnalyticsInsightType.coFrontingHighlight);
+      expect(coFront.headline, 'Two members co-fronted a lot this period');
+    });
+
+    test('quietMember headline names the member when name provided', () {
+      final current = makeAnalytics(memberStats: [makeMember('a')]);
+      final previous = makeAnalytics(
+          memberStats: [makeMember('a'), makeMember('b')]);
+      final insights = computeInsights(
+        current,
+        previous,
+        names: const {'b': 'Bob'},
+      );
+      final quiet = insights.firstWhere(
+          (i) => i.type == AnalyticsInsightType.quietMember);
+      expect(quiet.headline, startsWith('Bob'));
+    });
+
+    test('sessionDrift headline names the member when name provided', () {
+      final current =
+          makeAnalytics(memberStats: [makeMember('a', avgMinutes: 30)]);
+      final previous = makeAnalytics(memberStats: [
+        makeMember('a', avgMinutes: 10, sessionCount: 3),
+      ]);
+      final insights = computeInsights(
+        current,
+        previous,
+        names: const {'a': 'Alice'},
+      );
+      final drift = insights.firstWhere(
+          (i) => i.type == AnalyticsInsightType.sessionDrift);
+      expect(drift.headline, startsWith("Alice's"));
+    });
+
+    test('timeOfDayShift headline names the member when name provided', () {
+      final current = makeAnalytics(memberStats: [
+        makeMember('a', timeOfDay: {'evening': 90}),
+      ]);
+      final previous = makeAnalytics(memberStats: [
+        makeMember('a', timeOfDay: {'morning': 90}),
+      ]);
+      final insights = computeInsights(
+        current,
+        previous,
+        names: const {'a': 'Alice'},
+      );
+      final shift = insights.firstWhere(
+          (i) => i.type == AnalyticsInsightType.timeOfDayShift);
+      expect(shift.headline, startsWith('Alice'));
+    });
+
+    test('headlines fall back to generic copy when names map is empty', () {
+      const pair = CoFrontingPair(
+          memberIdA: 'a',
+          memberIdB: 'b',
+          totalTime: Duration(hours: 5));
+      final coFrontInsights = computeInsights(
+          makeAnalytics(topCoFrontingPairs: [pair]), null);
+      expect(
+          coFrontInsights
+              .firstWhere(
+                  (i) => i.type == AnalyticsInsightType.coFrontingHighlight)
+              .headline,
+          'Two members co-fronted a lot this period');
+
+      final quietInsights = computeInsights(
+        makeAnalytics(memberStats: [makeMember('a')]),
+        makeAnalytics(memberStats: [makeMember('a'), makeMember('b')]),
+      );
+      expect(
+          quietInsights
+              .firstWhere((i) => i.type == AnalyticsInsightType.quietMember)
+              .headline,
+          "One member hasn't fronted this period");
+
+      final driftInsights = computeInsights(
+        makeAnalytics(memberStats: [makeMember('a', avgMinutes: 30)]),
+        makeAnalytics(
+            memberStats: [makeMember('a', avgMinutes: 10, sessionCount: 3)]),
+      );
+      expect(
+          driftInsights
+              .firstWhere((i) => i.type == AnalyticsInsightType.sessionDrift)
+              .headline,
+          contains('a member'));
+
+      final shiftInsights = computeInsights(
+        makeAnalytics(memberStats: [
+          makeMember('a', timeOfDay: {'evening': 90}),
+        ]),
+        makeAnalytics(memberStats: [
+          makeMember('a', timeOfDay: {'morning': 90}),
+        ]),
+      );
+      expect(
+          shiftInsights
+              .firstWhere((i) => i.type == AnalyticsInsightType.timeOfDayShift)
+              .headline,
+          "A member's fronting time of day shifted");
+    });
+
+    test('empty-string name falls back to generic copy', () {
+      final current = makeAnalytics(memberStats: [makeMember('a')]);
+      final previous = makeAnalytics(
+          memberStats: [makeMember('a'), makeMember('b')]);
+      final insights = computeInsights(
+        current,
+        previous,
+        names: const {'b': ''}, // present but empty
+      );
+      final quiet = insights.firstWhere(
+          (i) => i.type == AnalyticsInsightType.quietMember);
+      expect(quiet.headline, "One member hasn't fronted this period");
+    });
+
+    test('quietMember surfaces the highest-totalTime member', () {
+      // Members 'b' and 'c' are both quiet; 'c' has more prior-period time.
+      final current = makeAnalytics(memberStats: [makeMember('a')]);
+      final previous = makeAnalytics(memberStats: [
+        makeMember('a'),
+        makeMember('b', totalMinutes: 30),
+        makeMember('c', totalMinutes: 240),
+      ]);
+      final insights = computeInsights(
+        current,
+        previous,
+        names: const {'b': 'Bob', 'c': 'Cassie'},
+      );
+      final quiet = insights.firstWhere(
+          (i) => i.type == AnalyticsInsightType.quietMember);
+      expect(quiet.headline, startsWith('Cassie'));
+    });
+
+    test('quietMember breaks totalTime ties by memberId for determinism', () {
+      // Members 'b' and 'a-second' are tied on totalTime; 'a-second' sorts
+      // earlier alphabetically, so it wins.
+      final current = makeAnalytics(memberStats: [makeMember('keeper')]);
+      final previous = makeAnalytics(memberStats: [
+        makeMember('keeper'),
+        makeMember('b', totalMinutes: 60),
+        makeMember('a-second', totalMinutes: 60),
+      ]);
+      final insights = computeInsights(
+        current,
+        previous,
+        names: const {'b': 'Bob', 'a-second': 'Alex'},
+      );
+      final quiet = insights.firstWhere(
+          (i) => i.type == AnalyticsInsightType.quietMember);
+      expect(quiet.headline, startsWith('Alex'));
+    });
   });
 }

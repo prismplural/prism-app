@@ -1244,34 +1244,6 @@
       }
     }
   },
-  "frontingActivityChartTitle": "Daily activity",
-  "@frontingActivityChartTitle": {
-    "description": "Title for the daily fronting activity chart"
-  },
-  "frontingActivityChartAverageLabel": "avg {hours}h/day",
-  "@frontingActivityChartAverageLabel": {
-    "description": "Average label shown in the fronting activity chart",
-    "placeholders": {
-      "hours": {
-        "type": "String"
-      }
-    }
-  },
-  "frontingActivityChartSemantics": "Daily fronting activity. Peak: {peakHours}h on {peakDate}. Average: {avgHours}h per day.",
-  "@frontingActivityChartSemantics": {
-    "description": "Semantics summary for the daily fronting activity chart",
-    "placeholders": {
-      "peakHours": {
-        "type": "String"
-      },
-      "peakDate": {
-        "type": "String"
-      },
-      "avgHours": {
-        "type": "String"
-      }
-    }
-  },
   "debugTitle": "Debug",
   "@debugTitle": {
     "description": "Debug screen title"

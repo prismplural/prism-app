@@ -330,87 +330,112 @@ void main() {
     });
   });
 
-  group('dailyActivity', () {
-    test('single session bucketed into correct day', () {
-      final sessions = [
-        FakeSession(
-          startTime: DateTime.utc(2026, 3, 1, 10, 0),
-          endTime: DateTime.utc(2026, 3, 1, 12, 0),
-          memberId: 'a',
-        ),
-      ];
-      final range = DateTimeRange(
-          start: DateTime.utc(2026, 3, 1), end: DateTime.utc(2026, 3, 2));
-      final result = computeAnalyticsFromRows(sessions, range);
-      expect(result.dailyActivity, hasLength(1));
-      expect(result.dailyActivity.first.date, DateTime.utc(2026, 3, 1));
-      expect(result.dailyActivity.first.totalMinutes, 120);
-      expect(result.dailyActivity.first.sessionCount, 1);
+  group('medianSession', () {
+    test('empty sessions yields Duration.zero', () {
+      final result = computeAnalyticsFromRows([], range30Days());
+      expect(result.medianSession, Duration.zero);
     });
 
-    test('session spanning midnight splits across two days', () {
+    test('single session: median equals that session', () {
+      final range = range30Days();
       final sessions = [
         FakeSession(
-          startTime: DateTime.utc(2026, 3, 1, 23, 0),
-          endTime: DateTime.utc(2026, 3, 2, 1, 0),
+          startTime: range.start.add(const Duration(hours: 1)),
+          endTime: range.start.add(const Duration(hours: 3)),
           memberId: 'a',
         ),
       ];
-      final range = DateTimeRange(
-          start: DateTime.utc(2026, 3, 1), end: DateTime.utc(2026, 3, 3));
       final result = computeAnalyticsFromRows(sessions, range);
-      expect(result.dailyActivity, hasLength(2));
-      final march1 = result.dailyActivity
-          .firstWhere((d) => d.date == DateTime.utc(2026, 3, 1));
-      final march2 = result.dailyActivity
-          .firstWhere((d) => d.date == DateTime.utc(2026, 3, 2));
-      expect(march1.totalMinutes, 60);
-      expect(march2.totalMinutes, 60);
+      expect(result.medianSession, const Duration(hours: 2));
     });
 
-    test('active session (null endTime) clamped to range.end', () {
-      final rangeEnd = DateTime.utc(2026, 3, 1, 11, 0);
+    test('odd count: median is the middle element after sort', () {
+      final range = range30Days();
+      // Durations: 10m, 60m, 5m → sorted: 5, 10, 60 → median = 10m
       final sessions = [
         FakeSession(
-          startTime: DateTime.utc(2026, 3, 1, 10, 0),
-          endTime: null, // active session
+          startTime: range.start,
+          endTime: range.start.add(const Duration(minutes: 10)),
+          memberId: 'a',
+        ),
+        FakeSession(
+          startTime: range.start.add(const Duration(hours: 1)),
+          endTime: range.start.add(const Duration(hours: 2)),
+          memberId: 'a',
+        ),
+        FakeSession(
+          startTime: range.start.add(const Duration(hours: 3)),
+          endTime: range.start.add(const Duration(hours: 3, minutes: 5)),
           memberId: 'a',
         ),
       ];
-      final range =
-          DateTimeRange(start: DateTime.utc(2026, 3, 1), end: rangeEnd);
       final result = computeAnalyticsFromRows(sessions, range);
-      expect(result.dailyActivity, hasLength(1));
-      expect(result.dailyActivity.first.totalMinutes, 60);
+      expect(result.medianSession, const Duration(minutes: 10));
     });
 
-    test('results sorted by date ascending', () {
+    test('even count: median averages the two middle values', () {
+      final range = range30Days();
+      // Durations: 5m, 60m → median = 32m30s
       final sessions = [
         FakeSession(
-          startTime: DateTime.utc(2026, 3, 3, 10),
-          endTime: DateTime.utc(2026, 3, 3, 11),
+          startTime: range.start,
+          endTime: range.start.add(const Duration(minutes: 5)),
           memberId: 'a',
         ),
         FakeSession(
-          startTime: DateTime.utc(2026, 3, 1, 10),
-          endTime: DateTime.utc(2026, 3, 1, 11),
-          memberId: 'a',
-        ),
-        FakeSession(
-          startTime: DateTime.utc(2026, 3, 2, 10),
-          endTime: DateTime.utc(2026, 3, 2, 11),
+          startTime: range.start.add(const Duration(hours: 1)),
+          endTime: range.start.add(const Duration(hours: 2)),
           memberId: 'a',
         ),
       ];
-      final range = DateTimeRange(
-          start: DateTime.utc(2026, 3, 1), end: DateTime.utc(2026, 3, 4));
       final result = computeAnalyticsFromRows(sessions, range);
-      final dates = result.dailyActivity.map((d) => d.date).toList();
-      expect(dates, [
-        DateTime.utc(2026, 3, 1),
-        DateTime.utc(2026, 3, 2),
-        DateTime.utc(2026, 3, 3),
-      ]);
+      expect(result.medianSession, const Duration(minutes: 32, seconds: 30));
+    });
+
+    test('even count of four: median averages 2nd and 3rd values', () {
+      final range = range30Days();
+      // Durations: 5m, 10m, 60m, 120m → median = (10 + 60) / 2 = 35m
+      final sessions = [
+        FakeSession(
+          startTime: range.start,
+          endTime: range.start.add(const Duration(minutes: 5)),
+          memberId: 'a',
+        ),
+        FakeSession(
+          startTime: range.start.add(const Duration(hours: 1)),
+          endTime: range.start.add(const Duration(hours: 1, minutes: 10)),
+          memberId: 'a',
+        ),
+        FakeSession(
+          startTime: range.start.add(const Duration(hours: 3)),
+          endTime: range.start.add(const Duration(hours: 4)),
+          memberId: 'a',
+        ),
+        FakeSession(
+          startTime: range.start.add(const Duration(hours: 5)),
+          endTime: range.start.add(const Duration(hours: 7)),
+          memberId: 'a',
+        ),
+      ];
+      final result = computeAnalyticsFromRows(sessions, range);
+      expect(result.medianSession, const Duration(minutes: 35));
+    });
+
+    test('clamped session contributes its clamped duration', () {
+      final range = DateTimeRange(
+        start: DateTime(2026, 3, 10, 0, 0),
+        end: DateTime(2026, 3, 11, 0, 0),
+      );
+      // Session starts before range and ends after; clamped to 24h.
+      final sessions = [
+        FakeSession(
+          startTime: range.start.subtract(const Duration(hours: 2)),
+          endTime: range.end.add(const Duration(hours: 3)),
+          memberId: 'a',
+        ),
+      ];
+      final result = computeAnalyticsFromRows(sessions, range);
+      expect(result.medianSession, const Duration(hours: 24));
     });
   });
 
