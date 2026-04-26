@@ -46,13 +46,14 @@ The sync engine is a Rust library ([prism-sync](https://github.com/prismplural/p
 included via path dependencies. See the sync repo for build instructions if you need to
 modify the Rust side.
 
-### Running your own relay
+### Voice notes
 
-Sync is optional. If you want it, you can use a shared community relay or host your
-own — the relay only ever sees encrypted blobs. See the
-[self-hosting guide](https://github.com/prismplural/prism-sync/blob/main/self-host/SELF-HOSTING.md)
-in the sync repo (Docker Compose and Kubernetes manifests included). Once it's up,
-point the app at your relay URL in Settings → Sync.
+New voice notes use a mobile-first Ogg Opus path.
+
+- **Android** records Ogg Opus directly.
+- **iOS** records Opus in CAF, may briefly show **Preparing voice note...**, then remuxes to Ogg before upload.
+- **Playback** uses decrypted bytes in memory rather than the old `.m4a` temp-file path.
+- `pubspec.yaml` currently overrides `flutter_soloud` and `ogg_caf_converter` to local path dependencies while Prism tracks fixes in those forks.
 
 ### Test
 
@@ -64,8 +65,6 @@ flutter test
 
 ## Architecture
 
-### Structure
-
 ```
 lib/
 ├── core/           # Database (Drift), sync integration, router, services
@@ -75,54 +74,30 @@ lib/
 └── shared/         # Design system widgets, theme, extensions
 ```
 
-Domain-driven: `domain/` holds pure Dart models and repository interfaces with no Flutter
-imports. `data/` implements those interfaces against Drift. Features consume repositories
-via Riverpod providers and never touch the database directly.
+| Layer | Tech |
+|-------|------|
+| UI | Flutter (Material 3, dynamic color) |
+| State | Riverpod |
+| Database | Drift + SQLite |
+| Navigation | go_router |
+| Sync | [prism-sync](https://github.com/prismplural/prism-sync) (Rust, via FFI) |
 
-### Key Libraries
+## AI Disclosure
 
-| Layer | Library | Why |
-|-------|---------|-----|
-| UI | Flutter (Material 3) | Cross-platform: iOS, Android, macOS, web |
-| Dynamic color | dynamic_color | Material You / system palette on Android 12+ |
-| State | Riverpod | Scoped, testable reactive state; hand-written providers only |
-| Database | Drift + SQLite | Typesafe queries, codegen DAOs, stream-based reactivity |
-| Models | freezed + json_serializable | Immutable value types with copy/equality/JSON |
-| Navigation | go_router | Declarative routing, StatefulShellRoute for tab isolation |
-| Sync | prism-sync (Rust, via FFI) | CRDT engine, E2E encryption, relay protocol |
-| Secure storage | flutter_secure_storage | Platform Keychain (iOS) / Keystore (Android) |
-| Background | workmanager | Periodic background sync |
+Prism uses AI for development. Prism is written by a plural system that actually uses it
+every day. We use Claude extensively as a coding tool.
 
-### Data Flow
-
-```
-Drift Tables → DAOs → Repositories → Mappers → Freezed Models → Riverpod Providers → Widgets
-```
-
-Mutations go through repositories, which emit CRDT ops to the sync engine. The sync engine
-merges remote changes back into Drift via a diff-based adapter. The relay server stores only
-encrypted blobs and is never trusted with plaintext.
-
-### Sync
-
-Sync is provided by [prism-sync](https://github.com/prismplural/prism-sync), a Rust library
-linked via `flutter_rust_bridge` FFI. It handles:
-
-- Field-level Last-Write-Wins CRDTs with Hybrid Logical Clocks
-- XChaCha20-Poly1305 encryption keyed from Argon2id + HKDF
-- Hybrid post-quantum signatures (Ed25519 + ML-DSA-65)
-- A self-hostable relay server that stores only encrypted blobs
-
-CRDT metadata (pending ops, field versions, HLC timestamps) lives in Rust-managed tables —
-the Drift schema never reads or writes them directly.
-
-## Security
-
-For vulnerability reports, see [SECURITY.md](SECURITY.md).
+The security architecture, design decisions, interface — the things that make this app what
+it is — are ours. The encryption is fully auditable and open source regardless of what tools
+wrote it, and we hope the app's quality stands on its own.
 
 ## Contributing
 
-Contributions are welcome. Please open an issue first to discuss what you'd like to change.
+Contributions are welcome! Whether it's bug reports, feature ideas, or pull requests — all
+help is appreciated. For larger changes, opening an issue first helps us coordinate and
+avoid duplicated effort.
+
+By submitting a pull request, you agree to the [Contributor License Agreement](CLA.md).
 
 ## License
 
