@@ -4,6 +4,24 @@ All notable changes to Prism will be documented in this file.
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-04-25
+
+### Added
+- Statistics screen redesign with a single member-ranking chart at the top, tap-to-toggle time/percentage labels, and system-wide median session length
+- Remove-photo button on the member avatar editor
+
+### Fixed
+- Sunday weekly reminders no longer freeze the app
+- Notes detail view updates immediately when a note is edited
+- Member name, emoji, color, and avatar edits propagate immediately across chat, fronting timeline/history, and reaction bars
+- Importing a Prism backup no longer aborts on tombstone PluralKit-link collisions
+- Splitting a PluralKit-linked fronting session no longer fails with a unique-constraint error
+- PluralKit sync absorbs duplicate-switch unique-constraint errors instead of surfacing "Sync failed" (the 0.6.1 catch never actually fired)
+- Members tab uses custom terminology (Parts, Headmates, etc.) even when the navigation overflow menu is visible
+- Export password hint matches the actual 12-character minimum
+- Conversation info sheet lets you unarchive a conversation
+- Members under a parent group stay visible when the last child subgroup is collapsed
+
 ## [0.6.1] - 2026-04-25
 
 ### Added
