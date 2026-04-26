@@ -923,23 +923,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get frontingActivityChartTitle => 'Daily activity';
-
-  @override
-  String frontingActivityChartAverageLabel(String hours) {
-    return 'avg ${hours}h/day';
-  }
-
-  @override
-  String frontingActivityChartSemantics(
-    String peakHours,
-    String peakDate,
-    String avgHours,
-  ) {
-    return 'Daily fronting activity. Peak: ${peakHours}h on $peakDate. Average: ${avgHours}h per day.';
-  }
-
-  @override
   String get debugTitle => 'Debug';
 
   @override

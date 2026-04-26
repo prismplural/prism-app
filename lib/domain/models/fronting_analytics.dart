@@ -36,7 +36,9 @@ abstract class FrontingAnalytics with _$FrontingAnalytics {
     required int uniqueFronters,
     required double switchesPerDay,
     required List<MemberAnalytics> memberStats,
-    @Default([]) List<DailyActivity> dailyActivity,
+    /// System-wide median session length across the range. `Duration.zero`
+    /// when there are no sessions.
+    @Default(Duration.zero) Duration medianSession,
     @Default([]) List<CoFrontingPair> topCoFrontingPairs,
   }) = _FrontingAnalytics;
 
@@ -60,20 +62,6 @@ abstract class MemberAnalytics with _$MemberAnalytics {
 
   factory MemberAnalytics.fromJson(Map<String, dynamic> json) =>
       _$MemberAnalyticsFromJson(json);
-}
-
-/// Daily fronting activity summary for the activity timeline chart.
-@freezed
-abstract class DailyActivity with _$DailyActivity {
-  const factory DailyActivity({
-    /// Date normalized to midnight UTC.
-    required DateTime date,
-    required int totalMinutes,
-    required int sessionCount,
-  }) = _DailyActivity;
-
-  factory DailyActivity.fromJson(Map<String, dynamic> json) =>
-      _$DailyActivityFromJson(json);
 }
 
 /// A pair of members who co-fronted, with their total shared time.

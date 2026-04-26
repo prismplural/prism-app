@@ -8,8 +8,7 @@ import 'package:prism_plurality/features/members/providers/members_providers.dar
 import 'package:prism_plurality/features/settings/providers/analytics_providers.dart';
 import 'package:prism_plurality/features/settings/widgets/analytics_date_range_picker.dart';
 import 'package:prism_plurality/features/settings/widgets/analytics_insight_card.dart';
-import 'package:prism_plurality/features/settings/widgets/fronting_activity_chart.dart';
-import 'package:prism_plurality/features/settings/widgets/member_comparison_chart.dart';
+import 'package:prism_plurality/features/settings/widgets/member_ranking_chart.dart';
 import 'package:prism_plurality/features/settings/widgets/time_of_day_chart.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
@@ -97,10 +96,10 @@ class _AnalyticsBody extends ConsumerWidget {
     return ListView(
       padding: EdgeInsets.fromLTRB(24, 0, 24, NavBarInset.of(context)),
       children: [
-        // Activity timeline chart — shown only when ≥5 days have data
-        if (analytics.dailyActivity.isNotEmpty)
-          FrontingActivityChart(dailyActivity: analytics.dailyActivity),
-        if (analytics.dailyActivity.isNotEmpty) const SizedBox(height: 16),
+        // Hero ranking chart — vertical bars per member, sorted desc by total
+        // time, horizontally scrollable.
+        MemberRankingChart(memberStats: analytics.memberStats),
+        const SizedBox(height: 16),
 
         // System overview with optional prior-period comparison
         PrismSectionCard(
@@ -118,10 +117,10 @@ class _AnalyticsBody extends ConsumerWidget {
               Row(
                 children: [
                   _OverviewStat(
-                    label: 'Total Time',
-                    value: _fmt(analytics.totalTrackedTime),
+                    label: 'Median Session',
+                    value: _fmt(analytics.medianSession),
                     priorLabel: previousPeriod != null
-                        ? '${_fmt(previousPeriod.totalTrackedTime)} last period'
+                        ? '${_fmt(previousPeriod.medianSession)} last period'
                         : null,
                     theme: theme,
                   ),
@@ -161,16 +160,12 @@ class _AnalyticsBody extends ConsumerWidget {
         ),
         const SizedBox(height: 16),
 
-        // Insight cards — shown between overview and member comparison
+        // Insight cards
         for (final insight in insights) ...[
           AnalyticsInsightCard(insight: insight),
           const SizedBox(height: 8),
         ],
         if (insights.isNotEmpty) const SizedBox(height: 8),
-
-        // Member comparison chart
-        MemberComparisonChart(memberStats: analytics.memberStats),
-        const SizedBox(height: 16),
 
         // Per-member expandable detail
         for (final stat in analytics.memberStats) ...[

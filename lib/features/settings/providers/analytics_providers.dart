@@ -5,13 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/fronting_analytics.dart';
+import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/models/analytics_insight.dart';
-
-class _DayBucket {
-  int minutes;
-  int sessions;
-  _DayBucket(this.minutes, this.sessions);
-}
 
 /// Wraps a DateTimeRange with an isAllTime flag so providers can
 /// suppress prior-period comparisons when "All" is selected.
@@ -84,7 +79,6 @@ FrontingAnalytics computeAnalyticsFromRows(
       uniqueFronters: 0,
       switchesPerDay: 0,
       memberStats: [],
-      dailyActivity: [],
       topCoFrontingPairs: [],
     );
   }
@@ -92,6 +86,8 @@ FrontingAnalytics computeAnalyticsFromRows(
   // Collect per-member durations
   final memberDurations = <String, List<Duration>>{};
   final memberTimeBuckets = <String, Map<String, int>>{};
+  // Flat list of every (clamped) session duration, for system-wide median.
+  final allSessionDurations = <Duration>[];
   var totalTracked = Duration.zero;
 
   for (final session in rows) {
@@ -107,6 +103,7 @@ FrontingAnalytics computeAnalyticsFromRows(
 
     final duration = clampedEnd.difference(clampedStart);
     totalTracked += duration;
+    allSessionDurations.add(duration);
 
     // Primary fronter
     final memberId = session.memberId as String?;
@@ -168,44 +165,13 @@ FrontingAnalytics computeAnalyticsFromRows(
 
   memberStats.sort((a, b) => b.totalTime.compareTo(a.totalTime));
 
-  // --- Daily activity bucketing ---
-  final Map<DateTime, _DayBucket> dailyMap = {};
-  for (final session in rows) {
-    final startTime = session.startTime as DateTime;
-    final endTime = (session.endTime as DateTime?) ?? DateTime.now();
-
-    final effectiveStart =
-        startTime.isBefore(range.start) ? range.start : startTime;
-    final effectiveEnd = endTime.isAfter(range.end) ? range.end : endTime;
-    if (effectiveStart.isAfter(effectiveEnd)) continue;
-
-    var cursor = effectiveStart;
-    while (cursor.isBefore(effectiveEnd)) {
-      final dayStart =
-          DateTime.utc(cursor.year, cursor.month, cursor.day);
-      final dayEnd = dayStart.add(const Duration(days: 1));
-      final sliceEnd =
-          effectiveEnd.isBefore(dayEnd) ? effectiveEnd : dayEnd;
-      final sliceMinutes = sliceEnd.difference(cursor).inMinutes;
-      if (sliceMinutes > 0) {
-        dailyMap.update(
-          dayStart,
-          (b) => _DayBucket(b.minutes + sliceMinutes, b.sessions + 1),
-          ifAbsent: () => _DayBucket(sliceMinutes, 1),
-        );
-      }
-      cursor = dayEnd;
-    }
-  }
-
-  final dailyActivity = dailyMap.entries
-      .map((e) => DailyActivity(
-            date: e.key,
-            totalMinutes: e.value.minutes,
-            sessionCount: e.value.sessions,
-          ))
-      .toList()
-    ..sort((a, b) => a.date.compareTo(b.date));
+  // --- System-wide median session length ---
+  // Only includes primary-fronter durations (one per row) so co-fronter
+  // double-counting doesn't skew the median. For even counts we average
+  // the two middle values; integer-truncated index alone returns the
+  // upper-middle which biases the stat upward.
+  allSessionDurations.sort();
+  final medianSession = _median(allSessionDurations);
 
   // --- Co-fronting pairs ---
   final Map<String, Duration> pairAccum = {};
@@ -263,7 +229,7 @@ FrontingAnalytics computeAnalyticsFromRows(
     uniqueFronters: memberDurations.keys.length,
     switchesPerDay: switchesPerDay,
     memberStats: memberStats,
-    dailyActivity: dailyActivity,
+    medianSession: medianSession,
     topCoFrontingPairs: topCoFrontingPairs,
   );
 }
@@ -289,12 +255,18 @@ void _addTimeBuckets(
 }
 
 /// Generates insight cards from current and (optionally) prior period analytics.
+///
+/// `names` maps memberId → display name (`displayName ?? name`). When a
+/// referenced member is missing or has an empty name, headlines fall back to
+/// generic copy ("A member") so the card still surfaces.
+///
 /// Exported for testing.
 @visibleForTesting
 List<AnalyticsInsight> computeInsights(
   FrontingAnalytics current,
-  FrontingAnalytics? previous,
-) {
+  FrontingAnalytics? previous, {
+  Map<String, String> names = const {},
+}) {
   final insights = <AnalyticsInsight>[];
 
   // 1. Gap Alert — single window, no prior period needed
@@ -317,27 +289,42 @@ List<AnalyticsInsight> computeInsights(
   // Co-Fronting Highlight — single window (pair data lives in current)
   if (current.topCoFrontingPairs.isNotEmpty) {
     final top = current.topCoFrontingPairs.first;
+    final nameA = _name(names, top.memberIdA);
+    final nameB = _name(names, top.memberIdB);
+    final headline = (nameA != null && nameB != null)
+        ? '$nameA & $nameB co-fronted a lot this period'
+        : 'Two members co-fronted a lot this period';
     insights.add(AnalyticsInsight(
       type: AnalyticsInsightType.coFrontingHighlight,
       iconType: AnalyticsInsightIconType.usersThree,
-      headline: 'Two members co-fronted a lot this period',
+      headline: headline,
       body: '${_fmtDuration(top.totalTime)} together.',
       signalStrength: 30,
     ));
   }
 
   if (previous != null) {
-    // 2. Quiet Member — appeared in previous but absent in current
+    // 2. Quiet Member — appeared in previous but absent in current.
+    // Surface the quiet member with the most prior-period time (strongest
+    // signal); break ties by memberId for determinism.
     final currentIds =
         current.memberStats.map((m) => m.memberId).toSet();
     final quietMembers = previous.memberStats
         .where((m) => !currentIds.contains(m.memberId))
-        .toList();
+        .toList()
+      ..sort((a, b) {
+        final byTime = b.totalTime.compareTo(a.totalTime);
+        return byTime != 0 ? byTime : a.memberId.compareTo(b.memberId);
+      });
     if (quietMembers.isNotEmpty) {
-      insights.add(const AnalyticsInsight(
+      final quietest = quietMembers.first;
+      final name = _name(names, quietest.memberId);
+      insights.add(AnalyticsInsight(
         type: AnalyticsInsightType.quietMember,
         iconType: AnalyticsInsightIconType.moonStars,
-        headline: 'One member hasn\'t fronted this period',
+        headline: name != null
+            ? '$name hasn\'t fronted this period'
+            : 'One member hasn\'t fronted this period',
         body: 'They were active in the last one.',
         signalStrength: 70,
       ));
@@ -355,11 +342,14 @@ List<AnalyticsInsight> computeInsights(
           (curr.averageDuration.inMinutes - prevAvgMin) / prevAvgMin;
       if (change.abs() >= 0.25) {
         final longer = change > 0;
+        final name = _name(names, curr.memberId);
+        final headline = name != null
+            ? '$name\'s sessions are running ${longer ? "longer" : "shorter"}'
+            : 'Session lengths are ${longer ? "longer" : "shorter"} for a member';
         insights.add(AnalyticsInsight(
           type: AnalyticsInsightType.sessionDrift,
           iconType: AnalyticsInsightIconType.arrowsHorizontal,
-          headline:
-              'Session lengths are ${longer ? "longer" : "shorter"} for a member',
+          headline: headline,
           body:
               '${_fmtDuration(curr.averageDuration)} avg, ${longer ? "up" : "down"} from ${_fmtDuration(prev.averageDuration)}.',
           signalStrength: 60,
@@ -378,12 +368,15 @@ List<AnalyticsInsight> computeInsights(
       final prevModal = _modalBucket(prev.timeOfDayBreakdown);
       if (currModal != null && prevModal != null && currModal != prevModal) {
         final isNightward = currModal == 'evening' || currModal == 'night';
+        final name = _name(names, curr.memberId);
         insights.add(AnalyticsInsight(
           type: AnalyticsInsightType.timeOfDayShift,
           iconType: isNightward
               ? AnalyticsInsightIconType.moon
               : AnalyticsInsightIconType.sun,
-          headline: 'A member\'s fronting time of day shifted',
+          headline: name != null
+              ? '$name is fronting at a different time'
+              : 'A member\'s fronting time of day shifted',
           body:
               'Mostly ${_bucketLabel(currModal)} lately — ${_bucketLabel(prevModal)} is more typical.',
           signalStrength: 40,
@@ -395,6 +388,28 @@ List<AnalyticsInsight> computeInsights(
 
   insights.sort((a, b) => b.signalStrength.compareTo(a.signalStrength));
   return insights.take(3).toList();
+}
+
+/// True median of a sorted duration list. Averages the two middle values
+/// for even counts; returns [Duration.zero] for an empty list.
+Duration _median(List<Duration> sorted) {
+  if (sorted.isEmpty) return Duration.zero;
+  final n = sorted.length;
+  if (n.isOdd) return sorted[n ~/ 2];
+  final lower = sorted[(n ~/ 2) - 1];
+  final upper = sorted[n ~/ 2];
+  return Duration(
+    microseconds:
+        (lower.inMicroseconds + upper.inMicroseconds) ~/ 2,
+  );
+}
+
+/// Returns the display name for [memberId] from [names], or null if missing
+/// or empty — callers fall back to generic copy in that case.
+String? _name(Map<String, String> names, String memberId) {
+  final n = names[memberId];
+  if (n == null || n.isEmpty) return null;
+  return n;
 }
 
 String _fmtDuration(Duration d) {
@@ -423,5 +438,9 @@ final analyticsInsightsProvider =
     FutureProvider<List<AnalyticsInsight>>((ref) async {
   final current = await ref.watch(frontingAnalyticsProvider.future);
   final previous = await ref.watch(previousPeriodAnalyticsProvider.future);
-  return computeInsights(current, previous);
+  final members = await ref.watch(allMembersProvider.future);
+  final names = <String, String>{
+    for (final m in members) m.id: m.displayName ?? m.name,
+  };
+  return computeInsights(current, previous, names: names);
 });

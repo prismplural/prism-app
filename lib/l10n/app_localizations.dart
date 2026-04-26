@@ -1754,28 +1754,6 @@ abstract class AppLocalizations {
   /// **'Time of day: {parts}'**
   String timeOfDayChartSemantics(String parts);
 
-  /// Title for the daily fronting activity chart
-  ///
-  /// In en, this message translates to:
-  /// **'Daily activity'**
-  String get frontingActivityChartTitle;
-
-  /// Average label shown in the fronting activity chart
-  ///
-  /// In en, this message translates to:
-  /// **'avg {hours}h/day'**
-  String frontingActivityChartAverageLabel(String hours);
-
-  /// Semantics summary for the daily fronting activity chart
-  ///
-  /// In en, this message translates to:
-  /// **'Daily fronting activity. Peak: {peakHours}h on {peakDate}. Average: {avgHours}h per day.'**
-  String frontingActivityChartSemantics(
-    String peakHours,
-    String peakDate,
-    String avgHours,
-  );
-
   /// Debug screen title
   ///
   /// In en, this message translates to:

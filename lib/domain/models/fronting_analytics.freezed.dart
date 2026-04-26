@@ -15,7 +15,9 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$FrontingAnalytics {
 
- DateTime get rangeStart; DateTime get rangeEnd; Duration get totalTrackedTime; Duration get totalGapTime; int get totalSessions; int get uniqueFronters; double get switchesPerDay; List<MemberAnalytics> get memberStats; List<DailyActivity> get dailyActivity; List<CoFrontingPair> get topCoFrontingPairs;
+ DateTime get rangeStart; DateTime get rangeEnd; Duration get totalTrackedTime; Duration get totalGapTime; int get totalSessions; int get uniqueFronters; double get switchesPerDay; List<MemberAnalytics> get memberStats;/// System-wide median session length across the range. `Duration.zero`
+/// when there are no sessions.
+ Duration get medianSession; List<CoFrontingPair> get topCoFrontingPairs;
 /// Create a copy of FrontingAnalytics
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -28,16 +30,16 @@ $FrontingAnalyticsCopyWith<FrontingAnalytics> get copyWith => _$FrontingAnalytic
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is FrontingAnalytics&&(identical(other.rangeStart, rangeStart) || other.rangeStart == rangeStart)&&(identical(other.rangeEnd, rangeEnd) || other.rangeEnd == rangeEnd)&&(identical(other.totalTrackedTime, totalTrackedTime) || other.totalTrackedTime == totalTrackedTime)&&(identical(other.totalGapTime, totalGapTime) || other.totalGapTime == totalGapTime)&&(identical(other.totalSessions, totalSessions) || other.totalSessions == totalSessions)&&(identical(other.uniqueFronters, uniqueFronters) || other.uniqueFronters == uniqueFronters)&&(identical(other.switchesPerDay, switchesPerDay) || other.switchesPerDay == switchesPerDay)&&const DeepCollectionEquality().equals(other.memberStats, memberStats)&&const DeepCollectionEquality().equals(other.dailyActivity, dailyActivity)&&const DeepCollectionEquality().equals(other.topCoFrontingPairs, topCoFrontingPairs));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is FrontingAnalytics&&(identical(other.rangeStart, rangeStart) || other.rangeStart == rangeStart)&&(identical(other.rangeEnd, rangeEnd) || other.rangeEnd == rangeEnd)&&(identical(other.totalTrackedTime, totalTrackedTime) || other.totalTrackedTime == totalTrackedTime)&&(identical(other.totalGapTime, totalGapTime) || other.totalGapTime == totalGapTime)&&(identical(other.totalSessions, totalSessions) || other.totalSessions == totalSessions)&&(identical(other.uniqueFronters, uniqueFronters) || other.uniqueFronters == uniqueFronters)&&(identical(other.switchesPerDay, switchesPerDay) || other.switchesPerDay == switchesPerDay)&&const DeepCollectionEquality().equals(other.memberStats, memberStats)&&(identical(other.medianSession, medianSession) || other.medianSession == medianSession)&&const DeepCollectionEquality().equals(other.topCoFrontingPairs, topCoFrontingPairs));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,rangeStart,rangeEnd,totalTrackedTime,totalGapTime,totalSessions,uniqueFronters,switchesPerDay,const DeepCollectionEquality().hash(memberStats),const DeepCollectionEquality().hash(dailyActivity),const DeepCollectionEquality().hash(topCoFrontingPairs));
+int get hashCode => Object.hash(runtimeType,rangeStart,rangeEnd,totalTrackedTime,totalGapTime,totalSessions,uniqueFronters,switchesPerDay,const DeepCollectionEquality().hash(memberStats),medianSession,const DeepCollectionEquality().hash(topCoFrontingPairs));
 
 @override
 String toString() {
-  return 'FrontingAnalytics(rangeStart: $rangeStart, rangeEnd: $rangeEnd, totalTrackedTime: $totalTrackedTime, totalGapTime: $totalGapTime, totalSessions: $totalSessions, uniqueFronters: $uniqueFronters, switchesPerDay: $switchesPerDay, memberStats: $memberStats, dailyActivity: $dailyActivity, topCoFrontingPairs: $topCoFrontingPairs)';
+  return 'FrontingAnalytics(rangeStart: $rangeStart, rangeEnd: $rangeEnd, totalTrackedTime: $totalTrackedTime, totalGapTime: $totalGapTime, totalSessions: $totalSessions, uniqueFronters: $uniqueFronters, switchesPerDay: $switchesPerDay, memberStats: $memberStats, medianSession: $medianSession, topCoFrontingPairs: $topCoFrontingPairs)';
 }
 
 
@@ -48,7 +50,7 @@ abstract mixin class $FrontingAnalyticsCopyWith<$Res>  {
   factory $FrontingAnalyticsCopyWith(FrontingAnalytics value, $Res Function(FrontingAnalytics) _then) = _$FrontingAnalyticsCopyWithImpl;
 @useResult
 $Res call({
- DateTime rangeStart, DateTime rangeEnd, Duration totalTrackedTime, Duration totalGapTime, int totalSessions, int uniqueFronters, double switchesPerDay, List<MemberAnalytics> memberStats, List<DailyActivity> dailyActivity, List<CoFrontingPair> topCoFrontingPairs
+ DateTime rangeStart, DateTime rangeEnd, Duration totalTrackedTime, Duration totalGapTime, int totalSessions, int uniqueFronters, double switchesPerDay, List<MemberAnalytics> memberStats, Duration medianSession, List<CoFrontingPair> topCoFrontingPairs
 });
 
 
@@ -65,7 +67,7 @@ class _$FrontingAnalyticsCopyWithImpl<$Res>
 
 /// Create a copy of FrontingAnalytics
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? rangeStart = null,Object? rangeEnd = null,Object? totalTrackedTime = null,Object? totalGapTime = null,Object? totalSessions = null,Object? uniqueFronters = null,Object? switchesPerDay = null,Object? memberStats = null,Object? dailyActivity = null,Object? topCoFrontingPairs = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? rangeStart = null,Object? rangeEnd = null,Object? totalTrackedTime = null,Object? totalGapTime = null,Object? totalSessions = null,Object? uniqueFronters = null,Object? switchesPerDay = null,Object? memberStats = null,Object? medianSession = null,Object? topCoFrontingPairs = null,}) {
   return _then(_self.copyWith(
 rangeStart: null == rangeStart ? _self.rangeStart : rangeStart // ignore: cast_nullable_to_non_nullable
 as DateTime,rangeEnd: null == rangeEnd ? _self.rangeEnd : rangeEnd // ignore: cast_nullable_to_non_nullable
@@ -75,8 +77,8 @@ as Duration,totalSessions: null == totalSessions ? _self.totalSessions : totalSe
 as int,uniqueFronters: null == uniqueFronters ? _self.uniqueFronters : uniqueFronters // ignore: cast_nullable_to_non_nullable
 as int,switchesPerDay: null == switchesPerDay ? _self.switchesPerDay : switchesPerDay // ignore: cast_nullable_to_non_nullable
 as double,memberStats: null == memberStats ? _self.memberStats : memberStats // ignore: cast_nullable_to_non_nullable
-as List<MemberAnalytics>,dailyActivity: null == dailyActivity ? _self.dailyActivity : dailyActivity // ignore: cast_nullable_to_non_nullable
-as List<DailyActivity>,topCoFrontingPairs: null == topCoFrontingPairs ? _self.topCoFrontingPairs : topCoFrontingPairs // ignore: cast_nullable_to_non_nullable
+as List<MemberAnalytics>,medianSession: null == medianSession ? _self.medianSession : medianSession // ignore: cast_nullable_to_non_nullable
+as Duration,topCoFrontingPairs: null == topCoFrontingPairs ? _self.topCoFrontingPairs : topCoFrontingPairs // ignore: cast_nullable_to_non_nullable
 as List<CoFrontingPair>,
   ));
 }
@@ -162,10 +164,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( DateTime rangeStart,  DateTime rangeEnd,  Duration totalTrackedTime,  Duration totalGapTime,  int totalSessions,  int uniqueFronters,  double switchesPerDay,  List<MemberAnalytics> memberStats,  List<DailyActivity> dailyActivity,  List<CoFrontingPair> topCoFrontingPairs)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( DateTime rangeStart,  DateTime rangeEnd,  Duration totalTrackedTime,  Duration totalGapTime,  int totalSessions,  int uniqueFronters,  double switchesPerDay,  List<MemberAnalytics> memberStats,  Duration medianSession,  List<CoFrontingPair> topCoFrontingPairs)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _FrontingAnalytics() when $default != null:
-return $default(_that.rangeStart,_that.rangeEnd,_that.totalTrackedTime,_that.totalGapTime,_that.totalSessions,_that.uniqueFronters,_that.switchesPerDay,_that.memberStats,_that.dailyActivity,_that.topCoFrontingPairs);case _:
+return $default(_that.rangeStart,_that.rangeEnd,_that.totalTrackedTime,_that.totalGapTime,_that.totalSessions,_that.uniqueFronters,_that.switchesPerDay,_that.memberStats,_that.medianSession,_that.topCoFrontingPairs);case _:
   return orElse();
 
 }
@@ -183,10 +185,10 @@ return $default(_that.rangeStart,_that.rangeEnd,_that.totalTrackedTime,_that.tot
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( DateTime rangeStart,  DateTime rangeEnd,  Duration totalTrackedTime,  Duration totalGapTime,  int totalSessions,  int uniqueFronters,  double switchesPerDay,  List<MemberAnalytics> memberStats,  List<DailyActivity> dailyActivity,  List<CoFrontingPair> topCoFrontingPairs)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( DateTime rangeStart,  DateTime rangeEnd,  Duration totalTrackedTime,  Duration totalGapTime,  int totalSessions,  int uniqueFronters,  double switchesPerDay,  List<MemberAnalytics> memberStats,  Duration medianSession,  List<CoFrontingPair> topCoFrontingPairs)  $default,) {final _that = this;
 switch (_that) {
 case _FrontingAnalytics():
-return $default(_that.rangeStart,_that.rangeEnd,_that.totalTrackedTime,_that.totalGapTime,_that.totalSessions,_that.uniqueFronters,_that.switchesPerDay,_that.memberStats,_that.dailyActivity,_that.topCoFrontingPairs);case _:
+return $default(_that.rangeStart,_that.rangeEnd,_that.totalTrackedTime,_that.totalGapTime,_that.totalSessions,_that.uniqueFronters,_that.switchesPerDay,_that.memberStats,_that.medianSession,_that.topCoFrontingPairs);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -203,10 +205,10 @@ return $default(_that.rangeStart,_that.rangeEnd,_that.totalTrackedTime,_that.tot
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( DateTime rangeStart,  DateTime rangeEnd,  Duration totalTrackedTime,  Duration totalGapTime,  int totalSessions,  int uniqueFronters,  double switchesPerDay,  List<MemberAnalytics> memberStats,  List<DailyActivity> dailyActivity,  List<CoFrontingPair> topCoFrontingPairs)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( DateTime rangeStart,  DateTime rangeEnd,  Duration totalTrackedTime,  Duration totalGapTime,  int totalSessions,  int uniqueFronters,  double switchesPerDay,  List<MemberAnalytics> memberStats,  Duration medianSession,  List<CoFrontingPair> topCoFrontingPairs)?  $default,) {final _that = this;
 switch (_that) {
 case _FrontingAnalytics() when $default != null:
-return $default(_that.rangeStart,_that.rangeEnd,_that.totalTrackedTime,_that.totalGapTime,_that.totalSessions,_that.uniqueFronters,_that.switchesPerDay,_that.memberStats,_that.dailyActivity,_that.topCoFrontingPairs);case _:
+return $default(_that.rangeStart,_that.rangeEnd,_that.totalTrackedTime,_that.totalGapTime,_that.totalSessions,_that.uniqueFronters,_that.switchesPerDay,_that.memberStats,_that.medianSession,_that.topCoFrontingPairs);case _:
   return null;
 
 }
@@ -218,7 +220,7 @@ return $default(_that.rangeStart,_that.rangeEnd,_that.totalTrackedTime,_that.tot
 @JsonSerializable()
 
 class _FrontingAnalytics implements FrontingAnalytics {
-  const _FrontingAnalytics({required this.rangeStart, required this.rangeEnd, required this.totalTrackedTime, required this.totalGapTime, required this.totalSessions, required this.uniqueFronters, required this.switchesPerDay, required final  List<MemberAnalytics> memberStats, final  List<DailyActivity> dailyActivity = const [], final  List<CoFrontingPair> topCoFrontingPairs = const []}): _memberStats = memberStats,_dailyActivity = dailyActivity,_topCoFrontingPairs = topCoFrontingPairs;
+  const _FrontingAnalytics({required this.rangeStart, required this.rangeEnd, required this.totalTrackedTime, required this.totalGapTime, required this.totalSessions, required this.uniqueFronters, required this.switchesPerDay, required final  List<MemberAnalytics> memberStats, this.medianSession = Duration.zero, final  List<CoFrontingPair> topCoFrontingPairs = const []}): _memberStats = memberStats,_topCoFrontingPairs = topCoFrontingPairs;
   factory _FrontingAnalytics.fromJson(Map<String, dynamic> json) => _$FrontingAnalyticsFromJson(json);
 
 @override final  DateTime rangeStart;
@@ -235,13 +237,9 @@ class _FrontingAnalytics implements FrontingAnalytics {
   return EqualUnmodifiableListView(_memberStats);
 }
 
- final  List<DailyActivity> _dailyActivity;
-@override@JsonKey() List<DailyActivity> get dailyActivity {
-  if (_dailyActivity is EqualUnmodifiableListView) return _dailyActivity;
-  // ignore: implicit_dynamic_type
-  return EqualUnmodifiableListView(_dailyActivity);
-}
-
+/// System-wide median session length across the range. `Duration.zero`
+/// when there are no sessions.
+@override@JsonKey() final  Duration medianSession;
  final  List<CoFrontingPair> _topCoFrontingPairs;
 @override@JsonKey() List<CoFrontingPair> get topCoFrontingPairs {
   if (_topCoFrontingPairs is EqualUnmodifiableListView) return _topCoFrontingPairs;
@@ -263,16 +261,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _FrontingAnalytics&&(identical(other.rangeStart, rangeStart) || other.rangeStart == rangeStart)&&(identical(other.rangeEnd, rangeEnd) || other.rangeEnd == rangeEnd)&&(identical(other.totalTrackedTime, totalTrackedTime) || other.totalTrackedTime == totalTrackedTime)&&(identical(other.totalGapTime, totalGapTime) || other.totalGapTime == totalGapTime)&&(identical(other.totalSessions, totalSessions) || other.totalSessions == totalSessions)&&(identical(other.uniqueFronters, uniqueFronters) || other.uniqueFronters == uniqueFronters)&&(identical(other.switchesPerDay, switchesPerDay) || other.switchesPerDay == switchesPerDay)&&const DeepCollectionEquality().equals(other._memberStats, _memberStats)&&const DeepCollectionEquality().equals(other._dailyActivity, _dailyActivity)&&const DeepCollectionEquality().equals(other._topCoFrontingPairs, _topCoFrontingPairs));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _FrontingAnalytics&&(identical(other.rangeStart, rangeStart) || other.rangeStart == rangeStart)&&(identical(other.rangeEnd, rangeEnd) || other.rangeEnd == rangeEnd)&&(identical(other.totalTrackedTime, totalTrackedTime) || other.totalTrackedTime == totalTrackedTime)&&(identical(other.totalGapTime, totalGapTime) || other.totalGapTime == totalGapTime)&&(identical(other.totalSessions, totalSessions) || other.totalSessions == totalSessions)&&(identical(other.uniqueFronters, uniqueFronters) || other.uniqueFronters == uniqueFronters)&&(identical(other.switchesPerDay, switchesPerDay) || other.switchesPerDay == switchesPerDay)&&const DeepCollectionEquality().equals(other._memberStats, _memberStats)&&(identical(other.medianSession, medianSession) || other.medianSession == medianSession)&&const DeepCollectionEquality().equals(other._topCoFrontingPairs, _topCoFrontingPairs));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,rangeStart,rangeEnd,totalTrackedTime,totalGapTime,totalSessions,uniqueFronters,switchesPerDay,const DeepCollectionEquality().hash(_memberStats),const DeepCollectionEquality().hash(_dailyActivity),const DeepCollectionEquality().hash(_topCoFrontingPairs));
+int get hashCode => Object.hash(runtimeType,rangeStart,rangeEnd,totalTrackedTime,totalGapTime,totalSessions,uniqueFronters,switchesPerDay,const DeepCollectionEquality().hash(_memberStats),medianSession,const DeepCollectionEquality().hash(_topCoFrontingPairs));
 
 @override
 String toString() {
-  return 'FrontingAnalytics(rangeStart: $rangeStart, rangeEnd: $rangeEnd, totalTrackedTime: $totalTrackedTime, totalGapTime: $totalGapTime, totalSessions: $totalSessions, uniqueFronters: $uniqueFronters, switchesPerDay: $switchesPerDay, memberStats: $memberStats, dailyActivity: $dailyActivity, topCoFrontingPairs: $topCoFrontingPairs)';
+  return 'FrontingAnalytics(rangeStart: $rangeStart, rangeEnd: $rangeEnd, totalTrackedTime: $totalTrackedTime, totalGapTime: $totalGapTime, totalSessions: $totalSessions, uniqueFronters: $uniqueFronters, switchesPerDay: $switchesPerDay, memberStats: $memberStats, medianSession: $medianSession, topCoFrontingPairs: $topCoFrontingPairs)';
 }
 
 
@@ -283,7 +281,7 @@ abstract mixin class _$FrontingAnalyticsCopyWith<$Res> implements $FrontingAnaly
   factory _$FrontingAnalyticsCopyWith(_FrontingAnalytics value, $Res Function(_FrontingAnalytics) _then) = __$FrontingAnalyticsCopyWithImpl;
 @override @useResult
 $Res call({
- DateTime rangeStart, DateTime rangeEnd, Duration totalTrackedTime, Duration totalGapTime, int totalSessions, int uniqueFronters, double switchesPerDay, List<MemberAnalytics> memberStats, List<DailyActivity> dailyActivity, List<CoFrontingPair> topCoFrontingPairs
+ DateTime rangeStart, DateTime rangeEnd, Duration totalTrackedTime, Duration totalGapTime, int totalSessions, int uniqueFronters, double switchesPerDay, List<MemberAnalytics> memberStats, Duration medianSession, List<CoFrontingPair> topCoFrontingPairs
 });
 
 
@@ -300,7 +298,7 @@ class __$FrontingAnalyticsCopyWithImpl<$Res>
 
 /// Create a copy of FrontingAnalytics
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? rangeStart = null,Object? rangeEnd = null,Object? totalTrackedTime = null,Object? totalGapTime = null,Object? totalSessions = null,Object? uniqueFronters = null,Object? switchesPerDay = null,Object? memberStats = null,Object? dailyActivity = null,Object? topCoFrontingPairs = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? rangeStart = null,Object? rangeEnd = null,Object? totalTrackedTime = null,Object? totalGapTime = null,Object? totalSessions = null,Object? uniqueFronters = null,Object? switchesPerDay = null,Object? memberStats = null,Object? medianSession = null,Object? topCoFrontingPairs = null,}) {
   return _then(_FrontingAnalytics(
 rangeStart: null == rangeStart ? _self.rangeStart : rangeStart // ignore: cast_nullable_to_non_nullable
 as DateTime,rangeEnd: null == rangeEnd ? _self.rangeEnd : rangeEnd // ignore: cast_nullable_to_non_nullable
@@ -310,8 +308,8 @@ as Duration,totalSessions: null == totalSessions ? _self.totalSessions : totalSe
 as int,uniqueFronters: null == uniqueFronters ? _self.uniqueFronters : uniqueFronters // ignore: cast_nullable_to_non_nullable
 as int,switchesPerDay: null == switchesPerDay ? _self.switchesPerDay : switchesPerDay // ignore: cast_nullable_to_non_nullable
 as double,memberStats: null == memberStats ? _self._memberStats : memberStats // ignore: cast_nullable_to_non_nullable
-as List<MemberAnalytics>,dailyActivity: null == dailyActivity ? _self._dailyActivity : dailyActivity // ignore: cast_nullable_to_non_nullable
-as List<DailyActivity>,topCoFrontingPairs: null == topCoFrontingPairs ? _self._topCoFrontingPairs : topCoFrontingPairs // ignore: cast_nullable_to_non_nullable
+as List<MemberAnalytics>,medianSession: null == medianSession ? _self.medianSession : medianSession // ignore: cast_nullable_to_non_nullable
+as Duration,topCoFrontingPairs: null == topCoFrontingPairs ? _self._topCoFrontingPairs : topCoFrontingPairs // ignore: cast_nullable_to_non_nullable
 as List<CoFrontingPair>,
   ));
 }
@@ -606,277 +604,6 @@ as Duration,shortestSession: null == shortestSession ? _self.shortestSession : s
 as Duration,longestSession: null == longestSession ? _self.longestSession : longestSession // ignore: cast_nullable_to_non_nullable
 as Duration,timeOfDayBreakdown: null == timeOfDayBreakdown ? _self._timeOfDayBreakdown : timeOfDayBreakdown // ignore: cast_nullable_to_non_nullable
 as Map<String, int>,
-  ));
-}
-
-
-}
-
-
-/// @nodoc
-mixin _$DailyActivity {
-
-/// Date normalized to midnight UTC.
- DateTime get date; int get totalMinutes; int get sessionCount;
-/// Create a copy of DailyActivity
-/// with the given fields replaced by the non-null parameter values.
-@JsonKey(includeFromJson: false, includeToJson: false)
-@pragma('vm:prefer-inline')
-$DailyActivityCopyWith<DailyActivity> get copyWith => _$DailyActivityCopyWithImpl<DailyActivity>(this as DailyActivity, _$identity);
-
-  /// Serializes this DailyActivity to a JSON map.
-  Map<String, dynamic> toJson();
-
-
-@override
-bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is DailyActivity&&(identical(other.date, date) || other.date == date)&&(identical(other.totalMinutes, totalMinutes) || other.totalMinutes == totalMinutes)&&(identical(other.sessionCount, sessionCount) || other.sessionCount == sessionCount));
-}
-
-@JsonKey(includeFromJson: false, includeToJson: false)
-@override
-int get hashCode => Object.hash(runtimeType,date,totalMinutes,sessionCount);
-
-@override
-String toString() {
-  return 'DailyActivity(date: $date, totalMinutes: $totalMinutes, sessionCount: $sessionCount)';
-}
-
-
-}
-
-/// @nodoc
-abstract mixin class $DailyActivityCopyWith<$Res>  {
-  factory $DailyActivityCopyWith(DailyActivity value, $Res Function(DailyActivity) _then) = _$DailyActivityCopyWithImpl;
-@useResult
-$Res call({
- DateTime date, int totalMinutes, int sessionCount
-});
-
-
-
-
-}
-/// @nodoc
-class _$DailyActivityCopyWithImpl<$Res>
-    implements $DailyActivityCopyWith<$Res> {
-  _$DailyActivityCopyWithImpl(this._self, this._then);
-
-  final DailyActivity _self;
-  final $Res Function(DailyActivity) _then;
-
-/// Create a copy of DailyActivity
-/// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? date = null,Object? totalMinutes = null,Object? sessionCount = null,}) {
-  return _then(_self.copyWith(
-date: null == date ? _self.date : date // ignore: cast_nullable_to_non_nullable
-as DateTime,totalMinutes: null == totalMinutes ? _self.totalMinutes : totalMinutes // ignore: cast_nullable_to_non_nullable
-as int,sessionCount: null == sessionCount ? _self.sessionCount : sessionCount // ignore: cast_nullable_to_non_nullable
-as int,
-  ));
-}
-
-}
-
-
-/// Adds pattern-matching-related methods to [DailyActivity].
-extension DailyActivityPatterns on DailyActivity {
-/// A variant of `map` that fallback to returning `orElse`.
-///
-/// It is equivalent to doing:
-/// ```dart
-/// switch (sealedClass) {
-///   case final Subclass value:
-///     return ...;
-///   case _:
-///     return orElse();
-/// }
-/// ```
-
-@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _DailyActivity value)?  $default,{required TResult orElse(),}){
-final _that = this;
-switch (_that) {
-case _DailyActivity() when $default != null:
-return $default(_that);case _:
-  return orElse();
-
-}
-}
-/// A `switch`-like method, using callbacks.
-///
-/// Callbacks receives the raw object, upcasted.
-/// It is equivalent to doing:
-/// ```dart
-/// switch (sealedClass) {
-///   case final Subclass value:
-///     return ...;
-///   case final Subclass2 value:
-///     return ...;
-/// }
-/// ```
-
-@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _DailyActivity value)  $default,){
-final _that = this;
-switch (_that) {
-case _DailyActivity():
-return $default(_that);case _:
-  throw StateError('Unexpected subclass');
-
-}
-}
-/// A variant of `map` that fallback to returning `null`.
-///
-/// It is equivalent to doing:
-/// ```dart
-/// switch (sealedClass) {
-///   case final Subclass value:
-///     return ...;
-///   case _:
-///     return null;
-/// }
-/// ```
-
-@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _DailyActivity value)?  $default,){
-final _that = this;
-switch (_that) {
-case _DailyActivity() when $default != null:
-return $default(_that);case _:
-  return null;
-
-}
-}
-/// A variant of `when` that fallback to an `orElse` callback.
-///
-/// It is equivalent to doing:
-/// ```dart
-/// switch (sealedClass) {
-///   case Subclass(:final field):
-///     return ...;
-///   case _:
-///     return orElse();
-/// }
-/// ```
-
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( DateTime date,  int totalMinutes,  int sessionCount)?  $default,{required TResult orElse(),}) {final _that = this;
-switch (_that) {
-case _DailyActivity() when $default != null:
-return $default(_that.date,_that.totalMinutes,_that.sessionCount);case _:
-  return orElse();
-
-}
-}
-/// A `switch`-like method, using callbacks.
-///
-/// As opposed to `map`, this offers destructuring.
-/// It is equivalent to doing:
-/// ```dart
-/// switch (sealedClass) {
-///   case Subclass(:final field):
-///     return ...;
-///   case Subclass2(:final field2):
-///     return ...;
-/// }
-/// ```
-
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( DateTime date,  int totalMinutes,  int sessionCount)  $default,) {final _that = this;
-switch (_that) {
-case _DailyActivity():
-return $default(_that.date,_that.totalMinutes,_that.sessionCount);case _:
-  throw StateError('Unexpected subclass');
-
-}
-}
-/// A variant of `when` that fallback to returning `null`
-///
-/// It is equivalent to doing:
-/// ```dart
-/// switch (sealedClass) {
-///   case Subclass(:final field):
-///     return ...;
-///   case _:
-///     return null;
-/// }
-/// ```
-
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( DateTime date,  int totalMinutes,  int sessionCount)?  $default,) {final _that = this;
-switch (_that) {
-case _DailyActivity() when $default != null:
-return $default(_that.date,_that.totalMinutes,_that.sessionCount);case _:
-  return null;
-
-}
-}
-
-}
-
-/// @nodoc
-@JsonSerializable()
-
-class _DailyActivity implements DailyActivity {
-  const _DailyActivity({required this.date, required this.totalMinutes, required this.sessionCount});
-  factory _DailyActivity.fromJson(Map<String, dynamic> json) => _$DailyActivityFromJson(json);
-
-/// Date normalized to midnight UTC.
-@override final  DateTime date;
-@override final  int totalMinutes;
-@override final  int sessionCount;
-
-/// Create a copy of DailyActivity
-/// with the given fields replaced by the non-null parameter values.
-@override @JsonKey(includeFromJson: false, includeToJson: false)
-@pragma('vm:prefer-inline')
-_$DailyActivityCopyWith<_DailyActivity> get copyWith => __$DailyActivityCopyWithImpl<_DailyActivity>(this, _$identity);
-
-@override
-Map<String, dynamic> toJson() {
-  return _$DailyActivityToJson(this, );
-}
-
-@override
-bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _DailyActivity&&(identical(other.date, date) || other.date == date)&&(identical(other.totalMinutes, totalMinutes) || other.totalMinutes == totalMinutes)&&(identical(other.sessionCount, sessionCount) || other.sessionCount == sessionCount));
-}
-
-@JsonKey(includeFromJson: false, includeToJson: false)
-@override
-int get hashCode => Object.hash(runtimeType,date,totalMinutes,sessionCount);
-
-@override
-String toString() {
-  return 'DailyActivity(date: $date, totalMinutes: $totalMinutes, sessionCount: $sessionCount)';
-}
-
-
-}
-
-/// @nodoc
-abstract mixin class _$DailyActivityCopyWith<$Res> implements $DailyActivityCopyWith<$Res> {
-  factory _$DailyActivityCopyWith(_DailyActivity value, $Res Function(_DailyActivity) _then) = __$DailyActivityCopyWithImpl;
-@override @useResult
-$Res call({
- DateTime date, int totalMinutes, int sessionCount
-});
-
-
-
-
-}
-/// @nodoc
-class __$DailyActivityCopyWithImpl<$Res>
-    implements _$DailyActivityCopyWith<$Res> {
-  __$DailyActivityCopyWithImpl(this._self, this._then);
-
-  final _DailyActivity _self;
-  final $Res Function(_DailyActivity) _then;
-
-/// Create a copy of DailyActivity
-/// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? date = null,Object? totalMinutes = null,Object? sessionCount = null,}) {
-  return _then(_DailyActivity(
-date: null == date ? _self.date : date // ignore: cast_nullable_to_non_nullable
-as DateTime,totalMinutes: null == totalMinutes ? _self.totalMinutes : totalMinutes // ignore: cast_nullable_to_non_nullable
-as int,sessionCount: null == sessionCount ? _self.sessionCount : sessionCount // ignore: cast_nullable_to_non_nullable
-as int,
   ));
 }
 
