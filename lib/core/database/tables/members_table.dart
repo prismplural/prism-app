@@ -48,6 +48,18 @@ class Members extends Table {
   // devices skip while it's fresh (< 10 min) and take over once stale.
   IntColumn get deletePushStartedAt => integer().nullable()();
 
+  // -- Phase 1: per-member fronting refactor (docs/plans/fronting-per-member-sessions.md §2.3) --
+  //
+  // When true, this member's session is treated as "background" and omitted
+  // from avatar stacks.  Surfaced instead in the "Always-present" header on
+  // period detail screens.  Allows the "24/7 host" pattern without the same
+  // face dominating every avatar stack.
+  //
+  // Default: false (opt-in per member via fronting settings).
+  // Synced via existing CRDT path so both peers render identical stacks.
+  BoolColumn get isAlwaysFronting =>
+      boolean().withDefault(const Constant(false))();
+
   @override
   Set<Column> get primaryKey => {id};
 }

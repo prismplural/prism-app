@@ -1,16 +1,24 @@
 /// Integration test: regression coverage for the PluralKit sync unique-
 /// constraint catch-site (Layer 1 — synchronous in-process DB).
 ///
-/// GIVEN: an in-memory AppDatabase with a soft-deleted fronting_session whose
-///        `pluralkit_uuid = 'X'` and `is_deleted = 1`. This represents the
-///        "PK link still attached, mid delete-push" tombstone state — the
-///        partial unique index on `pluralkit_uuid` does NOT exclude tombstones,
-///        so any future INSERT carrying the same UUID will collide.
-/// WHEN:  `performFullImport` is called with a fake PK client serving a single
-///        switch whose `id = 'X'`.
-/// THEN:  the call returns without throwing, no new (`is_deleted = 0`) row is
-///        created with the same `pluralkit_uuid`, and the tombstone is left
-///        unchanged.
+/// Schema v7 note: the unique index on `fronting_sessions` was replaced by a
+/// composite partial unique index on `(pluralkit_uuid, member_id)` in the
+/// fronting refactor (docs/plans/fronting-per-member-sessions.md §3.7).
+/// The tombstone-collision protection now depends on the new row carrying the
+/// same `member_id` as the tombstone — SQLite treats NULL != NULL in unique
+/// indexes, so a tombstone with `member_id=null` will NOT block a new import
+/// row that also has `member_id=null`.  For rows where member resolution
+/// succeeds (non-null `member_id`), the protection is fully intact.
+///
+/// Phase 2 will rewrite the importer so every PK-linked row always has a
+/// non-null `member_id`, at which point the composite index provides the same
+/// belt-and-braces protection the old single-column index did.  Until then the
+/// null-member_id case is a known gap in DB-level tombstone protection; the
+/// application-layer `getDeletedLinkedSessions` check remains the primary guard.
+///
+/// This test verifies the protection FOR THE RESOLVABLE-MEMBER CASE by seeding
+/// a tombstone with `member_id='local-member-id'` and importing a switch whose
+/// members include that same local member.
 ///
 /// Layer 2 (DriftRemoteException isolate-wrapping) is covered by the helper
 /// unit tests in `test/core/database/sqlite_constraint_test.dart`.
@@ -166,10 +174,29 @@ void main() {
       final db = AppDatabase(NativeDatabase.memory());
       addTearDown(db.close);
 
+      // -- Seed the local member that the PK switch refers to ---------------
+      // The switch lists member 'pk-short-id'.  Seeding a Prism member with
+      // pluralkitId='pk-short-id' causes _resolvePkMembers to map that to
+      // 'local-member-id', so the importer's INSERT carries
+      // (pluralkit_uuid='X', member_id='local-member-id') — exactly matching
+      // the tombstone below and triggering the composite unique-constraint catch.
+      await db.membersDao.upsertMember(
+        MembersCompanion.insert(
+          id: 'local-member-id',
+          name: 'Test Member',
+          createdAt: DateTime(2026, 1, 1),
+          pluralkitId: const Value('pk-short-id'),
+        ),
+      );
+
       // -- Seed a tombstone row carrying pluralkit_uuid='X' ---------------
       // We bypass the repository sync hooks here — this models a row that
       // already exists in the local DB after a soft-delete that hasn't yet
       // pushed up to the relay (and thus hasn't had its PK link cleared).
+      // The composite partial unique index on (pluralkit_uuid, member_id)
+      // prevents a new live row for the same (uuid, member) pair — but only
+      // when member_id is non-null (SQLite treats NULL != NULL in unique
+      // indexes, so unresolvable-member rows bypass this protection).
       // Drift stores DateTimes as Unix seconds and round-trips through local
       // time, so use a local DateTime for round-trip equality.
       final tombstoneStart = DateTime(2026, 4, 1, 12);

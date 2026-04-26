@@ -90,7 +90,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -176,6 +176,64 @@ class AppDatabase extends _$AppDatabase {
         await migrator.addColumn(members, members.pkBannerUrl);
         current = 6;
       }
+      if (current == 6 && to >= 7) {
+        // Phase 1: per-member fronting refactor — additive schema only.
+        // Old columns (co_fronter_ids, pk_member_ids_json, comments.session_id)
+        // stay in place; they are dropped in v8 cleanup.
+
+        // New column: members.is_always_fronting (§2.3)
+        await migrator.addColumn(members, members.isAlwaysFronting);
+
+        // New column: system_settings.pending_fronting_migration_mode (§4.1)
+        await migrator.addColumn(
+          systemSettingsTable,
+          systemSettingsTable.pendingFrontingMigrationMode,
+        );
+
+        // New columns: front_session_comments.target_time + author_member_id (§3.5)
+        await migrator.addColumn(
+          frontSessionComments,
+          frontSessionComments.targetTime,
+        );
+        await migrator.addColumn(
+          frontSessionComments,
+          frontSessionComments.authorMemberId,
+        );
+
+        // Pre-flight duplicate cleanup before creating the composite unique
+        // index (§3.7 + §4.1).  The old single-column index enforced one row
+        // per pluralkit_uuid; in theory each (pluralkit_uuid, member_id) pair
+        // is already unique, but importer bugs in prior versions could have
+        // produced duplicate pairs that would block CREATE UNIQUE INDEX.
+        //
+        // Strategy: for each duplicate (pluralkit_uuid, member_id) group, keep
+        // the row with the highest id value.  HLC timestamps (the ideal
+        // tiebreaker) live in Rust-managed tables not accessible here, so we
+        // fall back to the Drift-assigned id column — UUIDs from the same
+        // importer run share a creation epoch, making the highest id a
+        // reasonable recency proxy.
+        await customStatement(
+          '''
+          DELETE FROM fronting_sessions
+          WHERE rowid NOT IN (
+            SELECT MAX(rowid)
+            FROM fronting_sessions
+            WHERE pluralkit_uuid IS NOT NULL
+            GROUP BY pluralkit_uuid, member_id
+          )
+          AND pluralkit_uuid IS NOT NULL
+          ''',
+        );
+
+        // Replace the old single-column partial unique index with the
+        // composite (pluralkit_uuid, member_id) partial unique index (§3.7).
+        await customStatement(
+          'DROP INDEX IF EXISTS idx_fronting_sessions_pluralkit_uuid',
+        );
+        await _createPkFrontingCompositeIndex();
+
+        current = 7;
+      }
       if (current != to) {
         throw UnsupportedError(
           'Schema baseline was reset to v1 for the private beta. '
@@ -219,10 +277,7 @@ class AppDatabase extends _$AppDatabase {
       'CREATE UNIQUE INDEX IF NOT EXISTS idx_members_pluralkit_id '
       'ON members(pluralkit_id) WHERE pluralkit_id IS NOT NULL',
     );
-    await customStatement(
-      'CREATE UNIQUE INDEX IF NOT EXISTS idx_fronting_sessions_pluralkit_uuid '
-      'ON fronting_sessions(pluralkit_uuid) WHERE pluralkit_uuid IS NOT NULL',
-    );
+    await _createPkFrontingCompositeIndex();
     await customStatement(
       'CREATE UNIQUE INDEX IF NOT EXISTS idx_member_groups_pluralkit_uuid '
       'ON member_groups(pluralkit_uuid) '
@@ -231,6 +286,21 @@ class AppDatabase extends _$AppDatabase {
     await customStatement(
       'CREATE INDEX IF NOT EXISTS idx_member_groups_pluralkit_id '
       'ON member_groups(pluralkit_id) WHERE pluralkit_id IS NOT NULL',
+    );
+  }
+
+  /// Creates the composite partial unique index on fronting_sessions for
+  /// PluralKit dedup (§3.7).  Replaces the old single-column
+  /// `idx_fronting_sessions_pluralkit_uuid` index introduced at v1.
+  ///
+  /// One row per (entry-switch UUID × member) is allowed; the partial WHERE
+  /// clause excludes Prism-native rows (which have no PK link).
+  Future<void> _createPkFrontingCompositeIndex() async {
+    await customStatement(
+      'CREATE UNIQUE INDEX IF NOT EXISTS '
+      'idx_fronting_sessions_pluralkit_uuid_member_id '
+      'ON fronting_sessions(pluralkit_uuid, member_id) '
+      'WHERE pluralkit_uuid IS NOT NULL',
     );
   }
 

@@ -128,6 +128,23 @@ class SystemSettingsTable extends Table {
   // Default sleep quality for new sleep sessions (device-local)
   TextColumn get defaultSleepQuality => text().nullable()();
 
+  // -- Phase 1: per-member fronting refactor (docs/plans/fronting-per-member-sessions.md §4.1) --
+  //
+  // Drives the upgrade modal shown on first app launch after v7 schema upgrade.
+  //
+  // Allowed values:
+  //   'notStarted'      — v7 schema installed but user hasn't seen the modal yet
+  //   'deferred'        — user tapped "Not now"; modal re-shown on next launch
+  //   'upgradeAndKeep'  — user chose selective migration (in progress or complete)
+  //   'startFresh'      — user chose wipe-everything path (in progress or complete)
+  //   'notNow'          — alias for deferred, written by the "Not now" path
+  //   'complete'        — migration finished successfully; v8 upgrade gate checks this
+  //
+  // Device-local: migration mode is per-device (solo vs primary vs secondary
+  // roles differ per §4.2); not synced across peers.
+  TextColumn get pendingFrontingMigrationMode =>
+      text().withDefault(const Constant('notStarted'))();
+
   @override
   String get tableName => 'system_settings';
 

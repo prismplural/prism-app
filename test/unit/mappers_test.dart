@@ -159,6 +159,7 @@ void main() {
         markdownEnabled: companion.markdownEnabled.value,
         pluralkitSyncIgnored: false,
         isDeleted: false,
+        isAlwaysFronting: false,
       );
 
       final restored = MemberMapper.toDomain(row);

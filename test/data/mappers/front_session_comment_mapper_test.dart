@@ -62,6 +62,8 @@ void main() {
         timestamp: companion.timestamp.value,
         createdAt: companion.createdAt.value,
         isDeleted: false,
+        targetTime: null,
+        authorMemberId: null,
       );
 
       final restored = FrontSessionCommentMapper.toDomain(row);

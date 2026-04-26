@@ -297,6 +297,21 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _isAlwaysFrontingMeta = const VerificationMeta(
+    'isAlwaysFronting',
+  );
+  @override
+  late final GeneratedColumn<bool> isAlwaysFronting = GeneratedColumn<bool>(
+    'is_always_fronting',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_always_fronting" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -324,6 +339,7 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
     isDeleted,
     deleteIntentEpoch,
     deletePushStartedAt,
+    isAlwaysFronting,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -532,6 +548,15 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
         ),
       );
     }
+    if (data.containsKey('is_always_fronting')) {
+      context.handle(
+        _isAlwaysFrontingMeta,
+        isAlwaysFronting.isAcceptableOrUnknown(
+          data['is_always_fronting']!,
+          _isAlwaysFrontingMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -641,6 +666,10 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
         DriftSqlType.int,
         data['${effectivePrefix}delete_push_started_at'],
       ),
+      isAlwaysFronting: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_always_fronting'],
+      )!,
     );
   }
 
@@ -676,6 +705,7 @@ class Member extends DataClass implements Insertable<Member> {
   final bool isDeleted;
   final int? deleteIntentEpoch;
   final int? deletePushStartedAt;
+  final bool isAlwaysFronting;
   const Member({
     required this.id,
     required this.name,
@@ -702,6 +732,7 @@ class Member extends DataClass implements Insertable<Member> {
     required this.isDeleted,
     this.deleteIntentEpoch,
     this.deletePushStartedAt,
+    required this.isAlwaysFronting,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -759,6 +790,7 @@ class Member extends DataClass implements Insertable<Member> {
     if (!nullToAbsent || deletePushStartedAt != null) {
       map['delete_push_started_at'] = Variable<int>(deletePushStartedAt);
     }
+    map['is_always_fronting'] = Variable<bool>(isAlwaysFronting);
     return map;
   }
 
@@ -813,6 +845,7 @@ class Member extends DataClass implements Insertable<Member> {
       deletePushStartedAt: deletePushStartedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(deletePushStartedAt),
+      isAlwaysFronting: Value(isAlwaysFronting),
     );
   }
 
@@ -851,6 +884,7 @@ class Member extends DataClass implements Insertable<Member> {
       deletePushStartedAt: serializer.fromJson<int?>(
         json['deletePushStartedAt'],
       ),
+      isAlwaysFronting: serializer.fromJson<bool>(json['isAlwaysFronting']),
     );
   }
   @override
@@ -882,6 +916,7 @@ class Member extends DataClass implements Insertable<Member> {
       'isDeleted': serializer.toJson<bool>(isDeleted),
       'deleteIntentEpoch': serializer.toJson<int?>(deleteIntentEpoch),
       'deletePushStartedAt': serializer.toJson<int?>(deletePushStartedAt),
+      'isAlwaysFronting': serializer.toJson<bool>(isAlwaysFronting),
     };
   }
 
@@ -911,6 +946,7 @@ class Member extends DataClass implements Insertable<Member> {
     bool? isDeleted,
     Value<int?> deleteIntentEpoch = const Value.absent(),
     Value<int?> deletePushStartedAt = const Value.absent(),
+    bool? isAlwaysFronting,
   }) => Member(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -951,6 +987,7 @@ class Member extends DataClass implements Insertable<Member> {
     deletePushStartedAt: deletePushStartedAt.present
         ? deletePushStartedAt.value
         : this.deletePushStartedAt,
+    isAlwaysFronting: isAlwaysFronting ?? this.isAlwaysFronting,
   );
   Member copyWithCompanion(MembersCompanion data) {
     return Member(
@@ -1007,6 +1044,9 @@ class Member extends DataClass implements Insertable<Member> {
       deletePushStartedAt: data.deletePushStartedAt.present
           ? data.deletePushStartedAt.value
           : this.deletePushStartedAt,
+      isAlwaysFronting: data.isAlwaysFronting.present
+          ? data.isAlwaysFronting.value
+          : this.isAlwaysFronting,
     );
   }
 
@@ -1037,7 +1077,8 @@ class Member extends DataClass implements Insertable<Member> {
           ..write('markdownEnabled: $markdownEnabled, ')
           ..write('isDeleted: $isDeleted, ')
           ..write('deleteIntentEpoch: $deleteIntentEpoch, ')
-          ..write('deletePushStartedAt: $deletePushStartedAt')
+          ..write('deletePushStartedAt: $deletePushStartedAt, ')
+          ..write('isAlwaysFronting: $isAlwaysFronting')
           ..write(')'))
         .toString();
   }
@@ -1069,6 +1110,7 @@ class Member extends DataClass implements Insertable<Member> {
     isDeleted,
     deleteIntentEpoch,
     deletePushStartedAt,
+    isAlwaysFronting,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -1101,7 +1143,8 @@ class Member extends DataClass implements Insertable<Member> {
           other.markdownEnabled == this.markdownEnabled &&
           other.isDeleted == this.isDeleted &&
           other.deleteIntentEpoch == this.deleteIntentEpoch &&
-          other.deletePushStartedAt == this.deletePushStartedAt);
+          other.deletePushStartedAt == this.deletePushStartedAt &&
+          other.isAlwaysFronting == this.isAlwaysFronting);
 }
 
 class MembersCompanion extends UpdateCompanion<Member> {
@@ -1130,6 +1173,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
   final Value<bool> isDeleted;
   final Value<int?> deleteIntentEpoch;
   final Value<int?> deletePushStartedAt;
+  final Value<bool> isAlwaysFronting;
   final Value<int> rowid;
   const MembersCompanion({
     this.id = const Value.absent(),
@@ -1157,6 +1201,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
     this.isDeleted = const Value.absent(),
     this.deleteIntentEpoch = const Value.absent(),
     this.deletePushStartedAt = const Value.absent(),
+    this.isAlwaysFronting = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   MembersCompanion.insert({
@@ -1185,6 +1230,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
     this.isDeleted = const Value.absent(),
     this.deleteIntentEpoch = const Value.absent(),
     this.deletePushStartedAt = const Value.absent(),
+    this.isAlwaysFronting = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        name = Value(name),
@@ -1215,6 +1261,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
     Expression<bool>? isDeleted,
     Expression<int>? deleteIntentEpoch,
     Expression<int>? deletePushStartedAt,
+    Expression<bool>? isAlwaysFronting,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1246,6 +1293,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
       if (deleteIntentEpoch != null) 'delete_intent_epoch': deleteIntentEpoch,
       if (deletePushStartedAt != null)
         'delete_push_started_at': deletePushStartedAt,
+      if (isAlwaysFronting != null) 'is_always_fronting': isAlwaysFronting,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1276,6 +1324,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
     Value<bool>? isDeleted,
     Value<int?>? deleteIntentEpoch,
     Value<int?>? deletePushStartedAt,
+    Value<bool>? isAlwaysFronting,
     Value<int>? rowid,
   }) {
     return MembersCompanion(
@@ -1304,6 +1353,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
       isDeleted: isDeleted ?? this.isDeleted,
       deleteIntentEpoch: deleteIntentEpoch ?? this.deleteIntentEpoch,
       deletePushStartedAt: deletePushStartedAt ?? this.deletePushStartedAt,
+      isAlwaysFronting: isAlwaysFronting ?? this.isAlwaysFronting,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1388,6 +1438,9 @@ class MembersCompanion extends UpdateCompanion<Member> {
     if (deletePushStartedAt.present) {
       map['delete_push_started_at'] = Variable<int>(deletePushStartedAt.value);
     }
+    if (isAlwaysFronting.present) {
+      map['is_always_fronting'] = Variable<bool>(isAlwaysFronting.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1422,6 +1475,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
           ..write('isDeleted: $isDeleted, ')
           ..write('deleteIntentEpoch: $deleteIntentEpoch, ')
           ..write('deletePushStartedAt: $deletePushStartedAt, ')
+          ..write('isAlwaysFronting: $isAlwaysFronting, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -4685,6 +4739,18 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         type: DriftSqlType.string,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _pendingFrontingMigrationModeMeta =
+      const VerificationMeta('pendingFrontingMigrationMode');
+  @override
+  late final GeneratedColumn<String> pendingFrontingMigrationMode =
+      GeneratedColumn<String>(
+        'pending_fronting_migration_mode',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('notStarted'),
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -4743,6 +4809,7 @@ class $SystemSettingsTableTable extends SystemSettingsTable
     syncNavigationEnabled,
     chatBadgePreferences,
     defaultSleepQuality,
+    pendingFrontingMigrationMode,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -5227,6 +5294,15 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         ),
       );
     }
+    if (data.containsKey('pending_fronting_migration_mode')) {
+      context.handle(
+        _pendingFrontingMigrationModeMeta,
+        pendingFrontingMigrationMode.isAcceptableOrUnknown(
+          data['pending_fronting_migration_mode']!,
+          _pendingFrontingMigrationModeMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -5460,6 +5536,10 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         DriftSqlType.string,
         data['${effectivePrefix}default_sleep_quality'],
       ),
+      pendingFrontingMigrationMode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pending_fronting_migration_mode'],
+      )!,
     );
   }
 
@@ -5527,6 +5607,7 @@ class SystemSettingsData extends DataClass
   final bool syncNavigationEnabled;
   final String chatBadgePreferences;
   final String? defaultSleepQuality;
+  final String pendingFrontingMigrationMode;
   const SystemSettingsData({
     required this.id,
     this.systemName,
@@ -5584,6 +5665,7 @@ class SystemSettingsData extends DataClass
     required this.syncNavigationEnabled,
     required this.chatBadgePreferences,
     this.defaultSleepQuality,
+    required this.pendingFrontingMigrationMode,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -5674,6 +5756,9 @@ class SystemSettingsData extends DataClass
     if (!nullToAbsent || defaultSleepQuality != null) {
       map['default_sleep_quality'] = Variable<String>(defaultSleepQuality);
     }
+    map['pending_fronting_migration_mode'] = Variable<String>(
+      pendingFrontingMigrationMode,
+    );
     return map;
   }
 
@@ -5755,6 +5840,7 @@ class SystemSettingsData extends DataClass
       defaultSleepQuality: defaultSleepQuality == null && nullToAbsent
           ? const Value.absent()
           : Value(defaultSleepQuality),
+      pendingFrontingMigrationMode: Value(pendingFrontingMigrationMode),
     );
   }
 
@@ -5870,6 +5956,9 @@ class SystemSettingsData extends DataClass
       defaultSleepQuality: serializer.fromJson<String?>(
         json['defaultSleepQuality'],
       ),
+      pendingFrontingMigrationMode: serializer.fromJson<String>(
+        json['pendingFrontingMigrationMode'],
+      ),
     );
   }
   @override
@@ -5944,6 +6033,9 @@ class SystemSettingsData extends DataClass
       'syncNavigationEnabled': serializer.toJson<bool>(syncNavigationEnabled),
       'chatBadgePreferences': serializer.toJson<String>(chatBadgePreferences),
       'defaultSleepQuality': serializer.toJson<String?>(defaultSleepQuality),
+      'pendingFrontingMigrationMode': serializer.toJson<String>(
+        pendingFrontingMigrationMode,
+      ),
     };
   }
 
@@ -6004,6 +6096,7 @@ class SystemSettingsData extends DataClass
     bool? syncNavigationEnabled,
     String? chatBadgePreferences,
     Value<String?> defaultSleepQuality = const Value.absent(),
+    String? pendingFrontingMigrationMode,
   }) => SystemSettingsData(
     id: id ?? this.id,
     systemName: systemName.present ? systemName.value : this.systemName,
@@ -6080,6 +6173,8 @@ class SystemSettingsData extends DataClass
     defaultSleepQuality: defaultSleepQuality.present
         ? defaultSleepQuality.value
         : this.defaultSleepQuality,
+    pendingFrontingMigrationMode:
+        pendingFrontingMigrationMode ?? this.pendingFrontingMigrationMode,
   );
   SystemSettingsData copyWithCompanion(SystemSettingsTableCompanion data) {
     return SystemSettingsData(
@@ -6240,6 +6335,9 @@ class SystemSettingsData extends DataClass
       defaultSleepQuality: data.defaultSleepQuality.present
           ? data.defaultSleepQuality.value
           : this.defaultSleepQuality,
+      pendingFrontingMigrationMode: data.pendingFrontingMigrationMode.present
+          ? data.pendingFrontingMigrationMode.value
+          : this.pendingFrontingMigrationMode,
     );
   }
 
@@ -6303,7 +6401,8 @@ class SystemSettingsData extends DataClass
           ..write('navBarOverflowItems: $navBarOverflowItems, ')
           ..write('syncNavigationEnabled: $syncNavigationEnabled, ')
           ..write('chatBadgePreferences: $chatBadgePreferences, ')
-          ..write('defaultSleepQuality: $defaultSleepQuality')
+          ..write('defaultSleepQuality: $defaultSleepQuality, ')
+          ..write('pendingFrontingMigrationMode: $pendingFrontingMigrationMode')
           ..write(')'))
         .toString();
   }
@@ -6366,6 +6465,7 @@ class SystemSettingsData extends DataClass
     syncNavigationEnabled,
     chatBadgePreferences,
     defaultSleepQuality,
+    pendingFrontingMigrationMode,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -6431,7 +6531,9 @@ class SystemSettingsData extends DataClass
           other.navBarOverflowItems == this.navBarOverflowItems &&
           other.syncNavigationEnabled == this.syncNavigationEnabled &&
           other.chatBadgePreferences == this.chatBadgePreferences &&
-          other.defaultSleepQuality == this.defaultSleepQuality);
+          other.defaultSleepQuality == this.defaultSleepQuality &&
+          other.pendingFrontingMigrationMode ==
+              this.pendingFrontingMigrationMode);
 }
 
 class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
@@ -6491,6 +6593,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
   final Value<bool> syncNavigationEnabled;
   final Value<String> chatBadgePreferences;
   final Value<String?> defaultSleepQuality;
+  final Value<String> pendingFrontingMigrationMode;
   final Value<int> rowid;
   const SystemSettingsTableCompanion({
     this.id = const Value.absent(),
@@ -6549,6 +6652,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.syncNavigationEnabled = const Value.absent(),
     this.chatBadgePreferences = const Value.absent(),
     this.defaultSleepQuality = const Value.absent(),
+    this.pendingFrontingMigrationMode = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   SystemSettingsTableCompanion.insert({
@@ -6608,6 +6712,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.syncNavigationEnabled = const Value.absent(),
     this.chatBadgePreferences = const Value.absent(),
     this.defaultSleepQuality = const Value.absent(),
+    this.pendingFrontingMigrationMode = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   static Insertable<SystemSettingsData> custom({
@@ -6667,6 +6772,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Expression<bool>? syncNavigationEnabled,
     Expression<String>? chatBadgePreferences,
     Expression<String>? defaultSleepQuality,
+    Expression<String>? pendingFrontingMigrationMode,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -6749,6 +6855,8 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
         'chat_badge_preferences': chatBadgePreferences,
       if (defaultSleepQuality != null)
         'default_sleep_quality': defaultSleepQuality,
+      if (pendingFrontingMigrationMode != null)
+        'pending_fronting_migration_mode': pendingFrontingMigrationMode,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -6810,6 +6918,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Value<bool>? syncNavigationEnabled,
     Value<String>? chatBadgePreferences,
     Value<String?>? defaultSleepQuality,
+    Value<String>? pendingFrontingMigrationMode,
     Value<int>? rowid,
   }) {
     return SystemSettingsTableCompanion(
@@ -6883,6 +6992,8 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
           syncNavigationEnabled ?? this.syncNavigationEnabled,
       chatBadgePreferences: chatBadgePreferences ?? this.chatBadgePreferences,
       defaultSleepQuality: defaultSleepQuality ?? this.defaultSleepQuality,
+      pendingFrontingMigrationMode:
+          pendingFrontingMigrationMode ?? this.pendingFrontingMigrationMode,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -7100,6 +7211,11 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
         defaultSleepQuality.value,
       );
     }
+    if (pendingFrontingMigrationMode.present) {
+      map['pending_fronting_migration_mode'] = Variable<String>(
+        pendingFrontingMigrationMode.value,
+      );
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -7167,6 +7283,9 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
           ..write('syncNavigationEnabled: $syncNavigationEnabled, ')
           ..write('chatBadgePreferences: $chatBadgePreferences, ')
           ..write('defaultSleepQuality: $defaultSleepQuality, ')
+          ..write(
+            'pendingFrontingMigrationMode: $pendingFrontingMigrationMode, ',
+          )
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -16060,6 +16179,28 @@ class $FrontSessionCommentsTable extends FrontSessionComments
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _targetTimeMeta = const VerificationMeta(
+    'targetTime',
+  );
+  @override
+  late final GeneratedColumn<DateTime> targetTime = GeneratedColumn<DateTime>(
+    'target_time',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _authorMemberIdMeta = const VerificationMeta(
+    'authorMemberId',
+  );
+  @override
+  late final GeneratedColumn<String> authorMemberId = GeneratedColumn<String>(
+    'author_member_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -16068,6 +16209,8 @@ class $FrontSessionCommentsTable extends FrontSessionComments
     timestamp,
     createdAt,
     isDeleted,
+    targetTime,
+    authorMemberId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -16124,6 +16267,21 @@ class $FrontSessionCommentsTable extends FrontSessionComments
         isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
       );
     }
+    if (data.containsKey('target_time')) {
+      context.handle(
+        _targetTimeMeta,
+        targetTime.isAcceptableOrUnknown(data['target_time']!, _targetTimeMeta),
+      );
+    }
+    if (data.containsKey('author_member_id')) {
+      context.handle(
+        _authorMemberIdMeta,
+        authorMemberId.isAcceptableOrUnknown(
+          data['author_member_id']!,
+          _authorMemberIdMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -16157,6 +16315,14 @@ class $FrontSessionCommentsTable extends FrontSessionComments
         DriftSqlType.bool,
         data['${effectivePrefix}is_deleted'],
       )!,
+      targetTime: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}target_time'],
+      ),
+      authorMemberId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}author_member_id'],
+      ),
     );
   }
 
@@ -16174,6 +16340,8 @@ class FrontSessionCommentRow extends DataClass
   final DateTime timestamp;
   final DateTime createdAt;
   final bool isDeleted;
+  final DateTime? targetTime;
+  final String? authorMemberId;
   const FrontSessionCommentRow({
     required this.id,
     required this.sessionId,
@@ -16181,6 +16349,8 @@ class FrontSessionCommentRow extends DataClass
     required this.timestamp,
     required this.createdAt,
     required this.isDeleted,
+    this.targetTime,
+    this.authorMemberId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -16191,6 +16361,12 @@ class FrontSessionCommentRow extends DataClass
     map['timestamp'] = Variable<DateTime>(timestamp);
     map['created_at'] = Variable<DateTime>(createdAt);
     map['is_deleted'] = Variable<bool>(isDeleted);
+    if (!nullToAbsent || targetTime != null) {
+      map['target_time'] = Variable<DateTime>(targetTime);
+    }
+    if (!nullToAbsent || authorMemberId != null) {
+      map['author_member_id'] = Variable<String>(authorMemberId);
+    }
     return map;
   }
 
@@ -16202,6 +16378,12 @@ class FrontSessionCommentRow extends DataClass
       timestamp: Value(timestamp),
       createdAt: Value(createdAt),
       isDeleted: Value(isDeleted),
+      targetTime: targetTime == null && nullToAbsent
+          ? const Value.absent()
+          : Value(targetTime),
+      authorMemberId: authorMemberId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(authorMemberId),
     );
   }
 
@@ -16217,6 +16399,8 @@ class FrontSessionCommentRow extends DataClass
       timestamp: serializer.fromJson<DateTime>(json['timestamp']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      targetTime: serializer.fromJson<DateTime?>(json['targetTime']),
+      authorMemberId: serializer.fromJson<String?>(json['authorMemberId']),
     );
   }
   @override
@@ -16229,6 +16413,8 @@ class FrontSessionCommentRow extends DataClass
       'timestamp': serializer.toJson<DateTime>(timestamp),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'isDeleted': serializer.toJson<bool>(isDeleted),
+      'targetTime': serializer.toJson<DateTime?>(targetTime),
+      'authorMemberId': serializer.toJson<String?>(authorMemberId),
     };
   }
 
@@ -16239,6 +16425,8 @@ class FrontSessionCommentRow extends DataClass
     DateTime? timestamp,
     DateTime? createdAt,
     bool? isDeleted,
+    Value<DateTime?> targetTime = const Value.absent(),
+    Value<String?> authorMemberId = const Value.absent(),
   }) => FrontSessionCommentRow(
     id: id ?? this.id,
     sessionId: sessionId ?? this.sessionId,
@@ -16246,6 +16434,10 @@ class FrontSessionCommentRow extends DataClass
     timestamp: timestamp ?? this.timestamp,
     createdAt: createdAt ?? this.createdAt,
     isDeleted: isDeleted ?? this.isDeleted,
+    targetTime: targetTime.present ? targetTime.value : this.targetTime,
+    authorMemberId: authorMemberId.present
+        ? authorMemberId.value
+        : this.authorMemberId,
   );
   FrontSessionCommentRow copyWithCompanion(FrontSessionCommentsCompanion data) {
     return FrontSessionCommentRow(
@@ -16255,6 +16447,12 @@ class FrontSessionCommentRow extends DataClass
       timestamp: data.timestamp.present ? data.timestamp.value : this.timestamp,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      targetTime: data.targetTime.present
+          ? data.targetTime.value
+          : this.targetTime,
+      authorMemberId: data.authorMemberId.present
+          ? data.authorMemberId.value
+          : this.authorMemberId,
     );
   }
 
@@ -16266,14 +16464,24 @@ class FrontSessionCommentRow extends DataClass
           ..write('body: $body, ')
           ..write('timestamp: $timestamp, ')
           ..write('createdAt: $createdAt, ')
-          ..write('isDeleted: $isDeleted')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('targetTime: $targetTime, ')
+          ..write('authorMemberId: $authorMemberId')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, sessionId, body, timestamp, createdAt, isDeleted);
+  int get hashCode => Object.hash(
+    id,
+    sessionId,
+    body,
+    timestamp,
+    createdAt,
+    isDeleted,
+    targetTime,
+    authorMemberId,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -16283,7 +16491,9 @@ class FrontSessionCommentRow extends DataClass
           other.body == this.body &&
           other.timestamp == this.timestamp &&
           other.createdAt == this.createdAt &&
-          other.isDeleted == this.isDeleted);
+          other.isDeleted == this.isDeleted &&
+          other.targetTime == this.targetTime &&
+          other.authorMemberId == this.authorMemberId);
 }
 
 class FrontSessionCommentsCompanion
@@ -16294,6 +16504,8 @@ class FrontSessionCommentsCompanion
   final Value<DateTime> timestamp;
   final Value<DateTime> createdAt;
   final Value<bool> isDeleted;
+  final Value<DateTime?> targetTime;
+  final Value<String?> authorMemberId;
   final Value<int> rowid;
   const FrontSessionCommentsCompanion({
     this.id = const Value.absent(),
@@ -16302,6 +16514,8 @@ class FrontSessionCommentsCompanion
     this.timestamp = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.isDeleted = const Value.absent(),
+    this.targetTime = const Value.absent(),
+    this.authorMemberId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   FrontSessionCommentsCompanion.insert({
@@ -16311,6 +16525,8 @@ class FrontSessionCommentsCompanion
     required DateTime timestamp,
     required DateTime createdAt,
     this.isDeleted = const Value.absent(),
+    this.targetTime = const Value.absent(),
+    this.authorMemberId = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        sessionId = Value(sessionId),
@@ -16324,6 +16540,8 @@ class FrontSessionCommentsCompanion
     Expression<DateTime>? timestamp,
     Expression<DateTime>? createdAt,
     Expression<bool>? isDeleted,
+    Expression<DateTime>? targetTime,
+    Expression<String>? authorMemberId,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -16333,6 +16551,8 @@ class FrontSessionCommentsCompanion
       if (timestamp != null) 'timestamp': timestamp,
       if (createdAt != null) 'created_at': createdAt,
       if (isDeleted != null) 'is_deleted': isDeleted,
+      if (targetTime != null) 'target_time': targetTime,
+      if (authorMemberId != null) 'author_member_id': authorMemberId,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -16344,6 +16564,8 @@ class FrontSessionCommentsCompanion
     Value<DateTime>? timestamp,
     Value<DateTime>? createdAt,
     Value<bool>? isDeleted,
+    Value<DateTime?>? targetTime,
+    Value<String?>? authorMemberId,
     Value<int>? rowid,
   }) {
     return FrontSessionCommentsCompanion(
@@ -16353,6 +16575,8 @@ class FrontSessionCommentsCompanion
       timestamp: timestamp ?? this.timestamp,
       createdAt: createdAt ?? this.createdAt,
       isDeleted: isDeleted ?? this.isDeleted,
+      targetTime: targetTime ?? this.targetTime,
+      authorMemberId: authorMemberId ?? this.authorMemberId,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -16378,6 +16602,12 @@ class FrontSessionCommentsCompanion
     if (isDeleted.present) {
       map['is_deleted'] = Variable<bool>(isDeleted.value);
     }
+    if (targetTime.present) {
+      map['target_time'] = Variable<DateTime>(targetTime.value);
+    }
+    if (authorMemberId.present) {
+      map['author_member_id'] = Variable<String>(authorMemberId.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -16393,6 +16623,8 @@ class FrontSessionCommentsCompanion
           ..write('timestamp: $timestamp, ')
           ..write('createdAt: $createdAt, ')
           ..write('isDeleted: $isDeleted, ')
+          ..write('targetTime: $targetTime, ')
+          ..write('authorMemberId: $authorMemberId, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -21636,6 +21868,7 @@ typedef $$MembersTableCreateCompanionBuilder =
       Value<bool> isDeleted,
       Value<int?> deleteIntentEpoch,
       Value<int?> deletePushStartedAt,
+      Value<bool> isAlwaysFronting,
       Value<int> rowid,
     });
 typedef $$MembersTableUpdateCompanionBuilder =
@@ -21665,6 +21898,7 @@ typedef $$MembersTableUpdateCompanionBuilder =
       Value<bool> isDeleted,
       Value<int?> deleteIntentEpoch,
       Value<int?> deletePushStartedAt,
+      Value<bool> isAlwaysFronting,
       Value<int> rowid,
     });
 
@@ -21799,6 +22033,11 @@ class $$MembersTableFilterComposer
 
   ColumnFilters<int> get deletePushStartedAt => $composableBuilder(
     column: $table.deletePushStartedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isAlwaysFronting => $composableBuilder(
+    column: $table.isAlwaysFronting,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -21936,6 +22175,11 @@ class $$MembersTableOrderingComposer
     column: $table.deletePushStartedAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get isAlwaysFronting => $composableBuilder(
+    column: $table.isAlwaysFronting,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$MembersTableAnnotationComposer
@@ -22049,6 +22293,11 @@ class $$MembersTableAnnotationComposer
     column: $table.deletePushStartedAt,
     builder: (column) => column,
   );
+
+  GeneratedColumn<bool> get isAlwaysFronting => $composableBuilder(
+    column: $table.isAlwaysFronting,
+    builder: (column) => column,
+  );
 }
 
 class $$MembersTableTableManager
@@ -22104,6 +22353,7 @@ class $$MembersTableTableManager
                 Value<bool> isDeleted = const Value.absent(),
                 Value<int?> deleteIntentEpoch = const Value.absent(),
                 Value<int?> deletePushStartedAt = const Value.absent(),
+                Value<bool> isAlwaysFronting = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => MembersCompanion(
                 id: id,
@@ -22131,6 +22381,7 @@ class $$MembersTableTableManager
                 isDeleted: isDeleted,
                 deleteIntentEpoch: deleteIntentEpoch,
                 deletePushStartedAt: deletePushStartedAt,
+                isAlwaysFronting: isAlwaysFronting,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -22160,6 +22411,7 @@ class $$MembersTableTableManager
                 Value<bool> isDeleted = const Value.absent(),
                 Value<int?> deleteIntentEpoch = const Value.absent(),
                 Value<int?> deletePushStartedAt = const Value.absent(),
+                Value<bool> isAlwaysFronting = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => MembersCompanion.insert(
                 id: id,
@@ -22187,6 +22439,7 @@ class $$MembersTableTableManager
                 isDeleted: isDeleted,
                 deleteIntentEpoch: deleteIntentEpoch,
                 deletePushStartedAt: deletePushStartedAt,
+                isAlwaysFronting: isAlwaysFronting,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -23430,6 +23683,7 @@ typedef $$SystemSettingsTableTableCreateCompanionBuilder =
       Value<bool> syncNavigationEnabled,
       Value<String> chatBadgePreferences,
       Value<String?> defaultSleepQuality,
+      Value<String> pendingFrontingMigrationMode,
       Value<int> rowid,
     });
 typedef $$SystemSettingsTableTableUpdateCompanionBuilder =
@@ -23490,6 +23744,7 @@ typedef $$SystemSettingsTableTableUpdateCompanionBuilder =
       Value<bool> syncNavigationEnabled,
       Value<String> chatBadgePreferences,
       Value<String?> defaultSleepQuality,
+      Value<String> pendingFrontingMigrationMode,
       Value<int> rowid,
     });
 
@@ -23779,6 +24034,11 @@ class $$SystemSettingsTableTableFilterComposer
 
   ColumnFilters<String> get defaultSleepQuality => $composableBuilder(
     column: $table.defaultSleepQuality,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pendingFrontingMigrationMode => $composableBuilder(
+    column: $table.pendingFrontingMigrationMode,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -24072,6 +24332,12 @@ class $$SystemSettingsTableTableOrderingComposer
     column: $table.defaultSleepQuality,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get pendingFrontingMigrationMode =>
+      $composableBuilder(
+        column: $table.pendingFrontingMigrationMode,
+        builder: (column) => ColumnOrderings(column),
+      );
 }
 
 class $$SystemSettingsTableTableAnnotationComposer
@@ -24351,6 +24617,12 @@ class $$SystemSettingsTableTableAnnotationComposer
     column: $table.defaultSleepQuality,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get pendingFrontingMigrationMode =>
+      $composableBuilder(
+        column: $table.pendingFrontingMigrationMode,
+        builder: (column) => column,
+      );
 }
 
 class $$SystemSettingsTableTableTableManager
@@ -24453,6 +24725,8 @@ class $$SystemSettingsTableTableTableManager
                 Value<bool> syncNavigationEnabled = const Value.absent(),
                 Value<String> chatBadgePreferences = const Value.absent(),
                 Value<String?> defaultSleepQuality = const Value.absent(),
+                Value<String> pendingFrontingMigrationMode =
+                    const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SystemSettingsTableCompanion(
                 id: id,
@@ -24512,6 +24786,7 @@ class $$SystemSettingsTableTableTableManager
                 syncNavigationEnabled: syncNavigationEnabled,
                 chatBadgePreferences: chatBadgePreferences,
                 defaultSleepQuality: defaultSleepQuality,
+                pendingFrontingMigrationMode: pendingFrontingMigrationMode,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -24573,6 +24848,8 @@ class $$SystemSettingsTableTableTableManager
                 Value<bool> syncNavigationEnabled = const Value.absent(),
                 Value<String> chatBadgePreferences = const Value.absent(),
                 Value<String?> defaultSleepQuality = const Value.absent(),
+                Value<String> pendingFrontingMigrationMode =
+                    const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SystemSettingsTableCompanion.insert(
                 id: id,
@@ -24632,6 +24909,7 @@ class $$SystemSettingsTableTableTableManager
                 syncNavigationEnabled: syncNavigationEnabled,
                 chatBadgePreferences: chatBadgePreferences,
                 defaultSleepQuality: defaultSleepQuality,
+                pendingFrontingMigrationMode: pendingFrontingMigrationMode,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -29015,6 +29293,8 @@ typedef $$FrontSessionCommentsTableCreateCompanionBuilder =
       required DateTime timestamp,
       required DateTime createdAt,
       Value<bool> isDeleted,
+      Value<DateTime?> targetTime,
+      Value<String?> authorMemberId,
       Value<int> rowid,
     });
 typedef $$FrontSessionCommentsTableUpdateCompanionBuilder =
@@ -29025,6 +29305,8 @@ typedef $$FrontSessionCommentsTableUpdateCompanionBuilder =
       Value<DateTime> timestamp,
       Value<DateTime> createdAt,
       Value<bool> isDeleted,
+      Value<DateTime?> targetTime,
+      Value<String?> authorMemberId,
       Value<int> rowid,
     });
 
@@ -29064,6 +29346,16 @@ class $$FrontSessionCommentsTableFilterComposer
 
   ColumnFilters<bool> get isDeleted => $composableBuilder(
     column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get targetTime => $composableBuilder(
+    column: $table.targetTime,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get authorMemberId => $composableBuilder(
+    column: $table.authorMemberId,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -29106,6 +29398,16 @@ class $$FrontSessionCommentsTableOrderingComposer
     column: $table.isDeleted,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<DateTime> get targetTime => $composableBuilder(
+    column: $table.targetTime,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get authorMemberId => $composableBuilder(
+    column: $table.authorMemberId,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$FrontSessionCommentsTableAnnotationComposer
@@ -29134,6 +29436,16 @@ class $$FrontSessionCommentsTableAnnotationComposer
 
   GeneratedColumn<bool> get isDeleted =>
       $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get targetTime => $composableBuilder(
+    column: $table.targetTime,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get authorMemberId => $composableBuilder(
+    column: $table.authorMemberId,
+    builder: (column) => column,
+  );
 }
 
 class $$FrontSessionCommentsTableTableManager
@@ -29185,6 +29497,8 @@ class $$FrontSessionCommentsTableTableManager
                 Value<DateTime> timestamp = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> targetTime = const Value.absent(),
+                Value<String?> authorMemberId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => FrontSessionCommentsCompanion(
                 id: id,
@@ -29193,6 +29507,8 @@ class $$FrontSessionCommentsTableTableManager
                 timestamp: timestamp,
                 createdAt: createdAt,
                 isDeleted: isDeleted,
+                targetTime: targetTime,
+                authorMemberId: authorMemberId,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -29203,6 +29519,8 @@ class $$FrontSessionCommentsTableTableManager
                 required DateTime timestamp,
                 required DateTime createdAt,
                 Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> targetTime = const Value.absent(),
+                Value<String?> authorMemberId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => FrontSessionCommentsCompanion.insert(
                 id: id,
@@ -29211,6 +29529,8 @@ class $$FrontSessionCommentsTableTableManager
                 timestamp: timestamp,
                 createdAt: createdAt,
                 isDeleted: isDeleted,
+                targetTime: targetTime,
+                authorMemberId: authorMemberId,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

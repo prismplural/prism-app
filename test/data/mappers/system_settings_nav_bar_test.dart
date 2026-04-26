@@ -64,6 +64,7 @@ void main() {
         sleepSuggestionMinute: 0,
         wakeSuggestionEnabled: false,
         wakeSuggestionAfterHours: 8.0,
+        pendingFrontingMigrationMode: 'notStarted',
       );
     }
 

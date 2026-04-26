@@ -202,6 +202,7 @@ void main() {
         pluralkitSyncIgnored: true,
         markdownEnabled: true,
         isDeleted: false,
+        isAlwaysFronting: false,
       );
 
       final back = await roundTripMember(db, member);
@@ -232,6 +233,7 @@ void main() {
         pluralkitSyncIgnored: false,
         markdownEnabled: false,
         isDeleted: false,
+        isAlwaysFronting: false,
       );
 
       final back = await roundTripMember(db, member);
