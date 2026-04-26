@@ -9,6 +9,7 @@ import 'package:prism_plurality/core/services/build_info.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/core/sync/first_device_admission_service.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
+import 'package:prism_plurality/core/sync/sync_bootstrap.dart';
 import 'package:prism_plurality/shared/widgets/prism_mnemonic_field.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 
@@ -354,65 +355,25 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
   }
 
   /// Push all existing local data to the sync engine so it gets synced
-  /// to other devices. This is needed because data created before sync
-  /// was enabled has no pending ops.
+  /// to other devices. Data created before sync was enabled has no
+  /// pending ops, so the pairing snapshot would otherwise miss it.
   Future<void> _bootstrapExistingData(ffi.PrismSyncHandle handle) async {
     final db = ref.read(databaseProvider);
-
-    final tables = <String, Future<List<dynamic>> Function()>{
-      'members': () => db.select(db.members).get(),
-      'fronting_sessions': () => db.select(db.frontingSessions).get(),
-      'conversations': () => db.select(db.conversations).get(),
-      'chat_messages': () => db.select(db.chatMessages).get(),
-      'system_settings': () => db.select(db.systemSettingsTable).get(),
-      'polls': () => db.select(db.polls).get(),
-      'poll_options': () => db.select(db.pollOptions).get(),
-      'poll_votes': () => db.select(db.pollVotes).get(),
-      'habits': () => db.select(db.habits).get(),
-      'habit_completions': () => db.select(db.habitCompletions).get(),
-    };
-
     final adapter = ref.read(driftSyncAdapterProvider).adapter;
-    var totalOps = 0;
 
-    for (final entry in tables.entries) {
-      final tableName = entry.key;
-      final entity = adapter.entityForTable(tableName);
-      if (entity == null) continue;
-
-      final rows = await entry.value();
-      for (final row in rows) {
-        try {
-          final fields = entity.toSyncFields(row);
-          // Extract the id from the row — all entity tables have an 'id' field
-          final id = (row as dynamic).id as String;
-          await ffi.recordCreate(
-            handle: handle,
-            table: tableName,
-            entityId: id,
-            fieldsJson: jsonEncode(fields),
-          );
-          totalOps++;
-        } catch (e) {
-          if (kDebugMode) debugPrint('[BOOTSTRAP] Failed to push $tableName row: $e');
-        }
-      }
-    }
-
-    if (kDebugMode) {
-      debugPrint('[BOOTSTRAP] Pushed $totalOps existing records to sync engine');
-    }
+    await bootstrapExistingData(handle: handle, db: db, adapter: adapter);
 
     // Trigger an immediate sync to push the bootstrap data to the relay.
     //
     // UX follow-up (deferred, see Appendix B.3 of the 2026-04-11
     // sync-robustness plan): with the inner retry rewrite, `syncNow` now
-    // throws `CoreError::Relay` on exhausted retries instead of burying the
-    // error in the result JSON. This path only logs in debug mode; a future
-    // improvement is to surface a `SyncSetupProgress.error` state variant
-    // so the user can retry without restarting the onboarding flow. The
-    // auto-sync driver will retry in the background regardless, so data is
-    // never lost — only the bootstrap UX is affected.
+    // throws `CoreError::Relay` on exhausted retries instead of burying
+    // the error in the result JSON. This path only logs in debug mode; a
+    // future improvement is to surface a `SyncSetupProgress.error` state
+    // variant so the user can retry without restarting the onboarding
+    // flow. The auto-sync driver will retry in the background
+    // regardless, so data is never lost — only the bootstrap UX is
+    // affected.
     state = state.copyWith(currentProgress: SyncSetupProgress.syncing);
     try {
       final result = await ffi.syncNow(handle: handle);
