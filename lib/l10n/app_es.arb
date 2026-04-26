@@ -335,6 +335,7 @@
   "memberChangeAvatar": "Cambiar avatar de integrante",
   "avatarCropTitle": "Recortar avatar",
   "systemInfoRemoveAvatar": "Eliminar avatar",
+  "memberRemoveAvatar": "Eliminar foto",
   "systemInfoNameLabel": "Nombre",
   "systemInfoSystemNameHint": "Nombre del sistema",
   "systemInfoSaveSystemName": "Guardar nombre del sistema",

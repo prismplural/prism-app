@@ -264,45 +264,78 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
                 ),
                 children: [
                   Center(
-                    child: Semantics(
-                      button: true,
-                      label: l10n.memberChangeAvatar,
-                      child: GestureDetector(
-                        onTap: _pickAvatar,
-                        child: Stack(
-                          children: [
-                            MemberAvatar(
-                              avatarImageData: _avatarImageData,
-                              emoji: _emojiController.text.isNotEmpty
-                                  ? _emojiController.text
-                                  : '❔',
-                              customColorEnabled: _customColorEnabled,
-                              customColorHex:
-                                  _colorHexController.text.isNotEmpty
-                                  ? _colorHexController.text
-                                  : null,
-                              size: 96,
-                              showBorder: true,
-                            ),
-                            Positioned(
-                              right: 0,
-                              bottom: 0,
-                              child: Container(
-                                padding: const EdgeInsets.all(6),
-                                decoration: BoxDecoration(
-                                  color: theme.colorScheme.primaryContainer,
-                                  shape: BoxShape.circle,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Semantics(
+                          button: true,
+                          label: l10n.memberChangeAvatar,
+                          child: GestureDetector(
+                            onTap: _pickAvatar,
+                            child: Stack(
+                              children: [
+                                MemberAvatar(
+                                  avatarImageData: _avatarImageData,
+                                  emoji: _emojiController.text.isNotEmpty
+                                      ? _emojiController.text
+                                      : '❔',
+                                  customColorEnabled: _customColorEnabled,
+                                  customColorHex:
+                                      _colorHexController.text.isNotEmpty
+                                      ? _colorHexController.text
+                                      : null,
+                                  size: 96,
+                                  showBorder: true,
                                 ),
-                                child: Icon(
-                                  AppIcons.cameraAlt,
+                                Positioned(
+                                  right: 0,
+                                  bottom: 0,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(6),
+                                    decoration: BoxDecoration(
+                                      color: theme.colorScheme.primaryContainer,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      AppIcons.cameraAlt,
+                                      size: 18,
+                                      color:
+                                          theme.colorScheme.onPrimaryContainer,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        if (_avatarImageData != null)
+                          Positioned(
+                            right: -4,
+                            top: -4,
+                            child: Material(
+                              color: theme.colorScheme.surfaceContainerHighest,
+                              shape: const CircleBorder(),
+                              clipBehavior: Clip.antiAlias,
+                              child: IconButton(
+                                tooltip: l10n.memberRemoveAvatar,
+                                icon: Icon(
+                                  AppIcons.close,
                                   size: 18,
-                                  color: theme.colorScheme.onPrimaryContainer,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                                visualDensity: VisualDensity.compact,
+                                constraints: const BoxConstraints(
+                                  minWidth: 32,
+                                  minHeight: 32,
+                                ),
+                                padding: EdgeInsets.zero,
+                                onPressed: () => setState(
+                                  () => _avatarImageData = null,
                                 ),
                               ),
                             ),
-                          ],
-                        ),
-                      ),
+                          ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 24),
