@@ -138,12 +138,19 @@ class SystemSettingsTable extends Table {
   //   'upgradeAndKeep'  — user chose selective migration (in progress or complete)
   //   'startFresh'      — user chose wipe-everything path (in progress or complete)
   //   'notNow'          — alias for deferred, written by the "Not now" path
-  //   'complete'        — migration finished successfully; v8 upgrade gate checks this
+  //   'complete'        — migration finished (or fresh install — no data to migrate)
+  //   'blocked'         — v7 migration detected unresolvable duplicate rows;
+  //                       Phase 5 startup will surface this to the user
+  //
+  // Default is 'complete' so that fresh installs (onCreate path) skip the
+  // upgrade modal entirely — there is no legacy data to migrate.  The v6→v7
+  // onUpgrade block immediately overwrites the default with 'notStarted' for
+  // any database that existed before v7, so existing users still see the modal.
   //
   // Device-local: migration mode is per-device (solo vs primary vs secondary
   // roles differ per §4.2); not synced across peers.
   TextColumn get pendingFrontingMigrationMode =>
-      text().withDefault(const Constant('notStarted'))();
+      text().withDefault(const Constant('complete'))();
 
   @override
   String get tableName => 'system_settings';

@@ -4749,7 +4749,7 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         false,
         type: DriftSqlType.string,
         requiredDuringInsert: false,
-        defaultValue: const Constant('notStarted'),
+        defaultValue: const Constant('complete'),
       );
   @override
   List<GeneratedColumn> get $columns => [

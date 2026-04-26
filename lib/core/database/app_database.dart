@@ -180,57 +180,135 @@ class AppDatabase extends _$AppDatabase {
         // Phase 1: per-member fronting refactor — additive schema only.
         // Old columns (co_fronter_ids, pk_member_ids_json, comments.session_id)
         // stay in place; they are dropped in v8 cleanup.
-
-        // New column: members.is_always_fronting (§2.3)
-        await migrator.addColumn(members, members.isAlwaysFronting);
-
-        // New column: system_settings.pending_fronting_migration_mode (§4.1)
-        await migrator.addColumn(
-          systemSettingsTable,
-          systemSettingsTable.pendingFrontingMigrationMode,
-        );
-
-        // New columns: front_session_comments.target_time + author_member_id (§3.5)
-        await migrator.addColumn(
-          frontSessionComments,
-          frontSessionComments.targetTime,
-        );
-        await migrator.addColumn(
-          frontSessionComments,
-          frontSessionComments.authorMemberId,
-        );
-
-        // Pre-flight duplicate cleanup before creating the composite unique
-        // index (§3.7 + §4.1).  The old single-column index enforced one row
-        // per pluralkit_uuid; in theory each (pluralkit_uuid, member_id) pair
-        // is already unique, but importer bugs in prior versions could have
-        // produced duplicate pairs that would block CREATE UNIQUE INDEX.
         //
-        // Strategy: for each duplicate (pluralkit_uuid, member_id) group, keep
-        // the row with the highest id value.  HLC timestamps (the ideal
-        // tiebreaker) live in Rust-managed tables not accessible here, so we
-        // fall back to the Drift-assigned id column — UUIDs from the same
-        // importer run share a creation epoch, making the highest id a
-        // reasonable recency proxy.
-        await customStatement(
-          '''
-          DELETE FROM fronting_sessions
-          WHERE rowid NOT IN (
-            SELECT MAX(rowid)
-            FROM fronting_sessions
-            WHERE pluralkit_uuid IS NOT NULL
-            GROUP BY pluralkit_uuid, member_id
-          )
-          AND pluralkit_uuid IS NOT NULL
-          ''',
-        );
+        // The entire v6→v7 block is wrapped in a transaction (P2-C).  Drift
+        // does NOT auto-wrap onUpgrade; without an explicit transaction a
+        // failure mid-migration leaves user_version=6 with partial v7 schema.
+        // The user_version bump is applied by Drift after this callback returns
+        // successfully, so the transaction here covers all DDL + DML.
+        await transaction(() async {
+          // New column: members.is_always_fronting (§2.3)
+          await migrator.addColumn(members, members.isAlwaysFronting);
 
-        // Replace the old single-column partial unique index with the
-        // composite (pluralkit_uuid, member_id) partial unique index (§3.7).
-        await customStatement(
-          'DROP INDEX IF EXISTS idx_fronting_sessions_pluralkit_uuid',
-        );
-        await _createPkFrontingCompositeIndex();
+          // New column: system_settings.pending_fronting_migration_mode (§4.1)
+          // Column default is 'complete' (fresh-install semantics); immediately
+          // upsert the singleton row with 'notStarted' so that users upgrading
+          // from v6 see the migration modal (P2-B).
+          //
+          // We use INSERT ... ON CONFLICT DO UPDATE rather than a plain UPDATE
+          // because a test (or a very early-lifecycle production DB) might open
+          // without ever calling getSettings() first, leaving the table empty.
+          // The upsert creates the row when absent and updates it when present.
+          await migrator.addColumn(
+            systemSettingsTable,
+            systemSettingsTable.pendingFrontingMigrationMode,
+          );
+          await customStatement(
+            "INSERT INTO system_settings (id, pending_fronting_migration_mode) "
+            "VALUES ('singleton', 'notStarted') "
+            "ON CONFLICT(id) DO UPDATE SET "
+            "pending_fronting_migration_mode = 'notStarted'",
+          );
+
+          // New columns: front_session_comments.target_time + author_member_id (§3.5)
+          await migrator.addColumn(
+            frontSessionComments,
+            frontSessionComments.targetTime,
+          );
+          await migrator.addColumn(
+            frontSessionComments,
+            frontSessionComments.authorMemberId,
+          );
+
+          // Create the migration-blockers side table used by detect-and-refuse
+          // (P2-D).  Using IF NOT EXISTS so a partial-failure retry is safe.
+          await customStatement('''
+            CREATE TABLE IF NOT EXISTS _v7_migration_blockers (
+              table_name TEXT NOT NULL,
+              row_id     TEXT NOT NULL,
+              reason     TEXT NOT NULL,
+              detected_at INTEGER NOT NULL
+            )
+          ''');
+
+          // Pre-flight duplicate detection before creating the composite unique
+          // index (§3.7 + §4.1).
+          //
+          // The old single-column unique index on pluralkit_uuid prevents
+          // duplicate (uuid, member_id) pairs by construction — a repeated uuid
+          // implies a repeated (uuid, member_id) unless member_id differs, which
+          // the old index can't catch.  In practice duplicates should be absent,
+          // but rather than delete data at Phase 1 launch (before the Phase 5
+          // PRISM1 backup), we detect-and-refuse: log any blockers, set the
+          // migration mode to 'blocked', and skip creating the composite index
+          // so the app can surface the problem to the user (P2-D).
+          //
+          // Check both partitions (P2-E):
+          //   (a) resolved rows:  (pluralkit_uuid, member_id) where member_id IS NOT NULL
+          //   (b) orphan rows:    (pluralkit_uuid)            where member_id IS NULL
+          final now = DateTime.now().millisecondsSinceEpoch;
+
+          // (a) Resolved duplicate pairs
+          final resolvedDups = await customSelect('''
+            SELECT id
+            FROM fronting_sessions
+            WHERE pluralkit_uuid IS NOT NULL AND member_id IS NOT NULL
+              AND (pluralkit_uuid, member_id) IN (
+                SELECT pluralkit_uuid, member_id
+                FROM fronting_sessions
+                WHERE pluralkit_uuid IS NOT NULL AND member_id IS NOT NULL
+                GROUP BY pluralkit_uuid, member_id
+                HAVING COUNT(*) > 1
+              )
+          ''').get();
+
+          // (b) Orphan duplicate rows (same uuid, both member_id=null)
+          final orphanDups = await customSelect('''
+            SELECT id
+            FROM fronting_sessions
+            WHERE pluralkit_uuid IS NOT NULL AND member_id IS NULL
+              AND pluralkit_uuid IN (
+                SELECT pluralkit_uuid
+                FROM fronting_sessions
+                WHERE pluralkit_uuid IS NOT NULL AND member_id IS NULL
+                GROUP BY pluralkit_uuid
+                HAVING COUNT(*) > 1
+              )
+          ''').get();
+
+          final allDups = [...resolvedDups, ...orphanDups];
+
+          if (allDups.isNotEmpty) {
+            // Log every affected row id to the blocker side table.
+            for (final row in allDups) {
+              final rowId = row.read<String>('id');
+              await customStatement(
+                'INSERT INTO _v7_migration_blockers '
+                '(table_name, row_id, reason, detected_at) '
+                'VALUES (?, ?, ?, ?)',
+                ['fronting_sessions', rowId, 'duplicate_pk_uuid_member_id', now],
+              );
+            }
+            // Flip migration mode to 'blocked' so Phase 5 startup surfaces this
+            // to the user rather than silently leaving the index absent.
+            await customStatement(
+              "INSERT INTO system_settings (id, pending_fronting_migration_mode) "
+              "VALUES ('singleton', 'blocked') "
+              "ON CONFLICT(id) DO UPDATE SET "
+              "pending_fronting_migration_mode = 'blocked'",
+            );
+            // Do NOT create the composite index; leave the old single-column
+            // index intact so at least the uuid uniqueness is enforced.
+          } else {
+            // No duplicates: safe to replace the old single-column index with
+            // the new composite + orphan pair (P2-E).
+            await customStatement(
+              'DROP INDEX IF EXISTS idx_fronting_sessions_pluralkit_uuid',
+            );
+            await _createPkFrontingCompositeIndex();
+            await _createPkFrontingOrphanIndex();
+          }
+        });
 
         current = 7;
       }
@@ -278,6 +356,7 @@ class AppDatabase extends _$AppDatabase {
       'ON members(pluralkit_id) WHERE pluralkit_id IS NOT NULL',
     );
     await _createPkFrontingCompositeIndex();
+    await _createPkFrontingOrphanIndex();
     await customStatement(
       'CREATE UNIQUE INDEX IF NOT EXISTS idx_member_groups_pluralkit_uuid '
       'ON member_groups(pluralkit_uuid) '
@@ -290,17 +369,33 @@ class AppDatabase extends _$AppDatabase {
   }
 
   /// Creates the composite partial unique index on fronting_sessions for
-  /// PluralKit dedup (§3.7).  Replaces the old single-column
-  /// `idx_fronting_sessions_pluralkit_uuid` index introduced at v1.
+  /// PluralKit dedup (§3.7) — resolved rows partition.
   ///
-  /// One row per (entry-switch UUID × member) is allowed; the partial WHERE
-  /// clause excludes Prism-native rows (which have no PK link).
+  /// Covers rows where both pluralkit_uuid and member_id are non-null.
+  /// Together with [_createPkFrontingOrphanIndex] this fully replaces the old
+  /// single-column `idx_fronting_sessions_pluralkit_uuid` index from v1.
   Future<void> _createPkFrontingCompositeIndex() async {
     await customStatement(
       'CREATE UNIQUE INDEX IF NOT EXISTS '
       'idx_fronting_sessions_pluralkit_uuid_member_id '
       'ON fronting_sessions(pluralkit_uuid, member_id) '
-      'WHERE pluralkit_uuid IS NOT NULL',
+      'WHERE pluralkit_uuid IS NOT NULL AND member_id IS NOT NULL',
+    );
+  }
+
+  /// Creates the orphan partial unique index on fronting_sessions (P2-E).
+  ///
+  /// Covers rows where pluralkit_uuid is non-null but member_id IS NULL.
+  /// SQLite treats NULL as distinct in unique constraints, so without this
+  /// index two `(uuid='X', member_id=null)` rows would both succeed.  This
+  /// closes the gap during the Phase 1→2 window while the importer can still
+  /// produce unresolvable-member rows.
+  Future<void> _createPkFrontingOrphanIndex() async {
+    await customStatement(
+      'CREATE UNIQUE INDEX IF NOT EXISTS '
+      'idx_fronting_sessions_pluralkit_uuid_orphan '
+      'ON fronting_sessions(pluralkit_uuid) '
+      'WHERE pluralkit_uuid IS NOT NULL AND member_id IS NULL',
     );
   }
 
