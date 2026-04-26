@@ -1500,6 +1500,10 @@
   "@systemInfoRemoveAvatar": {
     "description": "Avatar action: remove avatar"
   },
+  "memberRemoveAvatar": "Remove photo",
+  "@memberRemoveAvatar": {
+    "description": "Button label to clear the saved member profile photo and revert to emoji"
+  },
   "systemInfoNameLabel": "Name",
   "@systemInfoNameLabel": {
     "description": "System name field label"

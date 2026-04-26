@@ -1144,6 +1144,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get systemInfoRemoveAvatar => 'Eliminar avatar';
 
   @override
+  String get memberRemoveAvatar => 'Eliminar foto';
+
+  @override
   String get systemInfoNameLabel => 'Nombre';
 
   @override

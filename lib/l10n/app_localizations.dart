@@ -2108,6 +2108,12 @@ abstract class AppLocalizations {
   /// **'Remove avatar'**
   String get systemInfoRemoveAvatar;
 
+  /// Button label to clear the saved member profile photo and revert to emoji
+  ///
+  /// In en, this message translates to:
+  /// **'Remove photo'**
+  String get memberRemoveAvatar;
+
   /// System name field label
   ///
   /// In en, this message translates to:
