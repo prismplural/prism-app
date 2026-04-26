@@ -114,6 +114,7 @@ class AppDatabase extends _$AppDatabase {
         await migrator.createTable(pkGroupEntryDeferredSyncOps);
         await _createCurrentIndexes();
         await _createPkUniqueIndexes();
+        await _createPkFrontingV2SingleColumnIndex();
         await _createPkGroupSyncIndexes();
         await _createChatMessagesFtsArtifacts();
         current = 2;
@@ -324,6 +325,10 @@ class AppDatabase extends _$AppDatabase {
       await migrator.createAll();
       await _createCurrentIndexes();
       await _createPkUniqueIndexes();
+      // Fresh v7 install: jump straight to composite + orphan fronting indexes.
+      // Empty table, so no detect-and-refuse needed.
+      await _createPkFrontingCompositeIndex();
+      await _createPkFrontingOrphanIndex();
       await _createPkGroupSyncIndexes();
       await _createChatMessagesFtsArtifacts();
     },
@@ -346,6 +351,14 @@ class AppDatabase extends _$AppDatabase {
     },
   );
 
+  /// PK uniqueness indexes that are stable across v2 → v7.
+  ///
+  /// Members + member_groups indexes have the same shape from v2 onward.
+  /// Fronting-sessions indexes differ between v2 (single-column on `pluralkit_uuid`)
+  /// and v7 (composite + orphan); each migration path or fresh-install call site
+  /// adds the right fronting variant explicitly.  Putting fronting indexes in the
+  /// shared helper would crash a v1→v7 upgrade with duplicate `(uuid, NULL)` rows
+  /// at the v1→v2 step, before v6→v7 detect-and-refuse can run.
   Future<void> _createPkUniqueIndexes() async {
     await customStatement(
       'CREATE UNIQUE INDEX IF NOT EXISTS idx_members_pluralkit_uuid '
@@ -355,8 +368,6 @@ class AppDatabase extends _$AppDatabase {
       'CREATE UNIQUE INDEX IF NOT EXISTS idx_members_pluralkit_id '
       'ON members(pluralkit_id) WHERE pluralkit_id IS NOT NULL',
     );
-    await _createPkFrontingCompositeIndex();
-    await _createPkFrontingOrphanIndex();
     await customStatement(
       'CREATE UNIQUE INDEX IF NOT EXISTS idx_member_groups_pluralkit_uuid '
       'ON member_groups(pluralkit_uuid) '
@@ -365,6 +376,16 @@ class AppDatabase extends _$AppDatabase {
     await customStatement(
       'CREATE INDEX IF NOT EXISTS idx_member_groups_pluralkit_id '
       'ON member_groups(pluralkit_id) WHERE pluralkit_id IS NOT NULL',
+    );
+  }
+
+  /// The pre-v7 single-column fronting index, recreated for the v1→v2 step
+  /// of step-through upgrades.  v6→v7 drops this and replaces it with the
+  /// composite + orphan pair (after detect-and-refuse).
+  Future<void> _createPkFrontingV2SingleColumnIndex() async {
+    await customStatement(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_fronting_sessions_pluralkit_uuid '
+      'ON fronting_sessions(pluralkit_uuid) WHERE pluralkit_uuid IS NOT NULL',
     );
   }
 
