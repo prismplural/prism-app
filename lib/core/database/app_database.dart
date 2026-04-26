@@ -114,7 +114,14 @@ class AppDatabase extends _$AppDatabase {
         await migrator.createTable(pkGroupEntryDeferredSyncOps);
         await _createCurrentIndexes();
         await _createPkUniqueIndexes();
-        await _createPkFrontingV2SingleColumnIndex();
+        // Only create the v2-era single-column fronting index if we're stopping
+        // at v2.  When stepping through to v7, skip it: the v6→v7 detect-and-refuse
+        // is the single source of truth for handling pre-existing duplicates.
+        // Creating a UNIQUE index here would throw on a v1 DB with duplicate
+        // pluralkit_uuid rows before that block could run.
+        if (to < 7) {
+          await _createPkFrontingV2SingleColumnIndex();
+        }
         await _createPkGroupSyncIndexes();
         await _createChatMessagesFtsArtifacts();
         current = 2;
@@ -298,8 +305,13 @@ class AppDatabase extends _$AppDatabase {
               "ON CONFLICT(id) DO UPDATE SET "
               "pending_fronting_migration_mode = 'blocked'",
             );
-            // Do NOT create the composite index; leave the old single-column
-            // index intact so at least the uuid uniqueness is enforced.
+            // Do NOT create the composite index.  On real v6→v7 upgrades from
+            // prior app builds, the old single-column index already exists and
+            // continues to enforce uuid uniqueness.  On synthetic v1→v7
+            // step-throughs (test fixtures only) the old index was never
+            // created — but Phase 5 gates writes to fronting_sessions until
+            // the user resolves the blocker, so unprotected blocked DBs never
+            // accept new duplicate inserts.
           } else {
             // No duplicates: safe to replace the old single-column index with
             // the new composite + orphan pair (P2-E).
