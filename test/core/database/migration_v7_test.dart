@@ -30,6 +30,13 @@ Future<void> _seedV6Db(
     rawDb.execute(
       'ALTER TABLE front_session_comments DROP COLUMN author_member_id',
     );
+    // Phase 4B cursor columns (folded into v7) — must also be absent at v6.
+    rawDb.execute(
+      'ALTER TABLE plural_kit_sync_state DROP COLUMN switch_cursor_timestamp',
+    );
+    rawDb.execute(
+      'ALTER TABLE plural_kit_sync_state DROP COLUMN switch_cursor_id',
+    );
     rawDb.execute(
       'DROP INDEX IF EXISTS idx_fronting_sessions_pluralkit_uuid_member_id',
     );
@@ -83,6 +90,14 @@ void main() {
           commentCols.map((r) => r.read<String>('name')).toSet();
       expect(commentColNames, contains('target_time'));
       expect(commentColNames, contains('author_member_id'));
+
+      // Phase 4B cursor columns (folded into v7): plural_kit_sync_state
+      final pkStateCols =
+          await db.customSelect('PRAGMA table_info(plural_kit_sync_state)').get();
+      final pkStateColNames =
+          pkStateCols.map((r) => r.read<String>('name')).toSet();
+      expect(pkStateColNames, contains('switch_cursor_timestamp'));
+      expect(pkStateColNames, contains('switch_cursor_id'));
 
       // Old single-column index must not exist on fresh install
       final oldIndex = await db
@@ -167,6 +182,15 @@ void main() {
           commentCols.map((r) => r.read<String>('name')).toSet();
       expect(commentColNames, contains('target_time'));
       expect(commentColNames, contains('author_member_id'));
+
+      // Phase 4B cursor columns (folded into v7): plural_kit_sync_state
+      final pkStateCols = await upgraded
+          .customSelect('PRAGMA table_info(plural_kit_sync_state)')
+          .get();
+      final pkStateColNames =
+          pkStateCols.map((r) => r.read<String>('name')).toSet();
+      expect(pkStateColNames, contains('switch_cursor_timestamp'));
+      expect(pkStateColNames, contains('switch_cursor_id'));
 
       // Old single-column index must be gone
       final oldIndex = await upgraded
