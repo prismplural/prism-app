@@ -6,6 +6,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/core/services/local_notification_service.dart';
+import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/reminder.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/reminders/providers/reminders_providers.dart';
@@ -267,7 +268,14 @@ final reminderSchedulerListenerProvider = Provider<void>((ref) {
   );
 
   // Watch active fronting sessions and fire front-change reminders when
-  // sessions change.
+  // the active-fronter member set changes.
+  //
+  // Per-member model: each row is one member's session. The "active fronter
+  // set" is the set of member_ids across all currently-active normal
+  // sessions (activeSessionsProvider already filters to session_type=normal,
+  // end_time IS NULL, is_deleted=0). A "front change" is any add/remove of
+  // a member from this set — solo→co-front, co-front→solo, swap, or
+  // anyone-fronting ⇄ no-one-fronting.
   ref.listen(
     activeSessionsProvider,
     (previous, next) {
@@ -277,26 +285,30 @@ final reminderSchedulerListenerProvider = Provider<void>((ref) {
       // Only fire on actual changes, not on initial load.
       if (previousSessions == null || currentSessions == null) return;
 
-      // Detect if the set of active sessions has changed.
-      final previousIds = previousSessions.map((s) => s.id).toSet();
-      final currentIds = currentSessions.map((s) => s.id).toSet();
-      if (!_setsEqual(previousIds, currentIds)) {
-        // Current fronter member IDs — include co-fronters, skip sessions
-        // with no member_id (shouldn't happen for active sessions, but be
-        // defensive).
-        final fronterIds = <String>{};
-        for (final s in currentSessions) {
-          final mid = s.memberId;
-          if (mid != null) fronterIds.add(mid);
-          fronterIds.addAll(s.coFronterIds);
-        }
-        service.fireFrontChangeReminders(fronterIds).catchError((e) {
-          debugPrint('Front-change reminder fire failed (non-fatal): $e');
-        });
-      }
+      final previousMemberIds = activeFronterMemberIds(previousSessions);
+      final currentMemberIds = activeFronterMemberIds(currentSessions);
+      if (_setsEqual(previousMemberIds, currentMemberIds)) return;
+
+      service.fireFrontChangeReminders(currentMemberIds).catchError((e) {
+        debugPrint('Front-change reminder fire failed (non-fatal): $e');
+      });
     },
   );
 });
+
+/// Collects member_ids from a list of active per-member sessions.
+///
+/// Defensive: skips rows with a null member_id (shouldn't happen for active
+/// sessions under the per-member model, but the schema permits it).
+@visibleForTesting
+Set<String> activeFronterMemberIds(List<FrontingSession> sessions) {
+  final ids = <String>{};
+  for (final s in sessions) {
+    final mid = s.memberId;
+    if (mid != null) ids.add(mid);
+  }
+  return ids;
+}
 
 bool _setsEqual<T>(Set<T> a, Set<T> b) {
   if (a.length != b.length) return false;

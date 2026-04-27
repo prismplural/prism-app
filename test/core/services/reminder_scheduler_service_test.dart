@@ -1,9 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart' show TimeOfDay;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/services/local_notification_service.dart';
 import 'package:prism_plurality/core/services/reminder_scheduler_service.dart';
+import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/reminder.dart';
+import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
+import 'package:prism_plurality/features/reminders/providers/reminders_providers.dart';
 
 // ── Fake LocalNotificationService ─────────────────────────────────────────────
 
@@ -518,4 +524,192 @@ void main() {
       expect(fake.showImmediateCalls, hasLength(2));
     });
   });
+
+  // ── activeFronterMemberIds helper (per-member set computation) ─────
+
+  group('activeFronterMemberIds', () {
+    test('empty session list → empty set', () {
+      expect(activeFronterMemberIds(const []), isEmpty);
+    });
+
+    test('single member session → one-element set', () {
+      final s = _session(id: 's1', memberId: 'alex');
+      expect(activeFronterMemberIds([s]), {'alex'});
+    });
+
+    test('two per-member sessions → two-element set (co-fronting)', () {
+      final a = _session(id: 's1', memberId: 'alex');
+      final b = _session(id: 's2', memberId: 'sam');
+      expect(activeFronterMemberIds([a, b]), {'alex', 'sam'});
+    });
+
+    test('duplicate member_ids dedupe to one entry', () {
+      final a = _session(id: 's1', memberId: 'alex');
+      final aDup = _session(id: 's2', memberId: 'alex');
+      expect(activeFronterMemberIds([a, aDup]), {'alex'});
+    });
+
+    test('null member_id rows are skipped defensively', () {
+      final a = _session(id: 's1', memberId: 'alex');
+      final orphan = _session(id: 's2', memberId: null);
+      expect(activeFronterMemberIds([a, orphan]), {'alex'});
+    });
+  });
+
+  // ── Listener: active-fronter-set change detection ──────────────────
+  //
+  // Drives reminderSchedulerListenerProvider via overridden providers and
+  // asserts that fireFrontChangeReminders fires exactly when the set of
+  // active member_ids changes between emissions of activeSessionsProvider.
+
+  group('reminderSchedulerListenerProvider — set-change detection', () {
+    late StreamController<List<FrontingSession>> sessions;
+    late _FakeLocalNotificationService fake;
+    late ProviderContainer container;
+    late Reminder fcReminder;
+
+    setUp(() async {
+      sessions = StreamController<List<FrontingSession>>.broadcast();
+      fake = _FakeLocalNotificationService();
+      fcReminder = _reminder(
+        id: 'fc-any',
+        trigger: ReminderTrigger.onFrontChange,
+      );
+      container = ProviderContainer(
+        overrides: [
+          localNotificationServiceProvider.overrideWithValue(fake),
+          activeSessionsProvider.overrideWith((ref) => sessions.stream),
+          // Empty stream — we drive the on-front-change reminder by
+          // registering it directly on the service to bypass the 500ms
+          // rescheduleAll debounce.
+          activeRemindersProvider
+              .overrideWith((ref) => const Stream<List<Reminder>>.empty()),
+        ],
+      );
+      // Pre-register the on-front-change reminder on the service so its
+      // pending list is populated before the listener fires.
+      await container
+          .read(reminderSchedulerServiceProvider)
+          .scheduleReminder(fcReminder);
+    });
+
+    tearDown(() async {
+      container.dispose();
+      await sessions.close();
+    });
+
+    Future<void> emit(List<FrontingSession> next) async {
+      sessions.add(next);
+      // Yield to let the stream subscriber observe the new value and the
+      // listener fire its callback. pumpEventQueue drains the microtask
+      // queue, which is where stream events are dispatched.
+      await pumpEventQueue();
+    }
+
+    /// Force the listener provider + its dependencies to build, ensuring
+    /// the StreamProvider's subscription to our controller is attached
+    /// before we add the first event (broadcast streams drop pre-subscribe
+    /// events).
+    ///
+    /// We hold an explicit `container.listen` on `activeSessionsProvider`
+    /// because `ref.listen` inside the listener provider alone is not
+    /// enough to keep the StreamProvider's source subscription alive in
+    /// the test container — without an external observer, Riverpod skips
+    /// dispatching state updates and our callback never runs.
+    Future<void> attach() async {
+      container.read(reminderSchedulerListenerProvider);
+      container.listen<AsyncValue<List<FrontingSession>>>(
+        activeSessionsProvider,
+        (_, _) {},
+        fireImmediately: true,
+      );
+      await pumpEventQueue();
+    }
+
+    test('initial emission alone does not fire (no prior set)', () async {
+      // Read the listener provider so it subscribes.
+      await attach();
+      await emit([_session(id: 's1', memberId: 'alex')]);
+
+      expect(fake.showImmediateCalls, isEmpty);
+    });
+
+    test('no active fronters across emissions → no fire', () async {
+      await attach();
+      await emit(const []);
+      await emit(const []);
+
+      expect(fake.showImmediateCalls, isEmpty);
+    });
+
+    test('first member becomes active → fires (set {} → {alex})', () async {
+      await attach();
+      await emit(const []); // establish prior empty set
+      await emit([_session(id: 's1', memberId: 'alex')]);
+
+      expect(fake.showImmediateCalls, hasLength(1));
+    });
+
+    test('co-fronter added → fires (set {alex} → {alex, sam})', () async {
+      await attach();
+      await emit([_session(id: 's1', memberId: 'alex')]);
+      await emit([
+        _session(id: 's1', memberId: 'alex'),
+        _session(id: 's2', memberId: 'sam'),
+      ]);
+
+      expect(fake.showImmediateCalls, hasLength(1));
+    });
+
+    test('co-fronter removed → fires (set {alex, sam} → {alex})', () async {
+      await attach();
+      await emit([
+        _session(id: 's1', memberId: 'alex'),
+        _session(id: 's2', memberId: 'sam'),
+      ]);
+      await emit([_session(id: 's1', memberId: 'alex')]);
+
+      expect(fake.showImmediateCalls, hasLength(1));
+    });
+
+    test('one ends, another starts → fires (swap {alex} → {sam})', () async {
+      await attach();
+      await emit([_session(id: 's1', memberId: 'alex')]);
+      await emit([_session(id: 's2', memberId: 'sam')]);
+
+      expect(fake.showImmediateCalls, hasLength(1));
+    });
+
+    test('same member set across emissions → no fire', () async {
+      await attach();
+      await emit([_session(id: 's1', memberId: 'alex')]);
+      // Same active member_id, but a different session row id (e.g. an
+      // edit replaced the row). Member set unchanged → no reminder.
+      await emit([_session(id: 's1-edited', memberId: 'alex')]);
+
+      expect(fake.showImmediateCalls, isEmpty);
+    });
+
+    test('all fronters end → fires (set {alex} → {})', () async {
+      await attach();
+      await emit([_session(id: 's1', memberId: 'alex')]);
+      await emit(const []);
+
+      expect(fake.showImmediateCalls, hasLength(1));
+    });
+  });
+}
+
+FrontingSession _session({
+  required String id,
+  required String? memberId,
+  DateTime? startTime,
+  DateTime? endTime,
+}) {
+  return FrontingSession(
+    id: id,
+    startTime: startTime ?? DateTime(2026, 1, 1, 9),
+    endTime: endTime,
+    memberId: memberId,
+  );
 }
