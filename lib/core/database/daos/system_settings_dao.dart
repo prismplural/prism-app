@@ -214,6 +214,34 @@ class SystemSettingsDao extends DatabaseAccessor<AppDatabase>
     SystemSettingsTableCompanion(defaultSleepQuality: Value(value)),
   );
 
+  // -- Per-member fronting migration (§4.1) ----------------------------------
+
+  /// Reads `system_settings.pending_fronting_migration_mode`.  Defaults to
+  /// `'complete'` for fresh installs (handled by the table default + the
+  /// onCreate path); the v6→v7 onUpgrade overwrites it to `'notStarted'`
+  /// for any database that existed before v7.  Phase 5B's migration
+  /// service writes one of `'deferred'` / `'upgradeAndKeep'` /
+  /// `'startFresh'` / `'complete'` here.
+  Future<String> readPendingFrontingMigrationMode() async {
+    final row = await getSettings();
+    return row.pendingFrontingMigrationMode;
+  }
+
+  /// Writes `system_settings.pending_fronting_migration_mode`.  Always
+  /// targets the singleton row.  Caller is responsible for using one of
+  /// the documented enum strings — no validation here so future modes
+  /// don't require a DAO change.
+  Future<void> writePendingFrontingMigrationMode(String mode) async {
+    // Ensure the singleton row exists before writing — `_updateField`
+    // alone would no-op on an empty table.
+    await getSettings();
+    await _updateField(
+      SystemSettingsTableCompanion(
+        pendingFrontingMigrationMode: Value(mode),
+      ),
+    );
+  }
+
   // --- Int (enum index) fields ---
 
   Future<void> updateTerminology(int value) =>
