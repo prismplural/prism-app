@@ -1108,6 +1108,7 @@ DriftSyncEntity _membersEntity(
         'pk_banner_url': r.pkBannerUrl,
         'pluralkit_sync_ignored': r.pluralkitSyncIgnored,
         'delete_push_started_at': r.deletePushStartedAt,
+        'is_always_fronting': r.isAlwaysFronting,
         'is_deleted': r.isDeleted,
       };
     },
@@ -1152,6 +1153,7 @@ DriftSyncEntity _membersEntity(
         pkBannerUrl: f.stringFieldNullable('pk_banner_url'),
         pluralkitSyncIgnored: f.boolField('pluralkit_sync_ignored'),
         deletePushStartedAt: f.intFieldNullable('delete_push_started_at'),
+        isAlwaysFronting: f.boolField('is_always_fronting'),
         isDeleted: f.boolField('is_deleted'),
       );
       await db.into(db.members).insertOnConflictUpdate(companion);
@@ -1196,6 +1198,7 @@ DriftSyncEntity _membersEntity(
         'pk_banner_url': row.pkBannerUrl,
         'pluralkit_sync_ignored': row.pluralkitSyncIgnored,
         'delete_push_started_at': row.deletePushStartedAt,
+        'is_always_fronting': row.isAlwaysFronting,
         'is_deleted': row.isDeleted,
       };
     },
@@ -1225,14 +1228,12 @@ DriftSyncEntity _frontingSessionsEntity(
         'start_time': r.startTime.toIso8601String(),
         'end_time': r.endTime?.toIso8601String(),
         'member_id': r.memberId,
-        'co_fronter_ids': r.coFronterIds,
         'notes': r.notes,
         'confidence': r.confidence,
         'session_type': r.sessionType,
         'quality': r.quality,
         'is_health_kit_import': r.isHealthKitImport,
         'pluralkit_uuid': r.pluralkitUuid,
-        'pk_member_ids_json': r.pkMemberIdsJson,
         'delete_push_started_at': r.deletePushStartedAt,
         'is_deleted': r.isDeleted,
       };
@@ -1250,14 +1251,12 @@ DriftSyncEntity _frontingSessionsEntity(
         startTime: f.dateTimeField('start_time'),
         endTime: f.dateTimeFieldNullable('end_time'),
         memberId: f.stringFieldNullable('member_id'),
-        coFronterIds: f.stringField('co_fronter_ids'),
         notes: f.stringFieldNullable('notes'),
         confidence: f.intFieldNullable('confidence'),
         sessionType: f.intField('session_type'),
         quality: f.intFieldNullable('quality'),
         isHealthKitImport: f.boolField('is_health_kit_import'),
         pluralkitUuid: f.stringFieldNullable('pluralkit_uuid'),
-        pkMemberIdsJson: f.stringFieldNullable('pk_member_ids_json'),
         deletePushStartedAt: f.intFieldNullable('delete_push_started_at'),
         isDeleted: f.boolField('is_deleted'),
       );
@@ -1277,14 +1276,12 @@ DriftSyncEntity _frontingSessionsEntity(
         'start_time': row.startTime.toIso8601String(),
         'end_time': row.endTime?.toIso8601String(),
         'member_id': row.memberId,
-        'co_fronter_ids': row.coFronterIds,
         'notes': row.notes,
         'confidence': row.confidence,
         'session_type': row.sessionType,
         'quality': row.quality,
         'is_health_kit_import': row.isHealthKitImport,
         'pluralkit_uuid': row.pluralkitUuid,
-        'pk_member_ids_json': row.pkMemberIdsJson,
         'delete_push_started_at': row.deletePushStartedAt,
         'is_deleted': row.isDeleted,
       };
@@ -2641,7 +2638,8 @@ DriftSyncEntity _frontSessionCommentsEntity(
     toSyncFields: (dynamic row) {
       final r = row as FrontSessionCommentRow;
       return {
-        'session_id': r.sessionId,
+        'target_time': r.targetTime?.toIso8601String(),
+        'author_member_id': r.authorMemberId,
         'body': r.body,
         'timestamp': r.timestamp.toIso8601String(),
         'created_at': r.createdAt.toIso8601String(),
@@ -2658,7 +2656,8 @@ DriftSyncEntity _frontSessionCommentsEntity(
       );
       final companion = FrontSessionCommentsCompanion(
         id: Value(id),
-        sessionId: f.stringField('session_id'),
+        targetTime: f.dateTimeFieldNullable('target_time'),
+        authorMemberId: f.stringFieldNullable('author_member_id'),
         body: f.stringField('body'),
         timestamp: f.dateTimeField('timestamp'),
         createdAt: f.dateTimeField('created_at'),
@@ -2677,7 +2676,8 @@ DriftSyncEntity _frontSessionCommentsEntity(
       )..where((t) => t.id.equals(id))).getSingleOrNull();
       if (row == null) return null;
       return {
-        'session_id': row.sessionId,
+        'target_time': row.targetTime?.toIso8601String(),
+        'author_member_id': row.authorMemberId,
         'body': row.body,
         'timestamp': row.timestamp.toIso8601String(),
         'created_at': row.createdAt.toIso8601String(),

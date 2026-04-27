@@ -9,10 +9,15 @@ class FrontSessionCommentMapper {
   static domain.FrontSessionComment toDomain(FrontSessionCommentRow row) {
     return domain.FrontSessionComment(
       id: row.id,
-      sessionId: row.sessionId,
       body: row.body,
       timestamp: row.timestamp,
       createdAt: row.createdAt,
+      // targetTime is nullable in v7 — existing rows are backfilled by the
+      // Phase 5 app-layer migration. Downstream callers fall back to
+      // timestamp when targetTime is null; the mapper returns null as-is
+      // (pure translation, no fallback here).
+      targetTime: row.targetTime,
+      authorMemberId: row.authorMemberId,
     );
   }
 
@@ -20,10 +25,11 @@ class FrontSessionCommentMapper {
       domain.FrontSessionComment model) {
     return FrontSessionCommentsCompanion(
       id: Value(model.id),
-      sessionId: Value(model.sessionId),
       body: Value(model.body),
       timestamp: Value(model.timestamp),
       createdAt: Value(model.createdAt),
+      targetTime: Value(model.targetTime),
+      authorMemberId: Value(model.authorMemberId),
     );
   }
 }

@@ -15,7 +15,11 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$FrontSessionComment {
 
- String get id; String get sessionId; String get body; DateTime get timestamp; DateTime get createdAt;
+ String get id; String get body; DateTime get timestamp; DateTime get createdAt;// target_time: the moment this comment is about. Nullable until Phase 5
+// migration backfills existing rows; downstream code falls back to
+// timestamp when targetTime is null.
+ DateTime? get targetTime;// Optional author — which member wrote this comment.
+ String? get authorMemberId;
 /// Create a copy of FrontSessionComment
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -28,16 +32,16 @@ $FrontSessionCommentCopyWith<FrontSessionComment> get copyWith => _$FrontSession
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is FrontSessionComment&&(identical(other.id, id) || other.id == id)&&(identical(other.sessionId, sessionId) || other.sessionId == sessionId)&&(identical(other.body, body) || other.body == body)&&(identical(other.timestamp, timestamp) || other.timestamp == timestamp)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is FrontSessionComment&&(identical(other.id, id) || other.id == id)&&(identical(other.body, body) || other.body == body)&&(identical(other.timestamp, timestamp) || other.timestamp == timestamp)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.targetTime, targetTime) || other.targetTime == targetTime)&&(identical(other.authorMemberId, authorMemberId) || other.authorMemberId == authorMemberId));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,sessionId,body,timestamp,createdAt);
+int get hashCode => Object.hash(runtimeType,id,body,timestamp,createdAt,targetTime,authorMemberId);
 
 @override
 String toString() {
-  return 'FrontSessionComment(id: $id, sessionId: $sessionId, body: $body, timestamp: $timestamp, createdAt: $createdAt)';
+  return 'FrontSessionComment(id: $id, body: $body, timestamp: $timestamp, createdAt: $createdAt, targetTime: $targetTime, authorMemberId: $authorMemberId)';
 }
 
 
@@ -48,7 +52,7 @@ abstract mixin class $FrontSessionCommentCopyWith<$Res>  {
   factory $FrontSessionCommentCopyWith(FrontSessionComment value, $Res Function(FrontSessionComment) _then) = _$FrontSessionCommentCopyWithImpl;
 @useResult
 $Res call({
- String id, String sessionId, String body, DateTime timestamp, DateTime createdAt
+ String id, String body, DateTime timestamp, DateTime createdAt, DateTime? targetTime, String? authorMemberId
 });
 
 
@@ -65,14 +69,15 @@ class _$FrontSessionCommentCopyWithImpl<$Res>
 
 /// Create a copy of FrontSessionComment
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? sessionId = null,Object? body = null,Object? timestamp = null,Object? createdAt = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? body = null,Object? timestamp = null,Object? createdAt = null,Object? targetTime = freezed,Object? authorMemberId = freezed,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
-as String,sessionId: null == sessionId ? _self.sessionId : sessionId // ignore: cast_nullable_to_non_nullable
 as String,body: null == body ? _self.body : body // ignore: cast_nullable_to_non_nullable
 as String,timestamp: null == timestamp ? _self.timestamp : timestamp // ignore: cast_nullable_to_non_nullable
 as DateTime,createdAt: null == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
-as DateTime,
+as DateTime,targetTime: freezed == targetTime ? _self.targetTime : targetTime // ignore: cast_nullable_to_non_nullable
+as DateTime?,authorMemberId: freezed == authorMemberId ? _self.authorMemberId : authorMemberId // ignore: cast_nullable_to_non_nullable
+as String?,
   ));
 }
 
@@ -157,10 +162,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String sessionId,  String body,  DateTime timestamp,  DateTime createdAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String body,  DateTime timestamp,  DateTime createdAt,  DateTime? targetTime,  String? authorMemberId)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _FrontSessionComment() when $default != null:
-return $default(_that.id,_that.sessionId,_that.body,_that.timestamp,_that.createdAt);case _:
+return $default(_that.id,_that.body,_that.timestamp,_that.createdAt,_that.targetTime,_that.authorMemberId);case _:
   return orElse();
 
 }
@@ -178,10 +183,10 @@ return $default(_that.id,_that.sessionId,_that.body,_that.timestamp,_that.create
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String sessionId,  String body,  DateTime timestamp,  DateTime createdAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String body,  DateTime timestamp,  DateTime createdAt,  DateTime? targetTime,  String? authorMemberId)  $default,) {final _that = this;
 switch (_that) {
 case _FrontSessionComment():
-return $default(_that.id,_that.sessionId,_that.body,_that.timestamp,_that.createdAt);case _:
+return $default(_that.id,_that.body,_that.timestamp,_that.createdAt,_that.targetTime,_that.authorMemberId);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -198,10 +203,10 @@ return $default(_that.id,_that.sessionId,_that.body,_that.timestamp,_that.create
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String sessionId,  String body,  DateTime timestamp,  DateTime createdAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String body,  DateTime timestamp,  DateTime createdAt,  DateTime? targetTime,  String? authorMemberId)?  $default,) {final _that = this;
 switch (_that) {
 case _FrontSessionComment() when $default != null:
-return $default(_that.id,_that.sessionId,_that.body,_that.timestamp,_that.createdAt);case _:
+return $default(_that.id,_that.body,_that.timestamp,_that.createdAt,_that.targetTime,_that.authorMemberId);case _:
   return null;
 
 }
@@ -213,14 +218,19 @@ return $default(_that.id,_that.sessionId,_that.body,_that.timestamp,_that.create
 @JsonSerializable()
 
 class _FrontSessionComment implements FrontSessionComment {
-  const _FrontSessionComment({required this.id, required this.sessionId, required this.body, required this.timestamp, required this.createdAt});
+  const _FrontSessionComment({required this.id, required this.body, required this.timestamp, required this.createdAt, this.targetTime, this.authorMemberId});
   factory _FrontSessionComment.fromJson(Map<String, dynamic> json) => _$FrontSessionCommentFromJson(json);
 
 @override final  String id;
-@override final  String sessionId;
 @override final  String body;
 @override final  DateTime timestamp;
 @override final  DateTime createdAt;
+// target_time: the moment this comment is about. Nullable until Phase 5
+// migration backfills existing rows; downstream code falls back to
+// timestamp when targetTime is null.
+@override final  DateTime? targetTime;
+// Optional author — which member wrote this comment.
+@override final  String? authorMemberId;
 
 /// Create a copy of FrontSessionComment
 /// with the given fields replaced by the non-null parameter values.
@@ -235,16 +245,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _FrontSessionComment&&(identical(other.id, id) || other.id == id)&&(identical(other.sessionId, sessionId) || other.sessionId == sessionId)&&(identical(other.body, body) || other.body == body)&&(identical(other.timestamp, timestamp) || other.timestamp == timestamp)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _FrontSessionComment&&(identical(other.id, id) || other.id == id)&&(identical(other.body, body) || other.body == body)&&(identical(other.timestamp, timestamp) || other.timestamp == timestamp)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.targetTime, targetTime) || other.targetTime == targetTime)&&(identical(other.authorMemberId, authorMemberId) || other.authorMemberId == authorMemberId));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,sessionId,body,timestamp,createdAt);
+int get hashCode => Object.hash(runtimeType,id,body,timestamp,createdAt,targetTime,authorMemberId);
 
 @override
 String toString() {
-  return 'FrontSessionComment(id: $id, sessionId: $sessionId, body: $body, timestamp: $timestamp, createdAt: $createdAt)';
+  return 'FrontSessionComment(id: $id, body: $body, timestamp: $timestamp, createdAt: $createdAt, targetTime: $targetTime, authorMemberId: $authorMemberId)';
 }
 
 
@@ -255,7 +265,7 @@ abstract mixin class _$FrontSessionCommentCopyWith<$Res> implements $FrontSessio
   factory _$FrontSessionCommentCopyWith(_FrontSessionComment value, $Res Function(_FrontSessionComment) _then) = __$FrontSessionCommentCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String sessionId, String body, DateTime timestamp, DateTime createdAt
+ String id, String body, DateTime timestamp, DateTime createdAt, DateTime? targetTime, String? authorMemberId
 });
 
 
@@ -272,14 +282,15 @@ class __$FrontSessionCommentCopyWithImpl<$Res>
 
 /// Create a copy of FrontSessionComment
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? sessionId = null,Object? body = null,Object? timestamp = null,Object? createdAt = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? body = null,Object? timestamp = null,Object? createdAt = null,Object? targetTime = freezed,Object? authorMemberId = freezed,}) {
   return _then(_FrontSessionComment(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
-as String,sessionId: null == sessionId ? _self.sessionId : sessionId // ignore: cast_nullable_to_non_nullable
 as String,body: null == body ? _self.body : body // ignore: cast_nullable_to_non_nullable
 as String,timestamp: null == timestamp ? _self.timestamp : timestamp // ignore: cast_nullable_to_non_nullable
 as DateTime,createdAt: null == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
-as DateTime,
+as DateTime,targetTime: freezed == targetTime ? _self.targetTime : targetTime // ignore: cast_nullable_to_non_nullable
+as DateTime?,authorMemberId: freezed == authorMemberId ? _self.authorMemberId : authorMemberId // ignore: cast_nullable_to_non_nullable
+as String?,
   ));
 }
 

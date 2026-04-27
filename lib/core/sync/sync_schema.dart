@@ -28,6 +28,7 @@ const String prismSyncSchema = '''
         "pk_banner_url": "String",
         "pluralkit_sync_ignored": "Bool",
         "delete_push_started_at": "Int",
+        "is_always_fronting": "Bool",
         "is_deleted": "Bool"
       }
     },
@@ -36,14 +37,12 @@ const String prismSyncSchema = '''
         "start_time": "DateTime",
         "end_time": "DateTime",
         "member_id": "String",
-        "co_fronter_ids": "String",
         "notes": "String",
         "confidence": "Int",
         "session_type": "Int",
         "quality": "Int",
         "is_health_kit_import": "Bool",
         "pluralkit_uuid": "String",
-        "pk_member_ids_json": "String",
         "delete_push_started_at": "Int",
         "is_deleted": "Bool"
       }
@@ -251,7 +250,8 @@ const String prismSyncSchema = '''
     },
     "front_session_comments": {
       "fields": {
-        "session_id": "String",
+        "target_time": "DateTime",
+        "author_member_id": "String",
         "body": "String",
         "timestamp": "DateTime",
         "created_at": "DateTime",

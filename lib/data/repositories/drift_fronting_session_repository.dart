@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/core/database/daos/fronting_sessions_dao.dart';
 import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
@@ -243,11 +241,9 @@ class DriftFrontingSessionRepository
       'start_time': s.startTime.toIso8601String(),
       'end_time': s.endTime?.toIso8601String(),
       'member_id': s.memberId,
-      'co_fronter_ids': jsonEncode(s.coFronterIds),
       'notes': s.notes,
       'confidence': s.confidence?.index,
       'pluralkit_uuid': s.pluralkitUuid,
-      'pk_member_ids_json': s.pkMemberIdsJson,
       'session_type': s.sessionType.index,
       'quality': s.quality?.index,
       'is_health_kit_import': s.isHealthKitImport,

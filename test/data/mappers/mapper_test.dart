@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 
@@ -18,19 +16,6 @@ FrontConfidence? safeConfidenceLookup(int? index) {
   }
   return FrontConfidence.unsure; // out-of-bounds fallback
 }
-
-/// Replicates the coFronterIds JSON parsing used in FrontingSessionMapper.toDomain.
-List<String> parseCoFronterIds(String raw) {
-  if (raw.isEmpty) return [];
-  try {
-    return (jsonDecode(raw) as List).cast<String>();
-  } catch (_) {
-    return []; // malformed JSON → empty list (mapper silently reports and returns [])
-  }
-}
-
-/// Replicates the coFronterIds JSON encoding used in FrontingSessionMapper.toCompanion.
-String encodeCoFronterIds(List<String> ids) => jsonEncode(ids);
 
 void main() {
   group('FrontConfidence safe enum lookup', () {
@@ -74,59 +59,6 @@ void main() {
     });
   });
 
-  group('coFronterIds JSON parsing', () {
-    test('parses valid JSON array', () {
-      final json = jsonEncode(['id-1', 'id-2', 'id-3']);
-      final result = parseCoFronterIds(json);
-      expect(result, ['id-1', 'id-2', 'id-3']);
-    });
-
-    test('parses empty JSON array', () {
-      final result = parseCoFronterIds('[]');
-      expect(result, isEmpty);
-    });
-
-    test('returns empty list for empty string', () {
-      final result = parseCoFronterIds('');
-      expect(result, isEmpty);
-    });
-
-    test('returns empty list for malformed JSON', () {
-      final result = parseCoFronterIds('not-valid-json');
-      expect(result, isEmpty);
-    });
-
-    test('returns empty list for truncated JSON', () {
-      final result = parseCoFronterIds('["id-1", "id-2"');
-      expect(result, isEmpty);
-    });
-
-    test('returns empty list for JSON null literal', () {
-      // jsonDecode('null') returns null, cast will fail → returns []
-      final result = parseCoFronterIds('null');
-      expect(result, isEmpty);
-    });
-  });
-
-  group('coFronterIds JSON encoding', () {
-    test('encodes list to valid JSON string', () {
-      final encoded = encodeCoFronterIds(['a', 'b', 'c']);
-      expect(encoded, '["a","b","c"]');
-    });
-
-    test('encodes empty list to empty JSON array', () {
-      final encoded = encodeCoFronterIds([]);
-      expect(encoded, '[]');
-    });
-
-    test('encode → decode round-trip preserves order and values', () {
-      final ids = ['uuid-1', 'uuid-2', 'uuid-3'];
-      final encoded = encodeCoFronterIds(ids);
-      final decoded = parseCoFronterIds(encoded);
-      expect(decoded, ids);
-    });
-  });
-
   group('FrontingSession domain model construction', () {
     test('constructs with required fields only', () {
       final session = FrontingSession(
@@ -136,7 +68,6 @@ void main() {
       expect(session.id, 'test-id');
       expect(session.endTime, isNull);
       expect(session.memberId, isNull);
-      expect(session.coFronterIds, isEmpty);
       expect(session.confidence, isNull);
       expect(session.isActive, isTrue);
     });
@@ -149,15 +80,31 @@ void main() {
         startTime: start,
         endTime: end,
         memberId: 'member-1',
-        coFronterIds: const ['member-2', 'member-3'],
         notes: 'Test notes',
         confidence: FrontConfidence.strong,
         pluralkitUuid: 'pk-uuid-123',
       );
       expect(session.isActive, isFalse);
-      expect(session.isCoFronting, isTrue);
       expect(session.duration, const Duration(hours: 1));
       expect(session.confidence, FrontConfidence.strong);
+    });
+
+    test('isSleep is false for normal sessions', () {
+      final session = FrontingSession(
+        id: 'normal-id',
+        startTime: DateTime(2025, 6, 15, 9, 0),
+        memberId: 'member-1',
+      );
+      expect(session.isSleep, isFalse);
+    });
+
+    test('isSleep is true for sleep sessions', () {
+      final session = FrontingSession(
+        id: 'sleep-id',
+        startTime: DateTime(2025, 6, 15, 22, 0),
+        sessionType: SessionType.sleep,
+      );
+      expect(session.isSleep, isTrue);
     });
   });
 }
