@@ -23,9 +23,12 @@ class HabitNotificationService {
   static const _channelName = 'Habit Reminders';
   static const _channelDesc = 'Reminders for habit completion';
 
-  /// Base notification ID offset for habits (to avoid collision with fronting
-  /// notifications which use 1000-2000).
-  static const _habitNotificationIdBase = 3000;
+  /// Base notification ID offset for habits. Non-overlapping with fronting
+  /// (1000-2000) and reminders (20_000_000–20_100_029). The 100k-wide hash
+  /// space keeps birthday-paradox collisions negligible (~1% at 50 items,
+  /// ~5% at 100) compared to the previous 10k space (~12% at 50).
+  static const _habitNotificationIdBase = 3000000;
+  static const _habitNotificationIdMod = 100000;
 
   AppLocalizations get _l10n => lookupAppLocalizations(_localeResolver());
 
@@ -74,7 +77,14 @@ class HabitNotificationService {
         );
 
       case HabitFrequency.weekly:
-        final days = habit.weeklyDays ?? [];
+        // Defense-in-depth: even though the mapper guards corrupt rows,
+        // direct callers via providers could bypass it. Drop out-of-range
+        // weekdays and dedupe so each weekday schedules exactly once.
+        final days = (habit.weeklyDays ?? const <int>[])
+            .where((d) => d >= 0 && d <= 6)
+            .toSet()
+            .toList()
+          ..sort();
         if (days.isEmpty) return;
         for (var i = 0; i < days.length; i++) {
           await _localService.scheduleExactWeekly(
@@ -129,9 +139,12 @@ class HabitNotificationService {
 
   /// Generates a stable base notification ID from a habit ID string.
   int _baseId(String id) =>
-      _habitNotificationIdBase + (id.hashCode.abs() % 10000);
+      _habitNotificationIdBase + (id.hashCode.abs() % _habitNotificationIdMod);
 
   /// Parses a "HH:mm" reminder time string into a [TimeOfDay].
+  /// Returns null if the string is null, malformed, or out of range.
+  /// Out-of-range values like "25:70" would silently normalize to a wrong
+  /// time when fed through DateTime, so reject them up front.
   TimeOfDay? _parseTime(String? time) {
     if (time == null) return null;
     final parts = time.split(':');
@@ -139,6 +152,7 @@ class HabitNotificationService {
     final hour = int.tryParse(parts[0]);
     final minute = int.tryParse(parts[1]);
     if (hour == null || minute == null) return null;
+    if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
     return TimeOfDay(hour: hour, minute: minute);
   }
 }
