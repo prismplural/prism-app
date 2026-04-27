@@ -12565,6 +12565,54 @@ abstract class AppLocalizations {
   /// **'This may take a moment. Don\'t close the app.'**
   String get frontingUpgradeRunningSubtitle;
 
+  /// Title shown while the PRISM1 backup is being exported (codex P1 #8)
+  ///
+  /// In en, this message translates to:
+  /// **'Building your backup…'**
+  String get frontingUpgradeExporting;
+
+  /// Subtitle shown while the PRISM1 backup is being exported
+  ///
+  /// In en, this message translates to:
+  /// **'Encrypting your fronting data so you can keep a copy.'**
+  String get frontingUpgradeExportingSubtitle;
+
+  /// Headline of the durable-save gate that runs before the destructive migration step (codex P1 #8)
+  ///
+  /// In en, this message translates to:
+  /// **'Backup ready'**
+  String get frontingUpgradeBackupReadyHeadline;
+
+  /// Body text on the durable-save gate explaining why saving the file is important
+  ///
+  /// In en, this message translates to:
+  /// **'Save this backup somewhere you\'ll be able to find it later — outside the app. Without it, you can\'t recover your old data if anything goes wrong.'**
+  String get frontingUpgradeBackupReadyBody;
+
+  /// Primary action on the backup-ready step — opens a file picker to save the file to a user-chosen destination
+  ///
+  /// In en, this message translates to:
+  /// **'Save backup…'**
+  String get frontingUpgradeBackupSaveAs;
+
+  /// Secondary action on the backup-ready step — opens the system share sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Share…'**
+  String get frontingUpgradeBackupShare;
+
+  /// Manual checkbox on the backup-ready step — auto-ticks on a successful save or share
+  ///
+  /// In en, this message translates to:
+  /// **'I have saved this backup somewhere I can find later'**
+  String get frontingUpgradeBackupAcknowledge;
+
+  /// Continue button on the backup-ready step; disabled until the acknowledgment checkbox is ticked
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get frontingUpgradeBackupContinue;
+
   /// Success screen headline
   ///
   /// In en, this message translates to:

@@ -26,25 +26,69 @@ import 'package:prism_plurality/features/fronting/migration/providers/fronting_m
 import 'package:prism_plurality/features/fronting/migration/views/fronting_upgrade_sheet.dart';
 import 'package:prism_plurality/features/fronting/migration/widgets/fronting_upgrade_banner.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/widgets/prism_button.dart';
 
 // ─────────────────────────────────────────────────────────────────────
 // Fakes
 // ─────────────────────────────────────────────────────────────────────
 
-/// Records every `runMigration` call so tests can assert the chosen
-/// mode/role and seed the result.
+/// Records every migration call so tests can assert the chosen
+/// mode/role and seed the result. Implements the split surface
+/// (`prepareBackup` + `runMigrationDestructive`) plus the legacy
+/// `runMigration` wrapper for the `notNow` deferral path.
 class _FakeRunner implements FrontingMigrationService {
-  _FakeRunner({this.result});
+  _FakeRunner({this.result, this.prepareBackupThrows = false});
 
   static const bool deferredOnNotNow = true;
 
-  /// What to return when called with a non-`notNow` mode.  Defaults to
-  /// a successful result.
+  /// What `runMigrationDestructive` returns. Defaults to a successful
+  /// result; tests that exercise the failure branch override this.
   MigrationResult? result;
+
+  /// When true, `prepareBackup` throws — exercises the export-failure
+  /// transition into the `failure` step from `exporting`.
+  bool prepareBackupThrows;
 
   final List<({MigrationMode mode, DeviceRole role, String password})> calls =
       [];
+  final List<({MigrationMode mode, String password})> prepareCalls = [];
+  final List<({MigrationMode mode, DeviceRole role, File file})>
+      destructiveCalls = [];
   String? lastDeferredWrite;
+
+  @override
+  Future<File> prepareBackup({
+    required MigrationMode mode,
+    required String password,
+  }) async {
+    prepareCalls.add((mode: mode, password: password));
+    if (prepareBackupThrows) {
+      throw StateError('Simulated prepareBackup failure');
+    }
+    // No real I/O — widget tests don't drain real async I/O between
+    // tester.pump() calls. The widget only needs a non-null File
+    // reference to advance into the backupReady step. Use a synthetic
+    // path to keep the helper hermetic.
+    return File('/dev/null/fake-prism-backup.prism');
+  }
+
+  @override
+  Future<MigrationResult> runMigrationDestructive({
+    required MigrationMode mode,
+    required DeviceRole role,
+    required File exportFile,
+  }) async {
+    destructiveCalls.add((mode: mode, role: role, file: exportFile));
+    // Mirror the production composition so `calls` (used by the
+    // existing test suite to assert chosen mode/role) stays populated.
+    calls.add((mode: mode, role: role, password: ''));
+    return result ??
+        MigrationResult(
+          outcome: MigrationOutcome.success,
+          spRowsMigrated: 1,
+          exportFile: exportFile,
+        );
+  }
 
   @override
   Future<MigrationResult> runMigration({
@@ -53,16 +97,20 @@ class _FakeRunner implements FrontingMigrationService {
     required Future<Uri?> Function(File file) shareFile,
     String password = '',
   }) async {
-    calls.add((mode: mode, role: role, password: password));
     if (mode == MigrationMode.notNow && _FakeRunner.deferredOnNotNow) {
+      calls.add((mode: mode, role: role, password: password));
       lastDeferredWrite = FrontingMigrationService.modeDeferred;
       return const MigrationResult(outcome: MigrationOutcome.deferred);
     }
-    return result ??
-        const MigrationResult(
-          outcome: MigrationOutcome.success,
-          spRowsMigrated: 1,
-        );
+    // Compose the split methods like production does, so any test
+    // that still drives `runMigration` end-to-end exercises both.
+    final file = await prepareBackup(mode: mode, password: password);
+    await shareFile(file);
+    return runMigrationDestructive(
+      mode: mode,
+      role: role,
+      exportFile: file,
+    );
   }
 
   @override
@@ -77,6 +125,8 @@ Widget _buildSheetSubject({
   required _FakeRunner runner,
   required int pairedCount,
   String mode = FrontingMigrationService.modeNotStarted,
+  Future<bool> Function(File file)? shareBackup,
+  Future<bool> Function(File file)? saveBackup,
 }) {
   return ProviderScope(
     overrides: [
@@ -91,8 +141,12 @@ Widget _buildSheetSubject({
         body: Builder(
           builder: (context) => Center(
             child: ElevatedButton(
-              onPressed: () =>
-                  showFrontingUpgradeSheet(context, isDismissible: true),
+              onPressed: () => showFrontingUpgradeSheet(
+                context,
+                isDismissible: true,
+                shareBackup: shareBackup,
+                saveBackup: saveBackup,
+              ),
               child: const Text('open'),
             ),
           ),
@@ -100,6 +154,38 @@ Widget _buildSheetSubject({
       ),
     ),
   );
+}
+
+/// Drives the `backupReady` step's manual checkbox so tests that don't
+/// care about the durable-save gate can keep their happy-path
+/// pump-and-tap flow short. The new state machine inserts this gate
+/// between password-submit and the destructive phase (codex P1 #8).
+///
+/// The `exporting` and `running` steps both render an indefinitely
+/// animated PrismSpinner which deadlocks `pumpAndSettle`. This helper
+/// polls for the next step's headline instead.
+Future<void> _ackBackupAndContinue(WidgetTester tester) async {
+  // Wait for backupReady to render after password submission.
+  for (var i = 0; i < 20; i++) {
+    await tester.pump(const Duration(milliseconds: 50));
+    if (find.text('Backup ready').evaluate().isNotEmpty) break;
+  }
+  // Tick the manual acknowledgment checkbox.
+  await tester.tap(find.byType(CheckboxListTile));
+  await tester.pump();
+  // The Continue button has the literal label "Continue" on this
+  // step (l10n: frontingUpgradeBackupContinue). Use the PrismButton
+  // matcher so we don't collide with the intro-step Continue button
+  // (which is no longer in the tree by this point).
+  await tester.tap(find.widgetWithText(PrismButton, 'Continue'));
+  // Wait for the destructive phase to resolve into success/failure.
+  for (var i = 0; i < 20; i++) {
+    await tester.pump(const Duration(milliseconds: 50));
+    if (find.text('Migration complete!').evaluate().isNotEmpty ||
+        find.text('Migration failed').evaluate().isNotEmpty) {
+      break;
+    }
+  }
 }
 
 Widget _buildBannerSubject({required String mode}) {
@@ -274,14 +360,16 @@ void main() {
       await tester.enterText(
           find.byType(TextField).at(1), 'a-strong-password-12');
       await tester.tap(find.text('Back up and upgrade'));
-      // Pump for the running → success transition (no real timers, but
-      // the post-frame microtask needs a flush).
       await tester.pumpAndSettle();
+      // Codex P1 #8: drive past the durable-save gate.
+      await _ackBackupAndContinue(tester);
 
       expect(find.text('Migration complete!'), findsOneWidget);
       expect(runner.calls.last.mode, MigrationMode.upgradeAndKeep);
       expect(runner.calls.last.role, DeviceRole.solo);
-      expect(runner.calls.last.password, 'a-strong-password-12');
+      // Note: password is now empty in `calls` because runMigrationDestructive
+      // doesn't carry it (the FakeRunner records it in prepareCalls).
+      expect(runner.prepareCalls.single.password, 'a-strong-password-12');
       // Solo gets the "all set" copy, not the primary "open Settings →
       // Sync on your other devices" prompt.
       expect(
@@ -314,6 +402,7 @@ void main() {
           find.byType(TextField).at(1), 'a-strong-password-12');
       await tester.tap(find.text('Back up and upgrade'));
       await tester.pumpAndSettle();
+      await _ackBackupAndContinue(tester);
 
       expect(find.text('Migration complete!'), findsOneWidget);
       expect(runner.calls.last.role, DeviceRole.primary);
@@ -343,6 +432,7 @@ void main() {
           find.byType(TextField).at(1), 'a-strong-password-12');
       await tester.tap(find.text('Back up and upgrade'));
       await tester.pumpAndSettle();
+      await _ackBackupAndContinue(tester);
 
       expect(find.text('Migration failed'), findsOneWidget);
       expect(find.text('simulated boom'), findsOneWidget);
@@ -429,5 +519,260 @@ void main() {
       // here we pin on the "Finish migration" CTA being the dominant
       // affordance.
     });
+  });
+
+  // ───────────────────────────────────────────────────────────────────
+  // Codex P1 #8 — durable-save backup gate
+  //
+  // Pins the new step that runs between password submission and the
+  // destructive phase. The user must save the PRISM1 backup somewhere
+  // recoverable (file picker), share it (success), or tick the manual
+  // "I saved this" checkbox before the Continue button enables.
+  // Dismissing from this step must NOT trigger runMigrationDestructive.
+  // ───────────────────────────────────────────────────────────────────
+  group('FrontingUpgradeSheet — backup gate', () {
+    Future<void> navigateToBackupReady(
+      WidgetTester tester,
+      _FakeRunner runner,
+    ) async {
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+      // Solo path lands directly on the mode picker.
+      await tester.tap(find.text('Keep my data'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+          find.byType(TextField).at(0), 'a-strong-password-12');
+      await tester.enterText(
+          find.byType(TextField).at(1), 'a-strong-password-12');
+      await tester.tap(find.text('Back up and upgrade'));
+      // exporting → backupReady transition. We can't use pumpAndSettle
+      // here because the exporting screen contains an indefinitely
+      // animating PrismSpinner. Pump until the backupReady step
+      // renders by polling for its headline. The first pump() call
+      // (without a duration) drains any pending microtasks from the
+      // tap so the rebuild fires.
+      await tester.pump();
+      var seen = false;
+      for (var i = 0; i < 50; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+        if (find.text('Backup ready').evaluate().isNotEmpty) {
+          seen = true;
+          break;
+        }
+      }
+      expect(seen, isTrue,
+          reason: 'backupReady step did not render within polling window');
+    }
+
+    testWidgets(
+      'after password submit, backupReady step renders with disabled Continue',
+      (tester) async {
+        final runner = _FakeRunner();
+        await tester.pumpWidget(
+          _buildSheetSubject(runner: runner, pairedCount: 0),
+        );
+        await navigateToBackupReady(tester, runner);
+
+        expect(find.text('Backup ready'), findsOneWidget);
+        // prepareBackup ran; runMigrationDestructive did NOT.
+        expect(runner.prepareCalls, hasLength(1));
+        expect(runner.destructiveCalls, isEmpty);
+
+        // The Continue button on this step is disabled until the
+        // checkbox is ticked. PrismButton renders enabled/disabled via
+        // Semantics(enabled: ...); assert on that.
+        final continueButton = find.widgetWithText(PrismButton, 'Continue');
+        expect(continueButton, findsOneWidget);
+        final pb = tester.widget<PrismButton>(continueButton);
+        expect(pb.enabled, isFalse);
+      },
+    );
+
+    testWidgets(
+      'manual checkbox toggles the Continue button enabled/disabled',
+      (tester) async {
+        final runner = _FakeRunner();
+        await tester.pumpWidget(
+          _buildSheetSubject(runner: runner, pairedCount: 0),
+        );
+        await navigateToBackupReady(tester, runner);
+
+        // Tick the checkbox.
+        await tester.tap(find.byType(CheckboxListTile));
+        await tester.pumpAndSettle();
+        var pb = tester.widget<PrismButton>(
+          find.widgetWithText(PrismButton, 'Continue'),
+        );
+        expect(pb.enabled, isTrue);
+
+        // Untick.
+        await tester.tap(find.byType(CheckboxListTile));
+        await tester.pumpAndSettle();
+        pb = tester.widget<PrismButton>(
+          find.widgetWithText(PrismButton, 'Continue'),
+        );
+        expect(pb.enabled, isFalse);
+      },
+    );
+
+    testWidgets(
+      'successful share auto-ticks the checkbox',
+      (tester) async {
+        final runner = _FakeRunner();
+        await tester.pumpWidget(_buildSheetSubject(
+          runner: runner,
+          pairedCount: 0,
+          shareBackup: (_) async => true,
+        ));
+        await navigateToBackupReady(tester, runner);
+
+        await tester.tap(find.text('Share…'));
+        await tester.pumpAndSettle();
+
+        final cb = tester.widget<CheckboxListTile>(
+          find.byType(CheckboxListTile),
+        );
+        expect(cb.value, isTrue);
+        // Continue is now enabled.
+        final pb = tester.widget<PrismButton>(
+          find.widgetWithText(PrismButton, 'Continue'),
+        );
+        expect(pb.enabled, isTrue);
+      },
+    );
+
+    testWidgets(
+      'dismissed share does not auto-tick the checkbox',
+      (tester) async {
+        final runner = _FakeRunner();
+        await tester.pumpWidget(_buildSheetSubject(
+          runner: runner,
+          pairedCount: 0,
+          shareBackup: (_) async => false,
+        ));
+        await navigateToBackupReady(tester, runner);
+
+        await tester.tap(find.text('Share…'));
+        await tester.pumpAndSettle();
+
+        final cb = tester.widget<CheckboxListTile>(
+          find.byType(CheckboxListTile),
+        );
+        expect(cb.value, isFalse);
+        // Continue stays disabled.
+        final pb = tester.widget<PrismButton>(
+          find.widgetWithText(PrismButton, 'Continue'),
+        );
+        expect(pb.enabled, isFalse);
+      },
+    );
+
+    testWidgets(
+      'successful save-as auto-ticks the checkbox',
+      (tester) async {
+        final runner = _FakeRunner();
+        await tester.pumpWidget(_buildSheetSubject(
+          runner: runner,
+          pairedCount: 0,
+          saveBackup: (_) async => true,
+        ));
+        await navigateToBackupReady(tester, runner);
+
+        await tester.tap(find.text('Save backup…'));
+        await tester.pumpAndSettle();
+
+        final cb = tester.widget<CheckboxListTile>(
+          find.byType(CheckboxListTile),
+        );
+        expect(cb.value, isTrue);
+      },
+    );
+
+    testWidgets(
+      'cancelled save-as does not auto-tick or surface an error',
+      (tester) async {
+        final runner = _FakeRunner();
+        await tester.pumpWidget(_buildSheetSubject(
+          runner: runner,
+          pairedCount: 0,
+          saveBackup: (_) async => false,
+        ));
+        await navigateToBackupReady(tester, runner);
+
+        await tester.tap(find.text('Save backup…'));
+        await tester.pumpAndSettle();
+
+        final cb = tester.widget<CheckboxListTile>(
+          find.byType(CheckboxListTile),
+        );
+        expect(cb.value, isFalse);
+        // Still on the backupReady step — no migration outcome
+        // surfaced (success or failure).
+        expect(find.text('Backup ready'), findsOneWidget);
+        expect(find.text('Migration complete!'), findsNothing);
+        expect(find.text('Migration failed'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'dismissing from backupReady does not run runMigrationDestructive; '
+      'mode stays at notStarted',
+      (tester) async {
+        final runner = _FakeRunner();
+        await tester.pumpWidget(
+          _buildSheetSubject(runner: runner, pairedCount: 0),
+        );
+        await navigateToBackupReady(tester, runner);
+
+        // Pop the modal from the backupReady step (analogous to
+        // user-initiated dismissal — back gesture / tap outside).
+        final navState = tester.state<NavigatorState>(find.byType(Navigator));
+        navState.pop();
+        await tester.pumpAndSettle();
+
+        expect(runner.destructiveCalls, isEmpty,
+            reason: 'destructive phase must NOT run on dismiss');
+        // Sheet is gone — only the launcher button remains.
+        expect(find.text('Backup ready'), findsNothing);
+        expect(find.text('open'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'prepareBackup failure transitions to the failure step',
+      (tester) async {
+        final runner = _FakeRunner(prepareBackupThrows: true);
+        await tester.pumpWidget(
+          _buildSheetSubject(runner: runner, pairedCount: 0),
+        );
+        // Inline the navigation so we can poll for the failure
+        // headline instead of "Backup ready" (which never appears).
+        await tester.tap(find.text('open'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Continue'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Keep my data'));
+        await tester.pumpAndSettle();
+        await tester.enterText(
+            find.byType(TextField).at(0), 'a-strong-password-12');
+        await tester.enterText(
+            find.byType(TextField).at(1), 'a-strong-password-12');
+        await tester.tap(find.text('Back up and upgrade'));
+        await tester.pump();
+        var saw = false;
+        for (var i = 0; i < 50; i++) {
+          await tester.pump(const Duration(milliseconds: 50));
+          if (find.text('Migration failed').evaluate().isNotEmpty) {
+            saw = true;
+            break;
+          }
+        }
+        expect(saw, isTrue, reason: 'failure step should render');
+        expect(find.textContaining('PRISM1 export failed'), findsOneWidget);
+        expect(runner.destructiveCalls, isEmpty);
+      },
+    );
   });
 }

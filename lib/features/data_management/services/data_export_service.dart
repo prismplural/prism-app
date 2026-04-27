@@ -286,18 +286,27 @@ class DataExportService {
   /// alongside the JSON. If a blob is not cached locally it is silently skipped.
   ///
   /// See [buildExport] for the meaning of [includeLegacyFields].
+  ///
+  /// [targetDirectory] overrides the destination — when null, defaults to
+  /// `getApplicationCacheDirectory()` (purgeable cache, fine for the
+  /// regular user-initiated export-and-share flow). The fronting
+  /// migration's PRISM1 rescue file passes
+  /// `getApplicationDocumentsDirectory()` so the file survives across
+  /// app launches even if the user dismisses the upgrade modal before
+  /// confirming they saved it (codex P1 #8).
   Future<File> exportEncryptedData({
     required String password,
     bool includeLegacyFields = false,
+    Directory? targetDirectory,
   }) async {
     final export = await buildExport(includeLegacyFields: includeLegacyFields);
     final jsonStr = const JsonEncoder.withIndent('  ').convert(export.toJson());
 
     final mediaBlobs = await _collectMediaBlobs(export.mediaAttachments);
 
-    final cacheDir = await _cacheDirectoryProvider();
+    final outputDir = targetDirectory ?? await _cacheDirectoryProvider();
     final dateStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
-    final file = File('${cacheDir.path}/Prism-Export-$dateStr.prism');
+    final file = File('${outputDir.path}/Prism-Export-$dateStr.prism');
     final encrypted = await Isolate.run(
       () => ExportCrypto.encrypt(jsonStr, mediaBlobs, password),
     );

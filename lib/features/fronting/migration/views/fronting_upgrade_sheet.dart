@@ -3,7 +3,7 @@
 ///
 /// State machine:
 ///   intro → role (skipped when solo) → mode (skipped on secondary) →
-///   password → running → success | failure
+///   password → exporting → backupReady → running → success | failure
 ///
 /// Drives [FrontingMigrationService] from 5B.  Don't put migration
 /// logic here — only UX glue.
@@ -12,10 +12,18 @@
 ///   - Single sheet host, internal enum-driven state machine.
 ///   - 12+ char password gate with confirm field, show/hide toggles.
 ///   - Same headline + icon pattern per step.
+///
+/// Codex P1 #8: the `backupReady` step is a hard gate before any
+/// destructive work — the user must save the PRISM1 backup somewhere
+/// durable (file picker), share it, or tick the manual "I saved this"
+/// checkbox before the Continue button enables. Dismissing from this
+/// step leaves settings at `'notStarted'` so the destructive phase
+/// never runs.
 library;
 
 import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
@@ -37,6 +45,22 @@ enum FrontingUpgradeStep {
   role,
   mode,
   password,
+
+  /// Codex P1 #8 — the PRISM1 export is being built (between password
+  /// submission and the durable-save gate). Renders a spinner. On
+  /// success, transitions to [backupReady]; on failure, transitions to
+  /// [failure].
+  exporting,
+
+  /// Codex P1 #8 — durable-save gate. Renders the freshly-built backup
+  /// file with three actions (save to file, share, manual checkbox)
+  /// and a Continue button that's disabled until the user confirms
+  /// they have saved the file somewhere recoverable. Dismissing from
+  /// this step leaves settings at `'notStarted'`; the destructive
+  /// phase never runs.
+  backupReady,
+
+  /// The destructive Drift transaction + post-tx cleanup is running.
   running,
   success,
   failure,
@@ -50,6 +74,11 @@ enum FrontingUpgradeStep {
   resumeCleanup,
 }
 
+/// Result of the share-or-save callback. `true` means the user
+/// committed to a destination (selected a save location, completed a
+/// share); `false` means they cancelled or dismissed without saving.
+typedef BackupHandoffCallback = Future<bool> Function(File file);
+
 /// Show the upgrade modal.
 ///
 /// [isDismissible] — `false` for the `'notStarted'` first-time prompt
@@ -59,6 +88,8 @@ enum FrontingUpgradeStep {
 Future<void> showFrontingUpgradeSheet(
   BuildContext context, {
   required bool isDismissible,
+  BackupHandoffCallback? shareBackup,
+  BackupHandoffCallback? saveBackup,
 }) {
   return PrismSheet.showFullScreen(
     context: context,
@@ -66,6 +97,8 @@ Future<void> showFrontingUpgradeSheet(
     builder: (sheetContext, scrollController) => FrontingUpgradeSheet(
       scrollController: scrollController,
       isDismissible: isDismissible,
+      shareBackup: shareBackup,
+      saveBackup: saveBackup,
     ),
   );
 }
@@ -75,10 +108,27 @@ class FrontingUpgradeSheet extends ConsumerStatefulWidget {
     super.key,
     this.scrollController,
     this.isDismissible = true,
+    this.shareBackup,
+    this.saveBackup,
   });
 
   final ScrollController? scrollController;
   final bool isDismissible;
+
+  /// Optional override for the share-sheet handoff used by the
+  /// `backupReady` step. Production wiring uses `share_plus` and
+  /// inspects `ShareResult.status`. Tests pass an in-process callback
+  /// to avoid platform-channel calls. Returns `true` if the user
+  /// completed the share (auto-ticks the acknowledgment checkbox);
+  /// `false` if dismissed.
+  final BackupHandoffCallback? shareBackup;
+
+  /// Optional override for the save-as handoff used by the
+  /// `backupReady` step. Production wiring uses
+  /// `FilePicker.platform.saveFile`. Returns `true` if the user picked
+  /// a destination (auto-ticks the acknowledgment checkbox); `false`
+  /// if cancelled.
+  final BackupHandoffCallback? saveBackup;
 
   @override
   ConsumerState<FrontingUpgradeSheet> createState() =>
@@ -101,6 +151,16 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
   String? _passwordError;
+
+  /// Filled in by `prepareBackup`; cleared on retry. The destructive
+  /// phase is gated on this being non-null AND [_backupAcknowledged].
+  File? _backupFile;
+
+  /// Tracks whether the user has confirmed they saved the backup
+  /// somewhere durable. Auto-ticked on a successful save-as or share;
+  /// also user-toggleable via the manual checkbox on the
+  /// `backupReady` step.
+  bool _backupAcknowledged = false;
 
   MigrationResult? _result;
 
@@ -226,8 +286,16 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
     _runMigration();
   }
 
+  /// Phase 1: invoke `prepareBackup`. On success, transitions to
+  /// `backupReady` so the user can save / share / acknowledge before
+  /// the destructive phase runs (codex P1 #8). On failure, transitions
+  /// to `failure` with the export error.
   Future<void> _runMigration() async {
-    setState(() => _step = FrontingUpgradeStep.running);
+    setState(() {
+      _step = FrontingUpgradeStep.exporting;
+      _backupFile = null;
+      _backupAcknowledged = false;
+    });
 
     final password = _passwordController.text;
     _passwordController.clear();
@@ -235,11 +303,44 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
 
     final runner = ref.read(frontingMigrationRunnerProvider);
     try {
-      final result = await runner.runMigration(
+      final file = await runner.prepareBackup(
+        mode: _mode,
+        password: password,
+      );
+      if (!mounted) return;
+      setState(() {
+        _backupFile = file;
+        _step = FrontingUpgradeStep.backupReady;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _result = MigrationResult(
+          outcome: MigrationOutcome.failed,
+          errorMessage: 'PRISM1 export failed: $e',
+        );
+        _step = FrontingUpgradeStep.failure;
+      });
+    }
+  }
+
+  /// Phase 2: run the destructive transaction + post-tx cleanup. Only
+  /// invoked from the `backupReady` step's Continue button after the
+  /// user has acknowledged saving the backup.
+  Future<void> _runDestructive() async {
+    final file = _backupFile;
+    if (file == null) {
+      // Defensive: should be unreachable since the Continue button is
+      // gated on _backupFile + _backupAcknowledged.
+      return;
+    }
+    setState(() => _step = FrontingUpgradeStep.running);
+    final runner = ref.read(frontingMigrationRunnerProvider);
+    try {
+      final result = await runner.runMigrationDestructive(
         mode: _mode,
         role: _role ?? DeviceRole.solo,
-        shareFile: _shareFile,
-        password: password,
+        exportFile: file,
       );
       if (!mounted) return;
       setState(() {
@@ -253,6 +354,7 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
       setState(() {
         _result = MigrationResult(
           outcome: MigrationOutcome.failed,
+          exportFile: file,
           errorMessage: e.toString(),
         );
         _step = FrontingUpgradeStep.failure;
@@ -260,37 +362,69 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
     }
   }
 
-  /// Share-file callback handed to the migration service.  Pops the
-  /// system share sheet so the user can save the PRISM1 backup
-  /// somewhere durable.  Returning null aborts migration per the
-  /// service's contract — but the sheet swallows the cancellation and
-  /// returns null itself, which the service treats as "user backed
-  /// out, keep local file but don't proceed."  We treat the share
-  /// dismissal as a soft success (proceed) so users on platforms
-  /// without a real share-receiver don't get blocked.
-  Future<Uri?> _shareFile(File file) async {
+  /// Default share-sheet handoff. Inspects `ShareResult.status` so a
+  /// dismissed share doesn't auto-tick the acknowledgment checkbox
+  /// (codex P1 #8). Tests override via [FrontingUpgradeSheet.shareBackup].
+  Future<bool> _defaultShareBackup(File file) async {
     try {
-      // We don't inspect the result — even a dismissed share is a
-      // valid outcome (the file is on disk and the user can re-share
-      // later).  Return a non-null Uri so the migration service
-      // interprets this as success and proceeds.
-      await SharePlus.instance.share(
+      final result = await SharePlus.instance.share(
         ShareParams(
           files: [XFile(file.path)],
           subject: 'Prism Fronting Backup',
         ),
       );
-      return Uri.file(file.path);
+      return result.status == ShareResultStatus.success;
     } catch (_) {
-      // Bubble the failure to the migration service so it returns a
-      // failure result with a meaningful error message.
-      rethrow;
+      return false;
+    }
+  }
+
+  /// Default save-as handoff. Uses `file_picker` to let the user pick
+  /// a destination outside the app's documents directory (codex P1 #8).
+  /// Returns `true` if the user confirmed a destination, `false` on
+  /// cancel. Tests override via [FrontingUpgradeSheet.saveBackup].
+  Future<bool> _defaultSaveBackup(File file) async {
+    try {
+      final bytes = await file.readAsBytes();
+      final fileName = file.path.split('/').last;
+      final result = await FilePicker.saveFile(
+        dialogTitle: 'Save Prism backup',
+        fileName: fileName,
+        bytes: bytes,
+      );
+      return result != null;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> _onShareTapped() async {
+    final file = _backupFile;
+    if (file == null) return;
+    final handler = widget.shareBackup ?? _defaultShareBackup;
+    final ok = await handler(file);
+    if (!mounted) return;
+    if (ok) {
+      setState(() => _backupAcknowledged = true);
+    }
+  }
+
+  Future<void> _onSaveTapped() async {
+    final file = _backupFile;
+    if (file == null) return;
+    final handler = widget.saveBackup ?? _defaultSaveBackup;
+    final ok = await handler(file);
+    if (!mounted) return;
+    if (ok) {
+      setState(() => _backupAcknowledged = true);
     }
   }
 
   void _retry() {
     setState(() {
       _result = null;
+      _backupFile = null;
+      _backupAcknowledged = false;
       _step = FrontingUpgradeStep.password;
     });
   }
@@ -353,6 +487,9 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
                   FrontingUpgradeStep.role => _buildRole(theme),
                   FrontingUpgradeStep.mode => _buildMode(theme),
                   FrontingUpgradeStep.password => _buildPassword(theme),
+                  FrontingUpgradeStep.exporting => _buildExporting(theme),
+                  FrontingUpgradeStep.backupReady =>
+                    _buildBackupReady(theme),
                   FrontingUpgradeStep.running => _buildRunning(theme),
                   FrontingUpgradeStep.success => _buildSuccess(theme),
                   FrontingUpgradeStep.failure => _buildFailure(theme),
@@ -670,6 +807,110 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
           ),
         ),
         const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  Widget _buildExporting(ThemeData theme) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox(height: 16),
+        const PrismLoadingState(),
+        const SizedBox(height: 24),
+        Text(
+          context.l10n.frontingUpgradeExporting,
+          style: theme.textTheme.titleMedium,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          context.l10n.frontingUpgradeExportingSubtitle,
+          textAlign: TextAlign.center,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  Widget _buildBackupReady(ThemeData theme) {
+    final file = _backupFile;
+    final fileName = file?.path.split('/').last ?? '';
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Center(
+          child: Icon(
+            AppIcons.checkCircleOutline,
+            size: 48,
+            color: Colors.green,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          context.l10n.frontingUpgradeBackupReadyHeadline,
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 12),
+        Text(
+          context.l10n.frontingUpgradeBackupReadyBody,
+          textAlign: TextAlign.center,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        if (fileName.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(
+            fileName,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontFamily: 'monospace',
+            ),
+          ),
+        ],
+        const SizedBox(height: 20),
+        PrismButton(
+          onPressed: _onSaveTapped,
+          icon: AppIcons.checkCircleOutline,
+          label: context.l10n.frontingUpgradeBackupSaveAs,
+          tone: PrismButtonTone.filled,
+          expanded: true,
+        ),
+        const SizedBox(height: 8),
+        PrismButton(
+          onPressed: _onShareTapped,
+          label: context.l10n.frontingUpgradeBackupShare,
+          tone: PrismButtonTone.outlined,
+          expanded: true,
+        ),
+        const SizedBox(height: 8),
+        CheckboxListTile(
+          value: _backupAcknowledged,
+          onChanged: (v) => setState(() => _backupAcknowledged = v ?? false),
+          title: Text(
+            context.l10n.frontingUpgradeBackupAcknowledge,
+            style: theme.textTheme.bodyMedium,
+          ),
+          contentPadding: EdgeInsets.zero,
+          controlAffinity: ListTileControlAffinity.leading,
+          dense: true,
+        ),
+        const SizedBox(height: 8),
+        PrismButton(
+          onPressed: _runDestructive,
+          enabled: _backupAcknowledged,
+          label: context.l10n.frontingUpgradeBackupContinue,
+          tone: PrismButtonTone.filled,
+          expanded: true,
+        ),
       ],
     );
   }
