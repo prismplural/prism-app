@@ -6,6 +6,8 @@ import 'dart:typed_data';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 
+import 'package:prism_plurality/core/database/app_database.dart'
+    show AppDatabase;
 import 'package:prism_plurality/core/database/daos/media_attachments_dao.dart';
 import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
 import 'package:prism_plurality/domain/models/models.dart';
@@ -28,6 +30,7 @@ import 'package:prism_plurality/features/data_management/services/export_crypto.
 
 class DataExportService {
   DataExportService({
+    this.db,
     required this.memberRepository,
     required this.frontingSessionRepository,
     required this.conversationRepository,
@@ -50,6 +53,12 @@ class DataExportService {
            cacheDirectoryProvider ?? getApplicationCacheDirectory,
        _appSupportDirectoryProvider =
            appSupportDirectoryProvider ?? getApplicationSupportDirectory;
+
+  /// Optional Drift handle. Required only when [includeLegacyFields] is true
+  /// (the migration-time PRISM1 export reads `co_fronter_ids`,
+  /// `pk_member_ids_json`, and the `session_id` column directly because the
+  /// post-Phase-2 freezed models no longer expose those fields).
+  final AppDatabase? db;
 
   final MemberRepository memberRepository;
   final FrontingSessionRepository frontingSessionRepository;
@@ -74,7 +83,18 @@ class DataExportService {
   ///
   /// This is separated from file I/O so it can be used in tests without
   /// requiring a platform channel (path_provider).
-  Future<V1Export> buildExport() async {
+  ///
+  /// When [includeLegacyFields] is true, the export emits BOTH new-shape
+  /// fields and the v7-era legacy columns (`co_fronter_ids`,
+  /// `pk_member_ids_json` on fronting sessions; `session_id` on comments)
+  /// so the resulting PRISM1 file is self-sufficient as a rescue input
+  /// (see §4.7 of the per-member fronting refactor plan). The legacy
+  /// columns are read straight from Drift since they are no longer on the
+  /// freezed domain models. This requires [db] to be wired; otherwise the
+  /// flag is ignored.
+  ///
+  /// Default behavior (post-migration exports) emits only the new shape.
+  Future<V1Export> buildExport({bool includeLegacyFields = false}) async {
     // Fetch all data
     final members = await memberRepository.getAllMembers();
     final frontSessions = await frontingSessionRepository.getFrontingSessions();
@@ -102,9 +122,22 @@ class DataExportService {
       }
     }
 
+    // Optional legacy-field lookups (only loaded when requested AND db is
+    // wired). Reads the v7 Drift columns directly because the new-shape
+    // freezed models no longer expose `co_fronter_ids` / `pk_member_ids_json`
+    // on FrontingSession or `session_id` on FrontSessionComment.
+    final legacySessionFields = includeLegacyFields && db != null
+        ? await _fetchLegacySessionFields(db!)
+        : const <String, _LegacySessionFields>{};
+    final legacyCommentSessionIds = includeLegacyFields && db != null
+        ? await _fetchLegacyCommentSessionIds(db!)
+        : const <String, String>{};
+
     // Convert to V3 models
     final v1Headmates = members.map(_mapMember).toList();
-    final v1Sessions = frontSessions.map(_mapFrontSession).toList();
+    final v1Sessions = frontSessions
+        .map((s) => _mapFrontSession(s, legacySessionFields[s.id]))
+        .toList();
     final v1SleepSessions = sleepSessions.map(_mapSleepSession).toList();
     final v1Conversations = conversations.map(_mapConversation).toList();
     final v1Messages = allMessages.map(_mapMessage).toList();
@@ -141,7 +174,9 @@ class DataExportService {
     // Fetch front session comments
     final allComments = await frontSessionCommentsRepository.getAllComments();
     final v1FrontSessionComments = allComments
-        .map(_mapFrontSessionComment)
+        .map(
+          (c) => _mapFrontSessionComment(c, legacyCommentSessionIds[c.id]),
+        )
         .toList();
 
     // Fetch conversation categories
@@ -248,8 +283,13 @@ class DataExportService {
   ///
   /// Media blobs are read from the local encrypted cache and carried verbatim
   /// alongside the JSON. If a blob is not cached locally it is silently skipped.
-  Future<File> exportEncryptedData({required String password}) async {
-    final export = await buildExport();
+  ///
+  /// See [buildExport] for the meaning of [includeLegacyFields].
+  Future<File> exportEncryptedData({
+    required String password,
+    bool includeLegacyFields = false,
+  }) async {
+    final export = await buildExport(includeLegacyFields: includeLegacyFields);
     final jsonStr = const JsonEncoder.withIndent('  ').convert(export.toJson());
 
     final mediaBlobs = await _collectMediaBlobs(export.mediaAttachments);
@@ -315,16 +355,27 @@ class DataExportService {
     pluralkitSyncIgnored: m.pluralkitSyncIgnored,
   );
 
-  V1FrontSession _mapFrontSession(FrontingSession s) => V1FrontSession(
+  V1FrontSession _mapFrontSession(
+    FrontingSession s, [
+    _LegacySessionFields? legacy,
+  ]) => V1FrontSession(
     id: s.id,
     startTime: s.startTime.toUtc().toIso8601String(),
     endTime: s.endTime?.toUtc().toIso8601String(),
     headmateId: s.memberId,
-    coFronterIds: s.coFronterIds,
+    // Legacy column reads — only populated when `includeLegacyFields = true`
+    // was passed and Drift was queried directly. New-shape exports leave
+    // these empty so the v8-era importer doesn't see legacy markers and
+    // mistakenly route through the rescue branch (DataImportService treats
+    // any populated `coFronterIds` / `pkMemberIdsJson` as a legacy marker).
+    coFronterIds: legacy?.coFronterIds ?? const [],
+    pkMemberIdsJson: legacy?.pkMemberIdsJson,
     notes: s.notes,
     confidence: s.confidence?.index,
     pluralkitUuid: s.pluralkitUuid,
-    pkMemberIdsJson: s.pkMemberIdsJson,
+    sessionType: s.sessionType.index,
+    quality: s.quality?.index,
+    isHealthKitImport: s.isHealthKitImport,
   );
 
   V1SleepSession _mapSleepSession(FrontingSession s) => V1SleepSession(
@@ -543,13 +594,21 @@ class DataExportService {
     modifiedAt: n.modifiedAt.toUtc().toIso8601String(),
   );
 
-  V1FrontSessionComment _mapFrontSessionComment(FrontSessionComment c) =>
+  V1FrontSessionComment _mapFrontSessionComment(
+    FrontSessionComment c, [
+    String? legacySessionId,
+  ]) =>
       V1FrontSessionComment(
         id: c.id,
-        sessionId: c.sessionId,
+        // Only emitted in legacy-fields mode — new-shape exports anchor
+        // comments via `targetTime`, not a session FK. The v7 column is
+        // still present in Drift but unread by the new code paths.
+        sessionId: legacySessionId,
         body: c.body,
         timestamp: c.timestamp.toUtc().toIso8601String(),
         createdAt: c.createdAt.toUtc().toIso8601String(),
+        targetTime: c.targetTime?.toUtc().toIso8601String(),
+        authorMemberId: c.authorMemberId,
       );
 
   V1ConversationCategory _mapConversationCategory(ConversationCategory c) =>
@@ -590,4 +649,69 @@ class DataExportService {
     establishedAt: f.establishedAt?.toUtc().toIso8601String(),
     lastSyncAt: f.lastSyncAt?.toUtc().toIso8601String(),
   );
+
+  /// Reads `co_fronter_ids` (JSON list) and `pk_member_ids_json` directly
+  /// off the v7 Drift columns for every non-deleted fronting session.
+  /// Used only when `includeLegacyFields = true` is passed to
+  /// [buildExport]; otherwise the export skips this query entirely.
+  Future<Map<String, _LegacySessionFields>> _fetchLegacySessionFields(
+    AppDatabase db,
+  ) async {
+    final rows = await db.customSelect(
+      'SELECT id, co_fronter_ids, pk_member_ids_json '
+      'FROM fronting_sessions WHERE is_deleted = 0',
+    ).get();
+    final out = <String, _LegacySessionFields>{};
+    for (final row in rows) {
+      final id = row.read<String>('id');
+      final raw = row.read<String?>('co_fronter_ids') ?? '[]';
+      List<String> parsed;
+      try {
+        final decoded = jsonDecode(raw);
+        parsed = decoded is List
+            ? decoded.whereType<String>().toList()
+            : const <String>[];
+      } catch (_) {
+        // Defensive: a malformed JSON value shouldn't kill the whole export.
+        // The corrupt-co-fronter-ids edge case (§6) is already handled by
+        // the migration service; export just round-trips whatever's there.
+        parsed = const <String>[];
+      }
+      out[id] = _LegacySessionFields(
+        coFronterIds: parsed,
+        pkMemberIdsJson: row.read<String?>('pk_member_ids_json'),
+      );
+    }
+    return out;
+  }
+
+  /// Reads the v7 `session_id` column off `front_session_comments` for
+  /// every non-deleted comment row. Returns the empty map if no rows have
+  /// a non-empty `session_id` (post-migration the comments mapper writes
+  /// an empty string sentinel into the column).
+  Future<Map<String, String>> _fetchLegacyCommentSessionIds(
+    AppDatabase db,
+  ) async {
+    final rows = await db.customSelect(
+      'SELECT id, session_id FROM front_session_comments '
+      "WHERE is_deleted = 0 AND session_id IS NOT NULL AND session_id != ''",
+    ).get();
+    return {
+      for (final row in rows)
+        row.read<String>('id'): row.read<String>('session_id'),
+    };
+  }
+}
+
+/// v7-era legacy column values for a single fronting session row, read
+/// directly from Drift since the new-shape freezed model no longer
+/// exposes them.
+class _LegacySessionFields {
+  const _LegacySessionFields({
+    required this.coFronterIds,
+    required this.pkMemberIdsJson,
+  });
+
+  final List<String> coFronterIds;
+  final String? pkMemberIdsJson;
 }
