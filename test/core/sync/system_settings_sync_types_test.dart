@@ -29,6 +29,11 @@ Map<String, dynamic> _buildSyncFieldsMap(SystemSettings s) => {
   'habits_enabled': s.habitsEnabled,
   'sleep_tracking_enabled': s.sleepTrackingEnabled,
   'quick_switch_threshold_seconds': s.quickSwitchThresholdSeconds,
+  'sleep_suggestion_enabled': s.sleepSuggestionEnabled,
+  'sleep_suggestion_hour': s.sleepSuggestionHour,
+  'sleep_suggestion_minute': s.sleepSuggestionMinute,
+  'wake_suggestion_enabled': s.wakeSuggestionEnabled,
+  'wake_suggestion_after_hours': s.wakeSuggestionAfterHours,
   'chat_logs_front': s.chatLogsFront,
   'sync_theme_enabled': s.syncThemeEnabled,
   'timing_mode': s.timingMode.index,
@@ -50,7 +55,7 @@ void main() {
       expect(fieldTypes['pk_group_sync_v2_enabled'], 'Bool');
     });
 
-    test('all Int fields in sync schema receive int values (not String)', () {
+    test('all schema-typed fields receive compatible Dart values', () {
       // Use every enum variant to exercise all index values.
       for (final terminology in SystemTerminology.values) {
         for (final themeMode in AppThemeMode.values) {
@@ -82,6 +87,14 @@ void main() {
                           'Field "$fieldName" is declared as "Int" in sync schema '
                           'but got ${value.runtimeType} ($value). '
                           'Use .index not .name for enum fields.',
+                    );
+                  } else if (declaredType == 'Real') {
+                    expect(
+                      value,
+                      isA<double>(),
+                      reason:
+                          'Field "$fieldName" is declared as "Real" but got '
+                          '${value.runtimeType}.',
                     );
                   } else if (declaredType == 'Bool') {
                     expect(

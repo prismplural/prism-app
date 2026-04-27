@@ -1,6 +1,6 @@
 /// JSON schema describing all syncable entities for prism-sync.
 ///
-/// Field types: String, Int, Bool, DateTime, Blob
+/// Field types: String, Int, Real, Bool, DateTime, Blob
 const String prismSyncSchema = '''
 {
   "entities": {

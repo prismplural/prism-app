@@ -32,7 +32,9 @@ class PinInputScreen extends ConsumerStatefulWidget {
     required this.onSuccess,
     this.pinToConfirm,
     this.onPinEntered,
+    this.onAcceptError,
     this.embedded = false,
+    this.showEmbeddedPrompt = false,
     this.allowBiometric = true,
   });
 
@@ -47,9 +49,21 @@ class PinInputScreen extends ConsumerStatefulWidget {
   /// [pinToConfirm] in a follow-up confirm phase.
   final FutureOr<void> Function(String pin)? onPinEntered;
 
+  /// Called when an already-accepted PIN fails in the caller's async work.
+  ///
+  /// This is intentionally separate from PIN mismatch handling: if the user
+  /// entered the correct confirmation PIN but key setup/storage failed, callers
+  /// should surface that as a setup failure rather than a wrong-PIN hint.
+  final void Function(Object error, StackTrace stackTrace)? onAcceptError;
+
   /// When [true], renders without the [Material]/[SafeArea] wrapper, title, and
   /// subtitle — suitable for embedding inside a larger scaffold (e.g. onboarding).
   final bool embedded;
+
+  /// When [embedded] is true, render this screen's own phase title/subtitle
+  /// inside the embedded content. Useful for two-phase flows whose parent header
+  /// does not change between set and confirm.
+  final bool showEmbeddedPrompt;
 
   /// Whether biometric unlock may be offered in [PinInputMode.unlock].
   ///
@@ -211,18 +225,30 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
       await widget.onPinEntered?.call(_pin);
       if (!mounted) return;
       widget.onSuccess();
-    } catch (_) {
-      if (mounted) _showError();
+    } catch (error, stackTrace) {
+      final onAcceptError = widget.onAcceptError;
+      if (onAcceptError != null) {
+        onAcceptError(error, stackTrace);
+        if (mounted) _resetPin();
+      } else if (mounted) {
+        _showError();
+      }
     } finally {
       if (mounted) setState(() => _isCompleting = false);
     }
   }
 
   void _showError() {
-    setState(() => _lastFilledDotIndex = null);
     HapticFeedback.heavyImpact();
     _shakeController.forward(from: 0);
-    setState(() => _pin = '');
+    _resetPin();
+  }
+
+  void _resetPin() {
+    setState(() {
+      _lastFilledDotIndex = null;
+      _pin = '';
+    });
   }
 
   Future<void> _onBiometric() async {
@@ -271,6 +297,24 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
             ),
           ),
           const SizedBox(height: 40),
+        ],
+        if (widget.embedded && widget.showEmbeddedPrompt) ...[
+          Text(
+            _title(context),
+            textAlign: TextAlign.center,
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            _subtitle(context),
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 32),
         ],
         // Dot indicators with shake animation
         AnimatedBuilder(
