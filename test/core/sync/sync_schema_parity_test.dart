@@ -21,6 +21,41 @@ import 'package:prism_plurality/core/sync/sync_schema.dart';
 /// local Drift DB (silent desync). If a builder is registered without a
 /// schema entry, the Rust engine will never emit changes for it.
 void main() {
+  test('prismSyncSchema uses only Rust-supported field types', () {
+    const supportedTypes = {
+      'String',
+      'Int',
+      'Real',
+      'Bool',
+      'DateTime',
+      'Blob',
+    };
+    final schema = jsonDecode(prismSyncSchema) as Map<String, dynamic>;
+    final entities = schema['entities'] as Map<String, dynamic>;
+
+    final unsupported = <String, String>{};
+    for (final entity in entities.entries) {
+      final fields =
+          ((entity.value as Map<String, dynamic>)['fields']
+                  as Map<String, dynamic>)
+              .cast<String, dynamic>();
+      for (final field in fields.entries) {
+        final type = field.value as String;
+        if (!supportedTypes.contains(type)) {
+          unsupported['${entity.key}.${field.key}'] = type;
+        }
+      }
+    }
+
+    expect(
+      unsupported,
+      isEmpty,
+      reason:
+          'prismSyncSchema declared field types that Rust SyncSchema cannot '
+          'parse: $unsupported',
+    );
+  });
+
   test('every prismSyncSchema entity is registered in drift_sync_adapter', () {
     final schema = jsonDecode(prismSyncSchema) as Map<String, dynamic>;
     final entities = (schema['entities'] as Map<String, dynamic>).keys.toSet();
@@ -144,6 +179,98 @@ void main() {
       );
     },
   );
+
+  test(
+    'toSyncFields values are compatible with prismSyncSchema field types',
+    () async {
+      final schema = jsonDecode(prismSyncSchema) as Map<String, dynamic>;
+      final schemaEntities = schema['entities'] as Map<String, dynamic>;
+
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+
+      await _seedDummyRows(db);
+      final adapter = buildSyncAdapterWithCompletion(db).adapter;
+
+      final mismatches = <String, String>{};
+      for (final entry in schemaEntities.entries) {
+        final entityName = entry.key;
+        final schemaFields =
+            ((entry.value as Map<String, dynamic>)['fields']
+                    as Map<String, dynamic>)
+                .cast<String, dynamic>();
+        final entity = adapter.entities.firstWhere(
+          (e) => e.tableName == entityName,
+          orElse: () => throw StateError(
+            'No adapter builder for $entityName (caught by other parity test)',
+          ),
+        );
+
+        final row = await _readDummyRow(db, entityName);
+        if (row == null) {
+          mismatches[entityName] = 'no dummy row found in test seed';
+          continue;
+        }
+
+        final fields = entity.toSyncFields(row);
+        for (final field in schemaFields.entries) {
+          final fieldName = field.key;
+          if (!fields.containsKey(fieldName)) continue;
+          final value = fields[fieldName];
+          if (value == null) continue;
+
+          final declaredType = field.value as String;
+          final mismatch = _schemaTypeMismatch(declaredType, value);
+          if (mismatch != null) {
+            mismatches['$entityName.$fieldName'] = mismatch;
+          }
+        }
+      }
+
+      expect(
+        mismatches,
+        isEmpty,
+        reason:
+            'Adapter toSyncFields emitted values incompatible with '
+            'prismSyncSchema field types: $mismatches',
+      );
+    },
+  );
+}
+
+String? _schemaTypeMismatch(String declaredType, Object value) {
+  switch (declaredType) {
+    case 'String':
+      return value is String
+          ? null
+          : 'expected String, got ${value.runtimeType}';
+    case 'Int':
+      return value is int ? null : 'expected Int, got ${value.runtimeType}';
+    case 'Real':
+      if (value is num && value.isFinite) return null;
+      return 'expected finite Real, got ${value.runtimeType}';
+    case 'Bool':
+      return value is bool ? null : 'expected Bool, got ${value.runtimeType}';
+    case 'DateTime':
+      if (value is! String) {
+        return 'expected DateTime string, got ${value.runtimeType}';
+      }
+      return DateTime.tryParse(value) == null
+          ? 'expected parseable DateTime string, got $value'
+          : null;
+    case 'Blob':
+      if (value is! String) {
+        return 'expected base64 Blob string, got ${value.runtimeType}';
+      }
+      try {
+        base64Decode(value);
+        return null;
+      } catch (_) {
+        return 'expected base64 Blob string';
+      }
+    default:
+      return 'unknown schema type $declaredType';
+  }
 }
 
 Future<void> _seedDummyRows(AppDatabase db) async {
@@ -156,6 +283,7 @@ Future<void> _seedDummyRows(AppDatabase db) async {
           id: 'm1',
           name: 'Test Member',
           createdAt: now,
+          avatarImageData: Value(Uint8List.fromList([1, 2, 3])),
         ),
       );
 
@@ -187,7 +315,13 @@ Future<void> _seedDummyRows(AppDatabase db) async {
   // System settings has a 'singleton' row; insert explicitly with the id set.
   await db
       .into(db.systemSettingsTable)
-      .insert(SystemSettingsTableCompanion.insert(id: const Value('singleton')));
+      .insert(
+        SystemSettingsTableCompanion.insert(
+          id: const Value('singleton'),
+          wakeSuggestionAfterHours: const Value(7.25),
+          systemAvatarData: Value(Uint8List.fromList([4, 5, 6])),
+        ),
+      );
 
   await db
       .into(db.polls)
@@ -196,11 +330,7 @@ Future<void> _seedDummyRows(AppDatabase db) async {
   await db
       .into(db.pollOptions)
       .insert(
-        PollOptionsCompanion.insert(
-          id: 'po1',
-          pollId: 'p1',
-          optionText: 'opt',
-        ),
+        PollOptionsCompanion.insert(id: 'po1', pollId: 'p1', optionText: 'opt'),
       );
 
   await db
@@ -336,6 +466,8 @@ Future<void> _seedDummyRows(AppDatabase db) async {
           displayName: 'friend',
           publicKeyHex: 'deadbeef',
           createdAt: now,
+          pairwiseSecret: Value(Uint8List.fromList([7, 8, 9])),
+          pinnedIdentity: Value(Uint8List.fromList([10, 11, 12])),
         ),
       );
 
