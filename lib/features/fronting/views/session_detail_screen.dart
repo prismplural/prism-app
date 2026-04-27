@@ -28,7 +28,6 @@ import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/features/fronting/widgets/session_comments_section.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
-import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 
@@ -250,7 +249,7 @@ class _SleepSessionBody extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        SessionCommentsSection(sessionId: session.id),
+        SessionCommentsSection(session: session),
       ],
     );
   }
@@ -273,18 +272,9 @@ class _SessionDetailBody extends ConsumerWidget {
         _FronterSection(session: session),
         const SizedBox(height: 24),
 
-        // Co-fronters
-        if (session.coFronterIds.isNotEmpty) ...[
-          Text(
-            context.l10n.frontingCoFrontersSection,
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 12),
-          ...session.coFronterIds.map((id) => _CoFronterTile(memberId: id)),
-          const SizedBox(height: 24),
-        ],
+        // Co-fronters section removed — each session is one member's continuous
+        // presence. Period-level detail (showing all members active during a
+        // time span) is deferred to Phase 3 per spec §3.1 and §3.2.
 
         // Time info
         PrismSectionCard(
@@ -363,7 +353,7 @@ class _SessionDetailBody extends ConsumerWidget {
         ],
 
         // Comments
-        SessionCommentsSection(sessionId: session.id),
+        SessionCommentsSection(session: session),
         const SizedBox(height: 16),
 
         // Notes
@@ -472,43 +462,6 @@ class _FronterSection extends ConsumerWidget {
               ),
             ],
           ),
-        );
-      },
-    );
-  }
-}
-
-class _CoFronterTile extends ConsumerWidget {
-  const _CoFronterTile({required this.memberId});
-
-  final String memberId;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final memberAsync = ref.watch(memberByIdProvider(memberId));
-
-    return memberAsync.when(
-      loading: () => PrismListRow(
-        leading: const SizedBox(width: 40, height: 40),
-        title: Text(context.l10n.loading),
-      ),
-      error: (_, _) => const SizedBox.shrink(),
-      data: (member) {
-        if (member == null) return const SizedBox.shrink();
-
-        return PrismListRow(
-          leading: MemberAvatar(
-            avatarImageData: member.avatarImageData,
-            memberName: member.name,
-            emoji: member.emoji,
-            customColorEnabled: member.customColorEnabled,
-            customColorHex: member.customColorHex,
-            size: 40,
-          ),
-          title: Text(member.name),
-          subtitle: member.pronouns != null ? Text(member.pronouns!) : null,
-          onTap: () => context.go(AppRoutePaths.settingsMember(member.id)),
-          padding: EdgeInsets.zero,
         );
       },
     );

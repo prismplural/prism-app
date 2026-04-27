@@ -33,7 +33,6 @@ import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_datetime_pills.dart';
-import 'package:prism_plurality/shared/widgets/prism_chip.dart';
 
 /// Full-screen editor for an existing fronting session.
 class EditFrontSessionScreen extends ConsumerStatefulWidget {
@@ -52,7 +51,9 @@ class _EditFrontSessionScreenState
   DateTime? _endTime;
   bool _isActive = false;
   String? _memberId;
-  List<String> _coFronterIds = [];
+  // Co-fronter editing removed — each session is one member's continuous
+  // presence. Co-fronting is emergent from overlapping sessions.
+  // TODO(§2.5): Phase 3 — add period-level co-front management from detail.
   FrontConfidence? _confidence;
   final _notesController = TextEditingController();
   bool _saving = false;
@@ -72,7 +73,6 @@ class _EditFrontSessionScreenState
     _endTime = session.endTime;
     _isActive = session.isActive;
     _memberId = session.memberId;
-    _coFronterIds = List.from(session.coFronterIds);
     _confidence = session.confidence;
     _notesController.text = session.notes ?? '';
   }
@@ -111,26 +111,6 @@ class _EditFrontSessionScreenState
       case MemberSearchResultCleared():
         break;
     }
-  }
-
-  /// Opens [MemberSearchSheet] in multi-select mode for co-fronters.
-  ///
-  /// Pre-seeds the selection with the current [_coFronterIds] so existing
-  /// values are preserved when the user opens the sheet.
-  Future<void> _openCoFronterPicker(
-    List<Member> available,
-    String termPlural,
-    List<MemberSearchGroup> groups,
-  ) async {
-    final result = await MemberSearchSheet.showMulti(
-      context,
-      members: available,
-      termPlural: termPlural,
-      groups: groups,
-      initialSelected: Set.from(_coFronterIds),
-    );
-    if (!mounted || result == null) return;
-    setState(() => _coFronterIds = List.from(result));
   }
 
   Future<void> _save() async {
@@ -177,7 +157,8 @@ class _EditFrontSessionScreenState
       clearEnd: _isActive && original.endTime != null,
       memberId: _memberId != original.memberId ? _memberId : null,
       clearMemberId: _memberId == null && original.memberId != null,
-      coFronterIds: _coFronterIds,
+      // coFronterIds omitted — each session is one member's continuous
+      // presence; co-fronting is emergent overlap, not a field.
       notes: trimmedNotes.isNotEmpty ? trimmedNotes : null,
       confidenceIndex: _confidence?.index,
     );
@@ -195,7 +176,6 @@ class _EditFrontSessionScreenState
       memberId: _memberId,
       start: _startTime,
       end: end,
-      coFronterIds: _coFronterIds,
       notes: trimmedNotes.isNotEmpty ? trimmedNotes : null,
       confidenceIndex: _confidence?.index,
     );
@@ -229,7 +209,8 @@ class _EditFrontSessionScreenState
         context,
         overlapCount: validation.overlappingSessions.length,
         wouldDeleteConflicting: wouldDelete,
-        canCoFront: validation.canCoFront,
+        // canCoFront: always true in per-member model — overlaps are expected,
+        // and the "co-front" option is now just keeping both sessions.
       );
       if (resolution == null || resolution == OverlapResolution.cancel) return;
       if (!mounted) return;
@@ -425,38 +406,6 @@ class _EditFrontSessionScreenState
               ),
               const SizedBox(height: 24),
 
-              // Co-fronter editor
-              Text(
-                context.l10n.frontingCoFrontersSection,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 12),
-              membersAsync.when(
-                loading: () => const SizedBox.shrink(),
-                error: (_, _) => const SizedBox.shrink(),
-                data: (members) {
-                  final available = members
-                      .where((m) => m.id != _memberId)
-                      .toList();
-                  final searchGroups = watchMemberSearchGroups(ref, available);
-                  final selectedCoFronters = members
-                      .where((m) => _coFronterIds.contains(m.id))
-                      .toList();
-                  return _CoFronterPickerSection(
-                    hasAvailable: available.isNotEmpty,
-                    selectedCoFronters: selectedCoFronters,
-                    onPickerOpen: () => _openCoFronterPicker(
-                      available,
-                      termPlural,
-                      searchGroups,
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 24),
-
               // Confidence picker
               Text(
                 context.l10n.frontingConfidenceLevel,
@@ -548,57 +497,6 @@ class _FronterPickerRow extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-/// Displays the selected co-fronter chips and provides a search icon to open
-/// the [MemberSearchSheet] for multi-select.
-class _CoFronterPickerSection extends StatelessWidget {
-  const _CoFronterPickerSection({
-    required this.hasAvailable,
-    required this.selectedCoFronters,
-    required this.onPickerOpen,
-  });
-
-  final bool hasAvailable;
-  final List<Member> selectedCoFronters;
-  final VoidCallback onPickerOpen;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            if (hasAvailable)
-              IconButton(
-                icon: Icon(AppIcons.search),
-                tooltip: context.l10n.search,
-                onPressed: onPickerOpen,
-              ),
-          ],
-        ),
-        if (selectedCoFronters.isNotEmpty) ...[
-          const SizedBox(height: 4),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: selectedCoFronters
-                .map(
-                  (m) => PrismChip(
-                    label: m.name,
-                    selected: true,
-                    onTap: onPickerOpen,
-                    avatar: Text(m.emoji, style: const TextStyle(fontSize: 15)),
-                  ),
-                )
-                .toList(),
-          ),
-        ],
-      ],
     );
   }
 }

@@ -514,7 +514,7 @@ class _AddButtonState extends ConsumerState<_AddButton> {
       await ref.read(sleepNotifierProvider.notifier).endSleep(session.id);
       await ref
           .read(frontingNotifierProvider.notifier)
-          .startFronting(result.memberId);
+          .startFronting([result.memberId]); // single-member start post-sleep
     } catch (e) {
       if (context.mounted) {
         PrismToast.error(

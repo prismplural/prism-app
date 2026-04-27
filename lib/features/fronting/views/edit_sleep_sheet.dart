@@ -106,7 +106,6 @@ class _EditSleepSheetState extends ConsumerState<EditSleepSheet> {
       memberId: widget.session.memberId,
       start: _startTime,
       end: endTime,
-      coFronterIds: widget.session.coFronterIds,
       notes: notes.isNotEmpty ? notes : null,
       sessionType: widget.session.sessionType,
     );
@@ -147,7 +146,7 @@ class _EditSleepSheetState extends ConsumerState<EditSleepSheet> {
         context,
         overlapCount: validation.overlappingSessions.length,
         wouldDeleteConflicting: wouldDelete,
-        canCoFront: validation.canCoFront,
+        // canCoFront: always true in per-member model — overlaps are expected.
       );
       if (resolution == null || resolution == OverlapResolution.cancel) return;
       if (!mounted) return;
