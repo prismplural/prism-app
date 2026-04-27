@@ -18,13 +18,14 @@ library;
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' show immutable;
 import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:uuid/uuid.dart';
 
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/app_database.dart'
     hide FrontingSession, Member;
+import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 import 'package:prism_plurality/domain/models/front_session_comment.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/repositories/front_session_comments_repository.dart';
@@ -152,8 +153,10 @@ class FrontingMigrationService {
     required this.dataExportService,
     required this.syncHandle,
     Future<void> Function(ffi.PrismSyncHandle handle)? resetSyncState,
-  }) : _resetSyncState = resetSyncState ??
-            ((handle) => ffi.resetSyncState(handle: handle));
+    Future<void> Function()? wipeSyncKeychain,
+  })  : _resetSyncState = resetSyncState ??
+            ((handle) => ffi.resetSyncState(handle: handle)),
+        _wipeSyncKeychain = wipeSyncKeychain ?? (() async {});
 
   final AppDatabase db;
   final MemberRepository memberRepository;
@@ -171,6 +174,15 @@ class FrontingMigrationService {
   /// `handle` as a positional arg by the wrapper.
   final Future<void> Function(ffi.PrismSyncHandle handle) _resetSyncState;
 
+  /// Wipes platform-keychain sync credentials. Defaults to a no-op so unit
+  /// tests don't need a `FlutterSecureStorage` instance; production wiring
+  /// in `frontingMigrationRunnerProvider` passes
+  /// `wipeFrontingMigrationSyncKeychain` (top-level helper in
+  /// `prism_sync_providers.dart`). Codex P1 #5: without this, a backgrounded
+  /// app between `_resetSyncState` and the next launch would re-seed Rust
+  /// from the keychain entries that should have been wiped.
+  final Future<void> Function() _wipeSyncKeychain;
+
   static const _uuid = Uuid();
 
   /// Sentinel string written to `system_settings.pending_fronting_migration_mode`.
@@ -178,6 +190,13 @@ class FrontingMigrationService {
   static const String modeDeferred = 'deferred';
   static const String modeUpgradeAndKeep = 'upgradeAndKeep';
   static const String modeStartFresh = 'startFresh';
+
+  /// Codex P1 #4. Written BEFORE the Drift transaction commits and BEFORE
+  /// the post-tx steps (FFI reset, keychain wipe, sync_quarantine clear).
+  /// Stays set until the post-tx steps all succeed; if any of them fail,
+  /// the user can resume via [resumeCleanup] from the upgrade modal.
+  static const String modeInProgress = 'inProgress';
+
   static const String modeComplete = 'complete';
 
   /// Entry point.
@@ -228,38 +247,41 @@ class FrontingMigrationService {
       );
     }
 
-    // Steps 3-10: wrap in a single Drift transaction.  Repository
-    // writes inside this block emit v2 entity ops via the SyncRecord
-    // mixin; those ops are then blown away by step 8's wipe and
-    // re-emitted from the migrated rows on first sync after re-pair.
+    // Steps 3-7: wrap in a single Drift transaction. Codex P1 #3:
+    // Repository writes inside this block run with `SyncRecordMixin`
+    // emission SUPPRESSED so they don't push CRDT ops to the Rust
+    // engine. Those ops would commit to Rust's SEPARATE SQLite store
+    // (Drift can't roll them back), and auto-sync would push them to
+    // peers BEFORE step 8's `reset_sync_state` runs. Suppression keeps
+    // Rust's pending_ops untouched until the cutover.
+    //
+    // Migration mode is written OUTSIDE the transaction (Codex P1 #4)
+    // so the post-tx steps' failure mode — engine reset, keychain
+    // wipe, quarantine clear — remains recoverable via [resumeCleanup]
+    // when the user re-opens the app. If we wrote `inProgress` inside
+    // the tx, a Drift rollback would erase it and the user would be
+    // back on `notStarted` even though the actual mid-tx commit work
+    // had been suppressed.
     _MigrationCounters counters;
     try {
-      counters = await db.transaction<_MigrationCounters>(() async {
-        // Mark the chosen mode early so a mid-transaction crash leaves
-        // a breadcrumb the next launch can surface ("looks like the
-        // last attempt didn't finish").  On rollback Drift undoes this
-        // write too — settings stays at the prior `'notStarted'`.
-        await db.systemSettingsDao.writePendingFrontingMigrationMode(
-          mode == MigrationMode.upgradeAndKeep
-              ? modeUpgradeAndKeep
-              : modeStartFresh,
-        );
-
-        switch (role) {
-          case DeviceRole.secondary:
-            // Spec §4.1 final paragraph: secondaries skip per-row work
-            // and just truncate.  Re-pairing with the migrated primary
-            // resyncs the data in new shape.
-            return _runSecondary();
-          case DeviceRole.solo:
-          case DeviceRole.primary:
-            return _runPrimaryOrSolo(mode);
-        }
+      counters = await SyncRecordMixin.suppress(() {
+        return db.transaction<_MigrationCounters>(() async {
+          switch (role) {
+            case DeviceRole.secondary:
+              // Spec §4.1 final paragraph: secondaries skip per-row
+              // work and just truncate.  Re-pairing with the migrated
+              // primary resyncs the data in new shape.
+              return _runSecondary();
+            case DeviceRole.solo:
+            case DeviceRole.primary:
+              return _runPrimaryOrSolo(mode);
+          }
+        });
       });
-    } catch (e, st) {
-      debugPrint('[FrontingMigration] Drift transaction failed: $e\n$st');
-      // Drift rolled back; settings is still at whatever it was before
-      // the transaction (typically `'notStarted'`).
+    } catch (e) {
+      // Drift rolled back; settings still at the prior value
+      // (typically `notStarted`). Suppression also cleared on the way
+      // out via the `suppress` finally block.
       return MigrationResult(
         outcome: MigrationOutcome.failed,
         exportFile: exportFile,
@@ -267,41 +289,105 @@ class FrontingMigrationService {
       );
     }
 
-    // Step 8: reset sync state.  Runs OUTSIDE the Drift transaction
-    // because the Rust engine commits to its own SQLite store, not
-    // ours.  Failure here leaves the migration committed locally but
-    // the device potentially still paired with stale credentials —
-    // surface as a soft failure so the user can retry the reset
-    // separately.
+    // Mark in-progress AFTER the Drift tx commits, BEFORE the post-tx
+    // cleanup steps. If any of those fail, the user can resume via
+    // [resumeCleanup] — surfaced by the upgrade modal as a "Finish
+    // migration" entry. App startup also checks for this marker and
+    // skips Rust seeding/configuration so a backgrounded app between
+    // reset and keychain wipe doesn't re-seed credentials about to be
+    // wiped.
+    await db.systemSettingsDao
+        .writePendingFrontingMigrationMode(modeInProgress);
+
+    return _runPostTransactionCleanup(
+      exportFile: exportFile,
+      counters: counters,
+    );
+  }
+
+  /// Resume the post-Drift-transaction cleanup steps after a partial
+  /// failure. Settings must already be at [modeInProgress] — the
+  /// upgrade modal calls this when it re-opens to that state.
+  ///
+  /// Skips the Drift transaction entirely (already committed); runs
+  /// just the engine reset, keychain wipe, sync_quarantine clear, and
+  /// final mode write. All three idempotent: re-running on already-
+  /// reset Rust returns "sync_id not set" which we treat as success.
+  Future<MigrationResult> resumeCleanup() async {
+    final currentMode =
+        await db.systemSettingsDao.readPendingFrontingMigrationMode();
+    if (currentMode != modeInProgress) {
+      return MigrationResult(
+        outcome: MigrationOutcome.failed,
+        errorMessage:
+            'resumeCleanup() called with mode=$currentMode (expected '
+            '$modeInProgress). Nothing to do.',
+      );
+    }
+    return _runPostTransactionCleanup(
+      exportFile: null,
+      counters: _MigrationCounters(),
+    );
+  }
+
+  /// Step 8 (engine reset) + 8b (keychain wipe) + 8c (quarantine
+  /// clear) + 10 (mark complete). Shared between the first-attempt
+  /// path and [resumeCleanup]; on any failure the in-progress marker
+  /// stays set so the user can retry without losing progress.
+  Future<MigrationResult> _runPostTransactionCleanup({
+    required File? exportFile,
+    required _MigrationCounters counters,
+  }) async {
+    // Step 8: reset sync state (Rust FFI). Commits to the Rust
+    // engine's own SQLite store + nulls in-memory state. Idempotent on
+    // re-run: a second call will fail with "sync_id not set" which we
+    // treat as success because the engine is already cleared.
     if (syncHandle != null) {
       try {
         await _resetSyncState(syncHandle!);
       } catch (e) {
-        return MigrationResult(
-          outcome: MigrationOutcome.failed,
-          exportFile: exportFile,
-          spRowsMigrated: counters.spRowsMigrated,
-          nativeRowsMigrated: counters.nativeRowsMigrated,
-          nativeRowsExpanded: counters.nativeRowsExpanded,
-          pkRowsDeleted: counters.pkRowsDeleted,
-          commentsMigrated: counters.commentsMigrated,
-          commentsDeleted: counters.commentsDeleted,
-          orphanRowsAssignedToSentinel:
-              counters.orphanRowsAssignedToSentinel,
-          unknownSentinelCreated: counters.unknownSentinelCreated,
-          corruptCoFronterRowIds: counters.corruptCoFronterRowIds,
-          errorMessage:
-              'Migration succeeded locally but Rust engine reset failed: $e. '
-              'Please re-pair from settings.',
-        );
+        if (!_isAlreadyResetError(e)) {
+          return _failPostTx(
+            exportFile: exportFile,
+            counters: counters,
+            errorMessage:
+                'Engine reset failed: $e. Please reopen the upgrade modal '
+                'to finish migration.',
+          );
+        }
       }
     }
 
-    // Truncate `sync_quarantine` AFTER engine reset so any quarantine
-    // entries the reset itself produces (none today, defensive) also
-    // get cleaned up.  Lives in the host's Drift schema, not Rust's,
-    // which is why it isn't covered by `reset_sync_state`.
-    await db.syncQuarantineDao.clearAll();
+    // Step 8b: wipe the platform keychain. Codex P1 #5: without this,
+    // a fresh app launch would re-seed Rust from the still-present
+    // wrapped_dek/sync_id/device_secret/etc. and silently re-attach to
+    // the OLD sync group. Idempotent — wiping already-wiped slots is
+    // a no-op.
+    try {
+      await _wipeSyncKeychain();
+    } catch (e) {
+      return _failPostTx(
+        exportFile: exportFile,
+        counters: counters,
+        errorMessage:
+            'Sync keychain wipe failed: $e. Please reopen the upgrade '
+            'modal to finish migration.',
+      );
+    }
+
+    // Step 8c: truncate `sync_quarantine` (host-side Drift table —
+    // not covered by `reset_sync_state`). Idempotent.
+    try {
+      await db.syncQuarantineDao.clearAll();
+    } catch (e) {
+      return _failPostTx(
+        exportFile: exportFile,
+        counters: counters,
+        errorMessage:
+            'Sync quarantine clear failed: $e. Please reopen the upgrade '
+            'modal to finish migration.',
+      );
+    }
 
     // Step 10: mark complete.
     await db.systemSettingsDao
@@ -319,6 +405,38 @@ class FrontingMigrationService {
       orphanRowsAssignedToSentinel: counters.orphanRowsAssignedToSentinel,
       unknownSentinelCreated: counters.unknownSentinelCreated,
       corruptCoFronterRowIds: counters.corruptCoFronterRowIds,
+    );
+  }
+
+  /// Returns true if [error] is the "sync_id not set" error returned by
+  /// `reset_sync_state` when the engine is already cleared. Treated as
+  /// success in [resumeCleanup] / re-run scenarios so users can retry
+  /// the post-tx steps after a partial failure without the second-call
+  /// reset noisily failing.
+  bool _isAlreadyResetError(Object error) {
+    final msg = error.toString();
+    return msg.contains('sync_id not set') ||
+        msg.contains('sync not configured');
+  }
+
+  MigrationResult _failPostTx({
+    required File? exportFile,
+    required _MigrationCounters counters,
+    required String errorMessage,
+  }) {
+    return MigrationResult(
+      outcome: MigrationOutcome.failed,
+      exportFile: exportFile,
+      spRowsMigrated: counters.spRowsMigrated,
+      nativeRowsMigrated: counters.nativeRowsMigrated,
+      nativeRowsExpanded: counters.nativeRowsExpanded,
+      pkRowsDeleted: counters.pkRowsDeleted,
+      commentsMigrated: counters.commentsMigrated,
+      commentsDeleted: counters.commentsDeleted,
+      orphanRowsAssignedToSentinel: counters.orphanRowsAssignedToSentinel,
+      unknownSentinelCreated: counters.unknownSentinelCreated,
+      corruptCoFronterRowIds: counters.corruptCoFronterRowIds,
+      errorMessage: errorMessage,
     );
   }
 

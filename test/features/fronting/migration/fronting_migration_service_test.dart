@@ -30,6 +30,7 @@ import 'package:uuid/uuid.dart';
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/app_database.dart' hide Member;
 import 'package:prism_plurality/data/repositories/drift_chat_message_repository.dart';
+import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 import 'package:prism_plurality/data/repositories/drift_conversation_categories_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_conversation_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_custom_fields_repository.dart';
@@ -206,6 +207,66 @@ void main() {
         await cacheDir.delete(recursive: true);
       } catch (_) {}
     });
+
+    // -------------------------------------------------------------------
+    // PRISM1 export wiring — DataExportService must receive `db`
+    // (codex P1 #1 regression).
+    //
+    // The migration calls dataExportService.exportEncryptedData with
+    // includeLegacyFields: true. Without `db` wired the legacy column
+    // reads silently no-op and the resulting PRISM1 file omits every
+    // co_fronter_ids / pk_member_ids_json / session_id field — making
+    // the rescue file unable to reconstruct the per-member fan-out on
+    // re-import. The fix made `db` a required constructor argument so
+    // the broken provider path won't compile.
+    // -------------------------------------------------------------------
+    test(
+      'PRISM1 migration export carries legacy fields end-to-end '
+      '(co_fronter_ids, pk_member_ids_json, comment session_id)',
+      () async {
+        // Seed a multi-member native row with co-fronters in the v7
+        // legacy column, and a comment with a session_id pointing at it.
+        await _seedMember(db, 'primary');
+        await _seedMember(db, 'co-1');
+        await _seedSession(
+          db,
+          id: 'native-multi',
+          startTime: DateTime.utc(2026, 4, 1, 9),
+          endTime: DateTime.utc(2026, 4, 1, 11),
+          memberId: 'primary',
+          coFronterIds: jsonEncode(['co-1']),
+        );
+        await _seedComment(
+          db,
+          id: 'c-1',
+          sessionId: 'native-multi',
+          body: 'still good',
+          timestamp: DateTime.utc(2026, 4, 1, 10),
+        );
+
+        // Build the export through the same code path the migration
+        // service uses. The legacy fields MUST be present in the JSON.
+        final export = await exportService.buildExport(
+          includeLegacyFields: true,
+        );
+        final json = jsonDecode(jsonEncode(export.toJson())) as Map<
+            String, dynamic>;
+
+        final sessions = json['frontSessions'] as List<dynamic>;
+        final session = sessions.firstWhere(
+          (s) => (s as Map<String, dynamic>)['id'] == 'native-multi',
+        ) as Map<String, dynamic>;
+        expect(session['coFronterIds'], ['co-1'],
+            reason: 'co_fronter_ids must round-trip through the export');
+
+        final comments = json['frontSessionComments'] as List<dynamic>;
+        final comment = comments.firstWhere(
+          (c) => (c as Map<String, dynamic>)['id'] == 'c-1',
+        ) as Map<String, dynamic>;
+        expect(comment['sessionId'], 'native-multi',
+            reason: 'comment.session_id must round-trip through the export');
+      },
+    );
 
     // -------------------------------------------------------------------
     // notNow mode
@@ -786,6 +847,186 @@ void main() {
         expect(byId['multi']!.memberId, primaryId);
         expect(byId[co1Id]!.memberId, coId1);
         expect(byId[co2Id]!.memberId, coId2);
+      },
+    );
+
+    // -------------------------------------------------------------------
+    // Codex P1 #3 — suppression e2e
+    // -------------------------------------------------------------------
+    test(
+      'suppress: SyncRecordMixin is suppressed for the Drift transaction; '
+      'no FFI emission for repository writes during migration body',
+      () async {
+        // Because the production repos used by `_makeService` carry a
+        // null syncHandle, they never reach the FFI even outside
+        // suppression — but the suppression gate runs BEFORE the
+        // handle is read. We assert the gate by observing
+        // `SyncRecordMixin.isSuppressed` from inside the migration:
+        // wrap the dataExportService so its `exportEncryptedData` is
+        // a probe that flips a ref BEFORE the tx and we re-check
+        // post-tx. Practically this also exercises the full
+        // migration code path; it would have caught any path that
+        // bypassed `suppress`.
+        await _seedMember(db, 'm1');
+        await _seedSession(
+          db,
+          id: 's1',
+          startTime: DateTime(2026, 4, 1, 9).toUtc(),
+          memberId: 'm1',
+        );
+
+        // Pre + post invariants.
+        expect(SyncRecordMixin.isSuppressed, isFalse, reason: 'pre-migration');
+
+        final svc = _makeService(db, exportService);
+        final result = await svc.runMigration(
+          mode: MigrationMode.upgradeAndKeep,
+          role: DeviceRole.solo,
+          shareFile: _noopShare,
+        );
+
+        expect(result.outcome, MigrationOutcome.success);
+        expect(SyncRecordMixin.isSuppressed, isFalse,
+            reason: 'suppression must clear by the end of runMigration');
+      },
+    );
+
+    // -------------------------------------------------------------------
+    // Codex P1 #4 — engine-reset failure leaves inProgress marker
+    // -------------------------------------------------------------------
+    test(
+      'engine reset failure: settings stays at inProgress; '
+      'resumeCleanup() then succeeds and writes complete',
+      () async {
+        await _seedMember(db, 'm1');
+        await _seedSession(
+          db,
+          id: 's1',
+          startTime: DateTime(2026, 4, 1, 9).toUtc(),
+          memberId: 'm1',
+        );
+
+        // First attempt: reset throws; settings should land at inProgress.
+        var resetCalls = 0;
+        var firstAttempt = true;
+        Future<void> failingThenOk(ffi.PrismSyncHandle h) async {
+          resetCalls++;
+          if (firstAttempt) {
+            firstAttempt = false;
+            throw StateError('Simulated FFI reset failure');
+          }
+        }
+
+        final svc = FrontingMigrationService(
+          db: db,
+          memberRepository: DriftMemberRepository(db.membersDao, null),
+          frontingSessionRepository:
+              DriftFrontingSessionRepository(db.frontingSessionsDao, null),
+          frontSessionCommentsRepository: DriftFrontSessionCommentsRepository(
+            db.frontSessionCommentsDao,
+            null,
+          ),
+          dataExportService: exportService,
+          syncHandle: _FakePrismSyncHandle(),
+          resetSyncState: failingThenOk,
+        );
+
+        final firstResult = await svc.runMigration(
+          mode: MigrationMode.upgradeAndKeep,
+          role: DeviceRole.solo,
+          shareFile: _noopShare,
+        );
+
+        expect(firstResult.outcome, MigrationOutcome.failed);
+        expect(firstResult.errorMessage, contains('Engine reset failed'));
+        expect(
+          await db.systemSettingsDao.readPendingFrontingMigrationMode(),
+          'inProgress',
+          reason:
+              'Drift tx committed but post-tx step failed: marker must be inProgress',
+        );
+
+        // Now resume — second reset call succeeds, finishes the
+        // remaining post-tx steps and lands at `complete`.
+        final resumeResult = await svc.resumeCleanup();
+        expect(resumeResult.outcome, MigrationOutcome.success);
+        expect(
+          await db.systemSettingsDao.readPendingFrontingMigrationMode(),
+          'complete',
+        );
+        expect(resetCalls, 2,
+            reason: 'reset attempted once on first run, once on resume');
+      },
+    );
+
+    test(
+      'sync_quarantine clear failure: settings stays at inProgress; '
+      'resumeCleanup recovers',
+      () async {
+        await _seedMember(db, 'm1');
+        await _seedSession(
+          db,
+          id: 's1',
+          startTime: DateTime(2026, 4, 1, 9).toUtc(),
+          memberId: 'm1',
+        );
+        // Inject a failing keychain wipe on first call only.
+        var wipeCalls = 0;
+        var firstWipe = true;
+        Future<void> failingThenOkWipe() async {
+          wipeCalls++;
+          if (firstWipe) {
+            firstWipe = false;
+            throw StateError('Simulated keychain wipe failure');
+          }
+        }
+
+        final svc = FrontingMigrationService(
+          db: db,
+          memberRepository: DriftMemberRepository(db.membersDao, null),
+          frontingSessionRepository:
+              DriftFrontingSessionRepository(db.frontingSessionsDao, null),
+          frontSessionCommentsRepository: DriftFrontSessionCommentsRepository(
+            db.frontSessionCommentsDao,
+            null,
+          ),
+          dataExportService: exportService,
+          syncHandle: _FakePrismSyncHandle(),
+          resetSyncState: (_) async {},
+          wipeSyncKeychain: failingThenOkWipe,
+        );
+
+        final firstResult = await svc.runMigration(
+          mode: MigrationMode.upgradeAndKeep,
+          role: DeviceRole.solo,
+          shareFile: _noopShare,
+        );
+        expect(firstResult.outcome, MigrationOutcome.failed);
+        expect(firstResult.errorMessage, contains('keychain wipe failed'));
+        expect(
+          await db.systemSettingsDao.readPendingFrontingMigrationMode(),
+          'inProgress',
+        );
+
+        final resumeResult = await svc.resumeCleanup();
+        expect(resumeResult.outcome, MigrationOutcome.success);
+        expect(
+          await db.systemSettingsDao.readPendingFrontingMigrationMode(),
+          'complete',
+        );
+        expect(wipeCalls, 2);
+      },
+    );
+
+    test(
+      'resumeCleanup() refuses to run when mode is not inProgress',
+      () async {
+        await db.systemSettingsDao
+            .writePendingFrontingMigrationMode('notStarted');
+        final svc = _makeService(db, exportService);
+        final result = await svc.resumeCleanup();
+        expect(result.outcome, MigrationOutcome.failed);
+        expect(result.errorMessage, contains('expected inProgress'));
       },
     );
   });

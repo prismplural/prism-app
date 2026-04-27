@@ -100,6 +100,11 @@ final frontingMigrationRunnerProvider = Provider<FrontingMigrationService>(
       // Handle may be null when sync isn't configured — the service
       // skips the FFI reset step in that case (solo mode).
       syncHandle: ref.watch(prismSyncHandleProvider).value,
+      // Codex P1 #5: wipe platform-keychain credentials after the FFI
+      // reset so a backgrounded app between reset and next launch
+      // can't re-seed Rust with the credentials that should have been
+      // wiped.
+      wipeSyncKeychain: wipeFrontingMigrationSyncKeychain,
     );
   },
 );

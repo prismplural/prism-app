@@ -40,6 +40,14 @@ enum FrontingUpgradeStep {
   running,
   success,
   failure,
+
+  /// Codex P1 #4 — when the modal opens to mode == 'inProgress' (Drift
+  /// transaction committed but a post-tx step like the FFI engine reset
+  /// or keychain wipe failed), we render a streamlined "Finish
+  /// migration" screen that calls `resumeCleanup()` on tap. No password,
+  /// no role, no destructive DB work — just the post-tx idempotent
+  /// cleanup.
+  resumeCleanup,
 }
 
 /// Show the upgrade modal.
@@ -95,6 +103,33 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
   String? _passwordError;
 
   MigrationResult? _result;
+
+  @override
+  void initState() {
+    super.initState();
+    // Codex P1 #4: if the migration is mid-cleanup (Drift tx committed
+    // but post-tx step failed), advance to the resume-cleanup screen
+    // instead of the normal intro. Try the cached value first; if not
+    // yet available, listen for the first stream emission and advance
+    // then. listenManual handles the disposal lifecycle so we don't
+    // leak the subscription past widget unmount.
+    final cached = ref.read(frontingMigrationModeProvider).value;
+    if (cached == FrontingMigrationService.modeInProgress) {
+      _step = FrontingUpgradeStep.resumeCleanup;
+      return;
+    }
+    ref.listenManual<AsyncValue<String>>(
+      frontingMigrationModeProvider,
+      (prev, next) {
+        if (!mounted) return;
+        if (next.value == FrontingMigrationService.modeInProgress &&
+            _step == FrontingUpgradeStep.intro) {
+          setState(() => _step = FrontingUpgradeStep.resumeCleanup);
+        }
+      },
+      fireImmediately: true,
+    );
+  }
 
   @override
   void dispose() {
@@ -260,6 +295,35 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
     });
   }
 
+  /// Codex P1 #4 — runs the idempotent post-tx cleanup when the modal
+  /// opens to the `inProgress` state. No password / role / mode picker
+  /// needed: the destructive Drift work already committed; only the
+  /// engine reset + keychain wipe + quarantine clear + mark-complete
+  /// remain.
+  Future<void> _runResumeCleanup() async {
+    setState(() => _step = FrontingUpgradeStep.running);
+    final runner = ref.read(frontingMigrationRunnerProvider);
+    try {
+      final result = await runner.resumeCleanup();
+      if (!mounted) return;
+      setState(() {
+        _result = result;
+        _step = result.outcome == MigrationOutcome.success
+            ? FrontingUpgradeStep.success
+            : FrontingUpgradeStep.failure;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _result = MigrationResult(
+          outcome: MigrationOutcome.failed,
+          errorMessage: e.toString(),
+        );
+        _step = FrontingUpgradeStep.failure;
+      });
+    }
+  }
+
   // -------------------------------------------------------------------
   // Build
   // -------------------------------------------------------------------
@@ -292,6 +356,8 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
                   FrontingUpgradeStep.running => _buildRunning(theme),
                   FrontingUpgradeStep.success => _buildSuccess(theme),
                   FrontingUpgradeStep.failure => _buildFailure(theme),
+                  FrontingUpgradeStep.resumeCleanup =>
+                    _buildResumeCleanup(theme),
                 },
               ],
             ),
@@ -350,6 +416,57 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
           onPressed: _onNotNow,
           label: context.l10n.frontingUpgradeNotNow,
           tone: PrismButtonTone.subtle,
+          expanded: true,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildResumeCleanup(ThemeData theme) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 80,
+          height: 80,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: theme.colorScheme.primary.withValues(alpha: 0.15),
+          ),
+          child: Icon(
+            AppIcons.warningAmberRounded,
+            size: 40,
+            color: theme.colorScheme.primary,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          // Localized strings ship with the modal but the resume-cleanup
+          // path is new in this PR — fall back to literal copy until the
+          // l10n strings land. Intentionally minimal so the user
+          // understands "previous attempt left the device in a partial
+          // state; tap to finish."
+          'Finish migration',
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 12),
+        Text(
+          'A previous upgrade attempt finished the data migration but '
+          "couldn't complete the sync reset. Tap below to finish — no "
+          'data will be touched, only the sync credentials.',
+          textAlign: TextAlign.center,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 24),
+        PrismButton(
+          onPressed: _runResumeCleanup,
+          label: 'Finish migration',
+          tone: PrismButtonTone.filled,
           expanded: true,
         ),
       ],
