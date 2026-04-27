@@ -1,5 +1,6 @@
 import 'package:uuid/uuid.dart';
 
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/domain/models/fronting_session.dart' as domain;
 import 'package:prism_plurality/domain/models/conversation.dart' as domain;
@@ -109,10 +110,16 @@ class SpMapper {
   /// Quick disposition lookup by SP CF id.
   final Map<String, CfDisposition> _cfDispositionById = {};
 
+  /// Prism UUID for the Unknown sentinel member, created on-the-fly when
+  /// an SP entry with `member: "unknown"` is encountered.  Derived
+  /// deterministically so all devices converge on the same ID:
+  ///   `Uuid().v5(spFrontingNamespace, 'unknown-member-sentinel')`
+  /// Phase 5 migration will tag this member as `is_system_managed`; until
+  /// that lands the mapper creates it on demand with a neutral name.
+  String? _unknownSentinelId;
+
   /// Counters for warnings surfaced by the importer.
   int _cfDroppedSessions = 0;
-  int _cfSleepWithCoFronters = 0;
-  int _cfSleepAsCoFronter = 0;
   int _cfDroppedComments = 0;
   int _cfOpenEndedSleepClamped = 0;
   int _cfDedupedSleepStarts = 0;
@@ -175,6 +182,21 @@ class SpMapper {
 
     // 2. Map front history to sessions.
     final sessions = _mapFrontHistory(data.frontHistory, warnings);
+
+    // 2b. If the front-history pass created an Unknown sentinel member,
+    //     append it to the members list so it is persisted by the importer.
+    if (_unknownSentinelId != null) {
+      members.add(
+        domain.Member(
+          id: _unknownSentinelId!,
+          name: 'Unknown',
+          emoji: '❔', // ❔
+          isActive: true,
+          createdAt: DateTime.now(),
+          displayOrder: members.length,
+        ),
+      );
+    }
 
     // 3. Map channel categories (before channels so category info is available).
     final conversationCategories = _mapChannelCategories(
@@ -350,10 +372,30 @@ class SpMapper {
 
   /// Map SP front history to Prism fronting sessions.
   ///
-  /// Classifies every referenced id as one of {realMember, cfMember, cfNote,
-  /// cfSleep, cfSkip} based on the resolved CF disposition map, then
-  /// resolves primary → resolves co-fronters → promotes if primary is empty →
-  /// emits a normal session, sleep session, note-only result, or drop.
+  /// Per §2.6 of the fronting-per-member-sessions plan: SP `frontHistory`
+  /// rows are already one-per-member — each row maps 1:1 to one Prism row.
+  /// No co-fronter expansion.  Co-fronting is an emergent property of
+  /// overlapping intervals in the new model.
+  ///
+  /// ID derivation (§2.6 deterministic IDs):
+  ///   `localId = _sessionIdMap[entry._id]?.localId`
+  ///           `?? Uuid().v5(spFrontingNamespace, entry._id)`
+  /// Existing SP rows already have entries in `sp_id_map` (via
+  /// `_sessionIdMap` seeded from the DAO) → re-import finds them and keeps
+  /// their original IDs.  New rows get deterministic v5 IDs.
+  ///
+  /// `live: true` → `end_time = NULL` (active session).
+  /// `live: false` → `end_time = endTime`.
+  ///
+  /// `customStatus` is folded into `notes` with a `[bracket]` prefix per
+  /// §2.6: `"[Co-fronting] (comment if any)"`.
+  ///
+  /// `member: "unknown"` is mapped to the Unknown sentinel member, created
+  /// on-the-fly with a deterministic ID (Phase 5 will tag it
+  /// `is_system_managed`; until that lands we create it here).
+  ///
+  /// `custom: true` rows still flow through the disposition tree — the
+  /// per-member model doesn't change how CF dispositions are applied.
   List<domain.FrontingSession> _mapFrontHistory(
     List<SpFrontHistory> history,
     List<String> warnings,
@@ -363,8 +405,6 @@ class SpMapper {
     final sleepStarts = <int>[];
 
     for (final entry in history) {
-      // Handle SP's literal "unknown" primary sentinel like the legacy mapper:
-      // sessionless front with existing note semantics.
       final rawMain = entry.memberId;
 
       // If the entry is flagged isCustomFront but the CF id isn't in the
@@ -377,30 +417,25 @@ class SpMapper {
           !_memberIdMap.containsKey(rawMain)) {
         _ensureSyntheticCf(rawMain);
       }
-      for (final cfId in entry.coFronters) {
-        if (cfId.isEmpty) continue;
-        if (!_cfResolved.containsKey(cfId) &&
-            !_memberIdMap.containsKey(cfId) &&
-            entry.isCustomFront) {
-          _ensureSyntheticCf(cfId);
-        }
-      }
 
       final mainKind = _classifyId(rawMain);
 
-      // Step 1 — resolve main.
+      // Resolve the primary member for this row.
       String? primaryMemberId;
-      String? primaryCfNoteName; // name to inject into note for cfNote primary
+      String? primaryCfNoteName;
       bool sleepPath = false;
 
       switch (mainKind) {
         case _IdKind.unknownSentinel:
-          primaryMemberId = null;
+          // Map to the Unknown sentinel member.  Create on-the-fly with a
+          // deterministic ID so all devices converge (Phase 5 will mark it
+          // is_system_managed; for now it's a regular member with no avatar).
+          _unknownSentinelId ??=
+              _uuid.v5(spFrontingNamespace, 'unknown-member-sentinel');
+          primaryMemberId = _unknownSentinelId;
           break;
         case _IdKind.missing:
           primaryMemberId = null;
-          // Legacy warning: non-empty id that doesn't resolve to any known
-          // member or CF. Skip for null/empty (no id supplied at all).
           if (rawMain != null && rawMain.isNotEmpty) {
             warnings.add(
               'Front entry ${entry.id}: member "$rawMain" not found, '
@@ -431,82 +466,24 @@ class SpMapper {
           break;
       }
 
-      // Step 2 — resolve co-fronters.
-      final coFronterIds = <String>[];
-      final cfNoteCoFronterNames = <String>[];
-      final cfSleepCoFronterNames = <String>[];
-      // Maintain first-real-then-cf promotion order using parallel lists.
-      final promotionCandidates =
-          <({_IdKind kind, String spId, String prismId})>[];
-
-      for (final cfId in entry.coFronters) {
-        final kind = _classifyId(cfId);
-        switch (kind) {
-          case _IdKind.realMember:
-          case _IdKind.cfMember:
-            final resolved = _memberIdMap[cfId];
-            if (resolved != null) {
-              coFronterIds.add(resolved);
-              promotionCandidates.add((
-                kind: kind,
-                spId: cfId,
-                prismId: resolved,
-              ));
-            }
-            break;
-          case _IdKind.cfNote:
-            final name = _cfResolved[cfId]?.name;
-            if (name != null) cfNoteCoFronterNames.add(name);
-            break;
-          case _IdKind.cfSleep:
-            final name = _cfResolved[cfId]?.name;
-            if (name != null) cfSleepCoFronterNames.add(name);
-            break;
-          case _IdKind.cfSkip:
-          case _IdKind.unknownSentinel:
-          case _IdKind.missing:
-            break;
-        }
-      }
-
-      // Build notes up front — we append CF names for cfNote primary + cfNote
-      // co-fronters + cfSleep co-fronter (when the primary isn't cfSleep).
+      // --- Notes assembly ---
+      // Per §2.6: customStatus is folded into notes with a bracket prefix.
+      // Format: "[customStatus] comment" or just "[customStatus]" or
+      // just "comment" depending on what's present.
+      // CF-note names (for cfNote primary) are prepended the same way.
       final noteTags = <String>[];
       if (primaryCfNoteName != null) noteTags.add(primaryCfNoteName);
-      // Per plan §E3: on a cfSleep primary, ALL non-member CF co-fronter
-      // names (cfNote and cfSleep alike) are appended with the "during"
-      // suffix to the sleep session's notes. Off the sleep path, cfNote
-      // co-fronters keep the plain "[name]" form.
-      if (sleepPath) {
-        for (final name in cfNoteCoFronterNames) {
-          noteTags.add('$name during');
-        }
-      } else {
-        noteTags.addAll(cfNoteCoFronterNames);
-      }
 
-      // E3/E4: cfSleep co-fronter names are appended to notes as
-      // "[<name> during]" tags regardless of whether the primary is itself
-      // cfSleep. On the sleep path this preserves the co-fronter name on the
-      // emitted sleep session's notes; on the non-sleep path it mirrors the
-      // E4 behavior ("X fronted while Y was asleep"). We still count this for
-      // the "sleep as co-fronter, preserved as note only" warning.
-      if (cfSleepCoFronterNames.isNotEmpty) {
-        for (final name in cfSleepCoFronterNames) {
-          noteTags.add('$name during');
-          _cfSleepAsCoFronter++;
-        }
-      }
-
-      // Combine base note (customStatus + comment per legacy logic) with CF tags.
+      // Build base note from customStatus + comment per §2.6.
       String? baseNote;
-      if (entry.customStatus != null &&
-          entry.customStatus!.isNotEmpty &&
-          entry.comment != null &&
-          entry.comment!.isNotEmpty) {
-        baseNote = '[${entry.customStatus}] ${entry.comment}';
+      if (entry.customStatus != null && entry.customStatus!.isNotEmpty) {
+        if (entry.comment != null && entry.comment!.isNotEmpty) {
+          baseNote = '[${entry.customStatus}] ${entry.comment}';
+        } else {
+          baseNote = '[${entry.customStatus}]';
+        }
       } else {
-        baseNote = entry.comment ?? entry.customStatus;
+        baseNote = entry.comment;
       }
 
       String? notes;
@@ -521,21 +498,21 @@ class SpMapper {
         }
       }
 
-      // Step 4 — emit.
+      // --- Emit ---
       if (sleepPath) {
-        // cfSleep primary: emit sleep session. Discard co-fronters (Prism
-        // sleep sessions don't carry them). Warn if there were real cofronters.
-        if (coFronterIds.isNotEmpty) {
-          _cfSleepWithCoFronters++;
-        }
+        // cfSleep primary: emit sleep session (1:1, no co-fronters in Prism
+        // sleep sessions).
 
-        // Open-ended sleep clamp.
+        // Open-ended sleep clamp — SP live flag doesn't apply to sleep CFs
+        // (they have no "live" concept in real exports), so use endTime null
+        // as the trigger.
         DateTime endTime;
-        if (entry.endTime == null) {
+        final effectiveEndTime = entry.live ? null : entry.endTime;
+        if (effectiveEndTime == null) {
           endTime = entry.startTime.add(const Duration(hours: 24));
           _cfOpenEndedSleepClamped++;
         } else {
-          endTime = entry.endTime!;
+          endTime = effectiveEndTime;
         }
 
         // Same-start 60s defensive dedup.
@@ -543,15 +520,14 @@ class SpMapper {
         final dup = sleepStarts.any((s) => (s - startMs).abs() <= 60000);
         if (dup) {
           _cfDedupedSleepStarts++;
-          // Skip — don't record _sessionIdMap either (comments for a
-          // duplicate SP entry are rare; they'd resolve to the earlier
-          // emitted session if they happened to match its id, but here the
-          // current entry's id is new, so we must intentionally drop).
           continue;
         }
         sleepStarts.add(startMs);
 
-        final sessionId = _sessionIdMap[entry.id] ?? _uuid.v4();
+        // Deterministic ID: sp_id_map lookup first, then v5 derivation.
+        final sessionId =
+            _sessionIdMap[entry.id] ??
+            _uuid.v5(spFrontingNamespace, entry.id);
         _sessionIdMap[entry.id] = sessionId;
 
         sessions.add(
@@ -560,7 +536,6 @@ class SpMapper {
             startTime: entry.startTime,
             endTime: endTime,
             memberId: null,
-            coFronterIds: const [],
             notes: notes,
             sessionType: domain.SessionType.sleep,
             quality: domain.SleepQuality.unknown,
@@ -569,53 +544,34 @@ class SpMapper {
         continue;
       }
 
-      // Step 3 — promote if primary empty. Promotion applies to cfSkip
-      // (per plan §Step 3) and to cfNote (so "Blurry + Alice" becomes
-      // "Alice fronting, note: [Blurry]" instead of a sessionless note).
-      // It does NOT apply to `missing` or `unknownSentinel` — those keep
-      // the legacy "emit sessionless session" behavior so the timeline
-      // entry + any attached comments survive without silently picking an
-      // arbitrary member.
-      if (primaryMemberId == null &&
-          (mainKind == _IdKind.cfSkip || mainKind == _IdKind.cfNote) &&
-          promotionCandidates.isNotEmpty) {
-        // Stable sort: real first, then cfMember, each tier by SP id.
-        final sorted = [...promotionCandidates]
-          ..sort((a, b) {
-            final aIsReal = a.kind == _IdKind.realMember ? 0 : 1;
-            final bIsReal = b.kind == _IdKind.realMember ? 0 : 1;
-            final tier = aIsReal.compareTo(bIsReal);
-            if (tier != 0) return tier;
-            return a.spId.compareTo(b.spId);
-          });
-        final promoted = sorted.first;
-        primaryMemberId = promoted.prismId;
-        coFronterIds.remove(promoted.prismId);
-      }
-
-      // cfSkip primary + no promotable co-fronter → drop entirely (plan
-      // §Step 4: "the only case where drop-entirely is correct").
+      // Non-sleep path — resolve cfSkip: drop entirely if no co-fronter
+      // promotion is possible (co-fronters don't exist in per-member model,
+      // so cfSkip with no other member → always drop).
       if (mainKind == _IdKind.cfSkip && primaryMemberId == null) {
         _cfDroppedSessions++;
-        // Do NOT record _sessionIdMap — comments on this entry get dropped.
         continue;
       }
 
-      // All other sessionless paths (unknownSentinel, missing, cfNote)
-      // preserve pre-change behavior: ALWAYS emit a session — even with a
-      // null primary and no notes — so the timeline row and any attached
-      // comments are preserved.
+      // All other sessionless paths (missing, cfNote with no co-fronters)
+      // emit a session with null primary so the timeline row + attached
+      // comments survive.  cfNote primary with no real-member co-fronters
+      // in the source is unusual but preserves the note text.
 
-      final sessionId = _sessionIdMap[entry.id] ?? _uuid.v4();
+      // Deterministic ID: sp_id_map lookup first, then v5 derivation.
+      final sessionId =
+          _sessionIdMap[entry.id] ??
+          _uuid.v5(spFrontingNamespace, entry.id);
       _sessionIdMap[entry.id] = sessionId;
+
+      // live: true → end_time = NULL; false → end_time = endTime.
+      final sessionEndTime = entry.live ? null : entry.endTime;
 
       sessions.add(
         domain.FrontingSession(
           id: sessionId,
           startTime: entry.startTime,
-          endTime: entry.endTime,
+          endTime: sessionEndTime,
           memberId: primaryMemberId,
-          coFronterIds: coFronterIds,
           notes: notes,
         ),
       );
@@ -745,6 +701,8 @@ class SpMapper {
     // with isCustomFront: true but missing from the current customFronts
     // list. Otherwise `_classifyId` would hit `_memberIdMap` first and treat
     // a deleted CF as a real member (plan §E15).
+    // Note: SP front history is one-row-per-member — there are no co-fronter
+    // slots in real exports.  Only the primary member id is checked here.
     final staleCfIds = <String>{};
     for (final entry in frontHistory) {
       if (!entry.isCustomFront) continue;
@@ -755,13 +713,6 @@ class SpMapper {
           !currentCfIds.contains(mId) &&
           _memberIdMap.containsKey(mId)) {
         staleCfIds.add(mId);
-      }
-      for (final cfId in entry.coFronters) {
-        if (cfId.isNotEmpty &&
-            !currentCfIds.contains(cfId) &&
-            _memberIdMap.containsKey(cfId)) {
-          staleCfIds.add(cfId);
-        }
       }
     }
     for (final id in staleCfIds) {
@@ -778,19 +729,7 @@ class SpMapper {
     if (_cfDroppedSessions > 0) {
       warnings.add(
         '$_cfDroppedSessions front-history entries dropped (primary was a '
-        'skipped custom front with no co-fronters).',
-      );
-    }
-    if (_cfSleepWithCoFronters > 0) {
-      warnings.add(
-        '$_cfSleepWithCoFronters sleep-mode sessions had co-fronters that '
-        'were discarded.',
-      );
-    }
-    if (_cfSleepAsCoFronter > 0) {
-      warnings.add(
-        '$_cfSleepAsCoFronter front sessions had a sleep custom front as '
-        'co-fronter, preserved as note only.',
+        'skipped custom front).',
       );
     }
     if (_cfDroppedComments > 0) {
@@ -1053,9 +992,14 @@ class SpMapper {
       comments.add(
         domain.FrontSessionComment(
           id: _uuid.v4(),
-          sessionId: sessionId,
           body: sp.text,
           timestamp: sp.time,
+          // targetTime anchors the comment to the moment in time it references.
+          // Per §3.5, comments attach to a timestamp (not a session FK).
+          // Use sp.time as the target — it's the user-meaningful "when" for
+          // the comment.  The session id is tracked via _sessionIdMap for
+          // comment-orphan detection above but is no longer stored on the row.
+          targetTime: sp.time,
           createdAt: sp.time,
         ),
       );

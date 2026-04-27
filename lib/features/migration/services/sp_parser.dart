@@ -138,12 +138,31 @@ class SpCustomFront {
 }
 
 /// SP front history entry.
+///
+/// Each row represents one member's continuous presence — the source is
+/// already one-row-per-member (§2.6).  `coFronters` is preserved as a struct
+/// field so existing callers (e.g. analysis code) continue to compile, but the
+/// `fromJson` factory no longer reads `coFronters`/`cofronters` keys from the
+/// JSON source: those keys do not exist in any real SP export and were always
+/// parsed as an empty list.  The per-member mapping model means co-fronting is
+/// an emergent property of overlapping intervals, not a field on an entry.
 class SpFrontHistory {
   final String id;
   final String? memberId;
   final List<String> coFronters;
   final DateTime startTime;
+
+  /// Raw `endTime` from the SP export (always present as an int, even for
+  /// active sessions).  Use [live] to determine whether the session is
+  /// currently active: when [live] is `true`, treat `endTime` as `null`
+  /// in the Prism row.
   final DateTime? endTime;
+
+  /// SP `live` flag.  `true` means the session is still active; `endTime`
+  /// carries a snapshot value from SP's server clock but must be ignored when
+  /// deriving the Prism `end_time` field (set `end_time = NULL` instead).
+  final bool live;
+
   final String? comment;
   final String? customStatus;
   final bool isCustomFront;
@@ -154,6 +173,7 @@ class SpFrontHistory {
     this.coFronters = const [],
     required this.startTime,
     this.endTime,
+    this.live = false,
     this.comment,
     this.customStatus,
     this.isCustomFront = false,
@@ -178,20 +198,23 @@ class SpFrontHistory {
       return DateTime.now();
     }
 
-    final coFrontersList = <String>[];
-    final rawCoFronters = json['coFronters'] ?? json['cofronters'];
-    if (rawCoFronters is List) {
-      for (final cf in rawCoFronters) {
-        coFrontersList.add(cf.toString());
-      }
-    }
+    // SP `live` flag: true means the session is currently active. When live,
+    // endTime must be treated as NULL in the Prism row regardless of the
+    // snapshot value SP stores.
+    final live = json['live'] == true;
+
+    // Note: coFronters / cofronters keys are NOT read from JSON here.
+    // Those keys do not exist in real SP exports; the struct field remains
+    // for compatibility with non-import callers (e.g. analysis code that
+    // operates on in-memory test data).
 
     return SpFrontHistory(
       id: (json['_id'] ?? json['id'] ?? '').toString(),
       memberId: json['member']?.toString(),
-      coFronters: coFrontersList,
+      coFronters: const [],
       startTime: parseTime(startMs),
       endTime: endMs != null ? parseTime(endMs) : null,
+      live: live,
       comment: json['comment'] as String?,
       customStatus: json['customStatus'] as String?,
       isCustomFront: json['custom'] == true || json['customFront'] == true,
