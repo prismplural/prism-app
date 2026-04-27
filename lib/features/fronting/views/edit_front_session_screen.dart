@@ -5,7 +5,6 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/editing/fronting_edit_resolution_models.dart';
-import 'package:prism_plurality/features/fronting/validation/fronting_validation_models.dart';
 import 'package:prism_plurality/features/fronting/editing/fronting_session_change.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_editing_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_sanitization_providers.dart';
@@ -169,17 +168,9 @@ class _EditFrontSessionScreenState
         .map(FrontingSanitizerService.toSnapshot)
         .toList();
 
-    // 6. Build the proposed snapshot (post-edit state) for overlap resolution
-    final proposedSnapshot = FrontingSessionSnapshot(
-      id: original.id,
-      memberId: _memberId,
-      start: _startTime,
-      end: end,
-      notes: trimmedNotes.isNotEmpty ? trimmedNotes : null,
-      confidenceIndex: _confidence?.index,
-    );
-
-    // 7. Run edit validation
+    // 6. Run edit validation
+    //    (no proposed-snapshot needed: cross-member overlap resolution was
+    //    removed with the per-member-sessions refactor — see §3.3.)
     final validation = editGuard.validateEdit(
       original: originalSnapshot,
       patch: patch,

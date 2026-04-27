@@ -62,20 +62,22 @@ db.FrontingSession makeDbFrontingSession({
   DateTime? startTime,
   DateTime? endTime,
   String? memberId = 'member-1',
-  String coFronterIds = '[]',
   String? notes,
   int? confidence,
   int? quality,
   bool isHealthKitImport = false,
   String? pluralkitUuid,
 }) {
+  // The `coFronterIds` and `pkMemberIdsJson` columns survive on the Drift table
+  // for now (the mapper no longer reads or writes them after the per-member-
+  // sessions refactor). Pass empty defaults so the row constructor is satisfied.
   return db.FrontingSession(
     id: id,
     sessionType: sessionType,
     startTime: startTime ?? DateTime(2025, 3, 1, 10, 0),
     endTime: endTime,
     memberId: memberId,
-    coFronterIds: coFronterIds,
+    coFronterIds: '[]',
     notes: notes,
     confidence: confidence,
     quality: quality,

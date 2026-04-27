@@ -399,17 +399,8 @@ void main() {
 
         final second = repo.sessions.firstWhere((s) => s.id != original.id);
 
-        // Two calls with the same inputs must produce the same id.
-        final svc2 = FrontingMutationService(
-          repository: FakeFrontingSessionRepository()
-            ..sessions.addAll(repo.sessions),
-          mutationRunner: MutationRunner(
-            transactionRunner: _passthroughTransactionRunner,
-          ),
-        );
-        // Re-split from the original would fail (already split), but we can
-        // verify the id derivation directly via Uuid.v5 logic.
-        // The id is non-random (v5) — just assert it's consistent across calls.
+        // The id is non-random (v5 of original.id + splitTime) — assert it's
+        // populated and distinct from the original.
         expect(second.id, isNotEmpty);
         expect(second.id, isNot(original.id));
       },

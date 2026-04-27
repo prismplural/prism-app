@@ -11,7 +11,6 @@ FrontingSession _session({
   required DateTime startTime,
   DateTime? endTime,
   String? memberId = 'member-1',
-  List<String> coFronterIds = const [],
   String? notes,
   FrontConfidence? confidence,
 }) {
@@ -20,7 +19,6 @@ FrontingSession _session({
     startTime: startTime,
     endTime: endTime,
     memberId: memberId,
-    coFronterIds: coFronterIds,
     notes: notes,
     confidence: confidence,
   );

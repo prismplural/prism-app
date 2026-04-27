@@ -11,14 +11,23 @@ import 'package:prism_plurality/features/members/providers/members_providers.dar
 import 'package:prism_plurality/l10n/app_localizations.dart';
 
 class _FakeFrontingNotifier extends FrontingNotifier {
+  /// Member ids passed to [startFronting]. Named "switches" because the
+  /// production widget calls startFronting([id]) on long-press to switch
+  /// the active fronter — kept the legacy name so the existing reason-text
+  /// assertions still read sensibly.
   final List<String> switches = [];
 
   @override
   Future<void> build() async {}
 
   @override
-  Future<void> switchFronter(String newMemberId) async {
-    switches.add(newMemberId);
+  Future<void> startFronting(
+    List<String> memberIds, {
+    FrontConfidence? confidence,
+    String? notes,
+    DateTime? startTime,
+  }) async {
+    switches.addAll(memberIds);
   }
 }
 

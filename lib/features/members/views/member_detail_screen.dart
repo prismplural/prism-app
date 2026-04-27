@@ -290,7 +290,7 @@ class _MemberDetailBody extends ConsumerWidget {
     switch (action) {
       case _MenuAction.setFronter:
         try {
-          await ref.read(frontingNotifierProvider.notifier).startFronting(member.id);
+          await ref.read(frontingNotifierProvider.notifier).startFronting([member.id]);
           if (context.mounted) {
             PrismToast.show(context, message: context.l10n.memberIsFronting(member.name));
           }
