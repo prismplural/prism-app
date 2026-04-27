@@ -426,36 +426,24 @@ class _SessionPreviewSheet extends ConsumerWidget {
     final theme = Theme.of(context);
     final now = DateTime.now();
 
-    // Batch-load the member (and any co-fronters) referenced by this session.
-    final allIds = <String>{
+    // Each session bar represents one member's continuous presence.
+    // TODO(§2.4): Phase 3 — rewrite to show the per-member session directly
+    // and offer "see this period" to open the period-detail screen (§3.1).
+    final memberIds = <String>{
       if (session.memberId != null) session.memberId!,
-      ...session.coFronterIds,
     };
     final membersAsync =
-        ref.watch(membersByIdsProvider(memberIdsKey(allIds)));
+        ref.watch(membersByIdsProvider(memberIdsKey(memberIds)));
     final membersMap = membersAsync.whenOrNull(data: (m) => m) ?? {};
 
     final member =
         session.memberId != null ? membersMap[session.memberId] : null;
 
-    // Build display name including co-fronters.
     final String displayName;
     if (session.memberId == null) {
       displayName = 'Unknown';
     } else {
-      final coFronterNames = [
-        for (final id in session.coFronterIds)
-          if (membersMap[id] != null) membersMap[id]!.name,
-      ];
-      final names = [member?.name ?? 'Unknown', ...coFronterNames];
-      if (names.length == 1) {
-        displayName = names.first;
-      } else if (names.length == 2) {
-        displayName = '${names[0]} & ${names[1]}';
-      } else {
-        displayName =
-            '${names.sublist(0, names.length - 1).join(', ')} & ${names.last}';
-      }
+      displayName = member?.name ?? 'Unknown';
     }
 
     final startLabel = session.startTime.toTimeString();

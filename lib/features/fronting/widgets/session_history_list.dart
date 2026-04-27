@@ -23,7 +23,6 @@ import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/utils/animations.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/features/fronting/utils/session_day_grouping.dart';
-import 'package:prism_plurality/shared/widgets/group_member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/date_chip.dart';
@@ -88,10 +87,13 @@ class SessionHistoryList extends ConsumerWidget {
         }
 
         // Batch-load all members referenced by sessions in a single query.
+        // Each session is one member's continuous presence — co-fronting is
+        // emergent from overlapping intervals, not a field.
+        // TODO(§2.3, §4.6): Replace per-session rows with derived periods
+        // (maximal time spans during which the fronter set didn't change).
         final allMemberIds = <String>{};
         for (final session in sessions) {
           if (session.memberId != null) allMemberIds.add(session.memberId!);
-          allMemberIds.addAll(session.coFronterIds);
         }
         final key = memberIdsKey(allMemberIds);
         final membersAsync = ref.watch(membersByIdsProvider(key));
@@ -234,29 +236,14 @@ class _SessionTile extends ConsumerWidget {
     final member = memberId != null ? membersMap[memberId] : null;
     final emoji = member?.emoji ?? '?';
 
-    // Resolve co-fronter members from the pre-loaded map
-    final coFronterMembers = <Member>[
-      for (final coId in session.coFronterIds)
-        if (membersMap[coId] != null)
-          membersMap[coId]!,
-    ];
-
-    // Build display name: "Alice & Bob" or "Alice, Bob & Carol"
+    // Each session is one member's continuous presence. Period-level grouping
+    // (showing one row per derived period with avatar stacks) is deferred to
+    // Phase 3 per spec §2.3 and §4.6.
     final String name;
     if (isUnknown) {
       name = 'Unknown';
     } else {
-      final names = [
-        member?.name ?? 'Unknown',
-        ...coFronterMembers.map((m) => m.name),
-      ];
-      if (names.length == 1) {
-        name = names.first;
-      } else if (names.length == 2) {
-        name = '${names[0]} & ${names[1]}';
-      } else {
-        name = '${names.sublist(0, names.length - 1).join(', ')} & ${names.last}';
-      }
+      name = member?.name ?? 'Unknown';
     }
 
     final accentColor =
@@ -268,6 +255,9 @@ class _SessionTile extends ConsumerWidget {
 
     final timeRange = displaySession.timeRangeString(context.dateLocale);
 
+    // Each row shows one member's session — single avatar.
+    // TODO(§2.3): Phase 3 will replace with period-level avatar stacks for
+    // derived periods that span multiple members.
     final Widget leadingWidget;
     if (isUnknown) {
       leadingWidget = Container(
@@ -282,25 +272,6 @@ class _SessionTile extends ConsumerWidget {
           size: 20,
           color: theme.colorScheme.onSurfaceVariant,
         ),
-      );
-    } else if (coFronterMembers.isNotEmpty) {
-      final groupMembers = [
-        GroupAvatarMember(
-          avatarImageData: member?.avatarImageData,
-          emoji: emoji,
-          customColorEnabled: member?.customColorEnabled ?? false,
-          customColorHex: member?.customColorHex,
-        ),
-        ...coFronterMembers.map((m) => GroupAvatarMember(
-          avatarImageData: m.avatarImageData,
-          emoji: m.emoji,
-          customColorEnabled: m.customColorEnabled,
-          customColorHex: m.customColorHex,
-        )),
-      ];
-      leadingWidget = GroupMemberAvatar(
-        members: groupMembers,
-        size: 40,
       );
     } else {
       leadingWidget = MemberAvatar(

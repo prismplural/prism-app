@@ -345,8 +345,9 @@ class _GroupDetailBody extends ConsumerWidget {
     final activeSessionsAsync = ref.read(activeSessionsProvider);
     if (!activeSessionsAsync.hasValue) return;
     final activeSessions = activeSessionsAsync.value!;
+    // Each session is one member's continuous presence; co-fronting is emergent.
     final alreadyFronting = activeSessions
-        .expand((s) => [s.memberId, ...s.coFronterIds])
+        .map((s) => s.memberId)
         .whereType<String>()
         .toSet();
     final toAdd = memberIds
@@ -376,6 +377,7 @@ class _GroupDetailBody extends ConsumerWidget {
         ),
       );
       if (!confirmed || !context.mounted) return;
+      // addCoFronter is still per-member; equivalent to startFronting([id]).
       for (final id in toAdd) {
         await ref.read(frontingNotifierProvider.notifier).addCoFronter(id);
       }
@@ -409,12 +411,11 @@ class _GroupDetailBody extends ConsumerWidget {
       if (!confirmed || !context.mounted) return;
     }
 
+    // Start a per-member session for each group member not already fronting.
+    // Each id in `toAdd` gets its own session row sharing the same start_time.
     await ref
         .read(frontingNotifierProvider.notifier)
-        .startFrontingWithDetails(
-          memberId: toAdd.first,
-          coFronterIds: toAdd.length > 1 ? toAdd.skip(1).toList() : [],
-        );
+        .startFronting(toAdd);
   }
 
   void _onStartChat(BuildContext context, List<MemberGroupEntry> entries) {
