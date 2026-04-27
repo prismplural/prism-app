@@ -1,5 +1,3 @@
-import 'package:prism_plurality/domain/models/fronting_session.dart'
-    show SessionType;
 import 'package:prism_plurality/features/fronting/validation/fronting_validation_config.dart';
 import 'package:prism_plurality/features/fronting/validation/fronting_validation_models.dart';
 import 'package:prism_plurality/features/fronting/validation/fronting_validation_rules.dart';
@@ -62,6 +60,11 @@ class FrontingEditGuard {
   }
 
   /// Validate a session edit before saving.
+  ///
+  /// In the per-member model, cross-member overlaps are valid by design.
+  /// Only same-member self-overlaps (detected via [detectSelfOverlap]) and
+  /// sleep-session overlaps (which are handled by trimming, not co-fronting)
+  /// surface as issues that block or warn.
   FrontingEditValidationResult validateEdit({
     required FrontingSessionSnapshot original,
     required FrontingSessionPatch patch,
@@ -71,34 +74,44 @@ class FrontingEditGuard {
     // Apply patch to get proposed state
     final proposed = _applyPatch(original, patch);
 
-    // The timeline is conceptually one stream of events regardless of session
-    // type — editing a fronting session next to a sleep session should still
-    // surface the overlap so the user can trim. Co-fronting across types is
-    // meaningless, so we expose that limitation via [canCoFront] below.
+    // Find sessions for the same member (self-overlap candidates) and
+    // sleep sessions (cross-type overlap — still blocked via trim).
     final others = nearbySessions
         .where((s) => s.id != original.id && !s.isDeleted)
         .toList();
+
+    // Overlapping sessions that should surface to the user:
+    // 1. Same-member self-overlaps (always flag).
+    // 2. Sleep sessions overlapping with a normal fronting session (flag for
+    //    trim — cross-type overlap has no co-fronting semantic).
+    // Cross-member overlaps between different normal fronting sessions are
+    // VALID in the per-member model and are NOT surfaced here.
     final overlapping = <FrontingSessionSnapshot>[];
     for (final other in others) {
       final otherEnd = other.end;
       final proposedEnd = proposed.end;
-      // Overlap: A.start < B.end AND B.start < A.end
       // Active sessions use far-future for effective end
       final aEnd = proposedEnd ?? DateTime(9999);
       final bEnd = otherEnd ?? DateTime(9999);
-      // Touching boundaries (proposed.start == bEnd or other.start == aEnd) are NOT overlaps
+      // Touching boundaries are NOT overlaps
       if (proposed.start.isBefore(bEnd) &&
           other.start.isBefore(aEnd) &&
           proposed.start != bEnd &&
           other.start != aEnd) {
-        overlapping.add(other);
+        // Only flag same-member self-overlaps or sleep↔front overlaps.
+        final isSameMember = proposed.memberId != null &&
+            proposed.memberId == other.memberId;
+        final isCrossType = proposed.sessionType != other.sessionType;
+        if (isSameMember || isCrossType) {
+          overlapping.add(other);
+        }
       }
     }
 
     // Check gaps created by shrinking
     final gaps = <GapInfo>[];
     final config = FrontingValidationConfig(timingMode: timingMode);
-    final threshold = config.reportableGapThreshold;
+    final threshold = config.mergeableGapThreshold;
 
     // If start moved later, check gap before
     if (proposed.start.isAfter(original.start)) {
@@ -145,7 +158,7 @@ class FrontingEditGuard {
       }
     }
 
-    // Check duplicates
+    // Check duplicates (same-member only)
     final duplicateConfig = FrontingValidationConfig(timingMode: timingMode);
     final duplicateIssues = detectDuplicates([
       proposed,
@@ -165,18 +178,11 @@ class FrontingEditGuard {
 
     final canSave = overlapping.isEmpty && gaps.isEmpty && duplicates.isEmpty;
 
-    // Co-fronting only makes sense between normal sessions. Sleep overlaps can
-    // only be resolved by trimming.
-    final canCoFront =
-        original.sessionType == SessionType.normal &&
-        overlapping.every((s) => s.sessionType == SessionType.normal);
-
     return FrontingEditValidationResult(
       canSaveDirectly: canSave,
       overlappingSessions: overlapping,
       gapsCreated: gaps,
       duplicates: duplicates,
-      canCoFront: canCoFront,
     );
   }
 
@@ -229,7 +235,6 @@ class FrontingEditGuard {
           : (patch.memberId ?? original.memberId),
       start: patch.start ?? original.start,
       end: patch.clearEnd ? null : (patch.end ?? original.end),
-      coFronterIds: patch.coFronterIds ?? original.coFronterIds,
       notes: patch.notes ?? original.notes,
       confidenceIndex: patch.confidenceIndex ?? original.confidenceIndex,
       sessionType: original.sessionType,

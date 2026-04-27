@@ -32,6 +32,10 @@ class FrontingEditResolutionService {
 
   /// Compute changes to trim [conflicting] around [edited].
   /// The edited session takes priority.
+  ///
+  /// Used for same-member self-overlap resolution and sleep↔front cross-type
+  /// overlaps. Cross-member overlaps between different normal fronting sessions
+  /// are valid by design and should not be passed to this method.
   TrimResult computeTrimChanges(
     FrontingSessionSnapshot edited,
     FrontingSessionSnapshot conflicting,
@@ -90,175 +94,16 @@ class FrontingEditResolutionService {
     );
   }
 
-  // ── computeCoFrontingChanges ────────────────────────────────────────────
-
-  /// Split edited and conflicting sessions into segments around the overlap:
-  ///   - Pre-overlap solo segment
-  ///   - Overlap co-fronting segment
-  ///   - Post-overlap solo segment
-  List<FrontingSessionChange> computeCoFrontingChanges(
-    FrontingSessionSnapshot edited,
-    FrontingSessionSnapshot conflicting,
-  ) {
-    final editedEnd = _effectiveEnd(edited);
-    final conflictingEnd = _effectiveEnd(conflicting);
-
-    final overlapStart =
-        edited.start.isAfter(conflicting.start) ? edited.start : conflicting.start;
-    final overlapEndSentinel =
-        editedEnd.isBefore(conflictingEnd) ? editedEnd : conflictingEnd;
-
-    // For co-front segment: if either was active and the overlap reaches their
-    // end, that segment should remain active (null end).
-    final bool coFrontIsActive =
-        (edited.end == null && overlapEndSentinel == editedEnd) ||
-        (conflicting.end == null && overlapEndSentinel == conflictingEnd);
-    final DateTime? coFrontEnd = coFrontIsActive ? null : overlapEndSentinel;
-
-    // Build merged co-fronter list: all from both sessions + conflicting.memberId,
-    // minus edited.memberId, no duplicates.
-    final mergedCoFronters = <String>{
-      ...edited.coFronterIds,
-      ...conflicting.coFronterIds,
-      if (conflicting.memberId != null) conflicting.memberId!,
-    }..remove(edited.memberId);
-
-    // Higher confidence wins (by enum index).
-    final int? mergedConfidence = _higherConfidence(
-      edited.confidenceIndex,
-      conflicting.confidenceIndex,
-    );
-
-    // Join non-null, non-empty notes with " | ".
-    final mergedNotes = _joinNotes(edited.notes, conflicting.notes);
-
-    final changes = <FrontingSessionChange>[];
-
-    final editedStartsFirst = !edited.start.isAfter(conflicting.start);
-    final fullContainment =
-        !edited.start.isAfter(conflicting.start) && !editedEnd.isBefore(conflictingEnd);
-
-    if (fullContainment) {
-      // Update edited to end at overlapStart (if that produces a valid segment)
-      if (edited.start.isBefore(overlapStart)) {
-        changes.add(
-          UpdateSessionChange(
-            sessionId: edited.id,
-            patch: FrontingSessionPatch(end: overlapStart),
-          ),
-        );
-      }
-
-      // Create co-front segment
-      changes.add(
-        CreateSessionChange(
-          FrontingSessionDraft(
-            memberId: edited.memberId,
-            start: overlapStart,
-            end: coFrontEnd,
-            coFronterIds: mergedCoFronters.toList(),
-            notes: mergedNotes,
-            confidenceIndex: mergedConfidence,
-          ),
-        ),
-      );
-
-      // Create solo edited segment after the overlap, if edited extends past conflicting
-      final postStart = coFrontIsActive ? null : overlapEndSentinel;
-      if (postStart != null && edited.end != null && postStart.isBefore(edited.end!)) {
-        changes.add(
-          CreateSessionChange(
-            FrontingSessionDraft(
-              memberId: edited.memberId,
-              start: postStart,
-              end: edited.end,
-              coFronterIds: edited.coFronterIds,
-              notes: edited.notes,
-              confidenceIndex: edited.confidenceIndex,
-            ),
-          ),
-        );
-      }
-
-      // Delete conflicting
-      changes.add(DeleteSessionChange(conflicting.id));
-    } else if (editedStartsFirst) {
-      // Edited starts first: partial overlap, conflicting extends past edited
-      // Update edited to end at overlapStart
-      changes.add(
-        UpdateSessionChange(
-          sessionId: edited.id,
-          patch: FrontingSessionPatch(end: overlapStart),
-        ),
-      );
-
-      // Create co-front segment (overlapStart to overlapEnd)
-      changes.add(
-        CreateSessionChange(
-          FrontingSessionDraft(
-            memberId: edited.memberId,
-            start: overlapStart,
-            end: coFrontEnd,
-            coFronterIds: mergedCoFronters.toList(),
-            notes: mergedNotes,
-            confidenceIndex: mergedConfidence,
-          ),
-        ),
-      );
-
-      // Update conflicting to start at overlapEnd
-      if (!coFrontIsActive) {
-        changes.add(
-          UpdateSessionChange(
-            sessionId: conflicting.id,
-            patch: FrontingSessionPatch(start: overlapEndSentinel),
-          ),
-        );
-      }
-    } else {
-      // Conflicting starts first: partial overlap, edited extends past conflicting
-      // Update conflicting to end at overlapStart
-      changes.add(
-        UpdateSessionChange(
-          sessionId: conflicting.id,
-          patch: FrontingSessionPatch(end: overlapStart),
-        ),
-      );
-
-      // Create co-front segment (overlapStart to overlapEnd)
-      changes.add(
-        CreateSessionChange(
-          FrontingSessionDraft(
-            memberId: edited.memberId,
-            start: overlapStart,
-            end: coFrontEnd,
-            coFronterIds: mergedCoFronters.toList(),
-            notes: mergedNotes,
-            confidenceIndex: mergedConfidence,
-          ),
-        ),
-      );
-
-      // Update edited to start at overlapEnd
-      if (!coFrontIsActive) {
-        changes.add(
-          UpdateSessionChange(
-            sessionId: edited.id,
-            patch: FrontingSessionPatch(start: overlapEndSentinel),
-          ),
-        );
-      }
-    }
-
-    return changes;
-  }
-
   // ── resolveAllOverlaps ──────────────────────────────────────────────────
 
   /// Apply the chosen [resolution] to all [overlaps] for [edited].
   /// Overlaps are processed in chronological order.
   /// After each resolution, the edited session's effective boundaries are
   /// updated for subsequent computations.
+  ///
+  /// In the per-member model only [OverlapResolution.trim] and
+  /// [OverlapResolution.cancel] are valid. Overlaps passed here should be
+  /// same-member self-overlaps or sleep↔front cross-type overlaps only.
   List<FrontingSessionChange> resolveAllOverlaps({
     required FrontingSessionSnapshot edited,
     required List<FrontingSessionSnapshot> overlaps,
@@ -273,29 +118,12 @@ class FrontingEditResolutionService {
     var currentEdited = edited;
 
     for (final overlap in sorted) {
-      final List<FrontingSessionChange> stepChanges;
-
-      if (resolution == OverlapResolution.trim) {
-        final result = computeTrimChanges(currentEdited, overlap);
-        stepChanges = result.changes;
-        // If the edited session itself was updated as a side effect, track it.
-        if (result.updatedEdited != null) {
-          currentEdited = result.updatedEdited!;
-        }
-      } else {
-        // makeCoFronting
-        stepChanges = computeCoFrontingChanges(currentEdited, overlap);
-        // After co-fronting, the edited session boundaries may shift.
-        // Extract the updated edited boundaries from the changes.
-        for (final change in stepChanges) {
-          if (change is UpdateSessionChange &&
-              change.sessionId == currentEdited.id) {
-            currentEdited = _applyPatchToSnapshot(currentEdited, change.patch);
-          }
-        }
+      final result = computeTrimChanges(currentEdited, overlap);
+      allChanges.addAll(result.changes);
+      // If the edited session itself was updated as a side effect, track it.
+      if (result.updatedEdited != null) {
+        currentEdited = result.updatedEdited!;
       }
-
-      allChanges.addAll(stepChanges);
     }
 
     return allChanges;
@@ -362,7 +190,6 @@ class FrontingEditResolutionService {
             sessionId: session.id,
             patch: const FrontingSessionPatch(
               clearMemberId: true,
-              coFronterIds: [],
             ),
           ),
         ];
@@ -389,39 +216,4 @@ class FrontingEditResolutionService {
         .toList();
   }
 
-  // ── Private helpers ──────────────────────────────────────────────────────
-
-  /// Returns the higher confidence index, or null if both are null.
-  int? _higherConfidence(int? a, int? b) {
-    if (a == null && b == null) return null;
-    if (a == null) return b;
-    if (b == null) return a;
-    return a > b ? a : b;
-  }
-
-  /// Join two nullable notes with " | ", skipping nulls/empty strings.
-  String? _joinNotes(String? a, String? b) {
-    final parts = [
-      if (a != null && a.isNotEmpty) a,
-      if (b != null && b.isNotEmpty) b,
-    ];
-    if (parts.isEmpty) return null;
-    return parts.join(' | ');
-  }
-
-  /// Apply a patch to a snapshot to produce a new snapshot for boundary tracking.
-  FrontingSessionSnapshot _applyPatchToSnapshot(
-    FrontingSessionSnapshot snap,
-    FrontingSessionPatch patch,
-  ) {
-    return FrontingSessionSnapshot(
-      id: snap.id,
-      memberId: patch.clearMemberId ? null : (patch.memberId ?? snap.memberId),
-      start: patch.start ?? snap.start,
-      end: patch.clearEnd ? null : (patch.end ?? snap.end),
-      coFronterIds: patch.coFronterIds ?? snap.coFronterIds,
-      notes: patch.notes ?? snap.notes,
-      confidenceIndex: patch.confidenceIndex ?? snap.confidenceIndex,
-    );
-  }
 }

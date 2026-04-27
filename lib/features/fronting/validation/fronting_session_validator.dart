@@ -7,15 +7,17 @@ import 'fronting_validation_rules.dart';
 ///
 /// Always-on rules:
 ///   - [detectInvalidRanges] — end not strictly after start
-///   - [detectOverlaps] — overlapping session ranges
+///   - [detectSelfOverlap] — same member has overlapping sessions
 ///
 /// Configurable rules (controlled via [FrontingValidationConfig]):
 ///   - [detectDuplicates] — probable duplicate sessions for the same member
 ///   - [detectMergeableAdjacent] — consecutive same-member sessions with tiny gap
-///   - [detectGaps] — gaps in fronting coverage beyond the threshold
 ///   - [detectFutureSessions] — sessions with a start or end in the future
 ///
 /// Issues are sorted by [FrontingValidationIssue.rangeStart] ascending.
+///
+/// Cross-member overlaps are valid by design and are NOT flagged.
+/// "Nobody fronting" gaps are also valid and are NOT flagged.
 class FrontingSessionValidator {
   final FrontingValidationConfig config;
 
@@ -32,10 +34,9 @@ class FrontingSessionValidator {
 
     final issues = <FrontingValidationIssue>[
       ...detectInvalidRanges(active),
-      ...detectOverlaps(active),
+      if (config.detectSelfOverlaps) ...detectSelfOverlap(active),
       if (config.detectDuplicates) ...detectDuplicates(active, config),
       if (config.detectMergeableAdjacent) ...detectMergeableAdjacent(active, config),
-      if (config.detectGaps) ...detectGaps(active, config),
       if (config.detectFutureSessions) ...detectFutureSessions(active, effectiveNow, config),
     ];
 

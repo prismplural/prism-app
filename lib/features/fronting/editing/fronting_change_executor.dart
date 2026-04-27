@@ -43,7 +43,6 @@ class FrontingChangeExecutor {
           startTime: session.start,
           endTime: session.end,
           memberId: session.memberId,
-          coFronterIds: session.coFronterIds,
           notes: session.notes,
           sessionType: session.sessionType,
           quality: session.quality,
@@ -87,7 +86,6 @@ class FrontingChangeExecutor {
         memberId: patch.clearMemberId
             ? null
             : (patch.memberId ?? session.memberId),
-        coFronterIds: patch.coFronterIds ?? session.coFronterIds,
         notes: patch.notes ?? session.notes,
         confidence: patch.confidenceIndex != null
             ? FrontConfidence.values[patch.confidenceIndex!]
@@ -103,7 +101,6 @@ class FrontingChangeExecutor {
       startTime: patch.start ?? session.startTime,
       endTime: patch.end ?? session.endTime,
       memberId: patch.memberId ?? session.memberId,
-      coFronterIds: patch.coFronterIds ?? session.coFronterIds,
       notes: patch.notes ?? session.notes,
       confidence: patch.confidenceIndex != null
           ? FrontConfidence.values[patch.confidenceIndex!]

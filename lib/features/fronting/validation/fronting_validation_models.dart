@@ -1,8 +1,7 @@
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 
 enum FrontingIssueType {
-  overlap,
-  gap,
+  selfOverlap,
   duplicate,
   mergeableAdjacent,
   invalidRange,
@@ -42,7 +41,6 @@ class FrontingSessionSnapshot {
   final String? memberId;
   final DateTime start;
   final DateTime? end; // null = active
-  final List<String> coFronterIds;
   final String? notes;
   final int? confidenceIndex;
   final SessionType sessionType;
@@ -55,7 +53,6 @@ class FrontingSessionSnapshot {
     required this.memberId,
     required this.start,
     this.end,
-    this.coFronterIds = const [],
     this.notes,
     this.confidenceIndex,
     this.sessionType = SessionType.normal,

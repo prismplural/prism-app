@@ -5,7 +5,8 @@ import 'package:uuid/uuid.dart';
 
 /// Pure Dart service for managing fronter transitions.
 ///
-/// Ensures seamless handoffs between fronting sessions with no time gaps.
+/// In the per-member model each member has their own session row; a "transition"
+/// is simply ending one member's session and optionally starting another's.
 /// All operations are wrapped in a [MutationRunner] transaction so that
 /// ending old sessions and creating a new one are atomic — a crash
 /// mid-operation will roll back instead of leaving the user with no
@@ -20,26 +21,37 @@ class SessionTransitionService {
 
   /// Transitions the current fronter to [newMemberId].
   ///
-  /// Ends all active sessions at the current time and, if [newMemberId] is
+  /// Ends all active sessions for the specified member (or all active sessions
+  /// if [endAllActive] is true) at the current time and, if [newMemberId] is
   /// non-null, starts a new session at the exact same instant to avoid gaps.
-  /// Optional [coFronterIds] can be provided for co-fronting sessions.
   ///
   /// The entire read-end-create sequence runs inside a single database
   /// transaction via [MutationRunner].
   Future<void> transitionFronter({
     required String? newMemberId,
-    List<String>? coFronterIds,
     required FrontingSessionRepository repo,
+    bool endAllActive = false,
   }) async {
     await _mutationRunner.runVoid(
       actionLabel: 'Transition fronter',
       action: () async {
         final now = DateTime.now();
 
-        // End all currently active sessions at exactly [now].
-        final activeSessions = await repo.getAllActiveSessionsUnfiltered();
-        for (final session in activeSessions) {
-          await repo.endSession(session.id, now);
+        // End currently active sessions.
+        if (endAllActive) {
+          final activeSessions = await repo.getAllActiveSessionsUnfiltered();
+          for (final session in activeSessions) {
+            await repo.endSession(session.id, now);
+          }
+        } else if (newMemberId != null) {
+          // Only end the specific member's active sessions (if any) to avoid
+          // self-overlap when transitioning a single member.
+          final activeSessions = await repo.getAllActiveSessionsUnfiltered();
+          final memberSessions =
+              activeSessions.where((s) => s.memberId == newMemberId).toList();
+          for (final session in memberSessions) {
+            await repo.endSession(session.id, now);
+          }
         }
 
         // If a new member is specified, start a new session at the same instant.
@@ -48,7 +60,6 @@ class SessionTransitionService {
             id: _uuid.v4(),
             startTime: now,
             memberId: newMemberId,
-            coFronterIds: coFronterIds ?? const [],
           );
           await repo.createSession(newSession);
         }

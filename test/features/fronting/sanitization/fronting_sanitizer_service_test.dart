@@ -101,24 +101,7 @@ void main() {
         expect(snapshot.end, isNull);
       });
 
-      test('maps coFronterIds', () {
-        final session = FrontingSession(
-          id: 'session-1',
-          startTime: DateTime(2024, 6, 1, 10),
-          coFronterIds: ['member-2', 'member-3'],
-        );
-        final snapshot = FrontingSanitizerService.toSnapshot(session);
-        expect(snapshot.coFronterIds, ['member-2', 'member-3']);
-      });
-
-      test('maps empty coFronterIds', () {
-        final session = FrontingSession(
-          id: 'session-1',
-          startTime: DateTime(2024, 6, 1, 10),
-        );
-        final snapshot = FrontingSanitizerService.toSnapshot(session);
-        expect(snapshot.coFronterIds, isEmpty);
-      });
+      // coFronterIds no longer exists — per-member model uses separate rows.
 
       test('maps notes', () {
         final session = FrontingSession(
@@ -202,7 +185,10 @@ void main() {
       expect(issues, isEmpty);
     });
 
-    test('scan ignores sleep sessions when checking overlaps', () async {
+    test('scan ignores sleep sessions (only validates normal fronting sessions)', () async {
+      // Sleep sessions are excluded from the validator entirely — they are
+      // passed in a separate list and only used for sleep-coverage logic which
+      // is no longer relevant in the per-member model.
       final fronting = FrontingSession(
         id: 'fronting-1',
         startTime: DateTime(2026, 3, 18, 8),
@@ -220,16 +206,19 @@ void main() {
       await repository.createSession(fronting);
       await repository.createSession(sleep);
 
+      // Only the fronting session is validated; no self-overlap since only one
+      // fronting session. No issues expected.
       final issues = await service.scan();
       expect(issues, isEmpty);
     });
 
-    test('scan treats sleep as covered time when reporting gaps', () async {
-      final strictService = FrontingSanitizerService(
+    test('scan produces no issues for two members with non-overlapping sessions', () async {
+      // In the per-member model, gaps between fronters are VALID. Two members
+      // each with valid non-overlapping sessions should produce zero issues.
+      final service2 = FrontingSanitizerService(
         repository: repository,
         validator: const FrontingSessionValidator(
           config: FrontingValidationConfig(
-            timingMode: FrontingTimingMode.strict,
             detectDuplicates: false,
             detectMergeableAdjacent: false,
             detectFutureSessions: false,
@@ -238,47 +227,41 @@ void main() {
         planner: const FrontingFixPlanner(),
         executor: executor,
       );
-      final beforeSleep = FrontingSession(
-        id: 'fronting-before',
+      final member1Session = FrontingSession(
+        id: 'fronting-1',
         startTime: DateTime(2026, 3, 18, 20),
         endTime: DateTime(2026, 3, 18, 22),
         memberId: 'member-1',
       );
-      final sleep = FrontingSession(
-        id: 'sleep-1',
-        startTime: DateTime(2026, 3, 18, 22),
-        endTime: DateTime(2026, 3, 19, 8),
-        sessionType: SessionType.sleep,
-      );
-      final afterSleep = FrontingSession(
-        id: 'fronting-after',
+      final member2Session = FrontingSession(
+        id: 'fronting-2',
         startTime: DateTime(2026, 3, 19, 8),
         endTime: DateTime(2026, 3, 19, 10),
         memberId: 'member-2',
       );
 
-      await repository.createSession(beforeSleep);
-      await repository.createSession(sleep);
-      await repository.createSession(afterSleep);
+      await repository.createSession(member1Session);
+      await repository.createSession(member2Session);
 
-      final issues = await strictService.scan();
-      expect(
-        issues.where((issue) => issue.type == FrontingIssueType.gap),
-        isEmpty,
-      );
+      final issues = await service2.scan();
+      // No gaps, no overlaps — both are valid in per-member model.
+      expect(issues, isEmpty);
     });
 
     test(
       'scoped scan includes sessions already in progress at the range start',
       () async {
-        final strictService = FrontingSanitizerService(
+        // In the per-member model, cross-member overlaps are valid. To get issues
+        // from a scan we need same-member self-overlaps. Two sessions for the
+        // same member that overlap should produce a selfOverlap issue.
+        final selfOverlapService = FrontingSanitizerService(
           repository: repository,
           validator: const FrontingSessionValidator(
             config: FrontingValidationConfig(
-              timingMode: FrontingTimingMode.strict,
               detectDuplicates: false,
               detectMergeableAdjacent: false,
               detectFutureSessions: false,
+              detectSelfOverlaps: true,
             ),
           ),
           planner: const FrontingFixPlanner(),
@@ -290,23 +273,23 @@ void main() {
           endTime: DateTime(2026, 3, 18, 11),
           memberId: 'member-1',
         );
-        final later = FrontingSession(
-          id: 'fronting-later',
+        final selfOverlap = FrontingSession(
+          id: 'fronting-self-overlap',
           startTime: DateTime(2026, 3, 18, 10, 30),
           endTime: DateTime(2026, 3, 18, 12),
-          memberId: 'member-2',
+          memberId: 'member-1', // same member → self-overlap
         );
 
         await repository.createSession(earlier);
-        await repository.createSession(later);
+        await repository.createSession(selfOverlap);
 
-        final issues = await strictService.scan(
+        final issues = await selfOverlapService.scan(
           from: DateTime(2026, 3, 18, 10),
           to: DateTime(2026, 3, 18, 11, 30),
         );
 
         expect(
-          issues.any((issue) => issue.type == FrontingIssueType.overlap),
+          issues.any((issue) => issue.type == FrontingIssueType.selfOverlap),
           isTrue,
         );
       },

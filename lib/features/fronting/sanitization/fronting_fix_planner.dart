@@ -15,10 +15,8 @@ class FrontingFixPlanner {
     List<FrontingSessionSnapshot> sessions,
   ) {
     switch (issue.type) {
-      case FrontingIssueType.overlap:
-        return _plansForOverlap(issue, sessions);
-      case FrontingIssueType.gap:
-        return _plansForGap(issue, sessions);
+      case FrontingIssueType.selfOverlap:
+        return _plansForSelfOverlap(issue, sessions);
       case FrontingIssueType.duplicate:
         return _plansForDuplicate(issue, sessions);
       case FrontingIssueType.mergeableAdjacent:
@@ -39,9 +37,11 @@ class FrontingFixPlanner {
     );
   }
 
-  // ─── Overlap ──────────────────────────────────────────────────────────────
+  // ─── Self-overlap ─────────────────────────────────────────────────────────
 
-  List<FrontingFixPlan> _plansForOverlap(
+  /// Plans for a same-member self-overlap: offer trim or merge; the user may
+  /// also dismiss (soft warning) and save anyway.
+  List<FrontingFixPlan> _plansForSelfOverlap(
     FrontingValidationIssue issue,
     List<FrontingSessionSnapshot> sessions,
   ) {
@@ -53,102 +53,46 @@ class FrontingFixPlanner {
         : involved.last;
     final later = earlier == involved.first ? involved.last : involved.first;
 
-    final sameMember = issue.memberIds.length == 1 ||
-        (involved.length >= 2 && involved.first.memberId == involved.last.memberId);
+    // Merge: keep earliest start, latest end, delete the other
+    final keepId = earlier.id;
+    final deleteId = later.id;
+    final earliestStart = earlier.start;
+    final latestEnd = _laterDateTime(earlier.end, later.end);
 
-    if (sameMember) {
-      // Merge: keep earliest start, latest end, delete the other
-      final keepId = earlier.id;
-      final deleteId = later.id;
-      final earliestStart = earlier.start;
-      final latestEnd = _laterDateTime(earlier.end, later.end);
-
-      return [
-        FrontingFixPlan(
-          id: '${issue.id}-merge',
-          type: FrontingFixType.mergeAdjacent,
-          title: 'Merge sessions',
-          description: 'Combine both overlapping sessions into one.',
-          affectedSessionIds: [earlier.id, later.id],
-          changes: [
-            UpdateSessionChange(
-              sessionId: keepId,
-              patch: FrontingSessionPatch(
-                start: earliestStart,
-                end: latestEnd,
-              ),
-            ),
-            DeleteSessionChange(deleteId),
-          ],
-        ),
-      ];
-    } else {
-      // Different members — offer trim earlier or trim later
-      final trimEarlierPlan = FrontingFixPlan(
-        id: '${issue.id}-trim-earlier',
-        type: FrontingFixType.trimEarlier,
-        title: 'Trim earlier session',
-        description: 'Shorten the earlier session to end where the later one begins.',
-        affectedSessionIds: [earlier.id],
-        changes: [
-          UpdateSessionChange(
-            sessionId: earlier.id,
-            patch: FrontingSessionPatch(end: later.start),
-          ),
-        ],
-      );
-
-      final trimLaterPlan = FrontingFixPlan(
-        id: '${issue.id}-trim-later',
-        type: FrontingFixType.trimLater,
-        title: 'Trim later session',
-        description: 'Shorten the later session to start where the earlier one ends.',
-        affectedSessionIds: [later.id],
-        changes: [
-          UpdateSessionChange(
-            sessionId: later.id,
-            patch: FrontingSessionPatch(start: earlier.end),
-          ),
-        ],
-      );
-
-      return [trimEarlierPlan, trimLaterPlan];
-    }
-  }
-
-  // ─── Gap ─────────────────────────────────────────────────────────────────
-
-  List<FrontingFixPlan> _plansForGap(
-    FrontingValidationIssue issue,
-    List<FrontingSessionSnapshot> sessions,
-  ) {
-    final fillPlan = FrontingFixPlan(
-      id: '${issue.id}-fill-unknown',
-      type: FrontingFixType.fillGapWithUnknown,
-      title: 'Fill gap with Unknown',
-      description: 'Create an Unknown fronter session to cover the gap.',
-      affectedSessionIds: issue.sessionIds,
+    final mergePlan = FrontingFixPlan(
+      id: '${issue.id}-merge',
+      type: FrontingFixType.mergeAdjacent,
+      title: 'Merge sessions',
+      description: 'Combine both overlapping sessions into one.',
+      affectedSessionIds: [earlier.id, later.id],
       changes: [
-        CreateSessionChange(
-          FrontingSessionDraft(
-            memberId: null, // Unknown fronter
-            start: issue.rangeStart,
-            end: issue.rangeEnd,
+        UpdateSessionChange(
+          sessionId: keepId,
+          patch: FrontingSessionPatch(
+            start: earliestStart,
+            end: latestEnd,
           ),
+        ),
+        DeleteSessionChange(deleteId),
+      ],
+    );
+
+    // Trim earlier: set earlier's end to later's start
+    final trimEarlierPlan = FrontingFixPlan(
+      id: '${issue.id}-trim-earlier',
+      type: FrontingFixType.trimEarlier,
+      title: 'Trim earlier session',
+      description: 'Shorten the earlier session to end where the later one begins.',
+      affectedSessionIds: [earlier.id],
+      changes: [
+        UpdateSessionChange(
+          sessionId: earlier.id,
+          patch: FrontingSessionPatch(end: later.start),
         ),
       ],
     );
 
-    final leavePlan = FrontingFixPlan(
-      id: '${issue.id}-leave-gap',
-      type: FrontingFixType.leaveGap,
-      title: 'Leave gap',
-      description: 'Keep the timeline as-is without filling the gap.',
-      affectedSessionIds: issue.sessionIds,
-      changes: const [],
-    );
-
-    return [fillPlan, leavePlan];
+    return [mergePlan, trimEarlierPlan];
   }
 
   // ─── Duplicate ────────────────────────────────────────────────────────────
@@ -329,15 +273,6 @@ class FrontingFixPlanner {
           ],
         );
 
-      case FrontingFixType.fillGapWithUnknown:
-        return (
-          'Fill the gap with an Unknown fronter session.',
-          [
-            'Create a new session with no assigned member.',
-            'The session will span the entire gap.',
-          ],
-        );
-
       case FrontingFixType.leaveGap:
         return (
           'Leave the gap as-is.',
@@ -351,7 +286,7 @@ class FrontingFixPlanner {
         return (
           'Delete the less-complete duplicate session.',
           [
-            'The session with fewer notes, lower confidence, or fewer co-fronters will be removed.',
+            'The session with fewer notes or lower confidence will be removed.',
             'The more complete session will be kept.',
           ],
         );
@@ -383,14 +318,6 @@ class FrontingFixPlanner {
           ],
         );
 
-      case FrontingFixType.splitIntoCofronting:
-        return (
-          'Split into co-fronting sessions.',
-          [
-            'The overlapping sessions will be converted to a single co-fronting session.',
-          ],
-        );
-
       case FrontingFixType.markForManualReview:
         return (
           'Mark for manual review.',
@@ -417,7 +344,6 @@ class FrontingFixPlanner {
     var score = 0;
     if (s.notes != null && s.notes!.isNotEmpty) score += 2;
     if (s.confidenceIndex != null) score += 1;
-    score += s.coFronterIds.length;
     return score;
   }
 
