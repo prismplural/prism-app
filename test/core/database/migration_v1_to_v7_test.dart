@@ -24,6 +24,9 @@ import 'package:prism_plurality/core/database/app_database.dart';
 //              members.is_always_fronting (v7)
 //              system_settings.pending_fronting_migration_mode (v7)
 //              front_session_comments.{target_time, author_member_id} (v7)
+//              plural_kit_sync_state.{switch_cursor_timestamp, switch_cursor_id} (v7,
+//                folded from what was briefly a v8 bump — Phase 4B diff-sweep
+//                resume cursor, §2.6)
 //   - Indexes referencing v2+ columns (sync_suppressed, suspected_pk_group_uuid,
 //     pk_group_uuid, pk_member_uuid)
 //   - The composite/orphan fronting indexes (v7)
@@ -781,6 +784,16 @@ void main() {
             commentCols.map((r) => r.read<String>('name')).toSet();
         expect(commentColNames, contains('target_time'));
         expect(commentColNames, contains('author_member_id'));
+
+        // Phase 4B cursor columns (folded into v7): plural_kit_sync_state
+        final pkStateCols =
+            await db.customSelect('PRAGMA table_info(plural_kit_sync_state)').get();
+        final pkStateColNames =
+            pkStateCols.map((r) => r.read<String>('name')).toSet();
+        expect(pkStateColNames, contains('switch_cursor_timestamp'),
+            reason: 'switch_cursor_timestamp must be added by v6→v7');
+        expect(pkStateColNames, contains('switch_cursor_id'),
+            reason: 'switch_cursor_id must be added by v6→v7');
 
         // mode = 'notStarted' (upgrade path, not fresh install)
         final settings = await db.systemSettingsDao.getSettings();
