@@ -4,10 +4,12 @@ import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/app_database.dart'
     show AppDatabase, MediaAttachmentsCompanion, PluralKitSyncStateCompanion;
 import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
 import 'package:prism_plurality/core/database/sqlite_constraint.dart';
+import 'package:uuid/uuid.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/domain/repositories/chat_message_repository.dart';
 import 'package:prism_plurality/domain/repositories/conversation_repository.dart';
@@ -122,6 +124,9 @@ class ImportResult {
     this.remindersCreated = 0,
     this.friendsCreated = 0,
     this.mediaAttachmentsCreated = 0,
+    this.legacyPkShortIdsSkipped = 0,
+    this.legacyCorruptCoFronterRows = const [],
+    this.unknownSentinelCreated = false,
   });
 
   final int membersCreated;
@@ -144,6 +149,23 @@ class ImportResult {
   final int remindersCreated;
   final int friendsCreated;
   final int mediaAttachmentsCreated;
+
+  // -- PRISM1 rescue-importer diagnostics (Phase 5D, spec §4.7) ---------
+  //
+  // Number of (PK switch, PK short id) rescue-row fan-outs that couldn't
+  // resolve to a local member. Surfaced in the import-result UI so users
+  // can spot under-imported PK histories (typically because the matching
+  // local member was deleted or never imported).
+  final int legacyPkShortIdsSkipped;
+  // Legacy native session ids whose `co_fronter_ids` JSON failed to
+  // parse. Per §6 edge cases the importer falls back to single-member
+  // migration (primary only) and surfaces these for user review.
+  final List<String> legacyCorruptCoFronterRows;
+  // Whether the rescue importer created the Unknown sentinel member to
+  // hold orphan native rows (`member_id IS NULL`, `session_type = 0`).
+  // Surfaced so the upgrade flow can remind the user the sentinel is
+  // non-deletable and can be renamed.
+  final bool unknownSentinelCreated;
 
   int get totalRecordsCreated =>
       membersCreated +
@@ -484,61 +506,444 @@ class DataImportService {
       // tombstones too. existingSessionIds is also reused for the sleep
       // loop below since both session types share the same primary key
       // namespace in `fronting_sessions`.
+      //
+      // Rows tagged `isLegacyShape == true` (any pre-0.7.0 export marker:
+      // `coFronterIds`, `pkMemberIdsJson`, `headmateId` without `memberId`
+      // / `sessionType`) are routed through the PRISM1 rescue importer
+      // (§4.7) to fan out PK + native multi-member rows into the new
+      // per-member shape with deterministic v5 ids. New-shape rows go
+      // straight through the standard write.
+      //
+      // Per-row sniff is intentional: a single file can mix shapes if a
+      // user partially re-exports between versions, and the rescue path
+      // must never run on already-migrated rows (would double-fan-out).
       var frontSessionsCreated = 0;
+      var legacyPkShortIdsSkipped = 0;
+      final legacyCorruptCoFronterRows = <String>[];
+      var unknownSentinelCreated = false;
+      // Map from legacy session id → (memberId, startTime) used by the
+      // legacy comments branch to derive `target_time` / `author_member_id`
+      // when joining a comment back to its parent session row.
+      final legacySessionParents = <String, _LegacyParentInfo>{};
+      // Cached lookup: PK short id → local member full UUID, populated
+      // lazily so we only scan the members table when a legacy PK rescue
+      // row actually arrives.
+      Map<String, String>? pkShortIdToLocalUuid;
+      Future<Map<String, String>> resolvePkShortIdMap() async {
+        if (pkShortIdToLocalUuid != null) return pkShortIdToLocalUuid!;
+        final allMembers = await memberRepository.getAllMembers();
+        pkShortIdToLocalUuid = {
+          for (final m in allMembers)
+            if (m.pluralkitId != null &&
+                m.pluralkitId!.isNotEmpty &&
+                m.pluralkitUuid != null &&
+                m.pluralkitUuid!.isNotEmpty)
+              m.pluralkitId!: m.pluralkitUuid!,
+        };
+        return pkShortIdToLocalUuid!;
+      }
+
+      // Cached: SP id-map session-entity rows keyed by local prismId. The
+      // rescue importer treats SP-imported rows as already-1:1 (§2.2);
+      // any legacy session whose id appears here is migrated 1:1 with the
+      // existing `headmateId` as `member_id`.
+      Set<String>? spSessionPrismIds;
+      Future<Set<String>> resolveSpSessionPrismIds() async {
+        if (spSessionPrismIds != null) return spSessionPrismIds!;
+        final all = await db.spImportDao.getAllMappings();
+        spSessionPrismIds = {
+          for (final r in all)
+            if (r.entityType == 'session') r.prismId,
+        };
+        return spSessionPrismIds!;
+      }
+
+      // Lazy creation of the Unknown sentinel for orphan native rows
+      // (member_id IS NULL, session_type = 0). The id matches what the
+      // 5B SP/native migration uses, so concurrent migrations on paired
+      // devices converge on the same sentinel row.
+      String? unknownSentinelId;
+      Future<String> ensureUnknownSentinel() async {
+        if (unknownSentinelId != null) return unknownSentinelId!;
+        const uuid = Uuid();
+        final id =
+            uuid.v5(spFrontingNamespace, 'unknown-member-sentinel');
+        final existing = await memberRepository.getMemberById(id);
+        if (existing == null) {
+          await memberRepository.createMember(
+            Member(
+              id: id,
+              name: 'Unknown',
+              emoji: '❔',
+              isActive: true,
+              createdAt: DateTime.now().toUtc(),
+            ),
+          );
+          unknownSentinelCreated = true;
+        }
+        unknownSentinelId = id;
+        return id;
+      }
+
       final allSessionRows = await db.frontingSessionsDao
           .getAllSessionsIncludingDeleted();
       final existingSessionIds = {for (final s in allSessionRows) s.id};
-      final existingSessionPkUuids = {
+      // Composite (pluralkit_uuid, member_id) tracking per §3.7. The
+      // post-Phase-5 unique index is composite, not single-column on
+      // pluralkit_uuid alone — fanned-out PK rescue rows MUST be allowed
+      // to share a switch UUID across different members.
+      final existingPkPairs = <String>{
         for (final s in allSessionRows)
           if (s.pluralkitUuid != null && s.pluralkitUuid!.isNotEmpty)
-            s.pluralkitUuid!,
+            '${s.pluralkitUuid!}|${s.memberId ?? ''}',
       };
 
-      for (final s in export.frontSessions) {
-        if (existingSessionIds.contains(s.id)) continue;
-        if (s.pluralkitUuid != null &&
-            s.pluralkitUuid!.isNotEmpty &&
-            existingSessionPkUuids.contains(s.pluralkitUuid)) {
-          debugPrint(
-            '[Import] Skipped fronting session ${s.id}: pluralkitUuid='
-            '${s.pluralkitUuid} collides with an existing local session.',
-          );
-          continue;
+      Future<bool> writeSession({
+        required String id,
+        required DateTime startTime,
+        DateTime? endTime,
+        String? memberId,
+        String? notes,
+        FrontConfidence? confidence,
+        String? pluralkitUuid,
+        SessionType sessionType = SessionType.normal,
+        SleepQuality? quality,
+        bool isHealthKitImport = false,
+      }) async {
+        if (existingSessionIds.contains(id)) return false;
+        if (pluralkitUuid != null && pluralkitUuid.isNotEmpty) {
+          final key = '$pluralkitUuid|${memberId ?? ''}';
+          if (existingPkPairs.contains(key)) {
+            // Pre-existing local row already covers this (switch_uuid,
+            // member_id) pair (e.g., a prior API import wrote a row with
+            // the same composite key). Skip rather than collide. CRDT
+            // field-LWW handles the boundary correction on later API
+            // sync.
+            debugPrint(
+              '[Import][rescue] Skipped fronting session $id: '
+              '(pluralkitUuid=$pluralkitUuid, memberId=$memberId) already '
+              'present locally.',
+            );
+            return false;
+          }
         }
         try {
           await frontingSessionRepository.createSession(
             FrontingSession(
-              id: s.id,
-              startTime: DateTime.parse(s.startTime),
-              endTime: s.endTime != null ? DateTime.parse(s.endTime!) : null,
-              memberId: s.headmateId,
-              coFronterIds: s.coFronterIds,
-              notes: s.notes,
-              sessionType: SessionType.normal,
-              confidence:
-                  s.confidence != null &&
-                      s.confidence! >= 0 &&
-                      s.confidence! < FrontConfidence.values.length
-                  ? FrontConfidence.values[s.confidence!]
-                  : null,
-              pluralkitUuid: s.pluralkitUuid,
-              pkMemberIdsJson: s.pkMemberIdsJson,
+              id: id,
+              startTime: startTime,
+              endTime: endTime,
+              memberId: memberId,
+              notes: notes,
+              sessionType: sessionType,
+              confidence: confidence,
+              pluralkitUuid: pluralkitUuid,
+              quality: quality,
+              isHealthKitImport: isHealthKitImport,
             ),
           );
         } catch (e) {
           if (isUniqueConstraintViolation(e)) {
             debugPrint(
-              '[Import] Fronting session ${s.id} insert hit a unique-'
+              '[Import] Fronting session $id insert hit a unique-'
               'constraint collision past dedup; skipping.',
             );
-            continue;
+            return false;
           }
           rethrow;
         }
-        frontSessionsCreated++;
-        existingSessionIds.add(s.id);
-        if (s.pluralkitUuid != null && s.pluralkitUuid!.isNotEmpty) {
-          existingSessionPkUuids.add(s.pluralkitUuid!);
+        existingSessionIds.add(id);
+        if (pluralkitUuid != null && pluralkitUuid.isNotEmpty) {
+          existingPkPairs.add('$pluralkitUuid|${memberId ?? ''}');
+        }
+        return true;
+      }
+
+      const uuid = Uuid();
+
+      for (final s in export.frontSessions) {
+        final start = DateTime.parse(s.startTime);
+        final end = s.endTime != null ? DateTime.parse(s.endTime!) : null;
+        final conf = s.confidence != null &&
+                s.confidence! >= 0 &&
+                s.confidence! < FrontConfidence.values.length
+            ? FrontConfidence.values[s.confidence!]
+            : null;
+
+        if (!s.isLegacyShape) {
+          // -------- New-shape import path --------
+          //
+          // Post-0.7.0 exports already carry per-member rows with
+          // `memberId` + `sessionType`. The new-shape path doesn't fan
+          // out, doesn't derive ids, and doesn't touch `coFronterIds` /
+          // `pkMemberIdsJson` (those columns are dropped in v8 and
+          // unread in v7). HealthKit + sleep rows arrive in this same
+          // array with `sessionType = 1`.
+          final st = (s.sessionType ?? 0) == 1
+              ? SessionType.sleep
+              : SessionType.normal;
+          final q = s.quality != null &&
+                  s.quality! >= 0 &&
+                  s.quality! < SleepQuality.values.length
+              ? SleepQuality.values[s.quality!]
+              : (st == SessionType.sleep ? SleepQuality.unknown : null);
+          final created = await writeSession(
+            id: s.id,
+            startTime: start,
+            endTime: end,
+            memberId: s.headmateId,
+            notes: s.notes,
+            confidence: conf,
+            pluralkitUuid: s.pluralkitUuid,
+            sessionType: st,
+            quality: q,
+            isHealthKitImport: s.isHealthKitImport ?? false,
+          );
+          if (created) frontSessionsCreated++;
+          // Track for the legacy-comment join even if a parallel new-shape
+          // write happens — the join only fires for legacy comments.
+          legacySessionParents[s.id] = _LegacyParentInfo(
+            memberId: s.headmateId,
+            startTime: start,
+          );
+          continue;
+        }
+
+        // -------- PRISM1 rescue path (§4.7) --------
+        //
+        // Legacy-shape rows split four ways:
+        //   1. PK-imported (pluralkitUuid != null) — fan out per
+        //      pkMemberIdsJson short id, derive deterministic v5 ids,
+        //      preserve lossy boundaries (one row per old switch).
+        //   2. SP-imported (sp_id_map carries an entry for this id) —
+        //      migrate 1:1, preserve id, headmateId already 1:1.
+        //   3. Native multi-member (coFronterIds non-empty) — primary
+        //      keeps the legacy id, additional co-fronters get
+        //      derived ids from `migrationFrontingNamespace`.
+        //   4. Native single-member / orphan / HealthKit — keep id,
+        //      assign Unknown sentinel for the orphan case.
+        //
+        // The four branches DO NOT preserve `coFronterIds` /
+        // `pkMemberIdsJson` on the new row — those columns are
+        // intentionally dropped in v8 and unread from 0.7.0 onward.
+        // Re-importing from the PK API later collides on the
+        // deterministic id and CRDT field-LWW takes the API's
+        // correctly-bounded row.
+
+        final isPk = s.pluralkitUuid != null && s.pluralkitUuid!.isNotEmpty;
+        if (isPk) {
+          // PK fan-out. The `pk_member_ids_json` column on each old row
+          // carries the short ids (e.g., "abcde") of the members that
+          // were fronting at the entry switch. Resolve each to the
+          // local Prism member's full UUID via the pluralkit_id ->
+          // pluralkit_uuid lookup, then derive the deterministic id
+          // per §2.6: `v5(_pkFrontingNamespace, "${switch}:${uuid}")`.
+          //
+          // Boundaries are intentionally lossy here (one row per old
+          // switch with the same start/end). A later API re-import
+          // produces correctly-bounded rows; the rescue row's id
+          // collides on (switch, member) and the API row's fresher
+          // HLC wins via field-LWW. We MUST go through `createSession`
+          // (which calls `syncRecordCreate` → fresh HLCs at write
+          // time) rather than `insertOnConflictUpdate` so the rescue
+          // row's HLCs don't accidentally outlive the API import's.
+          final pkShortIdsRaw = s.pkMemberIdsJson;
+          final shortIds = <String>[];
+          if (pkShortIdsRaw != null && pkShortIdsRaw.isNotEmpty) {
+            try {
+              final parsed = jsonDecode(pkShortIdsRaw);
+              if (parsed is List) {
+                for (final e in parsed) {
+                  if (e is String) shortIds.add(e);
+                }
+              }
+            } catch (_) {
+              // Treat as no fan-out targets; loop below produces zero
+              // rows and counts as skipped via the empty-list path.
+            }
+          }
+          if (shortIds.isEmpty) {
+            // Pre-v7 PK exports may carry `pluralkit_uuid` without the
+            // `pk_member_ids_json` column (the column was added in
+            // Phase 2). Fall back to the legacy `headmateId` as the
+            // single fronter so the row still imports — same lossy
+            // boundary deal as the fan-out path. A later API
+            // re-import collides on the (switch, member) deterministic
+            // id and field-LWW takes the API's correct rows.
+            //
+            // If even `headmateId` is absent (truly empty PK row),
+            // log and skip; the API re-import is the recovery path.
+            if (s.headmateId == null) {
+              debugPrint(
+                '[Import][rescue] PK row ${s.id} has neither '
+                'pkMemberIdsJson nor headmateId; skipping.',
+              );
+              legacySessionParents[s.id] = _LegacyParentInfo(
+                memberId: null,
+                startTime: start,
+              );
+              continue;
+            }
+            // Preserve the legacy id for the single-member fallback so
+            // existing references (e.g., comments) keep working.
+            final created = await writeSession(
+              id: s.id,
+              startTime: start,
+              endTime: end,
+              memberId: s.headmateId,
+              notes: s.notes,
+              confidence: conf,
+              pluralkitUuid: s.pluralkitUuid,
+              sessionType: SessionType.normal,
+            );
+            if (created) frontSessionsCreated++;
+            legacySessionParents[s.id] = _LegacyParentInfo(
+              memberId: s.headmateId,
+              startTime: start,
+            );
+            continue;
+          }
+          final shortToUuid = await resolvePkShortIdMap();
+          final resolvedMemberUuids = <String>[];
+          for (final shortId in shortIds) {
+            final localUuid = shortToUuid[shortId];
+            if (localUuid == null) {
+              legacyPkShortIdsSkipped++;
+              continue;
+            }
+            resolvedMemberUuids.add(localUuid);
+          }
+          // Use the first resolved member UUID for the comment author
+          // fallback if a comment joins to this PK switch (per spec).
+          final firstResolvedLocalId =
+              await _localMemberIdForPkUuid(resolvedMemberUuids.isNotEmpty
+                  ? resolvedMemberUuids.first
+                  : null);
+          legacySessionParents[s.id] = _LegacyParentInfo(
+            memberId: firstResolvedLocalId,
+            startTime: start,
+          );
+          for (final memberPkUuid in resolvedMemberUuids) {
+            final derivedId = uuid.v5(
+              pkFrontingNamespace,
+              '${s.pluralkitUuid}:$memberPkUuid',
+            );
+            final localMemberId =
+                await _localMemberIdForPkUuid(memberPkUuid);
+            if (localMemberId == null) {
+              // Defensive: shouldn't happen since we just resolved
+              // memberPkUuid from a local member, but fall through
+              // safely.
+              legacyPkShortIdsSkipped++;
+              continue;
+            }
+            final created = await writeSession(
+              id: derivedId,
+              startTime: start,
+              endTime: end,
+              memberId: localMemberId,
+              notes: s.notes,
+              confidence: conf,
+              pluralkitUuid: s.pluralkitUuid,
+              sessionType: SessionType.normal,
+            );
+            if (created) frontSessionsCreated++;
+          }
+          continue;
+        }
+
+        final spIds = await resolveSpSessionPrismIds();
+        final isSp = spIds.contains(s.id);
+        if (isSp) {
+          // SP rescue — already 1:1 per-member by SP source semantics.
+          // Preserve id; rely on existing sp_id_map entry to keep the
+          // SP re-import idempotent (§2.6).
+          final created = await writeSession(
+            id: s.id,
+            startTime: start,
+            endTime: end,
+            memberId: s.headmateId,
+            notes: s.notes,
+            confidence: conf,
+            sessionType: SessionType.normal,
+          );
+          if (created) frontSessionsCreated++;
+          legacySessionParents[s.id] = _LegacyParentInfo(
+            memberId: s.headmateId,
+            startTime: start,
+          );
+          continue;
+        }
+
+        // Native rescue.
+        //
+        // HealthKit/sleep rows aren't represented in V1FrontSession in
+        // legacy exports (they live in V1SleepSession), so anything
+        // landing here is a `session_type = 0` native row. The corrupt
+        // co_fronter_ids fallback per §6 collapses to single-member.
+        final hasCorrupt = s.coFronterIds.isEmpty &&
+            s.coFronterIdsRawJson != null &&
+            s.coFronterIdsRawJson!.isNotEmpty &&
+            s.coFronterIdsRawJson != '[]';
+        if (hasCorrupt) {
+          legacyCorruptCoFronterRows.add(s.id);
+        }
+        final coFronters = hasCorrupt ? const <String>[] : s.coFronterIds;
+
+        if (s.headmateId == null && coFronters.isEmpty) {
+          // Orphan: assign Unknown sentinel.
+          final sentinelId = await ensureUnknownSentinel();
+          final created = await writeSession(
+            id: s.id,
+            startTime: start,
+            endTime: end,
+            memberId: sentinelId,
+            notes: s.notes,
+            confidence: conf,
+            sessionType: SessionType.normal,
+          );
+          if (created) frontSessionsCreated++;
+          legacySessionParents[s.id] = _LegacyParentInfo(
+            memberId: sentinelId,
+            startTime: start,
+          );
+          continue;
+        }
+
+        // Native single-member or multi-member. Primary keeps the legacy
+        // id; additional co-fronters get deterministic v5 ids derived
+        // from `(legacy_session_id, member_id)` so paired devices
+        // migrating concurrently converge on the same per-member rows.
+        final primaryCreated = await writeSession(
+          id: s.id,
+          startTime: start,
+          endTime: end,
+          memberId: s.headmateId,
+          notes: s.notes,
+          confidence: conf,
+          sessionType: SessionType.normal,
+        );
+        if (primaryCreated) frontSessionsCreated++;
+        legacySessionParents[s.id] = _LegacyParentInfo(
+          memberId: s.headmateId,
+          startTime: start,
+        );
+        for (final coId in coFronters) {
+          if (coId == s.headmateId) continue; // sanity guard
+          final derivedId = uuid.v5(
+            migrationFrontingNamespace,
+            '${s.id}:$coId',
+          );
+          final created = await writeSession(
+            id: derivedId,
+            startTime: start,
+            endTime: end,
+            memberId: coId,
+            notes: s.notes,
+            confidence: conf,
+            sessionType: SessionType.normal,
+          );
+          if (created) frontSessionsCreated++;
         }
       }
 
@@ -997,6 +1402,24 @@ class DataImportService {
       }
 
       // 16. Import front session comments
+      //
+      // Per spec §3.5, comments anchor to `target_time` + optional
+      // `author_member_id` rather than a session FK. New-shape exports
+      // already carry those fields directly; legacy-shape exports carry
+      // only `sessionId` + `timestamp`, and we synthesize the new-shape
+      // fields by joining `sessionId` against the just-imported parent
+      // row map (`legacySessionParents`, populated above by the
+      // fronting-session loop).
+      //
+      // Per spec §4.1 step 5: `target_time` MUST come from the comment's
+      // own `timestamp` field, NOT from `created_at`. Anchoring to
+      // `created_at` would shift backfilled or edited comments to the
+      // wrong period.
+      //
+      // PK rescue rows fan out to multiple per-member rows; the spec
+      // says: "Choose author_member_id from the first resolved PK
+      // member of the parent switch." We stored that on
+      // `legacySessionParents[s.id].memberId` above.
       var frontSessionCommentsCreated = 0;
       final existingComments =
           await frontSessionCommentsRepository.getAllComments();
@@ -1004,13 +1427,43 @@ class DataImportService {
           existingComments.map((c) => c.id).toSet();
       for (final c in export.frontSessionComments) {
         if (existingCommentIds.contains(c.id)) continue;
+        final timestamp = DateTime.parse(c.timestamp);
+        final createdAt = DateTime.parse(c.createdAt);
+        DateTime? targetTime;
+        String? authorMemberId;
+        if (c.isLegacyShape) {
+          final parent = c.sessionId == null
+              ? null
+              : legacySessionParents[c.sessionId];
+          if (parent == null) {
+            // Orphaned legacy comment (parent session wasn't in the
+            // file, or was already deleted before the PRISM1 export
+            // ran). Fall back to the comment's own timestamp; leave
+            // author null. Better than dropping the row — the user
+            // can still see what was written.
+            targetTime = timestamp;
+            authorMemberId = null;
+          } else {
+            // §4.1 step 5: target_time = comment's own timestamp;
+            // author = parent session's member_id.
+            targetTime = timestamp;
+            authorMemberId = parent.memberId;
+          }
+        } else {
+          // New-shape comment — fields already carried on the row.
+          targetTime = c.targetTime != null
+              ? DateTime.parse(c.targetTime!)
+              : timestamp;
+          authorMemberId = c.authorMemberId;
+        }
         await frontSessionCommentsRepository.createComment(
           FrontSessionComment(
             id: c.id,
-            sessionId: c.sessionId,
             body: c.body,
-            timestamp: DateTime.parse(c.timestamp),
-            createdAt: DateTime.parse(c.createdAt),
+            timestamp: timestamp,
+            createdAt: createdAt,
+            targetTime: targetTime,
+            authorMemberId: authorMemberId,
           ),
         );
         frontSessionCommentsCreated++;
@@ -1147,6 +1600,11 @@ class DataImportService {
         remindersCreated: remindersCreated,
         friendsCreated: friendsCreated,
         mediaAttachmentsCreated: mediaAttachmentsCreated,
+        legacyPkShortIdsSkipped: legacyPkShortIdsSkipped,
+        legacyCorruptCoFronterRows: List.unmodifiable(
+          legacyCorruptCoFronterRows,
+        ),
+        unknownSentinelCreated: unknownSentinelCreated,
       );
       });
     } catch (e) {
@@ -1202,4 +1660,37 @@ class DataImportService {
       } catch (_) {}
     }
   }
+
+  /// Resolve a PK member full UUID to the local Prism member id by
+  /// scanning the members table. Used by the PRISM1 rescue importer
+  /// (§4.7) to derive `author_member_id` for legacy comments anchored
+  /// to PK switches and to populate `member_id` on the per-member
+  /// fan-out rows.
+  ///
+  /// Returns null when no local member matches — the rescue path
+  /// counts that as a skip rather than crashing.
+  Future<String?> _localMemberIdForPkUuid(String? pkUuid) async {
+    if (pkUuid == null || pkUuid.isEmpty) return null;
+    final allMembers = await memberRepository.getAllMembers();
+    for (final m in allMembers) {
+      if (m.pluralkitUuid == pkUuid) return m.id;
+    }
+    return null;
+  }
+}
+
+/// Legacy-shape parent-session info captured during the fronting-session
+/// rescue pass and consumed by the comments rescue pass to derive
+/// `target_time` / `author_member_id` per spec §4.1 step 5.
+///
+/// Populated for every legacy session row regardless of its rescue
+/// disposition (PK fan-out, SP 1:1, native primary, native co-fronter,
+/// orphan sentinel) so the comment join always finds a parent. For PK
+/// rescue rows, `memberId` is the local id of the **first resolved PK
+/// member** of the parent switch — the spec's chosen author proxy when
+/// the original switch had multiple fronters.
+class _LegacyParentInfo {
+  const _LegacyParentInfo({this.memberId, required this.startTime});
+  final String? memberId;
+  final DateTime startTime;
 }
