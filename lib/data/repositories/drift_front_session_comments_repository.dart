@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/core/database/daos/front_session_comments_dao.dart';
 import 'package:prism_plurality/data/mappers/front_session_comment_mapper.dart';
@@ -19,11 +20,38 @@ class DriftFrontSessionCommentsRepository
 
   DriftFrontSessionCommentsRepository(this._dao, this._syncHandle);
 
+  // ---------------------------------------------------------------------------
+  // Reads
+  // ---------------------------------------------------------------------------
+
+  /// Returns comments whose [domain.FrontSessionComment.targetTime] falls in
+  /// [range] (inclusive start, exclusive end).
+  ///
+  /// Comments with `targetTime == null` are excluded: they are pre-Phase-5
+  /// rows awaiting backfill and don't fall in any range until Phase 5 writes a
+  /// real timestamp.  After backfill every row has a non-null `targetTime`.
+  ///
+  /// Filtering is done in Dart rather than SQL so we can reuse the DAO's
+  /// `watchAllComments()` stream without a new DAO method.  The comment table
+  /// is small (typically < few hundred rows per user) so client-side filtering
+  /// is fine; if it becomes a concern a dedicated DAO query can replace this.
   @override
-  Stream<List<domain.FrontSessionComment>> watchCommentsForSession(
-      String sessionId) {
-    return _dao.watchCommentsForSession(sessionId).map(
-        (rows) => rows.map(FrontSessionCommentMapper.toDomain).toList());
+  Stream<List<domain.FrontSessionComment>> watchCommentsForRange(
+      DateTimeRange range) {
+    return _dao.watchAllComments().map((rows) => rows
+        .map(FrontSessionCommentMapper.toDomain)
+        .where((c) =>
+            c.targetTime != null &&
+            !c.targetTime!.isBefore(range.start) &&
+            c.targetTime!.isBefore(range.end))
+        .toList());
+  }
+
+  /// Comment count for a time range.  Pre-backfill (null targetTime) rows
+  /// are excluded — see [watchCommentsForRange].
+  @override
+  Stream<int> watchCommentCountForRange(DateTimeRange range) {
+    return watchCommentsForRange(range).map((list) => list.length);
   }
 
   @override
@@ -38,10 +66,9 @@ class DriftFrontSessionCommentsRepository
     return rows.map(FrontSessionCommentMapper.toDomain).toList();
   }
 
-  @override
-  Stream<int> watchCommentCount(String sessionId) {
-    return _dao.watchCommentCount(sessionId);
-  }
+  // ---------------------------------------------------------------------------
+  // Writes
+  // ---------------------------------------------------------------------------
 
   @override
   Future<void> createComment(domain.FrontSessionComment comment) async {
@@ -63,9 +90,18 @@ class DriftFrontSessionCommentsRepository
     await syncRecordDelete(_table, id);
   }
 
+  // ---------------------------------------------------------------------------
+  // Private helpers
+  // ---------------------------------------------------------------------------
+
   Map<String, dynamic> _commentFields(domain.FrontSessionComment c) {
     return {
-      'session_id': c.sessionId,
+      // session_id column still exists in v7 Drift schema (dropped in v8
+      // cleanup via TableMigration rebuild); leave null on new inserts so the
+      // column stays inert.  Do NOT write a session_id here — new comments
+      // are anchored to target_time, not a session FK.
+      'target_time': c.targetTime?.toIso8601String(),
+      'author_member_id': c.authorMemberId,
       'body': c.body,
       'timestamp': c.timestamp.toIso8601String(),
       'created_at': c.createdAt.toIso8601String(),
