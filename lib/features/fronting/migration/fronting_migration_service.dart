@@ -193,6 +193,7 @@ class FrontingMigrationService {
     required MigrationMode mode,
     required DeviceRole role,
     required Future<Uri?> Function(File file) shareFile,
+    String password = '',
   }) async {
     if (mode == MigrationMode.notNow) {
       // No destructive work — just write the deferred marker.
@@ -206,11 +207,7 @@ class FrontingMigrationService {
     File exportFile;
     try {
       exportFile = await dataExportService.exportEncryptedData(
-        // Migration-time export uses an empty password so the rescue
-        // file doesn't gate recovery behind a separate credential.  The
-        // user-facing copy in 5C should make this clear; the file
-        // never leaves the device unless the user explicitly shares it.
-        password: '',
+        password: password,
         includeLegacyFields: true,
       );
     } catch (e) {

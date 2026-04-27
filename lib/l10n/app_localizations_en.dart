@@ -7594,4 +7594,174 @@ class AppLocalizationsEn extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get frontingUpgradeTitle => 'Fronting upgrade';
+
+  @override
+  String get frontingUpgradeIntroHeadline =>
+      'We\'re upgrading how fronting is stored';
+
+  @override
+  String get frontingUpgradeIntroBody =>
+      'Co-fronting now uses one record per member instead of one shared record. This makes overlaps, edits, and analytics work correctly. We\'ll save a backup of your current data first, then run the upgrade.';
+
+  @override
+  String get frontingUpgradeContinue => 'Continue';
+
+  @override
+  String get frontingUpgradeNotNow => 'Not now';
+
+  @override
+  String get frontingUpgradeRoleHeadline => 'Is this your main device?';
+
+  @override
+  String get frontingUpgradeRoleBody =>
+      'Your main device keeps all your fronting history. Other devices will need to pair again afterward and pull the migrated history from the main device.';
+
+  @override
+  String get frontingUpgradeRolePrimary => 'Yes, this is my main device';
+
+  @override
+  String get frontingUpgradeRoleSecondary => 'No, this is a secondary';
+
+  @override
+  String get frontingUpgradeModeHeadline => 'How should we upgrade?';
+
+  @override
+  String get frontingUpgradeModeKeepTitle => 'Keep my data';
+
+  @override
+  String get frontingUpgradeModeKeepBody =>
+      'Your existing fronts stay. PluralKit-imported fronts get re-imported with the new shape on next PluralKit sync.';
+
+  @override
+  String get frontingUpgradeModeFreshTitle => 'Start fresh';
+
+  @override
+  String get frontingUpgradeModeFreshBody =>
+      'All fronts are wiped. Useful if your fronting history is messy and you want a clean slate. A backup file is still created.';
+
+  @override
+  String get frontingUpgradeRecommended => 'Recommended';
+
+  @override
+  String get frontingUpgradePasswordHeadline => 'Protect your backup';
+
+  @override
+  String get frontingUpgradePasswordBody =>
+      'We\'re about to back up your current fronting data and then upgrade it.';
+
+  @override
+  String get frontingUpgradePasswordNote =>
+      'This password protects your backup file. Save it somewhere safe — without it, the file can\'t be recovered.';
+
+  @override
+  String get frontingUpgradePasswordSubmit => 'Back up and upgrade';
+
+  @override
+  String get frontingUpgradeRunning => 'Migrating your fronting history…';
+
+  @override
+  String get frontingUpgradeRunningSubtitle =>
+      'This may take a moment. Don\'t close the app.';
+
+  @override
+  String get frontingUpgradeSuccessHeadline => 'Migration complete!';
+
+  @override
+  String frontingUpgradeCountSpMigrated(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Migrated $count Simply Plural sessions.',
+      one: 'Migrated 1 Simply Plural session.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String frontingUpgradeCountNativeMigrated(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Migrated $count fronting sessions.',
+      one: 'Migrated 1 fronting session.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String frontingUpgradeCountNativeExpanded(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Expanded $count co-fronting periods into per-member records.',
+      one: 'Expanded 1 co-fronting period into per-member records.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String frontingUpgradeCountPkDeleted(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'Cleared $count PluralKit-imported sessions (re-import after upgrade).',
+      one: 'Cleared 1 PluralKit-imported session (re-import after upgrade).',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String frontingUpgradeCountCommentsMigrated(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Migrated $count comments.',
+      one: 'Migrated 1 comment.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String frontingUpgradeCountOrphansAssigned(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Assigned $count unattributed sessions to the Unknown member.',
+      one: 'Assigned 1 unattributed session to the Unknown member.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get frontingUpgradeCountSentinelCreated =>
+      'Created an Unknown member to hold sessions with no clear fronter.';
+
+  @override
+  String get frontingUpgradeRepairPrimary =>
+      'Your other devices need to pair again to receive the migrated history. Open Settings → Sync on your other devices and follow the pairing flow.';
+
+  @override
+  String get frontingUpgradeRepairSecondary =>
+      'Pair this device with your main device again to receive the migrated history.';
+
+  @override
+  String get frontingUpgradeRepairSolo =>
+      'All set. Your fronting data is on the new format.';
+
+  @override
+  String get frontingUpgradeFailureHeadline => 'Migration failed';
+
+  @override
+  String get frontingUpgradeFailureBackupNote =>
+      'Your backup file was saved. You can find it in your share sheet history if you need to recover.';
+
+  @override
+  String get frontingUpgradeBannerTitle => 'Fronting upgrade pending';
+
+  @override
+  String get frontingUpgradeBannerMessage => 'Tap to continue the upgrade.';
 }
