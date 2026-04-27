@@ -327,8 +327,7 @@ class _SectionHeader extends StatelessWidget {
     final theme = Theme.of(context);
     final l10n = context.l10n;
     final label = switch (type) {
-      FrontingIssueType.overlap => l10n.frontingIssueSectionOverlap,
-      FrontingIssueType.gap => l10n.frontingIssueSectionGap,
+      FrontingIssueType.selfOverlap => l10n.frontingIssueSectionOverlap,
       FrontingIssueType.duplicate => l10n.frontingIssueSectionDuplicate,
       FrontingIssueType.mergeableAdjacent => l10n.frontingIssueSectionMergeable,
       FrontingIssueType.invalidRange => l10n.frontingIssueSectionInvalidRange,

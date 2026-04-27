@@ -2,18 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
-import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/mutations/field_patch.dart';
 import 'package:prism_plurality/domain/models/models.dart';
-import 'package:prism_plurality/features/fronting/editing/fronting_edit_resolution_models.dart';
-import 'package:prism_plurality/features/fronting/editing/fronting_session_change.dart';
 import 'package:prism_plurality/features/fronting/models/update_fronting_session_patch.dart';
-import 'package:prism_plurality/features/fronting/providers/fronting_editing_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
-import 'package:prism_plurality/features/fronting/sanitization/fronting_sanitizer_service.dart';
 import 'package:prism_plurality/features/fronting/utils/sleep_quality_l10n.dart';
-import 'package:prism_plurality/features/fronting/validation/fronting_validation_models.dart';
-import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_select.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
@@ -87,47 +80,13 @@ class _EditSleepSheetState extends ConsumerState<EditSleepSheet> {
       return;
     }
 
-    final editGuard = ref.read(frontingEditGuardProvider);
-    final resolutionService = ref.read(frontingEditResolutionServiceProvider);
-    final changeExecutor = ref.read(frontingChangeExecutorProvider);
-    final timingMode = ref.read(timingModeProvider);
-    final repo = ref.read(frontingSessionRepositoryProvider);
     final mutationService = ref.read(frontingMutationServiceProvider);
 
-    // Detect cross-type overlaps with fronting neighbors so sleep edits go
-    // through the same trim flow as fronting edits. The timeline is one
-    // continuous stream regardless of session type.
-    final originalSnapshot = FrontingSanitizerService.toSnapshot(
-      widget.session,
-    );
-    final editedSnapshot = FrontingSessionSnapshot(
-      id: widget.session.id,
-      memberId: widget.session.memberId,
-      start: _startTime,
-      end: endTime,
-      notes: notes.isNotEmpty ? notes : null,
-      sessionType: widget.session.sessionType,
-    );
-    final guardPatch = FrontingSessionPatch(
-      start: _startTime != widget.session.startTime ? _startTime : null,
-      end: endTime != widget.session.endTime ? endTime : null,
-      clearEnd: _isActive && widget.session.endTime != null,
-    );
-
-    final allSessions = await repo.getAllSessions();
-    if (!mounted) return;
-    final nearbySnapshots = allSessions
-        .map(FrontingSanitizerService.toSnapshot)
-        .toList();
-
-    final validation = editGuard.validateEdit(
-      original: originalSnapshot,
-      patch: guardPatch,
-      nearbySessions: nearbySnapshots,
-      timingMode: timingMode,
-    );
-
-    // Cross-member overlaps are valid in the per-member model (spec §3.3).
+    // Per per-member-sessions refactor (§3.3): cross-member overlaps are valid
+    // in the new model, so the previous validation/edit-guard pipeline (which
+    // existed to fan out trim/merge/cancel resolutions on cross-member overlap)
+    // no longer runs here. Sleep edits write through directly; the validation
+    // sanitizer surfaces self-overlap as a soft warning out-of-band.
     final patch = UpdateFrontingSessionPatch(
       startTime: _startTime != widget.session.startTime
           ? FieldPatch.value(_startTime)

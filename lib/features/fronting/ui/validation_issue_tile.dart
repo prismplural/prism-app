@@ -146,8 +146,7 @@ class _TypeChip extends StatelessWidget {
   static String _label(BuildContext context, FrontingIssueType type) {
     final l10n = context.l10n;
     return switch (type) {
-      FrontingIssueType.overlap => l10n.frontingIssueTypeOverlap,
-      FrontingIssueType.gap => l10n.frontingIssueTypeGap,
+      FrontingIssueType.selfOverlap => l10n.frontingIssueTypeOverlap,
       FrontingIssueType.duplicate => l10n.frontingIssueTypeDuplicate,
       FrontingIssueType.mergeableAdjacent => l10n.frontingIssueTypeMergeable,
       FrontingIssueType.invalidRange => l10n.frontingIssueTypeInvalidRange,

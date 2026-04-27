@@ -1,13 +1,15 @@
 // Tests for EditFrontSessionScreen member pickers after migration to
 // MemberSearchSheet.
 //
+// Per per-member-sessions refactor (§3): each session has exactly one
+// memberId; co-fronting is emergent overlap, not a multi-select on the
+// session. The co-fronter picker UI was removed, so the co-fronter-picker
+// test group was deleted with it.
+//
 // Verified behaviour:
 //   1. Fronter selection path opens the shared single-select MemberSearchSheet.
-//   2. Co-fronter selection path opens the shared multi-select MemberSearchSheet.
-//   3. Existing fronter is shown in the picker row before the sheet opens.
-//   4. Existing co-fronters are pre-selected (reflected in the selected-count
-//      title) when the multi-select sheet opens.
-//   5. Selecting a new fronter via the sheet updates the displayed fronter.
+//   2. Existing fronter is shown in the picker row before the sheet opens.
+//   3. Selecting a new fronter via the sheet updates the displayed fronter.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -26,7 +28,6 @@ import 'package:prism_plurality/features/settings/providers/settings_providers.d
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
-import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -38,20 +39,10 @@ Member _member({required String id, required String name}) =>
 FrontingSession _session({
   String id = 'test-session',
   String? memberId,
-  List<String> coFronterIds = const [],
 }) => FrontingSession(
   id: id,
   startTime: DateTime(2024, 1, 1, 10),
   memberId: memberId,
-  coFronterIds: coFronterIds,
-);
-
-Finder _confirmSelectionButton() => find.byWidgetPredicate(
-  (widget) => widget is PrismGlassIconButton && widget.icon == AppIcons.check,
-);
-Finder _sheetConfirmSelectionButton() => find.descendant(
-  of: find.byType(MemberSearchSheet),
-  matching: _confirmSelectionButton(),
 );
 
 /// Builds EditFrontSessionScreen with the given session and members, all
@@ -167,97 +158,6 @@ void main() {
   });
 
   // ══════════════════════════════════════════════════════════════════════════
-  // Co-fronter picker
-  // ══════════════════════════════════════════════════════════════════════════
-
-  group('co-fronter picker', () {
-    testWidgets('tapping the co-fronter search icon opens MemberSearchSheet', (
-      tester,
-    ) async {
-      final members = [
-        _member(id: 'alice', name: 'Alice'),
-        _member(id: 'bob', name: 'Bob'),
-        _member(id: 'charlie', name: 'Charlie'),
-      ];
-      await tester.pumpWidget(
-        _buildSubject(
-          session: _session(memberId: 'alice'),
-          members: members,
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      // The co-fronter search icon is the last search icon in the widget tree.
-      final icons = find.byIcon(AppIcons.search);
-      expect(icons, findsWidgets);
-
-      await tester.tap(icons.last);
-      await tester.pumpAndSettle();
-
-      expect(find.byType(MemberSearchSheet), findsOneWidget);
-    });
-
-    testWidgets(
-      'existing co-fronters are pre-selected when the multi-select sheet opens',
-      (tester) async {
-        final members = [
-          _member(id: 'alice', name: 'Alice'),
-          _member(id: 'bob', name: 'Bob'),
-          _member(id: 'charlie', name: 'Charlie'),
-        ];
-        // Session has Bob as a co-fronter.
-        await tester.pumpWidget(
-          _buildSubject(
-            session: _session(memberId: 'alice', coFronterIds: ['bob']),
-            members: members,
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        // Open the co-fronter multi-select sheet.
-        await tester.tap(find.byIcon(AppIcons.search).last);
-        await tester.pumpAndSettle();
-
-        expect(find.byType(MemberSearchSheet), findsOneWidget);
-
-        expect(find.text('1 selected'), findsOneWidget);
-      },
-    );
-
-    testWidgets(
-      'confirming co-fronter selection updates the displayed co-fronters',
-      (tester) async {
-        final members = [
-          _member(id: 'alice', name: 'Alice'),
-          _member(id: 'bob', name: 'Bob'),
-          _member(id: 'charlie', name: 'Charlie'),
-        ];
-        await tester.pumpWidget(
-          _buildSubject(
-            session: _session(memberId: 'alice'),
-            members: members,
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        // Open the co-fronter sheet.
-        await tester.tap(find.byIcon(AppIcons.search).last);
-        await tester.pumpAndSettle();
-
-        // Select Charlie.
-        await tester.tap(find.text('Charlie').last);
-        await tester.pump();
-
-        await tester.tap(_sheetConfirmSelectionButton());
-        await tester.pumpAndSettle();
-
-        // Charlie should now appear as a selected co-fronter chip.
-        expect(find.text('Charlie'), findsWidgets);
-      },
-    );
-  });
-
-  // ══════════════════════════════════════════════════════════════════════════
   // Save behavior
   // ══════════════════════════════════════════════════════════════════════════
 
@@ -287,38 +187,6 @@ void main() {
 
         // Bob is now shown in the fronter picker row, meaning _memberId was
         // updated and would be sent to _save() if the user taps the save button.
-        expect(find.text('Bob'), findsWidgets);
-      },
-    );
-
-    testWidgets(
-      'after updating co-fronters via the sheet the new set is reflected',
-      (tester) async {
-        final members = [
-          _member(id: 'alice', name: 'Alice'),
-          _member(id: 'bob', name: 'Bob'),
-          _member(id: 'charlie', name: 'Charlie'),
-        ];
-        // Session starts with no co-fronters.
-        await tester.pumpWidget(
-          _buildSubject(
-            session: _session(memberId: 'alice'),
-            members: members,
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        // Open co-fronter sheet, select Bob, confirm.
-        await tester.tap(find.byIcon(AppIcons.search).last);
-        await tester.pumpAndSettle();
-
-        await tester.tap(find.text('Bob').last);
-        await tester.pump();
-
-        await tester.tap(_sheetConfirmSelectionButton());
-        await tester.pumpAndSettle();
-
-        // Bob's chip is now shown, meaning _coFronterIds was updated.
         expect(find.text('Bob'), findsWidgets);
       },
     );

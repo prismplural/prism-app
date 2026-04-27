@@ -35,9 +35,8 @@ class _FakeFrontingNotifier extends FrontingNotifier {
   Future<void> build() async {}
 
   @override
-  Future<void> startFrontingWithDetails({
-    required String? memberId,
-    List<String> coFronterIds = const [],
+  Future<void> startFronting(
+    List<String> memberIds, {
     FrontConfidence? confidence,
     String? notes,
     DateTime? startTime,

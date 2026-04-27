@@ -43,9 +43,11 @@ class _FakeFrontingNotifier extends FrontingNotifier {
 
   @override
   Future<void> startFronting(
-    String memberId, {
-    List<String> coFronterIds = const [],
-  }) async => startedIds.add(memberId);
+    List<String> memberIds, {
+    FrontConfidence? confidence,
+    String? notes,
+    DateTime? startTime,
+  }) async => startedIds.addAll(memberIds);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -96,7 +98,7 @@ class _WakeUpPickerHarnessState extends ConsumerState<_WakeUpPickerHarness> {
       await ref.read(sleepNotifierProvider.notifier).endSleep(session.id);
       await ref
           .read(frontingNotifierProvider.notifier)
-          .startFronting(result.memberId);
+          .startFronting([result.memberId]);
     } catch (e) {
       if (context.mounted) {
         PrismToast.error(context, message: 'error');

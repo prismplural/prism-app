@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:drift/drift.dart' hide isNull, isNotNull;
@@ -197,7 +196,6 @@ void main() {
         startTime: start,
         endTime: end,
         memberId: 'member-1',
-        coFronterIds: jsonEncode(['co-1', 'co-2']),
         notes: 'Felt good',
         confidence: domain.FrontConfidence.strong.index,
         pluralkitUuid: 'pk-fs-1',
@@ -208,7 +206,6 @@ void main() {
       expect(model.startTime, start);
       expect(model.endTime, end);
       expect(model.memberId, 'member-1');
-      expect(model.coFronterIds, ['co-1', 'co-2']);
       expect(model.notes, 'Felt good');
       expect(model.confidence, domain.FrontConfidence.strong);
       expect(model.sessionType, domain.SessionType.normal);
@@ -231,18 +228,6 @@ void main() {
       expect(model.quality, domain.SleepQuality.good);
       expect(model.isHealthKitImport, isTrue);
       expect(model.memberId, isNull);
-    });
-
-    test('toDomain handles empty coFronterIds string', () {
-      final row = makeDbFrontingSession(coFronterIds: '');
-      final model = FrontingSessionMapper.toDomain(row);
-      expect(model.coFronterIds, isEmpty);
-    });
-
-    test('toDomain handles empty JSON array for coFronterIds', () {
-      final row = makeDbFrontingSession(coFronterIds: '[]');
-      final model = FrontingSessionMapper.toDomain(row);
-      expect(model.coFronterIds, isEmpty);
     });
 
     test('toDomain handles null optional fields', () {
@@ -277,13 +262,12 @@ void main() {
       expect(model.confidence, domain.FrontConfidence.unsure);
     });
 
-    test('toCompanion encodes coFronterIds as JSON and sets isDirty', () {
+    test('toCompanion preserves all fields', () {
       final model = domain.FrontingSession(
         id: 'fs-2',
         startTime: start,
         endTime: end,
         memberId: 'member-2',
-        coFronterIds: ['a', 'b', 'c'],
         notes: 'Test notes',
         confidence: domain.FrontConfidence.certain,
         pluralkitUuid: 'pk-2',
@@ -294,7 +278,6 @@ void main() {
       expect(companion.startTime.value, start);
       expect(companion.endTime.value, end);
       expect(companion.memberId.value, 'member-2');
-      expect(jsonDecode(companion.coFronterIds.value), ['a', 'b', 'c']);
       expect(companion.notes.value, 'Test notes');
       expect(companion.confidence.value, domain.FrontConfidence.certain.index);
       expect(companion.sessionType.value, domain.SessionType.normal.index);
@@ -308,20 +291,21 @@ void main() {
         startTime: start,
         endTime: end,
         memberId: 'member-rt',
-        coFronterIds: ['x', 'y'],
         notes: 'Round trip',
         confidence: domain.FrontConfidence.certain,
       );
 
       final companion = FrontingSessionMapper.toCompanion(original);
 
+      // The Drift row still carries `coFronterIds` for now; the mapper just
+      // doesn't read or write it after the per-member-sessions refactor.
       final row = db.FrontingSession(
         id: companion.id.value,
         sessionType: companion.sessionType.value,
         startTime: companion.startTime.value,
         endTime: companion.endTime.value,
         memberId: companion.memberId.value,
-        coFronterIds: companion.coFronterIds.value,
+        coFronterIds: '[]',
         notes: companion.notes.value,
         confidence: companion.confidence.value,
         quality: companion.quality.value,
@@ -335,29 +319,11 @@ void main() {
       expect(restored.startTime, original.startTime);
       expect(restored.endTime, original.endTime);
       expect(restored.memberId, original.memberId);
-      expect(restored.coFronterIds, original.coFronterIds);
       expect(restored.notes, original.notes);
       expect(restored.confidence, original.confidence);
       expect(restored.sessionType, original.sessionType);
       expect(restored.quality, original.quality);
       expect(restored.isHealthKitImport, original.isHealthKitImport);
-    });
-
-    test('toCompanion with empty coFronterIds encodes as empty JSON array', () {
-      final model = domain.FrontingSession(
-        id: 'fs-empty',
-        startTime: start,
-        coFronterIds: const [],
-      );
-      final companion = FrontingSessionMapper.toCompanion(model);
-      expect(companion.coFronterIds.value, '[]');
-    });
-
-    test('toDomain gracefully handles malformed coFronterIds JSON', () {
-      // The mapper catches JSON parse errors and returns empty list
-      final row = makeDbFrontingSession(coFronterIds: 'not valid json!!!');
-      final model = FrontingSessionMapper.toDomain(row);
-      expect(model.coFronterIds, isEmpty);
     });
   });
 
