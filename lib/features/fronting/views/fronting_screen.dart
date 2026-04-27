@@ -11,6 +11,7 @@ import 'package:prism_plurality/core/diagnostics/boot_timings.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/domain/models/models.dart';
+import 'package:prism_plurality/features/fronting/migration/widgets/fronting_upgrade_banner.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart';
 import 'package:prism_plurality/features/fronting/views/add_front_session_sheet.dart';
@@ -669,6 +670,12 @@ class FrontingBannerStack extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        // Fronting per-member upgrade banner — only renders when the
+        // user has deferred the upgrade (Phase 5C).  Auto-hidden after
+        // migration completes via Riverpod state.
+        const FrontingUpgradeBanner(
+          padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
+        ),
         if (!kReleaseMode)
           _TimelineIssueBanner(
             theme: theme,

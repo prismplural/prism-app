@@ -11,6 +11,9 @@ import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
+import 'package:prism_plurality/features/fronting/migration/fronting_migration_service.dart';
+import 'package:prism_plurality/features/fronting/migration/providers/fronting_migration_providers.dart';
+import 'package:prism_plurality/features/fronting/migration/views/fronting_upgrade_sheet.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/habits/providers/habit_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
@@ -587,6 +590,31 @@ class _AppShellState extends ConsumerState<AppShell>
       _showPasswordSheetIfNeeded(context, ref);
     }
 
+    // Show the per-member fronting upgrade modal post-unlock.  Mirrors
+    // the password-sheet trigger above: only fires once the PIN check
+    // has resolved and the lock overlay is down, so the modal renders
+    // over the home tabs (not over the lock).
+    //
+    // - 'notStarted' / 'blocked': non-dismissible — user MUST pick a
+    //   path, with "Not now" being the explicit defer.
+    // - 'deferred': dismissible — user already chose to defer; the
+    //   home banner reminds them, the modal re-opens on tap.
+    //
+    // Mid-transaction sentinels ('upgradeAndKeep' / 'startFresh')
+    // indicate a crashed retry — treat as 'notStarted' for re-prompt.
+    ref.listen<AsyncValue<String>>(frontingMigrationModeProvider, (prev, next) {
+      final mode = next.value;
+      if (mode == null) return;
+      if (!_pinCheckResolved || _locked) return;
+      _showFrontingUpgradeSheetIfNeeded(context, ref, mode);
+    });
+    if (!_locked && _pinCheckResolved) {
+      final mode = ref.read(frontingMigrationModeProvider).value;
+      if (mode != null) {
+        _showFrontingUpgradeSheetIfNeeded(context, ref, mode);
+      }
+    }
+
     void onTabSelected(AppShellTab tab, {required bool useHaptics}) {
       if (useHaptics) Haptics.selection();
       final isRetap = tab.branchIndex == widget.navigationShell.currentIndex;
@@ -820,6 +848,47 @@ class _AppShellState extends ConsumerState<AppShell>
       ref.read(syncPasswordSheetVisibleProvider.notifier).setValue(true);
       SyncPinSheet.show(context).whenComplete(() {
         ref.read(syncPasswordSheetVisibleProvider.notifier).setValue(false);
+      });
+    });
+  }
+
+  /// Tracks whether the upgrade modal is already showing so listener
+  /// re-fires (each settings stream emit) don't stack duplicate
+  /// sheets.  Reset in `whenComplete` so a dismissed-then-redeferred
+  /// modal can re-open via the banner.
+  bool _frontingUpgradeSheetShowing = false;
+
+  void _showFrontingUpgradeSheetIfNeeded(
+    BuildContext context,
+    WidgetRef ref,
+    String mode,
+  ) {
+    // Hidden states: nothing to show.
+    if (mode == FrontingMigrationService.modeComplete) return;
+
+    // Mid-transaction modes mean a prior attempt crashed; we treat
+    // them as 'notStarted' for retry.  'blocked' (v7 onUpgrade
+    // refused the composite index) shows the modal too — the user can
+    // try migration to clear the duplicates, or defer.
+    final isMandatory = mode == FrontingMigrationService.modeNotStarted ||
+        mode == FrontingMigrationService.modeUpgradeAndKeep ||
+        mode == FrontingMigrationService.modeStartFresh ||
+        mode == 'blocked';
+    final isDeferred = mode == FrontingMigrationService.modeDeferred;
+    if (!isMandatory && !isDeferred) return;
+
+    // Deferred mode does NOT auto-present — the home banner is the
+    // surface.  Auto-present only the first-time / crash-retry modes.
+    if (isDeferred) return;
+
+    if (_frontingUpgradeSheetShowing) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!context.mounted) return;
+      if (_frontingUpgradeSheetShowing) return;
+      _frontingUpgradeSheetShowing = true;
+      showFrontingUpgradeSheet(context, isDismissible: false).whenComplete(() {
+        _frontingUpgradeSheetShowing = false;
       });
     });
   }

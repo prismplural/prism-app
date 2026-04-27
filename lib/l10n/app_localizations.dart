@@ -12438,6 +12438,222 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count, plural, =1{1 duplicate-start SP sleep entry collapsed.} other{{count} duplicate-start SP sleep entries collapsed.}}'**
   String migrationWarnCfSleepDedup(int count);
+
+  /// Title bar of the per-member fronting upgrade modal
+  ///
+  /// In en, this message translates to:
+  /// **'Fronting upgrade'**
+  String get frontingUpgradeTitle;
+
+  /// Intro screen headline
+  ///
+  /// In en, this message translates to:
+  /// **'We\'re upgrading how fronting is stored'**
+  String get frontingUpgradeIntroHeadline;
+
+  /// Intro screen body explaining the upgrade
+  ///
+  /// In en, this message translates to:
+  /// **'Co-fronting now uses one record per member instead of one shared record. This makes overlaps, edits, and analytics work correctly. We\'ll save a backup of your current data first, then run the upgrade.'**
+  String get frontingUpgradeIntroBody;
+
+  /// Primary continue button on the intro screen
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get frontingUpgradeContinue;
+
+  /// Secondary defer button on the intro screen
+  ///
+  /// In en, this message translates to:
+  /// **'Not now'**
+  String get frontingUpgradeNotNow;
+
+  /// Role-selection screen headline
+  ///
+  /// In en, this message translates to:
+  /// **'Is this your main device?'**
+  String get frontingUpgradeRoleHeadline;
+
+  /// Role-selection screen body
+  ///
+  /// In en, this message translates to:
+  /// **'Your main device keeps all your fronting history. Other devices will need to pair again afterward and pull the migrated history from the main device.'**
+  String get frontingUpgradeRoleBody;
+
+  /// Primary-role button
+  ///
+  /// In en, this message translates to:
+  /// **'Yes, this is my main device'**
+  String get frontingUpgradeRolePrimary;
+
+  /// Secondary-role button
+  ///
+  /// In en, this message translates to:
+  /// **'No, this is a secondary'**
+  String get frontingUpgradeRoleSecondary;
+
+  /// Mode-picker screen headline
+  ///
+  /// In en, this message translates to:
+  /// **'How should we upgrade?'**
+  String get frontingUpgradeModeHeadline;
+
+  /// Mode card: upgradeAndKeep title
+  ///
+  /// In en, this message translates to:
+  /// **'Keep my data'**
+  String get frontingUpgradeModeKeepTitle;
+
+  /// Mode card: upgradeAndKeep body
+  ///
+  /// In en, this message translates to:
+  /// **'Your existing fronts stay. PluralKit-imported fronts get re-imported with the new shape on next PluralKit sync.'**
+  String get frontingUpgradeModeKeepBody;
+
+  /// Mode card: startFresh title
+  ///
+  /// In en, this message translates to:
+  /// **'Start fresh'**
+  String get frontingUpgradeModeFreshTitle;
+
+  /// Mode card: startFresh body
+  ///
+  /// In en, this message translates to:
+  /// **'All fronts are wiped. Useful if your fronting history is messy and you want a clean slate. A backup file is still created.'**
+  String get frontingUpgradeModeFreshBody;
+
+  /// Recommended badge on the keep-data mode card
+  ///
+  /// In en, this message translates to:
+  /// **'Recommended'**
+  String get frontingUpgradeRecommended;
+
+  /// Password screen headline
+  ///
+  /// In en, this message translates to:
+  /// **'Protect your backup'**
+  String get frontingUpgradePasswordHeadline;
+
+  /// Password screen body
+  ///
+  /// In en, this message translates to:
+  /// **'We\'re about to back up your current fronting data and then upgrade it.'**
+  String get frontingUpgradePasswordBody;
+
+  /// Password screen note above the input
+  ///
+  /// In en, this message translates to:
+  /// **'This password protects your backup file. Save it somewhere safe — without it, the file can\'t be recovered.'**
+  String get frontingUpgradePasswordNote;
+
+  /// Submit button on the password screen
+  ///
+  /// In en, this message translates to:
+  /// **'Back up and upgrade'**
+  String get frontingUpgradePasswordSubmit;
+
+  /// Title shown while the migration is running
+  ///
+  /// In en, this message translates to:
+  /// **'Migrating your fronting history…'**
+  String get frontingUpgradeRunning;
+
+  /// Subtitle shown while the migration is running
+  ///
+  /// In en, this message translates to:
+  /// **'This may take a moment. Don\'t close the app.'**
+  String get frontingUpgradeRunningSubtitle;
+
+  /// Success screen headline
+  ///
+  /// In en, this message translates to:
+  /// **'Migration complete!'**
+  String get frontingUpgradeSuccessHeadline;
+
+  /// Success counter: SP rows migrated
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Migrated 1 Simply Plural session.} other{Migrated {count} Simply Plural sessions.}}'**
+  String frontingUpgradeCountSpMigrated(int count);
+
+  /// Success counter: native rows migrated
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Migrated 1 fronting session.} other{Migrated {count} fronting sessions.}}'**
+  String frontingUpgradeCountNativeMigrated(int count);
+
+  /// Success counter: native rows fanned out
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Expanded 1 co-fronting period into per-member records.} other{Expanded {count} co-fronting periods into per-member records.}}'**
+  String frontingUpgradeCountNativeExpanded(int count);
+
+  /// Success counter: PK rows cleared
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Cleared 1 PluralKit-imported session (re-import after upgrade).} other{Cleared {count} PluralKit-imported sessions (re-import after upgrade).}}'**
+  String frontingUpgradeCountPkDeleted(int count);
+
+  /// Success counter: comments migrated
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Migrated 1 comment.} other{Migrated {count} comments.}}'**
+  String frontingUpgradeCountCommentsMigrated(int count);
+
+  /// Success counter: orphan rows assigned to sentinel
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Assigned 1 unattributed session to the Unknown member.} other{Assigned {count} unattributed sessions to the Unknown member.}}'**
+  String frontingUpgradeCountOrphansAssigned(int count);
+
+  /// Success counter: sentinel was created
+  ///
+  /// In en, this message translates to:
+  /// **'Created an Unknown member to hold sessions with no clear fronter.'**
+  String get frontingUpgradeCountSentinelCreated;
+
+  /// Re-pair guidance for primary devices
+  ///
+  /// In en, this message translates to:
+  /// **'Your other devices need to pair again to receive the migrated history. Open Settings → Sync on your other devices and follow the pairing flow.'**
+  String get frontingUpgradeRepairPrimary;
+
+  /// Re-pair guidance for secondary devices
+  ///
+  /// In en, this message translates to:
+  /// **'Pair this device with your main device again to receive the migrated history.'**
+  String get frontingUpgradeRepairSecondary;
+
+  /// Final note for solo devices, no re-pair needed
+  ///
+  /// In en, this message translates to:
+  /// **'All set. Your fronting data is on the new format.'**
+  String get frontingUpgradeRepairSolo;
+
+  /// Failure screen headline
+  ///
+  /// In en, this message translates to:
+  /// **'Migration failed'**
+  String get frontingUpgradeFailureHeadline;
+
+  /// Reassurance shown on the failure screen when a backup exists
+  ///
+  /// In en, this message translates to:
+  /// **'Your backup file was saved. You can find it in your share sheet history if you need to recover.'**
+  String get frontingUpgradeFailureBackupNote;
+
+  /// Home-screen banner title for deferred upgrade
+  ///
+  /// In en, this message translates to:
+  /// **'Fronting upgrade pending'**
+  String get frontingUpgradeBannerTitle;
+
+  /// Home-screen banner message for deferred upgrade
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to continue the upgrade.'**
+  String get frontingUpgradeBannerMessage;
 }
 
 class _AppLocalizationsDelegate

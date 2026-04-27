@@ -8007,5 +8007,104 @@
   "@migrationWarnCfSleepDedup": {
     "description": "Warning: same-start SP sleep entries were deduped",
     "placeholders": { "count": { "type": "int" } }
-  }
+  },
+
+  "frontingUpgradeTitle": "Fronting upgrade",
+  "@frontingUpgradeTitle": { "description": "Title bar of the per-member fronting upgrade modal" },
+  "frontingUpgradeIntroHeadline": "We're upgrading how fronting is stored",
+  "@frontingUpgradeIntroHeadline": { "description": "Intro screen headline" },
+  "frontingUpgradeIntroBody": "Co-fronting now uses one record per member instead of one shared record. This makes overlaps, edits, and analytics work correctly. We'll save a backup of your current data first, then run the upgrade.",
+  "@frontingUpgradeIntroBody": { "description": "Intro screen body explaining the upgrade" },
+  "frontingUpgradeContinue": "Continue",
+  "@frontingUpgradeContinue": { "description": "Primary continue button on the intro screen" },
+  "frontingUpgradeNotNow": "Not now",
+  "@frontingUpgradeNotNow": { "description": "Secondary defer button on the intro screen" },
+
+  "frontingUpgradeRoleHeadline": "Is this your main device?",
+  "@frontingUpgradeRoleHeadline": { "description": "Role-selection screen headline" },
+  "frontingUpgradeRoleBody": "Your main device keeps all your fronting history. Other devices will need to pair again afterward and pull the migrated history from the main device.",
+  "@frontingUpgradeRoleBody": { "description": "Role-selection screen body" },
+  "frontingUpgradeRolePrimary": "Yes, this is my main device",
+  "@frontingUpgradeRolePrimary": { "description": "Primary-role button" },
+  "frontingUpgradeRoleSecondary": "No, this is a secondary",
+  "@frontingUpgradeRoleSecondary": { "description": "Secondary-role button" },
+
+  "frontingUpgradeModeHeadline": "How should we upgrade?",
+  "@frontingUpgradeModeHeadline": { "description": "Mode-picker screen headline" },
+  "frontingUpgradeModeKeepTitle": "Keep my data",
+  "@frontingUpgradeModeKeepTitle": { "description": "Mode card: upgradeAndKeep title" },
+  "frontingUpgradeModeKeepBody": "Your existing fronts stay. PluralKit-imported fronts get re-imported with the new shape on next PluralKit sync.",
+  "@frontingUpgradeModeKeepBody": { "description": "Mode card: upgradeAndKeep body" },
+  "frontingUpgradeModeFreshTitle": "Start fresh",
+  "@frontingUpgradeModeFreshTitle": { "description": "Mode card: startFresh title" },
+  "frontingUpgradeModeFreshBody": "All fronts are wiped. Useful if your fronting history is messy and you want a clean slate. A backup file is still created.",
+  "@frontingUpgradeModeFreshBody": { "description": "Mode card: startFresh body" },
+  "frontingUpgradeRecommended": "Recommended",
+  "@frontingUpgradeRecommended": { "description": "Recommended badge on the keep-data mode card" },
+
+  "frontingUpgradePasswordHeadline": "Protect your backup",
+  "@frontingUpgradePasswordHeadline": { "description": "Password screen headline" },
+  "frontingUpgradePasswordBody": "We're about to back up your current fronting data and then upgrade it.",
+  "@frontingUpgradePasswordBody": { "description": "Password screen body" },
+  "frontingUpgradePasswordNote": "This password protects your backup file. Save it somewhere safe — without it, the file can't be recovered.",
+  "@frontingUpgradePasswordNote": { "description": "Password screen note above the input" },
+  "frontingUpgradePasswordSubmit": "Back up and upgrade",
+  "@frontingUpgradePasswordSubmit": { "description": "Submit button on the password screen" },
+
+  "frontingUpgradeRunning": "Migrating your fronting history…",
+  "@frontingUpgradeRunning": { "description": "Title shown while the migration is running" },
+  "frontingUpgradeRunningSubtitle": "This may take a moment. Don't close the app.",
+  "@frontingUpgradeRunningSubtitle": { "description": "Subtitle shown while the migration is running" },
+
+  "frontingUpgradeSuccessHeadline": "Migration complete!",
+  "@frontingUpgradeSuccessHeadline": { "description": "Success screen headline" },
+  "frontingUpgradeCountSpMigrated": "{count, plural, =1{Migrated 1 Simply Plural session.} other{Migrated {count} Simply Plural sessions.}}",
+  "@frontingUpgradeCountSpMigrated": {
+    "description": "Success counter: SP rows migrated",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "frontingUpgradeCountNativeMigrated": "{count, plural, =1{Migrated 1 fronting session.} other{Migrated {count} fronting sessions.}}",
+  "@frontingUpgradeCountNativeMigrated": {
+    "description": "Success counter: native rows migrated",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "frontingUpgradeCountNativeExpanded": "{count, plural, =1{Expanded 1 co-fronting period into per-member records.} other{Expanded {count} co-fronting periods into per-member records.}}",
+  "@frontingUpgradeCountNativeExpanded": {
+    "description": "Success counter: native rows fanned out",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "frontingUpgradeCountPkDeleted": "{count, plural, =1{Cleared 1 PluralKit-imported session (re-import after upgrade).} other{Cleared {count} PluralKit-imported sessions (re-import after upgrade).}}",
+  "@frontingUpgradeCountPkDeleted": {
+    "description": "Success counter: PK rows cleared",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "frontingUpgradeCountCommentsMigrated": "{count, plural, =1{Migrated 1 comment.} other{Migrated {count} comments.}}",
+  "@frontingUpgradeCountCommentsMigrated": {
+    "description": "Success counter: comments migrated",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "frontingUpgradeCountOrphansAssigned": "{count, plural, =1{Assigned 1 unattributed session to the Unknown member.} other{Assigned {count} unattributed sessions to the Unknown member.}}",
+  "@frontingUpgradeCountOrphansAssigned": {
+    "description": "Success counter: orphan rows assigned to sentinel",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "frontingUpgradeCountSentinelCreated": "Created an Unknown member to hold sessions with no clear fronter.",
+  "@frontingUpgradeCountSentinelCreated": { "description": "Success counter: sentinel was created" },
+
+  "frontingUpgradeRepairPrimary": "Your other devices need to pair again to receive the migrated history. Open Settings → Sync on your other devices and follow the pairing flow.",
+  "@frontingUpgradeRepairPrimary": { "description": "Re-pair guidance for primary devices" },
+  "frontingUpgradeRepairSecondary": "Pair this device with your main device again to receive the migrated history.",
+  "@frontingUpgradeRepairSecondary": { "description": "Re-pair guidance for secondary devices" },
+  "frontingUpgradeRepairSolo": "All set. Your fronting data is on the new format.",
+  "@frontingUpgradeRepairSolo": { "description": "Final note for solo devices, no re-pair needed" },
+
+  "frontingUpgradeFailureHeadline": "Migration failed",
+  "@frontingUpgradeFailureHeadline": { "description": "Failure screen headline" },
+  "frontingUpgradeFailureBackupNote": "Your backup file was saved. You can find it in your share sheet history if you need to recover.",
+  "@frontingUpgradeFailureBackupNote": { "description": "Reassurance shown on the failure screen when a backup exists" },
+
+  "frontingUpgradeBannerTitle": "Fronting upgrade pending",
+  "@frontingUpgradeBannerTitle": { "description": "Home-screen banner title for deferred upgrade" },
+  "frontingUpgradeBannerMessage": "Tap to continue the upgrade.",
+  "@frontingUpgradeBannerMessage": { "description": "Home-screen banner message for deferred upgrade" }
 }
