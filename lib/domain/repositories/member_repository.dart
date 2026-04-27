@@ -35,8 +35,9 @@ abstract class MemberRepository {
   /// pair so callers that report counters (e.g. migration) can observe
   /// whether a write happened.
   ///
-  /// Idempotent: two concurrent calls produce the same row id and the
-  /// second `syncRecordCreate` is absorbed by `insertOnConflictUpdate`.
+  /// Idempotent: two concurrent calls produce the same row id; the
+  /// loser's PK constraint violation is caught and the winning row is
+  /// refetched (see `DriftMemberRepository.ensureUnknownSentinelMember`).
   /// Used by every code path that needs the sentinel — the add-front
   /// sheet's "Front as Unknown" flow, the per-member fronting migration
   /// (orphan reassignment), the SP importer (entries with `member: "unknown"`),

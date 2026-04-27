@@ -91,6 +91,51 @@ void main() {
     });
   });
 
+  group('isUniqueOrPrimaryKeyConstraintViolation', () {
+    test('returns true for SQLITE_CONSTRAINT_UNIQUE (2067)', () {
+      final error = SqliteException(
+        extendedResultCode: 2067,
+        message: 'UNIQUE constraint failed: members.pluralkit_uuid',
+      );
+      expect(isUniqueOrPrimaryKeyConstraintViolation(error), isTrue);
+    });
+
+    test('returns true for SQLITE_CONSTRAINT_PRIMARYKEY (1555)', () {
+      final error = SqliteException(
+        extendedResultCode: 1555,
+        message: 'PRIMARY KEY constraint failed: members.id',
+      );
+      expect(isUniqueOrPrimaryKeyConstraintViolation(error), isTrue);
+    });
+
+    test(
+      'returns true for DriftRemoteException wrapping a PRIMARYKEY violation',
+      () {
+        final inner = SqliteException(
+          extendedResultCode: 1555,
+          message: 'PRIMARY KEY constraint failed: members.id',
+        );
+        final wrapped = _FakeDriftRemoteException(inner);
+        expect(isUniqueOrPrimaryKeyConstraintViolation(wrapped), isTrue);
+      },
+    );
+
+    test('returns false for FOREIGNKEY (787)', () {
+      final error = SqliteException(
+        extendedResultCode: 787,
+        message: 'FOREIGN KEY constraint failed',
+      );
+      expect(isUniqueOrPrimaryKeyConstraintViolation(error), isFalse);
+    });
+
+    test('returns false for unrelated exception', () {
+      expect(
+        isUniqueOrPrimaryKeyConstraintViolation(Exception('boom')),
+        isFalse,
+      );
+    });
+  });
+
   group('asSqliteException', () {
     test('returns the same instance for a direct SqliteException', () {
       final error = SqliteException(
