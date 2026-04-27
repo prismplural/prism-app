@@ -15,13 +15,14 @@ class FrontingMutationResult {
   });
 
   /// The sessions created or most-recently-modified by the mutation.
+  ///
+  /// Multi-member calls (e.g. `startFronting([alex, sky])`) produce N rows.
+  /// Callers must explicitly handle the list — use `.single` to assert exactly
+  /// one (throws on length mismatch) or iterate. There is intentionally no
+  /// `.session` shorthand: a silent `sessions.first` collapse would hide
+  /// downstream bugs where multi-member results get treated as single-member.
   final List<FrontingSession> sessions;
   final List<String?> previousMemberIds;
-
-  /// Convenience accessor for callers that expect a single session (e.g. sleep,
-  /// wakeUp, single-member starts). Returns the first session, or throws if
-  /// [sessions] is empty.
-  FrontingSession get session => sessions.first;
 }
 
 class FrontingMutationService {
