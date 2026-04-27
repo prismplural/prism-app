@@ -104,7 +104,12 @@ FrontingMigrationService _makeService(
   AppDatabase db,
   DataExportService exportService, {
   List<ffi.PrismSyncHandle>? resetCalls,
+  Directory? backupDirectory,
 }) {
+  // Avoid the platform-channel hop into getApplicationDocumentsDirectory
+  // in unit tests by defaulting the backup dir to a temp dir.
+  final dir = backupDirectory ??
+      Directory.systemTemp.createTempSync('prism-mig-backup-');
   return FrontingMigrationService(
     db: db,
     memberRepository: DriftMemberRepository(db.membersDao, null),
@@ -117,6 +122,7 @@ FrontingMigrationService _makeService(
     resetSyncState: (h) async {
       resetCalls?.add(h);
     },
+    backupDirectoryProvider: () async => dir,
   );
 }
 
@@ -265,6 +271,69 @@ void main() {
         ) as Map<String, dynamic>;
         expect(comment['sessionId'], 'native-multi',
             reason: 'comment.session_id must round-trip through the export');
+      },
+    );
+
+    // -------------------------------------------------------------------
+    // prepareBackup writes to the injected directory (codex P1 #8)
+    //
+    // The split between prepareBackup + runMigrationDestructive lets the
+    // upgrade modal gate the destructive phase on the user actually
+    // saving the rescue file. Here we just pin that prepareBackup
+    // produces a non-null File in the directory we provided, so the
+    // upgrade modal can hand that path to the share / save-as actions.
+    // -------------------------------------------------------------------
+    test(
+      'prepareBackup writes the PRISM1 file to the injected backup '
+      'directory and returns a non-null File',
+      () async {
+        await _seedMember(db, 'm1');
+        await _seedSession(
+          db,
+          id: 's1',
+          startTime: DateTime(2026, 4, 1, 9).toUtc(),
+          memberId: 'm1',
+        );
+
+        final backupDir =
+            Directory.systemTemp.createTempSync('prism-mig-backup-prep-');
+        final svc = _makeService(
+          db,
+          exportService,
+          backupDirectory: backupDir,
+        );
+
+        final file = await svc.prepareBackup(
+          mode: MigrationMode.upgradeAndKeep,
+          password: 'a-strong-password-12',
+        );
+
+        expect(await file.exists(), isTrue);
+        expect(file.path, startsWith(backupDir.path));
+        // Migration mode untouched — prepareBackup is non-destructive.
+        // Default initial value depends on migration onUpgrade; we just
+        // assert it's not the in-progress sentinel.
+        final mode =
+            await db.systemSettingsDao.readPendingFrontingMigrationMode();
+        expect(mode, isNot(FrontingMigrationService.modeInProgress));
+
+        try {
+          await backupDir.delete(recursive: true);
+        } catch (_) {}
+      },
+    );
+
+    test(
+      'prepareBackup rejects MigrationMode.notNow',
+      () async {
+        final svc = _makeService(db, exportService);
+        await expectLater(
+          svc.prepareBackup(
+            mode: MigrationMode.notNow,
+            password: 'irrelevant-12345',
+          ),
+          throwsStateError,
+        );
       },
     );
 
@@ -682,6 +751,7 @@ void main() {
           dataExportService: exportService,
           syncHandle: null,
           resetSyncState: (_) async {},
+          backupDirectoryProvider: () async => cacheDir,
         );
 
         final result = await svc.runMigration(
@@ -791,6 +861,7 @@ void main() {
           resetSyncState: (h) async {
             resetCalls.add(h);
           },
+          backupDirectoryProvider: () async => cacheDir,
         );
 
         final result = await svc.runMigration(
@@ -929,6 +1000,7 @@ void main() {
           dataExportService: exportService,
           syncHandle: _FakePrismSyncHandle(),
           resetSyncState: failingThenOk,
+          backupDirectoryProvider: () async => cacheDir,
         );
 
         final firstResult = await svc.runMigration(
@@ -994,6 +1066,7 @@ void main() {
           syncHandle: _FakePrismSyncHandle(),
           resetSyncState: (_) async {},
           wipeSyncKeychain: failingThenOkWipe,
+          backupDirectoryProvider: () async => cacheDir,
         );
 
         final firstResult = await svc.runMigration(

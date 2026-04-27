@@ -19,6 +19,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart' show immutable;
+import 'package:path_provider/path_provider.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:uuid/uuid.dart';
 
@@ -154,9 +155,12 @@ class FrontingMigrationService {
     required this.syncHandle,
     Future<void> Function(ffi.PrismSyncHandle handle)? resetSyncState,
     Future<void> Function()? wipeSyncKeychain,
+    Future<Directory> Function()? backupDirectoryProvider,
   })  : _resetSyncState = resetSyncState ??
             ((handle) => ffi.resetSyncState(handle: handle)),
-        _wipeSyncKeychain = wipeSyncKeychain ?? (() async {});
+        _wipeSyncKeychain = wipeSyncKeychain ?? (() async {}),
+        _backupDirectoryProvider =
+            backupDirectoryProvider ?? getApplicationDocumentsDirectory;
 
   final AppDatabase db;
   final MemberRepository memberRepository;
@@ -183,6 +187,14 @@ class FrontingMigrationService {
   /// from the keychain entries that should have been wiped.
   final Future<void> Function() _wipeSyncKeychain;
 
+  /// Where the PRISM1 rescue backup is written by [prepareBackup]. Defaults
+  /// to `getApplicationDocumentsDirectory()` so the file survives across
+  /// app launches even if the user dismisses the upgrade modal before
+  /// confirming. Codex P1 #8: cache (the previous default) is purgeable
+  /// by the OS or user without warning, leaving the user with no
+  /// recoverable backup if they proceeded to the destructive phase.
+  final Future<Directory> Function() _backupDirectoryProvider;
+
   static const _uuid = Uuid();
 
   /// Sentinel string written to `system_settings.pending_fronting_migration_mode`.
@@ -199,54 +211,52 @@ class FrontingMigrationService {
 
   static const String modeComplete = 'complete';
 
-  /// Entry point.
+  /// Phase 1 of the upgrade: build the PRISM1 backup file. No destructive
+  /// work runs here, settings are not touched. Throws on export failure;
+  /// the caller should surface the error and leave settings at
+  /// `notStarted` so the user can retry.
   ///
-  /// [shareFile] is the share-sheet callback (5C provides
-  /// `Share.shareXFiles` analogue).  It runs OUTSIDE the Drift
-  /// transaction; if it throws or returns null when the user cancels,
-  /// migration aborts and `pending_fronting_migration_mode` stays at
-  /// `'notStarted'`.  The PRISM1 file is preserved either way so the
-  /// user can manually share it later.
-  Future<MigrationResult> runMigration({
+  /// Codex P1 #8: writes to `getApplicationDocumentsDirectory()` (or the
+  /// injected [_backupDirectoryProvider]) instead of cache so the file
+  /// survives across app launches even if the user dismisses the upgrade
+  /// modal between this and [runMigrationDestructive]. The user can then
+  /// recover the file via the platform Files app / file manager.
+  Future<File> prepareBackup({
     required MigrationMode mode,
-    required DeviceRole role,
-    required Future<Uri?> Function(File file) shareFile,
-    String password = '',
+    required String password,
   }) async {
     if (mode == MigrationMode.notNow) {
-      // No destructive work — just write the deferred marker.
-      await db.systemSettingsDao
-          .writePendingFrontingMigrationMode(modeDeferred);
-      return const MigrationResult(outcome: MigrationOutcome.deferred);
-    }
-
-    // Step 1 + 2: classify rows, build PRISM1 export, share with user.
-    // Outside the transaction so file IO can't roll back.
-    File exportFile;
-    try {
-      exportFile = await dataExportService.exportEncryptedData(
-        password: password,
-        includeLegacyFields: true,
-      );
-    } catch (e) {
-      // Export failed before any destructive step ran; settings
-      // unchanged, no rollback needed.
-      return MigrationResult(
-        outcome: MigrationOutcome.failed,
-        errorMessage: 'PRISM1 export failed: $e',
+      throw StateError(
+        'prepareBackup is not valid for MigrationMode.notNow — call '
+        'runMigration directly for the deferred path.',
       );
     }
+    final dir = await _backupDirectoryProvider();
+    return dataExportService.exportEncryptedData(
+      password: password,
+      includeLegacyFields: true,
+      targetDirectory: dir,
+    );
+  }
 
-    try {
-      await shareFile(exportFile);
-    } catch (e) {
-      return MigrationResult(
-        outcome: MigrationOutcome.failed,
-        exportFile: exportFile,
-        errorMessage: 'Share-sheet failed: $e',
-      );
-    }
-
+  /// Phase 2 of the upgrade: run the destructive Drift transaction +
+  /// post-tx cleanup (engine reset, keychain wipe, quarantine clear).
+  ///
+  /// The caller MUST have already produced [exportFile] via
+  /// [prepareBackup] AND surfaced it to the user with explicit
+  /// acknowledgment that they saved it somewhere durable (see
+  /// `FrontingUpgradeSheet.backupReady`). Calling this without that
+  /// gate risks leaving the user with no recoverable backup.
+  ///
+  /// On failure inside the Drift transaction, settings stay at the
+  /// prior value and the caller can retry. On failure of a post-tx
+  /// step, settings stay at `'inProgress'` and the user can recover
+  /// via [resumeCleanup].
+  Future<MigrationResult> runMigrationDestructive({
+    required MigrationMode mode,
+    required DeviceRole role,
+    required File exportFile,
+  }) async {
     // Steps 3-7: wrap in a single Drift transaction. Codex P1 #3:
     // Repository writes inside this block run with `SyncRecordMixin`
     // emission SUPPRESSED so they don't push CRDT ops to the Rust
@@ -302,6 +312,60 @@ class FrontingMigrationService {
     return _runPostTransactionCleanup(
       exportFile: exportFile,
       counters: counters,
+    );
+  }
+
+  /// Compatibility wrapper used by the `notNow` deferral path and
+  /// covering tests that don't exercise the durable-backup gate.
+  ///
+  /// For [MigrationMode.notNow] this writes the `'deferred'` marker and
+  /// returns immediately — the only path that should hit
+  /// `runMigration` in production. For other modes it composes
+  /// [prepareBackup] + [runMigrationDestructive] in sequence; the
+  /// upgrade modal calls those two methods directly with the
+  /// backup-ready acknowledgment step in between, so production never
+  /// reaches this fallback path.
+  ///
+  /// [shareFile] is invoked between the two phases. Its return value is
+  /// not inspected — callers that need the durable-save gate must drive
+  /// the two phases manually (see `FrontingUpgradeSheet`).
+  Future<MigrationResult> runMigration({
+    required MigrationMode mode,
+    required DeviceRole role,
+    required Future<Uri?> Function(File file) shareFile,
+    String password = '',
+  }) async {
+    if (mode == MigrationMode.notNow) {
+      // No destructive work — just write the deferred marker.
+      await db.systemSettingsDao
+          .writePendingFrontingMigrationMode(modeDeferred);
+      return const MigrationResult(outcome: MigrationOutcome.deferred);
+    }
+
+    File exportFile;
+    try {
+      exportFile = await prepareBackup(mode: mode, password: password);
+    } catch (e) {
+      return MigrationResult(
+        outcome: MigrationOutcome.failed,
+        errorMessage: 'PRISM1 export failed: $e',
+      );
+    }
+
+    try {
+      await shareFile(exportFile);
+    } catch (e) {
+      return MigrationResult(
+        outcome: MigrationOutcome.failed,
+        exportFile: exportFile,
+        errorMessage: 'Share-sheet failed: $e',
+      );
+    }
+
+    return runMigrationDestructive(
+      mode: mode,
+      role: role,
+      exportFile: exportFile,
     );
   }
 

@@ -7804,6 +7804,33 @@ class AppLocalizationsEs extends AppLocalizations {
       'This may take a moment. Don\'t close the app.';
 
   @override
+  String get frontingUpgradeExporting => 'Building your backup…';
+
+  @override
+  String get frontingUpgradeExportingSubtitle =>
+      'Encrypting your fronting data so you can keep a copy.';
+
+  @override
+  String get frontingUpgradeBackupReadyHeadline => 'Backup ready';
+
+  @override
+  String get frontingUpgradeBackupReadyBody =>
+      'Save this backup somewhere you\'ll be able to find it later — outside the app. Without it, you can\'t recover your old data if anything goes wrong.';
+
+  @override
+  String get frontingUpgradeBackupSaveAs => 'Save backup…';
+
+  @override
+  String get frontingUpgradeBackupShare => 'Share…';
+
+  @override
+  String get frontingUpgradeBackupAcknowledge =>
+      'I have saved this backup somewhere I can find later';
+
+  @override
+  String get frontingUpgradeBackupContinue => 'Continue';
+
+  @override
   String get frontingUpgradeSuccessHeadline => 'Migration complete!';
 
   @override
