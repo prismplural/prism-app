@@ -186,10 +186,13 @@ class SpeakingAsNotifier extends Notifier<String?> {
     if (memberId != null) {
       final chatLogsFront = ref.read(chatLogsFrontProvider);
       if (chatLogsFront) {
+        // TODO(spec §2.5): verify this matches user intent — old switchFronter
+        // implied replace semantics; startFronting is additive in the per-member
+        // model (does not end other active sessions).
         unawaited(
           ref
               .read(frontingNotifierProvider.notifier)
-              .switchFronter(memberId)
+              .startFronting([memberId])
               .catchError((Object e) {
                 debugPrint('[Chat] Auto-front on member switch failed: $e');
               }),

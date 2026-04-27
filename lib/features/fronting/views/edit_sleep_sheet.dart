@@ -11,7 +11,6 @@ import 'package:prism_plurality/features/fronting/models/update_fronting_session
 import 'package:prism_plurality/features/fronting/providers/fronting_editing_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/fronting/sanitization/fronting_sanitizer_service.dart';
-import 'package:prism_plurality/features/fronting/ui/overlap_resolution_dialog.dart';
 import 'package:prism_plurality/features/fronting/utils/sleep_quality_l10n.dart';
 import 'package:prism_plurality/features/fronting/validation/fronting_validation_models.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
@@ -128,38 +127,7 @@ class _EditSleepSheetState extends ConsumerState<EditSleepSheet> {
       timingMode: timingMode,
     );
 
-    final overlapChanges = <FrontingSessionChange>[];
-    if (validation.overlappingSessions.isNotEmpty && mounted) {
-      var wouldDelete = false;
-      for (final overlap in validation.overlappingSessions) {
-        final trimResult = resolutionService.computeTrimChanges(
-          editedSnapshot,
-          overlap,
-        );
-        if (trimResult.wouldDeleteConflicting) {
-          wouldDelete = true;
-          break;
-        }
-      }
-
-      final resolution = await showOverlapResolutionDialog(
-        context,
-        overlapCount: validation.overlappingSessions.length,
-        wouldDeleteConflicting: wouldDelete,
-        // canCoFront: always true in per-member model — overlaps are expected.
-      );
-      if (resolution == null || resolution == OverlapResolution.cancel) return;
-      if (!mounted) return;
-
-      overlapChanges.addAll(
-        resolutionService.resolveAllOverlaps(
-          edited: editedSnapshot,
-          overlaps: validation.overlappingSessions,
-          resolution: resolution,
-        ),
-      );
-    }
-
+    // Cross-member overlaps are valid in the per-member model (spec §3.3).
     final patch = UpdateFrontingSessionPatch(
       startTime: _startTime != widget.session.startTime
           ? FieldPatch.value(_startTime)
@@ -179,19 +147,6 @@ class _EditSleepSheetState extends ConsumerState<EditSleepSheet> {
     setState(() => _saving = true);
 
     try {
-      if (overlapChanges.isNotEmpty) {
-        final result = await changeExecutor.execute(overlapChanges);
-        final failure = result.failureOrNull;
-        if (failure != null) {
-          if (mounted) {
-            PrismToast.error(
-              context,
-              message: context.l10n.frontingErrorSavingSleepSession(failure),
-            );
-          }
-          return;
-        }
-      }
       if (!patch.isEmpty) {
         await mutationService.updateSession(widget.session.id, patch);
       }

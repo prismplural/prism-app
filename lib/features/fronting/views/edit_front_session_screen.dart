@@ -14,7 +14,6 @@ import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/features/fronting/sanitization/fronting_sanitizer_service.dart';
 import 'package:prism_plurality/features/fronting/views/edit_sleep_sheet.dart';
 import 'package:prism_plurality/features/fronting/ui/gap_resolution_dialog.dart';
-import 'package:prism_plurality/features/fronting/ui/overlap_resolution_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/utils/member_search_groups.dart';
@@ -188,40 +187,8 @@ class _EditFrontSessionScreenState
       timingMode: timingMode,
     );
 
+    // Cross-member overlaps are valid in the per-member model (spec §3.3).
     final allChanges = <FrontingSessionChange>[];
-
-    // 7. Handle overlaps
-    if (validation.overlappingSessions.isNotEmpty && mounted) {
-      // Check if any trim would delete a session
-      var wouldDelete = false;
-      for (final overlap in validation.overlappingSessions) {
-        final trimResult = resolutionService.computeTrimChanges(
-          originalSnapshot,
-          overlap,
-        );
-        if (trimResult.wouldDeleteConflicting) {
-          wouldDelete = true;
-          break;
-        }
-      }
-
-      final resolution = await showOverlapResolutionDialog(
-        context,
-        overlapCount: validation.overlappingSessions.length,
-        wouldDeleteConflicting: wouldDelete,
-        // canCoFront: always true in per-member model — overlaps are expected,
-        // and the "co-front" option is now just keeping both sessions.
-      );
-      if (resolution == null || resolution == OverlapResolution.cancel) return;
-      if (!mounted) return;
-
-      final overlapChanges = resolutionService.resolveAllOverlaps(
-        edited: proposedSnapshot,
-        overlaps: validation.overlappingSessions,
-        resolution: resolution,
-      );
-      allChanges.addAll(overlapChanges);
-    }
 
     // 8. Handle gaps
     if (validation.gapsCreated.isNotEmpty && mounted) {
