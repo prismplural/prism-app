@@ -7,6 +7,7 @@ import 'package:prism_plurality/features/data_management/services/data_import_se
 
 final dataExportServiceProvider = Provider<DataExportService>((ref) {
   return DataExportService(
+    db: ref.watch(databaseProvider),
     memberRepository: ref.watch(memberRepositoryProvider),
     frontingSessionRepository: ref.watch(frontingSessionRepositoryProvider),
     conversationRepository: ref.watch(conversationRepositoryProvider),

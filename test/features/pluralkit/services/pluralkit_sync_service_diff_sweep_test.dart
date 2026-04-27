@@ -178,10 +178,12 @@ PluralKitSyncService _makeService({
 }
 
 /// Compute the expected deterministic ID for a per-member row.
-String _expectedRowId(String entrySwitchId, String memberPkUuid) {
-  const uuid = Uuid();
-  return uuid.v5(pkFrontingNamespace, '$entrySwitchId:$memberPkUuid');
-}
+///
+/// Routes through the same helper the production code uses so a future
+/// change to the derivation can't silently desync test expectations
+/// from production.
+String _expectedRowId(String entrySwitchId, String memberPkUuid) =>
+    derivePkSessionId(entrySwitchId, memberPkUuid);
 
 /// Matcher that compares two [DateTime] values as the same instant in time,
 /// regardless of whether one is UTC and the other is local. Drift returns
@@ -921,6 +923,229 @@ void main() {
       final sessions = await sessionRepo.getAllSessions();
       expect(sessions, hasLength(1));
     });
+  });
+
+  // -- Rescue → API re-import collision (codex P1 #6) ----------------------
+  //
+  // The diff sweep MUST upsert when the deterministic id already exists
+  // locally (typically a PRISM1 rescue row with lossy boundaries) so the
+  // API truth wins via field-LWW. The previous create-then-catch-unique
+  // shape recorded the row id but never wrote the API values, leaving
+  // rescue boundaries on disk forever. Conservative end_time policy:
+  // a non-null existing end_time is preserved (the user may have
+  // closed the rescue row manually).
+
+  group('PRISM1 rescue collision upsert', () {
+    test(
+      'entrant collides with rescue row → start_time + member_id + '
+      'pluralkit_uuid corrected; rescue end_time left null is overwritten '
+      'on close',
+      () async {
+        final db = _makeDb();
+        addTearDown(db.close);
+
+        final memberRepo = DriftMemberRepository(db.membersDao, null);
+        await memberRepo.createMember(
+          _member(localId: 'local-a', pkShortId: 'pkA', pkUuid: 'uuid-a'),
+        );
+
+        // Seed a PRISM1-rescue-style row at the deterministic id with
+        // a lossy start (1h earlier than API) and a CLOSED end_time
+        // (an hour-long lossy window). The API will say A is currently
+        // fronting from sw-1.
+        const switchId = 'sw-1';
+        const memberPkUuid = 'uuid-a';
+        final rescueId = derivePkSessionId(switchId, memberPkUuid);
+        final lossyStart = DateTime.utc(2026, 1, 1, 9);
+        final lossyEnd = DateTime.utc(2026, 1, 1, 10);
+        final apiStart = DateTime.utc(2026, 1, 1, 10);
+
+        final sessionRepo = DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+        );
+        await sessionRepo.createSession(
+          domain_fs.FrontingSession(
+            id: rescueId,
+            startTime: lossyStart,
+            endTime: lossyEnd,
+            memberId: 'local-a',
+            pluralkitUuid: switchId,
+          ),
+        );
+
+        // API sweep: A becomes fronting at sw-1.
+        final sw = PKSwitch(
+          id: switchId,
+          timestamp: apiStart,
+          members: const ['pkA'],
+        );
+        final client = _FakeClient([
+          [sw],
+          [],
+        ]);
+        final service = _makeService(
+          db: db,
+          client: client,
+          memberRepo: memberRepo,
+          sessionRepo: sessionRepo,
+        );
+        await service.setToken('t');
+        await service.acknowledgeMapping();
+        await service.importSwitchesAfterLink();
+
+        // Single row at the same deterministic id. The lossy start was
+        // overwritten with the API truth. The lossy end_time stays —
+        // conservative policy preserves user-closed rescue rows.
+        final all = await sessionRepo.getAllSessions();
+        expect(all, hasLength(1));
+        final row = all.single;
+        expect(row.id, rescueId);
+        expect(row.startTime, _sameInstant(apiStart),
+            reason: 'API start must overwrite rescue lossy start');
+        expect(row.endTime, _sameInstant(lossyEnd),
+            reason: 'conservative: pre-existing close not clobbered');
+        expect(row.memberId, 'local-a');
+        expect(row.pluralkitUuid, switchId);
+      },
+    );
+
+    test(
+      'performFullImport on a closed rescue row corrects start_time, '
+      'leaves end_time alone (preserved by pre-close + conservative upsert)',
+      () async {
+        // performFullImport pre-closes all open PK rows then sweeps with
+        // prevActive={}. A pre-existing closed rescue row at the same
+        // deterministic id triggers the upsert branch on the entrant
+        // pass; the pre-close left its non-null end_time alone (it was
+        // already closed) and so does the conservative upsert.
+        final db = _makeDb();
+        addTearDown(db.close);
+
+        final memberRepo = DriftMemberRepository(db.membersDao, null);
+        await memberRepo.createMember(
+          _member(localId: 'local-a', pkShortId: 'pkA', pkUuid: 'uuid-a'),
+        );
+
+        const switchId = 'sw-1';
+        final rescueId = derivePkSessionId(switchId, 'uuid-a');
+        final lossyStart = DateTime.utc(2026, 1, 1, 9);
+        final lossyEnd = DateTime.utc(2026, 1, 1, 10);
+        final apiStart = DateTime.utc(2026, 1, 1, 10);
+
+        final sessionRepo = DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+        );
+        await sessionRepo.createSession(
+          domain_fs.FrontingSession(
+            id: rescueId,
+            startTime: lossyStart,
+            endTime: lossyEnd,
+            memberId: 'local-a',
+            pluralkitUuid: switchId,
+          ),
+        );
+
+        final sw = PKSwitch(
+          id: switchId,
+          timestamp: apiStart,
+          members: const ['pkA'],
+        );
+        final client = _FakeClient([
+          [sw],
+          [],
+        ]);
+        final service = _makeService(
+          db: db,
+          client: client,
+          memberRepo: memberRepo,
+          sessionRepo: sessionRepo,
+        );
+        await service.setToken('t');
+        await service.acknowledgeMapping();
+        await service.performFullImport();
+
+        final all = await sessionRepo.getAllSessions();
+        expect(all, hasLength(1));
+        final row = all.single;
+        expect(row.id, rescueId);
+        expect(row.startTime, _sameInstant(apiStart),
+            reason: 'API start overwrote rescue lossy start');
+        expect(row.endTime, _sameInstant(lossyEnd),
+            reason: 'closed rescue row stays closed (conservative)');
+      },
+    );
+
+    test(
+      'leaver path is idempotent on a row that already has end_time set '
+      '(API says ended, local already closed)',
+      () async {
+        // The diff-sweep leaver path calls endSession on rows in the
+        // openRowIds map. Because of the rescue-collision upsert above,
+        // openRowIds always carries the row id even when the existing
+        // row had a non-null end_time. The leaver should still close
+        // the row to the API timestamp via endSession (idempotent).
+        final db = _makeDb();
+        addTearDown(db.close);
+
+        final memberRepo = DriftMemberRepository(db.membersDao, null);
+        await memberRepo.createMember(
+          _member(localId: 'local-a', pkShortId: 'pkA', pkUuid: 'uuid-a'),
+        );
+
+        const switchId = 'sw-1';
+        final rescueId = derivePkSessionId(switchId, 'uuid-a');
+        final sessionRepo = DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+        );
+        // Pre-existing rescue row with lossy close.
+        await sessionRepo.createSession(
+          domain_fs.FrontingSession(
+            id: rescueId,
+            startTime: DateTime.utc(2026, 1, 1, 9),
+            endTime: DateTime.utc(2026, 1, 1, 10),
+            memberId: 'local-a',
+            pluralkitUuid: switchId,
+          ),
+        );
+
+        // API sweep: A enters at sw-1, leaves at sw-2.
+        final sw1 = PKSwitch(
+          id: switchId,
+          timestamp: DateTime.utc(2026, 1, 1, 10),
+          members: const ['pkA'],
+        );
+        final sw2 = PKSwitch(
+          id: 'sw-2',
+          timestamp: DateTime.utc(2026, 1, 1, 11),
+          members: const [],
+        );
+        final client = _FakeClient([
+          [sw2, sw1],
+          [],
+        ]);
+        final service = _makeService(
+          db: db,
+          client: client,
+          memberRepo: memberRepo,
+          sessionRepo: sessionRepo,
+        );
+        await service.setToken('t');
+        await service.acknowledgeMapping();
+        await expectLater(
+          service.importSwitchesAfterLink(),
+          completes,
+          reason: 'leaver path must not throw on already-closed row',
+        );
+
+        final all = await sessionRepo.getAllSessions();
+        expect(all, hasLength(1));
+        // After the leaver, end_time is sw2.timestamp (the API close).
+        expect(all.single.endTime, _sameInstant(sw2.timestamp));
+      },
+    );
   });
 
   // -- Schema migration: cursor columns exist in DB -------------------------

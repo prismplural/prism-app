@@ -30,7 +30,7 @@ import 'package:prism_plurality/features/data_management/services/export_crypto.
 
 class DataExportService {
   DataExportService({
-    this.db,
+    required this.db,
     required this.memberRepository,
     required this.frontingSessionRepository,
     required this.conversationRepository,
@@ -54,11 +54,13 @@ class DataExportService {
        _appSupportDirectoryProvider =
            appSupportDirectoryProvider ?? getApplicationSupportDirectory;
 
-  /// Optional Drift handle. Required only when [includeLegacyFields] is true
-  /// (the migration-time PRISM1 export reads `co_fronter_ids`,
-  /// `pk_member_ids_json`, and the `session_id` column directly because the
-  /// post-Phase-2 freezed models no longer expose those fields).
-  final AppDatabase? db;
+  /// Drift handle. Required so the PRISM1 migration-time export can read
+  /// `co_fronter_ids`, `pk_member_ids_json`, and the `session_id` column
+  /// directly (the post-Phase-2 freezed models no longer expose those
+  /// fields). The provider chain wires this from `databaseProvider` so the
+  /// production export path always has it; without it the legacy-fields
+  /// flag silently drops the rescue inputs.
+  final AppDatabase db;
 
   final MemberRepository memberRepository;
   final FrontingSessionRepository frontingSessionRepository;
@@ -90,8 +92,7 @@ class DataExportService {
   /// so the resulting PRISM1 file is self-sufficient as a rescue input
   /// (see §4.7 of the per-member fronting refactor plan). The legacy
   /// columns are read straight from Drift since they are no longer on the
-  /// freezed domain models. This requires [db] to be wired; otherwise the
-  /// flag is ignored.
+  /// freezed domain models.
   ///
   /// Default behavior (post-migration exports) emits only the new shape.
   Future<V1Export> buildExport({bool includeLegacyFields = false}) async {
@@ -122,15 +123,15 @@ class DataExportService {
       }
     }
 
-    // Optional legacy-field lookups (only loaded when requested AND db is
-    // wired). Reads the v7 Drift columns directly because the new-shape
-    // freezed models no longer expose `co_fronter_ids` / `pk_member_ids_json`
-    // on FrontingSession or `session_id` on FrontSessionComment.
-    final legacySessionFields = includeLegacyFields && db != null
-        ? await _fetchLegacySessionFields(db!)
+    // Optional legacy-field lookups (only loaded when requested). Reads
+    // the v7 Drift columns directly because the new-shape freezed models
+    // no longer expose `co_fronter_ids` / `pk_member_ids_json` on
+    // FrontingSession or `session_id` on FrontSessionComment.
+    final legacySessionFields = includeLegacyFields
+        ? await _fetchLegacySessionFields(db)
         : const <String, _LegacySessionFields>{};
-    final legacyCommentSessionIds = includeLegacyFields && db != null
-        ? await _fetchLegacyCommentSessionIds(db!)
+    final legacyCommentSessionIds = includeLegacyFields
+        ? await _fetchLegacyCommentSessionIds(db)
         : const <String, String>{};
 
     // Convert to V3 models
