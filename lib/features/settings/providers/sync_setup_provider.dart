@@ -64,8 +64,11 @@ class SyncSetupState {
 }
 
 class SyncSetupNotifier extends Notifier<SyncSetupState> {
-  /// Handle created during [proceedToEnterPhrase] and reused in [_complete].
-  ffi.PrismSyncHandle? _handle;
+  /// Read the current sync handle from [prismSyncHandleProvider] at every
+  /// use site rather than caching it in a field. The cached field used to
+  /// outlive the underlying Rust handle if the provider was invalidated
+  /// mid-setup (Bug B7); reading on demand surfaces a clean error instead.
+  ffi.PrismSyncHandle? get _handle => ref.read(prismSyncHandleProvider).value;
 
   @override
   SyncSetupState build() {
@@ -106,9 +109,10 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
     }
 
     // Create the handle now so the phrase-verification step can use it.
+    // The handle is read back from `prismSyncHandleProvider` at each use
+    // site via the `_handle` getter, so we don't cache the return value.
     final handleNotifier = ref.read(prismSyncHandleProvider.notifier);
-    final handle = await handleNotifier.createHandle(relayUrl: state.relayUrl);
-    _handle = handle;
+    await handleNotifier.createHandle(relayUrl: state.relayUrl);
 
     state = state.copyWith(
       step: SyncSetupStep.enterPhrase,
@@ -121,7 +125,6 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
       case SyncSetupStep.intro:
         break;
       case SyncSetupStep.enterPhrase:
-        _handle = null;
         state = state.copyWith(
           step: SyncSetupStep.intro,
           error: null,
@@ -148,7 +151,9 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
 
     final handle = _handle;
     if (handle == null) {
-      state = state.copyWith(error: 'Setup handle not ready. Please go back and try again.');
+      state = state.copyWith(
+        error: 'Setup handle no longer available, please retry.',
+      );
       return false;
     }
 
@@ -195,21 +200,28 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
   /// has been verified.
   Future<bool> _complete(String pin, String mnemonic) async {
     final handle = _handle;
-    if (handle == null) return false;
-
-    // Snapshot keychain keys that may be written during setup so we can
-    // restore them if setup fails partway through.
-    const keychainKeys = [
-      'prism_sync.wrapped_dek',
-      'prism_sync.dek_salt',
-      'prism_sync.device_secret',
-      'prism_sync.device_id',
-      'prism_sync.runtime_dek',
-    ];
-    final snapshot = <String, String?>{};
-    for (final key in keychainKeys) {
-      snapshot[key] = await secureStorage.read(key: key);
+    if (handle == null) {
+      state = state.copyWith(
+        error: 'Setup handle no longer available, please retry.',
+      );
+      return false;
     }
+
+    // Snapshot the entire `prism_sync.*` namespace so a mid-setup failure
+    // can roll back any partial writes without leaving orphaned keys
+    // behind. The earlier static allow-list silently missed keys that
+    // `createSyncGroup` + `drainRustStore` wrote (e.g. `sync_id`,
+    // `relay_url`, `session_token`, `epoch`); a restart in that mixed
+    // state would make the relay reject every authenticated request.
+    //
+    // The DB-encryption slots in `kProtectedFromReset` are deliberately
+    // EXCLUDED from both the snapshot and the rollback wipe:
+    // `cacheRuntimeKeys` may rotate them forward late in `_complete`, and
+    // restoring the pre-setup value over a freshly-rekeyed DB would
+    // orphan the file on disk. Reuses the same set as
+    // `_resetSyncSystem` (Phase 1B) — both paths agree on which slots
+    // are sacred.
+    final snapshot = await _snapshotPrismSyncKeychain();
 
     state = state.copyWith(
       isProcessing: true,
@@ -293,20 +305,66 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
     }
   }
 
-  /// Restore keychain keys from a previously taken snapshot.
+  /// Snapshot every `prism_sync.*` keychain entry except the protected
+  /// DB-encryption slots in [kProtectedFromReset].
   ///
-  /// Used to roll back any partial writes from a failed setup attempt while
-  /// preserving keys that existed before setup started.
-  Future<void> _restoreKeychainSnapshot(Map<String, String?> snapshot) async {
-    for (final entry in snapshot.entries) {
-      try {
-        if (entry.value != null) {
-          await secureStorage.write(key: entry.key, value: entry.value!);
-        } else {
-          await secureStorage.delete(key: entry.key);
+  /// The exclusion is critical: `cacheRuntimeKeys` rotates the DB key slots
+  /// forward late in [_complete], so if we snapshotted the pre-rotation
+  /// values and a later step failed, the rollback would write the OLD key
+  /// back over a freshly-rekeyed DB, leaving the file unreadable.
+  @visibleForTesting
+  Future<Map<String, String>> snapshotPrismSyncKeychainForTest() =>
+      _snapshotPrismSyncKeychain();
+
+  /// Test-only entry point for the rollback path. The production code only
+  /// reaches `_restoreKeychainSnapshot` from inside `_complete`'s catch
+  /// block, which is hard to drive from pure-Dart tests because it sits
+  /// behind several FFI calls. Tests use this seam together with
+  /// [snapshotPrismSyncKeychainForTest] to exercise the rollback contract
+  /// directly.
+  @visibleForTesting
+  Future<void> restoreKeychainSnapshotForTest(Map<String, String> snapshot) =>
+      _restoreKeychainSnapshot(snapshot);
+
+  Future<Map<String, String>> _snapshotPrismSyncKeychain() async {
+    final all = await readPrefixed('prism_sync.');
+    return Map.fromEntries(
+      all.entries.where((e) => !kProtectedFromReset.contains(e.key)),
+    );
+  }
+
+  /// Roll back the `prism_sync.*` namespace to a previously captured
+  /// [snapshot] from [_snapshotPrismSyncKeychain].
+  ///
+  /// 1. Delete every current `prism_sync.*` key that is not in the snapshot
+  ///    AND not in [kProtectedFromReset]. This catches keys that
+  ///    `createSyncGroup` / `drainRustStore` wrote during setup.
+  /// 2. Restore each snapshotted key to its captured value. Any key absent
+  ///    from the snapshot has already been deleted in step 1.
+  /// 3. Never touch [kProtectedFromReset] — see the doc on the snapshot
+  ///    helper for why.
+  Future<void> _restoreKeychainSnapshot(Map<String, String> snapshot) async {
+    try {
+      final current = await readPrefixed('prism_sync.');
+      for (final key in current.keys) {
+        if (kProtectedFromReset.contains(key)) continue;
+        if (snapshot.containsKey(key)) continue;
+        try {
+          await secureStorage.delete(key: key);
+        } catch (_) {
+          // Best-effort delete — don't propagate errors.
         }
+      }
+    } catch (_) {
+      // Best-effort scan — don't propagate errors.
+    }
+
+    for (final entry in snapshot.entries) {
+      if (kProtectedFromReset.contains(entry.key)) continue;
+      try {
+        await secureStorage.write(key: entry.key, value: entry.value);
       } catch (_) {
-        // Best-effort restore — don't propagate errors
+        // Best-effort restore — don't propagate errors.
       }
     }
   }

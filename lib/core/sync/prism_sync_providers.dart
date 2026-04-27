@@ -342,16 +342,37 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
 // Auto-configure on restart
 // ---------------------------------------------------------------------------
 
+/// Pure helper: classify the keychain-only health state without touching
+/// the FFI handle. Used by `_autoConfigureIfReady` and unit-testable in
+/// isolation.
+///
+/// Returns:
+///   * `unpaired`     — sync_id or device_id absent (never paired)
+///   * `null`         — credentials present; caller should attempt the
+///                      runtime-keys path and may end up healthy / needsPassword
+///                      / disconnected depending on what's available
+@visibleForTesting
+SyncHealthState? classifyHealthFromKeychain({
+  required String? syncId,
+  required String? deviceId,
+}) {
+  if (syncId == null || deviceId == null) {
+    return SyncHealthState.unpaired;
+  }
+  return null;
+}
+
 /// Determine sync health and auto-configure if possible.
 ///
 /// Sync health state machine:
-///   healthy       — sync configured and working (or unpaired, which is OK)
+///   healthy       — sync configured and working
+///   unpaired      — device has never been paired (sync_id/device_id absent)
 ///   needsPassword — runtime_dek missing, wrapped_dek exists → password modal
 ///                   (shown by AppShell listening to syncHealthProvider)
 ///   disconnected  — credentials gone → reconnect card in sync settings
 ///
 /// Transitions:
-///   startup → this method → one of the three states
+///   startup → this method → one of the four states
 ///   DeviceRevoked WebSocket event → disconnected
 ///   password entry → Argon2id unlock → healthy
 Future<SyncHealthState> _autoConfigureIfReady(
@@ -360,8 +381,16 @@ Future<SyncHealthState> _autoConfigureIfReady(
   // Check if we have the minimum credentials needed
   final syncId = await _storage.read(key: '${_secureStorePrefix}sync_id');
   final deviceId = await _storage.read(key: '${_secureStorePrefix}device_id');
-  if (syncId == null || deviceId == null) {
-    return SyncHealthState.healthy; // Not paired — not an error
+  // Not paired — distinguished from `healthy` so the post-config block in
+  // `createHandle` skips cacheRuntimeKeys/drainRustStore/onResume on a
+  // locked handle (which would otherwise emit benign "no DEK loaded"
+  // warnings during a fresh install).
+  final keychainOnly = classifyHealthFromKeychain(
+    syncId: syncId,
+    deviceId: deviceId,
+  );
+  if (keychainOnly != null) {
+    return keychainOnly;
   }
 
   // Try the fast path: restore runtime keys from cached DEK
@@ -448,6 +477,24 @@ Future<SyncHealthState> _autoConfigureIfReady(
 // ---------------------------------------------------------------------------
 
 const _secureStorePrefix = 'prism_sync.';
+
+/// Platform-keychain keys that must survive a sync-only reset.
+///
+/// Everything under the `prism_sync.` namespace is wiped during reset
+/// EXCEPT these slots, which hold the local-storage Signal-style DEK that
+/// encrypts the app's Drift database. Clearing them makes the app DB
+/// permanently unreadable until the user wipes data, so we treat them as
+/// per-device persistence keys separate from sync credentials.
+///
+/// Tests assert against this set directly (via the re-export in
+/// `reset_data_provider.dart`) to avoid hand-copying the names — adding
+/// or removing a protected slot here is the single source of truth.
+const kProtectedFromReset = <String>{
+  '${_secureStorePrefix}database_key',
+  '${_secureStorePrefix}database_key_staging',
+  '${_secureStorePrefix}sync_database_key',
+  '${_secureStorePrefix}sync_database_key_staging',
+};
 
 /// Keys that prism-sync stores in SecureStore.
 ///
@@ -544,40 +591,21 @@ Map<String, String> computeSeedEntries(Map<String, String> all) {
 /// Compute the full-keychain keys that should be deleted by the
 /// reset/revoke cleanup path, given the current keychain contents.
 ///
-/// Returns the static allow-list (prefixed) plus every dynamic
-/// `epoch_key_*` / `runtime_keys_*` entry currently stored. Pure so
-/// tests can verify the "don't miss a prefix" invariant.
+/// Inclusion-by-prefix: returns every `prism_sync.*` entry currently
+/// stored, minus the DB-encryption slots in [kProtectedFromReset]. This
+/// keeps parity with `_resetSyncSystem` in `reset_data_provider.dart` —
+/// the static allow-list approach used to silently leak transient
+/// pairing keys (`bootstrap_joiner_bundle`, `pending_sync_id`,
+/// `registration_token`, etc.) that nobody remembered to add.
 @visibleForTesting
 List<String> computeKeysToClearOnReset(Map<String, String> all) {
-  final out = <String>{};
-  // Static allow-list, regardless of whether they currently exist.
-  for (final key in const [
-    'wrapped_dek',
-    'dek_salt',
-    'device_secret',
-    'device_id',
-    'sync_id',
-    'session_token',
-    'epoch',
-    'relay_url',
-    'mnemonic',
-    'setup_rollback_marker',
-    'sharing_prekey_store',
-    'sharing_id_cache',
-    'min_signature_version_floor',
-    'runtime_dek',
-  ]) {
-    out.add('$_secureStorePrefix$key');
-  }
-  // Dynamic prefix scan.
+  final out = <String>[];
   for (final fullKey in all.keys) {
     if (!fullKey.startsWith(_secureStorePrefix)) continue;
-    final bare = fullKey.substring(_secureStorePrefix.length);
-    if (_dynamicSecureStorePrefixes.any(bare.startsWith)) {
-      out.add(fullKey);
-    }
+    if (kProtectedFromReset.contains(fullKey)) continue;
+    out.add(fullKey);
   }
-  return out.toList();
+  return out;
 }
 
 /// Seed the Rust-side MemorySecureStore with values from platform keychain.
@@ -1100,7 +1128,7 @@ final syncEnabledProvider = Provider<bool>((ref) {
 
 /// Tracks whether sync is healthy, needs user intervention, or is disconnected.
 enum SyncHealthState {
-  /// Sync is configured and working (or not paired at all).
+  /// Sync is configured and working.
   healthy,
 
   /// runtime_dek is missing but wrapped_dek exists — user must enter password.
@@ -1108,6 +1136,12 @@ enum SyncHealthState {
 
   /// Credentials are gone or device was revoked — must re-pair.
   disconnected,
+
+  /// The device has never been paired. Behaves like healthy from the user's
+  /// perspective (no password sheet, no reconnect card), but skips the
+  /// post-config drain / cacheRuntimeKeys / scheduled onResume calls that
+  /// would otherwise warn "no DEK loaded" on a locked handle.
+  unpaired,
 }
 
 final syncHealthProvider =
@@ -1276,6 +1310,28 @@ bool shouldDrainForCompletedErrorKind(String? errorKind) {
       // write slightly stale keys; alternative is losing new ones.
       return true;
   }
+}
+
+/// Pure decision helper for the device_id self-check used by both
+/// `_handleDeviceRevoked` and `_handleDeviceRevokedFromAuthFailure`.
+///
+/// Returns true if the revoke event should result in a credential wipe on
+/// THIS device. Returns false only when the event explicitly carries a
+/// non-empty device_id that differs from our own (sibling-revoke).
+@visibleForTesting
+bool shouldWipeForRevokeEvent({
+  required String? revokedDeviceId,
+  required String? currentDeviceId,
+}) {
+  if (revokedDeviceId == null || revokedDeviceId.isEmpty) {
+    // Legacy / unknown — preserve existing behavior of wiping.
+    return true;
+  }
+  if (currentDeviceId == null || currentDeviceId.isEmpty) {
+    // We can't compare — assume self.
+    return true;
+  }
+  return revokedDeviceId == currentDeviceId;
 }
 
 /// Test seam: when non-null, the event-driven drain path in
@@ -1551,7 +1607,13 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
           if (isRevoked) {
             final wipe =
                 structuredError?.remoteWipe ?? resultRemoteWipe ?? false;
-            _handleDeviceRevokedFromAuthFailure(wipe);
+            final revokedDeviceId =
+                resultMap?['device_id'] as String? ??
+                event.data['device_id'] as String?;
+            _handleDeviceRevokedFromAuthFailure(
+              wipe,
+              revokedDeviceId: revokedDeviceId,
+            );
           }
           // Event-driven drain: persist the Rust MemorySecureStore back to
           // the platform keychain whenever a sync cycle completes. Covers
@@ -1589,6 +1651,7 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
           if (structuredError?.isDeviceRevoked ?? false) {
             _handleDeviceRevokedFromAuthFailure(
               structuredError?.remoteWipe ?? false,
+              revokedDeviceId: event.data['device_id'] as String?,
             );
           }
         } else if (event.isDeviceRevoked) {
@@ -1777,10 +1840,48 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
         .setState(SyncHealthState.disconnected);
   }
 
-  Future<void> _handleDeviceRevokedFromAuthFailure(bool remoteWipe) async {
-    // Abort any pending drain before wiping anything — same reason as
-    // `_handleDeviceRevoked`: a debounced drain in flight would resurrect
-    // secrets after cleanup.
+  Future<void> _handleDeviceRevokedFromAuthFailure(
+    bool remoteWipe, {
+    String? revokedDeviceId,
+  }) async {
+    // Step 1 — always safe: cancel any pending debounced drain. We do NOT
+    // yet escalate to the full revoke path because the event might target
+    // a sibling device.
+    _abortPendingDrainSafe();
+
+    // Step 2 — determine whether this event targets us. Mirror the same
+    // device_id self-check that `_handleDeviceRevoked` performs. If the
+    // event carries a device_id and it doesn't match our own, this is a
+    // sibling-revoke and we leave THIS device's credentials alone.
+    String? currentDeviceId;
+    try {
+      final raw = await _storage.read(
+        key: '${_secureStorePrefix}device_id',
+      );
+      if (raw != null && raw.isNotEmpty) {
+        try {
+          currentDeviceId = utf8.decode(base64Decode(raw));
+        } catch (_) {
+          currentDeviceId = raw;
+        }
+      }
+    } catch (_) {
+      // If we can't read the device ID, assume we're the target.
+    }
+
+    if (!shouldWipeForRevokeEvent(
+      revokedDeviceId: revokedDeviceId,
+      currentDeviceId: currentDeviceId,
+    )) {
+      debugPrint(
+        '[SYNC] Auth-failure revoke targets sibling '
+        '($revokedDeviceId != $currentDeviceId) — skipping wipe',
+      );
+      return;
+    }
+
+    // Step 3 — self-revoke (or device id unknown, assume self). Escalate
+    // from safe-abort to the full revoke path.
     _abortPendingDrainForRevoke();
     try {
       if (remoteWipe) {

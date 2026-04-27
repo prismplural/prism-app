@@ -41,6 +41,16 @@ Future<void> migrateRelayUrl() async {
   }
 }
 
+/// Read every keychain entry whose key starts with [prefix].
+///
+/// Used by sync setup/reset paths that need to operate on the entire
+/// `prism_sync.*` namespace without hardcoding the key list (which silently
+/// goes stale when new transient pairing keys are added).
+Future<Map<String, String>> readPrefixed(String prefix) async {
+  final all = await secureStorage.readAll();
+  return Map.fromEntries(all.entries.where((e) => e.key.startsWith(prefix)));
+}
+
 /// Clears stale keychain data on fresh iOS installs.
 ///
 /// iOS Keychain persists across app uninstall/reinstall (unlike Android).
