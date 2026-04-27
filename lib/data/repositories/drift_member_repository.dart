@@ -5,6 +5,7 @@ import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/daos/members_dao.dart';
 import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
+import 'package:prism_plurality/core/database/sqlite_constraint.dart';
 import 'package:prism_plurality/data/mappers/member_mapper.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 import 'package:prism_plurality/domain/models/member.dart' as domain;
@@ -157,8 +158,25 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
       isActive: true,
       createdAt: DateTime.now().toUtc(),
     );
-    await createMember(sentinel);
-    return (member: sentinel, wasCreated: true);
+    try {
+      await createMember(sentinel);
+      return (member: sentinel, wasCreated: true);
+    } catch (e) {
+      // Two concurrent callers can both observe missing and race to insert.
+      // Drift serializes writes on a single connection in practice, so this
+      // is a defense-in-depth path — but the helper's documented contract
+      // is "idempotent ensure," and an upsert would silently overwrite the
+      // winning row's name/emoji/isActive on every call. Catch the
+      // constraint, refetch the winner, and report wasCreated=false.
+      //
+      // The collision surfaces as SQLITE_CONSTRAINT_PRIMARYKEY (1555) on
+      // the members table since `id` is the PK; broaden to UNIQUE (2067)
+      // for paranoia in case future schema changes add a unique index.
+      if (!isUniqueOrPrimaryKeyConstraintViolation(e)) rethrow;
+      final raced = await getMemberById(unknownSentinelMemberId);
+      if (raced == null) rethrow; // genuinely something else
+      return (member: raced, wasCreated: false);
+    }
   }
 
   domain.Member _normalizeMember(domain.Member member) {
