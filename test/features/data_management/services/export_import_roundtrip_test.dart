@@ -480,7 +480,8 @@ void main() {
         await sourceCommentsRepo.createComment(
           FrontSessionComment(
             id: 'comment-1',
-            sessionId: 'session-rnd',
+            // Post-Phase-5 comments anchor to targetTime, not session id.
+            targetTime: now,
             body: 'Felt good today',
             timestamp: now,
             createdAt: now,
@@ -489,7 +490,7 @@ void main() {
         await sourceCommentsRepo.createComment(
           FrontSessionComment(
             id: 'comment-2',
-            sessionId: 'session-rnd',
+            targetTime: now.add(const Duration(minutes: 5)),
             body: 'Second comment',
             timestamp: now.add(const Duration(minutes: 5)),
             createdAt: now.add(const Duration(minutes: 5)),
@@ -548,7 +549,7 @@ void main() {
         expect(importedComments, hasLength(2));
         final c1 = importedComments.firstWhere((c) => c.id == 'comment-1');
         expect(c1.body, 'Felt good today');
-        expect(c1.sessionId, 'session-rnd');
+        expect(c1.targetTime?.toUtc(), now);
         final c2 = importedComments.firstWhere((c) => c.id == 'comment-2');
         expect(c2.body, 'Second comment');
       },
@@ -630,7 +631,7 @@ void main() {
         await sourceCommentsRepo.createComment(
           FrontSessionComment(
             id: 'comment-idem',
-            sessionId: 'session-idem',
+            targetTime: now,
             body: 'Test comment',
             timestamp: now,
             createdAt: now,
@@ -699,7 +700,7 @@ void main() {
     );
 
     test(
-      'PluralKit Phase 2 fronting session pkMemberIdsJson survives roundtrip',
+      'PluralKit fronting session pluralkitUuid survives new-shape roundtrip',
       () async {
         final now = DateTime(2026, 4, 17, 14, 0, 0).toUtc();
 
@@ -722,9 +723,6 @@ void main() {
             endTime: now,
             memberId: 'pk-session-member',
             pluralkitUuid: '22222222-2222-2222-2222-222222222222',
-            pkMemberIdsJson:
-                '["aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",'
-                '"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"]',
           ),
         );
 
@@ -740,11 +738,11 @@ void main() {
         final s = imported.single;
         expect(s.id, 'pk-session-1');
         expect(s.pluralkitUuid, '22222222-2222-2222-2222-222222222222');
-        expect(
-          s.pkMemberIdsJson,
-          '["aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",'
-          '"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"]',
-        );
+        // Post-Phase-5 the FrontingSession model no longer carries
+        // `pkMemberIdsJson` — the field is read off the v7 Drift column
+        // only when the legacy-fields export branch runs (migration-time).
+        // The new-shape exporter omits it; per-member rows are derived via
+        // §2.6 deterministic v5 ids on import.
       },
     );
 
