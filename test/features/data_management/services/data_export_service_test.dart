@@ -30,6 +30,7 @@ DataExportService _makeExport(
   AppDatabase db,
   Directory cacheDir,
 ) => DataExportService(
+  db: db,
   memberRepository: DriftMemberRepository(db.membersDao, null),
   frontingSessionRepository: DriftFrontingSessionRepository(
     db.frontingSessionsDao,

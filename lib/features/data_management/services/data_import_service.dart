@@ -773,10 +773,35 @@ class DataImportService {
               );
               continue;
             }
-            // Preserve the legacy id for the single-member fallback so
-            // existing references (e.g., comments) keep working.
+            // Derive the SAME deterministic id the live PK API importer
+            // would derive — `derivePkSessionId(switch_uuid,
+            // member_pk_uuid)`. Reusing the legacy v4 `s.id` here would
+            // create two distinct rows for the same (switch, member)
+            // pair on a future API re-import, hitting the composite
+            // unique index and the diff-sweep's collision-handler path.
+            // Skip rows whose local member has no `pluralkit_uuid` —
+            // we can't derive a stable id without it; counted as
+            // skipped per the existing PK short-id-without-mapping
+            // pattern.
+            final memberPkUuid = await _pkUuidForLocalMemberId(
+              s.headmateId!,
+            );
+            if (memberPkUuid == null) {
+              debugPrint(
+                '[Import][rescue] PK row ${s.id} headmateId '
+                '"${s.headmateId}" has no pluralkit_uuid; skipping.',
+              );
+              legacyPkShortIdsSkipped++;
+              legacySessionParents[s.id] = _LegacyParentInfo(
+                memberId: s.headmateId,
+                startTime: start,
+              );
+              continue;
+            }
+            final derivedId =
+                derivePkSessionId(s.pluralkitUuid!, memberPkUuid);
             final created = await writeSession(
-              id: s.id,
+              id: derivedId,
               startTime: start,
               endTime: end,
               memberId: s.headmateId,
@@ -813,10 +838,8 @@ class DataImportService {
             startTime: start,
           );
           for (final memberPkUuid in resolvedMemberUuids) {
-            final derivedId = uuid.v5(
-              pkFrontingNamespace,
-              '${s.pluralkitUuid}:$memberPkUuid',
-            );
+            final derivedId =
+                derivePkSessionId(s.pluralkitUuid!, memberPkUuid);
             final localMemberId =
                 await _localMemberIdForPkUuid(memberPkUuid);
             if (localMemberId == null) {
@@ -1663,6 +1686,25 @@ class DataImportService {
     final allMembers = await memberRepository.getAllMembers();
     for (final m in allMembers) {
       if (m.pluralkitUuid == pkUuid) return m.id;
+    }
+    return null;
+  }
+
+  /// Reverse of [_localMemberIdForPkUuid] — returns the local member's
+  /// `pluralkit_uuid` (the FULL UUID, not the 5-char `pluralkit_id`
+  /// short id) given its local Prism member id. Used by the rescue
+  /// importer's empty-`pkMemberIdsJson` fallback (§4.7) to derive the
+  /// canonical (switch, member) id that the live PK API importer would
+  /// produce — without it, the rescue and API legs land on different
+  /// ids and lose the field-LWW boundary correction.
+  Future<String?> _pkUuidForLocalMemberId(String localId) async {
+    if (localId.isEmpty) return null;
+    final allMembers = await memberRepository.getAllMembers();
+    for (final m in allMembers) {
+      if (m.id == localId) {
+        final uuid = m.pluralkitUuid;
+        return (uuid == null || uuid.isEmpty) ? null : uuid;
+      }
     }
     return null;
   }

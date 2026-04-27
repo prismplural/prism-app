@@ -5,7 +5,6 @@ import 'package:uuid/uuid.dart';
 
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
-import 'package:prism_plurality/core/database/sqlite_constraint.dart';
 import 'package:prism_plurality/core/database/daos/pk_mapping_state_dao.dart';
 import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart'
@@ -1401,14 +1400,23 @@ class PluralKitSyncService {
       // Atomic transaction: opens + closes + cursor advance.
       await _syncDao.attachedDatabase.transaction(() async {
         // Open rows for entrants.
+        //
+        // We branch on existing-row presence rather than catching a
+        // unique-constraint violation because the existing row may be
+        // a PRISM1 rescue import with lossy boundaries (one row per
+        // old switch covering its full duration). We MUST overwrite
+        // start_time + member_id + pluralkit_uuid with the API truth
+        // so a future sync's field-LWW carries the corrected boundary
+        // to paired devices. The previous `createSession`-then-catch
+        // pattern recorded the row id but never wrote the API values,
+        // leaving rescue-derived boundaries on disk forever.
         for (final localId in entrants) {
           // Resolve local ID back to PK UUID for deterministic ID derivation.
           final memberUuid = _localIdToPkUuid(localId, uuidToLocalId);
-          final rowId = _uuid.v5(
-            pkFrontingNamespace,
-            '${sw.id}:$memberUuid',
-          );
-          try {
+          final rowId = derivePkSessionId(sw.id, memberUuid);
+          final existing =
+              await _frontingSessionRepository.getSessionById(rowId);
+          if (existing == null) {
             await _frontingSessionRepository.createSession(
               domain.FrontingSession(
                 id: rowId,
@@ -1417,16 +1425,39 @@ class PluralKitSyncService {
                 pluralkitUuid: sw.id,
               ),
             );
-            openRowIds[localId] = rowId;
-          } catch (e) {
-            if (isUniqueConstraintViolation(e)) {
-              // Row already exists (idempotent — same entry-switch + member).
-              // Record the open row ID so close tracking works correctly.
-              openRowIds[localId] = rowId;
-            } else {
-              rethrow;
+          } else {
+            // Collision — almost always a PRISM1 rescue row at the
+            // same deterministic id. Correct the lossy start +
+            // member_id + pluralkit_uuid via field-LWW (fresh HLCs).
+            //
+            // Conservative end_time policy: if `existing.endTime` is
+            // non-null we leave it alone. The API says this member
+            // is currently fronting (entrant in this sweep), so in
+            // principle end_time should be NULL — but the existing
+            // close may have been a deliberate user edit on the
+            // rescue row. We log instead of clobbering. The trade-off:
+            // a user who manually closed a rescue-imported session
+            // still has it closed after API re-import; they can
+            // re-open manually if they care. That's strictly safer
+            // than silently re-opening every closed PK row on every
+            // API sync cycle. Re-evaluate if rescue-row metadata
+            // becomes available to detect "set by rescue, not user."
+            if (existing.endTime != null) {
+              debugPrint(
+                '[PK_SWEEP] entrant collision on $rowId: existing '
+                'end_time ${existing.endTime} preserved (API says '
+                'fronting; user may have closed the rescue row).',
+              );
             }
+            await _frontingSessionRepository.updateSession(
+              existing.copyWith(
+                startTime: sw.timestamp,
+                memberId: localId,
+                pluralkitUuid: sw.id,
+              ),
+            );
           }
+          openRowIds[localId] = rowId;
         }
 
         // Close rows for leavers.

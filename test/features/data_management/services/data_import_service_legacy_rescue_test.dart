@@ -176,15 +176,8 @@ void main() {
 
         // Assert: two per-member rows with deterministic ids, both
         // carrying the lossy boundaries from the rescue file.
-        const uuid = Uuid();
-        final alexId = uuid.v5(
-          pkFrontingNamespace,
-          '$switchUuid:$alexPkUuid',
-        );
-        final ezraId = uuid.v5(
-          pkFrontingNamespace,
-          '$switchUuid:$ezraPkUuid',
-        );
+        final alexId = derivePkSessionId(switchUuid, alexPkUuid);
+        final ezraId = derivePkSessionId(switchUuid, ezraPkUuid);
         expect(result.frontSessionsCreated, 2);
         expect(result.legacyPkShortIdsSkipped, 0);
         final rows = await db.frontingSessionsDao.getAllSessions();
@@ -216,8 +209,13 @@ void main() {
         // the same repository path, using the same deterministic id
         // the API importer would derive. The test asserts the corrected
         // boundaries land on disk, which is what field-LWW + fresh HLCs
-        // guarantee in the real sync engine. The rescue-only path is
-        // covered by the assertions before the second write.
+        // guarantee in the real sync engine.
+        //
+        // The actual diff-sweep collision path is exercised end-to-end
+        // by `pluralkit_sync_service_diff_sweep_test.dart` ("PRISM1
+        // rescue collision upsert" group) — which catches the codex P1
+        // #6 regression where the previous create-then-catch pattern
+        // recorded the row id without writing the API truth.
         const memberId = 'm-corrective';
         const pkUuid = '33333333-3333-4333-8333-333333333333';
         const switchUuid = '44444444-4444-4444-8444-444444444444';
@@ -247,9 +245,7 @@ void main() {
         await importService.importData(json);
 
         // Rescue-only assertion: derived id present with lossy bounds.
-        const uuid = Uuid();
-        final derivedId =
-            uuid.v5(pkFrontingNamespace, '$switchUuid:$pkUuid');
+        final derivedId = derivePkSessionId(switchUuid, pkUuid);
         var rows = await db.frontingSessionsDao.getAllSessions();
         var row = rows.firstWhere((r) => r.id == derivedId);
         expect(row.startTime.toUtc(), lossyStart);
@@ -310,11 +306,7 @@ void main() {
         final result = await importService.importData(json);
         expect(result.frontSessionsCreated, 1);
         expect(result.legacyPkShortIdsSkipped, 1);
-        const uuid = Uuid();
-        final aliceId = uuid.v5(
-          pkFrontingNamespace,
-          '$switchUuid:$alexPkUuid',
-        );
+        final aliceId = derivePkSessionId(switchUuid, alexPkUuid);
         final rows = await db.frontingSessionsDao.getAllSessions();
         expect(rows.map((r) => r.id), contains(aliceId));
       },
@@ -640,6 +632,172 @@ void main() {
             SessionType.sleep.index);
         expect(byId['new-shape-sleep']!.quality, 4);
         expect(byId['new-shape-sleep']!.isHealthKitImport, isTrue);
+      },
+    );
+
+    test(
+      'migration-time export shape (legacy fields + sessionType on the '
+      'same row) routes through the rescue path (codex P1 #2 regression)',
+      () async {
+        // The migration-time PRISM1 exporter emits BOTH the legacy
+        // co_fronter_ids / pk_member_ids_json columns AND the new-shape
+        // sessionType field on every row (the rescue file is meant to be
+        // self-sufficient). The previous AND-NOT detection treated such
+        // rows as new-shape and silently dropped the PK / native fan-out
+        // — meaning every PK switch landed as a single non-fanned row,
+        // every multi-member native session lost its co-fronters, and
+        // the deterministic-id contract for future API re-import was
+        // broken. This test pins the detection on the load-bearing
+        // shape: a PK row with legacy markers + sessionType MUST fan
+        // out per pk_member_ids_json.
+        const alexLocalId = 'alex-mig';
+        const ezraLocalId = 'ezra-mig';
+        const alexPkUuid = '11111111-1111-4111-8111-111111111111';
+        const ezraPkUuid = '22222222-2222-4222-8222-222222222222';
+        const switchUuid = '99999999-9999-4999-8999-999999999999';
+        await memberRepo.createMember(Member(
+          id: alexLocalId,
+          name: 'Alex',
+          emoji: 'A',
+          createdAt: DateTime(2026, 1, 1).toUtc(),
+          pluralkitId: 'mga',
+          pluralkitUuid: alexPkUuid,
+        ));
+        await memberRepo.createMember(Member(
+          id: ezraLocalId,
+          name: 'Ezra',
+          emoji: 'E',
+          createdAt: DateTime(2026, 1, 1).toUtc(),
+          pluralkitId: 'mge',
+          pluralkitUuid: ezraPkUuid,
+        ));
+
+        final json = _envelope(frontSessions: [
+          {
+            'id': 'mig-pk-row',
+            'startTime': DateTime.utc(2026, 4, 1, 9).toIso8601String(),
+            'endTime': DateTime.utc(2026, 4, 1, 11).toIso8601String(),
+            'headmateId': alexLocalId,
+            // Legacy markers — present on migration-time exports.
+            'coFronterIds': [ezraLocalId],
+            'pluralkitUuid': switchUuid,
+            'pkMemberIdsJson': jsonEncode(['mga', 'mge']),
+            // New-shape marker — also present on migration-time exports.
+            'sessionType': 0,
+          },
+        ]);
+
+        final result = await importService.importData(json);
+        // Two rows (one per PK member) — fan-out happened. The previous
+        // bug would have produced a single row with the legacy id.
+        expect(result.frontSessionsCreated, 2);
+        final alexId = derivePkSessionId(switchUuid, alexPkUuid);
+        final ezraId = derivePkSessionId(switchUuid, ezraPkUuid);
+        final rows = await db.frontingSessionsDao.getAllSessions();
+        final byId = {for (final r in rows) r.id: r};
+        expect(byId.keys, containsAll([alexId, ezraId]),
+            reason: 'PK fan-out must derive deterministic ids per member');
+        expect(byId[alexId]!.memberId, alexLocalId);
+        expect(byId[ezraId]!.memberId, ezraLocalId);
+      },
+    );
+
+    test(
+      'PK rescue with empty pkMemberIdsJson but headmateId present derives '
+      'deterministic id from local member.pluralkit_uuid (codex P1 #10)',
+      () async {
+        // Pre-Phase-2 PK exports: pluralkit_uuid present, pk_member_ids_json
+        // absent. Without the fix the row landed at the legacy `s.id`
+        // (a random v4) — a future PK API re-import would derive a
+        // different deterministic id and produce two distinct rows for
+        // the same (switch, member) pair, defeating the field-LWW
+        // boundary correction contract.
+        const memberLocalId = 'fallback-member';
+        const memberPkUuid = '55555555-5555-4555-8555-555555555555';
+        const switchUuid = '66666666-6666-4666-8666-666666666666';
+        await memberRepo.createMember(Member(
+          id: memberLocalId,
+          name: 'Fallback',
+          emoji: 'F',
+          createdAt: DateTime(2026, 1, 1).toUtc(),
+          pluralkitId: 'fmsht',
+          pluralkitUuid: memberPkUuid,
+        ));
+
+        final json = _envelope(frontSessions: [
+          {
+            'id': 'legacy-v4-id-not-deterministic',
+            'startTime': DateTime.utc(2026, 4, 1, 9).toIso8601String(),
+            'endTime': DateTime.utc(2026, 4, 1, 11).toIso8601String(),
+            'headmateId': memberLocalId,
+            'coFronterIds': [], // empty legacy marker — still triggers rescue
+            'pluralkitUuid': switchUuid,
+            // pkMemberIdsJson absent — fallback path.
+          },
+        ]);
+
+        final result = await importService.importData(json);
+        expect(result.frontSessionsCreated, 1);
+        final derivedId = derivePkSessionId(switchUuid, memberPkUuid);
+        final rows = await db.frontingSessionsDao.getAllSessions();
+        expect(rows, hasLength(1));
+        expect(rows.single.id, derivedId,
+            reason: 'fallback id must be the canonical (switch, member) v5');
+        expect(rows.single.id, isNot('legacy-v4-id-not-deterministic'),
+            reason: 'legacy random v4 id must not leak through');
+
+        // Simulated API re-import at the same deterministic id: writes
+        // through the same row (no duplicate) — the boundary correction
+        // contract holds.
+        final domainSession = await importService.frontingSessionRepository
+            .getSessionById(derivedId);
+        await importService.frontingSessionRepository.updateSession(
+          domainSession!.copyWith(
+            startTime: DateTime.utc(2026, 4, 1, 9, 30),
+            endTime: DateTime.utc(2026, 4, 1, 10, 30),
+          ),
+        );
+        final after = await db.frontingSessionsDao.getAllSessions();
+        expect(after, hasLength(1),
+            reason: 'API write must collide on the same id, not duplicate');
+        expect(after.single.startTime.toUtc(),
+            DateTime.utc(2026, 4, 1, 9, 30));
+      },
+    );
+
+    test(
+      'PK rescue fallback with headmateId whose local member has no '
+      'pluralkit_uuid is counted as skipped, not silently misimported',
+      () async {
+        // The fallback can only derive the canonical id when the local
+        // member has a `pluralkit_uuid`. Without one, writing a
+        // non-deterministic id would re-introduce the codex #10 bug —
+        // skip the row instead, surface via legacyPkShortIdsSkipped.
+        const memberLocalId = 'no-pk-uuid-member';
+        await memberRepo.createMember(Member(
+          id: memberLocalId,
+          name: 'NoPK',
+          emoji: 'X',
+          createdAt: DateTime(2026, 1, 1).toUtc(),
+          // no pluralkitUuid
+        ));
+
+        final json = _envelope(frontSessions: [
+          {
+            'id': 'unmappable-pk-rescue',
+            'startTime': DateTime.utc(2026, 4, 1, 9).toIso8601String(),
+            'endTime': DateTime.utc(2026, 4, 1, 11).toIso8601String(),
+            'headmateId': memberLocalId,
+            'coFronterIds': [],
+            'pluralkitUuid': '77777777-7777-4777-8777-777777777777',
+          },
+        ]);
+
+        final result = await importService.importData(json);
+        expect(result.frontSessionsCreated, 0);
+        expect(result.legacyPkShortIdsSkipped, 1);
+        final rows = await db.frontingSessionsDao.getAllSessions();
+        expect(rows, isEmpty);
       },
     );
   });

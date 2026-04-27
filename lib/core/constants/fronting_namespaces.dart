@@ -25,6 +25,17 @@ import 'package:uuid/uuid.dart';
 /// Produces one Prism row per (PK entry-switch UUID × member UUID) pair.
 const String pkFrontingNamespace = 'cbf8841f-5ec5-4d77-a356-2aebdeab0e4a';
 
+/// Canonical derivation for a per-member PK fronting row id.
+///
+/// The two derivation sites that MUST agree byte-for-byte are the
+/// PluralKit API diff sweep importer (live PK sync) and the PRISM1
+/// legacy-shape rescue importer.  CRDT collision on this id is the entire
+/// mechanism by which a future API re-import can correct lossy rescue
+/// boundaries via field-LWW.  Open-coding the v5 call invites drift —
+/// route every site through this helper instead.
+String derivePkSessionId(String switchUuid, String memberPkUuid) =>
+    const Uuid().v5(pkFrontingNamespace, '$switchUuid:$memberPkUuid');
+
 /// Namespace for Simply Plural–imported fronting session ids.
 ///
 /// Key format: SP `_id` string from the source export.

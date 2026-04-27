@@ -304,6 +304,20 @@ void main() {
       () async {
         // Tombstone with pluralkit_uuid='X', import row with 'Y' — no
         // collision, the import row should land normally.
+        //
+        // Seed the local member with a pluralkit_uuid so the rescue
+        // importer's empty-pkMemberIdsJson fallback can derive the
+        // canonical (switch, member) deterministic id (codex P1 #10).
+        // Without a local pluralkit_uuid the rescue row is correctly
+        // skipped — that's covered by other tests.
+        await db.into(db.members).insert(
+              MembersCompanion.insert(
+                id: 'local-member-id',
+                name: 'Local',
+                createdAt: DateTime(2026, 1, 1),
+                pluralkitUuid: const drift.Value('member-pk-uuid'),
+              ),
+            );
         await db.frontingSessionsDao.insertSession(
           FrontingSessionsCompanion.insert(
             id: 'tombstone-id',
@@ -332,8 +346,12 @@ void main() {
               ..where((s) => s.isDeleted.equals(false)))
             .get();
         expect(live, hasLength(1));
-        expect(live.single.id, 'imported-id');
+        // Row id is now the deterministic v5(switchUuid, memberPkUuid)
+        // — see derivePkSessionId — not the legacy `imported-id`. The
+        // legacy id would have produced two rows on a future API
+        // re-import, defeating the field-LWW correction contract.
         expect(live.single.pluralkitUuid, 'Y');
+        expect(live.single.memberId, 'local-member-id');
       },
     );
 

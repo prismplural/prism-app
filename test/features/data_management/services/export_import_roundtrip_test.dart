@@ -37,6 +37,7 @@ import 'package:prism_plurality/features/data_management/services/data_import_se
 AppDatabase _makeDb() => AppDatabase(NativeDatabase.memory());
 
 DataExportService _makeExport(AppDatabase db) => DataExportService(
+  db: db,
   memberRepository: DriftMemberRepository(db.membersDao, null),
   frontingSessionRepository: DriftFrontingSessionRepository(
     db.frontingSessionsDao,

@@ -454,16 +454,24 @@ class V1FrontSession {
   };
 
   factory V1FrontSession.fromJson(Map<String, dynamic> json) {
-    // Per-row legacy-shape sniff: any legacy-only key present, or no
-    // new-shape `memberId` / `sessionType` key seen, implies the row was
-    // produced by a pre-0.7.0 exporter. New-shape exports always carry
-    // `memberId` (even when null) and `sessionType` (even when 0).
-    final hasLegacyMarker = json.containsKey('coFronterIds') ||
-        json.containsKey('pkMemberIdsJson') ||
-        json.containsKey('headmateId');
-    final hasNewShapeMarker =
-        json.containsKey('memberId') || json.containsKey('sessionType');
-    final isLegacy = hasLegacyMarker && !hasNewShapeMarker;
+    // Per-row legacy-shape sniff: any legacy-only key present routes
+    // the row through the rescue path regardless of new-shape markers.
+    // The migration-time PRISM1 export emits BOTH legacy fields AND
+    // `sessionType` for the same row (it's a self-sufficient rescue
+    // bundle), so an AND-NOT detection would silently route those
+    // rows through the new-shape importer and drop the PK / native
+    // fan-out (codex P1 #2).
+    //
+    // The two unambiguously legacy-only keys are `coFronterIds` and
+    // `pkMemberIdsJson`. `headmateId` does NOT count: the new-shape
+    // exporter still emits it as the canonical member-id key in the
+    // V1 envelope (the freezed model field is named `headmateId` for
+    // historical reasons), and the new-shape importer accepts either
+    // `memberId` or `headmateId` as the local member id. Treating
+    // `headmateId` as a legacy marker would force every new-shape PK
+    // row through the rescue path on re-import.
+    final isLegacy = json.containsKey('coFronterIds') ||
+        json.containsKey('pkMemberIdsJson');
 
     // Tolerate a malformed `coFronterIds` value (per §6 edge cases — if
     // expansion fails to parse, fall back to single-member migration).
