@@ -9346,6 +9346,28 @@ class $PluralKitSyncStateTable extends PluralKitSyncState
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _switchCursorTimestampMeta =
+      const VerificationMeta('switchCursorTimestamp');
+  @override
+  late final GeneratedColumn<DateTime> switchCursorTimestamp =
+      GeneratedColumn<DateTime>(
+        'switch_cursor_timestamp',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _switchCursorIdMeta = const VerificationMeta(
+    'switchCursorId',
+  );
+  @override
+  late final GeneratedColumn<String> switchCursorId = GeneratedColumn<String>(
+    'switch_cursor_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -9357,6 +9379,8 @@ class $PluralKitSyncStateTable extends PluralKitSyncState
     mappingAcknowledged,
     linkedAt,
     linkEpoch,
+    switchCursorTimestamp,
+    switchCursorId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -9438,6 +9462,24 @@ class $PluralKitSyncStateTable extends PluralKitSyncState
         linkEpoch.isAcceptableOrUnknown(data['link_epoch']!, _linkEpochMeta),
       );
     }
+    if (data.containsKey('switch_cursor_timestamp')) {
+      context.handle(
+        _switchCursorTimestampMeta,
+        switchCursorTimestamp.isAcceptableOrUnknown(
+          data['switch_cursor_timestamp']!,
+          _switchCursorTimestampMeta,
+        ),
+      );
+    }
+    if (data.containsKey('switch_cursor_id')) {
+      context.handle(
+        _switchCursorIdMeta,
+        switchCursorId.isAcceptableOrUnknown(
+          data['switch_cursor_id']!,
+          _switchCursorIdMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -9483,6 +9525,14 @@ class $PluralKitSyncStateTable extends PluralKitSyncState
         DriftSqlType.int,
         data['${effectivePrefix}link_epoch'],
       )!,
+      switchCursorTimestamp: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}switch_cursor_timestamp'],
+      ),
+      switchCursorId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}switch_cursor_id'],
+      ),
     );
   }
 
@@ -9522,6 +9572,16 @@ class PluralKitSyncStateData extends DataClass
   /// own connection history, and cross-device coordination is handled via
   /// the synced `delete_push_started_at` timestamp instead).
   final int linkEpoch;
+
+  /// Timestamp of the last PK switch successfully processed by the diff sweep.
+  /// Used as the `before=` query parameter on resume: fetch
+  /// `before = switchCursorTimestamp + 1µs`.
+  final DateTime? switchCursorTimestamp;
+
+  /// UUID of the last PK switch successfully processed by the diff sweep.
+  /// Deduplicates within the fetched page when the cursor timestamp falls
+  /// on a page boundary shared by multiple switches.
+  final String? switchCursorId;
   const PluralKitSyncStateData({
     required this.id,
     this.systemId,
@@ -9532,6 +9592,8 @@ class PluralKitSyncStateData extends DataClass
     required this.mappingAcknowledged,
     this.linkedAt,
     required this.linkEpoch,
+    this.switchCursorTimestamp,
+    this.switchCursorId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -9555,6 +9617,14 @@ class PluralKitSyncStateData extends DataClass
       map['linked_at'] = Variable<DateTime>(linkedAt);
     }
     map['link_epoch'] = Variable<int>(linkEpoch);
+    if (!nullToAbsent || switchCursorTimestamp != null) {
+      map['switch_cursor_timestamp'] = Variable<DateTime>(
+        switchCursorTimestamp,
+      );
+    }
+    if (!nullToAbsent || switchCursorId != null) {
+      map['switch_cursor_id'] = Variable<String>(switchCursorId);
+    }
     return map;
   }
 
@@ -9579,6 +9649,12 @@ class PluralKitSyncStateData extends DataClass
           ? const Value.absent()
           : Value(linkedAt),
       linkEpoch: Value(linkEpoch),
+      switchCursorTimestamp: switchCursorTimestamp == null && nullToAbsent
+          ? const Value.absent()
+          : Value(switchCursorTimestamp),
+      switchCursorId: switchCursorId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(switchCursorId),
     );
   }
 
@@ -9601,6 +9677,10 @@ class PluralKitSyncStateData extends DataClass
       ),
       linkedAt: serializer.fromJson<DateTime?>(json['linkedAt']),
       linkEpoch: serializer.fromJson<int>(json['linkEpoch']),
+      switchCursorTimestamp: serializer.fromJson<DateTime?>(
+        json['switchCursorTimestamp'],
+      ),
+      switchCursorId: serializer.fromJson<String?>(json['switchCursorId']),
     );
   }
   @override
@@ -9616,6 +9696,10 @@ class PluralKitSyncStateData extends DataClass
       'mappingAcknowledged': serializer.toJson<bool>(mappingAcknowledged),
       'linkedAt': serializer.toJson<DateTime?>(linkedAt),
       'linkEpoch': serializer.toJson<int>(linkEpoch),
+      'switchCursorTimestamp': serializer.toJson<DateTime?>(
+        switchCursorTimestamp,
+      ),
+      'switchCursorId': serializer.toJson<String?>(switchCursorId),
     };
   }
 
@@ -9629,6 +9713,8 @@ class PluralKitSyncStateData extends DataClass
     bool? mappingAcknowledged,
     Value<DateTime?> linkedAt = const Value.absent(),
     int? linkEpoch,
+    Value<DateTime?> switchCursorTimestamp = const Value.absent(),
+    Value<String?> switchCursorId = const Value.absent(),
   }) => PluralKitSyncStateData(
     id: id ?? this.id,
     systemId: systemId.present ? systemId.value : this.systemId,
@@ -9643,6 +9729,12 @@ class PluralKitSyncStateData extends DataClass
     mappingAcknowledged: mappingAcknowledged ?? this.mappingAcknowledged,
     linkedAt: linkedAt.present ? linkedAt.value : this.linkedAt,
     linkEpoch: linkEpoch ?? this.linkEpoch,
+    switchCursorTimestamp: switchCursorTimestamp.present
+        ? switchCursorTimestamp.value
+        : this.switchCursorTimestamp,
+    switchCursorId: switchCursorId.present
+        ? switchCursorId.value
+        : this.switchCursorId,
   );
   PluralKitSyncStateData copyWithCompanion(PluralKitSyncStateCompanion data) {
     return PluralKitSyncStateData(
@@ -9665,6 +9757,12 @@ class PluralKitSyncStateData extends DataClass
           : this.mappingAcknowledged,
       linkedAt: data.linkedAt.present ? data.linkedAt.value : this.linkedAt,
       linkEpoch: data.linkEpoch.present ? data.linkEpoch.value : this.linkEpoch,
+      switchCursorTimestamp: data.switchCursorTimestamp.present
+          ? data.switchCursorTimestamp.value
+          : this.switchCursorTimestamp,
+      switchCursorId: data.switchCursorId.present
+          ? data.switchCursorId.value
+          : this.switchCursorId,
     );
   }
 
@@ -9679,7 +9777,9 @@ class PluralKitSyncStateData extends DataClass
           ..write('fieldSyncConfig: $fieldSyncConfig, ')
           ..write('mappingAcknowledged: $mappingAcknowledged, ')
           ..write('linkedAt: $linkedAt, ')
-          ..write('linkEpoch: $linkEpoch')
+          ..write('linkEpoch: $linkEpoch, ')
+          ..write('switchCursorTimestamp: $switchCursorTimestamp, ')
+          ..write('switchCursorId: $switchCursorId')
           ..write(')'))
         .toString();
   }
@@ -9695,6 +9795,8 @@ class PluralKitSyncStateData extends DataClass
     mappingAcknowledged,
     linkedAt,
     linkEpoch,
+    switchCursorTimestamp,
+    switchCursorId,
   );
   @override
   bool operator ==(Object other) =>
@@ -9708,7 +9810,9 @@ class PluralKitSyncStateData extends DataClass
           other.fieldSyncConfig == this.fieldSyncConfig &&
           other.mappingAcknowledged == this.mappingAcknowledged &&
           other.linkedAt == this.linkedAt &&
-          other.linkEpoch == this.linkEpoch);
+          other.linkEpoch == this.linkEpoch &&
+          other.switchCursorTimestamp == this.switchCursorTimestamp &&
+          other.switchCursorId == this.switchCursorId);
 }
 
 class PluralKitSyncStateCompanion
@@ -9722,6 +9826,8 @@ class PluralKitSyncStateCompanion
   final Value<bool> mappingAcknowledged;
   final Value<DateTime?> linkedAt;
   final Value<int> linkEpoch;
+  final Value<DateTime?> switchCursorTimestamp;
+  final Value<String?> switchCursorId;
   final Value<int> rowid;
   const PluralKitSyncStateCompanion({
     this.id = const Value.absent(),
@@ -9733,6 +9839,8 @@ class PluralKitSyncStateCompanion
     this.mappingAcknowledged = const Value.absent(),
     this.linkedAt = const Value.absent(),
     this.linkEpoch = const Value.absent(),
+    this.switchCursorTimestamp = const Value.absent(),
+    this.switchCursorId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   PluralKitSyncStateCompanion.insert({
@@ -9745,6 +9853,8 @@ class PluralKitSyncStateCompanion
     this.mappingAcknowledged = const Value.absent(),
     this.linkedAt = const Value.absent(),
     this.linkEpoch = const Value.absent(),
+    this.switchCursorTimestamp = const Value.absent(),
+    this.switchCursorId = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id);
   static Insertable<PluralKitSyncStateData> custom({
@@ -9757,6 +9867,8 @@ class PluralKitSyncStateCompanion
     Expression<bool>? mappingAcknowledged,
     Expression<DateTime>? linkedAt,
     Expression<int>? linkEpoch,
+    Expression<DateTime>? switchCursorTimestamp,
+    Expression<String>? switchCursorId,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -9771,6 +9883,9 @@ class PluralKitSyncStateCompanion
         'mapping_acknowledged': mappingAcknowledged,
       if (linkedAt != null) 'linked_at': linkedAt,
       if (linkEpoch != null) 'link_epoch': linkEpoch,
+      if (switchCursorTimestamp != null)
+        'switch_cursor_timestamp': switchCursorTimestamp,
+      if (switchCursorId != null) 'switch_cursor_id': switchCursorId,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -9785,6 +9900,8 @@ class PluralKitSyncStateCompanion
     Value<bool>? mappingAcknowledged,
     Value<DateTime?>? linkedAt,
     Value<int>? linkEpoch,
+    Value<DateTime?>? switchCursorTimestamp,
+    Value<String?>? switchCursorId,
     Value<int>? rowid,
   }) {
     return PluralKitSyncStateCompanion(
@@ -9797,6 +9914,9 @@ class PluralKitSyncStateCompanion
       mappingAcknowledged: mappingAcknowledged ?? this.mappingAcknowledged,
       linkedAt: linkedAt ?? this.linkedAt,
       linkEpoch: linkEpoch ?? this.linkEpoch,
+      switchCursorTimestamp:
+          switchCursorTimestamp ?? this.switchCursorTimestamp,
+      switchCursorId: switchCursorId ?? this.switchCursorId,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -9833,6 +9953,14 @@ class PluralKitSyncStateCompanion
     if (linkEpoch.present) {
       map['link_epoch'] = Variable<int>(linkEpoch.value);
     }
+    if (switchCursorTimestamp.present) {
+      map['switch_cursor_timestamp'] = Variable<DateTime>(
+        switchCursorTimestamp.value,
+      );
+    }
+    if (switchCursorId.present) {
+      map['switch_cursor_id'] = Variable<String>(switchCursorId.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -9851,6 +9979,8 @@ class PluralKitSyncStateCompanion
           ..write('mappingAcknowledged: $mappingAcknowledged, ')
           ..write('linkedAt: $linkedAt, ')
           ..write('linkEpoch: $linkEpoch, ')
+          ..write('switchCursorTimestamp: $switchCursorTimestamp, ')
+          ..write('switchCursorId: $switchCursorId, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -25926,6 +26056,8 @@ typedef $$PluralKitSyncStateTableCreateCompanionBuilder =
       Value<bool> mappingAcknowledged,
       Value<DateTime?> linkedAt,
       Value<int> linkEpoch,
+      Value<DateTime?> switchCursorTimestamp,
+      Value<String?> switchCursorId,
       Value<int> rowid,
     });
 typedef $$PluralKitSyncStateTableUpdateCompanionBuilder =
@@ -25939,6 +26071,8 @@ typedef $$PluralKitSyncStateTableUpdateCompanionBuilder =
       Value<bool> mappingAcknowledged,
       Value<DateTime?> linkedAt,
       Value<int> linkEpoch,
+      Value<DateTime?> switchCursorTimestamp,
+      Value<String?> switchCursorId,
       Value<int> rowid,
     });
 
@@ -25993,6 +26127,16 @@ class $$PluralKitSyncStateTableFilterComposer
 
   ColumnFilters<int> get linkEpoch => $composableBuilder(
     column: $table.linkEpoch,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get switchCursorTimestamp => $composableBuilder(
+    column: $table.switchCursorTimestamp,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get switchCursorId => $composableBuilder(
+    column: $table.switchCursorId,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -26050,6 +26194,16 @@ class $$PluralKitSyncStateTableOrderingComposer
     column: $table.linkEpoch,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<DateTime> get switchCursorTimestamp => $composableBuilder(
+    column: $table.switchCursorTimestamp,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get switchCursorId => $composableBuilder(
+    column: $table.switchCursorId,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$PluralKitSyncStateTableAnnotationComposer
@@ -26097,6 +26251,16 @@ class $$PluralKitSyncStateTableAnnotationComposer
 
   GeneratedColumn<int> get linkEpoch =>
       $composableBuilder(column: $table.linkEpoch, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get switchCursorTimestamp => $composableBuilder(
+    column: $table.switchCursorTimestamp,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get switchCursorId => $composableBuilder(
+    column: $table.switchCursorId,
+    builder: (column) => column,
+  );
 }
 
 class $$PluralKitSyncStateTableTableManager
@@ -26148,6 +26312,8 @@ class $$PluralKitSyncStateTableTableManager
                 Value<bool> mappingAcknowledged = const Value.absent(),
                 Value<DateTime?> linkedAt = const Value.absent(),
                 Value<int> linkEpoch = const Value.absent(),
+                Value<DateTime?> switchCursorTimestamp = const Value.absent(),
+                Value<String?> switchCursorId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PluralKitSyncStateCompanion(
                 id: id,
@@ -26159,6 +26325,8 @@ class $$PluralKitSyncStateTableTableManager
                 mappingAcknowledged: mappingAcknowledged,
                 linkedAt: linkedAt,
                 linkEpoch: linkEpoch,
+                switchCursorTimestamp: switchCursorTimestamp,
+                switchCursorId: switchCursorId,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -26172,6 +26340,8 @@ class $$PluralKitSyncStateTableTableManager
                 Value<bool> mappingAcknowledged = const Value.absent(),
                 Value<DateTime?> linkedAt = const Value.absent(),
                 Value<int> linkEpoch = const Value.absent(),
+                Value<DateTime?> switchCursorTimestamp = const Value.absent(),
+                Value<String?> switchCursorId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PluralKitSyncStateCompanion.insert(
                 id: id,
@@ -26183,6 +26353,8 @@ class $$PluralKitSyncStateTableTableManager
                 mappingAcknowledged: mappingAcknowledged,
                 linkedAt: linkedAt,
                 linkEpoch: linkEpoch,
+                switchCursorTimestamp: switchCursorTimestamp,
+                switchCursorId: switchCursorId,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

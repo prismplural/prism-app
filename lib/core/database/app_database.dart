@@ -90,7 +90,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -324,6 +324,19 @@ class AppDatabase extends _$AppDatabase {
         });
 
         current = 7;
+      }
+      if (current == 7 && to >= 8) {
+        // Phase 4B: diff-sweep resume cursor columns for PluralKit sync (§2.6).
+        // Additive-only — two nullable columns, no data migration required.
+        await migrator.addColumn(
+          pluralKitSyncState,
+          pluralKitSyncState.switchCursorTimestamp,
+        );
+        await migrator.addColumn(
+          pluralKitSyncState,
+          pluralKitSyncState.switchCursorId,
+        );
+        current = 8;
       }
       if (current != to) {
         throw UnsupportedError(
