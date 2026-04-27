@@ -10,7 +10,6 @@ import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/models/update_fronting_session_patch.dart';
 import 'package:prism_plurality/features/fronting/services/fronting_mutation_service.dart';
 import 'package:prism_plurality/features/members/providers/member_stats_providers.dart';
-import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 
 /// Watches the current active fronting session (null if no one fronting).
 final activeSessionProvider = StreamProvider<FrontingSession?>((ref) {
@@ -92,79 +91,59 @@ class FrontingNotifier extends AsyncNotifier<void> {
     }
   }
 
+  /// Starts a fronting session for one or more members.
+  ///
+  /// Each member in [memberIds] gets its own session row with the same
+  /// [startTime] (per-member model — co-fronting is emergent overlap, not a
+  /// field). Use `.sessions.single` for single-member calls; iterate
+  /// `.sessions` for multi-member.
   Future<void> startFronting(
-    String memberId, {
-    List<String> coFronterIds = const [],
-  }) async {
-    final result = await _unwrapMutation(
-      ref
-          .read(frontingMutationServiceProvider)
-          .startFronting(memberId, coFronterIds: coFronterIds),
-    );
-    _invalidateMemberStats(memberId);
-    for (final id in result.previousMemberIds) {
-      _invalidateMemberStats(id);
-    }
-  }
-
-  Future<void> startFrontingWithDetails({
-    required String? memberId,
-    List<String> coFronterIds = const [],
+    List<String> memberIds, {
     FrontConfidence? confidence,
     String? notes,
     DateTime? startTime,
   }) async {
     final result = await _unwrapMutation(
-      ref
-          .read(frontingMutationServiceProvider)
-          .startFrontingWithDetails(
-            memberId: memberId,
-            coFronterIds: coFronterIds,
-            confidence: confidence,
-            notes: notes,
-            startTime: startTime,
-          ),
+      ref.read(frontingMutationServiceProvider).startFronting(
+        memberIds,
+        confidence: confidence,
+        notes: notes,
+        startTime: startTime,
+      ),
     );
-    _invalidateMemberStats(memberId);
+    for (final session in result.sessions) {
+      _invalidateMemberStats(session.memberId);
+    }
     for (final id in result.previousMemberIds) {
       _invalidateMemberStats(id);
     }
   }
 
-  Future<void> endFronting() async {
-    final previousMemberIds = await _unwrap(
-      ref.read(frontingMutationServiceProvider).endFronting(),
-    );
-    for (final id in previousMemberIds) {
-      _invalidateMemberStats(id);
-    }
-  }
-
-  Future<void> switchFronter(String newMemberId) async {
-    final threshold = ref.read(quickSwitchThresholdProvider);
-
-    final result = await _unwrapMutation(
-      ref
-          .read(frontingMutationServiceProvider)
-          .switchFronter(newMemberId, thresholdSeconds: threshold),
-    );
-
-    for (final id in result.previousMemberIds) {
-      _invalidateMemberStats(id);
-    }
-    _invalidateMemberStats(newMemberId);
-  }
-
-  Future<void> addCoFronter(String memberId) async {
+  /// Ends active fronting sessions for each member in [memberIds].
+  Future<void> endFronting(List<String> memberIds) async {
     await _unwrap(
+      ref.read(frontingMutationServiceProvider).endFronting(memberIds),
+    );
+    for (final id in memberIds) {
+      _invalidateMemberStats(id);
+    }
+  }
+
+  /// Adds a single co-fronter by starting a new session for [memberId].
+  Future<void> addCoFronter(String memberId) async {
+    final result = await _unwrapMutation(
       ref.read(frontingMutationServiceProvider).addCoFronter(memberId),
     );
+    // addCoFronter guarantees exactly one session back.
+    _invalidateMemberStats(result.sessions.single.memberId);
   }
 
+  /// Removes a single co-fronter by ending their active session.
   Future<void> removeCoFronter(String memberId) async {
     await _unwrap(
       ref.read(frontingMutationServiceProvider).removeCoFronter(memberId),
     );
+    _invalidateMemberStats(memberId);
   }
 
   Future<void> updateSession(
@@ -258,11 +237,14 @@ class FrontingNotifier extends AsyncNotifier<void> {
     return unknownId;
   }
 
+  /// Splits a session at [splitTime]: the original session's end is trimmed
+  /// to [splitTime] and a new session from [splitTime] onwards is created.
+  ///
+  /// Both halves keep the same member — per the per-member model,
+  /// member-reassignment on split is done by a subsequent edit, not here.
   Future<void> splitSession(
     String sessionId,
     DateTime splitTime,
-    String? firstMemberId,
-    String? secondMemberId,
   ) async {
     final session = await ref
         .read(frontingSessionRepositoryProvider)
@@ -271,18 +253,13 @@ class FrontingNotifier extends AsyncNotifier<void> {
       throw AppFailure.notFound('Fronting session not found');
     }
 
+    // splitSession is positional (sessionId, splitTime) in the new API.
     final created = await _unwrap(
       ref
           .read(frontingMutationServiceProvider)
-          .splitSession(
-            sessionId: sessionId,
-            splitTime: splitTime,
-            firstMemberId: firstMemberId,
-            secondMemberId: secondMemberId,
-          ),
+          .splitSession(sessionId, splitTime),
     );
     _invalidateMemberStats(session.memberId);
-    _invalidateMemberStats(firstMemberId ?? session.memberId);
     _invalidateMemberStats(created.memberId);
   }
 

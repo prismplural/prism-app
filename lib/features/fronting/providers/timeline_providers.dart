@@ -124,7 +124,14 @@ class TimelineData {
 }
 
 /// Provides timeline rows: sessions grouped by member for display.
-/// Expands co-fronters so each member who participated gets their own row entry.
+///
+/// In the per-member model each fronting_sessions row already belongs to
+/// exactly one member — there are no `coFronterIds` to expand. The timeline
+/// view simply groups rows by `memberId`.
+///
+/// TODO(§4.6): Phase 3 will replace this with the derived-period algorithm
+/// from spec §4.6 so the timeline surfaces computed overlap periods.  For now
+/// the view receives raw per-member sessions and does its own grouping.
 final timelineRowsProvider =
     Provider.autoDispose<AsyncValue<TimelineData>>((ref) {
   final limit = ref.watch(timelineSessionLimitProvider);
@@ -144,17 +151,14 @@ final timelineRowsProvider =
             loading: () => const AsyncValue.loading(),
             error: AsyncValue.error,
             data: (members) {
-              // Group fronting sessions by member, expanding co-fronters.
+              // Group per-member sessions by memberId.  No co-fronter
+              // expansion needed — each row is already scoped to one member.
               final rowMap = <String, List<FrontingSession>>{};
 
               for (final session in sessions) {
-                final primaryId = session.memberId;
-                if (primaryId != null) {
-                  rowMap.putIfAbsent(primaryId, () => []).add(session);
-                }
-
-                for (final coId in session.coFronterIds) {
-                  rowMap.putIfAbsent(coId, () => []).add(session);
+                final memberId = session.memberId;
+                if (memberId != null) {
+                  rowMap.putIfAbsent(memberId, () => []).add(session);
                 }
               }
 
