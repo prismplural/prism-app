@@ -199,14 +199,18 @@ class _SessionsTableState extends ConsumerState<_SessionsTable> {
           id: s.id,
           fields: {
             'id': s.id,
+            'memberId': s.memberId ?? 'null',
             'startTime': s.startTime.toIso8601String(),
             'endTime': s.endTime?.toIso8601String() ?? context.l10n.settingsDataBrowserSessionEndTimeActive,
-            'memberId': s.memberId ?? 'null',
-            'coFronterIds': s.coFronterIds.join(', '),
+            'sessionType': s.sessionType.name,
             'notes': s.notes ?? '',
             'confidence': s.confidence?.name ?? 'null',
             'isActive': s.isActive.toString(),
             'duration': s.duration.toString(),
+            // co_fronter_ids and pk_member_ids_json still exist in the v7
+            // schema as legacy/unread storage but no current code path
+            // populates them — see plan §4.1.  Intentionally not surfaced
+            // here so the debug viewer reflects the new per-member shape.
           },
         );
       },

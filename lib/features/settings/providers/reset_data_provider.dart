@@ -162,9 +162,13 @@ class ResetDataNotifier extends AsyncNotifier<void> {
     final db = ref.read(databaseProvider);
     _log('Resetting members');
     await db.transaction(() async {
-      // Set fronting sessions to unknown (null member) instead of deleting
+      // Set fronting sessions to unknown (null member) instead of deleting.
+      // Per-member shape (Phase 5): each row already represents a single
+      // member, so nulling member_id orphans the row to "unknown" without
+      // any co-fronter list to reset.  The v7 `co_fronter_ids` column is
+      // legacy/unread storage and is not touched here.
       await db.customStatement(
-        'UPDATE fronting_sessions SET member_id = NULL, co_fronter_ids = \'[]\'',
+        'UPDATE fronting_sessions SET member_id = NULL',
       );
       // Delete child data that references members
       await db.customStatement('DELETE FROM custom_field_values');
