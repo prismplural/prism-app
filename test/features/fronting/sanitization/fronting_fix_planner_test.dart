@@ -14,7 +14,6 @@ void main() {
     required DateTime start,
     DateTime? end,
     String? memberId,
-    List<String> coFronterIds = const [],
     String? notes,
     int? confidenceIndex,
   }) {
@@ -23,7 +22,6 @@ void main() {
       memberId: memberId,
       start: start,
       end: end,
-      coFronterIds: coFronterIds,
       notes: notes,
       confidenceIndex: confidenceIndex,
     );
@@ -35,11 +33,12 @@ void main() {
     required DateTime rangeStart,
     required DateTime rangeEnd,
     List<String> memberIds = const [],
+    FrontingIssueSeverity severity = FrontingIssueSeverity.warning,
   }) {
     return FrontingValidationIssue(
       id: 'issue-1',
       type: type,
-      severity: FrontingIssueSeverity.warning,
+      severity: severity,
       sessionIds: sessionIds,
       memberIds: memberIds,
       rangeStart: rangeStart,
@@ -48,9 +47,9 @@ void main() {
     );
   }
 
-  // ─── Overlap: same member ─────────────────────────────────────────────────
+  // ─── Self-overlap ─────────────────────────────────────────────────────────
 
-  group('overlap – same member', () {
+  group('selfOverlap', () {
     final t0 = DateTime(2024, 1, 1, 10, 0);
     final t1 = DateTime(2024, 1, 1, 11, 0);
     final t2 = DateTime(2024, 1, 1, 12, 0);
@@ -60,17 +59,17 @@ void main() {
     final sessionB = makeSession(id: 'b', memberId: 'member-1', start: t1, end: t3);
 
     final issue = makeIssue(
-      type: FrontingIssueType.overlap,
+      type: FrontingIssueType.selfOverlap,
       sessionIds: ['a', 'b'],
       memberIds: ['member-1'],
       rangeStart: t1,
       rangeEnd: t2,
     );
 
-    test('returns a merge plan', () {
+    test('returns a merge plan and a trim plan', () {
       final plans = planner.plansForIssue(issue, [sessionA, sessionB]);
-      expect(plans, isNotEmpty);
       expect(plans.any((p) => p.type == FrontingFixType.mergeAdjacent), isTrue);
+      expect(plans.any((p) => p.type == FrontingFixType.trimEarlier), isTrue);
     });
 
     test('merge plan covers both session ids', () {
@@ -83,12 +82,11 @@ void main() {
       final plans = planner.plansForIssue(issue, [sessionA, sessionB]);
       final merge = plans.firstWhere((p) => p.type == FrontingFixType.mergeAdjacent);
 
-      // Should have an UpdateSessionChange for the kept session
       final updates = merge.changes.whereType<UpdateSessionChange>().toList();
       expect(updates, isNotEmpty);
       final kept = updates.first;
       expect(kept.patch.start, t0); // earliest start
-      expect(kept.patch.end, t3); // latest end
+      expect(kept.patch.end, t3);   // latest end
     });
 
     test('merge plan deletes the other session', () {
@@ -98,34 +96,6 @@ void main() {
       final deletes = merge.changes.whereType<DeleteSessionChange>().toList();
       expect(deletes.length, 1);
     });
-  });
-
-  // ─── Overlap: different members ───────────────────────────────────────────
-
-  group('overlap – different members', () {
-    final t0 = DateTime(2024, 1, 1, 10, 0);
-    final t1 = DateTime(2024, 1, 1, 11, 0);
-    final t2 = DateTime(2024, 1, 1, 12, 0);
-    final t3 = DateTime(2024, 1, 1, 13, 0);
-
-    final sessionA = makeSession(id: 'a', memberId: 'member-1', start: t0, end: t2);
-    final sessionB = makeSession(id: 'b', memberId: 'member-2', start: t1, end: t3);
-
-    final issue = makeIssue(
-      type: FrontingIssueType.overlap,
-      sessionIds: ['a', 'b'],
-      memberIds: ['member-1', 'member-2'],
-      rangeStart: t1,
-      rangeEnd: t2,
-    );
-
-    test('returns two trim plans', () {
-      final plans = planner.plansForIssue(issue, [sessionA, sessionB]);
-      final trimEarlier = plans.where((p) => p.type == FrontingFixType.trimEarlier).toList();
-      final trimLater = plans.where((p) => p.type == FrontingFixType.trimLater).toList();
-      expect(trimEarlier, isNotEmpty);
-      expect(trimLater, isNotEmpty);
-    });
 
     test('trimEarlier sets earlier session end to later session start', () {
       final plans = planner.plansForIssue(issue, [sessionA, sessionB]);
@@ -133,62 +103,8 @@ void main() {
 
       final updates = trim.changes.whereType<UpdateSessionChange>().toList();
       expect(updates.length, 1);
-      // Earlier session (a) end should be trimmed to start of later session (b)
       expect(updates.first.sessionId, 'a');
       expect(updates.first.patch.end, t1);
-    });
-
-    test('trimLater sets later session start to earlier session end', () {
-      final plans = planner.plansForIssue(issue, [sessionA, sessionB]);
-      final trim = plans.firstWhere((p) => p.type == FrontingFixType.trimLater);
-
-      final updates = trim.changes.whereType<UpdateSessionChange>().toList();
-      expect(updates.length, 1);
-      // Later session (b) start should be trimmed to end of earlier session (a)
-      expect(updates.first.sessionId, 'b');
-      expect(updates.first.patch.start, t2);
-    });
-  });
-
-  // ─── Gap ─────────────────────────────────────────────────────────────────
-
-  group('gap', () {
-    final t0 = DateTime(2024, 1, 1, 10, 0);
-    final t1 = DateTime(2024, 1, 1, 11, 0);
-    final t2 = DateTime(2024, 1, 1, 12, 0);
-    final t3 = DateTime(2024, 1, 1, 13, 0);
-
-    final sessionA = makeSession(id: 'a', memberId: 'member-1', start: t0, end: t1);
-    final sessionB = makeSession(id: 'b', memberId: 'member-2', start: t2, end: t3);
-
-    final issue = makeIssue(
-      type: FrontingIssueType.gap,
-      sessionIds: ['a', 'b'],
-      rangeStart: t1,
-      rangeEnd: t2,
-    );
-
-    test('returns fill and leave plans', () {
-      final plans = planner.plansForIssue(issue, [sessionA, sessionB]);
-      expect(plans.any((p) => p.type == FrontingFixType.fillGapWithUnknown), isTrue);
-      expect(plans.any((p) => p.type == FrontingFixType.leaveGap), isTrue);
-    });
-
-    test('fill plan creates a session with null memberId spanning the gap', () {
-      final plans = planner.plansForIssue(issue, [sessionA, sessionB]);
-      final fill = plans.firstWhere((p) => p.type == FrontingFixType.fillGapWithUnknown);
-
-      final creates = fill.changes.whereType<CreateSessionChange>().toList();
-      expect(creates.length, 1);
-      expect(creates.first.session.memberId, isNull);
-      expect(creates.first.session.start, t1);
-      expect(creates.first.session.end, t2);
-    });
-
-    test('leaveGap plan has empty changes list', () {
-      final plans = planner.plansForIssue(issue, [sessionA, sessionB]);
-      final leave = plans.firstWhere((p) => p.type == FrontingFixType.leaveGap);
-      expect(leave.changes, isEmpty);
     });
   });
 
@@ -206,7 +122,6 @@ void main() {
       end: t1,
       notes: 'Some notes',
       confidenceIndex: 4,
-      coFronterIds: ['member-2'],
     );
     final sessionB = makeSession(
       id: 'b',
@@ -377,7 +292,6 @@ void main() {
 
       final newStart = updates.first.patch.start;
       expect(newStart, isNotNull);
-      // newStart should be at or between before and after (i.e. "now" at plan generation time)
       expect(
         newStart!.millisecondsSinceEpoch >= before.millisecondsSinceEpoch - 1000 &&
             newStart.millisecondsSinceEpoch <= after.millisecondsSinceEpoch + 1000,

@@ -27,7 +27,6 @@ List<FrontingSessionSnapshot> applyChanges(
           memberId: session.memberId,
           start: session.start,
           end: session.end,
-          coFronterIds: session.coFronterIds,
         ));
       case UpdateSessionChange(:final sessionId, :final patch):
         final idx = result.indexWhere((s) => s.id == sessionId);
@@ -38,7 +37,6 @@ List<FrontingSessionSnapshot> applyChanges(
             memberId: patch.clearMemberId ? null : (patch.memberId ?? s.memberId),
             start: patch.start ?? s.start,
             end: patch.clearEnd ? null : (patch.end ?? s.end),
-            coFronterIds: patch.coFronterIds ?? s.coFronterIds,
           );
         }
       case DeleteSessionChange(:final sessionId):
@@ -55,7 +53,6 @@ FrontingSessionSnapshot makeSnapshot({
   required DateTime start,
   DateTime? end,
   String memberId = 'alice',
-  List<String> coFronterIds = const [],
   bool isDeleted = false,
 }) {
   return FrontingSessionSnapshot(
@@ -63,7 +60,6 @@ FrontingSessionSnapshot makeSnapshot({
     memberId: memberId,
     start: start,
     end: end,
-    coFronterIds: coFronterIds,
     isDeleted: isDeleted,
   );
 }
@@ -77,18 +73,9 @@ void main() {
   const service = FrontingEditResolutionService();
   const guard = FrontingEditGuard();
   const planner = FrontingFixPlanner();
-  const validator = FrontingSessionValidator(
-    config: FrontingValidationConfig(
-      detectGaps: false, // suppress gap noise in integration tests
-      detectMergeableAdjacent: false,
-      detectDuplicates: false,
-      detectFutureSessions: false,
-    ),
-  );
 
   // ===========================================================================
   // FrontingSessionValidator — orchestration tests
-  // (merged from fronting_session_validator_test.dart)
   // ===========================================================================
 
   // ---------------------------------------------------------------------------
@@ -116,10 +103,11 @@ void main() {
       expect(issues, isEmpty);
     });
 
-    test('returns empty list for non-overlapping sequential sessions', () {
+    test('returns empty list for non-overlapping sequential sessions (different members)', () {
+      // In per-member model, different-member overlaps are valid and different-member
+      // non-overlapping sessions are certainly valid.
       const v = FrontingSessionValidator(
         config: FrontingValidationConfig(
-          detectGaps: false,
           detectMergeableAdjacent: false,
         ),
       );
@@ -141,6 +129,24 @@ void main() {
       final issues = v.validate(sessions, now: now);
       expect(issues, isEmpty);
     });
+
+    test('cross-member overlapping sessions produce no issues', () {
+      // Different members fronting simultaneously is valid in per-member model.
+      const v = FrontingSessionValidator(
+        config: FrontingValidationConfig(
+          detectDuplicates: false,
+          detectMergeableAdjacent: false,
+          detectFutureSessions: false,
+          detectSelfOverlaps: false,
+        ),
+      );
+      final sessions = [
+        makeSnapshot(id: 'a', memberId: 'alice', start: h(10), end: h(12)),
+        makeSnapshot(id: 'b', memberId: 'bob', start: h(11), end: h(13)),
+      ];
+      final issues = v.validate(sessions, now: h(14));
+      expect(issues, isEmpty, reason: 'Cross-member overlaps are valid');
+    });
   });
 
   // ---------------------------------------------------------------------------
@@ -151,7 +157,6 @@ void main() {
     test('detects invalidRange issues', () {
       const v = FrontingSessionValidator(
         config: FrontingValidationConfig(
-          detectGaps: false,
           detectDuplicates: false,
           detectMergeableAdjacent: false,
           detectFutureSessions: false,
@@ -166,37 +171,42 @@ void main() {
       expect(issues.first.type, FrontingIssueType.invalidRange);
     });
 
-    test('detects overlap issues', () {
+    test('same-member self-overlap is detected', () {
       const v = FrontingSessionValidator(
         config: FrontingValidationConfig(
-          detectGaps: false,
+          detectDuplicates: false,
+          detectMergeableAdjacent: false,
+          detectFutureSessions: false,
+          detectSelfOverlaps: true,
+        ),
+      );
+      final sessions = [
+        makeSnapshot(id: 'a', memberId: 'alice', start: h(10), end: h(12)),
+        makeSnapshot(id: 'b', memberId: 'alice', start: h(11), end: h(13)),
+      ];
+      final issues = v.validate(sessions, now: h(14));
+      expect(issues.any((i) => i.type == FrontingIssueType.selfOverlap), isTrue);
+    });
+
+    test('cross-member overlap is NOT detected as an issue', () {
+      const v = FrontingSessionValidator(
+        config: FrontingValidationConfig(
           detectDuplicates: false,
           detectMergeableAdjacent: false,
           detectFutureSessions: false,
         ),
       );
       final sessions = [
-        makeSnapshot(
-          id: 'a',
-          memberId: 'alice',
-          start: h(10),
-          end: h(12),
-        ),
-        makeSnapshot(
-          id: 'b',
-          memberId: 'bob',
-          start: h(11),
-          end: h(13),
-        ),
+        makeSnapshot(id: 'a', memberId: 'alice', start: h(10), end: h(12)),
+        makeSnapshot(id: 'b', memberId: 'bob', start: h(11), end: h(13)),
       ];
       final issues = v.validate(sessions, now: h(14));
-      expect(issues.any((i) => i.type == FrontingIssueType.overlap), isTrue);
+      expect(issues, isEmpty, reason: 'Cross-member overlap is valid in per-member model');
     });
 
     test('detects duplicate issues by default', () {
       const v = FrontingSessionValidator(
         config: FrontingValidationConfig(
-          detectGaps: false,
           detectMergeableAdjacent: false,
           detectFutureSessions: false,
         ),
@@ -222,7 +232,6 @@ void main() {
     test('detects mergeableAdjacent issues by default', () {
       const v = FrontingSessionValidator(
         config: FrontingValidationConfig(
-          detectGaps: false,
           detectDuplicates: false,
           detectFutureSessions: false,
         ),
@@ -247,39 +256,27 @@ void main() {
       expect(issues.any((i) => i.type == FrontingIssueType.mergeableAdjacent), isTrue);
     });
 
-    test('detects gap issues by default', () {
+    test('gaps between sessions are NOT reported (per-member model: gaps are valid)', () {
       const v = FrontingSessionValidator(
         config: FrontingValidationConfig(
           detectDuplicates: false,
           detectMergeableAdjacent: false,
           detectFutureSessions: false,
-          timingMode: FrontingTimingMode.strict,
         ),
       );
-      // 1-hour gap in strict mode (threshold = 0) -> gap reported
+      // 1-hour gap between two different-member sessions — valid, no issue
       final sessions = [
-        makeSnapshot(
-          id: 'a',
-          memberId: 'alice',
-          start: h(10),
-          end: h(11),
-        ),
-        makeSnapshot(
-          id: 'b',
-          memberId: 'bob',
-          start: h(12),
-          end: h(13),
-        ),
+        makeSnapshot(id: 'a', memberId: 'alice', start: h(10), end: h(11)),
+        makeSnapshot(id: 'b', memberId: 'bob', start: h(12), end: h(13)),
       ];
       final now = h(14);
       final issues = v.validate(sessions, now: now);
-      expect(issues.any((i) => i.type == FrontingIssueType.gap), isTrue);
+      expect(issues, isEmpty, reason: 'Gaps are valid in per-member model');
     });
 
     test('detects futureSession issues by default', () {
       const v = FrontingSessionValidator(
         config: FrontingValidationConfig(
-          detectGaps: false,
           detectDuplicates: false,
           detectMergeableAdjacent: false,
         ),
@@ -301,31 +298,21 @@ void main() {
     test('combines issues from multiple rules in one call', () {
       const v = FrontingSessionValidator(
         config: FrontingValidationConfig(
-          detectGaps: false,
           detectDuplicates: false,
           detectMergeableAdjacent: false,
           detectFutureSessions: false,
+          detectSelfOverlaps: true,
         ),
       );
-      // invalid range + overlap
+      // invalid range + same-member self-overlap
       final sessions = [
         makeSnapshot(id: 'bad', start: h(10), end: h(10)), // invalid range
-        makeSnapshot(
-          id: 'a',
-          memberId: 'alice',
-          start: h(11),
-          end: h(13),
-        ),
-        makeSnapshot(
-          id: 'b',
-          memberId: 'bob',
-          start: h(12),
-          end: h(14),
-        ),
+        makeSnapshot(id: 'a', memberId: 'alice', start: h(11), end: h(13)),
+        makeSnapshot(id: 'b', memberId: 'alice', start: h(12), end: h(14)), // self-overlap
       ];
       final issues = v.validate(sessions, now: h(15));
       final types = issues.map((i) => i.type).toSet();
-      expect(types, containsAll([FrontingIssueType.invalidRange, FrontingIssueType.overlap]));
+      expect(types, containsAll([FrontingIssueType.invalidRange, FrontingIssueType.selfOverlap]));
     });
   });
 
@@ -334,38 +321,26 @@ void main() {
   // ---------------------------------------------------------------------------
 
   group('FrontingSessionValidator — config toggles', () {
-    test('detectGaps: false suppresses gap detection', () {
+    test('detectSelfOverlaps: false suppresses self-overlap detection', () {
       const v = FrontingSessionValidator(
         config: FrontingValidationConfig(
-          detectGaps: false,
           detectDuplicates: false,
           detectMergeableAdjacent: false,
           detectFutureSessions: false,
-          timingMode: FrontingTimingMode.strict,
+          detectSelfOverlaps: false,
         ),
       );
       final sessions = [
-        makeSnapshot(
-          id: 'a',
-          memberId: 'alice',
-          start: h(10),
-          end: h(11),
-        ),
-        makeSnapshot(
-          id: 'b',
-          memberId: 'bob',
-          start: h(12),
-          end: h(13),
-        ),
+        makeSnapshot(id: 'a', memberId: 'alice', start: h(10), end: h(12)),
+        makeSnapshot(id: 'b', memberId: 'alice', start: h(11), end: h(13)),
       ];
       final issues = v.validate(sessions, now: h(14));
-      expect(issues.any((i) => i.type == FrontingIssueType.gap), isFalse);
+      expect(issues.any((i) => i.type == FrontingIssueType.selfOverlap), isFalse);
     });
 
     test('detectDuplicates: false suppresses duplicate detection', () {
       const v = FrontingSessionValidator(
         config: FrontingValidationConfig(
-          detectGaps: false,
           detectDuplicates: false,
           detectMergeableAdjacent: false,
           detectFutureSessions: false,
@@ -392,7 +367,6 @@ void main() {
     test('detectMergeableAdjacent: false suppresses mergeableAdjacent detection', () {
       const v = FrontingSessionValidator(
         config: FrontingValidationConfig(
-          detectGaps: false,
           detectDuplicates: false,
           detectMergeableAdjacent: false,
           detectFutureSessions: false,
@@ -419,7 +393,6 @@ void main() {
     test('detectFutureSessions: false suppresses future session detection', () {
       const v = FrontingSessionValidator(
         config: FrontingValidationConfig(
-          detectGaps: false,
           detectDuplicates: false,
           detectMergeableAdjacent: false,
           detectFutureSessions: false,
@@ -441,10 +414,10 @@ void main() {
     test('all optional detections enabled by default (default config)', () {
       // Verify that the default config has all detections enabled
       const config = FrontingValidationConfig();
-      expect(config.detectGaps, isTrue);
       expect(config.detectDuplicates, isTrue);
       expect(config.detectMergeableAdjacent, isTrue);
       expect(config.detectFutureSessions, isTrue);
+      expect(config.detectSelfOverlaps, isTrue);
     });
   });
 
@@ -456,40 +429,20 @@ void main() {
     test('issues are sorted by rangeStart ascending', () {
       const v = FrontingSessionValidator(
         config: FrontingValidationConfig(
-          detectGaps: false,
           detectDuplicates: false,
           detectMergeableAdjacent: false,
           detectFutureSessions: false,
+          detectSelfOverlaps: true,
         ),
       );
-      // Two overlapping pairs at different times
+      // Two same-member self-overlapping pairs at different times
       final sessions = [
-        // Later pair (overlapping around h(13))
-        makeSnapshot(
-          id: 'c',
-          memberId: 'charlie',
-          start: h(13),
-          end: h(15),
-        ),
-        makeSnapshot(
-          id: 'd',
-          memberId: 'dan',
-          start: h(14),
-          end: h(16),
-        ),
-        // Earlier pair (overlapping around h(10))
-        makeSnapshot(
-          id: 'a',
-          memberId: 'alice',
-          start: h(10),
-          end: h(12),
-        ),
-        makeSnapshot(
-          id: 'b',
-          memberId: 'bob',
-          start: h(11),
-          end: h(13),
-        ),
+        // Later pair (alice overlaps around h(13))
+        makeSnapshot(id: 'c', memberId: 'alice', start: h(13), end: h(15)),
+        makeSnapshot(id: 'd', memberId: 'alice', start: h(14), end: h(16)),
+        // Earlier pair (bob overlaps around h(10))
+        makeSnapshot(id: 'a', memberId: 'bob', start: h(10), end: h(12)),
+        makeSnapshot(id: 'b', memberId: 'bob', start: h(11), end: h(13)),
       ];
       final issues = v.validate(sessions, now: h(20));
       expect(issues.length, greaterThanOrEqualTo(2));
@@ -512,30 +465,19 @@ void main() {
     test('deleted sessions are excluded from validation', () {
       const v = FrontingSessionValidator(
         config: FrontingValidationConfig(
-          detectGaps: false,
           detectDuplicates: false,
           detectMergeableAdjacent: false,
           detectFutureSessions: false,
+          detectSelfOverlaps: true,
         ),
       );
-      // Two sessions that would overlap, but one is deleted
+      // Two sessions for same member that would self-overlap, but one is deleted
       final sessions = [
-        makeSnapshot(
-          id: 'a',
-          memberId: 'alice',
-          start: h(10),
-          end: h(12),
-        ),
-        makeSnapshot(
-          id: 'b',
-          memberId: 'bob',
-          start: h(11),
-          end: h(13),
-          isDeleted: true,
-        ),
+        makeSnapshot(id: 'a', memberId: 'alice', start: h(10), end: h(12)),
+        makeSnapshot(id: 'b', memberId: 'alice', start: h(11), end: h(13), isDeleted: true),
       ];
       final issues = v.validate(sessions, now: h(14));
-      expect(issues.any((i) => i.type == FrontingIssueType.overlap), isFalse);
+      expect(issues.any((i) => i.type == FrontingIssueType.selfOverlap), isFalse);
     });
 
     test('all-deleted list returns empty', () {
@@ -551,7 +493,6 @@ void main() {
     test('invalidRange not flagged for deleted session', () {
       const v = FrontingSessionValidator(
         config: FrontingValidationConfig(
-          detectGaps: false,
           detectDuplicates: false,
           detectMergeableAdjacent: false,
           detectFutureSessions: false,
@@ -580,7 +521,6 @@ void main() {
     test('now parameter is forwarded to future session detection', () {
       const v = FrontingSessionValidator(
         config: FrontingValidationConfig(
-          detectGaps: false,
           detectDuplicates: false,
           detectMergeableAdjacent: false,
         ),
@@ -610,7 +550,6 @@ void main() {
     test('different now values produce different future-session results', () {
       const v = FrontingSessionValidator(
         config: FrontingValidationConfig(
-          detectGaps: false,
           detectDuplicates: false,
           detectMergeableAdjacent: false,
         ),
@@ -643,90 +582,36 @@ void main() {
 
   // ===========================================================================
   // End-to-end integration tests
-  // (originally in fronting_validation_integration_test.dart)
   // ===========================================================================
 
   // ---------------------------------------------------------------------------
-  // Edit creates overlap -> resolve as co-fronting -> timeline is clean
+  // Edit creates same-member self-overlap -> resolve as trim -> timeline is clean
   // ---------------------------------------------------------------------------
 
-  group('edit creates overlap -> resolve as co-fronting -> timeline is clean', () {
-    test('three segments with no overlap issues after co-fronting resolution', () {
-      // Initial timeline: Alice 10:00-12:00, Bob 12:00-14:00
-      final alice = makeSnapshot(id: 'alice', start: h(10), end: h(12), memberId: 'alice');
-      final bob = makeSnapshot(id: 'bob', start: h(12), end: h(14), memberId: 'bob');
-      var timeline = [alice, bob];
+  group('edit creates self-overlap -> resolve as trim -> timeline is clean', () {
+    test('same-member sessions: trim resolves self-overlap', () {
+      // Alice already has 10:00-12:00. Create a second alice session 11:00-13:00
+      // that overlaps (self-overlap). Resolve with trim.
+      final alice1 = makeSnapshot(id: 'alice1', start: h(10), end: h(12), memberId: 'alice');
+      final alice2 = makeSnapshot(id: 'alice2', start: h(11), end: h(13), memberId: 'alice');
+      var timeline = [alice1, alice2];
 
-      // Edit: extend Alice to 13:00 (overlaps Bob by 1 hour)
-      final editedAlice = makeSnapshot(id: 'alice', start: h(10), end: h(13), memberId: 'alice');
+      // Edit alice1 to extend to 13:00 (makes the overlap even larger, just to
+      // demonstrate the resolution pipeline).
+      final editedAlice = makeSnapshot(id: 'alice1', start: h(10), end: h(13), memberId: 'alice');
 
-      // Detect overlap via the edit guard
+      // Detect self-overlap via the edit guard
       final validation = guard.validateEdit(
-        original: alice,
+        original: alice1,
         patch: FrontingSessionPatch(end: h(13)),
         nearbySessions: timeline,
         timingMode: FrontingTimingMode.strict,
       );
 
+      // alice1 and alice2 are the same member → self-overlap surfaced
       expect(validation.canSaveDirectly, isFalse);
       expect(validation.overlappingSessions, hasLength(1));
-      expect(validation.overlappingSessions.first.id, 'bob');
-
-      // Resolve as co-fronting
-      final changes = service.resolveAllOverlaps(
-        edited: editedAlice,
-        overlaps: validation.overlappingSessions,
-        resolution: OverlapResolution.makeCoFronting,
-      );
-
-      expect(changes, isNotEmpty);
-
-      // Apply changes to the timeline (alice was extended, so update her first)
-      timeline = applyChanges(timeline, [
-        UpdateSessionChange(
-          sessionId: 'alice',
-          patch: FrontingSessionPatch(end: h(13)),
-        ),
-      ]);
-      timeline = applyChanges(timeline, changes);
-
-      // Verify: at least 3 segments
-      expect(timeline.length, greaterThanOrEqualTo(3));
-
-      // Verify: no overlap issues on rescan
-      final issues = validator.validate(timeline);
-      final overlaps = issues.where((i) => i.type == FrontingIssueType.overlap).toList();
-      expect(overlaps, isEmpty, reason: 'No overlaps expected after co-fronting resolution');
-
-      // The overlap segment must have both alice and bob represented
-      final coFrontSegment = timeline.where((s) =>
-          s.coFronterIds.isNotEmpty || (s.memberId == 'alice' && s.coFronterIds.contains('bob')),
-      ).toList();
-      expect(coFrontSegment, isNotEmpty);
-    });
-  });
-
-  // ---------------------------------------------------------------------------
-  // Edit creates overlap -> resolve as trim -> timeline is clean
-  // ---------------------------------------------------------------------------
-
-  group('edit creates overlap -> resolve as trim -> timeline is clean', () {
-    test('two segments remain with no overlap issues after trim resolution', () {
-      final alice = makeSnapshot(id: 'alice', start: h(10), end: h(12), memberId: 'alice');
-      final bob = makeSnapshot(id: 'bob', start: h(12), end: h(14), memberId: 'bob');
-      var timeline = [alice, bob];
-
-      final editedAlice = makeSnapshot(id: 'alice', start: h(10), end: h(13), memberId: 'alice');
-
-      final validation = guard.validateEdit(
-        original: alice,
-        patch: FrontingSessionPatch(end: h(13)),
-        nearbySessions: timeline,
-        timingMode: FrontingTimingMode.strict,
-      );
-
-      expect(validation.canSaveDirectly, isFalse);
-      expect(validation.overlappingSessions, hasLength(1));
+      expect(validation.overlappingSessions.first.id, 'alice2');
 
       // Resolve as trim
       final changes = service.resolveAllOverlaps(
@@ -737,22 +622,52 @@ void main() {
 
       expect(changes, isNotEmpty);
 
-      // Apply the extended alice then the trim changes
+      // Apply the extended alice1 then the trim changes
       timeline = applyChanges(timeline, [
         UpdateSessionChange(
-          sessionId: 'alice',
+          sessionId: 'alice1',
           patch: FrontingSessionPatch(end: h(13)),
         ),
       ]);
       timeline = applyChanges(timeline, changes);
 
-      // Verify: 2 segments (trim may delete or shrink bob)
-      expect(timeline.length, lessThanOrEqualTo(2));
+      // Verify: self-overlaps resolved
+      const selfOverlapValidator = FrontingSessionValidator(
+        config: FrontingValidationConfig(
+          detectDuplicates: false,
+          detectMergeableAdjacent: false,
+          detectFutureSessions: false,
+          detectSelfOverlaps: true,
+        ),
+      );
+      final issues = selfOverlapValidator.validate(timeline);
+      final selfOverlaps = issues.where((i) => i.type == FrontingIssueType.selfOverlap).toList();
+      expect(selfOverlaps, isEmpty, reason: 'No self-overlaps expected after trim resolution');
+    });
+  });
 
-      // Verify: no overlap issues
-      final issues = validator.validate(timeline);
-      final overlaps = issues.where((i) => i.type == FrontingIssueType.overlap).toList();
-      expect(overlaps, isEmpty, reason: 'No overlaps expected after trim resolution');
+  // ---------------------------------------------------------------------------
+  // Cross-member overlap → NOT flagged, canSaveDirectly: true
+  // ---------------------------------------------------------------------------
+
+  group('cross-member overlap → valid, guard allows save', () {
+    test('edit guard allows cross-member overlapping edit directly', () {
+      // Alice 10-12, Bob 12-14; extend Alice to 13 → overlaps Bob by 1 hour.
+      // In per-member model, this is VALID — guard must allow it.
+      final alice = makeSnapshot(id: 'alice', start: h(10), end: h(12), memberId: 'alice');
+      final bob = makeSnapshot(id: 'bob', start: h(12), end: h(14), memberId: 'bob');
+      final timeline = [alice, bob];
+
+      final result = guard.validateEdit(
+        original: alice,
+        patch: FrontingSessionPatch(end: h(13)),
+        nearbySessions: timeline,
+        timingMode: FrontingTimingMode.strict,
+      );
+
+      // Cross-member overlap is valid — save directly
+      expect(result.canSaveDirectly, isTrue);
+      expect(result.overlappingSessions, isEmpty);
     });
   });
 
@@ -829,11 +744,19 @@ void main() {
             expect(extCarol.start, equals(midpoint));
         }
 
-        // Final check: no overlaps in the resulting timeline
-        final issues = validator.validate(result);
-        final overlaps = issues.where((i) => i.type == FrontingIssueType.overlap).toList();
-        expect(overlaps, isEmpty,
-            reason: 'No overlaps after delete with $strategy');
+        // Final check: no self-overlaps in the resulting timeline
+        const selfOverlapValidator = FrontingSessionValidator(
+          config: FrontingValidationConfig(
+            detectDuplicates: false,
+            detectMergeableAdjacent: false,
+            detectFutureSessions: false,
+            detectSelfOverlaps: true,
+          ),
+        );
+        final issues = selfOverlapValidator.validate(result);
+        final selfOverlaps = issues.where((i) => i.type == FrontingIssueType.selfOverlap).toList();
+        expect(selfOverlaps, isEmpty,
+            reason: 'No self-overlaps after delete with $strategy');
       });
     }
   });
@@ -842,20 +765,29 @@ void main() {
   // Sanitization scan -> fix -> rescan is clean
   // ---------------------------------------------------------------------------
 
-  group('sanitization: scan finds issues, fix resolves them, rescan is clean', () {
-    test('overlap issue detected, first fix plan applied, rescan shows no overlaps', () {
-      // Create timeline with known overlap: Alice 10-13, Bob 12-14
-      final alice = makeSnapshot(id: 'alice', start: h(10), end: h(13), memberId: 'alice');
-      final bob = makeSnapshot(id: 'bob', start: h(12), end: h(14), memberId: 'bob');
-      var timeline = [alice, bob];
+  group('sanitization: scan finds self-overlap issue, fix resolves it, rescan is clean', () {
+    test('self-overlap issue detected, first fix plan applied, rescan shows no self-overlaps', () {
+      // Create timeline with known self-overlap: Alice 10-13, Alice 12-14
+      final alice1 = makeSnapshot(id: 'alice1', start: h(10), end: h(13), memberId: 'alice');
+      final alice2 = makeSnapshot(id: 'alice2', start: h(12), end: h(14), memberId: 'alice');
+      var timeline = [alice1, alice2];
+
+      const selfOverlapValidator = FrontingSessionValidator(
+        config: FrontingValidationConfig(
+          detectDuplicates: false,
+          detectMergeableAdjacent: false,
+          detectFutureSessions: false,
+          detectSelfOverlaps: true,
+        ),
+      );
 
       // Scan via validator
-      final scanIssues = validator.validate(timeline);
-      final overlapIssues = scanIssues.where((i) => i.type == FrontingIssueType.overlap).toList();
-      expect(overlapIssues, isNotEmpty, reason: 'Should detect the overlap');
+      final scanIssues = selfOverlapValidator.validate(timeline);
+      final selfOverlapIssues = scanIssues.where((i) => i.type == FrontingIssueType.selfOverlap).toList();
+      expect(selfOverlapIssues, isNotEmpty, reason: 'Should detect the self-overlap');
 
       // Generate fix plan via planner (use first available plan)
-      final issue = overlapIssues.first;
+      final issue = selfOverlapIssues.first;
       final plans = planner.plansForIssue(issue, timeline);
       expect(plans, isNotEmpty, reason: 'Planner should offer at least one fix');
 
@@ -865,28 +797,27 @@ void main() {
       // Apply fix
       timeline = applyChanges(timeline, chosenPlan.changes);
 
-      // Rescan -- no overlap issues
-      final rescanIssues = validator.validate(timeline);
-      final remainingOverlaps = rescanIssues.where((i) => i.type == FrontingIssueType.overlap).toList();
-      expect(remainingOverlaps, isEmpty,
-          reason: 'No overlaps should remain after applying fix plan');
+      // Rescan -- no self-overlap issues
+      final rescanIssues = selfOverlapValidator.validate(timeline);
+      final remainingSelfOverlaps = rescanIssues.where((i) => i.type == FrontingIssueType.selfOverlap).toList();
+      expect(remainingSelfOverlaps, isEmpty,
+          reason: 'No self-overlaps should remain after applying fix plan');
     });
   });
 
   // ---------------------------------------------------------------------------
   // Edit guard integration (pipeline-level tests)
-  // Note: Unit-level edit guard tests are in fronting_edit_guard_test.dart.
   // ---------------------------------------------------------------------------
 
   group('edit guard integration', () {
-    test('edit guard blocks overlapping edit', () {
-      final alice = makeSnapshot(id: 'alice', start: h(10), end: h(12), memberId: 'alice');
-      final bob = makeSnapshot(id: 'bob', start: h(12), end: h(14), memberId: 'bob');
-      final timeline = [alice, bob];
+    test('edit guard blocks same-member self-overlapping edit', () {
+      final alice1 = makeSnapshot(id: 'alice1', start: h(10), end: h(12), memberId: 'alice');
+      final alice2 = makeSnapshot(id: 'alice2', start: h(12), end: h(14), memberId: 'alice');
+      final timeline = [alice1, alice2];
 
-      // Extend Alice into Bob's range
+      // Extend alice1 into alice2's range — same-member self-overlap
       final result = guard.validateEdit(
-        original: alice,
+        original: alice1,
         patch: FrontingSessionPatch(end: h(13)),
         nearbySessions: timeline,
         timingMode: FrontingTimingMode.strict,
@@ -894,29 +825,41 @@ void main() {
 
       expect(result.canSaveDirectly, isFalse);
       expect(result.overlappingSessions, isNotEmpty);
-      expect(result.overlappingSessions.map((s) => s.id), contains('bob'));
+      expect(result.overlappingSessions.map((s) => s.id), contains('alice2'));
     });
 
-    // Note: "clean edit" and "touching boundary" tests are covered by
-    // fronting_edit_guard_test.dart (validateEdit group). Removed here
-    // to avoid duplication.
+    test('edit guard allows cross-member overlap — no block', () {
+      final alice = makeSnapshot(id: 'alice', start: h(10), end: h(12), memberId: 'alice');
+      final bob = makeSnapshot(id: 'bob', start: h(12), end: h(14), memberId: 'bob');
+      final timeline = [alice, bob];
+
+      // Extend alice into bob's range — cross-member overlap is valid
+      final result = guard.validateEdit(
+        original: alice,
+        patch: FrontingSessionPatch(end: h(13)),
+        nearbySessions: timeline,
+        timingMode: FrontingTimingMode.strict,
+      );
+
+      expect(result.canSaveDirectly, isTrue);
+      expect(result.overlappingSessions, isEmpty);
+    });
   });
 
   // ---------------------------------------------------------------------------
   // Multiple overlaps resolved in sequence
   // ---------------------------------------------------------------------------
 
-  group('multiple overlaps resolved with boundary tracking', () {
-    test('resolveAllOverlaps with trim handles two neighbors', () {
-      // Alice 10-15 (extended), Bob 13-14, Carol 14-16
-      // Alice overlaps both Bob and Carol
+  group('multiple same-member overlaps resolved with boundary tracking', () {
+    test('resolveAllOverlaps with trim handles two same-member neighbors', () {
+      // Alice 10-15 (extended), alice2 13-14, alice3 14-16
+      // alice overlaps both alice2 and alice3 (all same member)
       final alice = makeSnapshot(id: 'alice', start: h(10), end: h(15), memberId: 'alice');
-      final bob = makeSnapshot(id: 'bob', start: h(13), end: h(14), memberId: 'bob');
-      final carol = makeSnapshot(id: 'carol', start: h(14), end: h(16), memberId: 'carol');
-      var timeline = [alice, bob, carol];
+      final alice2 = makeSnapshot(id: 'alice2', start: h(13), end: h(14), memberId: 'alice');
+      final alice3 = makeSnapshot(id: 'alice3', start: h(14), end: h(16), memberId: 'alice');
+      var timeline = [alice, alice2, alice3];
 
-      // Detect overlaps against alice
-      final overlaps = [bob, carol];
+      final overlaps = [alice2, alice3];
 
       final changes = service.resolveAllOverlaps(
         edited: alice,
@@ -928,47 +871,28 @@ void main() {
 
       timeline = applyChanges(timeline, changes);
 
-      // No overlaps remain
-      final issues = validator.validate(timeline);
-      final remainingOverlaps = issues.where((i) => i.type == FrontingIssueType.overlap).toList();
-      expect(remainingOverlaps, isEmpty,
-          reason: 'No overlaps after resolving two neighbors with trim');
-    });
-
-    test('resolveAllOverlaps with makeCoFronting handles a single neighbor', () {
-      // Alice 10-13, Bob 12-14 (single partial overlap)
-      // resolveAllOverlaps with makeCoFronting produces no overlaps.
-      final alice = makeSnapshot(id: 'alice', start: h(10), end: h(13), memberId: 'alice');
-      final bob = makeSnapshot(id: 'bob', start: h(12), end: h(14), memberId: 'bob');
-      var timeline = [alice, bob];
-
-      final changes = service.resolveAllOverlaps(
-        edited: alice,
-        overlaps: [bob],
-        resolution: OverlapResolution.makeCoFronting,
+      // No self-overlaps remain
+      const selfOverlapValidator = FrontingSessionValidator(
+        config: FrontingValidationConfig(
+          detectDuplicates: false,
+          detectMergeableAdjacent: false,
+          detectFutureSessions: false,
+          detectSelfOverlaps: true,
+        ),
       );
-
-      expect(changes, isNotEmpty);
-
-      timeline = applyChanges(timeline, changes);
-
-      // No overlaps remain
-      final issues = validator.validate(timeline);
-      final remainingOverlaps = issues.where((i) => i.type == FrontingIssueType.overlap).toList();
-      expect(remainingOverlaps, isEmpty,
-          reason: 'No overlaps after co-fronting resolution of one neighbor');
-
-      // Timeline should have at least 2 segments (pre-overlap + co-front, or co-front + post)
-      expect(timeline.length, greaterThanOrEqualTo(2));
+      final issues = selfOverlapValidator.validate(timeline);
+      final remainingSelfOverlaps = issues.where((i) => i.type == FrontingIssueType.selfOverlap).toList();
+      expect(remainingSelfOverlaps, isEmpty,
+          reason: 'No self-overlaps after resolving two neighbors with trim');
     });
 
     test('resolveAllOverlaps with cancel returns empty changes', () {
       final alice = makeSnapshot(id: 'alice', start: h(10), end: h(15), memberId: 'alice');
-      final bob = makeSnapshot(id: 'bob', start: h(13), end: h(14), memberId: 'bob');
+      final alice2 = makeSnapshot(id: 'alice2', start: h(13), end: h(14), memberId: 'alice');
 
       final changes = service.resolveAllOverlaps(
         edited: alice,
-        overlaps: [bob],
+        overlaps: [alice2],
         resolution: OverlapResolution.cancel,
       );
 

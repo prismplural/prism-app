@@ -21,7 +21,6 @@ void main() {
     required DateTime start,
     DateTime? end,
     String? memberId = 'member1',
-    List<String> coFronterIds = const [],
     bool isDeleted = false,
     SessionType sessionType = SessionType.normal,
   }) {
@@ -30,7 +29,6 @@ void main() {
       memberId: memberId,
       start: start,
       end: end,
-      coFronterIds: coFronterIds,
       isDeleted: isDeleted,
       sessionType: sessionType,
     );
@@ -114,11 +112,42 @@ void main() {
     });
 
     test(
-      'edit creates overlap → canSaveDirectly: false, overlappingSessions populated',
+      'same-member self-overlap → canSaveDirectly: false, overlappingSessions populated',
       () {
-        // s1: 00:00 → 01:00  (being edited)
-        // s2: 00:30 → 01:30  (neighbor)
-        // edit: extend s1 end to 01:30 → full overlap with s2
+        // s1: 00:00 → 01:00  member1 (being edited)
+        // s2: 00:30 → 01:30  member1 (same member → self-overlap)
+        // edit: extend s1 end to 01:30 → full self-overlap with s2
+        final s1 = makeSession(
+          id: 's1',
+          start: base,
+          end: base.add(const Duration(hours: 1)),
+        );
+        final s2 = makeSession(
+          id: 's2',
+          start: base.add(const Duration(minutes: 30)),
+          end: base.add(const Duration(minutes: 90)),
+          // same memberId as s1 (default: 'member1')
+        );
+        final patch = FrontingSessionPatch(
+          end: base.add(const Duration(minutes: 90)),
+        );
+        final result = guard.validateEdit(
+          original: s1,
+          patch: patch,
+          nearbySessions: [s1, s2],
+          timingMode: FrontingTimingMode.flexible,
+        );
+        expect(result.canSaveDirectly, isFalse);
+        expect(result.overlappingSessions, hasLength(1));
+        expect(result.overlappingSessions.first.id, 's2');
+      },
+    );
+
+    test(
+      'cross-member overlap → canSaveDirectly: true (valid in per-member model)',
+      () {
+        // s1: 00:00 → 01:00  member1 (being edited)
+        // s2: 00:30 → 01:30  member2 (different member → overlap is VALID)
         final s1 = makeSession(
           id: 's1',
           start: base,
@@ -139,9 +168,9 @@ void main() {
           nearbySessions: [s1, s2],
           timingMode: FrontingTimingMode.flexible,
         );
-        expect(result.canSaveDirectly, isFalse);
-        expect(result.overlappingSessions, hasLength(1));
-        expect(result.overlappingSessions.first.id, 's2');
+        // Cross-member overlaps are valid — no block, no overlap list.
+        expect(result.canSaveDirectly, isTrue);
+        expect(result.overlappingSessions, isEmpty);
       },
     );
 
@@ -176,7 +205,7 @@ void main() {
       () {
         // prev: -02:00 → 00:00
         // s1: 00:00 → 01:00  (being edited: move start to 00:30, creating 30-min gap)
-        // flexible threshold = 5 min → 30-min gap is above threshold
+        // flexible threshold = 60 seconds → 30-min gap is above threshold
         final prev = makeSession(
           id: 'prev',
           start: base.subtract(const Duration(hours: 2)),
@@ -206,8 +235,8 @@ void main() {
 
     test('edit creates gap below flexible threshold → canSaveDirectly: true', () {
       // prev: -02:00 → 00:00
-      // s1: 00:00 → 01:00  (being edited: move start to 00:02, creating 2-min gap)
-      // flexible threshold = 5 min → 2-min gap is below threshold
+      // s1: 00:00 → 01:00  (being edited: move start to 00:00:30, creating 30-second gap)
+      // flexible threshold = 60 seconds → 30-second gap is below threshold
       final prev = makeSession(
         id: 'prev',
         start: base.subtract(const Duration(hours: 2)),
@@ -220,7 +249,7 @@ void main() {
         end: base.add(const Duration(hours: 1)),
       );
       final patch = FrontingSessionPatch(
-        start: base.add(const Duration(minutes: 2)),
+        start: base.add(const Duration(seconds: 30)),
       );
       final result = guard.validateEdit(
         original: s1,
@@ -324,8 +353,7 @@ void main() {
       expect(result.overlappingSessions, hasLength(1));
       expect(result.overlappingSessions.first.id, 'sleep');
       expect(result.canSaveDirectly, isFalse);
-      // Cross-type overlap → co-fronting does not apply.
-      expect(result.canCoFront, isFalse);
+      // Cross-type overlap → trim only, no co-fronting concept.
     });
 
     test(
@@ -358,36 +386,9 @@ void main() {
 
         expect(result.overlappingSessions, hasLength(1));
         expect(result.overlappingSessions.first.id, 'front');
-        expect(result.canCoFront, isFalse);
+        // Cross-type overlap → trim only, no co-fronting concept.
       },
     );
-
-    test('canCoFront is true when both sides are normal fronting', () {
-      final s1 = makeSession(
-        id: 's1',
-        start: base,
-        end: base.add(const Duration(hours: 1)),
-      );
-      final s2 = makeSession(
-        id: 's2',
-        start: base.add(const Duration(minutes: 30)),
-        end: base.add(const Duration(minutes: 90)),
-        memberId: 'member2',
-      );
-      final patch = FrontingSessionPatch(
-        end: base.add(const Duration(minutes: 90)),
-      );
-
-      final result = guard.validateEdit(
-        original: s1,
-        patch: patch,
-        nearbySessions: [s1, s2],
-        timingMode: FrontingTimingMode.flexible,
-      );
-
-      expect(result.overlappingSessions, hasLength(1));
-      expect(result.canCoFront, isTrue);
-    });
   });
 
   // ---------------------------------------------------------------------------

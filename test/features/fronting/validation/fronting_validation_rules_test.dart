@@ -18,14 +18,12 @@ FrontingSessionSnapshot session({
   String? memberId,
   required DateTime start,
   DateTime? end,
-  List<String> coFronterIds = const [],
   bool isDeleted = false,
 }) =>
     FrontingSessionSnapshot(
       id: id,
       memberId: memberId,
       start: start,
-      coFronterIds: coFronterIds,
       end: end,
       isDeleted: isDeleted,
     );
@@ -95,87 +93,6 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
-  // detectOverlaps
-  // -------------------------------------------------------------------------
-
-  group('detectOverlaps', () {
-    test('partial overlap → issue', () {
-      // A: 0–20, B: 10–30 → overlap 10–20
-      final sessions = [
-        session(id: 'a', memberId: 'm1', start: t(0), end: t(20)),
-        session(id: 'b', memberId: 'm2', start: t(10), end: t(30)),
-      ];
-      final issues = detectOverlaps(sessions);
-      expect(issues, hasLength(1));
-      expect(issues.first.type, FrontingIssueType.overlap);
-      expect(issues.first.severity, FrontingIssueSeverity.error);
-      expect(issues.first.sessionIds, containsAll(['a', 'b']));
-    });
-
-    test('full containment → issue', () {
-      // A: 0–60, B: 10–30 — B is inside A
-      final sessions = [
-        session(id: 'a', memberId: 'm1', start: t(0), end: t(60)),
-        session(id: 'b', memberId: 'm2', start: t(10), end: t(30)),
-      ];
-      final issues = detectOverlaps(sessions);
-      expect(issues, hasLength(1));
-      expect(issues.first.sessionIds, containsAll(['a', 'b']));
-    });
-
-    test('touching boundaries (A ends at 11:00, B starts at 11:00) → NO issue',
-        () {
-      final sessions = [
-        session(id: 'a', memberId: 'm1', start: t(0), end: t(60)),
-        session(id: 'b', memberId: 'm2', start: t(60), end: t(120)),
-      ];
-      final issues = detectOverlaps(sessions);
-      expect(issues, isEmpty);
-    });
-
-    test('two active sessions (end == null) → issue', () {
-      final sessions = [
-        session(id: 'a', memberId: 'm1', start: t(0)),
-        session(id: 'b', memberId: 'm2', start: t(10)),
-      ];
-      final issues = detectOverlaps(sessions);
-      expect(issues, hasLength(1));
-      expect(issues.first.sessionIds, containsAll(['a', 'b']));
-    });
-
-    test('non-overlapping sessions → no issue', () {
-      final sessions = [
-        session(id: 'a', memberId: 'm1', start: t(0), end: t(30)),
-        session(id: 'b', memberId: 'm2', start: t(60), end: t(90)),
-      ];
-      final issues = detectOverlaps(sessions);
-      expect(issues, isEmpty);
-    });
-
-    test('deleted sessions are ignored', () {
-      final sessions = [
-        session(
-            id: 'a',
-            memberId: 'm1',
-            start: t(0),
-            end: t(20),
-            isDeleted: true),
-        session(id: 'b', memberId: 'm2', start: t(10), end: t(30)),
-      ];
-      final issues = detectOverlaps(sessions);
-      expect(issues, isEmpty);
-    });
-
-    test('single session → no issue', () {
-      final sessions = [
-        session(id: 'a', memberId: 'm1', start: t(0), end: t(30)),
-      ];
-      final issues = detectOverlaps(sessions);
-      expect(issues, isEmpty);
-    });
-  });
-
-  // -------------------------------------------------------------------------
   // detectDuplicates
   // -------------------------------------------------------------------------
 
@@ -217,7 +134,7 @@ void main() {
       expect(issues.first.type, FrontingIssueType.duplicate);
     });
 
-    test('different members, same times → no issue', () {
+    test('different members, same times → no issue (cross-member is valid)', () {
       final sessions = [
         session(id: 'a', memberId: 'm1', start: t(0), end: t(60)),
         session(id: 'b', memberId: 'm2', start: t(0), end: t(60)),
@@ -240,16 +157,11 @@ void main() {
     });
 
     test('same member, same start, one active one closed → no duplicate', () {
-      // One has an end (closed), one is active — ends differ (null vs non-null)
-      // The null-vs-non-null should NOT be within tolerance unless they match.
-      // Two active → duplicate was already tested. One active one closed with
-      // matching start: ends are null vs defined, so NOT a duplicate by spec.
       final sessions = [
         session(id: 'a', memberId: 'm1', start: t(0)),
         session(id: 'b', memberId: 'm1', start: t(0), end: t(60)),
       ];
       final issues = detectDuplicates(sessions, config);
-      // One is active (end=null), one is closed — not duplicates
       expect(issues, isEmpty);
     });
 
@@ -276,34 +188,10 @@ void main() {
       expect(issues, isEmpty);
     });
 
-    test('same member but different co-fronters are NOT duplicates', () {
+    test('same member, same start and end → duplicate', () {
       final sessions = [
-        session(
-            id: 'a',
-            memberId: 'm1',
-            coFronterIds: ['m2'],
-            start: t(0),
-            end: t(60)),
+        session(id: 'a', memberId: 'm1', start: t(0), end: t(60)),
         session(id: 'b', memberId: 'm1', start: t(0), end: t(60)),
-      ];
-      final issues = detectDuplicates(sessions, config);
-      expect(issues, isEmpty);
-    });
-
-    test('same member and same co-fronters ARE duplicates', () {
-      final sessions = [
-        session(
-            id: 'a',
-            memberId: 'm1',
-            coFronterIds: ['m2'],
-            start: t(0),
-            end: t(60)),
-        session(
-            id: 'b',
-            memberId: 'm1',
-            coFronterIds: ['m2'],
-            start: t(0),
-            end: t(60)),
       ];
       final issues = detectDuplicates(sessions, config);
       expect(issues, hasLength(1));
@@ -349,7 +237,7 @@ void main() {
       expect(issues, isEmpty);
     });
 
-    test('different members, small gap → no issue', () {
+    test('different members, small gap → no issue (cross-member not mergeable)', () {
       final sessions = [
         session(id: 'a', memberId: 'm1', start: t(-60), end: t(0)),
         session(
@@ -399,127 +287,6 @@ void main() {
             end: t(60)),
       ];
       final issues = detectMergeableAdjacent(sessions, config);
-      expect(issues, isEmpty);
-    });
-
-    test('same member but different co-fronters are NOT mergeable', () {
-      final sessions = [
-        session(
-            id: 'a',
-            memberId: 'm1',
-            coFronterIds: ['m2'],
-            start: t(-60),
-            end: t(0)),
-        session(
-            id: 'b',
-            memberId: 'm1',
-            start: t(0).add(const Duration(seconds: 10)),
-            end: t(60)),
-      ];
-      final issues = detectMergeableAdjacent(sessions, config);
-      expect(issues, isEmpty);
-    });
-
-    test('same member and same co-fronters ARE mergeable', () {
-      final sessions = [
-        session(
-            id: 'a',
-            memberId: 'm1',
-            coFronterIds: ['m2'],
-            start: t(-60),
-            end: t(0)),
-        session(
-            id: 'b',
-            memberId: 'm1',
-            coFronterIds: ['m2'],
-            start: t(0).add(const Duration(seconds: 10)),
-            end: t(60)),
-      ];
-      final issues = detectMergeableAdjacent(sessions, config);
-      expect(issues, hasLength(1));
-    });
-  });
-
-  // -------------------------------------------------------------------------
-  // detectGaps
-  // -------------------------------------------------------------------------
-
-  group('detectGaps', () {
-    test('gap > 5min (flexible) → issue', () {
-      const config =
-          FrontingValidationConfig(timingMode: FrontingTimingMode.flexible);
-      final sessions = [
-        session(id: 'a', memberId: 'm1', start: t(0), end: t(30)),
-        session(id: 'b', memberId: 'm2', start: t(40), end: t(70)),
-      ];
-      // Gap = 10 min > 5 min threshold
-      final issues = detectGaps(sessions, config);
-      expect(issues, hasLength(1));
-      expect(issues.first.type, FrontingIssueType.gap);
-      expect(issues.first.severity, FrontingIssueSeverity.warning);
-    });
-
-    test('gap ≤ 5min (flexible) → no issue', () {
-      const config =
-          FrontingValidationConfig(timingMode: FrontingTimingMode.flexible);
-      final sessions = [
-        session(id: 'a', memberId: 'm1', start: t(0), end: t(30)),
-        session(id: 'b', memberId: 'm2', start: t(33), end: t(60)),
-      ];
-      // Gap = 3 min ≤ 5 min threshold
-      final issues = detectGaps(sessions, config);
-      expect(issues, isEmpty);
-    });
-
-    test('gap > 0 (strict) → issue', () {
-      const config =
-          FrontingValidationConfig(timingMode: FrontingTimingMode.strict);
-      final sessions = [
-        session(id: 'a', memberId: 'm1', start: t(0), end: t(30)),
-        session(id: 'b', memberId: 'm2', start: t(31), end: t(60)),
-      ];
-      // Gap = 1 min > 0 (zero tolerance)
-      final issues = detectGaps(sessions, config);
-      expect(issues, hasLength(1));
-    });
-
-    test('touching sessions (strict) → no issue', () {
-      const config =
-          FrontingValidationConfig(timingMode: FrontingTimingMode.strict);
-      final sessions = [
-        session(id: 'a', memberId: 'm1', start: t(0), end: t(30)),
-        session(id: 'b', memberId: 'm2', start: t(30), end: t(60)),
-      ];
-      final issues = detectGaps(sessions, config);
-      expect(issues, isEmpty);
-    });
-
-    test('active session does not create gap with next (only closed end used)',
-        () {
-      const config =
-          FrontingValidationConfig(timingMode: FrontingTimingMode.flexible);
-      final sessions = [
-        session(id: 'a', memberId: 'm1', start: t(0)), // active
-        session(id: 'b', memberId: 'm2', start: t(60), end: t(90)),
-      ];
-      final issues = detectGaps(sessions, config);
-      // Active session has no end, so no gap can be measured from it
-      expect(issues, isEmpty);
-    });
-
-    test('deleted sessions are ignored', () {
-      const config =
-          FrontingValidationConfig(timingMode: FrontingTimingMode.flexible);
-      final sessions = [
-        session(
-            id: 'a',
-            memberId: 'm1',
-            start: t(0),
-            end: t(30),
-            isDeleted: true),
-        session(id: 'b', memberId: 'm2', start: t(60), end: t(90)),
-      ];
-      final issues = detectGaps(sessions, config);
       expect(issues, isEmpty);
     });
   });
@@ -628,6 +395,130 @@ void main() {
       ];
       final issues = detectFutureSessions(sessions, now, config);
       expect(issues, isEmpty);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // detectSelfOverlap
+  // -------------------------------------------------------------------------
+
+  group('detectSelfOverlap', () {
+    test('same member, overlapping closed sessions → warning', () {
+      // A: 0–20, B: 10–30 → same member → soft warning
+      final sessions = [
+        session(id: 'a', memberId: 'm1', start: t(0), end: t(20)),
+        session(id: 'b', memberId: 'm1', start: t(10), end: t(30)),
+      ];
+      final issues = detectSelfOverlap(sessions);
+      expect(issues, hasLength(1));
+      expect(issues.first.type, FrontingIssueType.selfOverlap);
+      expect(issues.first.severity, FrontingIssueSeverity.warning);
+      expect(issues.first.sessionIds, containsAll(['a', 'b']));
+    });
+
+    test('same member, both active (open-ended) → error (hard-block)', () {
+      final sessions = [
+        session(id: 'a', memberId: 'm1', start: t(0)),
+        session(id: 'b', memberId: 'm1', start: t(10)),
+      ];
+      final issues = detectSelfOverlap(sessions);
+      expect(issues, hasLength(1));
+      expect(issues.first.type, FrontingIssueType.selfOverlap);
+      expect(issues.first.severity, FrontingIssueSeverity.error);
+    });
+
+    test('different members, overlapping → NO issue (cross-member is valid)', () {
+      final sessions = [
+        session(id: 'a', memberId: 'm1', start: t(0), end: t(20)),
+        session(id: 'b', memberId: 'm2', start: t(10), end: t(30)),
+      ];
+      final issues = detectSelfOverlap(sessions);
+      expect(issues, isEmpty);
+    });
+
+    test('different members, both active → NO issue', () {
+      final sessions = [
+        session(id: 'a', memberId: 'm1', start: t(0)),
+        session(id: 'b', memberId: 'm2', start: t(10)),
+      ];
+      final issues = detectSelfOverlap(sessions);
+      expect(issues, isEmpty);
+    });
+
+    test('same member, full containment → warning', () {
+      // A: 0–60, B: 10–30 (B inside A)
+      final sessions = [
+        session(id: 'a', memberId: 'm1', start: t(0), end: t(60)),
+        session(id: 'b', memberId: 'm1', start: t(10), end: t(30)),
+      ];
+      final issues = detectSelfOverlap(sessions);
+      expect(issues, hasLength(1));
+      expect(issues.first.severity, FrontingIssueSeverity.warning);
+    });
+
+    test('touching boundaries → no issue', () {
+      // A ends at t(30), B starts at t(30) — touching, not overlapping
+      final sessions = [
+        session(id: 'a', memberId: 'm1', start: t(0), end: t(30)),
+        session(id: 'b', memberId: 'm1', start: t(30), end: t(60)),
+      ];
+      final issues = detectSelfOverlap(sessions);
+      expect(issues, isEmpty);
+    });
+
+    test('null memberId sessions are not flagged', () {
+      final sessions = [
+        session(id: 'a', memberId: null, start: t(0), end: t(20)),
+        session(id: 'b', memberId: null, start: t(10), end: t(30)),
+      ];
+      final issues = detectSelfOverlap(sessions);
+      expect(issues, isEmpty);
+    });
+
+    test('deleted sessions are ignored', () {
+      final sessions = [
+        session(
+            id: 'a',
+            memberId: 'm1',
+            start: t(0),
+            end: t(20),
+            isDeleted: true),
+        session(id: 'b', memberId: 'm1', start: t(10), end: t(30)),
+      ];
+      final issues = detectSelfOverlap(sessions);
+      expect(issues, isEmpty);
+    });
+
+    test('single session → no issue', () {
+      final sessions = [
+        session(id: 'a', memberId: 'm1', start: t(0), end: t(30)),
+      ];
+      final issues = detectSelfOverlap(sessions);
+      expect(issues, isEmpty);
+    });
+
+    test('multiple members, only same-member overlaps flagged', () {
+      // m1: a=0–20, b=10–30 → overlap (warning)
+      // m2: c=0–20, d=25–45 → no overlap
+      final sessions = [
+        session(id: 'a', memberId: 'm1', start: t(0), end: t(20)),
+        session(id: 'b', memberId: 'm1', start: t(10), end: t(30)),
+        session(id: 'c', memberId: 'm2', start: t(0), end: t(20)),
+        session(id: 'd', memberId: 'm2', start: t(25), end: t(45)),
+      ];
+      final issues = detectSelfOverlap(sessions);
+      expect(issues, hasLength(1));
+      expect(issues.first.memberIds, contains('m1'));
+    });
+
+    test('issue carries correct memberIds', () {
+      final sessions = [
+        session(id: 'a', memberId: 'm42', start: t(0), end: t(30)),
+        session(id: 'b', memberId: 'm42', start: t(15), end: t(45)),
+      ];
+      final issues = detectSelfOverlap(sessions);
+      expect(issues, hasLength(1));
+      expect(issues.first.memberIds, ['m42']);
     });
   });
 }
