@@ -381,19 +381,62 @@ class V1FrontSession {
     this.confidence,
     this.pluralkitUuid,
     this.pkMemberIdsJson,
+    this.sessionType,
+    this.quality,
+    this.isHealthKitImport,
+    this.coFronterIdsRawJson,
+    this.isLegacyShape = false,
   });
 
   final String id;
   final String startTime;
   final String? endTime;
+  // Legacy-shape primary fronter id. Equivalent to memberId in new-shape
+  // exports; preserved as `headmateId` in legacy exports for backward
+  // compatibility with PRISM1 v6/v7 files. New-shape exports populate this
+  // via the same field name (memberId) — both `memberId` and `headmateId`
+  // keys are accepted on read.
   final String? headmateId;
+  // Legacy-shape co-fronter list (always empty for SP/HealthKit/single-member
+  // native rows; populated for multi-member native rows). Retained on the
+  // model for the PRISM1 rescue importer (§4.7).
   final List<String> coFronterIds;
   final String? notes;
   final int? confidence;
   final String? pluralkitUuid;
-  // PluralKit Phase 2: JSON-encoded list of PK member UUIDs for this switch
-  // (additive; older exports default to null).
+  // Legacy-shape: JSON-encoded list of PK member UUIDs for this switch.
+  // Retained in v7-era PRISM1 exports for the rescue importer (§4.7); the
+  // runtime column is unread from 0.7.0 onwards.
   final String? pkMemberIdsJson;
+
+  // -- New-shape fields (per-member fronting refactor §4.1) ------------
+  //
+  // `sessionType`: 0 = normal fronting, 1 = sleep / HealthKit. Only present
+  // in post-0.7.0 exports; legacy exports infer normal-vs-sleep from being
+  // in the `frontSessions` vs `sleepSessions` array.
+  final int? sessionType;
+  // `quality`: SleepQuality enum index for sleep rows. New-shape only;
+  // legacy sleep rows live in `sleepSessions` and use that schema.
+  final int? quality;
+  // `isHealthKitImport`: marker for HealthKit-imported sleep rows. New-shape
+  // only; legacy sleep rows use the same field on V1SleepSession.
+  final bool? isHealthKitImport;
+
+  // -- Rescue-importer support fields (not serialized) ----------------
+  //
+  // The raw JSON of `coFronterIds` as it appeared in the source file, kept
+  // verbatim so the rescue importer can detect corrupt JSON (per §6 edge
+  // cases). When the source value parses cleanly to a list of strings, this
+  // mirrors `coFronterIds`; when it's malformed the `coFronterIds` field
+  // falls back to empty and this carries the original raw value for logging.
+  final String? coFronterIdsRawJson;
+
+  // Per-row sniff result from `fromJson`: true when this row carries any
+  // legacy-shape marker (`coFronterIds`, `pkMemberIdsJson`, `headmateId`)
+  // and not the new-shape `memberId` / `sessionType` keys. The rescue
+  // importer routes legacy-shape rows through the §4.7 conversion logic;
+  // new-shape rows go through the standard import path.
+  final bool isLegacyShape;
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -405,20 +448,73 @@ class V1FrontSession {
     if (confidence != null) 'confidence': confidence,
     if (pluralkitUuid != null) 'pluralkitUuid': pluralkitUuid,
     if (pkMemberIdsJson != null) 'pkMemberIdsJson': pkMemberIdsJson,
+    if (sessionType != null) 'sessionType': sessionType,
+    if (quality != null) 'quality': quality,
+    if (isHealthKitImport != null) 'isHealthKitImport': isHealthKitImport,
   };
 
-  factory V1FrontSession.fromJson(Map<String, dynamic> json) => V1FrontSession(
-    id: json['id'] as String,
-    startTime: json['startTime'] as String,
-    endTime: json['endTime'] as String?,
-    headmateId: json['headmateId'] as String?,
-    coFronterIds:
-        (json['coFronterIds'] as List<dynamic>?)?.cast<String>() ?? [],
-    notes: json['notes'] as String?,
-    confidence: json['confidence'] as int?,
-    pluralkitUuid: json['pluralkitUuid'] as String?,
-    pkMemberIdsJson: json['pkMemberIdsJson'] as String?,
-  );
+  factory V1FrontSession.fromJson(Map<String, dynamic> json) {
+    // Per-row legacy-shape sniff: any legacy-only key present, or no
+    // new-shape `memberId` / `sessionType` key seen, implies the row was
+    // produced by a pre-0.7.0 exporter. New-shape exports always carry
+    // `memberId` (even when null) and `sessionType` (even when 0).
+    final hasLegacyMarker = json.containsKey('coFronterIds') ||
+        json.containsKey('pkMemberIdsJson') ||
+        json.containsKey('headmateId');
+    final hasNewShapeMarker =
+        json.containsKey('memberId') || json.containsKey('sessionType');
+    final isLegacy = hasLegacyMarker && !hasNewShapeMarker;
+
+    // Tolerate a malformed `coFronterIds` value (per §6 edge cases — if
+    // expansion fails to parse, fall back to single-member migration).
+    // The raw value is preserved for logging by the rescue importer.
+    final rawCo = json['coFronterIds'];
+    String? rawCoJson;
+    List<String> coIds;
+    if (rawCo == null) {
+      coIds = const [];
+    } else if (rawCo is List) {
+      try {
+        coIds = rawCo.cast<String>();
+      } catch (_) {
+        coIds = const [];
+        rawCoJson = jsonEncode(rawCo);
+      }
+    } else if (rawCo is String) {
+      // Some exports may have stringified the array — try to parse, fall
+      // back to empty.
+      rawCoJson = rawCo;
+      try {
+        final parsed = jsonDecode(rawCo);
+        coIds = parsed is List ? parsed.cast<String>() : const <String>[];
+      } catch (_) {
+        coIds = const [];
+      }
+    } else {
+      coIds = const [];
+      rawCoJson = rawCo.toString();
+    }
+
+    return V1FrontSession(
+      id: json['id'] as String,
+      startTime: json['startTime'] as String,
+      endTime: json['endTime'] as String?,
+      // Accept either key — new-shape exports use `memberId`, legacy use
+      // `headmateId`. Stored on the same field.
+      headmateId:
+          json['memberId'] as String? ?? json['headmateId'] as String?,
+      coFronterIds: coIds,
+      coFronterIdsRawJson: rawCoJson,
+      notes: json['notes'] as String?,
+      confidence: json['confidence'] as int?,
+      pluralkitUuid: json['pluralkitUuid'] as String?,
+      pkMemberIdsJson: json['pkMemberIdsJson'] as String?,
+      sessionType: json['sessionType'] as int?,
+      quality: json['quality'] as int?,
+      isHealthKitImport: json['isHealthKitImport'] as bool?,
+      isLegacyShape: isLegacy,
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1356,34 +1452,67 @@ class V1Note {
 class V1FrontSessionComment {
   V1FrontSessionComment({
     required this.id,
-    required this.sessionId,
+    this.sessionId,
     required this.body,
     required this.timestamp,
     required this.createdAt,
+    this.targetTime,
+    this.authorMemberId,
+    this.isLegacyShape = false,
   });
 
   final String id;
-  final String sessionId;
+  // Legacy-shape FK to fronting_sessions. Required in pre-0.7.0 exports;
+  // omitted in new-shape exports (comments anchor to targetTime, not a
+  // session id). Kept on the model for the PRISM1 rescue importer (§4.7).
+  final String? sessionId;
   final String body;
   final String timestamp;
   final String createdAt;
 
+  // -- New-shape fields (per-member fronting refactor §3.5) -----------
+  //
+  // `targetTime`: the moment this comment is about. Replaces the
+  // session-id anchor in new-shape exports. Comment lookups for a period
+  // join on `targetTime IN [period.start, period.end)`.
+  final String? targetTime;
+  // `authorMemberId`: optional member who wrote the comment. New-shape
+  // only — legacy comments derive author from the parent session's
+  // member during the rescue conversion.
+  final String? authorMemberId;
+
+  // Per-row sniff result: true when the comment carries `sessionId` and
+  // none of the new-shape `targetTime` / `authorMemberId` keys. Routes
+  // through the §4.7 rescue conversion in the importer.
+  final bool isLegacyShape;
+
   Map<String, dynamic> toJson() => {
     'id': id,
-    'sessionId': sessionId,
+    if (sessionId != null) 'sessionId': sessionId,
     'body': body,
     'timestamp': timestamp,
     'createdAt': createdAt,
+    if (targetTime != null) 'targetTime': targetTime,
+    if (authorMemberId != null) 'authorMemberId': authorMemberId,
   };
 
-  factory V1FrontSessionComment.fromJson(Map<String, dynamic> json) =>
-      V1FrontSessionComment(
-        id: json['id'] as String,
-        sessionId: json['sessionId'] as String,
-        body: json['body'] as String,
-        timestamp: json['timestamp'] as String,
-        createdAt: json['createdAt'] as String,
-      );
+  factory V1FrontSessionComment.fromJson(Map<String, dynamic> json) {
+    final hasSessionId = json.containsKey('sessionId') &&
+        (json['sessionId'] as String?)?.isNotEmpty == true;
+    final hasNewShapeMarker =
+        json.containsKey('targetTime') || json.containsKey('authorMemberId');
+    final isLegacy = hasSessionId && !hasNewShapeMarker;
+    return V1FrontSessionComment(
+      id: json['id'] as String,
+      sessionId: json['sessionId'] as String?,
+      body: json['body'] as String,
+      timestamp: json['timestamp'] as String,
+      createdAt: json['createdAt'] as String,
+      targetTime: json['targetTime'] as String?,
+      authorMemberId: json['authorMemberId'] as String?,
+      isLegacyShape: isLegacy,
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
