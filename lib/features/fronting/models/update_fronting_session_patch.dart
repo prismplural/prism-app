@@ -6,7 +6,6 @@ class UpdateFrontingSessionPatch {
     this.startTime = const FieldPatch.absent(),
     this.endTime = const FieldPatch.absent(),
     this.memberId = const FieldPatch.absent(),
-    this.coFronterIds = const FieldPatch.absent(),
     this.confidence = const FieldPatch.absent(),
     this.quality = const FieldPatch.absent(),
     this.notes = const FieldPatch.absent(),
@@ -15,7 +14,6 @@ class UpdateFrontingSessionPatch {
   final FieldPatch<DateTime> startTime;
   final FieldPatch<DateTime> endTime;
   final FieldPatch<String> memberId;
-  final FieldPatch<List<String>> coFronterIds;
   final FieldPatch<FrontConfidence> confidence;
   final FieldPatch<SleepQuality> quality;
   final FieldPatch<String> notes;
@@ -24,7 +22,6 @@ class UpdateFrontingSessionPatch {
       startTime.isAbsent &&
       endTime.isAbsent &&
       memberId.isAbsent &&
-      coFronterIds.isAbsent &&
       confidence.isAbsent &&
       quality.isAbsent &&
       notes.isAbsent;
@@ -34,8 +31,6 @@ class UpdateFrontingSessionPatch {
       startTime: startTime.applyTo(session.startTime) ?? session.startTime,
       endTime: endTime.applyTo(session.endTime),
       memberId: memberId.applyTo(session.memberId),
-      coFronterIds:
-          coFronterIds.applyTo(session.coFronterIds) ?? session.coFronterIds,
       confidence: confidence.applyTo(session.confidence),
       quality: quality.applyTo(session.quality),
       notes: notes.applyTo(session.notes),

@@ -1,3 +1,4 @@
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/mutations/app_failure.dart';
 import 'package:prism_plurality/core/mutations/mutation_result.dart';
 import 'package:prism_plurality/core/mutations/mutation_runner.dart';
@@ -9,12 +10,18 @@ import 'package:uuid/uuid.dart';
 
 class FrontingMutationResult {
   const FrontingMutationResult({
-    required this.session,
+    required this.sessions,
     this.previousMemberIds = const [],
   });
 
-  final FrontingSession session;
+  /// The sessions created or most-recently-modified by the mutation.
+  final List<FrontingSession> sessions;
   final List<String?> previousMemberIds;
+
+  /// Convenience accessor for callers that expect a single session (e.g. sleep,
+  /// wakeUp, single-member starts). Returns the first session, or throws if
+  /// [sessions] is empty.
+  FrontingSession get session => sessions.first;
 }
 
 class FrontingMutationService {
@@ -33,151 +40,111 @@ class FrontingMutationService {
   final SessionLifecycleService _lifecycle;
   final Uuid _uuid;
 
+  // ---------------------------------------------------------------------------
+  // Per-member API
+  // ---------------------------------------------------------------------------
+
+  /// Creates one fronting_sessions row per member in [memberIds], all sharing
+  /// [startTime] (defaults to now).
+  ///
+  /// Does NOT auto-end existing active sessions for other members — overlapping
+  /// sessions from different members are first-class in the per-member model.
+  /// The only session ended is an existing open session for the *same* member
+  /// (self-overlap hard-block: a member can't front twice concurrently).
+  ///
+  /// Returns the newly created sessions.
   Future<MutationResult<FrontingMutationResult>> startFronting(
-    String memberId, {
-    List<String> coFronterIds = const [],
+    List<String> memberIds, {
+    DateTime? startTime,
+    FrontConfidence? confidence,
+    String? notes,
   }) {
     return _mutationRunner.run<FrontingMutationResult>(
       actionLabel: 'Start fronting session',
       action: () async {
-        final activeSessions = await _repository
-            .getAllActiveSessionsUnfiltered();
-        final previousMemberIds = activeSessions
-            .map((s) => s.memberId)
-            .toList();
-        final now = DateTime.now();
-        for (final session in activeSessions) {
-          await _repository.endSession(session.id, now);
-        }
-
-        final created = FrontingSession(
-          id: _uuid.v4(),
-          startTime: now,
-          memberId: memberId,
-          coFronterIds: coFronterIds,
-        );
-        await _repository.createSession(created);
-        return FrontingMutationResult(
-          session: created,
-          previousMemberIds: previousMemberIds,
-        );
-      },
-    );
-  }
-
-  Future<MutationResult<FrontingMutationResult>> startFrontingWithDetails({
-    required String? memberId,
-    List<String> coFronterIds = const [],
-    FrontConfidence? confidence,
-    String? notes,
-    DateTime? startTime,
-  }) {
-    return _mutationRunner.run<FrontingMutationResult>(
-      actionLabel: 'Start detailed fronting session',
-      action: () async {
-        final activeSessions = await _repository
-            .getAllActiveSessionsUnfiltered();
-        final previousMemberIds = activeSessions
-            .map((s) => s.memberId)
-            .toList();
         final now = startTime ?? DateTime.now();
-        for (final session in activeSessions) {
-          await _repository.endSession(session.id, now);
+        final created = <FrontingSession>[];
+
+        for (final memberId in memberIds) {
+          // Hard-block: end any existing open session for this member before
+          // creating a new one. A member can't front twice concurrently.
+          final existing = await _repository.getAllActiveSessionsUnfiltered();
+          for (final s in existing) {
+            if (s.memberId == memberId && !s.isSleep) {
+              await _repository.endSession(s.id, now);
+            }
+          }
+
+          final session = FrontingSession(
+            id: _uuid.v4(),
+            startTime: now,
+            memberId: memberId,
+            confidence: confidence,
+            notes: notes,
+          );
+          await _repository.createSession(session);
+          created.add(session);
         }
 
-        final created = FrontingSession(
-          id: _uuid.v4(),
-          startTime: now,
-          memberId: memberId,
-          coFronterIds: coFronterIds,
-          confidence: confidence,
-          notes: notes,
-        );
-        await _repository.createSession(created);
-        return FrontingMutationResult(
-          session: created,
-          previousMemberIds: previousMemberIds,
-        );
+        return FrontingMutationResult(sessions: created);
       },
     );
   }
 
-  Future<MutationResult<List<String?>>> endFronting() {
-    return _mutationRunner.run<List<String?>>(
+  /// Ends active fronting sessions for each member in [memberIds].
+  ///
+  /// No-op for members that don't have an active (non-sleep) session.
+  Future<MutationResult<void>> endFronting(
+    List<String> memberIds, {
+    DateTime? endTime,
+  }) {
+    return _mutationRunner.run<void>(
       actionLabel: 'End fronting session',
       action: () async {
-        final activeSessions = await _repository
-            .getAllActiveSessionsUnfiltered();
-        final previousMemberIds = activeSessions
-            .map((s) => s.memberId)
-            .toList();
-        final now = DateTime.now();
-        for (final session in activeSessions) {
-          await _repository.endSession(session.id, now);
+        final now = endTime ?? DateTime.now();
+        final active = await _repository.getAllActiveSessionsUnfiltered();
+        for (final session in active) {
+          if (session.memberId != null &&
+              memberIds.contains(session.memberId) &&
+              !session.isSleep) {
+            await _repository.endSession(session.id, now);
+          }
         }
-        return previousMemberIds;
       },
     );
   }
 
-  Future<MutationResult<FrontingMutationResult>> switchFronter(
-    String newMemberId, {
-    required int thresholdSeconds,
+  /// Sugar: starts a fronting session for a single member.
+  ///
+  /// Equivalent to [startFronting]([memberId]). Kept as a named entry point
+  /// for call sites that conceptually add one person to an ongoing front.
+  Future<MutationResult<FrontingMutationResult>> addCoFronter(
+    String memberId, {
+    DateTime? startTime,
+    FrontConfidence? confidence,
+    String? notes,
   }) {
-    return _mutationRunner.run<FrontingMutationResult>(
-      actionLabel: 'Switch fronter',
-      action: () async {
-        final activeSessions = await _repository
-            .getAllActiveSessionsUnfiltered();
-        final previousMemberIds = activeSessions
-            .map((s) => s.memberId)
-            .toList();
-        final activeSession = await _repository.getActiveSession();
-        final action = _lifecycle.evaluateQuickSwitch(
-          activeSession,
-          thresholdSeconds: thresholdSeconds,
-        );
-
-        switch (action) {
-          case QuickSwitchAction.correctExisting:
-            if (activeSession == null) {
-              throw AppFailure.notFound(
-                'No active fronting session to correct.',
-              );
-            }
-            // End any other active sessions (e.g. from sync) to avoid
-            // multiple active sessions co-existing after the correction.
-            final now = DateTime.now();
-            for (final session in activeSessions) {
-              if (session.id != activeSession.id) {
-                await _repository.endSession(session.id, now);
-              }
-            }
-            final corrected = activeSession.copyWith(memberId: newMemberId);
-            await _repository.updateSession(corrected);
-            return FrontingMutationResult(
-              session: corrected,
-              previousMemberIds: previousMemberIds,
-            );
-          case QuickSwitchAction.createNew:
-            final now = DateTime.now();
-            for (final session in activeSessions) {
-              await _repository.endSession(session.id, now);
-            }
-            final created = FrontingSession(
-              id: _uuid.v4(),
-              startTime: now,
-              memberId: newMemberId,
-            );
-            await _repository.createSession(created);
-            return FrontingMutationResult(
-              session: created,
-              previousMemberIds: previousMemberIds,
-            );
-        }
-      },
+    return startFronting(
+      [memberId],
+      startTime: startTime,
+      confidence: confidence,
+      notes: notes,
     );
   }
+
+  /// Sugar: ends the fronting session for a single member.
+  ///
+  /// Equivalent to [endFronting]([memberId]).
+  Future<MutationResult<void>> removeCoFronter(
+    String memberId, {
+    DateTime? endTime,
+  }) {
+    return endFronting([memberId], endTime: endTime);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Sleep
+  // ---------------------------------------------------------------------------
 
   Future<MutationResult<FrontingMutationResult>> startSleep({
     String? notes,
@@ -187,11 +154,8 @@ class FrontingMutationService {
     return _mutationRunner.run<FrontingMutationResult>(
       actionLabel: 'Start sleep session',
       action: () async {
-        final activeSessions = await _repository
-            .getAllActiveSessionsUnfiltered();
-        final previousMemberIds = activeSessions
-            .map((s) => s.memberId)
-            .toList();
+        final activeSessions = await _repository.getAllActiveSessionsUnfiltered();
+        final previousMemberIds = activeSessions.map((s) => s.memberId).toList();
         final now = startTime ?? DateTime.now();
         for (final session in activeSessions) {
           await _repository.endSession(session.id, now);
@@ -201,14 +165,13 @@ class FrontingMutationService {
           id: _uuid.v4(),
           startTime: now,
           memberId: null,
-          coFronterIds: const [],
           notes: notes,
           sessionType: SessionType.sleep,
           quality: quality ?? SleepQuality.unknown,
         );
         await _repository.createSession(created);
         return FrontingMutationResult(
-          session: created,
+          sessions: [created],
           previousMemberIds: previousMemberIds,
         );
       },
@@ -256,7 +219,8 @@ class FrontingMutationService {
 
         // 2. Start fronting if member selected
         if (frontingMemberId != null) {
-          // Safety: end any other active sessions that may remain
+          // Safety: end any other active sessions that may remain (e.g. a
+          // second sleep session from sync or migration).
           final remaining = await _repository.getAllActiveSessionsUnfiltered();
           for (final s in remaining) {
             await _repository.endSession(s.id, now);
@@ -265,11 +229,10 @@ class FrontingMutationService {
             id: _uuid.v4(),
             startTime: now,
             memberId: frontingMemberId,
-            coFronterIds: const [],
           );
           await _repository.createSession(created);
           return FrontingMutationResult(
-            session: created,
+            sessions: [created],
             previousMemberIds: [null], // was sleeping (no member)
           );
         }
@@ -306,38 +269,9 @@ class FrontingMutationService {
     );
   }
 
-  Future<MutationResult<FrontingSession>> addCoFronter(String memberId) {
-    return _mutationRunner.run<FrontingSession>(
-      actionLabel: 'Add co-fronter',
-      action: () async {
-        final session = await _requireActiveSession();
-        final coFronterIds = session.coFronterIds.toSet();
-        if (!coFronterIds.add(memberId)) {
-          return session;
-        }
-
-        final updated = session.copyWith(coFronterIds: coFronterIds.toList());
-        await _repository.updateSession(updated);
-        return updated;
-      },
-    );
-  }
-
-  Future<MutationResult<FrontingSession>> removeCoFronter(String memberId) {
-    return _mutationRunner.run<FrontingSession>(
-      actionLabel: 'Remove co-fronter',
-      action: () async {
-        final session = await _requireActiveSession();
-        final updated = session.copyWith(
-          coFronterIds: session.coFronterIds
-              .where((id) => id != memberId)
-              .toList(),
-        );
-        await _repository.updateSession(updated);
-        return updated;
-      },
-    );
-  }
+  // ---------------------------------------------------------------------------
+  // Edit / update
+  // ---------------------------------------------------------------------------
 
   Future<MutationResult<FrontingSession>> updateSession(
     String sessionId,
@@ -409,6 +343,10 @@ class FrontingMutationService {
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // Delete
+  // ---------------------------------------------------------------------------
+
   Future<MutationResult<String?>> deleteSession(
     DeleteOption option,
     DeleteContext context,
@@ -434,37 +372,44 @@ class FrontingMutationService {
     );
   }
 
-  Future<MutationResult<FrontingSession>> splitSession({
-    required String sessionId,
-    required DateTime splitTime,
-    String? firstMemberId,
-    String? secondMemberId,
-  }) {
+  // ---------------------------------------------------------------------------
+  // Split
+  // ---------------------------------------------------------------------------
+
+  /// Splits the session at [splitTime]: trims the original's end to [splitTime]
+  /// and creates a new row from [splitTime] onwards.
+  ///
+  /// The new row gets a deterministic id derived from the split namespace so
+  /// that concurrent splits on two paired devices converge on the same id.
+  ///
+  /// The PK link is cleared on the new row (splitting breaks PK provenance).
+  Future<MutationResult<FrontingSession>> splitSession(
+    String sessionId,
+    DateTime splitTime,
+  ) {
     return _mutationRunner.run<FrontingSession>(
       actionLabel: 'Split fronting session',
       action: () async {
         final session = await _requireSession(sessionId);
 
-        final firstHalf = session.copyWith(
-          endTime: splitTime,
-          memberId: firstMemberId ?? session.memberId,
-        );
+        final firstHalf = session.copyWith(endTime: splitTime);
         await _repository.updateSession(firstHalf);
 
+        final newId = _uuid.v5(
+          splitNamespace,
+          '${session.id}:${splitTime.toIso8601String()}',
+        );
         final secondHalf = FrontingSession(
-          id: _uuid.v4(),
+          id: newId,
           startTime: splitTime,
           endTime: session.endTime,
-          memberId: secondMemberId ?? session.memberId,
-          coFronterIds: session.coFronterIds,
+          memberId: session.memberId,
           confidence: session.confidence,
           notes: session.notes,
-          // The PK link belongs to the original session — that row is the
-          // one that corresponds to the existing PluralKit switch UUID. The
-          // split-half is a new local segment with no matching PK switch yet;
-          // pushPendingSwitches will create one on the next push if the half
-          // qualifies (post-linkedAt). Sharing the UUID would violate the
-          // partial unique index on fronting_sessions(pluralkit_uuid).
+          // The PK link belongs to the original session — the split-half is a
+          // new local segment with no matching PK switch; sharing the UUID
+          // would violate the composite unique index on
+          // fronting_sessions(pluralkit_uuid, member_id). See c0ebbdc4.
           pluralkitUuid: null,
           sessionType: session.sessionType,
           quality: session.quality,
@@ -476,18 +421,14 @@ class FrontingMutationService {
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // Private helpers
+  // ---------------------------------------------------------------------------
+
   Future<FrontingSession> _requireSession(String sessionId) async {
     final session = await _repository.getSessionById(sessionId);
     if (session == null) {
       throw AppFailure.notFound('Fronting session not found.');
-    }
-    return session;
-  }
-
-  Future<FrontingSession> _requireActiveSession() async {
-    final session = await _repository.getActiveSession();
-    if (session == null) {
-      throw AppFailure.notFound('No active fronting session found.');
     }
     return session;
   }

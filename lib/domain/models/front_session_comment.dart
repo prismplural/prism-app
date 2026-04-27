@@ -7,10 +7,15 @@ part 'front_session_comment.g.dart';
 abstract class FrontSessionComment with _$FrontSessionComment {
   const factory FrontSessionComment({
     required String id,
-    required String sessionId,
     required String body,
     required DateTime timestamp,
     required DateTime createdAt,
+    // target_time: the moment this comment is about. Nullable until Phase 5
+    // migration backfills existing rows; downstream code falls back to
+    // timestamp when targetTime is null.
+    DateTime? targetTime,
+    // Optional author — which member wrote this comment.
+    String? authorMemberId,
   }) = _FrontSessionComment;
 
   factory FrontSessionComment.fromJson(Map<String, dynamic> json) =>
