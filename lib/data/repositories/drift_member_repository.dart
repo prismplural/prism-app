@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:prism_sync/generated/api.dart' as ffi;
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/daos/members_dao.dart';
 import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
 import 'package:prism_plurality/data/mappers/member_mapper.dart';
@@ -141,6 +142,24 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
 
   @override
   Future<int> getCount() => _dao.getCount();
+
+  @override
+  Future<({domain.Member member, bool wasCreated})>
+      ensureUnknownSentinelMember() async {
+    final existing = await getMemberById(unknownSentinelMemberId);
+    if (existing != null) {
+      return (member: existing, wasCreated: false);
+    }
+    final sentinel = domain.Member(
+      id: unknownSentinelMemberId,
+      name: 'Unknown',
+      emoji: '❔',
+      isActive: true,
+      createdAt: DateTime.now().toUtc(),
+    );
+    await createMember(sentinel);
+    return (member: sentinel, wasCreated: true);
+  }
 
   domain.Member _normalizeMember(domain.Member member) {
     final normalizedAvatar = AvatarNormalizer.normalize(member.avatarImageData);

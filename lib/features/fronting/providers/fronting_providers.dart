@@ -67,6 +67,9 @@ final frontingMutationServiceProvider = Provider<FrontingMutationService>((
   return FrontingMutationService(
     repository: ref.watch(frontingSessionRepositoryProvider),
     mutationRunner: MutationRunner.forDatabase(ref.watch(databaseProvider)),
+    // Required for the auto-create-Unknown-sentinel path used by the
+    // add-front sheet's "Front as Unknown" flow.
+    memberRepository: ref.watch(memberRepositoryProvider),
   );
 });
 

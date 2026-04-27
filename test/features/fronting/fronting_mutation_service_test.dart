@@ -1,11 +1,13 @@
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/app_database.dart'
-    hide FrontingSession;
+    hide FrontingSession, Member;
 import 'package:prism_plurality/core/mutations/field_patch.dart';
 import 'package:prism_plurality/core/mutations/mutation_runner.dart';
 import 'package:prism_plurality/data/repositories/drift_fronting_session_repository.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
+import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/fronting/models/update_fronting_session_patch.dart';
 import 'package:prism_plurality/features/fronting/services/fronting_mutation_service.dart';
 import '../../helpers/fake_repositories.dart';
@@ -727,6 +729,191 @@ void main() {
 
       final result = await svc.wakeUp('front-1');
       expect(result.isFailure, isTrue);
+    });
+
+    // -------------------------------------------------------------------------
+    // Unknown sentinel auto-create
+    //
+    // The add-front sheet's "Front as Unknown" flow passes
+    // `[unknownSentinelMemberId]` to startFronting; the service is responsible
+    // for lazy-creating the sentinel member so the resulting fronting_sessions
+    // row has a valid member_id.  These tests pin the contract.
+    // -------------------------------------------------------------------------
+
+    group('Unknown sentinel auto-create', () {
+      test('startFronting creates the sentinel member if missing', () async {
+        final repo = FakeFrontingSessionRepository();
+        final memberRepo = FakeMemberRepository();
+        final svc = FrontingMutationService(
+          repository: repo,
+          memberRepository: memberRepo,
+          mutationRunner: MutationRunner(
+            transactionRunner: _passthroughTransactionRunner,
+          ),
+        );
+
+        // Pre-condition: no members exist.
+        expect(await memberRepo.getMemberById(unknownSentinelMemberId), isNull);
+
+        final result = await svc.startFronting([unknownSentinelMemberId]);
+        expect(result.isSuccess, isTrue);
+
+        // Sentinel member was lazy-created.
+        final sentinel =
+            await memberRepo.getMemberById(unknownSentinelMemberId);
+        expect(sentinel, isNotNull);
+        expect(sentinel!.name, 'Unknown');
+        expect(sentinel.emoji, '❔');
+
+        // Single fronting row, attributed to the sentinel id.
+        expect(repo.sessions, hasLength(1));
+        expect(repo.sessions.single.memberId, unknownSentinelMemberId);
+        expect(repo.sessions.single.isActive, isTrue);
+      });
+
+      test(
+        'startFronting does not duplicate the sentinel when it already exists',
+        () async {
+          final repo = FakeFrontingSessionRepository();
+          final memberRepo = FakeMemberRepository();
+          // Pre-seed the sentinel as if a prior call created it.
+          memberRepo.seed([
+            Member(
+              id: unknownSentinelMemberId,
+              name: 'Unknown',
+              emoji: '❔',
+              createdAt: DateTime(2026, 4, 1).toUtc(),
+            ),
+          ]);
+          final svc = FrontingMutationService(
+            repository: repo,
+            memberRepository: memberRepo,
+            mutationRunner: MutationRunner(
+              transactionRunner: _passthroughTransactionRunner,
+            ),
+          );
+
+          final result = await svc.startFronting([unknownSentinelMemberId]);
+          expect(result.isSuccess, isTrue);
+
+          // Still exactly one sentinel row in the member repo.
+          final allMembers = await memberRepo.getAllMembers();
+          expect(
+            allMembers.where((m) => m.id == unknownSentinelMemberId).toList(),
+            hasLength(1),
+          );
+
+          expect(repo.sessions.single.memberId, unknownSentinelMemberId);
+        },
+      );
+
+      test(
+        'startFronting with a mix of real members and the sentinel creates '
+        'one row per id and ensures the sentinel',
+        () async {
+          final repo = FakeFrontingSessionRepository();
+          final memberRepo = FakeMemberRepository();
+          memberRepo.seed([
+            Member(id: 'alice', name: 'Alice', createdAt: DateTime(2026)),
+            Member(id: 'bob', name: 'Bob', createdAt: DateTime(2026)),
+          ]);
+          final svc = FrontingMutationService(
+            repository: repo,
+            memberRepository: memberRepo,
+            mutationRunner: MutationRunner(
+              transactionRunner: _passthroughTransactionRunner,
+            ),
+          );
+
+          final result = await svc.startFronting(
+            ['alice', unknownSentinelMemberId, 'bob'],
+          );
+          expect(result.isSuccess, isTrue);
+
+          // Three session rows, one per id.
+          expect(repo.sessions, hasLength(3));
+          expect(
+            repo.sessions.map((s) => s.memberId).toSet(),
+            {'alice', 'bob', unknownSentinelMemberId},
+          );
+
+          // Sentinel was ensured.
+          expect(
+            await memberRepo.getMemberById(unknownSentinelMemberId),
+            isNotNull,
+          );
+        },
+      );
+
+      test('addCoFronter for the sentinel auto-creates the sentinel member',
+          () async {
+        final repo = FakeFrontingSessionRepository();
+        final memberRepo = FakeMemberRepository();
+        final svc = FrontingMutationService(
+          repository: repo,
+          memberRepository: memberRepo,
+          mutationRunner: MutationRunner(
+            transactionRunner: _passthroughTransactionRunner,
+          ),
+        );
+
+        final result = await svc.addCoFronter(unknownSentinelMemberId);
+        expect(result.isSuccess, isTrue);
+        expect(
+          await memberRepo.getMemberById(unknownSentinelMemberId),
+          isNotNull,
+        );
+        expect(repo.sessions, hasLength(1));
+        expect(repo.sessions.single.memberId, unknownSentinelMemberId);
+      });
+
+      test(
+        'endFronting for the sentinel does NOT call ensure '
+        '(precondition: an active sentinel session implies the member exists)',
+        () async {
+          final repo = FakeFrontingSessionRepository();
+          // Pre-seed an active sentinel session WITHOUT seeding the member.
+          await repo.createSession(
+            FrontingSession(
+              id: 'sentinel-active',
+              startTime: DateTime(2026, 4, 1, 10),
+              memberId: unknownSentinelMemberId,
+            ),
+          );
+          // Wire NO MemberRepository — endFronting must not need it.
+          final svc = FrontingMutationService(
+            repository: repo,
+            mutationRunner: MutationRunner(
+              transactionRunner: _passthroughTransactionRunner,
+            ),
+          );
+
+          final result = await svc.endFronting([unknownSentinelMemberId]);
+          expect(result.isSuccess, isTrue);
+          // Session was ended.
+          expect(repo.sessions.single.isActive, isFalse);
+        },
+      );
+
+      test(
+        'startFronting throws StateError when the sentinel is in the payload '
+        'but no MemberRepository is wired',
+        () async {
+          final repo = FakeFrontingSessionRepository();
+          final svc = FrontingMutationService(
+            repository: repo,
+            mutationRunner: MutationRunner(
+              transactionRunner: _passthroughTransactionRunner,
+            ),
+          );
+
+          final result = await svc.startFronting([unknownSentinelMemberId]);
+          // The mutation runner converts thrown errors into a failure result.
+          expect(result.isFailure, isTrue);
+          // No session was written.
+          expect(repo.sessions, isEmpty);
+        },
+      );
     });
   });
 }

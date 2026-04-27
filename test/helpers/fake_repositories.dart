@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/domain/models/conversation.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/member.dart';
@@ -98,6 +99,24 @@ class FakeMemberRepository implements MemberRepository {
 
   @override
   Future<void> stampDeletePushStartedAt(String id, int timestampMs) async {}
+
+  @override
+  Future<({Member member, bool wasCreated})>
+      ensureUnknownSentinelMember() async {
+    final existing = await getMemberById(unknownSentinelMemberId);
+    if (existing != null) {
+      return (member: existing, wasCreated: false);
+    }
+    final sentinel = Member(
+      id: unknownSentinelMemberId,
+      name: 'Unknown',
+      emoji: '❔',
+      isActive: true,
+      createdAt: DateTime.now().toUtc(),
+    );
+    await createMember(sentinel);
+    return (member: sentinel, wasCreated: true);
+  }
 }
 
 // =============================================================================

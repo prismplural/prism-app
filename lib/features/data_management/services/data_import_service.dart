@@ -559,30 +559,19 @@ class DataImportService {
       }
 
       // Lazy creation of the Unknown sentinel for orphan native rows
-      // (member_id IS NULL, session_type = 0). The id matches what the
-      // 5B SP/native migration uses, so concurrent migrations on paired
-      // devices converge on the same sentinel row.
+      // (member_id IS NULL, session_type = 0). Delegates to the shared
+      // helper on MemberRepository so the id matches what 5B migration
+      // and the SP importer use; concurrent migrations on paired devices
+      // converge on the same sentinel row.
       String? unknownSentinelId;
       Future<String> ensureUnknownSentinel() async {
         if (unknownSentinelId != null) return unknownSentinelId!;
-        const uuid = Uuid();
-        final id =
-            uuid.v5(spFrontingNamespace, 'unknown-member-sentinel');
-        final existing = await memberRepository.getMemberById(id);
-        if (existing == null) {
-          await memberRepository.createMember(
-            Member(
-              id: id,
-              name: 'Unknown',
-              emoji: '❔',
-              isActive: true,
-              createdAt: DateTime.now().toUtc(),
-            ),
-          );
+        final ensured = await memberRepository.ensureUnknownSentinelMember();
+        if (ensured.wasCreated) {
           unknownSentinelCreated = true;
         }
-        unknownSentinelId = id;
-        return id;
+        unknownSentinelId = ensured.member.id;
+        return unknownSentinelId!;
       }
 
       final allSessionRows = await db.frontingSessionsDao

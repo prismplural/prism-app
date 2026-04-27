@@ -5,6 +5,7 @@ import 'package:prism_plurality/core/mutations/mutation_runner.dart';
 import 'package:prism_plurality/core/services/session_lifecycle_service.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
+import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/features/fronting/models/update_fronting_session_patch.dart';
 import 'package:uuid/uuid.dart';
 
@@ -29,17 +30,44 @@ class FrontingMutationService {
   FrontingMutationService({
     required FrontingSessionRepository repository,
     required MutationRunner mutationRunner,
+    MemberRepository? memberRepository,
     SessionLifecycleService lifecycle = const SessionLifecycleService(),
     Uuid? uuid,
   }) : _repository = repository,
        _mutationRunner = mutationRunner,
+       _memberRepository = memberRepository,
        _lifecycle = lifecycle,
        _uuid = uuid ?? const Uuid();
 
   final FrontingSessionRepository _repository;
   final MutationRunner _mutationRunner;
+  // Optional so unit tests that don't exercise the Unknown sentinel path
+  // can omit it.  When the Unknown sentinel id appears in a mutation
+  // payload, this MUST be wired or the service throws (see
+  // [_ensureSentinelIfNeeded]).
+  final MemberRepository? _memberRepository;
   final SessionLifecycleService _lifecycle;
   final Uuid _uuid;
+
+  /// If [memberIds] contains the Unknown sentinel id, lazily creates the
+  /// sentinel member so the freshly-emitted fronting_sessions row has a
+  /// resolvable foreign key.  No-op (no read) when the sentinel isn't
+  /// referenced — keeps the hot path free of an extra round trip.
+  ///
+  /// Throws [StateError] if a sentinel id is present but no
+  /// MemberRepository was wired — that combination indicates a misconfig
+  /// at the provider layer, not user input we can recover from.
+  Future<void> _ensureSentinelIfNeeded(List<String> memberIds) async {
+    if (!memberIds.contains(unknownSentinelMemberId)) return;
+    final repo = _memberRepository;
+    if (repo == null) {
+      throw StateError(
+        'FrontingMutationService received the Unknown sentinel id but no '
+        'MemberRepository was wired.  Provide one in the constructor.',
+      );
+    }
+    await repo.ensureUnknownSentinelMember();
+  }
 
   // ---------------------------------------------------------------------------
   // Per-member API
@@ -63,6 +91,12 @@ class FrontingMutationService {
     return _mutationRunner.run<FrontingMutationResult>(
       actionLabel: 'Start fronting session',
       action: () async {
+        // Auto-create the Unknown sentinel member before any session
+        // writes if its id appears in the payload.  Done inside the
+        // mutation runner so the sentinel create + session create live
+        // in the same transaction; either both land or neither does.
+        await _ensureSentinelIfNeeded(memberIds);
+
         final now = startTime ?? DateTime.now();
         final created = <FrontingSession>[];
 
@@ -220,6 +254,9 @@ class FrontingMutationService {
 
         // 2. Start fronting if member selected
         if (frontingMemberId != null) {
+          // Auto-create the Unknown sentinel member if waking up directly
+          // into Unknown — otherwise the new session would dangle.
+          await _ensureSentinelIfNeeded([frontingMemberId]);
           // Safety: end any other active sessions that may remain (e.g. a
           // second sleep session from sync or migration).
           final remaining = await _repository.getAllActiveSessionsUnfiltered();

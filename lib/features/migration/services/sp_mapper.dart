@@ -110,13 +110,12 @@ class SpMapper {
   /// Quick disposition lookup by SP CF id.
   final Map<String, CfDisposition> _cfDispositionById = {};
 
-  /// Prism UUID for the Unknown sentinel member, created on-the-fly when
-  /// an SP entry with `member: "unknown"` is encountered.  Derived
-  /// deterministically so all devices converge on the same ID:
-  ///   `Uuid().v5(spFrontingNamespace, 'unknown-member-sentinel')`
-  /// Phase 5 migration will tag this member as `is_system_managed`; until
-  /// that lands the mapper creates it on demand with a neutral name.
-  String? _unknownSentinelId;
+  /// Tracks whether at least one front-history entry referenced the
+  /// Unknown sentinel.  Set to true on first sighting so [map] knows to
+  /// append the sentinel member entity for the importer to persist.
+  /// The id itself is the shared [unknownSentinelMemberId] constant —
+  /// no per-instance derivation.
+  bool _unknownSentinelSeen = false;
 
   /// Counters for warnings surfaced by the importer.
   int _cfDroppedSessions = 0;
@@ -183,12 +182,13 @@ class SpMapper {
     // 2. Map front history to sessions.
     final sessions = _mapFrontHistory(data.frontHistory, warnings);
 
-    // 2b. If the front-history pass created an Unknown sentinel member,
-    //     append it to the members list so it is persisted by the importer.
-    if (_unknownSentinelId != null) {
+    // 2b. If the front-history pass referenced the Unknown sentinel,
+    //     append the sentinel member entity so the importer persists it.
+    //     Id matches `unknownSentinelMemberId` so all devices converge.
+    if (_unknownSentinelSeen) {
       members.add(
         domain.Member(
-          id: _unknownSentinelId!,
+          id: unknownSentinelMemberId,
           name: 'Unknown',
           emoji: '❔', // ❔
           isActive: true,
@@ -427,12 +427,12 @@ class SpMapper {
 
       switch (mainKind) {
         case _IdKind.unknownSentinel:
-          // Map to the Unknown sentinel member.  Create on-the-fly with a
-          // deterministic ID so all devices converge (Phase 5 will mark it
-          // is_system_managed; for now it's a regular member with no avatar).
-          _unknownSentinelId ??=
-              _uuid.v5(spFrontingNamespace, 'unknown-member-sentinel');
-          primaryMemberId = _unknownSentinelId;
+          // Map to the Unknown sentinel member.  Id is the shared
+          // [unknownSentinelMemberId] so all devices converge; the mapper
+          // marks it seen so the sentinel member entity gets appended to
+          // [map]'s output.
+          _unknownSentinelSeen = true;
+          primaryMemberId = unknownSentinelMemberId;
           break;
         case _IdKind.missing:
           primaryMemberId = null;

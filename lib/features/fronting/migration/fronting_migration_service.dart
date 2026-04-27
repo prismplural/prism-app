@@ -27,7 +27,6 @@ import 'package:prism_plurality/core/database/app_database.dart'
     hide FrontingSession, Member;
 import 'package:prism_plurality/domain/models/front_session_comment.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
-import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/repositories/front_session_comments_repository.dart';
 import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
@@ -494,27 +493,15 @@ class FrontingMigrationService {
     }
 
     // Step 7: orphan handling.  Create the Unknown sentinel only if
-    // there's at least one orphan to assign.
+    // there's at least one orphan to assign.  The shared
+    // `ensureUnknownSentinelMember` helper is idempotent (returns
+    // wasCreated=false if a prior failed attempt already created it).
     if (orphans.isNotEmpty) {
-      final sentinelId = _uuid.v5(
-        spFrontingNamespace,
-        'unknown-member-sentinel',
-      );
-      // Idempotency: if a prior failed attempt already created the
-      // sentinel, don't re-create.
-      final existing = await memberRepository.getMemberById(sentinelId);
-      if (existing == null) {
-        await memberRepository.createMember(
-          Member(
-            id: sentinelId,
-            name: 'Unknown',
-            emoji: '❔',
-            isActive: true,
-            createdAt: DateTime.now().toUtc(),
-          ),
-        );
+      final ensured = await memberRepository.ensureUnknownSentinelMember();
+      if (ensured.wasCreated) {
         counters.unknownSentinelCreated = true;
       }
+      final sentinelId = ensured.member.id;
       for (final r in orphans) {
         await frontingSessionRepository.updateSession(
           FrontingSession(
