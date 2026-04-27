@@ -223,6 +223,10 @@ class _FakeMemberRepo implements MemberRepository {
       members[id] = m.copyWith(deletePushStartedAt: timestampMs);
     }
   }
+
+  @override
+  Future<({domain.Member member, bool wasCreated})>
+      ensureUnknownSentinelMember() => throw UnimplementedError();
 }
 
 class _FakeSessionRepo implements FrontingSessionRepository {

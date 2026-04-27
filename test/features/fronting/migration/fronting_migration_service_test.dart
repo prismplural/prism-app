@@ -795,8 +795,8 @@ void main() {
 // Test doubles
 // ---------------------------------------------------------------------------
 
-/// Delegates every method to [_inner] except [createMember], which
-/// throws so the orphan-sentinel branch fails inside the Drift
+/// Delegates every method to [_inner] except the sentinel write paths,
+/// which throw so the orphan-sentinel branch fails inside the Drift
 /// transaction — used to verify rollback semantics (settings unchanged,
 /// PRISM1 file preserved).
 class _ThrowingMemberRepository implements MemberRepository {
@@ -851,6 +851,12 @@ class _ThrowingMemberRepository implements MemberRepository {
   @override
   Future<void> stampDeletePushStartedAt(String id, int timestampMs) =>
       _inner.stampDeletePushStartedAt(id, timestampMs);
+
+  @override
+  Future<({Member member, bool wasCreated})>
+      ensureUnknownSentinelMember() async {
+    throw StateError('Simulated ensureUnknownSentinelMember failure');
+  }
 }
 
 /// Minimal stand-in for the FFI handle.  The migration service treats

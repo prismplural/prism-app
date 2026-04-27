@@ -17,6 +17,8 @@
 /// never repurpose an existing one.
 library;
 
+import 'package:uuid/uuid.dart';
+
 /// Namespace for PluralKit-imported fronting session ids.
 ///
 /// Key format: `"${entry_switch_id}:${member_pk_uuid}"`
@@ -38,6 +40,20 @@ const String spFrontingNamespace = '07fa8466-1914-4510-9f1c-d1223d2b8e60';
 /// co-fronter rows are derived from this namespace.  Paired devices migrating
 /// concurrently produce identical ids (§2.6, §4.1 step 4).
 const String migrationFrontingNamespace = 'ca045f95-3051-4412-b7b4-2935f96b895a';
+
+/// Deterministic id for the Unknown sentinel member.
+///
+/// Used by "Front as Unknown" UI flows AND by importers/migration when
+/// classifying orphan rows (member_id NULL but session_type=0).  All call
+/// sites must produce this exact id so they share a single member entity
+/// in the local DB and across sync peers — concurrent creations on paired
+/// devices converge on the same row via the CRDT.
+///
+/// Derivation: `Uuid().v5(spFrontingNamespace, 'unknown-member-sentinel')`.
+/// Top-level `final` rather than `const` because `Uuid().v5(...)` is a
+/// runtime call.  Never recompute this elsewhere — import this constant.
+final String unknownSentinelMemberId =
+    const Uuid().v5(spFrontingNamespace, 'unknown-member-sentinel');
 
 /// Namespace for split-operation rows.
 ///

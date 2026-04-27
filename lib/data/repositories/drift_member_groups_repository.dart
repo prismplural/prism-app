@@ -564,4 +564,10 @@ class _NoopMemberRepository implements MemberRepository {
   @override
   Stream<List<member_domain.Member>> watchMembersByIds(List<String> ids) =>
       const Stream.empty();
+
+  @override
+  Future<({member_domain.Member member, bool wasCreated})>
+      ensureUnknownSentinelMember() => throw UnsupportedError(
+            '_NoopMemberRepository does not support ensureUnknownSentinelMember',
+          );
 }

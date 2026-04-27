@@ -27,4 +27,20 @@ abstract class MemberRepository {
   /// epoch) via `syncRecordUpdate` so peer devices can see who's pushing.
   /// R6.
   Future<void> stampDeletePushStartedAt(String id, int timestampMs);
+
+  // -- Unknown sentinel ----------------------------------------------------
+
+  /// Ensures the deterministic Unknown sentinel member exists, creating
+  /// it via `syncRecordCreate` if missing.  Returns the (member, wasCreated)
+  /// pair so callers that report counters (e.g. migration) can observe
+  /// whether a write happened.
+  ///
+  /// Idempotent: two concurrent calls produce the same row id and the
+  /// second `syncRecordCreate` is absorbed by `insertOnConflictUpdate`.
+  /// Used by every code path that needs the sentinel — the add-front
+  /// sheet's "Front as Unknown" flow, the per-member fronting migration
+  /// (orphan reassignment), the SP importer (entries with `member: "unknown"`),
+  /// and the data import service (orphan native rows).
+  Future<({domain.Member member, bool wasCreated})>
+      ensureUnknownSentinelMember();
 }

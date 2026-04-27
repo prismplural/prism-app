@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
@@ -383,11 +384,18 @@ void main() {
       await tester.tap(find.text('Unknown'));
       await tester.pumpAndSettle();
 
-      // Submit. Unknown maps to startFronting([]) — see add_front_session_sheet.
+      // Submit.  Unknown maps to startFronting([unknownSentinelMemberId]); the
+      // mutation service auto-creates the sentinel member if it doesn't
+      // exist (see fronting_mutation_service.dart `_ensureSentinelIfNeeded`).
       await tester.tap(_saveButton());
       await tester.pumpAndSettle();
 
-      expect(notifier.startFrontingCalls, equals(<List<String>>[<String>[]]));
+      expect(
+        notifier.startFrontingCalls,
+        equals(<List<String>>[
+          <String>[unknownSentinelMemberId],
+        ]),
+      );
     });
   });
 }

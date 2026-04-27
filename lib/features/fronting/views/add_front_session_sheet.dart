@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 import 'package:prism_plurality/domain/models/models.dart';
@@ -112,8 +113,10 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
 
   /// Starts one session per selected member, all sharing the same start time.
   ///
-  /// If the Unknown sentinel is the only selection, passes an empty list —
-  /// the mutation service creates a single Unknown session (memberId = null).
+  /// If the Unknown sentinel is the only selection, passes
+  /// `[unknownSentinelMemberId]` — the mutation service auto-creates the
+  /// sentinel member if it doesn't exist, then writes a single session
+  /// row attributed to it.
   Future<void> _submit() async {
     if (!_canSubmit) return;
     setState(() => _saving = true);
@@ -122,24 +125,19 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
       final notifier = ref.read(frontingNotifierProvider.notifier);
       final trimmedNotes = _notesController.text.trim();
 
-      if (_frontAsUnknown) {
-        // Unknown fronter — single session with memberId = null.
-        // startFronting([]) produces one Unknown row in the mutation service.
-        await notifier.startFronting(
-          [],
-          confidence: _confidence,
-          notes: trimmedNotes.isNotEmpty ? trimmedNotes : null,
-        );
-      } else {
-        // Multi-member: each id gets its own session row sharing start_time.
-        // Iterating .sessions is correct; do not use .sessions.single because
-        // the user may have selected more than one member.
-        await notifier.startFronting(
-          _memberIds,
-          confidence: _confidence,
-          notes: trimmedNotes.isNotEmpty ? trimmedNotes : null,
-        );
-      }
+      // Multi-member: each id gets its own session row sharing start_time.
+      // The Unknown sentinel id is treated like any other member id — the
+      // mutation service auto-creates the sentinel member if needed.
+      // Iterating .sessions is correct; do not use .sessions.single because
+      // the user may have selected more than one member.
+      final ids = _frontAsUnknown
+          ? <String>[unknownSentinelMemberId]
+          : _memberIds;
+      await notifier.startFronting(
+        ids,
+        confidence: _confidence,
+        notes: trimmedNotes.isNotEmpty ? trimmedNotes : null,
+      );
       Haptics.success();
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {

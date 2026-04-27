@@ -86,6 +86,10 @@ class _FakeMemberRepository implements MemberRepository {
   Stream<member_domain.Member?> watchMemberById(String id) async* {
     yield _membersById[id];
   }
+
+  @override
+  Future<({member_domain.Member member, bool wasCreated})>
+      ensureUnknownSentinelMember() => throw UnimplementedError();
 }
 
 class _RecordingMemberGroupsRepository extends DriftMemberGroupsRepository {
