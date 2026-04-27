@@ -174,8 +174,9 @@ void main() {
 
       expect(result.frontComments, hasLength(1));
       expect(result.frontComments.first.body, 'A comment on this session');
-      // sessionId should resolve to the Prism UUID for fh1
-      expect(result.frontComments.first.sessionId, result.sessions.first.id);
+      // Comments now anchor to targetTime (the SP comment's own timestamp)
+      // rather than a sessionId FK.  Verify the comment's targetTime was set.
+      expect(result.frontComments.first.targetTime, DateTime(2024, 1, 1, 12));
       expect(result.warnings, isEmpty);
     });
 
