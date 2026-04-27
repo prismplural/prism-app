@@ -433,9 +433,24 @@ class FrontingMutationService {
         final firstHalf = session.copyWith(endTime: splitTime);
         await _repository.updateSession(firstHalf);
 
+        // The derivation key MUST normalize to UTC before serialization:
+        // `DateTime.toIso8601String()` on a local `DateTime` (`isUtc==false`)
+        // emits no timezone offset at all (no `Z`, no `+HH:MM`), so two
+        // paired devices that represent the same instant differently —
+        // one as a local wall-clock from a date picker, one as a UTC
+        // round-trip via `fromMillisecondsSinceEpoch(..., isUtc: true)` —
+        // would derive different v5 ids and produce divergent rows the
+        // CRDT can't merge. Calling `.toUtc()` first fixes the wire format
+        // to a single canonical representation.
+        //
+        // Precision note: Dart `DateTime` carries microseconds on the VM
+        // and milliseconds on web. `splitTime` should already be at a
+        // consistent precision before reaching this site (today it comes
+        // from a UI date picker at second/minute precision, so this is
+        // not a live risk).
         final newId = _uuid.v5(
           splitNamespace,
-          '${session.id}:${splitTime.toIso8601String()}',
+          '${session.id}:${splitTime.toUtc().toIso8601String()}',
         );
         final secondHalf = FrontingSession(
           id: newId,

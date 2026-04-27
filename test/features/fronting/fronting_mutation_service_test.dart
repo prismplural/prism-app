@@ -409,6 +409,59 @@ void main() {
     );
 
     test(
+      'splitSession derives the same v5 id from local and UTC representations '
+      'of the same instant',
+      () async {
+        // Two paired devices may receive the same wall-clock instant as a
+        // local DateTime (date-picker output, isUtc=false) and as a UTC
+        // DateTime (e.g. round-tripped through fromMillisecondsSinceEpoch).
+        // toIso8601String() emits no offset on local DateTimes, so the
+        // derivation key MUST be normalized to UTC before hashing.
+        final localSplit = DateTime(2026, 4, 25, 13); // local wall-clock
+        final utcSplit = localSplit.toUtc();          // same instant, UTC
+
+        // CI guard: this test is meaningless if the host's TZ is UTC (local
+        // and utc are then equal). Assert the precondition fails loudly.
+        expect(
+          localSplit.toIso8601String(),
+          isNot(utcSplit.toIso8601String()),
+          reason: 'Test host TZ must be non-UTC for this regression test '
+              'to be meaningful. Set TZ=America/Los_Angeles in CI.',
+        );
+
+        Future<String> idFromSplit(DateTime splitTime) async {
+          final repo = FakeFrontingSessionRepository();
+          final original = FrontingSession(
+            id: 'front-cross-tz',
+            startTime: DateTime(2026, 4, 25, 10),
+            endTime: DateTime(2026, 4, 25, 16),
+            memberId: 'alice',
+          );
+          await repo.createSession(original);
+          final svc = FrontingMutationService(
+            repository: repo,
+            mutationRunner: MutationRunner(
+              transactionRunner: _passthroughTransactionRunner,
+            ),
+          );
+          final result = await svc.splitSession(original.id, splitTime);
+          expect(result.isSuccess, isTrue);
+          return repo.sessions.firstWhere((s) => s.id != original.id).id;
+        }
+
+        final localId = await idFromSplit(localSplit);
+        final utcId = await idFromSplit(utcSplit);
+
+        expect(
+          localId,
+          utcId,
+          reason: 'Local and UTC representations of the same instant must '
+              'derive the same v5 id so paired devices converge.',
+        );
+      },
+    );
+
+    test(
       'splitSession clears pluralkitUuid on the second half '
       '(PK composite unique index)',
       () async {
