@@ -1,7 +1,7 @@
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
+import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/sync/sync_runtime_state.dart';
 
 /// Mixin for repositories that record mutations to the Rust sync engine.
@@ -16,11 +16,45 @@ import 'package:prism_plurality/core/sync/sync_runtime_state.dart';
 /// `pending_op` is created until a later edit re-emits the entity. To close
 /// that race, writes retry only while startup auto-config is actively in
 /// progress, then fall back to the historical "skip quietly" behavior.
+///
+/// **Suppression mode** ([SyncRecordMixin.suppress]). The fronting migration
+/// (and any future destructive bulk-rewrite path) needs to write to repository
+/// methods inside a Drift transaction WITHOUT emitting CRDT ops to the Rust
+/// engine — because the Rust engine commits to its own SQLite store, those
+/// ops would survive a Drift rollback and could leak to peers via auto-sync
+/// before the migration's `reset_sync_state` cutover runs. While
+/// `_suppressed` is true, every record method early-returns without touching
+/// the FFI. Process-wide static flag is sufficient — Dart UI is single-isolate
+/// and the migration runs mutually-exclusive with normal user activity.
 mixin SyncRecordMixin {
   ffi.PrismSyncHandle? get syncHandle;
 
   static const int _notConfiguredRetryAttempts = 10;
   static const Duration _notConfiguredRetryDelay = Duration(milliseconds: 100);
+
+  /// While `true`, every `syncRecord*` call short-circuits before the FFI.
+  /// Toggled exclusively via [suppress]; never written directly.
+  static bool _suppressed = false;
+
+  /// Returns whether suppression is currently active. Exposed for tests
+  /// that want to assert "suppression cleanly entered + exited."
+  static bool get isSuppressed => _suppressed;
+
+  /// Run [body] with sync emission suppressed.
+  ///
+  /// Used by the per-member fronting migration (`fronting_migration_service`)
+  /// so the intra-transaction repository writes don't emit Rust pending_ops
+  /// that would survive a Drift rollback. The `try`/`finally` ensures the
+  /// flag clears even if [body] throws — propagating the original exception.
+  static Future<T> suppress<T>(Future<T> Function() body) async {
+    final wasSuppressed = _suppressed;
+    _suppressed = true;
+    try {
+      return await body();
+    } finally {
+      _suppressed = wasSuppressed;
+    }
+  }
 
   /// Returns true if [error]'s string representation indicates the sync
   /// engine simply isn't configured (pre-pairing). Used to suppress log
@@ -57,6 +91,7 @@ mixin SyncRecordMixin {
     String entityId,
     Map<String, dynamic> fields,
   ) async {
+    if (_suppressed) return;
     final payload = jsonEncode(fields);
     try {
       await _runWithConfiguredRetry((handle) {
@@ -67,8 +102,20 @@ mixin SyncRecordMixin {
           fieldsJson: payload,
         );
       });
-    } catch (e) {
-      debugPrint('Sync recordCreate failed: $e');
+    } catch (e, st) {
+      // Codex P1 #3: previously this swallowed FFI exceptions silently
+      // with `debugPrint`, hiding real failures (a Rust write that
+      // throws produces a Drift row with no corresponding pending_op
+      // and no surface signal). Report the failure and rethrow so
+      // callers can decide what to do — most repository writes still
+      // tolerate this via their own try/catch, but at least the error
+      // reaches the reporter.
+      ErrorReportingService.instance.report(
+        'Sync recordCreate failed: $e',
+        severity: ErrorSeverity.error,
+        stackTrace: st,
+      );
+      rethrow;
     }
   }
 
@@ -77,6 +124,7 @@ mixin SyncRecordMixin {
     String entityId,
     Map<String, dynamic> fields,
   ) async {
+    if (_suppressed) return;
     final payload = jsonEncode(fields);
     try {
       await _runWithConfiguredRetry((handle) {
@@ -87,12 +135,18 @@ mixin SyncRecordMixin {
           changedFieldsJson: payload,
         );
       });
-    } catch (e) {
-      debugPrint('Sync recordUpdate failed: $e');
+    } catch (e, st) {
+      ErrorReportingService.instance.report(
+        'Sync recordUpdate failed: $e',
+        severity: ErrorSeverity.error,
+        stackTrace: st,
+      );
+      rethrow;
     }
   }
 
   Future<void> syncRecordDelete(String table, String entityId) async {
+    if (_suppressed) return;
     try {
       await _runWithConfiguredRetry((handle) {
         return ffi.recordDelete(
@@ -101,8 +155,13 @@ mixin SyncRecordMixin {
           entityId: entityId,
         );
       });
-    } catch (e) {
-      debugPrint('Sync recordDelete failed: $e');
+    } catch (e, st) {
+      ErrorReportingService.instance.report(
+        'Sync recordDelete failed: $e',
+        severity: ErrorSeverity.error,
+        stackTrace: st,
+      );
+      rethrow;
     }
   }
 }

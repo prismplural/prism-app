@@ -387,5 +387,47 @@ void main() {
 
       expect(find.text('Fronting upgrade pending'), findsNothing);
     });
+
+    // Codex P1 #4: the banner now also surfaces when post-tx cleanup
+    // partially failed. The user re-enters via the same modal, which
+    // adapts to render the resume-cleanup screen for the inProgress
+    // state.
+    testWidgets('renders when mode is inProgress (resume-cleanup nudge)',
+        (tester) async {
+      await tester.pumpWidget(_buildBannerSubject(
+        mode: FrontingMigrationService.modeInProgress,
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Fronting upgrade pending'), findsOneWidget);
+    });
+  });
+
+  group('FrontingUpgradeSheet — resume-cleanup', () {
+    testWidgets(
+        'renders the Finish-migration screen when mode is inProgress',
+        (tester) async {
+      final runner = _FakeRunner();
+      await tester.pumpWidget(_buildSheetSubject(
+        runner: runner,
+        pairedCount: 0,
+        mode: FrontingMigrationService.modeInProgress,
+      ));
+      await tester.pumpAndSettle();
+
+      // Open the modal.
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      // The resume-cleanup intro should be the active step rather
+      // than the normal intro. Both copies use the literal "Finish
+      // migration" headline (post-l10n we'd switch to a localized
+      // key).
+      expect(find.text('Finish migration'), findsAtLeastNWidgets(1));
+      // The standard intro Continue button is NOT present — its
+      // localized text is `frontingUpgradeContinue` ("Continue") but
+      // here we pin on the "Finish migration" CTA being the dominant
+      // affordance.
+    });
   });
 }

@@ -869,10 +869,15 @@ class _AppShellState extends ConsumerState<AppShell>
     // Mid-transaction modes mean a prior attempt crashed; we treat
     // them as 'notStarted' for retry.  'blocked' (v7 onUpgrade
     // refused the composite index) shows the modal too — the user can
-    // try migration to clear the duplicates, or defer.
+    // try migration to clear the duplicates, or defer. 'inProgress'
+    // (Codex P1 #4) means the Drift transaction committed but a
+    // post-tx step (engine reset / keychain wipe / quarantine clear)
+    // failed; the modal opens straight to a "Finish migration" screen
+    // that calls `resumeCleanup()`.
     final isMandatory = mode == FrontingMigrationService.modeNotStarted ||
         mode == FrontingMigrationService.modeUpgradeAndKeep ||
         mode == FrontingMigrationService.modeStartFresh ||
+        mode == FrontingMigrationService.modeInProgress ||
         mode == 'blocked';
     final isDeferred = mode == FrontingMigrationService.modeDeferred;
     if (!isMandatory && !isDeferred) return;

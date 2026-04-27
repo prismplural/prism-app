@@ -235,8 +235,27 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
     );
     BootTimings.mark('createHandle:createPrismSync');
 
-    // Seed Rust's in-memory SecureStore from platform keychain
-    await _seedRustStore(handle);
+    // Codex P1 #4 + #5: if the per-member fronting migration left the
+    // device at the `inProgress` marker (Drift tx committed, post-tx
+    // cleanup partially failed — e.g. user backgrounded the app
+    // between FFI reset and keychain wipe), skip both `_seedRustStore`
+    // and `_autoConfigureIfReady`. Otherwise we'd re-seed Rust from
+    // the keychain entries that should have been wiped, then
+    // `configureEngine` would silently re-attach to the OLD sync
+    // group. The upgrade modal surfaces a "Finish migration" entry
+    // point that calls `resumeCleanup()` to wipe the keychain and
+    // mark the migration complete.
+    final pendingMigration = await _readPendingFrontingMigrationMode(ref);
+    final isMigrationMidCleanup = pendingMigration == 'inProgress';
+    if (!isMigrationMidCleanup) {
+      // Seed Rust's in-memory SecureStore from platform keychain.
+      await _seedRustStore(handle);
+    } else {
+      debugPrint(
+        '[SYNC] Skipping _seedRustStore — fronting migration is in '
+        'inProgress state; awaiting resumeCleanup() via upgrade modal.',
+      );
+    }
     BootTimings.mark('createHandle:_seedRustStore');
 
     // Mark startup auto-config as in-progress before publishing the handle so
@@ -256,9 +275,16 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
     // Auto-configure sync engine if credentials already exist (app restart).
     // Writes that land in this window can see `sync not configured` even
     // though the same handle will become writable a moment later.
+    //
+    // Codex P1 #4: skip when the migration is mid-cleanup — see comment
+    // above `_seedRustStore`.
     late final SyncHealthState health;
     try {
-      health = await _autoConfigureIfReady(handle);
+      if (isMigrationMidCleanup) {
+        health = SyncHealthState.healthy; // unpaired-equivalent; modal will resume
+      } else {
+        health = await _autoConfigureIfReady(handle);
+      }
       BootTimings.mark('createHandle:_autoConfigureIfReady');
       ref.read(syncHealthProvider.notifier).setState(health);
     } finally {
@@ -611,6 +637,77 @@ Future<void> _seedRustStore(ffi.PrismSyncHandle handle) async {
   final json = buildSeedRequestJson(all);
   if (json != null) {
     await ffi.seedSecureStore(handle: handle, entriesJson: json);
+  }
+}
+
+/// Read the current `pending_fronting_migration_mode` from the
+/// `system_settings` row, returning `null` if the DAO read throws (e.g.
+/// the database isn't open yet, or the column doesn't exist on this
+/// schema version). Defensive — Codex P1 #4 only needs this to detect
+/// the `inProgress` state at startup, and any failure here means we
+/// fall back to the normal seed/configure path.
+Future<String?> _readPendingFrontingMigrationMode(Ref ref) async {
+  try {
+    final db = ref.read(databaseProvider);
+    return await db.systemSettingsDao.readPendingFrontingMigrationMode();
+  } catch (_) {
+    return null;
+  }
+}
+
+/// Wipe every sync-related entry from the platform keychain.
+///
+/// Mirrors `SyncStatusNotifier._wipeSyncKeychainEntries` but exposed as a
+/// top-level function so the per-member fronting migration can call it
+/// from outside the notifier graph (the migration runs as a service, not
+/// a notifier, and shouldn't depend on the SyncStatus notifier's
+/// debounce/post-revoke state).
+///
+/// Codex P1 #5: without this, a backgrounded app between the migration's
+/// `reset_sync_state` and the next launch would re-seed Rust from the
+/// still-present `wrapped_dek` / `sync_id` / `device_secret` / etc. and
+/// silently re-attach to the OLD sync group. Idempotent — wiping
+/// already-wiped slots is a no-op.
+Future<void> wipeFrontingMigrationSyncKeychain() async {
+  // Static allow-list (mirrors `_secureStoreKeys` plus the same
+  // defensive entries `_wipeSyncKeychainEntries` lists).
+  for (final key in const [
+    'wrapped_dek',
+    'dek_salt',
+    'device_secret',
+    'device_id',
+    'sync_id',
+    'session_token',
+    'epoch',
+    'relay_url',
+    'mnemonic',
+    'setup_rollback_marker',
+    'sharing_prekey_store',
+    'sharing_id_cache',
+    'min_signature_version_floor',
+    'runtime_dek',
+  ]) {
+    try {
+      await _storage.delete(key: '$_secureStorePrefix$key');
+    } catch (_) {
+      // Best effort — continue clearing remaining keys.
+    }
+  }
+  // Dynamic-prefix scan for any `epoch_key_*` / `runtime_keys_*`
+  // entries left over from prior pairings.
+  try {
+    final all = await _storage.readAll();
+    for (final entry in all.entries) {
+      if (!entry.key.startsWith(_secureStorePrefix)) continue;
+      final bare = entry.key.substring(_secureStorePrefix.length);
+      if (_dynamicSecureStorePrefixes.any(bare.startsWith)) {
+        try {
+          await _storage.delete(key: entry.key);
+        } catch (_) {}
+      }
+    }
+  } catch (_) {
+    // Non-fatal — the next reset will pick them up.
   }
 }
 
