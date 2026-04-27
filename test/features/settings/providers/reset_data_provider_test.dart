@@ -127,17 +127,21 @@ void main() {
         expect(await _countRows(reopened, 'member_group_entries'), 0);
         expect(await _countRows(reopened, 'notes'), 0);
         expect(await _countRows(reopened, 'habit_completions'), 0);
-        // Sessions preserved but member nulled
-        expect(await _countRows(reopened, 'fronting_sessions'), 2);
+        // Sessions preserved but member nulled.  Per-member shape: a
+        // co-fronted seed expands to 2 normal rows + 1 sleep row = 3.
+        expect(await _countRows(reopened, 'fronting_sessions'), 3);
         expect(await _countRows(reopened, 'chat_messages'), 1);
         // Groups and custom fields definitions remain
         expect(await _countRows(reopened, 'member_groups'), 1);
         expect(await _countRows(reopened, 'custom_fields'), 1);
 
+        // Per-member shape (Phase 5): _resetMembers nulls member_id on the
+        // remaining session rows.  co_fronter_ids still physically exists in
+        // v7 (legacy/unread storage) but is no longer touched by the reset.
         final sessionRow = await reopened
             .customSelect(
               '''
-        SELECT member_id, co_fronter_ids
+        SELECT member_id
         FROM fronting_sessions
         WHERE id = ?
         ''',
@@ -145,7 +149,6 @@ void main() {
             )
             .getSingle();
         expect(sessionRow.data['member_id'], isNull);
-        expect(sessionRow.read<String>('co_fronter_ids'), '[]');
       },
     );
 
@@ -224,7 +227,8 @@ void main() {
       addTearDown(reopened.close);
 
       expect(await _countSleepRows(reopened), 0);
-      expect(await _countRows(reopened, 'fronting_sessions'), 1);
+      // Per-member shape: 2 normal rows (one per co-fronter) survive.
+      expect(await _countRows(reopened, 'fronting_sessions'), 2);
       expect(await _countRows(reopened, 'front_session_comments'), 1);
       expect(await _countRows(reopened, 'habits'), 1);
       expect(await _countRows(reopened, 'members'), 2);
@@ -530,7 +534,20 @@ class _ResetHarness {
             id: const Value('session-1'),
             startTime: Value(now.subtract(const Duration(hours: 1))),
             memberId: const Value('member-1'),
-            coFronterIds: const Value('["member-2"]'),
+            // Per-member shape (Phase 5): no coFronterIds — co-fronting is
+            // expressed as overlapping per-member rows.  The legacy column
+            // still exists physically in v7, defaults to '[]'.
+            sessionType: const Value(0),
+          ),
+        );
+    // Co-fronter expressed as a second per-member row over the same range.
+    await db
+        .into(db.frontingSessions)
+        .insert(
+          FrontingSessionsCompanion(
+            id: const Value('session-1-co'),
+            startTime: Value(now.subtract(const Duration(hours: 1))),
+            memberId: const Value('member-2'),
             sessionType: const Value(0),
           ),
         );
@@ -553,7 +570,6 @@ class _ResetHarness {
             startTime: Value(now.subtract(const Duration(hours: 8))),
             endTime: Value(now.subtract(const Duration(hours: 1))),
             memberId: const Value(null),
-            coFronterIds: const Value('[]'),
             sessionType: const Value(1),
           ),
         );
