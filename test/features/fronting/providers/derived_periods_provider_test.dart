@@ -29,6 +29,24 @@ FrontingSession _s({
       endTime: end,
     );
 
+/// Wraps a session list in the [DerivedPeriodsInputBundle] the provider
+/// emits, with bounds matching the production lookback/lookahead.
+DerivedPeriodsInputBundle _bundle(
+  List<FrontingSession> sessions, {
+  DateTime? rangeStart,
+  DateTime? rangeEnd,
+  DateTime? referenceNow,
+}) {
+  final now = referenceNow ?? DateTime.now();
+  return DerivedPeriodsInputBundle(
+    sessions: sessions,
+    rangeStart: rangeStart ??
+        now.subtract(const Duration(days: derivedPeriodsLookbackDays)),
+    rangeEnd: rangeEnd ??
+        now.add(const Duration(days: derivedPeriodsLookaheadDays)),
+  );
+}
+
 void main() {
   group('derivedPeriodsProvider', () {
     test('emits derived periods when session stream emits', () async {
@@ -36,9 +54,11 @@ void main() {
       final end = DateTime(2026, 4, 1, 12);
 
       final container = ProviderContainer(overrides: [
-        unifiedHistoryOverlapProvider.overrideWith((ref) => Stream.value([
-              _s(id: 's1', memberId: 'a', start: start, end: end),
-            ])),
+        unifiedHistoryOverlapProvider.overrideWith((ref) => Stream.value(
+              _bundle([
+                _s(id: 's1', memberId: 'a', start: start, end: end),
+              ]),
+            )),
         allMembersProvider.overrideWith((ref) => Stream.value(const <Member>[])),
       ]);
       addTearDown(container.dispose);
@@ -65,7 +85,7 @@ void main() {
     });
 
     test('recomputes when upstream session list changes', () async {
-      final controller = StreamController<List<FrontingSession>>();
+      final controller = StreamController<DerivedPeriodsInputBundle>();
       addTearDown(controller.close);
 
       final container = ProviderContainer(overrides: [
@@ -81,14 +101,14 @@ void main() {
         fireImmediately: true,
       );
 
-      controller.add([
+      controller.add(_bundle([
         _s(
           id: 's1',
           memberId: 'a',
           start: DateTime(2026, 4, 1, 10),
           end: DateTime(2026, 4, 1, 11),
         ),
-      ]);
+      ]));
       // Pump twice: first to deliver the stream event, second to allow
       // the synchronous Provider to rebuild.
       await Future<void>.delayed(Duration.zero);
@@ -96,7 +116,7 @@ void main() {
       final first = container.read(derivedPeriodsProvider).value!;
       expect(first, hasLength(1));
 
-      controller.add([
+      controller.add(_bundle([
         _s(
           id: 's1',
           memberId: 'a',
@@ -109,7 +129,7 @@ void main() {
           start: DateTime(2026, 4, 1, 11),
           end: DateTime(2026, 4, 1, 12),
         ),
-      ]);
+      ]));
       await Future<void>.delayed(Duration.zero);
       await Future<void>.delayed(Duration.zero);
       final second = container.read(derivedPeriodsProvider).value!;
@@ -123,14 +143,16 @@ void main() {
       '(memoization within a single emission)',
       () async {
         final container = ProviderContainer(overrides: [
-          unifiedHistoryOverlapProvider.overrideWith((ref) => Stream.value([
-                _s(
-                  id: 's1',
-                  memberId: 'a',
-                  start: DateTime(2026, 4, 1, 10),
-                  end: DateTime(2026, 4, 1, 11),
-                ),
-              ])),
+          unifiedHistoryOverlapProvider.overrideWith((ref) => Stream.value(
+                _bundle([
+                  _s(
+                    id: 's1',
+                    memberId: 'a',
+                    start: DateTime(2026, 4, 1, 10),
+                    end: DateTime(2026, 4, 1, 11),
+                  ),
+                ]),
+              )),
           allMembersProvider.overrideWith((ref) => Stream.value(const <Member>[])),
         ]);
         addTearDown(container.dispose);
@@ -153,20 +175,22 @@ void main() {
 
     test('respects is_always_fronting from members stream', () async {
       final container = ProviderContainer(overrides: [
-        unifiedHistoryOverlapProvider.overrideWith((ref) => Stream.value([
-              _s(
-                id: 'host',
-                memberId: 'host',
-                start: DateTime(2025, 1, 1),
-                end: null,
-              ),
-              _s(
-                id: 'v',
-                memberId: 'v',
-                start: DateTime(2026, 4, 1, 14),
-                end: DateTime(2026, 4, 1, 15),
-              ),
-            ])),
+        unifiedHistoryOverlapProvider.overrideWith((ref) => Stream.value(
+              _bundle([
+                _s(
+                  id: 'host',
+                  memberId: 'host',
+                  start: DateTime(2025, 1, 1),
+                  end: null,
+                ),
+                _s(
+                  id: 'v',
+                  memberId: 'v',
+                  start: DateTime(2026, 4, 1, 14),
+                  end: DateTime(2026, 4, 1, 15),
+                ),
+              ]),
+            )),
         allMembersProvider.overrideWith((ref) => Stream.value([
               Member(
                 id: 'host',
@@ -205,7 +229,7 @@ void main() {
         // with a hand-built list, plumb a real in-memory Drift DB
         // through the production repository so we exercise the actual
         // overlap query and assert it surfaces a long-running host
-        // whose row is NOT among the most-recent N.
+        // whose row started >90 days before the lookback window.
         final db = AppDatabase(NativeDatabase.memory());
         addTearDown(db.close);
 
@@ -214,8 +238,12 @@ void main() {
           null,
         );
 
-        // Long-running host started 400 days ago, still open.
-        final hostStart = DateTime.now().subtract(const Duration(days: 30));
+        // Long-running host started 120 days ago (well past the
+        // 90-day lookback window), still open. The overlap query must
+        // surface this via the `end_time IS NULL OR end_time > start`
+        // clause even though the session's start_time precedes
+        // rangeStart.
+        final hostStart = DateTime.now().subtract(const Duration(days: 120));
         await db.frontingSessionsDao.insertSession(
           FrontingSessionMapper.toCompanion(
             FrontingSession(
@@ -227,19 +255,23 @@ void main() {
           ),
         );
 
-        // A bunch of recent visitor rows AFTER the host's start, to
-        // simulate a row-page query missing the host. (We don't need
-        // hundreds — the new query is start-time-bound, not paged.)
-        for (var i = 0; i < 5; i++) {
+        // Insert MORE THAN sessionPageSize visitor rows AFTER the
+        // host's start, so a row-paged "newest N rows" query would
+        // page the host out — we'd have caught the LIMIT-page bug if
+        // the overlap query weren't there.
+        const visitorCount = sessionPageSize + 5;
+        for (var i = 0; i < visitorCount; i++) {
           await db.frontingSessionsDao.insertSession(
             FrontingSessionMapper.toCompanion(
               FrontingSession(
                 id: 'v$i',
                 memberId: 'v$i',
+                // Spread visitors over the last few hours so they
+                // don't all collapse into the ephemeral threshold.
                 startTime: DateTime.now()
-                    .subtract(Duration(hours: i + 1)),
-                endTime:
-                    DateTime.now().subtract(Duration(hours: i, minutes: 30)),
+                    .subtract(Duration(minutes: (i + 1) * 10)),
+                endTime: DateTime.now()
+                    .subtract(Duration(minutes: (i + 1) * 10 - 5)),
               ),
             ),
           );
@@ -267,13 +299,150 @@ void main() {
         final periods = container.read(derivedPeriodsProvider).value!;
         // Assert the host appears in at least one period — the overlap
         // query MUST surface long-running rows that started before the
-        // recent-page would catch.
+        // lookback window.
         final allActive = <String>{
           for (final p in periods) ...p.activeMembers,
         };
         expect(allActive, contains('host'),
             reason:
-                'production overlap query must surface a long-running host');
+                'production overlap query must surface a long-running host '
+                'older than the lookback window');
+      },
+    );
+
+    test(
+      'provider range clamps a 400-day host so the sweep stays inside the '
+      'lookback window',
+      () async {
+        // Codex P2: computeDerivedPeriods used to infer rangeStart from
+        // the earliest returned session (a 400-day-old open host),
+        // throwing away the provider's 90-day bound and producing
+        // hundreds of midnight slices spanning the whole interval.
+        // With the fix, the bundle's rangeStart is threaded through.
+        final referenceNow = DateTime(2026, 4, 27, 12);
+        final hostStart = referenceNow.subtract(const Duration(days: 400));
+        final visitorStart = referenceNow.subtract(const Duration(hours: 5));
+        final visitorEnd = referenceNow.subtract(const Duration(hours: 4));
+
+        final providerRangeStart =
+            referenceNow.subtract(const Duration(days: derivedPeriodsLookbackDays));
+        final providerRangeEnd =
+            referenceNow.add(const Duration(days: derivedPeriodsLookaheadDays));
+
+        final container = ProviderContainer(overrides: [
+          unifiedHistoryOverlapProvider.overrideWith((ref) => Stream.value(
+                DerivedPeriodsInputBundle(
+                  sessions: [
+                    _s(
+                      id: 'host-400',
+                      memberId: 'host',
+                      start: hostStart,
+                      end: null,
+                    ),
+                    _s(
+                      id: 'v',
+                      memberId: 'v',
+                      start: visitorStart,
+                      end: visitorEnd,
+                    ),
+                  ],
+                  rangeStart: providerRangeStart,
+                  rangeEnd: providerRangeEnd,
+                ),
+              )),
+          allMembersProvider.overrideWith((ref) =>
+              Stream.value(const <Member>[])),
+        ]);
+        addTearDown(container.dispose);
+
+        container.listen<AsyncValue<List<FrontingPeriod>>>(
+          derivedPeriodsProvider,
+          (_, _) {},
+          fireImmediately: true,
+        );
+        await container.read(unifiedHistoryOverlapProvider.future);
+        await container.read(allMembersProvider.future);
+        await Future<void>.delayed(Duration.zero);
+
+        final periods = container.read(derivedPeriodsProvider).value!;
+        // Earliest period start MUST clamp to the provider's rangeStart,
+        // not the host's 400-day-old start time.
+        for (final p in periods) {
+          expect(p.start.isBefore(providerRangeStart), isFalse,
+              reason: 'period $p extends before provider rangeStart');
+        }
+        // The host should be visible in (at least) the period covering
+        // the visitor — i.e. clamp didn't drop it.
+        final hostPeriods = periods.where((p) => p.activeMembers.contains('host'));
+        expect(hostPeriods, isNotEmpty,
+            reason: 'host should still appear in clamped periods');
+      },
+    );
+
+    test(
+      'provider invalidation propagates a new session to derived periods',
+      () async {
+        // Codex test gap #5: invalidateFrontingProviders must invalidate
+        // unifiedHistoryOverlapProvider + derivedPeriodsProvider so that
+        // mutations propagate. Drive this with a controllable stream
+        // that we re-emit through the same controller after "mutation".
+        final controller = StreamController<DerivedPeriodsInputBundle>.broadcast();
+        addTearDown(controller.close);
+
+        final container = ProviderContainer(overrides: [
+          unifiedHistoryOverlapProvider
+              .overrideWith((ref) => controller.stream),
+          allMembersProvider
+              .overrideWith((ref) => Stream.value(const <Member>[])),
+        ]);
+        addTearDown(container.dispose);
+
+        container.listen<AsyncValue<List<FrontingPeriod>>>(
+          derivedPeriodsProvider,
+          (_, _) {},
+          fireImmediately: true,
+        );
+
+        controller.add(_bundle([
+          _s(
+            id: 's1',
+            memberId: 'a',
+            start: DateTime(2026, 4, 1, 10),
+            end: DateTime(2026, 4, 1, 11),
+          ),
+        ]));
+        await Future<void>.delayed(Duration.zero);
+        await Future<void>.delayed(Duration.zero);
+
+        final first = container.read(derivedPeriodsProvider).value!;
+        expect(first, hasLength(1));
+        expect(first[0].activeMembers, ['a']);
+
+        // Simulate a mutation: the upstream stream re-emits with the
+        // new row included. The provider must surface it.
+        controller.add(_bundle([
+          _s(
+            id: 's1',
+            memberId: 'a',
+            start: DateTime(2026, 4, 1, 10),
+            end: DateTime(2026, 4, 1, 11),
+          ),
+          _s(
+            id: 's2',
+            memberId: 'b',
+            start: DateTime(2026, 4, 1, 12),
+            end: DateTime(2026, 4, 1, 13),
+          ),
+        ]));
+        await Future<void>.delayed(Duration.zero);
+        await Future<void>.delayed(Duration.zero);
+
+        final second = container.read(derivedPeriodsProvider).value!;
+        expect(second, hasLength(2),
+            reason:
+                'new session must appear after upstream re-emission '
+                '(invalidation contract)');
+        expect(second.last.activeMembers, ['b']);
       },
     );
   });

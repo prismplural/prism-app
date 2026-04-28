@@ -435,6 +435,163 @@ void main() {
           {'a', 'b', 'c'});
     });
 
+    test(
+        'same-member tied handoff: A1 ends at T, A2 starts at T '
+        '(different session ids) → merged period covers both, '
+        'isOpenEnded reflects A2', () {
+      // Codex P1 #2 fix-up: the snapshot-refresh predicate previously
+      // checked only the active MEMBER set. A same-member tied
+      // transition (A1 ends, A2 starts at the same instant for the
+      // same member) kept stale activeSessionIds and hasOpenSession
+      // because the active member set didn't change.
+      //
+      // Post-fix: the snapshot refreshes at the tied batch, so the
+      // sweep emits two raw periods. The same-member merge step in
+      // _collapseAndAnnotate folds them into a single visible period
+      // whose sessionIds union both contributors and whose
+      // isOpenEnded reflects the LATER session (A2, open).
+      final t0 = DateTime(2026, 4, 1, 10);
+      final t1 = DateTime(2026, 4, 1, 11);
+      final t2 = DateTime(2026, 4, 1, 13);
+
+      final result = deriveMaximalPeriods(_input(
+        sessions: [
+          // First session for member 'a': closes at t1.
+          _s(id: 'a1', memberId: 'a', start: t0, end: t1),
+          // Second session for member 'a': starts at the same instant
+          // t1 (tied batch) and is OPEN (still ongoing).
+          _s(id: 'a2', memberId: 'a', start: t1, end: null),
+        ],
+        rangeStart: DateTime(2026, 4, 1),
+        rangeEnd: t2,
+        now: t2,
+      ));
+
+      // One merged period covering both halves. Without the snapshot
+      // refresh fix, the merged period would still appear but its
+      // sessionIds would only contain a1 (because the second raw
+      // period's sessionIds snapshot was never updated).
+      expect(result, hasLength(1));
+      final merged = result.single;
+      expect(merged.activeMembers, ['a']);
+      expect(merged.sessionIds.toSet(), {'a1', 'a2'},
+          reason:
+              'merged same-member period must include BOTH contributing '
+              'session ids — a2 was missing pre-fix because the snapshot '
+              'never refreshed at the tied batch');
+      expect(merged.isOpenEnded, isTrue,
+          reason:
+              'merged period inherits a2\'s open-ended state — pre-fix, '
+              'hasOpenSession was stale and the live timer was missing');
+    });
+
+    test(
+        'same-member tied handoff: both closed → merged period unions '
+        'sessionIds and stays closed', () {
+      // Variant: both sides closed, ensuring the snapshot still
+      // refreshes when only sessionIds change (the symmetric case)
+      // and the merged period correctly stays closed.
+      final t0 = DateTime(2026, 4, 1, 10);
+      final t1 = DateTime(2026, 4, 1, 11);
+      final t2 = DateTime(2026, 4, 1, 12);
+
+      final result = deriveMaximalPeriods(_input(sessions: [
+        _s(id: 'a1', memberId: 'a', start: t0, end: t1),
+        _s(id: 'a2', memberId: 'a', start: t1, end: t2),
+      ]));
+
+      // Same-member merge folds the two raw periods into one.
+      expect(result, hasLength(1));
+      final merged = result.single;
+      expect(merged.activeMembers, ['a']);
+      expect(merged.sessionIds.toSet(), {'a1', 'a2'},
+          reason:
+              'merged period must include both contributing session ids');
+      expect(merged.start, t0);
+      expect(merged.end, t2);
+      expect(merged.isOpenEnded, isFalse,
+          reason: 'both sessions closed → merged period stays closed');
+    });
+
+    test(
+        'all-short input with an OPEN current period does not collapse '
+        'into a Unknown row', () {
+      // Codex P2 fix: a just-started current front (under 2 minutes,
+      // the ephemeral threshold) used to land in the all-short
+      // shortcut, which zeroed out activeMembers and rendered as
+      // "Unknown". The fix skips the all-short collapse when any raw
+      // period has an open session.
+      final now = DateTime(2026, 4, 1, 12);
+      // Five short historical periods (each well under 2 min).
+      final sessions = <FrontingSession>[];
+      for (var i = 0; i < 5; i++) {
+        final start = now.subtract(Duration(minutes: 30 - i * 5));
+        sessions.add(_s(
+          id: 'h$i',
+          memberId: 'h$i',
+          start: start,
+          end: start.add(const Duration(seconds: 30)),
+        ));
+      }
+      // One open current period under 2 min: started 30s ago, no end.
+      sessions.add(_s(
+        id: 'current',
+        memberId: 'now',
+        start: now.subtract(const Duration(seconds: 30)),
+        end: null,
+      ));
+
+      final result = deriveMaximalPeriods(_input(
+        sessions: sessions,
+        rangeStart: now.subtract(const Duration(hours: 1)),
+        rangeEnd: now,
+        now: now,
+      ));
+
+      // The open current period should be present as its own row
+      // with activeMembers = ['now'], NOT collapsed into a brief-only
+      // combined row.
+      expect(result, isNotEmpty);
+      final current =
+          result.where((p) => p.activeMembers.contains('now')).toList();
+      expect(current, isNotEmpty,
+          reason: 'open current period must not collapse to all-briefs');
+      expect(current.first.isOpenEnded, isTrue,
+          reason: 'the open current period must render the live timer');
+    });
+
+    test(
+        'all-short input with all closed sessions still emits one '
+        'combined row (existing behavior preserved)', () {
+      // Regression-pin: the all-short shortcut still fires when no
+      // session is open. (Same as the existing "cascading shorts"
+      // test, but expressed as a property of the open-guard fix.)
+      final t0 = DateTime(2026, 4, 1, 10);
+      final result = deriveMaximalPeriods(_input(
+        sessions: [
+          _s(
+            id: 's1',
+            memberId: 'a',
+            start: t0,
+            end: t0.add(const Duration(seconds: 10)),
+          ),
+          _s(
+            id: 's2',
+            memberId: 'b',
+            start: t0.add(const Duration(seconds: 15)),
+            end: t0.add(const Duration(seconds: 25)),
+          ),
+        ],
+      ));
+      expect(result, hasLength(1));
+      expect(result[0].activeMembers, isEmpty,
+          reason:
+              'all-closed-short still collapses to brief-visitors-only row');
+      expect(result[0].briefVisitors.map((v) => v.memberId).toSet(),
+          {'a', 'b'});
+      expect(result[0].isOpenEnded, isFalse);
+    });
+
     test('input permutation invariance', () {
       // Property: shuffling the input shouldn't change the output stream.
       final t0 = DateTime(2026, 4, 1, 10);
