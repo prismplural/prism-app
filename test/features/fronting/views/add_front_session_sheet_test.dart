@@ -235,6 +235,162 @@ void main() {
       },
     );
 
+    // ────────────────────────────────────────────────────────────────────────
+    // Symmetric-difference contract for the compact-search confirm path.
+    //
+    // The compact search sheet returns a `Set<String>` representing the new
+    // authoritative selection. The sheet must reconcile that set against the
+    // pre-search selection by toggling exactly the members whose membership
+    // actually changed — never by re-toggling already-selected members or
+    // ignoring deselected ones. Pre-fix, the compact path looped over `result`
+    // and called `onToggle` for every id, which inverted multi-select state
+    // for large systems.
+    // ────────────────────────────────────────────────────────────────────────
+
+    /// Re-opens the search sheet from the compact picker. Once at least one
+    /// member is selected, the picker swaps the empty-state "Select" button
+    /// for an "Add" button (`selectedMemberPickerAddButton`); pre-selection
+    /// the empty-state key (`selectedMemberPickerSelectButton`) is what's
+    /// rendered. Try both, fall back to tapping the picker itself.
+    Future<void> _reopenSearch(WidgetTester tester) async {
+      final addButton = find.byKey(
+        const Key('selectedMemberPickerAddButton'),
+      );
+      final selectButton = find.byKey(
+        const Key('selectedMemberPickerSelectButton'),
+      );
+      if (addButton.evaluate().isNotEmpty) {
+        await tester.tap(addButton);
+      } else {
+        await tester.tap(selectButton);
+      }
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets(
+      'confirm with {B, C} when starting from {A, B} ends at {B, C}',
+      (tester) async {
+        final notifier = _FakeFrontingNotifier();
+        await tester.pumpWidget(
+          _buildSheetTrigger(members: _bigMemberList(), fakeNotifier: notifier),
+        );
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+
+        // Build initial selection {Member 0, Member 1} (= "A, B") by opening
+        // the search sheet, picking both, confirming.
+        await _reopenSearch(tester);
+        await tester.tap(find.text('Member 0'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Member 1'));
+        await tester.pumpAndSettle();
+        await _confirmSearchSelection(tester);
+
+        // Re-open search and confirm {Member 1, Member 2} (= "B, C"):
+        // deselect Member 0, leave Member 1 alone, add Member 2.
+        // Already-selected names also render as chips in the parent picker
+        // body, so scope row taps to descendants of the search sheet.
+        await _reopenSearch(tester);
+        await tester.tap(
+          find
+              .descendant(
+                of: find.byType(MemberSearchSheet),
+                matching: find.text('Member 0'),
+              )
+              .first,
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find
+              .descendant(
+                of: find.byType(MemberSearchSheet),
+                matching: find.text('Member 2'),
+              )
+              .first,
+        );
+        await tester.pumpAndSettle();
+        await _confirmSearchSelection(tester);
+
+        // Submit and inspect the call payload.
+        await tester.tap(_saveButton());
+        await tester.pumpAndSettle();
+
+        expect(notifier.startFrontingCalls, hasLength(1));
+        expect(
+          notifier.startFrontingCalls.single.toSet(),
+          equals({'id1', 'id2'}),
+          reason: 'Member 0 should be removed, Member 2 added, '
+              'Member 1 preserved',
+        );
+      },
+    );
+
+    testWidgets(
+      'confirm with {A} when starting from {A} keeps {A} (no toggles)',
+      (tester) async {
+        final notifier = _FakeFrontingNotifier();
+        await tester.pumpWidget(
+          _buildSheetTrigger(members: _bigMemberList(), fakeNotifier: notifier),
+        );
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+
+        // Build initial selection {Member 0}.
+        await _reopenSearch(tester);
+        await tester.tap(find.text('Member 0'));
+        await tester.pumpAndSettle();
+        await _confirmSearchSelection(tester);
+
+        // Re-open search and confirm without changing anything.
+        await _reopenSearch(tester);
+        await _confirmSearchSelection(tester);
+
+        await tester.tap(_saveButton());
+        await tester.pumpAndSettle();
+
+        expect(notifier.startFrontingCalls, hasLength(1));
+        expect(
+          notifier.startFrontingCalls.single.toSet(),
+          equals({'id0'}),
+          reason: 'Re-confirming the same set must not toggle Member 0 off',
+        );
+      },
+    );
+
+    testWidgets(
+      'confirm with {A, B, C} when starting from {} adds all three',
+      (tester) async {
+        final notifier = _FakeFrontingNotifier();
+        await tester.pumpWidget(
+          _buildSheetTrigger(members: _bigMemberList(), fakeNotifier: notifier),
+        );
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+
+        // No prior selection — open search, pick three, confirm.
+        await tester.tap(
+          find.byKey(const Key('selectedMemberPickerSelectButton')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Member 0'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Member 1'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Member 2'));
+        await tester.pumpAndSettle();
+        await _confirmSearchSelection(tester);
+
+        await tester.tap(_saveButton());
+        await tester.pumpAndSettle();
+
+        expect(notifier.startFrontingCalls, hasLength(1));
+        expect(
+          notifier.startFrontingCalls.single.toSet(),
+          equals({'id0', 'id1', 'id2'}),
+        );
+      },
+    );
+
     testWidgets('all members appear in search sheet (not filtered locally)', (
       tester,
     ) async {

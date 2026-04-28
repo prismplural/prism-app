@@ -234,6 +234,52 @@ void main() {
   );
 
   test(
+    '_repositoryFieldSources covers every prismSyncSchema entity',
+    () {
+      // Defends against a silent regression in the parity scanner itself:
+      // the test above only checks fields for entities that are listed in
+      // `_repositoryFieldSources`. A future contributor adding a new synced
+      // entity (and a new `_<x>Fields` helper) but forgetting to register
+      // it in `_repositoryFieldSources` would cause the field-map parity
+      // test to silently skip the new entity — schema-vs-field-map drift
+      // would slip through.
+      //
+      // We assert one-to-one coverage: every entity declared in
+      // `prismSyncSchema` MUST have at least one `_repositoryFieldSources`
+      // entry. (The reverse — sources without a schema entry — would be
+      // caught by the existing field-map test, since the schema lookup
+      // would throw on a missing entity.)
+      //
+      // If a new entity is intentionally exempted (e.g. its writes go
+      // through a non-`_fields` code path), add it to `_coverageExempt`
+      // below with a comment explaining why.
+      final schema = jsonDecode(prismSyncSchema) as Map<String, dynamic>;
+      final entities = (schema['entities'] as Map<String, dynamic>).keys
+          .toSet();
+
+      final covered = _repositoryFieldSources
+          .map((s) => s.tableName)
+          .toSet();
+      const coverageExempt = <String>{};
+
+      final missing = entities.difference(covered).difference(coverageExempt);
+
+      expect(
+        missing,
+        isEmpty,
+        reason:
+            'prismSyncSchema entities have no entry in '
+            '_repositoryFieldSources — the field-map parity test will '
+            'silently skip them, letting schema-vs-field-map drift through. '
+            'Add a _RepoFieldSource entry for each, or add the entity to '
+            '_coverageExempt with a comment if it intentionally has no '
+            '_fields-style helper.\n'
+            'Missing: $missing',
+      );
+    },
+  );
+
+  test(
     'toSyncFields values are compatible with prismSyncSchema field types',
     () async {
       final schema = jsonDecode(prismSyncSchema) as Map<String, dynamic>;

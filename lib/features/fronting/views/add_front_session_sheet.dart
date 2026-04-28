@@ -511,8 +511,19 @@ class _MemberGridState extends ConsumerState<_MemberGrid> {
     );
 
     if (!mounted || result == null) return;
-    // Replace current non-unknown selections with the new set.
-    for (final id in result) {
+    // The search sheet returns the new authoritative selection (excluding the
+    // Unknown sentinel, which is rendered separately on the grid). Compute the
+    // symmetric difference vs. what was selected before the sheet opened, then
+    // emit one toggle per id whose membership actually changed. Iterating
+    // `result` and calling `onToggle` for every id would invert the selection
+    // for already-selected members and leave deselected members untouched.
+    final previousSelected = widget.selectedIds
+        .where((id) => id != widget.unknownId)
+        .toSet();
+    final confirmedSelected = result.toSet();
+    final toToggle = previousSelected.difference(confirmedSelected)
+      ..addAll(confirmedSelected.difference(previousSelected));
+    for (final id in toToggle) {
       widget.onToggle(id);
     }
   }
