@@ -618,7 +618,13 @@ void main() {
   // -- Corrective full re-import --------------------------------------------
 
   group('corrective full re-import', () {
-    test('pre-closes all open PK-linked sessions before sweep', () async {
+    test('tombstones pre-existing PK-linked rows not in the canonical API set',
+        () async {
+      // Codex pass 2 #B-NEW2: corrective re-import must canonicalize the
+      // PK row set, not just close stragglers. Any local PK-linked row
+      // whose deterministic id is not in the canonical (switch_uuid,
+      // member_pk_uuid) set computed from the API gets tombstoned so
+      // paired devices converge on the API truth.
       final db = _makeDb();
       addTearDown(db.close);
 
@@ -632,7 +638,7 @@ void main() {
         null,
       );
 
-      // Pre-seed an open PK-linked session.
+      // Pre-seed an open PK-linked session at an id the API doesn't know.
       await sessionRepo.createSession(
         domain_fs.FrontingSession(
           id: 'old-open-row',
@@ -669,19 +675,23 @@ void main() {
       await service.performFullImport();
 
       final after = await sessionRepo.getAllSessions();
-      // Old open row should now be closed.
-      final oldRow = after.firstWhere((s) => s.id == 'old-open-row');
+      // The stale row was tombstoned (no longer visible in the active
+      // session set).
       expect(
-        oldRow.endTime,
-        isNotNull,
-        reason: 'Corrective re-import must close all pre-existing open PK rows',
+        after.any((s) => s.id == 'old-open-row'),
+        isFalse,
+        reason: 'Corrective re-import tombstones rows not in canonical set',
       );
 
-      // New row for the sweep result should exist.
+      // The new canonical row exists, open (corrective entrant clears
+      // end_time even on collision; here there was no collision).
       final newRows = after.where(
         (s) => s.pluralkitUuid == 'sw-1' && s.memberId == 'local-a',
       );
       expect(newRows, hasLength(1));
+      expect(newRows.single.endTime, isNull,
+          reason: 'sw-1 entrant has no closer; row stays open');
+      expect(newRows.single.id, _expectedRowId('sw-1', 'uuid-a'));
     });
 
     test('resets prevActive to empty so sweep starts fresh', () async {
@@ -699,7 +709,8 @@ void main() {
         null,
       );
 
-      // Stale open session. performFullImport will close it first.
+      // Stale open session at an id the API doesn't know — corrective
+      // path tombstones it.
       await sessionRepo.createSession(
         domain_fs.FrontingSession(
           id: 'stale-id',
@@ -1011,14 +1022,21 @@ void main() {
     );
 
     test(
-      'performFullImport on a closed rescue row corrects start_time, '
-      'leaves end_time alone (preserved by pre-close + conservative upsert)',
+      'performFullImport on a closed rescue row clears end_time '
+      '(corrective mode: API is authoritative)',
       () async {
-        // performFullImport pre-closes all open PK rows then sweeps with
-        // prevActive={}. A pre-existing closed rescue row at the same
-        // deterministic id triggers the upsert branch on the entrant
-        // pass; the pre-close left its non-null end_time alone (it was
-        // already closed) and so does the conservative upsert.
+        // Codex pass 2 #B-NEW2: on the corrective full re-import, a
+        // pre-existing closed rescue row at the canonical deterministic
+        // id triggers the entrant collision branch with corrective=true.
+        // The lossy close from the rescue file is wrong — the API says
+        // this member is currently fronting (entrant on the latest
+        // switch). The corrective branch clobbers end_time to null.
+        // The leaver pass will close it later in this sweep if/when
+        // the API stops listing the member as fronting.
+        //
+        // The incremental path keeps the conservative policy (don't
+        // clobber legitimate user closes during routine sync); see
+        // 'PRISM1 rescue collision upsert' group above.
         final db = _makeDb();
         addTearDown(db.close);
 
@@ -1072,8 +1090,9 @@ void main() {
         expect(row.id, rescueId);
         expect(row.startTime, _sameInstant(apiStart),
             reason: 'API start overwrote rescue lossy start');
-        expect(row.endTime, _sameInstant(lossyEnd),
-            reason: 'closed rescue row stays closed (conservative)');
+        expect(row.endTime, isNull,
+            reason: 'corrective re-import clears stale rescue end_time '
+                'when API says this member is currently fronting');
       },
     );
 
