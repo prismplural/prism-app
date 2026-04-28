@@ -526,8 +526,7 @@ class SpMapper {
 
         // Deterministic ID: sp_id_map lookup first, then v5 derivation.
         final sessionId =
-            _sessionIdMap[entry.id] ??
-            _uuid.v5(spFrontingNamespace, entry.id);
+            _sessionIdMap[entry.id] ?? deriveSpSessionId(entry.id);
         _sessionIdMap[entry.id] = sessionId;
 
         sessions.add(
@@ -559,8 +558,7 @@ class SpMapper {
 
       // Deterministic ID: sp_id_map lookup first, then v5 derivation.
       final sessionId =
-          _sessionIdMap[entry.id] ??
-          _uuid.v5(spFrontingNamespace, entry.id);
+          _sessionIdMap[entry.id] ?? deriveSpSessionId(entry.id);
       _sessionIdMap[entry.id] = sessionId;
 
       // live: true → end_time = NULL; false → end_time = endTime.
