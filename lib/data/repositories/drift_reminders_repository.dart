@@ -71,8 +71,8 @@ class DriftRemindersRepository
       'frequency': r.frequency.name,
       'weekly_days': r.weeklyDays != null ? jsonEncode(r.weeklyDays) : null,
       'is_active': r.isActive,
-      'created_at': r.createdAt.toIso8601String(),
-      'modified_at': r.modifiedAt.toIso8601String(),
+      'created_at': r.createdAt.toUtc().toIso8601String(),
+      'modified_at': r.modifiedAt.toUtc().toIso8601String(),
       'is_deleted': false,
     };
   }

@@ -121,7 +121,7 @@ class DriftCustomFieldsRepository
       'field_type': f.fieldType.index,
       'date_precision': f.datePrecision?.index,
       'display_order': f.displayOrder,
-      'created_at': f.createdAt.toIso8601String(),
+      'created_at': f.createdAt.toUtc().toIso8601String(),
       'is_deleted': false,
     };
   }

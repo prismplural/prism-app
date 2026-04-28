@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/core/database/daos/fronting_sessions_dao.dart';
 import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
@@ -236,10 +237,18 @@ class DriftFrontingSessionRepository
     return rows.map(FrontingSessionMapper.toDomain).toList();
   }
 
+  /// Visible-for-testing: builds the field map this repository hands to the
+  /// Rust sync engine for create/update. Exposed so a regression test can
+  /// pin every emitted DateTime as Z-suffixed UTC — see
+  /// drift_fronting_session_repository_test.
+  @visibleForTesting
+  Map<String, dynamic> debugSessionFields(domain.FrontingSession s) =>
+      _sessionFields(s);
+
   Map<String, dynamic> _sessionFields(domain.FrontingSession s) {
     return {
-      'start_time': s.startTime.toIso8601String(),
-      'end_time': s.endTime?.toIso8601String(),
+      'start_time': _toSyncUtc(s.startTime),
+      'end_time': _toSyncUtcOrNull(s.endTime),
       'member_id': s.memberId,
       'notes': s.notes,
       'confidence': s.confidence?.index,
@@ -251,3 +260,14 @@ class DriftFrontingSessionRepository
     };
   }
 }
+
+/// Normalizes a DateTime to UTC ISO-8601 (Z-suffixed) for sync wire emission.
+///
+/// Local DateTimes serialize with no offset/Z, so a peer in a different
+/// timezone would parse the value as their own local time and shift the
+/// absolute moment by the timezone delta on every sync. Routing every
+/// DateTime through here mirrors the `_dateTimeToSyncString` helper in
+/// `core/sync/drift_sync_adapter.dart`.
+String _toSyncUtc(DateTime dt) => dt.toUtc().toIso8601String();
+
+String? _toSyncUtcOrNull(DateTime? dt) => dt?.toUtc().toIso8601String();
