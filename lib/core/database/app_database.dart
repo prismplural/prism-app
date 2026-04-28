@@ -455,6 +455,37 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
+  /// Idempotent ensure step for the v7 fronting indexes — called from the
+  /// migration service's success path so blocked-mode recovery never lands
+  /// without the protective constraints.
+  ///
+  /// v7 onUpgrade's detect-and-refuse branch (duplicates present) skips
+  /// composite + orphan index creation so it can surface the blocker to
+  /// the user without throwing.  Once the user resolves the duplicates and
+  /// the migration service marks the migration complete, we MUST install
+  /// the v7 indexes — otherwise the post-migration DB has no DB-layer
+  /// protection against future duplicate `(pluralkit_uuid, member_id)`
+  /// inserts, AND it may still carry the v2-era single-column unique
+  /// index on `pluralkit_uuid` which would reject legitimate multi-member
+  /// PK switches.
+  ///
+  /// Safe to call when state is already correct: every statement uses
+  /// `IF NOT EXISTS` / `IF EXISTS`, so calling this on a normal-flow v7
+  /// DB (where v7 onUpgrade already created the indexes) is a no-op.
+  Future<void> ensurePkFrontingIndexes() async {
+    // Drop the v2-era single-column uniqueness index if it survived an
+    // earlier migration step (e.g., the v1→v2 leg of a step-through, or
+    // a v6 DB whose v6→v7 onUpgrade hit the blocked path and left the
+    // pre-v7 index in place).
+    await customStatement(
+      'DROP INDEX IF EXISTS idx_fronting_sessions_pluralkit_uuid',
+    );
+    // Re-use the same helpers v7 onUpgrade uses on the no-duplicates
+    // path; both already use CREATE UNIQUE INDEX IF NOT EXISTS.
+    await _createPkFrontingCompositeIndex();
+    await _createPkFrontingOrphanIndex();
+  }
+
   Future<void> _recreateMemberGroupPkUniqueIndex() async {
     await customStatement(
       'DROP INDEX IF EXISTS idx_member_groups_pluralkit_uuid',

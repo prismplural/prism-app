@@ -1,10 +1,27 @@
 import 'dart:io';
 
+import 'package:drift/drift.dart' as drift;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/sqlite3.dart' as raw;
 
 import 'package:prism_plurality/core/database/app_database.dart';
+import 'package:prism_plurality/data/repositories/drift_chat_message_repository.dart';
+import 'package:prism_plurality/data/repositories/drift_conversation_categories_repository.dart';
+import 'package:prism_plurality/data/repositories/drift_conversation_repository.dart';
+import 'package:prism_plurality/data/repositories/drift_custom_fields_repository.dart';
+import 'package:prism_plurality/data/repositories/drift_friends_repository.dart';
+import 'package:prism_plurality/data/repositories/drift_front_session_comments_repository.dart';
+import 'package:prism_plurality/data/repositories/drift_fronting_session_repository.dart';
+import 'package:prism_plurality/data/repositories/drift_habit_repository.dart';
+import 'package:prism_plurality/data/repositories/drift_member_groups_repository.dart';
+import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
+import 'package:prism_plurality/data/repositories/drift_notes_repository.dart';
+import 'package:prism_plurality/data/repositories/drift_poll_repository.dart';
+import 'package:prism_plurality/data/repositories/drift_reminders_repository.dart';
+import 'package:prism_plurality/data/repositories/drift_system_settings_repository.dart';
+import 'package:prism_plurality/features/data_management/services/data_export_service.dart';
+import 'package:prism_plurality/features/fronting/migration/fronting_migration_service.dart';
 
 // Shared helper: seed a file DB to v7, then downgrade to v6 + undo v7 changes
 // so the upgrade path has real work to do.
@@ -387,6 +404,234 @@ void main() {
             )
             .get();
         expect(remaining, hasLength(2));
+      },
+    );
+
+    // ── 4b. Blocked-mode recovery installs the v7 indexes ────────────────────
+    //
+    // P1 (final review): the detect-and-refuse path skips composite + orphan
+    // index creation. After the user resolves blockers and the migration
+    // service marks the migration complete, the indexes MUST be installed —
+    // otherwise the post-migration DB has no DB-layer protection against
+    // future duplicate inserts AND may still carry the v2-era single-column
+    // index that would reject legitimate multi-member PK switches.
+    test(
+      'blocked-mode recovery installs composite + orphan indexes and drops '
+      'the legacy single-column PK index',
+      () async {
+        final tempDir = Directory.systemTemp.createTempSync(
+          'prism_migration_v7_recovery_',
+        );
+        addTearDown(() {
+          if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
+        });
+
+        final dbFile = File('${tempDir.path}/v6_recovery.db');
+        final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+
+        // Seed v6 with a duplicate (uuid, member_id) pair so v7 onUpgrade
+        // takes the blocked path.
+        await _seedV6Db(dbFile, extraStatements: [
+          'DROP INDEX IF EXISTS idx_fronting_sessions_pluralkit_uuid',
+          "INSERT INTO fronting_sessions "
+              "(id, session_type, start_time, end_time, member_id, "
+              " co_fronter_ids, is_health_kit_import, is_deleted, "
+              " pluralkit_uuid) "
+              "VALUES "
+              "('dup-recover-a', 0, $now, NULL, 'member-1', '[]', 0, 0, "
+              " 'pk-recover-uuid')",
+          "INSERT INTO fronting_sessions "
+              "(id, session_type, start_time, end_time, member_id, "
+              " co_fronter_ids, is_health_kit_import, is_deleted, "
+              " pluralkit_uuid) "
+              "VALUES "
+              "('dup-recover-b', 0, ${now + 1}, NULL, 'member-1', '[]', 0, 0, "
+              " 'pk-recover-uuid')",
+          // Note: legacy v2-era unique index cannot coexist with
+          // duplicate-PK rows, so the "ensurePkFrontingIndexes drops
+          // the legacy index" assertion is exercised in a separate
+          // fixture without duplicates rather than recreated here.
+        ]);
+
+        // Open with the v7 schema; the v6→v7 onUpgrade detects the duplicate
+        // pair and writes mode='blocked' WITHOUT creating the composite +
+        // orphan indexes.
+        final db = AppDatabase(NativeDatabase(dbFile));
+        addTearDown(db.close);
+        await db.customSelect('SELECT 1').get();
+
+        // Step 1 expectation: blocked mode and no v7 indexes installed.
+        final settingsBefore = await db.systemSettingsDao.getSettings();
+        expect(settingsBefore.pendingFrontingMigrationMode, 'blocked');
+
+        Future<bool> indexExists(String name) async {
+          final rows = await db.customSelect(
+            "SELECT name FROM sqlite_master WHERE name = ?",
+            variables: [drift.Variable<String>(name)],
+          ).get();
+          return rows.isNotEmpty;
+        }
+
+        expect(
+          await indexExists('idx_fronting_sessions_pluralkit_uuid_member_id'),
+          isFalse,
+          reason: 'composite index must not be installed in blocked state',
+        );
+        expect(
+          await indexExists('idx_fronting_sessions_pluralkit_uuid_orphan'),
+          isFalse,
+          reason: 'orphan index must not be installed in blocked state',
+        );
+        // Legacy v2-era PK index isn't checked pre-recovery: it cannot
+        // coexist with the seeded duplicate rows. ensure-step's drop
+        // semantics are exercised in a separate non-duplicate fixture.
+
+        // Step 2: simulate the user resolving the blocker (delete one of
+        // the duplicates) and clearing the blocker side table the way the
+        // upgrade modal would after recovery.
+        await db.customStatement(
+          "DELETE FROM fronting_sessions WHERE id = 'dup-recover-b'",
+        );
+        await db.customStatement(
+          "DELETE FROM _v7_migration_blockers "
+          "WHERE table_name = 'fronting_sessions'",
+        );
+
+        // Step 3: drive the migration service through its success path.
+        // The simplest way to land in `_runPostTransactionCleanup` (which
+        // calls ensurePkFrontingIndexes) without exercising the destructive
+        // Drift transaction is to flip the mode to `inProgress` (as if the
+        // first attempt's post-tx cleanup had been interrupted) and then
+        // invoke `resumeCleanup()`. With syncHandle=null the FFI branches
+        // are skipped, so resumeCleanup runs the keychain-wipe / quarantine
+        // -clear / ensurePkFrontingIndexes / markComplete tail.
+        await db.systemSettingsDao.writePendingFrontingMigrationMode(
+          FrontingMigrationService.modeInProgress,
+        );
+
+        final cacheDir = Directory.systemTemp.createTempSync(
+          'prism_migration_v7_recovery_cache_',
+        );
+        addTearDown(() {
+          if (cacheDir.existsSync()) cacheDir.deleteSync(recursive: true);
+        });
+        final exportService = DataExportService(
+          db: db,
+          memberRepository: DriftMemberRepository(db.membersDao, null),
+          frontingSessionRepository: DriftFrontingSessionRepository(
+            db.frontingSessionsDao,
+            null,
+          ),
+          conversationRepository: DriftConversationRepository(
+            db.conversationsDao,
+            null,
+          ),
+          chatMessageRepository: DriftChatMessageRepository(
+            db.chatMessagesDao,
+            null,
+          ),
+          pollRepository: DriftPollRepository(
+            db.pollsDao,
+            db.pollOptionsDao,
+            db.pollVotesDao,
+            null,
+          ),
+          systemSettingsRepository: DriftSystemSettingsRepository(
+            db.systemSettingsDao,
+            null,
+          ),
+          habitRepository: DriftHabitRepository(db.habitsDao, null),
+          pluralKitSyncDao: db.pluralKitSyncDao,
+          memberGroupsRepository: DriftMemberGroupsRepository(
+            db.memberGroupsDao,
+            null,
+          ),
+          customFieldsRepository: DriftCustomFieldsRepository(
+            db.customFieldsDao,
+            null,
+          ),
+          notesRepository: DriftNotesRepository(db.notesDao, null),
+          frontSessionCommentsRepository:
+              DriftFrontSessionCommentsRepository(
+            db.frontSessionCommentsDao,
+            null,
+          ),
+          conversationCategoriesRepository:
+              DriftConversationCategoriesRepository(
+            db.conversationCategoriesDao,
+            null,
+          ),
+          remindersRepository: DriftRemindersRepository(
+            db.remindersDao,
+            null,
+          ),
+          friendsRepository: DriftFriendsRepository(db.friendsDao, null),
+          mediaAttachmentsDao: db.mediaAttachmentsDao,
+          cacheDirectoryProvider: () async => cacheDir,
+          appSupportDirectoryProvider: () async => cacheDir,
+        );
+        final service = FrontingMigrationService(
+          db: db,
+          memberRepository: DriftMemberRepository(db.membersDao, null),
+          frontingSessionRepository: DriftFrontingSessionRepository(
+            db.frontingSessionsDao,
+            null,
+          ),
+          frontSessionCommentsRepository:
+              DriftFrontSessionCommentsRepository(
+            db.frontSessionCommentsDao,
+            null,
+          ),
+          dataExportService: exportService,
+          syncHandle: null,
+        );
+
+        final result = await service.resumeCleanup();
+        expect(
+          result.outcome,
+          MigrationOutcome.success,
+          reason: 'resumeCleanup tail must succeed with syncHandle=null',
+        );
+
+        // Step 4 expectations: indexes installed; legacy index gone.
+        final settingsAfter = await db.systemSettingsDao.getSettings();
+        expect(
+          settingsAfter.pendingFrontingMigrationMode,
+          'complete',
+          reason: 'migration must end at complete after recovery',
+        );
+        expect(
+          await indexExists('idx_fronting_sessions_pluralkit_uuid_member_id'),
+          isTrue,
+          reason: 'composite index must be installed by recovery success path',
+        );
+        expect(
+          await indexExists('idx_fronting_sessions_pluralkit_uuid_orphan'),
+          isTrue,
+          reason: 'orphan index must be installed by recovery success path',
+        );
+        expect(
+          await indexExists('idx_fronting_sessions_pluralkit_uuid'),
+          isFalse,
+          reason: 'legacy v2-era PK index must be dropped by recovery',
+        );
+
+        // Step 5 (belt and suspenders): the composite index must actually
+        // enforce uniqueness now — inserting a row that duplicates the
+        // surviving (uuid, member_id) pair must throw.
+        expect(
+          () => db.customStatement(
+            "INSERT INTO fronting_sessions "
+            "(id, session_type, start_time, end_time, member_id, "
+            " co_fronter_ids, is_health_kit_import, is_deleted, "
+            " pluralkit_uuid) "
+            "VALUES "
+            "('dup-after-recovery', 0, $now, NULL, 'member-1', '[]', 0, 0, "
+            " 'pk-recover-uuid')",
+          ),
+          throwsA(anything),
+          reason: 'composite index must enforce uniqueness after recovery',
+        );
       },
     );
 
