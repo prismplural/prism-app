@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/fronting_analytics.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
@@ -32,6 +34,17 @@ final analyticsRangeProvider =
     NotifierProvider<AnalyticsRangeNotifier, AnalyticsDateRange>(
         AnalyticsRangeNotifier.new);
 
+/// Threshold below which the analytics computation runs synchronously on
+/// the UI isolate. `compute()` has ~10ms of isolate-spawn overhead, which
+/// dwarfs the actual work for small datasets — for typical Prism systems
+/// (a few dozen sessions per range), the synchronous path is faster.
+///
+/// At 500 rows, the sweep-line + member loop is well under a frame on
+/// modern hardware; above that we hand it to a background isolate so the
+/// UI never janks even for 10–20k-session systems.
+@visibleForTesting
+const int analyticsIsolateThreshold = 500;
+
 /// Computes fronting analytics for the selected date range.
 final frontingAnalyticsProvider =
     FutureProvider<FrontingAnalytics>((ref) async {
@@ -40,7 +53,7 @@ final frontingAnalyticsProvider =
 
   final sessions = await dao.getSessionsInRange(range.start, range.end);
 
-  return computeAnalyticsFromRows(sessions, range);
+  return _runAnalyticsCompute(sessions, range);
 });
 
 /// Analytics for the period immediately preceding the selected range.
@@ -59,8 +72,67 @@ final previousPeriodAnalyticsProvider =
   final dao = ref.watch(frontingSessionsDaoProvider);
   // Use getSessionsInRange (overlap query), NOT getSessionsBetween (start-time only)
   final sessions = await dao.getSessionsInRange(prevStart, prevEnd);
-  return computeAnalyticsFromRows(sessions, prevRange);
+  return _runAnalyticsCompute(sessions, prevRange);
 });
+
+/// Maps Drift session rows to a lightweight DTO and dispatches the
+/// computation either synchronously (small inputs) or to a background
+/// isolate via `compute()` (large inputs).
+///
+/// We project to [AnalyticsSessionRow] before crossing the isolate
+/// boundary so the worker never depends on Drift types — keeps the
+/// pure-function entry point trivially serializable and unit-testable.
+Future<FrontingAnalytics> _runAnalyticsCompute(
+  List<dynamic> rows,
+  DateTimeRange range,
+) async {
+  final dtos = [
+    for (final r in rows)
+      AnalyticsSessionRow(
+        memberId: r.memberId as String?,
+        startTime: r.startTime as DateTime,
+        endTime: r.endTime as DateTime?,
+      ),
+  ];
+  final args = AnalyticsComputeArgs(rows: dtos, range: range);
+  if (dtos.length < analyticsIsolateThreshold) {
+    return _computeAnalyticsFromArgs(args);
+  }
+  return compute(_computeAnalyticsFromArgs, args);
+}
+
+/// Top-level isolate entry point. Must not capture closure state — the
+/// `compute()` contract requires a top-level or static function.
+FrontingAnalytics _computeAnalyticsFromArgs(AnalyticsComputeArgs args) {
+  return computeAnalyticsFromRows(args.rows, args.range);
+}
+
+/// Lightweight, isolate-friendly projection of a fronting session row.
+/// Only carries the fields analytics actually reads.
+@visibleForTesting
+class AnalyticsSessionRow {
+  const AnalyticsSessionRow({
+    required this.memberId,
+    required this.startTime,
+    required this.endTime,
+  });
+
+  final String? memberId;
+  final DateTime startTime;
+  final DateTime? endTime;
+}
+
+/// Args bundle for the isolate entry point.
+@visibleForTesting
+class AnalyticsComputeArgs {
+  const AnalyticsComputeArgs({
+    required this.rows,
+    required this.range,
+  });
+
+  final List<AnalyticsSessionRow> rows;
+  final DateTimeRange range;
+}
 
 /// Computes analytics over per-member fronting rows.
 ///
@@ -73,9 +145,12 @@ final previousPeriodAnalyticsProvider =
 /// - **Member totals** = sum of that member's own session durations
 ///   (clamped to [range]). One row per member means no double-count.
 /// - **Co-fronting pair totals** = sum of overlap durations across all
-///   pairs of overlapping sessions for the two members. Naive O(n^2);
-///   fine for typical session counts. If a single member ever has
-///   >1000 sessions in range, switch to a sweep-line algorithm.
+///   pairs of overlapping sessions for the two members. Computed by a
+///   single sweep-line pass over session start/end events (see the
+///   pair-overlap section below); O(N log N + N·K²) where K is the max
+///   simultaneous fronters (typically 1–5). Replaces a prior
+///   O(M²·Na·Nb) nested loop that janked the UI on systems with many
+///   thousand sessions.
 /// - **Percentages** are member-minutes over total system member-minutes
 ///   (`member.totalTime / sum(all members' totalTime)`). Same math as
 ///   the pre-0.7.0 code, just with an honest label — see §4.3.
@@ -115,8 +190,22 @@ FrontingAnalytics computeAnalyticsFromRows(
   var totalMemberMinutes = Duration.zero;
 
   for (final session in rows) {
-    final memberId = session.memberId as String?;
-    if (memberId == null) continue; // sleep rows or pre-migration orphans
+    // Sleep rows are already excluded upstream by the DAO's
+    // `getSessionsInRange` (filters `session_type = _normalSessionType`).
+    // Any remaining null memberId on a normal row is an Unknown-fronting
+    // record — produced today by the edit/gap-fill flow in
+    // `fronting_edit_resolution_service.dart` (which still writes
+    // `member_id = NULL` for the "Unknown" classification). Route those
+    // through the canonical sentinel id so they participate in member
+    // totals, percentages, and pair-overlap input instead of silently
+    // dropping out (which would leave `totalSessions` ahead of the
+    // member-time data on screen).
+    //
+    // TODO: edit/gap-fill should write `unknownSentinelMemberId` directly
+    // — separate fix in fronting_edit_resolution_service.dart so analytics
+    // doesn't have to compensate.
+    final memberId =
+        (session.memberId as String?) ?? unknownSentinelMemberId;
 
     final startTime = session.startTime as DateTime;
     final endTime =
@@ -183,49 +272,157 @@ FrontingAnalytics computeAnalyticsFromRows(
   allSessionDurations.sort();
   final medianSession = _median(allSessionDurations);
 
-  // --- Co-fronting pairs ---
-  // For each unordered pair (A, B) of members that both have at least
-  // one session in range, accumulate the total wall-clock overlap of
-  // their sessions. Overlap of intervals (s1, e1) and (s2, e2) is
-  // `max(0, min(e1, e2) - max(s1, s2))`.
+  // --- Co-fronting pairs (sweep-line) ---
   //
-  // Complexity: O(M^2 * N_a * N_b) where M = unique members in range
-  // and N_x = sessions per member. Fine for typical Prism systems
-  // (M < 50, N_x usually < 100). If a single member accumulates
-  // >1000 sessions in range, replace the inner loops with a sweep-line
-  // pass that emits overlap segments in O((N_a + N_b) log N).
-  final Map<String, Duration> pairAccum = {};
-  final memberIds = memberIntervals.keys.toList()..sort();
-  for (var i = 0; i < memberIds.length; i++) {
-    final idA = memberIds[i];
-    final intervalsA = memberIntervals[idA]!;
-    for (var j = i + 1; j < memberIds.length; j++) {
-      final idB = memberIds[j];
-      final intervalsB = memberIntervals[idB]!;
-      var pairTotal = Duration.zero;
-      for (final a in intervalsA) {
-        for (final b in intervalsB) {
-          final overlapStart =
-              a.start.isAfter(b.start) ? a.start : b.start;
-          final overlapEnd = a.end.isBefore(b.end) ? a.end : b.end;
-          if (overlapEnd.isAfter(overlapStart)) {
-            pairTotal += overlapEnd.difference(overlapStart);
-          }
-        }
-      }
-      if (pairTotal > Duration.zero) {
-        // Member IDs already sorted (memberIds itself is sorted), so
-        // `idA < idB` lexicographically and the key is canonical.
-        pairAccum['$idA|$idB'] = pairTotal;
-      }
+  // Naive nested-pair overlap is O(M²·Na·Nb). For 5k members × 4
+  // sessions that's 400M comparisons per recompute — and the worker ran
+  // synchronously on the UI isolate, so it janked badly on real
+  // datasets (codex pass 6 P2.2).
+  //
+  // Sweep-line replacement: build an event stream of session
+  // starts/ends, sort by timestamp (ENDs before STARTs on ties so
+  // touching half-open intervals don't accrue spurious overlap), and
+  // walk the stream. Between consecutive events `delta = t_now - t_prev`,
+  // every unordered pair of members in the active set co-fronted for
+  // exactly `delta`. Add it to that pair's accumulator.
+  //
+  // Active set is a Map<memberId, refCount>: a single member with two
+  // overlapping rows of their own enters once and exits once (no
+  // self-pairs, matches the pre-existing semantics). Pair iteration
+  // walks distinct keys so self-overlap never produces a (A, A) pair.
+  //
+  // Complexity: O(N log N) sort + O(N · K²) pair updates, K = max
+  // simultaneous fronters. K is typically 1–5, so the inner pass is
+  // effectively linear in N. For 20k sessions at K=5 that's ~1M ops
+  // total versus the prior ~400M.
+
+  // Intern member ids to small ints. Sorting strings on the hot path
+  // is dominated by allocation and char-by-char compare; ints keep the
+  // inner loop branch-light. We assign indices in lex order so the
+  // canonical pair key (idxA, idxB) with idxA < idxB matches the
+  // alphabetical-id contract the tests expect.
+  final sortedMemberIds = memberIntervals.keys.toList()..sort();
+  final memberIdToIdx = <String, int>{
+    for (var i = 0; i < sortedMemberIds.length; i++) sortedMemberIds[i]: i,
+  };
+
+  // Build flat parallel arrays for events: time[], order[], idx[].
+  // Working in microseconds-since-epoch keeps the sort comparator a
+  // single int compare instead of DateTime.compareTo, which is the
+  // dominant cost for 10–40k events.
+  final eventCount = memberIntervals.values
+      .fold<int>(0, (s, list) => s + list.length * 2);
+  final eventTime = List<int>.filled(eventCount, 0);
+  final eventOrder = List<int>.filled(eventCount, 0);
+  // Parallel `idx` array; sort uses a permutation index instead of
+  // moving event records (avoids object construction in the hot path).
+  final eventIdx = List<int>.filled(eventCount, 0);
+  // kind packed into the same array: encode +1 as 1, -1 as 0 — we then
+  // use it as a tiebreaker by storing it in eventOrder as
+  // `time * 2 + kindBit` where kindBit=0 (end) sorts before 1 (start).
+  // Half-open semantics: at a tied instant, ends (kind=-1) must be
+  // processed before starts (kind=+1) so touching intervals don't
+  // accrue spurious overlap (see the (a, c)=0 test).
+
+  var ei = 0;
+  for (final entry in memberIntervals.entries) {
+    final idx = memberIdToIdx[entry.key]!;
+    for (final iv in entry.value) {
+      final startMicros = iv.start.microsecondsSinceEpoch;
+      final endMicros = iv.end.microsecondsSinceEpoch;
+      eventTime[ei] = startMicros;
+      // start kindBit = 1 (sorts after ends at same instant)
+      eventOrder[ei] = startMicros * 2 + 1;
+      eventIdx[ei] = idx + 1; // sign-encode: positive = start, negative = end
+      ei++;
+      eventTime[ei] = endMicros;
+      eventOrder[ei] = endMicros * 2;
+      eventIdx[ei] = -(idx + 1);
+      ei++;
     }
   }
 
-  final sortedPairs = pairAccum.entries
+  // Argsort: sort an index permutation by eventOrder.
+  final perm = List<int>.generate(eventCount, (i) => i);
+  perm.sort((a, b) => eventOrder[a].compareTo(eventOrder[b]));
+
+  // Active members: ref-counted to handle a single member with two
+  // overlapping rows of their own (no self-pairs — they enter the
+  // active set once for the union of their rows). We track the active
+  // *list* alongside the count map so the inner pair pass is O(K²)
+  // without re-sorting K active ids per event.
+  final activeCounts = List<int>.filled(sortedMemberIds.length, 0);
+  // Sorted-by-idx active list (idx is already lex order).
+  final activeIdx = <int>[];
+
+  // Pair accumulator keyed by packed `a * memberCount + b` (a < b).
+  // Map<int,int> avoids per-pair string allocations.
+  final pairAccumMicros = <int, int>{};
+  final memberCount = sortedMemberIds.length;
+
+  var lastTime = -1;
+  for (final pi in perm) {
+    final t = eventTime[pi];
+    if (lastTime >= 0 && activeIdx.length > 1) {
+      final delta = t - lastTime;
+      if (delta > 0) {
+        final n = activeIdx.length;
+        for (var i = 0; i < n; i++) {
+          final a = activeIdx[i];
+          final aBase = a * memberCount;
+          for (var j = i + 1; j < n; j++) {
+            final key = aBase + activeIdx[j];
+            pairAccumMicros[key] = (pairAccumMicros[key] ?? 0) + delta;
+          }
+        }
+      }
+    }
+
+    final signed = eventIdx[pi];
+    if (signed > 0) {
+      // start
+      final idx = signed - 1;
+      final prev = activeCounts[idx];
+      activeCounts[idx] = prev + 1;
+      if (prev == 0) {
+        // Insert idx into activeIdx maintaining ascending order.
+        // Linear scan is fine for K ≤ a few dozen.
+        var ins = activeIdx.length;
+        for (var k = 0; k < activeIdx.length; k++) {
+          if (activeIdx[k] > idx) {
+            ins = k;
+            break;
+          }
+        }
+        activeIdx.insert(ins, idx);
+      }
+    } else {
+      // end
+      final idx = -signed - 1;
+      final prev = activeCounts[idx];
+      activeCounts[idx] = prev - 1;
+      if (prev == 1) {
+        // Remove idx from activeIdx.
+        for (var k = 0; k < activeIdx.length; k++) {
+          if (activeIdx[k] == idx) {
+            activeIdx.removeAt(k);
+            break;
+          }
+        }
+      }
+    }
+    lastTime = t;
+  }
+
+  final sortedPairs = pairAccumMicros.entries
       .map((e) {
-        final ids = e.key.split('|');
+        final a = e.key ~/ memberCount;
+        final b = e.key % memberCount;
         return CoFrontingPair(
-            memberIdA: ids[0], memberIdB: ids[1], totalTime: e.value);
+          memberIdA: sortedMemberIds[a],
+          memberIdB: sortedMemberIds[b],
+          totalTime: Duration(microseconds: e.value),
+        );
       })
       .toList()
     ..sort((a, b) => b.totalTime.compareTo(a.totalTime));

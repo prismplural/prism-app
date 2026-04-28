@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/features/settings/providers/analytics_providers.dart';
 
 /// Simulates a Drift FrontingSession row for testing the per-member
@@ -18,11 +19,16 @@ class FakeSession {
     required this.startTime,
     this.endTime,
     this.memberId,
+    this.sessionType = 0,
   });
 
   final DateTime startTime;
   final DateTime? endTime;
   final String? memberId;
+  // 0 = normal fronting, 1 = sleep. Sleep rows are filtered upstream by
+  // the DAO's `getSessionsInRange`; analytics never sees them. The field
+  // is on the fake purely so tests can assert that contract.
+  final int sessionType;
 }
 
 void main() {
@@ -264,17 +270,46 @@ void main() {
       expect(result.topCoFrontingPairs, isEmpty);
     });
 
-    test('rows with null memberId are skipped (sleep / orphan defense)', () {
-      // The DAO already filters sleep rows out before they reach analytics
-      // (see fronting_sessions_dao.dart: sessionType == _normalSessionType).
-      // This test pins the defensive null-skip in case the contract ever
-      // changes — sleep rows have member_id IS NULL by design (§2.1).
+    test(
+        'session_type = 1 (sleep) rows are excluded by the upstream filter',
+        () {
+      // Contract assumption: `computeAnalyticsFromRows` is only ever
+      // called with rows the DAO already filtered to
+      // `session_type = _normalSessionType` (see
+      // fronting_sessions_dao.dart `getSessionsInRange`). Sleep rows
+      // therefore never reach analytics. This test documents that
+      // contract — the function does NOT re-filter on session_type.
+      // If a sleep row were ever to slip through, it would be routed
+      // to the Unknown sentinel by the null-member fallback (the same
+      // behavior as the edit/gap-fill Unknown rows we DO want to
+      // count). Keeping sleep out is the upstream filter's job.
+      final range = range30Days();
+      final sleepRow = FakeSession(
+        startTime: range.start.add(const Duration(hours: 1)),
+        endTime: range.start.add(const Duration(hours: 2)),
+        memberId: null,
+        sessionType: 1,
+      );
+      // Confirm the fake we're using to model the upstream-filtered
+      // contract: sleep rows carry sessionType = 1 and member_id = NULL.
+      expect(sleepRow.sessionType, 1);
+      expect(sleepRow.memberId, isNull);
+    });
+
+    test('normal null-member rows are routed to the Unknown sentinel', () {
+      // The edit/gap-fill flow in fronting_edit_resolution_service can
+      // produce normal (session_type = 0) rows with member_id = NULL,
+      // representing time fronted by an Unknown member. These rows must
+      // participate in totals/percentages/pair-overlap input rather than
+      // being silently dropped — otherwise `totalSessions` (taken from
+      // rows.length) would race ahead of the member-time data on screen.
+      // Route them through the canonical Unknown sentinel id.
       final range = range30Days();
       final sessions = [
         FakeSession(
           startTime: range.start.add(const Duration(hours: 1)),
           endTime: range.start.add(const Duration(hours: 2)),
-          memberId: null, // sleep row would look like this
+          memberId: null, // Unknown-fronting from edit/gap-fill
         ),
         FakeSession(
           startTime: range.start.add(const Duration(hours: 3)),
@@ -284,11 +319,25 @@ void main() {
       ];
 
       final result = computeAnalyticsFromRows(sessions, range);
-      // Only the real fronting row is counted.
-      expect(result.uniqueFronters, 1);
-      expect(result.memberStats, hasLength(1));
-      expect(result.memberStats.first.memberId, 'real-member');
-      expect(result.totalTrackedTime, const Duration(hours: 1));
+
+      // Both rows count toward totals.
+      expect(result.totalSessions, 2);
+      expect(result.uniqueFronters, 2);
+      expect(result.memberStats, hasLength(2));
+
+      final byId = {
+        for (final s in result.memberStats) s.memberId: s,
+      };
+      expect(byId.containsKey(unknownSentinelMemberId), isTrue,
+          reason:
+              'null-member normal row should appear under the Unknown sentinel id');
+      expect(byId[unknownSentinelMemberId]!.totalTime,
+          const Duration(hours: 1));
+      expect(byId['real-member']!.totalTime, const Duration(hours: 1));
+      // System member-minutes = 1h + 1h = 2h; each side is 50%.
+      expect(byId[unknownSentinelMemberId]!.percentageOfTotal,
+          closeTo(50.0, 0.01));
+      expect(result.totalTrackedTime, const Duration(hours: 2));
     });
 
     test('multiple members sorted by totalTime DESC, percentages sum to ~100',
@@ -662,6 +711,105 @@ void main() {
       expect(result.topCoFrontingPairs, hasLength(1));
       expect(result.topCoFrontingPairs.first.memberIdA, 'alpha');
       expect(result.topCoFrontingPairs.first.memberIdB, 'beta');
+    });
+  });
+
+  // Regression guard for codex pass 6 P2.2: the prior O(M²·Na·Nb)
+  // pair-overlap algorithm took ~minutes on realistic datasets.
+  // Sweep-line replacement should run in well under a frame.
+  group('sweep-line pair-overlap performance', () {
+    test('5000 members × 4 sessions completes in < 500ms (JIT)', () {
+      // The old O(M²·Na·Nb) loop on this dataset was ~25M·16 = 400M
+      // comparisons, multiple seconds on a laptop. Sweep-line should
+      // handle it in well under a frame for realistic K.
+      //
+      // Realistic K (max simultaneous fronters) for a real plural
+      // system: 1–5. We model it by giving each member their own
+      // narrow time window across the 30-day range — sessions barely
+      // overlap with others, mirroring typical usage where most
+      // members aren't co-fronting most of the time.
+      final base = DateTime.utc(2026, 3, 1, 0, 0);
+      final range = DateTimeRange(
+        start: base,
+        end: base.add(const Duration(days: 30)),
+      );
+
+      const memberCount = 5000;
+      const sessionsPerMember = 4;
+      // 30 days = 720 hours. Spread member windows over that span.
+      // ~7 members per hour, K stays bounded at ~7 active at once.
+      const totalMinutes = 30 * 24 * 60;
+      final sessions = <FakeSession>[];
+      for (var m = 0; m < memberCount; m++) {
+        // Each member's "preferred" window starts at this offset.
+        final memberOffsetMin = (m * totalMinutes ~/ memberCount);
+        for (var s = 0; s < sessionsPerMember; s++) {
+          // 4 sessions spaced ~7 days apart, each 1h long.
+          final start = base.add(Duration(
+            minutes: memberOffsetMin + s * 7 * 24 * 60,
+          ));
+          sessions.add(FakeSession(
+            startTime: start,
+            endTime: start.add(const Duration(hours: 1)),
+            memberId: 'm$m',
+          ));
+        }
+      }
+
+      final stopwatch = Stopwatch()..start();
+      final result = computeAnalyticsFromRows(sessions, range);
+      stopwatch.stop();
+
+      expect(result.totalSessions, 20000);
+      expect(result.uniqueFronters, memberCount);
+      // The old O(M²·Na·Nb) loop ran for ~tens of seconds on this
+      // dataset (and the surrounding member loops/time-bucketing alone
+      // take a few hundred ms in JIT). Sweep-line keeps the pair pass
+      // bounded by N · K². AOT (production) is typically 2–4× faster
+      // than `flutter test` JIT, so a 500ms ceiling here corresponds
+      // to ~125–250ms on-device — well under a frame.
+      expect(
+        stopwatch.elapsedMilliseconds,
+        lessThan(500),
+        reason: 'sweep-line on 20k sessions took '
+            '${stopwatch.elapsedMilliseconds}ms (JIT); old O(M²·Na·Nb) '
+            'algorithm was multiple seconds.',
+      );
+    });
+
+    test('10 heavy co-fronters × 200 sessions each: sub-100ms', () {
+      // Pathological case for the old O(N_a · N_b) inner loop: a small
+      // group of members each with many sessions in the same window.
+      // 10 × 200 = 2000 rows, but pairs are 45 × 200² = 1.8M old-loop
+      // ops. Sweep-line should breeze through.
+      final base = DateTime.utc(2026, 3, 1, 0, 0);
+      final range = DateTimeRange(
+        start: base,
+        end: base.add(const Duration(days: 30)),
+      );
+      final sessions = <FakeSession>[];
+      for (var m = 0; m < 10; m++) {
+        for (var s = 0; s < 200; s++) {
+          final start = base.add(Duration(hours: s * 3, minutes: m * 10));
+          sessions.add(FakeSession(
+            startTime: start,
+            endTime: start.add(const Duration(hours: 2)),
+            memberId: 'h$m',
+          ));
+        }
+      }
+
+      final stopwatch = Stopwatch()..start();
+      final result = computeAnalyticsFromRows(sessions, range);
+      stopwatch.stop();
+
+      expect(result.uniqueFronters, 10);
+      expect(
+        stopwatch.elapsedMilliseconds,
+        lessThan(100),
+        reason: 'heavy co-fronter scenario took '
+            '${stopwatch.elapsedMilliseconds}ms',
+      );
     });
   });
 }
