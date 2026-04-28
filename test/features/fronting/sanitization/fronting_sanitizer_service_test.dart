@@ -2,10 +2,13 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/database/app_database.dart'
     hide FrontingSession;
+import 'package:prism_plurality/core/mutations/mutation_result.dart';
 import 'package:prism_plurality/core/mutations/mutation_runner.dart';
 import 'package:prism_plurality/data/repositories/drift_fronting_session_repository.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/features/fronting/editing/fronting_change_executor.dart';
+import 'package:prism_plurality/features/fronting/editing/fronting_session_change.dart';
+import 'package:prism_plurality/features/fronting/sanitization/fronting_fix_models.dart';
 import 'package:prism_plurality/features/fronting/sanitization/fronting_fix_planner.dart';
 import 'package:prism_plurality/features/fronting/sanitization/fronting_sanitizer_service.dart';
 import 'package:prism_plurality/features/fronting/validation/fronting_session_validator.dart';
@@ -246,6 +249,78 @@ void main() {
       final issues = await service2.scan();
       // No gaps, no overlaps — both are valid in per-member model.
       expect(issues, isEmpty);
+    });
+
+    // ─── applyPlan ─────────────────────────────────────────────────────────
+
+    group('applyPlan', () {
+      test(
+        'returns MutationFailure when the executor fails (e.g. session not found for update)',
+        () async {
+          // Pin the regression: previously `applyPlan` awaited
+          // `_executor.execute` and discarded the `MutationResult<void>`,
+          // so an executor failure (which the mutation runner returns
+          // as `MutationFailure` rather than throwing) was silently
+          // treated as success. The UI then marked the issue as fixed
+          // even though no mutation landed.
+          //
+          // We trigger a real failure by feeding the executor an
+          // UpdateSessionChange for a non-existent session. The executor
+          // throws StateError, the mutation runner catches it and
+          // returns `MutationResult.failure(...)`, and the sanitizer
+          // must propagate that result instead of swallowing it.
+          const plan = FrontingFixPlan(
+            id: 'plan-missing',
+            type: FrontingFixType.trimEarlier,
+            title: 'trim',
+            description: 'trim earlier session',
+            affectedSessionIds: ['does-not-exist'],
+            changes: [
+              UpdateSessionChange(
+                sessionId: 'does-not-exist',
+                patch: FrontingSessionPatch(notes: 'noop'),
+              ),
+            ],
+          );
+
+          final result = await service.applyPlan(plan);
+
+          expect(result, isA<MutationFailure<void>>());
+          expect(result.isFailure, isTrue);
+          expect(result.failureOrNull, isNotNull);
+          expect(
+            result.failureOrNull!.message,
+            contains('session not found'),
+          );
+        },
+      );
+
+      test(
+        'returns MutationSuccess when the executor applies all changes',
+        () async {
+          final session = FrontingSession(
+            id: 'session-apply-ok',
+            startTime: DateTime(2026, 3, 18, 9),
+            endTime: DateTime(2026, 3, 18, 11),
+            memberId: 'member-1',
+          );
+          await repository.createSession(session);
+
+          const plan = FrontingFixPlan(
+            id: 'plan-ok',
+            type: FrontingFixType.deleteSession,
+            title: 'delete',
+            description: 'delete session',
+            affectedSessionIds: ['session-apply-ok'],
+            changes: [DeleteSessionChange('session-apply-ok')],
+          );
+
+          final result = await service.applyPlan(plan);
+
+          expect(result, isA<MutationSuccess<void>>());
+          expect(result.isSuccess, isTrue);
+        },
+      );
     });
 
     test(
