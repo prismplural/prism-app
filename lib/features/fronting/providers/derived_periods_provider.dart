@@ -20,16 +20,25 @@ import 'package:prism_plurality/features/members/providers/members_providers.dar
 /// fronting.
 final derivedPeriodsProvider =
     Provider.autoDispose<AsyncValue<List<FrontingPeriod>>>((ref) {
-  final sessionsAsync = ref.watch(unifiedHistoryOverlapProvider);
+  final bundleAsync = ref.watch(unifiedHistoryOverlapProvider);
   final membersAsync = ref.watch(allMembersProvider);
 
-  return sessionsAsync.when(
+  return bundleAsync.when(
     loading: () => const AsyncValue.loading(),
     error: AsyncValue.error,
-    data: (sessions) {
+    data: (bundle) {
       final members =
           membersAsync.whenOrNull(data: (list) => list) ?? const <Member>[];
-      final periods = computeDerivedPeriods(sessions, members);
+      // Thread the provider's bounds through. Without this, a 400-day
+      // continuous host (whose start was clamped by the DAO query)
+      // would push the sweep's `rangeStart` 400 days back, producing
+      // hundreds of midnight day-slices spanning the whole interval.
+      final periods = computeDerivedPeriods(
+        bundle.sessions,
+        members,
+        rangeStart: bundle.rangeStart,
+        rangeEnd: bundle.rangeEnd,
+      );
       return AsyncValue.data(periods);
     },
   );
@@ -37,33 +46,50 @@ final derivedPeriodsProvider =
 
 /// Pure derivation entrypoint. Exposed for tests and for any future
 /// surface that wants periods without going through the provider graph.
+///
+/// When [rangeStart] / [rangeEnd] are omitted, they're inferred from the
+/// session set (earliest start / latest end). The provider always passes
+/// explicit bounds; tests that want to exercise inferred-range behavior
+/// can omit them.
 List<FrontingPeriod> computeDerivedPeriods(
   List<FrontingSession> sessions,
   List<Member> members, {
   DateTime? now,
   Duration ephemeralThreshold = kEphemeralThreshold,
+  DateTime? rangeStart,
+  DateTime? rangeEnd,
 }) {
   if (sessions.isEmpty) return const [];
 
   final memberMap = {for (final m in members) m.id: m};
   final nowAt = now ?? DateTime.now();
 
-  // Range is inferred from the session set: earliest start to latest end
-  // (or now for open-ended). The sweep clamps every event to this window
-  // anyway, so a slightly oversized range is harmless.
-  DateTime earliest = sessions.first.startTime;
-  DateTime latest = nowAt;
-  for (final s in sessions) {
-    if (s.startTime.isBefore(earliest)) earliest = s.startTime;
-    final end = s.endTime ?? nowAt;
-    if (end.isAfter(latest)) latest = end;
+  DateTime effectiveRangeStart;
+  DateTime effectiveRangeEnd;
+  if (rangeStart != null && rangeEnd != null) {
+    effectiveRangeStart = rangeStart;
+    effectiveRangeEnd = rangeEnd;
+  } else {
+    // Range inferred from the session set: earliest start to latest end
+    // (or now for open-ended). The sweep clamps every event to this
+    // window. Used by tests that want pure derivation without the
+    // provider's bounds.
+    DateTime earliest = sessions.first.startTime;
+    DateTime latest = nowAt;
+    for (final s in sessions) {
+      if (s.startTime.isBefore(earliest)) earliest = s.startTime;
+      final end = s.endTime ?? nowAt;
+      if (end.isAfter(latest)) latest = end;
+    }
+    effectiveRangeStart = rangeStart ?? earliest;
+    effectiveRangeEnd = rangeEnd ?? latest;
   }
 
   return deriveMaximalPeriods(DerivePeriodsInput(
     sessions: sessions,
     members: memberMap,
-    rangeStart: earliest,
-    rangeEnd: latest,
+    rangeStart: effectiveRangeStart,
+    rangeEnd: effectiveRangeEnd,
     now: nowAt,
     ephemeralThreshold: ephemeralThreshold,
   ));

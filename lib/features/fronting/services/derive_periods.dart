@@ -358,12 +358,32 @@ List<FrontingPeriod> deriveMaximalPeriods(DerivePeriodsInput input) {
     snapshotHasOpenSession = hasOpen;
   }
 
+  // Compute whether any currently-active session is open-ended. Used
+  // alongside activeSessionsByMember and activeSessionIds to detect
+  // tied-batch transitions that change ANY snapshot-relevant state, not
+  // just the active member set.
+  bool computeAnyOpen() {
+    for (final mid in activeSessionsByMember.keys) {
+      final ids = activeSessionsByMember[mid]!;
+      for (final s in foregroundByMember[mid] ?? const <_NormalizedSession>[]) {
+        if (s.isOpen && ids.contains(s.sessionId)) return true;
+      }
+    }
+    return false;
+  }
+
   var i = 0;
   while (i < events.length) {
     final t = events[i].time;
     // Process all events at this instant as one tied batch, then compare
-    // active-set membership before vs. after.
+    // active-set membership AND active session IDs AND open-session
+    // status before vs. after. Same-member tied transitions (A1 ends at
+    // T, A2 starts at T for the same member) keep the same active
+    // member set but change activeSessionIds and possibly hasOpenSession;
+    // those must trigger a snapshot refresh too.
     final preActive = activeSessionsByMember.keys.toSet();
+    final preSessionIds = Set<String>.of(activeSessionIds);
+    final preAnyOpen = computeAnyOpen();
 
     // First time we see this tick: emit the period accumulated up to it.
     // (Only if we have moved forward from periodStart.)
@@ -399,9 +419,13 @@ List<FrontingPeriod> deriveMaximalPeriods(DerivePeriodsInput input) {
     }
 
     final postActive = activeSessionsByMember.keys.toSet();
-    if (!_setEquals(preActive, postActive)) {
-      // Active set changed across the batch — start a new period.
-      // Periodstart is already set to t above.
+    final postAnyOpen = computeAnyOpen();
+    if (!_setEquals(preActive, postActive) ||
+        !_setEquals(preSessionIds, activeSessionIds) ||
+        preAnyOpen != postAnyOpen) {
+      // Any of (activeMembers, activeSessionIds, hasOpenSession) changed
+      // across the batch — start a new period. periodStart is already
+      // set to t above.
       refreshSnapshots();
     }
   }
@@ -450,15 +474,24 @@ List<FrontingPeriod> _collapseAndAnnotate(
   // Shortcut: if EVERY raw period is short, emit a single combined row
   // covering the full span with all participants as briefs. Without this
   // an all-short input produced empty output (P2 cascade bug).
+  //
+  // BUT: ephemeral collapse is for HISTORICAL noise reduction. A
+  // currently-open period (even one under the threshold — e.g. a front
+  // started 30 seconds ago) must NOT collapse into a brief-visitors-
+  // only row, because the row's `activeMembers` would be empty and the
+  // widget would render it as "Unknown." If any raw period contains an
+  // open-ended session we skip the all-short shortcut entirely and
+  // fall through to the standard collapse pass, which preserves the
+  // open period's active members.
+  final hasOpenAnywhere = raw.any((p) => p.hasOpenSession);
   final allShort =
-      raw.every((p) => p.duration < ephemeralThreshold);
+      !hasOpenAnywhere && raw.every((p) => p.duration < ephemeralThreshold);
   if (allShort) {
     final start = raw.first.start;
     final end = raw.last.end;
     final allMembers = <String>{};
     final allSessionIds = <String>{};
     final brief = <EphemeralVisit>[];
-    final hasOpen = raw.any((p) => p.hasOpenSession);
     for (final p in raw) {
       allMembers.addAll(p.activeMembers);
       allSessionIds.addAll(p.sessionIds);
@@ -485,8 +518,10 @@ List<FrontingPeriod> _collapseAndAnnotate(
         briefVisitors: brief,
         sessionIds: allSessionIds.toList(),
         alwaysPresentMembers: alwaysPresent,
-        isOpenEnded:
-            hasOpen && !end.isBefore(effectiveRangeEnd),
+        // The all-short branch only fires when no raw period contains
+        // an open session (see `hasOpenAnywhere` above), so the
+        // combined row is always closed.
+        isOpenEnded: false,
       ),
     ];
   }
@@ -501,7 +536,14 @@ List<FrontingPeriod> _collapseAndAnnotate(
 
   for (var idx = 0; idx < raw.length; idx++) {
     final p = raw[idx];
-    final isShort = p.duration < ephemeralThreshold;
+    // A period containing an open session represents the current state.
+    // We must NEVER collapse it as ephemeral, even if it's under the
+    // threshold (e.g. a front started 30 seconds ago). Without this
+    // guard, a just-started current front would land in pendingBrief
+    // and either render with empty activeMembers (the "Unknown" bug)
+    // or get dropped entirely.
+    final isShort =
+        p.duration < ephemeralThreshold && !p.hasOpenSession;
 
     if (isShort) {
       // Try to fold this period's "extra" members into adjacent periods

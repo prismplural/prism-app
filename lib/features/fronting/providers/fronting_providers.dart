@@ -8,6 +8,7 @@ import 'package:prism_plurality/core/mutations/mutation_runner.dart';
 import 'package:prism_plurality/core/services/session_lifecycle_service.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/models/update_fronting_session_patch.dart';
+import 'package:prism_plurality/features/fronting/providers/derived_periods_provider.dart';
 import 'package:prism_plurality/features/fronting/services/fronting_mutation_service.dart';
 import 'package:prism_plurality/features/members/providers/member_stats_providers.dart';
 
@@ -85,6 +86,13 @@ void invalidateFrontingProviders(WidgetRef ref) {
   ref.invalidate(activeSessionProvider);
   ref.invalidate(activeSessionsProvider);
   ref.invalidate(memberFrontingCountsProvider);
+  // Derived-period chain: the overlap-query stream and the period
+  // derivation that watches it must also rebuild after a mutation.
+  // Without these, the home screen's session history list goes stale
+  // after start/end/edit because the derivation is computed from the
+  // upstream stream snapshot (which Riverpod caches per emission).
+  ref.invalidate(unifiedHistoryOverlapProvider);
+  ref.invalidate(derivedPeriodsProvider);
 }
 
 /// Fronting service for actions (start/end/switch sessions).
@@ -336,23 +344,73 @@ final unifiedHistoryProvider =
 /// A future refactor can switch this to a scroll-driven `(rangeStart,
 /// rangeEnd)` family parameter; the overlap-query plumbing below is
 /// already shaped for that.
-const _derivedPeriodsLookbackDays = 90;
+const derivedPeriodsLookbackDays = 90;
+
+/// Far-future safety margin for the overlap-query upper bound.
+///
+/// We deliberately do NOT clamp `range_end` at `DateTime.now()` because
+/// the provider builds its bounds once at subscription time. A user who
+/// creates a new front AFTER the screen mounted would have their new
+/// row's `start_time > fixedNow`, so `start_time < fixedNow` would
+/// silently drop it from the watch results forever. Pushing the upper
+/// bound 30 days into the future means a Drift `.watch()` re-evaluation
+/// (triggered by the table change on insert) catches the new row
+/// without the provider needing to rebuild.
+///
+/// 30 days is a sensible cap — it's short enough that a typo'd
+/// far-future session (e.g. someone fat-fingering year 2099) doesn't
+/// leak into the visible window, but long enough that any plausible
+/// "schedule a front" use case is covered.
+const derivedPeriodsLookaheadDays = 30;
+
+/// Inputs to the derived-period sweep. The provider produces this so
+/// downstream consumers ([derivedPeriodsProvider]) can clamp to the
+/// SAME range that bounded the DAO query — without this, the sweep
+/// inferred its range from the earliest returned row (e.g. a 400-day
+/// host) and produced periods spanning a much larger window than the
+/// query intended.
+class DerivedPeriodsInputBundle {
+  const DerivedPeriodsInputBundle({
+    required this.sessions,
+    required this.rangeStart,
+    required this.rangeEnd,
+  });
+
+  final List<FrontingSession> sessions;
+  final DateTime rangeStart;
+  final DateTime rangeEnd;
+}
 
 /// Sessions overlapping the visible range used by the derived-period
-/// sweep (§4.6 step 1).
+/// sweep (§4.6 step 1) along with the bounds the DAO was queried with.
 ///
 /// Key correctness property: a 400-day continuous host whose row
 /// started before the lookback window but is still open (or ended
 /// inside it) is included — the upstream filter is
 /// `start_time < range_end AND (end_time IS NULL OR end_time > range_start)`,
 /// which a row-paged "newest N rows" query would silently drop.
+///
+/// The upper bound is intentionally pushed to `now + 30 days` (NOT
+/// captured `now`) so newly-created rows whose `start_time` is close
+/// to "now" still match — see [derivedPeriodsLookaheadDays].
 final unifiedHistoryOverlapProvider =
-    StreamProvider.autoDispose<List<FrontingSession>>((ref) {
+    StreamProvider.autoDispose<DerivedPeriodsInputBundle>((ref) {
   final repo = ref.watch(frontingSessionRepositoryProvider);
   final now = DateTime.now();
-  // Half-open `[rangeStart, rangeEnd)` window. rangeEnd is "now" — the
-  // sweep itself substitutes max(now, rangeEnd) for open-ended sessions
-  // so trailing live periods extend correctly.
-  final rangeStart = now.subtract(const Duration(days: _derivedPeriodsLookbackDays));
-  return repo.watchSessionsOverlappingRange(rangeStart, now);
+  final rangeStart =
+      now.subtract(const Duration(days: derivedPeriodsLookbackDays));
+  // Use a far-future upper bound (not `now`) so a session created AFTER
+  // the provider mounted still satisfies `start_time < rangeEnd` and
+  // appears in the Drift watch results. The sweep further substitutes
+  // max(now, rangeEnd) for open-ended sessions so the trailing live
+  // period renders correctly.
+  final rangeEnd =
+      now.add(const Duration(days: derivedPeriodsLookaheadDays));
+  return repo.watchSessionsOverlappingRange(rangeStart, rangeEnd).map(
+        (sessions) => DerivedPeriodsInputBundle(
+          sessions: sessions,
+          rangeStart: rangeStart,
+          rangeEnd: rangeEnd,
+        ),
+      );
 });
