@@ -121,8 +121,12 @@ class _MemberRankingChartState extends ConsumerState<MemberRankingChart> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
+                  // Title-case context: matches the existing
+                  // "Per-{term} Colors" pattern in appearance settings.
+                  // Axis hint below stays `singularLower` because that's
+                  // the inline noun-modifier pattern.
                   context.l10n
-                      .statisticsFrontingTimeByMember(terms.singularLower),
+                      .statisticsFrontingTimeByMember(terms.singular),
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.bold,
                     // Drop built-in line-height padding so the title sits as

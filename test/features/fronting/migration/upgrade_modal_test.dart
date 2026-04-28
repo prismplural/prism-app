@@ -385,6 +385,11 @@ void main() {
       expect(
           find.textContaining('Your other devices need to pair'), findsNothing);
       expect(find.textContaining('All set.'), findsOneWidget);
+      // §4.3 analytics FYI must render with the term placeholder
+      // substituted — pin the lowercase noun-modifier so a future
+      // regression that drops the substitution fails. Don't pin the
+      // full sentence; it's brittle to copy edits.
+      expect(find.textContaining('headmate-minutes'), findsOneWidget);
     });
 
     testWidgets(
@@ -418,6 +423,10 @@ void main() {
       expect(runner.calls.last.role, DeviceRole.primary);
       expect(
           find.textContaining('Your other devices need to pair'), findsOneWidget);
+      // §4.3 analytics FYI placeholder substitution — see the solo-path
+      // test for rationale. Pinning the noun-modifier proves the
+      // {term} bind ran on this path too.
+      expect(find.textContaining('headmate-minutes'), findsOneWidget);
     });
 
     testWidgets('failed migration shows error and a working Retry button',
