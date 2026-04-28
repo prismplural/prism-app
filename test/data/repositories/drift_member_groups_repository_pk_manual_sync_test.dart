@@ -386,10 +386,11 @@ void main() {
         'parent_group_id': null,
         'group_type': 2,
         'filter_rules': '{"mode":"all"}',
-        'created_at': stored!.createdAt.toIso8601String(),
+        'created_at': stored!.createdAt.toUtc().toIso8601String(),
         'pluralkit_id': 'abcde',
         'pluralkit_uuid': 'pk-group-1',
-        'last_seen_from_pk_at': stored.lastSeenFromPkAt!.toIso8601String(),
+        'last_seen_from_pk_at':
+            stored.lastSeenFromPkAt!.toUtc().toIso8601String(),
         'is_deleted': false,
       });
     },

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/daos/member_groups_dao.dart';
@@ -480,6 +481,13 @@ class DriftMemberGroupsRepository
     return _entryEntityIdFromStoredEntry(entry, group: group, member: member);
   }
 
+  /// Visible-for-testing: builds the group field map this repository hands to
+  /// the Rust sync engine for create/update. Exposed so a regression test can
+  /// pin every emitted DateTime as Z-suffixed UTC.
+  @visibleForTesting
+  Map<String, dynamic> debugGroupFields(MemberGroupRow row) =>
+      _groupFields(row);
+
   Map<String, dynamic> _groupFields(MemberGroupRow row) {
     return {
       'name': row.name,
@@ -490,10 +498,10 @@ class DriftMemberGroupsRepository
       'parent_group_id': row.parentGroupId,
       'group_type': row.groupType,
       'filter_rules': row.filterRules,
-      'created_at': row.createdAt.toIso8601String(),
+      'created_at': _toSyncUtc(row.createdAt),
       'pluralkit_id': row.pluralkitId,
       'pluralkit_uuid': row.pluralkitUuid,
-      'last_seen_from_pk_at': row.lastSeenFromPkAt?.toIso8601String(),
+      'last_seen_from_pk_at': _toSyncUtcOrNull(row.lastSeenFromPkAt),
       'is_deleted': row.isDeleted,
     };
   }
@@ -571,3 +579,13 @@ class _NoopMemberRepository implements MemberRepository {
             '_NoopMemberRepository does not support ensureUnknownSentinelMember',
           );
 }
+
+/// Normalizes a DateTime to UTC ISO-8601 (Z-suffixed) for sync wire emission.
+///
+/// Local DateTimes serialize with no offset/Z, so a peer in a different
+/// timezone would parse the value as their own local time and shift the
+/// absolute moment by the timezone delta on every sync. Mirrors the
+/// `_dateTimeToSyncString` helper in `core/sync/drift_sync_adapter.dart`.
+String _toSyncUtc(DateTime dt) => dt.toUtc().toIso8601String();
+
+String? _toSyncUtcOrNull(DateTime? dt) => dt?.toUtc().toIso8601String();

@@ -481,6 +481,7 @@ class DriftSystemSettingsRepository
       'terminology': s.terminology.index,
       'custom_terminology': s.customTerminology,
       'custom_plural_terminology': s.customPluralTerminology,
+      'terminology_use_english': s.terminologyUseEnglish,
       'fronting_reminders_enabled': s.frontingRemindersEnabled,
       'fronting_reminder_interval_minutes': s.frontingReminderIntervalMinutes,
       'theme_mode': s.themeMode.index,
@@ -514,6 +515,7 @@ class DriftSystemSettingsRepository
           ? base64Encode(s.systemAvatarData!)
           : null,
       'reminders_enabled': s.remindersEnabled,
+      'habits_badge_enabled': s.habitsBadgeEnabled,
       'sync_navigation_enabled': s.syncNavigationEnabled,
       'nav_bar_items': SystemSettingsMapper.encodeNavBarItems(s.navBarItems),
       'nav_bar_overflow_items': SystemSettingsMapper.encodeNavBarItems(
