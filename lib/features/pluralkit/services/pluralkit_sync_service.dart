@@ -580,26 +580,7 @@ class PluralKitSyncService {
         );
       }
 
-      // -- Corrective setup: pre-close all open PK-linked sessions --
-      // This is the "corrective full re-import" path. We close every currently
-      // open PK-linked session before the sweep starts so prevActive begins
-      // empty. Deterministic IDs handle idempotency — re-derived rows update
-      // existing ones via CRDT field-LWW rather than duplicating.
-      _emit(
-        _state.copyWith(
-          syncProgress: 0.15,
-          syncStatus: 'Closing open PK sessions...',
-        ),
-      );
-      final now = DateTime.now();
-      final allSessions = await _frontingSessionRepository.getAllSessions();
-      for (final s in allSessions) {
-        if (s.endTime == null && s.pluralkitUuid != null && !s.isDeleted) {
-          await _frontingSessionRepository.endSession(s.id, now);
-        }
-      }
-
-      // Reset the sweep cursor so we fetch from the beginning of history.
+      // -- Reset the sweep cursor so we fetch from the beginning of history.
       await _syncDao.upsertSyncState(
         const PluralKitSyncStateCompanion(
           id: Value('pk_config'),
@@ -608,13 +589,70 @@ class PluralKitSyncService {
         ),
       );
 
-      // -- Switches (15–95%): fetch all pages then diff-sweep --
+      // -- Switches (15–95%): fetch all pages first so we know the canonical
+      // PK row set the API agrees on.
       _emit(
         _state.copyWith(syncProgress: 0.15, syncStatus: 'Fetching switches...'),
       );
 
       final allSwitches = await _fetchAllSwitches(client);
       final totalSwitches = allSwitches.length;
+
+      // -- Canonicalize: tombstone PK-linked rescue rows the API
+      // wouldn't create. The PRISM1 rescue importer fans out every
+      // legacy PK switch/member row (one row per (switch, member) pair
+      // in the file), but the diff sweep only writes ENTRANT rows
+      // (one per "this member became active at this switch"). For a
+      // history A → A+B → A the rescue creates 4 rows but the diff
+      // sweep would only create 2 — A entering at sw-1 stays open
+      // across A+B and back to A; B enters at sw-2 and leaves at sw-3.
+      // The 2 stale A rows at det(sw-2, A) and det(sw-3, A) are
+      // rescue artifacts the diff sweep never touches.
+      //
+      // On the corrective re-import the API is authoritative — any
+      // PK-linked local row whose id isn't an entrant (sw, member)
+      // pair is a stale rescue artifact and must be tombstoned so
+      // paired devices converge. See codex pass 2 #B-NEW2.
+      _emit(
+        _state.copyWith(
+          syncProgress: 0.40,
+          syncStatus: 'Canonicalizing PK history...',
+        ),
+      );
+      final canonicalIds = <String>{};
+      {
+        final prevActive = <String>{};
+        for (final sw in allSwitches) {
+          final newActive = <String>{};
+          for (final shortId in sw.members) {
+            final pkUuid = shortIdToUuid[shortId];
+            if (pkUuid == null) continue;
+            newActive.add(pkUuid);
+          }
+          for (final entrantPkUuid in newActive.difference(prevActive)) {
+            canonicalIds.add(derivePkSessionId(sw.id, entrantPkUuid));
+          }
+          prevActive
+            ..clear()
+            ..addAll(newActive);
+        }
+      }
+      final allSessions = await _frontingSessionRepository.getAllSessions();
+      int tombstonedStale = 0;
+      for (final s in allSessions) {
+        if (s.pluralkitUuid != null &&
+            !s.isDeleted &&
+            !canonicalIds.contains(s.id)) {
+          await _frontingSessionRepository.deleteSession(s.id);
+          tombstonedStale++;
+        }
+      }
+      if (tombstonedStale > 0) {
+        debugPrint(
+          '[PK_FULL_IMPORT] tombstoned $tombstonedStale stale PK-linked '
+          'rows not in canonical API set (rescue fan-out artifacts).',
+        );
+      }
 
       _emit(
         _state.copyWith(
@@ -623,11 +661,16 @@ class PluralKitSyncService {
         ),
       );
 
-      // Diff sweep. prevActive starts empty (full re-import path).
+      // Diff sweep in corrective mode. prevActive starts empty (full
+      // re-import path; any leftover open PK-linked rows are either
+      // canonical entrants this sweep will reopen via the corrective
+      // collision branch — which clobbers end_time — or were tombstoned
+      // above as stale).
       final unmappedCount = await _runDiffSweep(
         switches: allSwitches,
         shortIdToUuid: shortIdToUuid,
         prevActive: {},
+        corrective: true,
         onProgress: (i) {
           if (i % 50 == 0) {
             final progress = 0.50 + (0.45 * (i / (totalSwitches.clamp(1, totalSwitches))));
@@ -1343,11 +1386,22 @@ class PluralKitSyncService {
   ///
   /// Returns the count of switch member references that couldn't be resolved
   /// to a local member (i.e., the PK short ID has no matching local member).
+  ///
+  /// [corrective] selects the end_time policy on entrant collisions:
+  /// - `false` (incremental): conservative — preserve any pre-existing
+  ///   non-null `end_time`, since it may be a deliberate user close on a
+  ///   rescue row. Used by the routine diff sweep + post-mapping pull.
+  /// - `true` (corrective full re-import): API is authoritative — clear
+  ///   `end_time` to `null` on entrant collisions so currently-active API
+  ///   rows actually surface as open after the rescue→re-import recovery
+  ///   flow. The user has explicitly asked to rebuild PK history from API,
+  ///   so clobber is the point. See codex pass 2 #B-NEW2.
   Future<int> _runDiffSweep({
     required List<PKSwitch> switches,
     required Map<String, String> shortIdToUuid,
     required Set<String> prevActive,
     void Function(int index)? onProgress,
+    bool corrective = false,
   }) async {
     final uuidToLocalId = await _buildUuidToLocalIdMap();
 
@@ -1430,19 +1484,21 @@ class PluralKitSyncService {
             // same deterministic id. Correct the lossy start +
             // member_id + pluralkit_uuid via field-LWW (fresh HLCs).
             //
-            // Conservative end_time policy: if `existing.endTime` is
-            // non-null we leave it alone. The API says this member
-            // is currently fronting (entrant in this sweep), so in
-            // principle end_time should be NULL — but the existing
-            // close may have been a deliberate user edit on the
-            // rescue row. We log instead of clobbering. The trade-off:
-            // a user who manually closed a rescue-imported session
-            // still has it closed after API re-import; they can
-            // re-open manually if they care. That's strictly safer
-            // than silently re-opening every closed PK row on every
-            // API sync cycle. Re-evaluate if rescue-row metadata
-            // becomes available to detect "set by rescue, not user."
-            if (existing.endTime != null) {
+            // end_time policy depends on [corrective]:
+            // - incremental (default): preserve a non-null existing
+            //   end_time. The user may have deliberately closed a
+            //   rescue row; routine sync should not silently re-open
+            //   every closed PK row on every cycle.
+            // - corrective: API is authoritative on this pass. The
+            //   user has explicitly asked to rebuild PK history from
+            //   the API (see [performFullImport]); a leftover lossy
+            //   close from a rescue row would otherwise leave a
+            //   currently-active member stuck "closed" forever. Clear
+            //   end_time to null for entrant collisions; the leaver
+            //   pass will close it later in this sweep if/when the
+            //   API stops listing the member as fronting.
+            final clearEndTime = corrective;
+            if (!corrective && existing.endTime != null) {
               debugPrint(
                 '[PK_SWEEP] entrant collision on $rowId: existing '
                 'end_time ${existing.endTime} preserved (API says '
@@ -1454,6 +1510,7 @@ class PluralKitSyncService {
                 startTime: sw.timestamp,
                 memberId: localId,
                 pluralkitUuid: sw.id,
+                endTime: clearEndTime ? null : existing.endTime,
               ),
             );
           }
