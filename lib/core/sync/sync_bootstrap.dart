@@ -7,12 +7,13 @@ import 'package:prism_sync_drift/prism_sync_drift.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/sync/sync_schema.dart';
 
-typedef BootstrapRecordCreate = Future<void> Function({
-  required ffi.PrismSyncHandle handle,
-  required String table,
-  required String entityId,
-  required String fieldsJson,
-});
+typedef BootstrapRecordCreate =
+    Future<void> Function({
+      required ffi.PrismSyncHandle handle,
+      required String table,
+      required String entityId,
+      required String fieldsJson,
+    });
 
 /// Walks every synced Drift table and emits a `record_create` op for each
 /// row. Used at first-device sync setup so existing local data reaches
@@ -26,6 +27,9 @@ typedef BootstrapRecordCreate = Future<void> Function({
 /// `recordCreate` is injected for tests; defaults to [ffi.recordCreate].
 ///
 /// Returns the number of ops successfully emitted.
+///
+/// Throws if any row fails to emit. A partial bootstrap is worse than a setup
+/// failure because the pairing snapshot would look valid while missing data.
 Future<int> bootstrapExistingData({
   required ffi.PrismSyncHandle handle,
   required AppDatabase db,
@@ -37,6 +41,7 @@ Future<int> bootstrapExistingData({
   final tableQueries = bootstrapTableQueries(db);
 
   var totalOps = 0;
+  final failures = <String>[];
   for (final entityName in entities) {
     final entity = adapter.entityForTable(entityName);
     if (entity == null) continue;
@@ -51,9 +56,11 @@ Future<int> bootstrapExistingData({
 
     final rows = await query();
     for (final row in rows) {
+      var rowLabel = entityName;
       try {
         final fields = entity.toSyncFields(row);
         final id = entity.entityIdFor(row);
+        rowLabel = '$entityName/$id';
         // Tombstones are emitted too. Skipping `is_deleted == true` rows
         // is unsafe for entities with deterministic IDs (member_groups,
         // member_group_entries): a peer can later import the same PK
@@ -68,11 +75,22 @@ Future<int> bootstrapExistingData({
         );
         totalOps++;
       } catch (e) {
+        failures.add('$rowLabel: $e');
         if (kDebugMode) {
-          debugPrint('[BOOTSTRAP] failed $entityName row: $e');
+          debugPrint('[BOOTSTRAP] failed $rowLabel: $e');
         }
       }
     }
+  }
+
+  if (failures.isNotEmpty) {
+    final sample = failures.take(5).join('; ');
+    final extra = failures.length > 5 ? '; ...' : '';
+    final recordWord = failures.length == 1 ? 'record' : 'records';
+    throw StateError(
+      'Bootstrap failed for ${failures.length} $recordWord after pushing '
+      '$totalOps records: $sample$extra',
+    );
   }
 
   if (kDebugMode) {
@@ -93,9 +111,9 @@ Map<String, Future<List<dynamic>> Function()> bootstrapTableQueries(
     // system_settings is a singleton — filter to the canonical row. The
     // table only defaults `id = 'singleton'`, it doesn't enforce it; any
     // rogue row would otherwise propagate to peers.
-    'system_settings': () => (db.select(db.systemSettingsTable)
-          ..where((t) => t.id.equals('singleton')))
-        .get(),
+    'system_settings': () => (db.select(
+      db.systemSettingsTable,
+    )..where((t) => t.id.equals('singleton'))).get(),
     'polls': () => db.select(db.polls).get(),
     'poll_options': () => db.select(db.pollOptions).get(),
     'poll_votes': () => db.select(db.pollVotes).get(),
@@ -107,8 +125,7 @@ Map<String, Future<List<dynamic>> Function()> bootstrapTableQueries(
     'custom_field_values': () => db.select(db.customFieldValues).get(),
     'notes': () => db.select(db.notes).get(),
     'front_session_comments': () => db.select(db.frontSessionComments).get(),
-    'conversation_categories': () =>
-        db.select(db.conversationCategories).get(),
+    'conversation_categories': () => db.select(db.conversationCategories).get(),
     'reminders': () => db.select(db.reminders).get(),
     'friends': () => db.select(db.friends).get(),
     'media_attachments': () => db.select(db.mediaAttachments).get(),
