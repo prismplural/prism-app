@@ -124,6 +124,22 @@ class SyncCounts {
 }
 
 const _sentinel = Object();
+const _epochVerificationFailureCodes = {'epoch_mismatch', 'epoch_key_mismatch'};
+
+bool _isEpochVerificationFailure(PrismSyncStructuredError? error) {
+  final code = error?.code;
+  return code != null && _epochVerificationFailureCodes.contains(code);
+}
+
+String _epochVerificationFailureMessage({required bool credentialsDurable}) {
+  if (credentialsDurable) {
+    return 'Pairing cannot be safely completed because this device could not '
+        'verify the latest sync epoch. Cancel and re-pair this device from an '
+        'existing device.';
+  }
+  return 'Pairing cannot be safely completed because this device could not '
+      'verify the latest sync epoch. Please start pairing again.';
+}
 
 class DevicePairingNotifier extends Notifier<PairingState> {
   /// Monotonically increasing generation counter. Each new pairing attempt
@@ -147,7 +163,8 @@ class DevicePairingNotifier extends Notifier<PairingState> {
   /// `ceremonyCompleted` flag without standing up a real FFI handle +
   /// platform keychain. Always reset to `null` in test teardown.
   @visibleForTesting
-  static Future<void> Function(ffi.PrismSyncHandle handle)? drainRustStoreOverride;
+  static Future<void> Function(ffi.PrismSyncHandle handle)?
+  drainRustStoreOverride;
 
   Future<void> _drainRustStore(ffi.PrismSyncHandle handle) {
     final override = drainRustStoreOverride;
@@ -400,7 +417,8 @@ class DevicePairingNotifier extends Notifier<PairingState> {
         final structuredError = PrismSyncStructuredError.tryParse(e);
         state = state.copyWith(
           step: PairingStep.error,
-          errorMessage: structuredError?.userMessage ??
+          errorMessage:
+              structuredError?.userMessage ??
               "Couldn't save pairing credentials to this device. "
                   'Please try pairing again.',
           errorCode: structuredError?.code,
@@ -460,6 +478,9 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     required int myGeneration,
   }) async {
     final structuredError = PrismSyncStructuredError.tryParse(error);
+    final isEpochVerificationFailure = _isEpochVerificationFailure(
+      structuredError,
+    );
 
     if (!ceremonyCompleted) {
       // Failure happened BEFORE credentials were committed — safe to
@@ -469,7 +490,9 @@ class DevicePairingNotifier extends Notifier<PairingState> {
       if (_generation != myGeneration) return;
       state = state.copyWith(
         step: PairingStep.error,
-        errorMessage: structuredError?.userMessage ?? error.toString(),
+        errorMessage: isEpochVerificationFailure
+            ? _epochVerificationFailureMessage(credentialsDurable: false)
+            : structuredError?.userMessage ?? error.toString(),
         errorCode: structuredError?.code,
       );
       return;
@@ -486,9 +509,11 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     if (_generation != myGeneration) return;
     state = state.copyWith(
       step: PairingStep.snapshotFailure,
-      errorMessage: structuredError?.userMessage ??
-          'Pairing succeeded but setup failed. You can retry without '
-              're-running the pairing handshake.',
+      errorMessage: isEpochVerificationFailure
+          ? _epochVerificationFailureMessage(credentialsDurable: true)
+          : structuredError?.userMessage ??
+                'Pairing succeeded but setup failed. You can retry without '
+                    're-running the pairing handshake.',
       errorCode: structuredError?.code,
       syncIncomplete: true,
     );
@@ -584,7 +609,9 @@ class DevicePairingNotifier extends Notifier<PairingState> {
       } catch (e, stackTrace) {
         fatalSnapshotError = true;
         final structuredError = PrismSyncStructuredError.tryParse(e);
-        fatalSnapshotMessage = structuredError?.userMessage ?? e.toString();
+        fatalSnapshotMessage = _isEpochVerificationFailure(structuredError)
+            ? _epochVerificationFailureMessage(credentialsDurable: true)
+            : structuredError?.userMessage ?? e.toString();
         fatalSnapshotCode = structuredError?.code;
         if (kDebugMode) {
           debugPrint('[PAIRING] bootstrapFromSnapshot threw: $e');
@@ -799,8 +826,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
         }
         coordinator.signalFailure(
           StrictApplyFailure(
-            message:
-                'TIMEOUT: no apply activity for ${idleTimeout.inSeconds}s',
+            message: 'TIMEOUT: no apply activity for ${idleTimeout.inSeconds}s',
             failedTables: const [],
           ),
         );
@@ -882,7 +908,9 @@ class DevicePairingNotifier extends Notifier<PairingState> {
       if (_generation != myGeneration) return;
       state = state.copyWith(
         step: PairingStep.snapshotFailure,
-        errorMessage: structuredError?.userMessage ?? e.toString(),
+        errorMessage: _isEpochVerificationFailure(structuredError)
+            ? _epochVerificationFailureMessage(credentialsDurable: true)
+            : structuredError?.userMessage ?? e.toString(),
         errorCode: structuredError?.code,
       );
     }
