@@ -574,6 +574,34 @@ class FrontingMigrationService {
       );
     }
 
+    // P1 (final review): ensure the v7 fronting indexes are installed
+    // BEFORE we mark the migration complete.
+    //
+    // v7 onUpgrade's detect-and-refuse path skips composite + orphan
+    // index creation when duplicates are detected, so a DB that took
+    // the blocked-mode recovery route to get here may still be missing
+    // those indexes (and may still have the v2-era single-column
+    // uniqueness index that would reject legitimate multi-member PK
+    // switches). Ensure the v7 indexes idempotently — safe to call from
+    // both blocked-mode recovery and the normal flow (where v7 onUpgrade
+    // already created them, so this is a no-op).
+    //
+    // Run this BEFORE the modeComplete write so a failure here keeps
+    // the user on the resumeCleanup path rather than stranding a
+    // "completed" DB without protective constraints. Wrap with
+    // _failPostTx for the same reason as the other post-tx steps.
+    try {
+      await db.ensurePkFrontingIndexes();
+    } catch (e) {
+      return _failPostTx(
+        exportFile: exportFile,
+        counters: counters,
+        errorMessage:
+            'Fronting index install failed: $e. Please reopen the upgrade '
+            'modal to finish migration.',
+      );
+    }
+
     // Step 10: mark complete. Reset the cleanup substate back to the
     // inert default so a subsequent (rare) re-run after `complete`
     // doesn't carry over stale state — though `resumeCleanup()` itself
