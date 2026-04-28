@@ -72,6 +72,7 @@ class V1Export {
     this.reminders = const [],
     this.friends = const [],
     this.mediaAttachments = const [],
+    this.rescueLegacyFields = false,
   });
 
   final String formatVersion;
@@ -100,6 +101,28 @@ class V1Export {
   final List<V1Reminder> reminders;
   final List<V1Friend> friends;
   final List<V1MediaAttachment> mediaAttachments;
+
+  /// Envelope-level marker for the PRISM1 rescue importer (§4.7).
+  ///
+  /// Set to `true` by `DataExportService.buildExport` when its
+  /// `includeLegacyFields == true` (i.e., the migration-time export that
+  /// is meant to be self-sufficient as a rescue input). When the flag is
+  /// present in a parsed envelope, `DataImportService` routes EVERY
+  /// session and comment row through the legacy/rescue path regardless
+  /// of the per-row legacy-key sniff.
+  ///
+  /// Why an envelope flag instead of relying on per-row keys: the real
+  /// exporter omits empty / null legacy keys (`coFronterIds: []`,
+  /// `pkMemberIdsJson: null`), so a backup row with nothing fronting
+  /// alongside it carried no per-row marker at all. Empty native
+  /// single-member rows and orphan rows (member_id null) both bypassed
+  /// the rescue path entirely; orphans then imported with `memberId =
+  /// null` instead of being assigned to the Unknown sentinel — and the
+  /// v8 CHECK constraint rejects those rows. Codex pass 2 #B-NEW1.
+  ///
+  /// Per-row sniff stays as a fallback for genuinely-old PRISM1 files
+  /// that pre-date this marker.
+  final bool rescueLegacyFields;
 
   Map<String, dynamic> toJson() => {
     'formatVersion': formatVersion,
@@ -141,124 +164,155 @@ class V1Export {
     if (friends.isNotEmpty) 'friends': friends.map((e) => e.toJson()).toList(),
     if (mediaAttachments.isNotEmpty)
       'mediaAttachments': mediaAttachments.map((e) => e.toJson()).toList(),
+    // Envelope-level rescue marker (§4.7). Only emitted when true so
+    // post-migration exports stay byte-identical to pre-marker files.
+    if (rescueLegacyFields) 'rescueLegacyFields': true,
   };
 
-  factory V1Export.fromJson(Map<String, dynamic> json) => V1Export(
-    formatVersion: json['formatVersion'] as String? ?? '1.0',
-    version: json['version'] as String? ?? '1.0',
-    appName: json['appName'] as String? ?? 'Prism Plurality',
-    exportDate: json['exportDate'] as String? ?? '',
-    totalRecords: json['totalRecords'] as int? ?? 0,
-    headmates:
-        (json['headmates'] as List<dynamic>?)
-            ?.map((e) => V1Headmate.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [],
-    frontSessions:
-        (json['frontSessions'] as List<dynamic>?)
-            ?.map((e) => V1FrontSession.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [],
-    sleepSessions:
-        (json['sleepSessions'] as List<dynamic>?)
-            ?.map((e) => V1SleepSession.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [],
-    conversations:
-        (json['conversations'] as List<dynamic>?)
-            ?.map((e) => V1Conversation.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [],
-    messages:
-        (json['messages'] as List<dynamic>?)
-            ?.map((e) => V1Message.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [],
-    polls:
-        (json['polls'] as List<dynamic>?)
-            ?.map((e) => V1Poll.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [],
-    pollOptions:
-        (json['pollOptions'] as List<dynamic>?)
-            ?.map((e) => V1PollOption.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [],
-    systemSettings:
-        (json['systemSettings'] as List<dynamic>?)
-            ?.map((e) => V1SystemSettings.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [],
-    habits:
-        (json['habits'] as List<dynamic>?)
-            ?.map((e) => V1Habit.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [],
-    habitCompletions:
-        (json['habitCompletions'] as List<dynamic>?)
-            ?.map((e) => V1HabitCompletion.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [],
-    pluralKitSyncState: json['pluralKitSyncState'] != null
-        ? V1PluralKitSyncState.fromJson(
-            json['pluralKitSyncState'] as Map<String, dynamic>,
-          )
-        : null,
-    memberGroups:
-        (json['memberGroups'] as List<dynamic>?)
-            ?.map((e) => V1MemberGroup.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [],
-    memberGroupEntries:
-        (json['memberGroupEntries'] as List<dynamic>?)
-            ?.map((e) => V1MemberGroupEntry.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [],
-    customFields:
-        (json['customFields'] as List<dynamic>?)
-            ?.map((e) => V1CustomField.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [],
-    customFieldValues:
-        (json['customFieldValues'] as List<dynamic>?)
-            ?.map((e) => V1CustomFieldValue.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [],
-    notes:
-        (json['notes'] as List<dynamic>?)
-            ?.map((e) => V1Note.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [],
-    frontSessionComments:
-        (json['frontSessionComments'] as List<dynamic>?)
-            ?.map(
-              (e) => V1FrontSessionComment.fromJson(e as Map<String, dynamic>),
+  factory V1Export.fromJson(Map<String, dynamic> json) {
+    // Read the envelope marker first so it can be threaded into the
+    // session / comment fromJson factories. When set, every session /
+    // comment row is forced through the legacy/rescue path regardless
+    // of the per-row sniff (codex pass 2 #B-NEW1).
+    final rescueLegacy = json['rescueLegacyFields'] as bool? ?? false;
+    return V1Export(
+      formatVersion: json['formatVersion'] as String? ?? '1.0',
+      version: json['version'] as String? ?? '1.0',
+      appName: json['appName'] as String? ?? 'Prism Plurality',
+      exportDate: json['exportDate'] as String? ?? '',
+      totalRecords: json['totalRecords'] as int? ?? 0,
+      headmates:
+          (json['headmates'] as List<dynamic>?)
+              ?.map((e) => V1Headmate.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      frontSessions:
+          (json['frontSessions'] as List<dynamic>?)
+              ?.map(
+                (e) => V1FrontSession.fromJson(
+                  e as Map<String, dynamic>,
+                  forceLegacyShape: rescueLegacy,
+                ),
+              )
+              .toList() ??
+          [],
+      sleepSessions:
+          (json['sleepSessions'] as List<dynamic>?)
+              ?.map((e) => V1SleepSession.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      conversations:
+          (json['conversations'] as List<dynamic>?)
+              ?.map((e) => V1Conversation.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      messages:
+          (json['messages'] as List<dynamic>?)
+              ?.map((e) => V1Message.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      polls:
+          (json['polls'] as List<dynamic>?)
+              ?.map((e) => V1Poll.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      pollOptions:
+          (json['pollOptions'] as List<dynamic>?)
+              ?.map((e) => V1PollOption.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      systemSettings:
+          (json['systemSettings'] as List<dynamic>?)
+              ?.map(
+                (e) => V1SystemSettings.fromJson(e as Map<String, dynamic>),
+              )
+              .toList() ??
+          [],
+      habits:
+          (json['habits'] as List<dynamic>?)
+              ?.map((e) => V1Habit.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      habitCompletions:
+          (json['habitCompletions'] as List<dynamic>?)
+              ?.map(
+                (e) => V1HabitCompletion.fromJson(e as Map<String, dynamic>),
+              )
+              .toList() ??
+          [],
+      pluralKitSyncState: json['pluralKitSyncState'] != null
+          ? V1PluralKitSyncState.fromJson(
+              json['pluralKitSyncState'] as Map<String, dynamic>,
             )
-            .toList() ??
-        [],
-    conversationCategories:
-        (json['conversationCategories'] as List<dynamic>?)
-            ?.map(
-              (e) => V1ConversationCategory.fromJson(e as Map<String, dynamic>),
-            )
-            .toList() ??
-        [],
-    reminders:
-        (json['reminders'] as List<dynamic>?)
-            ?.map((e) => V1Reminder.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [],
-    friends:
-        (json['friends'] as List<dynamic>?)
-            ?.map((e) => V1Friend.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [],
-    mediaAttachments:
-        (json['mediaAttachments'] as List<dynamic>?)
-            ?.map((e) => V1MediaAttachment.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [],
-  );
+          : null,
+      memberGroups:
+          (json['memberGroups'] as List<dynamic>?)
+              ?.map((e) => V1MemberGroup.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      memberGroupEntries:
+          (json['memberGroupEntries'] as List<dynamic>?)
+              ?.map(
+                (e) => V1MemberGroupEntry.fromJson(e as Map<String, dynamic>),
+              )
+              .toList() ??
+          [],
+      customFields:
+          (json['customFields'] as List<dynamic>?)
+              ?.map((e) => V1CustomField.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      customFieldValues:
+          (json['customFieldValues'] as List<dynamic>?)
+              ?.map(
+                (e) => V1CustomFieldValue.fromJson(e as Map<String, dynamic>),
+              )
+              .toList() ??
+          [],
+      notes:
+          (json['notes'] as List<dynamic>?)
+              ?.map((e) => V1Note.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      frontSessionComments:
+          (json['frontSessionComments'] as List<dynamic>?)
+              ?.map(
+                (e) => V1FrontSessionComment.fromJson(
+                  e as Map<String, dynamic>,
+                  forceLegacyShape: rescueLegacy,
+                ),
+              )
+              .toList() ??
+          [],
+      conversationCategories:
+          (json['conversationCategories'] as List<dynamic>?)
+              ?.map(
+                (e) => V1ConversationCategory.fromJson(
+                  e as Map<String, dynamic>,
+                ),
+              )
+              .toList() ??
+          [],
+      reminders:
+          (json['reminders'] as List<dynamic>?)
+              ?.map((e) => V1Reminder.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      friends:
+          (json['friends'] as List<dynamic>?)
+              ?.map((e) => V1Friend.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      mediaAttachments:
+          (json['mediaAttachments'] as List<dynamic>?)
+              ?.map(
+                (e) => V1MediaAttachment.fromJson(e as Map<String, dynamic>),
+              )
+              .toList() ??
+          [],
+      rescueLegacyFields: rescueLegacy,
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -453,7 +507,21 @@ class V1FrontSession {
     if (isHealthKitImport != null) 'isHealthKitImport': isHealthKitImport,
   };
 
-  factory V1FrontSession.fromJson(Map<String, dynamic> json) {
+  factory V1FrontSession.fromJson(
+    Map<String, dynamic> json, {
+    bool forceLegacyShape = false,
+  }) {
+    // Envelope-level marker takes precedence: when the parent V1Export
+    // carries `rescueLegacyFields: true` (set by the migration-time
+    // exporter), every row routes through the rescue path regardless
+    // of which legacy keys this particular row happens to carry. This
+    // is load-bearing: the real exporter omits empty / null legacy
+    // keys, so a backup row with `co_fronter_ids = []` and
+    // `pk_member_ids_json = NULL` (i.e., every native single-member
+    // row, plus orphan rows) carries no per-row marker at all and
+    // would otherwise bypass the rescue importer entirely (codex pass
+    // 2 #B-NEW1).
+    //
     // Per-row legacy-shape sniff: any legacy-only key present routes
     // the row through the rescue path regardless of new-shape markers.
     // The migration-time PRISM1 export emits BOTH legacy fields AND
@@ -470,7 +538,8 @@ class V1FrontSession {
     // `memberId` or `headmateId` as the local member id. Treating
     // `headmateId` as a legacy marker would force every new-shape PK
     // row through the rescue path on re-import.
-    final isLegacy = json.containsKey('coFronterIds') ||
+    final isLegacy = forceLegacyShape ||
+        json.containsKey('coFronterIds') ||
         json.containsKey('pkMemberIdsJson');
 
     // Tolerate a malformed `coFronterIds` value (per §6 edge cases — if
@@ -1504,12 +1573,22 @@ class V1FrontSessionComment {
     if (authorMemberId != null) 'authorMemberId': authorMemberId,
   };
 
-  factory V1FrontSessionComment.fromJson(Map<String, dynamic> json) {
+  factory V1FrontSessionComment.fromJson(
+    Map<String, dynamic> json, {
+    bool forceLegacyShape = false,
+  }) {
+    // Envelope-level marker takes precedence (see V1FrontSession.fromJson
+    // — codex pass 2 #B-NEW1). When the parent V1Export carries
+    // `rescueLegacyFields: true`, route every comment through the
+    // legacy/rescue path even if it carries `targetTime` /
+    // `authorMemberId` (the migration-time export emits both shapes on
+    // the same row).
     final hasSessionId = json.containsKey('sessionId') &&
         (json['sessionId'] as String?)?.isNotEmpty == true;
     final hasNewShapeMarker =
         json.containsKey('targetTime') || json.containsKey('authorMemberId');
-    final isLegacy = hasSessionId && !hasNewShapeMarker;
+    final isLegacy =
+        forceLegacyShape || (hasSessionId && !hasNewShapeMarker);
     return V1FrontSessionComment(
       id: json['id'] as String,
       sessionId: json['sessionId'] as String?,
