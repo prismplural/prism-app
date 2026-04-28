@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/core/database/daos/conversations_dao.dart';
 import 'package:prism_plurality/data/mappers/conversation_mapper.dart';
@@ -127,7 +128,7 @@ class DriftConversationRepository
     // so a peer in a different timezone would parse the value as local and
     // shift the absolute moment by the timezone delta on every sync.
     final json = jsonEncode(
-      timestamps.map((k, v) => MapEntry(k, v.toUtc().toIso8601String())),
+      timestamps.map((k, v) => MapEntry(k, _toSyncUtc(v))),
     );
     await _dao.updateLastReadTimestamps(conversationId, json);
     await syncRecordUpdate(_table, conversationId, {'last_read_timestamps': json});
@@ -153,13 +154,23 @@ class DriftConversationRepository
     }
   }
 
+  /// Visible-for-testing: builds the field map this repository hands to the
+  /// Rust sync engine for create/update. Exposed (with a leading `$` so it
+  /// stays clearly internal) so a regression test can assert that every
+  /// DateTime ends up Z-suffixed UTC — see drift_conversation_repository_test.
+  /// The TZ-drift bug Agent O caught in `setLastReadTimestamps` had
+  /// matching siblings here; the test pins the contract for all of them.
+  @visibleForTesting
+  Map<String, dynamic> debugConversationFields(domain.Conversation c) =>
+      _conversationFields(c);
+
   Map<String, dynamic> _conversationFields(domain.Conversation c) {
     final lastReadTimestampsJson = jsonEncode(
-      c.lastReadTimestamps.map((k, v) => MapEntry(k, v.toIso8601String())),
+      c.lastReadTimestamps.map((k, v) => MapEntry(k, _toSyncUtc(v))),
     );
     return {
-      'created_at': c.createdAt.toIso8601String(),
-      'last_activity_at': c.lastActivityAt.toIso8601String(),
+      'created_at': _toSyncUtc(c.createdAt),
+      'last_activity_at': _toSyncUtc(c.lastActivityAt),
       'title': c.title,
       'emoji': c.emoji,
       'is_direct_message': c.isDirectMessage,
@@ -174,3 +185,12 @@ class DriftConversationRepository
     };
   }
 }
+
+/// Normalizes a DateTime to UTC ISO-8601 (Z-suffixed) for sync wire emission.
+///
+/// Local DateTimes serialize with no offset/Z, so a peer in a different
+/// timezone would parse the value as their own local time and shift the
+/// absolute moment by the timezone delta on every sync. Routing every
+/// DateTime through here mirrors the `_dateTimeToSyncString` helper in
+/// `core/sync/drift_sync_adapter.dart`.
+String _toSyncUtc(DateTime dt) => dt.toUtc().toIso8601String();

@@ -8004,7 +8004,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String pkFileImportPreviewNote(String termPlural) {
-    return 'Los/las $termPlural existentes con el mismo ID de PluralKit se actualizarán. Los switches duplicados se omiten.';
+    return 'Los/las $termPlural existentes con el mismo ID de PluralKit se actualizarán. Los cambios duplicados se omiten.';
   }
 
   @override
@@ -8017,9 +8017,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get pkFileImportCompleteHeading => 'Importación completa';
 
   @override
-  String get pkFileImportSwitchesCreatedLabel => 'Switches creados';
+  String get pkFileImportSwitchesCreatedLabel => 'Cambios creados';
 
   @override
   String get pkFileImportSwitchesSkippedLabel =>
-      'Switches omitidos (ya existían)';
+      'Cambios omitidos (ya existían)';
 }
