@@ -397,6 +397,59 @@ void main() {
       );
     });
 
+    test('reset_preserves_database_keys', () async {
+      final harness = await _ResetHarness.create();
+      addTearDown(harness.dispose);
+
+      harness.secureStore
+        ..seedSyncValue('prism_sync.database_key', 'KEEP_DATABASE')
+        ..seedSyncValue(
+          'prism_sync.database_key_staging',
+          'KEEP_DATABASE_STAGING',
+        )
+        ..seedSyncValue('prism_sync.sync_database_key', 'KEEP_SYNC_DATABASE')
+        ..seedSyncValue(
+          'prism_sync.sync_database_key_staging',
+          'KEEP_SYNC_DATABASE_STAGING',
+        )
+        ..seedSyncValue(
+          'prism_sync.sync_id',
+          base64Encode(utf8.encode('sync-abc')),
+        )
+        ..seedSyncValue('prism_sync.registration_token', 'WIPE_REGISTRATION')
+        ..seedSyncValue('prism_sync.runtime_dek', 'WIPE_RUNTIME');
+
+      await harness.reset(ResetCategory.sync);
+
+      expect(
+        harness.secureStore.readSyncValue('prism_sync.database_key'),
+        'KEEP_DATABASE',
+      );
+      expect(
+        harness.secureStore.readSyncValue('prism_sync.database_key_staging'),
+        'KEEP_DATABASE_STAGING',
+      );
+      expect(
+        harness.secureStore.readSyncValue('prism_sync.sync_database_key'),
+        'KEEP_SYNC_DATABASE',
+      );
+      expect(
+        harness.secureStore.readSyncValue(
+          'prism_sync.sync_database_key_staging',
+        ),
+        'KEEP_SYNC_DATABASE_STAGING',
+      );
+      expect(harness.secureStore.readSyncValue('prism_sync.sync_id'), isNull);
+      expect(
+        harness.secureStore.readSyncValue('prism_sync.registration_token'),
+        isNull,
+      );
+      expect(
+        harness.secureStore.readSyncValue('prism_sync.runtime_dek'),
+        isNull,
+      );
+    });
+
     test('reset_disables_auto_sync_first', () async {
       final fakeHandle = _FakeSyncHandle();
       final recordingFfi = _RecordingResetSyncFfi();
@@ -541,6 +594,47 @@ void main() {
       expect(clearIdx, greaterThanOrEqualTo(0));
       expect(disposeIdx, greaterThan(clearIdx));
       expect(deleteIdx, greaterThan(disposeIdx));
+    });
+
+    test('reset_calls_clear_sync_state_when_db_delete_fails', () async {
+      final fakeHandle = _FakeSyncHandle();
+      final recordingFfi = _RecordingResetSyncFfi();
+      final orderLog = <String>[];
+
+      recordingFfi.onClearSyncState = (syncId) {
+        orderLog.add('clear:$syncId');
+      };
+
+      final harness = await _ResetHarness.create(
+        handleOverride: fakeHandle,
+        ffiOverride: recordingFfi,
+        deleteObserver: (path) {
+          orderLog.add('delete:$path');
+          throw FileSystemException('delete failed', path);
+        },
+      );
+      addTearDown(harness.dispose);
+
+      harness.secureStore.seedSyncValue(
+        'prism_sync.sync_id',
+        base64Encode(utf8.encode('sync-abc')),
+      );
+      await harness.syncDbFile.writeAsString('sync-db');
+
+      await harness.reset(ResetCategory.sync);
+
+      expect(
+        recordingFfi.calls,
+        contains('clearSyncState(syncId: sync-abc, forceActive: true)'),
+      );
+      expect(orderLog, contains('clear:sync-abc'));
+      expect(orderLog.any((e) => e.startsWith('delete:')), isTrue);
+      expect(
+        orderLog.indexOf('clear:sync-abc'),
+        lessThan(orderLog.indexWhere((e) => e.startsWith('delete:'))),
+      );
+      expect(harness.secureStore.readSyncValue('prism_sync.sync_id'), isNull);
+      expect(fakeHandle.disposeCount, 1);
     });
 
     test('reset_continues_when_clear_sync_state_fails', () async {

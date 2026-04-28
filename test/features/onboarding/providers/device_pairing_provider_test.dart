@@ -88,6 +88,14 @@ class _FakePairingCeremonyApi extends PairingCeremonyApi {
   }) => throw UnimplementedError();
 }
 
+String _structuredSyncError({required String code, required String message}) {
+  return 'PRISM_SYNC_ERROR_JSON:${jsonEncode({
+    'message': message,
+    'code': code,
+    'error_type': 'sync',
+  })}';
+}
+
 void main() {
   group('PairingState', () {
     test('default state starts at enterUrl step', () {
@@ -612,6 +620,73 @@ void main() {
       },
     );
 
+    for (final code in ['epoch_mismatch', 'epoch_key_mismatch']) {
+      test(
+        '$code before durable credentials is a hard re-pair error',
+        () async {
+          final container = makeContainer();
+          addTearDown(container.dispose);
+
+          final notifier = container.read(devicePairingProvider.notifier);
+
+          await notifier.handlePostCeremonyFailureForTest(
+            ceremonyCompleted: false,
+            error: StateError(
+              _structuredSyncError(
+                code: code,
+                message: 'relay epoch could not be verified',
+              ),
+            ),
+          );
+
+          final state = container.read(devicePairingProvider);
+          expect(state.step, PairingStep.error);
+          expect(state.syncIncomplete, isFalse);
+          expect(state.errorCode, code);
+          expect(
+            state.errorMessage,
+            contains('Pairing cannot be safely completed'),
+          );
+          expect(state.errorMessage, contains('start pairing again'));
+        },
+      );
+
+      test(
+        '$code after durable credentials preserves creds but says re-pair',
+        () async {
+          final container = makeContainer();
+          addTearDown(container.dispose);
+
+          final notifier = container.read(devicePairingProvider.notifier);
+
+          await notifier.handlePostCeremonyFailureForTest(
+            ceremonyCompleted: true,
+            error: StateError(
+              _structuredSyncError(
+                code: code,
+                message: 'relay epoch could not be verified',
+              ),
+            ),
+          );
+
+          final state = container.read(devicePairingProvider);
+          expect(state.step, PairingStep.snapshotFailure);
+          expect(state.syncIncomplete, isTrue);
+          expect(state.errorCode, code);
+          expect(
+            state.errorMessage,
+            contains('Pairing cannot be safely completed'),
+          );
+          expect(state.errorMessage, contains('re-pair this device'));
+          expect(
+            state.errorMessage,
+            isNot(contains('Pairing succeeded')),
+            reason: 'Epoch verification failures must not imply success.',
+          );
+        },
+      );
+    }
+
     test(
       'generation mismatch: setPhase called only when _generation matches',
       () async {
@@ -653,10 +728,8 @@ void main() {
     /// Build a container with a controllable sync-event stream and a
     /// fake handle so the private watchdog can be exercised directly via
     /// the @visibleForTesting wrapper.
-    ({
-      ProviderContainer container,
-      StreamController<SyncEvent> events,
-    }) makeWatchdogContainer() {
+    ({ProviderContainer container, StreamController<SyncEvent> events})
+    makeWatchdogContainer() {
       final eventController = StreamController<SyncEvent>.broadcast();
       final container = ProviderContainer(
         overrides: [
@@ -707,19 +780,18 @@ void main() {
         // the idle timeout) for ~600ms total. None of these should reset
         // the watchdog under the corrected policy.
         var ticks = 0;
-        final pulseTimer = Timer.periodic(
-          const Duration(milliseconds: 80),
-          (timer) {
-            ticks++;
-            setup.events.add(
-              SyncEvent.fromJson(<String, dynamic>{
-                'type': 'SyncCompleted',
-                'result': <String, dynamic>{},
-              }),
-            );
-            if (ticks >= 8) timer.cancel();
-          },
-        );
+        final pulseTimer = Timer.periodic(const Duration(milliseconds: 80), (
+          timer,
+        ) {
+          ticks++;
+          setup.events.add(
+            SyncEvent.fromJson(<String, dynamic>{
+              'type': 'SyncCompleted',
+              'result': <String, dynamic>{},
+            }),
+          );
+          if (ticks >= 8) timer.cancel();
+        });
         addTearDown(pulseTimer.cancel);
 
         final watchdogFuture = notifier.awaitApplyOutcomeWithWatchdogForTest(
@@ -776,22 +848,21 @@ void main() {
         // RemoteChanges resets it; final signalBatchComplete resolves the
         // latch with success.
         var ticks = 0;
-        final pulseTimer = Timer.periodic(
-          const Duration(milliseconds: 80),
-          (timer) {
-            ticks++;
-            setup.events.add(
-              SyncEvent.fromJson(<String, dynamic>{
-                'type': 'RemoteChanges',
-                'changes': <Map<String, dynamic>>[],
-              }),
-            );
-            if (ticks >= 8) {
-              timer.cancel();
-              coordinator.signalBatchComplete();
-            }
-          },
-        );
+        final pulseTimer = Timer.periodic(const Duration(milliseconds: 80), (
+          timer,
+        ) {
+          ticks++;
+          setup.events.add(
+            SyncEvent.fromJson(<String, dynamic>{
+              'type': 'RemoteChanges',
+              'changes': <Map<String, dynamic>>[],
+            }),
+          );
+          if (ticks >= 8) {
+            timer.cancel();
+            coordinator.signalBatchComplete();
+          }
+        });
         addTearDown(pulseTimer.cancel);
 
         final outcome = await notifier
@@ -854,9 +925,7 @@ void main() {
       Map<String, String>? initial,
     ]) {
       final store = <String, String>{...?initial};
-      TestDefaultBinaryMessengerBinding
-          .instance
-          .defaultBinaryMessenger
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(secureStorageChannel, (
             MethodCall call,
           ) async {
@@ -912,194 +981,185 @@ void main() {
       return container;
     }
 
-    test(
-      'drainRustStore failure before ceremonyCompleted flag wipes keychain '
-      '(pre-ceremony semantics)',
-      () async {
-        installSecureStorageMock();
-        final container = makeContainer();
-        addTearDown(container.dispose);
+    test('drainRustStore failure before ceremonyCompleted flag wipes keychain '
+        '(pre-ceremony semantics)', () async {
+      installSecureStorageMock();
+      final container = makeContainer();
+      addTearDown(container.dispose);
 
-        // Simulate drainRustStore throwing — Rust returned creds but
-        // platform keychain write failed. Per the drain-ordering fix,
-        // this must be treated as a ceremony-phase failure: keychain
-        // gets wiped and we route to PairingStep.error (NOT
-        // snapshotFailure, which would imply preserve-creds + retry).
-        DevicePairingNotifier.drainRustStoreOverride = (handle) async {
-          throw StateError('keychain unavailable: simulated failure');
-        };
+      // Simulate drainRustStore throwing — Rust returned creds but
+      // platform keychain write failed. Per the drain-ordering fix,
+      // this must be treated as a ceremony-phase failure: keychain
+      // gets wiped and we route to PairingStep.error (NOT
+      // snapshotFailure, which would imply preserve-creds + retry).
+      DevicePairingNotifier.drainRustStoreOverride = (handle) async {
+        throw StateError('keychain unavailable: simulated failure');
+      };
 
-        // Ensure the AsyncNotifier handle has resolved before driving
-        // the ceremony — otherwise prismSyncHandleProvider.value is null.
-        await container.read(prismSyncHandleProvider.future);
+      // Ensure the AsyncNotifier handle has resolved before driving
+      // the ceremony — otherwise prismSyncHandleProvider.value is null.
+      await container.read(prismSyncHandleProvider.future);
 
-        final notifier = container.read(devicePairingProvider.notifier);
-        await notifier.completeJoinerWithPassword('123456');
-        await pumpEventQueue();
+      final notifier = container.read(devicePairingProvider.notifier);
+      await notifier.completeJoinerWithPassword('123456');
+      await pumpEventQueue();
 
-        final state = container.read(devicePairingProvider);
-        expect(
-          state.step,
-          PairingStep.error,
-          reason:
-              'A drain failure between ceremony returning and the flag '
-              'flipping must route to error (with keychain cleanup) — not '
-              'snapshotFailure, which would imply credentials are durable.',
+      final state = container.read(devicePairingProvider);
+      expect(
+        state.step,
+        PairingStep.error,
+        reason:
+            'A drain failure between ceremony returning and the flag '
+            'flipping must route to error (with keychain cleanup) — not '
+            'snapshotFailure, which would imply credentials are durable.',
+      );
+      expect(state.syncIncomplete, isFalse);
+    });
+
+    test('post-ceremony exception after successful drain preserves creds '
+        '(retry path works)', () async {
+      // Pre-seed nothing — we'll observe drainRustStore writing values
+      // to the mock store before any post-drain failure occurs.
+      final keychain = installSecureStorageMock();
+      final container = makeContainer();
+      addTearDown(container.dispose);
+
+      var drainCalls = 0;
+      var drainCompletedAt = -1;
+      var bootstrapStartedAt = -1;
+      var sequence = 0;
+
+      // Drain succeeds AND records the order in which it ran. We also
+      // populate the keychain mock so we can assert that by the time
+      // any post-ceremony failure handler runs, credentials are
+      // durable. (`ffi.configureEngine` will throw on the fake handle
+      // after this drain — that's the failure we route through
+      // _handlePostCeremonyFailure.)
+      DevicePairingNotifier.drainRustStoreOverride = (handle) async {
+        drainCalls++;
+        // Simulate the real drain populating the keychain with the
+        // credentials needed by cancelAndRemoveDevice.
+        keychain['prism_sync.sync_id'] = base64Encode(utf8.encode('sync-1'));
+        keychain['prism_sync.device_id'] = base64Encode(
+          utf8.encode('device-1'),
         );
-        expect(state.syncIncomplete, isFalse);
-      },
-    );
-
-    test(
-      'post-ceremony exception after successful drain preserves creds '
-      '(retry path works)',
-      () async {
-        // Pre-seed nothing — we'll observe drainRustStore writing values
-        // to the mock store before any post-drain failure occurs.
-        final keychain = installSecureStorageMock();
-        final container = makeContainer();
-        addTearDown(container.dispose);
-
-        var drainCalls = 0;
-        var drainCompletedAt = -1;
-        var bootstrapStartedAt = -1;
-        var sequence = 0;
-
-        // Drain succeeds AND records the order in which it ran. We also
-        // populate the keychain mock so we can assert that by the time
-        // any post-ceremony failure handler runs, credentials are
-        // durable. (`ffi.configureEngine` will throw on the fake handle
-        // after this drain — that's the failure we route through
-        // _handlePostCeremonyFailure.)
-        DevicePairingNotifier.drainRustStoreOverride = (handle) async {
-          drainCalls++;
-          // Simulate the real drain populating the keychain with the
-          // credentials needed by cancelAndRemoveDevice.
-          keychain['prism_sync.sync_id'] = base64Encode(utf8.encode('sync-1'));
-          keychain['prism_sync.device_id'] = base64Encode(
-            utf8.encode('device-1'),
-          );
-          keychain['prism_sync.session_token'] = base64Encode(
-            utf8.encode('token-1'),
-          );
-          drainCompletedAt = ++sequence;
-        };
-
-        // Ensure the AsyncNotifier handle has resolved before we drive
-        // the joiner ceremony — otherwise `prismSyncHandleProvider.value`
-        // returns null and the StateError short-circuits before drain.
-        await container.read(prismSyncHandleProvider.future);
-
-        final notifier = container.read(devicePairingProvider.notifier);
-        // The FFI configureEngine call inside _bootstrapAfterJoin will
-        // throw when handed a fake opaque handle — that's intentional,
-        // it exercises the post-ceremony failure path AFTER drain has
-        // already populated the keychain. The outer try/catch in
-        // completeJoinerWithPassword catches it and routes through
-        // _handlePostCeremonyFailure, so the await resolves cleanly.
-        await notifier.completeJoinerWithPassword('123456');
-        bootstrapStartedAt = ++sequence;
-        await pumpEventQueue();
-
-        final state = container.read(devicePairingProvider);
-        expect(
-          drainCalls,
-          1,
-          reason:
-              'drainRustStore must run exactly once, immediately after the '
-              'ceremony returns and before any bootstrap step.',
+        keychain['prism_sync.session_token'] = base64Encode(
+          utf8.encode('token-1'),
         );
-        expect(
-          drainCompletedAt,
-          lessThan(bootstrapStartedAt),
-          reason:
-              'Drain must complete before any post-flag work begins. '
-              'If this fails the drain ran AFTER bootstrap, restoring '
-              'the original P1 race window.',
-        );
-        // The contract: post-drain failures route to snapshotFailure
-        // (preserve creds + retry path), NOT to error (wipe + restart).
-        expect(
-          state.step,
-          isNot(PairingStep.error),
-          reason:
-              'Post-drain failures must NOT route to error (which wipes '
-              'the keychain) — they must preserve credentials.',
-        );
-        expect(
-          keychain['prism_sync.sync_id'],
-          isNotNull,
-          reason:
-              'Credentials must remain in the keychain after a '
-              'post-ceremony failure — cancelAndRemoveDevice depends on '
-              'them being readable.',
-        );
-        expect(keychain['prism_sync.device_id'], isNotNull);
-        expect(keychain['prism_sync.session_token'], isNotNull);
-      },
-    );
+        drainCompletedAt = ++sequence;
+      };
 
-    test(
-      'cancelAndRemoveDevice after successful drain reads keychain '
-      'and attempts deregisterDevice',
-      () async {
-        // Pre-seed the keychain mock the same way a successful drain
-        // would have, then drive cancelAndRemoveDevice and verify it
-        // reads the credentials and clears them.
-        final keychain = installSecureStorageMock({
-          'prism_sync.sync_id': base64Encode(utf8.encode('sync-xyz')),
-          'prism_sync.device_id': base64Encode(utf8.encode('device-xyz')),
-          'prism_sync.session_token': base64Encode(utf8.encode('token-xyz')),
-          'prism_sync.wrapped_dek': base64Encode(utf8.encode('dek-xyz')),
-        });
+      // Ensure the AsyncNotifier handle has resolved before we drive
+      // the joiner ceremony — otherwise `prismSyncHandleProvider.value`
+      // returns null and the StateError short-circuits before drain.
+      await container.read(prismSyncHandleProvider.future);
 
-        final container = makeContainer();
-        addTearDown(container.dispose);
+      final notifier = container.read(devicePairingProvider.notifier);
+      // The FFI configureEngine call inside _bootstrapAfterJoin will
+      // throw when handed a fake opaque handle — that's intentional,
+      // it exercises the post-ceremony failure path AFTER drain has
+      // already populated the keychain. The outer try/catch in
+      // completeJoinerWithPassword catches it and routes through
+      // _handlePostCeremonyFailure, so the await resolves cleanly.
+      await notifier.completeJoinerWithPassword('123456');
+      bootstrapStartedAt = ++sequence;
+      await pumpEventQueue();
 
-        // Put the notifier into snapshotFailure state so cancel is the
-        // sanctioned exit path.
-        final notifier = container.read(devicePairingProvider.notifier);
-        await notifier.handlePostCeremonyFailureForTest(
-          ceremonyCompleted: true,
-          error: StateError('simulated bootstrap failure'),
-        );
-        expect(
-          container.read(devicePairingProvider).step,
-          PairingStep.snapshotFailure,
-        );
+      final state = container.read(devicePairingProvider);
+      expect(
+        drainCalls,
+        1,
+        reason:
+            'drainRustStore must run exactly once, immediately after the '
+            'ceremony returns and before any bootstrap step.',
+      );
+      expect(
+        drainCompletedAt,
+        lessThan(bootstrapStartedAt),
+        reason:
+            'Drain must complete before any post-flag work begins. '
+            'If this fails the drain ran AFTER bootstrap, restoring '
+            'the original P1 race window.',
+      );
+      // The contract: post-drain failures route to snapshotFailure
+      // (preserve creds + retry path), NOT to error (wipe + restart).
+      expect(
+        state.step,
+        isNot(PairingStep.error),
+        reason:
+            'Post-drain failures must NOT route to error (which wipes '
+            'the keychain) — they must preserve credentials.',
+      );
+      expect(
+        keychain['prism_sync.sync_id'],
+        isNotNull,
+        reason:
+            'Credentials must remain in the keychain after a '
+            'post-ceremony failure — cancelAndRemoveDevice depends on '
+            'them being readable.',
+      );
+      expect(keychain['prism_sync.device_id'], isNotNull);
+      expect(keychain['prism_sync.session_token'], isNotNull);
+    });
 
-        // Sanity: pre-condition — keychain has what cancel needs.
-        expect(keychain['prism_sync.sync_id'], isNotNull);
-        expect(keychain['prism_sync.device_id'], isNotNull);
-        expect(keychain['prism_sync.session_token'], isNotNull);
+    test('cancelAndRemoveDevice after successful drain reads keychain '
+        'and attempts deregisterDevice', () async {
+      // Pre-seed the keychain mock the same way a successful drain
+      // would have, then drive cancelAndRemoveDevice and verify it
+      // reads the credentials and clears them.
+      final keychain = installSecureStorageMock({
+        'prism_sync.sync_id': base64Encode(utf8.encode('sync-xyz')),
+        'prism_sync.device_id': base64Encode(utf8.encode('device-xyz')),
+        'prism_sync.session_token': base64Encode(utf8.encode('token-xyz')),
+        'prism_sync.wrapped_dek': base64Encode(utf8.encode('dek-xyz')),
+      });
 
-        // cancelAndRemoveDevice will:
-        //  1. Read sync_id/device_id/session_token from the keychain.
-        //  2. Call ffi.deregisterDevice (which throws on the fake
-        //     handle — caught and reported as non-fatal).
-        //  3. Call _cleanupKeychainOnFailure which deletes pairing keys.
-        //  4. Reset state to default PairingState().
-        // The fact that step (3) ran proves step (1) successfully read
-        // the keychain (otherwise the cancel-prep guard would have
-        // skipped the deregister branch).
-        await notifier.cancelAndRemoveDevice();
-        await pumpEventQueue();
+      final container = makeContainer();
+      addTearDown(container.dispose);
 
-        // Post-condition: pairing-related keys are gone, state is reset.
-        expect(
-          keychain['prism_sync.sync_id'],
-          isNull,
-          reason: 'cancel must wipe the persisted sync_id.',
-        );
-        expect(keychain['prism_sync.device_id'], isNull);
-        expect(keychain['prism_sync.session_token'], isNull);
-        expect(keychain['prism_sync.wrapped_dek'], isNull);
-        expect(
-          container.read(devicePairingProvider).step,
-          PairingStep.enterUrl,
-          reason: 'cancel must return the notifier to the initial step.',
-        );
-      },
-    );
+      // Put the notifier into snapshotFailure state so cancel is the
+      // sanctioned exit path.
+      final notifier = container.read(devicePairingProvider.notifier);
+      await notifier.handlePostCeremonyFailureForTest(
+        ceremonyCompleted: true,
+        error: StateError('simulated bootstrap failure'),
+      );
+      expect(
+        container.read(devicePairingProvider).step,
+        PairingStep.snapshotFailure,
+      );
+
+      // Sanity: pre-condition — keychain has what cancel needs.
+      expect(keychain['prism_sync.sync_id'], isNotNull);
+      expect(keychain['prism_sync.device_id'], isNotNull);
+      expect(keychain['prism_sync.session_token'], isNotNull);
+
+      // cancelAndRemoveDevice will:
+      //  1. Read sync_id/device_id/session_token from the keychain.
+      //  2. Call ffi.deregisterDevice (which throws on the fake
+      //     handle — caught and reported as non-fatal).
+      //  3. Call _cleanupKeychainOnFailure which deletes pairing keys.
+      //  4. Reset state to default PairingState().
+      // The fact that step (3) ran proves step (1) successfully read
+      // the keychain (otherwise the cancel-prep guard would have
+      // skipped the deregister branch).
+      await notifier.cancelAndRemoveDevice();
+      await pumpEventQueue();
+
+      // Post-condition: pairing-related keys are gone, state is reset.
+      expect(
+        keychain['prism_sync.sync_id'],
+        isNull,
+        reason: 'cancel must wipe the persisted sync_id.',
+      );
+      expect(keychain['prism_sync.device_id'], isNull);
+      expect(keychain['prism_sync.session_token'], isNull);
+      expect(keychain['prism_sync.wrapped_dek'], isNull);
+      expect(
+        container.read(devicePairingProvider).step,
+        PairingStep.enterUrl,
+        reason: 'cancel must return the notifier to the initial step.',
+      );
+    });
   });
 }
