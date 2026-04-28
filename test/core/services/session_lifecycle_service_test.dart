@@ -502,7 +502,8 @@ void main() {
     });
 
     test('throws StateError when sentinel filler needed but no '
-        'MemberRepository wired', () async {
+        'MemberRepository wired, and leaves original session intact',
+        () async {
       const service = SessionLifecycleService();
       final repo = FakeFrontingSessionRepository();
 
@@ -515,10 +516,16 @@ void main() {
       await repo.createSession(target);
 
       final ctx = service.getDeleteOptions(target, [target]);
-      expect(
+      await expectLater(
         () => service.executeDelete(DeleteOption.delete, ctx, repo),
         throwsA(isA<StateError>()),
       );
+
+      // Preflight runs BEFORE the delete: original row must still be there
+      // and no filler should have been written (partial-mutation guard).
+      expect(repo.deletedIds, isNot(contains('target')));
+      expect(repo.sessions, hasLength(1));
+      expect(repo.sessions.single.id, 'target');
     });
   });
 
@@ -568,6 +575,40 @@ void main() {
       // Should NOT throw — sentinel ensure is gated on having gaps to fill.
       await service.fillGaps(const [], repo);
 
+      expect(repo.sessions, isEmpty);
+    });
+
+    test('throws StateError when gaps need filling but no '
+        'MemberRepository wired, and writes nothing', () async {
+      const service = SessionLifecycleService();
+      final repo = FakeFrontingSessionRepository();
+
+      final before = _session(
+        id: 'before',
+        start: DateTime(2026, 1, 1, 8),
+        end: DateTime(2026, 1, 1, 9),
+        memberId: 'alice',
+      );
+      final after = _session(
+        id: 'after',
+        start: DateTime(2026, 1, 1, 11),
+        end: DateTime(2026, 1, 1, 12),
+        memberId: 'bob',
+      );
+      final gap = GapInfo(
+        startTime: DateTime(2026, 1, 1, 9),
+        endTime: DateTime(2026, 1, 1, 11),
+        beforeSession: before,
+        afterSession: after,
+      );
+
+      await expectLater(
+        () => service.fillGaps([gap], repo),
+        throwsA(isA<StateError>()),
+      );
+
+      // Sentinel ensure happens BEFORE the first createSession — no
+      // partial filler row should have leaked through.
       expect(repo.sessions, isEmpty);
     });
   });

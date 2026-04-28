@@ -271,31 +271,39 @@ class SessionLifecycleService {
             ? DateTime.now()
             : ctx.session.endTime;
 
-        await repo.deleteSession(ctx.session.id);
+        // Decide BEFORE deleting whether a filler is needed, and ensure the
+        // Unknown sentinel up front. If `_ensureUnknownSentinel` throws
+        // (e.g. no `MemberRepository` wired), we'd otherwise be left with
+        // the original session deleted and no filler — a partial mutation.
+        // Sleep deletes never get filled, so they skip the preflight.
+        final needsFiller = !ctx.session.isSleep &&
+            endTime != null &&
+            endTime.difference(ctx.session.startTime).inSeconds > 0;
 
-        if (ctx.session.isSleep) {
-          return null;
-        }
-
-        if (endTime != null &&
-            endTime.difference(ctx.session.startTime).inSeconds > 0) {
+        if (needsFiller) {
           // Route the gap-filler row through the Unknown sentinel member so
           // the foreign key resolves and downstream code (validation,
           // exporters) doesn't need a special "memberId == null means
           // Unknown" branch.  Mirrors the pattern in
           // FrontingMutationService._ensureSentinelIfNeeded.
           await _ensureUnknownSentinel();
-          final unknownId = _uuid.v4();
-          final unknown = FrontingSession(
-            id: unknownId,
-            startTime: ctx.session.startTime,
-            endTime: endTime,
-            memberId: unknownSentinelMemberId,
-          );
-          await repo.createSession(unknown);
-          return unknownId;
         }
-        return null;
+
+        await repo.deleteSession(ctx.session.id);
+
+        if (!needsFiller) {
+          return null;
+        }
+
+        final unknownId = _uuid.v4();
+        final unknown = FrontingSession(
+          id: unknownId,
+          startTime: ctx.session.startTime,
+          endTime: endTime,
+          memberId: unknownSentinelMemberId,
+        );
+        await repo.createSession(unknown);
+        return unknownId;
     }
   }
 
