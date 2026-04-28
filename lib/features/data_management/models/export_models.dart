@@ -538,9 +538,38 @@ class V1FrontSession {
     // `memberId` or `headmateId` as the local member id. Treating
     // `headmateId` as a legacy marker would force every new-shape PK
     // row through the rescue path on re-import.
-    final isLegacy = forceLegacyShape ||
-        json.containsKey('coFronterIds') ||
+    //
+    // Codex pass 3 #B-PASS3-P2: real pre-0.7 PRISM1 exports omit empty
+    // / null legacy keys exactly like new-shape exports do, so the
+    // explicit-key sniff ALONE leaks two row shapes through to the
+    // new-shape path:
+    //   1. Solo PK rows (pluralkitUuid set, headmateId set, no
+    //      coFronterIds, no pkMemberIdsJson) — would skip the PK
+    //      deterministic-id derivation and land at the legacy random
+    //      v4 id, breaking the (switch, member) collision contract on
+    //      future API re-import.
+    //   2. Orphan native rows (no headmateId, no coFronterIds) —
+    //      would land with member_id NULL, which v8's CHECK constraint
+    //      rejects.
+    //
+    // Broaden detection so any row that could plausibly be from a
+    // pre-0.7 file routes to legacy. The new-shape carve-out is the
+    // presence of `sessionType` (or `memberId`): pre-0.7 exports never
+    // emit either key. Sleep rows in pre-0.7 files lived in
+    // `sleepSessions`, never in `frontSessions`, so the legacy
+    // importer's normal-only assumption is safe.
+    final hasLegacyKeys = json.containsKey('coFronterIds') ||
         json.containsKey('pkMemberIdsJson');
+    final hasNewShapeMarker =
+        json.containsKey('sessionType') || json.containsKey('memberId');
+    final hasHeadmateId = json.containsKey('headmateId');
+    final hasPluralkitUuid = json.containsKey('pluralkitUuid');
+    final isLegacy = forceLegacyShape ||
+        hasLegacyKeys ||
+        (hasPluralkitUuid && !hasNewShapeMarker) ||
+        (!hasHeadmateId &&
+            !json.containsKey('coFronterIds') &&
+            !hasNewShapeMarker);
 
     // Tolerate a malformed `coFronterIds` value (per §6 edge cases — if
     // expansion fails to parse, fall back to single-member migration).

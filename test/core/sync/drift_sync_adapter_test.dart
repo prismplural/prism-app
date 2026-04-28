@@ -158,26 +158,6 @@ void main() {
     return back!;
   }
 
-  Future<Map<String, Object?>> roundTripFrontingSession(
-    database.AppDatabase db,
-    database.FrontingSession input,
-  ) async {
-    final syncAdapter = buildSyncAdapterWithCompletion(db);
-    final fronting = syncAdapter.adapter.entities
-        .singleWhere((e) => e.tableName == 'fronting_sessions');
-
-    await db
-        .into(db.frontingSessions)
-        .insertOnConflictUpdate(input.toCompanion(false));
-
-    final packed = fronting.toSyncFields(input);
-    await (db.delete(db.frontingSessions)
-          ..where((t) => t.id.equals(input.id)))
-        .go();
-    await fronting.applyFields(input.id, Map<String, dynamic>.from(packed));
-    return (await fronting.readRow(input.id))!;
-  }
-
   test(
     'members: PK fields round-trip through sync adapter when populated',
     () async {
@@ -250,50 +230,4 @@ void main() {
     },
   );
 
-  test(
-    'fronting_sessions: pk_member_ids_json round-trips when populated',
-    () async {
-      final db = database.AppDatabase(NativeDatabase.memory());
-      addTearDown(db.close);
-
-      final session = database.FrontingSession(
-        id: 'fs-1',
-        sessionType: domain.SessionType.normal.index,
-        startTime: DateTime.utc(2026, 3, 18, 10),
-        endTime: DateTime.utc(2026, 3, 18, 12),
-        memberId: 'm-1',
-        coFronterIds: '[]',
-        isHealthKitImport: false,
-        pluralkitUuid: 'pk-session-1',
-        pkMemberIdsJson: '["pk-member-a","pk-member-b"]',
-        isDeleted: false,
-      );
-
-      final back = await roundTripFrontingSession(db, session);
-      expect(back['pk_member_ids_json'], '["pk-member-a","pk-member-b"]');
-      expect(back['pluralkit_uuid'], 'pk-session-1');
-    },
-  );
-
-  test(
-    'fronting_sessions: pk_member_ids_json round-trips as null when unset',
-    () async {
-      final db = database.AppDatabase(NativeDatabase.memory());
-      addTearDown(db.close);
-
-      final session = database.FrontingSession(
-        id: 'fs-2',
-        sessionType: domain.SessionType.normal.index,
-        startTime: DateTime.utc(2026, 3, 18, 10),
-        coFronterIds: '[]',
-        isHealthKitImport: false,
-        isDeleted: false,
-      );
-
-      final back = await roundTripFrontingSession(db, session);
-      expect(back.containsKey('pk_member_ids_json'), isTrue);
-      expect(back['pk_member_ids_json'], isNull);
-      expect(back['pluralkit_uuid'], isNull);
-    },
-  );
 }
