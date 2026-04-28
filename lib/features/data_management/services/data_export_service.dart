@@ -277,6 +277,13 @@ class DataExportService {
       reminders: v1Reminders,
       friends: v1Friends,
       mediaAttachments: v1MediaAttachments,
+      // Envelope-level marker for the PRISM1 rescue importer (§4.7).
+      // The empty-list / null-keys problem on individual rows
+      // (`coFronterIds: []`, `pkMemberIdsJson: null`) means per-row
+      // sniff alone misses native single-member rows and orphan rows;
+      // the envelope flag forces the importer to route ALL session /
+      // comment rows through the rescue path (codex pass 2 #B-NEW1).
+      rescueLegacyFields: includeLegacyFields,
     );
   }
 

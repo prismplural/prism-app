@@ -16,9 +16,12 @@ library;
 import 'dart:convert';
 
 import 'package:drift/native.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
-import 'package:prism_plurality/core/database/app_database.dart' hide Member;
+import 'package:prism_plurality/core/database/app_database.dart'
+    hide Member, FrontingSession;
 import 'package:prism_plurality/data/repositories/drift_chat_message_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_conversation_categories_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_conversation_repository.dart';
@@ -35,11 +38,58 @@ import 'package:prism_plurality/data/repositories/drift_reminders_repository.dar
 import 'package:prism_plurality/data/repositories/drift_system_settings_repository.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/member.dart' show Member;
+import 'package:prism_plurality/features/data_management/services/data_export_service.dart';
 import 'package:prism_plurality/features/data_management/services/data_import_service.dart';
+import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
+import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
+import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:uuid/uuid.dart';
 
 AppDatabase _makeDb() => AppDatabase(NativeDatabase.memory());
+
+DataExportService _makeExport(AppDatabase db) => DataExportService(
+      db: db,
+      memberRepository: DriftMemberRepository(db.membersDao, null),
+      frontingSessionRepository: DriftFrontingSessionRepository(
+        db.frontingSessionsDao,
+        null,
+      ),
+      conversationRepository: DriftConversationRepository(
+        db.conversationsDao,
+        null,
+      ),
+      chatMessageRepository:
+          DriftChatMessageRepository(db.chatMessagesDao, null),
+      pollRepository: DriftPollRepository(
+        db.pollsDao,
+        db.pollOptionsDao,
+        db.pollVotesDao,
+        null,
+      ),
+      systemSettingsRepository: DriftSystemSettingsRepository(
+        db.systemSettingsDao,
+        null,
+      ),
+      habitRepository: DriftHabitRepository(db.habitsDao, null),
+      pluralKitSyncDao: db.pluralKitSyncDao,
+      memberGroupsRepository:
+          DriftMemberGroupsRepository(db.memberGroupsDao, null),
+      customFieldsRepository:
+          DriftCustomFieldsRepository(db.customFieldsDao, null),
+      notesRepository: DriftNotesRepository(db.notesDao, null),
+      frontSessionCommentsRepository: DriftFrontSessionCommentsRepository(
+        db.frontSessionCommentsDao,
+        null,
+      ),
+      conversationCategoriesRepository: DriftConversationCategoriesRepository(
+        db.conversationCategoriesDao,
+        null,
+      ),
+      remindersRepository: DriftRemindersRepository(db.remindersDao, null),
+      friendsRepository: DriftFriendsRepository(db.friendsDao, null),
+      mediaAttachmentsDao: db.mediaAttachmentsDao,
+    );
 
 DataImportService _makeImport(AppDatabase db) => DataImportService(
       db: db,
@@ -704,17 +754,36 @@ void main() {
 
     test(
       'PK rescue with empty pkMemberIdsJson but headmateId present derives '
-      'deterministic id from local member.pluralkit_uuid (codex P1 #10)',
+      'deterministic id from local member.pluralkit_uuid (codex P1 #10), '
+      'driven by real DataExportService.buildExport (codex pass 2 #C-NEW1)',
       () async {
-        // Pre-Phase-2 PK exports: pluralkit_uuid present, pk_member_ids_json
-        // absent. Without the fix the row landed at the legacy `s.id`
-        // (a random v4) — a future PK API re-import would derive a
-        // different deterministic id and produce two distinct rows for
-        // the same (switch, member) pair, defeating the field-LWW
-        // boundary correction contract.
+        // Real-export-driven test (codex pass 2 #C-NEW1). The previous
+        // version hand-built `coFronterIds: []` JSON — a key the real
+        // exporter would never emit (`toJson` skips empty lists). With
+        // the envelope-level rescueLegacyFields marker (codex pass 2
+        // #B-NEW1), the row no longer needs any per-row legacy key to
+        // route through the rescue path; this test pins that the
+        // real exporter + importer round-trip produces the canonical
+        // deterministic id for the pre-Phase-2 PK fallback scenario.
+        //
+        // Source DB:
+        //   - one PK-linked member (local id "fallback-member", pluralkit
+        //     short "fmsht", full uuid 555…555)
+        //   - one fronting session: pluralkit_uuid = switchUuid,
+        //     member_id = fallback-member, co_fronter_ids defaults to
+        //     '[]', pk_member_ids_json defaults to NULL (Phase-2-style)
+        //
+        // Without the fix the row landed at the legacy `s.id` (a random
+        // v4) — a future PK API re-import would derive a different
+        // deterministic id and produce two distinct rows for the same
+        // (switch, member) pair, defeating the field-LWW boundary
+        // correction contract.
         const memberLocalId = 'fallback-member';
         const memberPkUuid = '55555555-5555-4555-8555-555555555555';
         const switchUuid = '66666666-6666-4666-8666-666666666666';
+        const legacySessionId = 'legacy-v4-id-not-deterministic';
+
+        // -- Source DB: seed real Drift rows --------------------------
         await memberRepo.createMember(Member(
           id: memberLocalId,
           name: 'Fallback',
@@ -723,45 +792,152 @@ void main() {
           pluralkitId: 'fmsht',
           pluralkitUuid: memberPkUuid,
         ));
-
-        final json = _envelope(frontSessions: [
-          {
-            'id': 'legacy-v4-id-not-deterministic',
-            'startTime': DateTime.utc(2026, 4, 1, 9).toIso8601String(),
-            'endTime': DateTime.utc(2026, 4, 1, 11).toIso8601String(),
-            'headmateId': memberLocalId,
-            'coFronterIds': [], // empty legacy marker — still triggers rescue
-            'pluralkitUuid': switchUuid,
-            // pkMemberIdsJson absent — fallback path.
-          },
-        ]);
-
-        final result = await importService.importData(json);
-        expect(result.frontSessionsCreated, 1);
-        final derivedId = derivePkSessionId(switchUuid, memberPkUuid);
-        final rows = await db.frontingSessionsDao.getAllSessions();
-        expect(rows, hasLength(1));
-        expect(rows.single.id, derivedId,
-            reason: 'fallback id must be the canonical (switch, member) v5');
-        expect(rows.single.id, isNot('legacy-v4-id-not-deterministic'),
-            reason: 'legacy random v4 id must not leak through');
-
-        // Simulated API re-import at the same deterministic id: writes
-        // through the same row (no duplicate) — the boundary correction
-        // contract holds.
-        final domainSession = await importService.frontingSessionRepository
-            .getSessionById(derivedId);
-        await importService.frontingSessionRepository.updateSession(
-          domainSession!.copyWith(
-            startTime: DateTime.utc(2026, 4, 1, 9, 30),
-            endTime: DateTime.utc(2026, 4, 1, 10, 30),
-          ),
+        final sourceFronting = DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
         );
-        final after = await db.frontingSessionsDao.getAllSessions();
-        expect(after, hasLength(1),
-            reason: 'API write must collide on the same id, not duplicate');
-        expect(after.single.startTime.toUtc(),
-            DateTime.utc(2026, 4, 1, 9, 30));
+        await sourceFronting.createSession(FrontingSession(
+          id: legacySessionId,
+          startTime: DateTime.utc(2026, 4, 1, 9),
+          endTime: DateTime.utc(2026, 4, 1, 11),
+          memberId: memberLocalId,
+          pluralkitUuid: switchUuid,
+          // sessionType defaults to normal; co_fronter_ids defaults to
+          // '[]' and pk_member_ids_json defaults to NULL on the v7
+          // table — exactly the bug-scenario shape.
+        ));
+
+        // -- Build a real export with includeLegacyFields = true ------
+        final exportSvc = _makeExport(db);
+        final exportModel =
+            await exportSvc.buildExport(includeLegacyFields: true);
+        // Pin the load-bearing properties: envelope marker is set, but
+        // the per-row legacy keys are absent (the bug condition that
+        // motivated the envelope marker). Together they prove the
+        // round-trip exercises the previously-broken path.
+        expect(exportModel.rescueLegacyFields, isTrue,
+            reason: 'buildExport(includeLegacyFields: true) must set '
+                'rescueLegacyFields on the envelope');
+        final exportedSessionJson = exportModel.frontSessions.single.toJson();
+        expect(exportedSessionJson.containsKey('coFronterIds'), isFalse,
+            reason: 'real exporter omits empty coFronterIds — this is the '
+                'shape that motivated the envelope marker');
+        expect(exportedSessionJson.containsKey('pkMemberIdsJson'), isFalse,
+            reason: 'real exporter omits null pkMemberIdsJson — same '
+                'as above');
+
+        final jsonStr = jsonEncode(exportModel.toJson());
+
+        // -- Re-import on a fresh DB ----------------------------------
+        final freshDb = _makeDb();
+        try {
+          final freshImport = _makeImport(freshDb);
+          final freshMemberRepo =
+              DriftMemberRepository(freshDb.membersDao, null);
+          // Re-seed the local member on the fresh DB so the rescue
+          // importer can resolve `headmateId` → `pluralkit_uuid` for
+          // the deterministic id derivation.
+          await freshMemberRepo.createMember(Member(
+            id: memberLocalId,
+            name: 'Fallback',
+            emoji: 'F',
+            createdAt: DateTime(2026, 1, 1).toUtc(),
+            pluralkitId: 'fmsht',
+            pluralkitUuid: memberPkUuid,
+          ));
+
+          final result = await freshImport.importData(jsonStr);
+          expect(result.frontSessionsCreated, 1);
+          final derivedId = derivePkSessionId(switchUuid, memberPkUuid);
+          final rows = await freshDb.frontingSessionsDao.getAllSessions();
+          expect(rows, hasLength(1));
+          expect(rows.single.id, derivedId,
+              reason: 'fallback id must be the canonical (switch, member) v5');
+          expect(rows.single.id, isNot(legacySessionId),
+              reason: 'legacy random v4 id must not leak through');
+
+          // Simulated API re-import at the same deterministic id: writes
+          // through the same row (no duplicate) — the boundary correction
+          // contract holds.
+          final domainSession = await freshImport.frontingSessionRepository
+              .getSessionById(derivedId);
+          await freshImport.frontingSessionRepository.updateSession(
+            domainSession!.copyWith(
+              startTime: DateTime.utc(2026, 4, 1, 9, 30),
+              endTime: DateTime.utc(2026, 4, 1, 10, 30),
+            ),
+          );
+          final after = await freshDb.frontingSessionsDao.getAllSessions();
+          expect(after, hasLength(1),
+              reason: 'API write must collide on the same id, not duplicate');
+          expect(after.single.startTime.toUtc(),
+              DateTime.utc(2026, 4, 1, 9, 30));
+        } finally {
+          await freshDb.close();
+        }
+      },
+    );
+
+    test(
+      'orphan native row (member_id NULL) round-trips through '
+      'buildExport(includeLegacyFields: true) and lands on the Unknown '
+      'sentinel via the envelope-marker rescue path (codex pass 2 #B-NEW1)',
+      () async {
+        // Same envelope-marker contract as the previous test, but
+        // exercising the orphan path: a native row with member_id NULL
+        // that the real exporter would emit with NEITHER `coFronterIds`
+        // NOR `headmateId` (both null/empty) — i.e., zero per-row legacy
+        // keys. Pre-fix this row bypassed the rescue importer and tried
+        // to import with member_id null, which v8's CHECK constraint
+        // would reject.
+        const orphanId = 'orphan-row';
+        final sourceFronting = DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+        );
+        await sourceFronting.createSession(FrontingSession(
+          id: orphanId,
+          startTime: DateTime.utc(2026, 4, 1, 9),
+          endTime: DateTime.utc(2026, 4, 1, 11),
+          // memberId omitted → NULL; co_fronter_ids defaults to '[]'.
+        ));
+
+        final exportSvc = _makeExport(db);
+        final exportModel =
+            await exportSvc.buildExport(includeLegacyFields: true);
+        expect(exportModel.rescueLegacyFields, isTrue);
+        final orphanJson = exportModel.frontSessions
+            .firstWhere((s) => s.id == orphanId)
+            .toJson();
+        expect(orphanJson.containsKey('headmateId'), isFalse,
+            reason: 'null member_id is not serialized');
+        expect(orphanJson.containsKey('coFronterIds'), isFalse,
+            reason: 'empty co_fronter_ids is not serialized');
+        // No per-row legacy markers → only the envelope flag steers
+        // this row to the rescue path.
+
+        final jsonStr = jsonEncode(exportModel.toJson());
+
+        final freshDb = _makeDb();
+        try {
+          final freshImport = _makeImport(freshDb);
+          final result = await freshImport.importData(jsonStr);
+          expect(result.frontSessionsCreated, 1);
+          expect(result.unknownSentinelCreated, isTrue,
+              reason: 'orphan row must be rerouted to the Unknown sentinel '
+                  'by the rescue importer');
+
+          const uuid = Uuid();
+          final sentinelId =
+              uuid.v5(spFrontingNamespace, 'unknown-member-sentinel');
+          final rows = await freshDb.frontingSessionsDao.getAllSessions();
+          expect(rows.single.id, orphanId);
+          expect(rows.single.memberId, sentinelId,
+              reason: 'orphan must land on the Unknown sentinel, not be '
+                  'imported with member_id null');
+        } finally {
+          await freshDb.close();
+        }
       },
     );
 
@@ -801,4 +977,300 @@ void main() {
       },
     );
   });
+
+  // -- Codex pass 2 #B-NEW2: rescue → API corrective end-to-end ----------
+  //
+  // The "rescue then API re-import fixes bounds" recovery story has to
+  // hold for histories where a member is continuously fronting across
+  // multiple PK switches. The rescue importer fans out one row per
+  // (switch, member) pair, but the API diff sweep only writes ENTRANT
+  // rows (one per "this member just became active"). For A → A+B → A:
+  //   - rescue creates 4 PK-linked rows: det(sw1,A), det(sw2,A),
+  //     det(sw2,B), det(sw3,A) — three of which carry stale lossy
+  //     boundaries because they're not the entrant point for that
+  //     member's actual presence interval.
+  //   - the diff sweep only re-writes the 2 entrant rows: det(sw1,A)
+  //     and det(sw2,B). The other two rescue rows linger.
+  //
+  // performFullImport() must canonicalize: tombstone stale rescue
+  // rows the API wouldn't create, and clobber end_time on canonical
+  // collisions so currently-active sessions show as open. Pre-fix,
+  // this scenario left A with 3 stale closed rows and no open A row.
+
+  group('rescue → API corrective re-import end-to-end (codex pass 2 #B-NEW2)',
+      () {
+    final storageStub = _SecureStorageStub();
+
+    setUp(storageStub.setup);
+    tearDown(storageStub.teardown);
+
+    test(
+      'A → A+B → A: rescue fans out to stale rows, API corrective '
+      'tombstones stale ones and leaves A currently fronting',
+      () async {
+        const alexLocalId = 'alex-local';
+        const ezraLocalId = 'ezra-local';
+        const alexPkUuid = '11111111-1111-4111-8111-111111111111';
+        const ezraPkUuid = '22222222-2222-4222-8222-222222222222';
+        const sw1Id = 'aaaaaaaa-1111-4111-8111-111111111111';
+        const sw2Id = 'bbbbbbbb-2222-4222-8222-222222222222';
+        const sw3Id = 'cccccccc-3333-4333-8333-333333333333';
+
+        final db = _makeDb();
+        addTearDown(db.close);
+        final memberRepo = DriftMemberRepository(db.membersDao, null);
+        final sessionRepo = DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+        );
+        final importService = _makeImport(db);
+
+        await memberRepo.createMember(Member(
+          id: alexLocalId,
+          name: 'Alex',
+          emoji: 'A',
+          createdAt: DateTime(2026, 1, 1).toUtc(),
+          pluralkitId: 'alxsh',
+          pluralkitUuid: alexPkUuid,
+        ));
+        await memberRepo.createMember(Member(
+          id: ezraLocalId,
+          name: 'Ezra',
+          emoji: 'E',
+          createdAt: DateTime(2026, 1, 1).toUtc(),
+          pluralkitId: 'ezrsh',
+          pluralkitUuid: ezraPkUuid,
+        ));
+
+        // Step 1: PRISM1 rescue file with the legacy collapsed shape
+        // for each PK switch — one row per switch (members in
+        // pk_member_ids_json). The rescue importer fans these out:
+        // sw1 → [A], sw2 → [A, E], sw3 → [A]. So 4 rows after rescue.
+        // All carry the lossy old-shape boundaries.
+        final t1 = DateTime.utc(2026, 4, 1, 9);
+        final t2 = DateTime.utc(2026, 4, 1, 10);
+        final t3 = DateTime.utc(2026, 4, 1, 11);
+        final rescueJson = _envelope(frontSessions: [
+          {
+            'id': 'legacy-sw1',
+            'startTime': t1.toIso8601String(),
+            'endTime': t2.toIso8601String(),
+            'headmateId': alexLocalId,
+            'coFronterIds': <String>[],
+            'pluralkitUuid': sw1Id,
+            'pkMemberIdsJson': jsonEncode(['alxsh']),
+          },
+          {
+            'id': 'legacy-sw2',
+            'startTime': t2.toIso8601String(),
+            'endTime': t3.toIso8601String(),
+            'headmateId': alexLocalId,
+            'coFronterIds': [ezraLocalId],
+            'pluralkitUuid': sw2Id,
+            'pkMemberIdsJson': jsonEncode(['alxsh', 'ezrsh']),
+          },
+          {
+            'id': 'legacy-sw3',
+            'startTime': t3.toIso8601String(),
+            'endTime': t3.add(const Duration(hours: 1)).toIso8601String(),
+            'headmateId': alexLocalId,
+            'coFronterIds': <String>[],
+            'pluralkitUuid': sw3Id,
+            'pkMemberIdsJson': jsonEncode(['alxsh']),
+          },
+        ]);
+
+        await importService.importData(rescueJson);
+
+        // Verify the rescue produced the expected fan-out — 4 rows
+        // at the deterministic ids, all with lossy boundaries.
+        final afterRescue = await sessionRepo.getAllSessions();
+        final rescueIds = {
+          derivePkSessionId(sw1Id, alexPkUuid),
+          derivePkSessionId(sw2Id, alexPkUuid),
+          derivePkSessionId(sw2Id, ezraPkUuid),
+          derivePkSessionId(sw3Id, alexPkUuid),
+        };
+        expect(afterRescue.map((s) => s.id).toSet(), rescueIds,
+            reason: 'rescue importer must fan out 4 rows for A→A+B→A');
+        expect(afterRescue.every((s) => s.endTime != null), isTrue,
+            reason: 'rescue rows are all closed in lossy shape');
+
+        // Step 2: corrective API re-import. The API reports the
+        // canonical history: A enters at sw-1 and is continuously
+        // fronting; B enters at sw-2 and leaves at sw-3.
+        final pkSw1 = PKSwitch(
+          id: sw1Id,
+          timestamp: t1,
+          members: const ['alxsh'],
+        );
+        final pkSw2 = PKSwitch(
+          id: sw2Id,
+          timestamp: t2,
+          members: const ['alxsh', 'ezrsh'],
+        );
+        final pkSw3 = PKSwitch(
+          id: sw3Id,
+          timestamp: t3,
+          members: const ['alxsh'],
+        );
+        // PK API returns newest-first; service sorts oldest-first.
+        final fakeClient = _FakePkClient([
+          [pkSw3, pkSw2, pkSw1],
+          [],
+        ]);
+        final pkService = PluralKitSyncService(
+          memberRepository: memberRepo,
+          frontingSessionRepository: sessionRepo,
+          syncDao: db.pluralKitSyncDao,
+          secureStorage: const FlutterSecureStorage(),
+          clientFactory: (_) => fakeClient,
+        );
+        await pkService.setToken('t');
+        await pkService.acknowledgeMapping();
+        await pkService.performFullImport();
+
+        // Step 3: assert canonical state after corrective re-import.
+        //
+        // Canonical entrant set (what the API would have created
+        // from scratch):
+        //   - det(sw1, A)  (A enters at sw-1, never closed → still open)
+        //   - det(sw2, B)  (B enters at sw-2, leaver at sw-3)
+        // Stale rescue rows that must be tombstoned:
+        //   - det(sw2, A)  (A continuous, never an entrant at sw-2)
+        //   - det(sw3, A)  (A continuous, never an entrant at sw-3)
+        final after = await sessionRepo.getAllSessions();
+        final canonicalAlex = derivePkSessionId(sw1Id, alexPkUuid);
+        final canonicalEzra = derivePkSessionId(sw2Id, ezraPkUuid);
+        final staleAlexAtSw2 = derivePkSessionId(sw2Id, alexPkUuid);
+        final staleAlexAtSw3 = derivePkSessionId(sw3Id, alexPkUuid);
+
+        expect(after.map((s) => s.id).toSet(), {canonicalAlex, canonicalEzra},
+            reason: 'only canonical entrant rows survive the corrective '
+                're-import; stale rescue fan-outs are tombstoned');
+        expect(after.any((s) => s.id == staleAlexAtSw2), isFalse,
+            reason: 'continuous-A stale row at sw-2 must be tombstoned');
+        expect(after.any((s) => s.id == staleAlexAtSw3), isFalse,
+            reason: 'continuous-A stale row at sw-3 must be tombstoned');
+
+        // The canonical A row reflects API truth: starts at sw-1
+        // and is currently active (corrective entrant collision
+        // clobbered the rescue's lossy end_time).
+        final alexRow = after.firstWhere((s) => s.id == canonicalAlex);
+        expect(alexRow.memberId, alexLocalId);
+        expect(alexRow.pluralkitUuid, sw1Id);
+        expect(alexRow.startTime.toUtc(), t1);
+        expect(alexRow.endTime, isNull,
+            reason: 'A is currently fronting per API; corrective re-import '
+                'must clear the lossy rescue end_time');
+
+        // The canonical B row: enters at sw-2, closed by leaver at sw-3.
+        final ezraRow = after.firstWhere((s) => s.id == canonicalEzra);
+        expect(ezraRow.memberId, ezraLocalId);
+        expect(ezraRow.pluralkitUuid, sw2Id);
+        expect(ezraRow.startTime.toUtc(), t2);
+        expect(ezraRow.endTime?.toUtc(), t3);
+      },
+    );
+  });
+}
+
+/// Mocks the secure storage channel so PluralKitSyncService can persist
+/// its config (token, etc.) without a real platform channel.
+class _SecureStorageStub {
+  final Map<String, String?> _store = {};
+
+  void setup() {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
+          (MethodCall call) async {
+            switch (call.method) {
+              case 'write':
+                _store[call.arguments['key'] as String] =
+                    call.arguments['value'] as String?;
+                return null;
+              case 'read':
+                return _store[call.arguments['key'] as String];
+              case 'delete':
+                _store.remove(call.arguments['key'] as String);
+                return null;
+              case 'containsKey':
+                return _store.containsKey(call.arguments['key'] as String);
+              default:
+                return null;
+            }
+          },
+        );
+  }
+
+  void teardown() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
+          null,
+        );
+    _store.clear();
+  }
+}
+
+/// Minimal fake PluralKit client returning preconfigured switch pages.
+class _FakePkClient implements PluralKitClient {
+  final List<List<PKSwitch>> switchPages;
+
+  _FakePkClient(this.switchPages);
+
+  @override
+  Future<PKSystem> getSystem() async => const PKSystem(id: 'sys', name: 'T');
+
+  @override
+  Future<List<PKMember>> getMembers() async => const [];
+
+  @override
+  Future<List<PKSwitch>> getSwitches({DateTime? before, int limit = 100}) async {
+    if (switchPages.isEmpty) return const [];
+    return switchPages.removeAt(0);
+  }
+
+  @override
+  Future<List<PKGroup>> getGroups({bool withMembers = true}) async => const [];
+
+  @override
+  Future<List<String>> getGroupMembers(String groupRef) async => const [];
+
+  @override
+  Future<PKMember> createMember(Map<String, dynamic> data) =>
+      throw UnimplementedError();
+
+  @override
+  Future<PKMember> updateMember(String id, Map<String, dynamic> data) =>
+      throw UnimplementedError();
+
+  @override
+  Future<PKSwitch> createSwitch(List<String> memberIds, {DateTime? timestamp}) =>
+      throw UnimplementedError();
+
+  @override
+  Future<PKSwitch> updateSwitch(String switchId, {required DateTime timestamp}) =>
+      throw UnimplementedError();
+
+  @override
+  Future<PKSwitch> updateSwitchMembers(String switchId, List<String> memberIds) =>
+      throw UnimplementedError();
+
+  @override
+  Future<void> deleteSwitch(String switchId) => throw UnimplementedError();
+
+  @override
+  Future<void> deleteMember(String id) => throw UnimplementedError();
+
+  @override
+  Future<List<int>> downloadBytes(String url) async => const [];
+
+  @override
+  Future<PKSwitch?> getCurrentFronters() async => null;
+
+  @override
+  void dispose() {}
 }
