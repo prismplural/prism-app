@@ -11,6 +11,7 @@ import 'package:prism_plurality/features/fronting/providers/fronting_editing_pro
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
+import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_sanitization_providers.dart';
 import 'package:prism_plurality/features/fronting/sanitization/fronting_sanitizer_service.dart';
 import 'package:prism_plurality/features/fronting/ui/delete_strategy_dialog.dart';
@@ -214,17 +215,29 @@ class _SessionTile extends ConsumerWidget {
 
     Haptics.heavy();
     final changes = resolutionService.computeDeleteChanges(deleteCtx, strategy);
-    await changeExecutor.execute(changes);
-    invalidateFrontingProviders(ref);
-
-    triggerPostEditRescan(
-      ref,
-      sessionStart: session.startTime,
-      sessionEnd: session.endTime,
+    final result = await changeExecutor.execute(changes);
+    return result.when(
+      success: (_) {
+        invalidateFrontingProviders(ref);
+        triggerPostEditRescan(
+          ref,
+          sessionStart: session.startTime,
+          sessionEnd: session.endTime,
+        );
+        ref.invalidate(frontingHistoryProvider);
+        return true;
+      },
+      failure: (error) {
+        if (context.mounted) {
+          PrismToast.error(
+            context,
+            message: context.l10n.frontingErrorSavingSession(error),
+          );
+        }
+        // Returning false aborts the dismiss so the row stays visible.
+        return false;
+      },
     );
-
-    ref.invalidate(frontingHistoryProvider);
-    return true;
   }
 
   @override
