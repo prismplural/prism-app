@@ -2285,7 +2285,7 @@
       }
     }
   },
-  "frontingUpgradeCountOrphansAssigned": "{count, plural, =1{Se asignó 1 sesión sin atribución al integrante Desconocide.} other{Se asignaron {count} sesiones sin atribución al integrante Desconocide.}}",
+  "frontingUpgradeCountOrphansAssigned": "{count, plural, =1{Se asignó 1 sesión sin atribución al integrante desconocido.} other{Se asignaron {count} sesiones sin atribución al integrante desconocido.}}",
   "@frontingUpgradeCountOrphansAssigned": {
     "description": "Success counter: orphan rows assigned to sentinel",
     "placeholders": {
@@ -2294,7 +2294,7 @@
       }
     }
   },
-  "frontingUpgradeCountSentinelCreated": "Se creó un integrante Desconocide para guardar las sesiones sin un frente claro.",
+  "frontingUpgradeCountSentinelCreated": "Se creó un integrante desconocido para guardar las sesiones sin un frente claro.",
   "@frontingUpgradeCountSentinelCreated": {
     "description": "Success counter: sentinel was created"
   },
