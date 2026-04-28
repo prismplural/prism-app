@@ -19,6 +19,7 @@ import 'package:prism_plurality/domain/repositories/fronting_session_repository.
 import 'package:prism_plurality/features/fronting/providers/derived_periods_provider.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/fronting/services/derive_periods.dart';
+import 'package:prism_plurality/features/fronting/utils/period_day_grouping.dart';
 import 'package:prism_plurality/features/fronting/widgets/session_history_list.dart';
 import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
@@ -450,6 +451,54 @@ void main() {
         expect(routedToA || routedToB, isTrue,
             reason: 'tap on middle co-front period must route to a '
                 'contributing session');
+      },
+    );
+
+    test(
+      'open current front produces a single midnight slice (not 30+) when '
+      'rangeEnd is bounded at now',
+      () {
+        // Codex P1 fix-up #3: when the provider conflated the SQL
+        // lookahead (now + 30d) with the visible rangeEnd, an open
+        // current front would extend to "now + 30 days" and the
+        // midnight splitter would carve it into ~30 day-group rows,
+        // each labelled with a future date. With rangeEnd bounded at
+        // `now`, the open period extends exactly to `now`; the
+        // midnight splitter produces at most 1–2 slices (today, plus
+        // possibly yesterday if started before midnight).
+        //
+        // Tested at the splitter layer (pure function) rather than
+        // via widget test — the live FrontingDurationText timer leaks
+        // pending timers when exercised through pumpAndSettle, and the
+        // midnight-slice contract is a pure function of the period's
+        // start/end.
+        final start = DateTime.now().subtract(const Duration(hours: 2));
+        final endBoundedAtNow = DateTime.now();
+
+        // Period as the (post-fix) derivation would emit: end ≈ now.
+        final period = FrontingPeriod(
+          start: start,
+          end: endBoundedAtNow,
+          activeMembers: const ['a'],
+          briefVisitors: const [],
+          sessionIds: const ['open'],
+          alwaysPresentMembers: const [],
+          isOpenEnded: true,
+        );
+
+        final slices = splitPeriodAtMidnight(period);
+        // 2-hour open period spans at most TODAY (and possibly
+        // YESTERDAY if "now" is between midnight and 02:00). Must
+        // NEVER produce 30+ slices spanning the SQL lookahead window.
+        expect(slices.length, lessThanOrEqualTo(2),
+            reason: 'a 2-hour open period should produce 1–2 day slices, '
+                'not 30+ future midnight slices');
+        // No slice should start in the future.
+        for (final s in slices) {
+          expect(s.displayStart.isAfter(endBoundedAtNow), isFalse,
+              reason: 'no slice should start after the period\'s end '
+                  '(which is bounded at "now")');
+        }
       },
     );
 

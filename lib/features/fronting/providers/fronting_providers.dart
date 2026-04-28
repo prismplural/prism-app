@@ -82,6 +82,13 @@ final frontingMutationServiceProvider = Provider<FrontingMutationService>((
 /// Invalidates providers that depend on active fronting session state.
 /// Call this after any mutation that changes which sessions are active or
 /// modifies session member IDs (e.g. via [FrontingChangeExecutor]).
+///
+/// Pattern: WidgetRef-side call sites (sheets, screens, dismissibles)
+/// invoke this directly. Programmatic mutations through
+/// [FrontingNotifier] go through its private chokepoint
+/// `_invalidateDerivedHistory`, which targets the same providers.
+/// Both must stay in sync — see the per-provider doc-comments below
+/// for which surfaces depend on which provider.
 void invalidateFrontingProviders(WidgetRef ref) {
   ref.invalidate(activeSessionProvider);
   ref.invalidate(activeSessionsProvider);
@@ -105,6 +112,27 @@ class FrontingNotifier extends AsyncNotifier<void> {
       ref.invalidate(memberFrontingStatsProvider(memberId));
       ref.invalidate(memberRecentSessionsProvider(memberId));
     }
+  }
+
+  /// Chokepoint for derived-history invalidation triggered by
+  /// programmatic mutations through this notifier.
+  ///
+  /// Mirrors the WidgetRef-side helper [invalidateFrontingProviders]
+  /// for the providers a mutation must rebuild. Without this, a
+  /// notifier-driven start/end/edit/delete leaves the home screen's
+  /// session-history list stale until the next external invalidation
+  /// (e.g. tab switch). The WidgetRef helper handles UI-side flows
+  /// (sheets, dismissibles); this handles programmatic flows
+  /// (chat-driven switches, group bulk operations, member detail
+  /// quick-fronts).
+  ///
+  /// Keep in sync with [invalidateFrontingProviders].
+  void _invalidateDerivedHistory() {
+    ref.invalidate(activeSessionProvider);
+    ref.invalidate(activeSessionsProvider);
+    ref.invalidate(memberFrontingCountsProvider);
+    ref.invalidate(unifiedHistoryOverlapProvider);
+    ref.invalidate(derivedPeriodsProvider);
   }
 
   /// Starts a fronting session for one or more members.
@@ -133,6 +161,7 @@ class FrontingNotifier extends AsyncNotifier<void> {
     for (final id in result.previousMemberIds) {
       _invalidateMemberStats(id);
     }
+    _invalidateDerivedHistory();
   }
 
   /// Ends active fronting sessions for each member in [memberIds].
@@ -143,6 +172,7 @@ class FrontingNotifier extends AsyncNotifier<void> {
     for (final id in memberIds) {
       _invalidateMemberStats(id);
     }
+    _invalidateDerivedHistory();
   }
 
   /// Adds a single co-fronter by starting a new session for [memberId].
@@ -152,6 +182,7 @@ class FrontingNotifier extends AsyncNotifier<void> {
     );
     // addCoFronter guarantees exactly one session back.
     _invalidateMemberStats(result.sessions.single.memberId);
+    _invalidateDerivedHistory();
   }
 
   /// Removes a single co-fronter by ending their active session.
@@ -160,6 +191,7 @@ class FrontingNotifier extends AsyncNotifier<void> {
       ref.read(frontingMutationServiceProvider).removeCoFronter(memberId),
     );
     _invalidateMemberStats(memberId);
+    _invalidateDerivedHistory();
   }
 
   Future<void> updateSession(
@@ -180,6 +212,7 @@ class FrontingNotifier extends AsyncNotifier<void> {
     final updated = patch.applyTo(session);
     _invalidateMemberStats(updated.memberId);
     _invalidateMemberStats(session.memberId);
+    _invalidateDerivedHistory();
   }
 
   Future<void> applyEdit({
@@ -211,6 +244,7 @@ class FrontingNotifier extends AsyncNotifier<void> {
     final updated = patch.applyTo(session);
     _invalidateMemberStats(updated.memberId);
     _invalidateMemberStats(session.memberId);
+    _invalidateDerivedHistory();
   }
 
   Future<void> deleteSession(String sessionId) async {
@@ -230,6 +264,7 @@ class FrontingNotifier extends AsyncNotifier<void> {
           ),
     );
     _invalidateMemberStats(session?.memberId);
+    _invalidateDerivedHistory();
   }
 
   Future<String?> executeDeleteOption({
@@ -250,6 +285,7 @@ class FrontingNotifier extends AsyncNotifier<void> {
           ),
     );
     _invalidateMemberStats(session?.memberId);
+    _invalidateDerivedHistory();
     return unknownId;
   }
 
@@ -277,6 +313,7 @@ class FrontingNotifier extends AsyncNotifier<void> {
     );
     _invalidateMemberStats(session.memberId);
     _invalidateMemberStats(created.memberId);
+    _invalidateDerivedHistory();
   }
 
   Future<T> _unwrap<T>(Future<MutationResult<T>> resultFuture) async {
@@ -346,29 +383,41 @@ final unifiedHistoryProvider =
 /// already shaped for that.
 const derivedPeriodsLookbackDays = 90;
 
-/// Far-future safety margin for the overlap-query upper bound.
+/// Far-future safety margin for the SQL overlap query's upper bound.
 ///
-/// We deliberately do NOT clamp `range_end` at `DateTime.now()` because
-/// the provider builds its bounds once at subscription time. A user who
-/// creates a new front AFTER the screen mounted would have their new
-/// row's `start_time > fixedNow`, so `start_time < fixedNow` would
-/// silently drop it from the watch results forever. Pushing the upper
-/// bound 30 days into the future means a Drift `.watch()` re-evaluation
-/// (triggered by the table change on insert) catches the new row
-/// without the provider needing to rebuild.
+/// This is an INTERNAL DAO concern, not a derivation concern. We
+/// deliberately do NOT clamp the SQL `start_time < ?` bound at
+/// `DateTime.now()` because the provider builds its bounds once at
+/// subscription time. A user who creates a new front AFTER the screen
+/// mounted would have their new row's `start_time > fixedNow`, so
+/// `start_time < fixedNow` would silently drop it from the watch
+/// results forever. Pushing the upper bound 30 days into the future
+/// means a Drift `.watch()` re-evaluation (triggered by the table
+/// change on insert) catches the new row without the provider needing
+/// to rebuild.
 ///
 /// 30 days is a sensible cap — it's short enough that a typo'd
 /// far-future session (e.g. someone fat-fingering year 2099) doesn't
 /// leak into the visible window, but long enough that any plausible
 /// "schedule a front" use case is covered.
+///
+/// Crucially, this lookahead does NOT thread through to derivation —
+/// the bundle's `rangeEnd` is bounded at `now` so an open current
+/// front renders bounded at "now" instead of being extended to
+/// "now + 30 days" and split into 30 future midnight slices.
 const derivedPeriodsLookaheadDays = 30;
 
 /// Inputs to the derived-period sweep. The provider produces this so
 /// downstream consumers ([derivedPeriodsProvider]) can clamp to the
-/// SAME range that bounded the DAO query — without this, the sweep
-/// inferred its range from the earliest returned row (e.g. a 400-day
-/// host) and produced periods spanning a much larger window than the
-/// query intended.
+/// SAME visible window the user expects — NOT the wider SQL lookahead.
+///
+/// `rangeEnd` is the visible upper bound, captured at "now" when the
+/// provider rebuilds. The SQL query uses a wider internal lookahead
+/// ([derivedPeriodsLookaheadDays]) to catch newly-inserted rows whose
+/// start_time may be slightly after the captured "now", but those
+/// future-dated rows are filtered back out by the derivation (a
+/// session with `start_time > rangeEnd` is not yet active and must
+/// not produce visible periods).
 class DerivedPeriodsInputBundle {
   const DerivedPeriodsInputBundle({
     required this.sessions,
@@ -378,35 +427,55 @@ class DerivedPeriodsInputBundle {
 
   final List<FrontingSession> sessions;
   final DateTime rangeStart;
+
+  /// Visible upper bound for derivation, bounded at "now of rebuild".
+  /// Distinct from the DAO's internal `+30d` SQL lookahead — see
+  /// [derivedPeriodsLookaheadDays] for why the two are separate.
   final DateTime rangeEnd;
 }
 
 /// Sessions overlapping the visible range used by the derived-period
-/// sweep (§4.6 step 1) along with the bounds the DAO was queried with.
+/// sweep (§4.6 step 1) along with the bounds the derivation should
+/// clamp to.
 ///
 /// Key correctness property: a 400-day continuous host whose row
 /// started before the lookback window but is still open (or ended
 /// inside it) is included — the upstream filter is
-/// `start_time < range_end AND (end_time IS NULL OR end_time > range_start)`,
+/// `start_time < sql_upper_bound AND (end_time IS NULL OR end_time > range_start)`,
 /// which a row-paged "newest N rows" query would silently drop.
 ///
-/// The upper bound is intentionally pushed to `now + 30 days` (NOT
-/// captured `now`) so newly-created rows whose `start_time` is close
-/// to "now" still match — see [derivedPeriodsLookaheadDays].
+/// IMPORTANT: two distinct upper bounds are at play here:
+///
+///  - **SQL upper bound** (`sqlUpperBound`, `now + 30d`): the value
+///    threaded into `watchSessionsOverlappingRange` so newly-inserted
+///    rows whose `start_time` is slightly after the captured "now"
+///    still match the Drift watch. INTERNAL — never leaves this
+///    provider.
+///  - **Visible `rangeEnd`** (`rangeEnd`, captured `now`): the bound
+///    the derivation clamps spans to. Open sessions extend to
+///    `max(now, rangeEnd)` (= now); closed sessions clamp to
+///    `rangeEnd`. Future-dated typos with `start_time > rangeEnd` are
+///    filtered out by the derivation pre-pass.
+///
+/// Conflating these two values caused fix-up #2's bug: an open current
+/// front got extended to "now + 30 days" and split into 30 future
+/// midnight slices, with the live timer reading from a future date.
 final unifiedHistoryOverlapProvider =
     StreamProvider.autoDispose<DerivedPeriodsInputBundle>((ref) {
   final repo = ref.watch(frontingSessionRepositoryProvider);
   final now = DateTime.now();
   final rangeStart =
       now.subtract(const Duration(days: derivedPeriodsLookbackDays));
-  // Use a far-future upper bound (not `now`) so a session created AFTER
-  // the provider mounted still satisfies `start_time < rangeEnd` and
-  // appears in the Drift watch results. The sweep further substitutes
-  // max(now, rangeEnd) for open-ended sessions so the trailing live
-  // period renders correctly.
-  final rangeEnd =
+  // SQL-only lookahead (internal, NOT exposed to the bundle). Catches
+  // newly-inserted rows whose start_time may be slightly after the
+  // captured `now` so the Drift `.watch()` re-evaluation surfaces them.
+  final sqlUpperBound =
       now.add(const Duration(days: derivedPeriodsLookaheadDays));
-  return repo.watchSessionsOverlappingRange(rangeStart, rangeEnd).map(
+  // Visible upper bound for derivation: bounded at `now`. Open
+  // sessions extend to this; closed sessions clamp to this; sessions
+  // with start_time > this are future-dated and rejected.
+  final rangeEnd = now;
+  return repo.watchSessionsOverlappingRange(rangeStart, sqlUpperBound).map(
         (sessions) => DerivedPeriodsInputBundle(
           sessions: sessions,
           rangeStart: rangeStart,

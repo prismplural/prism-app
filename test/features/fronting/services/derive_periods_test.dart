@@ -592,6 +592,124 @@ void main() {
       expect(result[0].isOpenEnded, isFalse);
     });
 
+    test(
+        'future-dated session (start_time > rangeEnd) is rejected by the '
+        'derivation pre-pass', () {
+      // Codex P2 fix-up #3: the SQL overlap query uses a +30d
+      // lookahead so newly-inserted rows reach the watch. A typo'd
+      // session with start_time = tomorrow would slip through that
+      // SQL bound; the derivation must filter it out so it doesn't
+      // produce visible periods.
+      final now = DateTime(2026, 4, 1, 12);
+      final visibleStart = now.subtract(const Duration(hours: 5));
+
+      final result = deriveMaximalPeriods(_input(
+        sessions: [
+          // Real, in-range session.
+          _s(
+            id: 'real',
+            memberId: 'a',
+            start: now.subtract(const Duration(hours: 2)),
+            end: now.subtract(const Duration(hours: 1)),
+          ),
+          // Future-dated typo: start_time is one day past rangeEnd.
+          _s(
+            id: 'future',
+            memberId: 'b',
+            start: now.add(const Duration(days: 1)),
+            end: now.add(const Duration(days: 1, hours: 1)),
+          ),
+        ],
+        rangeStart: visibleStart,
+        rangeEnd: now,
+        now: now,
+      ));
+
+      // Only the real session contributes to a period.
+      expect(result, hasLength(1));
+      expect(result.single.activeMembers, ['a']);
+      // Sanity: 'b' must not appear anywhere — not as active, not as
+      // brief, not in any period.
+      for (final p in result) {
+        expect(p.activeMembers, isNot(contains('b')));
+        expect(p.briefVisitors.map((v) => v.memberId), isNot(contains('b')));
+      }
+    });
+
+    test(
+        'open current front bounded at now does not extend past rangeEnd',
+        () {
+      // Codex P1 fix-up #3: the provider used to thread `now + 30d`
+      // through to derivation as `rangeEnd`. An open current session
+      // would extend to `now + 30d`, producing future-dated periods
+      // and (post-day-grouping) future midnight slices. With
+      // `rangeEnd = now`, the open session extends exactly to `now`.
+      final now = DateTime(2026, 4, 1, 12);
+      final start = now.subtract(const Duration(hours: 2));
+
+      final result = deriveMaximalPeriods(_input(
+        sessions: [
+          _s(id: 'open', memberId: 'a', start: start, end: null),
+        ],
+        rangeStart: now.subtract(const Duration(days: 1)),
+        // rangeEnd is `now`, NOT `now + 30d`. This mirrors the
+        // production provider's bundle.
+        rangeEnd: now,
+        now: now,
+      ));
+
+      expect(result, hasLength(1));
+      expect(result.single.start, start);
+      // openEndSub = max(now, rangeEnd) = now → period ends at `now`,
+      // not 30 days later.
+      expect(result.single.end, now);
+      expect(result.single.isOpenEnded, isTrue);
+      // Period duration is bounded by (now - start), nothing about
+      // 30 future days.
+      expect(result.single.duration, now.difference(start));
+    });
+
+    test(
+        'closed-short → open-short same-member handoff: A is active, '
+        'NOT a brief visitor of A\'s own period', () {
+      // Codex P2 fix-up #3: a closed short period for member A
+      // immediately before an open short period for the same member A
+      // used to flush A as a brief visitor into A's own active
+      // period (because the closed short went into pendingBrief and
+      // the open short kept A as activeMembers). With the dedup, a
+      // brief whose memberId is already in the target period's
+      // activeMembers is dropped.
+      final now = DateTime(2026, 4, 1, 12);
+      // Closed short for A (under 2 minute threshold).
+      final t0 = now.subtract(const Duration(seconds: 90));
+      final t1 = now.subtract(const Duration(seconds: 60));
+      // Open short for A starts at t1 and is currently active (under
+      // threshold but open — must not collapse).
+      final result = deriveMaximalPeriods(_input(
+        sessions: [
+          _s(id: 'closed-a', memberId: 'a', start: t0, end: t1),
+          _s(id: 'open-a', memberId: 'a', start: t1, end: null),
+        ],
+        rangeStart: now.subtract(const Duration(hours: 1)),
+        rangeEnd: now,
+        now: now,
+      ));
+
+      // Whatever the period structure, A must be in activeMembers of
+      // every emitted period (it's their handoff to themselves) and
+      // NEVER appear as a brief visitor.
+      expect(result, isNotEmpty);
+      for (final p in result) {
+        expect(p.briefVisitors.map((v) => v.memberId), isNot(contains('a')),
+            reason:
+                'A is the active member of this period — must not also be '
+                'rendered as their own brief visitor');
+      }
+      // The trailing/open period must list A as active and be live.
+      final open = result.lastWhere((p) => p.isOpenEnded);
+      expect(open.activeMembers, contains('a'));
+    });
+
     test('input permutation invariance', () {
       // Property: shuffling the input shouldn't change the output stream.
       final t0 = DateTime(2026, 4, 1, 10);
