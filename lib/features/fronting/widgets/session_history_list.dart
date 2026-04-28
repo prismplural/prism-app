@@ -7,43 +7,48 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/models.dart';
+import 'package:prism_plurality/features/fronting/providers/derived_periods_provider.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_editing_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
-import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart';
-import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
-import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_sanitization_providers.dart';
+import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart';
 import 'package:prism_plurality/features/fronting/sanitization/fronting_sanitizer_service.dart';
+import 'package:prism_plurality/features/fronting/services/derive_periods.dart';
 import 'package:prism_plurality/features/fronting/ui/delete_strategy_dialog.dart';
+import 'package:prism_plurality/features/fronting/utils/period_day_grouping.dart';
+import 'package:prism_plurality/features/fronting/utils/session_day_grouping.dart';
 import 'package:prism_plurality/features/fronting/utils/sleep_quality_l10n.dart';
 import 'package:prism_plurality/features/fronting/widgets/fronting_duration_text.dart';
 import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
 import 'package:prism_plurality/shared/extensions/datetime_extensions.dart';
 import 'package:prism_plurality/shared/extensions/duration_extensions.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/utils/animations.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
-import 'package:prism_plurality/features/fronting/utils/session_day_grouping.dart';
-import 'package:prism_plurality/shared/widgets/member_avatar.dart';
-import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/date_chip.dart';
+import 'package:prism_plurality/shared/widgets/member_avatar.dart';
+import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_grouped_section_card.dart';
-import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
+import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
-
-/// A day-grouped list of fronting sessions. Active sessions appear naturally
-/// at the top of today's group with a live duration timer.
+/// A day-grouped list of fronting **periods** (derived from per-member
+/// sessions) plus inline sleep tiles.
 ///
-/// Each day is rendered as a centered header followed by a card containing
-/// all sessions for that day, matching the SwiftUI design.
+/// Each row is one period — a maximal time span during which the active
+/// fronter set didn't change (§2.3, §4.6). Co-fronts render as a single
+/// row with an avatar stack, not N rows; brief visitors fold in as
+/// trailing chips.
 class SessionHistoryList extends ConsumerWidget {
   const SessionHistoryList({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final historyAsync = ref.watch(unifiedHistoryProvider);
+    final periodsAsync = ref.watch(derivedPeriodsProvider);
+    final sessionsAsync = ref.watch(unifiedHistoryProvider);
 
-    return historyAsync.when(
+    return periodsAsync.when(
       skipLoadingOnReload: true,
       loading: () => const SliverToBoxAdapter(
         child: Padding(
@@ -57,8 +62,16 @@ class SessionHistoryList extends ConsumerWidget {
           child: Text(context.l10n.frontingErrorLoadingHistory(e)),
         ),
       ),
-      data: (sessions) {
-        if (sessions.isEmpty) {
+      data: (periods) {
+        // Sleep tiles still come from the raw session stream — derived
+        // periods only cover fronting (sleep is rendered as its own kind
+        // of row). We pull sleep sessions out of the same upstream list
+        // that fed the derivation.
+        final sleepSessions = sessionsAsync
+                .whenOrNull(data: (list) => list.where((s) => s.isSleep).toList()) ??
+            const <FrontingSession>[];
+
+        if (periods.isEmpty && sleepSessions.isEmpty) {
           return SliverFillRemaining(
             hasScrollBody: false,
             child: Center(
@@ -68,18 +81,20 @@ class SessionHistoryList extends ConsumerWidget {
                   Icon(
                     AppIcons.historyOutlined,
                     size: 48,
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withValues(alpha: 0.2),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.2),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     context.l10n.frontingNoSessionHistory,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.onSurface.withValues(alpha: 0.5),
-                    ),
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.5),
+                        ),
                   ),
                 ],
               ),
@@ -87,37 +102,40 @@ class SessionHistoryList extends ConsumerWidget {
           );
         }
 
-        // Batch-load all members referenced by sessions in a single query.
-        // Each session is one member's continuous presence — co-fronting is
-        // emergent from overlapping intervals, not a field.
-        // TODO(§2.3, §4.6): Replace per-session rows with derived periods
-        // (maximal time spans during which the fronter set didn't change).
+        // Batch-load every member referenced by any period (active,
+        // ephemeral, or always-present) plus sleep sessions in a single
+        // query.
         final allMemberIds = <String>{};
-        for (final session in sessions) {
-          if (session.memberId != null) allMemberIds.add(session.memberId!);
+        for (final p in periods) {
+          allMemberIds.addAll(p.activeMembers);
+          allMemberIds.addAll(p.alwaysPresentMembers);
+          for (final v in p.briefVisitors) {
+            allMemberIds.add(v.memberId);
+          }
         }
         final key = memberIdsKey(allMemberIds);
         final membersAsync = ref.watch(membersByIdsProvider(key));
         final membersMap = membersAsync.whenOrNull(data: (m) => m) ?? {};
 
-        final grouped = groupSessionsByDay(sessions);
+        final grouped = groupHistoryByDay(
+          periods: periods,
+          sleepSessions: sleepSessions,
+        );
 
         return SliverList.builder(
           itemCount: grouped.length,
-          itemBuilder: (context, index) =>
-              _DayGroupWidget(
-                group: grouped[index],
-                isFirstGroup: index == 0,
-                membersMap: membersMap,
-              ),
+          itemBuilder: (context, index) => _DayGroupWidget(
+            group: grouped[index],
+            isFirstGroup: index == 0,
+            membersMap: membersMap,
+          ),
         );
       },
     );
   }
-
 }
 
-/// Renders a day header + a card containing all sessions for that day.
+/// Renders a day header + a card containing all rows for that day.
 class _DayGroupWidget extends StatelessWidget {
   const _DayGroupWidget({
     required this.group,
@@ -125,7 +143,7 @@ class _DayGroupWidget extends StatelessWidget {
     required this.membersMap,
   });
 
-  final DayGroup group;
+  final HistoryDayGroup group;
   final bool isFirstGroup;
   final Map<String, Member> membersMap;
 
@@ -135,39 +153,27 @@ class _DayGroupWidget extends StatelessWidget {
 
     return Column(
       children: [
-        // Centered day header
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
-          child: DateChip(
-            date: DateTime.parse(group.dayKey),
-          ),
+          child: DateChip(date: DateTime.parse(group.dayKey)),
         ),
-        // Sessions card
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: PrismGroupedSectionCard(
             child: Column(
               children: [
-                for (var i = 0; i < group.sessions.length; i++) ...[
-                  if (group.sessions[i].session.isSleep)
-                    _InlineSleepTile(displaySession: group.sessions[i])
-                  else
-                    _SessionTile(
-                      displaySession: group.sessions[i],
-                      isLatest: isFirstGroup && i == 0,
-                      membersMap: membersMap,
-                    ),
-                  if (i < group.sessions.length - 1)
+                for (var i = 0; i < group.items.length; i++) ...[
+                  _itemTile(group.items[i], i),
+                  if (i < group.items.length - 1)
                     Divider(
                       height: 1,
-                      // Use reduced indent when either adjacent tile is a sleep tile,
-                      // since sleep tiles have no avatar and start at 16px.
-                      indent: (group.sessions[i].session.isSleep ||
-                                group.sessions[i + 1].session.isSleep)
+                      indent: _isSleep(group.items[i]) ||
+                              _isSleep(group.items[i + 1])
                           ? 16
                           : 64,
                       endIndent: 12,
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+                      color: theme.colorScheme.onSurface
+                          .withValues(alpha: 0.08),
                     ),
                 ],
               ],
@@ -177,32 +183,82 @@ class _DayGroupWidget extends StatelessWidget {
       ],
     );
   }
+
+  bool _isSleep(HistoryDisplayItem item) => item is DisplaySleepItem;
+
+  Widget _itemTile(HistoryDisplayItem item, int index) {
+    if (item is DisplaySleepItem) {
+      return _InlineSleepTile(displaySession: item.slice);
+    }
+    if (item is DisplayPeriod) {
+      return _PeriodTile(
+        slice: item,
+        isLatest: isFirstGroup && index == 0,
+        membersMap: membersMap,
+      );
+    }
+    return const SizedBox.shrink();
+  }
 }
 
-class _SessionTile extends ConsumerWidget {
-  const _SessionTile({
-    required this.displaySession,
+/// One row per derived period.
+class _PeriodTile extends ConsumerWidget {
+  const _PeriodTile({
+    required this.slice,
     this.isLatest = false,
     required this.membersMap,
   });
 
-  final DisplaySession displaySession;
+  final DisplayPeriod slice;
   final bool isLatest;
   final Map<String, Member> membersMap;
 
-  FrontingSession get session => displaySession.session;
+  FrontingPeriod get period => slice.period;
+
+  String _timeRange(String? locale, BuildContext context) {
+    final startStr = slice.displayStart.toTimeString(locale);
+    if (slice.continuesNextDay) {
+      return '$startStr – 12:00 AM';
+    }
+    if (slice.isLiveOpenEnded) {
+      return '$startStr – ongoing';
+    }
+    return '$startStr – ${slice.displayEnd.toTimeString(locale)}';
+  }
+
+  String _namesString(BuildContext context) {
+    final names = period.activeMembers
+        .map((id) => membersMap[id]?.name ?? 'Unknown')
+        .toList();
+    if (names.isEmpty) return 'Unknown';
+    if (names.length == 1) return names[0];
+    if (names.length == 2) return '${names[0]} & ${names[1]}';
+    if (names.length == 3) return '${names[0]}, ${names[1]} & ${names[2]}';
+    // 4+: show first two, then "+N"
+    return '${names[0]}, ${names[1]} +${names.length - 2}';
+  }
 
   Future<bool?> _confirmDelete(BuildContext context, WidgetRef ref) async {
+    // For a multi-session period, deleting from the swipe still uses the
+    // "delete the contributing sessions" semantics — we route the first
+    // session through the existing delete-strategy flow. Period-level
+    // delete UX is part of the period-detail screen (§3.1, not 1A).
+    final firstSessionId =
+        period.sessionIds.isNotEmpty ? period.sessionIds.first : null;
+    if (firstSessionId == null) return false;
+
     final repo = ref.read(frontingSessionRepositoryProvider);
+    final session = await repo.getSessionById(firstSessionId);
+    if (session == null || !context.mounted) return false;
     final allSessions = await repo.getAllSessions();
     final editGuard = ref.read(frontingEditGuardProvider);
-    final resolutionService = ref.read(frontingEditResolutionServiceProvider);
+    final resolutionService =
+        ref.read(frontingEditResolutionServiceProvider);
     final changeExecutor = ref.read(frontingChangeExecutorProvider);
 
     final sessionSnapshot = FrontingSanitizerService.toSnapshot(session);
     final allSnapshots =
         allSessions.map(FrontingSanitizerService.toSnapshot).toList();
-
     final deleteCtx =
         editGuard.getDeleteContext(sessionSnapshot, allSnapshots);
 
@@ -234,7 +290,6 @@ class _SessionTile extends ConsumerWidget {
             message: context.l10n.frontingErrorSavingSession(error),
           );
         }
-        // Returning false aborts the dismiss so the row stays visible.
         return false;
       },
     );
@@ -243,68 +298,43 @@ class _SessionTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final memberId = session.memberId;
-    final isUnknown = memberId == null;
 
-    final member = memberId != null ? membersMap[memberId] : null;
-    final emoji = member?.emoji ?? '?';
+    final activeMemberObjs = period.activeMembers
+        .map((id) => membersMap[id])
+        .whereType<Member>()
+        .toList();
+    final isUnknown = period.activeMembers.isEmpty;
 
-    // Each session is one member's continuous presence. Period-level grouping
-    // (showing one row per derived period with avatar stacks) is deferred to
-    // Phase 3 per spec §2.3 and §4.6.
-    final String name;
-    if (isUnknown) {
-      name = 'Unknown';
-    } else {
-      name = member?.name ?? 'Unknown';
-    }
-
-    final accentColor =
-        member != null &&
-            member.customColorEnabled &&
-            member.customColorHex != null
-        ? AppColors.fromHex(member.customColorHex!)
+    final accentColor = activeMemberObjs.isNotEmpty &&
+            activeMemberObjs.first.customColorEnabled &&
+            activeMemberObjs.first.customColorHex != null
+        ? AppColors.fromHex(activeMemberObjs.first.customColorHex!)
         : theme.colorScheme.primary;
 
-    final timeRange = displaySession.timeRangeString(context.dateLocale);
+    final timeRange = _timeRange(context.dateLocale, context);
+    final name = _namesString(context);
 
-    // Each row shows one member's session — single avatar.
-    // TODO(§2.3): Phase 3 will replace with period-level avatar stacks for
-    // derived periods that span multiple members.
-    final Widget leadingWidget;
-    if (isUnknown) {
-      leadingWidget = Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: theme.colorScheme.surfaceContainerHighest,
-        ),
-        child: Icon(
-          AppIcons.helpOutline,
-          size: 20,
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
-      );
-    } else {
-      leadingWidget = MemberAvatar(
-        avatarImageData: member?.avatarImageData,
-        memberName: member?.name,
-        emoji: emoji,
-        customColorEnabled: member?.customColorEnabled ?? false,
-        customColorHex: member?.customColorHex,
-        size: 40,
-      );
-    }
+    final leadingWidget = isUnknown
+        ? Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: theme.colorScheme.surfaceContainerHighest,
+            ),
+            child: Icon(
+              AppIcons.helpOutline,
+              size: 20,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          )
+        : _AvatarStack(members: activeMemberObjs);
 
-    // Build the subtitle with colored duration + time range
-    // Only the latest (most recent) session gets accent-colored duration
+    final showLiveTimer = slice.isLiveOpenEnded;
     final durationColor = isLatest ? accentColor : null;
-    final showLiveTimer =
-        displaySession.isActive && !displaySession.continuesNextDay;
     final subtitleWidget = showLiveTimer
         ? _ActiveSubtitle(
-            startTime: displaySession.displayStart,
+            startTime: slice.displayStart,
             timeRange: timeRange,
             accentColor: accentColor,
           )
@@ -312,14 +342,14 @@ class _SessionTile extends ConsumerWidget {
             TextSpan(
               children: [
                 TextSpan(
-                  text: displaySession.displayDuration.toRoundedString(),
+                  text: slice.displayDuration.toRoundedString(),
                   style: TextStyle(
                     color: durationColor,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 TextSpan(
-                  text: '  \u00b7  $timeRange',
+                  text: '  ·  $timeRange',
                   style: TextStyle(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -328,11 +358,68 @@ class _SessionTile extends ConsumerWidget {
             ),
           );
 
+    // Brief visitors chip ("+Sam briefly · +Aimee briefly").
+    final briefChips = period.briefVisitors.isEmpty
+        ? null
+        : Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: [
+                for (final v in period.briefVisitors)
+                  _BriefVisitorChip(
+                    name: membersMap[v.memberId]?.name ?? 'Unknown',
+                  ),
+              ],
+            ),
+          );
+
+    // Always-present row above the period block (separate from the avatar
+    // stack). Per spec: "If the implementation gets complicated, you can
+    // simplify for 1A and surface the always-present member alongside but
+    // visually distinct (e.g., separate row above the period block)."
+    final alwaysPresentLine = period.alwaysPresentMembers.isEmpty
+        ? null
+        : Padding(
+            padding:
+                const EdgeInsets.only(top: 4, left: 0, right: 0, bottom: 0),
+            child: Row(
+              children: [
+                Icon(
+                  AppIcons.helpOutline,
+                  size: 12,
+                  color: theme.colorScheme.onSurfaceVariant
+                      .withValues(alpha: 0.7),
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    'Always-present: ${period.alwaysPresentMembers.map((id) => membersMap[id]?.name ?? 'Unknown').join(', ')}',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      fontStyle: FontStyle.italic,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          );
+
     const dimAlpha = 0.6;
+
     final tileContent = Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => context.go(AppRoutePaths.session(session.id)),
+        onTap: () {
+          // Period-detail UX is §3.1 (not in 1A's scope). For 1A we route
+          // to the first contributing session — preserves the existing
+          // navigation pattern.
+          if (period.sessionIds.isEmpty) return;
+          context.go(AppRoutePaths.session(period.sessionIds.first));
+        },
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
@@ -358,8 +445,9 @@ class _SessionTile extends ConsumerWidget {
                     ),
                     const SizedBox(height: 2),
                     DefaultTextStyle(
-                      style: (theme.textTheme.bodySmall ?? const TextStyle())
-                          .copyWith(
+                      style:
+                          (theme.textTheme.bodySmall ?? const TextStyle())
+                              .copyWith(
                         color: isUnknown
                             ? theme.colorScheme.onSurface
                                 .withValues(alpha: dimAlpha)
@@ -367,6 +455,8 @@ class _SessionTile extends ConsumerWidget {
                       ),
                       child: subtitleWidget,
                     ),
+                    ?briefChips,
+                    ?alwaysPresentLine,
                   ],
                 ),
               ),
@@ -384,12 +474,12 @@ class _SessionTile extends ConsumerWidget {
       ),
     );
 
-    final sliceKey = displaySession.isContinuation
-        ? '${session.id}-cont-${displaySession.displayStart.toDayKey()}'
-        : session.id;
+    final sliceKey = slice.isContinuation
+        ? '${period.sessionIds.join("|")}-cont-${slice.displayStart.toDayKey()}'
+        : period.sessionIds.join('|');
 
     return Dismissible(
-      key: ValueKey(sliceKey),
+      key: ValueKey('period-$sliceKey'),
       direction: DismissDirection.startToEnd,
       background: Container(
         alignment: Alignment.centerLeft,
@@ -406,7 +496,7 @@ class _SessionTile extends ConsumerWidget {
               switchInCurve: Anim.enter,
               switchOutCurve: Anim.exit,
               child: KeyedSubtree(
-                key: ValueKey('${session.id}-${session.memberId}'),
+                key: ValueKey('period-$sliceKey-active'),
                 child: tileContent,
               ),
             )
@@ -415,7 +505,125 @@ class _SessionTile extends ConsumerWidget {
   }
 }
 
-/// Inline sleep session tile with tinted background.
+/// An overlapping avatar stack (longest-active-at-period-start first leads).
+class _AvatarStack extends StatelessWidget {
+  const _AvatarStack({required this.members});
+  final List<Member> members;
+
+  static const double _avatarSize = 40;
+  static const double _overlap = 12;
+
+  @override
+  Widget build(BuildContext context) {
+    if (members.isEmpty) return const SizedBox(width: _avatarSize, height: _avatarSize);
+
+    // Cap the visible stack at 3 to keep the leading column from
+    // overflowing the row; a "+N" pill represents the rest.
+    final visible = members.take(3).toList();
+    final extra = members.length - visible.length;
+    final stackWidth = _avatarSize +
+        (visible.length - 1) * (_avatarSize - _overlap) +
+        (extra > 0 ? (_avatarSize - _overlap) : 0);
+
+    return SizedBox(
+      width: stackWidth,
+      height: _avatarSize,
+      child: Stack(
+        children: [
+          for (var i = 0; i < visible.length; i++)
+            Positioned(
+              left: i * (_avatarSize - _overlap),
+              child: _BorderedAvatar(member: visible[i]),
+            ),
+          if (extra > 0)
+            Positioned(
+              left: visible.length * (_avatarSize - _overlap),
+              child: _ExtraCountChip(count: extra),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BorderedAvatar extends StatelessWidget {
+  const _BorderedAvatar({required this.member});
+  final Member member;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: theme.colorScheme.surface,
+          width: 2,
+        ),
+      ),
+      child: MemberAvatar(
+        avatarImageData: member.avatarImageData,
+        memberName: member.name,
+        emoji: member.emoji,
+        customColorEnabled: member.customColorEnabled,
+        customColorHex: member.customColorHex,
+        size: 40,
+      ),
+    );
+  }
+}
+
+class _ExtraCountChip extends StatelessWidget {
+  const _ExtraCountChip({required this.count});
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: theme.colorScheme.surfaceContainerHighest,
+        border: Border.all(color: theme.colorScheme.surface, width: 2),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        '+$count',
+        style: theme.textTheme.labelSmall?.copyWith(
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
+class _BriefVisitorChip extends StatelessWidget {
+  const _BriefVisitorChip({required this.name});
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.secondaryContainer.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        '+$name briefly',
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: theme.colorScheme.onSecondaryContainer,
+        ),
+      ),
+    );
+  }
+}
+
+/// Inline sleep session tile with tinted background. Unchanged from the
+/// pre-period implementation — sleep tiles are not periods.
 class _InlineSleepTile extends ConsumerWidget {
   const _InlineSleepTile({required this.displaySession});
 
@@ -440,9 +648,7 @@ class _InlineSleepTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-
     final timeRange = displaySession.timeRangeString(context.dateLocale);
-
     final quality = session.quality;
     final hasQuality = quality != null && quality != SleepQuality.unknown;
 
@@ -462,7 +668,7 @@ class _InlineSleepTile extends ConsumerWidget {
 
     return Semantics(
       label: context.l10n.frontingSleepSessionSemantics(
-            displaySession.displayDuration.toRoundedString(), timeRange),
+          displaySession.displayDuration.toRoundedString(), timeRange),
       child: Container(
         color: AppColors.sleep(theme.brightness).withValues(alpha: 0.12),
         child: Material(
@@ -480,7 +686,8 @@ class _InlineSleepTile extends ConsumerWidget {
                     height: 40,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: AppColors.sleep(theme.brightness).withValues(alpha: 0.2),
+                      color: AppColors.sleep(theme.brightness)
+                          .withValues(alpha: 0.2),
                     ),
                     child: PhosphorIcon(
                       AppIcons.duotoneSleep,
@@ -512,10 +719,9 @@ class _InlineSleepTile extends ConsumerWidget {
                                 ),
                               ),
                               TextSpan(
-                                text: '  \u00b7  $timeRange',
+                                text: '  ·  $timeRange',
                                 style: TextStyle(
-                                  color:
-                                      theme.colorScheme.onSurfaceVariant,
+                                  color: theme.colorScheme.onSurfaceVariant,
                                 ),
                               ),
                             ],
@@ -537,7 +743,7 @@ class _InlineSleepTile extends ConsumerWidget {
   }
 }
 
-/// Subtitle for active sessions with live-updating duration.
+/// Subtitle for active periods with live-updating duration.
 class _ActiveSubtitle extends StatelessWidget {
   const _ActiveSubtitle({
     required this.startTime,
@@ -565,7 +771,7 @@ class _ActiveSubtitle extends StatelessWidget {
           ),
         ),
         Text(
-          '  \u00b7  $timeRange',
+          '  ·  $timeRange',
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
