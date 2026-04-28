@@ -100,6 +100,12 @@ abstract class ResetSyncFfi {
     required String sessionToken,
   });
 
+  Future<void> clearSyncState({
+    required ffi.PrismSyncHandle handle,
+    required String syncId,
+    required bool forceActive,
+  });
+
   /// Calls `dispose()` on the handle. Wrapped so tests can observe ordering.
   void disposeHandle(ffi.PrismSyncHandle handle);
 }
@@ -151,6 +157,19 @@ class _DefaultResetSyncFfi implements ResetSyncFfi {
       syncId: syncId,
       deviceId: deviceId,
       sessionToken: sessionToken,
+    );
+  }
+
+  @override
+  Future<void> clearSyncState({
+    required ffi.PrismSyncHandle handle,
+    required String syncId,
+    required bool forceActive,
+  }) {
+    return ffi.clearSyncState(
+      handle: handle,
+      syncId: syncId,
+      forceActive: forceActive,
     );
   }
 
@@ -451,10 +470,24 @@ class ResetDataNotifier extends AsyncNotifier<void> {
       }
     }
 
-    // 2B-2 hook: clear_sync_state(sync_id, force_active=true) goes here once
-    // the FFI helper from Phase 1C lands. See sync-pairing-reset-hardening.md.
-    // Must run BEFORE dispose (needs the live handle) and BEFORE the file
-    // delete (mutates the live SQLite connection).
+    // 2. Clear active sync-DB rows while the handle is still live. This is a
+    //    belt-and-suspenders cleanup before file deletion: if the later unlink
+    //    fails, rows for the abandoned sync_id are still gone. Non-fatal:
+    //    file deletion remains the fallback cleanup path.
+    if (handle != null) {
+      try {
+        final syncId = await _readDecodedSecureValue('${prefix}sync_id');
+        if (syncId != null) {
+          await syncFfi.clearSyncState(
+            handle: handle,
+            syncId: syncId,
+            forceActive: true,
+          );
+        }
+      } catch (e) {
+        _log('clear_sync_state failed during reset (non-fatal): $e');
+      }
+    }
 
     // 3. Dispose the FFI handle BEFORE deleting the sync-DB file. Dropping
     //    the Arc<Mutex<PrismSync>> releases SQLite connections + WebSocket
