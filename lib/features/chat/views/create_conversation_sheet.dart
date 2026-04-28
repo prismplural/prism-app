@@ -207,7 +207,9 @@ class _CreateConversationSheetState
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final membersAsync = ref.watch(activeMembersProvider);
+    // Non-fronting picker: hide the Unknown sentinel — chats with the
+    // placeholder member aren't a real flow.
+    final membersAsync = ref.watch(userVisibleMembersProvider);
     final speakingAs = ref.watch(speakingAsProvider);
 
     // Pre-select members once loaded only when the caller explicitly provided

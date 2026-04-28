@@ -128,7 +128,9 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final canSave = _canSave;
-    final membersAsync = ref.watch(activeMembersProvider);
+    // Non-fronting picker: hide the Unknown sentinel — you don't set a
+    // reminder for the placeholder member.
+    final membersAsync = ref.watch(userVisibleMembersProvider);
 
     return SafeArea(
       child: Column(

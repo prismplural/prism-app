@@ -294,8 +294,10 @@ class _GroupDetailBody extends ConsumerWidget {
         ref.read(groupEntriesProvider(group.id)).whenOrNull(data: (e) => e) ??
         [];
     final existingMemberIds = entries.map((e) => e.memberId).toSet();
+    // Non-fronting picker: hide the Unknown sentinel — you don't add the
+    // placeholder member to a group.
     final availableMembers =
-        (ref.read(activeMembersProvider).value ?? const <Member>[])
+        (ref.read(userVisibleMembersProvider).value ?? const <Member>[])
             .where((member) => !existingMemberIds.contains(member.id))
             .toList();
 

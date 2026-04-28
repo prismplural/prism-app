@@ -20,7 +20,9 @@ class WhosFrontingStep extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final membersAsync = ref.watch(allMembersProvider);
+    // Onboarding picker: hide the Unknown sentinel — users are picking their
+    // own members, not the system placeholder.
+    final membersAsync = ref.watch(userVisibleAllMembersProvider);
     final onboarding = ref.watch(onboardingProvider);
     final notifier = ref.read(onboardingProvider.notifier);
 

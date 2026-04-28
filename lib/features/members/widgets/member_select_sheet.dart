@@ -46,7 +46,9 @@ class MemberSelectSheet extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final membersAsync = ref.watch(activeMembersProvider);
+    // Non-fronting picker: hide the Unknown sentinel — it's a system-internal
+    // placeholder, not a selectable headmate.
+    final membersAsync = ref.watch(userVisibleMembersProvider);
     final terminology = watchTerminology(context, ref);
     final l10n = context.l10n;
 
