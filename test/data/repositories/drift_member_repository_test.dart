@@ -193,6 +193,40 @@ void main() {
     );
   });
 
+  group('deleteMember sentinel guard', () {
+    test('refuses to delete the Unknown sentinel', () async {
+      // Pre-create the sentinel so we know there's a row to "delete."
+      await repo.ensureUnknownSentinelMember();
+
+      await expectLater(
+        repo.deleteMember(unknownSentinelMemberId),
+        throwsA(isA<StateError>()),
+      );
+
+      // Sentinel must still be present and not soft-deleted.
+      final fetched = await repo.getMemberById(unknownSentinelMemberId);
+      expect(fetched, isNotNull);
+      expect(fetched!.isDeleted, isFalse);
+    });
+
+    test('still deletes ordinary members', () async {
+      final member = domain.Member(
+        id: 'ordinary-1',
+        name: 'Ordinary',
+        createdAt: DateTime.now().toUtc(),
+      );
+      await repo.createMember(member);
+
+      await repo.deleteMember('ordinary-1');
+
+      // softDeleteMember filters by is_deleted=false in the watch streams,
+      // but getMemberById returns the row regardless — verify it's flagged.
+      final fetched = await repo.getMemberById('ordinary-1');
+      expect(fetched, isNotNull);
+      expect(fetched!.isDeleted, isTrue);
+    });
+  });
+
   group('isAlwaysFronting round-trip', () {
     test('persists isAlwaysFronting=true through create + read', () async {
       final member = domain.Member(

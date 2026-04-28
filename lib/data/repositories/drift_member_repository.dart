@@ -78,6 +78,17 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
 
   @override
   Future<void> deleteMember(String id) async {
+    // Refuse to delete the Unknown sentinel — it backs orphan-classified
+    // fronting rows ("Front as Unknown" + importer/migration fallbacks). If
+    // a user could delete it, those rows would render as broken-looking
+    // until ensureUnknownSentinelMember auto-recreates on next use. The
+    // member-list UI already filters this id out via userVisibleMembersProvider,
+    // but the repository guard is the durable invariant — covers any path
+    // (test, debug, future UI) that reaches deleteMember directly.
+    if (id == unknownSentinelMemberId) {
+      throw StateError('Unknown sentinel cannot be deleted');
+    }
+
     // Plan 02 R1: if this member has a PK link and a sync DAO is wired,
     // stamp the current link epoch on the tombstone in the same transaction
     // so the PK push path can distinguish "tombstoned under this link" from
