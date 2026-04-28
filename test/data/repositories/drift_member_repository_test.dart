@@ -192,4 +192,50 @@ void main() {
       },
     );
   });
+
+  group('isAlwaysFronting round-trip', () {
+    test('persists isAlwaysFronting=true through create + read', () async {
+      final member = domain.Member(
+        id: 'always-1',
+        name: 'Host',
+        createdAt: DateTime.now().toUtc(),
+        isAlwaysFronting: true,
+      );
+      await repo.createMember(member);
+
+      final fetched = await repo.getMemberById('always-1');
+      expect(fetched, isNotNull);
+      expect(fetched!.isAlwaysFronting, isTrue);
+    });
+
+    test('defaults to false when not specified', () async {
+      final member = domain.Member(
+        id: 'default-1',
+        name: 'Default',
+        createdAt: DateTime.now().toUtc(),
+      );
+      await repo.createMember(member);
+
+      final fetched = await repo.getMemberById('default-1');
+      expect(fetched, isNotNull);
+      expect(fetched!.isAlwaysFronting, isFalse);
+    });
+
+    test('updateMember can flip the flag from false → true', () async {
+      final member = domain.Member(
+        id: 'flip-1',
+        name: 'Flip',
+        createdAt: DateTime.now().toUtc(),
+      );
+      await repo.createMember(member);
+
+      final initial = await repo.getMemberById('flip-1');
+      expect(initial!.isAlwaysFronting, isFalse);
+
+      await repo.updateMember(initial.copyWith(isAlwaysFronting: true));
+
+      final updated = await repo.getMemberById('flip-1');
+      expect(updated!.isAlwaysFronting, isTrue);
+    });
+  });
 }

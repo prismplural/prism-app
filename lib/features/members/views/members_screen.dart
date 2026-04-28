@@ -384,9 +384,12 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Member-list screen is user-facing — hide the Unknown sentinel from both
+    // the active and "show inactive" views. Sentinel still resolves for any
+    // session that points at it via the unfiltered providers used elsewhere.
     final membersAsync = _showInactive
-        ? ref.watch(allMembersProvider)
-        : ref.watch(activeMembersProvider);
+        ? ref.watch(userVisibleAllMembersProvider)
+        : ref.watch(userVisibleMembersProvider);
     final activeSessionsAsync = ref.watch(activeSessionsProvider);
     final terms = watchTerminology(context, ref);
 

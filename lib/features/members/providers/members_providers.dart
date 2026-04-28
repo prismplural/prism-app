@@ -4,20 +4,55 @@ import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 
 /// Watches all members (active and inactive).
+///
+/// Includes the Unknown sentinel — analytics, fronting-related selection, and
+/// any path that resolves session.memberId back to a member must use this (or
+/// `activeMembersProvider`) so the sentinel resolves rather than rendering as
+/// "missing." For user-facing member-management lists use
+/// [userVisibleMembersProvider] instead.
 final allMembersProvider = StreamProvider<List<Member>>((ref) {
   final repo = ref.watch(memberRepositoryProvider);
   return repo.watchAllMembers();
 });
 
-/// Watches active members only.
+/// Watches active members only. Includes the Unknown sentinel — see the note
+/// on [allMembersProvider] for which surfaces should filter it.
 final activeMembersProvider = StreamProvider<List<Member>>((ref) {
   final repo = ref.watch(memberRepositoryProvider);
   return repo.watchActiveMembers();
+});
+
+/// Active members with the Unknown sentinel filtered out.
+///
+/// Use this on member-management surfaces (members list, system management,
+/// system info, settings) where the sentinel would confuse users — it's a
+/// system-internal placeholder, not a real headmate. Fronting pickers,
+/// chat/poll/reminder selection, and analytics keep using
+/// [activeMembersProvider]/[allMembersProvider] so the sentinel resolves
+/// normally for sessions attributed to it.
+final userVisibleMembersProvider = Provider<AsyncValue<List<Member>>>((ref) {
+  final async = ref.watch(activeMembersProvider);
+  return async.whenData(
+    (members) => members.where((m) => m.id != unknownSentinelMemberId).toList(),
+  );
+});
+
+/// All members (active + inactive) with the Unknown sentinel filtered out.
+///
+/// Mirrors [userVisibleMembersProvider] but for management surfaces that show
+/// inactive members too (e.g., the "show inactive" toggle on the members
+/// list). Same rule: never display the sentinel as a manageable headmate.
+final userVisibleAllMembersProvider = Provider<AsyncValue<List<Member>>>((ref) {
+  final async = ref.watch(allMembersProvider);
+  return async.whenData(
+    (members) => members.where((m) => m.id != unknownSentinelMemberId).toList(),
+  );
 });
 
 /// Single member by ID.

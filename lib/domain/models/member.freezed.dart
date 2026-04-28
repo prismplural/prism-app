@@ -18,7 +18,11 @@ mixin _$Member {
  String get id; String get name; String? get pronouns; String get emoji; int? get age; String? get bio;@JsonKey(fromJson: _uint8ListFromJson, toJson: _uint8ListToJson) Uint8List? get avatarImageData; bool get isActive; DateTime get createdAt; int get displayOrder; bool get isAdmin; bool get customColorEnabled; String? get customColorHex; String? get parentSystemId; String? get pluralkitUuid; String? get pluralkitId; bool get markdownEnabled; String? get displayName; String? get birthday; String? get proxyTagsJson; String? get pkBannerUrl; bool get pluralkitSyncIgnored;// Plan 02 (PK deletion push). Set by the repo when a PK-linked member is
 // soft-deleted; consumed only by the PK push path. `isDeleted` is mirrored
 // onto the domain so sync-service re-read guards don't need the Drift row.
- bool get isDeleted; int? get deleteIntentEpoch; int? get deletePushStartedAt;
+ bool get isDeleted; int? get deleteIntentEpoch; int? get deletePushStartedAt;// Per-member fronting refactor (docs/plans/fronting-per-member-sessions.md
+// §2.3): when true, this member's session is treated as "background" and
+// omitted from avatar stacks, surfaced instead in the "Always-present"
+// header on period detail screens. Default false; opt-in per member.
+ bool get isAlwaysFronting;
 /// Create a copy of Member
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -31,16 +35,16 @@ $MemberCopyWith<Member> get copyWith => _$MemberCopyWithImpl<Member>(this as Mem
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Member&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.pronouns, pronouns) || other.pronouns == pronouns)&&(identical(other.emoji, emoji) || other.emoji == emoji)&&(identical(other.age, age) || other.age == age)&&(identical(other.bio, bio) || other.bio == bio)&&const DeepCollectionEquality().equals(other.avatarImageData, avatarImageData)&&(identical(other.isActive, isActive) || other.isActive == isActive)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.displayOrder, displayOrder) || other.displayOrder == displayOrder)&&(identical(other.isAdmin, isAdmin) || other.isAdmin == isAdmin)&&(identical(other.customColorEnabled, customColorEnabled) || other.customColorEnabled == customColorEnabled)&&(identical(other.customColorHex, customColorHex) || other.customColorHex == customColorHex)&&(identical(other.parentSystemId, parentSystemId) || other.parentSystemId == parentSystemId)&&(identical(other.pluralkitUuid, pluralkitUuid) || other.pluralkitUuid == pluralkitUuid)&&(identical(other.pluralkitId, pluralkitId) || other.pluralkitId == pluralkitId)&&(identical(other.markdownEnabled, markdownEnabled) || other.markdownEnabled == markdownEnabled)&&(identical(other.displayName, displayName) || other.displayName == displayName)&&(identical(other.birthday, birthday) || other.birthday == birthday)&&(identical(other.proxyTagsJson, proxyTagsJson) || other.proxyTagsJson == proxyTagsJson)&&(identical(other.pkBannerUrl, pkBannerUrl) || other.pkBannerUrl == pkBannerUrl)&&(identical(other.pluralkitSyncIgnored, pluralkitSyncIgnored) || other.pluralkitSyncIgnored == pluralkitSyncIgnored)&&(identical(other.isDeleted, isDeleted) || other.isDeleted == isDeleted)&&(identical(other.deleteIntentEpoch, deleteIntentEpoch) || other.deleteIntentEpoch == deleteIntentEpoch)&&(identical(other.deletePushStartedAt, deletePushStartedAt) || other.deletePushStartedAt == deletePushStartedAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Member&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.pronouns, pronouns) || other.pronouns == pronouns)&&(identical(other.emoji, emoji) || other.emoji == emoji)&&(identical(other.age, age) || other.age == age)&&(identical(other.bio, bio) || other.bio == bio)&&const DeepCollectionEquality().equals(other.avatarImageData, avatarImageData)&&(identical(other.isActive, isActive) || other.isActive == isActive)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.displayOrder, displayOrder) || other.displayOrder == displayOrder)&&(identical(other.isAdmin, isAdmin) || other.isAdmin == isAdmin)&&(identical(other.customColorEnabled, customColorEnabled) || other.customColorEnabled == customColorEnabled)&&(identical(other.customColorHex, customColorHex) || other.customColorHex == customColorHex)&&(identical(other.parentSystemId, parentSystemId) || other.parentSystemId == parentSystemId)&&(identical(other.pluralkitUuid, pluralkitUuid) || other.pluralkitUuid == pluralkitUuid)&&(identical(other.pluralkitId, pluralkitId) || other.pluralkitId == pluralkitId)&&(identical(other.markdownEnabled, markdownEnabled) || other.markdownEnabled == markdownEnabled)&&(identical(other.displayName, displayName) || other.displayName == displayName)&&(identical(other.birthday, birthday) || other.birthday == birthday)&&(identical(other.proxyTagsJson, proxyTagsJson) || other.proxyTagsJson == proxyTagsJson)&&(identical(other.pkBannerUrl, pkBannerUrl) || other.pkBannerUrl == pkBannerUrl)&&(identical(other.pluralkitSyncIgnored, pluralkitSyncIgnored) || other.pluralkitSyncIgnored == pluralkitSyncIgnored)&&(identical(other.isDeleted, isDeleted) || other.isDeleted == isDeleted)&&(identical(other.deleteIntentEpoch, deleteIntentEpoch) || other.deleteIntentEpoch == deleteIntentEpoch)&&(identical(other.deletePushStartedAt, deletePushStartedAt) || other.deletePushStartedAt == deletePushStartedAt)&&(identical(other.isAlwaysFronting, isAlwaysFronting) || other.isAlwaysFronting == isAlwaysFronting));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hashAll([runtimeType,id,name,pronouns,emoji,age,bio,const DeepCollectionEquality().hash(avatarImageData),isActive,createdAt,displayOrder,isAdmin,customColorEnabled,customColorHex,parentSystemId,pluralkitUuid,pluralkitId,markdownEnabled,displayName,birthday,proxyTagsJson,pkBannerUrl,pluralkitSyncIgnored,isDeleted,deleteIntentEpoch,deletePushStartedAt]);
+int get hashCode => Object.hashAll([runtimeType,id,name,pronouns,emoji,age,bio,const DeepCollectionEquality().hash(avatarImageData),isActive,createdAt,displayOrder,isAdmin,customColorEnabled,customColorHex,parentSystemId,pluralkitUuid,pluralkitId,markdownEnabled,displayName,birthday,proxyTagsJson,pkBannerUrl,pluralkitSyncIgnored,isDeleted,deleteIntentEpoch,deletePushStartedAt,isAlwaysFronting]);
 
 @override
 String toString() {
-  return 'Member(id: $id, name: $name, pronouns: $pronouns, emoji: $emoji, age: $age, bio: $bio, avatarImageData: $avatarImageData, isActive: $isActive, createdAt: $createdAt, displayOrder: $displayOrder, isAdmin: $isAdmin, customColorEnabled: $customColorEnabled, customColorHex: $customColorHex, parentSystemId: $parentSystemId, pluralkitUuid: $pluralkitUuid, pluralkitId: $pluralkitId, markdownEnabled: $markdownEnabled, displayName: $displayName, birthday: $birthday, proxyTagsJson: $proxyTagsJson, pkBannerUrl: $pkBannerUrl, pluralkitSyncIgnored: $pluralkitSyncIgnored, isDeleted: $isDeleted, deleteIntentEpoch: $deleteIntentEpoch, deletePushStartedAt: $deletePushStartedAt)';
+  return 'Member(id: $id, name: $name, pronouns: $pronouns, emoji: $emoji, age: $age, bio: $bio, avatarImageData: $avatarImageData, isActive: $isActive, createdAt: $createdAt, displayOrder: $displayOrder, isAdmin: $isAdmin, customColorEnabled: $customColorEnabled, customColorHex: $customColorHex, parentSystemId: $parentSystemId, pluralkitUuid: $pluralkitUuid, pluralkitId: $pluralkitId, markdownEnabled: $markdownEnabled, displayName: $displayName, birthday: $birthday, proxyTagsJson: $proxyTagsJson, pkBannerUrl: $pkBannerUrl, pluralkitSyncIgnored: $pluralkitSyncIgnored, isDeleted: $isDeleted, deleteIntentEpoch: $deleteIntentEpoch, deletePushStartedAt: $deletePushStartedAt, isAlwaysFronting: $isAlwaysFronting)';
 }
 
 
@@ -51,7 +55,7 @@ abstract mixin class $MemberCopyWith<$Res>  {
   factory $MemberCopyWith(Member value, $Res Function(Member) _then) = _$MemberCopyWithImpl;
 @useResult
 $Res call({
- String id, String name, String? pronouns, String emoji, int? age, String? bio,@JsonKey(fromJson: _uint8ListFromJson, toJson: _uint8ListToJson) Uint8List? avatarImageData, bool isActive, DateTime createdAt, int displayOrder, bool isAdmin, bool customColorEnabled, String? customColorHex, String? parentSystemId, String? pluralkitUuid, String? pluralkitId, bool markdownEnabled, String? displayName, String? birthday, String? proxyTagsJson, String? pkBannerUrl, bool pluralkitSyncIgnored, bool isDeleted, int? deleteIntentEpoch, int? deletePushStartedAt
+ String id, String name, String? pronouns, String emoji, int? age, String? bio,@JsonKey(fromJson: _uint8ListFromJson, toJson: _uint8ListToJson) Uint8List? avatarImageData, bool isActive, DateTime createdAt, int displayOrder, bool isAdmin, bool customColorEnabled, String? customColorHex, String? parentSystemId, String? pluralkitUuid, String? pluralkitId, bool markdownEnabled, String? displayName, String? birthday, String? proxyTagsJson, String? pkBannerUrl, bool pluralkitSyncIgnored, bool isDeleted, int? deleteIntentEpoch, int? deletePushStartedAt, bool isAlwaysFronting
 });
 
 
@@ -68,7 +72,7 @@ class _$MemberCopyWithImpl<$Res>
 
 /// Create a copy of Member
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,Object? pronouns = freezed,Object? emoji = null,Object? age = freezed,Object? bio = freezed,Object? avatarImageData = freezed,Object? isActive = null,Object? createdAt = null,Object? displayOrder = null,Object? isAdmin = null,Object? customColorEnabled = null,Object? customColorHex = freezed,Object? parentSystemId = freezed,Object? pluralkitUuid = freezed,Object? pluralkitId = freezed,Object? markdownEnabled = null,Object? displayName = freezed,Object? birthday = freezed,Object? proxyTagsJson = freezed,Object? pkBannerUrl = freezed,Object? pluralkitSyncIgnored = null,Object? isDeleted = null,Object? deleteIntentEpoch = freezed,Object? deletePushStartedAt = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,Object? pronouns = freezed,Object? emoji = null,Object? age = freezed,Object? bio = freezed,Object? avatarImageData = freezed,Object? isActive = null,Object? createdAt = null,Object? displayOrder = null,Object? isAdmin = null,Object? customColorEnabled = null,Object? customColorHex = freezed,Object? parentSystemId = freezed,Object? pluralkitUuid = freezed,Object? pluralkitId = freezed,Object? markdownEnabled = null,Object? displayName = freezed,Object? birthday = freezed,Object? proxyTagsJson = freezed,Object? pkBannerUrl = freezed,Object? pluralkitSyncIgnored = null,Object? isDeleted = null,Object? deleteIntentEpoch = freezed,Object? deletePushStartedAt = freezed,Object? isAlwaysFronting = null,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
@@ -95,7 +99,8 @@ as String?,pluralkitSyncIgnored: null == pluralkitSyncIgnored ? _self.pluralkitS
 as bool,isDeleted: null == isDeleted ? _self.isDeleted : isDeleted // ignore: cast_nullable_to_non_nullable
 as bool,deleteIntentEpoch: freezed == deleteIntentEpoch ? _self.deleteIntentEpoch : deleteIntentEpoch // ignore: cast_nullable_to_non_nullable
 as int?,deletePushStartedAt: freezed == deletePushStartedAt ? _self.deletePushStartedAt : deletePushStartedAt // ignore: cast_nullable_to_non_nullable
-as int?,
+as int?,isAlwaysFronting: null == isAlwaysFronting ? _self.isAlwaysFronting : isAlwaysFronting // ignore: cast_nullable_to_non_nullable
+as bool,
   ));
 }
 
@@ -180,10 +185,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String name,  String? pronouns,  String emoji,  int? age,  String? bio, @JsonKey(fromJson: _uint8ListFromJson, toJson: _uint8ListToJson)  Uint8List? avatarImageData,  bool isActive,  DateTime createdAt,  int displayOrder,  bool isAdmin,  bool customColorEnabled,  String? customColorHex,  String? parentSystemId,  String? pluralkitUuid,  String? pluralkitId,  bool markdownEnabled,  String? displayName,  String? birthday,  String? proxyTagsJson,  String? pkBannerUrl,  bool pluralkitSyncIgnored,  bool isDeleted,  int? deleteIntentEpoch,  int? deletePushStartedAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String name,  String? pronouns,  String emoji,  int? age,  String? bio, @JsonKey(fromJson: _uint8ListFromJson, toJson: _uint8ListToJson)  Uint8List? avatarImageData,  bool isActive,  DateTime createdAt,  int displayOrder,  bool isAdmin,  bool customColorEnabled,  String? customColorHex,  String? parentSystemId,  String? pluralkitUuid,  String? pluralkitId,  bool markdownEnabled,  String? displayName,  String? birthday,  String? proxyTagsJson,  String? pkBannerUrl,  bool pluralkitSyncIgnored,  bool isDeleted,  int? deleteIntentEpoch,  int? deletePushStartedAt,  bool isAlwaysFronting)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Member() when $default != null:
-return $default(_that.id,_that.name,_that.pronouns,_that.emoji,_that.age,_that.bio,_that.avatarImageData,_that.isActive,_that.createdAt,_that.displayOrder,_that.isAdmin,_that.customColorEnabled,_that.customColorHex,_that.parentSystemId,_that.pluralkitUuid,_that.pluralkitId,_that.markdownEnabled,_that.displayName,_that.birthday,_that.proxyTagsJson,_that.pkBannerUrl,_that.pluralkitSyncIgnored,_that.isDeleted,_that.deleteIntentEpoch,_that.deletePushStartedAt);case _:
+return $default(_that.id,_that.name,_that.pronouns,_that.emoji,_that.age,_that.bio,_that.avatarImageData,_that.isActive,_that.createdAt,_that.displayOrder,_that.isAdmin,_that.customColorEnabled,_that.customColorHex,_that.parentSystemId,_that.pluralkitUuid,_that.pluralkitId,_that.markdownEnabled,_that.displayName,_that.birthday,_that.proxyTagsJson,_that.pkBannerUrl,_that.pluralkitSyncIgnored,_that.isDeleted,_that.deleteIntentEpoch,_that.deletePushStartedAt,_that.isAlwaysFronting);case _:
   return orElse();
 
 }
@@ -201,10 +206,10 @@ return $default(_that.id,_that.name,_that.pronouns,_that.emoji,_that.age,_that.b
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String name,  String? pronouns,  String emoji,  int? age,  String? bio, @JsonKey(fromJson: _uint8ListFromJson, toJson: _uint8ListToJson)  Uint8List? avatarImageData,  bool isActive,  DateTime createdAt,  int displayOrder,  bool isAdmin,  bool customColorEnabled,  String? customColorHex,  String? parentSystemId,  String? pluralkitUuid,  String? pluralkitId,  bool markdownEnabled,  String? displayName,  String? birthday,  String? proxyTagsJson,  String? pkBannerUrl,  bool pluralkitSyncIgnored,  bool isDeleted,  int? deleteIntentEpoch,  int? deletePushStartedAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String name,  String? pronouns,  String emoji,  int? age,  String? bio, @JsonKey(fromJson: _uint8ListFromJson, toJson: _uint8ListToJson)  Uint8List? avatarImageData,  bool isActive,  DateTime createdAt,  int displayOrder,  bool isAdmin,  bool customColorEnabled,  String? customColorHex,  String? parentSystemId,  String? pluralkitUuid,  String? pluralkitId,  bool markdownEnabled,  String? displayName,  String? birthday,  String? proxyTagsJson,  String? pkBannerUrl,  bool pluralkitSyncIgnored,  bool isDeleted,  int? deleteIntentEpoch,  int? deletePushStartedAt,  bool isAlwaysFronting)  $default,) {final _that = this;
 switch (_that) {
 case _Member():
-return $default(_that.id,_that.name,_that.pronouns,_that.emoji,_that.age,_that.bio,_that.avatarImageData,_that.isActive,_that.createdAt,_that.displayOrder,_that.isAdmin,_that.customColorEnabled,_that.customColorHex,_that.parentSystemId,_that.pluralkitUuid,_that.pluralkitId,_that.markdownEnabled,_that.displayName,_that.birthday,_that.proxyTagsJson,_that.pkBannerUrl,_that.pluralkitSyncIgnored,_that.isDeleted,_that.deleteIntentEpoch,_that.deletePushStartedAt);case _:
+return $default(_that.id,_that.name,_that.pronouns,_that.emoji,_that.age,_that.bio,_that.avatarImageData,_that.isActive,_that.createdAt,_that.displayOrder,_that.isAdmin,_that.customColorEnabled,_that.customColorHex,_that.parentSystemId,_that.pluralkitUuid,_that.pluralkitId,_that.markdownEnabled,_that.displayName,_that.birthday,_that.proxyTagsJson,_that.pkBannerUrl,_that.pluralkitSyncIgnored,_that.isDeleted,_that.deleteIntentEpoch,_that.deletePushStartedAt,_that.isAlwaysFronting);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -221,10 +226,10 @@ return $default(_that.id,_that.name,_that.pronouns,_that.emoji,_that.age,_that.b
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String name,  String? pronouns,  String emoji,  int? age,  String? bio, @JsonKey(fromJson: _uint8ListFromJson, toJson: _uint8ListToJson)  Uint8List? avatarImageData,  bool isActive,  DateTime createdAt,  int displayOrder,  bool isAdmin,  bool customColorEnabled,  String? customColorHex,  String? parentSystemId,  String? pluralkitUuid,  String? pluralkitId,  bool markdownEnabled,  String? displayName,  String? birthday,  String? proxyTagsJson,  String? pkBannerUrl,  bool pluralkitSyncIgnored,  bool isDeleted,  int? deleteIntentEpoch,  int? deletePushStartedAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String name,  String? pronouns,  String emoji,  int? age,  String? bio, @JsonKey(fromJson: _uint8ListFromJson, toJson: _uint8ListToJson)  Uint8List? avatarImageData,  bool isActive,  DateTime createdAt,  int displayOrder,  bool isAdmin,  bool customColorEnabled,  String? customColorHex,  String? parentSystemId,  String? pluralkitUuid,  String? pluralkitId,  bool markdownEnabled,  String? displayName,  String? birthday,  String? proxyTagsJson,  String? pkBannerUrl,  bool pluralkitSyncIgnored,  bool isDeleted,  int? deleteIntentEpoch,  int? deletePushStartedAt,  bool isAlwaysFronting)?  $default,) {final _that = this;
 switch (_that) {
 case _Member() when $default != null:
-return $default(_that.id,_that.name,_that.pronouns,_that.emoji,_that.age,_that.bio,_that.avatarImageData,_that.isActive,_that.createdAt,_that.displayOrder,_that.isAdmin,_that.customColorEnabled,_that.customColorHex,_that.parentSystemId,_that.pluralkitUuid,_that.pluralkitId,_that.markdownEnabled,_that.displayName,_that.birthday,_that.proxyTagsJson,_that.pkBannerUrl,_that.pluralkitSyncIgnored,_that.isDeleted,_that.deleteIntentEpoch,_that.deletePushStartedAt);case _:
+return $default(_that.id,_that.name,_that.pronouns,_that.emoji,_that.age,_that.bio,_that.avatarImageData,_that.isActive,_that.createdAt,_that.displayOrder,_that.isAdmin,_that.customColorEnabled,_that.customColorHex,_that.parentSystemId,_that.pluralkitUuid,_that.pluralkitId,_that.markdownEnabled,_that.displayName,_that.birthday,_that.proxyTagsJson,_that.pkBannerUrl,_that.pluralkitSyncIgnored,_that.isDeleted,_that.deleteIntentEpoch,_that.deletePushStartedAt,_that.isAlwaysFronting);case _:
   return null;
 
 }
@@ -236,7 +241,7 @@ return $default(_that.id,_that.name,_that.pronouns,_that.emoji,_that.age,_that.b
 @JsonSerializable()
 
 class _Member implements Member {
-  const _Member({required this.id, required this.name, this.pronouns, this.emoji = '❔', this.age, this.bio, @JsonKey(fromJson: _uint8ListFromJson, toJson: _uint8ListToJson) this.avatarImageData, this.isActive = true, required this.createdAt, this.displayOrder = 0, this.isAdmin = false, this.customColorEnabled = false, this.customColorHex, this.parentSystemId, this.pluralkitUuid, this.pluralkitId, this.markdownEnabled = false, this.displayName, this.birthday, this.proxyTagsJson, this.pkBannerUrl, this.pluralkitSyncIgnored = false, this.isDeleted = false, this.deleteIntentEpoch, this.deletePushStartedAt});
+  const _Member({required this.id, required this.name, this.pronouns, this.emoji = '❔', this.age, this.bio, @JsonKey(fromJson: _uint8ListFromJson, toJson: _uint8ListToJson) this.avatarImageData, this.isActive = true, required this.createdAt, this.displayOrder = 0, this.isAdmin = false, this.customColorEnabled = false, this.customColorHex, this.parentSystemId, this.pluralkitUuid, this.pluralkitId, this.markdownEnabled = false, this.displayName, this.birthday, this.proxyTagsJson, this.pkBannerUrl, this.pluralkitSyncIgnored = false, this.isDeleted = false, this.deleteIntentEpoch, this.deletePushStartedAt, this.isAlwaysFronting = false});
   factory _Member.fromJson(Map<String, dynamic> json) => _$MemberFromJson(json);
 
 @override final  String id;
@@ -267,6 +272,11 @@ class _Member implements Member {
 @override@JsonKey() final  bool isDeleted;
 @override final  int? deleteIntentEpoch;
 @override final  int? deletePushStartedAt;
+// Per-member fronting refactor (docs/plans/fronting-per-member-sessions.md
+// §2.3): when true, this member's session is treated as "background" and
+// omitted from avatar stacks, surfaced instead in the "Always-present"
+// header on period detail screens. Default false; opt-in per member.
+@override@JsonKey() final  bool isAlwaysFronting;
 
 /// Create a copy of Member
 /// with the given fields replaced by the non-null parameter values.
@@ -281,16 +291,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Member&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.pronouns, pronouns) || other.pronouns == pronouns)&&(identical(other.emoji, emoji) || other.emoji == emoji)&&(identical(other.age, age) || other.age == age)&&(identical(other.bio, bio) || other.bio == bio)&&const DeepCollectionEquality().equals(other.avatarImageData, avatarImageData)&&(identical(other.isActive, isActive) || other.isActive == isActive)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.displayOrder, displayOrder) || other.displayOrder == displayOrder)&&(identical(other.isAdmin, isAdmin) || other.isAdmin == isAdmin)&&(identical(other.customColorEnabled, customColorEnabled) || other.customColorEnabled == customColorEnabled)&&(identical(other.customColorHex, customColorHex) || other.customColorHex == customColorHex)&&(identical(other.parentSystemId, parentSystemId) || other.parentSystemId == parentSystemId)&&(identical(other.pluralkitUuid, pluralkitUuid) || other.pluralkitUuid == pluralkitUuid)&&(identical(other.pluralkitId, pluralkitId) || other.pluralkitId == pluralkitId)&&(identical(other.markdownEnabled, markdownEnabled) || other.markdownEnabled == markdownEnabled)&&(identical(other.displayName, displayName) || other.displayName == displayName)&&(identical(other.birthday, birthday) || other.birthday == birthday)&&(identical(other.proxyTagsJson, proxyTagsJson) || other.proxyTagsJson == proxyTagsJson)&&(identical(other.pkBannerUrl, pkBannerUrl) || other.pkBannerUrl == pkBannerUrl)&&(identical(other.pluralkitSyncIgnored, pluralkitSyncIgnored) || other.pluralkitSyncIgnored == pluralkitSyncIgnored)&&(identical(other.isDeleted, isDeleted) || other.isDeleted == isDeleted)&&(identical(other.deleteIntentEpoch, deleteIntentEpoch) || other.deleteIntentEpoch == deleteIntentEpoch)&&(identical(other.deletePushStartedAt, deletePushStartedAt) || other.deletePushStartedAt == deletePushStartedAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Member&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.pronouns, pronouns) || other.pronouns == pronouns)&&(identical(other.emoji, emoji) || other.emoji == emoji)&&(identical(other.age, age) || other.age == age)&&(identical(other.bio, bio) || other.bio == bio)&&const DeepCollectionEquality().equals(other.avatarImageData, avatarImageData)&&(identical(other.isActive, isActive) || other.isActive == isActive)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.displayOrder, displayOrder) || other.displayOrder == displayOrder)&&(identical(other.isAdmin, isAdmin) || other.isAdmin == isAdmin)&&(identical(other.customColorEnabled, customColorEnabled) || other.customColorEnabled == customColorEnabled)&&(identical(other.customColorHex, customColorHex) || other.customColorHex == customColorHex)&&(identical(other.parentSystemId, parentSystemId) || other.parentSystemId == parentSystemId)&&(identical(other.pluralkitUuid, pluralkitUuid) || other.pluralkitUuid == pluralkitUuid)&&(identical(other.pluralkitId, pluralkitId) || other.pluralkitId == pluralkitId)&&(identical(other.markdownEnabled, markdownEnabled) || other.markdownEnabled == markdownEnabled)&&(identical(other.displayName, displayName) || other.displayName == displayName)&&(identical(other.birthday, birthday) || other.birthday == birthday)&&(identical(other.proxyTagsJson, proxyTagsJson) || other.proxyTagsJson == proxyTagsJson)&&(identical(other.pkBannerUrl, pkBannerUrl) || other.pkBannerUrl == pkBannerUrl)&&(identical(other.pluralkitSyncIgnored, pluralkitSyncIgnored) || other.pluralkitSyncIgnored == pluralkitSyncIgnored)&&(identical(other.isDeleted, isDeleted) || other.isDeleted == isDeleted)&&(identical(other.deleteIntentEpoch, deleteIntentEpoch) || other.deleteIntentEpoch == deleteIntentEpoch)&&(identical(other.deletePushStartedAt, deletePushStartedAt) || other.deletePushStartedAt == deletePushStartedAt)&&(identical(other.isAlwaysFronting, isAlwaysFronting) || other.isAlwaysFronting == isAlwaysFronting));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hashAll([runtimeType,id,name,pronouns,emoji,age,bio,const DeepCollectionEquality().hash(avatarImageData),isActive,createdAt,displayOrder,isAdmin,customColorEnabled,customColorHex,parentSystemId,pluralkitUuid,pluralkitId,markdownEnabled,displayName,birthday,proxyTagsJson,pkBannerUrl,pluralkitSyncIgnored,isDeleted,deleteIntentEpoch,deletePushStartedAt]);
+int get hashCode => Object.hashAll([runtimeType,id,name,pronouns,emoji,age,bio,const DeepCollectionEquality().hash(avatarImageData),isActive,createdAt,displayOrder,isAdmin,customColorEnabled,customColorHex,parentSystemId,pluralkitUuid,pluralkitId,markdownEnabled,displayName,birthday,proxyTagsJson,pkBannerUrl,pluralkitSyncIgnored,isDeleted,deleteIntentEpoch,deletePushStartedAt,isAlwaysFronting]);
 
 @override
 String toString() {
-  return 'Member(id: $id, name: $name, pronouns: $pronouns, emoji: $emoji, age: $age, bio: $bio, avatarImageData: $avatarImageData, isActive: $isActive, createdAt: $createdAt, displayOrder: $displayOrder, isAdmin: $isAdmin, customColorEnabled: $customColorEnabled, customColorHex: $customColorHex, parentSystemId: $parentSystemId, pluralkitUuid: $pluralkitUuid, pluralkitId: $pluralkitId, markdownEnabled: $markdownEnabled, displayName: $displayName, birthday: $birthday, proxyTagsJson: $proxyTagsJson, pkBannerUrl: $pkBannerUrl, pluralkitSyncIgnored: $pluralkitSyncIgnored, isDeleted: $isDeleted, deleteIntentEpoch: $deleteIntentEpoch, deletePushStartedAt: $deletePushStartedAt)';
+  return 'Member(id: $id, name: $name, pronouns: $pronouns, emoji: $emoji, age: $age, bio: $bio, avatarImageData: $avatarImageData, isActive: $isActive, createdAt: $createdAt, displayOrder: $displayOrder, isAdmin: $isAdmin, customColorEnabled: $customColorEnabled, customColorHex: $customColorHex, parentSystemId: $parentSystemId, pluralkitUuid: $pluralkitUuid, pluralkitId: $pluralkitId, markdownEnabled: $markdownEnabled, displayName: $displayName, birthday: $birthday, proxyTagsJson: $proxyTagsJson, pkBannerUrl: $pkBannerUrl, pluralkitSyncIgnored: $pluralkitSyncIgnored, isDeleted: $isDeleted, deleteIntentEpoch: $deleteIntentEpoch, deletePushStartedAt: $deletePushStartedAt, isAlwaysFronting: $isAlwaysFronting)';
 }
 
 
@@ -301,7 +311,7 @@ abstract mixin class _$MemberCopyWith<$Res> implements $MemberCopyWith<$Res> {
   factory _$MemberCopyWith(_Member value, $Res Function(_Member) _then) = __$MemberCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String name, String? pronouns, String emoji, int? age, String? bio,@JsonKey(fromJson: _uint8ListFromJson, toJson: _uint8ListToJson) Uint8List? avatarImageData, bool isActive, DateTime createdAt, int displayOrder, bool isAdmin, bool customColorEnabled, String? customColorHex, String? parentSystemId, String? pluralkitUuid, String? pluralkitId, bool markdownEnabled, String? displayName, String? birthday, String? proxyTagsJson, String? pkBannerUrl, bool pluralkitSyncIgnored, bool isDeleted, int? deleteIntentEpoch, int? deletePushStartedAt
+ String id, String name, String? pronouns, String emoji, int? age, String? bio,@JsonKey(fromJson: _uint8ListFromJson, toJson: _uint8ListToJson) Uint8List? avatarImageData, bool isActive, DateTime createdAt, int displayOrder, bool isAdmin, bool customColorEnabled, String? customColorHex, String? parentSystemId, String? pluralkitUuid, String? pluralkitId, bool markdownEnabled, String? displayName, String? birthday, String? proxyTagsJson, String? pkBannerUrl, bool pluralkitSyncIgnored, bool isDeleted, int? deleteIntentEpoch, int? deletePushStartedAt, bool isAlwaysFronting
 });
 
 
@@ -318,7 +328,7 @@ class __$MemberCopyWithImpl<$Res>
 
 /// Create a copy of Member
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? name = null,Object? pronouns = freezed,Object? emoji = null,Object? age = freezed,Object? bio = freezed,Object? avatarImageData = freezed,Object? isActive = null,Object? createdAt = null,Object? displayOrder = null,Object? isAdmin = null,Object? customColorEnabled = null,Object? customColorHex = freezed,Object? parentSystemId = freezed,Object? pluralkitUuid = freezed,Object? pluralkitId = freezed,Object? markdownEnabled = null,Object? displayName = freezed,Object? birthday = freezed,Object? proxyTagsJson = freezed,Object? pkBannerUrl = freezed,Object? pluralkitSyncIgnored = null,Object? isDeleted = null,Object? deleteIntentEpoch = freezed,Object? deletePushStartedAt = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? name = null,Object? pronouns = freezed,Object? emoji = null,Object? age = freezed,Object? bio = freezed,Object? avatarImageData = freezed,Object? isActive = null,Object? createdAt = null,Object? displayOrder = null,Object? isAdmin = null,Object? customColorEnabled = null,Object? customColorHex = freezed,Object? parentSystemId = freezed,Object? pluralkitUuid = freezed,Object? pluralkitId = freezed,Object? markdownEnabled = null,Object? displayName = freezed,Object? birthday = freezed,Object? proxyTagsJson = freezed,Object? pkBannerUrl = freezed,Object? pluralkitSyncIgnored = null,Object? isDeleted = null,Object? deleteIntentEpoch = freezed,Object? deletePushStartedAt = freezed,Object? isAlwaysFronting = null,}) {
   return _then(_Member(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
@@ -345,7 +355,8 @@ as String?,pluralkitSyncIgnored: null == pluralkitSyncIgnored ? _self.pluralkitS
 as bool,isDeleted: null == isDeleted ? _self.isDeleted : isDeleted // ignore: cast_nullable_to_non_nullable
 as bool,deleteIntentEpoch: freezed == deleteIntentEpoch ? _self.deleteIntentEpoch : deleteIntentEpoch // ignore: cast_nullable_to_non_nullable
 as int?,deletePushStartedAt: freezed == deletePushStartedAt ? _self.deletePushStartedAt : deletePushStartedAt // ignore: cast_nullable_to_non_nullable
-as int?,
+as int?,isAlwaysFronting: null == isAlwaysFronting ? _self.isAlwaysFronting : isAlwaysFronting // ignore: cast_nullable_to_non_nullable
+as bool,
   ));
 }
 
