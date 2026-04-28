@@ -450,9 +450,12 @@ void main() {
     );
 
     test(
-      'orphan native legacy row (no headmateId, no co-fronters) is '
-      'assigned to the Unknown sentinel — sentinel created if missing',
+      'legacy detection: empty-but-present coFronterIds — orphan native '
+      'row routes through rescue and assigns Unknown sentinel',
       () async {
+        // Back-compat for files that DO carry an empty `coFronterIds`
+        // key (some intermediate dev builds emitted them). The
+        // explicit legacy-key sniff handles these directly.
         // No members seeded — orphan row arrives with member_id null.
         final json = _envelope(frontSessions: [
           {
@@ -476,6 +479,105 @@ void main() {
         final rows = await db.frontingSessionsDao.getAllSessions();
         expect(rows.single.id, 'orphan-1');
         expect(rows.single.memberId, sentinelId);
+      },
+    );
+
+    test(
+      'legacy detection: completely absent coFronterIds (real old shape) '
+      '— orphan row still routes to rescue + Unknown sentinel '
+      '(codex pass 3 #B-PASS3-P2)',
+      () async {
+        // Real pre-0.7 PRISM1 export shape: an orphan native row had
+        // member_id NULL and an empty co_fronter_ids list, both of
+        // which the v6/v7 exporter omitted from JSON entirely (toJson
+        // skips nulls and empty lists). With no envelope marker (the
+        // file pre-dates 0.7), there is NOTHING per-row that flags
+        // legacy under the explicit-key sniff. Pre-fix the row leaked
+        // into the new-shape importer and tried to write member_id
+        // null, which v8's CHECK rejects. The broadened sniff
+        // (no headmateId AND no coFronterIds key AND no new-shape
+        // marker) routes it through rescue → Unknown sentinel.
+        final json = _envelope(frontSessions: [
+          {
+            'id': 'orphan-real-pre-0-7',
+            'startTime': DateTime.utc(2026, 4, 1, 9).toIso8601String(),
+            'endTime': DateTime.utc(2026, 4, 1, 11).toIso8601String(),
+            // No headmateId, no coFronterIds, no pkMemberIdsJson, no
+            // sessionType/memberId — the real pre-0.7 orphan shape.
+          },
+        ]);
+
+        final result = await importService.importData(json);
+        expect(result.frontSessionsCreated, 1);
+        expect(result.unknownSentinelCreated, isTrue,
+            reason: 'broadened detection must route this to rescue and '
+                'create the Unknown sentinel');
+
+        const uuid = Uuid();
+        final sentinelId =
+            uuid.v5(spFrontingNamespace, 'unknown-member-sentinel');
+        final rows = await db.frontingSessionsDao.getAllSessions();
+        expect(rows.single.id, 'orphan-real-pre-0-7');
+        expect(rows.single.memberId, sentinelId,
+            reason: 'orphan must land on Unknown sentinel, not member_id null');
+      },
+    );
+
+    test(
+      'legacy detection: completely absent legacy keys on a solo PK row '
+      '(real old shape) routes through rescue and derives canonical '
+      '(switch, member) v5 id (codex pass 3 #B-PASS3-P2)',
+      () async {
+        // Real pre-0.7 PRISM1 export shape for a solo PK row: the
+        // exporter omitted empty co_fronter_ids and null
+        // pk_member_ids_json. The row carries pluralkit_uuid +
+        // headmateId only — under the old explicit-key sniff this
+        // looked indistinguishable from a new-shape row, leaked into
+        // the new-shape importer, and preserved the legacy random v4
+        // id. A future PK API re-import then derives a different
+        // deterministic id and produces two rows for the same
+        // (switch, member) pair, defeating field-LWW boundary
+        // correction. The broadened sniff (pluralkitUuid present
+        // without sessionType/memberId markers) routes this to legacy
+        // and the rescue path derives the canonical id from
+        // local member.pluralkit_uuid.
+        const memberLocalId = 'solo-pk-local';
+        const memberPkUuid = '88888888-8888-4888-8888-888888888888';
+        const switchUuid = '99999999-9999-4999-8999-999999999999';
+        const legacyV4Id = 'legacy-random-v4';
+        await memberRepo.createMember(Member(
+          id: memberLocalId,
+          name: 'Solo',
+          emoji: 'S',
+          createdAt: DateTime(2026, 1, 1).toUtc(),
+          pluralkitId: 'spsht',
+          pluralkitUuid: memberPkUuid,
+        ));
+
+        final json = _envelope(frontSessions: [
+          {
+            'id': legacyV4Id,
+            'startTime': DateTime.utc(2026, 4, 1, 9).toIso8601String(),
+            'endTime': DateTime.utc(2026, 4, 1, 11).toIso8601String(),
+            'headmateId': memberLocalId,
+            'pluralkitUuid': switchUuid,
+            // No coFronterIds key, no pkMemberIdsJson key, no
+            // sessionType/memberId — the real pre-0.7 solo PK shape.
+          },
+        ]);
+
+        final result = await importService.importData(json);
+        expect(result.frontSessionsCreated, 1);
+        final derivedId = derivePkSessionId(switchUuid, memberPkUuid);
+        final rows = await db.frontingSessionsDao.getAllSessions();
+        expect(rows, hasLength(1));
+        expect(rows.single.id, derivedId,
+            reason: 'broadened detection must route this through rescue, '
+                'which derives the canonical (switch, member) v5 id');
+        expect(rows.single.id, isNot(legacyV4Id),
+            reason: 'legacy random v4 id must not leak through');
+        expect(rows.single.memberId, memberLocalId);
+        expect(rows.single.pluralkitUuid, switchUuid);
       },
     );
 
