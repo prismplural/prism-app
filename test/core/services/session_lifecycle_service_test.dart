@@ -578,6 +578,42 @@ void main() {
       expect(repo.sessions, isEmpty);
     });
 
+    test('produces deterministic id for the same gap', () async {
+      final memberRepoA = FakeMemberRepository();
+      final repoA = FakeFrontingSessionRepository();
+      final serviceA = SessionLifecycleService(memberRepository: memberRepoA);
+
+      final memberRepoB = FakeMemberRepository();
+      final repoB = FakeFrontingSessionRepository();
+      final serviceB = SessionLifecycleService(memberRepository: memberRepoB);
+
+      final before = _session(
+        id: 'before',
+        start: DateTime(2026, 1, 1, 8),
+        end: DateTime(2026, 1, 1, 9),
+        memberId: 'alice',
+      );
+      final after = _session(
+        id: 'after',
+        start: DateTime(2026, 1, 1, 11),
+        end: DateTime(2026, 1, 1, 12),
+        memberId: 'bob',
+      );
+      final gap = GapInfo(
+        startTime: DateTime(2026, 1, 1, 9),
+        endTime: DateTime(2026, 1, 1, 11),
+        beforeSession: before,
+        afterSession: after,
+      );
+
+      await serviceA.fillGaps([gap], repoA);
+      await serviceB.fillGaps([gap], repoB);
+
+      expect(repoA.sessions.single.id, equals(repoB.sessions.single.id),
+          reason: 'two devices filling the same wall-clock gap must converge '
+              'on a single CRDT row, not duplicate via random v4 ids');
+    });
+
     test('throws StateError when gaps need filling but no '
         'MemberRepository wired, and writes nothing', () async {
       const service = SessionLifecycleService();
