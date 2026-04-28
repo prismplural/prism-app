@@ -34,4 +34,24 @@ void main() {
       });
     }
   });
+
+  group('derivation helpers pin namespace + key shape', () {
+    // These hard-coded expectations exist to fail loudly if anyone ever
+    // changes the namespace constant or the key format these helpers use.
+    // Two devices that must agree on a derivation depend on this contract.
+
+    test('deriveSpSessionId is deterministic', () {
+      expect(
+        deriveSpSessionId('foo'),
+        '33455d29-6345-5341-9d3b-04a90323fbb4',
+      );
+    });
+
+    test('deriveMigrationFanoutSessionId is deterministic', () {
+      expect(
+        deriveMigrationFanoutSessionId('legacy', 'member'),
+        '3f02daef-1038-59e9-a9d9-34d3a984b919',
+      );
+    });
+  });
 }

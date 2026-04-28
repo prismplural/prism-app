@@ -9,7 +9,6 @@ import 'package:prism_plurality/core/database/app_database.dart'
     show AppDatabase, MediaAttachmentsCompanion, PluralKitSyncStateCompanion;
 import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
 import 'package:prism_plurality/core/database/sqlite_constraint.dart';
-import 'package:uuid/uuid.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/domain/repositories/chat_message_repository.dart';
 import 'package:prism_plurality/domain/repositories/conversation_repository.dart';
@@ -648,8 +647,6 @@ class DataImportService {
         return true;
       }
 
-      const uuid = Uuid();
-
       for (final s in export.frontSessions) {
         final start = DateTime.parse(s.startTime);
         final end = s.endTime != null ? DateTime.parse(s.endTime!) : null;
@@ -942,10 +939,7 @@ class DataImportService {
         );
         for (final coId in coFronters) {
           if (coId == s.headmateId) continue; // sanity guard
-          final derivedId = uuid.v5(
-            migrationFrontingNamespace,
-            '${s.id}:$coId',
-          );
+          final derivedId = deriveMigrationFanoutSessionId(s.id, coId);
           final created = await writeSession(
             id: derivedId,
             startTime: start,

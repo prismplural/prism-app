@@ -21,7 +21,6 @@ import 'dart:io';
 import 'package:flutter/foundation.dart' show immutable;
 import 'package:path_provider/path_provider.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
-import 'package:uuid/uuid.dart';
 
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/app_database.dart'
@@ -238,8 +237,6 @@ class FrontingMigrationService {
   /// by the OS or user without warning, leaving the user with no
   /// recoverable backup if they proceeded to the destructive phase.
   final Future<Directory> Function() _backupDirectoryProvider;
-
-  static const _uuid = Uuid();
 
   /// Sentinel string written to `system_settings.pending_fronting_migration_mode`.
   static const String modeNotStarted = 'notStarted';
@@ -721,10 +718,7 @@ class FrontingMigrationService {
       // Fan out additional co-fronters into new per-member rows.
       for (final coId in coFronters) {
         if (coId == row.memberId) continue; // sanity guard
-        final derivedId = _uuid.v5(
-          migrationFrontingNamespace,
-          '${row.id}:$coId',
-        );
+        final derivedId = deriveMigrationFanoutSessionId(row.id, coId);
         // Use createSession so a v2 op emits.  CRDT field-LWW + the
         // composite (pluralkit_uuid, member_id) index are bug
         // protection; deterministic ids are correctness on concurrent

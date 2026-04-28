@@ -43,6 +43,17 @@ String derivePkSessionId(String switchUuid, String memberPkUuid) =>
 /// via `sp_id_map` and keep their original ids (§2.6).
 const String spFrontingNamespace = '07fa8466-1914-4510-9f1c-d1223d2b8e60';
 
+/// Canonical SP per-row session id derivation.
+///
+/// The two derivation sites that MUST agree byte-for-byte are the live SP
+/// importer (`sp_mapper.dart`) and any future SP-rescue path.  Two devices
+/// independently importing the same SP entry must produce the same id so
+/// concurrent imports converge on a single CRDT row rather than duplicating.
+/// Open-coding the v5 call invites drift — route every site through this
+/// helper instead.
+String deriveSpSessionId(String entryId) =>
+    const Uuid().v5(spFrontingNamespace, entryId);
+
 /// Namespace for migration-expanded co-fronter rows.
 ///
 /// Key format: `"${legacy_session_id}:${member_id}"`
@@ -51,6 +62,19 @@ const String spFrontingNamespace = '07fa8466-1914-4510-9f1c-d1223d2b8e60';
 /// co-fronter rows are derived from this namespace.  Paired devices migrating
 /// concurrently produce identical ids (§2.6, §4.1 step 4).
 const String migrationFrontingNamespace = 'ca045f95-3051-4412-b7b4-2935f96b895a';
+
+/// Canonical migration fan-out id for a co-fronter's per-member row.
+///
+/// The two derivation sites that MUST agree byte-for-byte are the in-place
+/// fronting migration service and the PRISM1 legacy-shape rescue importer
+/// in `data_import`.  When a multi-member native row is fanned out the
+/// primary member keeps the legacy id; each additional co-fronter gets one
+/// of these.  Identical inputs must produce identical ids so re-imports and
+/// concurrent migrations converge via field-LWW on a single row rather than
+/// duplicating.  Open-coding the v5 call invites drift — route every site
+/// through this helper instead.
+String deriveMigrationFanoutSessionId(String legacySessionId, String memberId) =>
+    const Uuid().v5(migrationFrontingNamespace, '$legacySessionId:$memberId');
 
 /// Deterministic id for the Unknown sentinel member.
 ///
