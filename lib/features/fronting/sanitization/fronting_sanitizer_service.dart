@@ -1,3 +1,4 @@
+import 'package:prism_plurality/core/mutations/mutation_result.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
 import 'package:prism_plurality/features/fronting/validation/fronting_session_validator.dart';
@@ -57,8 +58,14 @@ class FrontingSanitizerService {
   }
 
   /// Apply a fix plan through normal repository mutations.
-  Future<void> applyPlan(FrontingFixPlan plan) async {
-    await _executor.execute(plan.changes);
+  ///
+  /// Returns the underlying [MutationResult] from the change executor so
+  /// callers can branch on success/failure. Discarding the result
+  /// silently treats executor failures (e.g. a caught [AppFailure] from
+  /// the mutation runner) as "fix applied", which leaves the issue in
+  /// the user's data while the UI claims it was resolved.
+  Future<MutationResult<void>> applyPlan(FrontingFixPlan plan) async {
+    return _executor.execute(plan.changes);
   }
 
   Future<List<FrontingSession>> _loadSessions({

@@ -39,7 +39,12 @@ import 'package:prism_plurality/shared/widgets/prism_button.dart';
 /// (`prepareBackup` + `runMigrationDestructive`) plus the legacy
 /// `runMigration` wrapper for the `notNow` deferral path.
 class _FakeRunner implements FrontingMigrationService {
-  _FakeRunner({this.result, this.prepareBackupThrows = false});
+  _FakeRunner({
+    this.result,
+    this.prepareBackupThrows = false,
+    this.notNowResult,
+    this.notNowThrows = false,
+  });
 
   static const bool deferredOnNotNow = true;
 
@@ -50,6 +55,17 @@ class _FakeRunner implements FrontingMigrationService {
   /// When true, `prepareBackup` throws — exercises the export-failure
   /// transition into the `failure` step from `exporting`.
   bool prepareBackupThrows;
+
+  /// What `runMigration(mode: notNow, ...)` returns when overridden.
+  /// Defaults to the production-shaped `MigrationOutcome.deferred`.
+  /// Tests for the notNow failure path override with
+  /// `MigrationOutcome.failed` to assert the modal stays open and
+  /// surfaces the error.
+  MigrationResult? notNowResult;
+
+  /// When true, `runMigration(mode: notNow, ...)` throws instead of
+  /// returning a result. Exercises the catch branch of `_onNotNow`.
+  bool notNowThrows;
 
   final List<({MigrationMode mode, DeviceRole role, String password})> calls =
       [];
@@ -101,6 +117,14 @@ class _FakeRunner implements FrontingMigrationService {
   }) async {
     if (mode == MigrationMode.notNow && _FakeRunner.deferredOnNotNow) {
       calls.add((mode: mode, role: role, password: password));
+      if (notNowThrows) {
+        throw StateError('Simulated notNow settings-write failure');
+      }
+      if (notNowResult != null) {
+        // Tests for the failure branch override the outcome; don't
+        // pretend the deferred marker was written.
+        return notNowResult!;
+      }
       lastDeferredWrite = FrontingMigrationService.modeDeferred;
       return const MigrationResult(outcome: MigrationOutcome.deferred);
     }
@@ -278,6 +302,64 @@ void main() {
       expect(find.text('Continue'), findsNothing);
       expect(find.text('open'), findsOneWidget);
     });
+
+    // Pin the regression: previously `_onNotNow` discarded the
+    // `MigrationResult` from `runMigration` and popped the modal
+    // unconditionally. If the underlying settings DAO write failed
+    // (returning `MigrationOutcome.failed`), the user would dismiss the
+    // sheet thinking the deferral landed, then see the upgrade banner
+    // again on next launch with no error explanation.
+    testWidgets(
+      'Not now keeps modal open and shows failure when runner returns failed',
+      (tester) async {
+        final runner = _FakeRunner(
+          notNowResult: const MigrationResult(
+            outcome: MigrationOutcome.failed,
+            errorMessage: 'simulated settings write failure',
+          ),
+        );
+        await tester.pumpWidget(
+          _buildSheetSubject(runner: runner, pairedCount: 0),
+        );
+        await _openSheet(tester);
+
+        await tester.tap(find.text('Not now'));
+        await tester.pumpAndSettle();
+
+        // Modal must NOT have popped — the failure step is rendered
+        // with the runner-supplied error message. (The launcher button
+        // remains in the widget tree behind the fullscreen sheet, so
+        // we don't assert on it; the failure step's presence is the
+        // load-bearing signal that the sheet stayed open.)
+        expect(find.text('Migration failed'), findsOneWidget);
+        expect(find.text('simulated settings write failure'), findsOneWidget);
+        // Deferred marker was NOT recorded (failure branch).
+        expect(runner.lastDeferredWrite, isNull);
+      },
+    );
+
+    testWidgets(
+      'Not now keeps modal open and shows failure when runner throws',
+      (tester) async {
+        final runner = _FakeRunner(notNowThrows: true);
+        await tester.pumpWidget(
+          _buildSheetSubject(runner: runner, pairedCount: 0),
+        );
+        await _openSheet(tester);
+
+        await tester.tap(find.text('Not now'));
+        await tester.pumpAndSettle();
+
+        // Modal still open on the failure step (catch branch of
+        // `_onNotNow` synthesises a MigrationResult.failed and
+        // transitions to the failure step rather than popping).
+        expect(find.text('Migration failed'), findsOneWidget);
+        expect(
+          find.textContaining('Simulated notNow settings-write failure'),
+          findsOneWidget,
+        );
+      },
+    );
 
     group('password validation', () {
       Future<void> navigateToPassword(WidgetTester tester) async {

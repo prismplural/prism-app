@@ -302,11 +302,22 @@ class _FrontingSanitizationScreenState
   Future<void> _applyFix(FrontingFixPlan plan) async {
     final service = ref.read(frontingSanitizerServiceProvider);
     try {
-      await service.applyPlan(plan);
-      if (mounted) {
-        setState(() => _fixedCount++);
-      }
-      await _scan(); // Re-scan after applying the fix
+      final result = await service.applyPlan(plan);
+      if (!mounted) return;
+      await result.when(
+        success: (_) async {
+          if (!mounted) return;
+          setState(() => _fixedCount++);
+          await _scan(); // Re-scan after applying the fix
+        },
+        failure: (failure) async {
+          if (!mounted) return;
+          PrismToast.error(
+            context,
+            message: context.l10n.frontingSanitizationFixFailed(failure),
+          );
+        },
+      );
     } catch (e) {
       if (mounted) {
         PrismToast.error(context, message: context.l10n.frontingSanitizationFixFailed(e));

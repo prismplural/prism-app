@@ -231,13 +231,40 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
   Future<void> _onNotNow() async {
     final runner = ref.read(frontingMigrationRunnerProvider);
     // The service writes 'deferred' to settings and returns without
-    // any destructive work for `MigrationMode.notNow`.
-    await runner.runMigration(
-      mode: MigrationMode.notNow,
-      role: DeviceRole.solo, // role is irrelevant for notNow
-      shareFile: (_) async => null,
-    );
+    // any destructive work for `MigrationMode.notNow`. The settings
+    // write can still fail (e.g. DAO storage error); inspect the
+    // result so a silent failure doesn't pop the modal as if the
+    // deferral landed — the user would just see the upgrade banner
+    // again on next launch with no explanation.
+    MigrationResult result;
+    try {
+      result = await runner.runMigration(
+        mode: MigrationMode.notNow,
+        role: DeviceRole.solo, // role is irrelevant for notNow
+        shareFile: (_) async => null,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _result = MigrationResult(
+          outcome: MigrationOutcome.failed,
+          errorMessage: e.toString(),
+        );
+        _step = FrontingUpgradeStep.failure;
+      });
+      return;
+    }
     if (!mounted) return;
+    if (result.outcome == MigrationOutcome.failed) {
+      // Keep the modal open on the failure step so the user can see
+      // what went wrong and retry. Mirrors the destructive-path
+      // failure handling in `_runDestructive`.
+      setState(() {
+        _result = result;
+        _step = FrontingUpgradeStep.failure;
+      });
+      return;
+    }
     Navigator.of(context).pop();
   }
 
