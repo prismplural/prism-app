@@ -94,18 +94,37 @@ class DriftFrontSessionCommentsRepository
   // Private helpers
   // ---------------------------------------------------------------------------
 
+  /// Visible-for-testing: builds the field map this repository hands to the
+  /// Rust sync engine for create/update. Exposed so a regression test can
+  /// pin every emitted DateTime as Z-suffixed UTC — see
+  /// drift_front_session_comments_repository_test.
+  @visibleForTesting
+  Map<String, dynamic> debugCommentFields(domain.FrontSessionComment c) =>
+      _commentFields(c);
+
   Map<String, dynamic> _commentFields(domain.FrontSessionComment c) {
     return {
       // session_id column still exists in v7 Drift schema (dropped in v8
       // cleanup via TableMigration rebuild); leave null on new inserts so the
       // column stays inert.  Do NOT write a session_id here — new comments
       // are anchored to target_time, not a session FK.
-      'target_time': c.targetTime?.toIso8601String(),
+      'target_time': _toSyncUtcOrNull(c.targetTime),
       'author_member_id': c.authorMemberId,
       'body': c.body,
-      'timestamp': c.timestamp.toIso8601String(),
-      'created_at': c.createdAt.toIso8601String(),
+      'timestamp': _toSyncUtc(c.timestamp),
+      'created_at': _toSyncUtc(c.createdAt),
       'is_deleted': false,
     };
   }
 }
+
+/// Normalizes a DateTime to UTC ISO-8601 (Z-suffixed) for sync wire emission.
+///
+/// Local DateTimes serialize with no offset/Z, so a peer in a different
+/// timezone would parse the value as their own local time and shift the
+/// absolute moment by the timezone delta on every sync. Routing every
+/// DateTime through here mirrors the `_dateTimeToSyncString` helper in
+/// `core/sync/drift_sync_adapter.dart`.
+String _toSyncUtc(DateTime dt) => dt.toUtc().toIso8601String();
+
+String? _toSyncUtcOrNull(DateTime? dt) => dt?.toUtc().toIso8601String();

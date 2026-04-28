@@ -197,7 +197,7 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
       'bio': m.bio,
       'avatar_image_data': avatar != null ? base64Encode(avatar) : null,
       'is_active': m.isActive,
-      'created_at': m.createdAt.toIso8601String(),
+      'created_at': m.createdAt.toUtc().toIso8601String(),
       'display_order': m.displayOrder,
       'is_admin': m.isAdmin,
       'custom_color_enabled': m.customColorEnabled,

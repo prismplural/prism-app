@@ -151,8 +151,8 @@ class DriftHabitRepository with SyncRecordMixin implements HabitRepository {
       'icon': h.icon,
       'color_hex': h.colorHex,
       'is_active': h.isActive,
-      'created_at': h.createdAt.toIso8601String(),
-      'modified_at': h.modifiedAt.toIso8601String(),
+      'created_at': h.createdAt.toUtc().toIso8601String(),
+      'modified_at': h.modifiedAt.toUtc().toIso8601String(),
       'frequency': h.frequency.name,
       'weekly_days': h.weeklyDays != null ? jsonEncode(h.weeklyDays) : null,
       'interval_days': h.intervalDays,
@@ -172,13 +172,13 @@ class DriftHabitRepository with SyncRecordMixin implements HabitRepository {
   Map<String, dynamic> _completionFields(domain.HabitCompletion c) {
     return {
       'habit_id': c.habitId,
-      'completed_at': c.completedAt.toIso8601String(),
+      'completed_at': c.completedAt.toUtc().toIso8601String(),
       'completed_by_member_id': c.completedByMemberId,
       'notes': c.notes,
       'was_fronting': c.wasFronting,
       'rating': c.rating,
-      'created_at': c.createdAt.toIso8601String(),
-      'modified_at': c.modifiedAt.toIso8601String(),
+      'created_at': c.createdAt.toUtc().toIso8601String(),
+      'modified_at': c.modifiedAt.toUtc().toIso8601String(),
       'is_deleted': false,
     };
   }
