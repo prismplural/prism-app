@@ -933,6 +933,20 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String get statisticsMedianSessionLabel => 'Sesión mediana';
+
+  @override
+  String get statisticsGapTimeLabel => 'Tiempo sin frente';
+
+  @override
+  String get statisticsSwitchesPerDayLabel => 'Cambios/día';
+
+  @override
+  String statisticsUniqueFrontersLabel(String termPlural) {
+    return '$termPlural únicos';
+  }
+
+  @override
   String statisticsActiveMembersBreakdown(int active, int inactive) {
     return '$active activos, $inactive inactivos';
   }
@@ -7976,4 +7990,36 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get frontingUpgradeBannerMessage =>
       'Toca para continuar con la actualización.';
+
+  @override
+  String pkFileImportMembersLabel(String termPlural) {
+    return '$termPlural';
+  }
+
+  @override
+  String get pkFileImportGroupsLabel => 'Grupos';
+
+  @override
+  String get pkFileImportFrontingSessionsLabel => 'Sesiones de frente';
+
+  @override
+  String pkFileImportPreviewNote(String termPlural) {
+    return 'Los/las $termPlural existentes con el mismo ID de PluralKit se actualizarán. Los switches duplicados se omiten.';
+  }
+
+  @override
+  String get pkFileImportImportButton => 'Importar';
+
+  @override
+  String get pkFileImportPickDifferentButton => 'Elegir otro archivo';
+
+  @override
+  String get pkFileImportCompleteHeading => 'Importación completa';
+
+  @override
+  String get pkFileImportSwitchesCreatedLabel => 'Switches creados';
+
+  @override
+  String get pkFileImportSwitchesSkippedLabel =>
+      'Switches omitidos (ya existían)';
 }

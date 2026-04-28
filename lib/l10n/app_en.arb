@@ -1219,6 +1219,28 @@
       }
     }
   },
+  "statisticsMedianSessionLabel": "Median Session",
+  "@statisticsMedianSessionLabel": {
+    "description": "Statistics overview stat label: median session duration"
+  },
+  "statisticsGapTimeLabel": "Gap Time",
+  "@statisticsGapTimeLabel": {
+    "description": "Statistics overview stat label: total gap time between fronting sessions"
+  },
+  "statisticsSwitchesPerDayLabel": "Switches/Day",
+  "@statisticsSwitchesPerDayLabel": {
+    "description": "Statistics overview stat label: average number of fronting switches per day"
+  },
+  "statisticsUniqueFrontersLabel": "Unique {termPlural}",
+  "@statisticsUniqueFrontersLabel": {
+    "description": "Statistics overview stat label: count of unique fronters in the period. Uses the user's terminology for members.",
+    "placeholders": {
+      "termPlural": {
+        "type": "String",
+        "description": "Capitalised plural form of the user's chosen terminology (e.g., 'Members', 'Headmates')."
+      }
+    }
+  },
   "statisticsActiveMembersBreakdown": "{active} active, {inactive} inactive",
   "@statisticsActiveMembersBreakdown": {
     "description": "Active/inactive member count breakdown in statistics",
@@ -8182,5 +8204,54 @@
   "frontingUpgradeBannerTitle": "Fronting upgrade pending",
   "@frontingUpgradeBannerTitle": { "description": "Home-screen banner title for deferred upgrade" },
   "frontingUpgradeBannerMessage": "Tap to continue the upgrade.",
-  "@frontingUpgradeBannerMessage": { "description": "Home-screen banner message for deferred upgrade" }
+  "@frontingUpgradeBannerMessage": { "description": "Home-screen banner message for deferred upgrade" },
+
+  "pkFileImportMembersLabel": "{termPlural}",
+  "@pkFileImportMembersLabel": {
+    "description": "PluralKit file import preview/result row label for the count of members. Uses the user's terminology.",
+    "placeholders": {
+      "termPlural": {
+        "type": "String",
+        "description": "Capitalised plural form of the user's chosen terminology (e.g., 'Members', 'Headmates')."
+      }
+    }
+  },
+  "pkFileImportGroupsLabel": "Groups",
+  "@pkFileImportGroupsLabel": {
+    "description": "PluralKit file import preview/result row label for the count of groups. Kept generic — PluralKit's own 'group' concept."
+  },
+  "pkFileImportFrontingSessionsLabel": "Fronting sessions",
+  "@pkFileImportFrontingSessionsLabel": {
+    "description": "PluralKit file import preview row label for the count of fronting sessions found in the export."
+  },
+  "pkFileImportPreviewNote": "Existing {termPlural} with the same PluralKit ID will be updated. Duplicate switches are skipped.",
+  "@pkFileImportPreviewNote": {
+    "description": "Informational note shown on the PluralKit file import preview screen.",
+    "placeholders": {
+      "termPlural": {
+        "type": "String",
+        "description": "Lowercase plural form of the user's chosen terminology (e.g., 'members', 'headmates') — appears mid-sentence."
+      }
+    }
+  },
+  "pkFileImportImportButton": "Import",
+  "@pkFileImportImportButton": {
+    "description": "PluralKit file import: primary action button on the preview screen"
+  },
+  "pkFileImportPickDifferentButton": "Pick a different file",
+  "@pkFileImportPickDifferentButton": {
+    "description": "PluralKit file import: secondary action button on the preview screen to choose a different file"
+  },
+  "pkFileImportCompleteHeading": "Import complete",
+  "@pkFileImportCompleteHeading": {
+    "description": "PluralKit file import: heading on the success screen"
+  },
+  "pkFileImportSwitchesCreatedLabel": "Switches created",
+  "@pkFileImportSwitchesCreatedLabel": {
+    "description": "PluralKit file import result row: count of switches that were newly created. 'Switches' is PluralKit-internal vocabulary and is intentionally not localised through the terminology system."
+  },
+  "pkFileImportSwitchesSkippedLabel": "Switches skipped (already present)",
+  "@pkFileImportSwitchesSkippedLabel": {
+    "description": "PluralKit file import result row: count of switches that were skipped because they already existed. 'Switches' is PluralKit-internal vocabulary."
+  }
 }

@@ -270,6 +270,10 @@
   "statisticsDurationLongest": "Más larga",
   "statisticsFrontingTimeByMember": "Minutos por {term}",
   "statisticsMemberMinutesAxisHint": "% de los minutos por {term} del sistema",
+  "statisticsMedianSessionLabel": "Sesión mediana",
+  "statisticsGapTimeLabel": "Tiempo sin frente",
+  "statisticsSwitchesPerDayLabel": "Cambios/día",
+  "statisticsUniqueFrontersLabel": "{termPlural} únicos",
   "statisticsActiveMembersBreakdown": "{active} activos, {inactive} inactivos",
   "timeOfDayMorning": "Mañana",
   "timeOfDayAfternoon": "Tarde",
@@ -2330,5 +2334,14 @@
   "frontingUpgradeBannerMessage": "Toca para continuar con la actualización.",
   "@frontingUpgradeBannerMessage": {
     "description": "Home-screen banner message for deferred upgrade"
-  }
+  },
+  "pkFileImportMembersLabel": "{termPlural}",
+  "pkFileImportGroupsLabel": "Grupos",
+  "pkFileImportFrontingSessionsLabel": "Sesiones de frente",
+  "pkFileImportPreviewNote": "Los/las {termPlural} existentes con el mismo ID de PluralKit se actualizarán. Los switches duplicados se omiten.",
+  "pkFileImportImportButton": "Importar",
+  "pkFileImportPickDifferentButton": "Elegir otro archivo",
+  "pkFileImportCompleteHeading": "Importación completa",
+  "pkFileImportSwitchesCreatedLabel": "Switches creados",
+  "pkFileImportSwitchesSkippedLabel": "Switches omitidos (ya existían)"
 }
