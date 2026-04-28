@@ -1,9 +1,16 @@
 import 'dart:async';
 
+import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/core/database/app_database.dart'
+    hide FrontingSession, Member;
+import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/data/mappers/fronting_session_mapper.dart';
+import 'package:prism_plurality/data/repositories/drift_fronting_session_repository.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
 import 'package:prism_plurality/features/fronting/providers/derived_periods_provider.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/fronting/services/derive_periods.dart';
@@ -29,7 +36,7 @@ void main() {
       final end = DateTime(2026, 4, 1, 12);
 
       final container = ProviderContainer(overrides: [
-        unifiedHistoryProvider.overrideWith((ref) => Stream.value([
+        unifiedHistoryOverlapProvider.overrideWith((ref) => Stream.value([
               _s(id: 's1', memberId: 'a', start: start, end: end),
             ])),
         allMembersProvider.overrideWith((ref) => Stream.value(const <Member>[])),
@@ -43,7 +50,7 @@ void main() {
         (_, _) {},
         fireImmediately: true,
       );
-      await container.read(unifiedHistoryProvider.future);
+      await container.read(unifiedHistoryOverlapProvider.future);
       // Read the members stream too so its first value is in.
       await container.read(allMembersProvider.future);
       // Microtask flush so the synchronous `Provider` recomputes against
@@ -62,7 +69,7 @@ void main() {
       addTearDown(controller.close);
 
       final container = ProviderContainer(overrides: [
-        unifiedHistoryProvider.overrideWith((ref) => controller.stream),
+        unifiedHistoryOverlapProvider.overrideWith((ref) => controller.stream),
         allMembersProvider.overrideWith((ref) => Stream.value(const <Member>[])),
       ]);
       addTearDown(container.dispose);
@@ -116,7 +123,7 @@ void main() {
       '(memoization within a single emission)',
       () async {
         final container = ProviderContainer(overrides: [
-          unifiedHistoryProvider.overrideWith((ref) => Stream.value([
+          unifiedHistoryOverlapProvider.overrideWith((ref) => Stream.value([
                 _s(
                   id: 's1',
                   memberId: 'a',
@@ -133,7 +140,7 @@ void main() {
           (_, _) {},
           fireImmediately: true,
         );
-        await container.read(unifiedHistoryProvider.future);
+        await container.read(unifiedHistoryOverlapProvider.future);
         await container.read(allMembersProvider.future);
         await Future<void>.delayed(Duration.zero);
         final a = container.read(derivedPeriodsProvider).value!;
@@ -146,7 +153,7 @@ void main() {
 
     test('respects is_always_fronting from members stream', () async {
       final container = ProviderContainer(overrides: [
-        unifiedHistoryProvider.overrideWith((ref) => Stream.value([
+        unifiedHistoryOverlapProvider.overrideWith((ref) => Stream.value([
               _s(
                 id: 'host',
                 memberId: 'host',
@@ -181,7 +188,7 @@ void main() {
         (_, _) {},
         fireImmediately: true,
       );
-      await container.read(unifiedHistoryProvider.future);
+      await container.read(unifiedHistoryOverlapProvider.future);
       await container.read(allMembersProvider.future);
       await Future<void>.delayed(Duration.zero);
       final periods = container.read(derivedPeriodsProvider).value!;
@@ -189,5 +196,85 @@ void main() {
       expect(periods[0].activeMembers, ['v']);
       expect(periods[0].alwaysPresentMembers, ['host']);
     });
+
+    test(
+      'production overlap-query path catches a long-running host '
+      '(real Drift, no provider override)',
+      () async {
+        // Codex test gap #6: instead of overriding the upstream stream
+        // with a hand-built list, plumb a real in-memory Drift DB
+        // through the production repository so we exercise the actual
+        // overlap query and assert it surfaces a long-running host
+        // whose row is NOT among the most-recent N.
+        final db = AppDatabase(NativeDatabase.memory());
+        addTearDown(db.close);
+
+        final repo = DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+        );
+
+        // Long-running host started 400 days ago, still open.
+        final hostStart = DateTime.now().subtract(const Duration(days: 30));
+        await db.frontingSessionsDao.insertSession(
+          FrontingSessionMapper.toCompanion(
+            FrontingSession(
+              id: 'host-row',
+              memberId: 'host',
+              startTime: hostStart,
+              endTime: null,
+            ),
+          ),
+        );
+
+        // A bunch of recent visitor rows AFTER the host's start, to
+        // simulate a row-page query missing the host. (We don't need
+        // hundreds — the new query is start-time-bound, not paged.)
+        for (var i = 0; i < 5; i++) {
+          await db.frontingSessionsDao.insertSession(
+            FrontingSessionMapper.toCompanion(
+              FrontingSession(
+                id: 'v$i',
+                memberId: 'v$i',
+                startTime: DateTime.now()
+                    .subtract(Duration(hours: i + 1)),
+                endTime:
+                    DateTime.now().subtract(Duration(hours: i, minutes: 30)),
+              ),
+            ),
+          );
+        }
+
+        final container = ProviderContainer(overrides: [
+          frontingSessionRepositoryProvider
+              .overrideWith((ref) => repo as FrontingSessionRepository),
+          allMembersProvider.overrideWith((ref) =>
+              Stream.value(const <Member>[])),
+        ]);
+        addTearDown(container.dispose);
+
+        container.listen<AsyncValue<List<FrontingPeriod>>>(
+          derivedPeriodsProvider,
+          (_, _) {},
+          fireImmediately: true,
+        );
+
+        // Wait for the overlap stream's first emission.
+        await container.read(unifiedHistoryOverlapProvider.future);
+        await container.read(allMembersProvider.future);
+        await Future<void>.delayed(Duration.zero);
+
+        final periods = container.read(derivedPeriodsProvider).value!;
+        // Assert the host appears in at least one period — the overlap
+        // query MUST surface long-running rows that started before the
+        // recent-page would catch.
+        final allActive = <String>{
+          for (final p in periods) ...p.activeMembers,
+        };
+        expect(allActive, contains('host'),
+            reason:
+                'production overlap query must surface a long-running host');
+      },
+    );
   });
 }

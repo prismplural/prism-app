@@ -8,19 +8,19 @@ import 'package:prism_plurality/features/members/providers/members_providers.dar
 /// Derived fronting periods for the unified history list view.
 ///
 /// Memoized via Riverpod's natural caching: the provider recomputes only
-/// when the upstream `unifiedHistoryProvider` emits a new session list or
-/// the `allMembersProvider` changes (the `is_always_fronting` lookup
-/// depends on it). On every other rebuild the cached value is returned.
+/// when the upstream session stream emits a new list or the
+/// [allMembersProvider] changes (the `is_always_fronting` lookup depends
+/// on it). On every other rebuild the cached value is returned.
 ///
-/// Range covered = the bounds inferred from the session list itself
-/// (earliest start clamped to the earliest session, latest end / now). For
-/// 1A this matches the behavior of the existing list which paginates by a
-/// session-count window. A future refactor can switch to an explicit
-/// (rangeStart, rangeEnd) family parameter when the list view gains
-/// date-range scrubbing.
+/// Source stream: [unifiedHistoryOverlapProvider] — the overlap query
+/// from §4.6 step 1, NOT the row-paged `unifiedHistoryProvider`. The
+/// difference matters: a 400-day continuous host whose session started
+/// outside the recent-page would be missing from the row-paged stream
+/// and the sweep would render the visible window as if the host weren't
+/// fronting.
 final derivedPeriodsProvider =
     Provider.autoDispose<AsyncValue<List<FrontingPeriod>>>((ref) {
-  final sessionsAsync = ref.watch(unifiedHistoryProvider);
+  final sessionsAsync = ref.watch(unifiedHistoryOverlapProvider);
   final membersAsync = ref.watch(allMembersProvider);
 
   return sessionsAsync.when(

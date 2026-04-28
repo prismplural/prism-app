@@ -302,5 +302,147 @@ void main() {
       // by widget type is enough for this smoke check.
       expect(find.byType(Icon), findsWidgets);
     });
+
+    testWidgets(
+      'brief visitor before midnight does NOT duplicate on continuation day',
+      (tester) async {
+        // Codex test gap #7: a period crossing midnight with a brief
+        // visitor whose visit is entirely on day 1 must not render the
+        // chip on day 2's continuation row. The slice-aware filtering
+        // in DisplayPeriod.briefVisitors is what enforces this.
+        final dayOneStart = DateTime(2026, 4, 1, 22); // 10 PM
+        final dayTwoEnd = DateTime(2026, 4, 2, 2); // 2 AM next day
+
+        final periods = [
+          FrontingPeriod(
+            start: dayOneStart,
+            end: dayTwoEnd,
+            activeMembers: const ['a'],
+            briefVisitors: [
+              EphemeralVisit(
+                memberId: 'b',
+                // Visit happens entirely BEFORE midnight (day 1).
+                start: DateTime(2026, 4, 1, 22, 30),
+                end: DateTime(2026, 4, 1, 22, 31),
+                sessionId: 's-b',
+              ),
+            ],
+            sessionIds: const ['s-a', 's-b'],
+            alwaysPresentMembers: const [],
+            isOpenEnded: false,
+          ),
+        ];
+
+        await tester.pumpWidget(_buildSubject(
+          sessions: [
+            _s(id: 's-a', memberId: 'a', start: dayOneStart, end: dayTwoEnd),
+          ],
+          periods: periods,
+          members: {
+            'a': _member('a', 'Alice'),
+            'b': _member('b', 'Bob'),
+          },
+        ));
+        await tester.pumpAndSettle();
+
+        // The visitor's chip should appear EXACTLY once — on the day
+        // the visit happened, not duplicated on the continuation row.
+        expect(find.text('+Bob briefly'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'tapping a co-front middle period navigates to a contributing session',
+      (tester) async {
+        // Codex test gap #8: in `A → A+B → A`, the middle period's
+        // sessionIds must include both contributors so a tap routes
+        // to a real co-front session, not to a "boundary event"
+        // session that doesn't span the middle.
+        final t0 = DateTime(2026, 4, 1, 10);
+        final t1 = DateTime(2026, 4, 1, 11);
+        final t2 = DateTime(2026, 4, 1, 12);
+        final t3 = DateTime(2026, 4, 1, 13);
+
+        final middle = FrontingPeriod(
+          start: t1,
+          end: t2,
+          activeMembers: const ['a', 'b'],
+          briefVisitors: const [],
+          // Both contributors. The DAO/algorithm guarantees this; the
+          // widget test pins the navigation contract that depends on it.
+          sessionIds: const ['session-a', 'session-b'],
+          alwaysPresentMembers: const [],
+          isOpenEnded: false,
+        );
+
+        final periods = [
+          FrontingPeriod(
+            start: t0,
+            end: t1,
+            activeMembers: const ['a'],
+            briefVisitors: const [],
+            sessionIds: const ['session-a'],
+            alwaysPresentMembers: const [],
+            isOpenEnded: false,
+          ),
+          middle,
+          FrontingPeriod(
+            start: t2,
+            end: t3,
+            activeMembers: const ['a'],
+            briefVisitors: const [],
+            sessionIds: const ['session-a'],
+            alwaysPresentMembers: const [],
+            isOpenEnded: false,
+          ),
+        ];
+
+        final router = GoRouter(
+          routes: [
+            GoRoute(
+              path: '/',
+              builder: (_, _) => const Scaffold(
+                body: CustomScrollView(slivers: [SessionHistoryList()]),
+              ),
+            ),
+            GoRoute(
+              path: '/session/:id',
+              builder: (_, state) => Scaffold(
+                body: Text('session-${state.pathParameters['id']}'),
+              ),
+            ),
+          ],
+        );
+
+        await tester.pumpWidget(_buildSubject(
+          sessions: [
+            _s(id: 'session-a', memberId: 'a', start: t0, end: t3),
+            _s(id: 'session-b', memberId: 'b', start: t1, end: t2),
+          ],
+          periods: periods,
+          members: {
+            'a': _member('a', 'Alice'),
+            'b': _member('b', 'Bob'),
+          },
+          router: router,
+        ));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Alice & Bob'));
+        await tester.pumpAndSettle();
+
+        // The route opens on a session ID drawn from the middle period's
+        // sessionIds. The widget routes to the first id (current 1A
+        // behavior). What matters: it's one of the period's real
+        // contributors, NOT a stray ID.
+        final routedToA =
+            find.text('session-session-a').evaluate().isNotEmpty;
+        final routedToB =
+            find.text('session-session-b').evaluate().isNotEmpty;
+        expect(routedToA || routedToB, isTrue,
+            reason: 'tap on middle co-front period must route to a '
+                'contributing session');
+      },
+    );
   });
 }

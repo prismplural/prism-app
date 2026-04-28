@@ -1652,6 +1652,12 @@ class _SuppressionAssertingFrontingSessionRepository
   Stream<List<FrontingSession>> watchRecentAllSessions({int limit = 30}) =>
       _inner.watchRecentAllSessions(limit: limit);
   @override
+  Stream<List<FrontingSession>> watchSessionsOverlappingRange(
+    DateTime start,
+    DateTime end,
+  ) =>
+      _inner.watchSessionsOverlappingRange(start, end);
+  @override
   Future<void> endSession(String id, DateTime endTime) =>
       _inner.endSession(id, endTime);
   @override
