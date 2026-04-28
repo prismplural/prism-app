@@ -7930,15 +7930,15 @@ class AppLocalizationsEs extends AppLocalizations {
       count,
       locale: localeName,
       other:
-          'Se asignaron $count sesiones sin atribución al integrante Desconocide.',
-      one: 'Se asignó 1 sesión sin atribución al integrante Desconocide.',
+          'Se asignaron $count sesiones sin atribución al integrante desconocido.',
+      one: 'Se asignó 1 sesión sin atribución al integrante desconocido.',
     );
     return '$_temp0';
   }
 
   @override
   String get frontingUpgradeCountSentinelCreated =>
-      'Se creó un integrante Desconocide para guardar las sesiones sin un frente claro.';
+      'Se creó un integrante desconocido para guardar las sesiones sin un frente claro.';
 
   @override
   String get frontingUpgradeRepairPrimary =>
