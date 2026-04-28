@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/app_database.dart' as database;
 import 'package:prism_plurality/core/sync/drift_sync_adapter.dart';
 import 'package:prism_plurality/core/sync/sync_quarantine.dart';
@@ -351,6 +352,91 @@ void main() {
       final fields = fronting.toSyncFields(session);
       expect(fields.containsKey('end_time'), isTrue);
       expect(fields['end_time'], isNull);
+    },
+  );
+
+  // ---------------------------------------------------------------------------
+  // Unknown sentinel: sync-apply hardDelete must refuse to remove the row.
+  //
+  // The repository-level deleteMember guard is bypassed by the sync apply
+  // path (incoming tombstones flow through DriftSyncEntity.hardDelete, not
+  // through the repository). An older or buggy peer emitting a delete op
+  // for `unknownSentinelMemberId` must NOT be able to remove the local row,
+  // because orphan-classified fronting sessions ("Front as Unknown" plus
+  // importer/migration fallbacks) attribute back to it.
+  // ---------------------------------------------------------------------------
+
+  test(
+    'members.hardDelete refuses remote delete of the Unknown sentinel',
+    () async {
+      final db = database.AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+
+      final syncAdapter = buildSyncAdapterWithCompletion(db);
+      final members = syncAdapter.adapter.entities
+          .singleWhere((entity) => entity.tableName == 'members');
+
+      // Seed the sentinel row directly so we can prove a hardDelete leaves
+      // it in place.
+      await db.into(db.members).insert(
+            database.MembersCompanion.insert(
+              id: unknownSentinelMemberId,
+              name: 'Unknown',
+              createdAt: DateTime.utc(2026, 1, 1),
+            ),
+          );
+
+      // Sanity: row exists before the delete.
+      final beforeRow = await (db.select(db.members)
+            ..where((t) => t.id.equals(unknownSentinelMemberId)))
+          .getSingleOrNull();
+      expect(beforeRow, isNotNull);
+
+      // Apply the incoming hard-delete op via the sync entity. Must not throw
+      // (throwing would break the sync loop) and must leave the row intact.
+      await members.hardDelete(unknownSentinelMemberId);
+
+      final afterRow = await (db.select(db.members)
+            ..where((t) => t.id.equals(unknownSentinelMemberId)))
+          .getSingleOrNull();
+      expect(
+        afterRow,
+        isNotNull,
+        reason: 'Unknown sentinel must survive a remote hardDelete',
+      );
+      expect(afterRow!.id, unknownSentinelMemberId);
+    },
+  );
+
+  test(
+    'members.hardDelete still removes ordinary member rows',
+    () async {
+      final db = database.AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+
+      final syncAdapter = buildSyncAdapterWithCompletion(db);
+      final members = syncAdapter.adapter.entities
+          .singleWhere((entity) => entity.tableName == 'members');
+
+      const ordinaryId = 'ordinary-member-1';
+      await db.into(db.members).insert(
+            database.MembersCompanion.insert(
+              id: ordinaryId,
+              name: 'Ada',
+              createdAt: DateTime.utc(2026, 1, 1),
+            ),
+          );
+
+      await members.hardDelete(ordinaryId);
+
+      final afterRow = await (db.select(db.members)
+            ..where((t) => t.id.equals(ordinaryId)))
+          .getSingleOrNull();
+      expect(
+        afterRow,
+        isNull,
+        reason: 'sentinel guard must not affect non-sentinel ids',
+      );
     },
   );
 }

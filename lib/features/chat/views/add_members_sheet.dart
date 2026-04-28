@@ -77,7 +77,9 @@ class _AddMembersContent extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final membersAsync = ref.watch(activeMembersProvider);
+    // Non-fronting picker: hide the Unknown sentinel — you don't add the
+    // placeholder member to a conversation.
+    final membersAsync = ref.watch(userVisibleMembersProvider);
     final s = ref.watch(terminologySettingProvider);
     final termPlural = resolveTerminology(
       context.l10n,

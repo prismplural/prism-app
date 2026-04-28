@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer' as developer;
 
 import 'package:crypto/crypto.dart';
 import 'package:drift/drift.dart';
 import 'package:prism_sync_drift/prism_sync_drift.dart';
 
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/sync/sync_quarantine.dart';
 
@@ -1184,6 +1186,21 @@ DriftSyncEntity _membersEntity(
       }
     },
     hardDelete: (String id) async {
+      // Refuse remote deletes of the Unknown sentinel — it backs orphan-
+      // classified fronting rows ("Front as Unknown" + importer/migration
+      // fallbacks). The repository-level deleteMember guard covers local
+      // deletes; this branch covers the sync apply path where an op from
+      // an older or buggy peer could otherwise remove the sentinel locally
+      // and break attributed fronting rows. Skip silently (don't throw —
+      // throwing here would break the sync loop) and log so a future
+      // debugger can see what happened.
+      if (id == unknownSentinelMemberId) {
+        developer.log(
+          'refusing remote delete of Unknown sentinel ($id)',
+          name: 'sync',
+        );
+        return;
+      }
       await (db.delete(db.members)..where((t) => t.id.equals(id))).go();
     },
     readRow: (String id) async {

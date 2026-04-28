@@ -29,7 +29,9 @@ class SpeakingAsPicker extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final membersAsync = ref.watch(activeMembersProvider);
+    // Non-fronting picker: hide the Unknown sentinel — speaking as the
+    // placeholder member doesn't make sense in chat.
+    final membersAsync = ref.watch(userVisibleMembersProvider);
     final speakingAs = ref.watch(speakingAsProvider);
     final termPlural = watchTerminology(context, ref).plural;
 

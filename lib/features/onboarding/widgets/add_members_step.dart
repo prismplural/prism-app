@@ -19,7 +19,10 @@ class AddMembersStep extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final membersAsync = ref.watch(allMembersProvider);
+    // Member-management surface: hide the Unknown sentinel from the
+    // onboarding members list (it shouldn't exist this early anyway, but
+    // belt-and-suspenders).
+    final membersAsync = ref.watch(userVisibleAllMembersProvider);
     final members = membersAsync.value ?? [];
 
     return Padding(
