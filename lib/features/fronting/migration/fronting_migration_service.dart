@@ -154,10 +154,14 @@ class FrontingMigrationService {
     required this.dataExportService,
     required this.syncHandle,
     Future<void> Function(ffi.PrismSyncHandle handle)? resetSyncState,
+    Future<void> Function(ffi.PrismSyncHandle handle)?
+        ensureConfiguredForReset,
     Future<void> Function()? wipeSyncKeychain,
     Future<Directory> Function()? backupDirectoryProvider,
   })  : _resetSyncState = resetSyncState ??
             ((handle) => ffi.resetSyncState(handle: handle)),
+        _ensureConfiguredForReset =
+            ensureConfiguredForReset ?? ((_) async {}),
         _wipeSyncKeychain = wipeSyncKeychain ?? (() async {}),
         _backupDirectoryProvider =
             backupDirectoryProvider ?? getApplicationDocumentsDirectory;
@@ -177,6 +181,31 @@ class FrontingMigrationService {
   /// generated `ffi.resetSyncState(handle: handle)`.  Must be passed
   /// `handle` as a positional arg by the wrapper.
   final Future<void> Function(ffi.PrismSyncHandle handle) _resetSyncState;
+
+  /// Codex pass 2 #B-NEW3 — recovery hook for [resumeCleanup]. App
+  /// startup gates that detect `'inProgress'` mode publish an
+  /// UNCONFIGURED handle (no `_seedRustStore` / no `_autoConfigureIfReady`
+  /// — see `prism_sync_providers.dart`) so a backgrounded app between
+  /// reset and keychain wipe doesn't re-seed credentials about to be
+  /// wiped.
+  ///
+  /// When [resumeCleanup] runs and the persisted substate says the
+  /// Rust reset has NOT yet succeeded, we still need to perform that
+  /// reset — but `_resetSyncState` requires a configured engine
+  /// (otherwise it returns "sync_id not set", which the previous
+  /// implementation incorrectly treated as success). This callback
+  /// configures the engine just enough — seed secure store, restore
+  /// runtime keys, call configureEngine — for the reset to succeed.
+  /// No `setAutoSync`, no relay round-trip; the sync state we're
+  /// configuring is about to be wiped.
+  ///
+  /// Defaults to a no-op so unit tests that don't exercise the
+  /// resume-after-reset-failure path don't need to inject anything.
+  /// Production wiring passes
+  /// `configureForFrontingMigrationCleanupReset` from
+  /// `prism_sync_providers.dart`.
+  final Future<void> Function(ffi.PrismSyncHandle handle)
+      _ensureConfiguredForReset;
 
   /// Wipes platform-keychain sync credentials. Defaults to a no-op so unit
   /// tests don't need a `FlutterSecureStorage` instance; production wiring
@@ -210,6 +239,15 @@ class FrontingMigrationService {
   static const String modeInProgress = 'inProgress';
 
   static const String modeComplete = 'complete';
+
+  /// Codex pass 2 #B-NEW3 — values for
+  /// `system_settings.pending_fronting_migration_cleanup_substate`.
+  /// `''` is the inert default (no destructive post-tx step has run yet);
+  /// [substateResetDone] is written ONLY after `_resetSyncState` returns
+  /// success and before the keychain wipe / quarantine clear / mark
+  /// complete sequence runs.
+  static const String substateInert = '';
+  static const String substateResetDone = 'resetDone';
 
   /// Phase 1 of the upgrade: build the PRISM1 backup file. No destructive
   /// work runs here, settings are not touched. Throws on export failure;
@@ -374,9 +412,19 @@ class FrontingMigrationService {
   /// upgrade modal calls this when it re-opens to that state.
   ///
   /// Skips the Drift transaction entirely (already committed); runs
-  /// just the engine reset, keychain wipe, sync_quarantine clear, and
-  /// final mode write. All three idempotent: re-running on already-
-  /// reset Rust returns "sync_id not set" which we treat as success.
+  /// just the engine reset (when not already done), keychain wipe,
+  /// sync_quarantine clear, and final mode write.
+  ///
+  /// Codex pass 2 #B-NEW3: reads
+  /// `pending_fronting_migration_cleanup_substate` to decide whether
+  /// the Rust reset still needs to run. When the substate is
+  /// [substateResetDone] we KNOW the previous attempt's Rust reset
+  /// returned success — skip the FFI call entirely. When the substate
+  /// is the inert default we MUST run the reset, but the handle is
+  /// likely unconfigured (app startup gates that detect `inProgress`
+  /// publish an unconfigured handle); we delegate to
+  /// `_ensureConfiguredForReset` to bring it online just enough for
+  /// the reset call to succeed.
   Future<MigrationResult> resumeCleanup() async {
     final currentMode =
         await db.systemSettingsDao.readPendingFrontingMigrationMode();
@@ -391,6 +439,7 @@ class FrontingMigrationService {
     return _runPostTransactionCleanup(
       exportFile: null,
       counters: _MigrationCounters(),
+      isResume: true,
     );
   }
 
@@ -398,28 +447,71 @@ class FrontingMigrationService {
   /// clear) + 10 (mark complete). Shared between the first-attempt
   /// path and [resumeCleanup]; on any failure the in-progress marker
   /// stays set so the user can retry without losing progress.
+  ///
+  /// Codex pass 2 #B-NEW3: writes
+  /// `pending_fronting_migration_cleanup_substate = 'resetDone'`
+  /// between Rust reset success and the keychain wipe so a second
+  /// invocation (via [resumeCleanup]) can skip the reset call instead
+  /// of relying on the "sync_id not set" heuristic — which in the
+  /// failure mode this fixes was erroneously treating "engine never
+  /// configured because Rust persistent state was never cleared" as
+  /// "reset already succeeded."
   Future<MigrationResult> _runPostTransactionCleanup({
     required File? exportFile,
     required _MigrationCounters counters,
+    bool isResume = false,
   }) async {
-    // Step 8: reset sync state (Rust FFI). Commits to the Rust
-    // engine's own SQLite store + nulls in-memory state. Idempotent on
-    // re-run: a second call will fail with "sync_id not set" which we
-    // treat as success because the engine is already cleared.
-    if (syncHandle != null) {
-      try {
-        await _resetSyncState(syncHandle!);
-      } catch (e) {
-        if (!_isAlreadyResetError(e)) {
+    final substate = await db.systemSettingsDao
+        .readPendingFrontingMigrationCleanupSubstate();
+    final resetAlreadyDone = substate == substateResetDone;
+
+    // Step 8: reset sync state (Rust FFI). Skipped when the persisted
+    // substate proves the previous attempt's reset returned success.
+    if (syncHandle != null && !resetAlreadyDone) {
+      // On the resume path the handle is unconfigured (see comment
+      // on [_ensureConfiguredForReset]); bring it back online just
+      // enough for the reset call to commit. On the first-attempt
+      // path this is a no-op — `_ensureConfiguredForReset` defaults
+      // to a do-nothing closure and the engine is already configured
+      // from normal startup.
+      if (isResume) {
+        try {
+          await _ensureConfiguredForReset(syncHandle!);
+        } catch (e) {
+          // If we can't even configure the engine to run the reset,
+          // there's nothing useful we can do here — surface the error
+          // and let the user retry. We do NOT fall through to a "treat
+          // as already reset" path because that's exactly the bug
+          // (#B-NEW3) this commit fixes.
           return _failPostTx(
             exportFile: exportFile,
             counters: counters,
             errorMessage:
-                'Engine reset failed: $e. Please reopen the upgrade modal '
-                'to finish migration.',
+                'Engine configure-for-reset failed: $e. Please reopen the '
+                'upgrade modal to finish migration.',
           );
         }
       }
+      try {
+        await _resetSyncState(syncHandle!);
+      } catch (e) {
+        return _failPostTx(
+          exportFile: exportFile,
+          counters: counters,
+          errorMessage:
+              'Engine reset failed: $e. Please reopen the upgrade modal '
+              'to finish migration.',
+        );
+      }
+      // Persist the success of the FFI reset BEFORE moving on to the
+      // keychain wipe. If the wipe (or any subsequent step) fails and
+      // we re-run via [resumeCleanup], we need to know that the Rust
+      // persistent state is already cleared — otherwise we'd try to
+      // configure-and-reset again, which would either re-attach to a
+      // half-cleared engine or silently no-op against an unconfigured
+      // handle (the original #B-NEW3 failure mode).
+      await db.systemSettingsDao
+          .writePendingFrontingMigrationCleanupSubstate(substateResetDone);
     }
 
     // Step 8b: wipe the platform keychain. Codex P1 #5: without this,
@@ -453,9 +545,14 @@ class FrontingMigrationService {
       );
     }
 
-    // Step 10: mark complete.
+    // Step 10: mark complete. Reset the cleanup substate back to the
+    // inert default so a subsequent (rare) re-run after `complete`
+    // doesn't carry over stale state — though `resumeCleanup()` itself
+    // refuses to run unless mode is `inProgress`.
     await db.systemSettingsDao
         .writePendingFrontingMigrationMode(modeComplete);
+    await db.systemSettingsDao
+        .writePendingFrontingMigrationCleanupSubstate(substateInert);
 
     return MigrationResult(
       outcome: MigrationOutcome.success,
@@ -470,17 +567,6 @@ class FrontingMigrationService {
       unknownSentinelCreated: counters.unknownSentinelCreated,
       corruptCoFronterRowIds: counters.corruptCoFronterRowIds,
     );
-  }
-
-  /// Returns true if [error] is the "sync_id not set" error returned by
-  /// `reset_sync_state` when the engine is already cleared. Treated as
-  /// success in [resumeCleanup] / re-run scenarios so users can retry
-  /// the post-tx steps after a partial failure without the second-call
-  /// reset noisily failing.
-  bool _isAlreadyResetError(Object error) {
-    final msg = error.toString();
-    return msg.contains('sync_id not set') ||
-        msg.contains('sync not configured');
   }
 
   MigrationResult _failPostTx({

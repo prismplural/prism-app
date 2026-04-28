@@ -65,6 +65,7 @@ void main() {
         wakeSuggestionEnabled: false,
         wakeSuggestionAfterHours: 8.0,
         pendingFrontingMigrationMode: 'notStarted',
+        pendingFrontingMigrationCleanupSubstate: '',
       );
     }
 

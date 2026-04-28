@@ -24,6 +24,12 @@ Future<void> _seedV6Db(
       'ALTER TABLE system_settings '
       'DROP COLUMN pending_fronting_migration_mode',
     );
+    // Codex pass 2 #B-NEW3 — folded into the v6→v7 block, so drop the
+    // column here before re-opening so the addColumn call can run.
+    rawDb.execute(
+      'ALTER TABLE system_settings '
+      'DROP COLUMN pending_fronting_migration_cleanup_substate',
+    );
     rawDb.execute(
       'ALTER TABLE front_session_comments DROP COLUMN target_time',
     );

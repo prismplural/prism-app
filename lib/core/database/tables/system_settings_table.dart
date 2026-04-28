@@ -152,6 +152,32 @@ class SystemSettingsTable extends Table {
   TextColumn get pendingFrontingMigrationMode =>
       text().withDefault(const Constant('complete'))();
 
+  // Codex pass 2 #B-NEW3 — substate within the `'inProgress'` window.
+  //
+  // Allowed values:
+  //   ''           — initial / inert (no destructive post-tx step has run yet)
+  //   'resetDone'  — Rust `reset_sync_state()` returned success; remaining
+  //                  post-tx steps (keychain wipe + sync_quarantine clear +
+  //                  mark complete) still need to run
+  //
+  // Without this we cannot distinguish two failure modes from inside
+  // resumeCleanup():
+  //   (a) Rust reset never ran — we MUST run it now.
+  //   (b) Rust reset already succeeded; only the keychain/quarantine
+  //       follow-ups failed — re-running reset on an unconfigured handle
+  //       would return "sync_id not set" and we'd treat that as
+  //       "already reset" even when it wasn't.
+  //
+  // The previous implementation collapsed both cases via the "sync_id
+  // not set"-means-success heuristic, which silently marked migration
+  // complete when (a) had failed for unrelated reasons (e.g. the FFI
+  // call threw before clearing the persistent tables) and the next
+  // launch would re-attach to the OLD sync group.
+  //
+  // Device-local: same scope as `pending_fronting_migration_mode`.
+  TextColumn get pendingFrontingMigrationCleanupSubstate =>
+      text().withDefault(const Constant(''))();
+
   @override
   String get tableName => 'system_settings';
 

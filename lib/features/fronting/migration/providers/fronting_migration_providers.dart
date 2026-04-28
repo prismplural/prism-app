@@ -105,6 +105,13 @@ final frontingMigrationRunnerProvider = Provider<FrontingMigrationService>(
       // can't re-seed Rust with the credentials that should have been
       // wiped.
       wipeSyncKeychain: wipeFrontingMigrationSyncKeychain,
+      // Codex pass 2 #B-NEW3: when resumeCleanup() needs to perform
+      // the Rust reset, the published handle is unconfigured (startup
+      // gates skip seedRustStore + autoConfigureIfReady on
+      // `inProgress`). Configure it back online just enough for the
+      // reset call to succeed — see the helper's docstring for why
+      // setAutoSync is intentionally omitted.
+      ensureConfiguredForReset: configureForFrontingMigrationCleanupReset,
     );
   },
 );

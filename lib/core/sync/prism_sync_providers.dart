@@ -668,6 +668,76 @@ Future<String?> _readPendingFrontingMigrationMode(Ref ref) async {
 /// still-present `wrapped_dek` / `sync_id` / `device_secret` / etc. and
 /// silently re-attach to the OLD sync group. Idempotent — wiping
 /// already-wiped slots is a no-op.
+/// Codex pass 2 #B-NEW3 — configure the Rust engine just enough for
+/// `reset_sync_state` to succeed on the [resumeCleanup] path.
+///
+/// Background: when app startup detects the migration's `inProgress`
+/// marker, it intentionally skips both `_seedRustStore` and
+/// `_autoConfigureIfReady` (so a backgrounded app between FFI reset
+/// and keychain wipe doesn't re-seed credentials about to be wiped).
+/// That leaves the published handle UNCONFIGURED — `reset_sync_state`
+/// against it would return `"sync_id not set"`.
+///
+/// Previously the migration treated that error as "already reset →
+/// success" and marched forward to mark complete, even when the Rust
+/// persistent state was never actually cleared. The next launch would
+/// then re-seed from secure store, configureEngine would succeed
+/// against the still-populated old tables, and the device would
+/// silently re-attach to the OLD sync group.
+///
+/// Fix: when [FrontingMigrationService.resumeCleanup] needs to run the
+/// reset (substate != `'resetDone'`), it calls this helper to:
+///   1. Seed Rust's MemorySecureStore from the platform keychain (the
+///      keychain entries are intact — the wipe step is GATED on the
+///      reset succeeding first).
+///   2. Restore runtime keys (DEK + DeviceSecret) so the engine is
+///      unlocked.
+///   3. Call `configureEngine`. NO `setAutoSync`, NO relay round-trip
+///      — the state we're configuring is about to be wiped.
+///
+/// Throws if any step fails. Callers should treat that failure as a
+/// resumable error (substate stays inert, mode stays `inProgress`).
+Future<void> configureForFrontingMigrationCleanupReset(
+  ffi.PrismSyncHandle handle,
+) async {
+  // 1. Seed secure store from platform keychain. Equivalent to the
+  // `_seedRustStore` call we skipped at startup.
+  await _seedRustStore(handle);
+
+  // 2. Restore runtime keys. Mirrors the relevant slice of
+  // `_autoConfigureIfReady` — DEK + DeviceSecret only, no password
+  // unlock branch (this path runs after the user has already unlocked
+  // and run the destructive Drift transaction; if the cached DEK is
+  // gone we have nothing to recover with except the user's password,
+  // which we don't have at resume time).
+  final isUnlocked = await ffi.isUnlocked(handle: handle);
+  if (!isUnlocked) {
+    final dekB64 = await _storage.read(key: kRuntimeDekKey);
+    final deviceSecretB64 = await _storage.read(
+      key: '${_secureStorePrefix}device_secret',
+    );
+    if (dekB64 == null || deviceSecretB64 == null) {
+      throw StateError(
+        'configureForFrontingMigrationCleanupReset: missing cached DEK '
+        'or device_secret; cannot restore runtime keys for reset.',
+      );
+    }
+    await ffi.restoreRuntimeKeys(
+      handle: handle,
+      dek: base64Decode(dekB64),
+      deviceSecret: base64Decode(deviceSecretB64),
+    );
+  }
+
+  // 3. Configure engine. We deliberately do NOT call setAutoSync
+  // here — auto-sync would push pending ops or fetch remote changes
+  // BEFORE reset_sync_state runs, which is exactly what the
+  // suppression+reset sequence is meant to prevent on the first-
+  // attempt path. resumeCleanup() inherits the same constraint: the
+  // engine must be alive long enough to reset, and no longer.
+  await ffi.configureEngine(handle: handle);
+}
+
 Future<void> wipeFrontingMigrationSyncKeychain() async {
   // Static allow-list (mirrors `_secureStoreKeys` plus the same
   // defensive entries `_wipeSyncKeychainEntries` lists).
