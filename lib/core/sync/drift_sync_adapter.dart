@@ -143,6 +143,24 @@ DateTime? _asDateTime(dynamic value) {
   return null;
 }
 
+/// Serializes a [DateTime] for inclusion in a sync field map.
+///
+/// Drift reads `DateTime` columns with `isUtc=false` (local time). Calling
+/// `toIso8601String()` on a local DateTime emits a string with no offset and
+/// no `Z` suffix, e.g. `"2024-01-01T12:00:00.000"`. A peer in a different
+/// timezone parses that as their own local time, so the absolute moment
+/// shifts by the timezone delta on every cross-device sync.
+///
+/// Funnel every DateTime emission to the sync layer through this helper so
+/// the wire format is unambiguously UTC (`Z`-suffixed) and round-trips
+/// across timezones cleanly. Reviewers grepping for `.toIso8601String()` in
+/// `drift_sync_adapter.dart` should find only this helper.
+String _dateTimeToSyncString(DateTime dt) => dt.toUtc().toIso8601String();
+
+/// Nullable variant of [_dateTimeToSyncString].
+String? _dateTimeToSyncStringOrNull(DateTime? dt) =>
+    dt?.toUtc().toIso8601String();
+
 /// Nullable blob from base64 string.
 Uint8List? _blob(dynamic v) {
   if (v is String) {
@@ -1093,7 +1111,7 @@ DriftSyncEntity _membersEntity(
             ? base64Encode(r.avatarImageData!)
             : null,
         'is_active': r.isActive,
-        'created_at': r.createdAt.toIso8601String(),
+        'created_at': _dateTimeToSyncString(r.createdAt),
         'display_order': r.displayOrder,
         'is_admin': r.isAdmin,
         'custom_color_enabled': r.customColorEnabled,
@@ -1183,7 +1201,7 @@ DriftSyncEntity _membersEntity(
             ? base64Encode(row.avatarImageData!)
             : null,
         'is_active': row.isActive,
-        'created_at': row.createdAt.toIso8601String(),
+        'created_at': _dateTimeToSyncString(row.createdAt),
         'display_order': row.displayOrder,
         'is_admin': row.isAdmin,
         'custom_color_enabled': row.customColorEnabled,
@@ -1225,8 +1243,8 @@ DriftSyncEntity _frontingSessionsEntity(
     toSyncFields: (dynamic row) {
       final r = row as FrontingSession;
       return {
-        'start_time': r.startTime.toIso8601String(),
-        'end_time': r.endTime?.toIso8601String(),
+        'start_time': _dateTimeToSyncString(r.startTime),
+        'end_time': _dateTimeToSyncStringOrNull(r.endTime),
         'member_id': r.memberId,
         'notes': r.notes,
         'confidence': r.confidence,
@@ -1273,8 +1291,8 @@ DriftSyncEntity _frontingSessionsEntity(
       )..where((t) => t.id.equals(id))).getSingleOrNull();
       if (row == null) return null;
       return {
-        'start_time': row.startTime.toIso8601String(),
-        'end_time': row.endTime?.toIso8601String(),
+        'start_time': _dateTimeToSyncString(row.startTime),
+        'end_time': _dateTimeToSyncStringOrNull(row.endTime),
         'member_id': row.memberId,
         'notes': row.notes,
         'confidence': row.confidence,
@@ -1309,8 +1327,8 @@ DriftSyncEntity _conversationsEntity(
     toSyncFields: (dynamic row) {
       final r = row as Conversation;
       return {
-        'created_at': r.createdAt.toIso8601String(),
-        'last_activity_at': r.lastActivityAt.toIso8601String(),
+        'created_at': _dateTimeToSyncString(r.createdAt),
+        'last_activity_at': _dateTimeToSyncString(r.lastActivityAt),
         'title': r.title,
         'emoji': r.emoji,
         'is_direct_message': r.isDirectMessage,
@@ -1359,8 +1377,8 @@ DriftSyncEntity _conversationsEntity(
       )..where((t) => t.id.equals(id))).getSingleOrNull();
       if (row == null) return null;
       return {
-        'created_at': row.createdAt.toIso8601String(),
-        'last_activity_at': row.lastActivityAt.toIso8601String(),
+        'created_at': _dateTimeToSyncString(row.createdAt),
+        'last_activity_at': _dateTimeToSyncString(row.lastActivityAt),
         'title': row.title,
         'emoji': row.emoji,
         'is_direct_message': row.isDirectMessage,
@@ -1398,9 +1416,9 @@ DriftSyncEntity _chatMessagesEntity(
       final r = row as ChatMessage;
       return {
         'content': r.content,
-        'timestamp': r.timestamp.toIso8601String(),
+        'timestamp': _dateTimeToSyncString(r.timestamp),
         'is_system_message': r.isSystemMessage,
-        'edited_at': r.editedAt?.toIso8601String(),
+        'edited_at': _dateTimeToSyncStringOrNull(r.editedAt),
         'author_id': r.authorId,
         'conversation_id': r.conversationId,
         'reactions': r.reactions,
@@ -1444,9 +1462,9 @@ DriftSyncEntity _chatMessagesEntity(
       if (row == null) return null;
       return {
         'content': row.content,
-        'timestamp': row.timestamp.toIso8601String(),
+        'timestamp': _dateTimeToSyncString(row.timestamp),
         'is_system_message': row.isSystemMessage,
-        'edited_at': row.editedAt?.toIso8601String(),
+        'edited_at': _dateTimeToSyncStringOrNull(row.editedAt),
         'author_id': row.authorId,
         'conversation_id': row.conversationId,
         'reactions': row.reactions,
@@ -1688,8 +1706,8 @@ DriftSyncEntity _pollsEntity(
         'is_anonymous': r.isAnonymous,
         'allows_multiple_votes': r.allowsMultipleVotes,
         'is_closed': r.isClosed,
-        'expires_at': r.expiresAt?.toIso8601String(),
-        'created_at': r.createdAt.toIso8601String(),
+        'expires_at': _dateTimeToSyncStringOrNull(r.expiresAt),
+        'created_at': _dateTimeToSyncString(r.createdAt),
         'is_deleted': r.isDeleted,
       };
     },
@@ -1728,8 +1746,8 @@ DriftSyncEntity _pollsEntity(
         'is_anonymous': row.isAnonymous,
         'allows_multiple_votes': row.allowsMultipleVotes,
         'is_closed': row.isClosed,
-        'expires_at': row.expiresAt?.toIso8601String(),
-        'created_at': row.createdAt.toIso8601String(),
+        'expires_at': _dateTimeToSyncStringOrNull(row.expiresAt),
+        'created_at': _dateTimeToSyncString(row.createdAt),
         'is_deleted': row.isDeleted,
       };
     },
@@ -1825,7 +1843,7 @@ DriftSyncEntity _pollVotesEntity(
       return {
         'poll_option_id': r.pollOptionId,
         'member_id': r.memberId,
-        'voted_at': r.votedAt.toIso8601String(),
+        'voted_at': _dateTimeToSyncString(r.votedAt),
         'response_text': r.responseText,
         'is_deleted': r.isDeleted,
       };
@@ -1859,7 +1877,7 @@ DriftSyncEntity _pollVotesEntity(
       return {
         'poll_option_id': row.pollOptionId,
         'member_id': row.memberId,
-        'voted_at': row.votedAt.toIso8601String(),
+        'voted_at': _dateTimeToSyncString(row.votedAt),
         'response_text': row.responseText,
         'is_deleted': row.isDeleted,
       };
@@ -1892,8 +1910,8 @@ DriftSyncEntity _habitsEntity(
         'icon': r.icon,
         'color_hex': r.colorHex,
         'is_active': r.isActive,
-        'created_at': r.createdAt.toIso8601String(),
-        'modified_at': r.modifiedAt.toIso8601String(),
+        'created_at': _dateTimeToSyncString(r.createdAt),
+        'modified_at': _dateTimeToSyncString(r.modifiedAt),
         'frequency': r.frequency,
         'weekly_days': r.weeklyDays,
         'interval_days': r.intervalDays,
@@ -1956,8 +1974,8 @@ DriftSyncEntity _habitsEntity(
         'icon': row.icon,
         'color_hex': row.colorHex,
         'is_active': row.isActive,
-        'created_at': row.createdAt.toIso8601String(),
-        'modified_at': row.modifiedAt.toIso8601String(),
+        'created_at': _dateTimeToSyncString(row.createdAt),
+        'modified_at': _dateTimeToSyncString(row.modifiedAt),
         'frequency': row.frequency,
         'weekly_days': row.weeklyDays,
         'interval_days': row.intervalDays,
@@ -1997,13 +2015,13 @@ DriftSyncEntity _habitCompletionsEntity(
       final r = row as HabitCompletion;
       return {
         'habit_id': r.habitId,
-        'completed_at': r.completedAt.toIso8601String(),
+        'completed_at': _dateTimeToSyncString(r.completedAt),
         'completed_by_member_id': r.completedByMemberId,
         'notes': r.notes,
         'was_fronting': r.wasFronting,
         'rating': r.rating,
-        'created_at': r.createdAt.toIso8601String(),
-        'modified_at': r.modifiedAt.toIso8601String(),
+        'created_at': _dateTimeToSyncString(r.createdAt),
+        'modified_at': _dateTimeToSyncString(r.modifiedAt),
         'is_deleted': r.isDeleted,
       };
     },
@@ -2041,13 +2059,13 @@ DriftSyncEntity _habitCompletionsEntity(
       if (row == null) return null;
       return {
         'habit_id': row.habitId,
-        'completed_at': row.completedAt.toIso8601String(),
+        'completed_at': _dateTimeToSyncString(row.completedAt),
         'completed_by_member_id': row.completedByMemberId,
         'notes': row.notes,
         'was_fronting': row.wasFronting,
         'rating': row.rating,
-        'created_at': row.createdAt.toIso8601String(),
-        'modified_at': row.modifiedAt.toIso8601String(),
+        'created_at': _dateTimeToSyncString(row.createdAt),
+        'modified_at': _dateTimeToSyncString(row.modifiedAt),
         'is_deleted': row.isDeleted,
       };
     },
@@ -2076,8 +2094,8 @@ DriftSyncEntity _conversationCategoriesEntity(
       return {
         'name': r.name,
         'display_order': r.displayOrder,
-        'created_at': r.createdAt.toIso8601String(),
-        'modified_at': r.modifiedAt.toIso8601String(),
+        'created_at': _dateTimeToSyncString(r.createdAt),
+        'modified_at': _dateTimeToSyncString(r.modifiedAt),
         'is_deleted': r.isDeleted,
       };
     },
@@ -2114,8 +2132,8 @@ DriftSyncEntity _conversationCategoriesEntity(
       return {
         'name': row.name,
         'display_order': row.displayOrder,
-        'created_at': row.createdAt.toIso8601String(),
-        'modified_at': row.modifiedAt.toIso8601String(),
+        'created_at': _dateTimeToSyncString(row.createdAt),
+        'modified_at': _dateTimeToSyncString(row.modifiedAt),
         'is_deleted': row.isDeleted,
       };
     },
@@ -2152,8 +2170,8 @@ DriftSyncEntity _remindersEntity(
         'delay_hours': r.delayHours,
         'target_member_id': r.targetMemberId,
         'is_active': r.isActive,
-        'created_at': r.createdAt.toIso8601String(),
-        'modified_at': r.modifiedAt.toIso8601String(),
+        'created_at': _dateTimeToSyncString(r.createdAt),
+        'modified_at': _dateTimeToSyncString(r.modifiedAt),
         'is_deleted': r.isDeleted,
       };
     },
@@ -2202,8 +2220,8 @@ DriftSyncEntity _remindersEntity(
         'delay_hours': row.delayHours,
         'target_member_id': row.targetMemberId,
         'is_active': row.isActive,
-        'created_at': row.createdAt.toIso8601String(),
-        'modified_at': row.modifiedAt.toIso8601String(),
+        'created_at': _dateTimeToSyncString(row.createdAt),
+        'modified_at': _dateTimeToSyncString(row.modifiedAt),
         'is_deleted': row.isDeleted,
       };
     },
@@ -2246,10 +2264,10 @@ DriftSyncEntity _memberGroupsEntity(
         'parent_group_id': r.parentGroupId,
         'group_type': r.groupType,
         'filter_rules': r.filterRules,
-        'created_at': r.createdAt.toIso8601String(),
+        'created_at': _dateTimeToSyncString(r.createdAt),
         'pluralkit_id': r.pluralkitId,
         'pluralkit_uuid': r.pluralkitUuid,
-        'last_seen_from_pk_at': r.lastSeenFromPkAt?.toIso8601String(),
+        'last_seen_from_pk_at': _dateTimeToSyncStringOrNull(r.lastSeenFromPkAt),
         'is_deleted': r.isDeleted,
       };
     },
@@ -2330,10 +2348,10 @@ DriftSyncEntity _memberGroupsEntity(
         'parent_group_id': row.parentGroupId,
         'group_type': row.groupType,
         'filter_rules': row.filterRules,
-        'created_at': row.createdAt.toIso8601String(),
+        'created_at': _dateTimeToSyncString(row.createdAt),
         'pluralkit_id': row.pluralkitId,
         'pluralkit_uuid': row.pluralkitUuid,
-        'last_seen_from_pk_at': row.lastSeenFromPkAt?.toIso8601String(),
+        'last_seen_from_pk_at': _dateTimeToSyncStringOrNull(row.lastSeenFromPkAt),
         'is_deleted': row.isDeleted,
       };
     },
@@ -2460,7 +2478,7 @@ DriftSyncEntity _customFieldsEntity(
         'field_type': r.fieldType,
         'date_precision': r.datePrecision,
         'display_order': r.displayOrder,
-        'created_at': r.createdAt.toIso8601String(),
+        'created_at': _dateTimeToSyncString(r.createdAt),
         'is_deleted': r.isDeleted,
       };
     },
@@ -2496,7 +2514,7 @@ DriftSyncEntity _customFieldsEntity(
         'field_type': row.fieldType,
         'date_precision': row.datePrecision,
         'display_order': row.displayOrder,
-        'created_at': row.createdAt.toIso8601String(),
+        'created_at': _dateTimeToSyncString(row.createdAt),
         'is_deleted': row.isDeleted,
       };
     },
@@ -2590,9 +2608,9 @@ DriftSyncEntity _notesEntity(
         'body': r.body,
         'color_hex': r.colorHex,
         'member_id': r.memberId,
-        'date': r.date.toIso8601String(),
-        'created_at': r.createdAt.toIso8601String(),
-        'modified_at': r.modifiedAt.toIso8601String(),
+        'date': _dateTimeToSyncString(r.date),
+        'created_at': _dateTimeToSyncString(r.createdAt),
+        'modified_at': _dateTimeToSyncString(r.modifiedAt),
         'is_deleted': r.isDeleted,
       };
     },
@@ -2630,9 +2648,9 @@ DriftSyncEntity _notesEntity(
         'body': row.body,
         'color_hex': row.colorHex,
         'member_id': row.memberId,
-        'date': row.date.toIso8601String(),
-        'created_at': row.createdAt.toIso8601String(),
-        'modified_at': row.modifiedAt.toIso8601String(),
+        'date': _dateTimeToSyncString(row.date),
+        'created_at': _dateTimeToSyncString(row.createdAt),
+        'modified_at': _dateTimeToSyncString(row.modifiedAt),
         'is_deleted': row.isDeleted,
       };
     },
@@ -2659,11 +2677,11 @@ DriftSyncEntity _frontSessionCommentsEntity(
     toSyncFields: (dynamic row) {
       final r = row as FrontSessionCommentRow;
       return {
-        'target_time': r.targetTime?.toIso8601String(),
+        'target_time': _dateTimeToSyncStringOrNull(r.targetTime),
         'author_member_id': r.authorMemberId,
         'body': r.body,
-        'timestamp': r.timestamp.toIso8601String(),
-        'created_at': r.createdAt.toIso8601String(),
+        'timestamp': _dateTimeToSyncString(r.timestamp),
+        'created_at': _dateTimeToSyncString(r.createdAt),
         'is_deleted': r.isDeleted,
       };
     },
@@ -2697,11 +2715,11 @@ DriftSyncEntity _frontSessionCommentsEntity(
       )..where((t) => t.id.equals(id))).getSingleOrNull();
       if (row == null) return null;
       return {
-        'target_time': row.targetTime?.toIso8601String(),
+        'target_time': _dateTimeToSyncStringOrNull(row.targetTime),
         'author_member_id': row.authorMemberId,
         'body': row.body,
-        'timestamp': row.timestamp.toIso8601String(),
-        'created_at': row.createdAt.toIso8601String(),
+        'timestamp': _dateTimeToSyncString(row.timestamp),
+        'created_at': _dateTimeToSyncString(row.createdAt),
         'is_deleted': row.isDeleted,
       };
     },
@@ -2742,9 +2760,9 @@ DriftSyncEntity _friendsEntity(
         'granted_scopes': r.grantedScopes,
         'is_verified': r.isVerified,
         'init_id': r.initId,
-        'created_at': r.createdAt.toIso8601String(),
-        'established_at': r.establishedAt?.toIso8601String(),
-        'last_sync_at': r.lastSyncAt?.toIso8601String(),
+        'created_at': _dateTimeToSyncString(r.createdAt),
+        'established_at': _dateTimeToSyncStringOrNull(r.establishedAt),
+        'last_sync_at': _dateTimeToSyncStringOrNull(r.lastSyncAt),
         'is_deleted': r.isDeleted,
       };
     },
@@ -2798,9 +2816,9 @@ DriftSyncEntity _friendsEntity(
         'granted_scopes': row.grantedScopes,
         'is_verified': row.isVerified,
         'init_id': row.initId,
-        'created_at': row.createdAt.toIso8601String(),
-        'established_at': row.establishedAt?.toIso8601String(),
-        'last_sync_at': row.lastSyncAt?.toIso8601String(),
+        'created_at': _dateTimeToSyncString(row.createdAt),
+        'established_at': _dateTimeToSyncStringOrNull(row.establishedAt),
+        'last_sync_at': _dateTimeToSyncStringOrNull(row.lastSyncAt),
         'is_deleted': row.isDeleted,
       };
     },

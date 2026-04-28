@@ -230,4 +230,127 @@ void main() {
     },
   );
 
+  // ---------------------------------------------------------------------------
+  // DateTime UTC normalization (audit batch O)
+  //
+  // Drift reads DateTime columns as local time. Without `.toUtc()`, the wire
+  // string has no offset/Z, so a peer in a different timezone parses it as
+  // their own local time, shifting the absolute moment by the timezone delta.
+  // The sync adapter must funnel every DateTime emission through the
+  // _dateTimeToSyncString helper. These tests pin the contract.
+  // ---------------------------------------------------------------------------
+
+  test(
+    'fronting_sessions: DateTime fields serialize as UTC (Z-suffixed)',
+    () async {
+      final db = database.AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+
+      final syncAdapter = buildSyncAdapterWithCompletion(db);
+      final fronting = syncAdapter.adapter.entities
+          .singleWhere((e) => e.tableName == 'fronting_sessions');
+
+      // Local DateTime — no UTC marker on the input.
+      final localStart = DateTime(2024, 1, 1, 12);
+      final localEnd = DateTime(2024, 1, 1, 14);
+      final session = database.FrontingSession(
+        id: 'fs-utc-1',
+        startTime: localStart,
+        endTime: localEnd,
+        memberId: null,
+        coFronterIds: '[]',
+        sessionType: domain.SessionType.sleep.index,
+        quality: domain.SleepQuality.unknown.index,
+        isHealthKitImport: false,
+        pluralkitUuid: null,
+        isDeleted: false,
+      );
+
+      final fields = fronting.toSyncFields(session);
+
+      final startStr = fields['start_time'] as String;
+      final endStr = fields['end_time'] as String;
+      expect(startStr.endsWith('Z'), isTrue,
+          reason: 'start_time must be UTC (Z-suffixed): got $startStr');
+      expect(endStr.endsWith('Z'), isTrue,
+          reason: 'end_time must be UTC (Z-suffixed): got $endStr');
+
+      // The absolute instant must equal the input's UTC equivalent.
+      expect(
+        DateTime.parse(startStr).isAtSameMomentAs(localStart.toUtc()),
+        isTrue,
+      );
+      expect(
+        DateTime.parse(endStr).isAtSameMomentAs(localEnd.toUtc()),
+        isTrue,
+      );
+    },
+  );
+
+  test(
+    'members: created_at serializes as UTC (Z-suffixed)',
+    () async {
+      final db = database.AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+
+      final syncAdapter = buildSyncAdapterWithCompletion(db);
+      final members = syncAdapter.adapter.entities
+          .singleWhere((e) => e.tableName == 'members');
+
+      // Local DateTime as the input — Drift hands these to toSyncFields.
+      final localCreated = DateTime(2024, 1, 1, 12);
+      final member = database.Member(
+        id: 'm-utc-1',
+        name: 'Ada',
+        emoji: '✨',
+        isActive: true,
+        createdAt: localCreated,
+        displayOrder: 0,
+        isAdmin: false,
+        customColorEnabled: false,
+        pluralkitSyncIgnored: false,
+        markdownEnabled: false,
+        isDeleted: false,
+        isAlwaysFronting: false,
+      );
+
+      final fields = members.toSyncFields(member);
+      final createdStr = fields['created_at'] as String;
+      expect(createdStr.endsWith('Z'), isTrue,
+          reason: 'created_at must be UTC (Z-suffixed): got $createdStr');
+      expect(
+        DateTime.parse(createdStr).isAtSameMomentAs(localCreated.toUtc()),
+        isTrue,
+      );
+    },
+  );
+
+  test(
+    'fronting_sessions: nullable end_time stays null (not "null" string)',
+    () async {
+      final db = database.AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+
+      final syncAdapter = buildSyncAdapterWithCompletion(db);
+      final fronting = syncAdapter.adapter.entities
+          .singleWhere((e) => e.tableName == 'fronting_sessions');
+
+      final session = database.FrontingSession(
+        id: 'fs-utc-2',
+        startTime: DateTime(2024, 1, 1, 12),
+        endTime: null,
+        memberId: null,
+        coFronterIds: '[]',
+        sessionType: domain.SessionType.normal.index,
+        quality: domain.SleepQuality.unknown.index,
+        isHealthKitImport: false,
+        pluralkitUuid: null,
+        isDeleted: false,
+      );
+
+      final fields = fronting.toSyncFields(session);
+      expect(fields.containsKey('end_time'), isTrue);
+      expect(fields['end_time'], isNull);
+    },
+  );
 }
