@@ -1,3 +1,4 @@
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/features/fronting/editing/fronting_edit_resolution_models.dart';
 import 'package:prism_plurality/features/fronting/editing/fronting_session_change.dart';
 import 'package:prism_plurality/features/fronting/validation/fronting_validation_models.dart';
@@ -185,11 +186,20 @@ class FrontingEditResolutionService {
         ];
 
       case FrontingDeleteStrategy.convertToUnknown:
+        // Write the canonical Unknown sentinel id directly rather than
+        // clearing memberId.  Routing through the sentinel keeps the
+        // session participating in member totals, percentages, and
+        // pair-overlap input — and matches what the "Front as Unknown"
+        // sheet emits, so converted rows are indistinguishable from
+        // intentionally-Unknown rows.  The change executor calls
+        // `ensureUnknownSentinelMember()` before applying any change
+        // that references this id so the foreign-key target exists
+        // locally.
         return [
           UpdateSessionChange(
             sessionId: session.id,
-            patch: const FrontingSessionPatch(
-              clearMemberId: true,
+            patch: FrontingSessionPatch(
+              memberId: unknownSentinelMemberId,
             ),
           ),
         ];
@@ -201,13 +211,18 @@ class FrontingEditResolutionService {
 
   // ── computeGapFillChanges ───────────────────────────────────────────────
 
-  /// Create Unknown (null memberId) sessions to fill each [gap].
+  /// Create Unknown sentinel sessions to fill each [gap].
+  ///
+  /// Writes [unknownSentinelMemberId] directly rather than null so that
+  /// gap-fill rows participate in analytics totals on the same footing as
+  /// the "Front as Unknown" sheet's output.  The change executor lazily
+  /// creates the sentinel member entity before applying these changes.
   List<FrontingSessionChange> computeGapFillChanges(List<GapInfo> gaps) {
     return gaps
         .map(
           (gap) => CreateSessionChange(
             FrontingSessionDraft(
-              memberId: null,
+              memberId: unknownSentinelMemberId,
               start: gap.start,
               end: gap.end,
             ),

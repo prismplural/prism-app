@@ -393,12 +393,20 @@ void main() {
       expect(result.totalGapTime, const Duration(hours: 12));
     });
 
-    test('switches per day equals row count divided by days', () {
+    test(
+        'switches per day counts active-set composition changes, not row count',
+        () {
       final range = DateTimeRange(
         start: DateTime(2026, 3, 1, 0, 0),
         end: DateTime(2026, 3, 11, 0, 0), // exactly 10 days
       );
 
+      // 20 disjoint sessions, all the same member, evenly spread across
+      // 10 days. Each session contributes two active-set composition
+      // changes: empty → {member-1} (the start event lands the member
+      // in an otherwise-empty set), then {member-1} → empty (the end
+      // event drains the set).  Switch count = 2 per session × 20
+      // sessions = 40, over 10 days = 4.0/day.
       final sessions = List.generate(
         20,
         (i) => FakeSession(
@@ -409,8 +417,7 @@ void main() {
       );
 
       final result = computeAnalyticsFromRows(sessions, range);
-      // 20 sessions / 10 days = 2.0
-      expect(result.switchesPerDay, closeTo(2.0, 0.01));
+      expect(result.switchesPerDay, closeTo(4.0, 0.01));
     });
 
     test('median duration with odd number of sessions', () {
@@ -711,6 +718,275 @@ void main() {
       expect(result.topCoFrontingPairs, hasLength(1));
       expect(result.topCoFrontingPairs.first.memberIdA, 'alpha');
       expect(result.topCoFrontingPairs.first.memberIdB, 'beta');
+    });
+  });
+
+  // ════════════════════════════════════════════════════════════════════════
+  // totalGapTime — wall-clock semantics
+  // ════════════════════════════════════════════════════════════════════════
+  //
+  // Fixture group for Fix 2: `totalGapTime` reports wall-clock minutes
+  // during which NO member is fronting, derived from the sweep-line.
+  // The previous formula (`range_span - sum(member_minutes)` clamped to
+  // zero) silently reported "no gaps" under heavy co-fronting because
+  // the sum exceeded the range span.  These fixtures pin the corrected
+  // semantic.
+
+  group('totalGapTime — wall-clock gap semantics', () {
+    test('empty range yields totalGapTime equal to the full span', () {
+      final range = DateTimeRange(
+        start: DateTime.utc(2026, 3, 10, 0),
+        end: DateTime.utc(2026, 3, 11, 0),
+      );
+      final result = computeAnalyticsFromRows([], range);
+      expect(result.totalGapTime, const Duration(hours: 24));
+    });
+
+    test('one member fronts the entire range yields zero gap', () {
+      final range = DateTimeRange(
+        start: DateTime.utc(2026, 3, 10, 0),
+        end: DateTime.utc(2026, 3, 11, 0),
+      );
+      final session = FakeSession(
+        startTime: range.start,
+        endTime: range.end,
+        memberId: 'a',
+      );
+      final result = computeAnalyticsFromRows([session], range);
+      expect(result.totalGapTime, Duration.zero);
+    });
+
+    test(
+        'two members co-front the entire range still yields zero gap '
+        '(old clamp would have lied here)',
+        () {
+      // The old formula `rangeSpan - sum(member_minutes)` returned
+      // 24h - (24h + 24h) = -24h, clamped to zero — hiding the genuine
+      // "no gap" answer behind the same floor it used for actual gaps.
+      // The wall-clock sweep returns zero directly because the active
+      // set is non-empty for the entire range.
+      final range = DateTimeRange(
+        start: DateTime.utc(2026, 3, 10, 0),
+        end: DateTime.utc(2026, 3, 11, 0),
+      );
+      final sessions = [
+        FakeSession(
+          startTime: range.start,
+          endTime: range.end,
+          memberId: 'a',
+        ),
+        FakeSession(
+          startTime: range.start,
+          endTime: range.end,
+          memberId: 'b',
+        ),
+      ];
+      final result = computeAnalyticsFromRows(sessions, range);
+      expect(result.totalGapTime, Duration.zero);
+      // The member-minute sum is still 2× the range span (this is the
+      // co-fronting density that broke the old clamp); the wall-clock
+      // gap stat is unaffected.
+      expect(result.totalTrackedTime, const Duration(hours: 48));
+    });
+
+    test('member fronts the first half: gap equals the second half', () {
+      final range = DateTimeRange(
+        start: DateTime.utc(2026, 3, 10, 0),
+        end: DateTime.utc(2026, 3, 11, 0),
+      );
+      final session = FakeSession(
+        startTime: range.start,
+        endTime: range.start.add(const Duration(hours: 12)),
+        memberId: 'a',
+      );
+      final result = computeAnalyticsFromRows([session], range);
+      expect(result.totalGapTime, const Duration(hours: 12));
+    });
+
+    test('leading and trailing gaps both count', () {
+      // Range 24h, single 4h session in the middle (8h–12h).
+      // Leading gap 0–8h = 8h, trailing gap 12h–24h = 12h.  Total 20h.
+      final range = DateTimeRange(
+        start: DateTime.utc(2026, 3, 10, 0),
+        end: DateTime.utc(2026, 3, 11, 0),
+      );
+      final session = FakeSession(
+        startTime: range.start.add(const Duration(hours: 8)),
+        endTime: range.start.add(const Duration(hours: 12)),
+        memberId: 'a',
+      );
+      final result = computeAnalyticsFromRows([session], range);
+      expect(result.totalGapTime, const Duration(hours: 20));
+    });
+
+    test(
+        'overlapping pair followed by an empty stretch — gap is the '
+        'empty stretch only',
+        () {
+      // Range 0–10h. A: 0–6h, B: 2–6h. Active set is non-empty 0–6h,
+      // empty 6–10h. Gap = 4h regardless of the member-minute sum
+      // (which is 6 + 4 = 10h, equal to the range span — the old clamp
+      // would have returned zero here, hiding the real 4h gap).
+      final base = DateTime.utc(2026, 3, 10, 0);
+      final range = DateTimeRange(
+        start: base,
+        end: base.add(const Duration(hours: 10)),
+      );
+      final sessions = [
+        FakeSession(
+          startTime: base,
+          endTime: base.add(const Duration(hours: 6)),
+          memberId: 'a',
+        ),
+        FakeSession(
+          startTime: base.add(const Duration(hours: 2)),
+          endTime: base.add(const Duration(hours: 6)),
+          memberId: 'b',
+        ),
+      ];
+      final result = computeAnalyticsFromRows(sessions, range);
+      expect(result.totalGapTime, const Duration(hours: 4));
+    });
+  });
+
+  // ════════════════════════════════════════════════════════════════════════
+  // switchesPerDay — active-set composition changes
+  // ════════════════════════════════════════════════════════════════════════
+  //
+  // Fixture group for Fix 3: `switchesPerDay` counts moments when the
+  // active fronter set changes membership, derived from the sweep-line
+  // (rather than per-member row count).  Under per-member shape, a
+  // co-fronter joining or leaving an ongoing session no longer inflates
+  // the count.  Same-instant swaps collapse to one transition per
+  // distinct timestamp.
+
+  group('switchesPerDay — active-set composition changes', () {
+    test('empty range has zero switches', () {
+      final range = DateTimeRange(
+        start: DateTime.utc(2026, 3, 10, 0),
+        end: DateTime.utc(2026, 3, 11, 0),
+      );
+      final result = computeAnalyticsFromRows([], range);
+      expect(result.switchesPerDay, 0);
+    });
+
+    test(
+        'A solo for 8h then ends: 2 transitions over 1 day '
+        '(empty→{A}, {A}→empty)',
+        () {
+      final range = DateTimeRange(
+        start: DateTime.utc(2026, 3, 10, 0),
+        end: DateTime.utc(2026, 3, 11, 0),
+      );
+      final session = FakeSession(
+        startTime: range.start.add(const Duration(hours: 1)),
+        endTime: range.start.add(const Duration(hours: 9)),
+        memberId: 'a',
+      );
+      final result = computeAnalyticsFromRows([session], range);
+      // 2 transitions / 1 day = 2.0/day.
+      expect(result.switchesPerDay, closeTo(2.0, 0.01));
+    });
+
+    test(
+        'A → A+B → A: 3 transitions (A start, B joins, B leaves) over 1 day, '
+        'plus A end = 4 transitions',
+        () {
+      // Per-member shape:
+      //   A 0–4h:   empty → {A}             (transition 1)
+      //   B 1–3h:   {A}   → {A,B}           (transition 2)
+      //   B ends:   {A,B} → {A}             (transition 3)
+      //   A ends:   {A}   → empty           (transition 4)
+      // 4 distinct active-set states over a 1-day range = 4.0/day.
+      final range = DateTimeRange(
+        start: DateTime.utc(2026, 3, 10, 0),
+        end: DateTime.utc(2026, 3, 11, 0),
+      );
+      final base = range.start;
+      final sessions = [
+        FakeSession(
+          startTime: base,
+          endTime: base.add(const Duration(hours: 4)),
+          memberId: 'a',
+        ),
+        FakeSession(
+          startTime: base.add(const Duration(hours: 1)),
+          endTime: base.add(const Duration(hours: 3)),
+          memberId: 'b',
+        ),
+      ];
+      final result = computeAnalyticsFromRows(sessions, range);
+      expect(result.switchesPerDay, closeTo(4.0, 0.01));
+    });
+
+    test(
+        'same-instant swap A→B at instant T collapses to one transition, '
+        'plus A start and B end = 3 transitions',
+        () {
+      // A 0–4h, B 4–8h.  Tied-timestamp batch at T=4h: A ends, B starts.
+      // Within that batch, lastActiveSnapshot = {A}, post-batch
+      // activeIdx = {B}.  {A} != {B} → one switch (not two).
+      //   At T=0:  empty → {A}      (transition 1)
+      //   At T=4:  {A}   → {B}      (transition 2 — the swap)
+      //   At T=8:  {B}   → empty    (transition 3)
+      // 3 transitions / 1 day = 3.0/day.
+      final range = DateTimeRange(
+        start: DateTime.utc(2026, 3, 10, 0),
+        end: DateTime.utc(2026, 3, 11, 0),
+      );
+      final base = range.start;
+      final sessions = [
+        FakeSession(
+          startTime: base,
+          endTime: base.add(const Duration(hours: 4)),
+          memberId: 'a',
+        ),
+        FakeSession(
+          startTime: base.add(const Duration(hours: 4)),
+          endTime: base.add(const Duration(hours: 8)),
+          memberId: 'b',
+        ),
+      ];
+      final result = computeAnalyticsFromRows(sessions, range);
+      expect(result.switchesPerDay, closeTo(3.0, 0.01));
+    });
+
+    test(
+        'co-fronter joining and leaving an ongoing session no longer '
+        'inflates the count beyond the set-change count',
+        () {
+      // Regression guard: the old per-row formula counted each row
+      // (start + end) as a transition independently, so an ongoing A
+      // with B joining then leaving counted as 4 transitions for what
+      // is conceptually 4 set-state changes.  With per-member rows,
+      // A.start + A.end + B.start + B.end = 4 rows, and the new
+      // semantic also reports 4 — they happen to match in this case
+      // because all four events land at distinct timestamps and each
+      // changes the active set.
+      //
+      // The semantic difference shows up when events are tied (the
+      // swap test above).  This test pins the agreement under disjoint
+      // timestamps so the regression direction is clear.
+      final range = DateTimeRange(
+        start: DateTime.utc(2026, 3, 10, 0),
+        end: DateTime.utc(2026, 3, 11, 0),
+      );
+      final base = range.start;
+      final sessions = [
+        FakeSession(
+          startTime: base,
+          endTime: base.add(const Duration(hours: 6)),
+          memberId: 'a',
+        ),
+        FakeSession(
+          startTime: base.add(const Duration(hours: 1)),
+          endTime: base.add(const Duration(hours: 4)),
+          memberId: 'b',
+        ),
+      ];
+      final result = computeAnalyticsFromRows(sessions, range);
+      // Transitions: empty→{A}, {A}→{A,B}, {A,B}→{A}, {A}→empty = 4.
+      expect(result.switchesPerDay, closeTo(4.0, 0.01));
     });
   });
 
