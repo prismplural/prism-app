@@ -1093,14 +1093,20 @@ void main() {
         );
 
         // First attempt: reset throws; settings should land at inProgress.
+        // Second attempt (resume) uses clear_sync_state instead of
+        // reset_sync_state — see the larger pass-3 P1 fix.
         var resetCalls = 0;
-        var firstAttempt = true;
-        Future<void> failingThenOk(ffi.PrismSyncHandle h) async {
+        Future<void> failingReset(ffi.PrismSyncHandle h) async {
           resetCalls++;
-          if (firstAttempt) {
-            firstAttempt = false;
-            throw StateError('Simulated FFI reset failure');
-          }
+          throw StateError('Simulated FFI reset failure');
+        }
+
+        var clearCalls = 0;
+        Future<void> okClear(
+          ffi.PrismSyncHandle handle,
+          String syncId,
+        ) async {
+          clearCalls++;
         }
 
         final svc = FrontingMigrationService(
@@ -1114,7 +1120,9 @@ void main() {
           ),
           dataExportService: exportService,
           syncHandle: _FakePrismSyncHandle(),
-          resetSyncState: failingThenOk,
+          resetSyncState: failingReset,
+          clearSyncState: okClear,
+          readSyncId: () async => 'sync-abc',
           backupDirectoryProvider: () async => cacheDir,
         );
 
@@ -1133,7 +1141,7 @@ void main() {
               'Drift tx committed but post-tx step failed: marker must be inProgress',
         );
 
-        // Now resume — second reset call succeeds, finishes the
+        // Now resume — clear_sync_state succeeds, finishes the
         // remaining post-tx steps and lands at `complete`.
         final resumeResult = await svc.resumeCleanup();
         expect(resumeResult.outcome, MigrationOutcome.success);
@@ -1141,8 +1149,9 @@ void main() {
           await db.systemSettingsDao.readPendingFrontingMigrationMode(),
           'complete',
         );
-        expect(resetCalls, 2,
-            reason: 'reset attempted once on first run, once on resume');
+        expect(resetCalls, 1, reason: 'reset attempted once on first run');
+        expect(clearCalls, 1,
+            reason: 'resume path uses clear_sync_state, not reset_sync_state');
       },
     );
 
@@ -1241,15 +1250,13 @@ void main() {
       },
     );
 
-    // Codex pass 2 #B-NEW3 — substate is inert when reset fails;
-    // resumeCleanup must invoke the configure-for-reset hook AND a
-    // second reset attempt. Without the substate machinery, the
-    // previous code would treat any "sync_id not set" error from the
-    // second reset as success (because the handle is unconfigured on
-    // the resume path), masking real reset failures.
+    // Codex pass 2 #B-NEW3 + pass 3 P1 — substate stays inert when
+    // first-attempt reset fails; resumeCleanup re-attempts using
+    // clear_sync_state(sync_id) instead of the configure-briefly-
+    // then-reset_sync_state path that had a relay-reconnect bug.
     test(
       'engine reset failure: substate stays inert; resumeCleanup runs '
-      'configure-for-reset and a second reset before completing',
+      'clear_sync_state(sync_id) before completing',
       () async {
         await _seedMember(db, 'm1');
         await _seedSession(
@@ -1260,18 +1267,19 @@ void main() {
         );
 
         var resetCalls = 0;
-        var firstReset = true;
-        Future<void> failingThenOkReset(ffi.PrismSyncHandle _) async {
+        Future<void> alwaysFailingReset(ffi.PrismSyncHandle _) async {
           resetCalls++;
-          if (firstReset) {
-            firstReset = false;
-            throw StateError('Simulated FFI reset failure');
-          }
+          throw StateError('Simulated FFI reset failure');
         }
 
-        var configureCalls = 0;
-        Future<void> countingConfigure(ffi.PrismSyncHandle _) async {
-          configureCalls++;
+        var clearCalls = 0;
+        String? clearedSyncId;
+        Future<void> countingClear(
+          ffi.PrismSyncHandle _,
+          String syncId,
+        ) async {
+          clearCalls++;
+          clearedSyncId = syncId;
         }
 
         final svc = FrontingMigrationService(
@@ -1285,8 +1293,9 @@ void main() {
           ),
           dataExportService: exportService,
           syncHandle: _FakePrismSyncHandle(),
-          resetSyncState: failingThenOkReset,
-          ensureConfiguredForReset: countingConfigure,
+          resetSyncState: alwaysFailingReset,
+          clearSyncState: countingClear,
+          readSyncId: () async => 'sync-123',
           backupDirectoryProvider: () async => cacheDir,
         );
 
@@ -1304,36 +1313,45 @@ void main() {
           FrontingMigrationService.substateInert,
           reason:
               'Reset failure must leave substate inert so resume re-runs '
-              'reset (the bug fix prevents re-running being misclassified '
-              'as success)',
+              'the wipe (the bug fix prevents re-running being '
+              'misclassified as success)',
         );
-        // First attempt is the runMigrationDestructive path, which
-        // does NOT call configure-for-reset (engine is already
-        // configured from normal startup).
-        expect(configureCalls, 0,
-            reason: 'first attempt is not the resume path');
+        expect(
+          clearCalls,
+          0,
+          reason:
+              'first attempt is not the resume path; runMigrationDestructive '
+              'uses reset_sync_state, never clear_sync_state',
+        );
+        expect(resetCalls, 1);
 
         final resumeResult = await svc.resumeCleanup();
         expect(resumeResult.outcome, MigrationOutcome.success);
-        expect(resetCalls, 2);
         expect(
-          configureCalls,
+          resetCalls,
           1,
           reason:
-              'resume path must configure-for-reset before calling reset, '
-              'because the published handle is unconfigured (startup gate '
-              'skipped seedRustStore + autoConfigureIfReady on inProgress)',
+              'resume path must NOT call reset_sync_state — published '
+              'handle is unconfigured on inProgress, so reset would '
+              'fail with sync_id not set; use clear_sync_state instead',
         );
+        expect(
+          clearCalls,
+          1,
+          reason:
+              'resume path must wipe storage via clear_sync_state(sync_id)',
+        );
+        expect(clearedSyncId, 'sync-123');
       },
     );
 
-    // Codex pass 2 #B-NEW3 — explicit regression: a Rust error
-    // returning "sync_id not set" must NOT be silently swallowed as
+    // Codex pass 2 #B-NEW3 — explicit regression: a Rust error from
+    // the FIRST-attempt reset must NOT be silently swallowed as
     // "already reset" the way the previous heuristic did. Substate
     // is the source of truth; if it's inert, the error is real.
     test(
-      'engine reset returning "sync_id not set" while substate is inert '
-      'is treated as a real failure (not silently treated as success)',
+      'engine reset failure on first attempt is treated as a real failure '
+      '(not silently treated as success)',
       () async {
         await _seedMember(db, 'm1');
         await _seedSession(
@@ -1343,8 +1361,8 @@ void main() {
           memberId: 'm1',
         );
 
-        Future<void> alwaysSyncIdNotSet(ffi.PrismSyncHandle _) async {
-          throw StateError('sync_id not set — call configure_engine first');
+        Future<void> alwaysFailing(ffi.PrismSyncHandle _) async {
+          throw StateError('Simulated reset failure');
         }
 
         final svc = FrontingMigrationService(
@@ -1358,7 +1376,7 @@ void main() {
           ),
           dataExportService: exportService,
           syncHandle: _FakePrismSyncHandle(),
-          resetSyncState: alwaysSyncIdNotSet,
+          resetSyncState: alwaysFailing,
           backupDirectoryProvider: () async => cacheDir,
         );
 
@@ -1383,6 +1401,65 @@ void main() {
               .readPendingFrontingMigrationCleanupSubstate(),
           FrontingMigrationService.substateInert,
         );
+      },
+    );
+
+    // Codex pass 3 P1 — resume path with no sync_id in keychain
+    // (already wiped or solo-device case) advances substate without
+    // calling clear_sync_state, so the remaining cleanup steps run.
+    test(
+      'resumeCleanup with no sync_id available skips clear_sync_state '
+      'and advances substate',
+      () async {
+        await _seedMember(db, 'm1');
+        await _seedSession(
+          db,
+          id: 's1',
+          startTime: DateTime(2026, 4, 1, 9).toUtc(),
+          memberId: 'm1',
+        );
+
+        Future<void> alwaysFailingReset(ffi.PrismSyncHandle _) async {
+          throw StateError('Simulated FFI reset failure');
+        }
+
+        var clearCalls = 0;
+        Future<void> countingClear(
+          ffi.PrismSyncHandle handle,
+          String syncId,
+        ) async {
+          clearCalls++;
+        }
+
+        final svc = FrontingMigrationService(
+          db: db,
+          memberRepository: DriftMemberRepository(db.membersDao, null),
+          frontingSessionRepository:
+              DriftFrontingSessionRepository(db.frontingSessionsDao, null),
+          frontSessionCommentsRepository: DriftFrontSessionCommentsRepository(
+            db.frontSessionCommentsDao,
+            null,
+          ),
+          dataExportService: exportService,
+          syncHandle: _FakePrismSyncHandle(),
+          resetSyncState: alwaysFailingReset,
+          clearSyncState: countingClear,
+          readSyncId: () async => null,
+          backupDirectoryProvider: () async => cacheDir,
+        );
+
+        // First attempt fails, leaving us at inProgress / inert.
+        final firstResult = await svc.runMigration(
+          mode: MigrationMode.upgradeAndKeep,
+          role: DeviceRole.solo,
+          shareFile: _noopShare,
+        );
+        expect(firstResult.outcome, MigrationOutcome.failed);
+
+        final resumeResult = await svc.resumeCleanup();
+        expect(resumeResult.outcome, MigrationOutcome.success);
+        expect(clearCalls, 0,
+            reason: 'no sync_id → nothing to clear in storage');
       },
     );
 
