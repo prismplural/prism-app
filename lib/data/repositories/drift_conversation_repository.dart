@@ -123,7 +123,12 @@ class DriftConversationRepository
 
   @override
   Future<void> setLastReadTimestamps(String conversationId, Map<String, DateTime> timestamps) async {
-    final json = jsonEncode(timestamps.map((k, v) => MapEntry(k, v.toIso8601String())));
+    // Normalize to UTC before serializing — local DateTimes emit no offset/Z,
+    // so a peer in a different timezone would parse the value as local and
+    // shift the absolute moment by the timezone delta on every sync.
+    final json = jsonEncode(
+      timestamps.map((k, v) => MapEntry(k, v.toUtc().toIso8601String())),
+    );
     await _dao.updateLastReadTimestamps(conversationId, json);
     await syncRecordUpdate(_table, conversationId, {'last_read_timestamps': json});
   }
