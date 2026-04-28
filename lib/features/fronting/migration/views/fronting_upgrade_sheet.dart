@@ -569,6 +569,18 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
+        const SizedBox(height: 12),
+        // Final-review fix V: pre-migration `pending_ops` loss warning.
+        // The migration's sync state wipe clears `pending_ops`, so any
+        // local writes that haven't been pushed yet exist only on this
+        // device. Set expectations early so the user can sync first.
+        Text(
+          context.l10n.frontingUpgradeIntroPendingSyncWarning,
+          textAlign: TextAlign.center,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
         const SizedBox(height: 24),
         PrismButton(
           onPressed: _onContinueFromIntro,
@@ -1088,6 +1100,17 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
     }
     if (r.unknownSentinelCreated) {
       lines.add(l10n.frontingUpgradeCountSentinelCreated);
+    }
+    // Final-review fix V: surface corrupt-JSON fallback rows. The
+    // service falls back to single-member migration when a row's
+    // `co_fronter_ids` JSON fails to parse; without this counter the
+    // user silently loses co-fronter relationships on those rows.
+    if (r.corruptCoFronterRowIds.isNotEmpty) {
+      lines.add(
+        l10n.frontingUpgradeCountCorruptCoFronters(
+          r.corruptCoFronterRowIds.length,
+        ),
+      );
     }
     if (lines.isEmpty) return const [];
     return [

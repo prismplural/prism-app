@@ -2303,6 +2303,19 @@
   "@frontingUpgradeCountSentinelCreated": {
     "description": "Success counter: sentinel was created"
   },
+  "frontingUpgradeCountCorruptCoFronters": "{count, plural, =1{1 sesión tenía datos de co-frente ilegibles y se migró como de un solo integrante.} other{{count} sesiones tenían datos de co-frente ilegibles y se migraron como de un solo integrante.}}",
+  "@frontingUpgradeCountCorruptCoFronters": {
+    "description": "Success counter: rows whose co_fronter_ids JSON failed to parse and were migrated as single-member fallback",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "frontingUpgradeIntroPendingSyncWarning": "Si tienes cambios sin sincronizar por uso sin conexión, asegúrate de que tu dispositivo esté en línea y sincronizado antes de continuar. Las cargas pendientes tendrás que volver a hacerlas después de la actualización.",
+  "@frontingUpgradeIntroPendingSyncWarning": {
+    "description": "Warning shown on the upgrade modal's intro screen — the sync state wipe clears pending_ops, so any local writes that haven't been pushed yet will only exist on this device after the upgrade."
+  },
   "frontingUpgradeAnalyticsNote": "Las estadísticas ahora se muestran como minutos por {term} — si dos de ustedes están en co-frente durante una hora, eso son dos horas-{term}. La misma cuenta de antes, con una etiqueta más clara.",
   "@frontingUpgradeAnalyticsNote": {
     "description": "One-line FYI shown on the upgrade success screen explaining the analytics relabel from 'fronting time' to 'member-minutes'."

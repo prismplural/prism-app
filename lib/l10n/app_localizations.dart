@@ -12733,6 +12733,18 @@ abstract class AppLocalizations {
   /// **'Created an Unknown member to hold sessions with no clear fronter.'**
   String get frontingUpgradeCountSentinelCreated;
 
+  /// Success counter: rows whose co_fronter_ids JSON failed to parse and were migrated as single-member fallback
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 session had unreadable co-fronter data and was migrated as single-member.} other{{count} sessions had unreadable co-fronter data and were migrated as single-member.}}'**
+  String frontingUpgradeCountCorruptCoFronters(int count);
+
+  /// Warning shown on the upgrade modal's intro screen — the sync state wipe clears pending_ops, so any local writes that haven't been pushed yet will only exist on this device after the upgrade.
+  ///
+  /// In en, this message translates to:
+  /// **'If you have unsynced changes from offline use, make sure your device is online and synced before you continue. Pending uploads will need to be redone after the upgrade.'**
+  String get frontingUpgradeIntroPendingSyncWarning;
+
   /// One-line FYI shown on the upgrade success screen explaining the analytics relabel from 'fronting time' to '{term}-minutes' (e.g., 'member-minutes', 'headmate-minutes').
   ///
   /// In en, this message translates to:

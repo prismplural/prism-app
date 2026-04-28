@@ -7961,6 +7961,23 @@ class AppLocalizationsEs extends AppLocalizations {
       'Se creó un integrante desconocido para guardar las sesiones sin un frente claro.';
 
   @override
+  String frontingUpgradeCountCorruptCoFronters(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          '$count sesiones tenían datos de co-frente ilegibles y se migraron como de un solo integrante.',
+      one:
+          '1 sesión tenía datos de co-frente ilegibles y se migró como de un solo integrante.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get frontingUpgradeIntroPendingSyncWarning =>
+      'Si tienes cambios sin sincronizar por uso sin conexión, asegúrate de que tu dispositivo esté en línea y sincronizado antes de continuar. Las cargas pendientes tendrás que volver a hacerlas después de la actualización.';
+
+  @override
   String frontingUpgradeAnalyticsNote(String term) {
     return 'Las estadísticas ahora se muestran como minutos por $term — si dos de ustedes están en co-frente durante una hora, eso son dos horas-$term. La misma cuenta de antes, con una etiqueta más clara.';
   }

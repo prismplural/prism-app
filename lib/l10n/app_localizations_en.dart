@@ -7815,6 +7815,23 @@ class AppLocalizationsEn extends AppLocalizations {
       'Created an Unknown member to hold sessions with no clear fronter.';
 
   @override
+  String frontingUpgradeCountCorruptCoFronters(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          '$count sessions had unreadable co-fronter data and were migrated as single-member.',
+      one:
+          '1 session had unreadable co-fronter data and was migrated as single-member.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get frontingUpgradeIntroPendingSyncWarning =>
+      'If you have unsynced changes from offline use, make sure your device is online and synced before you continue. Pending uploads will need to be redone after the upgrade.';
+
+  @override
   String frontingUpgradeAnalyticsNote(String term) {
     return 'Analytics are now framed as $term-minutes — when two of you co-front for an hour, that\'s two $term-hours. Same math as before, clearer label.';
   }
