@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/features/fronting/editing/fronting_edit_resolution_models.dart';
 import 'package:prism_plurality/features/fronting/editing/fronting_edit_resolution_service.dart';
 import 'package:prism_plurality/features/fronting/editing/fronting_session_change.dart';
@@ -358,9 +359,15 @@ void main() {
       expect(del.sessionId, 'to-delete');
     });
 
-    test('convertToUnknown: memberId cleared, session not deleted', () {
+    test(
+        'convertToUnknown: memberId set to Unknown sentinel, '
+        'session not deleted',
+        () {
       // In the per-member model, coFronterIds no longer exists.
-      // convertToUnknown only clears memberId.
+      // convertToUnknown writes the canonical Unknown sentinel id
+      // directly so analytics treats the row identically to rows from
+      // the "Front as Unknown" sheet — no clearMemberId / null-routing
+      // step required at read time.
       final session = _snap(
         id: 'to-convert',
         memberId: 'alice',
@@ -375,7 +382,9 @@ void main() {
       expect(changes, hasLength(1));
       final update = changes.whereType<UpdateSessionChange>().first;
       expect(update.sessionId, 'to-convert');
-      expect(update.patch.clearMemberId, isTrue);
+      expect(update.patch.clearMemberId, isFalse,
+          reason: 'should write the sentinel id, not null');
+      expect(update.patch.memberId, unknownSentinelMemberId);
     });
 
     test('leaveGap: just deletes the session', () {
@@ -400,7 +409,9 @@ void main() {
   // ════════════════════════════════════════════════════════════════════════════
 
   group('computeGapFillChanges', () {
-    test('creates Unknown session with null memberId for each gap', () {
+    test(
+        'creates Unknown session with the sentinel memberId for each gap',
+        () {
       final gaps = [
         GapInfo(
           start: DateTime(2025, 1, 1, 11, 0),
@@ -417,7 +428,11 @@ void main() {
       expect(changes, hasLength(2));
       for (final change in changes) {
         final create = change as CreateSessionChange;
-        expect(create.session.memberId, isNull);
+        // The writer side now produces the canonical sentinel id rather
+        // than null — analytics no longer has to compensate, and the
+        // change executor lazily creates the sentinel member entity
+        // before the session row lands.
+        expect(create.session.memberId, unknownSentinelMemberId);
       }
       final creates = changes.cast<CreateSessionChange>().toList();
       expect(creates[0].session.start, DateTime(2025, 1, 1, 11, 0));
@@ -431,7 +446,7 @@ void main() {
       expect(changes, isEmpty);
     });
 
-    test('single gap creates one Unknown session', () {
+    test('single gap creates one Unknown sentinel session', () {
       final gaps = [
         GapInfo(
           start: DateTime(2025, 1, 1, 11, 0),
@@ -445,8 +460,7 @@ void main() {
 
       expect(changes, hasLength(1));
       final create = changes.first as CreateSessionChange;
-      expect(create.session.memberId, isNull);
-      // In per-member model, no coFronterIds field on FrontingSessionDraft
+      expect(create.session.memberId, unknownSentinelMemberId);
       expect(create.session.start, DateTime(2025, 1, 1, 11, 0));
       expect(create.session.end, DateTime(2025, 1, 1, 12, 0));
     });

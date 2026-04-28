@@ -28,5 +28,9 @@ final frontingChangeExecutorProvider = Provider<FrontingChangeExecutor>((ref) {
   return FrontingChangeExecutor(
     repository: repository,
     mutationRunner: mutationRunner,
+    // Required so convertToUnknown / gap-fill writes that target the
+    // Unknown sentinel id can lazily create the sentinel member before
+    // the foreign key resolves.
+    memberRepository: ref.watch(memberRepositoryProvider),
   );
 });

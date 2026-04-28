@@ -192,18 +192,14 @@ FrontingAnalytics computeAnalyticsFromRows(
   for (final session in rows) {
     // Sleep rows are already excluded upstream by the DAO's
     // `getSessionsInRange` (filters `session_type = _normalSessionType`).
-    // Any remaining null memberId on a normal row is an Unknown-fronting
-    // record — produced today by the edit/gap-fill flow in
-    // `fronting_edit_resolution_service.dart` (which still writes
-    // `member_id = NULL` for the "Unknown" classification). Route those
-    // through the canonical sentinel id so they participate in member
-    // totals, percentages, and pair-overlap input instead of silently
-    // dropping out (which would leave `totalSessions` ahead of the
-    // member-time data on screen).
-    //
-    // TODO: edit/gap-fill should write `unknownSentinelMemberId` directly
-    // — separate fix in fronting_edit_resolution_service.dart so analytics
-    // doesn't have to compensate.
+    // The edit/gap-fill flow now writes the canonical Unknown sentinel
+    // id directly (see `fronting_edit_resolution_service.dart`), so
+    // freshly-produced rows already have a non-null memberId.  This
+    // null-coalesce remains as defense in depth for pre-fix rows that
+    // landed before the writer-side change shipped — without it those
+    // legacy rows would silently drop out of analytics, leaving
+    // `totalSessions` (which counts rows.length) ahead of the
+    // member-time data on screen.
     final memberId =
         (session.memberId as String?) ?? unknownSentinelMemberId;
 
@@ -228,15 +224,13 @@ FrontingAnalytics computeAnalyticsFromRows(
   }
 
   final rangeSpan = range.end.difference(range.start);
-  // Gap-time semantics retained from pre-0.7.0: range duration minus the
-  // sum of member-minutes. Under the per-member model with co-fronting,
-  // this can underestimate "untracked" time (two members fronting an
-  // overlapping hour count as two member-hours, so the gap shrinks twice
-  // as fast). We accept that for 0.7.0 — the field has the same meaning
-  // as before. A wall-clock-coverage stat is future work (§4.3).
-  final totalGap = rangeSpan - totalMemberMinutes;
-  final days = rangeSpan.inHours / 24.0;
-  final switchesPerDay = days > 0 ? rows.length / days : 0.0;
+  // `totalGap` and `switchesPerDay` are now derived from the sweep-line
+  // pass below (see "Wall-clock gap + switch count" block). The naive
+  // `rangeSpan - totalMemberMinutes` formula clamped to zero whenever
+  // co-fronting density pushed sum(member_minutes) past the span, hiding
+  // genuine gaps; the row-count-based switch tally inflated whenever a
+  // co-fronter joined or left an ongoing session. Both are corrected
+  // below as O(1)-per-event additions to the existing sweep.
 
   final memberStats = <MemberAnalytics>[];
   for (final entry in memberDurations.entries) {
@@ -360,22 +354,72 @@ FrontingAnalytics computeAnalyticsFromRows(
   final pairAccumMicros = <int, int>{};
   final memberCount = sortedMemberIds.length;
 
-  var lastTime = -1;
-  for (final pi in perm) {
+  // ── Wall-clock gap + switch count ────────────────────────────────────
+  //
+  // `gapMicros` accumulates wall-clock time during which the active set
+  // is empty.  Replaces the old `rangeSpan - sum(member_minutes)` clamp,
+  // which returned zero whenever heavy co-fronting pushed the sum past
+  // the range span.  Initialized so the leading delta from `range.start`
+  // up to the first event counts as a gap (the active set is empty
+  // before the first start event lands).
+  //
+  // `switches` counts distinct active-set composition changes across
+  // the sweep.  We collapse all events at a tied timestamp into a single
+  // comparison: a same-instant swap (A ends at T, B starts at T) is one
+  // transition, not two — even though the sweep emits two events for it.
+  //
+  // Switch semantic (pinned): every moment the active *set* changes
+  // counts as one switch.  Sessions starting from an empty active set
+  // (the first start event after a gap, or the first event in the range)
+  // are switches.  A pure addition (A solo → A+B) and a pure removal
+  // (A+B → A solo) are both switches.  A swap (A → B at instant T)
+  // collapses to one switch because both events share a timestamp and
+  // we compare set membership once per distinct timestamp.
+  //
+  // Both updates are O(1) per distinct-timestamp tick, so they don't
+  // change the existing sweep's complexity.
+  var gapMicros = 0;
+  var switches = 0;
+  final rangeStartMicros = range.start.microsecondsSinceEpoch;
+  final rangeEndMicros = range.end.microsecondsSinceEpoch;
+  // Seed `lastTime` at the range start so the leading delta (range start
+  // → first event) is captured as a gap when no session is active yet.
+  var lastTime = rangeStartMicros;
+  // Remember the active-set membership snapshot at `lastTime` so a tied
+  // batch of events is compared against the pre-batch state, not against
+  // an intermediate state we observed mid-batch. We bump this whenever
+  // we cross into a distinct timestamp.
+  var lastActiveSnapshot = activeIdx.toList();
+
+  for (var pIdx = 0; pIdx < perm.length; pIdx++) {
+    final pi = perm[pIdx];
     final t = eventTime[pi];
-    if (lastTime >= 0 && activeIdx.length > 1) {
+
+    // First event in a tied-timestamp batch: process the delta from
+    // `lastTime` to `t` against the pre-batch active set, and snapshot
+    // the active set as it stood at `lastTime` for switch comparison
+    // when the batch finishes processing.
+    final isBatchStart = pIdx == 0 || eventTime[perm[pIdx - 1]] != t;
+    if (isBatchStart) {
       final delta = t - lastTime;
       if (delta > 0) {
-        final n = activeIdx.length;
-        for (var i = 0; i < n; i++) {
-          final a = activeIdx[i];
-          final aBase = a * memberCount;
-          for (var j = i + 1; j < n; j++) {
-            final key = aBase + activeIdx[j];
-            pairAccumMicros[key] = (pairAccumMicros[key] ?? 0) + delta;
+        if (activeIdx.isEmpty) {
+          gapMicros += delta;
+        } else if (activeIdx.length > 1) {
+          final n = activeIdx.length;
+          for (var i = 0; i < n; i++) {
+            final a = activeIdx[i];
+            final aBase = a * memberCount;
+            for (var j = i + 1; j < n; j++) {
+              final key = aBase + activeIdx[j];
+              pairAccumMicros[key] = (pairAccumMicros[key] ?? 0) + delta;
+            }
           }
         }
       }
+      // Snapshot the pre-batch active set; the switch comparison at
+      // batch-end is against this state.
+      lastActiveSnapshot = activeIdx.toList();
     }
 
     final signed = eventIdx[pi];
@@ -411,8 +455,33 @@ FrontingAnalytics computeAnalyticsFromRows(
         }
       }
     }
-    lastTime = t;
+
+    // Last event in a tied-timestamp batch: compare post-batch active
+    // set against the pre-batch snapshot.  If membership differs, count
+    // one switch and advance `lastTime`.
+    final isBatchEnd =
+        pIdx == perm.length - 1 || eventTime[perm[pIdx + 1]] != t;
+    if (isBatchEnd) {
+      if (!_listsEqual(lastActiveSnapshot, activeIdx)) {
+        switches++;
+      }
+      lastTime = t;
+    }
   }
+
+  // Trailing gap: if the sweep ended with the active set empty before
+  // `range.end`, the tail interval is also gap time.  (When the last
+  // session was still active at `range.end`, all its endTimes were
+  // clamped to `range.end` upstream — see the per-row clamp in the
+  // ingest loop — so `lastTime` reaches `rangeEndMicros` and there is
+  // no trailing gap to add.)
+  if (lastTime < rangeEndMicros && activeIdx.isEmpty) {
+    gapMicros += rangeEndMicros - lastTime;
+  }
+
+  final totalGap = Duration(microseconds: gapMicros);
+  final days = rangeSpan.inHours / 24.0;
+  final switchesPerDay = days > 0 ? switches / days : 0.0;
 
   final sortedPairs = pairAccumMicros.entries
       .map((e) {
@@ -432,7 +501,9 @@ FrontingAnalytics computeAnalyticsFromRows(
     rangeStart: range.start,
     rangeEnd: range.end,
     totalTrackedTime: totalMemberMinutes,
-    totalGapTime: totalGap.isNegative ? Duration.zero : totalGap,
+    // No clamp needed: `gapMicros` is non-negative by construction
+    // (it's a running sum of strictly-positive deltas).
+    totalGapTime: totalGap,
     totalSessions: rows.length,
     uniqueFronters: memberDurations.keys.length,
     switchesPerDay: switchesPerDay,
@@ -440,6 +511,17 @@ FrontingAnalytics computeAnalyticsFromRows(
     medianSession: medianSession,
     topCoFrontingPairs: topCoFrontingPairs,
   );
+}
+
+/// Returns `true` when [a] and [b] hold the same ints in the same order.
+/// Used by the sweep-line switch detector to compare pre-batch and
+/// post-batch active sets without allocating a Set.
+bool _listsEqual(List<int> a, List<int> b) {
+  if (a.length != b.length) return false;
+  for (var i = 0; i < a.length; i++) {
+    if (a[i] != b[i]) return false;
+  }
+  return true;
 }
 
 /// Half-open interval used by the co-fronting pair-overlap pass.
