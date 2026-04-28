@@ -747,6 +747,91 @@ void main() {
       expect(newRow.startTime, _sameInstant(DateTime.utc(2026, 1, 1, 10)));
       expect(newRow.id, _expectedRowId('sw-fresh', 'uuid-a'));
     });
+
+    test(
+      'performFullImport resurrects a soft-deleted rescue row '
+      '(upgradeAndKeep migration → API re-import)',
+      () async {
+        // Final P1 regression guard. The upgradeAndKeep migration soft-
+        // deletes every PK-imported rescue row, expecting a later
+        // corrective API re-import to resurrect them with API-truth
+        // boundaries via field-LWW. Before the fix, the corrective
+        // collision branch did `existing.copyWith(startTime: ..., ...)`
+        // which preserved `isDeleted: true` from the soft-deleted row.
+        // Updates wrote new fields but never cleared the tombstone, so
+        // the user saw an empty PK timeline post-migration with no
+        // recovery path short of manually re-importing the rescue file.
+        final db = _makeDb();
+        addTearDown(db.close);
+
+        final memberRepo = DriftMemberRepository(db.membersDao, null);
+        await memberRepo.createMember(
+          _member(localId: 'local-a', pkShortId: 'pkA', pkUuid: 'uuid-a'),
+        );
+
+        const switchId = 'sw-1';
+        final rescueId = derivePkSessionId(switchId, 'uuid-a');
+        final lossyStart = DateTime.utc(2026, 1, 1, 9);
+        final apiStart = DateTime.utc(2026, 1, 1, 10);
+
+        final sessionRepo = DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+        );
+        // Seed the row exactly as upgradeAndKeep leaves it: a rescue-
+        // derived session at the canonical deterministic id with lossy
+        // boundaries, then soft-deleted via the repo's deleteSession.
+        await sessionRepo.createSession(
+          domain_fs.FrontingSession(
+            id: rescueId,
+            startTime: lossyStart,
+            memberId: 'local-a',
+            pluralkitUuid: switchId,
+          ),
+        );
+        await sessionRepo.deleteSession(rescueId);
+        // Sanity: getAllSessions filters out soft-deleted rows.
+        expect(await sessionRepo.getAllSessions(), isEmpty);
+        final preDeleted = await sessionRepo.getSessionById(rescueId);
+        expect(preDeleted, isNotNull);
+        expect(preDeleted!.isDeleted, isTrue,
+            reason: 'precondition: row is soft-deleted before re-import');
+
+        // API says A is fronting from sw-1 → corrective re-import should
+        // resurrect the row with the API-truth start time and member.
+        final sw = PKSwitch(
+          id: switchId,
+          timestamp: apiStart,
+          members: const ['pkA'],
+        );
+        final client = _FakeClient([
+          [sw],
+          [],
+        ]);
+        final service = _makeService(
+          db: db,
+          client: client,
+          memberRepo: memberRepo,
+          sessionRepo: sessionRepo,
+        );
+        await service.setToken('t');
+        await service.acknowledgeMapping();
+        await service.performFullImport();
+
+        // Row is back in the active set with API-truth fields.
+        final all = await sessionRepo.getAllSessions();
+        expect(all, hasLength(1),
+            reason: 'corrective re-import must undelete the rescue row');
+        final row = all.single;
+        expect(row.id, rescueId);
+        expect(row.isDeleted, isFalse,
+            reason: 'corrective collision branch must clear is_deleted');
+        expect(row.startTime, _sameInstant(apiStart),
+            reason: 'API start overwrote rescue lossy start');
+        expect(row.memberId, 'local-a');
+        expect(row.pluralkitUuid, switchId);
+      },
+    );
   });
 
   // -- Member resolution ----------------------------------------------------
@@ -1018,6 +1103,72 @@ void main() {
             reason: 'conservative: pre-existing close not clobbered');
         expect(row.memberId, 'local-a');
         expect(row.pluralkitUuid, switchId);
+      },
+    );
+
+    test(
+      'incremental sweep does NOT undelete a soft-deleted row '
+      '(user-initiated delete during routine sync is preserved)',
+      () async {
+        // Companion to the corrective-mode resurrection test in the
+        // 'corrective full re-import' group. The undelete behaviour is
+        // gated to corrective=true: if a user deliberately deleted a
+        // PK row during routine use, the next incremental sync MUST
+        // NOT silently bring it back. (importSwitchesAfterLink is the
+        // incremental path with corrective=false by default.)
+        final db = _makeDb();
+        addTearDown(db.close);
+
+        final memberRepo = DriftMemberRepository(db.membersDao, null);
+        await memberRepo.createMember(
+          _member(localId: 'local-a', pkShortId: 'pkA', pkUuid: 'uuid-a'),
+        );
+
+        const switchId = 'sw-1';
+        final rescueId = derivePkSessionId(switchId, 'uuid-a');
+        final apiStart = DateTime.utc(2026, 1, 1, 10);
+
+        final sessionRepo = DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+        );
+        await sessionRepo.createSession(
+          domain_fs.FrontingSession(
+            id: rescueId,
+            startTime: DateTime.utc(2026, 1, 1, 9),
+            memberId: 'local-a',
+            pluralkitUuid: switchId,
+          ),
+        );
+        await sessionRepo.deleteSession(rescueId);
+
+        final sw = PKSwitch(
+          id: switchId,
+          timestamp: apiStart,
+          members: const ['pkA'],
+        );
+        final client = _FakeClient([
+          [sw],
+          [],
+        ]);
+        final service = _makeService(
+          db: db,
+          client: client,
+          memberRepo: memberRepo,
+          sessionRepo: sessionRepo,
+        );
+        await service.setToken('t');
+        await service.acknowledgeMapping();
+        await service.importSwitchesAfterLink();
+
+        // Active set is still empty — incremental did not undelete.
+        expect(await sessionRepo.getAllSessions(), isEmpty,
+            reason: 'incremental sweep must respect user-initiated delete');
+        // The underlying row (still tombstoned) is reachable directly.
+        final raw = await sessionRepo.getSessionById(rescueId);
+        expect(raw, isNotNull);
+        expect(raw!.isDeleted, isTrue,
+            reason: 'incremental sweep must not clear is_deleted');
       },
     );
 
