@@ -15,8 +15,7 @@ class _FakePrismSyncHandle implements ffi.PrismSyncHandle {
   const _FakePrismSyncHandle();
 
   @override
-  dynamic noSuchMethod(Invocation invocation) =>
-      super.noSuchMethod(invocation);
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _RecordedCall {
@@ -153,7 +152,9 @@ void main() {
         final db = AppDatabase(NativeDatabase.memory());
         addTearDown(db.close);
 
-        await db.into(db.memberGroups).insert(
+        await db
+            .into(db.memberGroups)
+            .insert(
               MemberGroupsCompanion.insert(
                 id: 'pk-group-abc-uuid',
                 name: 'Friends',
@@ -174,7 +175,9 @@ void main() {
       final db = AppDatabase(NativeDatabase.memory());
       addTearDown(db.close);
 
-      await db.into(db.memberGroups).insert(
+      await db
+          .into(db.memberGroups)
+          .insert(
             MemberGroupsCompanion.insert(
               id: 'pk-group-deleted-uuid',
               name: 'Gone',
@@ -186,8 +189,9 @@ void main() {
 
       final calls = await _runBootstrap(db);
 
-      final groupCalls =
-          calls.where((c) => c.table == 'member_groups').toList();
+      final groupCalls = calls
+          .where((c) => c.table == 'member_groups')
+          .toList();
       expect(groupCalls, hasLength(1));
       expect(groupCalls.single.entityId, 'pk-group:deleted-uuid');
       expect(groupCalls.single.fields['is_deleted'], isTrue);
@@ -197,13 +201,17 @@ void main() {
       final db = AppDatabase(NativeDatabase.memory());
       addTearDown(db.close);
 
-      await db.into(db.systemSettingsTable).insert(
+      await db
+          .into(db.systemSettingsTable)
+          .insert(
             const SystemSettingsTableCompanion(
               id: Value('singleton'),
               systemName: Value('Real System'),
             ),
           );
-      await db.into(db.systemSettingsTable).insert(
+      await db
+          .into(db.systemSettingsTable)
+          .insert(
             const SystemSettingsTableCompanion(
               id: Value('rogue'),
               systemName: Value('Rogue Row'),
@@ -212,10 +220,57 @@ void main() {
 
       final calls = await _runBootstrap(db);
 
-      final settingsCalls =
-          calls.where((c) => c.table == 'system_settings').toList();
+      final settingsCalls = calls
+          .where((c) => c.table == 'system_settings')
+          .toList();
       expect(settingsCalls, hasLength(1));
       expect(settingsCalls.single.entityId, 'singleton');
+    });
+
+    test('throws if any row fails to emit', () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+
+      await db
+          .into(db.memberGroups)
+          .insert(
+            MemberGroupsCompanion.insert(
+              id: 'pk-group-partial-uuid',
+              name: 'Partial',
+              createdAt: DateTime.utc(2024),
+              pluralkitUuid: const Value('partial-uuid'),
+            ),
+          );
+
+      final adapter = buildSyncAdapterWithCompletion(db).adapter;
+
+      await expectLater(
+        bootstrapExistingData(
+          handle: const _FakePrismSyncHandle(),
+          db: db,
+          adapter: adapter,
+          recordCreate:
+              ({
+                required ffi.PrismSyncHandle handle,
+                required String table,
+                required String entityId,
+                required String fieldsJson,
+              }) async {
+                throw StateError('ffi rejected fields');
+              },
+        ),
+        throwsA(
+          predicate(
+            (Object error) =>
+                error is StateError &&
+                error.toString().contains('Bootstrap failed for 1 record') &&
+                error.toString().contains(
+                  'member_groups/pk-group:partial-uuid',
+                ) &&
+                error.toString().contains('ffi rejected fields'),
+          ),
+        ),
+      );
     });
   });
 }
@@ -232,20 +287,21 @@ Future<List<_RecordedCall>> _runBootstrap(AppDatabase db) async {
     handle: const _FakePrismSyncHandle(),
     db: db,
     adapter: adapter,
-    recordCreate: ({
-      required ffi.PrismSyncHandle handle,
-      required String table,
-      required String entityId,
-      required String fieldsJson,
-    }) async {
-      calls.add(
-        _RecordedCall(
-          table: table,
-          entityId: entityId,
-          fieldsJson: fieldsJson,
-        ),
-      );
-    },
+    recordCreate:
+        ({
+          required ffi.PrismSyncHandle handle,
+          required String table,
+          required String entityId,
+          required String fieldsJson,
+        }) async {
+          calls.add(
+            _RecordedCall(
+              table: table,
+              entityId: entityId,
+              fieldsJson: fieldsJson,
+            ),
+          );
+        },
   );
   return calls;
 }
