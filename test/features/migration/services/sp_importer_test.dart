@@ -233,6 +233,20 @@ class _FakeSessionRepository implements FrontingSessionRepository {
       Stream.value(sessions.take(limit).toList());
 
   @override
+  Stream<List<domain.FrontingSession>> watchSessionsOverlappingRange(
+    DateTime start,
+    DateTime end,
+  ) {
+    final overlapping = sessions.where((s) {
+      if (!s.startTime.isBefore(end)) return false;
+      final endTime = s.endTime;
+      if (endTime == null) return true;
+      return endTime.isAfter(start);
+    }).toList();
+    return Stream.value(overlapping);
+  }
+
+  @override
   Stream<domain.FrontingSession?> watchSessionById(String id) =>
       Stream.value(null);
 

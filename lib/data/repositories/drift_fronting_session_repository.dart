@@ -147,6 +147,16 @@ class DriftFrontingSessionRepository
   }
 
   @override
+  Stream<List<domain.FrontingSession>> watchSessionsOverlappingRange(
+    DateTime start,
+    DateTime end,
+  ) {
+    return _dao
+        .watchSessionsOverlappingRange(start, end)
+        .map((rows) => rows.map(FrontingSessionMapper.toDomain).toList());
+  }
+
+  @override
   Future<void> createSession(domain.FrontingSession session) async {
     final companion = FrontingSessionMapper.toCompanion(session);
     await _dao.insertSession(companion);

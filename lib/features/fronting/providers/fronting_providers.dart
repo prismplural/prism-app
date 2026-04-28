@@ -311,9 +311,48 @@ final sessionLimitProvider = NotifierProvider<SessionLimitNotifier, int>(
 );
 
 /// Unified session history (fronting + sleep), paginated by [sessionLimitProvider].
+///
+/// NOTE: this is a row-page query — it orders by `start_time DESC` and
+/// takes the top N rows. For most consumers (sleep tiles, simple history
+/// rendering) this is fine. **Derived periods do NOT consume from this
+/// stream** because a 400-day continuous host whose row started before
+/// the visible page would be silently dropped; see
+/// [unifiedHistoryOverlapProvider] / [derivedPeriodsProvider] for the
+/// overlap-query path the sweep uses.
 final unifiedHistoryProvider =
     StreamProvider.autoDispose<List<FrontingSession>>((ref) {
   final limit = ref.watch(sessionLimitProvider);
   final repo = ref.watch(frontingSessionRepositoryProvider);
   return repo.watchRecentAllSessions(limit: limit);
+});
+
+/// How far back the derived-period sweep looks when computing periods
+/// for the unified history list.
+///
+/// 1A scope: load every session overlapping the last 90 days. This is
+/// the simple version of §4.6's "paginate over derived periods" — we
+/// don't yet have date-range scrubbing in the list view, so we ship a
+/// conservative window large enough to catch a long-running host.
+/// A future refactor can switch this to a scroll-driven `(rangeStart,
+/// rangeEnd)` family parameter; the overlap-query plumbing below is
+/// already shaped for that.
+const _derivedPeriodsLookbackDays = 90;
+
+/// Sessions overlapping the visible range used by the derived-period
+/// sweep (§4.6 step 1).
+///
+/// Key correctness property: a 400-day continuous host whose row
+/// started before the lookback window but is still open (or ended
+/// inside it) is included — the upstream filter is
+/// `start_time < range_end AND (end_time IS NULL OR end_time > range_start)`,
+/// which a row-paged "newest N rows" query would silently drop.
+final unifiedHistoryOverlapProvider =
+    StreamProvider.autoDispose<List<FrontingSession>>((ref) {
+  final repo = ref.watch(frontingSessionRepositoryProvider);
+  final now = DateTime.now();
+  // Half-open `[rangeStart, rangeEnd)` window. rangeEnd is "now" — the
+  // sweep itself substitutes max(now, rangeEnd) for open-ended sessions
+  // so trailing live periods extend correctly.
+  final rangeStart = now.subtract(const Duration(days: _derivedPeriodsLookbackDays));
+  return repo.watchSessionsOverlappingRange(rangeStart, now);
 });

@@ -22,6 +22,7 @@ class DisplayPeriod extends HistoryDisplayItem {
     required DateTime end,
     required this.isContinuation,
     required this.continuesNextDay,
+    this.briefVisitors = const [],
   })  : _start = start,
         _end = end;
 
@@ -30,6 +31,12 @@ class DisplayPeriod extends HistoryDisplayItem {
   final DateTime _end;
   final bool isContinuation;
   final bool continuesNextDay;
+
+  /// Brief visitors filtered to those whose visit overlaps THIS slice.
+  /// A period that crosses midnight may carry a brief visitor that
+  /// happened only on one side of the split — without per-slice
+  /// filtering the chip would render on both days.
+  final List<EphemeralVisit> briefVisitors;
 
   @override
   DateTime get displayStart => _start;
@@ -78,6 +85,7 @@ List<DisplayPeriod> splitPeriodAtMidnight(FrontingPeriod period) {
         end: period.end,
         isContinuation: false,
         continuesNextDay: false,
+        briefVisitors: List.unmodifiable(period.briefVisitors),
       ),
     ];
   }
@@ -93,13 +101,22 @@ List<DisplayPeriod> splitPeriodAtMidnight(FrontingPeriod period) {
     );
     final isFirst = currentStart == period.start;
     final isLast = !nextMidnight.isBefore(period.end);
+    final sliceEnd = isLast ? period.end : nextMidnight;
+    // Only include brief visitors whose visit overlaps this specific
+    // slice. Without this, a visitor who appeared on day 1 would also
+    // show up as a chip on day 2's continuation row.
+    final sliceBriefs = [
+      for (final v in period.briefVisitors)
+        if (v.start.isBefore(sliceEnd) && v.end.isAfter(currentStart)) v,
+    ];
 
     slices.add(DisplayPeriod(
       period: period,
       start: currentStart,
-      end: isLast ? period.end : nextMidnight,
+      end: sliceEnd,
       isContinuation: !isFirst,
       continuesNextDay: !isLast,
+      briefVisitors: sliceBriefs,
     ));
 
     if (isLast) break;

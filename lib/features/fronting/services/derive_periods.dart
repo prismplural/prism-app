@@ -34,7 +34,7 @@ class FrontingPeriod {
 
   /// Members continuously fronting through this period, ordered for the
   /// avatar stack (longest-active-at-period-start first; tiebreak by the
-  /// add-front-sheet selection order ≈ session.startTime ascending).
+  /// add-front-sheet selection order ≈ input order).
   ///
   /// Excludes any member with `is_always_fronting == true` — those are
   /// surfaced via [alwaysPresentMembers] instead.
@@ -44,18 +44,24 @@ class FrontingPeriod {
   /// period and were collapsed into a trailing chip on the row.
   final List<EphemeralVisit> briefVisitors;
 
-  /// IDs of every per-member session that contributed to this period
-  /// (across the full set, including ephemeral visitors). Used to navigate
-  /// to the period detail screen on tap.
+  /// IDs of every per-member session active throughout this period —
+  /// i.e., every session whose `[clampedStart, clampedEnd]` covers any
+  /// part of the period's span. This is the set the period-detail
+  /// screen / delete swipe / dismissible key all key off, so it must
+  /// reflect the real underlying contributors, not just the boundary
+  /// events that triggered the period transition.
   final List<String> sessionIds;
 
   /// Members marked `is_always_fronting`. Rendered as a separate
   /// "Always-present" affordance, never in the avatar stack (§2.3).
   final List<String> alwaysPresentMembers;
 
-  /// True when at least one underlying session is still open at the period's
-  /// end. The widget renders the trailing time as "Now" instead of an end
-  /// time in this case.
+  /// True when at least one underlying session contributing to THIS
+  /// period is open-ended AND the period is the trailing edge of the
+  /// sweep (its end equals the open-end substitute). Earlier closed
+  /// periods are NEVER open-ended even when a later session is still
+  /// open — the live timer must only render on the period that actually
+  /// extends to "now".
   final bool isOpenEnded;
 
   Duration get duration => end.difference(start);
@@ -124,19 +130,25 @@ class DerivePeriodsInput {
 /// Algorithm (§4.6):
 ///
 /// 1. Filter to sessions overlapping `[rangeStart, rangeEnd]`.
-/// 2. Emit `(time, +member)` and `(time, -member)` events, clamped to the
-///    range bounds. Open-ended sessions substitute `max(now, rangeEnd)`.
+/// 2. Emit `(time, +member, sessionId)` and `(time, -member, sessionId)`
+///    events, clamped to the range bounds. Open-ended sessions
+///    substitute `max(now, rangeEnd)`; closed sessions clamp to
+///    `rangeEnd`.
 /// 3. Sort events; process all events at the same instant as one batch
 ///    (avoids zero-length "neither fronting" periods on swap).
-/// 4. Sweep, maintaining the active set; emit a period whenever the set
-///    changes after a tied-batch.
+/// 4. Sweep, maintaining a per-member set of active session IDs. Emit
+///    a period whenever the active member set changes after a tied
+///    batch. Carry forward the active session IDs for sessionId
+///    bookkeeping.
 /// 5. Apply ephemeral-member collapse: periods shorter than
 ///    [DerivePeriodsInput.ephemeralThreshold] fold into the surrounding
-///    period as brief visitors.
+///    period as brief visitors. Cascading shorts collapse iteratively
+///    so an all-short input still produces at least one row.
 ///
-/// Sessions belonging to members marked `is_always_fronting` are kept out
-/// of the active set entirely; they're surfaced as `alwaysPresentMembers`
-/// on every period whose span overlaps their session.
+/// Sessions belonging to members marked `is_always_fronting` are kept
+/// out of the active set entirely; they're surfaced as
+/// `alwaysPresentMembers` on every period whose span overlaps their
+/// session.
 List<FrontingPeriod> deriveMaximalPeriods(DerivePeriodsInput input) {
   // Skip sleep sessions — the list view renders those via a separate sleep
   // tile, not a fronting period.
@@ -149,27 +161,45 @@ List<FrontingPeriod> deriveMaximalPeriods(DerivePeriodsInput input) {
   // Open-ended substitution per §4.6: substitute max(now, rangeEnd) so a
   // currently-active session whose start is in the range produces a period
   // that extends to the end of the visible range, not an arbitrary "now"
-  // earlier than that. We also use this as the effective upper clamp bound
-  // so periods can extend to "now" even when "now" is past rangeEnd.
+  // earlier than that. This is ONLY used for null-end sessions; closed
+  // sessions clamp to rangeEnd directly.
   final openEndSub =
       input.now.isAfter(input.rangeEnd) ? input.now : input.rangeEnd;
+  // Effective upper bound for clamping spans when emitting periods.
+  // Trailing periods may extend past rangeEnd via openEndSub for live
+  // sessions; closed sessions never bleed past rangeEnd.
   final effectiveRangeEnd = openEndSub;
 
   // Partition into background (always-present) sessions and foreground.
   // Background sessions never enter the active set; instead, every period
   // they overlap gets the member added to `alwaysPresentMembers`.
+  //
+  // Insertion order is preserved: foreground/background are populated in
+  // the order sessions appear in `input.sessions`, which lets the sweep
+  // emit a stable arrival index for tie-breaking the avatar stack
+  // (selection-order tiebreak per §2.3, since the input stream's order
+  // matches the add-front sheet selection order in practice).
   final foreground = <_NormalizedSession>[];
   final background = <_NormalizedSession>[];
   for (final s in sessions) {
     final memberId = s.memberId;
     if (memberId == null) continue; // Unknown-fronter rows — treat as no-op.
     final start = s.startTime;
-    final end = s.endTime ?? openEndSub;
+    final rawEnd = s.endTime;
+    // Clamp spans:
+    //   - open-ended sessions extend to openEndSub (may be > rangeEnd if
+    //     `now` is past the visible range).
+    //   - closed sessions clamp to rangeEnd; an end past the visible
+    //     range must NOT bleed into a past visible window, so we cut at
+    //     rangeEnd (not effectiveRangeEnd).
+    final end = rawEnd ?? openEndSub;
     if (!end.isAfter(input.rangeStart)) continue;
     if (!start.isBefore(effectiveRangeEnd)) continue;
 
-    final clampedStart = start.isBefore(input.rangeStart) ? input.rangeStart : start;
-    final clampedEnd = end.isAfter(effectiveRangeEnd) ? effectiveRangeEnd : end;
+    final clampedStart =
+        start.isBefore(input.rangeStart) ? input.rangeStart : start;
+    final upperBound = rawEnd == null ? effectiveRangeEnd : input.rangeEnd;
+    final clampedEnd = end.isAfter(upperBound) ? upperBound : end;
     if (!clampedEnd.isAfter(clampedStart)) continue;
 
     final isBackground = input.members[memberId]?.isAlwaysFronting ?? false;
@@ -177,10 +207,10 @@ List<FrontingPeriod> deriveMaximalPeriods(DerivePeriodsInput input) {
       sessionId: s.id,
       memberId: memberId,
       origStart: start,
-      origEnd: s.endTime,
+      origEnd: rawEnd,
       clampedStart: clampedStart,
       clampedEnd: clampedEnd,
-      isOpen: s.endTime == null,
+      isOpen: rawEnd == null,
     );
     if (isBackground) {
       background.add(normalized);
@@ -194,6 +224,30 @@ List<FrontingPeriod> deriveMaximalPeriods(DerivePeriodsInput input) {
     // would be a "gap" in list-view terms; we skip those (caller renders
     // active fronts only).
     return const [];
+  }
+
+  // Index foreground sessions by member for O(1) "find best contributing
+  // session for this member" lookups during ephemeral collapse. Avoids
+  // an O(N) scan inside the inner loop (P2: n × m_short was the prior
+  // worst case at the 10–20k session scale).
+  final foregroundByMember = <String, List<_NormalizedSession>>{};
+  for (final s in foreground) {
+    foregroundByMember.putIfAbsent(s.memberId, () => []).add(s);
+  }
+
+  // Stable per-member arrival index keyed off input order. The
+  // foreground list is built in `input.sessions` order; the first time
+  // we see a member's session, we stamp the index. This is the
+  // selection-order tiebreak (§2.3): when two members share the same
+  // firstStart, we order by who was selected first in the add-front
+  // sheet (which matches the input stream's ordering at the storage
+  // layer in practice).
+  final memberArrivalIndex = <String, int>{};
+  {
+    var idx = 0;
+    for (final s in foreground) {
+      memberArrivalIndex.putIfAbsent(s.memberId, () => idx++);
+    }
   }
 
   // Build event stream over foreground sessions. Each session contributes
@@ -215,31 +269,40 @@ List<FrontingPeriod> deriveMaximalPeriods(DerivePeriodsInput input) {
   events.sort((a, b) {
     final cmp = a.time.compareTo(b.time);
     if (cmp != 0) return cmp;
-    // Stable secondary by member id so ordering inside a tied batch is
-    // deterministic across platforms.
-    return a.session.memberId.compareTo(b.session.memberId);
+    // Stable secondary by member arrival index → input order. Avoids
+    // alphabetical-by-memberId ordering (which would lock in a bug
+    // where the avatar stack ignored selection order).
+    final ai = memberArrivalIndex[a.session.memberId] ?? 0;
+    final bi = memberArrivalIndex[b.session.memberId] ?? 0;
+    return ai.compareTo(bi);
   });
 
-  // Sweep. Maintain refcounted active set keyed by memberId so a single
-  // member with two overlapping rows enters once and exits once (no
-  // duplicate avatars in the stack).
-  final activeRefCounts = <String, int>{};
-  // Track the earliest clampedStart per active member for ordering
-  // (longest-active-at-period-start first).
+  // Sweep. We track active session IDs PER MEMBER (refcount-equivalent):
+  //   member → set of active session IDs
+  // Member is "active" iff its set is non-empty. The full active session
+  // set across all members is the union, which we maintain incrementally
+  // for fast period-emission.
+  final activeSessionsByMember = <String, Set<String>>{};
+  // Earliest clampedStart per active member, for avatar ordering.
   final activeFirstStart = <String, DateTime>{};
-  // Track every session id that has contributed to the period currently
-  // being built. Cleared whenever we emit a period.
-  final contributingSessionIds = <String>{};
-  // Track a stable per-member arrival index so we have a deterministic
-  // tiebreak when two members share the same first-start (≈ selection
-  // order from the add-front sheet).
-  final memberArrivalIndex = <String, int>{};
-  var arrivalCounter = 0;
+  // Currently-active session IDs across every active member. Snapshot
+  // at period emission to capture the set throughout the period (NOT
+  // just the boundary events).
+  final activeSessionIds = <String>{};
 
   final rawPeriods = <_RawPeriod>[];
   var periodStart = input.rangeStart;
   // Snapshot of activeFirstStart at periodStart: used to order avatars.
   Map<String, DateTime> snapshotFirstStart = {};
+  // Snapshot of activeSessionIds at periodStart: used so the period's
+  // sessionIds reflect its FULL active set, not just the events at its
+  // boundary timestamps.
+  Set<String> snapshotSessionIds = {};
+  // Whether this period reaches the trailing edge of the sweep (i.e.,
+  // its end is the very last point in the visible window). Trailing-edge
+  // status is what makes a period eligible for `isOpenEnded = true` —
+  // earlier closed periods never carry the live timer.
+  var snapshotHasOpenSession = false;
 
   void emitPeriod(DateTime end) {
     if (!end.isAfter(periodStart)) return;
@@ -247,14 +310,14 @@ List<FrontingPeriod> deriveMaximalPeriods(DerivePeriodsInput input) {
     // Skip empty-active-set periods. The list view shows fronts, not
     // gaps; nobody-fronting is rendered as the absence of a row.
     if (snapshotFirstStart.isEmpty) {
-      contributingSessionIds.clear();
       return;
     }
 
     // Active members snapshot ordered by:
     //   1. firstStart ascending (earliest-started → longest active at
     //      period start → leads the stack)
-    //   2. arrivalIndex ascending (selection-order tiebreak)
+    //   2. arrivalIndex ascending (selection-order tiebreak via
+    //      input order)
     final memberIds = snapshotFirstStart.keys.toList();
     memberIds.sort((a, b) {
       final cmp = snapshotFirstStart[a]!.compareTo(snapshotFirstStart[b]!);
@@ -268,9 +331,31 @@ List<FrontingPeriod> deriveMaximalPeriods(DerivePeriodsInput input) {
       start: periodStart,
       end: end,
       activeMembers: memberIds,
-      sessionIds: contributingSessionIds.toList(),
+      sessionIds: snapshotSessionIds.toList(),
+      hasOpenSession: snapshotHasOpenSession,
     ));
-    contributingSessionIds.clear();
+  }
+
+  void refreshSnapshots() {
+    snapshotFirstStart = Map.of(activeFirstStart);
+    snapshotSessionIds = Set.of(activeSessionIds);
+    // Whether any of the currently-active sessions is open-ended. A
+    // period inherits trailing-edge open-ended status only if (a) at
+    // least one active session is open AND (b) the period's end equals
+    // the open-end substitute (the trailing-edge check is applied at
+    // emit time, not here).
+    var hasOpen = false;
+    for (final mid in activeSessionsByMember.keys) {
+      final ids = activeSessionsByMember[mid]!;
+      for (final s in foregroundByMember[mid] ?? const <_NormalizedSession>[]) {
+        if (s.isOpen && ids.contains(s.sessionId)) {
+          hasOpen = true;
+          break;
+        }
+      }
+      if (hasOpen) break;
+    }
+    snapshotHasOpenSession = hasOpen;
   }
 
   var i = 0;
@@ -278,7 +363,7 @@ List<FrontingPeriod> deriveMaximalPeriods(DerivePeriodsInput input) {
     final t = events[i].time;
     // Process all events at this instant as one tied batch, then compare
     // active-set membership before vs. after.
-    final preActive = activeRefCounts.keys.toSet();
+    final preActive = activeSessionsByMember.keys.toSet();
 
     // First time we see this tick: emit the period accumulated up to it.
     // (Only if we have moved forward from periodStart.)
@@ -290,33 +375,34 @@ List<FrontingPeriod> deriveMaximalPeriods(DerivePeriodsInput input) {
     // Drain the tied batch.
     while (i < events.length && events[i].time == t) {
       final e = events[i];
-      contributingSessionIds.add(e.session.sessionId);
+      final mid = e.session.memberId;
+      final sid = e.session.sessionId;
       if (e.kind == _EventKind.start) {
-        final mid = e.session.memberId;
-        final cnt = (activeRefCounts[mid] ?? 0) + 1;
-        activeRefCounts[mid] = cnt;
-        if (cnt == 1) {
+        final set = activeSessionsByMember.putIfAbsent(mid, () => <String>{});
+        set.add(sid);
+        activeSessionIds.add(sid);
+        if (set.length == 1) {
           activeFirstStart[mid] = e.session.clampedStart;
-          memberArrivalIndex[mid] = arrivalCounter++;
         }
       } else {
-        final mid = e.session.memberId;
-        final cnt = (activeRefCounts[mid] ?? 0) - 1;
-        if (cnt <= 0) {
-          activeRefCounts.remove(mid);
-          activeFirstStart.remove(mid);
-        } else {
-          activeRefCounts[mid] = cnt;
+        final set = activeSessionsByMember[mid];
+        if (set != null) {
+          set.remove(sid);
+          if (set.isEmpty) {
+            activeSessionsByMember.remove(mid);
+            activeFirstStart.remove(mid);
+          }
         }
+        activeSessionIds.remove(sid);
       }
       i++;
     }
 
-    final postActive = activeRefCounts.keys.toSet();
+    final postActive = activeSessionsByMember.keys.toSet();
     if (!_setEquals(preActive, postActive)) {
       // Active set changed across the batch — start a new period.
       // Periodstart is already set to t above.
-      snapshotFirstStart = Map.of(activeFirstStart);
+      refreshSnapshots();
     }
   }
 
@@ -332,88 +418,126 @@ List<FrontingPeriod> deriveMaximalPeriods(DerivePeriodsInput input) {
   return _collapseAndAnnotate(
     rawPeriods,
     background,
-    foreground,
+    foregroundByMember,
     input.ephemeralThreshold,
-    openEndSub,
+    effectiveRangeEnd,
   );
 }
 
 /// Walks raw periods, collapsing brief visitors into the surrounding
 /// period, attaching always-present members, and marking open-ended.
+///
+/// Collapse rules:
+///   - A period is "short" when its duration < threshold.
+///   - A short period whose extra members (those not in either neighbor)
+///     can fold into a longer adjacent period folds; its session ids
+///     and brief-visit chips carry forward to the next kept period.
+///   - When ALL periods are short, the algorithm still emits at least
+///     one row spanning the whole sweep, with everyone as briefs — the
+///     user has data, we should show it.
+///   - Cascading shorts (multiple consecutive shorts) compose: each
+///     short's pending briefs roll forward to the next short or
+///     surviving neighbor.
 List<FrontingPeriod> _collapseAndAnnotate(
   List<_RawPeriod> raw,
   List<_NormalizedSession> background,
-  List<_NormalizedSession> foreground,
+  Map<String, List<_NormalizedSession>> foregroundByMember,
   Duration ephemeralThreshold,
-  DateTime openEndSub,
+  DateTime effectiveRangeEnd,
 ) {
   if (raw.isEmpty) return const [];
 
-  // Build a quick lookup from sessionId → session for ephemeral visit
-  // bookkeeping (needs the original session id and start/end for chip data).
-  final sessionById = <String, _NormalizedSession>{
-    for (final s in foreground) s.sessionId: s,
-  };
+  // Shortcut: if EVERY raw period is short, emit a single combined row
+  // covering the full span with all participants as briefs. Without this
+  // an all-short input produced empty output (P2 cascade bug).
+  final allShort =
+      raw.every((p) => p.duration < ephemeralThreshold);
+  if (allShort) {
+    final start = raw.first.start;
+    final end = raw.last.end;
+    final allMembers = <String>{};
+    final allSessionIds = <String>{};
+    final brief = <EphemeralVisit>[];
+    final hasOpen = raw.any((p) => p.hasOpenSession);
+    for (final p in raw) {
+      allMembers.addAll(p.activeMembers);
+      allSessionIds.addAll(p.sessionIds);
+      for (final mid in p.activeMembers) {
+        final sess = _findBestSessionForMember(foregroundByMember, mid, p);
+        if (sess != null) {
+          brief.add(EphemeralVisit(
+            memberId: mid,
+            start: p.start.isBefore(sess.clampedStart)
+                ? sess.clampedStart
+                : p.start,
+            end: p.end.isAfter(sess.clampedEnd) ? sess.clampedEnd : p.end,
+            sessionId: sess.sessionId,
+          ));
+        }
+      }
+    }
+    final alwaysPresent = _alwaysPresentDuring(background, start, end);
+    return [
+      FrontingPeriod(
+        start: start,
+        end: end,
+        activeMembers: const [],
+        briefVisitors: brief,
+        sessionIds: allSessionIds.toList(),
+        alwaysPresentMembers: alwaysPresent,
+        isOpenEnded:
+            hasOpen && !end.isBefore(effectiveRangeEnd),
+      ),
+    ];
+  }
 
-  // Step 1: identify ephemeral periods. A period is ephemeral when:
-  //   - duration < threshold, AND
-  //   - it has at least one extra member compared to a neighbor
-  //     (i.e., the brief member can fold into a longer adjacent period).
-  //
-  // Practical rule used here: any period whose duration < threshold and
-  // whose active set differs from at least one neighbor by exactly the
-  // members who appear only briefly. To keep this simple and robust we
-  // collapse a short period by folding members who do NOT appear in the
-  // surrounding periods on either side as brief visitors of the longer
-  // adjacent period (preferring the longer of the two neighbors).
-
-  // We carry forward "pending brief visits" from short periods we've
-  // skipped, then attach them to the next non-short period we keep.
+  // Standard pass: walk raw periods; carry pending briefs forward
+  // through cascading shorts; emit a kept period when we land on a
+  // non-short row (or when there are no further rows to absorb the
+  // pending briefs).
   final result = <FrontingPeriod>[];
   final pendingBrief = <EphemeralVisit>[];
   final pendingSessionIds = <String>{};
-
-  _RawPeriod? lastKept;
 
   for (var idx = 0; idx < raw.length; idx++) {
     final p = raw[idx];
     final isShort = p.duration < ephemeralThreshold;
 
-    if (isShort && raw.length > 1) {
+    if (isShort) {
       // Try to fold this period's "extra" members into adjacent periods
-      // as brief visitors.
-      final prev = idx > 0 ? raw[idx - 1] : null;
-      final next = idx + 1 < raw.length ? raw[idx + 1] : null;
-      final neighborMembers = <String>{
-        ...?prev?.activeMembers,
-        ...?next?.activeMembers,
-      };
+      // as brief visitors. Walk left/right past contiguous shorts to
+      // find the actual surviving neighbors — a chain of shorts
+      // shouldn't think of itself as its own neighbor.
+      final neighborMembers = <String>{};
+      for (var j = idx - 1; j >= 0; j--) {
+        if (raw[j].duration >= ephemeralThreshold) {
+          neighborMembers.addAll(raw[j].activeMembers);
+          break;
+        }
+      }
+      for (var j = idx + 1; j < raw.length; j++) {
+        if (raw[j].duration >= ephemeralThreshold) {
+          neighborMembers.addAll(raw[j].activeMembers);
+          break;
+        }
+      }
       // Members appearing only in this short period are the "brief" set.
-      final brief = p.activeMembers.where((m) => !neighborMembers.contains(m));
+      final brief =
+          p.activeMembers.where((m) => !neighborMembers.contains(m));
       for (final mid in brief) {
-        // Find the contributing session for this member in this period —
-        // pick the session with the largest overlap with [p.start, p.end].
-        final sess = _findBestSessionForMember(sessionById, mid, p);
+        final sess = _findBestSessionForMember(foregroundByMember, mid, p);
         if (sess != null) {
           pendingBrief.add(EphemeralVisit(
             memberId: mid,
             start: p.start.isBefore(sess.clampedStart)
                 ? sess.clampedStart
                 : p.start,
-            end: p.end.isAfter(sess.clampedEnd)
-                ? sess.clampedEnd
-                : p.end,
+            end: p.end.isAfter(sess.clampedEnd) ? sess.clampedEnd : p.end,
             sessionId: sess.sessionId,
           ));
         }
       }
       pendingSessionIds.addAll(p.sessionIds);
-
-      // If the period has members that ARE in a neighbor (i.e., brief
-      // doesn't cover everyone), we still merge the row into the
-      // neighbor with the matching set — handled by simply not emitting
-      // a row for this short period and letting the neighbor's row span
-      // its own range.
       continue;
     }
 
@@ -424,7 +548,7 @@ List<FrontingPeriod> _collapseAndAnnotate(
     pendingSessionIds.clear();
 
     final alwaysPresent = _alwaysPresentDuring(background, p.start, p.end);
-    final isOpen = _isOpenEnded(foreground, p.end);
+    final isOpen = p.hasOpenSession && !p.end.isBefore(effectiveRangeEnd);
 
     // Merge with previous result if same active set: a short period
     // sandwiched between two same-set periods was just collapsed, so the
@@ -439,6 +563,8 @@ List<FrontingPeriod> _collapseAndAnnotate(
         briefVisitors: [...prev.briefVisitors, ...brief],
         sessionIds: {...prev.sessionIds, ...allSessionIds}.toList(),
         alwaysPresentMembers: alwaysPresent,
+        // The merged period inherits the latter's trailing-edge state —
+        // only the most recent end matters for liveness.
         isOpenEnded: isOpen,
       ));
     } else {
@@ -452,12 +578,11 @@ List<FrontingPeriod> _collapseAndAnnotate(
         isOpenEnded: isOpen,
       ));
     }
-    lastKept = p;
   }
 
   // If we ended with pending brief visitors and no kept period followed,
   // attach them to the last kept period (mutate by replacing).
-  if (pendingBrief.isNotEmpty && lastKept != null && result.isNotEmpty) {
+  if (pendingBrief.isNotEmpty && result.isNotEmpty) {
     final last = result.removeLast();
     result.add(FrontingPeriod(
       start: last.start,
@@ -474,16 +599,19 @@ List<FrontingPeriod> _collapseAndAnnotate(
 }
 
 _NormalizedSession? _findBestSessionForMember(
-  Map<String, _NormalizedSession> sessionById,
+  Map<String, List<_NormalizedSession>> foregroundByMember,
   String memberId,
   _RawPeriod p,
 ) {
+  final list = foregroundByMember[memberId];
+  if (list == null) return null;
   _NormalizedSession? best;
   var bestOverlap = Duration.zero;
-  for (final s in sessionById.values) {
-    if (s.memberId != memberId) continue;
-    final overlapStart = s.clampedStart.isAfter(p.start) ? s.clampedStart : p.start;
-    final overlapEnd = s.clampedEnd.isBefore(p.end) ? s.clampedEnd : p.end;
+  for (final s in list) {
+    final overlapStart =
+        s.clampedStart.isAfter(p.start) ? s.clampedStart : p.start;
+    final overlapEnd =
+        s.clampedEnd.isBefore(p.end) ? s.clampedEnd : p.end;
     if (overlapEnd.isAfter(overlapStart)) {
       final dur = overlapEnd.difference(overlapStart);
       if (dur > bestOverlap) {
@@ -508,16 +636,6 @@ List<String> _alwaysPresentDuring(
     }
   }
   return ids.toList()..sort();
-}
-
-bool _isOpenEnded(List<_NormalizedSession> foreground, DateTime periodEnd) {
-  // The period is open-ended when at least one foreground session is still
-  // open AND its clampedEnd reaches the period's end (i.e., its end was
-  // substituted by the open-end sentinel).
-  for (final s in foreground) {
-    if (s.isOpen && !s.clampedEnd.isBefore(periodEnd)) return true;
-  }
-  return false;
 }
 
 bool _listEquals(List<String> a, List<String> b) {
@@ -572,12 +690,17 @@ class _RawPeriod {
     required this.end,
     required this.activeMembers,
     required this.sessionIds,
+    required this.hasOpenSession,
   });
 
   final DateTime start;
   final DateTime end;
   final List<String> activeMembers;
   final List<String> sessionIds;
+  /// Whether the active session set at the time this period was emitted
+  /// included at least one open-ended session. Combined with the
+  /// trailing-edge check at emit time, this drives `isOpenEnded`.
+  final bool hasOpenSession;
 
   Duration get duration => end.difference(start);
 }

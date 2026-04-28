@@ -359,7 +359,9 @@ class _PeriodTile extends ConsumerWidget {
           );
 
     // Brief visitors chip ("+Sam briefly · +Aimee briefly").
-    final briefChips = period.briefVisitors.isEmpty
+    // Per-slice filtered: when a period crosses midnight, only the
+    // briefs whose visit overlaps THIS slice show on this row.
+    final briefChips = slice.briefVisitors.isEmpty
         ? null
         : Padding(
             padding: const EdgeInsets.only(top: 4),
@@ -367,7 +369,7 @@ class _PeriodTile extends ConsumerWidget {
               spacing: 6,
               runSpacing: 4,
               children: [
-                for (final v in period.briefVisitors)
+                for (final v in slice.briefVisitors)
                   _BriefVisitorChip(
                     name: membersMap[v.memberId]?.name ?? 'Unknown',
                   ),
