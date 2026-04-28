@@ -64,12 +64,17 @@ final sessionByIdProvider = StreamProvider.autoDispose
 final frontingMutationServiceProvider = Provider<FrontingMutationService>((
   ref,
 ) {
+  final memberRepository = ref.watch(memberRepositoryProvider);
   return FrontingMutationService(
     repository: ref.watch(frontingSessionRepositoryProvider),
     mutationRunner: MutationRunner.forDatabase(ref.watch(databaseProvider)),
     // Required for the auto-create-Unknown-sentinel path used by the
     // add-front sheet's "Front as Unknown" flow.
-    memberRepository: ref.watch(memberRepositoryProvider),
+    memberRepository: memberRepository,
+    // The lifecycle's delete-fill + fillGaps paths also auto-create the
+    // Unknown sentinel — wire the same MemberRepository through so those
+    // writes don't dangle.
+    lifecycle: SessionLifecycleService(memberRepository: memberRepository),
   );
 });
 
