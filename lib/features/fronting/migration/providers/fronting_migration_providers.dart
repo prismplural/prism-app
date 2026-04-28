@@ -66,9 +66,18 @@ final frontingMigrationModeProvider = StreamProvider<String>((ref) {
 ///
 /// Excludes the current device from the count: [Device.deviceId] equal
 /// to the local device id is filtered out.  Sync state being absent
-/// (no handle) returns 0.
+/// (no resolved handle) returns 0.
+///
+/// Final-review fix V: previously this read `prismSyncHandleProvider.value`
+/// synchronously and returned `0` while the AsyncNotifier was still
+/// resolving on cold open. The modal then treated that as "solo, skip
+/// role question," which mis-classified paired installs. Awaiting the
+/// `.future` defers until the handle either resolves to a real value
+/// or to `null`. Loading/error cases now propagate up as failures —
+/// the modal's existing `try/catch` falls back to `pairedCount = 1`
+/// ("when in doubt, ask").
 final pairedDeviceCountProvider = FutureProvider<int>((ref) async {
-  final handle = ref.watch(prismSyncHandleProvider).value;
+  final handle = await ref.watch(prismSyncHandleProvider.future);
   if (handle == null) return 0;
   // Reuse the existing device list provider — it already handles the
   // FFI listDevices call and credential plumbing.  Errors bubble; the

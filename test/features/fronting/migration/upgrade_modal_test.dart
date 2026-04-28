@@ -284,6 +284,68 @@ void main() {
       expect(find.text('No, this is a secondary'), findsOneWidget);
     });
 
+    // Final-review fix V (codex P2): when `prismSyncHandleProvider` is
+    // still loading on cold open, the previous `.value` read returned
+    // `null` → `pairedCount = 0` → solo path. Paired installs were
+    // mis-classified. The provider now awaits `.future`; loading/error
+    // states surface as a thrown future, the modal's existing try/catch
+    // falls back to `pairedCount = 1`, and the role question appears.
+    //
+    // We override the public-facing `pairedDeviceCountProvider` with a
+    // throwing future (the observable shape of "handle never resolved")
+    // rather than overriding `prismSyncHandleProvider` directly — that
+    // provider has a heavy `build()` (secure_storage I/O, FFI handle
+    // construction) that we don't want to plumb in widget tests.
+    testWidgets(
+      'role question appears when paired-count lookup fails (handle loading)',
+      (tester) async {
+        final runner = _FakeRunner();
+        await tester.pumpWidget(ProviderScope(
+          overrides: [
+            frontingMigrationRunnerProvider.overrideWithValue(runner),
+            // Mimic the future-fails-to-resolve shape that the previous
+            // synchronous-`.value` read silently turned into "0 / solo."
+            pairedDeviceCountProvider.overrideWith(
+              (ref) async => throw StateError('sync handle loading'),
+            ),
+            frontingMigrationModeProvider.overrideWith(
+              (ref) => Stream.value(FrontingMigrationService.modeNotStarted),
+            ),
+            terminologySettingProvider.overrideWith((ref) => (
+                  term: SystemTerminology.headmates,
+                  customSingular: null,
+                  customPlural: null,
+                  useEnglish: false,
+                )),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: const [Locale('en')],
+            home: Scaffold(
+              body: Builder(
+                builder: (context) => Center(
+                  child: ElevatedButton(
+                    onPressed: () => showFrontingUpgradeSheet(
+                      context,
+                      isDismissible: true,
+                    ),
+                    child: const Text('open'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ));
+        await _openSheet(tester);
+        await tester.tap(find.text('Continue'));
+        await tester.pumpAndSettle();
+
+        // Role question MUST appear — not the mode picker.
+        expect(find.text('Is this your main device?'), findsOneWidget);
+        expect(find.text('How should we upgrade?'), findsNothing);
+      },
+    );
+
     testWidgets('Not now invokes runner with notNow and dismisses the modal',
         (tester) async {
       final runner = _FakeRunner();
