@@ -97,3 +97,22 @@ final String unknownSentinelMemberId =
 /// boundary.  The new row (from P_end onwards) gets a deterministic id so
 /// concurrent splits on two devices converge on the same result (§3.1).
 const String splitNamespace = '2d806d71-c56c-49ef-a185-383489e78a3c';
+
+/// Namespace for gap-filler sessions inserted by session_lifecycle_service.
+/// Two devices independently filling the same wall-clock gap derive the
+/// same id, converging instead of duplicating.
+///
+/// ⚠️ IMMUTABLE FOREVER. Once shipped, this value MUST NEVER change.
+const String gapFillerNamespace = '23dcb75e-b160-4d88-81d1-24a4168d96a9';
+
+/// Canonical derivation for a gap-filler session id.
+///
+/// Inputs are normalized to UTC ISO-8601 strings so that the same wall-clock
+/// instant produces the same id regardless of whether the caller passes a
+/// local or UTC `DateTime`.  Two paired devices in different timezones that
+/// independently fill the same gap must converge on a single CRDT row.
+String deriveGapFillerSessionId(DateTime start, DateTime end) =>
+    const Uuid().v5(
+      gapFillerNamespace,
+      '${start.toUtc().toIso8601String()}:${end.toUtc().toIso8601String()}',
+    );

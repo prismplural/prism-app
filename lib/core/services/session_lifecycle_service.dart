@@ -3,7 +3,6 @@ import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
-import 'package:uuid/uuid.dart';
 
 // ──────────────────────────────────────────────
 // Validation types (carried over)
@@ -119,8 +118,6 @@ class SessionLifecycleService {
   /// it.  When those paths run without a wired [MemberRepository], the
   /// service throws — see [_ensureUnknownSentinel].
   final MemberRepository? _memberRepository;
-
-  static const _uuid = Uuid();
 
   /// Lazily creates the Unknown sentinel member so the freshly-emitted
   /// fronting_sessions row that points at [unknownSentinelMemberId] has a
@@ -295,7 +292,8 @@ class SessionLifecycleService {
           return null;
         }
 
-        final unknownId = _uuid.v4();
+        final unknownId =
+            deriveGapFillerSessionId(ctx.session.startTime, endTime);
         final unknown = FrontingSession(
           id: unknownId,
           startTime: ctx.session.startTime,
@@ -401,7 +399,7 @@ class SessionLifecycleService {
     await _ensureUnknownSentinel();
     for (final gap in gaps) {
       final fill = FrontingSession(
-        id: _uuid.v4(),
+        id: deriveGapFillerSessionId(gap.startTime, gap.endTime),
         startTime: gap.startTime,
         endTime: gap.endTime,
         memberId: unknownSentinelMemberId,

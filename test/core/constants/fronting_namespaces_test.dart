@@ -20,6 +20,7 @@ void main() {
       'spFrontingNamespace': spFrontingNamespace,
       'migrationFrontingNamespace': migrationFrontingNamespace,
       'splitNamespace': splitNamespace,
+      'gapFillerNamespace': gapFillerNamespace,
     }.entries) {
       test('${entry.key} (${entry.value}) — v5 succeeds', () {
         // If the namespace is invalid, Uuid().v5() throws FormatException.
@@ -51,6 +52,34 @@ void main() {
       expect(
         deriveMigrationFanoutSessionId('legacy', 'member'),
         '3f02daef-1038-59e9-a9d9-34d3a984b919',
+      );
+    });
+
+    test('deriveGapFillerSessionId is deterministic and UTC-normalized', () {
+      final localStart = DateTime(2024, 1, 1, 12);
+      final utcStart = localStart.toUtc();
+      final localEnd = DateTime(2024, 1, 1, 13);
+      final utcEnd = localEnd.toUtc();
+
+      // CI-tz guard: this test is meaningless on UTC hosts. Assert the
+      // precondition fails loudly so the test catches a regression instead
+      // of silently passing.
+      expect(
+        localStart.toIso8601String(),
+        isNot(utcStart.toIso8601String()),
+        reason: 'Test host TZ must be non-UTC; '
+            'set TZ=America/Los_Angeles in CI.',
+      );
+
+      expect(
+        deriveGapFillerSessionId(localStart, localEnd),
+        equals(deriveGapFillerSessionId(utcStart, utcEnd)),
+      );
+
+      // Pin a known value — namespace constants must not drift silently.
+      expect(
+        deriveGapFillerSessionId(utcStart, utcEnd),
+        equals('b0fdfa74-9354-564e-b564-ba2268f4ceb7'),
       );
     });
   });
