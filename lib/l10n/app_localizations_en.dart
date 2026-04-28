@@ -905,6 +905,20 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get statisticsMedianSessionLabel => 'Median Session';
+
+  @override
+  String get statisticsGapTimeLabel => 'Gap Time';
+
+  @override
+  String get statisticsSwitchesPerDayLabel => 'Switches/Day';
+
+  @override
+  String statisticsUniqueFrontersLabel(String termPlural) {
+    return 'Unique $termPlural';
+  }
+
+  @override
   String statisticsActiveMembersBreakdown(int active, int inactive) {
     return '$active active, $inactive inactive';
   }
@@ -7829,4 +7843,36 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get frontingUpgradeBannerMessage => 'Tap to continue the upgrade.';
+
+  @override
+  String pkFileImportMembersLabel(String termPlural) {
+    return '$termPlural';
+  }
+
+  @override
+  String get pkFileImportGroupsLabel => 'Groups';
+
+  @override
+  String get pkFileImportFrontingSessionsLabel => 'Fronting sessions';
+
+  @override
+  String pkFileImportPreviewNote(String termPlural) {
+    return 'Existing $termPlural with the same PluralKit ID will be updated. Duplicate switches are skipped.';
+  }
+
+  @override
+  String get pkFileImportImportButton => 'Import';
+
+  @override
+  String get pkFileImportPickDifferentButton => 'Pick a different file';
+
+  @override
+  String get pkFileImportCompleteHeading => 'Import complete';
+
+  @override
+  String get pkFileImportSwitchesCreatedLabel => 'Switches created';
+
+  @override
+  String get pkFileImportSwitchesSkippedLabel =>
+      'Switches skipped (already present)';
 }

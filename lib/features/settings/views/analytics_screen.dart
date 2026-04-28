@@ -6,6 +6,7 @@ import 'package:prism_plurality/domain/models/fronting_analytics.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/analytics_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/features/settings/widgets/analytics_date_range_picker.dart';
 import 'package:prism_plurality/features/settings/widgets/analytics_insight_card.dart';
 import 'package:prism_plurality/features/settings/widgets/member_ranking_chart.dart';
@@ -81,6 +82,7 @@ class _AnalyticsBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final terms = watchTerminology(context, ref);
 
     // Previous period and insights load independently — degrade gracefully.
     final previousPeriod =
@@ -108,7 +110,7 @@ class _AnalyticsBody extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Overview',
+                context.l10n.statisticsOverview,
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
@@ -117,7 +119,7 @@ class _AnalyticsBody extends ConsumerWidget {
               Row(
                 children: [
                   _OverviewStat(
-                    label: 'Median Session',
+                    label: context.l10n.statisticsMedianSessionLabel,
                     value: _fmt(analytics.medianSession),
                     priorLabel: previousPeriod != null
                         ? '${_fmt(previousPeriod.medianSession)} last period'
@@ -125,7 +127,7 @@ class _AnalyticsBody extends ConsumerWidget {
                     theme: theme,
                   ),
                   _OverviewStat(
-                    label: 'Gap Time',
+                    label: context.l10n.statisticsGapTimeLabel,
                     value: _fmt(analytics.totalGapTime),
                     priorLabel: previousPeriod != null
                         ? '${_fmt(previousPeriod.totalGapTime)} last period'
@@ -138,7 +140,7 @@ class _AnalyticsBody extends ConsumerWidget {
               Row(
                 children: [
                   _OverviewStat(
-                    label: 'Switches/Day',
+                    label: context.l10n.statisticsSwitchesPerDayLabel,
                     value: analytics.switchesPerDay.toStringAsFixed(1),
                     priorLabel: previousPeriod != null
                         ? '${previousPeriod.switchesPerDay.toStringAsFixed(1)} last period'
@@ -146,7 +148,8 @@ class _AnalyticsBody extends ConsumerWidget {
                     theme: theme,
                   ),
                   _OverviewStat(
-                    label: 'Unique Fronters',
+                    label: context.l10n
+                        .statisticsUniqueFrontersLabel(terms.plural),
                     value: '${analytics.uniqueFronters}',
                     priorLabel: previousPeriod != null
                         ? '${previousPeriod.uniqueFronters} last period'

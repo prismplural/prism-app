@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/features/pluralkit/providers/pk_file_import_provider.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_file_parser.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
@@ -157,6 +159,7 @@ class _PreviewView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final terms = watchTerminology(context, ref);
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -175,11 +178,17 @@ class _PreviewView extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _PreviewRow(label: 'Members', count: export.members.length),
-              if (export.groups.isNotEmpty)
-                _PreviewRow(label: 'Groups', count: export.groups.length),
               _PreviewRow(
-                label: 'Fronting sessions',
+                label: context.l10n.pkFileImportMembersLabel(terms.plural),
+                count: export.members.length,
+              ),
+              if (export.groups.isNotEmpty)
+                _PreviewRow(
+                  label: context.l10n.pkFileImportGroupsLabel,
+                  count: export.groups.length,
+                ),
+              _PreviewRow(
+                label: context.l10n.pkFileImportFrontingSessionsLabel,
                 count: export.switches.length,
               ),
             ],
@@ -190,8 +199,7 @@ class _PreviewView extends ConsumerWidget {
           fillColor: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
           padding: const EdgeInsets.all(12),
           child: Text(
-            'Existing members with the same PluralKit ID will be updated. '
-            'Duplicate switches are skipped.',
+            context.l10n.pkFileImportPreviewNote(terms.pluralLower),
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -203,7 +211,7 @@ class _PreviewView extends ConsumerWidget {
             ref.read(pkFileImportProvider.notifier).runImport();
           },
           icon: AppIcons.download,
-          label: 'Import',
+          label: context.l10n.pkFileImportImportButton,
           tone: PrismButtonTone.filled,
           expanded: true,
         ),
@@ -212,7 +220,7 @@ class _PreviewView extends ConsumerWidget {
           onPressed: () {
             ref.read(pkFileImportProvider.notifier).reset();
           },
-          label: 'Pick a different file',
+          label: context.l10n.pkFileImportPickDifferentButton,
           tone: PrismButtonTone.outlined,
           expanded: true,
         ),
@@ -228,6 +236,7 @@ class _CompleteView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final terms = watchTerminology(context, ref);
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -235,7 +244,7 @@ class _CompleteView extends ConsumerWidget {
         Icon(AppIcons.checkCircle, size: 64, color: theme.colorScheme.primary),
         const SizedBox(height: 16),
         Text(
-          'Import complete',
+          context.l10n.pkFileImportCompleteHeading,
           style: theme.textTheme.headlineSmall?.copyWith(
             fontWeight: FontWeight.bold,
           ),
@@ -247,16 +256,22 @@ class _CompleteView extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _PreviewRow(label: 'Members', count: result.membersImported),
-              if (result.groupsImported > 0)
-                _PreviewRow(label: 'Groups', count: result.groupsImported),
               _PreviewRow(
-                label: 'Switches created',
+                label: context.l10n.pkFileImportMembersLabel(terms.plural),
+                count: result.membersImported,
+              ),
+              if (result.groupsImported > 0)
+                _PreviewRow(
+                  label: context.l10n.pkFileImportGroupsLabel,
+                  count: result.groupsImported,
+                ),
+              _PreviewRow(
+                label: context.l10n.pkFileImportSwitchesCreatedLabel,
                 count: result.switchesCreated,
               ),
               if (result.switchesSkipped > 0)
                 _PreviewRow(
-                  label: 'Switches skipped (already present)',
+                  label: context.l10n.pkFileImportSwitchesSkippedLabel,
                   count: result.switchesSkipped,
                 ),
             ],

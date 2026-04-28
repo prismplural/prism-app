@@ -1718,6 +1718,30 @@ abstract class AppLocalizations {
   /// **'% of system {term}-minutes'**
   String statisticsMemberMinutesAxisHint(String term);
 
+  /// Statistics overview stat label: median session duration
+  ///
+  /// In en, this message translates to:
+  /// **'Median Session'**
+  String get statisticsMedianSessionLabel;
+
+  /// Statistics overview stat label: total gap time between fronting sessions
+  ///
+  /// In en, this message translates to:
+  /// **'Gap Time'**
+  String get statisticsGapTimeLabel;
+
+  /// Statistics overview stat label: average number of fronting switches per day
+  ///
+  /// In en, this message translates to:
+  /// **'Switches/Day'**
+  String get statisticsSwitchesPerDayLabel;
+
+  /// Statistics overview stat label: count of unique fronters in the period. Uses the user's terminology for members.
+  ///
+  /// In en, this message translates to:
+  /// **'Unique {termPlural}'**
+  String statisticsUniqueFrontersLabel(String termPlural);
+
   /// Active/inactive member count breakdown in statistics
   ///
   /// In en, this message translates to:
@@ -12756,6 +12780,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Tap to continue the upgrade.'**
   String get frontingUpgradeBannerMessage;
+
+  /// PluralKit file import preview/result row label for the count of members. Uses the user's terminology.
+  ///
+  /// In en, this message translates to:
+  /// **'{termPlural}'**
+  String pkFileImportMembersLabel(String termPlural);
+
+  /// PluralKit file import preview/result row label for the count of groups. Kept generic — PluralKit's own 'group' concept.
+  ///
+  /// In en, this message translates to:
+  /// **'Groups'**
+  String get pkFileImportGroupsLabel;
+
+  /// PluralKit file import preview row label for the count of fronting sessions found in the export.
+  ///
+  /// In en, this message translates to:
+  /// **'Fronting sessions'**
+  String get pkFileImportFrontingSessionsLabel;
+
+  /// Informational note shown on the PluralKit file import preview screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Existing {termPlural} with the same PluralKit ID will be updated. Duplicate switches are skipped.'**
+  String pkFileImportPreviewNote(String termPlural);
+
+  /// PluralKit file import: primary action button on the preview screen
+  ///
+  /// In en, this message translates to:
+  /// **'Import'**
+  String get pkFileImportImportButton;
+
+  /// PluralKit file import: secondary action button on the preview screen to choose a different file
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a different file'**
+  String get pkFileImportPickDifferentButton;
+
+  /// PluralKit file import: heading on the success screen
+  ///
+  /// In en, this message translates to:
+  /// **'Import complete'**
+  String get pkFileImportCompleteHeading;
+
+  /// PluralKit file import result row: count of switches that were newly created. 'Switches' is PluralKit-internal vocabulary and is intentionally not localised through the terminology system.
+  ///
+  /// In en, this message translates to:
+  /// **'Switches created'**
+  String get pkFileImportSwitchesCreatedLabel;
+
+  /// PluralKit file import result row: count of switches that were skipped because they already existed. 'Switches' is PluralKit-internal vocabulary.
+  ///
+  /// In en, this message translates to:
+  /// **'Switches skipped (already present)'**
+  String get pkFileImportSwitchesSkippedLabel;
 }
 
 class _AppLocalizationsDelegate
