@@ -18,6 +18,17 @@ class FrontingSessionsDao extends DatabaseAccessor<AppDatabase>
             ..orderBy([(s) => OrderingTerm.desc(s.startTime)]))
           .get();
 
+  /// Like [getAllSessions] but includes soft-deleted tombstones. Used by
+  /// the export importer to detect unique-constraint collisions on
+  /// `pluralkit_uuid` against tombstones — the partial unique index
+  /// `idx_fronting_sessions_pluralkit_uuid` covers tombstones (no
+  /// `is_deleted = 0` clause), so dedup off the active-only
+  /// `getAllSessions` set is unsafe.
+  Future<List<FrontingSession>> getAllSessionsIncludingDeleted() =>
+      (select(frontingSessions)
+            ..orderBy([(s) => OrderingTerm.desc(s.startTime)]))
+          .get();
+
   Stream<List<FrontingSession>> watchAllSessions() =>
       (select(frontingSessions)
             ..where((s) => s.isDeleted.equals(false))
@@ -159,7 +170,7 @@ class FrontingSessionsDao extends DatabaseAccessor<AppDatabase>
         const FrontingSessionsCompanion(isDeleted: Value(true)),
       );
 
-  /// Plan 02: tombstoned sessions that still carry a PK switch UUID and a
+  /// Tombstoned sessions that still carry a PK switch UUID and a
   /// delete intent epoch. See `MembersDao.getDeletedLinkedMembers` for the
   /// epoch-gated guard that callers must still apply before pushing.
   Future<List<FrontingSession>> getDeletedLinkedSessions() =>

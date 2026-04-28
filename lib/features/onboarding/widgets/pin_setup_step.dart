@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/features/settings/providers/pin_lock_providers.dart';
 import 'package:prism_plurality/features/settings/views/pin_input_screen.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
 /// Onboarding step that collects and confirms a new 6-digit PIN, then stores it
 /// for app lock.
@@ -35,6 +37,7 @@ class _PinSetupStepState extends ConsumerState<PinSetupStep> {
         key: const ValueKey('pin-setup-set'),
         mode: PinInputMode.set,
         embedded: true,
+        showEmbeddedPrompt: true,
         onPinEntered: (pin) {
           setState(() => _phase1Pin = pin);
         },
@@ -50,6 +53,7 @@ class _PinSetupStepState extends ConsumerState<PinSetupStep> {
       key: const ValueKey('pin-setup-confirm'),
       mode: PinInputMode.confirm,
       embedded: true,
+      showEmbeddedPrompt: true,
       pinToConfirm: phase1Pin,
       onPinEntered: (pin) async {
         // Store the PIN for app lock, then notify the caller. If key setup
@@ -63,6 +67,13 @@ class _PinSetupStepState extends ConsumerState<PinSetupStep> {
           await service.clearPin();
           rethrow;
         }
+      },
+      onAcceptError: (error, _) {
+        if (!context.mounted) return;
+        PrismToast.error(
+          context,
+          message: context.l10n.onboardingErrorCompletingSetup(error),
+        );
       },
       onSuccess: () {
         // onPinEntered handles persistence; nothing else needed here.

@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'package:flutter/material.dart' show TimeOfDay;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -295,13 +295,23 @@ class LocalNotificationService {
   }
 
   /// Returns the next [TZDateTime] for [weekday] at [time].
-  tz.TZDateTime _nextWeekdayOccurrence(TimeOfDay time, int weekday) {
-    var candidate = _nextOccurrence(time);
-    while (candidate.weekday != weekday) {
-      candidate = candidate.add(const Duration(days: 1));
-    }
-    return candidate;
+  tz.TZDateTime _nextWeekdayOccurrence(TimeOfDay time, int weekday) =>
+      nextWeekdayOccurrenceFrom(_nextOccurrence(time), weekday);
+}
+
+/// Walks forward from [from] until landing on [weekday] (the app's picker
+/// convention: 0=Sunday..6=Saturday). Dart's [DateTime.weekday] is
+/// 1=Monday..7=Sunday, so 0 is rewritten to 7 before matching. The walk is
+/// bounded to 7 iterations so an out-of-range input can never lock the
+/// UI isolate.
+@visibleForTesting
+tz.TZDateTime nextWeekdayOccurrenceFrom(tz.TZDateTime from, int weekday) {
+  final target = weekday == 0 ? DateTime.sunday : weekday;
+  var candidate = from;
+  for (var i = 0; i < 7 && candidate.weekday != target; i++) {
+    candidate = candidate.add(const Duration(days: 1));
   }
+  return candidate;
 }
 
 /// Provides the [LocalNotificationService] singleton.

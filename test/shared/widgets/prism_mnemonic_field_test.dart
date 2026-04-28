@@ -203,7 +203,13 @@ void main() {
       addTearDown(controller.dispose);
 
       await tester.pumpWidget(
-        _wrap(PrismMnemonicField(controller: controller)),
+        _wrap(
+          PrismMnemonicField(
+            controller: controller,
+            cameraPermissionChecker: () async =>
+                CameraPermissionOutcome.granted,
+          ),
+        ),
       );
       await tester.pumpAndSettle();
 
@@ -227,7 +233,13 @@ void main() {
       addTearDown(controller.dispose);
 
       await tester.pumpWidget(
-        _wrap(PrismMnemonicField(controller: controller)),
+        _wrap(
+          PrismMnemonicField(
+            controller: controller,
+            cameraPermissionChecker: () async =>
+                CameraPermissionOutcome.granted,
+          ),
+        ),
       );
       await tester.pumpAndSettle();
 
@@ -300,7 +312,13 @@ void main() {
       addTearDown(scanController.dispose);
 
       await tester.pumpWidget(
-        _wrap(PrismMnemonicField(controller: scanController)),
+        _wrap(
+          PrismMnemonicField(
+            controller: scanController,
+            cameraPermissionChecker: () async =>
+                CameraPermissionOutcome.granted,
+          ),
+        ),
       );
       await tester.pumpAndSettle();
 
@@ -310,6 +328,99 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.byType(MobileScanner), findsOneWidget);
     });
+
+    testWidgets(
+      'denied camera permission shows explanatory dialog instead of scanner',
+      (tester) async {
+        final controller = TextEditingController();
+        addTearDown(controller.dispose);
+
+        await tester.pumpWidget(
+          _wrap(
+            PrismMnemonicField(
+              controller: controller,
+              cameraPermissionChecker: () async =>
+                  CameraPermissionOutcome.denied,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byTooltip('Scan QR code'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Camera permission needed'), findsOneWidget);
+        expect(
+          find.textContaining(
+            'Prism needs the camera to scan your recovery QR code',
+          ),
+          findsOneWidget,
+        );
+        expect(find.byType(MobileScanner), findsNothing);
+        expect(find.text('Open Settings'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'permanently denied camera permission shows Open Settings action',
+      (tester) async {
+        final controller = TextEditingController();
+        addTearDown(controller.dispose);
+
+        var openSettingsCalled = 0;
+        await tester.pumpWidget(
+          _wrap(
+            PrismMnemonicField(
+              controller: controller,
+              cameraPermissionChecker: () async =>
+                  CameraPermissionOutcome.permanentlyDenied,
+              openAppSettingsOverride: () async {
+                openSettingsCalled += 1;
+                return true;
+              },
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byTooltip('Scan QR code'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Camera permission needed'), findsOneWidget);
+        expect(find.text('Open Settings'), findsOneWidget);
+        expect(find.byType(MobileScanner), findsNothing);
+
+        await tester.tap(find.text('Open Settings'));
+        await tester.pumpAndSettle();
+
+        expect(openSettingsCalled, 1);
+      },
+    );
+
+    testWidgets(
+      'granted camera permission opens the mobile scanner',
+      (tester) async {
+        final controller = TextEditingController();
+        addTearDown(controller.dispose);
+
+        await tester.pumpWidget(
+          _wrap(
+            PrismMnemonicField(
+              controller: controller,
+              cameraPermissionChecker: () async =>
+                  CameraPermissionOutcome.granted,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byTooltip('Scan QR code'));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(MobileScanner), findsOneWidget);
+        expect(find.text('Camera permission needed'), findsNothing);
+      },
+    );
   });
 
   group('PrismMnemonicField.normalize', () {

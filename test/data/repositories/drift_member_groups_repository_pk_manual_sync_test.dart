@@ -59,6 +59,10 @@ class _FakeMemberRepository implements MemberRepository {
   }
 
   @override
+  Stream<List<member_domain.Member>> watchMembersByIds(List<String> ids) =>
+      throw UnimplementedError();
+
+  @override
   Future<void> stampDeletePushStartedAt(String id, int timestampMs) {
     throw UnimplementedError();
   }
@@ -504,6 +508,138 @@ void main() {
       'is_deleted': false,
     });
   });
+
+  test(
+    'addMemberToGroup keeps local-only members in PK-backed groups local',
+    () async {
+      final createdAt = DateTime.utc(2026, 1, 1);
+
+      await _insertPkBackedGroup(
+        db,
+        id: 'local-group-1',
+        name: 'Core group',
+        pluralkitId: 'abcde',
+        pluralkitUuid: 'pk-group-1',
+        createdAt: createdAt,
+        lastSeenFromPkAt: DateTime.utc(2026, 2, 3),
+      );
+      memberRepository = _FakeMemberRepository({
+        'local-member-1': _memberModel(
+          id: 'local-member-1',
+          name: 'Local member',
+          createdAt: createdAt,
+        ),
+      });
+      repo = _RecordingMemberGroupsRepository(
+        db.memberGroupsDao,
+        memberRepository,
+      );
+
+      await repo.addMemberToGroup(
+        'local-group-1',
+        'local-member-1',
+        'local-only-entry',
+      );
+
+      expect(repo.creates, isEmpty);
+      final stored = await db.memberGroupsDao.findEntry(
+        'local-group-1',
+        'local-member-1',
+      );
+      expect(stored, isNotNull);
+      expect(stored!.id, 'local-only-entry');
+    },
+  );
+
+  test(
+    'emitGroupSyncState skips local-only entries in PK-backed groups',
+    () async {
+      final createdAt = DateTime.utc(2026, 1, 1);
+
+      await _insertPkBackedGroup(
+        db,
+        id: 'local-group-1',
+        name: 'Core group',
+        pluralkitId: 'abcde',
+        pluralkitUuid: 'pk-group-1',
+        createdAt: createdAt,
+        lastSeenFromPkAt: DateTime.utc(2026, 2, 3),
+      );
+      await _insertPkLinkedMember(
+        db,
+        id: 'linked-member',
+        name: 'Linked member',
+        pluralkitUuid: 'pk-member-1',
+        createdAt: createdAt,
+      );
+      await db
+          .into(db.members)
+          .insert(
+            MembersCompanion.insert(
+              id: 'local-member',
+              name: 'Local member',
+              createdAt: createdAt,
+            ),
+          );
+      await _insertEntry(
+        db,
+        id: 'linked-entry',
+        groupId: 'local-group-1',
+        memberId: 'linked-member',
+      );
+      await _insertEntry(
+        db,
+        id: 'local-only-entry',
+        groupId: 'local-group-1',
+        memberId: 'local-member',
+      );
+      memberRepository = _FakeMemberRepository({
+        'linked-member': _memberModel(
+          id: 'linked-member',
+          name: 'Linked member',
+          createdAt: createdAt,
+          pluralkitUuid: 'pk-member-1',
+        ),
+        'local-member': _memberModel(
+          id: 'local-member',
+          name: 'Local member',
+          createdAt: createdAt,
+        ),
+      });
+      repo = _RecordingMemberGroupsRepository(
+        db.memberGroupsDao,
+        memberRepository,
+      );
+
+      await repo.emitGroupSyncState('local-group-1');
+
+      expect(repo.updates, hasLength(2));
+      expect(repo.updates.map((record) => record['table']).toList(), [
+        'member_groups',
+        'member_group_entries',
+      ]);
+      expect(
+        repo.updates.first['entityId'],
+        _canonicalPkGroupEntityId('pk-group-1'),
+      );
+      final entryUpdate = repo.updates.last;
+      expect(
+        entryUpdate['entityId'],
+        _deterministicPkEntryId('pk-group-1', 'pk-member-1'),
+      );
+      expect(entryUpdate['fields'], {
+        'group_id': 'local-group-1',
+        'member_id': 'linked-member',
+        'pk_group_uuid': 'pk-group-1',
+        'pk_member_uuid': 'pk-member-1',
+        'is_deleted': false,
+      });
+      expect(
+        repo.updates.any((record) => record['entityId'] == 'local-only-entry'),
+        isFalse,
+      );
+    },
+  );
 
   test('deleteGroup emits canonical PK delete ids for PK-backed groups and '
       'memberships', () async {

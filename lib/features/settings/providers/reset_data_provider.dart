@@ -22,6 +22,13 @@ import 'package:prism_plurality/features/pluralkit/services/pk_group_repair_run_
 import 'package:prism_plurality/features/pluralkit/services/pk_group_sync_v2_catchup_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// Re-export so tests in `test/features/settings/providers/` can import
+/// `kProtectedFromReset` from this file (avoids a hand-copied list of
+/// names in tests). Source of truth lives in `prism_sync_providers.dart`
+/// alongside the other secure-store constants.
+export 'package:prism_plurality/core/sync/prism_sync_providers.dart'
+    show kProtectedFromReset;
+
 abstract class ResetSecureStore {
   Future<String?> read(String key);
   Future<void> delete(String key);
@@ -62,6 +69,110 @@ final resetDocumentsDirectoryProvider = FutureProvider<Directory>((ref) async {
 
 final resetSyncHandleProvider = Provider<ffi.PrismSyncHandle?>((ref) {
   return ref.watch(prismSyncHandleProvider).value;
+});
+
+/// Thin FFI surface used by `_resetSyncSystem`.
+///
+/// Extracted so tests can inject a recording fake and assert call ordering
+/// (e.g. `setAutoSync(false)` must run before any other side-effect, dispose
+/// must run before the sync-DB file is deleted). Production code uses
+/// [_DefaultResetSyncFfi] which forwards to the real prism_sync bindings.
+abstract class ResetSyncFfi {
+  Future<void> setAutoSync({
+    required ffi.PrismSyncHandle handle,
+    required bool enabled,
+    required BigInt debounceMs,
+    required BigInt retryDelayMs,
+    required int maxRetries,
+  });
+
+  Future<void> deregisterDevice({
+    required ffi.PrismSyncHandle handle,
+    required String syncId,
+    required String deviceId,
+    required String sessionToken,
+  });
+
+  Future<void> deleteSyncGroup({
+    required ffi.PrismSyncHandle handle,
+    required String syncId,
+    required String deviceId,
+    required String sessionToken,
+  });
+
+  /// Calls `dispose()` on the handle. Wrapped so tests can observe ordering.
+  void disposeHandle(ffi.PrismSyncHandle handle);
+}
+
+class _DefaultResetSyncFfi implements ResetSyncFfi {
+  const _DefaultResetSyncFfi();
+
+  @override
+  Future<void> setAutoSync({
+    required ffi.PrismSyncHandle handle,
+    required bool enabled,
+    required BigInt debounceMs,
+    required BigInt retryDelayMs,
+    required int maxRetries,
+  }) {
+    return ffi.setAutoSync(
+      handle: handle,
+      enabled: enabled,
+      debounceMs: debounceMs,
+      retryDelayMs: retryDelayMs,
+      maxRetries: maxRetries,
+    );
+  }
+
+  @override
+  Future<void> deregisterDevice({
+    required ffi.PrismSyncHandle handle,
+    required String syncId,
+    required String deviceId,
+    required String sessionToken,
+  }) {
+    return ffi.deregisterDevice(
+      handle: handle,
+      syncId: syncId,
+      deviceId: deviceId,
+      sessionToken: sessionToken,
+    );
+  }
+
+  @override
+  Future<void> deleteSyncGroup({
+    required ffi.PrismSyncHandle handle,
+    required String syncId,
+    required String deviceId,
+    required String sessionToken,
+  }) {
+    return ffi.deleteSyncGroup(
+      handle: handle,
+      syncId: syncId,
+      deviceId: deviceId,
+      sessionToken: sessionToken,
+    );
+  }
+
+  @override
+  void disposeHandle(ffi.PrismSyncHandle handle) {
+    handle.dispose();
+  }
+}
+
+final resetSyncFfiProvider = Provider<ResetSyncFfi>((ref) {
+  return const _DefaultResetSyncFfi();
+});
+
+/// Hook for tests to observe the moment `_resetSyncSystem` deletes the
+/// Rust sync-DB file. Default is a no-op; tests override with a recorder
+/// to assert dispose-before-delete ordering.
+typedef ResetFileDeleteObserver = void Function(String path);
+
+final resetFileDeleteObserverProvider = Provider<ResetFileDeleteObserver>((
+  ref,
+) {
+  return (_) {};
 });
 
 /// Enum for reset categories shown in the UI.
@@ -270,11 +381,32 @@ class ResetDataNotifier extends AsyncNotifier<void> {
     _log('Resetting sync system');
     const prefix = 'prism_sync.';
 
+    final handle = ref.read(resetSyncHandleProvider);
+    final syncFfi = ref.read(resetSyncFfiProvider);
+
+    // 0. Disable auto-sync FIRST — silences the debounce timer, the
+    //    notification handler, and the WebSocket reconnect loop so they
+    //    don't race the rest of the teardown (Phase 2A). Non-fatal: if
+    //    setAutoSync throws (handle already torn down, FFI panic), keep
+    //    going — the dispose() in step 4 will stop everything anyway.
+    if (handle != null) {
+      try {
+        await syncFfi.setAutoSync(
+          handle: handle,
+          enabled: false,
+          debounceMs: BigInt.zero,
+          retryDelayMs: BigInt.zero,
+          maxRetries: 0,
+        );
+      } catch (e) {
+        _log('Failed to disable auto-sync before reset (non-fatal): $e');
+      }
+    }
+
     // 1. Try to deregister from relay (best-effort — may fail if offline).
     //    If this is the last active device the relay rejects deregister with a
     //    403 and tells us to delete the sync group instead — fall through to
     //    deleteSyncGroup in that case so the relay drops all encrypted data.
-    final handle = ref.read(resetSyncHandleProvider);
     if (handle != null) {
       try {
         final syncId = await _readDecodedSecureValue('${prefix}sync_id');
@@ -285,7 +417,7 @@ class ResetDataNotifier extends AsyncNotifier<void> {
         if (syncId != null && deviceId != null && sessionToken != null) {
           bool deregistered = false;
           try {
-            await ffi.deregisterDevice(
+            await syncFfi.deregisterDevice(
               handle: handle,
               syncId: syncId,
               deviceId: deviceId,
@@ -303,7 +435,7 @@ class ResetDataNotifier extends AsyncNotifier<void> {
           }
           if (!deregistered) {
             try {
-              await ffi.deleteSyncGroup(
+              await syncFfi.deleteSyncGroup(
                 handle: handle,
                 syncId: syncId,
                 deviceId: deviceId,
@@ -319,64 +451,32 @@ class ResetDataNotifier extends AsyncNotifier<void> {
       }
     }
 
-    // 2. Clear sync credentials from platform keychain.
-    // IMPORTANT: database_key is intentionally NOT listed here. It is a
-    // local encryption key (Signal model) that must survive sync resets.
-    // Only _resetAll() clears it (via clearDatabaseEncryptionState), and
-    // only after deleting the DB files. Adding it here would make the
-    // encrypted local database permanently unreadable.
-    final storage = ref.read(resetSecureStoreProvider);
-    for (final key in [
-      'wrapped_dek',
-      'dek_salt',
-      'device_secret',
-      'device_id',
-      'sync_id',
-      'session_token',
-      'epoch',
-      'relay_url',
-      'mnemonic',
-      'setup_rollback_marker',
-      'sharing_prekey_store',
-      'sharing_id_cache',
-      'min_signature_version_floor',
-      'runtime_dek',
-    ]) {
-      await storage.delete('$prefix$key');
-    }
-    // Dynamic-prefix cleanup: any `prism_sync.epoch_key_*` or
-    // `prism_sync.runtime_keys_*` entries left over from a previous
-    // pairing must also be wiped, otherwise they'd seed into a fresh
-    // handle after re-pairing and corrupt the new group's key hierarchy.
-    try {
-      final all = await storage.readAll();
-      for (final fullKey in all.keys) {
-        if (!fullKey.startsWith(prefix)) continue;
-        final bare = fullKey.substring(prefix.length);
-        if (bare.startsWith('epoch_key_') || bare.startsWith('runtime_keys_')) {
-          await storage.delete(fullKey);
-        }
-      }
-    } catch (e) {
-      _log('Dynamic secure-store cleanup failed (non-fatal): $e');
+    // 2B-2 hook: clear_sync_state(sync_id, force_active=true) goes here once
+    // the FFI helper from Phase 1C lands. See sync-pairing-reset-hardening.md.
+    // Must run BEFORE dispose (needs the live handle) and BEFORE the file
+    // delete (mutates the live SQLite connection).
+
+    // 3. Dispose the FFI handle BEFORE deleting the sync-DB file. Dropping
+    //    the Arc<Mutex<PrismSync>> releases SQLite connections + WebSocket
+    //    handles synchronously, so the subsequent unlink doesn't race a
+    //    live writer (Phase 2B-1). The ref.onDispose callback in
+    //    PrismSyncHandleNotifier.build() also calls dispose(), but doing it
+    //    explicitly here orders it relative to the file delete instead of
+    //    relative to GC.
+    if (handle != null) {
+      syncFfi.disposeHandle(handle);
     }
 
-    // 3. Clear the biometric-gated DEK copy. This is stored under a separate
-    //    Secure Enclave ACL (iOS biometryCurrentSet / Android biometric
-    //    Keystore) and is invisible to the standard readAll() scan above, so
-    //    it must be cleared explicitly via BiometricService.
-    try {
-      await ref.read(biometricServiceProvider).clear();
-    } catch (e) {
-      _log('Biometric DEK clear failed (non-fatal): $e');
-    }
-
-    // 4. Delete the Rust sync database
+    // 4. Delete the Rust sync database files.
     try {
       final dir = await ref.read(resetDocumentsDirectoryProvider.future);
       final dbPath = p.join(dir.path, AppConstants.syncDatabaseName);
+      final observer = ref.read(resetFileDeleteObserverProvider);
       final file = File(dbPath);
-      if (await file.exists()) await file.delete();
+      if (await file.exists()) {
+        observer(dbPath);
+        await file.delete();
+      }
       // Also delete WAL/SHM files
       final wal = File('$dbPath-wal');
       final shm = File('$dbPath-shm');
@@ -386,24 +486,47 @@ class ResetDataNotifier extends AsyncNotifier<void> {
       _log('DB file delete failed (non-fatal): $e');
     }
 
-    // 5. Clear sync diagnostics that live in the main app database.
+    // 5. Wipe the prism_sync.* keychain namespace by prefix, excluding the
+    //    DB-encryption slots in `kProtectedFromReset`. Inclusion-by-prefix
+    //    catches transient pairing keys (`bootstrap_joiner_bundle`,
+    //    `pending_sync_id`, `registration_token`, etc.) that the old
+    //    static allow-list missed. See `kProtectedFromReset` doc for why
+    //    the `database_key*` slots survive a sync-only reset.
+    final storage = ref.read(resetSecureStoreProvider);
+    try {
+      final all = await storage.readAll();
+      for (final fullKey in all.keys) {
+        if (!fullKey.startsWith(prefix)) continue;
+        if (kProtectedFromReset.contains(fullKey)) continue;
+        try {
+          await storage.delete(fullKey);
+        } catch (e) {
+          _log('Keychain delete failed for $fullKey (non-fatal): $e');
+        }
+      }
+    } catch (e) {
+      _log('Keychain wipe-by-prefix failed (non-fatal): $e');
+    }
+
+    // 6. Clear the biometric-gated DEK copy. This is stored under a separate
+    //    Secure Enclave ACL (iOS biometryCurrentSet / Android biometric
+    //    Keystore) and is invisible to the standard readAll() scan above, so
+    //    it must be cleared explicitly via BiometricService.
+    try {
+      await ref.read(biometricServiceProvider).clear();
+    } catch (e) {
+      _log('Biometric DEK clear failed (non-fatal): $e');
+    }
+
+    // 7. Clear sync diagnostics that live in the main app database.
     await ref.read(syncQuarantineServiceProvider).clearAll();
     ref.invalidate(quarantinedItemsProvider);
 
-    // 6. Reset sync-group-scoped one-time flags so a fresh pairing can run the
+    // 8. Reset sync-group-scoped one-time flags so a fresh pairing can run the
     // catch-up/migration passes for the new group.
     await _clearSyncOneTimeFlags();
 
-    // 7. Dispose the old FFI handle before invalidating the provider.
-    //    dispose() eagerly drops the Rust-side Arc<Mutex<PrismSync>>,
-    //    releasing SQLite connections and WebSocket handles immediately
-    //    rather than waiting for Dart GC to collect the orphaned object.
-    //    The ref.onDispose callback in PrismSyncHandleNotifier.build()
-    //    also calls dispose(), but explicitly doing it here ensures the
-    //    old handle's resources are freed before build() creates a new one.
-    handle?.dispose();
-
-    // 8. Reset providers so UI reverts to setup state
+    // 9. Reset providers so UI reverts to setup state
     ref.invalidate(prismSyncHandleProvider);
     ref.invalidate(relayUrlProvider);
     ref.invalidate(syncIdProvider);

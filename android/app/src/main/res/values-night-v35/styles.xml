@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- See values-v35/styles.xml for rationale. Inherit AppCompat with no
+         overrides; uCrop and AndroidUiSettings drive the look. -->
+    <style name="PrismUCropTheme" parent="Theme.AppCompat.NoActionBar" />
+</resources>

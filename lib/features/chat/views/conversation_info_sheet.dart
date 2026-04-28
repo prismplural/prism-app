@@ -144,6 +144,23 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
     }
   }
 
+  Future<void> _unarchive(
+    String conversationId,
+    String? speakingAsMemberId,
+  ) async {
+    if (speakingAsMemberId == null) return;
+    await ref
+        .read(chatNotifierProvider.notifier)
+        .unarchiveConversation(conversationId, speakingAsMemberId);
+    if (mounted) {
+      PrismToast.success(
+        context,
+        message: context.l10n.chatInfoConversationUnarchived,
+      );
+      Navigator.of(context).pop();
+    }
+  }
+
   Future<void> _confirmLeave(
     Conversation conversation,
     ConversationPermissions permissions,
@@ -578,10 +595,25 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
     return Column(
       children: [
         if (permissions.canArchive)
-          PrismListRow(
-            leading: Icon(AppIcons.archiveOutlined),
-            title: Text(context.l10n.chatInfoArchiveConversation),
-            onTap: () => _archive(conversation.id, speakingAsMemberId),
+          Builder(
+            builder: (context) {
+              final isArchived =
+                  speakingAsMemberId != null &&
+                  conversation.archivedByMemberIds.contains(
+                    speakingAsMemberId,
+                  );
+              return PrismListRow(
+                leading: Icon(AppIcons.archiveOutlined),
+                title: Text(
+                  isArchived
+                      ? context.l10n.chatInfoUnarchiveConversation
+                      : context.l10n.chatInfoArchiveConversation,
+                ),
+                onTap: () => isArchived
+                    ? _unarchive(conversation.id, speakingAsMemberId)
+                    : _archive(conversation.id, speakingAsMemberId),
+              );
+            },
           ),
 
         // Leave

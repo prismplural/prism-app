@@ -952,23 +952,6 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get frontingActivityChartTitle => 'Actividad diaria';
-
-  @override
-  String frontingActivityChartAverageLabel(String hours) {
-    return 'Promedio $hours h/día';
-  }
-
-  @override
-  String frontingActivityChartSemantics(
-    String peakHours,
-    String peakDate,
-    String avgHours,
-  ) {
-    return 'Actividad diaria. Pico: $peakHours h el $peakDate. Promedio: $avgHours h por día.';
-  }
-
-  @override
   String get debugTitle => 'Depuración';
 
   @override
@@ -1154,10 +1137,16 @@ class AppLocalizationsEs extends AppLocalizations {
   String get systemInfoChangeAvatar => 'Cambiar avatar';
 
   @override
+  String get memberChangeAvatar => 'Cambiar avatar de integrante';
+
+  @override
   String get avatarCropTitle => 'Recortar avatar';
 
   @override
   String get systemInfoRemoveAvatar => 'Eliminar avatar';
+
+  @override
+  String get memberRemoveAvatar => 'Eliminar foto';
 
   @override
   String get systemInfoNameLabel => 'Nombre';
@@ -3156,6 +3145,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get chatInfoArchiveConversation => 'Archivar conversación';
 
   @override
+  String get chatInfoUnarchiveConversation => 'Desarchivar conversación';
+
+  @override
   String get chatInfoLeaveConversation => 'Salir de la conversación';
 
   @override
@@ -3163,6 +3155,9 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get chatInfoConversationArchived => 'Conversación archivada';
+
+  @override
+  String get chatInfoConversationUnarchived => 'Conversación desarchivada';
 
   @override
   String chatInfoFailedSaveTitle(Object error) {
@@ -5954,7 +5949,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get dataManagementPasswordHint =>
-      'Usa una frase de 15+ palabras para mayor protección';
+      'Al menos 12 caracteres — una frase larga es mejor';
 
   @override
   String get dataManagementShowPassword => 'Mostrar contraseña';
@@ -7307,6 +7302,55 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get mnemonicFieldInvalidQr =>
       'Código QR no válido. Escanea una frase de recuperación de 12 palabras.';
+
+  @override
+  String get mnemonicFieldCameraPermissionTitle =>
+      'Permiso de cámara necesario';
+
+  @override
+  String get mnemonicFieldCameraPermissionDeniedBody =>
+      'Prism necesita la cámara para escanear tu código QR de recuperación. Intenta de nuevo y permite el acceso a la cámara cuando se solicite.';
+
+  @override
+  String get mnemonicFieldCameraPermissionPermanentlyDeniedBody =>
+      'El acceso a la cámara está bloqueado. Abre Ajustes para conceder el permiso de cámara a Prism y vuelve a intentarlo.';
+
+  @override
+  String get mnemonicFieldCameraPermissionOpenSettings => 'Abrir Ajustes';
+
+  @override
+  String get pluralkitAutoSyncSection => 'Auto-sincronización';
+
+  @override
+  String get pluralkitAutoSyncTitle => 'Obtener cambios automáticamente';
+
+  @override
+  String get pluralkitAutoSyncDescription =>
+      'Mientras Prism esté abierto, consulta PluralKit para ver nuevos cambios de frente cada cierto intervalo. Se pausa en segundo plano.';
+
+  @override
+  String get pluralkitAutoSyncIntervalLabel => 'Consultar cada';
+
+  @override
+  String get pluralkitAutoSyncLoadFailed =>
+      'No se pudieron cargar los ajustes de auto-sincronización.';
+
+  @override
+  String get pluralkitRerunMemberMapping => 'Volver a vincular integrantes';
+
+  @override
+  String get pluralkitImportFromFile => 'Importar desde archivo pk;export';
+
+  @override
+  String get pluralkitMappingBannerTitle =>
+      'Un paso más: vincula a tus integrantes';
+
+  @override
+  String get pluralkitMappingBannerBody =>
+      'Estás conectado. Antes de activar la sincronización, empareja cada integrante de PluralKit con un integrante de Prism — o impórtalos como nuevos. Esto evita duplicados y mantiene el historial de fronts ligado a la persona correcta.';
+
+  @override
+  String get pluralkitMappingBannerButton => 'Vincular integrantes';
 
   @override
   String get sleepWakeUpMorning => '¡Buenos días!';

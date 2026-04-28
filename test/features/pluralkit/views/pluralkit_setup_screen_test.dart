@@ -21,15 +21,38 @@ import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import '../../../helpers/fake_repositories.dart';
 
 class _StaticPluralKitSyncNotifier extends PluralKitSyncNotifier {
-  _StaticPluralKitSyncNotifier(this._state);
+  _StaticPluralKitSyncNotifier(
+    this._state, {
+    this.syncRecentDataCompleter,
+    this.syncStateAfterManualSync,
+  });
 
   final PluralKitSyncState _state;
+  final Completer<PkSyncSummary?>? syncRecentDataCompleter;
+  final PluralKitSyncState? syncStateAfterManualSync;
 
   @override
   PluralKitSyncState build() => _state;
 
   @override
   Future<void> performFullImport() async {}
+
+  @override
+  Future<PkSyncSummary?> syncRecentData({
+    bool isManual = false,
+    PkSyncDirection direction = PkSyncDirection.pullOnly,
+  }) {
+    final completer = syncRecentDataCompleter;
+    final nextState = syncStateAfterManualSync;
+    if (completer != null) {
+      return completer.future.then((summary) {
+        if (nextState != null) state = nextState;
+        return summary;
+      });
+    }
+    if (nextState != null) state = nextState;
+    return Future.value(null);
+  }
 }
 
 class _StaticPkGroupRepairController extends PkGroupRepairController {
@@ -432,5 +455,150 @@ void main() {
       );
       await _dismissToast(tester);
     });
+  });
+
+  group('PluralKitSetupScreen sync lifecycle', () {
+    testWidgets(
+      'does not throw when screen is disposed mid-syncRecent',
+      (tester) async {
+        // Make sure the test has a large enough surface so the sync-recent
+        // button renders without needing a scroll.
+        await tester.binding.setSurfaceSize(const Size(600, 2400));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        final settingsRepository = _TrackingSystemSettingsRepository();
+        final syncCompleter = Completer<PkSyncSummary?>();
+        final syncNotifier = _StaticPluralKitSyncNotifier(
+          const PluralKitSyncState(isConnected: true),
+          syncRecentDataCompleter: syncCompleter,
+        );
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              systemSettingsRepositoryProvider.overrideWithValue(
+                settingsRepository,
+              ),
+              systemSettingsProvider.overrideWith(
+                (ref) => Stream.value(settingsRepository.settings),
+              ),
+              pluralKitSyncProvider.overrideWith(() => syncNotifier),
+              pkSyncDirectionProvider.overrideWith(
+                _StaticPkSyncDirectionNotifier.new,
+              ),
+              pkGroupRepairControllerProvider.overrideWith(
+                () => _StaticPkGroupRepairController(
+                  const PkGroupRepairState(lastReport: _completedRepairReport),
+                ),
+              ),
+              pkGroupRepairHasStoredTokenProvider.overrideWith(
+                (ref) async => true,
+              ),
+              pkGroupRepairBootstrapProvider.overrideWith((ref) => null),
+              pkGroupResetServiceProvider.overrideWithValue(
+                _TrackingPkGroupResetService(),
+              ),
+            ],
+            child: const MaterialApp(
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: [Locale('en')],
+              home: PrismToastHost(child: PluralKitSetupScreen()),
+            ),
+          ),
+        );
+        // The PK spinner widgets keep re-pumping, so `pumpAndSettle` loops
+        // forever. A handful of microtask pumps is enough for the stream
+        // values to flow through to the build.
+        await tester.pump();
+        await tester.pump();
+        await tester.pump();
+
+        // Start the sync-recent flow via the sync-recent button.
+        final syncButton = find.text('Sync Recent Changes');
+        expect(syncButton, findsOneWidget);
+        await tester.tap(syncButton);
+        await tester.pump();
+
+        // Replace the widget tree to dispose the PluralKitSetupScreen mid-sync.
+        await tester.pumpWidget(const MaterialApp(home: SizedBox.shrink()));
+        await tester.pump();
+
+        // Complete the pending sync future. The disposed state must not call
+        // setState or touch ref without a `mounted` guard.
+        syncCompleter.complete(null);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'does not throw when disposed while sync cooldown timer is active',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(600, 2400));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        final settingsRepository = _TrackingSystemSettingsRepository();
+        final syncNotifier = _StaticPluralKitSyncNotifier(
+          const PluralKitSyncState(isConnected: true),
+          syncStateAfterManualSync: PluralKitSyncState(
+            isConnected: true,
+            lastManualSyncDate: DateTime.now(),
+          ),
+        );
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              systemSettingsRepositoryProvider.overrideWithValue(
+                settingsRepository,
+              ),
+              systemSettingsProvider.overrideWith(
+                (ref) => Stream.value(settingsRepository.settings),
+              ),
+              pluralKitSyncProvider.overrideWith(() => syncNotifier),
+              pkSyncDirectionProvider.overrideWith(
+                _StaticPkSyncDirectionNotifier.new,
+              ),
+              pkGroupRepairControllerProvider.overrideWith(
+                () => _StaticPkGroupRepairController(
+                  const PkGroupRepairState(lastReport: _completedRepairReport),
+                ),
+              ),
+              pkGroupRepairHasStoredTokenProvider.overrideWith(
+                (ref) async => true,
+              ),
+              pkGroupRepairBootstrapProvider.overrideWith((ref) => null),
+              pkGroupResetServiceProvider.overrideWithValue(
+                _TrackingPkGroupResetService(),
+              ),
+            ],
+            child: const MaterialApp(
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: [Locale('en')],
+              home: PrismToastHost(child: PluralKitSetupScreen()),
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pump();
+        await tester.pump();
+
+        final syncButton = find.text('Sync Recent Changes');
+        expect(syncButton, findsOneWidget);
+        await tester.tap(syncButton);
+        await tester.pump();
+        await tester.pump();
+
+        expect(find.textContaining('Sync Recent Changes ('), findsOneWidget);
+
+        await tester.pumpWidget(const MaterialApp(home: SizedBox.shrink()));
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 2));
+
+        expect(tester.takeException(), isNull);
+      },
+    );
   });
 }

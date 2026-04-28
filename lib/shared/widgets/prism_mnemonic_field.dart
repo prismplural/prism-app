@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import 'package:prism_plurality/core/crypto/bip39_english_wordlist.dart';
@@ -15,6 +16,43 @@ import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/glass_surface.dart';
 import 'package:prism_plurality/shared/widgets/secure_scope.dart';
+
+/// Outcome of a pre-scan camera permission probe.
+@visibleForTesting
+enum CameraPermissionOutcome {
+  /// User has previously granted or just granted camera access.
+  granted,
+
+  /// User denied this request. Pre-scan UI should show a retry action.
+  denied,
+
+  /// User permanently denied or the platform restricted access. Pre-scan UI
+  /// should show an "Open settings" action.
+  permanentlyDenied,
+}
+
+/// Injectable camera permission probe. Production code uses the
+/// `permission_handler` plugin; tests substitute a deterministic stub.
+@visibleForTesting
+typedef CameraPermissionChecker = Future<CameraPermissionOutcome> Function();
+
+Future<CameraPermissionOutcome> _defaultCameraPermissionChecker() async {
+  final current = await Permission.camera.status;
+  if (current.isGranted || current.isLimited) {
+    return CameraPermissionOutcome.granted;
+  }
+  if (current.isPermanentlyDenied || current.isRestricted) {
+    return CameraPermissionOutcome.permanentlyDenied;
+  }
+  final result = await Permission.camera.request();
+  if (result.isGranted || result.isLimited) {
+    return CameraPermissionOutcome.granted;
+  }
+  if (result.isPermanentlyDenied || result.isRestricted) {
+    return CameraPermissionOutcome.permanentlyDenied;
+  }
+  return CameraPermissionOutcome.denied;
+}
 
 /// A 12-word BIP39 recovery phrase input rendered as a 2×6 grid of individual
 /// word slots. Focuses automatically advance slot-to-slot on space or suggestion
@@ -31,6 +69,8 @@ class PrismMnemonicField extends StatefulWidget {
     this.autofocus = false,
     this.onSubmitted,
     this.hintText,
+    @visibleForTesting this.cameraPermissionChecker,
+    @visibleForTesting this.openAppSettingsOverride,
   });
 
   final TextEditingController controller;
@@ -41,6 +81,12 @@ class PrismMnemonicField extends StatefulWidget {
 
   /// Unused in the grid layout; kept for API compatibility.
   final String? hintText;
+
+  /// Test hook: deterministic permission probe replacement.
+  final CameraPermissionChecker? cameraPermissionChecker;
+
+  /// Test hook: substitute for `permission_handler`'s `openAppSettings()`.
+  final Future<bool> Function()? openAppSettingsOverride;
 
   /// Normalize raw user input to canonical BIP39 form:
   /// trimmed, lowercased, single-space-delimited.
@@ -328,6 +374,28 @@ class _PrismMnemonicFieldState extends State<PrismMnemonicField> {
 
   Future<void> _scanQrCode() async {
     if (!mounted) return;
+
+    // Probe camera permission up front so we can show a clear explanation
+    // instead of falling into the scanner's blank-preview / plugin-error state
+    // when access is denied or restricted.
+    final checker = widget.cameraPermissionChecker ??
+        _defaultCameraPermissionChecker;
+    final outcome = await checker();
+    if (!mounted) return;
+
+    if (outcome == CameraPermissionOutcome.denied ||
+        outcome == CameraPermissionOutcome.permanentlyDenied) {
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => _CameraPermissionDialog(
+          outcome: outcome,
+          openSettings:
+              widget.openAppSettingsOverride ?? openAppSettings,
+        ),
+      );
+      return;
+    }
+
     final scannedMnemonic = await showDialog<String>(
       context: context,
       builder: (context) => const _MnemonicQrScannerDialog(),
@@ -673,6 +741,78 @@ class _MnemonicQrScannerDialogState extends State<_MnemonicQrScannerDialog> {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CameraPermissionDialog extends StatelessWidget {
+  const _CameraPermissionDialog({
+    required this.outcome,
+    required this.openSettings,
+  });
+
+  final CameraPermissionOutcome outcome;
+  final Future<bool> Function() openSettings;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = context.l10n;
+    final permanently = outcome == CameraPermissionOutcome.permanentlyDenied;
+    return Dialog(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              l10n.mnemonicFieldCameraPermissionTitle,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              permanently
+                  ? l10n.mnemonicFieldCameraPermissionPermanentlyDeniedBody
+                  : l10n.mnemonicFieldCameraPermissionDeniedBody,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Text(l10n.cancel),
+                ),
+                const SizedBox(width: 8),
+                if (permanently)
+                  FilledButton(
+                    onPressed: () async {
+                      await openSettings();
+                      if (!context.mounted) return;
+                      Navigator.of(context).pop();
+                    },
+                    child: Text(
+                      l10n.mnemonicFieldCameraPermissionOpenSettings,
+                    ),
+                  )
+                else
+                  FilledButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: Text(l10n.close),
+                  ),
+              ],
+            ),
+          ],
         ),
       ),
     );

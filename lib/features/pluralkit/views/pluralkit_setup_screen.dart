@@ -69,8 +69,13 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
     final remaining = 60 - elapsed;
     if (remaining <= 0) return;
 
+    if (!mounted) return;
     setState(() => _cooldownSeconds = remaining);
     _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
       setState(() {
         _cooldownSeconds--;
         if (_cooldownSeconds <= 0) {
@@ -177,6 +182,7 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
     final summary = await ref
         .read(pluralKitSyncProvider.notifier)
         .syncRecentData(isManual: true, direction: direction);
+    if (!mounted) return;
     if (summary != null) {
       ref.read(pkLastSyncSummaryProvider.notifier).set(summary);
     }
@@ -677,8 +683,7 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
           // -- Section 2b: Auto-poll --
           if (syncState.canAutoSync) ...[
             const SizedBox(height: 24),
-            // TODO(l10n)
-            const _SectionHeader(title: 'Auto-sync'),
+            _SectionHeader(title: context.l10n.pluralkitAutoSyncSection),
             const SizedBox(height: 8),
             _buildAutoPollSection(theme),
           ],
@@ -694,8 +699,7 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
               _buildSyncActions(syncState, theme),
             const SizedBox(height: 8),
             PrismButton(
-              // TODO(l10n)
-              label: 'Re-run member mapping',
+              label: context.l10n.pluralkitRerunMemberMapping,
               onPressed: _openMappingScreen,
               icon: AppIcons.people,
               tone: PrismButtonTone.outlined,
@@ -826,8 +830,7 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
           PrismButton(
             onPressed: _importFromFile,
             icon: AppIcons.fileUploadOutlined,
-            // TODO(l10n)
-            label: 'Import from pk;export file',
+            label: context.l10n.pluralkitImportFromFile,
             tone: PrismButtonTone.outlined,
             expanded: true,
           ),
@@ -889,8 +892,7 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
         PrismButton(
           onPressed: _importFromFile,
           icon: AppIcons.fileUploadOutlined,
-          // TODO(l10n)
-          label: 'Import from pk;export file',
+          label: context.l10n.pluralkitImportFromFile,
           tone: PrismButtonTone.outlined,
           expanded: true,
           enabled: !syncState.isSyncing,
@@ -987,8 +989,7 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  // TODO(l10n)
-                  'One more step: link your members',
+                  context.l10n.pluralkitMappingBannerTitle,
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
@@ -998,11 +999,7 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            // TODO(l10n)
-            "You're connected. Before sync turns on, match each PluralKit "
-            'member to a member in Prism — or import them as new. This '
-            'prevents duplicates and keeps switch history attached to the '
-            'right person.',
+            context.l10n.pluralkitMappingBannerBody,
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -1011,8 +1008,7 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
           PrismButton(
             onPressed: _openMappingScreen,
             icon: AppIcons.link,
-            // TODO(l10n)
-            label: 'Link members',
+            label: context.l10n.pluralkitMappingBannerButton,
             tone: PrismButtonTone.filled,
             expanded: true,
           ),
@@ -1061,7 +1057,7 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
           ),
         ),
         error: (e, _) => Text(
-          'Could not load auto-sync settings.',
+          context.l10n.pluralkitAutoSyncLoadFailed,
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.error,
           ),
@@ -1076,15 +1072,14 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Pull new switches automatically',
+                        context.l10n.pluralkitAutoSyncTitle,
                         style: theme.textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'While Prism is open, check PluralKit for new '
-                        'switches on an interval. Pauses in the background.',
+                        context.l10n.pluralkitAutoSyncDescription,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -1105,7 +1100,10 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
             ),
             if (settings.enabled) ...[
               const SizedBox(height: 12),
-              Text('Check every', style: theme.textTheme.labelLarge),
+              Text(
+                context.l10n.pluralkitAutoSyncIntervalLabel,
+                style: theme.textTheme.labelLarge,
+              ),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,

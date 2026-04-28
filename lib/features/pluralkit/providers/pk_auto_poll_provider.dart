@@ -169,6 +169,7 @@ class PkAutoPollNotifier extends Notifier<void> {
       }
       final pkState = ref.read(pluralKitSyncProvider);
       if (!pkState.canAutoSync) return;
+      if (pkState.isSyncing) return;
 
       await ref.read(pluralKitSyncServiceProvider).pollFrontersOnly();
     } catch (e) {

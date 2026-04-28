@@ -169,6 +169,70 @@ class AppShellMobileNavLayout {
   );
 }
 
+/// Cheap signature for [computeAdaptiveMobileNavLayout] inputs. Built from
+/// the values that influence label measurement: bar width, the label strings,
+/// text scale, text direction, and the label style height (font size +
+/// weight). Two signatures that compare equal produce identical layouts, so
+/// we can skip the ~20-30 `TextPainter.layout()` calls the function performs.
+@immutable
+class _NavLayoutSignature {
+  const _NavLayoutSignature({
+    required this.barWidth,
+    required this.primaryLabels,
+    required this.overflowLabels,
+    required this.textScaleFactor,
+    required this.textDirection,
+    required this.fontSize,
+    required this.fontWeight,
+  });
+
+  final double barWidth;
+  final List<String> primaryLabels;
+  final List<String> overflowLabels;
+  final double textScaleFactor;
+  final TextDirection textDirection;
+  final double fontSize;
+  final FontWeight fontWeight;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is _NavLayoutSignature &&
+        other.barWidth == barWidth &&
+        other.textScaleFactor == textScaleFactor &&
+        other.textDirection == textDirection &&
+        other.fontSize == fontSize &&
+        other.fontWeight == fontWeight &&
+        _listEquals(other.primaryLabels, primaryLabels) &&
+        _listEquals(other.overflowLabels, overflowLabels);
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        barWidth,
+        textScaleFactor,
+        textDirection,
+        fontSize,
+        fontWeight,
+        Object.hashAll(primaryLabels),
+        Object.hashAll(overflowLabels),
+      );
+
+  static bool _listEquals(List<String> a, List<String> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+}
+
+/// Counter incremented inside [computeAdaptiveMobileNavLayout] for every
+/// call that does not hit the memoization cache. Tests read this to assert
+/// that repeated rebuilds with identical inputs reuse the cached layout.
+@visibleForTesting
+int debugAdaptiveMobileNavLayoutComputeCount = 0;
+
 AppShellMobileNavLayout computeAdaptiveMobileNavLayout({
   required double barWidth,
   required List<AppShellTab> primaryTabs,
@@ -181,6 +245,8 @@ AppShellMobileNavLayout computeAdaptiveMobileNavLayout({
 }) {
   assert(primaryTabs.length == primaryLabels.length);
   assert(overflowTabs.length == overflowLabels.length);
+
+  debugAdaptiveMobileNavLayoutComputeCount++;
 
   final spec = computeNavBarLayoutSpec(
     barWidth: barWidth,
@@ -331,6 +397,52 @@ class _AppShellState extends ConsumerState<AppShell>
   bool _navExpanded = false;
   final _navBarKey = GlobalKey<_FloatingNavBarState>();
   DateTime? _backgroundedAt;
+
+  // Memoized mobile nav layout. Cached across rebuilds triggered by unrelated
+  // providers (sync health, badge counts, theme) so we don't re-run the ~20-30
+  // `TextPainter.layout()` calls in `computeAdaptiveMobileNavLayout` every
+  // frame. Invalidated automatically when the signature changes (label set,
+  // text scale, locale, bar width).
+  _NavLayoutSignature? _cachedNavLayoutSignature;
+  AppShellMobileNavLayout? _cachedNavLayout;
+
+  AppShellMobileNavLayout _memoizedMobileNavLayout({
+    required double barWidth,
+    required List<AppShellTab> primaryTabs,
+    required List<AppShellTab> overflowTabs,
+    required List<String> primaryLabels,
+    required List<String> overflowLabels,
+    required TextStyle labelStyle,
+    required TextScaler textScaler,
+    required TextDirection textDirection,
+  }) {
+    final signature = _NavLayoutSignature(
+      barWidth: barWidth,
+      primaryLabels: primaryLabels,
+      overflowLabels: overflowLabels,
+      textScaleFactor: textScaler.scale(1),
+      textDirection: textDirection,
+      fontSize: labelStyle.fontSize ?? 12.0,
+      fontWeight: labelStyle.fontWeight ?? FontWeight.w500,
+    );
+    final cached = _cachedNavLayout;
+    if (cached != null && _cachedNavLayoutSignature == signature) {
+      return cached;
+    }
+    final layout = computeAdaptiveMobileNavLayout(
+      barWidth: barWidth,
+      primaryTabs: primaryTabs,
+      overflowTabs: overflowTabs,
+      primaryLabels: primaryLabels,
+      overflowLabels: overflowLabels,
+      labelStyle: labelStyle,
+      textScaler: textScaler,
+      textDirection: textDirection,
+    );
+    _cachedNavLayoutSignature = signature;
+    _cachedNavLayout = layout;
+    return layout;
+  }
 
   @override
   void initState() {
@@ -548,7 +660,7 @@ class _AppShellState extends ConsumerState<AppShell>
         0.0,
         width - (kFloatingNavBarSideMargin * 2),
       );
-      final mobileLayout = computeAdaptiveMobileNavLayout(
+      final mobileLayout = _memoizedMobileNavLayout(
         barWidth: navBarWidth,
         primaryTabs: configuredPrimaryTabs,
         overflowTabs: configuredOverflowTabs,
@@ -1063,6 +1175,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                                         return Expanded(
                                           child: _NavBarItem(
                                             tab: tab,
+                                            terminologyPlural: terms.plural,
                                             isSelected: isSelected,
                                             accentColor: widget.accentColor,
                                             isDark: isDark,
@@ -1107,7 +1220,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
   Widget _buildOverflowSlot({
     required ({int index, AppShellTab tab})? slot,
     required double expandProgress,
-    required String? terminologyPlural,
+    required String terminologyPlural,
     required bool isDark,
     required bool showSyncBadge,
     required int dueCount,
@@ -1149,7 +1262,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
   Widget _buildOverflowRow({
     required List<({int index, AppShellTab tab})?> slots,
     required double expandProgress,
-    required String? terminologyPlural,
+    required String terminologyPlural,
     required bool isDark,
     required bool showSyncBadge,
     required int dueCount,
@@ -1403,7 +1516,7 @@ class _MoreTrigger extends StatelessWidget {
 class _NavBarItem extends StatelessWidget {
   const _NavBarItem({
     required this.tab,
-    this.terminologyPlural,
+    required this.terminologyPlural,
     required this.isSelected,
     required this.accentColor,
     required this.isDark,
@@ -1416,7 +1529,7 @@ class _NavBarItem extends StatelessWidget {
   });
 
   final AppShellTab tab;
-  final String? terminologyPlural;
+  final String terminologyPlural;
   final bool isSelected;
   final Color accentColor;
   final bool isDark;

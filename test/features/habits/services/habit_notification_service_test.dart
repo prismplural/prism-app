@@ -114,7 +114,7 @@ Habit _habit({
 
 /// Computes the expected base notification ID for a given habit ID.
 /// Mirrors the private _baseId logic in HabitNotificationService.
-int _expectedBaseId(String id) => 3000 + (id.hashCode.abs() % 10000);
+int _expectedBaseId(String id) => 3000000 + (id.hashCode.abs() % 100000);
 
 // ── Tests ──────────────────────────────────────────────────────────────────────
 

@@ -110,4 +110,31 @@ void main() {
     expect(find.byType(MemberSearchSheet), findsOneWidget);
     expect(find.text('Cluster'), findsOneWidget);
   });
+
+  testWidgets(
+    'speaking-as popup Search row closes popup and shows sheet without '
+    'Flutter errors (regression: BuildContext-after-await guard)',
+    (tester) async {
+      await tester.pumpWidget(buildSubject());
+      await tester.pumpAndSettle();
+
+      // Open the blur popup, then tap the "Search" row. The production code
+      // captures the parent BuildContext before `close()` + `await` so that
+      // the mounted-guarded MemberSearchSheet.showSingle call does not hit
+      // a deactivated popup context.
+      await tester.tap(find.byType(BlurPopupAnchor).first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Search'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(MemberSearchSheet), findsOneWidget);
+      expect(
+        tester.takeException(),
+        isNull,
+        reason:
+            'closing the blur popup and awaiting the member search sheet '
+            'must not produce any Flutter framework exceptions',
+      );
+    },
+  );
 }

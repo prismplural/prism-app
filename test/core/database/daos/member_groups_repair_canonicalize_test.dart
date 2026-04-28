@@ -1,33 +1,10 @@
-import 'dart:convert';
-
-import 'package:crypto/crypto.dart';
 import 'package:drift/drift.dart' hide isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/core/database/app_database.dart';
 
-MemberGroupEntriesCompanion _entry({
-  required String id,
-  required String groupId,
-  required String memberId,
-  String? pkGroupUuid,
-  String? pkMemberUuid,
-  bool isDeleted = false,
-}) => MemberGroupEntriesCompanion.insert(
-  id: id,
-  groupId: groupId,
-  memberId: memberId,
-  pkGroupUuid: Value(pkGroupUuid),
-  pkMemberUuid: Value(pkMemberUuid),
-  isDeleted: Value(isDeleted),
-);
-
-String _canonicalEntryId(String pkGroupUuid, String pkMemberUuid) {
-  final joined = '$pkGroupUuid\x00$pkMemberUuid';
-  final digest = sha256.convert(utf8.encode(joined));
-  return digest.toString().substring(0, 16);
-}
+import '../../../helpers/pk_fixtures.dart';
 
 void main() {
   late AppDatabase db;
@@ -43,12 +20,12 @@ void main() {
     () async {
       const pkGroupUuid = 'pk-group-1';
       const pkMemberUuid = 'pk-member-a';
-      final canonical = _canonicalEntryId(pkGroupUuid, pkMemberUuid);
+      final canonical = pkFixtureCanonicalEntryId(pkGroupUuid, pkMemberUuid);
 
       await db
           .into(db.memberGroupEntries)
           .insert(
-            _entry(
+            pkFixtureEntry(
               id: 'random-legacy',
               groupId: 'group-a',
               memberId: 'member-a',
@@ -84,14 +61,14 @@ void main() {
     () async {
       const pkGroupUuid = 'pk-group-1';
       const pkMemberUuid = 'pk-member-a';
-      final canonical = _canonicalEntryId(pkGroupUuid, pkMemberUuid);
+      final canonical = pkFixtureCanonicalEntryId(pkGroupUuid, pkMemberUuid);
 
       // Seed a legacy-id active row and a tombstoned canonical row for the
       // same logical edge.
       await db
           .into(db.memberGroupEntries)
           .insert(
-            _entry(
+            pkFixtureEntry(
               id: 'random-legacy',
               groupId: 'group-a',
               memberId: 'member-a',
@@ -102,7 +79,7 @@ void main() {
       await db
           .into(db.memberGroupEntries)
           .insert(
-            _entry(
+            pkFixtureEntry(
               id: canonical,
               groupId: 'group-a',
               memberId: 'member-a',
@@ -155,7 +132,7 @@ void main() {
     await db
         .into(db.memberGroupEntries)
         .insert(
-          _entry(
+          pkFixtureEntry(
             id: 'random-legacy',
             groupId: 'group-a',
             memberId: 'member-a',
@@ -181,12 +158,12 @@ void main() {
       await db
           .into(db.memberGroupEntries)
           .insert(
-            _entry(id: 'plain-entry', groupId: 'group-a', memberId: 'member-a'),
+            pkFixtureEntry(id: 'plain-entry', groupId: 'group-a', memberId: 'member-a'),
           );
       await db
           .into(db.memberGroupEntries)
           .insert(
-            _entry(
+            pkFixtureEntry(
               id: 'group-only-entry',
               groupId: 'group-a',
               memberId: 'member-b',
@@ -196,7 +173,7 @@ void main() {
       await db
           .into(db.memberGroupEntries)
           .insert(
-            _entry(
+            pkFixtureEntry(
               id: 'member-only-entry',
               groupId: 'group-a',
               memberId: 'member-c',
@@ -232,12 +209,12 @@ void main() {
     () async {
       const pkGroupUuid = 'pk-group-1';
       const pkMemberUuid = 'pk-member-a';
-      final canonical = _canonicalEntryId(pkGroupUuid, pkMemberUuid);
+      final canonical = pkFixtureCanonicalEntryId(pkGroupUuid, pkMemberUuid);
 
       await db
           .into(db.memberGroupEntries)
           .insert(
-            _entry(
+            pkFixtureEntry(
               id: canonical,
               groupId: 'group-a',
               memberId: 'member-a',
@@ -265,12 +242,12 @@ void main() {
     () async {
       const pkGroupUuid = 'pk-group-1';
       const pkMemberUuid = 'pk-member-a';
-      final canonical = _canonicalEntryId(pkGroupUuid, pkMemberUuid);
+      final canonical = pkFixtureCanonicalEntryId(pkGroupUuid, pkMemberUuid);
 
       await db
           .into(db.memberGroupEntries)
           .insert(
-            _entry(
+            pkFixtureEntry(
               id: canonical,
               groupId: 'group-a',
               memberId: 'member-a',
@@ -281,7 +258,7 @@ void main() {
       await db
           .into(db.memberGroupEntries)
           .insert(
-            _entry(
+            pkFixtureEntry(
               id: 'random-legacy',
               groupId: 'group-b',
               memberId: 'member-b',
@@ -316,7 +293,7 @@ void main() {
         await db
             .into(db.memberGroupEntries)
             .insert(
-              _entry(
+              pkFixtureEntry(
                 id: 'legacy-$i',
                 groupId: 'group-${i % 20}',
                 memberId: 'member-$i',

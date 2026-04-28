@@ -31,6 +31,7 @@ class CompleteHabitSheet extends ConsumerStatefulWidget {
 class _CompleteHabitSheetState extends ConsumerState<CompleteHabitSheet> {
   late DateTime _completedAt;
   String? _completedByMemberId;
+  bool _completedByMemberWasEdited = false;
   final _notesController = TextEditingController();
   int? _rating;
 
@@ -38,9 +39,8 @@ class _CompleteHabitSheetState extends ConsumerState<CompleteHabitSheet> {
   void initState() {
     super.initState();
     _completedAt = DateTime.now();
-    // Pre-select the current fronter if already loaded. The fronting provider
-    // is always streaming (home tab is mounted), so this sync read reliably
-    // picks up the cached value without waiting for an async rebuild.
+    // Pre-select immediately when the current fronter is already cached; the
+    // build listener below fills it in later if the stream is still loading.
     _completedByMemberId = ref.read(currentFronterProvider).value?.id;
   }
 
@@ -52,6 +52,15 @@ class _CompleteHabitSheetState extends ConsumerState<CompleteHabitSheet> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(currentFronterProvider, (_, next) {
+      final currentFronter = next.value;
+      if (_completedByMemberWasEdited ||
+          _completedByMemberId != null ||
+          currentFronter == null) {
+        return;
+      }
+      setState(() => _completedByMemberId = currentFronter.id);
+    });
     ref.watch(currentFronterProvider); // keep provider warm for _save()
     final theme = Theme.of(context);
 
@@ -89,7 +98,10 @@ class _CompleteHabitSheetState extends ConsumerState<CompleteHabitSheet> {
                 label: context.l10n.habitsCompletedBy,
                 selectedMemberId: _completedByMemberId,
                 includeUnknown: true,
-                onSelected: (v) => setState(() => _completedByMemberId = v),
+                onSelected: (v) => setState(() {
+                  _completedByMemberWasEdited = true;
+                  _completedByMemberId = v;
+                }),
               ),
 
               const SizedBox(height: 24),

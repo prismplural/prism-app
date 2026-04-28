@@ -36,6 +36,7 @@ abstract class Member with _$Member {
     String? displayName,
     String? birthday,
     String? proxyTagsJson,
+    String? pkBannerUrl,
     @Default(false) bool pluralkitSyncIgnored,
     // Plan 02 (PK deletion push). Set by the repo when a PK-linked member is
     // soft-deleted; consumed only by the PK push path. `isDeleted` is mirrored
