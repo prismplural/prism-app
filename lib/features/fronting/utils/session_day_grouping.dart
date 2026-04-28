@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/shared/extensions/datetime_extensions.dart';
 
@@ -80,7 +79,6 @@ List<DayGroup> groupSessionsByDay(List<FrontingSession> sessions) {
 /// A session from 11 PM to 2 AM becomes two slices:
 ///   Day 1: 11:00 PM – 12:00 AM (continuesNextDay)
 ///   Day 2: 12:00 AM – 2:00 AM (isContinuation)
-@visibleForTesting
 List<DisplaySession> splitAtMidnight(FrontingSession session) {
   final end = session.endTime ?? DateTime.now();
   final startDay = DateTime(
