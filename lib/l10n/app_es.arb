@@ -2119,5 +2119,211 @@
   "migrationWarnCfSleepDedup": "{count, plural, =1{1 entrada de sueño duplicada de SP se combinó.} other{{count} entradas de sueño duplicadas de SP se combinaron.}}",
   "@migrationWarnCfSleepDedup": {
     "placeholders": { "count": { "type": "int" } }
+  },
+  "frontingUpgradeTitle": "Actualización del frente",
+  "@frontingUpgradeTitle": {
+    "description": "Title bar of the per-member fronting upgrade modal"
+  },
+  "frontingUpgradeIntroHeadline": "Estamos actualizando cómo se guarda el frente",
+  "@frontingUpgradeIntroHeadline": {
+    "description": "Intro screen headline"
+  },
+  "frontingUpgradeIntroBody": "El co-frente ahora usa un registro por integrante en lugar de un único registro compartido. Esto hace que los solapamientos, las ediciones y las estadísticas funcionen correctamente. Primero guardaremos una copia de seguridad de tus datos actuales y luego haremos la actualización.",
+  "@frontingUpgradeIntroBody": {
+    "description": "Intro screen body explaining the upgrade"
+  },
+  "frontingUpgradeContinue": "Continuar",
+  "@frontingUpgradeContinue": {
+    "description": "Primary continue button on the intro screen"
+  },
+  "frontingUpgradeNotNow": "Ahora no",
+  "@frontingUpgradeNotNow": {
+    "description": "Secondary defer button on the intro screen"
+  },
+  "frontingUpgradeRoleHeadline": "¿Este es tu dispositivo principal?",
+  "@frontingUpgradeRoleHeadline": {
+    "description": "Role-selection screen headline"
+  },
+  "frontingUpgradeRoleBody": "Tu dispositivo principal conserva todo tu historial de frente. Los otros dispositivos tendrán que vincularse de nuevo después y descargar el historial migrado desde el dispositivo principal.",
+  "@frontingUpgradeRoleBody": {
+    "description": "Role-selection screen body"
+  },
+  "frontingUpgradeRolePrimary": "Sí, este es mi dispositivo principal",
+  "@frontingUpgradeRolePrimary": {
+    "description": "Primary-role button"
+  },
+  "frontingUpgradeRoleSecondary": "No, este es un dispositivo secundario",
+  "@frontingUpgradeRoleSecondary": {
+    "description": "Secondary-role button"
+  },
+  "frontingUpgradeModeHeadline": "¿Cómo deberíamos hacer la actualización?",
+  "@frontingUpgradeModeHeadline": {
+    "description": "Mode-picker screen headline"
+  },
+  "frontingUpgradeModeKeepTitle": "Conservar mis datos",
+  "@frontingUpgradeModeKeepTitle": {
+    "description": "Mode card: upgradeAndKeep title"
+  },
+  "frontingUpgradeModeKeepBody": "Tus frentes existentes se conservan. Los frentes importados desde PluralKit se volverán a importar con la nueva estructura en la próxima sincronización con PluralKit.",
+  "@frontingUpgradeModeKeepBody": {
+    "description": "Mode card: upgradeAndKeep body"
+  },
+  "frontingUpgradeModeFreshTitle": "Empezar desde cero",
+  "@frontingUpgradeModeFreshTitle": {
+    "description": "Mode card: startFresh title"
+  },
+  "frontingUpgradeModeFreshBody": "Se borran todos los frentes. Útil si tu historial de frente está desordenado y quieres partir de cero. De todas formas se crea un archivo de copia de seguridad.",
+  "@frontingUpgradeModeFreshBody": {
+    "description": "Mode card: startFresh body"
+  },
+  "frontingUpgradeRecommended": "Recomendado",
+  "@frontingUpgradeRecommended": {
+    "description": "Recommended badge on the keep-data mode card"
+  },
+  "frontingUpgradePasswordHeadline": "Protege tu copia de seguridad",
+  "@frontingUpgradePasswordHeadline": {
+    "description": "Password screen headline"
+  },
+  "frontingUpgradePasswordBody": "Estamos a punto de hacer una copia de seguridad de tus datos de frente actuales y luego actualizarlos.",
+  "@frontingUpgradePasswordBody": {
+    "description": "Password screen body"
+  },
+  "frontingUpgradePasswordNote": "Esta contraseña protege tu archivo de copia de seguridad. Guárdala en un lugar seguro — sin ella, el archivo no se puede recuperar.",
+  "@frontingUpgradePasswordNote": {
+    "description": "Password screen note above the input"
+  },
+  "frontingUpgradePasswordSubmit": "Hacer copia de seguridad y actualizar",
+  "@frontingUpgradePasswordSubmit": {
+    "description": "Submit button on the password screen"
+  },
+  "frontingUpgradeRunning": "Migrando tu historial de frente…",
+  "@frontingUpgradeRunning": {
+    "description": "Title shown while the migration is running"
+  },
+  "frontingUpgradeRunningSubtitle": "Esto puede tardar un momento. No cierres la app.",
+  "@frontingUpgradeRunningSubtitle": {
+    "description": "Subtitle shown while the migration is running"
+  },
+  "frontingUpgradeExporting": "Preparando tu copia de seguridad…",
+  "@frontingUpgradeExporting": {
+    "description": "Title shown while the PRISM1 backup is being exported (codex P1 #8)"
+  },
+  "frontingUpgradeExportingSubtitle": "Cifrando tus datos de frente para que puedas conservar una copia.",
+  "@frontingUpgradeExportingSubtitle": {
+    "description": "Subtitle shown while the PRISM1 backup is being exported"
+  },
+  "frontingUpgradeBackupReadyHeadline": "Copia de seguridad lista",
+  "@frontingUpgradeBackupReadyHeadline": {
+    "description": "Headline of the durable-save gate that runs before the destructive migration step (codex P1 #8)"
+  },
+  "frontingUpgradeBackupReadyBody": "Guarda esta copia de seguridad en un lugar donde puedas encontrarla más tarde — fuera de la app. Sin ella, no podrás recuperar tus datos antiguos si algo sale mal.",
+  "@frontingUpgradeBackupReadyBody": {
+    "description": "Body text on the durable-save gate explaining why saving the file is important"
+  },
+  "frontingUpgradeBackupSaveAs": "Guardar copia de seguridad…",
+  "@frontingUpgradeBackupSaveAs": {
+    "description": "Primary action on the backup-ready step — opens a file picker to save the file to a user-chosen destination"
+  },
+  "frontingUpgradeBackupShare": "Compartir…",
+  "@frontingUpgradeBackupShare": {
+    "description": "Secondary action on the backup-ready step — opens the system share sheet"
+  },
+  "frontingUpgradeBackupAcknowledge": "He guardado esta copia de seguridad en un lugar donde podré encontrarla más tarde",
+  "@frontingUpgradeBackupAcknowledge": {
+    "description": "Manual checkbox on the backup-ready step — auto-ticks on a successful save or share"
+  },
+  "frontingUpgradeBackupContinue": "Continuar",
+  "@frontingUpgradeBackupContinue": {
+    "description": "Continue button on the backup-ready step; disabled until the acknowledgment checkbox is ticked"
+  },
+  "frontingUpgradeSuccessHeadline": "¡Migración completa!",
+  "@frontingUpgradeSuccessHeadline": {
+    "description": "Success screen headline"
+  },
+  "frontingUpgradeCountSpMigrated": "{count, plural, =1{Se migró 1 sesión de Simply Plural.} other{Se migraron {count} sesiones de Simply Plural.}}",
+  "@frontingUpgradeCountSpMigrated": {
+    "description": "Success counter: SP rows migrated",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "frontingUpgradeCountNativeMigrated": "{count, plural, =1{Se migró 1 sesión de frente.} other{Se migraron {count} sesiones de frente.}}",
+  "@frontingUpgradeCountNativeMigrated": {
+    "description": "Success counter: native rows migrated",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "frontingUpgradeCountNativeExpanded": "{count, plural, =1{Se expandió 1 periodo de co-frente en registros por integrante.} other{Se expandieron {count} periodos de co-frente en registros por integrante.}}",
+  "@frontingUpgradeCountNativeExpanded": {
+    "description": "Success counter: native rows fanned out",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "frontingUpgradeCountPkDeleted": "{count, plural, =1{Se borró 1 sesión importada de PluralKit (vuelve a importar después de la actualización).} other{Se borraron {count} sesiones importadas de PluralKit (vuelve a importar después de la actualización).}}",
+  "@frontingUpgradeCountPkDeleted": {
+    "description": "Success counter: PK rows cleared",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "frontingUpgradeCountCommentsMigrated": "{count, plural, =1{Se migró 1 comentario.} other{Se migraron {count} comentarios.}}",
+  "@frontingUpgradeCountCommentsMigrated": {
+    "description": "Success counter: comments migrated",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "frontingUpgradeCountOrphansAssigned": "{count, plural, =1{Se asignó 1 sesión sin atribución al integrante Desconocide.} other{Se asignaron {count} sesiones sin atribución al integrante Desconocide.}}",
+  "@frontingUpgradeCountOrphansAssigned": {
+    "description": "Success counter: orphan rows assigned to sentinel",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "frontingUpgradeCountSentinelCreated": "Se creó un integrante Desconocide para guardar las sesiones sin un frente claro.",
+  "@frontingUpgradeCountSentinelCreated": {
+    "description": "Success counter: sentinel was created"
+  },
+  "frontingUpgradeRepairPrimary": "Tus otros dispositivos tienen que vincularse de nuevo para recibir el historial migrado. Abre Configuración → Sincronización en tus otros dispositivos y sigue el flujo de vinculación.",
+  "@frontingUpgradeRepairPrimary": {
+    "description": "Re-pair guidance for primary devices"
+  },
+  "frontingUpgradeRepairSecondary": "Vincula este dispositivo de nuevo con tu dispositivo principal para recibir el historial migrado.",
+  "@frontingUpgradeRepairSecondary": {
+    "description": "Re-pair guidance for secondary devices"
+  },
+  "frontingUpgradeRepairSolo": "Todo listo. Tus datos de frente ya están en el nuevo formato.",
+  "@frontingUpgradeRepairSolo": {
+    "description": "Final note for solo devices, no re-pair needed"
+  },
+  "frontingUpgradeFailureHeadline": "La migración falló",
+  "@frontingUpgradeFailureHeadline": {
+    "description": "Failure screen headline"
+  },
+  "frontingUpgradeFailureBackupNote": "Tu archivo de copia de seguridad se guardó. Puedes encontrarlo en el historial de tu menú de compartir si necesitas recuperar los datos.",
+  "@frontingUpgradeFailureBackupNote": {
+    "description": "Reassurance shown on the failure screen when a backup exists"
+  },
+  "frontingUpgradeBannerTitle": "Actualización del frente pendiente",
+  "@frontingUpgradeBannerTitle": {
+    "description": "Home-screen banner title for deferred upgrade"
+  },
+  "frontingUpgradeBannerMessage": "Toca para continuar con la actualización.",
+  "@frontingUpgradeBannerMessage": {
+    "description": "Home-screen banner message for deferred upgrade"
   }
 }

@@ -7761,113 +7761,118 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get frontingUpgradeTitle => 'Fronting upgrade';
+  String get frontingUpgradeTitle => 'Actualización del frente';
 
   @override
   String get frontingUpgradeIntroHeadline =>
-      'We\'re upgrading how fronting is stored';
+      'Estamos actualizando cómo se guarda el frente';
 
   @override
   String get frontingUpgradeIntroBody =>
-      'Co-fronting now uses one record per member instead of one shared record. This makes overlaps, edits, and analytics work correctly. We\'ll save a backup of your current data first, then run the upgrade.';
+      'El co-frente ahora usa un registro por integrante en lugar de un único registro compartido. Esto hace que los solapamientos, las ediciones y las estadísticas funcionen correctamente. Primero guardaremos una copia de seguridad de tus datos actuales y luego haremos la actualización.';
 
   @override
-  String get frontingUpgradeContinue => 'Continue';
+  String get frontingUpgradeContinue => 'Continuar';
 
   @override
-  String get frontingUpgradeNotNow => 'Not now';
+  String get frontingUpgradeNotNow => 'Ahora no';
 
   @override
-  String get frontingUpgradeRoleHeadline => 'Is this your main device?';
+  String get frontingUpgradeRoleHeadline =>
+      '¿Este es tu dispositivo principal?';
 
   @override
   String get frontingUpgradeRoleBody =>
-      'Your main device keeps all your fronting history. Other devices will need to pair again afterward and pull the migrated history from the main device.';
+      'Tu dispositivo principal conserva todo tu historial de frente. Los otros dispositivos tendrán que vincularse de nuevo después y descargar el historial migrado desde el dispositivo principal.';
 
   @override
-  String get frontingUpgradeRolePrimary => 'Yes, this is my main device';
+  String get frontingUpgradeRolePrimary =>
+      'Sí, este es mi dispositivo principal';
 
   @override
-  String get frontingUpgradeRoleSecondary => 'No, this is a secondary';
+  String get frontingUpgradeRoleSecondary =>
+      'No, este es un dispositivo secundario';
 
   @override
-  String get frontingUpgradeModeHeadline => 'How should we upgrade?';
+  String get frontingUpgradeModeHeadline =>
+      '¿Cómo deberíamos hacer la actualización?';
 
   @override
-  String get frontingUpgradeModeKeepTitle => 'Keep my data';
+  String get frontingUpgradeModeKeepTitle => 'Conservar mis datos';
 
   @override
   String get frontingUpgradeModeKeepBody =>
-      'Your existing fronts stay. PluralKit-imported fronts get re-imported with the new shape on next PluralKit sync.';
+      'Tus frentes existentes se conservan. Los frentes importados desde PluralKit se volverán a importar con la nueva estructura en la próxima sincronización con PluralKit.';
 
   @override
-  String get frontingUpgradeModeFreshTitle => 'Start fresh';
+  String get frontingUpgradeModeFreshTitle => 'Empezar desde cero';
 
   @override
   String get frontingUpgradeModeFreshBody =>
-      'All fronts are wiped. Useful if your fronting history is messy and you want a clean slate. A backup file is still created.';
+      'Se borran todos los frentes. Útil si tu historial de frente está desordenado y quieres partir de cero. De todas formas se crea un archivo de copia de seguridad.';
 
   @override
-  String get frontingUpgradeRecommended => 'Recommended';
+  String get frontingUpgradeRecommended => 'Recomendado';
 
   @override
-  String get frontingUpgradePasswordHeadline => 'Protect your backup';
+  String get frontingUpgradePasswordHeadline => 'Protege tu copia de seguridad';
 
   @override
   String get frontingUpgradePasswordBody =>
-      'We\'re about to back up your current fronting data and then upgrade it.';
+      'Estamos a punto de hacer una copia de seguridad de tus datos de frente actuales y luego actualizarlos.';
 
   @override
   String get frontingUpgradePasswordNote =>
-      'This password protects your backup file. Save it somewhere safe — without it, the file can\'t be recovered.';
+      'Esta contraseña protege tu archivo de copia de seguridad. Guárdala en un lugar seguro — sin ella, el archivo no se puede recuperar.';
 
   @override
-  String get frontingUpgradePasswordSubmit => 'Back up and upgrade';
+  String get frontingUpgradePasswordSubmit =>
+      'Hacer copia de seguridad y actualizar';
 
   @override
-  String get frontingUpgradeRunning => 'Migrating your fronting history…';
+  String get frontingUpgradeRunning => 'Migrando tu historial de frente…';
 
   @override
   String get frontingUpgradeRunningSubtitle =>
-      'This may take a moment. Don\'t close the app.';
+      'Esto puede tardar un momento. No cierres la app.';
 
   @override
-  String get frontingUpgradeExporting => 'Building your backup…';
+  String get frontingUpgradeExporting => 'Preparando tu copia de seguridad…';
 
   @override
   String get frontingUpgradeExportingSubtitle =>
-      'Encrypting your fronting data so you can keep a copy.';
+      'Cifrando tus datos de frente para que puedas conservar una copia.';
 
   @override
-  String get frontingUpgradeBackupReadyHeadline => 'Backup ready';
+  String get frontingUpgradeBackupReadyHeadline => 'Copia de seguridad lista';
 
   @override
   String get frontingUpgradeBackupReadyBody =>
-      'Save this backup somewhere you\'ll be able to find it later — outside the app. Without it, you can\'t recover your old data if anything goes wrong.';
+      'Guarda esta copia de seguridad en un lugar donde puedas encontrarla más tarde — fuera de la app. Sin ella, no podrás recuperar tus datos antiguos si algo sale mal.';
 
   @override
-  String get frontingUpgradeBackupSaveAs => 'Save backup…';
+  String get frontingUpgradeBackupSaveAs => 'Guardar copia de seguridad…';
 
   @override
-  String get frontingUpgradeBackupShare => 'Share…';
+  String get frontingUpgradeBackupShare => 'Compartir…';
 
   @override
   String get frontingUpgradeBackupAcknowledge =>
-      'I have saved this backup somewhere I can find later';
+      'He guardado esta copia de seguridad en un lugar donde podré encontrarla más tarde';
 
   @override
-  String get frontingUpgradeBackupContinue => 'Continue';
+  String get frontingUpgradeBackupContinue => 'Continuar';
 
   @override
-  String get frontingUpgradeSuccessHeadline => 'Migration complete!';
+  String get frontingUpgradeSuccessHeadline => '¡Migración completa!';
 
   @override
   String frontingUpgradeCountSpMigrated(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: 'Migrated $count Simply Plural sessions.',
-      one: 'Migrated 1 Simply Plural session.',
+      other: 'Se migraron $count sesiones de Simply Plural.',
+      one: 'Se migró 1 sesión de Simply Plural.',
     );
     return '$_temp0';
   }
@@ -7877,8 +7882,8 @@ class AppLocalizationsEs extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: 'Migrated $count fronting sessions.',
-      one: 'Migrated 1 fronting session.',
+      other: 'Se migraron $count sesiones de frente.',
+      one: 'Se migró 1 sesión de frente.',
     );
     return '$_temp0';
   }
@@ -7888,8 +7893,9 @@ class AppLocalizationsEs extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: 'Expanded $count co-fronting periods into per-member records.',
-      one: 'Expanded 1 co-fronting period into per-member records.',
+      other:
+          'Se expandieron $count periodos de co-frente en registros por integrante.',
+      one: 'Se expandió 1 periodo de co-frente en registros por integrante.',
     );
     return '$_temp0';
   }
@@ -7900,8 +7906,9 @@ class AppLocalizationsEs extends AppLocalizations {
       count,
       locale: localeName,
       other:
-          'Cleared $count PluralKit-imported sessions (re-import after upgrade).',
-      one: 'Cleared 1 PluralKit-imported session (re-import after upgrade).',
+          'Se borraron $count sesiones importadas de PluralKit (vuelve a importar después de la actualización).',
+      one:
+          'Se borró 1 sesión importada de PluralKit (vuelve a importar después de la actualización).',
     );
     return '$_temp0';
   }
@@ -7911,8 +7918,8 @@ class AppLocalizationsEs extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: 'Migrated $count comments.',
-      one: 'Migrated 1 comment.',
+      other: 'Se migraron $count comentarios.',
+      one: 'Se migró 1 comentario.',
     );
     return '$_temp0';
   }
@@ -7922,38 +7929,40 @@ class AppLocalizationsEs extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: 'Assigned $count unattributed sessions to the Unknown member.',
-      one: 'Assigned 1 unattributed session to the Unknown member.',
+      other:
+          'Se asignaron $count sesiones sin atribución al integrante Desconocide.',
+      one: 'Se asignó 1 sesión sin atribución al integrante Desconocide.',
     );
     return '$_temp0';
   }
 
   @override
   String get frontingUpgradeCountSentinelCreated =>
-      'Created an Unknown member to hold sessions with no clear fronter.';
+      'Se creó un integrante Desconocide para guardar las sesiones sin un frente claro.';
 
   @override
   String get frontingUpgradeRepairPrimary =>
-      'Your other devices need to pair again to receive the migrated history. Open Settings → Sync on your other devices and follow the pairing flow.';
+      'Tus otros dispositivos tienen que vincularse de nuevo para recibir el historial migrado. Abre Configuración → Sincronización en tus otros dispositivos y sigue el flujo de vinculación.';
 
   @override
   String get frontingUpgradeRepairSecondary =>
-      'Pair this device with your main device again to receive the migrated history.';
+      'Vincula este dispositivo de nuevo con tu dispositivo principal para recibir el historial migrado.';
 
   @override
   String get frontingUpgradeRepairSolo =>
-      'All set. Your fronting data is on the new format.';
+      'Todo listo. Tus datos de frente ya están en el nuevo formato.';
 
   @override
-  String get frontingUpgradeFailureHeadline => 'Migration failed';
+  String get frontingUpgradeFailureHeadline => 'La migración falló';
 
   @override
   String get frontingUpgradeFailureBackupNote =>
-      'Your backup file was saved. You can find it in your share sheet history if you need to recover.';
+      'Tu archivo de copia de seguridad se guardó. Puedes encontrarlo en el historial de tu menú de compartir si necesitas recuperar los datos.';
 
   @override
-  String get frontingUpgradeBannerTitle => 'Fronting upgrade pending';
+  String get frontingUpgradeBannerTitle => 'Actualización del frente pendiente';
 
   @override
-  String get frontingUpgradeBannerMessage => 'Tap to continue the upgrade.';
+  String get frontingUpgradeBannerMessage =>
+      'Toca para continuar con la actualización.';
 }
