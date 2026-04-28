@@ -895,7 +895,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get statisticsDurationLongest => 'Longest';
 
   @override
-  String get statisticsFrontingTimeByMember => 'Fronting Time by Member';
+  String statisticsFrontingTimeByMember(String term) {
+    return 'Per-$term minutes';
+  }
+
+  @override
+  String statisticsMemberMinutesAxisHint(String term) {
+    return '% of system $term-minutes';
+  }
 
   @override
   String statisticsActiveMembersBreakdown(int active, int inactive) {
@@ -7792,6 +7799,11 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get frontingUpgradeCountSentinelCreated =>
       'Created an Unknown member to hold sessions with no clear fronter.';
+
+  @override
+  String frontingUpgradeAnalyticsNote(String term) {
+    return 'Analytics are now framed as $term-minutes — when two of you co-front for an hour, that\'s two $term-hours. Same math as before, clearer label.';
+  }
 
   @override
   String get frontingUpgradeRepairPrimary =>

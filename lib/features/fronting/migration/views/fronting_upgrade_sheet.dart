@@ -30,6 +30,7 @@ import 'package:share_plus/share_plus.dart';
 
 import 'package:prism_plurality/features/fronting/migration/fronting_migration_service.dart';
 import 'package:prism_plurality/features/fronting/migration/providers/fronting_migration_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
@@ -948,6 +949,18 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
           _rePairCopy(context),
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 12),
+        // §4.3 FYI: analytics relabel ("fronting time" → "{term}-minutes").
+        // Same arithmetic as before; honest framing for co-fronting.
+        Text(
+          context.l10n.frontingUpgradeAnalyticsNote(
+            watchTerminology(context, ref).singularLower,
+          ),
+          textAlign: TextAlign.center,
+          style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),

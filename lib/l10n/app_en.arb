@@ -1199,9 +1199,25 @@
   "@statisticsDurationLongest": {
     "description": "Label for longest session in the duration stats card"
   },
-  "statisticsFrontingTimeByMember": "Fronting Time by Member",
+  "statisticsFrontingTimeByMember": "Per-{term} minutes",
   "@statisticsFrontingTimeByMember": {
-    "description": "Title for the member comparison chart"
+    "description": "Title for the per-member ranking chart. {term}-minutes (e.g., 'member-minutes', 'headmate-minutes'): when two co-front for an hour, that's two {term}-hours — same math as wall-clock-per-fronter, more honest framing. Mirrors the existing 'Per-{term} Colors' convention in appearance settings.",
+    "placeholders": {
+      "term": {
+        "type": "String",
+        "description": "Singular lowercase form of the user's chosen terminology (e.g., 'member', 'headmate')."
+      }
+    }
+  },
+  "statisticsMemberMinutesAxisHint": "% of system {term}-minutes",
+  "@statisticsMemberMinutesAxisHint": {
+    "description": "Subtitle / accessibility hint clarifying that percentages are share of total {term}-minutes, not wall-clock fronting time.",
+    "placeholders": {
+      "term": {
+        "type": "String",
+        "description": "Singular lowercase form of the user's chosen terminology (e.g., 'member', 'headmate')."
+      }
+    }
   },
   "statisticsActiveMembersBreakdown": "{active} active, {inactive} inactive",
   "@statisticsActiveMembersBreakdown": {
@@ -8141,6 +8157,16 @@
   "frontingUpgradeCountSentinelCreated": "Created an Unknown member to hold sessions with no clear fronter.",
   "@frontingUpgradeCountSentinelCreated": { "description": "Success counter: sentinel was created" },
 
+  "frontingUpgradeAnalyticsNote": "Analytics are now framed as {term}-minutes — when two of you co-front for an hour, that's two {term}-hours. Same math as before, clearer label.",
+  "@frontingUpgradeAnalyticsNote": {
+    "description": "One-line FYI shown on the upgrade success screen explaining the analytics relabel from 'fronting time' to '{term}-minutes' (e.g., 'member-minutes', 'headmate-minutes').",
+    "placeholders": {
+      "term": {
+        "type": "String",
+        "description": "Singular lowercase form of the user's chosen terminology (e.g., 'member', 'headmate')."
+      }
+    }
+  },
   "frontingUpgradeRepairPrimary": "Your other devices need to pair again to receive the migrated history. Open Settings → Sync on your other devices and follow the pairing flow.",
   "@frontingUpgradeRepairPrimary": { "description": "Re-pair guidance for primary devices" },
   "frontingUpgradeRepairSecondary": "Pair this device with your main device again to receive the migrated history.",
