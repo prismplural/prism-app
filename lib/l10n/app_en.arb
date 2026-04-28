@@ -694,13 +694,13 @@
   "@syncSetupProgressCachingKeys": {
     "description": "Sync setup progress: caching keys"
   },
-  "syncSetupProgressBootstrapping": "Uploading your data...",
+  "syncSetupProgressBootstrapping": "Preparing your data for sync",
   "@syncSetupProgressBootstrapping": {
-    "description": "Sync setup progress: bootstrapping data"
+    "description": "Sync setup progress: preparing local data for sync (offline)"
   },
-  "syncSetupProgressSyncing": "Syncing...",
-  "@syncSetupProgressSyncing": {
-    "description": "Sync setup progress: syncing"
+  "syncSetupProgressMeasuringSnapshot": "Checking data size",
+  "@syncSetupProgressMeasuringSnapshot": {
+    "description": "Sync setup progress: measuring local snapshot size (offline)"
   },
   "syncSecretKeyTitle": "Secret Key",
   "@syncSecretKeyTitle": {
@@ -4698,6 +4698,38 @@
   "syncSetupPairingFailed": "Pairing Failed",
   "@syncSetupPairingFailed": {
     "description": "Title shown when the existing-device setup flow fails"
+  },
+  "syncSetupSnapshotUploadingTitle": "Uploading your system to the new device",
+  "@syncSetupSnapshotUploadingTitle": {
+    "description": "Title of the progress card shown while the encrypted pairing snapshot is uploading to the relay"
+  },
+  "syncSetupSnapshotUploadProgress": "{sent} of {total}",
+  "@syncSetupSnapshotUploadProgress": {
+    "description": "Label under the snapshot upload progress bar, showing bytes uploaded out of total",
+    "placeholders": {
+      "sent": {"type": "String"},
+      "total": {"type": "String"}
+    }
+  },
+  "syncSetupSnapshotUploadStarting": "Preparing upload...",
+  "@syncSetupSnapshotUploadStarting": {
+    "description": "Placeholder label shown before the first upload progress event arrives"
+  },
+  "syncSetupSnapshotUploadFailedTitle": "Couldn't upload your system",
+  "@syncSetupSnapshotUploadFailedTitle": {
+    "description": "Title shown when the pair-time snapshot upload fails; accompanied by a retry button"
+  },
+  "syncSetupSnapshotUploadRetry": "Retry upload",
+  "@syncSetupSnapshotUploadRetry": {
+    "description": "Retry button label on the snapshot upload failure view"
+  },
+  "syncSetupPairingReadyTitle": "Pairing ready",
+  "@syncSetupPairingReadyTitle": {
+    "description": "Title of the confirmation shown after a successful snapshot upload, before the sheet closes"
+  },
+  "syncSetupPairingReadyWaiting": "Waiting for the other device to finish setting up.",
+  "@syncSetupPairingReadyWaiting": {
+    "description": "Body of the pairing-ready confirmation shown briefly after a successful snapshot upload"
   },
   "memberAvatarSemantics": "{name} avatar",
   "@memberAvatarSemantics": {

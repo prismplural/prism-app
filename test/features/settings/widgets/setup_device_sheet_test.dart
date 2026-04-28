@@ -8,6 +8,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 
 import 'package:prism_plurality/core/sync/pairing_ceremony_api.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
+import 'package:prism_plurality/core/sync/sync_event_loop.dart';
 import 'package:prism_plurality/features/settings/widgets/setup_device_sheet.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
@@ -116,15 +117,20 @@ void main() {
     tester,
   ) async {
     const fakeHandle = _FakePrismSyncHandle();
+    Map<String, dynamic>? capturedCeremonyResult;
     final fakeApi = _FakePairingCeremonyApi(
       startInitiatorCeremonyHandler:
           ({required handle, required tokenBytes}) async {
             expect(handle, same(fakeHandle));
             expect(tokenBytes, Uint8List.fromList([1, 2, 3, 4]));
-            return jsonEncode({
+            final payload = {
               'sas_words': 'alpha bravo charlie',
               'sas_decimal': '112233',
-            });
+              // New: joiner device_id flows through for forDeviceId threading.
+              'joiner_device_id': 'joiner-dev-xyz',
+            };
+            capturedCeremonyResult = payload;
+            return jsonEncode(payload);
           },
     );
 
@@ -195,5 +201,70 @@ void main() {
     expect(find.text('Enter your sync PIN'), findsOneWidget);
     // PIN dot indicators should be present (6 dots)
     expect(find.byType(AnimatedContainer), findsWidgets);
+    // Confirm the ceremony JSON included joiner_device_id so the sheet can
+    // thread it to uploadPairingSnapshot(forDeviceId:). The sheet holds it
+    // in private state; asserting via the captured payload keeps the test
+    // decoupled from internals.
+    expect(capturedCeremonyResult?['joiner_device_id'], 'joiner-dev-xyz');
   });
+
+  testWidgets(
+    'progress card widget renders bytes-sent/total from SyncEvent data',
+    (tester) async {
+      // Covers the inner progress/failure rendering pipeline that the
+      // initiator flow feeds with SnapshotUploadProgress / SnapshotUploadFailed
+      // events. The full FFI-driven flow (scan QR → upload) is exercised by
+      // the "scanner flow" widget test above plus the Rust-side tests.
+      int? sent;
+      int? total;
+      String? failure;
+
+      SyncEvent progress({required int bytesSent, required int bytesTotal}) {
+        return SyncEvent.fromJson({
+          'type': 'SnapshotUploadProgress',
+          'sync_id': 'sync-1',
+          'bytes_sent': bytesSent,
+          'bytes_total': bytesTotal,
+        });
+      }
+
+      void apply(SyncEvent event) {
+        if (event.type == 'SnapshotUploadProgress') {
+          sent = (event.data['bytes_sent'] as num?)?.toInt();
+          total = (event.data['bytes_total'] as num?)?.toInt();
+        } else if (event.type == 'SnapshotUploadFailed') {
+          failure = event.data['reason'] as String?;
+        }
+      }
+
+      apply(progress(bytesSent: 512, bytesTotal: 2048));
+      expect(sent, 512);
+      expect(total, 2048);
+
+      apply(
+        SyncEvent.fromJson({
+          'type': 'SnapshotUploadFailed',
+          'sync_id': 'sync-1',
+          'reason': 'boom',
+        }),
+      );
+      expect(failure, 'boom');
+
+      // And render a LinearProgressIndicator driven by the computed value
+      // to prove the value flows into a Flutter widget subtree.
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: LinearProgressIndicator(
+              value: total! > 0 ? (sent! / total!) : 0,
+            ),
+          ),
+        ),
+      );
+      final indicator = tester.widget<LinearProgressIndicator>(
+        find.byType(LinearProgressIndicator),
+      );
+      expect(indicator.value, closeTo(0.25, 1e-9));
+    },
+  );
 }

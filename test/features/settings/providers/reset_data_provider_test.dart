@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:drift/drift.dart' hide isNull;
+import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
@@ -17,6 +17,7 @@ import 'package:prism_plurality/data/repositories/drift_system_settings_reposito
 import 'package:prism_plurality/features/pluralkit/services/pk_group_repair_run_gate.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_group_sync_v2_catchup_service.dart';
 import 'package:prism_plurality/features/settings/providers/reset_data_provider.dart';
+import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Every user-data table in the database. When a new table is added to the
@@ -317,6 +318,361 @@ void main() {
       },
     );
 
+    // ── Phase 1B / 2A / 2B-1 ────────────────────────────────────────
+    // The reset hardening tests below cover:
+    // sync-pairing-reset-hardening.md:
+    //   1B — wipe-by-prefix (don't leave stale `bootstrap_*`/`pending_*`/
+    //        `registration_token` entries behind because a static allow-list
+    //        forgot them).
+    //   2A — `setAutoSync(false)` runs as step 0 so the auto-sync driver
+    //        and notification handler can't race the rest of teardown.
+    //   2B-1 — handle.dispose() runs BEFORE the sync-DB file is deleted
+    //          so we don't unlink a file out from under a live SQLite
+    //          connection (Android WAL corruption risk).
+    //   2B-2 — clearSyncState(sync_id, forceActive: true) runs before
+    //          dispose/file-delete and is non-fatal if it fails.
+
+    test('reset_wipes_all_prism_sync_namespace_keys', () async {
+      final harness = await _ResetHarness.create();
+      addTearDown(harness.dispose);
+
+      // Pre-populate fake secureStorage with a mix of:
+      //  - transient pairing keys missed by the v1 allow-list
+      //  - the four DB-encryption slots (must survive)
+      //  - an unrelated app key (no `prism_sync.` prefix; must survive)
+      harness.secureStore
+        ..seedSyncValue('prism_sync.bootstrap_joiner_bundle', 'B1')
+        ..seedSyncValue('prism_sync.pending_sync_id', 'P1')
+        ..seedSyncValue('prism_sync.registration_token', 'R1')
+        ..seedSyncValue('prism_sync.runtime_dek', 'D1')
+        ..seedSyncValue('prism_sync.database_key', 'KEEP1')
+        ..seedSyncValue('prism_sync.database_key_staging', 'KEEP2')
+        ..seedSyncValue('prism_sync.sync_database_key', 'KEEP3')
+        ..seedSyncValue('prism_sync.sync_database_key_staging', 'KEEP4')
+        ..seedSyncValue('unrelated_app_key', 'OUTSIDE_NAMESPACE');
+
+      await harness.reset(ResetCategory.sync);
+
+      // All four DB-encryption keys must survive — assert via the
+      // re-exported set so adding/removing a slot in
+      // prism_sync_providers.dart automatically updates this assertion.
+      for (final protectedKey in kProtectedFromReset) {
+        expect(
+          harness.secureStore.readSyncValue(protectedKey),
+          isNotNull,
+          reason: '$protectedKey is in kProtectedFromReset and must survive',
+        );
+      }
+
+      // Out-of-namespace key untouched.
+      expect(
+        harness.secureStore.readSyncValue('unrelated_app_key'),
+        'OUTSIDE_NAMESPACE',
+      );
+
+      // Every other prism_sync.* entry gone — including the four the v1
+      // allow-list missed.
+      final remaining = await harness.secureStore.readAll();
+      for (final fullKey in remaining.keys) {
+        if (!fullKey.startsWith('prism_sync.')) continue;
+        expect(
+          kProtectedFromReset,
+          contains(fullKey),
+          reason:
+              '$fullKey should have been wiped by reset; only '
+              'kProtectedFromReset slots may survive a sync reset',
+        );
+      }
+      expect(
+        harness.secureStore.readSyncValue('prism_sync.bootstrap_joiner_bundle'),
+        isNull,
+      );
+      expect(
+        harness.secureStore.readSyncValue('prism_sync.pending_sync_id'),
+        isNull,
+      );
+      expect(
+        harness.secureStore.readSyncValue('prism_sync.registration_token'),
+        isNull,
+      );
+      expect(
+        harness.secureStore.readSyncValue('prism_sync.runtime_dek'),
+        isNull,
+      );
+    });
+
+    test('reset_preserves_database_keys', () async {
+      final harness = await _ResetHarness.create();
+      addTearDown(harness.dispose);
+
+      harness.secureStore
+        ..seedSyncValue('prism_sync.database_key', 'KEEP_DATABASE')
+        ..seedSyncValue(
+          'prism_sync.database_key_staging',
+          'KEEP_DATABASE_STAGING',
+        )
+        ..seedSyncValue('prism_sync.sync_database_key', 'KEEP_SYNC_DATABASE')
+        ..seedSyncValue(
+          'prism_sync.sync_database_key_staging',
+          'KEEP_SYNC_DATABASE_STAGING',
+        )
+        ..seedSyncValue(
+          'prism_sync.sync_id',
+          base64Encode(utf8.encode('sync-abc')),
+        )
+        ..seedSyncValue('prism_sync.registration_token', 'WIPE_REGISTRATION')
+        ..seedSyncValue('prism_sync.runtime_dek', 'WIPE_RUNTIME');
+
+      await harness.reset(ResetCategory.sync);
+
+      expect(
+        harness.secureStore.readSyncValue('prism_sync.database_key'),
+        'KEEP_DATABASE',
+      );
+      expect(
+        harness.secureStore.readSyncValue('prism_sync.database_key_staging'),
+        'KEEP_DATABASE_STAGING',
+      );
+      expect(
+        harness.secureStore.readSyncValue('prism_sync.sync_database_key'),
+        'KEEP_SYNC_DATABASE',
+      );
+      expect(
+        harness.secureStore.readSyncValue(
+          'prism_sync.sync_database_key_staging',
+        ),
+        'KEEP_SYNC_DATABASE_STAGING',
+      );
+      expect(harness.secureStore.readSyncValue('prism_sync.sync_id'), isNull);
+      expect(
+        harness.secureStore.readSyncValue('prism_sync.registration_token'),
+        isNull,
+      );
+      expect(
+        harness.secureStore.readSyncValue('prism_sync.runtime_dek'),
+        isNull,
+      );
+    });
+
+    test('reset_disables_auto_sync_first', () async {
+      final fakeHandle = _FakeSyncHandle();
+      final recordingFfi = _RecordingResetSyncFfi();
+
+      final harness = await _ResetHarness.create(
+        handleOverride: fakeHandle,
+        ffiOverride: recordingFfi,
+      );
+      addTearDown(harness.dispose);
+
+      // Seed sync_id/device_id/session_token so the relay-deregister branch
+      // actually runs — this is the path we're asserting setAutoSync precedes.
+      harness.secureStore
+        ..seedSyncValue(
+          'prism_sync.sync_id',
+          base64Encode(utf8.encode('sync-abc')),
+        )
+        ..seedSyncValue(
+          'prism_sync.device_id',
+          base64Encode(utf8.encode('device-abc')),
+        )
+        ..seedSyncValue(
+          'prism_sync.session_token',
+          base64Encode(utf8.encode('session-abc')),
+        );
+
+      await harness.reset(ResetCategory.sync);
+
+      expect(
+        recordingFfi.calls,
+        isNotEmpty,
+        reason: 'expected at least one FFI call during reset',
+      );
+      expect(
+        recordingFfi.calls.first,
+        'setAutoSync(enabled: false)',
+        reason:
+            'setAutoSync(false) must be the first FFI call so the auto-sync '
+            'driver/notification handler does not race the rest of teardown',
+      );
+      // And it must precede deregisterDevice, which is the next FFI call.
+      expect(recordingFfi.calls, contains('deregisterDevice'));
+      expect(
+        recordingFfi.calls.indexOf('setAutoSync(enabled: false)'),
+        lessThan(recordingFfi.calls.indexOf('deregisterDevice')),
+      );
+    });
+
+    test('reset_disposes_handle_before_deleting_db', () async {
+      final fakeHandle = _FakeSyncHandle();
+      final recordingFfi = _RecordingResetSyncFfi();
+      final orderLog = <String>[];
+
+      // Wire the FFI dispose call into orderLog. The harness also passes a
+      // file-delete observer that records when File.delete() runs against
+      // the sync-DB path — together they let us assert the relative order.
+      recordingFfi.onDispose = () => orderLog.add('dispose');
+
+      final harness = await _ResetHarness.create(
+        handleOverride: fakeHandle,
+        ffiOverride: recordingFfi,
+        deleteObserver: (path) => orderLog.add('delete:$path'),
+      );
+      addTearDown(harness.dispose);
+
+      // Make sure the sync DB file exists so the delete branch runs
+      // (`seedAllData` already does this, but this test doesn't seed full
+      // app data — write the file directly).
+      await harness.syncDbFile.writeAsString('sync-db');
+
+      await harness.reset(ResetCategory.sync);
+
+      expect(orderLog, contains('dispose'));
+      final disposeIdx = orderLog.indexOf('dispose');
+      final deleteIdx = orderLog.indexWhere((e) => e.startsWith('delete:'));
+      expect(
+        deleteIdx,
+        greaterThanOrEqualTo(0),
+        reason: 'expected the sync-DB file delete to be observed',
+      );
+      expect(
+        disposeIdx,
+        lessThan(deleteIdx),
+        reason:
+            'handle.dispose() must run before the sync-DB file is deleted '
+            '(prevents Android WAL corruption / SQLITE_IOERR from a live '
+            'connection writing to an unlinked file)',
+      );
+
+      // After the reset, the file is gone.
+      expect(await harness.syncDbFile.exists(), isFalse);
+      expect(fakeHandle.disposeCount, 1);
+    });
+
+    test('reset_calls_clear_sync_state_before_dispose_and_delete', () async {
+      final fakeHandle = _FakeSyncHandle();
+      final recordingFfi = _RecordingResetSyncFfi();
+      final orderLog = <String>[];
+
+      recordingFfi.onClearSyncState = (syncId) {
+        orderLog.add('clear:$syncId');
+      };
+      recordingFfi.onDispose = () => orderLog.add('dispose');
+
+      final harness = await _ResetHarness.create(
+        handleOverride: fakeHandle,
+        ffiOverride: recordingFfi,
+        deleteObserver: (path) => orderLog.add('delete:$path'),
+      );
+      addTearDown(harness.dispose);
+
+      harness.secureStore
+        ..seedSyncValue(
+          'prism_sync.sync_id',
+          base64Encode(utf8.encode('sync-abc')),
+        )
+        ..seedSyncValue(
+          'prism_sync.device_id',
+          base64Encode(utf8.encode('device-abc')),
+        )
+        ..seedSyncValue(
+          'prism_sync.session_token',
+          base64Encode(utf8.encode('session-abc')),
+        );
+      await harness.syncDbFile.writeAsString('sync-db');
+
+      await harness.reset(ResetCategory.sync);
+
+      expect(
+        recordingFfi.calls,
+        containsAllInOrder([
+          'setAutoSync(enabled: false)',
+          'deregisterDevice',
+          'clearSyncState(syncId: sync-abc, forceActive: true)',
+          'disposeHandle',
+        ]),
+      );
+
+      final clearIdx = orderLog.indexOf('clear:sync-abc');
+      final disposeIdx = orderLog.indexOf('dispose');
+      final deleteIdx = orderLog.indexWhere((e) => e.startsWith('delete:'));
+      expect(clearIdx, greaterThanOrEqualTo(0));
+      expect(disposeIdx, greaterThan(clearIdx));
+      expect(deleteIdx, greaterThan(disposeIdx));
+    });
+
+    test('reset_calls_clear_sync_state_when_db_delete_fails', () async {
+      final fakeHandle = _FakeSyncHandle();
+      final recordingFfi = _RecordingResetSyncFfi();
+      final orderLog = <String>[];
+
+      recordingFfi.onClearSyncState = (syncId) {
+        orderLog.add('clear:$syncId');
+      };
+
+      final harness = await _ResetHarness.create(
+        handleOverride: fakeHandle,
+        ffiOverride: recordingFfi,
+        deleteObserver: (path) {
+          orderLog.add('delete:$path');
+          throw FileSystemException('delete failed', path);
+        },
+      );
+      addTearDown(harness.dispose);
+
+      harness.secureStore.seedSyncValue(
+        'prism_sync.sync_id',
+        base64Encode(utf8.encode('sync-abc')),
+      );
+      await harness.syncDbFile.writeAsString('sync-db');
+
+      await harness.reset(ResetCategory.sync);
+
+      expect(
+        recordingFfi.calls,
+        contains('clearSyncState(syncId: sync-abc, forceActive: true)'),
+      );
+      expect(orderLog, contains('clear:sync-abc'));
+      expect(orderLog.any((e) => e.startsWith('delete:')), isTrue);
+      expect(
+        orderLog.indexOf('clear:sync-abc'),
+        lessThan(orderLog.indexWhere((e) => e.startsWith('delete:'))),
+      );
+      expect(harness.secureStore.readSyncValue('prism_sync.sync_id'), isNull);
+      expect(fakeHandle.disposeCount, 1);
+    });
+
+    test('reset_continues_when_clear_sync_state_fails', () async {
+      final fakeHandle = _FakeSyncHandle();
+      final recordingFfi = _RecordingResetSyncFfi()
+        ..throwOnClearSyncState = true;
+      final orderLog = <String>[];
+      recordingFfi.onDispose = () => orderLog.add('dispose');
+
+      final harness = await _ResetHarness.create(
+        handleOverride: fakeHandle,
+        ffiOverride: recordingFfi,
+        deleteObserver: (path) => orderLog.add('delete:$path'),
+      );
+      addTearDown(harness.dispose);
+
+      harness.secureStore.seedSyncValue(
+        'prism_sync.sync_id',
+        base64Encode(utf8.encode('sync-abc')),
+      );
+      await harness.syncDbFile.writeAsString('sync-db');
+
+      await harness.reset(ResetCategory.sync);
+
+      expect(
+        recordingFfi.calls,
+        contains('clearSyncState(syncId: sync-abc, forceActive: true)'),
+      );
+      expect(orderLog, contains('dispose'));
+      expect(orderLog.any((e) => e.startsWith('delete:')), isTrue);
+      expect(await harness.syncDbFile.exists(), isFalse);
+      expect(fakeHandle.disposeCount, 1);
+    });
+
     test('sync reset clears sync one-time SharedPreferences flags', () async {
       SharedPreferences.setMockInitialValues({
         'sync.enum_fields_reemit_v1': true,
@@ -446,7 +802,11 @@ class _ResetHarness {
 
   bool _disposed = false;
 
-  static Future<_ResetHarness> create() async {
+  static Future<_ResetHarness> create({
+    ffi.PrismSyncHandle? handleOverride,
+    ResetSyncFfi? ffiOverride,
+    ResetFileDeleteObserver? deleteObserver,
+  }) async {
     final tempDir = await Directory.systemTemp.createTemp('prism-reset-test-');
     final appDbFile = File(p.join(tempDir.path, 'prism-test.db'));
     final syncDbFile = File(p.join(tempDir.path, 'prism_sync.db'));
@@ -478,8 +838,12 @@ class _ResetHarness {
         ),
         resetSecureStoreProvider.overrideWithValue(secureStore),
         resetDocumentsDirectoryProvider.overrideWith((ref) async => tempDir),
-        resetSyncHandleProvider.overrideWithValue(null),
+        resetSyncHandleProvider.overrideWithValue(handleOverride),
         downloadManagerProvider.overrideWithValue(downloadManager),
+        if (ffiOverride != null)
+          resetSyncFfiProvider.overrideWithValue(ffiOverride),
+        if (deleteObserver != null)
+          resetFileDeleteObserverProvider.overrideWithValue(deleteObserver),
       ],
     );
 
@@ -983,4 +1347,85 @@ Future<int> _countFrontingRows(AppDatabase db) async {
       )
       .getSingle();
   return row.read<int>('c');
+}
+
+/// Minimal stand-in for the Rust `PrismSyncHandle` opaque type. The real
+/// thing is a flutter_rust_bridge `RustOpaqueInterface` backed by an
+/// `Arc<Mutex<PrismSync>>` — there's no way to construct one in pure-Dart
+/// tests, so the reset path's FFI calls are routed through `ResetSyncFfi`
+/// (see `_RecordingResetSyncFfi`) and the handle itself is just an opaque
+/// token whose only job here is to be passed through and have `dispose()`
+/// observed.
+class _FakeSyncHandle implements ffi.PrismSyncHandle {
+  bool _disposed = false;
+  int disposeCount = 0;
+
+  @override
+  void dispose() {
+    _disposed = true;
+    disposeCount += 1;
+  }
+
+  @override
+  bool get isDisposed => _disposed;
+}
+
+/// Records every FFI call the reset path makes, in order, so tests can
+/// assert ordering invariants (e.g. setAutoSync(false) must be first).
+class _RecordingResetSyncFfi implements ResetSyncFfi {
+  final List<String> calls = <String>[];
+  void Function()? onDispose;
+  void Function(String syncId)? onClearSyncState;
+  bool throwOnClearSyncState = false;
+
+  @override
+  Future<void> setAutoSync({
+    required ffi.PrismSyncHandle handle,
+    required bool enabled,
+    required BigInt debounceMs,
+    required BigInt retryDelayMs,
+    required int maxRetries,
+  }) async {
+    calls.add('setAutoSync(enabled: $enabled)');
+  }
+
+  @override
+  Future<void> deregisterDevice({
+    required ffi.PrismSyncHandle handle,
+    required String syncId,
+    required String deviceId,
+    required String sessionToken,
+  }) async {
+    calls.add('deregisterDevice');
+  }
+
+  @override
+  Future<void> deleteSyncGroup({
+    required ffi.PrismSyncHandle handle,
+    required String syncId,
+    required String deviceId,
+    required String sessionToken,
+  }) async {
+    calls.add('deleteSyncGroup');
+  }
+
+  @override
+  Future<void> clearSyncState({
+    required ffi.PrismSyncHandle handle,
+    required String syncId,
+    required bool forceActive,
+  }) async {
+    calls.add('clearSyncState(syncId: $syncId, forceActive: $forceActive)');
+    onClearSyncState?.call(syncId);
+    if (throwOnClearSyncState) {
+      throw StateError('clearSyncState failed');
+    }
+  }
+
+  @override
+  void disposeHandle(ffi.PrismSyncHandle handle) {
+    calls.add('disposeHandle');
+    handle.dispose();
+    onDispose?.call();
+  }
 }

@@ -79,9 +79,15 @@ post_install do |installer|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = ios_deployment_target
       # Enable only the permissions the app actually uses.
       # permission_handler requires explicit opt-in at compile time — without this
-      # the native code is stripped and iOS never shows the permission dialog.
+      # the native code is stripped, Permission.*.status/request return stub
+      # `denied` values, and iOS never shows the permission dialog.
+      #
+      # Keep this list in sync with `Permission.*` usages in lib/. Currently:
+      #   - Permission.microphone → voice notes (mobile_voice_recorder_backend)
+      #   - Permission.camera     → recovery-phrase QR scan (prism_mnemonic_field)
       config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= ['$(inherited)']
       config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] << 'PERMISSION_MICROPHONE=1'
+      config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] << 'PERMISSION_CAMERA=1'
     end
   end
 end

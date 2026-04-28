@@ -26,8 +26,11 @@ class ReminderSchedulerService {
   static const _channelDesc = 'Custom reminder notifications';
 
   /// Start of the notification ID range for reminders. Non-overlapping with
-  /// habits (3000–12999) and fronting (1000–2000).
-  static const _idRangeStart = 20000;
+  /// habits (3_000_000–3_100_029) and fronting (1000–2000). The 100k-wide
+  /// hash space keeps birthday-paradox collisions negligible (~1% at 50
+  /// items, ~5% at 100) compared to the previous 10k space (~12% at 50).
+  static const _idRangeStart = 20000000;
+  static const _idRangeMod = 100000;
 
   /// Active front-change reminders awaiting a front switch.
   final List<Reminder> _pendingFrontChangeReminders = [];
@@ -208,14 +211,16 @@ class ReminderSchedulerService {
   /// Generates a stable base notification ID from a reminder ID string.
   ///
   /// Weekly scheduling uses `base + i` for each selected weekday (i in 0..6);
-  /// interval scheduling uses `base + i` for each occurrence. The 10000-wide
-  /// collision space keeps the range bounded for [LocalNotificationService.cancelRange].
+  /// interval scheduling uses `base + i` for each occurrence. The collision
+  /// space is bounded by [_idRangeMod] for [LocalNotificationService.cancelRange].
   int _notificationIdBase(String id) {
-    return _idRangeStart + (id.hashCode.abs() % 10000);
+    return _idRangeStart + (id.hashCode.abs() % _idRangeMod);
   }
 
   /// Parses a time string in "HH:mm" format into a [TimeOfDay].
-  /// Returns null if the string is null or malformed.
+  /// Returns null if the string is null, malformed, or out of range.
+  /// Out-of-range values like "25:70" would silently normalize to a wrong
+  /// time when fed through DateTime, so reject them up front.
   TimeOfDay? _parseTime(String? time) {
     if (time == null) return null;
     final parts = time.split(':');
@@ -223,6 +228,7 @@ class ReminderSchedulerService {
     final hour = int.tryParse(parts[0]);
     final minute = int.tryParse(parts[1]);
     if (hour == null || minute == null) return null;
+    if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
     return TimeOfDay(hour: hour, minute: minute);
   }
 }
