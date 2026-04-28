@@ -206,6 +206,7 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
       'pluralkit_uuid': m.pluralkitUuid,
       'pluralkit_id': m.pluralkitId,
       'markdown_enabled': m.markdownEnabled,
+      'is_always_fronting': m.isAlwaysFronting,
       'is_deleted': false,
     };
   }

@@ -35,7 +35,9 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final settingsAsync = ref.watch(systemSettingsProvider);
     final terms = watchTerminology(context, ref);
-    final membersAsync = ref.watch(activeMembersProvider);
+    // System card displays member count + avatar stack — exclude the Unknown
+    // sentinel so it doesn't inflate the count or appear in the stack.
+    final membersAsync = ref.watch(userVisibleMembersProvider);
     final syncStatus = ref.watch(syncStatusProvider);
     final theme = Theme.of(context);
     final topInset = MediaQuery.of(context).padding.top;

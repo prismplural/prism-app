@@ -44,6 +44,11 @@ abstract class Member with _$Member {
     @Default(false) bool isDeleted,
     int? deleteIntentEpoch,
     int? deletePushStartedAt,
+    // Per-member fronting refactor (docs/plans/fronting-per-member-sessions.md
+    // §2.3): when true, this member's session is treated as "background" and
+    // omitted from avatar stacks, surfaced instead in the "Always-present"
+    // header on period detail screens. Default false; opt-in per member.
+    @Default(false) bool isAlwaysFronting,
   }) = _Member;
 
   factory Member.fromJson(Map<String, dynamic> json) => _$MemberFromJson(json);

@@ -33,6 +33,7 @@ class MemberMapper {
       isDeleted: row.isDeleted,
       deleteIntentEpoch: row.deleteIntentEpoch,
       deletePushStartedAt: row.deletePushStartedAt,
+      isAlwaysFronting: row.isAlwaysFronting,
     );
   }
 
@@ -63,6 +64,7 @@ class MemberMapper {
       isDeleted: Value(model.isDeleted),
       deleteIntentEpoch: Value(model.deleteIntentEpoch),
       deletePushStartedAt: Value(model.deletePushStartedAt),
+      isAlwaysFronting: Value(model.isAlwaysFronting),
     );
   }
 }
