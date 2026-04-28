@@ -211,6 +211,16 @@ class AppDatabase extends _$AppDatabase {
             systemSettingsTable,
             systemSettingsTable.pendingFrontingMigrationMode,
           );
+          // Codex pass 2 #B-NEW3 — folded into the v6→v7 block alongside the
+          // mode column it disambiguates. Defaults to '' (no destructive
+          // post-tx step has run yet); the migration service flips it to
+          // 'resetDone' between the Rust reset and the remaining post-tx
+          // steps so resumeCleanup() can distinguish "must run reset" from
+          // "reset already succeeded — skip it."
+          await migrator.addColumn(
+            systemSettingsTable,
+            systemSettingsTable.pendingFrontingMigrationCleanupSubstate,
+          );
           await customStatement(
             "INSERT INTO system_settings (id, pending_fronting_migration_mode) "
             "VALUES ('singleton', 'notStarted') "

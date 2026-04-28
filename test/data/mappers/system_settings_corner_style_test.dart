@@ -66,6 +66,7 @@ void main() {
       wakeSuggestionAfterHours: 8.0,
       sharingId: null,
       pendingFrontingMigrationMode: 'notStarted',
+      pendingFrontingMigrationCleanupSubstate: '',
     );
   }
 

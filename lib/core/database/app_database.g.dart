@@ -4751,6 +4751,18 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         requiredDuringInsert: false,
         defaultValue: const Constant('complete'),
       );
+  static const VerificationMeta _pendingFrontingMigrationCleanupSubstateMeta =
+      const VerificationMeta('pendingFrontingMigrationCleanupSubstate');
+  @override
+  late final GeneratedColumn<String> pendingFrontingMigrationCleanupSubstate =
+      GeneratedColumn<String>(
+        'pending_fronting_migration_cleanup_substate',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(''),
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -4810,6 +4822,7 @@ class $SystemSettingsTableTable extends SystemSettingsTable
     chatBadgePreferences,
     defaultSleepQuality,
     pendingFrontingMigrationMode,
+    pendingFrontingMigrationCleanupSubstate,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -5303,6 +5316,15 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         ),
       );
     }
+    if (data.containsKey('pending_fronting_migration_cleanup_substate')) {
+      context.handle(
+        _pendingFrontingMigrationCleanupSubstateMeta,
+        pendingFrontingMigrationCleanupSubstate.isAcceptableOrUnknown(
+          data['pending_fronting_migration_cleanup_substate']!,
+          _pendingFrontingMigrationCleanupSubstateMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -5540,6 +5562,10 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         DriftSqlType.string,
         data['${effectivePrefix}pending_fronting_migration_mode'],
       )!,
+      pendingFrontingMigrationCleanupSubstate: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pending_fronting_migration_cleanup_substate'],
+      )!,
     );
   }
 
@@ -5608,6 +5634,7 @@ class SystemSettingsData extends DataClass
   final String chatBadgePreferences;
   final String? defaultSleepQuality;
   final String pendingFrontingMigrationMode;
+  final String pendingFrontingMigrationCleanupSubstate;
   const SystemSettingsData({
     required this.id,
     this.systemName,
@@ -5666,6 +5693,7 @@ class SystemSettingsData extends DataClass
     required this.chatBadgePreferences,
     this.defaultSleepQuality,
     required this.pendingFrontingMigrationMode,
+    required this.pendingFrontingMigrationCleanupSubstate,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -5759,6 +5787,9 @@ class SystemSettingsData extends DataClass
     map['pending_fronting_migration_mode'] = Variable<String>(
       pendingFrontingMigrationMode,
     );
+    map['pending_fronting_migration_cleanup_substate'] = Variable<String>(
+      pendingFrontingMigrationCleanupSubstate,
+    );
     return map;
   }
 
@@ -5841,6 +5872,9 @@ class SystemSettingsData extends DataClass
           ? const Value.absent()
           : Value(defaultSleepQuality),
       pendingFrontingMigrationMode: Value(pendingFrontingMigrationMode),
+      pendingFrontingMigrationCleanupSubstate: Value(
+        pendingFrontingMigrationCleanupSubstate,
+      ),
     );
   }
 
@@ -5959,6 +5993,9 @@ class SystemSettingsData extends DataClass
       pendingFrontingMigrationMode: serializer.fromJson<String>(
         json['pendingFrontingMigrationMode'],
       ),
+      pendingFrontingMigrationCleanupSubstate: serializer.fromJson<String>(
+        json['pendingFrontingMigrationCleanupSubstate'],
+      ),
     );
   }
   @override
@@ -6036,6 +6073,9 @@ class SystemSettingsData extends DataClass
       'pendingFrontingMigrationMode': serializer.toJson<String>(
         pendingFrontingMigrationMode,
       ),
+      'pendingFrontingMigrationCleanupSubstate': serializer.toJson<String>(
+        pendingFrontingMigrationCleanupSubstate,
+      ),
     };
   }
 
@@ -6097,6 +6137,7 @@ class SystemSettingsData extends DataClass
     String? chatBadgePreferences,
     Value<String?> defaultSleepQuality = const Value.absent(),
     String? pendingFrontingMigrationMode,
+    String? pendingFrontingMigrationCleanupSubstate,
   }) => SystemSettingsData(
     id: id ?? this.id,
     systemName: systemName.present ? systemName.value : this.systemName,
@@ -6175,6 +6216,9 @@ class SystemSettingsData extends DataClass
         : this.defaultSleepQuality,
     pendingFrontingMigrationMode:
         pendingFrontingMigrationMode ?? this.pendingFrontingMigrationMode,
+    pendingFrontingMigrationCleanupSubstate:
+        pendingFrontingMigrationCleanupSubstate ??
+        this.pendingFrontingMigrationCleanupSubstate,
   );
   SystemSettingsData copyWithCompanion(SystemSettingsTableCompanion data) {
     return SystemSettingsData(
@@ -6338,6 +6382,10 @@ class SystemSettingsData extends DataClass
       pendingFrontingMigrationMode: data.pendingFrontingMigrationMode.present
           ? data.pendingFrontingMigrationMode.value
           : this.pendingFrontingMigrationMode,
+      pendingFrontingMigrationCleanupSubstate:
+          data.pendingFrontingMigrationCleanupSubstate.present
+          ? data.pendingFrontingMigrationCleanupSubstate.value
+          : this.pendingFrontingMigrationCleanupSubstate,
     );
   }
 
@@ -6402,7 +6450,12 @@ class SystemSettingsData extends DataClass
           ..write('syncNavigationEnabled: $syncNavigationEnabled, ')
           ..write('chatBadgePreferences: $chatBadgePreferences, ')
           ..write('defaultSleepQuality: $defaultSleepQuality, ')
-          ..write('pendingFrontingMigrationMode: $pendingFrontingMigrationMode')
+          ..write(
+            'pendingFrontingMigrationMode: $pendingFrontingMigrationMode, ',
+          )
+          ..write(
+            'pendingFrontingMigrationCleanupSubstate: $pendingFrontingMigrationCleanupSubstate',
+          )
           ..write(')'))
         .toString();
   }
@@ -6466,6 +6519,7 @@ class SystemSettingsData extends DataClass
     chatBadgePreferences,
     defaultSleepQuality,
     pendingFrontingMigrationMode,
+    pendingFrontingMigrationCleanupSubstate,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -6533,7 +6587,9 @@ class SystemSettingsData extends DataClass
           other.chatBadgePreferences == this.chatBadgePreferences &&
           other.defaultSleepQuality == this.defaultSleepQuality &&
           other.pendingFrontingMigrationMode ==
-              this.pendingFrontingMigrationMode);
+              this.pendingFrontingMigrationMode &&
+          other.pendingFrontingMigrationCleanupSubstate ==
+              this.pendingFrontingMigrationCleanupSubstate);
 }
 
 class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
@@ -6594,6 +6650,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
   final Value<String> chatBadgePreferences;
   final Value<String?> defaultSleepQuality;
   final Value<String> pendingFrontingMigrationMode;
+  final Value<String> pendingFrontingMigrationCleanupSubstate;
   final Value<int> rowid;
   const SystemSettingsTableCompanion({
     this.id = const Value.absent(),
@@ -6653,6 +6710,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.chatBadgePreferences = const Value.absent(),
     this.defaultSleepQuality = const Value.absent(),
     this.pendingFrontingMigrationMode = const Value.absent(),
+    this.pendingFrontingMigrationCleanupSubstate = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   SystemSettingsTableCompanion.insert({
@@ -6713,6 +6771,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.chatBadgePreferences = const Value.absent(),
     this.defaultSleepQuality = const Value.absent(),
     this.pendingFrontingMigrationMode = const Value.absent(),
+    this.pendingFrontingMigrationCleanupSubstate = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   static Insertable<SystemSettingsData> custom({
@@ -6773,6 +6832,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Expression<String>? chatBadgePreferences,
     Expression<String>? defaultSleepQuality,
     Expression<String>? pendingFrontingMigrationMode,
+    Expression<String>? pendingFrontingMigrationCleanupSubstate,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -6857,6 +6917,9 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
         'default_sleep_quality': defaultSleepQuality,
       if (pendingFrontingMigrationMode != null)
         'pending_fronting_migration_mode': pendingFrontingMigrationMode,
+      if (pendingFrontingMigrationCleanupSubstate != null)
+        'pending_fronting_migration_cleanup_substate':
+            pendingFrontingMigrationCleanupSubstate,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -6919,6 +6982,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Value<String>? chatBadgePreferences,
     Value<String?>? defaultSleepQuality,
     Value<String>? pendingFrontingMigrationMode,
+    Value<String>? pendingFrontingMigrationCleanupSubstate,
     Value<int>? rowid,
   }) {
     return SystemSettingsTableCompanion(
@@ -6994,6 +7058,9 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
       defaultSleepQuality: defaultSleepQuality ?? this.defaultSleepQuality,
       pendingFrontingMigrationMode:
           pendingFrontingMigrationMode ?? this.pendingFrontingMigrationMode,
+      pendingFrontingMigrationCleanupSubstate:
+          pendingFrontingMigrationCleanupSubstate ??
+          this.pendingFrontingMigrationCleanupSubstate,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -7216,6 +7283,11 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
         pendingFrontingMigrationMode.value,
       );
     }
+    if (pendingFrontingMigrationCleanupSubstate.present) {
+      map['pending_fronting_migration_cleanup_substate'] = Variable<String>(
+        pendingFrontingMigrationCleanupSubstate.value,
+      );
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -7285,6 +7357,9 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
           ..write('defaultSleepQuality: $defaultSleepQuality, ')
           ..write(
             'pendingFrontingMigrationMode: $pendingFrontingMigrationMode, ',
+          )
+          ..write(
+            'pendingFrontingMigrationCleanupSubstate: $pendingFrontingMigrationCleanupSubstate, ',
           )
           ..write('rowid: $rowid')
           ..write(')'))
@@ -23814,6 +23889,7 @@ typedef $$SystemSettingsTableTableCreateCompanionBuilder =
       Value<String> chatBadgePreferences,
       Value<String?> defaultSleepQuality,
       Value<String> pendingFrontingMigrationMode,
+      Value<String> pendingFrontingMigrationCleanupSubstate,
       Value<int> rowid,
     });
 typedef $$SystemSettingsTableTableUpdateCompanionBuilder =
@@ -23875,6 +23951,7 @@ typedef $$SystemSettingsTableTableUpdateCompanionBuilder =
       Value<String> chatBadgePreferences,
       Value<String?> defaultSleepQuality,
       Value<String> pendingFrontingMigrationMode,
+      Value<String> pendingFrontingMigrationCleanupSubstate,
       Value<int> rowid,
     });
 
@@ -24171,6 +24248,12 @@ class $$SystemSettingsTableTableFilterComposer
     column: $table.pendingFrontingMigrationMode,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnFilters<String> get pendingFrontingMigrationCleanupSubstate =>
+      $composableBuilder(
+        column: $table.pendingFrontingMigrationCleanupSubstate,
+        builder: (column) => ColumnFilters(column),
+      );
 }
 
 class $$SystemSettingsTableTableOrderingComposer
@@ -24468,6 +24551,12 @@ class $$SystemSettingsTableTableOrderingComposer
         column: $table.pendingFrontingMigrationMode,
         builder: (column) => ColumnOrderings(column),
       );
+
+  ColumnOrderings<String> get pendingFrontingMigrationCleanupSubstate =>
+      $composableBuilder(
+        column: $table.pendingFrontingMigrationCleanupSubstate,
+        builder: (column) => ColumnOrderings(column),
+      );
 }
 
 class $$SystemSettingsTableTableAnnotationComposer
@@ -24753,6 +24842,12 @@ class $$SystemSettingsTableTableAnnotationComposer
         column: $table.pendingFrontingMigrationMode,
         builder: (column) => column,
       );
+
+  GeneratedColumn<String> get pendingFrontingMigrationCleanupSubstate =>
+      $composableBuilder(
+        column: $table.pendingFrontingMigrationCleanupSubstate,
+        builder: (column) => column,
+      );
 }
 
 class $$SystemSettingsTableTableTableManager
@@ -24857,6 +24952,8 @@ class $$SystemSettingsTableTableTableManager
                 Value<String?> defaultSleepQuality = const Value.absent(),
                 Value<String> pendingFrontingMigrationMode =
                     const Value.absent(),
+                Value<String> pendingFrontingMigrationCleanupSubstate =
+                    const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SystemSettingsTableCompanion(
                 id: id,
@@ -24917,6 +25014,8 @@ class $$SystemSettingsTableTableTableManager
                 chatBadgePreferences: chatBadgePreferences,
                 defaultSleepQuality: defaultSleepQuality,
                 pendingFrontingMigrationMode: pendingFrontingMigrationMode,
+                pendingFrontingMigrationCleanupSubstate:
+                    pendingFrontingMigrationCleanupSubstate,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -24980,6 +25079,8 @@ class $$SystemSettingsTableTableTableManager
                 Value<String?> defaultSleepQuality = const Value.absent(),
                 Value<String> pendingFrontingMigrationMode =
                     const Value.absent(),
+                Value<String> pendingFrontingMigrationCleanupSubstate =
+                    const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SystemSettingsTableCompanion.insert(
                 id: id,
@@ -25040,6 +25141,8 @@ class $$SystemSettingsTableTableTableManager
                 chatBadgePreferences: chatBadgePreferences,
                 defaultSleepQuality: defaultSleepQuality,
                 pendingFrontingMigrationMode: pendingFrontingMigrationMode,
+                pendingFrontingMigrationCleanupSubstate:
+                    pendingFrontingMigrationCleanupSubstate,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

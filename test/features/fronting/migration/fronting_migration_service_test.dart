@@ -28,7 +28,8 @@ import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:uuid/uuid.dart';
 
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
-import 'package:prism_plurality/core/database/app_database.dart' hide Member;
+import 'package:prism_plurality/core/database/app_database.dart'
+    hide Member, FrontingSession;
 import 'package:prism_plurality/data/repositories/drift_chat_message_repository.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 import 'package:prism_plurality/data/repositories/drift_conversation_categories_repository.dart';
@@ -44,7 +45,12 @@ import 'package:prism_plurality/data/repositories/drift_notes_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_poll_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_reminders_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_system_settings_repository.dart';
+import 'package:flutter/material.dart' show DateTimeRange;
+import 'package:prism_plurality/domain/models/front_session_comment.dart';
+import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/member.dart' show Member;
+import 'package:prism_plurality/domain/repositories/front_session_comments_repository.dart';
+import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/features/data_management/services/data_export_service.dart';
 import 'package:prism_plurality/features/fronting/migration/fronting_migration_service.dart';
@@ -922,22 +928,18 @@ void main() {
     );
 
     // -------------------------------------------------------------------
-    // Codex P1 #3 — suppression e2e
+    // Codex P1 #3 — suppression flag is cleared after migration
+    //
+    // (Renamed from "suppression e2e" per codex pass 2 #C-NEW3.) This
+    // test only proves the post-migration invariant (suppression flag
+    // is back to false). The "suppression actually wraps every write"
+    // invariant is asserted by the next test, which uses asserting
+    // fake repositories that fail loudly on any unsuppressed write
+    // during the migration body.
     // -------------------------------------------------------------------
     test(
-      'suppress: SyncRecordMixin is suppressed for the Drift transaction; '
-      'no FFI emission for repository writes during migration body',
+      'suppression flag is cleared after migration (post-invariant only)',
       () async {
-        // Because the production repos used by `_makeService` carry a
-        // null syncHandle, they never reach the FFI even outside
-        // suppression — but the suppression gate runs BEFORE the
-        // handle is read. We assert the gate by observing
-        // `SyncRecordMixin.isSuppressed` from inside the migration:
-        // wrap the dataExportService so its `exportEncryptedData` is
-        // a probe that flips a ref BEFORE the tx and we re-check
-        // post-tx. Practically this also exercises the full
-        // migration code path; it would have caught any path that
-        // bypassed `suppress`.
         await _seedMember(db, 'm1');
         await _seedSession(
           db,
@@ -959,6 +961,119 @@ void main() {
         expect(result.outcome, MigrationOutcome.success);
         expect(SyncRecordMixin.isSuppressed, isFalse,
             reason: 'suppression must clear by the end of runMigration');
+      },
+    );
+
+    // -------------------------------------------------------------------
+    // Codex pass 2 #C-NEW3 — suppression IS active during the body
+    //
+    // Wraps every repository the migration writes through with an
+    // asserting decorator that fails fast if `SyncRecordMixin.isSuppressed`
+    // is false at the moment of a write. Exercises the full happy-path
+    // upgradeAndKeep solo body so every documented write site (session
+    // create / update / delete, comment update / delete, member sentinel
+    // ensure) is covered. Without `SyncRecordMixin.suppress` wrapping
+    // the Drift transaction, this test would fail on the first migrated
+    // row.
+    // -------------------------------------------------------------------
+    test(
+      'every repository write inside the migration body runs while '
+      'SyncRecordMixin.isSuppressed is true',
+      () async {
+        // Seed a mix of rows that exercises every documented write
+        // path. (The body ends up calling all of: session update,
+        // session create — for fan-out, session delete — for PK rows,
+        // comment update, comment delete, member ensure-sentinel for
+        // orphans.)
+        const primaryId = 'primary-m';
+        const coId = 'co-m';
+        const spMemberId = 'sp-m';
+        const pkMemberId = 'pk-m';
+        for (final id in [primaryId, coId, spMemberId, pkMemberId]) {
+          await _seedMember(db, id, name: id);
+        }
+        // PK row → deleteSession + comment deleteComment via PK parent.
+        await _seedSession(
+          db,
+          id: 'pk-1',
+          startTime: DateTime.utc(2026, 4, 1, 9),
+          endTime: DateTime.utc(2026, 4, 1, 10),
+          memberId: pkMemberId,
+          pluralkitUuid: '11111111-1111-4111-8111-111111111111',
+        );
+        await _seedComment(
+          db,
+          id: 'cmt-pk',
+          sessionId: 'pk-1',
+          body: 'will be deleted (parent is PK)',
+          timestamp: DateTime.utc(2026, 4, 1, 9, 30),
+        );
+        // SP row → updateSession.
+        await _seedSession(
+          db,
+          id: 'sp-1',
+          startTime: DateTime.utc(2026, 4, 2, 9),
+          memberId: spMemberId,
+        );
+        await _seedSpMapping(db, 'sp-1');
+        // Native multi-member row → updateSession + createSession (fan-out).
+        await _seedSession(
+          db,
+          id: 'native-multi',
+          startTime: DateTime.utc(2026, 4, 3, 9),
+          memberId: primaryId,
+          coFronterIds: jsonEncode([coId]),
+        );
+        await _seedComment(
+          db,
+          id: 'cmt-native',
+          sessionId: 'native-multi',
+          body: 'will be migrated (parent kept)',
+          timestamp: DateTime.utc(2026, 4, 3, 10),
+        );
+        // Orphan row (member_id NULL) → triggers ensureUnknownSentinelMember.
+        await _seedSession(
+          db,
+          id: 'orphan-1',
+          startTime: DateTime.utc(2026, 4, 4, 9),
+        );
+
+        final memberRepo = DriftMemberRepository(db.membersDao, null);
+        final sessionRepo =
+            DriftFrontingSessionRepository(db.frontingSessionsDao, null);
+        final commentsRepo =
+            DriftFrontSessionCommentsRepository(db.frontSessionCommentsDao, null);
+
+        final svc = FrontingMigrationService(
+          db: db,
+          memberRepository: _SuppressionAssertingMemberRepository(memberRepo),
+          frontingSessionRepository:
+              _SuppressionAssertingFrontingSessionRepository(sessionRepo),
+          frontSessionCommentsRepository:
+              _SuppressionAssertingFrontSessionCommentsRepository(commentsRepo),
+          dataExportService: exportService,
+          syncHandle: null,
+          backupDirectoryProvider: () async => cacheDir,
+        );
+
+        final result = await svc.runMigration(
+          mode: MigrationMode.upgradeAndKeep,
+          role: DeviceRole.solo,
+          shareFile: _noopShare,
+        );
+
+        expect(result.outcome, MigrationOutcome.success,
+            reason: 'migration must succeed; '
+                'failure here means an unsuppressed write was attempted '
+                '(see asserting decorator messages)');
+        // Sanity: the body did exercise the paths we care about.
+        expect(result.pkRowsDeleted, greaterThan(0));
+        expect(result.spRowsMigrated, greaterThan(0));
+        expect(result.nativeRowsMigrated, greaterThan(0));
+        expect(result.nativeRowsExpanded, greaterThan(0));
+        expect(result.commentsMigrated, greaterThan(0));
+        expect(result.commentsDeleted, greaterThan(0));
+        expect(result.orphanRowsAssignedToSentinel, greaterThan(0));
       },
     );
 
@@ -1052,6 +1167,15 @@ void main() {
             throw StateError('Simulated keychain wipe failure');
           }
         }
+        // Codex pass 2 #B-NEW3 — also count reset calls so the test
+        // proves the substate-based skip behavior: the first attempt
+        // succeeds at reset and writes substate=resetDone, then the
+        // keychain wipe fails. On resume, reset MUST NOT be called
+        // again (the substate already proves it succeeded).
+        var resetCalls = 0;
+        Future<void> countingReset(ffi.PrismSyncHandle _) async {
+          resetCalls++;
+        }
 
         final svc = FrontingMigrationService(
           db: db,
@@ -1064,7 +1188,7 @@ void main() {
           ),
           dataExportService: exportService,
           syncHandle: _FakePrismSyncHandle(),
-          resetSyncState: (_) async {},
+          resetSyncState: countingReset,
           wipeSyncKeychain: failingThenOkWipe,
           backupDirectoryProvider: () async => cacheDir,
         );
@@ -1080,6 +1204,17 @@ void main() {
           await db.systemSettingsDao.readPendingFrontingMigrationMode(),
           'inProgress',
         );
+        // Substate must be 'resetDone' since the FFI reset DID succeed
+        // — only the keychain wipe failed.
+        expect(
+          await db.systemSettingsDao
+              .readPendingFrontingMigrationCleanupSubstate(),
+          FrontingMigrationService.substateResetDone,
+          reason:
+              'Codex pass 2 #B-NEW3: substate must record that reset '
+              'succeeded so resumeCleanup can skip it on retry',
+        );
+        expect(resetCalls, 1, reason: 'reset succeeded on first attempt');
 
         final resumeResult = await svc.resumeCleanup();
         expect(resumeResult.outcome, MigrationOutcome.success);
@@ -1088,6 +1223,166 @@ void main() {
           'complete',
         );
         expect(wipeCalls, 2);
+        expect(
+          resetCalls,
+          1,
+          reason:
+              'Codex pass 2 #B-NEW3: resumeCleanup must NOT re-run reset '
+              'when substate already says resetDone — re-running against '
+              'an unconfigured handle would have masked the "sync_id not '
+              'set" error as success',
+        );
+        // After successful complete, substate should be reset to inert.
+        expect(
+          await db.systemSettingsDao
+              .readPendingFrontingMigrationCleanupSubstate(),
+          FrontingMigrationService.substateInert,
+        );
+      },
+    );
+
+    // Codex pass 2 #B-NEW3 — substate is inert when reset fails;
+    // resumeCleanup must invoke the configure-for-reset hook AND a
+    // second reset attempt. Without the substate machinery, the
+    // previous code would treat any "sync_id not set" error from the
+    // second reset as success (because the handle is unconfigured on
+    // the resume path), masking real reset failures.
+    test(
+      'engine reset failure: substate stays inert; resumeCleanup runs '
+      'configure-for-reset and a second reset before completing',
+      () async {
+        await _seedMember(db, 'm1');
+        await _seedSession(
+          db,
+          id: 's1',
+          startTime: DateTime(2026, 4, 1, 9).toUtc(),
+          memberId: 'm1',
+        );
+
+        var resetCalls = 0;
+        var firstReset = true;
+        Future<void> failingThenOkReset(ffi.PrismSyncHandle _) async {
+          resetCalls++;
+          if (firstReset) {
+            firstReset = false;
+            throw StateError('Simulated FFI reset failure');
+          }
+        }
+
+        var configureCalls = 0;
+        Future<void> countingConfigure(ffi.PrismSyncHandle _) async {
+          configureCalls++;
+        }
+
+        final svc = FrontingMigrationService(
+          db: db,
+          memberRepository: DriftMemberRepository(db.membersDao, null),
+          frontingSessionRepository:
+              DriftFrontingSessionRepository(db.frontingSessionsDao, null),
+          frontSessionCommentsRepository: DriftFrontSessionCommentsRepository(
+            db.frontSessionCommentsDao,
+            null,
+          ),
+          dataExportService: exportService,
+          syncHandle: _FakePrismSyncHandle(),
+          resetSyncState: failingThenOkReset,
+          ensureConfiguredForReset: countingConfigure,
+          backupDirectoryProvider: () async => cacheDir,
+        );
+
+        final firstResult = await svc.runMigration(
+          mode: MigrationMode.upgradeAndKeep,
+          role: DeviceRole.solo,
+          shareFile: _noopShare,
+        );
+        expect(firstResult.outcome, MigrationOutcome.failed);
+        // First attempt did NOT reach substate write — it failed
+        // before the post-reset write site.
+        expect(
+          await db.systemSettingsDao
+              .readPendingFrontingMigrationCleanupSubstate(),
+          FrontingMigrationService.substateInert,
+          reason:
+              'Reset failure must leave substate inert so resume re-runs '
+              'reset (the bug fix prevents re-running being misclassified '
+              'as success)',
+        );
+        // First attempt is the runMigrationDestructive path, which
+        // does NOT call configure-for-reset (engine is already
+        // configured from normal startup).
+        expect(configureCalls, 0,
+            reason: 'first attempt is not the resume path');
+
+        final resumeResult = await svc.resumeCleanup();
+        expect(resumeResult.outcome, MigrationOutcome.success);
+        expect(resetCalls, 2);
+        expect(
+          configureCalls,
+          1,
+          reason:
+              'resume path must configure-for-reset before calling reset, '
+              'because the published handle is unconfigured (startup gate '
+              'skipped seedRustStore + autoConfigureIfReady on inProgress)',
+        );
+      },
+    );
+
+    // Codex pass 2 #B-NEW3 — explicit regression: a Rust error
+    // returning "sync_id not set" must NOT be silently swallowed as
+    // "already reset" the way the previous heuristic did. Substate
+    // is the source of truth; if it's inert, the error is real.
+    test(
+      'engine reset returning "sync_id not set" while substate is inert '
+      'is treated as a real failure (not silently treated as success)',
+      () async {
+        await _seedMember(db, 'm1');
+        await _seedSession(
+          db,
+          id: 's1',
+          startTime: DateTime(2026, 4, 1, 9).toUtc(),
+          memberId: 'm1',
+        );
+
+        Future<void> alwaysSyncIdNotSet(ffi.PrismSyncHandle _) async {
+          throw StateError('sync_id not set — call configure_engine first');
+        }
+
+        final svc = FrontingMigrationService(
+          db: db,
+          memberRepository: DriftMemberRepository(db.membersDao, null),
+          frontingSessionRepository:
+              DriftFrontingSessionRepository(db.frontingSessionsDao, null),
+          frontSessionCommentsRepository: DriftFrontSessionCommentsRepository(
+            db.frontSessionCommentsDao,
+            null,
+          ),
+          dataExportService: exportService,
+          syncHandle: _FakePrismSyncHandle(),
+          resetSyncState: alwaysSyncIdNotSet,
+          backupDirectoryProvider: () async => cacheDir,
+        );
+
+        final result = await svc.runMigration(
+          mode: MigrationMode.upgradeAndKeep,
+          role: DeviceRole.solo,
+          shareFile: _noopShare,
+        );
+
+        // Previously this was incorrectly classified as success via
+        // the _isAlreadyResetError heuristic. With substate as the
+        // source of truth, the error surfaces as a failure and
+        // settings stay at inProgress so the user can retry.
+        expect(result.outcome, MigrationOutcome.failed);
+        expect(result.errorMessage, contains('Engine reset failed'));
+        expect(
+          await db.systemSettingsDao.readPendingFrontingMigrationMode(),
+          'inProgress',
+        );
+        expect(
+          await db.systemSettingsDao
+              .readPendingFrontingMigrationCleanupSubstate(),
+          FrontingMigrationService.substateInert,
+        );
       },
     );
 
@@ -1182,4 +1477,231 @@ class _FakePrismSyncHandle implements ffi.PrismSyncHandle {
 
   @override
   bool get isDisposed => false;
+}
+
+// ---------------------------------------------------------------------------
+// Codex pass 2 #C-NEW3 — suppression-asserting repository decorators
+//
+// Wrap the real Drift repos and assert `SyncRecordMixin.isSuppressed ==
+// true` at the moment any sync-emitting method (create/update/delete +
+// the sentinel ensure path) runs. If the migration body ever issues a
+// repository write outside `SyncRecordMixin.suppress(...)`, the assert
+// throws synchronously and the test fails fast with a clear message.
+//
+// We deliberately wrap only the methods the migration body calls so
+// the failure message points at the offending call site directly. All
+// other methods are pass-through.
+// ---------------------------------------------------------------------------
+
+void _assertSuppressed(String method) {
+  expect(
+    SyncRecordMixin.isSuppressed,
+    isTrue,
+    reason: 'Migration writes must run inside SyncRecordMixin.suppress; '
+        '$method was called with isSuppressed=false',
+  );
+}
+
+class _SuppressionAssertingFrontingSessionRepository
+    implements FrontingSessionRepository {
+  _SuppressionAssertingFrontingSessionRepository(this._inner);
+  final FrontingSessionRepository _inner;
+
+  @override
+  Future<void> createSession(FrontingSession session) {
+    _assertSuppressed('createSession');
+    return _inner.createSession(session);
+  }
+
+  @override
+  Future<void> updateSession(FrontingSession session) {
+    _assertSuppressed('updateSession');
+    return _inner.updateSession(session);
+  }
+
+  @override
+  Future<void> deleteSession(String id) {
+    _assertSuppressed('deleteSession');
+    return _inner.deleteSession(id);
+  }
+
+  // Pass-throughs below — none of these emit sync ops on their own, so
+  // they're safe to leave without an assert.
+  @override
+  Future<List<FrontingSession>> getAllSessions() => _inner.getAllSessions();
+  @override
+  Future<List<FrontingSession>> getFrontingSessions() =>
+      _inner.getFrontingSessions();
+  @override
+  Stream<List<FrontingSession>> watchAllSessions() => _inner.watchAllSessions();
+  @override
+  Future<List<FrontingSession>> getActiveSessions() =>
+      _inner.getActiveSessions();
+  @override
+  Future<List<FrontingSession>> getAllActiveSessionsUnfiltered() =>
+      _inner.getAllActiveSessionsUnfiltered();
+  @override
+  Stream<List<FrontingSession>> watchActiveSessions() =>
+      _inner.watchActiveSessions();
+  @override
+  Future<FrontingSession?> getActiveSession() => _inner.getActiveSession();
+  @override
+  Stream<FrontingSession?> watchActiveSession() => _inner.watchActiveSession();
+  @override
+  Stream<FrontingSession?> watchActiveSleepSession() =>
+      _inner.watchActiveSleepSession();
+  @override
+  Stream<List<FrontingSession>> watchAllSleepSessions() =>
+      _inner.watchAllSleepSessions();
+  @override
+  Future<FrontingSession?> getSessionById(String id) =>
+      _inner.getSessionById(id);
+  @override
+  Stream<FrontingSession?> watchSessionById(String id) =>
+      _inner.watchSessionById(id);
+  @override
+  Future<List<FrontingSession>> getSessionsForMember(String memberId) =>
+      _inner.getSessionsForMember(memberId);
+  @override
+  Future<List<FrontingSession>> getRecentSessions({int limit = 20}) =>
+      _inner.getRecentSessions(limit: limit);
+  @override
+  Future<List<FrontingSession>> getRecentSleepSessions({int limit = 10}) =>
+      _inner.getRecentSleepSessions(limit: limit);
+  @override
+  Stream<List<FrontingSession>> watchRecentSessions({int limit = 20}) =>
+      _inner.watchRecentSessions(limit: limit);
+  @override
+  Stream<List<FrontingSession>> watchRecentAllSessions({int limit = 30}) =>
+      _inner.watchRecentAllSessions(limit: limit);
+  @override
+  Future<void> endSession(String id, DateTime endTime) =>
+      _inner.endSession(id, endTime);
+  @override
+  Future<List<FrontingSession>> getSessionsBetween(
+          DateTime start, DateTime end) =>
+      _inner.getSessionsBetween(start, end);
+  @override
+  Future<int> getCount() => _inner.getCount();
+  @override
+  Future<int> getFrontingCount() => _inner.getFrontingCount();
+  @override
+  Future<List<FrontingSession>> getDeletedLinkedSessions() =>
+      _inner.getDeletedLinkedSessions();
+  @override
+  Future<void> clearPluralKitLink(String id) => _inner.clearPluralKitLink(id);
+  @override
+  Future<void> stampDeletePushStartedAt(String id, int timestampMs) =>
+      _inner.stampDeletePushStartedAt(id, timestampMs);
+  @override
+  Future<Map<String, int>> getMemberFrontingCounts({
+    int recentLimit = 50,
+    int? startHour,
+    int? endHour,
+    int? withinDays,
+  }) =>
+      _inner.getMemberFrontingCounts(
+        recentLimit: recentLimit,
+        startHour: startHour,
+        endHour: endHour,
+        withinDays: withinDays,
+      );
+}
+
+class _SuppressionAssertingFrontSessionCommentsRepository
+    implements FrontSessionCommentsRepository {
+  _SuppressionAssertingFrontSessionCommentsRepository(this._inner);
+  final FrontSessionCommentsRepository _inner;
+
+  @override
+  Future<void> createComment(FrontSessionComment comment) {
+    _assertSuppressed('createComment');
+    return _inner.createComment(comment);
+  }
+
+  @override
+  Future<void> updateComment(FrontSessionComment comment) {
+    _assertSuppressed('updateComment');
+    return _inner.updateComment(comment);
+  }
+
+  @override
+  Future<void> deleteComment(String id) {
+    _assertSuppressed('deleteComment');
+    return _inner.deleteComment(id);
+  }
+
+  @override
+  Stream<List<FrontSessionComment>> watchCommentsForRange(
+          DateTimeRange range) =>
+      _inner.watchCommentsForRange(range);
+
+  @override
+  Stream<int> watchCommentCountForRange(DateTimeRange range) =>
+      _inner.watchCommentCountForRange(range);
+
+  @override
+  Stream<List<FrontSessionComment>> watchAllComments() =>
+      _inner.watchAllComments();
+
+  @override
+  Future<List<FrontSessionComment>> getAllComments() =>
+      _inner.getAllComments();
+}
+
+class _SuppressionAssertingMemberRepository implements MemberRepository {
+  _SuppressionAssertingMemberRepository(this._inner);
+  final MemberRepository _inner;
+
+  @override
+  Future<({Member member, bool wasCreated})>
+      ensureUnknownSentinelMember() async {
+    _assertSuppressed('ensureUnknownSentinelMember');
+    return _inner.ensureUnknownSentinelMember();
+  }
+
+  @override
+  Future<void> createMember(Member member) {
+    _assertSuppressed('createMember');
+    return _inner.createMember(member);
+  }
+
+  @override
+  Future<void> updateMember(Member member) {
+    _assertSuppressed('updateMember');
+    return _inner.updateMember(member);
+  }
+
+  @override
+  Future<void> deleteMember(String id) {
+    _assertSuppressed('deleteMember');
+    return _inner.deleteMember(id);
+  }
+
+  @override
+  Future<List<Member>> getAllMembers() => _inner.getAllMembers();
+  @override
+  Stream<List<Member>> watchAllMembers() => _inner.watchAllMembers();
+  @override
+  Stream<List<Member>> watchActiveMembers() => _inner.watchActiveMembers();
+  @override
+  Future<Member?> getMemberById(String id) => _inner.getMemberById(id);
+  @override
+  Stream<Member?> watchMemberById(String id) => _inner.watchMemberById(id);
+  @override
+  Future<List<Member>> getMembersByIds(List<String> ids) =>
+      _inner.getMembersByIds(ids);
+  @override
+  Stream<List<Member>> watchMembersByIds(List<String> ids) =>
+      _inner.watchMembersByIds(ids);
+  @override
+  Future<int> getCount() => _inner.getCount();
+  @override
+  Future<List<Member>> getDeletedLinkedMembers() =>
+      _inner.getDeletedLinkedMembers();
+  @override
+  Future<void> clearPluralKitLink(String id) => _inner.clearPluralKitLink(id);
+  @override
+  Future<void> stampDeletePushStartedAt(String id, int timestampMs) =>
+      _inner.stampDeletePushStartedAt(id, timestampMs);
 }
