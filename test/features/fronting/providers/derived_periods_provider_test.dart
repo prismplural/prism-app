@@ -380,6 +380,154 @@ void main() {
     );
 
     test(
+      'production provider emits rangeEnd bounded at now (not now + 30d)',
+      () async {
+        // Codex P1 fix-up #3: the bundle's `rangeEnd` is the visible
+        // upper bound, NOT the SQL lookahead. With `rangeEnd = now`,
+        // an open current session extends to `now`, not to
+        // `now + 30 days`. This test reads the live provider bundle
+        // and asserts the bound, then checks the derived open period
+        // ends at-or-before `now` (within a small wall-clock tick).
+        final db = AppDatabase(NativeDatabase.memory());
+        addTearDown(db.close);
+
+        final repo = DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+        );
+
+        // Insert one open current session.
+        final start = DateTime.now().subtract(const Duration(hours: 1));
+        await db.frontingSessionsDao.insertSession(
+          FrontingSessionMapper.toCompanion(
+            FrontingSession(
+              id: 'open',
+              memberId: 'a',
+              startTime: start,
+              endTime: null,
+            ),
+          ),
+        );
+
+        final container = ProviderContainer(overrides: [
+          frontingSessionRepositoryProvider
+              .overrideWith((ref) => repo as FrontingSessionRepository),
+          allMembersProvider
+              .overrideWith((ref) => Stream.value(const <Member>[])),
+        ]);
+        addTearDown(container.dispose);
+
+        container.listen<AsyncValue<DerivedPeriodsInputBundle>>(
+          unifiedHistoryOverlapProvider,
+          (_, _) {},
+          fireImmediately: true,
+        );
+        container.listen<AsyncValue<List<FrontingPeriod>>>(
+          derivedPeriodsProvider,
+          (_, _) {},
+          fireImmediately: true,
+        );
+
+        final bundle =
+            await container.read(unifiedHistoryOverlapProvider.future);
+
+        // rangeEnd must be bounded at "now of rebuild" — within a few
+        // seconds, NOT 30 days in the future.
+        final wallNow = DateTime.now();
+        final delta = bundle.rangeEnd.difference(wallNow).abs();
+        expect(delta.inSeconds, lessThan(5),
+            reason: 'rangeEnd must be ~now, not now + 30 days '
+                '(was: ${bundle.rangeEnd}, now: $wallNow)');
+
+        // And the open derived period ends ~now, not ~now + 30d.
+        await container.read(allMembersProvider.future);
+        await Future<void>.delayed(Duration.zero);
+        final periods = container.read(derivedPeriodsProvider).value!;
+        expect(periods, hasLength(1));
+        final open = periods.single;
+        expect(open.isOpenEnded, isTrue);
+        // End must be at or before now + a small tolerance — never
+        // 30 days in the future.
+        final endDelta = open.end.difference(wallNow).abs();
+        expect(endDelta.inMinutes, lessThan(1),
+            reason: 'open period end must be ~now, not 30 days out '
+                '(was: ${open.end})');
+      },
+    );
+
+    test(
+      'future-dated session in DB does not leak into derived periods',
+      () async {
+        // Codex P2 fix-up #3: even though the DAO's +30d lookahead
+        // surfaces a future-dated row, the derivation rejects it.
+        final db = AppDatabase(NativeDatabase.memory());
+        addTearDown(db.close);
+
+        final repo = DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+        );
+
+        // One real recent closed session.
+        final realStart = DateTime.now().subtract(const Duration(hours: 2));
+        final realEnd = DateTime.now().subtract(const Duration(hours: 1));
+        await db.frontingSessionsDao.insertSession(
+          FrontingSessionMapper.toCompanion(
+            FrontingSession(
+              id: 'real',
+              memberId: 'a',
+              startTime: realStart,
+              endTime: realEnd,
+            ),
+          ),
+        );
+
+        // One future-dated typo: starts tomorrow.
+        await db.frontingSessionsDao.insertSession(
+          FrontingSessionMapper.toCompanion(
+            FrontingSession(
+              id: 'future',
+              memberId: 'b',
+              startTime: DateTime.now().add(const Duration(days: 1)),
+              endTime: DateTime.now().add(const Duration(days: 1, hours: 1)),
+            ),
+          ),
+        );
+
+        final container = ProviderContainer(overrides: [
+          frontingSessionRepositoryProvider
+              .overrideWith((ref) => repo as FrontingSessionRepository),
+          allMembersProvider
+              .overrideWith((ref) => Stream.value(const <Member>[])),
+        ]);
+        addTearDown(container.dispose);
+
+        container.listen<AsyncValue<List<FrontingPeriod>>>(
+          derivedPeriodsProvider,
+          (_, _) {},
+          fireImmediately: true,
+        );
+
+        await container.read(unifiedHistoryOverlapProvider.future);
+        await container.read(allMembersProvider.future);
+        await Future<void>.delayed(Duration.zero);
+
+        final periods = container.read(derivedPeriodsProvider).value!;
+        // Only the real session contributes. Member 'b' must be
+        // entirely absent.
+        for (final p in periods) {
+          expect(p.activeMembers, isNot(contains('b')),
+              reason: 'future-dated session must not surface in periods');
+          expect(p.briefVisitors.map((v) => v.memberId), isNot(contains('b')));
+        }
+        final allActive = <String>{
+          for (final p in periods) ...p.activeMembers,
+        };
+        expect(allActive, contains('a'));
+      },
+    );
+
+    test(
       'provider invalidation propagates a new session to derived periods',
       () async {
         // Codex test gap #5: invalidateFrontingProviders must invalidate

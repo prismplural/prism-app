@@ -150,11 +150,18 @@ class DerivePeriodsInput {
 /// `alwaysPresentMembers` on every period whose span overlaps their
 /// session.
 List<FrontingPeriod> deriveMaximalPeriods(DerivePeriodsInput input) {
-  // Skip sleep sessions — the list view renders those via a separate sleep
-  // tile, not a fronting period.
+  // Skip sleep sessions, soft-deleted rows, and future-dated rows.
+  //
+  // Future-dated rejection: the upstream DAO query uses an internal
+  // `+30d` SQL lookahead so newly-inserted rows are caught by Drift
+  // `.watch()` re-evaluation. That same lookahead means a typo'd
+  // session with `start_time = tomorrow` reaches us. Such a session
+  // is not yet active and must not produce visible periods — silently
+  // drop it here.
   final sessions = [
     for (final s in input.sessions)
-      if (!s.isSleep && !s.isDeleted) s,
+      if (!s.isSleep && !s.isDeleted && !s.startTime.isAfter(input.rangeEnd))
+        s,
   ];
   if (sessions.isEmpty) return const [];
 
@@ -583,9 +590,17 @@ List<FrontingPeriod> _collapseAndAnnotate(
       continue;
     }
 
-    // Keep this period. Flush any pending brief visitors into it.
+    // Keep this period. Flush any pending brief visitors into it,
+    // deduping members who are already active in this period — a
+    // closed-short → open-short same-member handoff would otherwise
+    // render the active member as a "brief visitor" of their own
+    // active period (Codex P2).
     final allSessionIds = <String>{...p.sessionIds, ...pendingSessionIds};
-    final brief = List<EphemeralVisit>.from(pendingBrief);
+    final activeMemberSet = p.activeMembers.toSet();
+    final brief = <EphemeralVisit>[
+      for (final v in pendingBrief)
+        if (!activeMemberSet.contains(v.memberId)) v,
+    ];
     pendingBrief.clear();
     pendingSessionIds.clear();
 
@@ -623,14 +638,22 @@ List<FrontingPeriod> _collapseAndAnnotate(
   }
 
   // If we ended with pending brief visitors and no kept period followed,
-  // attach them to the last kept period (mutate by replacing).
+  // attach them to the last kept period (mutate by replacing). Dedupe
+  // against the last period's active member set — a same-member
+  // handoff at the trailing edge shouldn't render the active member
+  // as a brief visitor of themselves.
   if (pendingBrief.isNotEmpty && result.isNotEmpty) {
     final last = result.removeLast();
+    final lastActiveSet = last.activeMembers.toSet();
+    final dedupedTrailing = <EphemeralVisit>[
+      for (final v in pendingBrief)
+        if (!lastActiveSet.contains(v.memberId)) v,
+    ];
     result.add(FrontingPeriod(
       start: last.start,
       end: last.end,
       activeMembers: last.activeMembers,
-      briefVisitors: [...last.briefVisitors, ...pendingBrief],
+      briefVisitors: [...last.briefVisitors, ...dedupedTrailing],
       sessionIds: {...last.sessionIds, ...pendingSessionIds}.toList(),
       alwaysPresentMembers: last.alwaysPresentMembers,
       isOpenEnded: last.isOpenEnded,
