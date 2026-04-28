@@ -246,7 +246,8 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
     // point that calls `resumeCleanup()` to wipe the keychain and
     // mark the migration complete.
     final pendingMigration = await _readPendingFrontingMigrationMode(ref);
-    final isMigrationMidCleanup = pendingMigration == 'inProgress';
+    final migrationGateHealth = startupHealthForMigrationMode(pendingMigration);
+    final isMigrationMidCleanup = migrationGateHealth != null;
     if (!isMigrationMidCleanup) {
       // Seed Rust's in-memory SecureStore from platform keychain.
       await _seedRustStore(handle);
@@ -276,12 +277,28 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
     // Writes that land in this window can see `sync not configured` even
     // though the same handle will become writable a moment later.
     //
-    // Codex P1 #4: skip when the migration is mid-cleanup — see comment
-    // above `_seedRustStore`.
+    // Codex P1 #4 / pass-4 #B-PASS4-P1: skip when the migration is
+    // mid-cleanup. Report `unpaired` rather than `healthy` so the
+    // post-config block below (cacheRuntimeKeys / re-emit /
+    // drainRustStore / onResume) is skipped entirely. Setting it to
+    // `healthy` would cause `drainRustStore` to run against a Rust
+    // engine that was never seeded or configured, and
+    // `applyDrainedEntries` would treat every missing static key as
+    // "deleted" — including `prism_sync.sync_id`, which the
+    // `resumeCleanup()` path in `FrontingMigrationService` needs to
+    // call `clearSyncState(handle, syncId, ...)` to wipe the OLD
+    // sync group's storage row. The fronting upgrade modal already
+    // surfaces the resume-cleanup screen when mode == `inProgress`,
+    // so the user is shown the right next action regardless.
     late final SyncHealthState health;
     try {
-      if (isMigrationMidCleanup) {
-        health = SyncHealthState.healthy; // unpaired-equivalent; modal will resume
+      if (migrationGateHealth != null) {
+        // `unpaired` already means "engine isn't configured; skip the
+        // post-config drain / cacheRuntimeKeys / scheduled onResume
+        // calls" — exactly the semantics we need here. The modal will
+        // drive resumeCleanup() which then transitions away from
+        // `inProgress`.
+        health = migrationGateHealth;
       } else {
         health = await _autoConfigureIfReady(handle);
       }
@@ -383,6 +400,34 @@ SyncHealthState? classifyHealthFromKeychain({
   required String? deviceId,
 }) {
   if (syncId == null || deviceId == null) {
+    return SyncHealthState.unpaired;
+  }
+  return null;
+}
+
+/// Pure helper: decide the startup-time `SyncHealthState` for the
+/// fronting-migration `inProgress` gate.
+///
+/// Codex pass-4 #B-PASS4-P1: when the per-member fronting migration is
+/// mid-cleanup (mode == `'inProgress'`) we must NOT report `healthy`,
+/// because that triggers the post-`configureEngine` block in
+/// `createHandle` (cacheRuntimeKeys → drainRustStore → onResume).
+/// Since the migration deliberately skipped `_seedRustStore` and
+/// `_autoConfigureIfReady`, the Rust engine has nothing in its
+/// `MemorySecureStore`, so a `drainRustStore` call returns an empty
+/// entries map. `applyDrainedEntries` would then treat every static
+/// allow-listed key (including `prism_sync.sync_id`) as "deleted" and
+/// wipe it from the platform keychain — leaving the
+/// `FrontingMigrationService.resumeCleanup()` path with no `sync_id`
+/// to target `clearSyncState` against.
+///
+/// Returns `unpaired` for `'inProgress'` (skips the entire post-config
+/// block — exact same semantics as a never-paired device) and `null`
+/// otherwise (caller falls through to the normal seed + configure
+/// path).
+@visibleForTesting
+SyncHealthState? startupHealthForMigrationMode(String? mode) {
+  if (mode == 'inProgress') {
     return SyncHealthState.unpaired;
   }
   return null;

@@ -288,4 +288,109 @@ void main() {
       },
     );
   });
+
+  // --------------------------------------------------------------------
+  // Codex pass-4 #B-PASS4-P1 / #C-PASS4-P2 — the in-progress startup
+  // gate must NOT fall through into the post-config block, because
+  // that block calls `drainRustStore` against a Rust engine that was
+  // never seeded, and `applyDrainedEntries` would then nuke
+  // `prism_sync.sync_id` from the platform keychain — losing the
+  // pointer that `FrontingMigrationService.resumeCleanup()` needs to
+  // call `clear_sync_state` against.
+  // --------------------------------------------------------------------
+
+  group('startupHealthForMigrationMode (pass-4 #B-PASS4-P1)', () {
+    test('returns unpaired when the migration is mid-cleanup (inProgress)', () {
+      // The whole point: `unpaired` skips the post-config drain block.
+      // Returning `healthy` (the previous behavior) would cause
+      // `drainRustStore` to wipe `prism_sync.sync_id`.
+      expect(
+        startupHealthForMigrationMode('inProgress'),
+        SyncHealthState.unpaired,
+      );
+    });
+
+    test('returns null for the normal startup path (notStarted)', () {
+      // Caller falls through to the real seed + autoConfigure flow.
+      expect(startupHealthForMigrationMode('notStarted'), isNull);
+    });
+
+    test('returns null when the migration is already complete', () {
+      expect(startupHealthForMigrationMode('complete'), isNull);
+    });
+
+    test('returns null for upgrade/keep + start-fresh modes', () {
+      // These modes mean the migration ran successfully (or is the
+      // active choice for next launch); they don't need the gate.
+      expect(startupHealthForMigrationMode('upgradeAndKeep'), isNull);
+      expect(startupHealthForMigrationMode('startFresh'), isNull);
+      expect(startupHealthForMigrationMode('deferred'), isNull);
+      expect(startupHealthForMigrationMode('blocked'), isNull);
+    });
+
+    test('returns null for an unknown / null mode (fail open)', () {
+      // Defensive: any unrecognized value (including null from a DAO
+      // read failure) must fall through to the normal startup path
+      // rather than silently locking the user into the cleanup screen.
+      expect(startupHealthForMigrationMode(null), isNull);
+      expect(startupHealthForMigrationMode(''), isNull);
+      expect(startupHealthForMigrationMode('totally-unknown-mode'), isNull);
+    });
+  });
+
+  group('applyDrainedEntries with empty entries (pass-4 #B-PASS4-P1)', () {
+    // Regression guard for the underlying destructive behavior: if the
+    // post-config block ever runs against an empty drain (the exact
+    // condition produced by skipping `_seedRustStore` when the
+    // migration is mid-cleanup), it would delete every static key —
+    // including `prism_sync.sync_id`. The fix is to NOT call into
+    // `applyDrainedEntries` from the in-progress gate; this test
+    // demonstrates *why* by pinning the destructive behavior.
+    test('deletes prism_sync.sync_id when entries map is empty', () async {
+      final deleted = <String>[];
+      final written = <String, String>{};
+
+      final committed = await applyDrainedEntries(
+        entries: const <String, String>{}, // empty: never-seeded engine
+        deleteKey: (full) async {
+          deleted.add(full);
+        },
+        writeKey: (full, value) async {
+          written[full] = value;
+        },
+      );
+
+      expect(committed, 0);
+      // `prism_sync.sync_id` is in the static `_secureStoreKeys`
+      // allow-list, so an empty drain wipes it. This is the exact
+      // mechanism by which the pre-fix in-progress gate corrupted the
+      // keychain.
+      expect(deleted, contains('prism_sync.sync_id'));
+      expect(written, isEmpty);
+    });
+
+    test(
+      'preserves prism_sync.sync_id when the drained entries echo it back',
+      () async {
+        // Sanity check: when Rust IS seeded and reports sync_id back,
+        // the helper writes it (and does not also delete it) — proving
+        // the destructive path above is uniquely the empty-drain case.
+        final deleted = <String>[];
+        final written = <String, String>{};
+
+        await applyDrainedEntries(
+          entries: const <String, String>{'sync_id': 'c3luYzE='},
+          deleteKey: (full) async {
+            deleted.add(full);
+          },
+          writeKey: (full, value) async {
+            written[full] = value;
+          },
+        );
+
+        expect(deleted, isNot(contains('prism_sync.sync_id')));
+        expect(written['prism_sync.sync_id'], 'c3luYzE=');
+      },
+    );
+  });
 }
