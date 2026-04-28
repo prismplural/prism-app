@@ -15,6 +15,7 @@ import 'package:prism_plurality/features/fronting/sanitization/fronting_sanitize
 import 'package:prism_plurality/features/fronting/utils/sleep_quality_l10n.dart';
 import 'package:prism_plurality/features/fronting/views/edit_sleep_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
+import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/features/fronting/ui/delete_strategy_dialog.dart';
 import 'package:prism_plurality/features/fronting/widgets/fronting_duration_text.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
@@ -117,15 +118,28 @@ class SessionDetailScreen extends ConsumerWidget {
     // Compute and execute changes
     Haptics.heavy();
     final changes = resolutionService.computeDeleteChanges(deleteCtx, strategy);
-    await changeExecutor.execute(changes);
-    invalidateFrontingProviders(ref);
-
-    // Fire-and-forget rescan to update the issue banner
-    triggerPostEditRescan(ref, sessionStart: session.startTime, sessionEnd: session.endTime);
-
-    if (context.mounted) {
-      Navigator.of(context).pop();
-    }
+    final result = await changeExecutor.execute(changes);
+    if (!context.mounted) return;
+    result.when(
+      success: (_) {
+        invalidateFrontingProviders(ref);
+        // Fire-and-forget rescan to update the issue banner
+        triggerPostEditRescan(
+          ref,
+          sessionStart: session.startTime,
+          sessionEnd: session.endTime,
+        );
+        if (context.mounted) Navigator.of(context).pop();
+      },
+      failure: (error) {
+        if (context.mounted) {
+          PrismToast.error(
+            context,
+            message: context.l10n.frontingErrorSavingSession(error),
+          );
+        }
+      },
+    );
   }
 
   Future<void> _confirmSleepDelete(

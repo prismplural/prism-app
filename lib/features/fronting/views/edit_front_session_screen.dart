@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/editing/fronting_edit_resolution_models.dart';
 import 'package:prism_plurality/features/fronting/editing/fronting_session_change.dart';
@@ -79,7 +80,10 @@ class _EditFrontSessionScreenState
 
   /// Opens [MemberSearchSheet] in single-select mode for the fronter.
   ///
-  /// Includes an "Unknown" special row so the user can clear the fronter.
+  /// Includes an "Unknown" special row that maps to the Unknown sentinel
+  /// member id (not null). The executor's `_ensureSentinelIfNeeded` will
+  /// auto-create the sentinel member entity on save if it doesn't already
+  /// exist locally — keeping the FK resolvable.
   Future<void> _openFronterPicker(
     List<Member> members,
     String termPlural,
@@ -104,7 +108,11 @@ class _EditFrontSessionScreenState
       case MemberSearchResultSelected(:final memberId):
         setState(() => _memberId = memberId);
       case MemberSearchResultUnknown():
-        setState(() => _memberId = null);
+        // Map "Unknown" picker selection to the sentinel id directly so
+        // the executor takes the ensure-sentinel branch.  Writing null
+        // here would bypass _ensureSentinelIfNeeded and produce a legacy
+        // null-member row.
+        setState(() => _memberId = unknownSentinelMemberId);
       case MemberSearchResultDismissed():
       case MemberSearchResultCleared():
         break;
@@ -149,12 +157,21 @@ class _EditFrontSessionScreenState
 
     // 4. Build snapshot and patch for the edit guard
     final originalSnapshot = FrontingSanitizerService.toSnapshot(original);
+    // memberId handling: the picker now writes [unknownSentinelMemberId]
+    // (not null) when the user selects "Unknown", so any non-null change
+    // — including transitioning from a legacy null to the sentinel — flows
+    // through the [memberId] field and triggers the executor's
+    // ensure-sentinel branch.  [clearMemberId] is reserved for the
+    // (currently unreachable from this screen) "explicitly clear back to
+    // null" case; we keep the slot wired for symmetry but never set it
+    // from the Unknown picker.
+    final memberChanged = _memberId != original.memberId;
     final patch = FrontingSessionPatch(
       start: _startTime != original.startTime ? _startTime : null,
       end: end != original.endTime ? end : null,
       clearEnd: _isActive && original.endTime != null,
-      memberId: _memberId != original.memberId ? _memberId : null,
-      clearMemberId: _memberId == null && original.memberId != null,
+      memberId: memberChanged && _memberId != null ? _memberId : null,
+      clearMemberId: memberChanged && _memberId == null,
       // coFronterIds omitted — each session is one member's continuous
       // presence; co-fronting is emergent overlap, not a field.
       notes: trimmedNotes.isNotEmpty ? trimmedNotes : null,
