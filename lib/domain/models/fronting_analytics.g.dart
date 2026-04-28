@@ -22,11 +22,9 @@ _FrontingAnalytics _$FrontingAnalyticsFromJson(Map<String, dynamic> json) =>
       memberStats: (json['memberStats'] as List<dynamic>)
           .map((e) => MemberAnalytics.fromJson(e as Map<String, dynamic>))
           .toList(),
-      dailyActivity:
-          (json['dailyActivity'] as List<dynamic>?)
-              ?.map((e) => DailyActivity.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          const [],
+      medianSession: json['medianSession'] == null
+          ? Duration.zero
+          : Duration(microseconds: (json['medianSession'] as num).toInt()),
       topCoFrontingPairs:
           (json['topCoFrontingPairs'] as List<dynamic>?)
               ?.map((e) => CoFrontingPair.fromJson(e as Map<String, dynamic>))
@@ -44,7 +42,7 @@ Map<String, dynamic> _$FrontingAnalyticsToJson(_FrontingAnalytics instance) =>
       'uniqueFronters': instance.uniqueFronters,
       'switchesPerDay': instance.switchesPerDay,
       'memberStats': instance.memberStats,
-      'dailyActivity': instance.dailyActivity,
+      'medianSession': instance.medianSession.inMicroseconds,
       'topCoFrontingPairs': instance.topCoFrontingPairs,
     };
 
@@ -82,20 +80,6 @@ Map<String, dynamic> _$MemberAnalyticsToJson(_MemberAnalytics instance) =>
       'shortestSession': instance.shortestSession.inMicroseconds,
       'longestSession': instance.longestSession.inMicroseconds,
       'timeOfDayBreakdown': instance.timeOfDayBreakdown,
-    };
-
-_DailyActivity _$DailyActivityFromJson(Map<String, dynamic> json) =>
-    _DailyActivity(
-      date: DateTime.parse(json['date'] as String),
-      totalMinutes: (json['totalMinutes'] as num).toInt(),
-      sessionCount: (json['sessionCount'] as num).toInt(),
-    );
-
-Map<String, dynamic> _$DailyActivityToJson(_DailyActivity instance) =>
-    <String, dynamic>{
-      'date': instance.date.toIso8601String(),
-      'totalMinutes': instance.totalMinutes,
-      'sessionCount': instance.sessionCount,
     };
 
 _CoFrontingPair _$CoFrontingPairFromJson(Map<String, dynamic> json) =>

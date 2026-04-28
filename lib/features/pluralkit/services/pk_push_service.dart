@@ -35,7 +35,7 @@ class PkStaleLinkException implements Exception {
 
 enum PkStaleLinkKind { member, switchRecord }
 
-/// Plan 02: thrown when PK rejects a DELETE with 403 — the token does not
+/// Thrown when PK rejects a DELETE with 403 — the token does not
 /// own the target resource. The caller must NOT clear the local link so the
 /// user can retry after fixing their token.
 class PkDeletionForbiddenException implements Exception {

@@ -144,7 +144,7 @@ class PkSyncSummary {
   final int switchesPulled;
   final int switchesPushed;
 
-  /// Plan 02: how many PK-side deletions this push executed.
+  /// How many PK-side deletions this push executed.
   final int membersDeletedOnPk;
   final int switchesDeletedOnPk;
 

@@ -244,5 +244,42 @@ void main() {
       expect(sleep.endedIds, isEmpty);
       expect(fronting.startedIds, isEmpty);
     });
+
+    testWidgets('does not end sleep or start fronting when widget is '
+        'disposed mid-picker', (tester) async {
+      final sleep = _FakeSleepNotifier();
+      final fronting = _FakeFrontingNotifier();
+
+      await tester.pumpWidget(
+        _buildSubject(sleepNotifier: sleep, frontingNotifier: fronting),
+      );
+
+      await tester.tap(find.text('Wake up as'));
+      await tester.pumpAndSettle();
+
+      // Swap in a replacement widget while the sheet is open. This disposes
+      // the _WakeUpPickerHarness and drops its State's mounted flag before
+      // the selection result can propagate.
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(body: SizedBox.shrink()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        sleep.endedIds,
+        isEmpty,
+        reason:
+            'endSleep must not be called after the host widget is disposed',
+      );
+      expect(
+        fronting.startedIds,
+        isEmpty,
+        reason:
+            'startFronting must not be called after the host widget is '
+            'disposed',
+      );
+    });
   });
 }

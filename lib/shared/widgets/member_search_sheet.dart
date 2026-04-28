@@ -111,6 +111,7 @@ class MemberSearchSheet extends StatefulWidget {
     this.specialRows = const [],
     this.multiSelect = false,
     this.initialSelected = const {},
+    this.title,
     this.trailingBuilder,
     this.scrollController,
   });
@@ -132,6 +133,12 @@ class MemberSearchSheet extends StatefulWidget {
   /// Pre-selected IDs for multi-select mode.
   final Set<String> initialSelected;
 
+  /// Optional sheet title override.
+  ///
+  /// Useful for single-select surfaces where the generic plural title ("Select
+  /// members") does not match the one-person task.
+  final String? title;
+
   /// Optional trailing widget builder for each member row.
   ///
   /// Return non-null to show a custom widget in the trailing slot. In
@@ -149,6 +156,7 @@ class MemberSearchSheet extends StatefulWidget {
     BuildContext context, {
     required List<Member> members,
     required String termPlural,
+    String? title,
     List<MemberSearchGroup> groups = const [],
     List<MemberSearchSpecialRow> specialRows = const [],
   }) async {
@@ -157,6 +165,7 @@ class MemberSearchSheet extends StatefulWidget {
       builder: (sheetContext, scrollController) => MemberSearchSheet(
         members: members,
         termPlural: termPlural,
+        title: title,
         groups: groups,
         specialRows: specialRows,
         scrollController: scrollController,
@@ -278,7 +287,7 @@ class _MemberSearchSheetState extends State<MemberSearchSheet> {
     final hasGroups = widget.groups.isNotEmpty;
     final title = widget.multiSelect
         ? l10n.memberSelectedCount(_selectedIds.length)
-        : l10n.selectMembers(widget.termPlural);
+        : widget.title ?? l10n.selectMembers(widget.termPlural);
 
     final body = CustomScrollView(
       controller: widget.scrollController,
@@ -446,32 +455,32 @@ class _MemberSearchSheetState extends State<MemberSearchSheet> {
       trailing = null;
     }
 
-    return Semantics(
+    // `PrismListRow` already emits `Semantics(button: true, selected: ...)`
+    // for accessibility — don't wrap it again, or screen readers announce
+    // twice.
+    return PrismListRow(
+      key: ValueKey(member.id),
       selected: isSelected,
-      child: PrismListRow(
-        key: ValueKey(member.id),
-        selected: isSelected,
-        leading: MemberAvatar(
-          memberName: member.name,
-          emoji: member.emoji,
-          avatarImageData: member.avatarImageData,
-          customColorEnabled: member.customColorEnabled,
-          customColorHex: member.customColorHex,
-          size: 36,
-        ),
-        title: Text(member.name),
-        subtitle: member.pronouns != null && member.pronouns!.isNotEmpty
-            ? Text(member.pronouns!)
-            : null,
-        trailing: trailing,
-        onTap: () {
-          if (widget.multiSelect) {
-            _toggleMember(member.id);
-          } else {
-            _popSingle(MemberSearchResultSelected(member.id));
-          }
-        },
+      leading: MemberAvatar(
+        memberName: member.name,
+        emoji: member.emoji,
+        avatarImageData: member.avatarImageData,
+        customColorEnabled: member.customColorEnabled,
+        customColorHex: member.customColorHex,
+        size: 36,
       ),
+      title: Text(member.name),
+      subtitle: member.pronouns != null && member.pronouns!.isNotEmpty
+          ? Text(member.pronouns!)
+          : null,
+      trailing: trailing,
+      onTap: () {
+        if (widget.multiSelect) {
+          _toggleMember(member.id);
+        } else {
+          _popSingle(MemberSearchResultSelected(member.id));
+        }
+      },
     );
   }
 

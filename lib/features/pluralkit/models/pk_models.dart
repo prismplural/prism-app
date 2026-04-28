@@ -55,6 +55,9 @@ class PKMember {
   /// `null` means PK did not supply the field; `"[]"` means empty array.
   final String? proxyTagsJson;
 
+  /// PK `banner` URL. Stored as a URL; no bytes download until UI exists.
+  final String? bannerUrl;
+
   const PKMember({
     required this.id,
     required this.uuid,
@@ -66,6 +69,7 @@ class PKMember {
     this.avatarUrl,
     this.birthday,
     this.proxyTagsJson,
+    this.bannerUrl,
   });
 
   factory PKMember.fromJson(Map<String, dynamic> json) {
@@ -85,6 +89,7 @@ class PKMember {
       avatarUrl: json['avatar_url'] as String?,
       birthday: json['birthday'] as String?,
       proxyTagsJson: proxyTagsJson,
+      bannerUrl: json['banner'] as String?,
     );
   }
 }

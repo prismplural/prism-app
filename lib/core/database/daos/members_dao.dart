@@ -13,6 +13,15 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
         ..orderBy([(m) => OrderingTerm.asc(m.displayOrder)]))
       .get();
 
+  /// Like [getAllMembers] but includes soft-deleted tombstones. Used by
+  /// the export importer to detect unique-constraint collisions on
+  /// `pluralkit_uuid` / `pluralkit_id` against tombstones — the partial
+  /// unique indexes `idx_members_pluralkit_uuid` /
+  /// `idx_members_pluralkit_id` cover tombstones (no `is_deleted = 0`
+  /// clause), so dedup off the active-only `getAllMembers` set is unsafe.
+  Future<List<Member>> getAllMembersIncludingDeleted() =>
+      select(members).get();
+
   Stream<List<Member>> watchAllMembers() => (select(members)
         ..where((m) => m.isDeleted.equals(false))
         ..orderBy([(m) => OrderingTerm.asc(m.displayOrder)]))
@@ -46,9 +55,9 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
       (update(members)..where((m) => m.id.equals(id))).write(
           const MembersCompanion(isDeleted: Value(true)));
 
-  /// Plan 02: tombstoned members that still carry a PK link and a delete
+  /// Tombstoned members that still carry a PK link and a delete
   /// intent stamped under some link epoch. Callers must additionally gate
-  /// by `deleteIntentEpoch == state.linkEpoch` at push time (R1) — this
+  /// by `deleteIntentEpoch == state.linkEpoch` at push time — this
   /// query surfaces the candidate set only.
   Future<List<Member>> getDeletedLinkedMembers() => (select(members)
         ..where((m) =>
@@ -57,8 +66,8 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
             m.deleteIntentEpoch.isNotNull()))
       .get();
 
-  /// Plan 02: live local sessions for a member that still point at PK. Used
-  /// by the R5 cascade guard: if any exist when we want to push a member
+  /// Live local sessions for a member that still point at PK. Used
+  /// by the cascade guard: if any exist when we want to push a member
   /// DELETE, we skip the member DELETE this pass to keep PK's cascade from
   /// silently deleting switches Prism still considers live.
   Future<List<FrontingSession>> _getLiveLinkedSessionsForMember(
@@ -102,6 +111,9 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
 
   Future<List<Member>> getMembersByIds(List<String> ids) =>
       (select(members)..where((m) => m.id.isIn(ids))).get();
+
+  Stream<List<Member>> watchMembersByIds(List<String> ids) =>
+      (select(members)..where((m) => m.id.isIn(ids))).watch();
 
   Future<List<Member>> getSubsystemMembers(String parentId) =>
       (select(members)

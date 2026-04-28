@@ -8,6 +8,7 @@ import 'package:uuid/uuid.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart'
     as storage_config;
 import 'package:prism_plurality/core/database/app_database.dart';
+import 'package:prism_plurality/core/database/sqlite_constraint.dart';
 import 'package:prism_plurality/core/database/daos/pk_mapping_state_dao.dart';
 import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart' as domain;
@@ -518,18 +519,23 @@ class PluralKitSyncService {
         'Mapping pending — complete the mapping flow before auto-syncing.',
       );
     }
+    if (_state.isSyncing) return;
+    _emit(
+      _state.copyWith(
+        isSyncing: true,
+        syncProgress: 0.0,
+        syncStatus: 'Fetching system info...',
+        clearError: true,
+      ),
+    );
+
     final client = await _buildClient();
-    if (client == null) throw StateError('Not connected');
+    if (client == null) {
+      _emit(_state.copyWith(isSyncing: false));
+      throw StateError('Not connected');
+    }
 
     try {
-      _emit(
-        _state.copyWith(
-          isSyncing: true,
-          syncProgress: 0.0,
-          syncStatus: 'Fetching system info...',
-          clearError: true,
-        ),
-      );
 
       // -- Members (0-10%) --
       await client.getSystem();
@@ -707,26 +713,13 @@ class PluralKitSyncService {
 
       if (export.groups.isNotEmpty && _groupsImporter != null) {
         progress(0.40, 'Importing ${export.groups.length} groups…');
-        final client = await _buildClient();
-        if (client != null) {
-          try {
-            await _groupsImporter.importGroups(
-              client,
-              export.groups,
-              overwriteMetadata: true,
-            );
-          } catch (e) {
-            debugPrint('[PK_FILE] group import failed (non-fatal): $e');
-          } finally {
-            client.dispose();
-          }
-        } else {
-          // No token wired yet — groups import needs a client right now.
-          // Users who connect a token afterward will backfill groups via the
-          // normal sync path.
-          debugPrint(
-            '[PK_FILE] skipping ${export.groups.length} groups — no token yet',
+        try {
+          await _groupsImporter.importGroups(
+            export.groups,
+            overwriteMetadata: true,
           );
+        } catch (e) {
+          debugPrint('[PK_FILE] group import failed (non-fatal): $e');
         }
       }
 
@@ -901,6 +894,9 @@ class PluralKitSyncService {
         'Mapping pending — complete the mapping flow before auto-syncing.',
       );
     }
+    // Claim isSyncing before the first await so no concurrent caller can
+    // slip through the flag check during an await gap.
+    if (_state.isSyncing) return null;
     if (_state.lastSyncDate == null) {
       // Never synced before — perform full import
       await performFullImport();
@@ -917,18 +913,22 @@ class PluralKitSyncService {
       return null;
     }
 
+    _emit(
+      _state.copyWith(
+        isSyncing: true,
+        syncProgress: 0.0,
+        syncStatus: 'Syncing recent changes...',
+        clearError: true,
+      ),
+    );
+
     final client = await _buildClient();
-    if (client == null) throw StateError('Not connected');
+    if (client == null) {
+      _emit(_state.copyWith(isSyncing: false));
+      throw StateError('Not connected');
+    }
 
     try {
-      _emit(
-        _state.copyWith(
-          isSyncing: true,
-          syncProgress: 0.0,
-          syncStatus: 'Syncing recent changes...',
-          clearError: true,
-        ),
-      );
 
       // Build PK ID -> local member ID map
       final allMembers = await _memberRepository.getAllMembers();
@@ -1131,7 +1131,7 @@ class PluralKitSyncService {
           ? await pushPendingSwitches(onStaleLink: staleLinkMessages.add)
           : 0;
 
-      // Plan 02: deletions. Switches-first so PK's cascade doesn't 404 every
+      // Push deletions with switches first so PK's cascade doesn't 404 every
       // switch-delete we queued after a member-delete succeeds.
       int switchesDeletedOnPk = 0;
       int membersDeletedOnPk = 0;
@@ -1335,7 +1335,6 @@ class PluralKitSyncService {
     try {
       final pkGroups = await client.getGroups(withMembers: true);
       return await importer.importGroups(
-        client,
         pkGroups,
         overwriteMetadata: overwriteMetadata,
       );
@@ -1381,13 +1380,14 @@ class PluralKitSyncService {
           await _memberRepository.updateMember(
             localMember.copyWith(
               name: pk.displayName ?? pk.name,
-              displayName: pk.displayName,
+              displayName: pk.displayName != null ? pk.name : null,
               pronouns: pk.pronouns,
               bio: pk.description,
               birthday: pk.birthday,
               customColorHex: pk.color,
               customColorEnabled: pk.color != null && pk.color!.isNotEmpty,
               proxyTagsJson: pk.proxyTagsJson ?? localMember.proxyTagsJson,
+              pkBannerUrl: pk.bannerUrl ?? localMember.pkBannerUrl,
               pluralkitUuid: pk.uuid,
               pluralkitId: pk.id,
               avatarImageData: avatarData ?? localMember.avatarImageData,
@@ -1399,7 +1399,7 @@ class PluralKitSyncService {
             domain.Member(
               id: _uuid.v4(),
               name: pk.displayName ?? pk.name,
-              displayName: pk.displayName,
+              displayName: pk.displayName != null ? pk.name : null,
               pronouns: pk.pronouns,
               bio: pk.description,
               birthday: pk.birthday,
@@ -1409,6 +1409,7 @@ class PluralKitSyncService {
               customColorHex: pk.color,
               customColorEnabled: pk.color != null && pk.color!.isNotEmpty,
               proxyTagsJson: pk.proxyTagsJson,
+              pkBannerUrl: pk.bannerUrl,
               pluralkitUuid: pk.uuid,
               pluralkitId: pk.id,
               avatarImageData: avatarData,
@@ -1472,17 +1473,24 @@ class PluralKitSyncService {
       pkIdToLocalId,
     );
 
-    await _frontingSessionRepository.createSession(
-      domain.FrontingSession(
-        id: _uuid.v4(),
-        startTime: sw.timestamp,
-        endTime: endTime,
-        memberId: primaryMemberId,
-        coFronterIds: coFronterLocalIds,
-        pluralkitUuid: sw.id,
-        pkMemberIdsJson: jsonEncode(sw.members),
-      ),
-    );
+    try {
+      await _frontingSessionRepository.createSession(
+        domain.FrontingSession(
+          id: _uuid.v4(),
+          startTime: sw.timestamp,
+          endTime: endTime,
+          memberId: primaryMemberId,
+          coFronterIds: coFronterLocalIds,
+          pluralkitUuid: sw.id,
+          pkMemberIdsJson: jsonEncode(sw.members),
+        ),
+      );
+    } catch (e) {
+      // SQLITE_CONSTRAINT_UNIQUE (2067): a concurrent sync already inserted
+      // this switch between our snapshot read and this INSERT. Treat as dup.
+      if (isUniqueConstraintViolation(e)) return true;
+      rethrow;
+    }
 
     return false;
   }
@@ -1566,18 +1574,23 @@ class PluralKitSyncService {
     if (!_state.isConnected) {
       throw StateError('Not connected — cannot import switch history');
     }
+    if (_state.isSyncing) return;
+    _emit(
+      _state.copyWith(
+        isSyncing: true,
+        syncProgress: 0.0,
+        syncStatus: 'Fetching PK switch history...',
+        clearError: true,
+      ),
+    );
+
     final client = await _buildClient();
-    if (client == null) throw StateError('Not connected');
+    if (client == null) {
+      _emit(_state.copyWith(isSyncing: false));
+      throw StateError('Not connected');
+    }
 
     try {
-      _emit(
-        _state.copyWith(
-          isSyncing: true,
-          syncProgress: 0.0,
-          syncStatus: 'Fetching PK switch history...',
-          clearError: true,
-        ),
-      );
 
       final allMembers = await _memberRepository.getAllMembers();
       final pkIdToLocalId = <String, String>{};
@@ -2134,6 +2147,7 @@ class PluralKitSyncService {
   /// otherwise. Errors are swallowed with a debugPrint.
   Future<bool> pollFrontersOnly() async {
     if (!_state.canAutoSync) return false;
+    if (_state.isSyncing) return false;
     final client = await _buildClient();
     if (client == null) return false;
 

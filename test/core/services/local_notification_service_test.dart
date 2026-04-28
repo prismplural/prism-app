@@ -1,7 +1,62 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/services/local_notification_service.dart';
+import 'package:timezone/data/latest_all.dart' as tzdata;
+import 'package:timezone/timezone.dart' as tz;
 
 void main() {
+  // ── nextWeekdayOccurrenceFrom ──────────────────────────────────────
+  //
+  // Regression: the picker emits 0=Sunday..6=Saturday but Dart's
+  // DateTime.weekday is 1=Monday..7=Sunday. The pre-fix walk used a
+  // synchronous `while (candidate.weekday != weekday)` loop, which never
+  // terminated for `weekday == 0` and froze the UI isolate. These tests
+  // pin the picker→Dart conversion and confirm the loop is bounded.
+
+  group('nextWeekdayOccurrenceFrom', () {
+    setUpAll(() {
+      tzdata.initializeTimeZones();
+    });
+
+    // Anchor on a known weekday so each case has a deterministic expected
+    // jump. 2026-04-20 is a Monday in UTC.
+    final monday = tz.TZDateTime.utc(2026, 4, 20, 9);
+
+    test('weekday=0 (picker Sunday) lands on Dart Sunday=7 within 7 days', () {
+      final result = nextWeekdayOccurrenceFrom(monday, 0);
+      expect(result.weekday, DateTime.sunday);
+      // Mon → next Sun is 6 days away.
+      expect(result.difference(monday).inDays, 6);
+    });
+
+    test('weekday=1..6 already match Dart weekdays', () {
+      for (var w = 1; w <= 6; w++) {
+        final result = nextWeekdayOccurrenceFrom(monday, w);
+        expect(result.weekday, w, reason: 'weekday=$w');
+      }
+    });
+
+    test('weekday=1 on a Monday returns the same day', () {
+      final result = nextWeekdayOccurrenceFrom(monday, 1);
+      expect(result, monday);
+    });
+
+    test('out-of-range weekday cannot lock the loop', () {
+      // 99 will never match candidate.weekday (1..7). Pre-fix this hung.
+      // Post-fix the bounded loop returns after ≤ 7 day-adds; the result
+      // weekday is undefined for bad input — only the bound matters.
+      final result = nextWeekdayOccurrenceFrom(monday, 99);
+      expect(result.difference(monday).inDays, lessThanOrEqualTo(7));
+    });
+
+    test('weekday=0 returns within 100 ms (no infinite loop)', () {
+      final sw = Stopwatch()..start();
+      nextWeekdayOccurrenceFrom(monday, 0);
+      sw.stop();
+      expect(sw.elapsedMilliseconds, lessThan(100));
+    });
+  });
+
+
   // ── Occurrence count formula ───────────────────────────────────────
 
   group('scheduleExactInterval occurrence count', () {

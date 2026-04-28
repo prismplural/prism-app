@@ -356,6 +356,62 @@ void main() {
       expect(second.endTime, DateTime(2026, 3, 12, 8));
     });
 
+    test(
+      'splitSession clears pluralkitUuid on the second half '
+      '(PK partial unique index)',
+      () async {
+        // Arrange: a PK-linked session with a bounded end time so we can
+        // split in the middle. Uses the real DriftFrontingSessionRepository
+        // (from setUp) so the partial unique index
+        // idx_fronting_sessions_pluralkit_uuid is in play — a fake repo
+        // would not catch this regression.
+        final original = FrontingSession(
+          id: 'pk-linked-1',
+          startTime: DateTime(2026, 4, 25, 10),
+          endTime: DateTime(2026, 4, 25, 12),
+          memberId: 'alice',
+          pluralkitUuid: 'pk-switch-uuid-abc',
+        );
+        await repository.createSession(original);
+
+        // Act: split at the midpoint. Without the fix this throws
+        // SqliteException(2067) — the second half would carry the same
+        // pluralkit_uuid as the original and trip the unique index.
+        final result = await service.splitSession(
+          sessionId: original.id,
+          splitTime: DateTime(2026, 4, 25, 11),
+        );
+
+        expect(
+          result.isSuccess,
+          isTrue,
+          reason: 'split must not crash on PK-linked sessions',
+        );
+
+        // Assert: original keeps the PK link; second half does not.
+        final all = await repository.getAllSessions();
+        expect(all, hasLength(2));
+        final first = all.firstWhere((s) => s.id == original.id);
+        final second = all.firstWhere((s) => s.id != original.id);
+
+        expect(
+          first.pluralkitUuid,
+          'pk-switch-uuid-abc',
+          reason: 'original retains the PK link',
+        );
+        expect(
+          second.pluralkitUuid,
+          isNull,
+          reason: 'split-half is a new local segment with no PK switch yet',
+        );
+
+        // Boundary timing intact.
+        expect(first.endTime, DateTime(2026, 4, 25, 11));
+        expect(second.startTime, DateTime(2026, 4, 25, 11));
+        expect(second.endTime, DateTime(2026, 4, 25, 12));
+      },
+    );
+
     test('wakeUp ends a sleep session', () async {
       final repo = FakeFrontingSessionRepository();
       final sleep = FrontingSession(

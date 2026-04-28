@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/core/database/database_provider.dart';
+import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/core/sync/sync_runtime_state.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
@@ -50,12 +51,14 @@ class PkGroupRepairState {
 final pkGroupRepairServiceProvider = Provider<PkGroupRepairService>((ref) {
   final db = ref.watch(databaseProvider);
   final pkSyncService = ref.watch(pluralKitSyncServiceProvider);
+  final memberGroupsRepository = ref.watch(memberGroupsRepositoryProvider);
 
   return PkGroupRepairService(
     memberGroupsDao: db.memberGroupsDao,
     aliasesDao: db.pkGroupSyncAliasesDao,
     hasRepairToken: pkSyncService.hasRepairToken,
     fetchRepairReferenceData: pkSyncService.fetchRepairReferenceData,
+    emitGroupSyncState: memberGroupsRepository.emitGroupSyncState,
   );
 });
 

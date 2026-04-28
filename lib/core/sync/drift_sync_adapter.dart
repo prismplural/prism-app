@@ -648,7 +648,7 @@ Future<bool> _deferPkBackedMemberGroupEntryOp(
     return false;
   }
 
-  // H3: route through the DAO upsert so Drift encodes `created_at` as
+  // Route through the DAO upsert so Drift encodes `created_at` as
   // seconds-since-epoch. The DAO uses `insertOnConflictUpdate` which preserves
   // the ON CONFLICT(id) DO UPDATE semantics of the previous raw insert.
   final deferredId = 'member_group_entries:$entityId';
@@ -687,8 +687,8 @@ Future<bool> _applyMemberGroupEntryFields(
   final legacyGroupId = _asString(fields['group_id']);
   final legacyMemberId = _asString(fields['member_id']);
 
-  // H1: when a PK UUID field is present on the payload, sender-local
-  // `group_id` / `member_id` become compatibility hints only (plan §5.2).
+  // When a PK UUID field is present on the payload, sender-local
+  // `group_id` / `member_id` become compatibility hints only.
   // Resolve PK UUIDs independently and defer if they miss — never fall
   // back to the sender's local ids for PK-present payloads.
   final pkGroupResolvedId = pkGroupUuid == null
@@ -893,7 +893,7 @@ Future<void> _recordPkGroupAliasIfNeeded(
     return;
   }
 
-  // H3: route through the DAO upsert so Drift encodes `created_at` as
+  // Route through the DAO upsert so Drift encodes `created_at` as
   // seconds-since-epoch. The DAO's insertOnConflictUpdate preserves the
   // original ON CONFLICT(legacy_entity_id) DO UPDATE semantics.
   await db.pkGroupSyncAliasesDao.upsertAlias(
@@ -1105,6 +1105,7 @@ DriftSyncEntity _membersEntity(
         'display_name': r.displayName,
         'birthday': r.birthday,
         'proxy_tags_json': r.proxyTagsJson,
+        'pk_banner_url': r.pkBannerUrl,
         'pluralkit_sync_ignored': r.pluralkitSyncIgnored,
         'delete_push_started_at': r.deletePushStartedAt,
         'is_deleted': r.isDeleted,
@@ -1148,6 +1149,7 @@ DriftSyncEntity _membersEntity(
         displayName: f.stringFieldNullable('display_name'),
         birthday: f.stringFieldNullable('birthday'),
         proxyTagsJson: f.stringFieldNullable('proxy_tags_json'),
+        pkBannerUrl: f.stringFieldNullable('pk_banner_url'),
         pluralkitSyncIgnored: f.boolField('pluralkit_sync_ignored'),
         deletePushStartedAt: f.intFieldNullable('delete_push_started_at'),
         isDeleted: f.boolField('is_deleted'),
@@ -1191,6 +1193,7 @@ DriftSyncEntity _membersEntity(
         'display_name': row.displayName,
         'birthday': row.birthday,
         'proxy_tags_json': row.proxyTagsJson,
+        'pk_banner_url': row.pkBannerUrl,
         'pluralkit_sync_ignored': row.pluralkitSyncIgnored,
         'delete_push_started_at': row.deletePushStartedAt,
         'is_deleted': row.isDeleted,
@@ -1507,6 +1510,7 @@ DriftSyncEntity _systemSettingsEntity(
         'wake_suggestion_after_hours': r.wakeSuggestionAfterHours,
         'locale_override': r.localeOverride,
         'quick_switch_threshold_seconds': r.quickSwitchThresholdSeconds,
+        'identity_generation': r.identityGeneration,
         // has_completed_onboarding excluded — local-only (see applyFields)
         'chat_logs_front': r.chatLogsFront,
         'sync_theme_enabled': r.syncThemeEnabled,
@@ -1523,6 +1527,7 @@ DriftSyncEntity _systemSettingsEntity(
         'sync_navigation_enabled': r.syncNavigationEnabled,
         'nav_bar_items': r.navBarItems,
         'nav_bar_overflow_items': r.navBarOverflowItems,
+        'chat_badge_preferences': r.chatBadgePreferences,
         'habits_badge_enabled': r.habitsBadgeEnabled,
         'is_deleted': r.isDeleted,
       };
@@ -1571,6 +1576,7 @@ DriftSyncEntity _systemSettingsEntity(
         quickSwitchThresholdSeconds: f.intField(
           'quick_switch_threshold_seconds',
         ),
+        identityGeneration: f.intField('identity_generation'),
         // has_completed_onboarding is intentionally excluded — it must remain
         // local-only so that a remote `true` value cannot skip onboarding on a
         // new device via CRDT sync.
@@ -1587,6 +1593,7 @@ DriftSyncEntity _systemSettingsEntity(
         syncNavigationEnabled: f.boolField('sync_navigation_enabled'),
         navBarItems: f.stringField('nav_bar_items'),
         navBarOverflowItems: f.stringField('nav_bar_overflow_items'),
+        chatBadgePreferences: f.stringField('chat_badge_preferences'),
         habitsBadgeEnabled: f.boolField('habits_badge_enabled'),
         // Device-local fields (font*, pin*, biometric*, autoLock*) are
         // intentionally excluded from sync.
@@ -1634,6 +1641,7 @@ DriftSyncEntity _systemSettingsEntity(
         'wake_suggestion_after_hours': row.wakeSuggestionAfterHours,
         'locale_override': row.localeOverride,
         'quick_switch_threshold_seconds': row.quickSwitchThresholdSeconds,
+        'identity_generation': row.identityGeneration,
         // has_completed_onboarding excluded — local-only (see applyFields)
         'chat_logs_front': row.chatLogsFront,
         'sync_theme_enabled': row.syncThemeEnabled,
@@ -1650,6 +1658,7 @@ DriftSyncEntity _systemSettingsEntity(
         'sync_navigation_enabled': row.syncNavigationEnabled,
         'nav_bar_items': row.navBarItems,
         'nav_bar_overflow_items': row.navBarOverflowItems,
+        'chat_badge_preferences': row.chatBadgePreferences,
         'habits_badge_enabled': row.habitsBadgeEnabled,
         'is_deleted': row.isDeleted,
       };
@@ -2221,6 +2230,14 @@ DriftSyncEntity _memberGroupsEntity(
 ) {
   return DriftSyncEntity(
     tableName: 'member_groups',
+    entityIdFor: (dynamic row) {
+      final r = row as MemberGroupRow;
+      final pkUuid = r.pluralkitUuid;
+      if (pkUuid != null && pkUuid.isNotEmpty) {
+        return _canonicalPkGroupEntityId(pkUuid);
+      }
+      return r.id;
+    },
     toSyncFields: (dynamic row) {
       final r = row as MemberGroupRow;
       return {
@@ -2341,6 +2358,13 @@ DriftSyncEntity _memberGroupEntriesEntity(
 ) {
   return DriftSyncEntity(
     tableName: 'member_group_entries',
+    entityIdFor: (dynamic row) {
+      final r = row as MemberGroupEntryRow;
+      final g = r.pkGroupUuid?.trim() ?? '';
+      final m = r.pkMemberUuid?.trim() ?? '';
+      if (g.isEmpty || m.isEmpty) return r.id;
+      return _canonicalPkMemberGroupEntryEntityId(g, m);
+    },
     toSyncFields: (dynamic row) {
       final dynamic r = row;
       final fields = <String, dynamic>{

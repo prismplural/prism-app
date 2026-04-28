@@ -89,6 +89,10 @@ class _FakeMemberRepository implements MemberRepository {
       _members.where((m) => ids.contains(m.id)).toList();
 
   @override
+  Stream<List<domain.Member>> watchMembersByIds(List<String> ids) =>
+      throw UnimplementedError();
+
+  @override
   Future<int> getCount() async => _members.length;
 
   @override

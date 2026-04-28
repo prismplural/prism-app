@@ -1,6 +1,3 @@
-import 'dart:convert';
-
-import 'package:crypto/crypto.dart';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,59 +8,7 @@ import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_group_repair_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
 
-MemberGroupsCompanion _group({
-  required String id,
-  required String name,
-  required DateTime createdAt,
-  String? pluralkitUuid,
-  String? parentGroupId,
-  DateTime? lastSeenFromPkAt,
-  bool syncSuppressed = false,
-  String? suspectedPkGroupUuid,
-}) => MemberGroupsCompanion.insert(
-  id: id,
-  name: name,
-  createdAt: createdAt,
-  displayOrder: const Value(0),
-  parentGroupId: Value(parentGroupId),
-  pluralkitUuid: Value(pluralkitUuid),
-  lastSeenFromPkAt: Value(lastSeenFromPkAt),
-  syncSuppressed: Value(syncSuppressed),
-  suspectedPkGroupUuid: Value(suspectedPkGroupUuid),
-);
-
-MembersCompanion _member({
-  required String id,
-  required String name,
-  String? pluralkitUuid,
-}) => MembersCompanion.insert(
-  id: id,
-  name: name,
-  createdAt: DateTime(2024, 1, 1),
-  pluralkitUuid: Value(pluralkitUuid),
-);
-
-MemberGroupEntriesCompanion _entry({
-  required String id,
-  required String groupId,
-  required String memberId,
-  String? pkGroupUuid,
-  String? pkMemberUuid,
-  bool isDeleted = false,
-}) => MemberGroupEntriesCompanion.insert(
-  id: id,
-  groupId: groupId,
-  memberId: memberId,
-  pkGroupUuid: Value(pkGroupUuid),
-  pkMemberUuid: Value(pkMemberUuid),
-  isDeleted: Value(isDeleted),
-);
-
-String _canonicalEntryId(String pkGroupUuid, String pkMemberUuid) {
-  final joined = '$pkGroupUuid\x00$pkMemberUuid';
-  final digest = sha256.convert(utf8.encode(joined));
-  return digest.toString().substring(0, 16);
-}
+import '../../../helpers/pk_fixtures.dart';
 
 class _ThrowingAliasesDao extends PkGroupSyncAliasesDao {
   _ThrowingAliasesDao(super.db);
@@ -122,7 +67,7 @@ void main() {
       await db
           .into(db.members)
           .insert(
-            _member(
+            pkFixtureMember(
               id: 'member-a',
               name: 'Alice',
               pluralkitUuid: 'pk-member-a',
@@ -131,13 +76,13 @@ void main() {
       await db
           .into(db.members)
           .insert(
-            _member(id: 'member-b', name: 'Bob', pluralkitUuid: 'pk-member-b'),
+            pkFixtureMember(id: 'member-b', name: 'Bob', pluralkitUuid: 'pk-member-b'),
           );
 
       await db
           .into(db.memberGroups)
           .insert(
-            _group(
+            pkFixtureGroup(
               id: 'winner',
               name: 'Cluster',
               createdAt: DateTime(2024, 1, 1),
@@ -147,7 +92,7 @@ void main() {
       await db
           .into(db.memberGroups)
           .insert(
-            _group(
+            pkFixtureGroup(
               id: 'loser',
               name: 'Cluster',
               createdAt: DateTime(2024, 1, 2),
@@ -157,7 +102,7 @@ void main() {
       await db
           .into(db.memberGroups)
           .insert(
-            _group(
+            pkFixtureGroup(
               id: 'child',
               name: 'Child',
               createdAt: DateTime(2024, 1, 3),
@@ -168,12 +113,12 @@ void main() {
       await db
           .into(db.memberGroupEntries)
           .insert(
-            _entry(id: 'winner-a', groupId: 'winner', memberId: 'member-a'),
+            pkFixtureEntry(id: 'winner-a', groupId: 'winner', memberId: 'member-a'),
           );
       await db
           .into(db.memberGroupEntries)
           .insert(
-            _entry(
+            pkFixtureEntry(
               id: 'loser-a',
               groupId: 'loser',
               memberId: 'member-a',
@@ -184,7 +129,7 @@ void main() {
       await db
           .into(db.memberGroupEntries)
           .insert(
-            _entry(id: 'loser-b', groupId: 'loser', memberId: 'member-b'),
+            pkFixtureEntry(id: 'loser-b', groupId: 'loser', memberId: 'member-b'),
           );
 
       var fetchCalls = 0;
@@ -226,8 +171,8 @@ void main() {
       // The backfill + canonicalization pass rewrites legacy entry ids
       // onto the deterministic sha256 hash, so look up the rehomed rows by
       // (group_id, member_id) rather than by the seeded legacy id.
-      final canonicalLoserA = _canonicalEntryId('pk-group-1', 'pk-member-a');
-      final canonicalLoserB = _canonicalEntryId('pk-group-1', 'pk-member-b');
+      final canonicalLoserA = pkFixtureCanonicalEntryId('pk-group-1', 'pk-member-a');
+      final canonicalLoserB = pkFixtureCanonicalEntryId('pk-group-1', 'pk-member-b');
 
       final survivingPrimaryEntry = await (db.select(
         db.memberGroupEntries,
@@ -255,7 +200,7 @@ void main() {
       await db
           .into(db.members)
           .insert(
-            _member(
+            pkFixtureMember(
               id: 'member-a',
               name: 'Alice',
               pluralkitUuid: 'pk-member-a',
@@ -264,12 +209,12 @@ void main() {
       await db
           .into(db.members)
           .insert(
-            _member(id: 'member-b', name: 'Bob', pluralkitUuid: 'pk-member-b'),
+            pkFixtureMember(id: 'member-b', name: 'Bob', pluralkitUuid: 'pk-member-b'),
           );
       await db
           .into(db.memberGroups)
           .insert(
-            _group(
+            pkFixtureGroup(
               id: 'plain-group',
               name: 'Cluster',
               createdAt: DateTime(2024, 1, 1),
@@ -278,7 +223,7 @@ void main() {
       await db
           .into(db.memberGroupEntries)
           .insert(
-            _entry(
+            pkFixtureEntry(
               id: 'plain-a',
               groupId: 'plain-group',
               memberId: 'member-a',
@@ -288,7 +233,7 @@ void main() {
       await db
           .into(db.memberGroupEntries)
           .insert(
-            _entry(
+            pkFixtureEntry(
               id: 'plain-b',
               groupId: 'plain-group',
               memberId: 'member-b',
@@ -362,34 +307,34 @@ void main() {
       await db.customStatement('DROP INDEX idx_member_groups_pluralkit_uuid');
 
       final members = <MembersCompanion>[
-        _member(
+        pkFixtureMember(
           id: 'wrong-a',
           name: 'Wrong A',
           pluralkitUuid: 'pk-member-wrong-a',
         ),
-        _member(
+        pkFixtureMember(
           id: 'wrong-b',
           name: 'Wrong B',
           pluralkitUuid: 'pk-member-wrong-b',
         ),
-        _member(
+        pkFixtureMember(
           id: 'match-a',
           name: 'Match A',
           pluralkitUuid: 'pk-member-match-a',
         ),
-        _member(
+        pkFixtureMember(
           id: 'match-b',
           name: 'Match B',
           pluralkitUuid: 'pk-member-match-b',
         ),
-        _member(
+        pkFixtureMember(
           id: 'match-c',
           name: 'Match C',
           pluralkitUuid: 'pk-member-match-c',
         ),
-        _member(id: 'local-a', name: 'Local A'),
-        _member(id: 'local-b', name: 'Local B'),
-        _member(id: 'local-c', name: 'Local C'),
+        pkFixtureMember(id: 'local-a', name: 'Local A'),
+        pkFixtureMember(id: 'local-b', name: 'Local B'),
+        pkFixtureMember(id: 'local-c', name: 'Local C'),
       ];
       for (final member in members) {
         await db.into(db.members).insert(member);
@@ -398,7 +343,7 @@ void main() {
       await db
           .into(db.memberGroups)
           .insert(
-            _group(
+            pkFixtureGroup(
               id: 'entry-count-winner',
               name: 'Cluster',
               createdAt: DateTime(2024, 1, 1),
@@ -408,7 +353,7 @@ void main() {
       await db
           .into(db.memberGroups)
           .insert(
-            _group(
+            pkFixtureGroup(
               id: 'live-match-winner',
               name: 'Cluster',
               createdAt: DateTime(2024, 1, 2),
@@ -417,50 +362,50 @@ void main() {
           );
 
       final entries = <MemberGroupEntriesCompanion>[
-        _entry(
+        pkFixtureEntry(
           id: 'wrong-a-entry',
           groupId: 'entry-count-winner',
           memberId: 'wrong-a',
           pkGroupUuid: 'pk-group-1',
           pkMemberUuid: 'pk-member-wrong-a',
         ),
-        _entry(
+        pkFixtureEntry(
           id: 'wrong-b-entry',
           groupId: 'entry-count-winner',
           memberId: 'wrong-b',
           pkGroupUuid: 'pk-group-1',
           pkMemberUuid: 'pk-member-wrong-b',
         ),
-        _entry(
+        pkFixtureEntry(
           id: 'local-a-entry',
           groupId: 'entry-count-winner',
           memberId: 'local-a',
         ),
-        _entry(
+        pkFixtureEntry(
           id: 'local-b-entry',
           groupId: 'entry-count-winner',
           memberId: 'local-b',
         ),
-        _entry(
+        pkFixtureEntry(
           id: 'local-c-entry',
           groupId: 'entry-count-winner',
           memberId: 'local-c',
         ),
-        _entry(
+        pkFixtureEntry(
           id: 'match-a-entry',
           groupId: 'live-match-winner',
           memberId: 'match-a',
           pkGroupUuid: 'pk-group-1',
           pkMemberUuid: 'pk-member-match-a',
         ),
-        _entry(
+        pkFixtureEntry(
           id: 'match-b-entry',
           groupId: 'live-match-winner',
           memberId: 'match-b',
           pkGroupUuid: 'pk-group-1',
           pkMemberUuid: 'pk-member-match-b',
         ),
-        _entry(
+        pkFixtureEntry(
           id: 'match-c-entry',
           groupId: 'live-match-winner',
           memberId: 'match-c',
@@ -530,7 +475,7 @@ void main() {
       await db
           .into(db.memberGroups)
           .insert(
-            _group(
+            pkFixtureGroup(
               id: 'older-seen',
               name: 'Cluster',
               createdAt: DateTime(2024, 1, 1),
@@ -541,7 +486,7 @@ void main() {
       await db
           .into(db.memberGroups)
           .insert(
-            _group(
+            pkFixtureGroup(
               id: 'newer-seen',
               name: 'Cluster',
               createdAt: DateTime(2024, 1, 3),
@@ -592,10 +537,10 @@ void main() {
       await db.customStatement('DROP INDEX idx_member_groups_pluralkit_uuid');
 
       final members = <MembersCompanion>[
-        _member(id: 'member-a', name: 'Alice', pluralkitUuid: 'pk-member-a'),
-        _member(id: 'member-b', name: 'Bob', pluralkitUuid: 'pk-member-b'),
-        _member(id: 'member-c', name: 'Charlie', pluralkitUuid: 'pk-member-c'),
-        _member(id: 'local-extra', name: 'Local Extra'),
+        pkFixtureMember(id: 'member-a', name: 'Alice', pluralkitUuid: 'pk-member-a'),
+        pkFixtureMember(id: 'member-b', name: 'Bob', pluralkitUuid: 'pk-member-b'),
+        pkFixtureMember(id: 'member-c', name: 'Charlie', pluralkitUuid: 'pk-member-c'),
+        pkFixtureMember(id: 'local-extra', name: 'Local Extra'),
       ];
       for (final member in members) {
         await db.into(db.members).insert(member);
@@ -604,7 +549,7 @@ void main() {
       await db
           .into(db.memberGroups)
           .insert(
-            _group(
+            pkFixtureGroup(
               id: 'exact-live-match',
               name: 'Cluster',
               createdAt: DateTime(2024, 1, 1),
@@ -614,7 +559,7 @@ void main() {
       await db
           .into(db.memberGroups)
           .insert(
-            _group(
+            pkFixtureGroup(
               id: 'same-pk-plus-local',
               name: 'Cluster',
               createdAt: DateTime(2024, 1, 2),
@@ -623,49 +568,49 @@ void main() {
           );
 
       final entries = <MemberGroupEntriesCompanion>[
-        _entry(
+        pkFixtureEntry(
           id: 'exact-a',
           groupId: 'exact-live-match',
           memberId: 'member-a',
           pkGroupUuid: 'stale-exact-group-ref',
           pkMemberUuid: 'pk-member-a',
         ),
-        _entry(
+        pkFixtureEntry(
           id: 'exact-b',
           groupId: 'exact-live-match',
           memberId: 'member-b',
           pkGroupUuid: 'stale-exact-group-ref',
           pkMemberUuid: 'pk-member-b',
         ),
-        _entry(
+        pkFixtureEntry(
           id: 'exact-c',
           groupId: 'exact-live-match',
           memberId: 'member-c',
           pkGroupUuid: 'stale-exact-group-ref',
           pkMemberUuid: 'pk-member-c',
         ),
-        _entry(
+        pkFixtureEntry(
           id: 'extra-a',
           groupId: 'same-pk-plus-local',
           memberId: 'member-a',
           pkGroupUuid: 'stale-extra-group-ref',
           pkMemberUuid: 'pk-member-a',
         ),
-        _entry(
+        pkFixtureEntry(
           id: 'extra-b',
           groupId: 'same-pk-plus-local',
           memberId: 'member-b',
           pkGroupUuid: 'stale-extra-group-ref',
           pkMemberUuid: 'pk-member-b',
         ),
-        _entry(
+        pkFixtureEntry(
           id: 'extra-c',
           groupId: 'same-pk-plus-local',
           memberId: 'member-c',
           pkGroupUuid: 'stale-extra-group-ref',
           pkMemberUuid: 'pk-member-c',
         ),
-        _entry(
+        pkFixtureEntry(
           id: 'local-extra-entry',
           groupId: 'same-pk-plus-local',
           memberId: 'local-extra',
@@ -729,11 +674,11 @@ void main() {
     'exact-match suppression rejects plain group with extra local-only members',
     () async {
       final members = <MembersCompanion>[
-        _member(id: 'member-a', name: 'Alice', pluralkitUuid: 'pk-member-a'),
-        _member(id: 'member-b', name: 'Bob', pluralkitUuid: 'pk-member-b'),
-        _member(id: 'member-c', name: 'Charlie', pluralkitUuid: 'pk-member-c'),
-        _member(id: 'local-a', name: 'Local A'),
-        _member(id: 'local-b', name: 'Local B'),
+        pkFixtureMember(id: 'member-a', name: 'Alice', pluralkitUuid: 'pk-member-a'),
+        pkFixtureMember(id: 'member-b', name: 'Bob', pluralkitUuid: 'pk-member-b'),
+        pkFixtureMember(id: 'member-c', name: 'Charlie', pluralkitUuid: 'pk-member-c'),
+        pkFixtureMember(id: 'local-a', name: 'Local A'),
+        pkFixtureMember(id: 'local-b', name: 'Local B'),
       ];
       for (final member in members) {
         await db.into(db.members).insert(member);
@@ -742,7 +687,7 @@ void main() {
       await db
           .into(db.memberGroups)
           .insert(
-            _group(
+            pkFixtureGroup(
               id: 'plain-group',
               name: 'Cluster',
               createdAt: DateTime(2024, 1, 1),
@@ -750,30 +695,30 @@ void main() {
           );
 
       final entries = <MemberGroupEntriesCompanion>[
-        _entry(
+        pkFixtureEntry(
           id: 'plain-a',
           groupId: 'plain-group',
           memberId: 'member-a',
           pkMemberUuid: 'pk-member-a',
         ),
-        _entry(
+        pkFixtureEntry(
           id: 'plain-b',
           groupId: 'plain-group',
           memberId: 'member-b',
           pkMemberUuid: 'pk-member-b',
         ),
-        _entry(
+        pkFixtureEntry(
           id: 'plain-c',
           groupId: 'plain-group',
           memberId: 'member-c',
           pkMemberUuid: 'pk-member-c',
         ),
-        _entry(
+        pkFixtureEntry(
           id: 'plain-local-a',
           groupId: 'plain-group',
           memberId: 'local-a',
         ),
-        _entry(
+        pkFixtureEntry(
           id: 'plain-local-b',
           groupId: 'plain-group',
           memberId: 'local-b',
@@ -826,7 +771,7 @@ void main() {
       await db
           .into(db.members)
           .insert(
-            _member(
+            pkFixtureMember(
               id: 'member-a',
               name: 'Alice',
               pluralkitUuid: 'pk-member-a',
@@ -835,7 +780,7 @@ void main() {
       await db
           .into(db.memberGroups)
           .insert(
-            _group(
+            pkFixtureGroup(
               id: 'imported-group',
               name: 'Imported Cluster',
               createdAt: DateTime(2024, 1, 1),
@@ -844,7 +789,7 @@ void main() {
       await db
           .into(db.memberGroupEntries)
           .insert(
-            _entry(
+            pkFixtureEntry(
               id: 'imported-entry',
               groupId: 'imported-group',
               memberId: 'member-a',
@@ -873,7 +818,7 @@ void main() {
       // The backfill + canonicalization pass rewrites legacy entry ids
       // onto the deterministic sha256 hash, so look up the repaired row by
       // the canonical id rather than the seeded legacy id.
-      final canonicalId = _canonicalEntryId('pk-group-1', 'pk-member-a');
+      final canonicalId = pkFixtureCanonicalEntryId('pk-group-1', 'pk-member-a');
       final entry = await (db.select(
         db.memberGroupEntries,
       )..where((t) => t.id.equals(canonicalId))).getSingle();
@@ -890,7 +835,7 @@ void main() {
       await db
           .into(db.members)
           .insert(
-            _member(
+            pkFixtureMember(
               id: 'member-a',
               name: 'Alice',
               pluralkitUuid: 'pk-member-a',
@@ -899,7 +844,7 @@ void main() {
       await db
           .into(db.memberGroups)
           .insert(
-            _group(
+            pkFixtureGroup(
               id: 'imported-group',
               name: 'Imported Cluster',
               createdAt: DateTime(2024, 1, 1),
@@ -908,7 +853,7 @@ void main() {
       await db
           .into(db.memberGroupEntries)
           .insert(
-            _entry(
+            pkFixtureEntry(
               id: 'imported-entry',
               groupId: 'imported-group',
               memberId: 'member-a',
@@ -940,7 +885,7 @@ void main() {
       await db
           .into(db.memberGroups)
           .insert(
-            _group(
+            pkFixtureGroup(
               id: 'plain-group',
               name: 'Cluster',
               createdAt: DateTime(2024, 1, 1),
@@ -984,12 +929,48 @@ void main() {
   );
 
   test(
+    'dismissReviewItems re-emits sync state for accumulated local edits',
+    () async {
+      await db
+          .into(db.memberGroups)
+          .insert(
+            pkFixtureGroup(
+              id: 'plain-group',
+              name: 'Cluster',
+              createdAt: DateTime(2024, 1, 1),
+            ),
+          );
+      await db.memberGroupsDao.markGroupsSuppressedForReview(
+        groupIds: const ['plain-group'],
+        suspectedPkGroupUuid: 'pk-group-1',
+      );
+
+      final emittedGroupIds = <String>[];
+      final service = PkGroupRepairService(
+        memberGroupsDao: db.memberGroupsDao,
+        aliasesDao: db.pkGroupSyncAliasesDao,
+        hasRepairToken: ({String? token}) async => false,
+        fetchRepairReferenceData: ({String? token}) async {
+          throw StateError('unexpected fetch');
+        },
+        emitGroupSyncState: (groupId) async {
+          emittedGroupIds.add(groupId);
+        },
+      );
+
+      await service.dismissReviewItems(['plain-group']);
+
+      expect(emittedGroupIds, ['plain-group']);
+    },
+  );
+
+  test(
     'kept-local review item is not re-flagged by later repair runs',
     () async {
       await db
           .into(db.members)
           .insert(
-            _member(
+            pkFixtureMember(
               id: 'member-a',
               name: 'Alice',
               pluralkitUuid: 'pk-member-a',
@@ -998,7 +979,7 @@ void main() {
       await db
           .into(db.memberGroups)
           .insert(
-            _group(
+            pkFixtureGroup(
               id: 'plain-group',
               name: 'Cluster',
               createdAt: DateTime(2024, 1, 1),
@@ -1007,7 +988,7 @@ void main() {
       await db
           .into(db.memberGroupEntries)
           .insert(
-            _entry(
+            pkFixtureEntry(
               id: 'plain-entry',
               groupId: 'plain-group',
               memberId: 'member-a',
@@ -1066,7 +1047,7 @@ void main() {
       await db
           .into(db.members)
           .insert(
-            _member(
+            pkFixtureMember(
               id: 'member-a',
               name: 'Alice',
               pluralkitUuid: 'pk-member-a',
@@ -1075,7 +1056,7 @@ void main() {
       await db
           .into(db.memberGroups)
           .insert(
-            _group(
+            pkFixtureGroup(
               id: 'plain-group',
               name: 'Cluster',
               createdAt: DateTime(2024, 1, 1),
@@ -1086,7 +1067,7 @@ void main() {
       await db
           .into(db.memberGroupEntries)
           .insert(
-            _entry(
+            pkFixtureEntry(
               id: 'plain-entry',
               groupId: 'plain-group',
               memberId: 'member-a',
@@ -1134,7 +1115,7 @@ void main() {
       await db
           .into(db.members)
           .insert(
-            _member(
+            pkFixtureMember(
               id: 'member-a',
               name: 'Alice',
               pluralkitUuid: 'pk-member-a',
@@ -1143,7 +1124,7 @@ void main() {
       await db
           .into(db.memberGroups)
           .insert(
-            _group(
+            pkFixtureGroup(
               id: 'canonical',
               name: 'Cluster',
               createdAt: DateTime(2024, 1, 1),
@@ -1153,7 +1134,7 @@ void main() {
       await db
           .into(db.memberGroups)
           .insert(
-            _group(
+            pkFixtureGroup(
               id: 'review',
               name: 'Cluster',
               createdAt: DateTime(2024, 1, 2),
@@ -1162,7 +1143,7 @@ void main() {
       await db
           .into(db.memberGroups)
           .insert(
-            _group(
+            pkFixtureGroup(
               id: 'child',
               name: 'Child',
               createdAt: DateTime(2024, 1, 3),
@@ -1172,7 +1153,7 @@ void main() {
       await db
           .into(db.memberGroupEntries)
           .insert(
-            _entry(id: 'review-entry', groupId: 'review', memberId: 'member-a'),
+            pkFixtureEntry(id: 'review-entry', groupId: 'review', memberId: 'member-a'),
           );
       await db.memberGroupsDao.markGroupsSuppressedForReview(
         groupIds: const ['review'],
@@ -1204,7 +1185,7 @@ void main() {
       final movedEntry =
           await (db.select(db.memberGroupEntries)..where(
                 (t) =>
-                    t.id.equals(_canonicalEntryId('pk-group-1', 'pk-member-a')),
+                    t.id.equals(pkFixtureCanonicalEntryId('pk-group-1', 'pk-member-a')),
               ))
               .getSingle();
       expect(movedEntry.groupId, 'canonical');
@@ -1238,7 +1219,7 @@ void main() {
       await db
           .into(db.memberGroups)
           .insert(
-            _group(
+            pkFixtureGroup(
               id: 'linked-group',
               name: 'Cluster',
               createdAt: DateTime(2024, 1, 1),
@@ -1248,7 +1229,7 @@ void main() {
       await db
           .into(db.members)
           .insert(
-            _member(
+            pkFixtureMember(
               id: 'linked-member',
               name: 'Alice',
               pluralkitUuid: 'pk-member-1',
@@ -1257,7 +1238,7 @@ void main() {
       await db
           .into(db.memberGroupEntries)
           .insert(
-            _entry(
+            pkFixtureEntry(
               id: 'linked-entry',
               groupId: 'linked-group',
               memberId: 'linked-member',
@@ -1292,7 +1273,7 @@ void main() {
       await db
           .into(db.members)
           .insert(
-            _member(
+            pkFixtureMember(
               id: 'member-a',
               name: 'Alice',
               pluralkitUuid: 'pk-member-a',
@@ -1301,7 +1282,7 @@ void main() {
       await db
           .into(db.memberGroups)
           .insert(
-            _group(
+            pkFixtureGroup(
               id: 'winner',
               name: 'Cluster',
               createdAt: DateTime(2024, 1, 1),
@@ -1311,7 +1292,7 @@ void main() {
       await db
           .into(db.memberGroups)
           .insert(
-            _group(
+            pkFixtureGroup(
               id: 'loser',
               name: 'Cluster',
               createdAt: DateTime(2024, 1, 2),
@@ -1321,7 +1302,7 @@ void main() {
       await db
           .into(db.memberGroups)
           .insert(
-            _group(
+            pkFixtureGroup(
               id: 'child',
               name: 'Child',
               createdAt: DateTime(2024, 1, 3),
@@ -1331,7 +1312,7 @@ void main() {
       await db
           .into(db.memberGroupEntries)
           .insert(
-            _entry(
+            pkFixtureEntry(
               id: 'loser-entry',
               groupId: 'loser',
               memberId: 'member-a',
@@ -1384,17 +1365,17 @@ void main() {
     () async {
       const pkGroupUuid = 'pk-group-1';
       const pkMemberUuid = 'pk-member-a';
-      final canonicalEntryId = _canonicalEntryId(pkGroupUuid, pkMemberUuid);
+      final canonicalEntryId = pkFixtureCanonicalEntryId(pkGroupUuid, pkMemberUuid);
 
       await db
           .into(db.members)
           .insert(
-            _member(id: 'member-a', name: 'Alice', pluralkitUuid: pkMemberUuid),
+            pkFixtureMember(id: 'member-a', name: 'Alice', pluralkitUuid: pkMemberUuid),
           );
       await db
           .into(db.memberGroups)
           .insert(
-            _group(
+            pkFixtureGroup(
               id: 'group-a',
               name: 'Cluster',
               createdAt: DateTime(2024, 1, 1),
@@ -1406,7 +1387,7 @@ void main() {
       await db
           .into(db.memberGroupEntries)
           .insert(
-            _entry(
+            pkFixtureEntry(
               id: 'random-legacy',
               groupId: 'group-a',
               memberId: 'member-a',
@@ -1418,7 +1399,7 @@ void main() {
       await db
           .into(db.memberGroupEntries)
           .insert(
-            _entry(
+            pkFixtureEntry(
               id: canonicalEntryId,
               groupId: 'group-a',
               memberId: 'member-a',
@@ -1478,18 +1459,18 @@ void main() {
 
       const pkGroupUuid = 'pk-group-1';
       const pkMemberUuid = 'pk-member-a';
-      final canonicalEntryId = _canonicalEntryId(pkGroupUuid, pkMemberUuid);
+      final canonicalEntryId = pkFixtureCanonicalEntryId(pkGroupUuid, pkMemberUuid);
 
       await db
           .into(db.members)
           .insert(
-            _member(id: 'member-a', name: 'Alice', pluralkitUuid: pkMemberUuid),
+            pkFixtureMember(id: 'member-a', name: 'Alice', pluralkitUuid: pkMemberUuid),
           );
-      await db.into(db.members).insert(_member(id: 'member-b', name: 'Bob'));
+      await db.into(db.members).insert(pkFixtureMember(id: 'member-b', name: 'Bob'));
       await db
           .into(db.memberGroups)
           .insert(
-            _group(
+            pkFixtureGroup(
               id: 'winner',
               name: 'Cluster',
               createdAt: DateTime(2024, 1, 1),
@@ -1499,7 +1480,7 @@ void main() {
       await db
           .into(db.memberGroups)
           .insert(
-            _group(
+            pkFixtureGroup(
               id: 'loser',
               name: 'Cluster',
               createdAt: DateTime(2024, 1, 2),
@@ -1509,7 +1490,7 @@ void main() {
       await db
           .into(db.memberGroupEntries)
           .insert(
-            _entry(
+            pkFixtureEntry(
               id: 'legacy-loser-entry',
               groupId: 'loser',
               memberId: 'member-a',
@@ -1520,7 +1501,7 @@ void main() {
       await db
           .into(db.memberGroupEntries)
           .insert(
-            _entry(id: 'winner-b', groupId: 'winner', memberId: 'member-b'),
+            pkFixtureEntry(id: 'winner-b', groupId: 'winner', memberId: 'member-b'),
           );
 
       final service = PkGroupRepairService(

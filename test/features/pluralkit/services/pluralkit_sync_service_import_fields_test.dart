@@ -53,7 +53,7 @@ void main() {
     setUp(() => db = AppDatabase(NativeDatabase.memory()));
     tearDown(() => db.close());
 
-    test('create: proxy_tags, birthday, display_name, pronouns, bio, color',
+    test('create: proxy_tags, birthday, display_name, pronouns, bio, color, banner',
         () async {
       final service = PluralKitSyncService(
         memberRepository: DriftMemberRepository(db.membersDao, null),
@@ -73,6 +73,7 @@ void main() {
               'description': 'A bio',
               'color': 'ff00aa',
               'birthday': '2020-06-15',
+              'banner': 'https://example.com/banner.png',
               'proxy_tags': [
                 {'prefix': 'A:', 'suffix': null},
                 {'prefix': null, 'suffix': ' -A'},
@@ -90,11 +91,10 @@ void main() {
       expect(rows, hasLength(1));
       final row = rows.single;
 
-      // Display-name fallback for `name` is preserved (existing UX).
+      // PK display_name collapsed into local name for display.
       expect(row.name, 'Alice!');
-      // But the raw display_name must also be persisted for downstream
-      // consumers (push service, data export).
-      expect(row.displayName, 'Alice!');
+      // PK raw name stored as displayName subtitle (used by push + data export).
+      expect(row.displayName, 'alice');
       expect(row.pronouns, 'she/her');
       expect(row.bio, 'A bio');
       expect(row.birthday, '2020-06-15');
@@ -102,6 +102,7 @@ void main() {
       expect(row.customColorEnabled, isTrue);
       expect(row.pluralkitId, 'aaaaa');
       expect(row.pluralkitUuid, 'u-alice');
+      expect(row.pkBannerUrl, 'https://example.com/banner.png');
 
       // Proxy tags round-trip as valid JSON with both entries.
       expect(row.proxyTagsJson, isNotNull);
@@ -200,6 +201,83 @@ void main() {
           reason: 'Must not clobber local proxy tags when PK omits the field');
       final decoded = jsonDecode(row.proxyTagsJson!) as List;
       expect(decoded, hasLength(1));
+    });
+
+    test('update: banner URL is written on re-import', () async {
+      PluralKitSyncService build(List<Map<String, dynamic>> members) =>
+          PluralKitSyncService(
+            memberRepository: DriftMemberRepository(db.membersDao, null),
+            frontingSessionRepository:
+                DriftFrontingSessionRepository(db.frontingSessionsDao, null),
+            syncDao: db.pluralKitSyncDao,
+            tokenOverride: 't',
+            clientFactory: (_) => _mockClient(
+              system: {'id': 'sys1', 'name': 'Test'},
+              members: members,
+            ),
+          );
+
+      // First import — no banner.
+      await build([
+        {'id': 'aaaaa', 'uuid': 'u-alice', 'name': 'Alice'},
+      ]).importMembersOnly();
+      expect(
+        (await db.membersDao.getAllMembers()).single.pkBannerUrl,
+        isNull,
+      );
+
+      // Second import — PK now has a banner.
+      await build([
+        {
+          'id': 'aaaaa',
+          'uuid': 'u-alice',
+          'name': 'Alice',
+          'banner': 'https://cdn.example.com/banner.png',
+        },
+      ]).importMembersOnly();
+
+      expect(
+        (await db.membersDao.getAllMembers()).single.pkBannerUrl,
+        'https://cdn.example.com/banner.png',
+      );
+    });
+
+    test('update: missing banner on subsequent import preserves existing URL',
+        () async {
+      PluralKitSyncService build(List<Map<String, dynamic>> members) =>
+          PluralKitSyncService(
+            memberRepository: DriftMemberRepository(db.membersDao, null),
+            frontingSessionRepository:
+                DriftFrontingSessionRepository(db.frontingSessionsDao, null),
+            syncDao: db.pluralKitSyncDao,
+            tokenOverride: 't',
+            clientFactory: (_) => _mockClient(
+              system: {'id': 'sys1', 'name': 'Test'},
+              members: members,
+            ),
+          );
+
+      // First import sets a banner URL.
+      await build([
+        {
+          'id': 'aaaaa',
+          'uuid': 'u-alice',
+          'name': 'Alice',
+          'banner': 'https://cdn.example.com/banner.png',
+        },
+      ]).importMembersOnly();
+
+      // Second import: PK omits banner (e.g. privacy scope).
+      // The locally-stored URL must not be wiped.
+      await build([
+        {'id': 'aaaaa', 'uuid': 'u-alice', 'name': 'Alice'},
+      ]).importMembersOnly();
+
+      expect(
+        (await db.membersDao.getAllMembers()).single.pkBannerUrl,
+        'https://cdn.example.com/banner.png',
+        reason: 'Must not clobber pkBannerUrl when PK omits the field',
+      );
     });
   });
 }

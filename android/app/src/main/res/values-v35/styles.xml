@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android 15+ enforces edge-to-edge; Android 16 makes it mandatory and
+         drops windowOptOutEdgeToEdgeEnforcement. Custom theme attributes on the
+         UCropActivity have triggered NPEs during menu inflation on Android 16.
+         Inherit AppCompat with no overrides so uCrop's own colors and
+         AndroidUiSettings (passed at call time) drive the look. -->
+    <style name="PrismUCropTheme" parent="Theme.AppCompat.Light.NoActionBar" />
+</resources>

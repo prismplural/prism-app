@@ -4,14 +4,17 @@ import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:prism_plurality/domain/models/habit.dart';
+import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/habits/providers/habit_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/members/utils/member_search_groups.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
+import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
-import 'package:prism_plurality/shared/widgets/prism_select.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
@@ -257,39 +260,35 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
                 membersAsync.when(
                   loading: () => const LinearProgressIndicator(),
                   error: (e, _) => Text('Error: $e'),
-                  data: (members) => PrismSelect<String?>(
-                    value: _assignedMemberId,
-                    labelText: context.l10n.habitsAssignedMember,
-                    items: [
-                      PrismSelectItem<String?>(
-                        value: null,
-                        label: context.l10n.habitsAssignedMemberAnyone,
+                  data: (members) {
+                    final selectedMember = _assignedMember(members);
+                    final searchGroups = watchMemberSearchGroups(ref, members);
+                    return PrismListRow(
+                      title: Text(context.l10n.habitsAssignedMember),
+                      subtitle: Text(
+                        selectedMember?.name ??
+                            context.l10n.habitsAssignedMemberAnyone,
                       ),
-                      ...members.map(
-                        (m) => PrismSelectItem<String?>(
-                          value: m.id,
-                          label: m.name,
-                          leading: MemberAvatar(
-                            avatarImageData: m.avatarImageData,
-                            memberName: m.name,
-                            emoji: m.emoji,
-                            customColorEnabled: m.customColorEnabled,
-                            customColorHex: m.customColorHex,
-                            size: 28,
-                          ),
-                          fieldLeading: MemberAvatar(
-                            avatarImageData: m.avatarImageData,
-                            memberName: m.name,
-                            emoji: m.emoji,
-                            customColorEnabled: m.customColorEnabled,
-                            customColorHex: m.customColorHex,
-                            size: 24,
-                          ),
-                        ),
-                      ),
-                    ],
-                    onChanged: (v) => setState(() => _assignedMemberId = v),
-                  ),
+                      leading: selectedMember == null
+                          ? SizedBox(
+                              width: 36,
+                              height: 36,
+                              child: Icon(AppIcons.peopleOutline),
+                            )
+                          : MemberAvatar(
+                              avatarImageData: selectedMember.avatarImageData,
+                              memberName: selectedMember.name,
+                              emoji: selectedMember.emoji,
+                              customColorEnabled:
+                                  selectedMember.customColorEnabled,
+                              customColorHex: selectedMember.customColorHex,
+                              size: 36,
+                            ),
+                      trailing: Icon(AppIcons.chevronRight),
+                      onTap: () =>
+                          _openAssignedMemberPicker(members, searchGroups),
+                    );
+                  },
                 ),
                 if (_assignedMemberId != null) ...[
                   PrismSwitchRow(
@@ -330,6 +329,49 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
         ],
       ),
     );
+  }
+
+  Member? _assignedMember(List<Member> members) {
+    final assignedId = _assignedMemberId;
+    if (assignedId == null) return null;
+    for (final member in members) {
+      if (member.id == assignedId) return member;
+    }
+    return null;
+  }
+
+  Future<void> _openAssignedMemberPicker(
+    List<Member> members,
+    List<MemberSearchGroup> groups,
+  ) async {
+    final result = await MemberSearchSheet.showSingle(
+      context,
+      members: members,
+      termPlural: readTerminology(context, ref).plural,
+      groups: groups,
+      specialRows: [
+        MemberSearchSpecialRow(
+          rowKey: '__any__',
+          title: context.l10n.habitsAssignedMemberAnyone,
+          leading: Icon(AppIcons.peopleOutline),
+          result: const MemberSearchResultCleared(),
+        ),
+      ],
+    );
+
+    if (!mounted) return;
+    switch (result) {
+      case MemberSearchResultSelected(:final memberId):
+        setState(() => _assignedMemberId = memberId);
+      case MemberSearchResultCleared():
+        setState(() {
+          _assignedMemberId = null;
+          _onlyNotifyWhenFronting = false;
+        });
+      case MemberSearchResultDismissed():
+      case MemberSearchResultUnknown():
+        break;
+    }
   }
 
   /// Returns a locale-formatted time string (e.g. "9:00 AM") from the stored

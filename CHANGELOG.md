@@ -4,6 +4,78 @@ All notable changes to Prism will be documented in this file.
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-04-25
+
+### Added
+- Statistics screen redesign with a single member-ranking chart at the top, tap-to-toggle time/percentage labels, and system-wide median session length
+- Remove-photo button on the member avatar editor
+
+### Fixed
+- Sunday weekly reminders no longer freeze the app
+- Notes detail view updates immediately when a note is edited
+- Member name, emoji, color, and avatar edits propagate immediately across chat, fronting timeline/history, and reaction bars
+- Importing a Prism backup no longer aborts on tombstone PluralKit-link collisions
+- Splitting a PluralKit-linked fronting session no longer fails with a unique-constraint error
+- PluralKit sync absorbs duplicate-switch unique-constraint errors instead of surfacing "Sync failed" (the 0.6.1 catch never actually fired)
+- Members tab uses custom terminology (Parts, Headmates, etc.) even when the navigation overflow menu is visible
+- Export password hint matches the actual 12-character minimum
+- Conversation info sheet lets you unarchive a conversation
+- Members under a parent group stay visible when the last child subgroup is collapsed
+
+## [0.6.1] - 2026-04-25
+
+### Added
+- PluralKit member banner URL is now stored locally (UI to follow in a future release)
+
+### Fixed
+- PluralKit groups were silently dropped during file import when no API token was linked — they now always import from the file
+- PluralKit concurrent sync (auto-poll firing alongside a manual sync) could crash with a SQLite unique constraint error; fixed with an `isSyncing` guard and a defensive catch at the insert site
+- PluralKit member display name (PK alias) is now shown as a subtitle in Prism rather than replacing the member's name
+- Android: removed deprecated bar color attributes in the avatar crop screen on SDK 35+
+- Android: dropped remaining custom theme attributes on the avatar crop screen for SDK 35+ — the previous strip-down still left `windowBackground` and `colorAccent` on `PrismUCropTheme`, which kept triggering crashes when opening the cropper on Android 16 stable. The activity now inherits a bare `Theme.AppCompat[.Light].NoActionBar` (matching the upstream uCrop sample) and brand colors are applied at call time via `AndroidUiSettings`, including the new `statusBarLight` / `navBarLight` properties for proper edge-to-edge contrast.
+
+## [0.6.0] - 2026-04-24
+
+### Added
+- Spoiler support in chat with `||spoiler||` syntax and consistent redaction across previews, replies, search, and Semantics
+- Shared member search sheet across the app with `None` / `Unknown` rows where appropriate
+- Sync epoch key auto-recovery
+- Snapshot bootstrap for faster first sync on new devices
+- Graceful handling of ambiguous management-relay failures
+- Pairing and registration flow hardening
+- Custom relay URL support during onboarding pairing
+- Native in-app avatar cropping (image_cropper + TOCropViewController on iOS)
+- Voice-note pitch preservation at 1.5× and 2× playback
+- Linux desktop runtime and packaging (`.deb`, AUR, Flatpak) with desktop metadata, icons, and emoji/font support
+- Accessibility audit pass — chart screen-reader summaries, clearer Semantics on onboarding and note flows, broader screen-reader polish
+- PluralKit group sync repair flow with localized surfaces, QR review, and a debug group tester
+- Site updates feed and release notes pages
+
+### Changed
+- Direct-message privacy tightened — non-participants no longer see DMs in lists or by ID; admins can inspect but not participate; backup/export preserves DM semantics
+- Search snippets built from redacted content so spoiler text doesn't leak through results
+- Search matching now Unicode-normalized for decorative and fullwidth text
+- Adaptive mobile nav-bar layout for narrow screens and large text
+- PluralKit group sync identity anchored on stable PK UUIDs (was positional matching)
+- PluralKit group sync hardening — alias-delete cascade closed, defers on PK-UUID miss, canonicalization bulk-loaded with composite index, Phase 1 migrations consolidated into v3→v4, emits gated on complete PK-UUID pair
+- PluralKit cooldown timer disposal coverage; `dart format` applied across pluralkit/
+- Fronting home session row durations no longer show seconds
+- Site brand polish — PRISM3 → PRISM1 rename, post-quantum safety flag, outlined social icons, PRISM1 format reference
+
+### Fixed
+- Hidden chat spoiler rendering
+- Spoiler redaction in reply banner preview, reply-quote Semantics, and search-tile Semantics
+- Animated spoiler fade via `InheritedNotifier`
+- Member group chip scroll jump
+- Quick-front hold controller reset after completed hold
+- Fronting timeline sanitization scanning
+- Onboarding features list scrollable on small screens / large text
+- PluralKit group sync Drift `DateTime` encoding in three raw-SQL sites
+- Audit findings closed across batches one through four plus a nit-cleanup pass
+
+### Removed
+- Onboarding debug skip shortcut
+
 ## [0.5.1] - 2026-04-20
 
 ### Added

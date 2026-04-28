@@ -229,7 +229,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
               Center(
                 child: Semantics(
                   button: true,
-                  label: 'Change system avatar',
+                  label: l10n.systemInfoChangeAvatar,
                   child: GestureDetector(
                     onTap: _pickAvatar,
                     onLongPress: avatarData != null

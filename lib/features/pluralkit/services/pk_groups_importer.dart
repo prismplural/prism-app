@@ -7,6 +7,7 @@ import 'package:prism_sync/generated/api.dart' as ffi;
 
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/daos/member_groups_dao.dart';
+import 'package:prism_plurality/core/database/sqlite_constraint.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
@@ -192,7 +193,6 @@ class PkGroupsImporter with SyncRecordMixin {
   /// only membership is reconciled. When true (explicit re-import / user
   /// action), metadata is replaced with PK's values.
   Future<PkGroupsImportResult> importGroups(
-    PluralKitClient client,
     List<PKGroup> pkGroups, {
     bool overwriteMetadata = false,
   }) async {
@@ -425,16 +425,22 @@ class PkGroupsImporter with SyncRecordMixin {
 
         final entryId = deriveEntryId(groupPkUuid, pkMemberUuid);
         final existedBefore = entries.any((e) => e.id == entryId);
-        await _dao.upsertEntry(
-          MemberGroupEntriesCompanion.insert(
-            id: entryId,
-            groupId: groupLocalId,
-            memberId: localMemberId,
-            pkGroupUuid: Value(groupPkUuid),
-            pkMemberUuid: Value(pkMemberUuid),
-            isDeleted: const Value(false),
-          ),
-        );
+        try {
+          await _dao.upsertEntry(
+            MemberGroupEntriesCompanion.insert(
+              id: entryId,
+              groupId: groupLocalId,
+              memberId: localMemberId,
+              pkGroupUuid: Value(groupPkUuid),
+              pkMemberUuid: Value(pkMemberUuid),
+              isDeleted: const Value(false),
+            ),
+          );
+        } catch (e) {
+          // SQLITE_CONSTRAINT_UNIQUE (2067): concurrent sync already inserted
+          // this entry. Treat as already-inserted.
+          if (!isUniqueConstraintViolation(e)) rethrow;
+        }
         inserted++;
         insertedEntries.add(
           _SyncedEntry(

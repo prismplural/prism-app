@@ -199,6 +199,10 @@ class FakeMemberRepository implements MemberRepository {
       ids.map((id) => _members[id]).whereType<domain.Member>().toList();
 
   @override
+  Stream<List<domain.Member>> watchMembersByIds(List<String> ids) =>
+      throw UnimplementedError();
+
+  @override
   Future<void> createMember(domain.Member member) async {
     _members[member.id] = member;
   }
