@@ -368,16 +368,37 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
 // Auto-configure on restart
 // ---------------------------------------------------------------------------
 
+/// Pure helper: classify the keychain-only health state without touching
+/// the FFI handle. Used by `_autoConfigureIfReady` and unit-testable in
+/// isolation.
+///
+/// Returns:
+///   * `unpaired`     — sync_id or device_id absent (never paired)
+///   * `null`         — credentials present; caller should attempt the
+///                      runtime-keys path and may end up healthy / needsPassword
+///                      / disconnected depending on what's available
+@visibleForTesting
+SyncHealthState? classifyHealthFromKeychain({
+  required String? syncId,
+  required String? deviceId,
+}) {
+  if (syncId == null || deviceId == null) {
+    return SyncHealthState.unpaired;
+  }
+  return null;
+}
+
 /// Determine sync health and auto-configure if possible.
 ///
 /// Sync health state machine:
-///   healthy       — sync configured and working (or unpaired, which is OK)
+///   healthy       — sync configured and working
+///   unpaired      — device has never been paired (sync_id/device_id absent)
 ///   needsPassword — runtime_dek missing, wrapped_dek exists → password modal
 ///                   (shown by AppShell listening to syncHealthProvider)
 ///   disconnected  — credentials gone → reconnect card in sync settings
 ///
 /// Transitions:
-///   startup → this method → one of the three states
+///   startup → this method → one of the four states
 ///   DeviceRevoked WebSocket event → disconnected
 ///   password entry → Argon2id unlock → healthy
 Future<SyncHealthState> _autoConfigureIfReady(
@@ -386,8 +407,16 @@ Future<SyncHealthState> _autoConfigureIfReady(
   // Check if we have the minimum credentials needed
   final syncId = await _storage.read(key: '${_secureStorePrefix}sync_id');
   final deviceId = await _storage.read(key: '${_secureStorePrefix}device_id');
-  if (syncId == null || deviceId == null) {
-    return SyncHealthState.healthy; // Not paired — not an error
+  // Not paired — distinguished from `healthy` so the post-config block in
+  // `createHandle` skips cacheRuntimeKeys/drainRustStore/onResume on a
+  // locked handle (which would otherwise emit benign "no DEK loaded"
+  // warnings during a fresh install).
+  final keychainOnly = classifyHealthFromKeychain(
+    syncId: syncId,
+    deviceId: deviceId,
+  );
+  if (keychainOnly != null) {
+    return keychainOnly;
   }
 
   // Try the fast path: restore runtime keys from cached DEK
@@ -474,6 +503,24 @@ Future<SyncHealthState> _autoConfigureIfReady(
 // ---------------------------------------------------------------------------
 
 const _secureStorePrefix = 'prism_sync.';
+
+/// Platform-keychain keys that must survive a sync-only reset.
+///
+/// Everything under the `prism_sync.` namespace is wiped during reset
+/// EXCEPT these slots, which hold the local-storage Signal-style DEK that
+/// encrypts the app's Drift database. Clearing them makes the app DB
+/// permanently unreadable until the user wipes data, so we treat them as
+/// per-device persistence keys separate from sync credentials.
+///
+/// Tests assert against this set directly (via the re-export in
+/// `reset_data_provider.dart`) to avoid hand-copying the names — adding
+/// or removing a protected slot here is the single source of truth.
+const kProtectedFromReset = <String>{
+  '${_secureStorePrefix}database_key',
+  '${_secureStorePrefix}database_key_staging',
+  '${_secureStorePrefix}sync_database_key',
+  '${_secureStorePrefix}sync_database_key_staging',
+};
 
 /// Keys that prism-sync stores in SecureStore.
 ///
@@ -570,40 +617,21 @@ Map<String, String> computeSeedEntries(Map<String, String> all) {
 /// Compute the full-keychain keys that should be deleted by the
 /// reset/revoke cleanup path, given the current keychain contents.
 ///
-/// Returns the static allow-list (prefixed) plus every dynamic
-/// `epoch_key_*` / `runtime_keys_*` entry currently stored. Pure so
-/// tests can verify the "don't miss a prefix" invariant.
+/// Inclusion-by-prefix: returns every `prism_sync.*` entry currently
+/// stored, minus the DB-encryption slots in [kProtectedFromReset]. This
+/// keeps parity with `_resetSyncSystem` in `reset_data_provider.dart` —
+/// the static allow-list approach used to silently leak transient
+/// pairing keys (`bootstrap_joiner_bundle`, `pending_sync_id`,
+/// `registration_token`, etc.) that nobody remembered to add.
 @visibleForTesting
 List<String> computeKeysToClearOnReset(Map<String, String> all) {
-  final out = <String>{};
-  // Static allow-list, regardless of whether they currently exist.
-  for (final key in const [
-    'wrapped_dek',
-    'dek_salt',
-    'device_secret',
-    'device_id',
-    'sync_id',
-    'session_token',
-    'epoch',
-    'relay_url',
-    'mnemonic',
-    'setup_rollback_marker',
-    'sharing_prekey_store',
-    'sharing_id_cache',
-    'min_signature_version_floor',
-    'runtime_dek',
-  ]) {
-    out.add('$_secureStorePrefix$key');
-  }
-  // Dynamic prefix scan.
+  final out = <String>[];
   for (final fullKey in all.keys) {
     if (!fullKey.startsWith(_secureStorePrefix)) continue;
-    final bare = fullKey.substring(_secureStorePrefix.length);
-    if (_dynamicSecureStorePrefixes.any(bare.startsWith)) {
-      out.add(fullKey);
-    }
+    if (kProtectedFromReset.contains(fullKey)) continue;
+    out.add(fullKey);
   }
-  return out.toList();
+  return out;
 }
 
 /// Seed the Rust-side MemorySecureStore with values from platform keychain.
@@ -1091,6 +1119,7 @@ final syncEventStreamProvider = StreamProvider<SyncEvent>((ref) {
 
   final syncAdapter = ref.watch(driftSyncAdapterProvider);
   final db = ref.watch(databaseProvider);
+  final strictCoordinator = ref.watch(strictApplyCoordinatorProvider);
 
   return createSyncEventStream(handle).asyncMap((event) async {
     if (kDebugMode) {
@@ -1099,9 +1128,45 @@ final syncEventStreamProvider = StreamProvider<SyncEvent>((ref) {
       );
     }
     if (event.isRemoteChanges) {
-      await _applyRemoteChanges(db, syncAdapter.adapter, event);
+      final strict = strictCoordinator.isStrict;
+      try {
+        final result = await applyRemoteChanges(
+          db,
+          syncAdapter.adapter,
+          event,
+          strict: strict,
+        );
+        if (strict && result.failedTables.isNotEmpty) {
+          // Defensive — strict mode should rethrow on first failure.
+          strictCoordinator.signalFailure(
+            StrictApplyFailure(
+              message: 'Strict apply reported failures without throwing',
+              failedTables: result.failedTables,
+            ),
+          );
+        }
+      } catch (e, st) {
+        if (strict) {
+          strictCoordinator.signalFailure(
+            e is StrictApplyFailure
+                ? e
+                : StrictApplyFailure(
+                    message: e.toString(),
+                    failedTables: const [],
+                  ),
+            st,
+          );
+        } else {
+          rethrow;
+        }
+      }
       await syncAdapter.completeSyncBatch();
       await catchUpPkBackedSyncOnceAfterCutover(handle, db);
+      // Signal the strict-apply coordinator so the joiner's pre-registered
+      // latch resolves with success. No-op when not in strict mode.
+      if (strict) {
+        strictCoordinator.signalBatchComplete();
+      }
       if (kDebugMode) {
         debugPrint(
           '[SYNC_STREAM] Applied ${event.changes.length} remote changes',
@@ -1199,17 +1264,163 @@ class SyncEventLogNotifier extends Notifier<List<SyncEventLogEntry>> {
   }
 }
 
-Future<void> _applyRemoteChanges(
+/// Result of applying a batch of remote changes.
+///
+/// [rowsApplied] counts rows that were successfully written to Drift.
+/// [failedTables] is always empty in non-strict mode (failures are logged and
+/// skipped). In strict mode, when the first per-row failure occurs the function
+/// rethrows a [StrictApplyFailure]; callers observe the failure via the
+/// thrown exception, not this field.
+class ApplyResult {
+  const ApplyResult({required this.rowsApplied, this.failedTables = const []});
+
+  final int rowsApplied;
+  final List<String> failedTables;
+}
+
+/// Thrown by [applyRemoteChanges] when `strict: true` and a per-row apply
+/// fails. Surfaces the row context plus the list of tables that were
+/// hit (typically one, since strict rethrows on the first failure).
+class StrictApplyFailure implements Exception {
+  const StrictApplyFailure({
+    required this.message,
+    this.failedTables = const [],
+    this.table,
+    this.entityId,
+    this.cause,
+  });
+
+  final String message;
+  final List<String> failedTables;
+  final String? table;
+  final String? entityId;
+  final Object? cause;
+
+  @override
+  String toString() {
+    final ctx = table != null ? ' ($table/$entityId)' : '';
+    return 'StrictApplyFailure$ctx: $message';
+  }
+}
+
+/// Outcome of a strict-apply batch: either success or a structured failure.
+/// Used as the return value of [StrictApplyCoordinator.outcome] so a single
+/// awaiter can observe whichever event fires first without racing futures.
+sealed class ApplyOutcome {
+  const ApplyOutcome();
+}
+
+class ApplyOutcomeSuccess extends ApplyOutcome {
+  const ApplyOutcomeSuccess();
+}
+
+class ApplyOutcomeFailure extends ApplyOutcome {
+  const ApplyOutcomeFailure(this.failure, [this.stackTrace]);
+
+  final StrictApplyFailure failure;
+  final StackTrace? stackTrace;
+}
+
+/// Coordinator for "strict apply" mode during snapshot bootstrap.
+///
+/// The joiner flow enables strict mode before `bootstrapFromSnapshot` so that
+/// any per-row Drift failure while ingesting the snapshot aborts pairing
+/// instead of silently skipping rows.
+///
+/// Uses a pre-registered latch so signal ordering is preserved regardless of
+/// when the joiner registers its await. [enterStrictMode] creates a fresh
+/// [Completer<ApplyOutcome>] BEFORE any bootstrap work kicks off; the sync
+/// event stream writes into it from either [signalFailure] (strict apply
+/// failed) or [signalBatchComplete] (the batch that followed bootstrap
+/// applied cleanly). Whichever fires first wins — subsequent calls are
+/// idempotent because both signal methods guard on `isCompleted`.
+class StrictApplyCoordinator {
+  bool _strict = false;
+  Completer<ApplyOutcome>? _outcome;
+
+  bool get isStrict => _strict;
+
+  /// The future that resolves with the bootstrap batch outcome. Only valid
+  /// between [enterStrictMode] and [exitStrictMode] — callers should capture
+  /// it immediately after entering strict mode.
+  Future<ApplyOutcome>? get outcome => _outcome?.future;
+
+  /// Enter strict mode and return a future that completes with either a
+  /// success or a failure outcome — whichever signal arrives first. Calling
+  /// this replaces any in-flight completer — only one snapshot bootstrap
+  /// runs at a time.
+  Future<ApplyOutcome> enterStrictMode() {
+    _strict = true;
+    final completer = Completer<ApplyOutcome>();
+    _outcome = completer;
+    return completer.future;
+  }
+
+  /// Exit strict mode. Any pending outcome completer is completed with
+  /// success so stale awaiters unblock cleanly (callers are expected to
+  /// already have observed the outcome or abandoned it).
+  void exitStrictMode() {
+    _strict = false;
+    final pending = _outcome;
+    _outcome = null;
+    if (pending != null && !pending.isCompleted) {
+      pending.complete(const ApplyOutcomeSuccess());
+    }
+  }
+
+  /// Record a strict-mode failure. Idempotent — only the first signal wins.
+  void signalFailure(StrictApplyFailure failure, [StackTrace? stackTrace]) {
+    final pending = _outcome;
+    if (pending != null && !pending.isCompleted) {
+      pending.complete(ApplyOutcomeFailure(failure, stackTrace));
+    }
+  }
+
+  /// Record a successful batch-complete. Idempotent — only the first signal
+  /// wins. Called from the sync event stream once the RemoteChanges batch
+  /// has applied and [SyncAdapterWithCompletion.completeSyncBatch] has run.
+  void signalBatchComplete() {
+    final pending = _outcome;
+    if (pending != null && !pending.isCompleted) {
+      pending.complete(const ApplyOutcomeSuccess());
+    }
+  }
+}
+
+final strictApplyCoordinatorProvider = Provider<StrictApplyCoordinator>((ref) {
+  return StrictApplyCoordinator();
+});
+
+/// Apply a batch of remote changes from a [SyncEvent] to the local Drift
+/// database.
+///
+/// Non-strict mode (default): per-row failures are caught, reported to the
+/// error-reporting service, and processing continues with the remaining
+/// rows. Returns an [ApplyResult] with `rowsApplied` equal to the number of
+/// rows that were written (NOT the number of input rows, since failures are
+/// skipped). `failedTables` is always empty.
+///
+/// Strict mode (`strict: true`): the first per-row failure rethrows a
+/// [StrictApplyFailure] describing the failing row. No further rows are
+/// applied. Used by the joiner during snapshot bootstrap so a corrupt
+/// snapshot aborts pairing rather than silently dropping rows.
+///
+/// Public (not `_`-prefixed) so the joiner/bootstrap test harness and the
+/// sync event stream can both drive it; the stream is still the only
+/// production caller.
+Future<ApplyResult> applyRemoteChanges(
   AppDatabase db,
   DriftSyncAdapter adapter,
-  SyncEvent event,
-) async {
+  SyncEvent event, {
+  bool strict = false,
+}) async {
   // Apply changes in chunked transactions — each chunk of 20 changes runs
   // inside a single Drift transaction for fewer WAL commits, while per-row
   // try/catch keeps error handling granular (caught exceptions do NOT trigger
   // Drift transaction rollback).
   const chunkSize = 20;
   final changes = event.changes;
+  var rowsApplied = 0;
 
   for (var offset = 0; offset < changes.length; offset += chunkSize) {
     final end = min(offset + chunkSize, changes.length);
@@ -1217,9 +1428,11 @@ Future<void> _applyRemoteChanges(
 
     await db.transaction(() async {
       for (final change in chunk) {
+        final tableRaw = change['table'];
+        final entityIdRaw = change['entity_id'];
         try {
-          final table = change['table'] as String;
-          final entityId = change['entity_id'] as String;
+          final table = tableRaw as String;
+          final entityId = entityIdRaw as String;
           final isDelete = change['is_delete'] as bool? ?? false;
           final fields = (change['fields'] as Map<String, dynamic>?) ?? {};
 
@@ -1234,12 +1447,24 @@ Future<void> _applyRemoteChanges(
           } else {
             await adapter.applyFields(table, entityId, fields);
           }
+          rowsApplied++;
         } catch (e, st) {
-          final table = change['table'];
-          final entityId = change['entity_id'];
           final fieldKeys = (change['fields'] as Map?)?.keys.toList() ?? [];
+          if (strict) {
+            // Abort the entire batch. Callers catch StrictApplyFailure to
+            // surface a retry UI without ACKing the snapshot.
+            throw StrictApplyFailure(
+              message:
+                  'Sync apply failed for $tableRaw/$entityIdRaw: $e '
+                  '(fields: $fieldKeys)',
+              failedTables: [if (tableRaw is String) tableRaw],
+              table: tableRaw is String ? tableRaw : null,
+              entityId: entityIdRaw is String ? entityIdRaw : null,
+              cause: e,
+            );
+          }
           ErrorReportingService.instance.report(
-            'Sync apply failed for $table/$entityId: $e '
+            'Sync apply failed for $tableRaw/$entityIdRaw: $e '
             '(fields: $fieldKeys)',
             severity: ErrorSeverity.warning,
             stackTrace: st,
@@ -1249,6 +1474,8 @@ Future<void> _applyRemoteChanges(
       }
     });
   }
+
+  return ApplyResult(rowsApplied: rowsApplied);
 }
 
 // ---------------------------------------------------------------------------
@@ -1267,7 +1494,7 @@ final syncEnabledProvider = Provider<bool>((ref) {
 
 /// Tracks whether sync is healthy, needs user intervention, or is disconnected.
 enum SyncHealthState {
-  /// Sync is configured and working (or not paired at all).
+  /// Sync is configured and working.
   healthy,
 
   /// runtime_dek is missing but wrapped_dek exists — user must enter password.
@@ -1275,6 +1502,12 @@ enum SyncHealthState {
 
   /// Credentials are gone or device was revoked — must re-pair.
   disconnected,
+
+  /// The device has never been paired. Behaves like healthy from the user's
+  /// perspective (no password sheet, no reconnect card), but skips the
+  /// post-config drain / cacheRuntimeKeys / scheduled onResume calls that
+  /// would otherwise warn "no DEK loaded" on a locked handle.
+  unpaired,
 }
 
 final syncHealthProvider =
@@ -1443,6 +1676,28 @@ bool shouldDrainForCompletedErrorKind(String? errorKind) {
       // write slightly stale keys; alternative is losing new ones.
       return true;
   }
+}
+
+/// Pure decision helper for the device_id self-check used by both
+/// `_handleDeviceRevoked` and `_handleDeviceRevokedFromAuthFailure`.
+///
+/// Returns true if the revoke event should result in a credential wipe on
+/// THIS device. Returns false only when the event explicitly carries a
+/// non-empty device_id that differs from our own (sibling-revoke).
+@visibleForTesting
+bool shouldWipeForRevokeEvent({
+  required String? revokedDeviceId,
+  required String? currentDeviceId,
+}) {
+  if (revokedDeviceId == null || revokedDeviceId.isEmpty) {
+    // Legacy / unknown — preserve existing behavior of wiping.
+    return true;
+  }
+  if (currentDeviceId == null || currentDeviceId.isEmpty) {
+    // We can't compare — assume self.
+    return true;
+  }
+  return revokedDeviceId == currentDeviceId;
 }
 
 /// Test seam: when non-null, the event-driven drain path in
@@ -1718,7 +1973,13 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
           if (isRevoked) {
             final wipe =
                 structuredError?.remoteWipe ?? resultRemoteWipe ?? false;
-            _handleDeviceRevokedFromAuthFailure(wipe);
+            final revokedDeviceId =
+                resultMap?['device_id'] as String? ??
+                event.data['device_id'] as String?;
+            _handleDeviceRevokedFromAuthFailure(
+              wipe,
+              revokedDeviceId: revokedDeviceId,
+            );
           }
           // Event-driven drain: persist the Rust MemorySecureStore back to
           // the platform keychain whenever a sync cycle completes. Covers
@@ -1756,6 +2017,7 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
           if (structuredError?.isDeviceRevoked ?? false) {
             _handleDeviceRevokedFromAuthFailure(
               structuredError?.remoteWipe ?? false,
+              revokedDeviceId: event.data['device_id'] as String?,
             );
           }
         } else if (event.isDeviceRevoked) {
@@ -1944,10 +2206,48 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
         .setState(SyncHealthState.disconnected);
   }
 
-  Future<void> _handleDeviceRevokedFromAuthFailure(bool remoteWipe) async {
-    // Abort any pending drain before wiping anything — same reason as
-    // `_handleDeviceRevoked`: a debounced drain in flight would resurrect
-    // secrets after cleanup.
+  Future<void> _handleDeviceRevokedFromAuthFailure(
+    bool remoteWipe, {
+    String? revokedDeviceId,
+  }) async {
+    // Step 1 — always safe: cancel any pending debounced drain. We do NOT
+    // yet escalate to the full revoke path because the event might target
+    // a sibling device.
+    _abortPendingDrainSafe();
+
+    // Step 2 — determine whether this event targets us. Mirror the same
+    // device_id self-check that `_handleDeviceRevoked` performs. If the
+    // event carries a device_id and it doesn't match our own, this is a
+    // sibling-revoke and we leave THIS device's credentials alone.
+    String? currentDeviceId;
+    try {
+      final raw = await _storage.read(
+        key: '${_secureStorePrefix}device_id',
+      );
+      if (raw != null && raw.isNotEmpty) {
+        try {
+          currentDeviceId = utf8.decode(base64Decode(raw));
+        } catch (_) {
+          currentDeviceId = raw;
+        }
+      }
+    } catch (_) {
+      // If we can't read the device ID, assume we're the target.
+    }
+
+    if (!shouldWipeForRevokeEvent(
+      revokedDeviceId: revokedDeviceId,
+      currentDeviceId: currentDeviceId,
+    )) {
+      debugPrint(
+        '[SYNC] Auth-failure revoke targets sibling '
+        '($revokedDeviceId != $currentDeviceId) — skipping wipe',
+      );
+      return;
+    }
+
+    // Step 3 — self-revoke (or device id unknown, assume self). Escalate
+    // from safe-abort to the full revoke path.
     _abortPendingDrainForRevoke();
     try {
       if (remoteWipe) {

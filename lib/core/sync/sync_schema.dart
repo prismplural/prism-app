@@ -1,6 +1,6 @@
 /// JSON schema describing all syncable entities for prism-sync.
 ///
-/// Field types: String, Int, Bool, DateTime, Blob
+/// Field types: String, Int, Real, Bool, DateTime, Blob
 const String prismSyncSchema = '''
 {
   "entities": {
@@ -105,7 +105,11 @@ const String prismSyncSchema = '''
         "sleep_tracking_enabled": "Bool",
         "quick_switch_threshold_seconds": "Int",
         "identity_generation": "Int",
-        "has_completed_onboarding": "Bool",
+        "sleep_suggestion_enabled": "Bool",
+        "sleep_suggestion_hour": "Int",
+        "sleep_suggestion_minute": "Int",
+        "wake_suggestion_enabled": "Bool",
+        "wake_suggestion_after_hours": "Real",
         "chat_logs_front": "Bool",
         "sync_theme_enabled": "Bool",
         "timing_mode": "Int",

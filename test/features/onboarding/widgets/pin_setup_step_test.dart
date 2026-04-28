@@ -8,6 +8,7 @@ import 'package:prism_plurality/features/onboarding/widgets/pin_setup_step.dart'
 import 'package:prism_plurality/features/settings/providers/pin_lock_providers.dart';
 import 'package:prism_plurality/features/settings/views/pin_input_screen.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
 /// A fake [PinLockService] that records [storePin] calls without touching
 /// platform secure storage.
@@ -43,6 +44,8 @@ Widget _buildWidget({
     child: MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
+      builder: (context, child) =>
+          PrismToastHost(child: child ?? const SizedBox.shrink()),
       home: Scaffold(body: PinSetupStep(onPinConfirmed: onPinConfirmed)),
     ),
   );
@@ -63,6 +66,8 @@ PinInputMode _currentMode(WidgetTester tester) {
 }
 
 void main() {
+  tearDown(PrismToast.resetForTest);
+
   testWidgets('shows PinInputScreen in set mode initially', (tester) async {
     final service = _FakePinLockService();
 
@@ -73,6 +78,8 @@ void main() {
 
     expect(find.byType(PinInputScreen), findsOneWidget);
     expect(_currentMode(tester), PinInputMode.set);
+    expect(find.text('Set PIN'), findsOneWidget);
+    expect(find.text('Choose a 6-digit PIN'), findsOneWidget);
   });
 
   testWidgets('advances to confirm phase after pin entry', (tester) async {
@@ -91,6 +98,8 @@ void main() {
 
     // PinSetupStep should now show the confirm screen.
     expect(_currentMode(tester), PinInputMode.confirm);
+    expect(find.text('Confirm PIN'), findsOneWidget);
+    expect(find.text('Re-enter your PIN to confirm'), findsOneWidget);
   });
 
   testWidgets('calls onPinConfirmed and storePin on match', (tester) async {
@@ -141,5 +150,7 @@ void main() {
 
     expect(service.storedPin, isNull);
     expect(_currentMode(tester), PinInputMode.confirm);
+    expect(find.textContaining('Error completing setup'), findsOneWidget);
+    PrismToast.resetForTest();
   });
 }

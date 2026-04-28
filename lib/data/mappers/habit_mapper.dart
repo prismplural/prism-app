@@ -21,9 +21,7 @@ class HabitMapper {
         (f) => f.name == row.frequency,
         orElse: () => domain.HabitFrequency.daily,
       ),
-      weeklyDays: row.weeklyDays != null
-          ? (jsonDecode(row.weeklyDays!) as List).cast<int>()
-          : null,
+      weeklyDays: _parseWeeklyDays(row.weeklyDays),
       intervalDays: row.intervalDays,
       reminderTime: row.reminderTime,
       notificationsEnabled: row.notificationsEnabled,
@@ -35,6 +33,30 @@ class HabitMapper {
       bestStreak: row.bestStreak,
       totalCompletions: row.totalCompletions,
     );
+  }
+
+  /// Defensively parses the `weekly_days` JSON column.
+  ///
+  /// Returns `null` for any of: null input, malformed JSON, non-list JSON,
+  /// lists containing non-int elements, out-of-range weekday values, or an
+  /// empty list. A single bad row from a peer device must not crash screens
+  /// that load habits.
+  static List<int>? _parseWeeklyDays(String? raw) {
+    if (raw == null) return null;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return null;
+      final out = <int>[];
+      for (final v in decoded) {
+        if (v is! int) return null;
+        if (v < 0 || v > 6) return null;
+        out.add(v);
+      }
+      if (out.isEmpty) return null;
+      return out;
+    } catch (_) {
+      return null;
+    }
   }
 
   static HabitsCompanion toCompanion(domain.Habit model) {

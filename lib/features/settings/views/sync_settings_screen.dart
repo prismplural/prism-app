@@ -123,11 +123,25 @@ class SyncSettingsScreen extends ConsumerWidget {
     final syncIdAsync = ref.watch(syncIdProvider);
     final relayUrl = relayUrlAsync.value;
     final syncId = syncIdAsync.value;
-    final isConfigured =
+    // Use the FFI handle as the primary "configured" signal. Its AsyncData
+    // is set synchronously inside `createHandle` and is not invalidated when
+    // the keychain-backed FutureProviders below are invalidated, so it does
+    // not have the stale-cache flicker that `(relayUrl, syncId)` does. Fall
+    // back to the keychain values so we still consider a device configured
+    // before the handle finishes building (e.g. during initial app start
+    // before `prismSyncHandleProvider.build` resolves).
+    //
+    // Phase 4A: chosen over widening the loading guard because handle-based
+    // gating eliminates the flicker entirely rather than masking it with a
+    // spinner during invalidate.
+    final handleAsyncForGate = ref.watch(prismSyncHandleProvider);
+    final hasActiveHandle = handleAsyncForGate.value != null;
+    final hasKeychainCreds =
         relayUrl != null &&
         relayUrl.isNotEmpty &&
         syncId != null &&
         syncId.isNotEmpty;
+    final isConfigured = hasActiveHandle || hasKeychainCreds;
     final syncHealth = ref.watch(syncHealthProvider);
 
     if (syncHealth == SyncHealthState.disconnected) {
@@ -145,7 +159,8 @@ class SyncSettingsScreen extends ConsumerWidget {
 
     if ((relayUrlAsync.isLoading || syncIdAsync.isLoading) &&
         !relayUrlAsync.hasValue &&
-        !syncIdAsync.hasValue) {
+        !syncIdAsync.hasValue &&
+        !isConfigured) {
       return PrismPageScaffold(
         topBar: PrismTopBar(title: context.l10n.syncTitle, showBackButton: true),
         body: const PrismLoadingState(),
@@ -179,7 +194,10 @@ class SyncSettingsScreen extends ConsumerWidget {
       bodyPadding: EdgeInsets.zero,
       body: isConfigured
           ? SyncToastListener(
-              child: _ConfiguredView(relayUrl: relayUrl, syncId: syncId),
+              child: _ConfiguredView(
+                relayUrl: relayUrl ?? '',
+                syncId: syncId ?? '',
+              ),
             )
           : const _SetupView(),
     );

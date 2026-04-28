@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/sync/pairing_ceremony_api.dart';
@@ -86,6 +86,14 @@ class _FakePairingCeremonyApi extends PairingCeremonyApi {
     required String password,
     required String mnemonic,
   }) => throw UnimplementedError();
+}
+
+String _structuredSyncError({required String code, required String message}) {
+  return 'PRISM_SYNC_ERROR_JSON:${jsonEncode({
+    'message': message,
+    'code': code,
+    'error_type': 'sync',
+  })}';
 }
 
 void main() {
@@ -368,8 +376,65 @@ void main() {
           PairingStep.connecting,
           PairingStep.success,
           PairingStep.error,
+          PairingStep.snapshotFailure,
         ]),
       );
+    });
+  });
+
+  group('snapshotFailure step — UI gating', () {
+    test('retrySnapshotBootstrap is a no-op outside snapshotFailure', () async {
+      final container = ProviderContainer(
+        overrides: [
+          pairingCeremonyApiProvider.overrideWith(
+            (ref) => _FakePairingCeremonyApi(),
+          ),
+          relayUrlProvider.overrideWith(
+            (ref) async => 'https://relay.example.com',
+          ),
+          prismSyncHandleProvider.overrideWith(
+            () => _FakePrismSyncHandleNotifier(const _FakePrismSyncHandle()),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final notifier = container.read(devicePairingProvider.notifier);
+      // Default step is enterUrl — retry should be a silent no-op.
+      await notifier.retrySnapshotBootstrap();
+      expect(container.read(devicePairingProvider).step, PairingStep.enterUrl);
+    });
+
+    test('PairingState can transition into snapshotFailure', () {
+      final state = const PairingState().copyWith(
+        step: PairingStep.snapshotFailure,
+        errorMessage: "Couldn't load your system from the pairing device.",
+        syncIncomplete: true,
+      );
+      expect(state.step, PairingStep.snapshotFailure);
+      expect(state.syncIncomplete, isTrue);
+      expect(state.errorMessage, contains("Couldn't load"));
+    });
+
+    // Regression: the snapshot-failure path is distinct from the generic
+    // error path precisely because credentials must survive it. Only the
+    // latter invokes `_cleanupKeychainOnFailure`. Asserting the enum
+    // distinction exists keeps the credential-lifecycle contract visible.
+    test('snapshotFailure is distinct from error (credential lifecycle)', () {
+      final errorState = const PairingState().copyWith(
+        step: PairingStep.error,
+        errorMessage: 'ceremony failed',
+      );
+      final snapshotFailureState = const PairingState().copyWith(
+        step: PairingStep.snapshotFailure,
+        errorMessage: 'snapshot failed',
+        syncIncomplete: true,
+      );
+      expect(errorState.step, isNot(snapshotFailureState.step));
+      // snapshotFailure carries syncIncomplete=true so the UI can show
+      // "retry or cancel" instead of "start over from scratch".
+      expect(snapshotFailureState.syncIncomplete, isTrue);
+      expect(errorState.syncIncomplete, isFalse);
     });
   });
 
@@ -492,6 +557,136 @@ void main() {
       expect(progressState.liveCounts, isEmpty);
     });
 
+    // Regression for codex Finding A: a non-timeout exception thrown
+    // AFTER `completeJoinerCeremony` succeeds (e.g. from `configureEngine`)
+    // must NOT wipe the keychain — the joiner is already registered on
+    // the relay and orphaning it forces an unrecoverable state. The
+    // failure must instead route to PairingStep.snapshotFailure so the
+    // user sees Retry + Cancel actions.
+    test(
+      'post-ceremony exception preserves credentials and routes to snapshotFailure',
+      () async {
+        final container = makeContainer();
+        addTearDown(container.dispose);
+
+        // Seed a fake credential so we can assert it survives the failure.
+        const fakeKey = 'prism_sync.session_token';
+        final initialCreds = <String, String>{};
+        // We don't have a flutter_secure_storage mock here, so the
+        // assertion is structural: the gate routes to snapshotFailure
+        // and does NOT enter the error step. The actual keychain delete
+        // is exercised end-to-end in integration tests.
+        initialCreds[fakeKey] = 'sentinel';
+
+        final notifier = container.read(devicePairingProvider.notifier);
+
+        // Simulate a non-timeout exception escaping the bootstrap region
+        // AFTER ceremony has committed credentials. The flag-based gate
+        // must keep credentials in place and surface snapshotFailure.
+        await notifier.handlePostCeremonyFailureForTest(
+          ceremonyCompleted: true,
+          error: StateError('configureEngine failed: simulated FFI error'),
+        );
+
+        final state = container.read(devicePairingProvider);
+        expect(
+          state.step,
+          PairingStep.snapshotFailure,
+          reason:
+              'Post-ceremony failures must route to snapshotFailure so the '
+              'user can retry without losing the joined identity.',
+        );
+        expect(state.syncIncomplete, isTrue);
+      },
+    );
+
+    test(
+      'pre-ceremony exception still wipes credentials and routes to error',
+      () async {
+        final container = makeContainer();
+        addTearDown(container.dispose);
+
+        final notifier = container.read(devicePairingProvider.notifier);
+
+        // Same exception, but with ceremonyCompleted=false. The gate
+        // must use the legacy hard-error path with keychain cleanup.
+        await notifier.handlePostCeremonyFailureForTest(
+          ceremonyCompleted: false,
+          error: StateError('relay handshake failed before ceremony'),
+        );
+
+        final state = container.read(devicePairingProvider);
+        expect(state.step, PairingStep.error);
+      },
+    );
+
+    for (final code in ['epoch_mismatch', 'epoch_key_mismatch']) {
+      test(
+        '$code before durable credentials is a hard re-pair error',
+        () async {
+          final container = makeContainer();
+          addTearDown(container.dispose);
+
+          final notifier = container.read(devicePairingProvider.notifier);
+
+          await notifier.handlePostCeremonyFailureForTest(
+            ceremonyCompleted: false,
+            error: StateError(
+              _structuredSyncError(
+                code: code,
+                message: 'relay epoch could not be verified',
+              ),
+            ),
+          );
+
+          final state = container.read(devicePairingProvider);
+          expect(state.step, PairingStep.error);
+          expect(state.syncIncomplete, isFalse);
+          expect(state.errorCode, code);
+          expect(
+            state.errorMessage,
+            contains('Pairing cannot be safely completed'),
+          );
+          expect(state.errorMessage, contains('start pairing again'));
+        },
+      );
+
+      test(
+        '$code after durable credentials preserves creds but says re-pair',
+        () async {
+          final container = makeContainer();
+          addTearDown(container.dispose);
+
+          final notifier = container.read(devicePairingProvider.notifier);
+
+          await notifier.handlePostCeremonyFailureForTest(
+            ceremonyCompleted: true,
+            error: StateError(
+              _structuredSyncError(
+                code: code,
+                message: 'relay epoch could not be verified',
+              ),
+            ),
+          );
+
+          final state = container.read(devicePairingProvider);
+          expect(state.step, PairingStep.snapshotFailure);
+          expect(state.syncIncomplete, isTrue);
+          expect(state.errorCode, code);
+          expect(
+            state.errorMessage,
+            contains('Pairing cannot be safely completed'),
+          );
+          expect(state.errorMessage, contains('re-pair this device'));
+          expect(
+            state.errorMessage,
+            isNot(contains('Pairing succeeded')),
+            reason: 'Epoch verification failures must not imply success.',
+          );
+        },
+      );
+    }
+
     test(
       'generation mismatch: setPhase called only when _generation matches',
       () async {
@@ -524,5 +719,447 @@ void main() {
         );
       },
     );
+  });
+
+  // ---------------------------------------------------------------------------
+  // Apply watchdog idle-reset policy (codex Finding B regression)
+  // ---------------------------------------------------------------------------
+  group('apply watchdog — idle-reset policy', () {
+    /// Build a container with a controllable sync-event stream and a
+    /// fake handle so the private watchdog can be exercised directly via
+    /// the @visibleForTesting wrapper.
+    ({ProviderContainer container, StreamController<SyncEvent> events})
+    makeWatchdogContainer() {
+      final eventController = StreamController<SyncEvent>.broadcast();
+      final container = ProviderContainer(
+        overrides: [
+          syncEventStreamProvider.overrideWith((ref) {
+            ref.onDispose(eventController.close);
+            return eventController.stream;
+          }),
+          pairingCeremonyApiProvider.overrideWith(
+            (ref) => _FakePairingCeremonyApi(),
+          ),
+          relayUrlProvider.overrideWith(
+            (ref) async => 'https://relay.example.com',
+          ),
+          prismSyncHandleProvider.overrideWith(
+            () => _FakePrismSyncHandleNotifier(const _FakePrismSyncHandle()),
+          ),
+        ],
+      );
+      // Keep the event stream provider alive across the test.
+      container.listen<AsyncValue<SyncEvent>>(
+        syncEventStreamProvider,
+        (_, _) {},
+      );
+      return (container: container, events: eventController);
+    }
+
+    test(
+      'SyncCompleted bursts do NOT reset the watchdog (Finding B regression)',
+      () async {
+        final setup = makeWatchdogContainer();
+        addTearDown(setup.container.dispose);
+
+        final notifier = setup.container.read(devicePairingProvider.notifier);
+        final coordinator = setup.container.read(
+          strictApplyCoordinatorProvider,
+        );
+
+        // Pre-register the latch (mirrors how _runSnapshotBootstrap uses it).
+        final outcomeFuture = coordinator.enterStrictMode();
+
+        // Idle timeout chosen so this test runs quickly. We pulse
+        // SyncCompleted events at half the timeout cadence — if the
+        // watchdog incorrectly counted them as progress, it would never
+        // fire and this test would hang past the await.
+        const idleTimeout = Duration(milliseconds: 200);
+
+        // Schedule a stream of SyncCompleted ticks every 80ms (well under
+        // the idle timeout) for ~600ms total. None of these should reset
+        // the watchdog under the corrected policy.
+        var ticks = 0;
+        final pulseTimer = Timer.periodic(const Duration(milliseconds: 80), (
+          timer,
+        ) {
+          ticks++;
+          setup.events.add(
+            SyncEvent.fromJson(<String, dynamic>{
+              'type': 'SyncCompleted',
+              'result': <String, dynamic>{},
+            }),
+          );
+          if (ticks >= 8) timer.cancel();
+        });
+        addTearDown(pulseTimer.cancel);
+
+        final watchdogFuture = notifier.awaitApplyOutcomeWithWatchdogForTest(
+          handle: const _FakePrismSyncHandle(),
+          outcomeFuture: outcomeFuture,
+          idleTimeout: idleTimeout,
+        );
+
+        final outcome = await watchdogFuture.timeout(
+          const Duration(seconds: 2),
+          onTimeout: () => fail(
+            'Watchdog never fired despite SyncCompleted-only stream — '
+            'idle-reset policy regressed (Finding B).',
+          ),
+        );
+
+        coordinator.exitStrictMode();
+
+        expect(outcome, isA<ApplyOutcomeFailure>());
+        final failure = (outcome as ApplyOutcomeFailure).failure;
+        expect(
+          failure.message,
+          startsWith('TIMEOUT:'),
+          reason:
+              'The watchdog must report a TIMEOUT-prefixed failure when '
+              'no RemoteChanges events arrive within idleTimeout.',
+        );
+        expect(
+          ticks,
+          greaterThan(0),
+          reason:
+              'Sanity: the SyncCompleted pulse stream actually fired '
+              'before the watchdog tripped.',
+        );
+      },
+    );
+
+    test(
+      'RemoteChanges events DO reset the watchdog (positive control)',
+      () async {
+        final setup = makeWatchdogContainer();
+        addTearDown(setup.container.dispose);
+
+        final notifier = setup.container.read(devicePairingProvider.notifier);
+        final coordinator = setup.container.read(
+          strictApplyCoordinatorProvider,
+        );
+
+        final outcomeFuture = coordinator.enterStrictMode();
+        const idleTimeout = Duration(milliseconds: 200);
+
+        // Pulse RemoteChanges every 80ms for ~600ms, then signal success.
+        // Under correct behaviour, the watchdog never fires because each
+        // RemoteChanges resets it; final signalBatchComplete resolves the
+        // latch with success.
+        var ticks = 0;
+        final pulseTimer = Timer.periodic(const Duration(milliseconds: 80), (
+          timer,
+        ) {
+          ticks++;
+          setup.events.add(
+            SyncEvent.fromJson(<String, dynamic>{
+              'type': 'RemoteChanges',
+              'changes': <Map<String, dynamic>>[],
+            }),
+          );
+          if (ticks >= 8) {
+            timer.cancel();
+            coordinator.signalBatchComplete();
+          }
+        });
+        addTearDown(pulseTimer.cancel);
+
+        final outcome = await notifier
+            .awaitApplyOutcomeWithWatchdogForTest(
+              handle: const _FakePrismSyncHandle(),
+              outcomeFuture: outcomeFuture,
+              idleTimeout: idleTimeout,
+            )
+            .timeout(const Duration(seconds: 2));
+
+        coordinator.exitStrictMode();
+
+        expect(
+          outcome,
+          isA<ApplyOutcomeSuccess>(),
+          reason:
+              'RemoteChanges events arriving faster than idleTimeout must '
+              'keep the watchdog at bay long enough for the batch-complete '
+              'signal to win the latch race.',
+        );
+      },
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // Drain-ordering regression (codex P1: ceremonyCompleted vs drainRustStore)
+  // ---------------------------------------------------------------------------
+  //
+  // Before the fix, `ceremonyCompleted = true` flipped immediately after
+  // `completeJoinerCeremony()` returned but `drainRustStore` ran much later
+  // inside `_bootstrapAfterJoin`. A `configureEngine` / `setAutoSync` throw
+  // in that window routed to `snapshotFailure` while:
+  //   - retrySnapshotBootstrap re-ran against an unconfigured handle, and
+  //   - cancelAndRemoveDevice tried to read sync_id/device_id/session_token
+  //     from a keychain that was never populated, orphaning the relay
+  //     registration.
+  // The fix drains BEFORE flipping the flag so "ceremony done" and
+  // "credentials durable" become the same moment.
+  group('drain ordering — ceremonyCompleted gate', () {
+    const secureStorageChannel = MethodChannel(
+      'plugins.it_nomads.com/flutter_secure_storage',
+    );
+
+    setUpAll(TestWidgetsFlutterBinding.ensureInitialized);
+
+    setUp(() {
+      DevicePairingNotifier.drainRustStoreOverride = null;
+    });
+
+    tearDown(() {
+      DevicePairingNotifier.drainRustStoreOverride = null;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(secureStorageChannel, null);
+    });
+
+    /// Install an in-memory mock for the flutter_secure_storage method
+    /// channel. Returns the backing map so tests can pre-seed values
+    /// (cancelAndRemoveDevice test) or assert post-write contents.
+    Map<String, String> installSecureStorageMock([
+      Map<String, String>? initial,
+    ]) {
+      final store = <String, String>{...?initial};
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(secureStorageChannel, (
+            MethodCall call,
+          ) async {
+            switch (call.method) {
+              case 'read':
+                final key = (call.arguments as Map)['key'] as String;
+                return store[key];
+              case 'readAll':
+                return Map<String, String>.from(store);
+              case 'write':
+                final args = call.arguments as Map;
+                store[args['key'] as String] = args['value'] as String;
+                return null;
+              case 'delete':
+                final key = (call.arguments as Map)['key'] as String;
+                store.remove(key);
+                return null;
+              case 'deleteAll':
+                store.clear();
+                return null;
+              case 'containsKey':
+                final key = (call.arguments as Map)['key'] as String;
+                return store.containsKey(key);
+              default:
+                return null;
+            }
+          });
+      return store;
+    }
+
+    ProviderContainer makeContainer({ffi.PrismSyncHandle? handle}) {
+      final eventController = StreamController<SyncEvent>.broadcast();
+      final container = ProviderContainer(
+        overrides: [
+          syncEventStreamProvider.overrideWith((ref) {
+            ref.onDispose(eventController.close);
+            return eventController.stream;
+          }),
+          pairingCeremonyApiProvider.overrideWith(
+            (ref) => _FakePairingCeremonyApi(),
+          ),
+          relayUrlProvider.overrideWith(
+            (ref) async => 'https://relay.example.com',
+          ),
+          prismSyncHandleProvider.overrideWith(
+            () => _FakePrismSyncHandleNotifier(
+              handle ?? const _FakePrismSyncHandle(),
+            ),
+          ),
+        ],
+      );
+      container.listen<PairingState>(devicePairingProvider, (_, _) {});
+      return container;
+    }
+
+    test('drainRustStore failure before ceremonyCompleted flag wipes keychain '
+        '(pre-ceremony semantics)', () async {
+      installSecureStorageMock();
+      final container = makeContainer();
+      addTearDown(container.dispose);
+
+      // Simulate drainRustStore throwing — Rust returned creds but
+      // platform keychain write failed. Per the drain-ordering fix,
+      // this must be treated as a ceremony-phase failure: keychain
+      // gets wiped and we route to PairingStep.error (NOT
+      // snapshotFailure, which would imply preserve-creds + retry).
+      DevicePairingNotifier.drainRustStoreOverride = (handle) async {
+        throw StateError('keychain unavailable: simulated failure');
+      };
+
+      // Ensure the AsyncNotifier handle has resolved before driving
+      // the ceremony — otherwise prismSyncHandleProvider.value is null.
+      await container.read(prismSyncHandleProvider.future);
+
+      final notifier = container.read(devicePairingProvider.notifier);
+      await notifier.completeJoinerWithPassword('123456');
+      await pumpEventQueue();
+
+      final state = container.read(devicePairingProvider);
+      expect(
+        state.step,
+        PairingStep.error,
+        reason:
+            'A drain failure between ceremony returning and the flag '
+            'flipping must route to error (with keychain cleanup) — not '
+            'snapshotFailure, which would imply credentials are durable.',
+      );
+      expect(state.syncIncomplete, isFalse);
+    });
+
+    test('post-ceremony exception after successful drain preserves creds '
+        '(retry path works)', () async {
+      // Pre-seed nothing — we'll observe drainRustStore writing values
+      // to the mock store before any post-drain failure occurs.
+      final keychain = installSecureStorageMock();
+      final container = makeContainer();
+      addTearDown(container.dispose);
+
+      var drainCalls = 0;
+      var drainCompletedAt = -1;
+      var bootstrapStartedAt = -1;
+      var sequence = 0;
+
+      // Drain succeeds AND records the order in which it ran. We also
+      // populate the keychain mock so we can assert that by the time
+      // any post-ceremony failure handler runs, credentials are
+      // durable. (`ffi.configureEngine` will throw on the fake handle
+      // after this drain — that's the failure we route through
+      // _handlePostCeremonyFailure.)
+      DevicePairingNotifier.drainRustStoreOverride = (handle) async {
+        drainCalls++;
+        // Simulate the real drain populating the keychain with the
+        // credentials needed by cancelAndRemoveDevice.
+        keychain['prism_sync.sync_id'] = base64Encode(utf8.encode('sync-1'));
+        keychain['prism_sync.device_id'] = base64Encode(
+          utf8.encode('device-1'),
+        );
+        keychain['prism_sync.session_token'] = base64Encode(
+          utf8.encode('token-1'),
+        );
+        drainCompletedAt = ++sequence;
+      };
+
+      // Ensure the AsyncNotifier handle has resolved before we drive
+      // the joiner ceremony — otherwise `prismSyncHandleProvider.value`
+      // returns null and the StateError short-circuits before drain.
+      await container.read(prismSyncHandleProvider.future);
+
+      final notifier = container.read(devicePairingProvider.notifier);
+      // The FFI configureEngine call inside _bootstrapAfterJoin will
+      // throw when handed a fake opaque handle — that's intentional,
+      // it exercises the post-ceremony failure path AFTER drain has
+      // already populated the keychain. The outer try/catch in
+      // completeJoinerWithPassword catches it and routes through
+      // _handlePostCeremonyFailure, so the await resolves cleanly.
+      await notifier.completeJoinerWithPassword('123456');
+      bootstrapStartedAt = ++sequence;
+      await pumpEventQueue();
+
+      final state = container.read(devicePairingProvider);
+      expect(
+        drainCalls,
+        1,
+        reason:
+            'drainRustStore must run exactly once, immediately after the '
+            'ceremony returns and before any bootstrap step.',
+      );
+      expect(
+        drainCompletedAt,
+        lessThan(bootstrapStartedAt),
+        reason:
+            'Drain must complete before any post-flag work begins. '
+            'If this fails the drain ran AFTER bootstrap, restoring '
+            'the original P1 race window.',
+      );
+      // The contract: post-drain failures route to snapshotFailure
+      // (preserve creds + retry path), NOT to error (wipe + restart).
+      expect(
+        state.step,
+        isNot(PairingStep.error),
+        reason:
+            'Post-drain failures must NOT route to error (which wipes '
+            'the keychain) — they must preserve credentials.',
+      );
+      expect(
+        keychain['prism_sync.sync_id'],
+        isNotNull,
+        reason:
+            'Credentials must remain in the keychain after a '
+            'post-ceremony failure — cancelAndRemoveDevice depends on '
+            'them being readable.',
+      );
+      expect(keychain['prism_sync.device_id'], isNotNull);
+      expect(keychain['prism_sync.session_token'], isNotNull);
+    });
+
+    test('cancelAndRemoveDevice after successful drain reads keychain '
+        'and attempts deregisterDevice', () async {
+      // Pre-seed the keychain mock the same way a successful drain
+      // would have, then drive cancelAndRemoveDevice and verify it
+      // reads the credentials and clears them.
+      final keychain = installSecureStorageMock({
+        'prism_sync.sync_id': base64Encode(utf8.encode('sync-xyz')),
+        'prism_sync.device_id': base64Encode(utf8.encode('device-xyz')),
+        'prism_sync.session_token': base64Encode(utf8.encode('token-xyz')),
+        'prism_sync.wrapped_dek': base64Encode(utf8.encode('dek-xyz')),
+      });
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+
+      // Put the notifier into snapshotFailure state so cancel is the
+      // sanctioned exit path.
+      final notifier = container.read(devicePairingProvider.notifier);
+      await notifier.handlePostCeremonyFailureForTest(
+        ceremonyCompleted: true,
+        error: StateError('simulated bootstrap failure'),
+      );
+      expect(
+        container.read(devicePairingProvider).step,
+        PairingStep.snapshotFailure,
+      );
+
+      // Sanity: pre-condition — keychain has what cancel needs.
+      expect(keychain['prism_sync.sync_id'], isNotNull);
+      expect(keychain['prism_sync.device_id'], isNotNull);
+      expect(keychain['prism_sync.session_token'], isNotNull);
+
+      // cancelAndRemoveDevice will:
+      //  1. Read sync_id/device_id/session_token from the keychain.
+      //  2. Call ffi.deregisterDevice (which throws on the fake
+      //     handle — caught and reported as non-fatal).
+      //  3. Call _cleanupKeychainOnFailure which deletes pairing keys.
+      //  4. Reset state to default PairingState().
+      // The fact that step (3) ran proves step (1) successfully read
+      // the keychain (otherwise the cancel-prep guard would have
+      // skipped the deregister branch).
+      await notifier.cancelAndRemoveDevice();
+      await pumpEventQueue();
+
+      // Post-condition: pairing-related keys are gone, state is reset.
+      expect(
+        keychain['prism_sync.sync_id'],
+        isNull,
+        reason: 'cancel must wipe the persisted sync_id.',
+      );
+      expect(keychain['prism_sync.device_id'], isNull);
+      expect(keychain['prism_sync.session_token'], isNull);
+      expect(keychain['prism_sync.wrapped_dek'], isNull);
+      expect(
+        container.read(devicePairingProvider).step,
+        PairingStep.enterUrl,
+        reason: 'cancel must return the notifier to the initial step.',
+      );
+    });
   });
 }

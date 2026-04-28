@@ -323,7 +323,8 @@ class _EnterPhraseStepState extends State<_EnterPhraseStep> {
     SyncSetupProgress.cachingKeys => context.l10n.syncSetupProgressCachingKeys,
     SyncSetupProgress.bootstrappingData =>
       context.l10n.syncSetupProgressBootstrapping,
-    SyncSetupProgress.syncing => context.l10n.syncSetupProgressSyncing,
+    SyncSetupProgress.measuringSnapshot =>
+      context.l10n.syncSetupProgressMeasuringSnapshot,
     null => null,
   };
 

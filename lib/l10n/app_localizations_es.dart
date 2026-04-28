@@ -533,10 +533,12 @@ class AppLocalizationsEs extends AppLocalizations {
   String get syncSetupProgressCachingKeys => 'Asegurando claves...';
 
   @override
-  String get syncSetupProgressBootstrapping => 'Subiendo tus datos...';
+  String get syncSetupProgressBootstrapping =>
+      'Preparando tus datos para sincronizar';
 
   @override
-  String get syncSetupProgressSyncing => 'Sincronizando...';
+  String get syncSetupProgressMeasuringSnapshot =>
+      'Comprobando el tamaño de los datos';
 
   @override
   String get syncSecretKeyTitle => 'Clave secreta';
@@ -3531,6 +3533,32 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get syncSetupPairingFailed => 'Falló el emparejamiento';
+
+  @override
+  String get syncSetupSnapshotUploadingTitle =>
+      'Subiendo tu sistema al nuevo dispositivo';
+
+  @override
+  String syncSetupSnapshotUploadProgress(String sent, String total) {
+    return '$sent de $total';
+  }
+
+  @override
+  String get syncSetupSnapshotUploadStarting => 'Preparando la subida...';
+
+  @override
+  String get syncSetupSnapshotUploadFailedTitle =>
+      'No se pudo subir tu sistema';
+
+  @override
+  String get syncSetupSnapshotUploadRetry => 'Reintentar subida';
+
+  @override
+  String get syncSetupPairingReadyTitle => 'Emparejamiento listo';
+
+  @override
+  String get syncSetupPairingReadyWaiting =>
+      'Esperando a que el otro dispositivo termine la configuración.';
 
   @override
   String memberAvatarSemantics(String name) {
