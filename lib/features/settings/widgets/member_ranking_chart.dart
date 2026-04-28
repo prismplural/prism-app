@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/domain/models/fronting_analytics.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/extensions/duration_extensions.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
@@ -59,6 +60,7 @@ class _MemberRankingChartState extends ConsumerState<MemberRankingChart> {
     final memberStats = widget.memberStats;
     if (memberStats.isEmpty) return const SizedBox.shrink();
 
+    final terms = watchTerminology(context, ref);
     final peakMinutes = memberStats.first.totalTime.inMinutes;
 
     // Batch-fetch members once for the whole chart instead of per-bar
@@ -115,14 +117,31 @@ class _MemberRankingChartState extends ConsumerState<MemberRankingChart> {
         children: [
           Padding(
             padding: const EdgeInsets.only(right: 16),
-            child: Text(
-              context.l10n.statisticsFrontingTimeByMember,
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                // Drop built-in line-height padding so the title sits as
-                // close to the bars as the SizedBox below allows.
-                height: 1.0,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  context.l10n
+                      .statisticsFrontingTimeByMember(terms.singularLower),
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    // Drop built-in line-height padding so the title sits as
+                    // close to the bars as the SizedBox below allows.
+                    height: 1.0,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                // Axis hint — clarifies that the % readout is share of
+                // system {term}-minutes, not wall-clock fronting time.
+                // See §4.3 of fronting-per-member-sessions.md.
+                Text(
+                  context.l10n
+                      .statisticsMemberMinutesAxisHint(terms.singularLower),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 12),

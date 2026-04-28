@@ -1706,11 +1706,17 @@ abstract class AppLocalizations {
   /// **'Longest'**
   String get statisticsDurationLongest;
 
-  /// Title for the member comparison chart
+  /// Title for the per-member ranking chart. {term}-minutes (e.g., 'member-minutes', 'headmate-minutes'): when two co-front for an hour, that's two {term}-hours — same math as wall-clock-per-fronter, more honest framing. Mirrors the existing 'Per-{term} Colors' convention in appearance settings.
   ///
   /// In en, this message translates to:
-  /// **'Fronting Time by Member'**
-  String get statisticsFrontingTimeByMember;
+  /// **'Per-{term} minutes'**
+  String statisticsFrontingTimeByMember(String term);
+
+  /// Subtitle / accessibility hint clarifying that percentages are share of total {term}-minutes, not wall-clock fronting time.
+  ///
+  /// In en, this message translates to:
+  /// **'% of system {term}-minutes'**
+  String statisticsMemberMinutesAxisHint(String term);
 
   /// Active/inactive member count breakdown in statistics
   ///
@@ -12702,6 +12708,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Created an Unknown member to hold sessions with no clear fronter.'**
   String get frontingUpgradeCountSentinelCreated;
+
+  /// One-line FYI shown on the upgrade success screen explaining the analytics relabel from 'fronting time' to '{term}-minutes' (e.g., 'member-minutes', 'headmate-minutes').
+  ///
+  /// In en, this message translates to:
+  /// **'Analytics are now framed as {term}-minutes — when two of you co-front for an hour, that\'s two {term}-hours. Same math as before, clearer label.'**
+  String frontingUpgradeAnalyticsNote(String term);
 
   /// Re-pair guidance for primary devices
   ///

@@ -923,8 +923,14 @@ class AppLocalizationsEs extends AppLocalizations {
   String get statisticsDurationLongest => 'Más larga';
 
   @override
-  String get statisticsFrontingTimeByMember =>
-      'Tiempo al frente por integrante';
+  String statisticsFrontingTimeByMember(String term) {
+    return 'Minutos por $term';
+  }
+
+  @override
+  String statisticsMemberMinutesAxisHint(String term) {
+    return '% de los minutos por $term del sistema';
+  }
 
   @override
   String statisticsActiveMembersBreakdown(int active, int inactive) {
@@ -7939,6 +7945,11 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get frontingUpgradeCountSentinelCreated =>
       'Se creó un integrante desconocido para guardar las sesiones sin un frente claro.';
+
+  @override
+  String frontingUpgradeAnalyticsNote(String term) {
+    return 'Las estadísticas ahora se muestran como minutos por $term — si dos de ustedes están en co-frente durante una hora, eso son dos horas-$term. La misma cuenta de antes, con una etiqueta más clara.';
+  }
 
   @override
   String get frontingUpgradeRepairPrimary =>

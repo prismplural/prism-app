@@ -1,28 +1,28 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/features/settings/providers/analytics_providers.dart';
 
-/// Simulates a Drift FrontingSession row for testing.
+/// Simulates a Drift FrontingSession row for testing the per-member
+/// analytics pipeline (post 0.7.0 per-member-sessions redesign).
 ///
-/// [coFronterIds] accepts either a JSON-encoded String (e.g. `'[]'` or
-/// `jsonEncode(['id1'])`) or a `List<String>` which will be JSON-encoded
-/// automatically. Defaults to `'[]'`.
+/// Per the new model (§2.1), each row represents one member's continuous
+/// presence. There is no `co_fronter_ids` field — co-fronting is the
+/// emergent property of overlapping rows for different members.
+///
+/// `coFronterIds` is retained as an unread Drift column for backward
+/// compatibility (see `fronting_sessions_table.dart`); the analytics
+/// pipeline ignores it. We intentionally do NOT expose it from the fake
+/// here — production code must not read it.
 class FakeSession {
-  final DateTime startTime;
-  final DateTime? endTime;
-  final String? memberId;
-  final String coFronterIds;
-
   FakeSession({
     required this.startTime,
     this.endTime,
     this.memberId,
-    Object coFronterIds = '[]',
-  }) : coFronterIds = coFronterIds is List
-            ? jsonEncode(coFronterIds)
-            : coFronterIds as String;
+  });
+
+  final DateTime startTime;
+  final DateTime? endTime;
+  final String? memberId;
 }
 
 void main() {
@@ -33,7 +33,7 @@ void main() {
     return DateTimeRange(start: start, end: end);
   }
 
-  group('computeAnalyticsFromRows', () {
+  group('computeAnalyticsFromRows — per-member semantics', () {
     test('empty sessions yields zero totals and empty memberStats', () {
       final range = range30Days();
       final result = computeAnalyticsFromRows([], range);
@@ -44,28 +44,30 @@ void main() {
       expect(result.uniqueFronters, 0);
       expect(result.switchesPerDay, 0);
       expect(result.memberStats, isEmpty);
+      expect(result.topCoFrontingPairs, isEmpty);
     });
 
-    test('single session fully within range computes correctly', () {
+    test('single-member 1-hour session: total 1h, 100%', () {
       final range = range30Days();
       final session = FakeSession(
         startTime: range.start.add(const Duration(hours: 1)),
-        endTime: range.start.add(const Duration(hours: 3)),
+        endTime: range.start.add(const Duration(hours: 2)),
         memberId: 'member-1',
       );
 
       final result = computeAnalyticsFromRows([session], range);
 
-      expect(result.totalTrackedTime, const Duration(hours: 2));
+      expect(result.totalTrackedTime, const Duration(hours: 1));
       expect(result.totalSessions, 1);
       expect(result.uniqueFronters, 1);
       expect(result.memberStats, hasLength(1));
 
       final stat = result.memberStats.first;
       expect(stat.memberId, 'member-1');
-      expect(stat.totalTime, const Duration(hours: 2));
+      expect(stat.totalTime, const Duration(hours: 1));
       expect(stat.sessionCount, 1);
       expect(stat.percentageOfTotal, closeTo(100.0, 0.01));
+      expect(result.topCoFrontingPairs, isEmpty);
     });
 
     test('session overlapping range boundaries is clamped', () {
@@ -74,7 +76,6 @@ void main() {
         end: DateTime(2026, 3, 11, 0, 0),
       );
 
-      // Session starts 2 hours before range, ends 3 hours after range
       final session = FakeSession(
         startTime: range.start.subtract(const Duration(hours: 2)),
         endTime: range.end.add(const Duration(hours: 3)),
@@ -83,13 +84,13 @@ void main() {
 
       final result = computeAnalyticsFromRows([session], range);
 
-      // Should be clamped to exactly the range duration (24 hours)
+      // Clamped to exactly the range duration (24 hours).
       expect(result.totalTrackedTime, const Duration(hours: 24));
       expect(result.totalGapTime, Duration.zero);
     });
 
     test('active session (null endTime) uses approximately now as end', () {
-      // Use a range that ends in the future so the "now" value falls inside
+      // Range ends in the future so "now" falls inside.
       final now = DateTime.now();
       final range = DateTimeRange(
         start: now.subtract(const Duration(hours: 2)),
@@ -104,9 +105,190 @@ void main() {
 
       final result = computeAnalyticsFromRows([session], range);
 
-      // Should be approximately 1 hour (since start is 1 hour ago, end is ~now)
+      // Approximately 1 hour (start is 1 hour ago, end is ~now).
       expect(result.totalTrackedTime.inMinutes, closeTo(60, 1));
       expect(result.totalSessions, 1);
+    });
+
+    test(
+        'two members co-front for 1h: each total 1h, 50% each, '
+        'pair overlap 1h', () {
+      final range = range30Days();
+      final start = range.start.add(const Duration(hours: 1));
+      final end = start.add(const Duration(hours: 1));
+      final sessions = [
+        FakeSession(startTime: start, endTime: end, memberId: 'alex'),
+        FakeSession(startTime: start, endTime: end, memberId: 'sky'),
+      ];
+
+      final result = computeAnalyticsFromRows(sessions, range);
+
+      expect(result.uniqueFronters, 2);
+      expect(result.memberStats, hasLength(2));
+      // Each member's own session = 1h. No double-count: Alex's row
+      // doesn't credit Sky's time and vice versa.
+      for (final stat in result.memberStats) {
+        expect(stat.totalTime, const Duration(hours: 1));
+        expect(stat.sessionCount, 1);
+        // Member-minutes share: each contributes 60 of 120 total
+        // member-minutes → 50% (matches the existing math, just with
+        // an honest label).
+        expect(stat.percentageOfTotal, closeTo(50.0, 0.01));
+      }
+      // System member-minutes = 60 + 60 = 120 (two member-hours).
+      expect(result.totalTrackedTime, const Duration(hours: 2));
+
+      // Pair overlap = full hour both were present.
+      expect(result.topCoFrontingPairs, hasLength(1));
+      final pair = result.topCoFrontingPairs.first;
+      expect({pair.memberIdA, pair.memberIdB}, {'alex', 'sky'});
+      expect(pair.totalTime, const Duration(hours: 1));
+    });
+
+    test(
+        'three members partial overlap (A 0-2h, B 1-3h, C 2-4h): '
+        'totals 2h each, pairs (A,B)=1h, (B,C)=1h, (A,C)=0', () {
+      final base = DateTime(2026, 3, 10, 0, 0);
+      final range = DateTimeRange(
+        start: base,
+        end: base.add(const Duration(hours: 4)),
+      );
+      final sessions = [
+        FakeSession(
+          startTime: base,
+          endTime: base.add(const Duration(hours: 2)),
+          memberId: 'a',
+        ),
+        FakeSession(
+          startTime: base.add(const Duration(hours: 1)),
+          endTime: base.add(const Duration(hours: 3)),
+          memberId: 'b',
+        ),
+        FakeSession(
+          startTime: base.add(const Duration(hours: 2)),
+          endTime: base.add(const Duration(hours: 4)),
+          memberId: 'c',
+        ),
+      ];
+
+      final result = computeAnalyticsFromRows(sessions, range);
+
+      expect(result.uniqueFronters, 3);
+      // No double-count: each member's total is exactly that member's
+      // own session duration.
+      final byId = {
+        for (final s in result.memberStats) s.memberId: s,
+      };
+      expect(byId['a']!.totalTime, const Duration(hours: 2));
+      expect(byId['b']!.totalTime, const Duration(hours: 2));
+      expect(byId['c']!.totalTime, const Duration(hours: 2));
+      // System member-minutes = 6 hours total. Each is 1/3.
+      expect(byId['a']!.percentageOfTotal, closeTo(33.33, 0.05));
+
+      // Pair overlaps:
+      //   A∩B = 1-2h overlap = 1h
+      //   B∩C = 2-3h overlap = 1h
+      //   A∩C = touch at 2h, no overlap (half-open intervals) = 0h
+      final pairsByKey = <String, Duration>{
+        for (final p in result.topCoFrontingPairs)
+          '${p.memberIdA}|${p.memberIdB}': p.totalTime,
+      };
+      expect(pairsByKey['a|b'], const Duration(hours: 1));
+      expect(pairsByKey['b|c'], const Duration(hours: 1));
+      // (a, c) pair is omitted entirely because overlap is zero.
+      expect(pairsByKey.containsKey('a|c'), isFalse);
+      expect(result.topCoFrontingPairs, hasLength(2));
+    });
+
+    test('co-fronting pair total sums overlap across multiple session pairs',
+        () {
+      final base = DateTime.utc(2026, 3, 1, 0, 0);
+      final range = DateTimeRange(
+        start: base,
+        end: base.add(const Duration(days: 1)),
+      );
+      // Two separate sessions for each member, with two distinct overlap
+      // windows: 2h and 3h, totaling 5h of pair-overlap time.
+      final sessions = [
+        // Window 1: A 0-3h, B 1-4h → overlap 1-3h = 2h
+        FakeSession(
+          startTime: base,
+          endTime: base.add(const Duration(hours: 3)),
+          memberId: 'a',
+        ),
+        FakeSession(
+          startTime: base.add(const Duration(hours: 1)),
+          endTime: base.add(const Duration(hours: 4)),
+          memberId: 'b',
+        ),
+        // Window 2: A 10-15h, B 12-15h → overlap 12-15h = 3h
+        FakeSession(
+          startTime: base.add(const Duration(hours: 10)),
+          endTime: base.add(const Duration(hours: 15)),
+          memberId: 'a',
+        ),
+        FakeSession(
+          startTime: base.add(const Duration(hours: 12)),
+          endTime: base.add(const Duration(hours: 15)),
+          memberId: 'b',
+        ),
+      ];
+
+      final result = computeAnalyticsFromRows(sessions, range);
+
+      expect(result.topCoFrontingPairs, hasLength(1));
+      expect(result.topCoFrontingPairs.first.totalTime,
+          const Duration(hours: 5));
+    });
+
+    test('non-overlapping sessions for two members produce no pair', () {
+      final base = DateTime.utc(2026, 3, 1, 0, 0);
+      final range = DateTimeRange(
+        start: base,
+        end: base.add(const Duration(days: 1)),
+      );
+      final sessions = [
+        FakeSession(
+          startTime: base,
+          endTime: base.add(const Duration(hours: 2)),
+          memberId: 'a',
+        ),
+        FakeSession(
+          startTime: base.add(const Duration(hours: 3)),
+          endTime: base.add(const Duration(hours: 5)),
+          memberId: 'b',
+        ),
+      ];
+
+      final result = computeAnalyticsFromRows(sessions, range);
+      expect(result.topCoFrontingPairs, isEmpty);
+    });
+
+    test('rows with null memberId are skipped (sleep / orphan defense)', () {
+      // The DAO already filters sleep rows out before they reach analytics
+      // (see fronting_sessions_dao.dart: sessionType == _normalSessionType).
+      // This test pins the defensive null-skip in case the contract ever
+      // changes — sleep rows have member_id IS NULL by design (§2.1).
+      final range = range30Days();
+      final sessions = [
+        FakeSession(
+          startTime: range.start.add(const Duration(hours: 1)),
+          endTime: range.start.add(const Duration(hours: 2)),
+          memberId: null, // sleep row would look like this
+        ),
+        FakeSession(
+          startTime: range.start.add(const Duration(hours: 3)),
+          endTime: range.start.add(const Duration(hours: 4)),
+          memberId: 'real-member',
+        ),
+      ];
+
+      final result = computeAnalyticsFromRows(sessions, range);
+      // Only the real fronting row is counted.
+      expect(result.uniqueFronters, 1);
+      expect(result.memberStats, hasLength(1));
+      expect(result.memberStats.first.memberId, 'real-member');
+      expect(result.totalTrackedTime, const Duration(hours: 1));
     });
 
     test('multiple members sorted by totalTime DESC, percentages sum to ~100',
@@ -135,7 +317,6 @@ void main() {
       expect(result.uniqueFronters, 3);
       expect(result.memberStats, hasLength(3));
 
-      // Sorted DESC by totalTime
       expect(result.memberStats[0].memberId, 'long-fronter');
       expect(result.memberStats[1].memberId, 'mid-fronter');
       expect(result.memberStats[2].memberId, 'short-fronter');
@@ -145,59 +326,7 @@ void main() {
       expect(totalPct, closeTo(100.0, 0.01));
     });
 
-    test('co-fronters each get credit for the full session duration', () {
-      final range = range30Days();
-      final session = FakeSession(
-        startTime: range.start.add(const Duration(hours: 1)),
-        endTime: range.start.add(const Duration(hours: 4)),
-        memberId: 'primary',
-        coFronterIds: jsonEncode(['co-1', 'co-2']),
-      );
-
-      final result = computeAnalyticsFromRows([session], range);
-
-      expect(result.uniqueFronters, 3);
-      expect(result.memberStats, hasLength(3));
-
-      // Each member (primary + 2 co-fronters) should have 3 hours
-      for (final stat in result.memberStats) {
-        expect(stat.totalTime, const Duration(hours: 3));
-        expect(stat.sessionCount, 1);
-      }
-    });
-
-    test('co-fronter parsing with empty string does not crash', () {
-      final range = range30Days();
-      final session = FakeSession(
-        startTime: range.start.add(const Duration(hours: 1)),
-        endTime: range.start.add(const Duration(hours: 2)),
-        memberId: 'member-1',
-        coFronterIds: '',
-      );
-
-      final result = computeAnalyticsFromRows([session], range);
-
-      expect(result.uniqueFronters, 1);
-      expect(result.memberStats, hasLength(1));
-    });
-
-    test('co-fronter parsing with malformed JSON does not crash', () {
-      final range = range30Days();
-      final session = FakeSession(
-        startTime: range.start.add(const Duration(hours: 1)),
-        endTime: range.start.add(const Duration(hours: 2)),
-        memberId: 'member-1',
-        coFronterIds: '{not valid json!!!',
-      );
-
-      final result = computeAnalyticsFromRows([session], range);
-
-      // Should silently catch the JSON error and only count the primary
-      expect(result.uniqueFronters, 1);
-      expect(result.memberStats, hasLength(1));
-    });
-
-    test('gap time equals range duration minus tracked time', () {
+    test('gap time equals range duration minus tracked member-minutes', () {
       final range = DateTimeRange(
         start: DateTime(2026, 3, 10, 0, 0),
         end: DateTime(2026, 3, 11, 0, 0),
@@ -215,7 +344,7 @@ void main() {
       expect(result.totalGapTime, const Duration(hours: 12));
     });
 
-    test('switches per day equals sessions divided by days', () {
+    test('switches per day equals row count divided by days', () {
       final range = DateTimeRange(
         start: DateTime(2026, 3, 1, 0, 0),
         end: DateTime(2026, 3, 11, 0, 0), // exactly 10 days
@@ -231,8 +360,7 @@ void main() {
       );
 
       final result = computeAnalyticsFromRows(sessions, range);
-
-      // 20 sessions / 10 days = 2.0 switches per day
+      // 20 sessions / 10 days = 2.0
       expect(result.switchesPerDay, closeTo(2.0, 0.01));
     });
 
@@ -259,7 +387,7 @@ void main() {
       final result = computeAnalyticsFromRows(sessions, range);
 
       final stat = result.memberStats.first;
-      // Sorted durations: [1h, 3h, 5h]. Median index = 3 ~/ 2 = 1 → 3h
+      // Sorted durations: [1h, 3h, 5h]. Median index = 3 ~/ 2 = 1 → 3h.
       expect(stat.medianDuration, const Duration(hours: 3));
       expect(stat.shortestSession, const Duration(hours: 1));
       expect(stat.longestSession, const Duration(hours: 5));
@@ -303,10 +431,10 @@ void main() {
       final stat = result.memberStats.first;
       final buckets = stat.timeOfDayBreakdown;
 
-      expect(buckets['night'], 120); // 3:00-5:00
-      expect(buckets['morning'], 180); // 7:00-10:00
-      expect(buckets['afternoon'], 180); // 13:00-16:00
-      expect(buckets['evening'], 180); // 19:00-22:00
+      expect(buckets['night'], 120);
+      expect(buckets['morning'], 180);
+      expect(buckets['afternoon'], 180);
+      expect(buckets['evening'], 180);
     });
 
     test('session crossing bucket boundary splits minutes correctly', () {
@@ -315,7 +443,7 @@ void main() {
         end: DateTime(2026, 3, 11, 0, 0),
       );
 
-      // Session from 5:00 to 7:00 crosses night→morning boundary at 6:00
+      // Session from 5:00 to 7:00 crosses night→morning boundary at 6:00.
       final session = FakeSession(
         startTime: DateTime(2026, 3, 10, 5, 0),
         endTime: DateTime(2026, 3, 10, 7, 0),
@@ -325,8 +453,8 @@ void main() {
       final result = computeAnalyticsFromRows([session], range);
       final buckets = result.memberStats.first.timeOfDayBreakdown;
 
-      expect(buckets['night'], 60); // 5:00-6:00
-      expect(buckets['morning'], 60); // 6:00-7:00
+      expect(buckets['night'], 60);
+      expect(buckets['morning'], 60);
     });
   });
 
@@ -351,7 +479,7 @@ void main() {
 
     test('odd count: median is the middle element after sort', () {
       final range = range30Days();
-      // Durations: 10m, 60m, 5m → sorted: 5, 10, 60 → median = 10m
+      // Durations: 10m, 60m, 5m → sorted: 5, 10, 60 → median = 10m.
       final sessions = [
         FakeSession(
           startTime: range.start,
@@ -375,7 +503,7 @@ void main() {
 
     test('even count: median averages the two middle values', () {
       final range = range30Days();
-      // Durations: 5m, 60m → median = 32m30s
+      // Durations: 5m, 60m → median = 32m30s.
       final sessions = [
         FakeSession(
           startTime: range.start,
@@ -394,7 +522,7 @@ void main() {
 
     test('even count of four: median averages 2nd and 3rd values', () {
       final range = range30Days();
-      // Durations: 5m, 10m, 60m, 120m → median = (10 + 60) / 2 = 35m
+      // Durations: 5m, 10m, 60m, 120m → median = (10 + 60) / 2 = 35m.
       final sessions = [
         FakeSession(
           startTime: range.start,
@@ -426,7 +554,6 @@ void main() {
         start: DateTime(2026, 3, 10, 0, 0),
         end: DateTime(2026, 3, 11, 0, 0),
       );
-      // Session starts before range and ends after; clamped to 24h.
       final sessions = [
         FakeSession(
           startTime: range.start.subtract(const Duration(hours: 2)),
@@ -439,74 +566,64 @@ void main() {
     });
   });
 
-  group('topCoFrontingPairs', () {
-    test('pair counted once regardless of who is primary', () {
-      final sessions = [
-        FakeSession(
-          startTime: DateTime.utc(2026, 3, 1, 10),
-          endTime: DateTime.utc(2026, 3, 1, 12),
-          memberId: 'member-a',
-          coFronterIds: ['member-b'],
-        ),
-      ];
+  group('topCoFrontingPairs sorting', () {
+    test('sorted by total overlap descending', () {
+      final base = DateTime.utc(2026, 3, 1, 0, 0);
       final range = DateTimeRange(
-          start: DateTime.utc(2026, 3, 1), end: DateTime.utc(2026, 3, 2));
-      final result = computeAnalyticsFromRows(sessions, range);
-      expect(result.topCoFrontingPairs, hasLength(1));
-      expect(result.topCoFrontingPairs.first.totalTime.inMinutes, 120);
-    });
-
-    test('alphabetical key ordering consistent regardless of primary', () {
-      // Session A primary + B co, then B primary + A co — should accumulate to same pair
+        start: base,
+        end: base.add(const Duration(days: 1)),
+      );
+      // Per-member rows produce these overlaps:
+      //   A 8-9h, B 8-9h        → A∩B = 1h
+      //   A 10-13h, C 10-13h    → A∩C = 3h
+      //   B 14-16h, C 14-16h    → B∩C = 2h
       final sessions = [
         FakeSession(
-          startTime: DateTime.utc(2026, 3, 1, 8),
-          endTime: DateTime.utc(2026, 3, 1, 9),
-          memberId: 'member-a',
-          coFronterIds: ['member-b'],
-        ),
-        FakeSession(
-          startTime: DateTime.utc(2026, 3, 1, 10),
-          endTime: DateTime.utc(2026, 3, 1, 11),
-          memberId: 'member-b',
-          coFronterIds: ['member-a'],
-        ),
-      ];
-      final range = DateTimeRange(
-          start: DateTime.utc(2026, 3, 1), end: DateTime.utc(2026, 3, 2));
-      final result = computeAnalyticsFromRows(sessions, range);
-      expect(result.topCoFrontingPairs, hasLength(1));
-      expect(result.topCoFrontingPairs.first.totalTime.inMinutes, 120);
-    });
-
-    test('sorted by totalTime descending', () {
-      final sessions = [
-        FakeSession(
-          startTime: DateTime.utc(2026, 3, 1, 8),
-          endTime: DateTime.utc(2026, 3, 1, 9),
+          startTime: base.add(const Duration(hours: 8)),
+          endTime: base.add(const Duration(hours: 9)),
           memberId: 'a',
-          coFronterIds: ['b'], // 1h A+B
         ),
         FakeSession(
-          startTime: DateTime.utc(2026, 3, 1, 10),
-          endTime: DateTime.utc(2026, 3, 1, 13),
-          memberId: 'a',
-          coFronterIds: ['c'], // 3h A+C
-        ),
-        FakeSession(
-          startTime: DateTime.utc(2026, 3, 1, 14),
-          endTime: DateTime.utc(2026, 3, 1, 16),
+          startTime: base.add(const Duration(hours: 8)),
+          endTime: base.add(const Duration(hours: 9)),
           memberId: 'b',
-          coFronterIds: ['c'], // 2h B+C
+        ),
+        FakeSession(
+          startTime: base.add(const Duration(hours: 10)),
+          endTime: base.add(const Duration(hours: 13)),
+          memberId: 'a',
+        ),
+        FakeSession(
+          startTime: base.add(const Duration(hours: 10)),
+          endTime: base.add(const Duration(hours: 13)),
+          memberId: 'c',
+        ),
+        FakeSession(
+          startTime: base.add(const Duration(hours: 14)),
+          endTime: base.add(const Duration(hours: 16)),
+          memberId: 'b',
+        ),
+        FakeSession(
+          startTime: base.add(const Duration(hours: 14)),
+          endTime: base.add(const Duration(hours: 16)),
+          memberId: 'c',
         ),
       ];
-      final range = DateTimeRange(
-          start: DateTime.utc(2026, 3, 1), end: DateTime.utc(2026, 3, 2));
+
       final result = computeAnalyticsFromRows(sessions, range);
-      expect(result.topCoFrontingPairs.first.totalTime.inHours, 3); // A+C is top
+      // Top pair is A∩C with 3h overlap.
+      expect(result.topCoFrontingPairs.first.totalTime,
+          const Duration(hours: 3));
+      expect(
+        {
+          result.topCoFrontingPairs.first.memberIdA,
+          result.topCoFrontingPairs.first.memberIdB,
+        },
+        {'a', 'c'},
+      );
     });
 
-    test('no co-fronters returns empty list', () {
+    test('no overlapping members returns empty pair list', () {
       final sessions = [
         FakeSession(
           startTime: DateTime.utc(2026, 3, 1, 10),
@@ -515,9 +632,36 @@ void main() {
         ),
       ];
       final range = DateTimeRange(
-          start: DateTime.utc(2026, 3, 1), end: DateTime.utc(2026, 3, 2));
+        start: DateTime.utc(2026, 3, 1),
+        end: DateTime.utc(2026, 3, 2),
+      );
       final result = computeAnalyticsFromRows(sessions, range);
       expect(result.topCoFrontingPairs, isEmpty);
+    });
+
+    test('canonical pair key is alphabetical regardless of input order', () {
+      final base = DateTime.utc(2026, 3, 1, 10);
+      final sessions = [
+        // Insert b first to verify ordering doesn't depend on row order.
+        FakeSession(
+          startTime: base,
+          endTime: base.add(const Duration(hours: 1)),
+          memberId: 'beta',
+        ),
+        FakeSession(
+          startTime: base,
+          endTime: base.add(const Duration(hours: 1)),
+          memberId: 'alpha',
+        ),
+      ];
+      final range = DateTimeRange(
+        start: DateTime.utc(2026, 3, 1),
+        end: DateTime.utc(2026, 3, 2),
+      );
+      final result = computeAnalyticsFromRows(sessions, range);
+      expect(result.topCoFrontingPairs, hasLength(1));
+      expect(result.topCoFrontingPairs.first.memberIdA, 'alpha');
+      expect(result.topCoFrontingPairs.first.memberIdB, 'beta');
     });
   });
 }

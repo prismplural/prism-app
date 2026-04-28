@@ -268,7 +268,8 @@
   "statisticsDurationMedian": "Mediana",
   "statisticsDurationShortest": "Más corta",
   "statisticsDurationLongest": "Más larga",
-  "statisticsFrontingTimeByMember": "Tiempo al frente por integrante",
+  "statisticsFrontingTimeByMember": "Minutos por {term}",
+  "statisticsMemberMinutesAxisHint": "% de los minutos por {term} del sistema",
   "statisticsActiveMembersBreakdown": "{active} activos, {inactive} inactivos",
   "timeOfDayMorning": "Mañana",
   "timeOfDayAfternoon": "Tarde",
@@ -2297,6 +2298,10 @@
   "frontingUpgradeCountSentinelCreated": "Se creó un integrante desconocido para guardar las sesiones sin un frente claro.",
   "@frontingUpgradeCountSentinelCreated": {
     "description": "Success counter: sentinel was created"
+  },
+  "frontingUpgradeAnalyticsNote": "Las estadísticas ahora se muestran como minutos por {term} — si dos de ustedes están en co-frente durante una hora, eso son dos horas-{term}. La misma cuenta de antes, con una etiqueta más clara.",
+  "@frontingUpgradeAnalyticsNote": {
+    "description": "One-line FYI shown on the upgrade success screen explaining the analytics relabel from 'fronting time' to 'member-minutes'."
   },
   "frontingUpgradeRepairPrimary": "Tus otros dispositivos tienen que vincularse de nuevo para recibir el historial migrado. Abre Configuración → Sincronización en tus otros dispositivos y sigue el flujo de vinculación.",
   "@frontingUpgradeRepairPrimary": {

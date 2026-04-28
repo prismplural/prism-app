@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -64,6 +62,26 @@ final previousPeriodAnalyticsProvider =
   return computeAnalyticsFromRows(sessions, prevRange);
 });
 
+/// Computes analytics over per-member fronting rows.
+///
+/// Each row in [rows] is one member's continuous presence (post 0.7.0
+/// per-member-sessions redesign — see `docs/plans/fronting-per-member-sessions.md`
+/// §2.1, §4.3). `co_fronter_ids` is no longer read; co-fronting is the
+/// emergent property of overlapping rows for different members.
+///
+/// Semantics:
+/// - **Member totals** = sum of that member's own session durations
+///   (clamped to [range]). One row per member means no double-count.
+/// - **Co-fronting pair totals** = sum of overlap durations across all
+///   pairs of overlapping sessions for the two members. Naive O(n^2);
+///   fine for typical session counts. If a single member ever has
+///   >1000 sessions in range, switch to a sweep-line algorithm.
+/// - **Percentages** are member-minutes over total system member-minutes
+///   (`member.totalTime / sum(all members' totalTime)`). Same math as
+///   the pre-0.7.0 code, just with an honest label — see §4.3.
+/// - **`totalTrackedTime`** is the sum of all member-minutes (which
+///   inflates past wall-clock time when members co-front). The chart
+///   axis is now labeled "member-minutes" to make this explicit.
 @visibleForTesting
 FrontingAnalytics computeAnalyticsFromRows(
   List<dynamic> rows,
@@ -83,61 +101,54 @@ FrontingAnalytics computeAnalyticsFromRows(
     );
   }
 
-  // Collect per-member durations
+  // Per-member: one entry per row that belongs to the member, clamped
+  // to the analytics range. Drives totals, averages, and percentage
+  // share of system member-minutes.
   final memberDurations = <String, List<Duration>>{};
   final memberTimeBuckets = <String, Map<String, int>>{};
-  // Flat list of every (clamped) session duration, for system-wide median.
+  // Flat list of every (clamped) session duration, for the system-wide
+  // median session length stat.
   final allSessionDurations = <Duration>[];
-  var totalTracked = Duration.zero;
+  // Per-member clamped intervals, retained for the O(n^2) pair-overlap
+  // pass below.
+  final memberIntervals = <String, List<_Interval>>{};
+  var totalMemberMinutes = Duration.zero;
 
   for (final session in rows) {
+    final memberId = session.memberId as String?;
+    if (memberId == null) continue; // sleep rows or pre-migration orphans
+
     final startTime = session.startTime as DateTime;
     final endTime =
         (session.endTime as DateTime?) ?? DateTime.now();
 
-    // Clamp to range
     final clampedStart =
         startTime.isBefore(range.start) ? range.start : startTime;
     final clampedEnd = endTime.isAfter(range.end) ? range.end : endTime;
-    if (clampedEnd.isBefore(clampedStart)) continue;
+    if (!clampedEnd.isAfter(clampedStart)) continue;
 
     final duration = clampedEnd.difference(clampedStart);
-    totalTracked += duration;
+    totalMemberMinutes += duration;
     allSessionDurations.add(duration);
 
-    // Primary fronter
-    final memberId = session.memberId as String?;
-    if (memberId != null) {
-      memberDurations.putIfAbsent(memberId, () => []).add(duration);
-      _addTimeBuckets(
-          memberTimeBuckets, memberId, clampedStart, clampedEnd);
-    }
-
-    // Co-fronters
-    final coFronterIdsRaw = session.coFronterIds as String;
-    if (coFronterIdsRaw.isNotEmpty && coFronterIdsRaw != '[]') {
-      try {
-        final decoded = jsonDecode(coFronterIdsRaw);
-        final ids = decoded is List
-            ? decoded.map((e) => e.toString()).where((s) => s.isNotEmpty).toList()
-            : <String>[];
-        for (final coId in ids) {
-          memberDurations.putIfAbsent(coId, () => []).add(duration);
-          _addTimeBuckets(
-              memberTimeBuckets, coId, clampedStart, clampedEnd);
-        }
-      } catch (_) {}
-    }
+    memberDurations.putIfAbsent(memberId, () => []).add(duration);
+    _addTimeBuckets(memberTimeBuckets, memberId, clampedStart, clampedEnd);
+    memberIntervals
+        .putIfAbsent(memberId, () => [])
+        .add(_Interval(clampedStart, clampedEnd));
   }
 
   final rangeSpan = range.end.difference(range.start);
-  final totalGap = rangeSpan - totalTracked;
-  final days =
-      rangeSpan.inHours / 24.0;
-  final switchesPerDay =
-      days > 0 ? rows.length / days : 0.0;
+  // Gap-time semantics retained from pre-0.7.0: range duration minus the
+  // sum of member-minutes. Under the per-member model with co-fronting,
+  // this can underestimate "untracked" time (two members fronting an
+  // overlapping hour count as two member-hours, so the gap shrinks twice
+  // as fast). We accept that for 0.7.0 — the field has the same meaning
+  // as before. A wall-clock-coverage stat is future work (§4.3).
+  final totalGap = rangeSpan - totalMemberMinutes;
+  final days = rangeSpan.inHours / 24.0;
+  final switchesPerDay = days > 0 ? rows.length / days : 0.0;
 
-  // Build member stats
   final memberStats = <MemberAnalytics>[];
   for (final entry in memberDurations.entries) {
     final durations = entry.value..sort();
@@ -150,63 +161,63 @@ FrontingAnalytics computeAnalyticsFromRows(
     memberStats.add(MemberAnalytics(
       memberId: entry.key,
       totalTime: total,
-      percentageOfTotal: totalTracked.inMicroseconds > 0
-          ? (total.inMicroseconds / totalTracked.inMicroseconds) * 100
+      // % of system member-minutes — see method-level doc for the
+      // semantic rename. Numerator and denominator both use member-minutes.
+      percentageOfTotal: totalMemberMinutes.inMicroseconds > 0
+          ? (total.inMicroseconds / totalMemberMinutes.inMicroseconds) * 100
           : 0,
       sessionCount: durations.length,
       averageDuration: avg,
       medianDuration: median,
       shortestSession: durations.first,
       longestSession: durations.last,
-      timeOfDayBreakdown:
-          memberTimeBuckets[entry.key] ?? {},
+      timeOfDayBreakdown: memberTimeBuckets[entry.key] ?? {},
     ));
   }
 
   memberStats.sort((a, b) => b.totalTime.compareTo(a.totalTime));
 
-  // --- System-wide median session length ---
-  // Only includes primary-fronter durations (one per row) so co-fronter
-  // double-counting doesn't skew the median. For even counts we average
-  // the two middle values; integer-truncated index alone returns the
+  // System-wide median session length. For even counts we average the
+  // two middle values; integer-truncated index alone returns the
   // upper-middle which biases the stat upward.
   allSessionDurations.sort();
   final medianSession = _median(allSessionDurations);
 
   // --- Co-fronting pairs ---
+  // For each unordered pair (A, B) of members that both have at least
+  // one session in range, accumulate the total wall-clock overlap of
+  // their sessions. Overlap of intervals (s1, e1) and (s2, e2) is
+  // `max(0, min(e1, e2) - max(s1, s2))`.
+  //
+  // Complexity: O(M^2 * N_a * N_b) where M = unique members in range
+  // and N_x = sessions per member. Fine for typical Prism systems
+  // (M < 50, N_x usually < 100). If a single member accumulates
+  // >1000 sessions in range, replace the inner loops with a sweep-line
+  // pass that emits overlap segments in O((N_a + N_b) log N).
   final Map<String, Duration> pairAccum = {};
-  for (final session in rows) {
-    final primaryId = session.memberId as String?;
-    if (primaryId == null) continue;
-
-    final coFronterIdsRaw = session.coFronterIds as String;
-    List<String> coIds = [];
-    if (coFronterIdsRaw.isNotEmpty && coFronterIdsRaw != '[]') {
-      try {
-        final decoded = jsonDecode(coFronterIdsRaw);
-        coIds = decoded is List
-            ? decoded
-                .map((e) => e.toString())
-                .where((s) => s.isNotEmpty)
-                .toList()
-            : [];
-      } catch (_) {}
-    }
-    if (coIds.isEmpty) continue;
-
-    final startTime = session.startTime as DateTime;
-    final endTime = (session.endTime as DateTime?) ?? DateTime.now();
-    final effectiveStart =
-        startTime.isBefore(range.start) ? range.start : startTime;
-    final effectiveEnd = endTime.isAfter(range.end) ? range.end : endTime;
-    final duration = effectiveEnd.difference(effectiveStart);
-    if (duration <= Duration.zero) continue;
-
-    for (final coId in coIds) {
-      if (coId == primaryId) continue;
-      final ids = [primaryId, coId]..sort();
-      final key = '${ids[0]}|${ids[1]}';
-      pairAccum[key] = (pairAccum[key] ?? Duration.zero) + duration;
+  final memberIds = memberIntervals.keys.toList()..sort();
+  for (var i = 0; i < memberIds.length; i++) {
+    final idA = memberIds[i];
+    final intervalsA = memberIntervals[idA]!;
+    for (var j = i + 1; j < memberIds.length; j++) {
+      final idB = memberIds[j];
+      final intervalsB = memberIntervals[idB]!;
+      var pairTotal = Duration.zero;
+      for (final a in intervalsA) {
+        for (final b in intervalsB) {
+          final overlapStart =
+              a.start.isAfter(b.start) ? a.start : b.start;
+          final overlapEnd = a.end.isBefore(b.end) ? a.end : b.end;
+          if (overlapEnd.isAfter(overlapStart)) {
+            pairTotal += overlapEnd.difference(overlapStart);
+          }
+        }
+      }
+      if (pairTotal > Duration.zero) {
+        // Member IDs already sorted (memberIds itself is sorted), so
+        // `idA < idB` lexicographically and the key is canonical.
+        pairAccum['$idA|$idB'] = pairTotal;
+      }
     }
   }
 
@@ -223,7 +234,7 @@ FrontingAnalytics computeAnalyticsFromRows(
   return FrontingAnalytics(
     rangeStart: range.start,
     rangeEnd: range.end,
-    totalTrackedTime: totalTracked,
+    totalTrackedTime: totalMemberMinutes,
     totalGapTime: totalGap.isNegative ? Duration.zero : totalGap,
     totalSessions: rows.length,
     uniqueFronters: memberDurations.keys.length,
@@ -232,6 +243,13 @@ FrontingAnalytics computeAnalyticsFromRows(
     medianSession: medianSession,
     topCoFrontingPairs: topCoFrontingPairs,
   );
+}
+
+/// Half-open interval used by the co-fronting pair-overlap pass.
+class _Interval {
+  const _Interval(this.start, this.end);
+  final DateTime start;
+  final DateTime end;
 }
 
 void _addTimeBuckets(
