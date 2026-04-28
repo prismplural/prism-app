@@ -269,6 +269,31 @@ void main() {
       expect(find.text('Start fresh'), findsOneWidget);
     });
 
+    // Codex P2 final2: pin the intro screen's pending-ops warning.
+    // The migration's sync state wipe clears `pending_ops`, so any
+    // local writes that haven't been pushed yet exist only on this
+    // device. If a future copy edit silently drops or hides the
+    // warning, this test fails before users find out the hard way.
+    testWidgets('intro screen renders the pending-sync warning',
+        (tester) async {
+      final runner = _FakeRunner();
+      await tester.pumpWidget(
+        _buildSheetSubject(runner: runner, pairedCount: 0),
+      );
+      await _openSheet(tester);
+
+      // The full warning sentence is brittle to copy edits; pin a
+      // load-bearing fragment that conveys the user-facing meaning.
+      expect(
+        find.textContaining('unsynced changes'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('Pending uploads will need to be redone'),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('paired device shows the role question after Continue',
         (tester) async {
       final runner = _FakeRunner();
@@ -608,6 +633,83 @@ void main() {
       expect(find.text('Back up and upgrade'), findsOneWidget);
       // Mode picker is NOT re-shown.
       expect(find.text('How should we upgrade?'), findsNothing);
+    });
+
+    // Codex P2 final2: pin the corrupt-co-fronter success line. The
+    // migration falls back to single-member when a row's
+    // `co_fronter_ids` JSON fails to parse; without surfacing the
+    // count, users silently lose co-fronter relationships on those
+    // rows. These tests pin both halves of the conditional so a
+    // future regression in render order or `isNotEmpty` logic fails
+    // here.
+    testWidgets(
+        'success screen shows corrupt-co-fronters line when count > 0',
+        (tester) async {
+      final runner = _FakeRunner(
+        result: const MigrationResult(
+          outcome: MigrationOutcome.success,
+          spRowsMigrated: 1,
+          corruptCoFronterRowIds: ['a', 'b', 'c'],
+        ),
+      );
+      await tester.pumpWidget(
+        _buildSheetSubject(runner: runner, pairedCount: 0),
+      );
+      await _openSheet(tester);
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Keep my data'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+          find.byType(TextField).at(0), 'a-strong-password-12');
+      await tester.enterText(
+          find.byType(TextField).at(1), 'a-strong-password-12');
+      await tester.tap(find.text('Back up and upgrade'));
+      await tester.pumpAndSettle();
+      await _ackBackupAndContinue(tester);
+
+      expect(find.text('Migration complete!'), findsOneWidget);
+      // l10n plural form for count = 3 reads:
+      //   "3 sessions had unreadable co-fronter data and were
+      //    migrated as single-member."
+      // Pin "unreadable" (load-bearing word) + the count fragment so
+      // copy edits that preserve meaning still pass while a missing
+      // line fails.
+      expect(find.textContaining('unreadable'), findsOneWidget);
+      expect(find.textContaining('3 sessions'), findsOneWidget);
+    });
+
+    testWidgets(
+        'success screen omits corrupt-co-fronters line when count == 0',
+        (tester) async {
+      final runner = _FakeRunner(
+        result: const MigrationResult(
+          outcome: MigrationOutcome.success,
+          spRowsMigrated: 1,
+          // Default is `const []`, but make the contract explicit
+          // here — this test exists to pin the `isEmpty` branch.
+          corruptCoFronterRowIds: [],
+        ),
+      );
+      await tester.pumpWidget(
+        _buildSheetSubject(runner: runner, pairedCount: 0),
+      );
+      await _openSheet(tester);
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Keep my data'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+          find.byType(TextField).at(0), 'a-strong-password-12');
+      await tester.enterText(
+          find.byType(TextField).at(1), 'a-strong-password-12');
+      await tester.tap(find.text('Back up and upgrade'));
+      await tester.pumpAndSettle();
+      await _ackBackupAndContinue(tester);
+
+      expect(find.text('Migration complete!'), findsOneWidget);
+      // No corrupt line anywhere in the success screen tree.
+      expect(find.textContaining('unreadable'), findsNothing);
     });
   });
 
