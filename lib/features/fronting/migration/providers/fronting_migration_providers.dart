@@ -76,9 +76,42 @@ final frontingMigrationModeProvider = StreamProvider<String>((ref) {
 /// or to `null`. Loading/error cases now propagate up as failures —
 /// the modal's existing `try/catch` falls back to `pairedCount = 1`
 /// ("when in doubt, ask").
+///
+/// Final-review fix Z: the handle future can resolve to `null` even on
+/// configured installs — see `prism_sync_providers.dart` around line 170,
+/// where the auto-create catch returns `null` if FFI handle construction
+/// throws (e.g., transient SQLite/keystore failure on cold open). The
+/// previous version of this provider treated `null` uniformly as solo,
+/// which silently mis-classified a configured-but-broken paired install
+/// as solo and skipped the role question.
+///
+/// We discriminate with the keychain-stored `prism_sync.sync_id`:
+///   - handle null AND sync_id absent → genuinely unpaired, return 0.
+///   - handle null AND sync_id present → configured install with a
+///     transient handle problem; throw so the modal's existing
+///     `try/catch` falls back to `pairedCount = 1` (ask role).
+///   - handle non-null → existing logic (count active peers).
+///
+/// `syncIdProvider` is the right discriminator here because it reads
+/// the same keychain slot (`kSyncIdKey`) that gates the auto-create
+/// path in `PrismSyncHandleNotifier.build()` — if a sync_id is
+/// persisted, this device WAS configured for sync at some point, even
+/// if the live handle isn't currently up.
 final pairedDeviceCountProvider = FutureProvider<int>((ref) async {
   final handle = await ref.watch(prismSyncHandleProvider.future);
-  if (handle == null) return 0;
+  if (handle == null) {
+    final syncId = await ref.watch(syncIdProvider.future);
+    if (syncId == null || syncId.isEmpty) {
+      // Never paired.
+      return 0;
+    }
+    // Configured but handle is currently null — assume paired and let
+    // the modal's catch fall back to `pairedCount = 1`.
+    throw StateError(
+      'prism sync handle is null but sync_id is configured — '
+      'cannot determine paired-device count, defaulting to "ask role".',
+    );
+  }
   // Reuse the existing device list provider — it already handles the
   // FFI listDevices call and credential plumbing.  Errors bubble; the
   // modal treats those as "assume paired."
