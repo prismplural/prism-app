@@ -1505,8 +1505,17 @@ class PluralKitSyncService {
                 'fronting; user may have closed the rescue row).',
               );
             }
+            // Undelete soft-deleted rescue rows on the corrective pass.
+            // The upgradeAndKeep migration soft-deletes all PK rows
+            // expecting this corrective re-import to resurrect them
+            // with API-truth boundaries. Without explicitly clearing
+            // is_deleted, copyWith preserves it and the user sees an
+            // empty PK timeline post-migration. Incremental sweeps
+            // leave is_deleted alone — a delete during routine sync
+            // reflects deliberate user intent.
             await _frontingSessionRepository.updateSession(
               existing.copyWith(
+                isDeleted: corrective ? false : existing.isDeleted,
                 startTime: sw.timestamp,
                 memberId: localId,
                 pluralkitUuid: sw.id,
