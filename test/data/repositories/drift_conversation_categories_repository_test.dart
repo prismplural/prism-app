@@ -139,4 +139,41 @@ void main() {
       expect(found, isNull);
     });
   });
+
+  // UTC tail (Fix X follow-up). Mirrors the pattern from
+  // drift_conversation_repository_test: a local DateTime fed into
+  // _fields() must be emitted as Z-suffixed UTC, otherwise peers in other
+  // timezones reparse it as local time and shift the absolute moment.
+  group('debugCategoryFields UTC normalization', () {
+    test(
+      'created_at and modified_at emit Z-suffixed UTC even when input is local',
+      () {
+        final localCreated = DateTime(2026, 4, 27, 10, 0);
+        final localModified = DateTime(2026, 4, 27, 11, 30);
+
+        final category = ConversationCategory(
+          id: 'c1',
+          name: 'cat',
+          displayOrder: 0,
+          createdAt: localCreated,
+          modifiedAt: localModified,
+        );
+
+        final fields = repo.debugCategoryFields(category);
+        final createdStr = fields['created_at'] as String;
+        final modifiedStr = fields['modified_at'] as String;
+
+        expect(createdStr.endsWith('Z'), isTrue, reason: createdStr);
+        expect(modifiedStr.endsWith('Z'), isTrue, reason: modifiedStr);
+        expect(
+          DateTime.parse(createdStr).isAtSameMomentAs(localCreated.toUtc()),
+          isTrue,
+        );
+        expect(
+          DateTime.parse(modifiedStr).isAtSameMomentAs(localModified.toUtc()),
+          isTrue,
+        );
+      },
+    );
+  });
 }

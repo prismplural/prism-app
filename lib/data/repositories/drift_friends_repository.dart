@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/core/database/daos/friends_dao.dart';
 import 'package:prism_plurality/data/mappers/friend_mapper.dart';
@@ -51,6 +52,13 @@ class DriftFriendsRepository with SyncRecordMixin implements FriendsRepository {
     await syncRecordDelete(_table, id);
   }
 
+  /// Visible-for-testing: builds the field map this repository hands to the
+  /// Rust sync engine for create/update. Exposed so a regression test can
+  /// pin every emitted DateTime as Z-suffixed UTC.
+  @visibleForTesting
+  Map<String, dynamic> debugFriendFields(domain.FriendRecord f) =>
+      _friendFields(f);
+
   Map<String, dynamic> _friendFields(domain.FriendRecord f) {
     return {
       'display_name': f.displayName,
@@ -67,10 +75,20 @@ class DriftFriendsRepository with SyncRecordMixin implements FriendsRepository {
       'granted_scopes': jsonEncode(f.grantedScopes),
       'is_verified': f.isVerified,
       'init_id': f.initId,
-      'created_at': f.createdAt.toIso8601String(),
-      'established_at': f.establishedAt?.toIso8601String(),
-      'last_sync_at': f.lastSyncAt?.toIso8601String(),
+      'created_at': _toSyncUtc(f.createdAt),
+      'established_at': _toSyncUtcOrNull(f.establishedAt),
+      'last_sync_at': _toSyncUtcOrNull(f.lastSyncAt),
       'is_deleted': false,
     };
   }
 }
+
+/// Normalizes a DateTime to UTC ISO-8601 (Z-suffixed) for sync wire emission.
+///
+/// Local DateTimes serialize with no offset/Z, so a peer in a different
+/// timezone would parse the value as their own local time and shift the
+/// absolute moment by the timezone delta on every sync. Mirrors the
+/// `_dateTimeToSyncString` helper in `core/sync/drift_sync_adapter.dart`.
+String _toSyncUtc(DateTime dt) => dt.toUtc().toIso8601String();
+
+String? _toSyncUtcOrNull(DateTime? dt) => dt?.toUtc().toIso8601String();

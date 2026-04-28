@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/core/database/daos/conversation_categories_dao.dart';
 import 'package:prism_plurality/data/mappers/conversation_category_mapper.dart';
@@ -52,13 +53,28 @@ class DriftConversationCategoriesRepository
     await syncRecordDelete(_table, id);
   }
 
+  /// Visible-for-testing: builds the field map this repository hands to the
+  /// Rust sync engine for create/update. Exposed so a regression test can
+  /// pin every emitted DateTime as Z-suffixed UTC.
+  @visibleForTesting
+  Map<String, dynamic> debugCategoryFields(domain.ConversationCategory c) =>
+      _fields(c);
+
   Map<String, dynamic> _fields(domain.ConversationCategory c) {
     return {
       'name': c.name,
       'display_order': c.displayOrder,
-      'created_at': c.createdAt.toIso8601String(),
-      'modified_at': c.modifiedAt.toIso8601String(),
+      'created_at': _toSyncUtc(c.createdAt),
+      'modified_at': _toSyncUtc(c.modifiedAt),
       'is_deleted': false,
     };
   }
 }
+
+/// Normalizes a DateTime to UTC ISO-8601 (Z-suffixed) for sync wire emission.
+///
+/// Local DateTimes serialize with no offset/Z, so a peer in a different
+/// timezone would parse the value as their own local time and shift the
+/// absolute moment by the timezone delta on every sync. Mirrors the
+/// `_dateTimeToSyncString` helper in `core/sync/drift_sync_adapter.dart`.
+String _toSyncUtc(DateTime dt) => dt.toUtc().toIso8601String();

@@ -176,4 +176,54 @@ void main() {
       expect(found, isNull);
     });
   });
+
+  // Sync field-map contract (Fix X). Pins both (a) `target_member_id` is
+  // present in the emitted field map (was silently dropped before — the
+  // sync_schema_parity_test surfaced it), and (b) every DateTime is
+  // Z-suffixed UTC even when the input is a local DateTime.
+  group('debugReminderFields sync contract', () {
+    test('target_member_id is emitted in the field map', () {
+      final reminder = makeReminder(id: 'r1').copyWith(
+        targetMemberId: 'member-42',
+      );
+      final fields = repo.debugReminderFields(reminder);
+      expect(fields.containsKey('target_member_id'), isTrue);
+      expect(fields['target_member_id'], 'member-42');
+    });
+
+    test('null target_member_id is emitted as null (not omitted)', () {
+      final reminder = makeReminder(id: 'r1');
+      final fields = repo.debugReminderFields(reminder);
+      expect(fields.containsKey('target_member_id'), isTrue);
+      expect(fields['target_member_id'], isNull);
+    });
+
+    test(
+      'created_at and modified_at emit Z-suffixed UTC even when input is '
+      'a local DateTime',
+      () {
+        final localCreated = DateTime(2026, 4, 27, 10, 0);
+        final localModified = DateTime(2026, 4, 27, 11, 30);
+        final reminder = makeReminder(id: 'r1').copyWith(
+          createdAt: localCreated,
+          modifiedAt: localModified,
+        );
+
+        final fields = repo.debugReminderFields(reminder);
+        final createdStr = fields['created_at'] as String;
+        final modifiedStr = fields['modified_at'] as String;
+
+        expect(createdStr.endsWith('Z'), isTrue, reason: createdStr);
+        expect(modifiedStr.endsWith('Z'), isTrue, reason: modifiedStr);
+        expect(
+          DateTime.parse(createdStr).isAtSameMomentAs(localCreated.toUtc()),
+          isTrue,
+        );
+        expect(
+          DateTime.parse(modifiedStr).isAtSameMomentAs(localModified.toUtc()),
+          isTrue,
+        );
+      },
+    );
+  });
 }

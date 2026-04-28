@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/core/database/daos/reminders_dao.dart';
 import 'package:prism_plurality/data/mappers/reminder_mapper.dart';
@@ -60,6 +61,12 @@ class DriftRemindersRepository
     await syncRecordDelete(_table, id);
   }
 
+  /// Visible-for-testing: the field map this repository hands to the Rust
+  /// sync engine. Exposed so a regression test can pin (a) target_member_id
+  /// is emitted, and (b) every DateTime is Z-suffixed UTC.
+  @visibleForTesting
+  Map<String, dynamic> debugReminderFields(domain.Reminder r) => _fields(r);
+
   Map<String, dynamic> _fields(domain.Reminder r) {
     return {
       'name': r.name,
@@ -68,6 +75,7 @@ class DriftRemindersRepository
       'interval_days': r.intervalDays,
       'time_of_day': r.timeOfDay,
       'delay_hours': r.delayHours,
+      'target_member_id': r.targetMemberId,
       'frequency': r.frequency.name,
       'weekly_days': r.weeklyDays != null ? jsonEncode(r.weeklyDays) : null,
       'is_active': r.isActive,
