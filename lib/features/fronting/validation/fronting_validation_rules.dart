@@ -1,3 +1,5 @@
+import 'package:prism_plurality/domain/models/fronting_session.dart';
+
 import 'fronting_validation_config.dart';
 import 'fronting_validation_models.dart';
 
@@ -80,10 +82,15 @@ List<FrontingValidationIssue> detectDuplicates(
 
   for (int i = 0; i < sorted.length; i++) {
     final a = sorted[i];
+    // Skip sleep rows — they aren't compared as duplicates against fronting
+    // rows.  (Unknown-sentinel rows ARE checked: post-Fix-K, normal rows
+    // never carry memberId == null.)
+    if (a.sessionType == SessionType.sleep) continue;
     if (a.memberId == null) continue;
 
     for (int j = i + 1; j < sorted.length; j++) {
       final b = sorted[j];
+      if (b.sessionType == SessionType.sleep) continue;
       if (b.memberId == null) continue;
       // Only compare sessions for the same member — co-fronter concept is gone.
       if (a.memberId != b.memberId) continue;
@@ -147,12 +154,15 @@ List<FrontingValidationIssue> detectMergeableAdjacent(
 
   for (int i = 0; i < sorted.length; i++) {
     final a = sorted[i];
+    // Skip sleep rows — adjacent-merge is a fronting-only concept.
+    if (a.sessionType == SessionType.sleep) continue;
     if (a.memberId == null) continue;
     final aEnd = a.end;
     if (aEnd == null) continue; // active sessions have no defined end
 
     for (int j = i + 1; j < sorted.length; j++) {
       final b = sorted[j];
+      if (b.sessionType == SessionType.sleep) continue;
       if (b.memberId == null) continue;
       // Only compare sessions for the same member — co-fronter concept is gone.
       if (a.memberId != b.memberId) continue;
@@ -261,9 +271,13 @@ List<FrontingValidationIssue> detectSelfOverlap(
   final sorted = _activeSorted(sessions);
   final issues = <FrontingValidationIssue>[];
 
-  // Group sessions by memberId (skip null-member sessions — sleep/unknown).
+  // Group sessions by memberId, skipping sleep rows (self-overlap is a
+  // fronting-only concept — sleep can legitimately overlap fronting).
+  // Unknown-sentinel rows are grouped like any other member: post-Fix-K,
+  // two open Unknown rows DO indicate a real bug worth flagging.
   final byMember = <String, List<FrontingSessionSnapshot>>{};
   for (final s in sorted) {
+    if (s.sessionType == SessionType.sleep) continue;
     if (s.memberId == null) continue;
     byMember.putIfAbsent(s.memberId!, () => []).add(s);
   }

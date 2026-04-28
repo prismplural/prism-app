@@ -1,6 +1,8 @@
 // lib/core/services/session_lifecycle_service.dart
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
+import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:uuid/uuid.dart';
 
 // ──────────────────────────────────────────────
@@ -109,9 +111,36 @@ enum QuickSwitchAction {
 // ──────────────────────────────────────────────
 
 class SessionLifecycleService {
-  const SessionLifecycleService();
+  const SessionLifecycleService({MemberRepository? memberRepository})
+    : _memberRepository = memberRepository;
+
+  /// Optional so unit tests that don't exercise the Unknown-sentinel filler
+  /// paths (`executeDelete` with `DeleteOption.delete`, `fillGaps`) can omit
+  /// it.  When those paths run without a wired [MemberRepository], the
+  /// service throws — see [_ensureUnknownSentinel].
+  final MemberRepository? _memberRepository;
 
   static const _uuid = Uuid();
+
+  /// Lazily creates the Unknown sentinel member so the freshly-emitted
+  /// fronting_sessions row that points at [unknownSentinelMemberId] has a
+  /// resolvable foreign key.  Mirrors
+  /// `FrontingMutationService._ensureSentinelIfNeeded`.
+  ///
+  /// Throws [StateError] when invoked without a wired [MemberRepository] —
+  /// that combination indicates a misconfig at the provider layer (the
+  /// Unknown-filler paths must be wired with a real repository in
+  /// production), not user input we can recover from.
+  Future<void> _ensureUnknownSentinel() async {
+    final repo = _memberRepository;
+    if (repo == null) {
+      throw StateError(
+        'SessionLifecycleService needs a MemberRepository to fill gaps with '
+        'the Unknown sentinel member.  Provide one in the constructor.',
+      );
+    }
+    await repo.ensureUnknownSentinelMember();
+  }
 
   // ── Validation (existing) ──────────────────
 
@@ -250,12 +279,18 @@ class SessionLifecycleService {
 
         if (endTime != null &&
             endTime.difference(ctx.session.startTime).inSeconds > 0) {
+          // Route the gap-filler row through the Unknown sentinel member so
+          // the foreign key resolves and downstream code (validation,
+          // exporters) doesn't need a special "memberId == null means
+          // Unknown" branch.  Mirrors the pattern in
+          // FrontingMutationService._ensureSentinelIfNeeded.
+          await _ensureUnknownSentinel();
           final unknownId = _uuid.v4();
           final unknown = FrontingSession(
             id: unknownId,
             startTime: ctx.session.startTime,
             endTime: endTime,
-            memberId: null,
+            memberId: unknownSentinelMemberId,
           );
           await repo.createSession(unknown);
           return unknownId;
@@ -347,16 +382,21 @@ class SessionLifecycleService {
   }
 
   /// Creates unknown sessions to fill gaps created by an edit.
+  ///
+  /// Each filler row is attributed to the Unknown sentinel member so it has
+  /// a resolvable foreign key — see [executeDelete] for the same pattern.
   Future<void> fillGaps(
     List<GapInfo> gaps,
     FrontingSessionRepository repo,
   ) async {
+    if (gaps.isEmpty) return;
+    await _ensureUnknownSentinel();
     for (final gap in gaps) {
       final fill = FrontingSession(
         id: _uuid.v4(),
         startTime: gap.startTime,
         endTime: gap.endTime,
-        memberId: null,
+        memberId: unknownSentinelMemberId,
       );
       await repo.createSession(fill);
     }

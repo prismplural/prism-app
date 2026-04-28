@@ -1,4 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
+import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/features/fronting/validation/fronting_validation_config.dart';
 import 'package:prism_plurality/features/fronting/validation/fronting_validation_models.dart';
 import 'package:prism_plurality/features/fronting/validation/fronting_validation_rules.dart';
@@ -19,6 +21,7 @@ FrontingSessionSnapshot session({
   required DateTime start,
   DateTime? end,
   bool isDeleted = false,
+  SessionType sessionType = SessionType.normal,
 }) =>
     FrontingSessionSnapshot(
       id: id,
@@ -26,6 +29,7 @@ FrontingSessionSnapshot session({
       start: start,
       end: end,
       isDeleted: isDeleted,
+      sessionType: sessionType,
     );
 
 // ---------------------------------------------------------------------------
@@ -519,6 +523,115 @@ void main() {
       final issues = detectSelfOverlap(sessions);
       expect(issues, hasLength(1));
       expect(issues.first.memberIds, ['m42']);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Sleep-vs-Unknown-sentinel skip semantics (Bug 3)
+  //
+  // Pre-fix, validation rules used `memberId == null` as an implicit "skip
+  // this row, it's sleep" marker.  Post-Fix-K + audit batch L the only rows
+  // that legitimately carry memberId == null are sleep rows (they're filtered
+  // upstream by the snapshot builder), and Unknown-fronting rows now write the
+  // sentinel id.  These tests pin down the new contract:
+  //   - sleep rows are skipped REGARDLESS of memberId
+  //   - normal rows carrying the Unknown-sentinel id ARE checked (not skipped)
+  // ---------------------------------------------------------------------------
+
+  group('sleep skipping (Bug 3)', () {
+    final sentinel = unknownSentinelMemberId;
+
+    test('detectDuplicates skips sleep rows but checks Unknown-sentinel rows',
+        () {
+      // Two Unknown-sentinel fronting rows starting close together — should
+      // be flagged as duplicates now that sentinel rows are first-class.
+      final sessions = [
+        session(id: 'u1', memberId: sentinel, start: t(0), end: t(30)),
+        session(id: 'u2', memberId: sentinel, start: t(1), end: t(31)),
+        // Two sleep rows, also close together — sleep is NOT subject to
+        // duplicate detection (different concept).  These intentionally
+        // carry a non-null memberId to prove the skip is sessionType-driven,
+        // not memberId-driven.
+        session(
+          id: 's1',
+          memberId: sentinel,
+          start: t(0),
+          end: t(30),
+          sessionType: SessionType.sleep,
+        ),
+        session(
+          id: 's2',
+          memberId: sentinel,
+          start: t(1),
+          end: t(31),
+          sessionType: SessionType.sleep,
+        ),
+      ];
+      const config = FrontingValidationConfig();
+      final issues = detectDuplicates(sessions, config);
+
+      // Exactly one duplicate pair — the two Unknown-sentinel fronting rows.
+      expect(issues, hasLength(1));
+      expect(issues.first.sessionIds.toSet(), {'u1', 'u2'});
+    });
+
+    test(
+        'detectMergeableAdjacent skips sleep rows but checks Unknown-sentinel '
+        'rows', () {
+      final sessions = [
+        // Two adjacent Unknown-sentinel fronting rows — should be flagged.
+        session(id: 'u1', memberId: sentinel, start: t(0), end: t(30)),
+        session(id: 'u2', memberId: sentinel, start: t(31), end: t(60)),
+        // Two adjacent sleep rows — should NOT be flagged regardless of memberId.
+        session(
+          id: 's1',
+          memberId: sentinel,
+          start: t(0),
+          end: t(30),
+          sessionType: SessionType.sleep,
+        ),
+        session(
+          id: 's2',
+          memberId: sentinel,
+          start: t(31),
+          end: t(60),
+          sessionType: SessionType.sleep,
+        ),
+      ];
+      const config = FrontingValidationConfig();
+      final issues = detectMergeableAdjacent(sessions, config);
+
+      expect(issues, hasLength(1));
+      expect(issues.first.sessionIds.toSet(), {'u1', 'u2'});
+    });
+
+    test('detectSelfOverlap skips sleep rows but checks Unknown-sentinel rows',
+        () {
+      final sessions = [
+        // Two overlapping Unknown-sentinel fronting rows — flagged.
+        session(id: 'u1', memberId: sentinel, start: t(0), end: t(30)),
+        session(id: 'u2', memberId: sentinel, start: t(15), end: t(45)),
+        // Two overlapping sleep rows — NOT flagged (sleep is not a self-
+        // overlap concept; sleep can also legitimately overlap fronting).
+        session(
+          id: 's1',
+          memberId: sentinel,
+          start: t(0),
+          end: t(30),
+          sessionType: SessionType.sleep,
+        ),
+        session(
+          id: 's2',
+          memberId: sentinel,
+          start: t(15),
+          end: t(45),
+          sessionType: SessionType.sleep,
+        ),
+      ];
+      final issues = detectSelfOverlap(sessions);
+
+      expect(issues, hasLength(1));
+      expect(issues.first.sessionIds.toSet(), {'u1', 'u2'});
     });
   });
 }

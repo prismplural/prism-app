@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/features/fronting/editing/fronting_edit_guard.dart';
 import 'package:prism_plurality/features/fronting/editing/fronting_edit_resolution_models.dart';
 import 'package:prism_plurality/features/fronting/editing/fronting_edit_resolution_service.dart';
@@ -713,10 +714,12 @@ void main() {
             expect(result.any((s) => s.id == 'bob'), isFalse);
 
           case FrontingDeleteStrategy.convertToUnknown:
-            // Bob kept but memberId cleared -- still 3 sessions
+            // Bob kept but memberId rewritten to the Unknown sentinel
+            // (post-fed39ec5 contract: convertToUnknown writes the sentinel
+            // id rather than null) -- still 3 sessions.
             expect(result.length, equals(3));
             final unknown = result.firstWhere((s) => s.id == 'bob');
-            expect(unknown.memberId, isNull);
+            expect(unknown.memberId, equals(unknownSentinelMemberId));
 
           case FrontingDeleteStrategy.extendPrevious:
             // Alice extended to cover Bob's time, Bob deleted -- 2 sessions
