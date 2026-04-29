@@ -122,7 +122,8 @@ class SessionDetailScreen extends ConsumerWidget {
     if (!context.mounted) return;
     result.when(
       success: (_) {
-        invalidateFrontingProviders(ref);
+        // Drift table-watch + frontingTableTickerProvider rebuild
+        // every dependent provider on the fronting_sessions write.
         // Fire-and-forget rescan to update the issue banner
         triggerPostEditRescan(
           ref,

@@ -158,10 +158,17 @@ List<FrontingPeriod> deriveMaximalPeriods(DerivePeriodsInput input) {
   // session with `start_time = tomorrow` reaches us. Such a session
   // is not yet active and must not produce visible periods — silently
   // drop it here.
+  //
+  // Cutoff is `input.now`, NOT `input.rangeEnd`. Earlier the cutoff was
+  // `rangeEnd` captured at provider build, which froze: a row inserted
+  // a millisecond after subscription had `startTime > capturedRangeEnd`
+  // and was silently dropped as "future-dated" forever. Threading a
+  // freshly-captured `now` into derivation means newly-arrived rows
+  // (start within a few ms of subscribe time) round-trip cleanly while
+  // a genuine future-dated typo (start = tomorrow) is still rejected.
   final sessions = [
     for (final s in input.sessions)
-      if (!s.isSleep && !s.isDeleted && !s.startTime.isAfter(input.rangeEnd))
-        s,
+      if (!s.isSleep && !s.isDeleted && !s.startTime.isAfter(input.now)) s,
   ];
   if (sessions.isEmpty) return const [];
 

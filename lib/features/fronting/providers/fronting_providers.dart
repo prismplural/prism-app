@@ -9,6 +9,7 @@ import 'package:prism_plurality/core/services/session_lifecycle_service.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/models/update_fronting_session_patch.dart';
 import 'package:prism_plurality/features/fronting/providers/derived_periods_provider.dart';
+import 'package:prism_plurality/features/fronting/providers/fronting_table_ticker_provider.dart';
 import 'package:prism_plurality/features/fronting/services/fronting_mutation_service.dart';
 import 'package:prism_plurality/features/members/providers/member_stats_providers.dart';
 
@@ -49,8 +50,12 @@ final frontingHistoryProvider = StreamProvider.autoDispose
 /// Member fronting frequency counts (member_id -> session count) for the
 /// most recent sessions. Used by QuickFrontSection to sort by frequency
 /// without loading full session objects.
+///
+/// Auto-rebuilds on `fronting_sessions` writes via
+/// [frontingTableTickerProvider].
 final memberFrontingCountsProvider =
     FutureProvider.autoDispose<Map<String, int>>((ref) {
+  ref.watch(frontingTableTickerProvider);
   final repo = ref.watch(frontingSessionRepositoryProvider);
   return repo.getMemberFrontingCounts(recentLimit: 50);
 });
@@ -79,34 +84,17 @@ final frontingMutationServiceProvider = Provider<FrontingMutationService>((
   );
 });
 
-/// Invalidates providers that depend on active fronting session state.
-/// Call this after any mutation that changes which sessions are active or
-/// modifies session member IDs (e.g. via [FrontingChangeExecutor]).
-///
-/// Pattern: WidgetRef-side call sites (sheets, screens, dismissibles)
-/// invoke this directly. Programmatic mutations through
-/// [FrontingNotifier] go through its private chokepoint
-/// `_invalidateDerivedHistory`, which targets the same providers.
-/// Both must stay in sync — see the per-provider doc-comments below
-/// for which surfaces depend on which provider.
-void invalidateFrontingProviders(WidgetRef ref) {
-  ref.invalidate(activeSessionProvider);
-  ref.invalidate(activeSessionsProvider);
-  ref.invalidate(memberFrontingCountsProvider);
-  // Derived-period chain: the overlap-query stream and the period
-  // derivation that watches it must also rebuild after a mutation.
-  // Without these, the home screen's session history list goes stale
-  // after start/end/edit because the derivation is computed from the
-  // upstream stream snapshot (which Riverpod caches per emission).
-  ref.invalidate(unifiedHistoryOverlapProvider);
-  ref.invalidate(derivedPeriodsProvider);
-}
-
 /// Fronting service for actions (start/end/switch sessions).
 class FrontingNotifier extends AsyncNotifier<void> {
   @override
   Future<void> build() async {}
 
+  /// Targeted, immediate per-member invalidation. The
+  /// [frontingTableTickerProvider] also rebuilds these via its
+  /// debounce, but the debounce introduces a 200ms latency that the
+  /// member-detail screen's freshly-mutated row would briefly render
+  /// stale through. Keeping the explicit invalidate gives the next
+  /// frame the new value.
   void _invalidateMemberStats(String? memberId) {
     if (memberId != null) {
       ref.invalidate(memberFrontingStatsProvider(memberId));
@@ -114,25 +102,14 @@ class FrontingNotifier extends AsyncNotifier<void> {
     }
   }
 
-  /// Chokepoint for derived-history invalidation triggered by
-  /// programmatic mutations through this notifier.
+  /// Vestigial chokepoint, retained for source compatibility within
+  /// this notifier.
   ///
-  /// Mirrors the WidgetRef-side helper [invalidateFrontingProviders]
-  /// for the providers a mutation must rebuild. Without this, a
-  /// notifier-driven start/end/edit/delete leaves the home screen's
-  /// session-history list stale until the next external invalidation
-  /// (e.g. tab switch). The WidgetRef helper handles UI-side flows
-  /// (sheets, dismissibles); this handles programmatic flows
-  /// (chat-driven switches, group bulk operations, member detail
-  /// quick-fronts).
-  ///
-  /// Keep in sync with [invalidateFrontingProviders].
+  /// Drift `.watch()` rebuilds stream-backed providers; the
+  /// [frontingTableTickerProvider] rebuilds FutureProviders that
+  /// consume fronting data. Nothing remains for explicit invalidation.
   void _invalidateDerivedHistory() {
-    ref.invalidate(activeSessionProvider);
-    ref.invalidate(activeSessionsProvider);
-    ref.invalidate(memberFrontingCountsProvider);
-    ref.invalidate(unifiedHistoryOverlapProvider);
-    ref.invalidate(derivedPeriodsProvider);
+    // Intentionally empty.
   }
 
   /// Starts a fronting session for one or more members.
@@ -407,17 +384,25 @@ const derivedPeriodsLookbackDays = 90;
 /// "now + 30 days" and split into 30 future midnight slices.
 const derivedPeriodsLookaheadDays = 30;
 
-/// Inputs to the derived-period sweep. The provider produces this so
-/// downstream consumers ([derivedPeriodsProvider]) can clamp to the
-/// SAME visible window the user expects — NOT the wider SQL lookahead.
+/// Inputs to the derived-period sweep.
 ///
-/// `rangeEnd` is the visible upper bound, captured at "now" when the
-/// provider rebuilds. The SQL query uses a wider internal lookahead
-/// ([derivedPeriodsLookaheadDays]) to catch newly-inserted rows whose
-/// start_time may be slightly after the captured "now", but those
-/// future-dated rows are filtered back out by the derivation (a
-/// session with `start_time > rangeEnd` is not yet active and must
-/// not produce visible periods).
+/// `rangeStart` is the visible window's lower bound (now − lookback).
+/// `rangeEnd` is the visible upper bound captured at provider build
+/// time. Both are captured ONCE at subscription:
+///   * `rangeStart` is genuinely fixed — a 90-day-back window doesn't
+///     drift forward in real time at any cadence the user perceives.
+///     If the screen is held open across midnight, the window slides a
+///     day stale, but the next external rebuild (tab switch, settings
+///     change, etc.) corrects it.
+///   * `rangeEnd` is the trailing edge of the visible window. The
+///     **future-dated cutoff** in the derivation no longer keys off
+///     this value — it keys off a freshly-captured `DateTime.now()`
+///     inside [computeDerivedPeriods], so newly-inserted rows whose
+///     `startTime` is slightly after `rangeEnd` round-trip cleanly
+///     even though the bundle's `rangeEnd` was captured earlier. We
+///     keep `rangeEnd` here because the derivation still uses it as
+///     the upper clamp for closed-session spans; a follow-on rebuild
+///     does refresh it.
 class DerivedPeriodsInputBundle {
   const DerivedPeriodsInputBundle({
     required this.sessions,
@@ -427,10 +412,6 @@ class DerivedPeriodsInputBundle {
 
   final List<FrontingSession> sessions;
   final DateTime rangeStart;
-
-  /// Visible upper bound for derivation, bounded at "now of rebuild".
-  /// Distinct from the DAO's internal `+30d` SQL lookahead — see
-  /// [derivedPeriodsLookaheadDays] for why the two are separate.
   final DateTime rangeEnd;
 }
 
@@ -444,7 +425,7 @@ class DerivedPeriodsInputBundle {
 /// `start_time < sql_upper_bound AND (end_time IS NULL OR end_time > range_start)`,
 /// which a row-paged "newest N rows" query would silently drop.
 ///
-/// IMPORTANT: two distinct upper bounds are at play here:
+/// Two distinct upper bounds are at play:
 ///
 ///  - **SQL upper bound** (`sqlUpperBound`, `now + 30d`): the value
 ///    threaded into `watchSessionsOverlappingRange` so newly-inserted
@@ -452,14 +433,9 @@ class DerivedPeriodsInputBundle {
 ///    still match the Drift watch. INTERNAL — never leaves this
 ///    provider.
 ///  - **Visible `rangeEnd`** (`rangeEnd`, captured `now`): the bound
-///    the derivation clamps spans to. Open sessions extend to
-///    `max(now, rangeEnd)` (= now); closed sessions clamp to
-///    `rangeEnd`. Future-dated typos with `start_time > rangeEnd` are
-///    filtered out by the derivation pre-pass.
-///
-/// Conflating these two values caused fix-up #2's bug: an open current
-/// front got extended to "now + 30 days" and split into 30 future
-/// midnight slices, with the live timer reading from a future date.
+///    the derivation clamps closed-session spans to. The future-dated
+///    cutoff is NOT keyed off this value; see
+///    [DerivedPeriodsInputBundle].
 final unifiedHistoryOverlapProvider =
     StreamProvider.autoDispose<DerivedPeriodsInputBundle>((ref) {
   final repo = ref.watch(frontingSessionRepositoryProvider);
@@ -471,9 +447,6 @@ final unifiedHistoryOverlapProvider =
   // captured `now` so the Drift `.watch()` re-evaluation surfaces them.
   final sqlUpperBound =
       now.add(const Duration(days: derivedPeriodsLookaheadDays));
-  // Visible upper bound for derivation: bounded at `now`. Open
-  // sessions extend to this; closed sessions clamp to this; sessions
-  // with start_time > this are future-dated and rejected.
   final rangeEnd = now;
   return repo.watchSessionsOverlappingRange(rangeStart, sqlUpperBound).map(
         (sessions) => DerivedPeriodsInputBundle(

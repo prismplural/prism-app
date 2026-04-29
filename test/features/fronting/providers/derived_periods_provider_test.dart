@@ -380,6 +380,96 @@ void main() {
     );
 
     test(
+      'mutation after subscription: a row written with start ≈ now '
+      'appears in derived periods without explicit invalidation',
+      () async {
+        // Regression guard for the captured-now whack-a-mole.
+        //
+        // Pre-fix, the future-dated cutoff inside the derivation was
+        // `bundle.rangeEnd`, which the provider froze at subscription
+        // time. A new row written milliseconds later had startTime >
+        // that captured rangeEnd and was silently dropped as
+        // "future-dated" — even though Drift's table-watch fired and
+        // upstream re-emitted with the row included.
+        //
+        // Post-fix, the derivation captures a fresh `DateTime.now()`
+        // each time it runs, so newly-arrived rows round-trip cleanly
+        // through the existing watch chain — no per-mutation
+        // invalidation call required.
+        final db = AppDatabase(NativeDatabase.memory());
+        addTearDown(db.close);
+
+        final repo = DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+        );
+
+        final container = ProviderContainer(overrides: [
+          frontingSessionRepositoryProvider
+              .overrideWith((ref) => repo as FrontingSessionRepository),
+          allMembersProvider
+              .overrideWith((ref) => Stream.value(const <Member>[])),
+        ]);
+        addTearDown(container.dispose);
+
+        // Subscribe BEFORE writing so the bundle's rangeEnd is captured
+        // first. The new row will be written after the bundle exists.
+        container.listen<AsyncValue<DerivedPeriodsInputBundle>>(
+          unifiedHistoryOverlapProvider,
+          (_, _) {},
+          fireImmediately: true,
+        );
+        container.listen<AsyncValue<List<FrontingPeriod>>>(
+          derivedPeriodsProvider,
+          (_, _) {},
+          fireImmediately: true,
+        );
+
+        // Wait for the initial empty stream emission.
+        await container.read(unifiedHistoryOverlapProvider.future);
+        await container.read(allMembersProvider.future);
+        await Future<void>.delayed(Duration.zero);
+
+        final initial = container.read(derivedPeriodsProvider).value!;
+        expect(initial, isEmpty);
+
+        // Sleep so the captured rangeEnd is meaningfully in the past
+        // when we write — guarantees `startTime > capturedRangeEnd`.
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+
+        // Write a fresh open session. NO explicit invalidation —
+        // Drift's table watch must do all the work.
+        final freshStart = DateTime.now();
+        await db.frontingSessionsDao.insertSession(
+          FrontingSessionMapper.toCompanion(
+            FrontingSession(
+              id: 'fresh',
+              memberId: 'a',
+              startTime: freshStart,
+              endTime: null,
+            ),
+          ),
+        );
+
+        // Pump the stream + provider rebuild without invalidating.
+        // A few microtask rounds cover the Drift watch fire +
+        // StreamProvider re-emit + Provider recompute.
+        for (var i = 0; i < 5; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 10));
+        }
+
+        final periods = container.read(derivedPeriodsProvider).value!;
+        expect(periods, hasLength(1),
+            reason:
+                'fresh row written after subscription must appear in '
+                'derived periods via Drift watch alone — no explicit '
+                'invalidation should be required');
+        expect(periods.single.activeMembers, ['a']);
+        expect(periods.single.isOpenEnded, isTrue);
+      },
+    );
+
+    test(
       'production provider emits rangeEnd bounded at now (not now + 30d)',
       () async {
         // Codex P1 fix-up #3: the bundle's `rangeEnd` is the visible
@@ -528,12 +618,13 @@ void main() {
     );
 
     test(
-      'provider invalidation propagates a new session to derived periods',
+      'upstream re-emission propagates a new session to derived periods',
       () async {
-        // Codex test gap #5: invalidateFrontingProviders must invalidate
-        // unifiedHistoryOverlapProvider + derivedPeriodsProvider so that
-        // mutations propagate. Drive this with a controllable stream
-        // that we re-emit through the same controller after "mutation".
+        // Pinned upstream → downstream contract. With the now-floor in
+        // derivation and Drift's table-watch covering the source
+        // stream, this test exercises the bare propagation: when the
+        // upstream stream re-emits with a new row, the derived period
+        // provider must surface it.
         final controller = StreamController<DerivedPeriodsInputBundle>.broadcast();
         addTearDown(controller.close);
 

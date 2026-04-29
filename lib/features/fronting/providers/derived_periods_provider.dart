@@ -33,9 +33,17 @@ final derivedPeriodsProvider =
       // continuous host (whose start was clamped by the DAO query)
       // would push the sweep's `rangeStart` 400 days back, producing
       // hundreds of midnight day-slices spanning the whole interval.
+      //
+      // `now` is captured fresh at derivation, NOT at provider build.
+      // The future-dated cutoff inside `deriveMaximalPeriods` keys off
+      // `input.now` so a row inserted after subscription (start ≈ live
+      // wall clock, but > captured-at-build now) round-trips cleanly.
+      // Open sessions still extend to `max(now, rangeEnd)` which is
+      // simply `now` here since `rangeEnd` is itself ≈ now.
       final periods = computeDerivedPeriods(
         bundle.sessions,
         members,
+        now: DateTime.now(),
         rangeStart: bundle.rangeStart,
         rangeEnd: bundle.rangeEnd,
       );

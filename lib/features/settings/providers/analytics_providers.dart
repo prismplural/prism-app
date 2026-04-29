@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/fronting_analytics.dart';
+import 'package:prism_plurality/features/fronting/providers/fronting_table_ticker_provider.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/models/analytics_insight.dart';
 
@@ -46,8 +47,15 @@ final analyticsRangeProvider =
 const int analyticsIsolateThreshold = 500;
 
 /// Computes fronting analytics for the selected date range.
+///
+/// Watches [frontingTableTickerProvider] so a write to fronting_sessions
+/// rebuilds this provider for free — no per-mutation invalidation call
+/// is required at the mutation site. The ticker is debounced so a bulk
+/// import (PK initial / SP / sanitizer batch) coalesces into one
+/// rebuild.
 final frontingAnalyticsProvider =
     FutureProvider<FrontingAnalytics>((ref) async {
+  ref.watch(frontingTableTickerProvider);
   final range = ref.watch(analyticsRangeProvider).range;
   final dao = ref.watch(frontingSessionsDaoProvider);
 
@@ -60,6 +68,7 @@ final frontingAnalyticsProvider =
 /// Returns null for "All time" — no meaningful prior period exists.
 final previousPeriodAnalyticsProvider =
     FutureProvider<FrontingAnalytics?>((ref) async {
+  ref.watch(frontingTableTickerProvider);
   final dateRange = ref.watch(analyticsRangeProvider);
   if (dateRange.isAllTime) return null;
 

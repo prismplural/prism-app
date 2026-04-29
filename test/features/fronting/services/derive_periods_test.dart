@@ -593,13 +593,16 @@ void main() {
     });
 
     test(
-        'future-dated session (start_time > rangeEnd) is rejected by the '
+        'future-dated session (start_time > now) is rejected by the '
         'derivation pre-pass', () {
-      // Codex P2 fix-up #3: the SQL overlap query uses a +30d
-      // lookahead so newly-inserted rows reach the watch. A typo'd
-      // session with start_time = tomorrow would slip through that
-      // SQL bound; the derivation must filter it out so it doesn't
-      // produce visible periods.
+      // The SQL overlap query uses a +30d lookahead so newly-inserted
+      // rows reach the watch. A typo'd session with start_time =
+      // tomorrow would slip through that SQL bound; the derivation
+      // must filter it out so it doesn't produce visible periods.
+      //
+      // Cutoff is `input.now` (NOT `input.rangeEnd`) so a row inserted
+      // a few ms after the bundle was captured — start ≈ now but >
+      // captured-rangeEnd — round-trips cleanly.
       final now = DateTime(2026, 4, 1, 12);
       final visibleStart = now.subtract(const Duration(hours: 5));
 
@@ -612,7 +615,7 @@ void main() {
             start: now.subtract(const Duration(hours: 2)),
             end: now.subtract(const Duration(hours: 1)),
           ),
-          // Future-dated typo: start_time is one day past rangeEnd.
+          // Future-dated typo: start_time is one day past now.
           _s(
             id: 'future',
             memberId: 'b',
@@ -634,6 +637,88 @@ void main() {
         expect(p.activeMembers, isNot(contains('b')));
         expect(p.briefVisitors.map((v) => v.memberId), isNot(contains('b')));
       }
+    });
+
+    test(
+        'session inserted just after capture (start > captured rangeEnd '
+        'but ≤ now) IS included — regression guard for the captured-now '
+        'whack-a-mole', () {
+      // Pre-fix bug: the future-dated cutoff was `input.rangeEnd`,
+      // which the provider froze at subscription time. A row created
+      // 1ms after subscribe had `startTime > capturedRangeEnd` and was
+      // silently dropped forever. Post-fix the cutoff is `input.now`,
+      // so the row round-trips cleanly when derivation runs again with
+      // a fresh `now`.
+      final capturedRangeEnd = DateTime(2026, 4, 1, 12);
+      // Mutation happens after capture: row's startTime is later than
+      // capturedRangeEnd by a small tick, but well before the live
+      // wall clock (`now`).
+      final mutationStart =
+          capturedRangeEnd.add(const Duration(milliseconds: 1));
+      final liveNow = capturedRangeEnd.add(const Duration(seconds: 5));
+
+      final result = deriveMaximalPeriods(_input(
+        sessions: [
+          _s(id: 'fresh', memberId: 'a', start: mutationStart, end: null),
+        ],
+        rangeStart: capturedRangeEnd.subtract(const Duration(hours: 1)),
+        rangeEnd: capturedRangeEnd,
+        now: liveNow,
+      ));
+
+      expect(result, hasLength(1),
+          reason: 'a row whose start is after the captured rangeEnd but '
+              'before the live now MUST appear in derived periods');
+      expect(result.single.activeMembers, ['a']);
+      expect(result.single.isOpenEnded, isTrue);
+    });
+
+    test('session 1ms before now is included (boundary case)', () {
+      // The future-dated cutoff is `!startTime.isAfter(now)`, so a
+      // session whose startTime equals now passes the cutoff. The
+      // session must also have a non-zero clamped span — a row with
+      // start == now and no end clamps to a zero-duration interval
+      // and is dropped by the normalize pass (correct: nothing to
+      // render). We test the realistic boundary: a row inserted ~1ms
+      // before the live wall clock.
+      final now = DateTime(2026, 4, 1, 12);
+      final result = deriveMaximalPeriods(_input(
+        sessions: [
+          _s(
+            id: 'edge',
+            memberId: 'a',
+            start: now.subtract(const Duration(milliseconds: 1)),
+            end: null,
+          ),
+        ],
+        rangeStart: now.subtract(const Duration(hours: 1)),
+        rangeEnd: now,
+        now: now,
+      ));
+      expect(result, hasLength(1),
+          reason:
+              'a row inserted ~1ms before live now must be included');
+      expect(result.single.activeMembers, ['a']);
+    });
+
+    test('session in the future relative to now (now + 1 day) IS dropped',
+        () {
+      final now = DateTime(2026, 4, 1, 12);
+      final result = deriveMaximalPeriods(_input(
+        sessions: [
+          _s(
+            id: 'future',
+            memberId: 'a',
+            start: now.add(const Duration(days: 1)),
+            end: now.add(const Duration(days: 1, hours: 1)),
+          ),
+        ],
+        rangeStart: now.subtract(const Duration(hours: 1)),
+        rangeEnd: now,
+        now: now,
+      ));
+      expect(result, isEmpty,
+          reason: 'genuinely future-dated session must be filtered');
     });
 
     test(
