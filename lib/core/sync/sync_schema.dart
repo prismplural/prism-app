@@ -125,6 +125,9 @@ const String prismSyncSchema = '''
         "nav_bar_items": "String",
         "nav_bar_overflow_items": "String",
         "chat_badge_preferences": "String",
+        "fronting_list_view_mode": "Int",
+        "add_front_default_behavior": "Int",
+        "quick_front_default_behavior": "Int",
         "is_deleted": "Bool"
       }
     },

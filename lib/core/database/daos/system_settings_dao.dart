@@ -285,6 +285,18 @@ class SystemSettingsDao extends DatabaseAccessor<AppDatabase>
   Future<void> updateTimingMode(int value) =>
       _updateField(SystemSettingsTableCompanion(timingMode: Value(value)));
 
+  Future<void> updateFrontingListViewMode(int value) => _updateField(
+    SystemSettingsTableCompanion(frontingListViewMode: Value(value)),
+  );
+
+  Future<void> updateAddFrontDefaultBehavior(int value) => _updateField(
+    SystemSettingsTableCompanion(addFrontDefaultBehavior: Value(value)),
+  );
+
+  Future<void> updateQuickFrontDefaultBehavior(int value) => _updateField(
+    SystemSettingsTableCompanion(quickFrontDefaultBehavior: Value(value)),
+  );
+
   // --- Int fields ---
 
   Future<void> updateFrontingReminderIntervalMinutes(int value) => _updateField(

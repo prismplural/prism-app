@@ -1,6 +1,6 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/core/database/daos/system_settings_dao.dart';
 import 'package:prism_plurality/data/mappers/system_settings_mapper.dart';
@@ -241,6 +241,30 @@ class DriftSystemSettingsRepository
   Future<void> updateTimingMode(domain.FrontingTimingMode value) async {
     await _dao.updateTimingMode(value.index);
     await _syncField('timing_mode', value.index);
+  }
+
+  @override
+  Future<void> updateFrontingListViewMode(
+    domain.FrontingListViewMode value,
+  ) async {
+    await _dao.updateFrontingListViewMode(value.index);
+    await _syncField('fronting_list_view_mode', value.index);
+  }
+
+  @override
+  Future<void> updateAddFrontDefaultBehavior(
+    domain.FrontStartBehavior value,
+  ) async {
+    await _dao.updateAddFrontDefaultBehavior(value.index);
+    await _syncField('add_front_default_behavior', value.index);
+  }
+
+  @override
+  Future<void> updateQuickFrontDefaultBehavior(
+    domain.FrontStartBehavior value,
+  ) async {
+    await _dao.updateQuickFrontDefaultBehavior(value.index);
+    await _syncField('quick_front_default_behavior', value.index);
   }
 
   // Int fields
@@ -524,7 +548,18 @@ class DriftSystemSettingsRepository
       'chat_badge_preferences': SystemSettingsMapper.encodeBadgePrefs(
         s.chatBadgePreferences,
       ),
+      'fronting_list_view_mode': s.frontingListViewMode.index,
+      'add_front_default_behavior': s.addFrontDefaultBehavior.index,
+      'quick_front_default_behavior': s.quickFrontDefaultBehavior.index,
       'is_deleted': false,
     };
   }
+
+  /// Test-only access to the sync field map. Mirrors `debugNoteFields` /
+  /// `debugCommentFields` patterns elsewhere — lets the parity / sync-emit
+  /// contract tests assert that every prefs field appears in the emit map
+  /// without having to drive the full `updateSettings` path.
+  @visibleForTesting
+  Map<String, dynamic> debugSettingsFields(domain.SystemSettings s) =>
+      _settingsFields(s);
 }

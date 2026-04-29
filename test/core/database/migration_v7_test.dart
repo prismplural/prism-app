@@ -36,6 +36,17 @@ Future<void> _seedV6Db(
   final rawDb = raw.sqlite3.open(dbFile.path);
   try {
     rawDb.execute('PRAGMA user_version = 6;');
+    // Drop the v8 columns that the fresh-create added (so v7→v8 onUpgrade
+    // can re-add them cleanly).
+    rawDb.execute(
+      'ALTER TABLE system_settings DROP COLUMN fronting_list_view_mode',
+    );
+    rawDb.execute(
+      'ALTER TABLE system_settings DROP COLUMN add_front_default_behavior',
+    );
+    rawDb.execute(
+      'ALTER TABLE system_settings DROP COLUMN quick_front_default_behavior',
+    );
     rawDb.execute('ALTER TABLE members DROP COLUMN is_always_fronting');
     rawDb.execute(
       'ALTER TABLE system_settings '

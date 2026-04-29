@@ -750,12 +750,12 @@ void main() {
         // Trigger open — runs onUpgrade v1→v2→v3→v4→v5→v6→v7
         await db.customSelect('SELECT 1').get();
 
-        // user_version must be 7
+        // user_version must be 8 (current schema)
         final uv = await db
             .customSelect('PRAGMA user_version')
             .getSingle();
-        expect(uv.read<int>('user_version'), 7,
-            reason: 'all migration steps must complete');
+        expect(uv.read<int>('user_version'), 8,
+            reason: 'all migration steps must complete (current schema is v8)');
 
         // v7-only column: members.is_always_fronting
         final memberCols =
@@ -895,11 +895,11 @@ void main() {
         // Must NOT throw despite duplicate rows
         await db.customSelect('SELECT 1').get();
 
-        // user_version must be 7
+        // user_version must be 8 (current schema)
         final uv = await db
             .customSelect('PRAGMA user_version')
             .getSingle();
-        expect(uv.read<int>('user_version'), 7);
+        expect(uv.read<int>('user_version'), 8);
 
         // mode = 'blocked'
         final settings = await db.systemSettingsDao.getSettings();
@@ -996,11 +996,11 @@ void main() {
         // Must NOT throw
         await db.customSelect('SELECT 1').get();
 
-        // user_version must be 7
+        // user_version must be 8 (current schema)
         final uv = await db
             .customSelect('PRAGMA user_version')
             .getSingle();
-        expect(uv.read<int>('user_version'), 7);
+        expect(uv.read<int>('user_version'), 8);
 
         // mode = 'blocked'
         final settings = await db.systemSettingsDao.getSettings();
