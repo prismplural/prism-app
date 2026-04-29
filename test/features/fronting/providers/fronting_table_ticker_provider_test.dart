@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:drift/drift.dart' show TableUpdate;
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -255,6 +256,189 @@ void main() {
                 '${ticks.length} ticks. Must be far less than 1000.');
         expect(ticks, isNotEmpty,
             reason: 'untransacted bulk must still tick at least once');
+      },
+    );
+
+    test(
+      'customStatement truncate followed by db.notifyUpdates fires the '
+      'ticker (regression guard for the truncate-path fix)',
+      () async {
+        // The migration, SP truncate, and remote-wipe paths all use
+        // `db.customStatement('DELETE FROM fronting_sessions')`, which
+        // bypasses Drift's typed-write notification. They follow up
+        // with `db.notifyUpdates({TableUpdate('fronting_sessions')})`
+        // to force the ticker (and any active stream queries) to
+        // refresh. This test pins that contract.
+        final db = AppDatabase(NativeDatabase.memory());
+        addTearDown(db.close);
+
+        // Seed a row so the truncate has something to delete (and so
+        // the initial-state has data — no tick fires for that yet).
+        await db.frontingSessionsDao.insertSession(
+          FrontingSessionMapper.toCompanion(
+            FrontingSession(
+              id: 'seed',
+              memberId: 'a',
+              startTime: DateTime.now(),
+              endTime: null,
+            ),
+          ),
+        );
+
+        final container = ProviderContainer(overrides: [
+          databaseProvider.overrideWithValue(db),
+        ]);
+        addTearDown(container.dispose);
+
+        final values = <int>[];
+        final completer = Completer<void>();
+        final sub = container.listen<AsyncValue<int>>(
+          frontingTableTickerProvider,
+          (_, next) {
+            next.whenData((v) {
+              values.add(v);
+              // Wait for the SECOND tick (initial 0 + truncate tick).
+              if (values.length >= 2 && !completer.isCompleted) {
+                completer.complete();
+              }
+            });
+          },
+          fireImmediately: true,
+        );
+        addTearDown(sub.close);
+
+        // Wait for the seed-write tick + initial 0 to land. The
+        // ticker counts each table-update emission; we drain a
+        // generous window to coalesce the seed insert before
+        // truncating.
+        await Future<void>.delayed(const Duration(milliseconds: 400));
+        final ticksBeforeTruncate = values.length;
+
+        // Truncate via customStatement (mirrors what the migration,
+        // SP importer, and remote-wipe code paths do).
+        await db.customStatement('DELETE FROM fronting_sessions');
+        // Without notifyUpdates the ticker would NOT fire here.
+        db.notifyUpdates({const TableUpdate('fronting_sessions')});
+
+        // Wait for the debounce to flush.
+        await Future<void>.delayed(const Duration(milliseconds: 400));
+
+        expect(values.length, greaterThan(ticksBeforeTruncate),
+            reason:
+                'customStatement + notifyUpdates must produce a ticker '
+                'emission; got values=$values');
+      },
+    );
+
+    test(
+      'customStatement truncate WITHOUT notifyUpdates does NOT fire the '
+      'ticker — proves notifyUpdates is load-bearing',
+      () async {
+        // Negative control for the truncate-path test: customStatement
+        // alone does not propagate. This is the latent bug the
+        // migration / SP / remote-wipe call sites had to plug
+        // explicitly.
+        final db = AppDatabase(NativeDatabase.memory());
+        addTearDown(db.close);
+
+        await db.frontingSessionsDao.insertSession(
+          FrontingSessionMapper.toCompanion(
+            FrontingSession(
+              id: 'seed',
+              memberId: 'a',
+              startTime: DateTime.now(),
+              endTime: null,
+            ),
+          ),
+        );
+
+        final container = ProviderContainer(overrides: [
+          databaseProvider.overrideWithValue(db),
+        ]);
+        addTearDown(container.dispose);
+
+        final values = <int>[];
+        final sub = container.listen<AsyncValue<int>>(
+          frontingTableTickerProvider,
+          (_, next) {
+            next.whenData(values.add);
+          },
+          fireImmediately: true,
+        );
+        addTearDown(sub.close);
+
+        // Drain the initial seed-write tick.
+        await Future<void>.delayed(const Duration(milliseconds: 400));
+        final ticksBeforeTruncate = values.length;
+
+        // Truncate via customStatement WITHOUT notifyUpdates.
+        await db.customStatement('DELETE FROM fronting_sessions');
+        await Future<void>.delayed(const Duration(milliseconds: 400));
+
+        expect(values.length, equals(ticksBeforeTruncate),
+            reason:
+                'customStatement alone must NOT produce a ticker '
+                'emission — this is why call sites need notifyUpdates');
+      },
+    );
+
+    test(
+      'truncate with multi-table notifyUpdates fires once on the '
+      'fronting_sessions ticker even when other tables are also notified',
+      () async {
+        // Migration + SP importer + remote-wipe notify every truncated
+        // table at once. Verify the fronting_sessions ticker still
+        // fires when the notify set includes companion tables like
+        // `front_session_comments`.
+        final db = AppDatabase(NativeDatabase.memory());
+        addTearDown(db.close);
+
+        await db.frontingSessionsDao.insertSession(
+          FrontingSessionMapper.toCompanion(
+            FrontingSession(
+              id: 'seed',
+              memberId: 'a',
+              startTime: DateTime.now(),
+              endTime: null,
+            ),
+          ),
+        );
+
+        final container = ProviderContainer(overrides: [
+          databaseProvider.overrideWithValue(db),
+        ]);
+        addTearDown(container.dispose);
+
+        final values = <int>[];
+        final sub = container.listen<AsyncValue<int>>(
+          frontingTableTickerProvider,
+          (_, next) {
+            next.whenData(values.add);
+          },
+          fireImmediately: true,
+        );
+        addTearDown(sub.close);
+
+        await Future<void>.delayed(const Duration(milliseconds: 400));
+        final ticksBeforeTruncate = values.length;
+
+        // Truncate both fronting_sessions and front_session_comments
+        // (mirrors migration + SP importer truncate path).
+        await db.transaction(() async {
+          await db.customStatement('DELETE FROM front_session_comments');
+          await db.customStatement('DELETE FROM fronting_sessions');
+        });
+        db.notifyUpdates({
+          const TableUpdate('fronting_sessions'),
+          const TableUpdate('front_session_comments'),
+        });
+
+        await Future<void>.delayed(const Duration(milliseconds: 400));
+
+        expect(values.length, greaterThan(ticksBeforeTruncate),
+            reason:
+                'multi-table notifyUpdates including fronting_sessions '
+                'must still fire the ticker (got values=$values)');
       },
     );
   });

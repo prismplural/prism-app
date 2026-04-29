@@ -27,16 +27,28 @@ DerivePeriodsInput _input({
   required List<FrontingSession> sessions,
   Map<String, Member>? members,
   DateTime? rangeStart,
+  // `rangeEnd` is preserved as a *test-only* convenience knob: when the
+  // caller passes `rangeEnd` (legacy tests do), we treat it as `now`.
+  // Production no longer carries a `rangeEnd` — the derivation uses
+  // `now` for everything that previously used `rangeEnd`. Tests that
+  // pass both `rangeEnd` and `now` must pass identical values; the
+  // helper asserts this so a stale test that relied on `now > rangeEnd`
+  // (open-end substitution growing past the range) fails loudly.
   DateTime? rangeEnd,
   DateTime? now,
   Duration ephemeralThreshold = kEphemeralThreshold,
 }) {
+  final effectiveNow = now ?? rangeEnd ?? DateTime(2026, 4, 2);
+  if (now != null && rangeEnd != null) {
+    assert(now == rangeEnd,
+        'now and rangeEnd must match in tests — production has no '
+        'separate rangeEnd, the visible window is [rangeStart, now]');
+  }
   return DerivePeriodsInput(
     sessions: sessions,
     members: members ?? const {},
     rangeStart: rangeStart ?? DateTime(2026, 4, 1),
-    rangeEnd: rangeEnd ?? DateTime(2026, 4, 2),
-    now: now ?? DateTime(2026, 4, 2),
+    now: effectiveNow,
     ephemeralThreshold: ephemeralThreshold,
   );
 }
@@ -139,7 +151,7 @@ void main() {
           tBriefEnd.difference(tBriefStart));
     });
 
-    test('open-ended session extends to range_end / now', () {
+    test('open-ended session extends to now', () {
       final t0 = DateTime(2026, 4, 1, 10);
       final now = DateTime(2026, 4, 1, 15);
 
@@ -148,13 +160,13 @@ void main() {
           _s(id: 'a', memberId: 'a', start: t0, end: null),
         ],
         rangeStart: DateTime(2026, 4, 1),
-        rangeEnd: DateTime(2026, 4, 1, 12),
         now: now,
       ));
 
       expect(result, hasLength(1));
       expect(result[0].start, t0);
-      // openEndSub = max(now, rangeEnd) = now
+      // Open-end substitution is `now` — there's no separate rangeEnd
+      // in the contract anymore.
       expect(result[0].end, now);
       expect(result[0].isOpenEnded, isTrue);
     });
@@ -369,33 +381,63 @@ void main() {
       expect(open.isOpenEnded, isTrue);
     });
 
-    test('past visible range: closed sessions clamp to rangeEnd', () {
-      // Codex P2 fix: a closed session whose endTime is past the
-      // visible range must clamp at rangeEnd. The previous behavior
-      // used effectiveRangeEnd = max(now, rangeEnd) for ALL sessions,
-      // letting a closed session bleed past the visible window.
-      final pastStart = DateTime(2026, 1, 1, 10);
-      final pastEnd = DateTime(2026, 1, 1, 14);
-      final visibleStart = DateTime(2026, 1, 1, 9);
-      final visibleEnd = DateTime(2026, 1, 1, 12);
-      final now = DateTime(2026, 4, 1); // way past the visible range
+    test(
+        'closed session entirely within rangeStart..now clamps to its '
+        'own endTime, not to now', () {
+      // Post-rangeEnd-removal contract: the visible upper bound is
+      // `now`. A closed session whose endTime is BEFORE `now` clamps
+      // to its own endTime — it does NOT get extended forward. The
+      // pre-bb469ee8 behavior used effectiveRangeEnd = max(now,
+      // rangeEnd); the bb469ee8 fix used rangeEnd directly; the
+      // current (rangeEnd-removed) contract uses `now` as the upper
+      // clamp uniformly.
+      final visibleStart = DateTime(2026, 4, 1);
+      final closedStart = DateTime(2026, 4, 1, 10);
+      final closedEnd = DateTime(2026, 4, 1, 11); // strictly before now
+      final now = DateTime(2026, 4, 1, 15);
 
       final result = deriveMaximalPeriods(_input(
         sessions: [
-          _s(id: 's', memberId: 'a', start: pastStart, end: pastEnd),
+          _s(id: 's', memberId: 'a', start: closedStart, end: closedEnd),
         ],
         rangeStart: visibleStart,
-        rangeEnd: visibleEnd,
         now: now,
       ));
 
       expect(result, hasLength(1));
-      // End must be clamped to visibleEnd, not bleed to pastEnd.
-      expect(result[0].end, visibleEnd);
-      // And the period must NOT be flagged open-ended even though
-      // openEndSub = max(now, visibleEnd) > visibleEnd — closed
-      // sessions are never live.
+      // End must be the session's own endTime, NOT now.
+      expect(result[0].end, closedEnd,
+          reason:
+              'closed session within the window clamps to its own '
+              'endTime, not now');
       expect(result[0].isOpenEnded, isFalse);
+    });
+
+    test(
+        'closed session whose endTime is past now clamps to now (clock-skew '
+        'or future-edited row)', () {
+      // Edge case: a closed session was edited with an endTime in the
+      // future relative to wall clock (or written under clock skew).
+      // Per the new contract, that endTime clamps at `now`.
+      final visibleStart = DateTime(2026, 4, 1);
+      final closedStart = DateTime(2026, 4, 1, 10);
+      final now = DateTime(2026, 4, 1, 12);
+      final closedEnd = now.add(const Duration(hours: 5)); // past now
+
+      final result = deriveMaximalPeriods(_input(
+        sessions: [
+          _s(id: 's', memberId: 'a', start: closedStart, end: closedEnd),
+        ],
+        rangeStart: visibleStart,
+        now: now,
+      ));
+
+      expect(result, hasLength(1));
+      expect(result[0].end, now,
+          reason:
+              'closed session whose endTime is past now clamps to now');
+      expect(result[0].isOpenEnded, isFalse,
+          reason: 'closed sessions never render the live timer');
     });
 
     test('cascading shorts: all-short input still emits one row',
@@ -640,37 +682,78 @@ void main() {
     });
 
     test(
-        'session inserted just after capture (start > captured rangeEnd '
-        'but ≤ now) IS included — regression guard for the captured-now '
-        'whack-a-mole', () {
+        'open session started after subscription IS included '
+        '(regression guard: rangeEnd no longer exists in the contract)', () {
       // Pre-fix bug: the future-dated cutoff was `input.rangeEnd`,
       // which the provider froze at subscription time. A row created
       // 1ms after subscribe had `startTime > capturedRangeEnd` and was
-      // silently dropped forever. Post-fix the cutoff is `input.now`,
-      // so the row round-trips cleanly when derivation runs again with
-      // a fresh `now`.
-      final capturedRangeEnd = DateTime(2026, 4, 1, 12);
-      // Mutation happens after capture: row's startTime is later than
-      // capturedRangeEnd by a small tick, but well before the live
-      // wall clock (`now`).
-      final mutationStart =
-          capturedRangeEnd.add(const Duration(milliseconds: 1));
-      final liveNow = capturedRangeEnd.add(const Duration(seconds: 5));
+      // silently dropped forever. Post-fix `rangeEnd` doesn't exist —
+      // the cutoff is `input.now` and the visible window upper bound
+      // is also `input.now`, so a row whose start is shortly before
+      // the live `now` round-trips cleanly.
+      final liveNow = DateTime(2026, 4, 1, 12, 0, 5);
+      // Row started 1ms ago — well before `now`, well after any
+      // hypothetical earlier subscription.
+      final mutationStart = liveNow.subtract(const Duration(milliseconds: 1));
 
       final result = deriveMaximalPeriods(_input(
         sessions: [
           _s(id: 'fresh', memberId: 'a', start: mutationStart, end: null),
         ],
-        rangeStart: capturedRangeEnd.subtract(const Duration(hours: 1)),
-        rangeEnd: capturedRangeEnd,
+        rangeStart: liveNow.subtract(const Duration(hours: 1)),
         now: liveNow,
       ));
 
       expect(result, hasLength(1),
-          reason: 'a row whose start is after the captured rangeEnd but '
-              'before the live now MUST appear in derived periods');
+          reason:
+              'a row whose start is before live now MUST appear in '
+              'derived periods regardless of when the bundle was built');
       expect(result.single.activeMembers, ['a']);
       expect(result.single.isOpenEnded, isTrue);
+    });
+
+    test(
+        'P1 regression: start-then-end after subscription — closed-session '
+        'end clamping must NOT use a captured rangeEnd', () {
+      // Concrete scenario from the field:
+      //   T0 = subscribe time
+      //   T1 = user starts a front (T1 > T0)
+      //   T2 = user ends the front (T2 > T1)
+      // Pre-fix, the bundle captured `rangeEnd = T0`. The closed-
+      // session clamp was `min(endTime, rangeEnd) = min(T2, T0) = T0`.
+      // That clamped end was BEFORE the session's own startTime, so
+      // the row was dropped by `!clampedEnd.isAfter(clampedStart)`.
+      // User taps add → taps end → row vanishes.
+      //
+      // Post-fix, the derivation uses `now` for the upper clamp
+      // (`now` ≥ T2 since T2 just happened), so the session ends at
+      // T2 and the row appears.
+      final t0 = DateTime(2026, 4, 1, 12, 0, 0); // subscribe time
+      final t1 = t0.add(const Duration(seconds: 30)); // start front
+      // End at >2 min so the period stays out of ephemeral collapse —
+      // this test is about the clamping bug, not collapse behavior.
+      final t2 = t1.add(const Duration(minutes: 5)); // end front
+      // Live `now` after the end. (Tests the entire chain at the
+      // moment a fresh derivation runs after the end-front mutation.)
+      final liveNow = t2.add(const Duration(seconds: 1));
+
+      final result = deriveMaximalPeriods(_input(
+        sessions: [
+          _s(id: 'fresh', memberId: 'a', start: t1, end: t2),
+        ],
+        rangeStart: t0.subtract(const Duration(hours: 1)),
+        now: liveNow,
+      ));
+
+      expect(result, hasLength(1),
+          reason:
+              'session that started AND ended after subscription must '
+              'survive — the closed-session clamp is `now`, not a '
+              'captured rangeEnd');
+      expect(result.single.activeMembers, ['a']);
+      expect(result.single.start, t1);
+      expect(result.single.end, t2);
+      expect(result.single.isOpenEnded, isFalse);
     });
 
     test('session 1ms before now is included (boundary case)', () {

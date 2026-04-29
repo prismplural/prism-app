@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path/path.dart' as p;
 import 'package:prism_sync/generated/api.dart' as ffi;
+import 'package:drift/drift.dart' show TableUpdate;
 import 'package:prism_sync_drift/prism_sync_drift.dart';
 
 import 'package:prism_plurality/core/constants/app_constants.dart';
@@ -2329,6 +2330,39 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
         await db.customStatement('DELETE FROM plural_kit_sync_state');
         await db.customStatement('DELETE FROM system_settings');
         await db.customStatement('DELETE FROM sync_quarantine');
+      });
+      // customStatement bypasses Drift's typed-write notification.
+      // A remote-revoke wipe normally triggers a full app reload, but
+      // if the app stays live after revoke (rare but possible), the
+      // frontingTableTickerProvider and any active stream queries
+      // would otherwise still reflect the pre-wipe state. Notify
+      // explicitly across every table touched above so the live UI
+      // collapses to the empty state without needing the reload.
+      db.notifyUpdates({
+        const TableUpdate('habit_completions'),
+        const TableUpdate('habits'),
+        const TableUpdate('poll_votes'),
+        const TableUpdate('poll_options'),
+        const TableUpdate('polls'),
+        const TableUpdate('chat_messages'),
+        const TableUpdate('conversation_categories'),
+        const TableUpdate('conversations'),
+        const TableUpdate('front_session_comments'),
+        const TableUpdate('fronting_sessions'),
+        const TableUpdate('sleep_sessions'),
+        const TableUpdate('custom_field_values'),
+        const TableUpdate('custom_fields'),
+        const TableUpdate('member_group_entries'),
+        const TableUpdate('member_groups'),
+        const TableUpdate('notes'),
+        const TableUpdate('reminders'),
+        const TableUpdate('friends'),
+        const TableUpdate('sharing_requests'),
+        const TableUpdate('media_attachments'),
+        const TableUpdate('members'),
+        const TableUpdate('plural_kit_sync_state'),
+        const TableUpdate('system_settings'),
+        const TableUpdate('sync_quarantine'),
       });
       debugPrint('[SYNC] App database content wiped');
     } catch (e) {
