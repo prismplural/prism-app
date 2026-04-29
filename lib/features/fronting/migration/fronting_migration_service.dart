@@ -33,6 +33,7 @@ import 'package:prism_plurality/domain/repositories/front_session_comments_repos
 import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/features/data_management/services/data_export_service.dart';
+import 'package:prism_plurality/features/fronting/services/merge_adjacent_same_member_rows.dart';
 
 /// User-selected migration mode from the upgrade modal (5C).
 enum MigrationMode {
@@ -76,6 +77,7 @@ class MigrationResult {
     this.orphanRowsAssignedToSentinel = 0,
     this.unknownSentinelCreated = false,
     this.corruptCoFronterRowIds = const [],
+    this.adjacentMergesPerformed = 0,
     this.errorMessage,
   });
 
@@ -100,6 +102,13 @@ class MigrationResult {
   /// back to single-member migration per §6 edge cases.  Surfaced for
   /// user review.
   final List<String> corruptCoFronterRowIds;
+
+  /// Number of adjacent same-member rows folded into an earlier row by
+  /// the post-fan-out merge pass (spec §2.1 — old-shape session
+  /// boundaries become arbitrary cosmetic artifacts under the
+  /// per-member abstraction). Counts the soft-deleted "later" rows;
+  /// the surviving "earlier" row stays put with its end_time extended.
+  final int adjacentMergesPerformed;
 
   final String? errorMessage;
 }
@@ -624,6 +633,7 @@ class FrontingMigrationService {
       orphanRowsAssignedToSentinel: counters.orphanRowsAssignedToSentinel,
       unknownSentinelCreated: counters.unknownSentinelCreated,
       corruptCoFronterRowIds: counters.corruptCoFronterRowIds,
+      adjacentMergesPerformed: counters.adjacentMergesPerformed,
     );
   }
 
@@ -644,6 +654,7 @@ class FrontingMigrationService {
       orphanRowsAssignedToSentinel: counters.orphanRowsAssignedToSentinel,
       unknownSentinelCreated: counters.unknownSentinelCreated,
       corruptCoFronterRowIds: counters.corruptCoFronterRowIds,
+      adjacentMergesPerformed: counters.adjacentMergesPerformed,
       errorMessage: errorMessage,
     );
   }
@@ -684,6 +695,11 @@ class FrontingMigrationService {
 
     // upgradeAndKeep path -------------------------------------------
     final counters = _MigrationCounters();
+    // Member ids touched by SP migration / native migration / fan-out
+    // / orphan-sentinel assignment. Fed to the post-fan-out
+    // adjacent-merge pass so we don't re-scan members that the
+    // migration didn't touch.
+    final touchedMemberIds = <String>{};
 
     // Step 3: SP-imported rows.  Already 1:1 per-member; just emit a
     // v2 entity op so the new-shape sync schema picks them up.
@@ -692,6 +708,8 @@ class FrontingMigrationService {
       await frontingSessionRepository
           .updateSession(_rowToDomain(c.row));
       counters.spRowsMigrated++;
+      final mid = c.row.memberId;
+      if (mid != null) touchedMemberIds.add(mid);
     }
 
     // Step 4: native rows (normal + sleep).  Sleep keeps nullable
@@ -740,6 +758,7 @@ class FrontingMigrationService {
       // Migrate the primary row in place.
       await frontingSessionRepository.updateSession(_rowToDomain(row));
       counters.nativeRowsMigrated++;
+      touchedMemberIds.add(row.memberId!);
 
       // Skip fan-out on corrupt JSON (we already counted the row).
       if (corrupt) continue;
@@ -765,6 +784,7 @@ class FrontingMigrationService {
           ),
         );
         counters.nativeRowsExpanded++;
+        touchedMemberIds.add(coId);
       }
     }
 
@@ -825,6 +845,7 @@ class FrontingMigrationService {
         counters.unknownSentinelCreated = true;
       }
       final sentinelId = ensured.member.id;
+      touchedMemberIds.add(sentinelId);
       for (final r in orphans) {
         await frontingSessionRepository.updateSession(
           FrontingSession(
@@ -849,6 +870,17 @@ class FrontingMigrationService {
       await frontingSessionRepository.deleteSession(c.row.id);
       counters.pkRowsDeleted++;
     }
+
+    // Step 4b: adjacent-merge pass (spec §2.1). After fan-out, a
+    // continuously-fronting member may have multiple adjacent rows
+    // whose only reason for being split is that a co-fronter joined
+    // or left in the old shape — boundaries that are now arbitrary
+    // cosmetic artifacts under the per-member abstraction. Collapse
+    // them into one continuous row before sync ships them out.
+    counters.adjacentMergesPerformed = await mergeAdjacentSameMemberRows(
+      frontingSessionRepository,
+      memberIds: touchedMemberIds,
+    );
 
     // Step 9: explicitly DO NOT clear `sp_id_map` rows with
     // entityType='session'.  The SP re-importer needs the lookup.
@@ -1024,4 +1056,5 @@ class _MigrationCounters {
   int orphanRowsAssignedToSentinel = 0;
   bool unknownSentinelCreated = false;
   final List<String> corruptCoFronterRowIds = <String>[];
+  int adjacentMergesPerformed = 0;
 }

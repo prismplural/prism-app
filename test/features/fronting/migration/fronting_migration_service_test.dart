@@ -1474,6 +1474,322 @@ void main() {
         expect(result.errorMessage, contains('expected inProgress'));
       },
     );
+
+    // -------------------------------------------------------------------
+    // Adjacent-merge pass (spec §2.1) — fan-out preserves boundaries
+    // that existed in the old shape only because a co-fronter joined
+    // or left. Under the per-member abstraction those boundaries are
+    // arbitrary cosmetic artifacts. Collapse them post-fan-out.
+    // -------------------------------------------------------------------
+    test(
+      'continuous-host scenario: Zari fronts 6:42–8:50 then Aimee joins '
+      '8:50–9:07 → 1 Zari row 6:42–9:07 + 1 Aimee row 8:50–9:07',
+      () async {
+        const zari = 'zari';
+        const aimee = 'aimee';
+        for (final id in [zari, aimee]) {
+          await _seedMember(db, id, name: id);
+        }
+        // Old session A: Zari alone, 6:42 → 8:50.
+        await _seedSession(
+          db,
+          id: 'sess-a',
+          startTime: DateTime.utc(2026, 4, 1, 6, 42),
+          endTime: DateTime.utc(2026, 4, 1, 8, 50),
+          memberId: zari,
+        );
+        // Old session B: Zari + Aimee, 8:50 → 9:07 (Aimee joined).
+        await _seedSession(
+          db,
+          id: 'sess-b',
+          startTime: DateTime.utc(2026, 4, 1, 8, 50),
+          endTime: DateTime.utc(2026, 4, 1, 9, 7),
+          memberId: zari,
+          coFronterIds: jsonEncode([aimee]),
+        );
+
+        final svc = _makeService(db, exportService);
+        final result = await svc.runMigration(
+          mode: MigrationMode.upgradeAndKeep,
+          role: DeviceRole.solo,
+          shareFile: _noopShare,
+        );
+
+        expect(result.outcome, MigrationOutcome.success);
+        expect(result.adjacentMergesPerformed, 1);
+
+        final rows = await db.frontingSessionsDao.getAllSessions();
+        // 1 Zari row + 1 Aimee row = 2 rows total.
+        expect(rows, hasLength(2));
+        final zariRows = rows.where((r) => r.memberId == zari).toList();
+        expect(zariRows, hasLength(1));
+        expect(zariRows.single.startTime.toUtc(),
+            DateTime.utc(2026, 4, 1, 6, 42));
+        expect(zariRows.single.endTime?.toUtc(),
+            DateTime.utc(2026, 4, 1, 9, 7));
+        // Surviving row keeps the earlier id ('sess-a').
+        expect(zariRows.single.id, 'sess-a');
+
+        final aimeeRows = rows.where((r) => r.memberId == aimee).toList();
+        expect(aimeeRows, hasLength(1));
+        expect(aimeeRows.single.startTime.toUtc(),
+            DateTime.utc(2026, 4, 1, 8, 50));
+        expect(aimeeRows.single.endTime?.toUtc(),
+            DateTime.utc(2026, 4, 1, 9, 7));
+      },
+    );
+
+    test(
+      'three-row cascade: A→B→C all adjacent same-member collapse to 1 row',
+      () async {
+        const host = 'host';
+        await _seedMember(db, host);
+        await _seedSession(
+          db,
+          id: 'a',
+          startTime: DateTime.utc(2026, 4, 1, 6, 42),
+          endTime: DateTime.utc(2026, 4, 1, 8, 50),
+          memberId: host,
+        );
+        await _seedSession(
+          db,
+          id: 'b',
+          startTime: DateTime.utc(2026, 4, 1, 8, 50),
+          endTime: DateTime.utc(2026, 4, 1, 9, 7),
+          memberId: host,
+        );
+        await _seedSession(
+          db,
+          id: 'c',
+          startTime: DateTime.utc(2026, 4, 1, 9, 7),
+          endTime: DateTime.utc(2026, 4, 1, 9, 30),
+          memberId: host,
+        );
+
+        final svc = _makeService(db, exportService);
+        final result = await svc.runMigration(
+          mode: MigrationMode.upgradeAndKeep,
+          role: DeviceRole.solo,
+          shareFile: _noopShare,
+        );
+
+        expect(result.outcome, MigrationOutcome.success);
+        expect(result.adjacentMergesPerformed, 2);
+        final rows = await db.frontingSessionsDao.getAllSessions();
+        expect(rows, hasLength(1));
+        expect(rows.single.startTime.toUtc(),
+            DateTime.utc(2026, 4, 1, 6, 42));
+        expect(rows.single.endTime?.toUtc(),
+            DateTime.utc(2026, 4, 1, 9, 30));
+        expect(rows.single.id, 'a');
+      },
+    );
+
+    test(
+      'gap preserves separation: 5-minute gap between rows → no merge',
+      () async {
+        const host = 'host-gap';
+        await _seedMember(db, host);
+        await _seedSession(
+          db,
+          id: 'a',
+          startTime: DateTime.utc(2026, 4, 1, 6, 42),
+          endTime: DateTime.utc(2026, 4, 1, 8, 50),
+          memberId: host,
+        );
+        await _seedSession(
+          db,
+          id: 'b',
+          startTime: DateTime.utc(2026, 4, 1, 8, 55),
+          endTime: DateTime.utc(2026, 4, 1, 9, 7),
+          memberId: host,
+        );
+
+        final svc = _makeService(db, exportService);
+        final result = await svc.runMigration(
+          mode: MigrationMode.upgradeAndKeep,
+          role: DeviceRole.solo,
+          shareFile: _noopShare,
+        );
+
+        expect(result.outcome, MigrationOutcome.success);
+        expect(result.adjacentMergesPerformed, 0);
+        final rows = await db.frontingSessionsDao.getAllSessions();
+        expect(rows, hasLength(2));
+      },
+    );
+
+    test(
+      'notes concatenate when both sides are non-null after merge',
+      () async {
+        const host = 'host-notes';
+        await _seedMember(db, host);
+        // Use the customStatement path to get notes onto a row (the
+        // _seedSession helper doesn't expose a notes parameter).
+        await _seedSession(
+          db,
+          id: 'a',
+          startTime: DateTime.utc(2026, 4, 1, 6, 42),
+          endTime: DateTime.utc(2026, 4, 1, 8, 50),
+          memberId: host,
+        );
+        await _seedSession(
+          db,
+          id: 'b',
+          startTime: DateTime.utc(2026, 4, 1, 8, 50),
+          endTime: DateTime.utc(2026, 4, 1, 9, 7),
+          memberId: host,
+        );
+        await db.customStatement(
+          "UPDATE fronting_sessions SET notes = 'morning' WHERE id = 'a'",
+        );
+        await db.customStatement(
+          "UPDATE fronting_sessions SET notes = 'post-meeting' WHERE id = 'b'",
+        );
+
+        final svc = _makeService(db, exportService);
+        final result = await svc.runMigration(
+          mode: MigrationMode.upgradeAndKeep,
+          role: DeviceRole.solo,
+          shareFile: _noopShare,
+        );
+
+        expect(result.outcome, MigrationOutcome.success);
+        expect(result.adjacentMergesPerformed, 1);
+        final rows = await db.frontingSessionsDao.getAllSessions();
+        expect(rows, hasLength(1));
+        expect(rows.single.notes, 'morning\n\npost-meeting');
+      },
+    );
+
+    test(
+      'open-ended merge: B is currently fronting (end_time NULL) → '
+      'merged row stays open-ended',
+      () async {
+        const host = 'host-open';
+        await _seedMember(db, host);
+        await _seedSession(
+          db,
+          id: 'a',
+          startTime: DateTime.utc(2026, 4, 1, 6, 42),
+          endTime: DateTime.utc(2026, 4, 1, 8, 50),
+          memberId: host,
+        );
+        await _seedSession(
+          db,
+          id: 'b',
+          startTime: DateTime.utc(2026, 4, 1, 8, 50),
+          endTime: null,
+          memberId: host,
+        );
+
+        final svc = _makeService(db, exportService);
+        final result = await svc.runMigration(
+          mode: MigrationMode.upgradeAndKeep,
+          role: DeviceRole.solo,
+          shareFile: _noopShare,
+        );
+
+        expect(result.outcome, MigrationOutcome.success);
+        expect(result.adjacentMergesPerformed, 1);
+        final rows = await db.frontingSessionsDao.getAllSessions();
+        expect(rows, hasLength(1));
+        expect(rows.single.endTime, isNull);
+        expect(rows.single.startTime.toUtc(),
+            DateTime.utc(2026, 4, 1, 6, 42));
+      },
+    );
+
+    test(
+      'sleep rows are not merged into normal rows even when boundaries touch',
+      () async {
+        const host = 'host-sleep';
+        await _seedMember(db, host);
+        // Normal row 6:42 → 8:50.
+        await _seedSession(
+          db,
+          id: 'normal',
+          startTime: DateTime.utc(2026, 4, 1, 6, 42),
+          endTime: DateTime.utc(2026, 4, 1, 8, 50),
+          memberId: host,
+        );
+        // Sleep row 8:50 → 9:07 — adjacent to normal but session_type = 1.
+        await _seedSession(
+          db,
+          id: 'sleep',
+          startTime: DateTime.utc(2026, 4, 1, 8, 50),
+          endTime: DateTime.utc(2026, 4, 1, 9, 7),
+          memberId: host,
+          sessionType: 1,
+        );
+
+        final svc = _makeService(db, exportService);
+        final result = await svc.runMigration(
+          mode: MigrationMode.upgradeAndKeep,
+          role: DeviceRole.solo,
+          shareFile: _noopShare,
+        );
+
+        expect(result.outcome, MigrationOutcome.success);
+        expect(result.adjacentMergesPerformed, 0);
+        final rows = await db.frontingSessionsDao.getAllSessions();
+        expect(rows, hasLength(2));
+      },
+    );
+
+    test(
+      'multi-member sanity: only same-member adjacent rows merge; the '
+      'other member\'s separate row stays untouched',
+      () async {
+        const zari = 'z';
+        const aimee = 'a';
+        for (final id in [zari, aimee]) {
+          await _seedMember(db, id, name: id);
+        }
+        // Two old rows that fan out into Zari×2 + Aimee×1.
+        await _seedSession(
+          db,
+          id: 'sess-a',
+          startTime: DateTime.utc(2026, 4, 1, 6, 42),
+          endTime: DateTime.utc(2026, 4, 1, 8, 50),
+          memberId: zari,
+        );
+        await _seedSession(
+          db,
+          id: 'sess-b',
+          startTime: DateTime.utc(2026, 4, 1, 8, 50),
+          endTime: DateTime.utc(2026, 4, 1, 9, 7),
+          memberId: zari,
+          coFronterIds: jsonEncode([aimee]),
+        );
+        // A separate non-adjacent Aimee row much later: must stay as-is.
+        await _seedSession(
+          db,
+          id: 'aimee-later',
+          startTime: DateTime.utc(2026, 4, 1, 14),
+          endTime: DateTime.utc(2026, 4, 1, 15),
+          memberId: aimee,
+        );
+
+        final svc = _makeService(db, exportService);
+        final result = await svc.runMigration(
+          mode: MigrationMode.upgradeAndKeep,
+          role: DeviceRole.solo,
+          shareFile: _noopShare,
+        );
+
+        expect(result.outcome, MigrationOutcome.success);
+        // Only Zari's rows merge.
+        expect(result.adjacentMergesPerformed, 1);
+        final rows = await db.frontingSessionsDao.getAllSessions();
+        // 1 Zari + 1 Aimee fan-out + 1 Aimee later = 3 rows.
+        expect(rows, hasLength(3));
+        final aimeeRows =
+            rows.where((r) => r.memberId == aimee).toList();
+        expect(aimeeRows, hasLength(2));
+        expect(rows.where((r) => r.memberId == zari), hasLength(1));
+      },
+    );
   });
 }
 
