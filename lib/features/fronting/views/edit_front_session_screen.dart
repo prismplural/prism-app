@@ -243,7 +243,9 @@ class _EditFrontSessionScreenState
       final result = await changeExecutor.execute(allChanges);
       result.when(
         success: (_) {
-          invalidateFrontingProviders(ref);
+          // Drift table-watch + frontingTableTickerProvider rebuild
+          // every dependent provider on the fronting_sessions write —
+          // no explicit invalidation required.
           // Fire-and-forget rescan to update the issue banner
           triggerPostEditRescan(
             ref,

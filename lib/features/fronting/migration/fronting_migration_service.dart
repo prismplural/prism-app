@@ -18,6 +18,7 @@ library;
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:drift/drift.dart' show TableUpdate;
 import 'package:flutter/foundation.dart' show immutable;
 import 'package:path_provider/path_provider.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
@@ -867,6 +868,15 @@ class FrontingMigrationService {
     // happens after the transaction commits.
     await db.customStatement('DELETE FROM fronting_sessions');
     await db.customStatement('DELETE FROM front_session_comments');
+    // customStatement bypasses Drift's typed-write notification, so live
+    // streams (and the frontingTableTickerProvider) wouldn't see this
+    // truncation. The migration is followed by a full app reload, so
+    // the live UI doesn't actually observe the intermediate state — but
+    // we notify defensively in case a future caller skips the reload.
+    db.notifyUpdates({
+      const TableUpdate('fronting_sessions'),
+      const TableUpdate('front_session_comments'),
+    });
     return _MigrationCounters();
   }
 

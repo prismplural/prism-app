@@ -274,13 +274,13 @@ class _PeriodTile extends ConsumerWidget {
     final result = await changeExecutor.execute(changes);
     return result.when(
       success: (_) {
-        invalidateFrontingProviders(ref);
+        // Drift table-watch + frontingTableTickerProvider cover the
+        // dependent providers; only the post-edit rescan stays explicit.
         triggerPostEditRescan(
           ref,
           sessionStart: session.startTime,
           sessionEnd: session.endTime,
         );
-        ref.invalidate(frontingHistoryProvider);
         return true;
       },
       failure: (error) {

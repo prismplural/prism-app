@@ -64,7 +64,8 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
         frontingMemberId: _selectedMemberId,
       );
       result.when(success: (_) {}, failure: (failure) => throw failure);
-      invalidateFrontingProviders(ref);
+      // Drift table-watch + frontingTableTickerProvider rebuild
+      // dependent providers on the fronting_sessions write.
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (mounted) PrismToast.error(context, message: e.toString());
@@ -79,7 +80,8 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
       await ref
           .read(sleepNotifierProvider.notifier)
           .endSleep(widget.session.id);
-      invalidateFrontingProviders(ref);
+      // Drift table-watch + frontingTableTickerProvider rebuild
+      // dependent providers on the fronting_sessions write.
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (mounted) PrismToast.error(context, message: e.toString());
