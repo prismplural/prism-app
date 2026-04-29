@@ -8,6 +8,7 @@ import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/fronting/utils/member_frequency_sort.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/utils/animations.dart';
@@ -135,20 +136,29 @@ class _QuickFrontButton extends ConsumerStatefulWidget {
 class _QuickFrontButtonState extends ConsumerState<_QuickFrontButton> {
   bool _isPressed = false;
 
-  void _onTap() {
-    unawaited(_toggleFronting());
+  void _onTap(FrontStartBehavior pref) {
+    unawaited(_toggleFronting(pref));
   }
 
-  Future<void> _toggleFronting() async {
+  Future<void> _toggleFronting(FrontStartBehavior pref) async {
     Haptics.light();
     try {
       final notifier = ref.read(frontingNotifierProvider.notifier);
       if (widget.isFronting) {
+        // Tapping an already-fronting member always ends them, regardless of
+        // the `quick_front_default_behavior` preference. The preference only
+        // affects what happens when starting a non-fronting member.
         await notifier.endFronting([widget.member.id]);
       } else {
-        // Single-member start — passes [memberId] so exactly one session row
-        // is created. Use .sessions.single if you need the result.
-        await notifier.startFronting([widget.member.id]);
+        switch (pref) {
+          case FrontStartBehavior.additive:
+            // Single-member start — exactly one session row is created.
+            await notifier.startFronting([widget.member.id]);
+          case FrontStartBehavior.replace:
+            // Atomic: ends all current normal fronts AND starts this member
+            // in one transaction with a single captured `now`.
+            await notifier.replaceFronting([widget.member.id]);
+        }
       }
       if (mounted) Haptics.success();
     } catch (e) {
@@ -169,6 +179,16 @@ class _QuickFrontButtonState extends ConsumerState<_QuickFrontButton> {
         ? AppColors.fromHex(member.customColorHex!)
         : theme.colorScheme.primary;
 
+    // Watch the persisted default for the non-fronting tap path. Watching
+    // (rather than reading on tap) ensures the StreamProvider is subscribed
+    // before the user taps — otherwise the first tap may fire while the
+    // stream is still in `AsyncLoading`, silently falling back to additive
+    // even when the synced setting says replace.
+    final pref = ref
+            .watch(systemSettingsProvider)
+            .whenOrNull(data: (s) => s.quickFrontDefaultBehavior) ??
+        FrontStartBehavior.additive;
+
     return Semantics(
       button: true,
       enabled: true,
@@ -177,7 +197,7 @@ class _QuickFrontButtonState extends ConsumerState<_QuickFrontButton> {
         onTapDown: (_) => setState(() => _isPressed = true),
         onTapUp: (_) {
           setState(() => _isPressed = false);
-          _onTap();
+          _onTap(pref);
         },
         onTapCancel: () => setState(() => _isPressed = false),
         child: AnimatedScale(

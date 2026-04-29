@@ -141,6 +141,33 @@ class FrontingNotifier extends AsyncNotifier<void> {
     _invalidateDerivedHistory();
   }
 
+  /// Atomically ends all currently-active normal fronts AND starts a session
+  /// for each member in [memberIds] in one transaction.
+  ///
+  /// Used by the add-front sheet's "replace" mode and quick-front's replace
+  /// mode (when `quick_front_default_behavior == replace`). See
+  /// [FrontingMutationService.replaceFronting] for the atomicity contract.
+  Future<void> replaceFronting(
+    List<String> memberIds, {
+    FrontConfidence? confidence,
+    String? notes,
+  }) async {
+    final result = await _unwrapMutation(
+      ref.read(frontingMutationServiceProvider).replaceFronting(
+        memberIds,
+        confidence: confidence,
+        notes: notes,
+      ),
+    );
+    for (final session in result.sessions) {
+      _invalidateMemberStats(session.memberId);
+    }
+    for (final id in result.previousMemberIds) {
+      _invalidateMemberStats(id);
+    }
+    _invalidateDerivedHistory();
+  }
+
   /// Ends active fronting sessions for each member in [memberIds].
   Future<void> endFronting(List<String> memberIds) async {
     await _unwrap(

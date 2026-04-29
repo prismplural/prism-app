@@ -2299,6 +2299,54 @@
   "@frontingTimelineIssuesReview": {
     "description": "Button label in timeline issues banner"
   },
+  "frontingAlwaysPresentLabel": "Always present · {duration}",
+  "@frontingAlwaysPresentLabel": {
+    "description": "Subtitle on the pinned 'always-present' header at the top of the home screen. The duration placeholder is a pre-formatted localized string like '2 weeks' or '3 hours'.",
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "frontingAlwaysPresentSemantics": "Always-present fronters: {names}, {duration}",
+  "@frontingAlwaysPresentSemantics": {
+    "description": "Single combined screen-reader announcement for the always-present pinned header. Names is a comma+ampersand-joined member list; duration is the same pre-formatted string used in the visible subtitle.",
+    "placeholders": {
+      "names": {
+        "type": "String"
+      },
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "frontingAlwaysPresentDurationWeeks": "{weeks, plural, =1{1 week} other{{weeks} weeks}}",
+  "@frontingAlwaysPresentDurationWeeks": {
+    "description": "Duration formatted in whole weeks for the always-present header.",
+    "placeholders": {
+      "weeks": {
+        "type": "int"
+      }
+    }
+  },
+  "frontingAlwaysPresentDurationDays": "{days, plural, =1{1 day} other{{days} days}}",
+  "@frontingAlwaysPresentDurationDays": {
+    "description": "Duration formatted in whole days for the always-present header (used when under one week).",
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "frontingAlwaysPresentDurationHours": "{hours, plural, =1{1 hour} other{{hours} hours}}",
+  "@frontingAlwaysPresentDurationHours": {
+    "description": "Duration formatted in whole hours for the always-present header (used when under one day, only reachable for explicit-always-fronting members whose session just started).",
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
   "frontingMenuWakeUpAs": "Wake Up As...",
   "@frontingMenuWakeUpAs": {
     "description": "Menu item to wake up and start fronting as a specific member"
@@ -2440,6 +2488,14 @@
   "frontingSelectFronter": "Select Fronter",
   "@frontingSelectFronter": {
     "description": "Section header when selecting the primary fronter"
+  },
+  "frontingAddFrontModeAdditive": "Add as co-fronter",
+  "@frontingAddFrontModeAdditive": {
+    "description": "Add-front sheet segmented control: additive mode (joins existing fronts)"
+  },
+  "frontingAddFrontModeReplace": "Replace current",
+  "@frontingAddFrontModeReplace": {
+    "description": "Add-front sheet segmented control: replace mode (ends existing fronts, starts new)"
   },
   "frontingSelectMember": "Select {term}",
   "@frontingSelectMember": {
@@ -8260,5 +8316,69 @@
   "pkFileImportSwitchesSkippedLabel": "Switches skipped (already present)",
   "@pkFileImportSwitchesSkippedLabel": {
     "description": "PluralKit file import result row: count of switches that were skipped because they already existed. 'Switches' is PluralKit-internal vocabulary."
+  },
+  "settingsFrontingSessionDisplaySectionTitle": "Session display & front behavior",
+  "@settingsFrontingSessionDisplaySectionTitle": {
+    "description": "Section header on the fronting feature settings screen, grouping the list view-mode preference and the add-front / quick-front default behavior preferences."
+  },
+  "settingsFrontingListViewModeLabel": "Session list view",
+  "@settingsFrontingListViewModeLabel": {
+    "description": "Row title for the home-screen session list view-mode preference (combined periods / per-member rows / timeline)."
+  },
+  "settingsFrontingListViewModeCombinedPeriods": "Combined periods",
+  "@settingsFrontingListViewModeCombinedPeriods": {
+    "description": "Option label: render the home-screen session list as combined periods (avatar stacks per unique fronter group)."
+  },
+  "settingsFrontingListViewModeCombinedPeriodsDescription": "Avatar stacks for each unique fronter group",
+  "@settingsFrontingListViewModeCombinedPeriodsDescription": {
+    "description": "Option subtitle for the combined-periods session list view mode."
+  },
+  "settingsFrontingListViewModePerMemberRows": "Per-member rows",
+  "@settingsFrontingListViewModePerMemberRows": {
+    "description": "Option label: render the home-screen session list as one row per fronter session, side-by-side."
+  },
+  "settingsFrontingListViewModePerMemberRowsDescription": "One row per fronter session, side-by-side",
+  "@settingsFrontingListViewModePerMemberRowsDescription": {
+    "description": "Option subtitle for the per-member-rows session list view mode."
+  },
+  "settingsFrontingListViewModeTimeline": "Timeline",
+  "@settingsFrontingListViewModeTimeline": {
+    "description": "Option label: render the home-screen session list as a timeline / bar chart over time."
+  },
+  "settingsFrontingListViewModeTimelineDescription": "Bar chart view of fronting over time",
+  "@settingsFrontingListViewModeTimelineDescription": {
+    "description": "Option subtitle for the timeline session list view mode."
+  },
+  "settingsAddFrontDefaultBehaviorLabel": "When adding a new front",
+  "@settingsAddFrontDefaultBehaviorLabel": {
+    "description": "Row title for the default behavior preference when starting a new front from the add-front sheet."
+  },
+  "settingsAddFrontDefaultBehaviorAdditive": "Add as co-fronter",
+  "@settingsAddFrontDefaultBehaviorAdditive": {
+    "description": "Option label: starting a new front leaves any existing fronts in place; the new member joins as a co-fronter."
+  },
+  "settingsAddFrontDefaultBehaviorAdditiveDescription": "New fronts join existing ones",
+  "@settingsAddFrontDefaultBehaviorAdditiveDescription": {
+    "description": "Option subtitle for the additive add-front default behavior."
+  },
+  "settingsAddFrontDefaultBehaviorReplace": "Replace current fronters",
+  "@settingsAddFrontDefaultBehaviorReplace": {
+    "description": "Option label: starting a new front ends all existing fronts before the new member begins."
+  },
+  "settingsAddFrontDefaultBehaviorReplaceDescription": "End all current fronts before starting new ones",
+  "@settingsAddFrontDefaultBehaviorReplaceDescription": {
+    "description": "Option subtitle for the replace add-front default behavior."
+  },
+  "settingsQuickFrontDefaultBehaviorLabel": "When using quick front",
+  "@settingsQuickFrontDefaultBehaviorLabel": {
+    "description": "Row title for the default behavior preference when triggering quick front (the per-member quick-action shortcut)."
+  },
+  "settingsQuickFrontDefaultBehaviorAdditive": "Add as co-fronter",
+  "@settingsQuickFrontDefaultBehaviorAdditive": {
+    "description": "Option label: quick front leaves existing fronts in place; the tapped member joins as a co-fronter."
+  },
+  "settingsQuickFrontDefaultBehaviorReplace": "Replace current fronters",
+  "@settingsQuickFrontDefaultBehaviorReplace": {
+    "description": "Option label: quick front ends all existing fronts before the tapped member begins."
   }
 }
