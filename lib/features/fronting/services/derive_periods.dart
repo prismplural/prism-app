@@ -1,12 +1,17 @@
 import 'package:flutter/foundation.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 
-/// Default ephemeral-member collapse threshold (§2.3).
+/// Default ephemeral-member collapse threshold.
 ///
-/// Periods shorter than this don't get their own row; they fold into the
-/// surrounding period as a trailing "+Sam briefly" chip. Configurable per
-/// user in 1B; for 1A this is hardcoded.
-const Duration kEphemeralThreshold = Duration(minutes: 2);
+/// Periods shorter than this fold into the surrounding period as a
+/// trailing "+Sam briefly" chip rather than getting their own row. Set
+/// to [Duration.zero] in 1B post-smoke-test: short fronts are
+/// first-class — a 30-second pop-in by a headmate gets a full row, not
+/// a chip that hides them. The collapse code path is preserved (so a
+/// non-zero override is still meaningful via
+/// [DerivePeriodsInput.ephemeralThreshold]) but the default is "never
+/// collapse."
+const Duration kEphemeralThreshold = Duration.zero;
 
 /// A maximal time span during which the active fronter set didn't change.
 ///

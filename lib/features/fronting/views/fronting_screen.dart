@@ -12,11 +12,13 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/migration/widgets/fronting_upgrade_banner.dart';
+import 'package:prism_plurality/features/fronting/providers/always_present_members_provider.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart';
 import 'package:prism_plurality/features/fronting/views/add_front_session_sheet.dart';
 import 'package:prism_plurality/features/fronting/views/empty_system_view.dart';
 import 'package:prism_plurality/features/fronting/views/start_sleep_sheet.dart';
+import 'package:prism_plurality/features/fronting/widgets/always_present_header.dart';
 import 'package:prism_plurality/features/fronting/widgets/quick_front_section.dart';
 import 'package:prism_plurality/features/fronting/widgets/session_history_list.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
@@ -214,7 +216,14 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
       tooltip: isTimelineView
           ? context.l10n.frontingListView
           : context.l10n.frontingTimelineView,
-      onPressed: () => ref.read(timelineViewActiveProvider.notifier).toggle(),
+      onPressed: () {
+        // Latch before toggling: a user tap during the window before
+        // `systemSettingsProvider` first emits would otherwise be
+        // overwritten by `_maybeInitializeToggleFromPref` on the next
+        // build. The user's explicit choice wins from this point on.
+        _toggleInitialized = true;
+        ref.read(timelineViewActiveProvider.notifier).toggle();
+      },
     );
   }
 
@@ -225,6 +234,13 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
     FrontingSession? sleepSession,
   ) {
     final showQuickFront = ref.watch(showQuickFrontProvider);
+    // 1B: pinned glass "Always-present" header. Watching the provider
+    // here (rather than only inside the widget) lets the sliver's
+    // [AlwaysPresentSliverDelegate] collapse its extent to 0 when no
+    // member qualifies — without this, an empty header would still
+    // reserve scroll space above the rest of the home content.
+    final alwaysPresentCount =
+        ref.watch(alwaysPresentMembersProvider).value?.length ?? 0;
     return CustomScrollView(
       controller: _scrollController,
       slivers: [
@@ -237,6 +253,13 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
               sleepSession: sleepSession,
             ),
           ),
+        ),
+
+        // 1B: pinned glass header for always-present fronters. Stays
+        // pinned below the top bar; collapses to zero height when empty.
+        SliverPersistentHeader(
+          pinned: true,
+          delegate: AlwaysPresentSliverDelegate(count: alwaysPresentCount),
         ),
 
         // 1. Quick Front (shown based on user setting)

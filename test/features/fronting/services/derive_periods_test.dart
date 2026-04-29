@@ -131,15 +131,22 @@ void main() {
     });
 
     test('ephemeral visitor in 2-hour period collapses to brief', () {
+      // Default `ephemeralThreshold` is `Duration.zero` post-1B
+      // smoke-test (every session gets its own row). This test
+      // explicitly exercises the legacy collapse path with a 2-min
+      // threshold so the brief-visitor code stays covered.
       final t0 = DateTime(2026, 4, 1, 10);
       final t3 = DateTime(2026, 4, 1, 12); // 2 hours
       final tBriefStart = DateTime(2026, 4, 1, 11);
       final tBriefEnd = DateTime(2026, 4, 1, 11, 0, 30); // 30s
 
-      final result = deriveMaximalPeriods(_input(sessions: [
-        _s(id: 'a', memberId: 'a', start: t0, end: t3),
-        _s(id: 'b', memberId: 'b', start: tBriefStart, end: tBriefEnd),
-      ]));
+      final result = deriveMaximalPeriods(_input(
+        sessions: [
+          _s(id: 'a', memberId: 'a', start: t0, end: t3),
+          _s(id: 'b', memberId: 'b', start: tBriefStart, end: tBriefEnd),
+        ],
+        ephemeralThreshold: const Duration(minutes: 2),
+      ));
 
       // The 30s middle slice (active set {a,b}) is collapsed; only one
       // long period for {a} survives, with b as a brief visitor.
@@ -150,6 +157,38 @@ void main() {
       expect(result[0].briefVisitors.first.duration,
           tBriefEnd.difference(tBriefStart));
     });
+
+    test(
+      'default threshold (Duration.zero post-1B): every session gets its '
+      'own row — no brief-visitor collapse',
+      () {
+        // Same shape as above but using the production default. Pins
+        // the post-smoke-test behavior: a 30s pop-in by `b` during
+        // `a`'s 2h front renders as three rows (a / a+b / a), not one
+        // row with a "+b briefly" chip.
+        final t0 = DateTime(2026, 4, 1, 10);
+        final t3 = DateTime(2026, 4, 1, 12);
+        final tBriefStart = DateTime(2026, 4, 1, 11);
+        final tBriefEnd = DateTime(2026, 4, 1, 11, 0, 30);
+
+        final result = deriveMaximalPeriods(_input(sessions: [
+          _s(id: 'a', memberId: 'a', start: t0, end: t3),
+          _s(id: 'b', memberId: 'b', start: tBriefStart, end: tBriefEnd),
+        ]));
+
+        expect(result, hasLength(3),
+            reason:
+                'no collapse: three periods — {a}, {a,b}, {a} — surface '
+                'the short visit as its own row');
+        expect(result[0].activeMembers, ['a']);
+        expect(result[1].activeMembers.toSet(), {'a', 'b'});
+        expect(result[2].activeMembers, ['a']);
+        for (final p in result) {
+          expect(p.briefVisitors, isEmpty,
+              reason: 'brief-visitor list stays empty under zero threshold');
+        }
+      },
+    );
 
     test('open-ended session extends to now', () {
       final t0 = DateTime(2026, 4, 1, 10);
@@ -444,8 +483,10 @@ void main() {
         () {
       // Codex P2 fix: the previous collapse skipped every short
       // period when there were multiple in a row, producing empty
-      // output for an all-short history. We must emit at least one
-      // row covering the span with everyone as briefs.
+      // output for an all-short history. With a non-zero threshold,
+      // we must emit at least one row covering the span with everyone
+      // as briefs. Default threshold is zero post-1B; this test pins
+      // the legacy code path with an explicit 2-min override.
       final t0 = DateTime(2026, 4, 1, 10);
       final result = deriveMaximalPeriods(_input(
         sessions: [
@@ -468,6 +509,7 @@ void main() {
             end: t0.add(const Duration(seconds: 40)),
           ),
         ],
+        ephemeralThreshold: const Duration(minutes: 2),
       ));
 
       // All three are below the 2-minute threshold; expect a single
@@ -606,8 +648,9 @@ void main() {
         'all-short input with all closed sessions still emits one '
         'combined row (existing behavior preserved)', () {
       // Regression-pin: the all-short shortcut still fires when no
-      // session is open. (Same as the existing "cascading shorts"
-      // test, but expressed as a property of the open-guard fix.)
+      // session is open and the threshold is non-zero. Same as the
+      // "cascading shorts" test but expressed as a property of the
+      // open-guard fix.
       final t0 = DateTime(2026, 4, 1, 10);
       final result = deriveMaximalPeriods(_input(
         sessions: [
@@ -624,6 +667,7 @@ void main() {
             end: t0.add(const Duration(seconds: 25)),
           ),
         ],
+        ephemeralThreshold: const Duration(minutes: 2),
       ));
       expect(result, hasLength(1));
       expect(result[0].activeMembers, isEmpty,

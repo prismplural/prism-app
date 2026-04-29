@@ -18,7 +18,6 @@ import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
 import 'package:prism_plurality/features/fronting/providers/derived_periods_provider.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
-import 'package:prism_plurality/features/fronting/providers/timeline_providers.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/fronting/providers/always_present_members_provider.dart';
 import 'package:prism_plurality/features/fronting/services/derive_periods.dart';
@@ -874,8 +873,13 @@ void main() {
     );
 
     testWidgets(
-      'timeline mode renders the TimelineView widget',
+      'timeline pref falls back to combinedPeriods inside SessionHistoryList',
       (tester) async {
+        // The screen-level toggle (`timelineViewActiveProvider`) owns
+        // timeline rendering. When this widget is invoked we are by
+        // definition on the list path, so the timeline pref value must
+        // collapse to combinedPeriods — otherwise the toggle and the
+        // pref fight each other when both resolve to different views.
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
@@ -886,13 +890,11 @@ void main() {
                   ),
                 ),
               ),
-              // Empty timeline data → no member rows. (TimelineView still
-              // installs a 30s `Timer.periodic` in initState; the widget
-              // tree disposal at the test boundary cancels it.)
-              timelineRowsProvider.overrideWith(
-                (ref) => const AsyncValue.data(
-                  TimelineData(memberRows: [], sleepSessions: []),
-                ),
+              derivedPeriodsProvider.overrideWith(
+                (ref) => const AsyncValue<List<FrontingPeriod>>.data([]),
+              ),
+              unifiedHistoryProvider.overrideWith(
+                (ref) => Stream.value(const <FrontingSession>[]),
               ),
             ],
             // ignore: prefer_const_constructors
@@ -906,20 +908,9 @@ void main() {
           ),
         );
         await tester.pump();
-        expect(find.byType(TimelineView), findsOneWidget);
-
-        // Detach the widget tree, then drain microtasks/zero-delay
-        // timers that Drift's `StreamQueryStore.markAsClosed` schedules
-        // in the close path. Without runAsync, those zero-delay timers
-        // are scheduled inside FakeAsync and trip the invariant check.
-        await tester.pumpWidget(const SizedBox.shrink());
-        await tester.runAsync(() async {});
+        // No inline TimelineView — that path was removed in 1B fixups.
+        expect(find.byType(TimelineView), findsNothing);
       },
-      // Pending Drift stream-close timers leak into the FakeAsync
-      // zone and trip the binding invariant. Skip is preferred over
-      // unstable timer-draining tricks. The contract is exercised in
-      // a non-widget unit test below.
-      skip: true,
     );
 
   });

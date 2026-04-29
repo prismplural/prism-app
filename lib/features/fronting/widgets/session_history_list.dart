@@ -20,7 +20,6 @@ import 'package:prism_plurality/features/fronting/utils/period_day_grouping.dart
 import 'package:prism_plurality/features/fronting/utils/session_day_grouping.dart';
 import 'package:prism_plurality/features/fronting/utils/sleep_quality_l10n.dart';
 import 'package:prism_plurality/features/fronting/widgets/fronting_duration_text.dart';
-import 'package:prism_plurality/features/fronting/widgets/timeline_view.dart';
 import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/extensions/datetime_extensions.dart';
@@ -30,6 +29,7 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/utils/animations.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/date_chip.dart';
+import 'package:prism_plurality/shared/widgets/group_member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_grouped_section_card.dart';
@@ -43,18 +43,17 @@ import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 ///    avatar stack — the §2.3 / §4.6 1A behavior, unchanged.
 ///  * `perMemberRows`: one row per raw per-member session. Always-present
 ///    members are filtered out date-scoped — see [_PerMemberRowsList].
-///  * `timeline`: renders [TimelineView] inline as a sliver.
+///  * `timeline`: handled at the home-screen level by
+///    `timelineViewActiveProvider`, which swaps in the full timeline view.
+///    When this widget is invoked we are by definition on the list path,
+///    so the timeline value is treated as `combinedPeriods` here — its
+///    only effect on this widget is seeding the screen-level toggle to
+///    timeline on first mount.
 class SessionHistoryList extends ConsumerWidget {
   const SessionHistoryList({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // The preference is the source of truth for which inline mode to
-    // render. The home screen's `timelineViewActiveProvider` is a separate
-    // toggle that, when true, swaps the list out for the timeline view at
-    // the screen level — that path doesn't reach here, so we only branch
-    // between the two list modes (and the inline timeline fallback for
-    // the rare case the toggle is unavailable, e.g., embedded contexts).
     final viewMode = ref.watch(systemSettingsProvider).whenOrNull(
               data: (s) => s.frontingListViewMode,
             ) ??
@@ -62,13 +61,10 @@ class SessionHistoryList extends ConsumerWidget {
 
     switch (viewMode) {
       case FrontingListViewMode.timeline:
-        return const SliverToBoxAdapter(
-          child: SizedBox(height: 600, child: TimelineView()),
-        );
-      case FrontingListViewMode.perMemberRows:
-        return const _PerMemberRowsList();
       case FrontingListViewMode.combinedPeriods:
         return const _CombinedPeriodsList();
+      case FrontingListViewMode.perMemberRows:
+        return const _PerMemberRowsList();
     }
   }
 }
@@ -456,7 +452,14 @@ class _PerMemberSessionTile extends ConsumerWidget {
               color: theme.colorScheme.onSurfaceVariant,
             ),
           )
-        : _BorderedAvatar(member: member);
+        : MemberAvatar(
+            avatarImageData: member.avatarImageData,
+            memberName: member.name,
+            emoji: member.emoji,
+            customColorEnabled: member.customColorEnabled,
+            customColorHex: member.customColorHex,
+            size: 40,
+          );
 
     final showLiveTimer = slice.isActive && !slice.continuesNextDay;
     final durationColor = isLatest ? accentColor : null;
@@ -738,7 +741,18 @@ class _PeriodTile extends ConsumerWidget {
               color: theme.colorScheme.onSurfaceVariant,
             ),
           )
-        : _AvatarStack(members: activeMemberObjs);
+        : GroupMemberAvatar(
+            size: 40,
+            members: [
+              for (final m in activeMemberObjs)
+                GroupAvatarMember(
+                  avatarImageData: m.avatarImageData,
+                  emoji: m.emoji,
+                  customColorEnabled: m.customColorEnabled,
+                  customColorHex: m.customColorHex,
+                ),
+            ],
+          );
 
     final showLiveTimer = slice.isLiveOpenEnded;
     final durationColor = isLatest ? accentColor : null;
@@ -913,100 +927,6 @@ class _PeriodTile extends ConsumerWidget {
               ),
             )
           : tileContent,
-    );
-  }
-}
-
-/// An overlapping avatar stack (longest-active-at-period-start first leads).
-class _AvatarStack extends StatelessWidget {
-  const _AvatarStack({required this.members});
-  final List<Member> members;
-
-  static const double _avatarSize = 40;
-  static const double _overlap = 12;
-
-  @override
-  Widget build(BuildContext context) {
-    if (members.isEmpty) return const SizedBox(width: _avatarSize, height: _avatarSize);
-
-    // Cap the visible stack at 3 to keep the leading column from
-    // overflowing the row; a "+N" pill represents the rest.
-    final visible = members.take(3).toList();
-    final extra = members.length - visible.length;
-    final stackWidth = _avatarSize +
-        (visible.length - 1) * (_avatarSize - _overlap) +
-        (extra > 0 ? (_avatarSize - _overlap) : 0);
-
-    return SizedBox(
-      width: stackWidth,
-      height: _avatarSize,
-      child: Stack(
-        children: [
-          for (var i = 0; i < visible.length; i++)
-            Positioned(
-              left: i * (_avatarSize - _overlap),
-              child: _BorderedAvatar(member: visible[i]),
-            ),
-          if (extra > 0)
-            Positioned(
-              left: visible.length * (_avatarSize - _overlap),
-              child: _ExtraCountChip(count: extra),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _BorderedAvatar extends StatelessWidget {
-  const _BorderedAvatar({required this.member});
-  final Member member;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(
-          color: theme.colorScheme.surface,
-          width: 2,
-        ),
-      ),
-      child: MemberAvatar(
-        avatarImageData: member.avatarImageData,
-        memberName: member.name,
-        emoji: member.emoji,
-        customColorEnabled: member.customColorEnabled,
-        customColorHex: member.customColorHex,
-        size: 40,
-      ),
-    );
-  }
-}
-
-class _ExtraCountChip extends StatelessWidget {
-  const _ExtraCountChip({required this.count});
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: theme.colorScheme.surfaceContainerHighest,
-        border: Border.all(color: theme.colorScheme.surface, width: 2),
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        '+$count',
-        style: theme.textTheme.labelSmall?.copyWith(
-          fontWeight: FontWeight.w600,
-        ),
-      ),
     );
   }
 }
