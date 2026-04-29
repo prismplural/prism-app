@@ -1078,6 +1078,322 @@ void main() {
         expect(rows, isEmpty);
       },
     );
+
+    // -----------------------------------------------------------------
+    // Adjacent-merge pass for legacy-shape rescue (spec §2.1).
+    // Mirrors the migration's post-fan-out merge so the rescue file
+    // produces the same shape as a fresh migration.
+    // -----------------------------------------------------------------
+    test(
+      'continuous-host scenario: legacy A (Zari alone) + B (Zari + Aimee) '
+      'rescue-fan-out, then adjacent-merge collapses Zari to one row',
+      () async {
+        const zari = 'zari';
+        const aimee = 'aimee';
+        for (final m in [zari, aimee]) {
+          await memberRepo.createMember(Member(
+            id: m,
+            name: m,
+            emoji: 'X',
+            createdAt: DateTime(2026, 1, 1).toUtc(),
+          ));
+        }
+        final json = _envelope(frontSessions: [
+          {
+            'id': 'sess-a',
+            'startTime':
+                DateTime.utc(2026, 4, 1, 6, 42).toIso8601String(),
+            'endTime': DateTime.utc(2026, 4, 1, 8, 50).toIso8601String(),
+            'headmateId': zari,
+            'coFronterIds': <String>[],
+          },
+          {
+            'id': 'sess-b',
+            'startTime':
+                DateTime.utc(2026, 4, 1, 8, 50).toIso8601String(),
+            'endTime': DateTime.utc(2026, 4, 1, 9, 7).toIso8601String(),
+            'headmateId': zari,
+            'coFronterIds': [aimee],
+          },
+        ]);
+
+        await importService.importData(json);
+
+        final rows = await db.frontingSessionsDao.getAllSessions();
+        expect(rows, hasLength(2));
+        final zariRows = rows.where((r) => r.memberId == zari).toList();
+        expect(zariRows, hasLength(1));
+        expect(zariRows.single.id, 'sess-a',
+            reason: 'earlier row id survives the merge');
+        expect(zariRows.single.startTime.toUtc(),
+            DateTime.utc(2026, 4, 1, 6, 42));
+        expect(zariRows.single.endTime?.toUtc(),
+            DateTime.utc(2026, 4, 1, 9, 7));
+        final aimeeRows =
+            rows.where((r) => r.memberId == aimee).toList();
+        expect(aimeeRows, hasLength(1));
+      },
+    );
+
+    test(
+      'three-row cascade: legacy A→B→C all touching for the same headmate '
+      'collapse to one row through the rescue path',
+      () async {
+        const host = 'host';
+        await memberRepo.createMember(Member(
+          id: host,
+          name: 'Host',
+          emoji: 'H',
+          createdAt: DateTime(2026, 1, 1).toUtc(),
+        ));
+        final json = _envelope(frontSessions: [
+          {
+            'id': 'a',
+            'startTime':
+                DateTime.utc(2026, 4, 1, 6, 42).toIso8601String(),
+            'endTime': DateTime.utc(2026, 4, 1, 8, 50).toIso8601String(),
+            'headmateId': host,
+            'coFronterIds': <String>[],
+          },
+          {
+            'id': 'b',
+            'startTime':
+                DateTime.utc(2026, 4, 1, 8, 50).toIso8601String(),
+            'endTime': DateTime.utc(2026, 4, 1, 9, 7).toIso8601String(),
+            'headmateId': host,
+            'coFronterIds': <String>[],
+          },
+          {
+            'id': 'c',
+            'startTime': DateTime.utc(2026, 4, 1, 9, 7).toIso8601String(),
+            'endTime':
+                DateTime.utc(2026, 4, 1, 9, 30).toIso8601String(),
+            'headmateId': host,
+            'coFronterIds': <String>[],
+          },
+        ]);
+
+        await importService.importData(json);
+
+        final rows = await db.frontingSessionsDao.getAllSessions();
+        expect(rows, hasLength(1));
+        expect(rows.single.id, 'a');
+        expect(rows.single.startTime.toUtc(),
+            DateTime.utc(2026, 4, 1, 6, 42));
+        expect(rows.single.endTime?.toUtc(),
+            DateTime.utc(2026, 4, 1, 9, 30));
+      },
+    );
+
+    test(
+      'gap preserves separation: 5-min gap between legacy rows → no merge',
+      () async {
+        const host = 'host';
+        await memberRepo.createMember(Member(
+          id: host,
+          name: 'Host',
+          emoji: 'H',
+          createdAt: DateTime(2026, 1, 1).toUtc(),
+        ));
+        final json = _envelope(frontSessions: [
+          {
+            'id': 'a',
+            'startTime':
+                DateTime.utc(2026, 4, 1, 6, 42).toIso8601String(),
+            'endTime': DateTime.utc(2026, 4, 1, 8, 50).toIso8601String(),
+            'headmateId': host,
+            'coFronterIds': <String>[],
+          },
+          {
+            'id': 'b',
+            'startTime':
+                DateTime.utc(2026, 4, 1, 8, 55).toIso8601String(),
+            'endTime': DateTime.utc(2026, 4, 1, 9, 7).toIso8601String(),
+            'headmateId': host,
+            'coFronterIds': <String>[],
+          },
+        ]);
+
+        await importService.importData(json);
+
+        final rows = await db.frontingSessionsDao.getAllSessions();
+        expect(rows, hasLength(2));
+      },
+    );
+
+    test(
+      'notes concatenate when both legacy rows carry notes',
+      () async {
+        const host = 'host';
+        await memberRepo.createMember(Member(
+          id: host,
+          name: 'Host',
+          emoji: 'H',
+          createdAt: DateTime(2026, 1, 1).toUtc(),
+        ));
+        final json = _envelope(frontSessions: [
+          {
+            'id': 'a',
+            'startTime':
+                DateTime.utc(2026, 4, 1, 6, 42).toIso8601String(),
+            'endTime': DateTime.utc(2026, 4, 1, 8, 50).toIso8601String(),
+            'headmateId': host,
+            'coFronterIds': <String>[],
+            'notes': 'morning',
+          },
+          {
+            'id': 'b',
+            'startTime':
+                DateTime.utc(2026, 4, 1, 8, 50).toIso8601String(),
+            'endTime': DateTime.utc(2026, 4, 1, 9, 7).toIso8601String(),
+            'headmateId': host,
+            'coFronterIds': <String>[],
+            'notes': 'post-meeting',
+          },
+        ]);
+
+        await importService.importData(json);
+
+        final rows = await db.frontingSessionsDao.getAllSessions();
+        expect(rows, hasLength(1));
+        expect(rows.single.notes, 'morning\n\npost-meeting');
+      },
+    );
+
+    test(
+      'open-ended merge: B has null endTime in the legacy file → merged '
+      'row stays open-ended after rescue',
+      () async {
+        const host = 'host';
+        await memberRepo.createMember(Member(
+          id: host,
+          name: 'Host',
+          emoji: 'H',
+          createdAt: DateTime(2026, 1, 1).toUtc(),
+        ));
+        final json = _envelope(frontSessions: [
+          {
+            'id': 'a',
+            'startTime':
+                DateTime.utc(2026, 4, 1, 6, 42).toIso8601String(),
+            'endTime': DateTime.utc(2026, 4, 1, 8, 50).toIso8601String(),
+            'headmateId': host,
+            'coFronterIds': <String>[],
+          },
+          {
+            'id': 'b',
+            'startTime':
+                DateTime.utc(2026, 4, 1, 8, 50).toIso8601String(),
+            'endTime': null,
+            'headmateId': host,
+            'coFronterIds': <String>[],
+          },
+        ]);
+
+        await importService.importData(json);
+
+        final rows = await db.frontingSessionsDao.getAllSessions();
+        expect(rows, hasLength(1));
+        expect(rows.single.endTime, isNull);
+        expect(rows.single.startTime.toUtc(),
+            DateTime.utc(2026, 4, 1, 6, 42));
+      },
+    );
+
+    test(
+      'sleep rows are not merged into adjacent normal rows during rescue',
+      () async {
+        const host = 'host';
+        await memberRepo.createMember(Member(
+          id: host,
+          name: 'Host',
+          emoji: 'H',
+          createdAt: DateTime(2026, 1, 1).toUtc(),
+        ));
+        // Sleep rows arrive in the legacy `sleepSessions` array, not
+        // `frontSessions`. Build a normal legacy row touching the start
+        // of the sleep row's window. They share `member_id` but the
+        // sleep row's session_type=1 prevents the merge helper from
+        // walking over it.
+        final json = _envelope(frontSessions: [
+          {
+            'id': 'normal',
+            'startTime':
+                DateTime.utc(2026, 4, 1, 6, 42).toIso8601String(),
+            'endTime': DateTime.utc(2026, 4, 1, 8, 50).toIso8601String(),
+            'headmateId': host,
+            'coFronterIds': <String>[],
+          },
+        ], sleepSessions: [
+          {
+            'id': 'sleep-row',
+            'startTime':
+                DateTime.utc(2026, 4, 1, 8, 50).toIso8601String(),
+            'endTime': DateTime.utc(2026, 4, 1, 9, 7).toIso8601String(),
+            'quality': 0,
+            'isHealthKitImport': false,
+          },
+        ]);
+
+        await importService.importData(json);
+
+        final rows = await db.frontingSessionsDao.getAllSessions();
+        // Both rows survive — the sleep row carries session_type=1 and
+        // the merge helper's `getSessionsForMember` filters those out.
+        expect(rows, hasLength(2));
+      },
+    );
+
+    test(
+      'multi-member sanity: rescue native multi-member fans out then '
+      'merges only same-member adjacency',
+      () async {
+        const zari = 'z';
+        const aimee = 'a';
+        for (final m in [zari, aimee]) {
+          await memberRepo.createMember(Member(
+            id: m,
+            name: m,
+            emoji: 'X',
+            createdAt: DateTime(2026, 1, 1).toUtc(),
+          ));
+        }
+        final json = _envelope(frontSessions: [
+          {
+            'id': 'sess-a',
+            'startTime':
+                DateTime.utc(2026, 4, 1, 6, 42).toIso8601String(),
+            'endTime': DateTime.utc(2026, 4, 1, 8, 50).toIso8601String(),
+            'headmateId': zari,
+            'coFronterIds': <String>[],
+          },
+          {
+            'id': 'sess-b',
+            'startTime':
+                DateTime.utc(2026, 4, 1, 8, 50).toIso8601String(),
+            'endTime': DateTime.utc(2026, 4, 1, 9, 7).toIso8601String(),
+            'headmateId': zari,
+            'coFronterIds': [aimee],
+          },
+          // Aimee's later row, separate by hours — must not be touched.
+          {
+            'id': 'aimee-later',
+            'startTime': DateTime.utc(2026, 4, 1, 14).toIso8601String(),
+            'endTime': DateTime.utc(2026, 4, 1, 15).toIso8601String(),
+            'headmateId': aimee,
+            'coFronterIds': <String>[],
+          },
+        ]);
+
+        await importService.importData(json);
+
+        final rows = await db.frontingSessionsDao.getAllSessions();
+        // 1 Zari merged + 1 Aimee fan-out + 1 Aimee later = 3 rows.
+        expect(rows, hasLength(3));
+        expect(rows.where((r) => r.memberId == zari), hasLength(1));
+        expect(rows.where((r) => r.memberId == aimee), hasLength(2));
+      },
+    );
   });
 
   // -- Codex pass 2 #B-NEW2: rescue → API corrective end-to-end ----------

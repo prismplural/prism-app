@@ -26,6 +26,7 @@ import 'package:prism_plurality/domain/repositories/reminders_repository.dart';
 import 'package:prism_plurality/domain/repositories/friends_repository.dart';
 import 'package:prism_plurality/features/data_management/models/export_models.dart';
 import 'package:prism_plurality/features/data_management/services/export_crypto.dart';
+import 'package:prism_plurality/features/fronting/services/merge_adjacent_same_member_rows.dart';
 
 /// Preview of what an import file contains, without actually importing.
 class ImportPreview {
@@ -524,6 +525,13 @@ class DataImportService {
       // legacy comments branch to derive `target_time` / `author_member_id`
       // when joining a comment back to its parent session row.
       final legacySessionParents = <String, _LegacyParentInfo>{};
+      // Member ids touched by the legacy-shape rescue branches (PK
+      // fan-out, SP 1:1, native primary, native co-fronter, orphan
+      // sentinel). Fed to the post-fan-out adjacent-merge pass so the
+      // rescue file produces the same shape as a fresh migration —
+      // continuously-fronting members don't end up fragmented across
+      // the old-shape session boundaries.
+      final legacyTouchedMemberIds = <String>{};
       // Cached lookup: PK short id → local member full UUID, populated
       // lazily so we only scan the members table when a legacy PK rescue
       // row actually arrives.
@@ -808,6 +816,9 @@ class DataImportService {
               sessionType: SessionType.normal,
             );
             if (created) frontSessionsCreated++;
+            if (s.headmateId != null) {
+              legacyTouchedMemberIds.add(s.headmateId!);
+            }
             legacySessionParents[s.id] = _LegacyParentInfo(
               memberId: s.headmateId,
               startTime: start,
@@ -857,6 +868,7 @@ class DataImportService {
               sessionType: SessionType.normal,
             );
             if (created) frontSessionsCreated++;
+            legacyTouchedMemberIds.add(localMemberId);
           }
           continue;
         }
@@ -877,6 +889,9 @@ class DataImportService {
             sessionType: SessionType.normal,
           );
           if (created) frontSessionsCreated++;
+          if (s.headmateId != null) {
+            legacyTouchedMemberIds.add(s.headmateId!);
+          }
           legacySessionParents[s.id] = _LegacyParentInfo(
             memberId: s.headmateId,
             startTime: start,
@@ -912,6 +927,7 @@ class DataImportService {
             sessionType: SessionType.normal,
           );
           if (created) frontSessionsCreated++;
+          legacyTouchedMemberIds.add(sentinelId);
           legacySessionParents[s.id] = _LegacyParentInfo(
             memberId: sentinelId,
             startTime: start,
@@ -933,6 +949,9 @@ class DataImportService {
           sessionType: SessionType.normal,
         );
         if (primaryCreated) frontSessionsCreated++;
+        if (s.headmateId != null) {
+          legacyTouchedMemberIds.add(s.headmateId!);
+        }
         legacySessionParents[s.id] = _LegacyParentInfo(
           memberId: s.headmateId,
           startTime: start,
@@ -950,7 +969,24 @@ class DataImportService {
             sessionType: SessionType.normal,
           );
           if (created) frontSessionsCreated++;
+          legacyTouchedMemberIds.add(coId);
         }
+      }
+
+      // Adjacent-merge pass for legacy-shape rescue rows (spec §2.1).
+      // Mirrors the migration's post-fan-out merge: under the
+      // per-member abstraction, old-shape session boundaries that
+      // existed only because a co-fronter joined or left are
+      // arbitrary cosmetic artifacts — collapse adjacent same-member
+      // rows whose end_time exactly matches the next row's start_time
+      // so the rescue file produces the same shape as a fresh
+      // migration. Skipped for new-shape rows (already correctly
+      // bounded). Sleep rows are excluded by the helper's query.
+      if (legacyTouchedMemberIds.isNotEmpty) {
+        await mergeAdjacentSameMemberRows(
+          frontingSessionRepository,
+          memberIds: legacyTouchedMemberIds,
+        );
       }
 
       // 3. Import sleep sessions
