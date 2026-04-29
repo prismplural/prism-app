@@ -726,12 +726,13 @@ void main() {
         // in the past relative to the next mutation's wall clock.
         await Future<void>.delayed(const Duration(milliseconds: 50));
 
-        // Step 1: write an open session that started 5 minutes ago.
-        // Writing with a past startTime simulates "user started front
-        // earlier and the row has been queued / synced in just now."
-        // The point of the test is the timing of the WRITES being
-        // post-subscription, not the wall-clock startTime.
-        // Duration > 2 min keeps it out of ephemeral collapse.
+        // Step 1: write an open session that started 5 minutes ago
+        // (long enough to clear the 2-min ephemeral collapse threshold).
+        // The captured-rangeEnd flavor of this bug is exercised by the
+        // pure-derivation test "closed session created after subscribe
+        // is NOT dropped" — that test sets up T0 < T1 < T2 explicitly.
+        // This test exists to prove the real-DB → provider chain
+        // surfaces a write-then-end after subscription.
         final startTime =
             DateTime.now().subtract(const Duration(minutes: 5));
         await db.frontingSessionsDao.insertSession(
