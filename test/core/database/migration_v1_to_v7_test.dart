@@ -49,10 +49,7 @@ import 'package:prism_plurality/core/database/app_database.dart';
 /// `idx_fronting_sessions_pluralkit_uuid` is created — pass false when
 /// seeding duplicate-uuid scenarios (Scenario 2 and 3) so we can insert
 /// conflicting rows before AppDatabase runs the v6→v7 detect-and-refuse.
-void _seedV1Schema(
-  raw.Database rawDb, {
-  bool includeV1FrontingIndex = true,
-}) {
+void _seedV1Schema(raw.Database rawDb, {bool includeV1FrontingIndex = true}) {
   // ── Core tables ─────────────────────────────────────────────────────────
 
   // v1 members — no pk_banner_url, no is_always_fronting
@@ -710,344 +707,365 @@ void main() {
   group('v1 → v7 step-through migration', () {
     // ── Scenario 1: clean v1 → v7 ────────────────────────────────────────
 
-    test(
-      'Scenario 1: clean v1 DB upgrades to v7 with all new columns, '
-      "composite+orphan indexes, and mode='notStarted'",
-      () async {
-        final tempDir =
-            Directory.systemTemp.createTempSync('prism_v1_to_v7_clean_');
-        addTearDown(() {
-          if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
-        });
+    test('Scenario 1: clean v1 DB upgrades to v7 with all new columns, '
+        "composite+orphan indexes, and mode='notStarted'", () async {
+      final tempDir = Directory.systemTemp.createTempSync(
+        'prism_v1_to_v7_clean_',
+      );
+      addTearDown(() {
+        if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
+      });
 
-        final dbFile = File('${tempDir.path}/v1_clean.db');
-        final rawDb = raw.sqlite3.open(dbFile.path);
-        try {
-          _seedV1Schema(rawDb);
-          // Seed two clean fronting_sessions rows: non-null + unique
-          // pluralkit_uuid and non-null member_id.  These are the happy-path
-          // rows that the v1 single-column index would normally protect.
-          final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-          rawDb.execute(
-            "INSERT INTO fronting_sessions "
-            "(id, session_type, start_time, end_time, member_id, "
-            " co_fronter_ids, is_health_kit_import, is_deleted, pluralkit_uuid) "
-            "VALUES ('s1', 0, $now, NULL, 'member-a', '[]', 0, 0, 'pk-uuid-1')",
-          );
-          rawDb.execute(
-            "INSERT INTO fronting_sessions "
-            "(id, session_type, start_time, end_time, member_id, "
-            " co_fronter_ids, is_health_kit_import, is_deleted, pluralkit_uuid) "
-            "VALUES ('s2', 0, ${now + 1}, NULL, 'member-b', '[]', 0, 0, 'pk-uuid-2')",
-          );
-        } finally {
-          rawDb.close();
-        }
-
-        final db = AppDatabase(NativeDatabase(dbFile));
-        addTearDown(db.close);
-
-        // Trigger open — runs onUpgrade v1→v2→v3→v4→v5→v6→v7
-        await db.customSelect('SELECT 1').get();
-
-        // user_version must be 8 (current schema)
-        final uv = await db
-            .customSelect('PRAGMA user_version')
-            .getSingle();
-        expect(uv.read<int>('user_version'), 8,
-            reason: 'all migration steps must complete (current schema is v8)');
-
-        // v7-only column: members.is_always_fronting
-        final memberCols =
-            await db.customSelect('PRAGMA table_info(members)').get();
-        expect(
-          memberCols.map((r) => r.read<String>('name')).toSet(),
-          contains('is_always_fronting'),
-          reason: 'members.is_always_fronting must be added by v6→v7',
+      final dbFile = File('${tempDir.path}/v1_clean.db');
+      final rawDb = raw.sqlite3.open(dbFile.path);
+      try {
+        _seedV1Schema(rawDb);
+        // Seed two clean fronting_sessions rows: non-null + unique
+        // pluralkit_uuid and non-null member_id.  These are the happy-path
+        // rows that the v1 single-column index would normally protect.
+        final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+        rawDb.execute(
+          'INSERT INTO fronting_sessions '
+          '(id, session_type, start_time, end_time, member_id, '
+          ' co_fronter_ids, is_health_kit_import, is_deleted, pluralkit_uuid) '
+          "VALUES ('s1', 0, $now, NULL, 'member-a', '[]', 0, 0, 'pk-uuid-1')",
         );
-
-        // v7-only column: system_settings.pending_fronting_migration_mode
-        final settingsCols =
-            await db.customSelect('PRAGMA table_info(system_settings)').get();
-        expect(
-          settingsCols.map((r) => r.read<String>('name')).toSet(),
-          contains('pending_fronting_migration_mode'),
-          reason:
-              'system_settings.pending_fronting_migration_mode must be '
-              'added by v6→v7',
+        rawDb.execute(
+          'INSERT INTO fronting_sessions '
+          '(id, session_type, start_time, end_time, member_id, '
+          ' co_fronter_ids, is_health_kit_import, is_deleted, pluralkit_uuid) '
+          "VALUES ('s2', 0, ${now + 1}, NULL, 'member-b', '[]', 0, 0, 'pk-uuid-2')",
         );
+      } finally {
+        rawDb.close();
+      }
 
-        // v7-only columns: front_session_comments.target_time + author_member_id
-        final commentCols =
-            await db.customSelect('PRAGMA table_info(front_session_comments)').get();
-        final commentColNames =
-            commentCols.map((r) => r.read<String>('name')).toSet();
-        expect(commentColNames, contains('target_time'));
-        expect(commentColNames, contains('author_member_id'));
+      final db = AppDatabase(NativeDatabase(dbFile));
+      addTearDown(db.close);
 
-        // Phase 4B cursor columns (folded into v7): plural_kit_sync_state
-        final pkStateCols =
-            await db.customSelect('PRAGMA table_info(plural_kit_sync_state)').get();
-        final pkStateColNames =
-            pkStateCols.map((r) => r.read<String>('name')).toSet();
-        expect(pkStateColNames, contains('switch_cursor_timestamp'),
-            reason: 'switch_cursor_timestamp must be added by v6→v7');
-        expect(pkStateColNames, contains('switch_cursor_id'),
-            reason: 'switch_cursor_id must be added by v6→v7');
+      // Trigger open — runs onUpgrade v1→v2→v3→v4→v5→v6→v7
+      await db.customSelect('SELECT 1').get();
 
-        // mode = 'notStarted' (upgrade path, not fresh install)
-        final settings = await db.systemSettingsDao.getSettings();
-        expect(
-          settings.pendingFrontingMigrationMode,
-          'notStarted',
-          reason: "upgrade path must set mode to 'notStarted'",
-        );
+      // user_version must be 9 (current schema)
+      final uv = await db.customSelect('PRAGMA user_version').getSingle();
+      expect(
+        uv.read<int>('user_version'),
+        9,
+        reason: 'all migration steps must complete (current schema is v9)',
+      );
 
-        // Composite + orphan fronting indexes must exist
-        final compositeIndex = await db
-            .customSelect(
-              "SELECT sql FROM sqlite_master "
-              "WHERE name = 'idx_fronting_sessions_pluralkit_uuid_member_id'",
-            )
-            .getSingleOrNull();
-        expect(compositeIndex, isNotNull,
-            reason: 'composite unique fronting index must exist after v7');
-        expect(
-          compositeIndex!.read<String>('sql'),
-          contains('member_id IS NOT NULL'),
-        );
+      // v7-only column: members.is_always_fronting
+      final memberCols = await db
+          .customSelect('PRAGMA table_info(members)')
+          .get();
+      expect(
+        memberCols.map((r) => r.read<String>('name')).toSet(),
+        contains('is_always_fronting'),
+        reason: 'members.is_always_fronting must be added by v6→v7',
+      );
 
-        final orphanIndex = await db
-            .customSelect(
-              "SELECT sql FROM sqlite_master "
-              "WHERE name = 'idx_fronting_sessions_pluralkit_uuid_orphan'",
-            )
-            .getSingleOrNull();
-        expect(orphanIndex, isNotNull,
-            reason: 'orphan fronting index must exist after v7');
-        expect(
-          orphanIndex!.read<String>('sql'),
-          contains('member_id IS NULL'),
-        );
+      // v7-only column: system_settings.pending_fronting_migration_mode
+      final settingsCols = await db
+          .customSelect('PRAGMA table_info(system_settings)')
+          .get();
+      expect(
+        settingsCols.map((r) => r.read<String>('name')).toSet(),
+        contains('pending_fronting_migration_mode'),
+        reason:
+            'system_settings.pending_fronting_migration_mode must be '
+            'added by v6→v7',
+      );
 
-        // Old single-column fronting index must be gone (dropped by v6→v7)
-        final oldFrontingIndex = await db
-            .customSelect(
-              "SELECT name FROM sqlite_master "
-              "WHERE name = 'idx_fronting_sessions_pluralkit_uuid'",
-            )
-            .get();
-        expect(oldFrontingIndex, isEmpty,
-            reason:
-                'v1 single-column fronting index must be dropped by v6→v7');
+      // v7-only columns: front_session_comments.target_time + author_member_id
+      final commentCols = await db
+          .customSelect('PRAGMA table_info(front_session_comments)')
+          .get();
+      final commentColNames = commentCols
+          .map((r) => r.read<String>('name'))
+          .toSet();
+      expect(commentColNames, contains('target_time'));
+      expect(commentColNames, contains('author_member_id'));
 
-        // _v7_migration_blockers side table must exist and be empty
-        final blockers = await db
-            .customSelect('SELECT * FROM _v7_migration_blockers')
-            .get();
-        expect(blockers, isEmpty,
-            reason: 'no blockers expected for clean v1 data');
-      },
-    );
+      // Phase 4B cursor columns (folded into v7): plural_kit_sync_state
+      final pkStateCols = await db
+          .customSelect('PRAGMA table_info(plural_kit_sync_state)')
+          .get();
+      final pkStateColNames = pkStateCols
+          .map((r) => r.read<String>('name'))
+          .toSet();
+      expect(
+        pkStateColNames,
+        contains('switch_cursor_timestamp'),
+        reason: 'switch_cursor_timestamp must be added by v6→v7',
+      );
+      expect(
+        pkStateColNames,
+        contains('switch_cursor_id'),
+        reason: 'switch_cursor_id must be added by v6→v7',
+      );
+
+      // mode = 'notStarted' (upgrade path, not fresh install)
+      final settings = await db.systemSettingsDao.getSettings();
+      expect(
+        settings.pendingFrontingMigrationMode,
+        'notStarted',
+        reason: "upgrade path must set mode to 'notStarted'",
+      );
+
+      // Composite + orphan fronting indexes must exist
+      final compositeIndex = await db
+          .customSelect(
+            'SELECT sql FROM sqlite_master '
+            "WHERE name = 'idx_fronting_sessions_pluralkit_uuid_member_id'",
+          )
+          .getSingleOrNull();
+      expect(
+        compositeIndex,
+        isNotNull,
+        reason: 'composite unique fronting index must exist after v7',
+      );
+      expect(
+        compositeIndex!.read<String>('sql'),
+        contains('member_id IS NOT NULL'),
+      );
+
+      final orphanIndex = await db
+          .customSelect(
+            'SELECT sql FROM sqlite_master '
+            "WHERE name = 'idx_fronting_sessions_pluralkit_uuid_orphan'",
+          )
+          .getSingleOrNull();
+      expect(
+        orphanIndex,
+        isNotNull,
+        reason: 'orphan fronting index must exist after v7',
+      );
+      expect(orphanIndex!.read<String>('sql'), contains('member_id IS NULL'));
+
+      // Old single-column fronting index must be gone (dropped by v6→v7)
+      final oldFrontingIndex = await db
+          .customSelect(
+            'SELECT name FROM sqlite_master '
+            "WHERE name = 'idx_fronting_sessions_pluralkit_uuid'",
+          )
+          .get();
+      expect(
+        oldFrontingIndex,
+        isEmpty,
+        reason: 'v1 single-column fronting index must be dropped by v6→v7',
+      );
+
+      // _v7_migration_blockers side table must exist and be empty
+      final blockers = await db
+          .customSelect('SELECT * FROM _v7_migration_blockers')
+          .get();
+      expect(
+        blockers,
+        isEmpty,
+        reason: 'no blockers expected for clean v1 data',
+      );
+    });
 
     // ── Scenario 2: v1 with duplicate (uuid, member_id) pairs ────────────
 
-    test(
-      'Scenario 2: v1 with duplicate (pluralkit_uuid, member_id) pairs: '
-      "mode='blocked', blockers logged, composite+orphan indexes absent",
-      () async {
-        // NOTE: we intentionally omit the v1 single-column unique index for
-        // this scenario (includeV1FrontingIndex: false). This simulates a
-        // corrupted DB where duplicate (uuid, member_id) pairs exist — e.g.,
-        // rows inserted via raw SQL that bypassed the index. The
-        // detect-and-refuse in v6→v7 must catch this gracefully.
-        final tempDir =
-            Directory.systemTemp.createTempSync('prism_v1_to_v7_dup_');
-        addTearDown(() {
-          if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
-        });
+    test('Scenario 2: v1 with duplicate (pluralkit_uuid, member_id) pairs: '
+        "mode='blocked', blockers logged, composite+orphan indexes absent", () async {
+      // NOTE: we intentionally omit the v1 single-column unique index for
+      // this scenario (includeV1FrontingIndex: false). This simulates a
+      // corrupted DB where duplicate (uuid, member_id) pairs exist — e.g.,
+      // rows inserted via raw SQL that bypassed the index. The
+      // detect-and-refuse in v6→v7 must catch this gracefully.
+      final tempDir = Directory.systemTemp.createTempSync(
+        'prism_v1_to_v7_dup_',
+      );
+      addTearDown(() {
+        if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
+      });
 
-        final dbFile = File('${tempDir.path}/v1_dup.db');
-        final rawDb = raw.sqlite3.open(dbFile.path);
-        try {
-          _seedV1Schema(rawDb, includeV1FrontingIndex: false);
-          final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-          // Two rows sharing (pluralkit_uuid='pk-dup', member_id='member-x')
-          rawDb.execute(
-            "INSERT INTO fronting_sessions "
-            "(id, session_type, start_time, end_time, member_id, "
-            " co_fronter_ids, is_health_kit_import, is_deleted, pluralkit_uuid) "
-            "VALUES ('dup-a', 0, $now, NULL, 'member-x', '[]', 0, 0, 'pk-dup')",
-          );
-          rawDb.execute(
-            "INSERT INTO fronting_sessions "
-            "(id, session_type, start_time, end_time, member_id, "
-            " co_fronter_ids, is_health_kit_import, is_deleted, pluralkit_uuid) "
-            "VALUES ('dup-b', 0, ${now + 1}, NULL, 'member-x', '[]', 0, 0, 'pk-dup')",
-          );
-        } finally {
-          rawDb.close();
-        }
-
-        final db = AppDatabase(NativeDatabase(dbFile));
-        addTearDown(db.close);
-
-        // Must NOT throw despite duplicate rows
-        await db.customSelect('SELECT 1').get();
-
-        // user_version must be 8 (current schema)
-        final uv = await db
-            .customSelect('PRAGMA user_version')
-            .getSingle();
-        expect(uv.read<int>('user_version'), 8);
-
-        // mode = 'blocked'
-        final settings = await db.systemSettingsDao.getSettings();
-        expect(
-          settings.pendingFrontingMigrationMode,
-          'blocked',
-          reason: 'duplicate rows must flip mode to blocked',
+      final dbFile = File('${tempDir.path}/v1_dup.db');
+      final rawDb = raw.sqlite3.open(dbFile.path);
+      try {
+        _seedV1Schema(rawDb, includeV1FrontingIndex: false);
+        final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+        // Two rows sharing (pluralkit_uuid='pk-dup', member_id='member-x')
+        rawDb.execute(
+          'INSERT INTO fronting_sessions '
+          '(id, session_type, start_time, end_time, member_id, '
+          ' co_fronter_ids, is_health_kit_import, is_deleted, pluralkit_uuid) '
+          "VALUES ('dup-a', 0, $now, NULL, 'member-x', '[]', 0, 0, 'pk-dup')",
         );
+        rawDb.execute(
+          'INSERT INTO fronting_sessions '
+          '(id, session_type, start_time, end_time, member_id, '
+          ' co_fronter_ids, is_health_kit_import, is_deleted, pluralkit_uuid) '
+          "VALUES ('dup-b', 0, ${now + 1}, NULL, 'member-x', '[]', 0, 0, 'pk-dup')",
+        );
+      } finally {
+        rawDb.close();
+      }
 
-        // Both duplicate row ids must be logged in _v7_migration_blockers
-        final blockers = await db
-            .customSelect(
-              "SELECT row_id FROM _v7_migration_blockers "
-              "WHERE table_name = 'fronting_sessions'",
-            )
-            .get();
-        final blockerIds =
-            blockers.map((r) => r.read<String>('row_id')).toSet();
-        expect(blockerIds, contains('dup-a'));
-        expect(blockerIds, contains('dup-b'));
+      final db = AppDatabase(NativeDatabase(dbFile));
+      addTearDown(db.close);
 
-        // Composite index must NOT exist (skipped due to blocker)
-        final compositeIndex = await db
-            .customSelect(
-              "SELECT name FROM sqlite_master "
-              "WHERE name = 'idx_fronting_sessions_pluralkit_uuid_member_id'",
-            )
-            .get();
-        expect(compositeIndex, isEmpty,
-            reason: 'composite index must not be created when blockers exist');
+      // Must NOT throw despite duplicate rows
+      await db.customSelect('SELECT 1').get();
 
-        // Orphan index must NOT exist either
-        final orphanIndex = await db
-            .customSelect(
-              "SELECT name FROM sqlite_master "
-              "WHERE name = 'idx_fronting_sessions_pluralkit_uuid_orphan'",
-            )
-            .get();
-        expect(orphanIndex, isEmpty,
-            reason: 'orphan index must not be created when blockers exist');
+      // user_version must be 9 (current schema)
+      final uv = await db.customSelect('PRAGMA user_version').getSingle();
+      expect(uv.read<int>('user_version'), 9);
 
-        // Rows must NOT have been deleted (detect-and-refuse, not detect-and-fix)
-        final remaining = await db
-            .customSelect(
-              "SELECT id FROM fronting_sessions "
-              "WHERE pluralkit_uuid = 'pk-dup' AND member_id = 'member-x'",
-            )
-            .get();
-        expect(remaining, hasLength(2),
-            reason: 'detect-and-refuse must not delete any rows');
-      },
-    );
+      // mode = 'blocked'
+      final settings = await db.systemSettingsDao.getSettings();
+      expect(
+        settings.pendingFrontingMigrationMode,
+        'blocked',
+        reason: 'duplicate rows must flip mode to blocked',
+      );
+
+      // Both duplicate row ids must be logged in _v7_migration_blockers
+      final blockers = await db
+          .customSelect(
+            'SELECT row_id FROM _v7_migration_blockers '
+            "WHERE table_name = 'fronting_sessions'",
+          )
+          .get();
+      final blockerIds = blockers.map((r) => r.read<String>('row_id')).toSet();
+      expect(blockerIds, contains('dup-a'));
+      expect(blockerIds, contains('dup-b'));
+
+      // Composite index must NOT exist (skipped due to blocker)
+      final compositeIndex = await db
+          .customSelect(
+            'SELECT name FROM sqlite_master '
+            "WHERE name = 'idx_fronting_sessions_pluralkit_uuid_member_id'",
+          )
+          .get();
+      expect(
+        compositeIndex,
+        isEmpty,
+        reason: 'composite index must not be created when blockers exist',
+      );
+
+      // Orphan index must NOT exist either
+      final orphanIndex = await db
+          .customSelect(
+            'SELECT name FROM sqlite_master '
+            "WHERE name = 'idx_fronting_sessions_pluralkit_uuid_orphan'",
+          )
+          .get();
+      expect(
+        orphanIndex,
+        isEmpty,
+        reason: 'orphan index must not be created when blockers exist',
+      );
+
+      // Rows must NOT have been deleted (detect-and-refuse, not detect-and-fix)
+      final remaining = await db
+          .customSelect(
+            'SELECT id FROM fronting_sessions '
+            "WHERE pluralkit_uuid = 'pk-dup' AND member_id = 'member-x'",
+          )
+          .get();
+      expect(
+        remaining,
+        hasLength(2),
+        reason: 'detect-and-refuse must not delete any rows',
+      );
+    });
 
     // ── Scenario 3: v1 with duplicate (uuid, NULL member_id) orphan rows ──
 
-    test(
-      'Scenario 3: v1 with duplicate (pluralkit_uuid, NULL member_id) orphan rows: '
-      "mode='blocked', blockers logged, indexes absent",
-      () async {
-        // Same rationale as Scenario 2: we omit the v1 single-column unique
-        // index so we can insert two orphan rows with the same uuid. This
-        // simulates corruption where the index was absent or bypassed.
-        final tempDir =
-            Directory.systemTemp.createTempSync('prism_v1_to_v7_orphan_');
-        addTearDown(() {
-          if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
-        });
+    test('Scenario 3: v1 with duplicate (pluralkit_uuid, NULL member_id) orphan rows: '
+        "mode='blocked', blockers logged, indexes absent", () async {
+      // Same rationale as Scenario 2: we omit the v1 single-column unique
+      // index so we can insert two orphan rows with the same uuid. This
+      // simulates corruption where the index was absent or bypassed.
+      final tempDir = Directory.systemTemp.createTempSync(
+        'prism_v1_to_v7_orphan_',
+      );
+      addTearDown(() {
+        if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
+      });
 
-        final dbFile = File('${tempDir.path}/v1_orphan.db');
-        final rawDb = raw.sqlite3.open(dbFile.path);
-        try {
-          _seedV1Schema(rawDb, includeV1FrontingIndex: false);
-          final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-          // Two orphan rows: same pluralkit_uuid, both member_id=NULL
-          rawDb.execute(
-            "INSERT INTO fronting_sessions "
-            "(id, session_type, start_time, end_time, member_id, "
-            " co_fronter_ids, is_health_kit_import, is_deleted, pluralkit_uuid) "
-            "VALUES ('orphan-a', 0, $now, NULL, NULL, '[]', 0, 0, 'pk-orphan')",
-          );
-          rawDb.execute(
-            "INSERT INTO fronting_sessions "
-            "(id, session_type, start_time, end_time, member_id, "
-            " co_fronter_ids, is_health_kit_import, is_deleted, pluralkit_uuid) "
-            "VALUES ('orphan-b', 0, ${now + 1}, NULL, NULL, '[]', 0, 0, 'pk-orphan')",
-          );
-        } finally {
-          rawDb.close();
-        }
-
-        final db = AppDatabase(NativeDatabase(dbFile));
-        addTearDown(db.close);
-
-        // Must NOT throw
-        await db.customSelect('SELECT 1').get();
-
-        // user_version must be 8 (current schema)
-        final uv = await db
-            .customSelect('PRAGMA user_version')
-            .getSingle();
-        expect(uv.read<int>('user_version'), 8);
-
-        // mode = 'blocked'
-        final settings = await db.systemSettingsDao.getSettings();
-        expect(
-          settings.pendingFrontingMigrationMode,
-          'blocked',
-          reason: 'orphan duplicate rows must flip mode to blocked',
+      final dbFile = File('${tempDir.path}/v1_orphan.db');
+      final rawDb = raw.sqlite3.open(dbFile.path);
+      try {
+        _seedV1Schema(rawDb, includeV1FrontingIndex: false);
+        final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+        // Two orphan rows: same pluralkit_uuid, both member_id=NULL
+        rawDb.execute(
+          'INSERT INTO fronting_sessions '
+          '(id, session_type, start_time, end_time, member_id, '
+          ' co_fronter_ids, is_health_kit_import, is_deleted, pluralkit_uuid) '
+          "VALUES ('orphan-a', 0, $now, NULL, NULL, '[]', 0, 0, 'pk-orphan')",
         );
+        rawDb.execute(
+          'INSERT INTO fronting_sessions '
+          '(id, session_type, start_time, end_time, member_id, '
+          ' co_fronter_ids, is_health_kit_import, is_deleted, pluralkit_uuid) '
+          "VALUES ('orphan-b', 0, ${now + 1}, NULL, NULL, '[]', 0, 0, 'pk-orphan')",
+        );
+      } finally {
+        rawDb.close();
+      }
 
-        // Both orphan row ids must be in _v7_migration_blockers
-        final blockers = await db
-            .customSelect(
-              "SELECT row_id FROM _v7_migration_blockers "
-              "WHERE table_name = 'fronting_sessions'",
-            )
-            .get();
-        final blockerIds =
-            blockers.map((r) => r.read<String>('row_id')).toSet();
-        expect(blockerIds, containsAll(['orphan-a', 'orphan-b']));
+      final db = AppDatabase(NativeDatabase(dbFile));
+      addTearDown(db.close);
 
-        // Neither composite nor orphan index must exist
-        final compositeIndex = await db
-            .customSelect(
-              "SELECT name FROM sqlite_master "
-              "WHERE name = 'idx_fronting_sessions_pluralkit_uuid_member_id'",
-            )
-            .get();
-        expect(compositeIndex, isEmpty);
+      // Must NOT throw
+      await db.customSelect('SELECT 1').get();
 
-        final orphanIndex = await db
-            .customSelect(
-              "SELECT name FROM sqlite_master "
-              "WHERE name = 'idx_fronting_sessions_pluralkit_uuid_orphan'",
-            )
-            .get();
-        expect(orphanIndex, isEmpty);
+      // user_version must be 9 (current schema)
+      final uv = await db.customSelect('PRAGMA user_version').getSingle();
+      expect(uv.read<int>('user_version'), 9);
 
-        // Rows must be untouched
-        final remaining = await db
-            .customSelect(
-              "SELECT id FROM fronting_sessions "
-              "WHERE pluralkit_uuid = 'pk-orphan'",
-            )
-            .get();
-        expect(remaining, hasLength(2),
-            reason: 'detect-and-refuse must not delete any rows');
-      },
-    );
+      // mode = 'blocked'
+      final settings = await db.systemSettingsDao.getSettings();
+      expect(
+        settings.pendingFrontingMigrationMode,
+        'blocked',
+        reason: 'orphan duplicate rows must flip mode to blocked',
+      );
+
+      // Both orphan row ids must be in _v7_migration_blockers
+      final blockers = await db
+          .customSelect(
+            'SELECT row_id FROM _v7_migration_blockers '
+            "WHERE table_name = 'fronting_sessions'",
+          )
+          .get();
+      final blockerIds = blockers.map((r) => r.read<String>('row_id')).toSet();
+      expect(blockerIds, containsAll(['orphan-a', 'orphan-b']));
+
+      // Neither composite nor orphan index must exist
+      final compositeIndex = await db
+          .customSelect(
+            'SELECT name FROM sqlite_master '
+            "WHERE name = 'idx_fronting_sessions_pluralkit_uuid_member_id'",
+          )
+          .get();
+      expect(compositeIndex, isEmpty);
+
+      final orphanIndex = await db
+          .customSelect(
+            'SELECT name FROM sqlite_master '
+            "WHERE name = 'idx_fronting_sessions_pluralkit_uuid_orphan'",
+          )
+          .get();
+      expect(orphanIndex, isEmpty);
+
+      // Rows must be untouched
+      final remaining = await db
+          .customSelect(
+            'SELECT id FROM fronting_sessions '
+            "WHERE pluralkit_uuid = 'pk-orphan'",
+          )
+          .get();
+      expect(
+        remaining,
+        hasLength(2),
+        reason: 'detect-and-refuse must not delete any rows',
+      );
+    });
   });
 }

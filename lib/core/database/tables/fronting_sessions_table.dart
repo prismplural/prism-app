@@ -15,6 +15,8 @@ class FrontingSessions extends Table {
       boolean().withDefault(const Constant(false))();
   // PluralKit fields
   TextColumn get pluralkitUuid => text().nullable()();
+  TextColumn get pkImportSource => text().nullable()();
+  TextColumn get pkFileSwitchId => text().nullable()();
   // JSON list of PK short member IDs from the original switch. Lets us
   // re-attribute local memberId / coFronterIds after a later link without
   // re-fetching from PK.

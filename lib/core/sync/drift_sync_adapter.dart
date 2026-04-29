@@ -1305,6 +1305,8 @@ DriftSyncEntity _frontingSessionsEntity(
         'quality': r.quality,
         'is_health_kit_import': r.isHealthKitImport,
         'pluralkit_uuid': r.pluralkitUuid,
+        'pk_import_source': r.pkImportSource,
+        'pk_file_switch_id': r.pkFileSwitchId,
         'delete_push_started_at': r.deletePushStartedAt,
         'is_deleted': r.isDeleted,
       };
@@ -1328,6 +1330,8 @@ DriftSyncEntity _frontingSessionsEntity(
         quality: f.intFieldNullable('quality'),
         isHealthKitImport: f.boolField('is_health_kit_import'),
         pluralkitUuid: f.stringFieldNullable('pluralkit_uuid'),
+        pkImportSource: f.stringFieldNullable('pk_import_source'),
+        pkFileSwitchId: f.stringFieldNullable('pk_file_switch_id'),
         deletePushStartedAt: f.intFieldNullable('delete_push_started_at'),
         isDeleted: f.boolField('is_deleted'),
       );
@@ -1358,6 +1362,8 @@ DriftSyncEntity _frontingSessionsEntity(
         'quality': row.quality,
         'is_health_kit_import': row.isHealthKitImport,
         'pluralkit_uuid': row.pluralkitUuid,
+        'pk_import_source': row.pkImportSource,
+        'pk_file_switch_id': row.pkFileSwitchId,
         'delete_push_started_at': row.deletePushStartedAt,
         'is_deleted': row.isDeleted,
       };

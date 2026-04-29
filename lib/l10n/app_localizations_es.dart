@@ -5132,6 +5132,10 @@ class AppLocalizationsEs extends AppLocalizations {
       'Para obtener tu token, envía un mensaje directo al bot de PluralKit en Discord con \"pk;token\" y pega el resultado aquí.';
 
   @override
+  String get pluralkitFileImportHelp =>
+      'Recupera el historial anterior de fronts de PluralKit con un archivo pk;export y un token. El archivo aporta el historial de cambios; el token permite que Prism lo vincule de forma segura.';
+
+  @override
   String get pluralkitImportButton => 'Importar desde PluralKit';
 
   @override
@@ -5213,7 +5217,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get pluralkitInfoSwitches =>
-      'Los cambios se importan como sesiones al frente. Los cambios duplicados se omiten automáticamente.';
+      'La recuperación del historial de fronts usa un archivo pk;export más un token para que Prism pueda vincular los cambios del archivo con los ID de cambios de PluralKit.';
 
   @override
   String get pluralkitJustNow => 'Ahora mismo';
@@ -7510,7 +7514,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get pluralkitRerunMemberMapping => 'Volver a vincular integrantes';
 
   @override
-  String get pluralkitImportFromFile => 'Importar desde archivo pk;export';
+  String get pluralkitImportFromFile => 'Recuperar historial desde pk;export';
 
   @override
   String pluralkitMappingBannerTitle(String termPluralLower) {
@@ -8089,9 +8093,9 @@ class AppLocalizationsEs extends AppLocalizations {
       count,
       locale: localeName,
       other:
-          'Se borraron $count sesiones importadas de PluralKit (vuelve a importar después de la actualización).',
+          'Se borró el historial de PluralKit del formato anterior ($count sesiones). Vuelve a importarlo desde un token de PluralKit o un archivo pk;export.',
       one:
-          'Se borró 1 sesión importada de PluralKit (vuelve a importar después de la actualización).',
+          'Se borró el historial de PluralKit del formato anterior (1 sesión). Vuelve a importarlo desde un token de PluralKit o un archivo pk;export.',
     );
     return '$_temp0';
   }
@@ -8166,6 +8170,10 @@ class AppLocalizationsEs extends AppLocalizations {
       'Todo listo. Tus datos de frente ya están en el nuevo formato.';
 
   @override
+  String get frontingUpgradeOpenPluralKitImport =>
+      'Abrir importación de PluralKit';
+
+  @override
   String get frontingUpgradeFailureHeadline => 'La migración falló';
 
   @override
@@ -8188,11 +8196,16 @@ class AppLocalizationsEs extends AppLocalizations {
   String get pkFileImportGroupsLabel => 'Grupos';
 
   @override
-  String get pkFileImportFrontingSessionsLabel => 'Sesiones de frente';
+  String get pkFileImportFrontingSessionsLabel =>
+      'Cambios encontrados (no importados)';
+
+  @override
+  String get pkFileImportSwitchesFoundLabel =>
+      'Cambios encontrados (no importados)';
 
   @override
   String pkFileImportPreviewNote(String termPlural) {
-    return 'Los/las $termPlural existentes con el mismo ID de PluralKit se actualizarán. Los cambios duplicados se omiten.';
+    return 'Los/las $termPlural existentes con el mismo ID de PluralKit se actualizarán. Para importar el historial de fronts, agrega un token de PluralKit para que Prism pueda vincular los cambios antes de importarlos.';
   }
 
   @override
@@ -8209,7 +8222,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get pkFileImportSwitchesSkippedLabel =>
-      'Cambios omitidos (ya existían)';
+      'Cambios encontrados (no importados)';
 
   @override
   String get settingsFrontingSessionDisplaySectionTitle =>

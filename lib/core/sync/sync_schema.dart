@@ -43,6 +43,8 @@ const String prismSyncSchema = '''
         "quality": "Int",
         "is_health_kit_import": "Bool",
         "pluralkit_uuid": "String",
+        "pk_import_source": "String",
+        "pk_file_switch_id": "String",
         "delete_push_started_at": "Int",
         "is_deleted": "Bool"
       }

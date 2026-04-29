@@ -37,6 +37,9 @@ import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
 
+const _switchUuid1 = '00000000-0000-0000-0000-000000000001';
+const _switchUuid2 = '00000000-0000-0000-0000-000000000002';
+
 // ---------------------------------------------------------------------------
 // Secure-storage mock (keyed the same as phase4 fake)
 // ---------------------------------------------------------------------------
@@ -47,33 +50,33 @@ class _SecureStorageStub {
     TestWidgetsFlutterBinding.ensureInitialized();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
-      const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
-      (MethodCall call) async {
-        switch (call.method) {
-          case 'write':
-            _store[call.arguments['key'] as String] =
-                call.arguments['value'] as String?;
-            return null;
-          case 'read':
-            return _store[call.arguments['key'] as String];
-          case 'delete':
-            _store.remove(call.arguments['key'] as String);
-            return null;
-          case 'containsKey':
-            return _store.containsKey(call.arguments['key'] as String);
-          default:
-            return null;
-        }
-      },
-    );
+          const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
+          (MethodCall call) async {
+            switch (call.method) {
+              case 'write':
+                _store[call.arguments['key'] as String] =
+                    call.arguments['value'] as String?;
+                return null;
+              case 'read':
+                return _store[call.arguments['key'] as String];
+              case 'delete':
+                _store.remove(call.arguments['key'] as String);
+                return null;
+              case 'containsKey':
+                return _store.containsKey(call.arguments['key'] as String);
+              default:
+                return null;
+            }
+          },
+        );
   }
 
   void teardown() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
-      const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
-      null,
-    );
+          const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
+          null,
+        );
     _store.clear();
   }
 }
@@ -86,6 +89,7 @@ class _FakeClient implements PluralKitClient {
   final String systemId;
   final List<String> deletedMembers = [];
   final List<String> deletedSwitches = [];
+
   /// Status to return from deleteMember/deleteSwitch. `null` = 204 success.
   int? memberDeleteStatus;
   int? switchDeleteStatus;
@@ -124,21 +128,25 @@ class _FakeClient implements PluralKitClient {
   Future<PKMember> updateMember(String id, Map<String, dynamic> data) =>
       throw UnimplementedError();
   @override
-  Future<List<PKSwitch>> getSwitches(
-          {DateTime? before, int limit = 100}) async =>
-      const [];
+  Future<List<PKSwitch>> getSwitches({
+    DateTime? before,
+    int limit = 100,
+  }) async => const [];
   @override
-  Future<PKSwitch> createSwitch(List<String> memberIds,
-          {DateTime? timestamp}) =>
-      throw UnimplementedError();
+  Future<PKSwitch> createSwitch(
+    List<String> memberIds, {
+    DateTime? timestamp,
+  }) => throw UnimplementedError();
   @override
-  Future<PKSwitch> updateSwitch(String switchId,
-          {required DateTime timestamp}) =>
-      throw UnimplementedError();
+  Future<PKSwitch> updateSwitch(
+    String switchId, {
+    required DateTime timestamp,
+  }) => throw UnimplementedError();
   @override
   Future<PKSwitch> updateSwitchMembers(
-          String switchId, List<String> memberIds) =>
-      throw UnimplementedError();
+    String switchId,
+    List<String> memberIds,
+  ) => throw UnimplementedError();
   @override
   Future<List<int>> downloadBytes(String url) async => const [];
   @override
@@ -172,10 +180,8 @@ class _FakeMemberRepo implements MemberRepository {
   @override
   Future<domain.Member?> getMemberById(String id) async => members[id];
   @override
-  Future<List<domain.Member>> getMembersByIds(List<String> ids) async => ids
-      .map((id) => members[id])
-      .whereType<domain.Member>()
-      .toList();
+  Future<List<domain.Member>> getMembersByIds(List<String> ids) async =>
+      ids.map((id) => members[id]).whereType<domain.Member>().toList();
   @override
   Stream<List<domain.Member>> watchMembersByIds(List<String> ids) =>
       throw UnimplementedError();
@@ -202,8 +208,10 @@ class _FakeMemberRepo implements MemberRepository {
 
   @override
   Future<List<domain.Member>> getDeletedLinkedMembers() async => members.values
-      .where((m) =>
-          m.isDeleted && m.pluralkitId != null && m.deleteIntentEpoch != null)
+      .where(
+        (m) =>
+            m.isDeleted && m.pluralkitId != null && m.deleteIntentEpoch != null,
+      )
       .toList();
 
   @override
@@ -226,7 +234,7 @@ class _FakeMemberRepo implements MemberRepository {
 
   @override
   Future<({domain.Member member, bool wasCreated})>
-      ensureUnknownSentinelMember() => throw UnimplementedError();
+  ensureUnknownSentinelMember() => throw UnimplementedError();
 }
 
 class _FakeSessionRepo implements FrontingSessionRepository {
@@ -285,25 +293,25 @@ class _FakeSessionRepo implements FrontingSessionRepository {
 
   @override
   Future<List<domain.FrontingSession>> getSessionsForMember(
-          String memberId) async =>
-      sessions
-          .where((s) => s.memberId == memberId && !s.isDeleted)
-          .toList();
+    String memberId,
+  ) async =>
+      sessions.where((s) => s.memberId == memberId && !s.isDeleted).toList();
 
   @override
-  Future<List<domain.FrontingSession>> getRecentSessions(
-          {int limit = 20}) async =>
-      sessions.take(limit).toList();
+  Future<List<domain.FrontingSession>> getRecentSessions({
+    int limit = 20,
+  }) async => sessions.take(limit).toList();
 
   @override
-  Future<List<domain.FrontingSession>> getRecentSleepSessions(
-          {int limit = 10}) async =>
-      sessions.where((s) => s.isSleep).take(limit).toList();
+  Future<List<domain.FrontingSession>> getRecentSleepSessions({
+    int limit = 10,
+  }) async => sessions.where((s) => s.isSleep).take(limit).toList();
 
   @override
   Future<List<domain.FrontingSession>> getSessionsBetween(
-          DateTime start, DateTime end) async =>
-      sessions.where((s) => !s.startTime.isBefore(start)).toList();
+    DateTime start,
+    DateTime end,
+  ) async => sessions.where((s) => !s.startTime.isBefore(start)).toList();
 
   @override
   Stream<List<domain.FrontingSession>> watchAllSessions() =>
@@ -326,9 +334,9 @@ class _FakeSessionRepo implements FrontingSessionRepository {
   Stream<List<domain.FrontingSession>> watchRecentSessions({int limit = 20}) =>
       Stream.value(sessions.take(limit).toList());
   @override
-  Stream<List<domain.FrontingSession>> watchRecentAllSessions(
-          {int limit = 30}) =>
-      Stream.value(sessions.take(limit).toList());
+  Stream<List<domain.FrontingSession>> watchRecentAllSessions({
+    int limit = 30,
+  }) => Stream.value(sessions.take(limit).toList());
   @override
   Stream<List<domain.FrontingSession>> watchSessionsOverlappingRange(
     DateTime start,
@@ -342,6 +350,7 @@ class _FakeSessionRepo implements FrontingSessionRepository {
     }).toList();
     return Stream.value(overlapping);
   }
+
   @override
   Future<int> getCount() async => sessions.length;
   @override
@@ -353,16 +362,17 @@ class _FakeSessionRepo implements FrontingSessionRepository {
     int? startHour,
     int? endHour,
     int? withinDays,
-  }) async =>
-      {};
+  }) async => {};
 
   @override
   Future<List<domain.FrontingSession>> getDeletedLinkedSessions() async =>
       sessions
-          .where((s) =>
-              s.isDeleted &&
-              s.pluralkitUuid != null &&
-              s.deleteIntentEpoch != null)
+          .where(
+            (s) =>
+                s.isDeleted &&
+                s.pluralkitUuid != null &&
+                s.deleteIntentEpoch != null,
+          )
           .toList();
 
   @override
@@ -396,17 +406,16 @@ domain.Member _member(
   bool isDeleted = false,
   int? deleteIntentEpoch,
   int? deletePushStartedAt,
-}) =>
-    domain.Member(
-      id: id,
-      name: name,
-      createdAt: DateTime(2026, 1, 1),
-      pluralkitId: pluralkitId,
-      pluralkitUuid: pluralkitUuid,
-      isDeleted: isDeleted,
-      deleteIntentEpoch: deleteIntentEpoch,
-      deletePushStartedAt: deletePushStartedAt,
-    );
+}) => domain.Member(
+  id: id,
+  name: name,
+  createdAt: DateTime(2026, 1, 1),
+  pluralkitId: pluralkitId,
+  pluralkitUuid: pluralkitUuid,
+  isDeleted: isDeleted,
+  deleteIntentEpoch: deleteIntentEpoch,
+  deletePushStartedAt: deletePushStartedAt,
+);
 
 domain.FrontingSession _session(
   String id, {
@@ -417,17 +426,16 @@ domain.FrontingSession _session(
   bool isDeleted = false,
   int? deleteIntentEpoch,
   int? deletePushStartedAt,
-}) =>
-    domain.FrontingSession(
-      id: id,
-      startTime: startTime,
-      endTime: endTime,
-      memberId: memberId,
-      pluralkitUuid: pluralkitUuid,
-      isDeleted: isDeleted,
-      deleteIntentEpoch: deleteIntentEpoch,
-      deletePushStartedAt: deletePushStartedAt,
-    );
+}) => domain.FrontingSession(
+  id: id,
+  startTime: startTime,
+  endTime: endTime,
+  memberId: memberId,
+  pluralkitUuid: pluralkitUuid,
+  isDeleted: isDeleted,
+  deleteIntentEpoch: deleteIntentEpoch,
+  deletePushStartedAt: deletePushStartedAt,
+);
 
 /// Build a service AND initialize the sync-state row so syncRecentData
 /// will run the bidirectional path (not performFullImport).
@@ -443,15 +451,17 @@ Future<({PluralKitSyncService svc, int epoch})> _makeService({
   int initialEpoch = 0,
 }) async {
   // Seed sync_state to mimic a prior link + completed mapping.
-  await db.pluralKitSyncDao.upsertSyncState(PluralKitSyncStateCompanion(
-    id: const Value('pk_config'),
-    systemId: Value(systemId),
-    isConnected: const Value(true),
-    mappingAcknowledged: const Value(true),
-    linkedAt: Value(DateTime(2026, 1, 1)),
-    lastSyncDate: Value(DateTime(2026, 1, 2)),
-    linkEpoch: Value(initialEpoch),
-  ));
+  await db.pluralKitSyncDao.upsertSyncState(
+    PluralKitSyncStateCompanion(
+      id: const Value('pk_config'),
+      systemId: Value(systemId),
+      isConnected: const Value(true),
+      mappingAcknowledged: const Value(true),
+      linkedAt: Value(DateTime(2026, 1, 1)),
+      lastSyncDate: Value(DateTime(2026, 1, 2)),
+      linkEpoch: Value(initialEpoch),
+    ),
+  );
 
   final svc = PluralKitSyncService(
     memberRepository: memberRepo,
@@ -486,20 +496,24 @@ void main() {
 
       final memberRepo = _FakeMemberRepo()
         ..seed([
-          _member('local-a',
-              pluralkitId: 'pkA',
-              isDeleted: true,
-              deleteIntentEpoch: 0),
+          _member(
+            'local-a',
+            pluralkitId: 'pkA',
+            isDeleted: true,
+            deleteIntentEpoch: 0,
+          ),
         ]);
       final sessionRepo = _FakeSessionRepo()
-        ..sessions.add(_session(
-          's1',
-          startTime: DateTime(2026, 2, 1),
-          endTime: DateTime(2026, 2, 1, 1),
-          pluralkitUuid: 'uuid-s1',
-          isDeleted: true,
-          deleteIntentEpoch: 0,
-        ));
+        ..sessions.add(
+          _session(
+            's1',
+            startTime: DateTime(2026, 2, 1),
+            endTime: DateTime(2026, 2, 1, 1),
+            pluralkitUuid: _switchUuid1,
+            isDeleted: true,
+            deleteIntentEpoch: 0,
+          ),
+        );
 
       final client = _FakeClient();
       final (:svc, :epoch) = await _makeService(
@@ -515,13 +529,52 @@ void main() {
       );
 
       expect(epoch, 0);
-      expect(client.deletedSwitches, ['uuid-s1']);
+      expect(client.deletedSwitches, [_switchUuid1]);
       expect(client.deletedMembers, ['pkA']);
       expect(summary?.switchesDeletedOnPk, 1);
       expect(summary?.membersDeletedOnPk, 1);
       // R3: link cleared on both.
       expect(memberRepo.linkCleared, ['local-a']);
       expect(sessionRepo.linkCleared, ['s1']);
+    });
+  });
+
+  group('switch UUID guardrails', () {
+    test('synthetic file-origin switch id is cleared without DELETE', () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+
+      final memberRepo = _FakeMemberRepo();
+      final sessionRepo = _FakeSessionRepo()
+        ..sessions.add(
+          _session(
+            's-file',
+            startTime: DateTime(2026, 2, 1),
+            pluralkitUuid: 'pkfile:v1:abc',
+            isDeleted: true,
+            deleteIntentEpoch: 0,
+          ),
+        );
+
+      final client = _FakeClient();
+      final (:svc, :epoch) = await _makeService(
+        client: client,
+        db: db,
+        memberRepo: memberRepo,
+        sessionRepo: sessionRepo,
+        systemId: 'sys-1',
+      );
+
+      final summary = await svc.syncRecentData(
+        direction: PkSyncDirection.bidirectional,
+      );
+
+      expect(epoch, 0);
+      expect(client.deletedSwitches, isEmpty);
+      expect(summary?.switchesDeletedOnPk, 0);
+      expect(sessionRepo.linkCleared, ['s-file']);
+      expect(sessionRepo.sessions.single.pluralkitUuid, isNull);
+      expect(svc.state.syncError, isNull);
     });
   });
 
@@ -532,17 +585,23 @@ void main() {
 
       final memberRepo = _FakeMemberRepo()
         ..seed([
-          _member('local-a',
-              pluralkitId: 'pkA',
-              isDeleted: true,
-              deleteIntentEpoch: 0),
+          _member(
+            'local-a',
+            pluralkitId: 'pkA',
+            isDeleted: true,
+            deleteIntentEpoch: 0,
+          ),
         ]);
       final sessionRepo = _FakeSessionRepo()
-        ..sessions.add(_session('s1',
+        ..sessions.add(
+          _session(
+            's1',
             startTime: DateTime(2026, 2, 1),
-            pluralkitUuid: 'uuid-s1',
+            pluralkitUuid: _switchUuid1,
             isDeleted: true,
-            deleteIntentEpoch: 0));
+            deleteIntentEpoch: 0,
+          ),
+        );
       final client = _FakeClient();
       final (:svc, :epoch) = await _makeService(
         client: client,
@@ -577,10 +636,12 @@ void main() {
 
       final memberRepo = _FakeMemberRepo()
         ..seed([
-          _member('local-a',
-              pluralkitId: 'pkA',
-              isDeleted: true,
-              deleteIntentEpoch: 0),
+          _member(
+            'local-a',
+            pluralkitId: 'pkA',
+            isDeleted: true,
+            deleteIntentEpoch: 0,
+          ),
         ]);
       final sessionRepo = _FakeSessionRepo();
       final client = _FakeClient()..memberDeleteStatus = 404;
@@ -610,10 +671,12 @@ void main() {
 
       final memberRepo = _FakeMemberRepo()
         ..seed([
-          _member('local-a',
-              pluralkitId: 'pkA',
-              isDeleted: true,
-              deleteIntentEpoch: 0),
+          _member(
+            'local-a',
+            pluralkitId: 'pkA',
+            isDeleted: true,
+            deleteIntentEpoch: 0,
+          ),
         ]);
       final sessionRepo = _FakeSessionRepo();
       final client = _FakeClient();
@@ -637,35 +700,39 @@ void main() {
   });
 
   group('R1 — stale epoch is skipped', () {
-    test('tombstone stamped with old epoch not DELETEd after epoch bump',
-        () async {
-      final db = _makeDb();
-      addTearDown(db.close);
+    test(
+      'tombstone stamped with old epoch not DELETEd after epoch bump',
+      () async {
+        final db = _makeDb();
+        addTearDown(db.close);
 
-      final memberRepo = _FakeMemberRepo()
-        ..seed([
-          _member('local-a',
+        final memberRepo = _FakeMemberRepo()
+          ..seed([
+            _member(
+              'local-a',
               pluralkitId: 'pkA',
               isDeleted: true,
               // stamped in a prior epoch (0)
-              deleteIntentEpoch: 0),
-        ]);
-      final sessionRepo = _FakeSessionRepo();
-      final client = _FakeClient();
-      // current epoch = 5 (tombstone intent epoch = 0 → stale)
-      final (:svc, :epoch) = await _makeService(
-        client: client,
-        db: db,
-        memberRepo: memberRepo,
-        sessionRepo: sessionRepo,
-        systemId: 'sys-1',
-        initialEpoch: 5,
-      );
+              deleteIntentEpoch: 0,
+            ),
+          ]);
+        final sessionRepo = _FakeSessionRepo();
+        final client = _FakeClient();
+        // current epoch = 5 (tombstone intent epoch = 0 → stale)
+        final (:svc, :epoch) = await _makeService(
+          client: client,
+          db: db,
+          memberRepo: memberRepo,
+          sessionRepo: sessionRepo,
+          systemId: 'sys-1',
+          initialEpoch: 5,
+        );
 
-      await svc.syncRecentData(direction: PkSyncDirection.bidirectional);
-      expect(client.deletedMembers, isEmpty);
-      expect(memberRepo.linkCleared, isEmpty);
-    });
+        await svc.syncRecentData(direction: PkSyncDirection.bidirectional);
+        expect(client.deletedMembers, isEmpty);
+        expect(memberRepo.linkCleared, isEmpty);
+      },
+    );
   });
 
   group('R2 — CRDT-style resurrection aborts the push', () {
@@ -675,10 +742,12 @@ void main() {
 
       final memberRepo = _ResurrectingMemberRepo()
         ..seed([
-          _member('local-a',
-              pluralkitId: 'pkA',
-              isDeleted: true,
-              deleteIntentEpoch: 0),
+          _member(
+            'local-a',
+            pluralkitId: 'pkA',
+            isDeleted: true,
+            deleteIntentEpoch: 0,
+          ),
         ]);
       final sessionRepo = _FakeSessionRepo();
       final client = _FakeClient();
@@ -703,19 +772,23 @@ void main() {
 
       final memberRepo = _FakeMemberRepo()
         ..seed([
-          _member('local-a',
-              pluralkitId: 'pkA',
-              isDeleted: true,
-              deleteIntentEpoch: 0),
+          _member(
+            'local-a',
+            pluralkitId: 'pkA',
+            isDeleted: true,
+            deleteIntentEpoch: 0,
+          ),
         ]);
       // Live (not-deleted) session still references member + has a PK uuid.
       final sessionRepo = _FakeSessionRepo()
-        ..sessions.add(_session(
-          's-live',
-          startTime: DateTime(2026, 2, 1),
-          memberId: 'local-a',
-          pluralkitUuid: 'uuid-live',
-        ));
+        ..sessions.add(
+          _session(
+            's-live',
+            startTime: DateTime(2026, 2, 1),
+            memberId: 'local-a',
+            pluralkitUuid: _switchUuid2,
+          ),
+        );
       final client = _FakeClient();
       final (:svc, :epoch) = await _makeService(
         client: client,
@@ -740,19 +813,23 @@ void main() {
 
       final memberRepo = _FakeMemberRepo()
         ..seed([
-          _member('local-a',
-              pluralkitId: 'pkA',
-              isDeleted: true,
-              deleteIntentEpoch: 0),
+          _member(
+            'local-a',
+            pluralkitId: 'pkA',
+            isDeleted: true,
+            deleteIntentEpoch: 0,
+          ),
         ]);
       final sessionRepo = _FakeSessionRepo()
-        ..sessions.add(_session(
-          's1',
-          startTime: DateTime(2026, 2, 1),
-          pluralkitUuid: 'uuid-s1',
-          isDeleted: true,
-          deleteIntentEpoch: 0,
-        ));
+        ..sessions.add(
+          _session(
+            's1',
+            startTime: DateTime(2026, 2, 1),
+            pluralkitUuid: _switchUuid1,
+            isDeleted: true,
+            deleteIntentEpoch: 0,
+          ),
+        );
       final client = _FakeClient();
       final (:svc, :epoch) = await _makeService(
         client: client,

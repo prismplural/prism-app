@@ -175,9 +175,7 @@ class DataExportService {
     // Fetch front session comments
     final allComments = await frontSessionCommentsRepository.getAllComments();
     final v1FrontSessionComments = allComments
-        .map(
-          (c) => _mapFrontSessionComment(c, legacyCommentSessionIds[c.id]),
-        )
+        .map((c) => _mapFrontSessionComment(c, legacyCommentSessionIds[c.id]))
         .toList();
 
     // Fetch conversation categories
@@ -390,6 +388,8 @@ class DataExportService {
     notes: s.notes,
     confidence: s.confidence?.index,
     pluralkitUuid: s.pluralkitUuid,
+    pkImportSource: s.pkImportSource,
+    pkFileSwitchId: s.pkFileSwitchId,
     sessionType: s.sessionType.index,
     quality: s.quality?.index,
     isHealthKitImport: s.isHealthKitImport,
@@ -614,19 +614,18 @@ class DataExportService {
   V1FrontSessionComment _mapFrontSessionComment(
     FrontSessionComment c, [
     String? legacySessionId,
-  ]) =>
-      V1FrontSessionComment(
-        id: c.id,
-        // Only emitted in legacy-fields mode — new-shape exports anchor
-        // comments via `targetTime`, not a session FK. The v7 column is
-        // still present in Drift but unread by the new code paths.
-        sessionId: legacySessionId,
-        body: c.body,
-        timestamp: c.timestamp.toUtc().toIso8601String(),
-        createdAt: c.createdAt.toUtc().toIso8601String(),
-        targetTime: c.targetTime?.toUtc().toIso8601String(),
-        authorMemberId: c.authorMemberId,
-      );
+  ]) => V1FrontSessionComment(
+    id: c.id,
+    // Only emitted in legacy-fields mode — new-shape exports anchor
+    // comments via `targetTime`, not a session FK. The v7 column is
+    // still present in Drift but unread by the new code paths.
+    sessionId: legacySessionId,
+    body: c.body,
+    timestamp: c.timestamp.toUtc().toIso8601String(),
+    createdAt: c.createdAt.toUtc().toIso8601String(),
+    targetTime: c.targetTime?.toUtc().toIso8601String(),
+    authorMemberId: c.authorMemberId,
+  );
 
   V1ConversationCategory _mapConversationCategory(ConversationCategory c) =>
       V1ConversationCategory(
@@ -674,10 +673,12 @@ class DataExportService {
   Future<Map<String, _LegacySessionFields>> _fetchLegacySessionFields(
     AppDatabase db,
   ) async {
-    final rows = await db.customSelect(
-      'SELECT id, co_fronter_ids, pk_member_ids_json '
-      'FROM fronting_sessions WHERE is_deleted = 0',
-    ).get();
+    final rows = await db
+        .customSelect(
+          'SELECT id, co_fronter_ids, pk_member_ids_json '
+          'FROM fronting_sessions WHERE is_deleted = 0',
+        )
+        .get();
     final out = <String, _LegacySessionFields>{};
     for (final row in rows) {
       final id = row.read<String>('id');
@@ -709,10 +710,12 @@ class DataExportService {
   Future<Map<String, String>> _fetchLegacyCommentSessionIds(
     AppDatabase db,
   ) async {
-    final rows = await db.customSelect(
-      'SELECT id, session_id FROM front_session_comments '
-      "WHERE is_deleted = 0 AND session_id IS NOT NULL AND session_id != ''",
-    ).get();
+    final rows = await db
+        .customSelect(
+          'SELECT id, session_id FROM front_session_comments '
+          "WHERE is_deleted = 0 AND session_id IS NOT NULL AND session_id != ''",
+        )
+        .get();
     return {
       for (final row in rows)
         row.read<String>('id'): row.read<String>('session_id'),

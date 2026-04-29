@@ -1611,6 +1611,28 @@ class $FrontingSessionsTable extends FrontingSessions
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _pkImportSourceMeta = const VerificationMeta(
+    'pkImportSource',
+  );
+  @override
+  late final GeneratedColumn<String> pkImportSource = GeneratedColumn<String>(
+    'pk_import_source',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _pkFileSwitchIdMeta = const VerificationMeta(
+    'pkFileSwitchId',
+  );
+  @override
+  late final GeneratedColumn<String> pkFileSwitchId = GeneratedColumn<String>(
+    'pk_file_switch_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _pkMemberIdsJsonMeta = const VerificationMeta(
     'pkMemberIdsJson',
   );
@@ -1671,6 +1693,8 @@ class $FrontingSessionsTable extends FrontingSessions
     quality,
     isHealthKitImport,
     pluralkitUuid,
+    pkImportSource,
+    pkFileSwitchId,
     pkMemberIdsJson,
     isDeleted,
     deleteIntentEpoch,
@@ -1767,6 +1791,24 @@ class $FrontingSessionsTable extends FrontingSessions
         ),
       );
     }
+    if (data.containsKey('pk_import_source')) {
+      context.handle(
+        _pkImportSourceMeta,
+        pkImportSource.isAcceptableOrUnknown(
+          data['pk_import_source']!,
+          _pkImportSourceMeta,
+        ),
+      );
+    }
+    if (data.containsKey('pk_file_switch_id')) {
+      context.handle(
+        _pkFileSwitchIdMeta,
+        pkFileSwitchId.isAcceptableOrUnknown(
+          data['pk_file_switch_id']!,
+          _pkFileSwitchIdMeta,
+        ),
+      );
+    }
     if (data.containsKey('pk_member_ids_json')) {
       context.handle(
         _pkMemberIdsJsonMeta,
@@ -1853,6 +1895,14 @@ class $FrontingSessionsTable extends FrontingSessions
         DriftSqlType.string,
         data['${effectivePrefix}pluralkit_uuid'],
       ),
+      pkImportSource: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pk_import_source'],
+      ),
+      pkFileSwitchId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pk_file_switch_id'],
+      ),
       pkMemberIdsJson: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}pk_member_ids_json'],
@@ -1890,6 +1940,8 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
   final int? quality;
   final bool isHealthKitImport;
   final String? pluralkitUuid;
+  final String? pkImportSource;
+  final String? pkFileSwitchId;
   final String? pkMemberIdsJson;
   final bool isDeleted;
   final int? deleteIntentEpoch;
@@ -1906,6 +1958,8 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
     this.quality,
     required this.isHealthKitImport,
     this.pluralkitUuid,
+    this.pkImportSource,
+    this.pkFileSwitchId,
     this.pkMemberIdsJson,
     required this.isDeleted,
     this.deleteIntentEpoch,
@@ -1936,6 +1990,12 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
     map['is_health_kit_import'] = Variable<bool>(isHealthKitImport);
     if (!nullToAbsent || pluralkitUuid != null) {
       map['pluralkit_uuid'] = Variable<String>(pluralkitUuid);
+    }
+    if (!nullToAbsent || pkImportSource != null) {
+      map['pk_import_source'] = Variable<String>(pkImportSource);
+    }
+    if (!nullToAbsent || pkFileSwitchId != null) {
+      map['pk_file_switch_id'] = Variable<String>(pkFileSwitchId);
     }
     if (!nullToAbsent || pkMemberIdsJson != null) {
       map['pk_member_ids_json'] = Variable<String>(pkMemberIdsJson);
@@ -1975,6 +2035,12 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
       pluralkitUuid: pluralkitUuid == null && nullToAbsent
           ? const Value.absent()
           : Value(pluralkitUuid),
+      pkImportSource: pkImportSource == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pkImportSource),
+      pkFileSwitchId: pkFileSwitchId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pkFileSwitchId),
       pkMemberIdsJson: pkMemberIdsJson == null && nullToAbsent
           ? const Value.absent()
           : Value(pkMemberIdsJson),
@@ -2005,6 +2071,8 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
       quality: serializer.fromJson<int?>(json['quality']),
       isHealthKitImport: serializer.fromJson<bool>(json['isHealthKitImport']),
       pluralkitUuid: serializer.fromJson<String?>(json['pluralkitUuid']),
+      pkImportSource: serializer.fromJson<String?>(json['pkImportSource']),
+      pkFileSwitchId: serializer.fromJson<String?>(json['pkFileSwitchId']),
       pkMemberIdsJson: serializer.fromJson<String?>(json['pkMemberIdsJson']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
       deleteIntentEpoch: serializer.fromJson<int?>(json['deleteIntentEpoch']),
@@ -2028,6 +2096,8 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
       'quality': serializer.toJson<int?>(quality),
       'isHealthKitImport': serializer.toJson<bool>(isHealthKitImport),
       'pluralkitUuid': serializer.toJson<String?>(pluralkitUuid),
+      'pkImportSource': serializer.toJson<String?>(pkImportSource),
+      'pkFileSwitchId': serializer.toJson<String?>(pkFileSwitchId),
       'pkMemberIdsJson': serializer.toJson<String?>(pkMemberIdsJson),
       'isDeleted': serializer.toJson<bool>(isDeleted),
       'deleteIntentEpoch': serializer.toJson<int?>(deleteIntentEpoch),
@@ -2047,6 +2117,8 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
     Value<int?> quality = const Value.absent(),
     bool? isHealthKitImport,
     Value<String?> pluralkitUuid = const Value.absent(),
+    Value<String?> pkImportSource = const Value.absent(),
+    Value<String?> pkFileSwitchId = const Value.absent(),
     Value<String?> pkMemberIdsJson = const Value.absent(),
     bool? isDeleted,
     Value<int?> deleteIntentEpoch = const Value.absent(),
@@ -2065,6 +2137,12 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
     pluralkitUuid: pluralkitUuid.present
         ? pluralkitUuid.value
         : this.pluralkitUuid,
+    pkImportSource: pkImportSource.present
+        ? pkImportSource.value
+        : this.pkImportSource,
+    pkFileSwitchId: pkFileSwitchId.present
+        ? pkFileSwitchId.value
+        : this.pkFileSwitchId,
     pkMemberIdsJson: pkMemberIdsJson.present
         ? pkMemberIdsJson.value
         : this.pkMemberIdsJson,
@@ -2099,6 +2177,12 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
       pluralkitUuid: data.pluralkitUuid.present
           ? data.pluralkitUuid.value
           : this.pluralkitUuid,
+      pkImportSource: data.pkImportSource.present
+          ? data.pkImportSource.value
+          : this.pkImportSource,
+      pkFileSwitchId: data.pkFileSwitchId.present
+          ? data.pkFileSwitchId.value
+          : this.pkFileSwitchId,
       pkMemberIdsJson: data.pkMemberIdsJson.present
           ? data.pkMemberIdsJson.value
           : this.pkMemberIdsJson,
@@ -2126,6 +2210,8 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
           ..write('quality: $quality, ')
           ..write('isHealthKitImport: $isHealthKitImport, ')
           ..write('pluralkitUuid: $pluralkitUuid, ')
+          ..write('pkImportSource: $pkImportSource, ')
+          ..write('pkFileSwitchId: $pkFileSwitchId, ')
           ..write('pkMemberIdsJson: $pkMemberIdsJson, ')
           ..write('isDeleted: $isDeleted, ')
           ..write('deleteIntentEpoch: $deleteIntentEpoch, ')
@@ -2147,6 +2233,8 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
     quality,
     isHealthKitImport,
     pluralkitUuid,
+    pkImportSource,
+    pkFileSwitchId,
     pkMemberIdsJson,
     isDeleted,
     deleteIntentEpoch,
@@ -2167,6 +2255,8 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
           other.quality == this.quality &&
           other.isHealthKitImport == this.isHealthKitImport &&
           other.pluralkitUuid == this.pluralkitUuid &&
+          other.pkImportSource == this.pkImportSource &&
+          other.pkFileSwitchId == this.pkFileSwitchId &&
           other.pkMemberIdsJson == this.pkMemberIdsJson &&
           other.isDeleted == this.isDeleted &&
           other.deleteIntentEpoch == this.deleteIntentEpoch &&
@@ -2185,6 +2275,8 @@ class FrontingSessionsCompanion extends UpdateCompanion<FrontingSession> {
   final Value<int?> quality;
   final Value<bool> isHealthKitImport;
   final Value<String?> pluralkitUuid;
+  final Value<String?> pkImportSource;
+  final Value<String?> pkFileSwitchId;
   final Value<String?> pkMemberIdsJson;
   final Value<bool> isDeleted;
   final Value<int?> deleteIntentEpoch;
@@ -2202,6 +2294,8 @@ class FrontingSessionsCompanion extends UpdateCompanion<FrontingSession> {
     this.quality = const Value.absent(),
     this.isHealthKitImport = const Value.absent(),
     this.pluralkitUuid = const Value.absent(),
+    this.pkImportSource = const Value.absent(),
+    this.pkFileSwitchId = const Value.absent(),
     this.pkMemberIdsJson = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.deleteIntentEpoch = const Value.absent(),
@@ -2220,6 +2314,8 @@ class FrontingSessionsCompanion extends UpdateCompanion<FrontingSession> {
     this.quality = const Value.absent(),
     this.isHealthKitImport = const Value.absent(),
     this.pluralkitUuid = const Value.absent(),
+    this.pkImportSource = const Value.absent(),
+    this.pkFileSwitchId = const Value.absent(),
     this.pkMemberIdsJson = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.deleteIntentEpoch = const Value.absent(),
@@ -2239,6 +2335,8 @@ class FrontingSessionsCompanion extends UpdateCompanion<FrontingSession> {
     Expression<int>? quality,
     Expression<bool>? isHealthKitImport,
     Expression<String>? pluralkitUuid,
+    Expression<String>? pkImportSource,
+    Expression<String>? pkFileSwitchId,
     Expression<String>? pkMemberIdsJson,
     Expression<bool>? isDeleted,
     Expression<int>? deleteIntentEpoch,
@@ -2257,6 +2355,8 @@ class FrontingSessionsCompanion extends UpdateCompanion<FrontingSession> {
       if (quality != null) 'quality': quality,
       if (isHealthKitImport != null) 'is_health_kit_import': isHealthKitImport,
       if (pluralkitUuid != null) 'pluralkit_uuid': pluralkitUuid,
+      if (pkImportSource != null) 'pk_import_source': pkImportSource,
+      if (pkFileSwitchId != null) 'pk_file_switch_id': pkFileSwitchId,
       if (pkMemberIdsJson != null) 'pk_member_ids_json': pkMemberIdsJson,
       if (isDeleted != null) 'is_deleted': isDeleted,
       if (deleteIntentEpoch != null) 'delete_intent_epoch': deleteIntentEpoch,
@@ -2278,6 +2378,8 @@ class FrontingSessionsCompanion extends UpdateCompanion<FrontingSession> {
     Value<int?>? quality,
     Value<bool>? isHealthKitImport,
     Value<String?>? pluralkitUuid,
+    Value<String?>? pkImportSource,
+    Value<String?>? pkFileSwitchId,
     Value<String?>? pkMemberIdsJson,
     Value<bool>? isDeleted,
     Value<int?>? deleteIntentEpoch,
@@ -2296,6 +2398,8 @@ class FrontingSessionsCompanion extends UpdateCompanion<FrontingSession> {
       quality: quality ?? this.quality,
       isHealthKitImport: isHealthKitImport ?? this.isHealthKitImport,
       pluralkitUuid: pluralkitUuid ?? this.pluralkitUuid,
+      pkImportSource: pkImportSource ?? this.pkImportSource,
+      pkFileSwitchId: pkFileSwitchId ?? this.pkFileSwitchId,
       pkMemberIdsJson: pkMemberIdsJson ?? this.pkMemberIdsJson,
       isDeleted: isDeleted ?? this.isDeleted,
       deleteIntentEpoch: deleteIntentEpoch ?? this.deleteIntentEpoch,
@@ -2340,6 +2444,12 @@ class FrontingSessionsCompanion extends UpdateCompanion<FrontingSession> {
     if (pluralkitUuid.present) {
       map['pluralkit_uuid'] = Variable<String>(pluralkitUuid.value);
     }
+    if (pkImportSource.present) {
+      map['pk_import_source'] = Variable<String>(pkImportSource.value);
+    }
+    if (pkFileSwitchId.present) {
+      map['pk_file_switch_id'] = Variable<String>(pkFileSwitchId.value);
+    }
     if (pkMemberIdsJson.present) {
       map['pk_member_ids_json'] = Variable<String>(pkMemberIdsJson.value);
     }
@@ -2372,6 +2482,8 @@ class FrontingSessionsCompanion extends UpdateCompanion<FrontingSession> {
           ..write('quality: $quality, ')
           ..write('isHealthKitImport: $isHealthKitImport, ')
           ..write('pluralkitUuid: $pluralkitUuid, ')
+          ..write('pkImportSource: $pkImportSource, ')
+          ..write('pkFileSwitchId: $pkFileSwitchId, ')
           ..write('pkMemberIdsJson: $pkMemberIdsJson, ')
           ..write('isDeleted: $isDeleted, ')
           ..write('deleteIntentEpoch: $deleteIntentEpoch, ')
@@ -22868,6 +22980,8 @@ typedef $$FrontingSessionsTableCreateCompanionBuilder =
       Value<int?> quality,
       Value<bool> isHealthKitImport,
       Value<String?> pluralkitUuid,
+      Value<String?> pkImportSource,
+      Value<String?> pkFileSwitchId,
       Value<String?> pkMemberIdsJson,
       Value<bool> isDeleted,
       Value<int?> deleteIntentEpoch,
@@ -22887,6 +23001,8 @@ typedef $$FrontingSessionsTableUpdateCompanionBuilder =
       Value<int?> quality,
       Value<bool> isHealthKitImport,
       Value<String?> pluralkitUuid,
+      Value<String?> pkImportSource,
+      Value<String?> pkFileSwitchId,
       Value<String?> pkMemberIdsJson,
       Value<bool> isDeleted,
       Value<int?> deleteIntentEpoch,
@@ -22955,6 +23071,16 @@ class $$FrontingSessionsTableFilterComposer
 
   ColumnFilters<String> get pluralkitUuid => $composableBuilder(
     column: $table.pluralkitUuid,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pkImportSource => $composableBuilder(
+    column: $table.pkImportSource,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pkFileSwitchId => $composableBuilder(
+    column: $table.pkFileSwitchId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -23043,6 +23169,16 @@ class $$FrontingSessionsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get pkImportSource => $composableBuilder(
+    column: $table.pkImportSource,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pkFileSwitchId => $composableBuilder(
+    column: $table.pkFileSwitchId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get pkMemberIdsJson => $composableBuilder(
     column: $table.pkMemberIdsJson,
     builder: (column) => ColumnOrderings(column),
@@ -23116,6 +23252,16 @@ class $$FrontingSessionsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get pkImportSource => $composableBuilder(
+    column: $table.pkImportSource,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get pkFileSwitchId => $composableBuilder(
+    column: $table.pkFileSwitchId,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get pkMemberIdsJson => $composableBuilder(
     column: $table.pkMemberIdsJson,
     builder: (column) => column,
@@ -23183,6 +23329,8 @@ class $$FrontingSessionsTableTableManager
                 Value<int?> quality = const Value.absent(),
                 Value<bool> isHealthKitImport = const Value.absent(),
                 Value<String?> pluralkitUuid = const Value.absent(),
+                Value<String?> pkImportSource = const Value.absent(),
+                Value<String?> pkFileSwitchId = const Value.absent(),
                 Value<String?> pkMemberIdsJson = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<int?> deleteIntentEpoch = const Value.absent(),
@@ -23200,6 +23348,8 @@ class $$FrontingSessionsTableTableManager
                 quality: quality,
                 isHealthKitImport: isHealthKitImport,
                 pluralkitUuid: pluralkitUuid,
+                pkImportSource: pkImportSource,
+                pkFileSwitchId: pkFileSwitchId,
                 pkMemberIdsJson: pkMemberIdsJson,
                 isDeleted: isDeleted,
                 deleteIntentEpoch: deleteIntentEpoch,
@@ -23219,6 +23369,8 @@ class $$FrontingSessionsTableTableManager
                 Value<int?> quality = const Value.absent(),
                 Value<bool> isHealthKitImport = const Value.absent(),
                 Value<String?> pluralkitUuid = const Value.absent(),
+                Value<String?> pkImportSource = const Value.absent(),
+                Value<String?> pkFileSwitchId = const Value.absent(),
                 Value<String?> pkMemberIdsJson = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<int?> deleteIntentEpoch = const Value.absent(),
@@ -23236,6 +23388,8 @@ class $$FrontingSessionsTableTableManager
                 quality: quality,
                 isHealthKitImport: isHealthKitImport,
                 pluralkitUuid: pluralkitUuid,
+                pkImportSource: pkImportSource,
+                pkFileSwitchId: pkFileSwitchId,
                 pkMemberIdsJson: pkMemberIdsJson,
                 isDeleted: isDeleted,
                 deleteIntentEpoch: deleteIntentEpoch,

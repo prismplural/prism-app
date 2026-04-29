@@ -830,6 +830,13 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
             ),
           ),
           const SizedBox(height: 12),
+          Text(
+            context.l10n.pluralkitFileImportHelp,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 12),
           PrismButton(
             onPressed: _importFromFile,
             icon: AppIcons.fileUploadOutlined,

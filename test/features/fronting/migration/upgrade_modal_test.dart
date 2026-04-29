@@ -71,7 +71,7 @@ class _FakeRunner implements FrontingMigrationService {
       [];
   final List<({MigrationMode mode, String password})> prepareCalls = [];
   final List<({MigrationMode mode, DeviceRole role, File file})>
-      destructiveCalls = [];
+  destructiveCalls = [];
   String? lastDeferredWrite;
 
   @override
@@ -132,11 +132,7 @@ class _FakeRunner implements FrontingMigrationService {
     // that still drives `runMigration` end-to-end exercises both.
     final file = await prepareBackup(mode: mode, password: password);
     await shareFile(file);
-    return runMigrationDestructive(
-      mode: mode,
-      role: role,
-      exportFile: file,
-    );
+    return runMigrationDestructive(mode: mode, role: role, exportFile: file);
   }
 
   @override
@@ -153,6 +149,7 @@ Widget _buildSheetSubject({
   String mode = FrontingMigrationService.modeNotStarted,
   Future<bool> Function(File file)? shareBackup,
   Future<bool> Function(File file)? saveBackup,
+  VoidCallback? openPluralKitImport,
 }) {
   return ProviderScope(
     overrides: [
@@ -161,12 +158,14 @@ Widget _buildSheetSubject({
       frontingMigrationModeProvider.overrideWith((ref) => Stream.value(mode)),
       // Pin terminology so the success step's analytics FYI doesn't
       // try to subscribe to the (unoverridden) systemSettingsProvider.
-      terminologySettingProvider.overrideWith((ref) => (
-            term: SystemTerminology.headmates,
-            customSingular: null,
-            customPlural: null,
-            useEnglish: false,
-          )),
+      terminologySettingProvider.overrideWith(
+        (ref) => (
+          term: SystemTerminology.headmates,
+          customSingular: null,
+          customPlural: null,
+          useEnglish: false,
+        ),
+      ),
     ],
     child: MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -180,6 +179,7 @@ Widget _buildSheetSubject({
                 isDismissible: true,
                 shareBackup: shareBackup,
                 saveBackup: saveBackup,
+                openPluralKitImport: openPluralKitImport,
               ),
               child: const Text('open'),
             ),
@@ -247,8 +247,9 @@ Future<void> _openSheet(WidgetTester tester) async {
 
 void main() {
   group('FrontingUpgradeSheet', () {
-    testWidgets('solo device skips the role question and goes to mode picker',
-        (tester) async {
+    testWidgets('solo device skips the role question and goes to mode picker', (
+      tester,
+    ) async {
       final runner = _FakeRunner();
       await tester.pumpWidget(
         _buildSheetSubject(runner: runner, pairedCount: 0),
@@ -274,8 +275,9 @@ void main() {
     // local writes that haven't been pushed yet exist only on this
     // device. If a future copy edit silently drops or hides the
     // warning, this test fails before users find out the hard way.
-    testWidgets('intro screen renders the pending-sync warning',
-        (tester) async {
+    testWidgets('intro screen renders the pending-sync warning', (
+      tester,
+    ) async {
       final runner = _FakeRunner();
       await tester.pumpWidget(
         _buildSheetSubject(runner: runner, pairedCount: 0),
@@ -284,18 +286,16 @@ void main() {
 
       // The full warning sentence is brittle to copy edits; pin a
       // load-bearing fragment that conveys the user-facing meaning.
-      expect(
-        find.textContaining('unsynced changes'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('unsynced changes'), findsOneWidget);
       expect(
         find.textContaining('Pending uploads will need to be redone'),
         findsOneWidget,
       );
     });
 
-    testWidgets('paired device shows the role question after Continue',
-        (tester) async {
+    testWidgets('paired device shows the role question after Continue', (
+      tester,
+    ) async {
       final runner = _FakeRunner();
       await tester.pumpWidget(
         _buildSheetSubject(runner: runner, pairedCount: 2),
@@ -325,42 +325,46 @@ void main() {
       'role question appears when paired-count lookup fails (handle loading)',
       (tester) async {
         final runner = _FakeRunner();
-        await tester.pumpWidget(ProviderScope(
-          overrides: [
-            frontingMigrationRunnerProvider.overrideWithValue(runner),
-            // Mimic the future-fails-to-resolve shape that the previous
-            // synchronous-`.value` read silently turned into "0 / solo."
-            pairedDeviceCountProvider.overrideWith(
-              (ref) async => throw StateError('sync handle loading'),
-            ),
-            frontingMigrationModeProvider.overrideWith(
-              (ref) => Stream.value(FrontingMigrationService.modeNotStarted),
-            ),
-            terminologySettingProvider.overrideWith((ref) => (
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              frontingMigrationRunnerProvider.overrideWithValue(runner),
+              // Mimic the future-fails-to-resolve shape that the previous
+              // synchronous-`.value` read silently turned into "0 / solo."
+              pairedDeviceCountProvider.overrideWith(
+                (ref) async => throw StateError('sync handle loading'),
+              ),
+              frontingMigrationModeProvider.overrideWith(
+                (ref) => Stream.value(FrontingMigrationService.modeNotStarted),
+              ),
+              terminologySettingProvider.overrideWith(
+                (ref) => (
                   term: SystemTerminology.headmates,
                   customSingular: null,
                   customPlural: null,
                   useEnglish: false,
-                )),
-          ],
-          child: MaterialApp(
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
-            supportedLocales: const [Locale('en')],
-            home: Scaffold(
-              body: Builder(
-                builder: (context) => Center(
-                  child: ElevatedButton(
-                    onPressed: () => showFrontingUpgradeSheet(
-                      context,
-                      isDismissible: true,
+                ),
+              ),
+            ],
+            child: MaterialApp(
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: const [Locale('en')],
+              home: Scaffold(
+                body: Builder(
+                  builder: (context) => Center(
+                    child: ElevatedButton(
+                      onPressed: () => showFrontingUpgradeSheet(
+                        context,
+                        isDismissible: true,
+                      ),
+                      child: const Text('open'),
                     ),
-                    child: const Text('open'),
                   ),
                 ),
               ),
             ),
           ),
-        ));
+        );
         await _openSheet(tester);
         await tester.tap(find.text('Continue'));
         await tester.pumpAndSettle();
@@ -371,8 +375,9 @@ void main() {
       },
     );
 
-    testWidgets('Not now invokes runner with notNow and dismisses the modal',
-        (tester) async {
+    testWidgets('Not now invokes runner with notNow and dismisses the modal', (
+      tester,
+    ) async {
       final runner = _FakeRunner();
       await tester.pumpWidget(
         _buildSheetSubject(runner: runner, pairedCount: 0),
@@ -458,8 +463,9 @@ void main() {
         await tester.pumpAndSettle();
       }
 
-      testWidgets('empty password surfaces dataManagementPasswordEmpty',
-          (tester) async {
+      testWidgets('empty password surfaces dataManagementPasswordEmpty', (
+        tester,
+      ) async {
         final runner = _FakeRunner();
         await tester.pumpWidget(
           _buildSheetSubject(runner: runner, pairedCount: 0),
@@ -470,52 +476,61 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('Password cannot be empty'), findsOneWidget);
-        expect(runner.calls.any((c) => c.mode != MigrationMode.notNow),
-            isFalse);
-      });
-
-      testWidgets('too-short password surfaces dataManagementPasswordTooShort',
-          (tester) async {
-        final runner = _FakeRunner();
-        await tester.pumpWidget(
-          _buildSheetSubject(runner: runner, pairedCount: 0),
-        );
-        await navigateToPassword(tester);
-
-        // Both fields get a short string so we hit the length check
-        // BEFORE the mismatch check.
-        await tester.enterText(
-            find.byType(TextField).at(0), 'short');
-        await tester.enterText(
-            find.byType(TextField).at(1), 'short');
-        await tester.tap(find.text('Back up and upgrade'));
-        await tester.pumpAndSettle();
-
         expect(
-            find.text('Password must be at least 12 characters'), findsOneWidget);
-      });
-
-      testWidgets('mismatched password surfaces dataManagementPasswordMismatch',
-          (tester) async {
-        final runner = _FakeRunner();
-        await tester.pumpWidget(
-          _buildSheetSubject(runner: runner, pairedCount: 0),
+          runner.calls.any((c) => c.mode != MigrationMode.notNow),
+          isFalse,
         );
-        await navigateToPassword(tester);
-
-        await tester.enterText(
-            find.byType(TextField).at(0), 'this-is-long-enough');
-        await tester.enterText(
-            find.byType(TextField).at(1), 'this-is-different-but-long');
-        await tester.tap(find.text('Back up and upgrade'));
-        await tester.pumpAndSettle();
-
-        expect(find.text('Passwords do not match'), findsOneWidget);
       });
+
+      testWidgets(
+        'too-short password surfaces dataManagementPasswordTooShort',
+        (tester) async {
+          final runner = _FakeRunner();
+          await tester.pumpWidget(
+            _buildSheetSubject(runner: runner, pairedCount: 0),
+          );
+          await navigateToPassword(tester);
+
+          // Both fields get a short string so we hit the length check
+          // BEFORE the mismatch check.
+          await tester.enterText(find.byType(TextField).at(0), 'short');
+          await tester.enterText(find.byType(TextField).at(1), 'short');
+          await tester.tap(find.text('Back up and upgrade'));
+          await tester.pumpAndSettle();
+
+          expect(
+            find.text('Password must be at least 12 characters'),
+            findsOneWidget,
+          );
+        },
+      );
+
+      testWidgets(
+        'mismatched password surfaces dataManagementPasswordMismatch',
+        (tester) async {
+          final runner = _FakeRunner();
+          await tester.pumpWidget(
+            _buildSheetSubject(runner: runner, pairedCount: 0),
+          );
+          await navigateToPassword(tester);
+
+          await tester.enterText(
+            find.byType(TextField).at(0),
+            'this-is-long-enough',
+          );
+          await tester.enterText(
+            find.byType(TextField).at(1),
+            'this-is-different-but-long',
+          );
+          await tester.tap(find.text('Back up and upgrade'));
+          await tester.pumpAndSettle();
+
+          expect(find.text('Passwords do not match'), findsOneWidget);
+        },
+      );
     });
 
-    testWidgets(
-        'successful migration on solo path shows success screen with no '
+    testWidgets('successful migration on solo path shows success screen with no '
         're-pair copy', (tester) async {
       final runner = _FakeRunner(
         result: const MigrationResult(
@@ -535,9 +550,13 @@ void main() {
       await tester.tap(find.text('Keep my data'));
       await tester.pumpAndSettle();
       await tester.enterText(
-          find.byType(TextField).at(0), 'a-strong-password-12');
+        find.byType(TextField).at(0),
+        'a-strong-password-12',
+      );
       await tester.enterText(
-          find.byType(TextField).at(1), 'a-strong-password-12');
+        find.byType(TextField).at(1),
+        'a-strong-password-12',
+      );
       await tester.tap(find.text('Back up and upgrade'));
       await tester.pumpAndSettle();
       // Codex P1 #8: drive past the durable-save gate.
@@ -552,7 +571,9 @@ void main() {
       // Solo gets the "all set" copy, not the primary "open Settings →
       // Sync on your other devices" prompt.
       expect(
-          find.textContaining('Your other devices need to pair'), findsNothing);
+        find.textContaining('Your other devices need to pair'),
+        findsNothing,
+      );
       expect(find.textContaining('All set.'), findsOneWidget);
       // §4.3 analytics FYI must render with the term placeholder
       // substituted — pin the lowercase noun-modifier so a future
@@ -561,9 +582,9 @@ void main() {
       expect(find.textContaining('headmate-minutes'), findsOneWidget);
     });
 
-    testWidgets(
-        'successful migration on primary path shows re-pair copy',
-        (tester) async {
+    testWidgets('successful migration on primary path shows re-pair copy', (
+      tester,
+    ) async {
       final runner = _FakeRunner(
         result: const MigrationResult(
           outcome: MigrationOutcome.success,
@@ -581,9 +602,13 @@ void main() {
       await tester.tap(find.text('Keep my data'));
       await tester.pumpAndSettle();
       await tester.enterText(
-          find.byType(TextField).at(0), 'a-strong-password-12');
+        find.byType(TextField).at(0),
+        'a-strong-password-12',
+      );
       await tester.enterText(
-          find.byType(TextField).at(1), 'a-strong-password-12');
+        find.byType(TextField).at(1),
+        'a-strong-password-12',
+      );
       await tester.tap(find.text('Back up and upgrade'));
       await tester.pumpAndSettle();
       await _ackBackupAndContinue(tester);
@@ -591,15 +616,118 @@ void main() {
       expect(find.text('Migration complete!'), findsOneWidget);
       expect(runner.calls.last.role, DeviceRole.primary);
       expect(
-          find.textContaining('Your other devices need to pair'), findsOneWidget);
+        find.textContaining('Your other devices need to pair'),
+        findsOneWidget,
+      );
       // §4.3 analytics FYI placeholder substitution — see the solo-path
       // test for rationale. Pinning the noun-modifier proves the
       // {term} bind ran on this path too.
       expect(find.textContaining('headmate-minutes'), findsOneWidget);
     });
 
-    testWidgets('failed migration shows error and a working Retry button',
-        (tester) async {
+    testWidgets(
+      'pk-clearing success explains PluralKit re-import options and opens '
+      'the import entry point',
+      (tester) async {
+        var openedPluralKitImport = false;
+        final runner = _FakeRunner(
+          result: const MigrationResult(
+            outcome: MigrationOutcome.success,
+            spRowsMigrated: 1,
+            pkRowsDeleted: 2,
+          ),
+        );
+        await tester.pumpWidget(
+          _buildSheetSubject(
+            runner: runner,
+            pairedCount: 0,
+            openPluralKitImport: () => openedPluralKitImport = true,
+          ),
+        );
+        await _openSheet(tester);
+        await tester.tap(find.text('Continue'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Keep my data'));
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byType(TextField).at(0),
+          'a-strong-password-12',
+        );
+        await tester.enterText(
+          find.byType(TextField).at(1),
+          'a-strong-password-12',
+        );
+        await tester.tap(find.text('Back up and upgrade'));
+        await tester.pumpAndSettle();
+        await _ackBackupAndContinue(tester);
+
+        expect(find.text('Migration complete!'), findsOneWidget);
+        expect(
+          find.textContaining('Old-format PluralKit history was cleared'),
+          findsOneWidget,
+        );
+        expect(
+          find.textContaining('PluralKit token or a pk;export file'),
+          findsOneWidget,
+        );
+        expect(find.text('Open PluralKit import'), findsOneWidget);
+
+        await tester.tap(find.text('Open PluralKit import'));
+        await tester.pumpAndSettle();
+
+        expect(openedPluralKitImport, isTrue);
+        expect(find.text('Migration complete!'), findsNothing);
+        expect(find.text('open'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'secondary-device success keeps re-pair guidance and does not offer '
+      'PluralKit import CTA',
+      (tester) async {
+        final runner = _FakeRunner(
+          result: const MigrationResult(
+            outcome: MigrationOutcome.success,
+            pkRowsDeleted: 2,
+          ),
+        );
+        await tester.pumpWidget(
+          _buildSheetSubject(runner: runner, pairedCount: 2),
+        );
+        await _openSheet(tester);
+        await tester.tap(find.text('Continue'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('No, this is a secondary'));
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byType(TextField).at(0),
+          'a-strong-password-12',
+        );
+        await tester.enterText(
+          find.byType(TextField).at(1),
+          'a-strong-password-12',
+        );
+        await tester.tap(find.text('Back up and upgrade'));
+        await tester.pumpAndSettle();
+        await _ackBackupAndContinue(tester);
+
+        expect(find.text('Migration complete!'), findsOneWidget);
+        expect(runner.calls.last.role, DeviceRole.secondary);
+        expect(
+          find.textContaining('Pair this device with your main device again'),
+          findsOneWidget,
+        );
+        expect(
+          find.textContaining('Old-format PluralKit history was cleared'),
+          findsOneWidget,
+        );
+        expect(find.text('Open PluralKit import'), findsNothing);
+      },
+    );
+
+    testWidgets('failed migration shows error and a working Retry button', (
+      tester,
+    ) async {
       final runner = _FakeRunner(
         result: const MigrationResult(
           outcome: MigrationOutcome.failed,
@@ -615,9 +743,13 @@ void main() {
       await tester.tap(find.text('Keep my data'));
       await tester.pumpAndSettle();
       await tester.enterText(
-          find.byType(TextField).at(0), 'a-strong-password-12');
+        find.byType(TextField).at(0),
+        'a-strong-password-12',
+      );
       await tester.enterText(
-          find.byType(TextField).at(1), 'a-strong-password-12');
+        find.byType(TextField).at(1),
+        'a-strong-password-12',
+      );
       await tester.tap(find.text('Back up and upgrade'));
       await tester.pumpAndSettle();
       await _ackBackupAndContinue(tester);
@@ -643,90 +775,100 @@ void main() {
     // future regression in render order or `isNotEmpty` logic fails
     // here.
     testWidgets(
-        'success screen shows corrupt-co-fronters line when count > 0',
-        (tester) async {
-      final runner = _FakeRunner(
-        result: const MigrationResult(
-          outcome: MigrationOutcome.success,
-          spRowsMigrated: 1,
-          corruptCoFronterRowIds: ['a', 'b', 'c'],
-        ),
-      );
-      await tester.pumpWidget(
-        _buildSheetSubject(runner: runner, pairedCount: 0),
-      );
-      await _openSheet(tester);
-      await tester.tap(find.text('Continue'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Keep my data'));
-      await tester.pumpAndSettle();
-      await tester.enterText(
-          find.byType(TextField).at(0), 'a-strong-password-12');
-      await tester.enterText(
-          find.byType(TextField).at(1), 'a-strong-password-12');
-      await tester.tap(find.text('Back up and upgrade'));
-      await tester.pumpAndSettle();
-      await _ackBackupAndContinue(tester);
+      'success screen shows corrupt-co-fronters line when count > 0',
+      (tester) async {
+        final runner = _FakeRunner(
+          result: const MigrationResult(
+            outcome: MigrationOutcome.success,
+            spRowsMigrated: 1,
+            corruptCoFronterRowIds: ['a', 'b', 'c'],
+          ),
+        );
+        await tester.pumpWidget(
+          _buildSheetSubject(runner: runner, pairedCount: 0),
+        );
+        await _openSheet(tester);
+        await tester.tap(find.text('Continue'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Keep my data'));
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byType(TextField).at(0),
+          'a-strong-password-12',
+        );
+        await tester.enterText(
+          find.byType(TextField).at(1),
+          'a-strong-password-12',
+        );
+        await tester.tap(find.text('Back up and upgrade'));
+        await tester.pumpAndSettle();
+        await _ackBackupAndContinue(tester);
 
-      expect(find.text('Migration complete!'), findsOneWidget);
-      // l10n plural form for count = 3 reads:
-      //   "3 sessions had unreadable co-fronter data and were
-      //    migrated as single-member."
-      // Pin "unreadable" (load-bearing word) + the count fragment so
-      // copy edits that preserve meaning still pass while a missing
-      // line fails.
-      expect(find.textContaining('unreadable'), findsOneWidget);
-      expect(find.textContaining('3 sessions'), findsOneWidget);
-    });
+        expect(find.text('Migration complete!'), findsOneWidget);
+        // l10n plural form for count = 3 reads:
+        //   "3 sessions had unreadable co-fronter data and were
+        //    migrated as single-member."
+        // Pin "unreadable" (load-bearing word) + the count fragment so
+        // copy edits that preserve meaning still pass while a missing
+        // line fails.
+        expect(find.textContaining('unreadable'), findsOneWidget);
+        expect(find.textContaining('3 sessions'), findsOneWidget);
+      },
+    );
 
     testWidgets(
-        'success screen omits corrupt-co-fronters line when count == 0',
-        (tester) async {
-      final runner = _FakeRunner(
-        result: const MigrationResult(
-          outcome: MigrationOutcome.success,
-          spRowsMigrated: 1,
-          // Default is `const []`, but make the contract explicit
-          // here — this test exists to pin the `isEmpty` branch.
-          corruptCoFronterRowIds: [],
-        ),
-      );
-      await tester.pumpWidget(
-        _buildSheetSubject(runner: runner, pairedCount: 0),
-      );
-      await _openSheet(tester);
-      await tester.tap(find.text('Continue'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Keep my data'));
-      await tester.pumpAndSettle();
-      await tester.enterText(
-          find.byType(TextField).at(0), 'a-strong-password-12');
-      await tester.enterText(
-          find.byType(TextField).at(1), 'a-strong-password-12');
-      await tester.tap(find.text('Back up and upgrade'));
-      await tester.pumpAndSettle();
-      await _ackBackupAndContinue(tester);
+      'success screen omits corrupt-co-fronters line when count == 0',
+      (tester) async {
+        final runner = _FakeRunner(
+          result: const MigrationResult(
+            outcome: MigrationOutcome.success,
+            spRowsMigrated: 1,
+            // Default is `const []`, but make the contract explicit
+            // here — this test exists to pin the `isEmpty` branch.
+            corruptCoFronterRowIds: [],
+          ),
+        );
+        await tester.pumpWidget(
+          _buildSheetSubject(runner: runner, pairedCount: 0),
+        );
+        await _openSheet(tester);
+        await tester.tap(find.text('Continue'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Keep my data'));
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byType(TextField).at(0),
+          'a-strong-password-12',
+        );
+        await tester.enterText(
+          find.byType(TextField).at(1),
+          'a-strong-password-12',
+        );
+        await tester.tap(find.text('Back up and upgrade'));
+        await tester.pumpAndSettle();
+        await _ackBackupAndContinue(tester);
 
-      expect(find.text('Migration complete!'), findsOneWidget);
-      // No corrupt line anywhere in the success screen tree.
-      expect(find.textContaining('unreadable'), findsNothing);
-    });
+        expect(find.text('Migration complete!'), findsOneWidget);
+        // No corrupt line anywhere in the success screen tree.
+        expect(find.textContaining('unreadable'), findsNothing);
+      },
+    );
   });
 
   group('FrontingUpgradeBanner', () {
     testWidgets('renders when mode is deferred', (tester) async {
-      await tester.pumpWidget(_buildBannerSubject(
-        mode: FrontingMigrationService.modeDeferred,
-      ));
+      await tester.pumpWidget(
+        _buildBannerSubject(mode: FrontingMigrationService.modeDeferred),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('Fronting upgrade pending'), findsOneWidget);
     });
 
     testWidgets('hidden when mode is complete', (tester) async {
-      await tester.pumpWidget(_buildBannerSubject(
-        mode: FrontingMigrationService.modeComplete,
-      ));
+      await tester.pumpWidget(
+        _buildBannerSubject(mode: FrontingMigrationService.modeComplete),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('Fronting upgrade pending'), findsNothing);
@@ -735,9 +877,9 @@ void main() {
     testWidgets('hidden when mode is notStarted', (tester) async {
       // notStarted is the modal's domain, not the banner's — banner
       // stays out of the way so we don't double up.
-      await tester.pumpWidget(_buildBannerSubject(
-        mode: FrontingMigrationService.modeNotStarted,
-      ));
+      await tester.pumpWidget(
+        _buildBannerSubject(mode: FrontingMigrationService.modeNotStarted),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('Fronting upgrade pending'), findsNothing);
@@ -747,11 +889,12 @@ void main() {
     // partially failed. The user re-enters via the same modal, which
     // adapts to render the resume-cleanup screen for the inProgress
     // state.
-    testWidgets('renders when mode is inProgress (resume-cleanup nudge)',
-        (tester) async {
-      await tester.pumpWidget(_buildBannerSubject(
-        mode: FrontingMigrationService.modeInProgress,
-      ));
+    testWidgets('renders when mode is inProgress (resume-cleanup nudge)', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _buildBannerSubject(mode: FrontingMigrationService.modeInProgress),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('Fronting upgrade pending'), findsOneWidget);
@@ -759,15 +902,17 @@ void main() {
   });
 
   group('FrontingUpgradeSheet — resume-cleanup', () {
-    testWidgets(
-        'renders the Finish-migration screen when mode is inProgress',
-        (tester) async {
+    testWidgets('renders the Finish-migration screen when mode is inProgress', (
+      tester,
+    ) async {
       final runner = _FakeRunner();
-      await tester.pumpWidget(_buildSheetSubject(
-        runner: runner,
-        pairedCount: 0,
-        mode: FrontingMigrationService.modeInProgress,
-      ));
+      await tester.pumpWidget(
+        _buildSheetSubject(
+          runner: runner,
+          pairedCount: 0,
+          mode: FrontingMigrationService.modeInProgress,
+        ),
+      );
       await tester.pumpAndSettle();
 
       // Open the modal.
@@ -808,9 +953,13 @@ void main() {
       await tester.tap(find.text('Keep my data'));
       await tester.pumpAndSettle();
       await tester.enterText(
-          find.byType(TextField).at(0), 'a-strong-password-12');
+        find.byType(TextField).at(0),
+        'a-strong-password-12',
+      );
       await tester.enterText(
-          find.byType(TextField).at(1), 'a-strong-password-12');
+        find.byType(TextField).at(1),
+        'a-strong-password-12',
+      );
       await tester.tap(find.text('Back up and upgrade'));
       // exporting → backupReady transition. We can't use pumpAndSettle
       // here because the exporting screen contains an indefinitely
@@ -827,8 +976,11 @@ void main() {
           break;
         }
       }
-      expect(seen, isTrue,
-          reason: 'backupReady step did not render within polling window');
+      expect(
+        seen,
+        isTrue,
+        reason: 'backupReady step did not render within polling window',
+      );
     }
 
     testWidgets(
@@ -882,104 +1034,96 @@ void main() {
       },
     );
 
-    testWidgets(
-      'successful share auto-ticks the checkbox',
-      (tester) async {
-        final runner = _FakeRunner();
-        await tester.pumpWidget(_buildSheetSubject(
+    testWidgets('successful share auto-ticks the checkbox', (tester) async {
+      final runner = _FakeRunner();
+      await tester.pumpWidget(
+        _buildSheetSubject(
           runner: runner,
           pairedCount: 0,
           shareBackup: (_) async => true,
-        ));
-        await navigateToBackupReady(tester, runner);
+        ),
+      );
+      await navigateToBackupReady(tester, runner);
 
-        await tester.tap(find.text('Share…'));
-        await tester.pumpAndSettle();
+      await tester.tap(find.text('Share…'));
+      await tester.pumpAndSettle();
 
-        final cb = tester.widget<CheckboxListTile>(
-          find.byType(CheckboxListTile),
-        );
-        expect(cb.value, isTrue);
-        // Continue is now enabled.
-        final pb = tester.widget<PrismButton>(
-          find.widgetWithText(PrismButton, 'Continue'),
-        );
-        expect(pb.enabled, isTrue);
-      },
-    );
+      final cb = tester.widget<CheckboxListTile>(find.byType(CheckboxListTile));
+      expect(cb.value, isTrue);
+      // Continue is now enabled.
+      final pb = tester.widget<PrismButton>(
+        find.widgetWithText(PrismButton, 'Continue'),
+      );
+      expect(pb.enabled, isTrue);
+    });
 
-    testWidgets(
-      'dismissed share does not auto-tick the checkbox',
-      (tester) async {
-        final runner = _FakeRunner();
-        await tester.pumpWidget(_buildSheetSubject(
+    testWidgets('dismissed share does not auto-tick the checkbox', (
+      tester,
+    ) async {
+      final runner = _FakeRunner();
+      await tester.pumpWidget(
+        _buildSheetSubject(
           runner: runner,
           pairedCount: 0,
           shareBackup: (_) async => false,
-        ));
-        await navigateToBackupReady(tester, runner);
+        ),
+      );
+      await navigateToBackupReady(tester, runner);
 
-        await tester.tap(find.text('Share…'));
-        await tester.pumpAndSettle();
+      await tester.tap(find.text('Share…'));
+      await tester.pumpAndSettle();
 
-        final cb = tester.widget<CheckboxListTile>(
-          find.byType(CheckboxListTile),
-        );
-        expect(cb.value, isFalse);
-        // Continue stays disabled.
-        final pb = tester.widget<PrismButton>(
-          find.widgetWithText(PrismButton, 'Continue'),
-        );
-        expect(pb.enabled, isFalse);
-      },
-    );
+      final cb = tester.widget<CheckboxListTile>(find.byType(CheckboxListTile));
+      expect(cb.value, isFalse);
+      // Continue stays disabled.
+      final pb = tester.widget<PrismButton>(
+        find.widgetWithText(PrismButton, 'Continue'),
+      );
+      expect(pb.enabled, isFalse);
+    });
 
-    testWidgets(
-      'successful save-as auto-ticks the checkbox',
-      (tester) async {
-        final runner = _FakeRunner();
-        await tester.pumpWidget(_buildSheetSubject(
+    testWidgets('successful save-as auto-ticks the checkbox', (tester) async {
+      final runner = _FakeRunner();
+      await tester.pumpWidget(
+        _buildSheetSubject(
           runner: runner,
           pairedCount: 0,
           saveBackup: (_) async => true,
-        ));
-        await navigateToBackupReady(tester, runner);
+        ),
+      );
+      await navigateToBackupReady(tester, runner);
 
-        await tester.tap(find.text('Save backup…'));
-        await tester.pumpAndSettle();
+      await tester.tap(find.text('Save backup…'));
+      await tester.pumpAndSettle();
 
-        final cb = tester.widget<CheckboxListTile>(
-          find.byType(CheckboxListTile),
-        );
-        expect(cb.value, isTrue);
-      },
-    );
+      final cb = tester.widget<CheckboxListTile>(find.byType(CheckboxListTile));
+      expect(cb.value, isTrue);
+    });
 
-    testWidgets(
-      'cancelled save-as does not auto-tick or surface an error',
-      (tester) async {
-        final runner = _FakeRunner();
-        await tester.pumpWidget(_buildSheetSubject(
+    testWidgets('cancelled save-as does not auto-tick or surface an error', (
+      tester,
+    ) async {
+      final runner = _FakeRunner();
+      await tester.pumpWidget(
+        _buildSheetSubject(
           runner: runner,
           pairedCount: 0,
           saveBackup: (_) async => false,
-        ));
-        await navigateToBackupReady(tester, runner);
+        ),
+      );
+      await navigateToBackupReady(tester, runner);
 
-        await tester.tap(find.text('Save backup…'));
-        await tester.pumpAndSettle();
+      await tester.tap(find.text('Save backup…'));
+      await tester.pumpAndSettle();
 
-        final cb = tester.widget<CheckboxListTile>(
-          find.byType(CheckboxListTile),
-        );
-        expect(cb.value, isFalse);
-        // Still on the backupReady step — no migration outcome
-        // surfaced (success or failure).
-        expect(find.text('Backup ready'), findsOneWidget);
-        expect(find.text('Migration complete!'), findsNothing);
-        expect(find.text('Migration failed'), findsNothing);
-      },
-    );
+      final cb = tester.widget<CheckboxListTile>(find.byType(CheckboxListTile));
+      expect(cb.value, isFalse);
+      // Still on the backupReady step — no migration outcome
+      // surfaced (success or failure).
+      expect(find.text('Backup ready'), findsOneWidget);
+      expect(find.text('Migration complete!'), findsNothing);
+      expect(find.text('Migration failed'), findsNothing);
+    });
 
     testWidgets(
       'dismissing from backupReady does not run runMigrationDestructive; '
@@ -997,47 +1141,53 @@ void main() {
         navState.pop();
         await tester.pumpAndSettle();
 
-        expect(runner.destructiveCalls, isEmpty,
-            reason: 'destructive phase must NOT run on dismiss');
+        expect(
+          runner.destructiveCalls,
+          isEmpty,
+          reason: 'destructive phase must NOT run on dismiss',
+        );
         // Sheet is gone — only the launcher button remains.
         expect(find.text('Backup ready'), findsNothing);
         expect(find.text('open'), findsOneWidget);
       },
     );
 
-    testWidgets(
-      'prepareBackup failure transitions to the failure step',
-      (tester) async {
-        final runner = _FakeRunner(prepareBackupThrows: true);
-        await tester.pumpWidget(
-          _buildSheetSubject(runner: runner, pairedCount: 0),
-        );
-        // Inline the navigation so we can poll for the failure
-        // headline instead of "Backup ready" (which never appears).
-        await tester.tap(find.text('open'));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Continue'));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Keep my data'));
-        await tester.pumpAndSettle();
-        await tester.enterText(
-            find.byType(TextField).at(0), 'a-strong-password-12');
-        await tester.enterText(
-            find.byType(TextField).at(1), 'a-strong-password-12');
-        await tester.tap(find.text('Back up and upgrade'));
-        await tester.pump();
-        var saw = false;
-        for (var i = 0; i < 50; i++) {
-          await tester.pump(const Duration(milliseconds: 50));
-          if (find.text('Migration failed').evaluate().isNotEmpty) {
-            saw = true;
-            break;
-          }
+    testWidgets('prepareBackup failure transitions to the failure step', (
+      tester,
+    ) async {
+      final runner = _FakeRunner(prepareBackupThrows: true);
+      await tester.pumpWidget(
+        _buildSheetSubject(runner: runner, pairedCount: 0),
+      );
+      // Inline the navigation so we can poll for the failure
+      // headline instead of "Backup ready" (which never appears).
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Keep my data'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byType(TextField).at(0),
+        'a-strong-password-12',
+      );
+      await tester.enterText(
+        find.byType(TextField).at(1),
+        'a-strong-password-12',
+      );
+      await tester.tap(find.text('Back up and upgrade'));
+      await tester.pump();
+      var saw = false;
+      for (var i = 0; i < 50; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+        if (find.text('Migration failed').evaluate().isNotEmpty) {
+          saw = true;
+          break;
         }
-        expect(saw, isTrue, reason: 'failure step should render');
-        expect(find.textContaining('PRISM1 export failed'), findsOneWidget);
-        expect(runner.destructiveCalls, isEmpty);
-      },
-    );
+      }
+      expect(saw, isTrue, reason: 'failure step should render');
+      expect(find.textContaining('PRISM1 export failed'), findsOneWidget);
+      expect(runner.destructiveCalls, isEmpty);
+    });
   });
 }

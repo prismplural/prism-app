@@ -1,0 +1,81 @@
+{
+  "version": 2,
+  "id": "pkfix",
+  "uuid": "11111111-1111-4111-8111-111111111111",
+  "name": "Sanitized Fixture System",
+  "description": null,
+  "tag": null,
+  "avatar_url": null,
+  "banner": null,
+  "color": null,
+  "pronouns": null,
+  "webhook_url": null,
+  "accounts": [],
+  "config": {},
+  "privacy": {},
+  "members": [
+    {
+      "id": "aaaaa",
+      "uuid": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      "name": "Alpha",
+      "display_name": "Alpha",
+      "pronouns": null,
+      "description": null,
+      "color": "aabbcc",
+      "avatar_url": null,
+      "banner": null,
+      "birthday": null,
+      "proxy_tags": []
+    },
+    {
+      "id": "bbbbb",
+      "uuid": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      "name": "Beta",
+      "display_name": "Beta",
+      "pronouns": null,
+      "description": null,
+      "color": "bbccdd",
+      "avatar_url": null,
+      "banner": null,
+      "birthday": null,
+      "proxy_tags": []
+    }
+  ],
+  "groups": [
+    {
+      "id": "grpaa",
+      "uuid": "99999999-9999-4999-8999-999999999999",
+      "name": "Sanitized Group",
+      "display_name": "Sanitized Group",
+      "description": null,
+      "color": "ccddee",
+      "icon": null,
+      "banner": null,
+      "members": [
+        "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+      ]
+    }
+  ],
+  "switches": [
+    {
+      "timestamp": "2026-04-01T14:00:00Z",
+      "members": [
+        "aaaaa"
+      ]
+    },
+    {
+      "timestamp": "2026-04-01T12:00:00Z",
+      "members": [
+        "bbbbb",
+        "aaaaa"
+      ]
+    },
+    {
+      "timestamp": "2026-04-01T10:00:00.123456Z",
+      "members": [
+        "aaaaa"
+      ]
+    }
+  ]
+}

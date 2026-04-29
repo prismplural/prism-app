@@ -20,6 +20,8 @@ _FrontingSession _$FrontingSessionFromJson(Map<String, dynamic> json) =>
         json['confidence'],
       ),
       pluralkitUuid: json['pluralkitUuid'] as String?,
+      pkImportSource: json['pkImportSource'] as String?,
+      pkFileSwitchId: json['pkFileSwitchId'] as String?,
       sessionType:
           $enumDecodeNullable(_$SessionTypeEnumMap, json['sessionType']) ??
           SessionType.normal,
@@ -39,6 +41,8 @@ Map<String, dynamic> _$FrontingSessionToJson(_FrontingSession instance) =>
       'notes': instance.notes,
       'confidence': _$FrontConfidenceEnumMap[instance.confidence],
       'pluralkitUuid': instance.pluralkitUuid,
+      'pkImportSource': instance.pkImportSource,
+      'pkFileSwitchId': instance.pkFileSwitchId,
       'sessionType': _$SessionTypeEnumMap[instance.sessionType]!,
       'quality': _$SleepQualityEnumMap[instance.quality],
       'isHealthKitImport': instance.isHealthKitImport,

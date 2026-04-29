@@ -8614,6 +8614,12 @@ abstract class AppLocalizations {
   /// **'To get your token, DM the PluralKit bot on Discord with \"pk;token\" and paste the result here.'**
   String get pluralkitTokenHelp;
 
+  /// Help text for the PluralKit settings file import entry point
+  ///
+  /// In en, this message translates to:
+  /// **'Recover old PluralKit fronting history with a pk;export file and token. The file provides the switch history; the token lets Prism match it safely.'**
+  String get pluralkitFileImportHelp;
+
   /// Button label to import all data from PluralKit
   ///
   /// In en, this message translates to:
@@ -8716,10 +8722,10 @@ abstract class AppLocalizations {
   /// **'After connecting, link your PluralKit members to Prism {termPluralLower} — or import them as new — so nothing gets duplicated.'**
   String pluralkitInfoMembers(String termPluralLower);
 
-  /// How It Works info row about switch import
+  /// How It Works info row about fronting history recovery from PluralKit
   ///
   /// In en, this message translates to:
-  /// **'Switches are imported as fronting sessions. Duplicate switches are automatically skipped.'**
+  /// **'Fronting history recovery uses a pk;export file plus a token so Prism can match export switches to PluralKit switch IDs.'**
   String get pluralkitInfoSwitches;
 
   /// Relative time label when PluralKit sync was less than a minute ago
@@ -12109,7 +12115,7 @@ abstract class AppLocalizations {
   /// Button label to import a PluralKit pk;export JSON file
   ///
   /// In en, this message translates to:
-  /// **'Import from pk;export file'**
+  /// **'Recover history from pk;export'**
   String get pluralkitImportFromFile;
 
   /// Title for the post-connect mapping required banner
@@ -12792,10 +12798,10 @@ abstract class AppLocalizations {
     String termSingularLower,
   );
 
-  /// Success counter: PK rows cleared
+  /// Success counter and follow-up guidance when old-format PluralKit fronting history was cleared
   ///
   /// In en, this message translates to:
-  /// **'{count, plural, =1{Cleared 1 PluralKit-imported session (re-import after upgrade).} other{Cleared {count} PluralKit-imported sessions (re-import after upgrade).}}'**
+  /// **'{count, plural, =1{Old-format PluralKit history was cleared (1 session). Re-import it from a PluralKit token or a pk;export file.} other{Old-format PluralKit history was cleared ({count} sessions). Re-import it from a PluralKit token or a pk;export file.}}'**
   String frontingUpgradeCountPkDeleted(int count);
 
   /// Success counter: comments migrated
@@ -12858,6 +12864,12 @@ abstract class AppLocalizations {
   /// **'All set. Your fronting data is on the new format.'**
   String get frontingUpgradeRepairSolo;
 
+  /// Button label on the fronting migration success screen that opens PluralKit import options
+  ///
+  /// In en, this message translates to:
+  /// **'Open PluralKit import'**
+  String get frontingUpgradeOpenPluralKitImport;
+
   /// Failure screen headline
   ///
   /// In en, this message translates to:
@@ -12894,16 +12906,22 @@ abstract class AppLocalizations {
   /// **'Groups'**
   String get pkFileImportGroupsLabel;
 
-  /// PluralKit file import preview row label for the count of fronting sessions found in the export.
+  /// PluralKit file import preview row label for switches found in the export but not imported from file.
   ///
   /// In en, this message translates to:
-  /// **'Fronting sessions'**
+  /// **'Switches found (not imported)'**
   String get pkFileImportFrontingSessionsLabel;
 
-  /// Informational note shown on the PluralKit file import preview screen.
+  /// PluralKit file import preview/result row label for switches found in the export but not imported from file.
   ///
   /// In en, this message translates to:
-  /// **'Existing {termPlural} with the same PluralKit ID will be updated. Duplicate switches are skipped.'**
+  /// **'Switches found (not imported)'**
+  String get pkFileImportSwitchesFoundLabel;
+
+  /// Informational note shown on the PluralKit file import preview screen before file plus token fronting import.
+  ///
+  /// In en, this message translates to:
+  /// **'Existing {termPlural} with the same PluralKit ID will be updated. To import fronting history, add a PluralKit token so Prism can match export switches before importing fronts.'**
   String pkFileImportPreviewNote(String termPlural);
 
   /// PluralKit file import: primary action button on the preview screen
@@ -12930,10 +12948,10 @@ abstract class AppLocalizations {
   /// **'Switches created'**
   String get pkFileImportSwitchesCreatedLabel;
 
-  /// PluralKit file import result row: count of switches that were skipped because they already existed. 'Switches' is PluralKit-internal vocabulary.
+  /// PluralKit file import result row: count of switches found in the export but not imported from file. 'Switches' is PluralKit-internal vocabulary.
   ///
   /// In en, this message translates to:
-  /// **'Switches skipped (already present)'**
+  /// **'Switches found (not imported)'**
   String get pkFileImportSwitchesSkippedLabel;
 
   /// Section header on the fronting feature settings screen, grouping the list view-mode preference and the add-front / quick-front default behavior preferences.

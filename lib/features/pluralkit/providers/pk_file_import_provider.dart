@@ -9,10 +9,14 @@ import 'package:prism_plurality/features/pluralkit/services/pk_file_parser.dart'
 
 enum PkFileImportStep { idle, parsing, previewing, importing, complete, error }
 
+enum PkFileImportCompletionMode { fileOnly, fileAndToken }
+
 class PkFileImportState {
   final PkFileImportStep step;
   final PkFileExport? export;
   final PkFileImportResult? result;
+  final PkFileTokenFrontingImportResult? frontingResult;
+  final PkFileImportCompletionMode completionMode;
   final String? error;
   final double progress;
   final String progressLabel;
@@ -21,6 +25,8 @@ class PkFileImportState {
     this.step = PkFileImportStep.idle,
     this.export,
     this.result,
+    this.frontingResult,
+    this.completionMode = PkFileImportCompletionMode.fileOnly,
     this.error,
     this.progress = 0,
     this.progressLabel = '',
@@ -30,6 +36,9 @@ class PkFileImportState {
     PkFileImportStep? step,
     PkFileExport? export,
     PkFileImportResult? result,
+    PkFileTokenFrontingImportResult? frontingResult,
+    bool clearFrontingResult = false,
+    PkFileImportCompletionMode? completionMode,
     String? error,
     double? progress,
     String? progressLabel,
@@ -38,6 +47,10 @@ class PkFileImportState {
       step: step ?? this.step,
       export: export ?? this.export,
       result: result ?? this.result,
+      frontingResult: clearFrontingResult
+          ? null
+          : frontingResult ?? this.frontingResult,
+      completionMode: completionMode ?? this.completionMode,
       error: error ?? this.error,
       progress: progress ?? this.progress,
       progressLabel: progressLabel ?? this.progressLabel,
@@ -78,28 +91,68 @@ class PkFileImportNotifier extends Notifier<PkFileImportState> {
     }
   }
 
-  Future<void> runImport() async {
+  Future<void> runImport({String? frontingToken}) async {
     final export = state.export;
     if (export == null) return;
+    final token = frontingToken?.trim();
+    final recoverFronting = token != null && token.isNotEmpty;
 
     state = state.copyWith(
       step: PkFileImportStep.importing,
+      completionMode: recoverFronting
+          ? PkFileImportCompletionMode.fileAndToken
+          : PkFileImportCompletionMode.fileOnly,
       progress: 0,
-      progressLabel: 'Importing…',
+      progressLabel: recoverFronting
+          ? 'Validating PluralKit token…'
+          : 'Importing…',
     );
 
     try {
-      final result = await ref
-          .read(pluralKitSyncProvider.notifier)
-          .importFromFile(
-            export,
-            onProgress: (p, s) {
-              state = state.copyWith(progress: p, progressLabel: s);
-            },
-          );
+      final pkNotifier = ref.read(pluralKitSyncProvider.notifier);
+      if (recoverFronting) {
+        final frontingResult = await pkNotifier.importFromFileWithToken(
+          export,
+          token: token,
+          onProgress: (p, s) {
+            state = state.copyWith(progress: p, progressLabel: s);
+          },
+        );
+        final result = PkFileImportResult(
+          systemName: frontingResult.systemName,
+          membersImported: frontingResult.membersImported,
+          groupsImported: frontingResult.groupsImported,
+          switchesCreated: frontingResult.frontingImported
+              ? frontingResult.exactImportedCount
+              : 0,
+          switchesSkipped: frontingResult.frontingImported
+              ? 0
+              : export.switches.length,
+        );
+        state = state.copyWith(
+          step: PkFileImportStep.complete,
+          result: result,
+          frontingResult: frontingResult,
+          completionMode: frontingResult.frontingImported
+              ? PkFileImportCompletionMode.fileAndToken
+              : PkFileImportCompletionMode.fileOnly,
+          progress: 1,
+          progressLabel: 'Done',
+        );
+        return;
+      }
+
+      final result = await pkNotifier.importFromFile(
+        export,
+        onProgress: (p, s) {
+          state = state.copyWith(progress: p, progressLabel: s);
+        },
+      );
+
       state = state.copyWith(
         step: PkFileImportStep.complete,
         result: result,
+        clearFrontingResult: true,
         progress: 1,
         progressLabel: 'Done',
       );

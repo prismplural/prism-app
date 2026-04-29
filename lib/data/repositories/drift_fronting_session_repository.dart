@@ -263,6 +263,8 @@ class DriftFrontingSessionRepository
       'notes': s.notes,
       'confidence': s.confidence?.index,
       'pluralkit_uuid': s.pluralkitUuid,
+      'pk_import_source': s.pkImportSource,
+      'pk_file_switch_id': s.pkFileSwitchId,
       'session_type': s.sessionType.index,
       'quality': s.quality?.index,
       'is_health_kit_import': s.isHealthKitImport,

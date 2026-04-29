@@ -33,16 +33,18 @@ void main() {
   });
   tearDown(() => db.close());
 
-  PluralKitSyncService _makeService() => PluralKitSyncService(
-        memberRepository: memberRepo,
-        frontingSessionRepository:
-            DriftFrontingSessionRepository(db.frontingSessionsDao, null),
-        syncDao: db.pluralKitSyncDao,
-        groupsImporter: PkGroupsImporter(db: db, memberRepository: memberRepo),
-      );
+  PluralKitSyncService makeService() => PluralKitSyncService(
+    memberRepository: memberRepo,
+    frontingSessionRepository: DriftFrontingSessionRepository(
+      db.frontingSessionsDao,
+      null,
+    ),
+    syncDao: db.pluralKitSyncDao,
+    groupsImporter: PkGroupsImporter(db: db, memberRepository: memberRepo),
+  );
 
   test('imports groups from file without a PK token linked', () async {
-    final export = PkFileExport(
+    const export = PkFileExport(
       system: PKSystem(id: 'sys1', name: 'Test System'),
       members: [PKMember(id: 'aaaaa', uuid: 'u-alice', name: 'Alice')],
       groups: [
@@ -56,7 +58,7 @@ void main() {
       switches: [],
     );
 
-    final result = await _makeService().importFromFile(export);
+    final result = await makeService().importFromFile(export);
 
     expect(result.groupsImported, 1);
     final groups = await db.memberGroupsDao.getAllActiveGroups();
@@ -66,7 +68,7 @@ void main() {
   });
 
   test('group membership is wired to imported members', () async {
-    final export = PkFileExport(
+    const export = PkFileExport(
       system: PKSystem(id: 'sys1'),
       members: [PKMember(id: 'aaaaa', uuid: 'u-alice', name: 'Alice')],
       groups: [
@@ -80,7 +82,7 @@ void main() {
       switches: [],
     );
 
-    await _makeService().importFromFile(export);
+    await makeService().importFromFile(export);
 
     final groups = await db.memberGroupsDao.getAllActiveGroups();
     final entries = await db.memberGroupsDao.entriesForGroup(groups.single.id);
@@ -89,7 +91,7 @@ void main() {
   });
 
   test('imports member banner URL from file', () async {
-    final export = PkFileExport(
+    const export = PkFileExport(
       system: PKSystem(id: 'sys1'),
       members: [
         PKMember(
@@ -103,7 +105,7 @@ void main() {
       switches: [],
     );
 
-    await _makeService().importFromFile(export);
+    await makeService().importFromFile(export);
 
     final rows = await db.membersDao.getAllMembers();
     expect(rows.single.pkBannerUrl, 'https://cdn.example.com/banner.png');
@@ -117,22 +119,19 @@ void main() {
     // File exports may contain switch history, but §2.1 drops file-import
     // of fronting-history. The API diff-sweep path is required instead.
     final export = PkFileExport(
-      system: PKSystem(id: 'sys1'),
-      members: [PKMember(id: 'aaaaa', uuid: 'u-alice', name: 'Alice')],
+      system: const PKSystem(id: 'sys1'),
+      members: const [PKMember(id: 'aaaaa', uuid: 'u-alice', name: 'Alice')],
       groups: [],
       switches: [
         PkFileSwitch(
           timestamp: DateTime.utc(2026, 1, 1, 10),
           memberIds: ['aaaaa'],
         ),
-        PkFileSwitch(
-          timestamp: DateTime.utc(2026, 1, 1, 12),
-          memberIds: [],
-        ),
+        PkFileSwitch(timestamp: DateTime.utc(2026, 1, 1, 12), memberIds: []),
       ],
     );
 
-    final service = _makeService();
+    final service = makeService();
     final result = await service.importFromFile(export);
 
     // Switches are counted but NOT created.
@@ -150,10 +149,10 @@ void main() {
   test('members and groups still import when switches are present', () async {
     // Verifies that dropping switches doesn't abort member/group import.
     final export = PkFileExport(
-      system: PKSystem(id: 'sys1', name: 'My System'),
-      members: [PKMember(id: 'bbbbb', uuid: 'u-bob', name: 'Bob')],
+      system: const PKSystem(id: 'sys1', name: 'My System'),
+      members: const [PKMember(id: 'bbbbb', uuid: 'u-bob', name: 'Bob')],
       groups: [
-        PKGroup(
+        const PKGroup(
           id: 'ggggg',
           uuid: 'g-uuid-2',
           name: 'Team',
@@ -163,12 +162,12 @@ void main() {
       switches: [
         PkFileSwitch(
           timestamp: DateTime.utc(2026, 2, 1),
-          memberIds: ['bbbbb'],
+          memberIds: const ['bbbbb'],
         ),
       ],
     );
 
-    final result = await _makeService().importFromFile(export);
+    final result = await makeService().importFromFile(export);
 
     expect(result.membersImported, 1);
     expect(result.groupsImported, 1);
