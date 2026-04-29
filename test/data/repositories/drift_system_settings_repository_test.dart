@@ -66,5 +66,12 @@ void main() {
       expect(fields['add_front_default_behavior'], isA<int>());
       expect(fields['quick_front_default_behavior'], isA<int>());
     });
+
+    test('has_completed_onboarding stays local-only', () {
+      const settings = SystemSettings(hasCompletedOnboarding: true);
+      final fields = repo.debugSettingsFields(settings);
+
+      expect(fields, isNot(contains('has_completed_onboarding')));
+    });
   });
 }

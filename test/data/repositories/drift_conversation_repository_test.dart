@@ -35,60 +35,69 @@ void main() {
   tearDown(() => db.close());
 
   group('debugConversationFields UTC normalization', () {
-    test(
-      'created_at, last_activity_at, and last_read_timestamps emit '
-      'Z-suffixed UTC even when input is a local DateTime',
-      () {
-        final localCreated = DateTime(2026, 4, 27, 10, 0);
-        final localActivity = DateTime(2026, 4, 27, 11, 30);
-        final localLastRead = DateTime(2026, 4, 27, 12, 15);
+    test('created_at, last_activity_at, and last_read_timestamps emit '
+        'Z-suffixed UTC even when input is a local DateTime', () {
+      final localCreated = DateTime(2026, 4, 27, 10, 0);
+      final localActivity = DateTime(2026, 4, 27, 11, 30);
+      final localLastRead = DateTime(2026, 4, 27, 12, 15);
 
-        final conversation = domain.Conversation(
-          id: 'conv-1',
-          createdAt: localCreated,
-          lastActivityAt: localActivity,
-          lastReadTimestamps: {'alice': localLastRead},
-        );
+      final conversation = domain.Conversation(
+        id: 'conv-1',
+        createdAt: localCreated,
+        lastActivityAt: localActivity,
+        lastReadTimestamps: {'alice': localLastRead},
+      );
 
-        final fields = repo.debugConversationFields(conversation);
+      final fields = repo.debugConversationFields(conversation);
 
-        final createdStr = fields['created_at'] as String;
-        final activityStr = fields['last_activity_at'] as String;
-        expect(
-          createdStr.endsWith('Z'),
-          isTrue,
-          reason: 'created_at must be UTC (Z-suffixed): got $createdStr',
-        );
-        expect(
-          activityStr.endsWith('Z'),
-          isTrue,
-          reason:
-              'last_activity_at must be UTC (Z-suffixed): got $activityStr',
-        );
-        expect(
-          DateTime.parse(createdStr).isAtSameMomentAs(localCreated.toUtc()),
-          isTrue,
-        );
-        expect(
-          DateTime.parse(activityStr).isAtSameMomentAs(localActivity.toUtc()),
-          isTrue,
-        );
+      final createdStr = fields['created_at'] as String;
+      final activityStr = fields['last_activity_at'] as String;
+      expect(
+        createdStr.endsWith('Z'),
+        isTrue,
+        reason: 'created_at must be UTC (Z-suffixed): got $createdStr',
+      );
+      expect(
+        activityStr.endsWith('Z'),
+        isTrue,
+        reason: 'last_activity_at must be UTC (Z-suffixed): got $activityStr',
+      );
+      expect(
+        DateTime.parse(createdStr).isAtSameMomentAs(localCreated.toUtc()),
+        isTrue,
+      );
+      expect(
+        DateTime.parse(activityStr).isAtSameMomentAs(localActivity.toUtc()),
+        isTrue,
+      );
 
-        final lastReadJson = fields['last_read_timestamps'] as String;
-        final decoded = jsonDecode(lastReadJson) as Map<String, dynamic>;
-        final aliceStr = decoded['alice'] as String;
-        expect(
-          aliceStr.endsWith('Z'),
-          isTrue,
-          reason:
-              'last_read_timestamps values must be UTC (Z-suffixed): '
-              'got $aliceStr',
-        );
-        expect(
-          DateTime.parse(aliceStr).isAtSameMomentAs(localLastRead.toUtc()),
-          isTrue,
-        );
-      },
-    );
+      final lastReadJson = fields['last_read_timestamps'] as String;
+      final decoded = jsonDecode(lastReadJson) as Map<String, dynamic>;
+      final aliceStr = decoded['alice'] as String;
+      expect(
+        aliceStr.endsWith('Z'),
+        isTrue,
+        reason:
+            'last_read_timestamps values must be UTC (Z-suffixed): '
+            'got $aliceStr',
+      );
+      expect(
+        DateTime.parse(aliceStr).isAtSameMomentAs(localLastRead.toUtc()),
+        isTrue,
+      );
+    });
+
+    test('muted_by_member_ids is included in the sync field map', () {
+      final conversation = domain.Conversation(
+        id: 'conv-1',
+        createdAt: DateTime.utc(2026, 4, 27),
+        lastActivityAt: DateTime.utc(2026, 4, 27, 1),
+        mutedByMemberIds: ['alice', 'bob'],
+      );
+
+      final fields = repo.debugConversationFields(conversation);
+
+      expect(fields['muted_by_member_ids'], '["alice","bob"]');
+    });
   });
 }
