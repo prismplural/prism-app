@@ -1561,6 +1561,9 @@ DriftSyncEntity _systemSettingsEntity(
         'nav_bar_overflow_items': r.navBarOverflowItems,
         'chat_badge_preferences': r.chatBadgePreferences,
         'habits_badge_enabled': r.habitsBadgeEnabled,
+        'fronting_list_view_mode': r.frontingListViewMode,
+        'add_front_default_behavior': r.addFrontDefaultBehavior,
+        'quick_front_default_behavior': r.quickFrontDefaultBehavior,
         'is_deleted': r.isDeleted,
       };
     },
@@ -1627,6 +1630,9 @@ DriftSyncEntity _systemSettingsEntity(
         navBarOverflowItems: f.stringField('nav_bar_overflow_items'),
         chatBadgePreferences: f.stringField('chat_badge_preferences'),
         habitsBadgeEnabled: f.boolField('habits_badge_enabled'),
+        frontingListViewMode: f.intField('fronting_list_view_mode'),
+        addFrontDefaultBehavior: f.intField('add_front_default_behavior'),
+        quickFrontDefaultBehavior: f.intField('quick_front_default_behavior'),
         // Device-local fields (font*, pin*, biometric*, autoLock*) are
         // intentionally excluded from sync.
         isDeleted: f.boolField('is_deleted'),
@@ -1692,6 +1698,9 @@ DriftSyncEntity _systemSettingsEntity(
         'nav_bar_overflow_items': row.navBarOverflowItems,
         'chat_badge_preferences': row.chatBadgePreferences,
         'habits_badge_enabled': row.habitsBadgeEnabled,
+        'fronting_list_view_mode': row.frontingListViewMode,
+        'add_front_default_behavior': row.addFrontDefaultBehavior,
+        'quick_front_default_behavior': row.quickFrontDefaultBehavior,
         'is_deleted': row.isDeleted,
       };
     },

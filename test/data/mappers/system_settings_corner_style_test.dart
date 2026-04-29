@@ -67,6 +67,9 @@ void main() {
       sharingId: null,
       pendingFrontingMigrationMode: 'notStarted',
       pendingFrontingMigrationCleanupSubstate: '',
+      frontingListViewMode: 0,
+      addFrontDefaultBehavior: 0,
+      quickFrontDefaultBehavior: 0,
     );
   }
 

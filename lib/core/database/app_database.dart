@@ -90,7 +90,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -347,6 +347,26 @@ class AppDatabase extends _$AppDatabase {
         });
 
         current = 7;
+      }
+      if (current == 7 && to >= 8) {
+        // Phase 1B: fronting preferences (docs/plans/fronting-preferences-1B.md).
+        // Three new synced settings on `system_settings`. Purely additive;
+        // no row-level data migration — Drift's column defaults supply
+        // `combinedPeriods` (0) / `additive` (0) / `additive` (0) for any
+        // pre-existing row.
+        await migrator.addColumn(
+          systemSettingsTable,
+          systemSettingsTable.frontingListViewMode,
+        );
+        await migrator.addColumn(
+          systemSettingsTable,
+          systemSettingsTable.addFrontDefaultBehavior,
+        );
+        await migrator.addColumn(
+          systemSettingsTable,
+          systemSettingsTable.quickFrontDefaultBehavior,
+        );
+        current = 8;
       }
       if (current != to) {
         throw UnsupportedError(

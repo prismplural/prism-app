@@ -220,6 +220,17 @@ class FakeSystemSettingsRepository implements SystemSettingsRepository {
   Future<void> updateTimingMode(FrontingTimingMode value) async =>
       updateSettings(settings.copyWith(timingMode: value));
   @override
+  Future<void> updateFrontingListViewMode(FrontingListViewMode value) async =>
+      updateSettings(settings.copyWith(frontingListViewMode: value));
+  @override
+  Future<void> updateAddFrontDefaultBehavior(FrontStartBehavior value) async =>
+      updateSettings(settings.copyWith(addFrontDefaultBehavior: value));
+  @override
+  Future<void> updateQuickFrontDefaultBehavior(
+    FrontStartBehavior value,
+  ) async =>
+      updateSettings(settings.copyWith(quickFrontDefaultBehavior: value));
+  @override
   Future<void> updateFrontingReminderIntervalMinutes(int value) async =>
       updateSettings(settings.copyWith(frontingReminderIntervalMinutes: value));
   @override

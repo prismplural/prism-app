@@ -152,6 +152,25 @@ class SystemSettingsTable extends Table {
   TextColumn get pendingFrontingMigrationMode =>
       text().withDefault(const Constant('complete'))();
 
+  // -- Phase 1B: fronting preferences (docs/plans/fronting-preferences-1B.md) --
+  //
+  // Synced — system-level UX defaults. Stored as enum indices (int).
+
+  /// `FrontingListViewMode` index — default for the home-screen session list.
+  /// 0 = combinedPeriods (default), 1 = perMemberRows, 2 = timeline.
+  IntColumn get frontingListViewMode =>
+      integer().withDefault(const Constant(0))();
+
+  /// `FrontStartBehavior` index — default for the add-front sheet's submit.
+  /// 0 = additive (default), 1 = replace.
+  IntColumn get addFrontDefaultBehavior =>
+      integer().withDefault(const Constant(0))();
+
+  /// `FrontStartBehavior` index — default for quick-front (long-press / tap).
+  /// 0 = additive (default), 1 = replace.
+  IntColumn get quickFrontDefaultBehavior =>
+      integer().withDefault(const Constant(0))();
+
   // Codex pass 2 #B-NEW3 — substate within the `'inProgress'` window.
   //
   // Allowed values:

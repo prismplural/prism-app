@@ -4751,6 +4751,41 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         requiredDuringInsert: false,
         defaultValue: const Constant('complete'),
       );
+  static const VerificationMeta _frontingListViewModeMeta =
+      const VerificationMeta('frontingListViewMode');
+  @override
+  late final GeneratedColumn<int> frontingListViewMode = GeneratedColumn<int>(
+    'fronting_list_view_mode',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _addFrontDefaultBehaviorMeta =
+      const VerificationMeta('addFrontDefaultBehavior');
+  @override
+  late final GeneratedColumn<int> addFrontDefaultBehavior =
+      GeneratedColumn<int>(
+        'add_front_default_behavior',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(0),
+      );
+  static const VerificationMeta _quickFrontDefaultBehaviorMeta =
+      const VerificationMeta('quickFrontDefaultBehavior');
+  @override
+  late final GeneratedColumn<int> quickFrontDefaultBehavior =
+      GeneratedColumn<int>(
+        'quick_front_default_behavior',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(0),
+      );
   static const VerificationMeta _pendingFrontingMigrationCleanupSubstateMeta =
       const VerificationMeta('pendingFrontingMigrationCleanupSubstate');
   @override
@@ -4822,6 +4857,9 @@ class $SystemSettingsTableTable extends SystemSettingsTable
     chatBadgePreferences,
     defaultSleepQuality,
     pendingFrontingMigrationMode,
+    frontingListViewMode,
+    addFrontDefaultBehavior,
+    quickFrontDefaultBehavior,
     pendingFrontingMigrationCleanupSubstate,
   ];
   @override
@@ -5316,6 +5354,33 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         ),
       );
     }
+    if (data.containsKey('fronting_list_view_mode')) {
+      context.handle(
+        _frontingListViewModeMeta,
+        frontingListViewMode.isAcceptableOrUnknown(
+          data['fronting_list_view_mode']!,
+          _frontingListViewModeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('add_front_default_behavior')) {
+      context.handle(
+        _addFrontDefaultBehaviorMeta,
+        addFrontDefaultBehavior.isAcceptableOrUnknown(
+          data['add_front_default_behavior']!,
+          _addFrontDefaultBehaviorMeta,
+        ),
+      );
+    }
+    if (data.containsKey('quick_front_default_behavior')) {
+      context.handle(
+        _quickFrontDefaultBehaviorMeta,
+        quickFrontDefaultBehavior.isAcceptableOrUnknown(
+          data['quick_front_default_behavior']!,
+          _quickFrontDefaultBehaviorMeta,
+        ),
+      );
+    }
     if (data.containsKey('pending_fronting_migration_cleanup_substate')) {
       context.handle(
         _pendingFrontingMigrationCleanupSubstateMeta,
@@ -5562,6 +5627,18 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         DriftSqlType.string,
         data['${effectivePrefix}pending_fronting_migration_mode'],
       )!,
+      frontingListViewMode: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}fronting_list_view_mode'],
+      )!,
+      addFrontDefaultBehavior: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}add_front_default_behavior'],
+      )!,
+      quickFrontDefaultBehavior: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}quick_front_default_behavior'],
+      )!,
       pendingFrontingMigrationCleanupSubstate: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}pending_fronting_migration_cleanup_substate'],
@@ -5634,6 +5711,18 @@ class SystemSettingsData extends DataClass
   final String chatBadgePreferences;
   final String? defaultSleepQuality;
   final String pendingFrontingMigrationMode;
+
+  /// `FrontingListViewMode` index — default for the home-screen session list.
+  /// 0 = combinedPeriods (default), 1 = perMemberRows, 2 = timeline.
+  final int frontingListViewMode;
+
+  /// `FrontStartBehavior` index — default for the add-front sheet's submit.
+  /// 0 = additive (default), 1 = replace.
+  final int addFrontDefaultBehavior;
+
+  /// `FrontStartBehavior` index — default for quick-front (long-press / tap).
+  /// 0 = additive (default), 1 = replace.
+  final int quickFrontDefaultBehavior;
   final String pendingFrontingMigrationCleanupSubstate;
   const SystemSettingsData({
     required this.id,
@@ -5693,6 +5782,9 @@ class SystemSettingsData extends DataClass
     required this.chatBadgePreferences,
     this.defaultSleepQuality,
     required this.pendingFrontingMigrationMode,
+    required this.frontingListViewMode,
+    required this.addFrontDefaultBehavior,
+    required this.quickFrontDefaultBehavior,
     required this.pendingFrontingMigrationCleanupSubstate,
   });
   @override
@@ -5787,6 +5879,11 @@ class SystemSettingsData extends DataClass
     map['pending_fronting_migration_mode'] = Variable<String>(
       pendingFrontingMigrationMode,
     );
+    map['fronting_list_view_mode'] = Variable<int>(frontingListViewMode);
+    map['add_front_default_behavior'] = Variable<int>(addFrontDefaultBehavior);
+    map['quick_front_default_behavior'] = Variable<int>(
+      quickFrontDefaultBehavior,
+    );
     map['pending_fronting_migration_cleanup_substate'] = Variable<String>(
       pendingFrontingMigrationCleanupSubstate,
     );
@@ -5872,6 +5969,9 @@ class SystemSettingsData extends DataClass
           ? const Value.absent()
           : Value(defaultSleepQuality),
       pendingFrontingMigrationMode: Value(pendingFrontingMigrationMode),
+      frontingListViewMode: Value(frontingListViewMode),
+      addFrontDefaultBehavior: Value(addFrontDefaultBehavior),
+      quickFrontDefaultBehavior: Value(quickFrontDefaultBehavior),
       pendingFrontingMigrationCleanupSubstate: Value(
         pendingFrontingMigrationCleanupSubstate,
       ),
@@ -5993,6 +6093,15 @@ class SystemSettingsData extends DataClass
       pendingFrontingMigrationMode: serializer.fromJson<String>(
         json['pendingFrontingMigrationMode'],
       ),
+      frontingListViewMode: serializer.fromJson<int>(
+        json['frontingListViewMode'],
+      ),
+      addFrontDefaultBehavior: serializer.fromJson<int>(
+        json['addFrontDefaultBehavior'],
+      ),
+      quickFrontDefaultBehavior: serializer.fromJson<int>(
+        json['quickFrontDefaultBehavior'],
+      ),
       pendingFrontingMigrationCleanupSubstate: serializer.fromJson<String>(
         json['pendingFrontingMigrationCleanupSubstate'],
       ),
@@ -6073,6 +6182,13 @@ class SystemSettingsData extends DataClass
       'pendingFrontingMigrationMode': serializer.toJson<String>(
         pendingFrontingMigrationMode,
       ),
+      'frontingListViewMode': serializer.toJson<int>(frontingListViewMode),
+      'addFrontDefaultBehavior': serializer.toJson<int>(
+        addFrontDefaultBehavior,
+      ),
+      'quickFrontDefaultBehavior': serializer.toJson<int>(
+        quickFrontDefaultBehavior,
+      ),
       'pendingFrontingMigrationCleanupSubstate': serializer.toJson<String>(
         pendingFrontingMigrationCleanupSubstate,
       ),
@@ -6137,6 +6253,9 @@ class SystemSettingsData extends DataClass
     String? chatBadgePreferences,
     Value<String?> defaultSleepQuality = const Value.absent(),
     String? pendingFrontingMigrationMode,
+    int? frontingListViewMode,
+    int? addFrontDefaultBehavior,
+    int? quickFrontDefaultBehavior,
     String? pendingFrontingMigrationCleanupSubstate,
   }) => SystemSettingsData(
     id: id ?? this.id,
@@ -6216,6 +6335,11 @@ class SystemSettingsData extends DataClass
         : this.defaultSleepQuality,
     pendingFrontingMigrationMode:
         pendingFrontingMigrationMode ?? this.pendingFrontingMigrationMode,
+    frontingListViewMode: frontingListViewMode ?? this.frontingListViewMode,
+    addFrontDefaultBehavior:
+        addFrontDefaultBehavior ?? this.addFrontDefaultBehavior,
+    quickFrontDefaultBehavior:
+        quickFrontDefaultBehavior ?? this.quickFrontDefaultBehavior,
     pendingFrontingMigrationCleanupSubstate:
         pendingFrontingMigrationCleanupSubstate ??
         this.pendingFrontingMigrationCleanupSubstate,
@@ -6382,6 +6506,15 @@ class SystemSettingsData extends DataClass
       pendingFrontingMigrationMode: data.pendingFrontingMigrationMode.present
           ? data.pendingFrontingMigrationMode.value
           : this.pendingFrontingMigrationMode,
+      frontingListViewMode: data.frontingListViewMode.present
+          ? data.frontingListViewMode.value
+          : this.frontingListViewMode,
+      addFrontDefaultBehavior: data.addFrontDefaultBehavior.present
+          ? data.addFrontDefaultBehavior.value
+          : this.addFrontDefaultBehavior,
+      quickFrontDefaultBehavior: data.quickFrontDefaultBehavior.present
+          ? data.quickFrontDefaultBehavior.value
+          : this.quickFrontDefaultBehavior,
       pendingFrontingMigrationCleanupSubstate:
           data.pendingFrontingMigrationCleanupSubstate.present
           ? data.pendingFrontingMigrationCleanupSubstate.value
@@ -6453,6 +6586,9 @@ class SystemSettingsData extends DataClass
           ..write(
             'pendingFrontingMigrationMode: $pendingFrontingMigrationMode, ',
           )
+          ..write('frontingListViewMode: $frontingListViewMode, ')
+          ..write('addFrontDefaultBehavior: $addFrontDefaultBehavior, ')
+          ..write('quickFrontDefaultBehavior: $quickFrontDefaultBehavior, ')
           ..write(
             'pendingFrontingMigrationCleanupSubstate: $pendingFrontingMigrationCleanupSubstate',
           )
@@ -6519,6 +6655,9 @@ class SystemSettingsData extends DataClass
     chatBadgePreferences,
     defaultSleepQuality,
     pendingFrontingMigrationMode,
+    frontingListViewMode,
+    addFrontDefaultBehavior,
+    quickFrontDefaultBehavior,
     pendingFrontingMigrationCleanupSubstate,
   ]);
   @override
@@ -6588,6 +6727,9 @@ class SystemSettingsData extends DataClass
           other.defaultSleepQuality == this.defaultSleepQuality &&
           other.pendingFrontingMigrationMode ==
               this.pendingFrontingMigrationMode &&
+          other.frontingListViewMode == this.frontingListViewMode &&
+          other.addFrontDefaultBehavior == this.addFrontDefaultBehavior &&
+          other.quickFrontDefaultBehavior == this.quickFrontDefaultBehavior &&
           other.pendingFrontingMigrationCleanupSubstate ==
               this.pendingFrontingMigrationCleanupSubstate);
 }
@@ -6650,6 +6792,9 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
   final Value<String> chatBadgePreferences;
   final Value<String?> defaultSleepQuality;
   final Value<String> pendingFrontingMigrationMode;
+  final Value<int> frontingListViewMode;
+  final Value<int> addFrontDefaultBehavior;
+  final Value<int> quickFrontDefaultBehavior;
   final Value<String> pendingFrontingMigrationCleanupSubstate;
   final Value<int> rowid;
   const SystemSettingsTableCompanion({
@@ -6710,6 +6855,9 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.chatBadgePreferences = const Value.absent(),
     this.defaultSleepQuality = const Value.absent(),
     this.pendingFrontingMigrationMode = const Value.absent(),
+    this.frontingListViewMode = const Value.absent(),
+    this.addFrontDefaultBehavior = const Value.absent(),
+    this.quickFrontDefaultBehavior = const Value.absent(),
     this.pendingFrontingMigrationCleanupSubstate = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -6771,6 +6919,9 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.chatBadgePreferences = const Value.absent(),
     this.defaultSleepQuality = const Value.absent(),
     this.pendingFrontingMigrationMode = const Value.absent(),
+    this.frontingListViewMode = const Value.absent(),
+    this.addFrontDefaultBehavior = const Value.absent(),
+    this.quickFrontDefaultBehavior = const Value.absent(),
     this.pendingFrontingMigrationCleanupSubstate = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -6832,6 +6983,9 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Expression<String>? chatBadgePreferences,
     Expression<String>? defaultSleepQuality,
     Expression<String>? pendingFrontingMigrationMode,
+    Expression<int>? frontingListViewMode,
+    Expression<int>? addFrontDefaultBehavior,
+    Expression<int>? quickFrontDefaultBehavior,
     Expression<String>? pendingFrontingMigrationCleanupSubstate,
     Expression<int>? rowid,
   }) {
@@ -6917,6 +7071,12 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
         'default_sleep_quality': defaultSleepQuality,
       if (pendingFrontingMigrationMode != null)
         'pending_fronting_migration_mode': pendingFrontingMigrationMode,
+      if (frontingListViewMode != null)
+        'fronting_list_view_mode': frontingListViewMode,
+      if (addFrontDefaultBehavior != null)
+        'add_front_default_behavior': addFrontDefaultBehavior,
+      if (quickFrontDefaultBehavior != null)
+        'quick_front_default_behavior': quickFrontDefaultBehavior,
       if (pendingFrontingMigrationCleanupSubstate != null)
         'pending_fronting_migration_cleanup_substate':
             pendingFrontingMigrationCleanupSubstate,
@@ -6982,6 +7142,9 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Value<String>? chatBadgePreferences,
     Value<String?>? defaultSleepQuality,
     Value<String>? pendingFrontingMigrationMode,
+    Value<int>? frontingListViewMode,
+    Value<int>? addFrontDefaultBehavior,
+    Value<int>? quickFrontDefaultBehavior,
     Value<String>? pendingFrontingMigrationCleanupSubstate,
     Value<int>? rowid,
   }) {
@@ -7058,6 +7221,11 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
       defaultSleepQuality: defaultSleepQuality ?? this.defaultSleepQuality,
       pendingFrontingMigrationMode:
           pendingFrontingMigrationMode ?? this.pendingFrontingMigrationMode,
+      frontingListViewMode: frontingListViewMode ?? this.frontingListViewMode,
+      addFrontDefaultBehavior:
+          addFrontDefaultBehavior ?? this.addFrontDefaultBehavior,
+      quickFrontDefaultBehavior:
+          quickFrontDefaultBehavior ?? this.quickFrontDefaultBehavior,
       pendingFrontingMigrationCleanupSubstate:
           pendingFrontingMigrationCleanupSubstate ??
           this.pendingFrontingMigrationCleanupSubstate,
@@ -7283,6 +7451,21 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
         pendingFrontingMigrationMode.value,
       );
     }
+    if (frontingListViewMode.present) {
+      map['fronting_list_view_mode'] = Variable<int>(
+        frontingListViewMode.value,
+      );
+    }
+    if (addFrontDefaultBehavior.present) {
+      map['add_front_default_behavior'] = Variable<int>(
+        addFrontDefaultBehavior.value,
+      );
+    }
+    if (quickFrontDefaultBehavior.present) {
+      map['quick_front_default_behavior'] = Variable<int>(
+        quickFrontDefaultBehavior.value,
+      );
+    }
     if (pendingFrontingMigrationCleanupSubstate.present) {
       map['pending_fronting_migration_cleanup_substate'] = Variable<String>(
         pendingFrontingMigrationCleanupSubstate.value,
@@ -7358,6 +7541,9 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
           ..write(
             'pendingFrontingMigrationMode: $pendingFrontingMigrationMode, ',
           )
+          ..write('frontingListViewMode: $frontingListViewMode, ')
+          ..write('addFrontDefaultBehavior: $addFrontDefaultBehavior, ')
+          ..write('quickFrontDefaultBehavior: $quickFrontDefaultBehavior, ')
           ..write(
             'pendingFrontingMigrationCleanupSubstate: $pendingFrontingMigrationCleanupSubstate, ',
           )
@@ -23889,6 +24075,9 @@ typedef $$SystemSettingsTableTableCreateCompanionBuilder =
       Value<String> chatBadgePreferences,
       Value<String?> defaultSleepQuality,
       Value<String> pendingFrontingMigrationMode,
+      Value<int> frontingListViewMode,
+      Value<int> addFrontDefaultBehavior,
+      Value<int> quickFrontDefaultBehavior,
       Value<String> pendingFrontingMigrationCleanupSubstate,
       Value<int> rowid,
     });
@@ -23951,6 +24140,9 @@ typedef $$SystemSettingsTableTableUpdateCompanionBuilder =
       Value<String> chatBadgePreferences,
       Value<String?> defaultSleepQuality,
       Value<String> pendingFrontingMigrationMode,
+      Value<int> frontingListViewMode,
+      Value<int> addFrontDefaultBehavior,
+      Value<int> quickFrontDefaultBehavior,
       Value<String> pendingFrontingMigrationCleanupSubstate,
       Value<int> rowid,
     });
@@ -24246,6 +24438,21 @@ class $$SystemSettingsTableTableFilterComposer
 
   ColumnFilters<String> get pendingFrontingMigrationMode => $composableBuilder(
     column: $table.pendingFrontingMigrationMode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get frontingListViewMode => $composableBuilder(
+    column: $table.frontingListViewMode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get addFrontDefaultBehavior => $composableBuilder(
+    column: $table.addFrontDefaultBehavior,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get quickFrontDefaultBehavior => $composableBuilder(
+    column: $table.quickFrontDefaultBehavior,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -24552,6 +24759,21 @@ class $$SystemSettingsTableTableOrderingComposer
         builder: (column) => ColumnOrderings(column),
       );
 
+  ColumnOrderings<int> get frontingListViewMode => $composableBuilder(
+    column: $table.frontingListViewMode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get addFrontDefaultBehavior => $composableBuilder(
+    column: $table.addFrontDefaultBehavior,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get quickFrontDefaultBehavior => $composableBuilder(
+    column: $table.quickFrontDefaultBehavior,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get pendingFrontingMigrationCleanupSubstate =>
       $composableBuilder(
         column: $table.pendingFrontingMigrationCleanupSubstate,
@@ -24843,6 +25065,21 @@ class $$SystemSettingsTableTableAnnotationComposer
         builder: (column) => column,
       );
 
+  GeneratedColumn<int> get frontingListViewMode => $composableBuilder(
+    column: $table.frontingListViewMode,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get addFrontDefaultBehavior => $composableBuilder(
+    column: $table.addFrontDefaultBehavior,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get quickFrontDefaultBehavior => $composableBuilder(
+    column: $table.quickFrontDefaultBehavior,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get pendingFrontingMigrationCleanupSubstate =>
       $composableBuilder(
         column: $table.pendingFrontingMigrationCleanupSubstate,
@@ -24952,6 +25189,9 @@ class $$SystemSettingsTableTableTableManager
                 Value<String?> defaultSleepQuality = const Value.absent(),
                 Value<String> pendingFrontingMigrationMode =
                     const Value.absent(),
+                Value<int> frontingListViewMode = const Value.absent(),
+                Value<int> addFrontDefaultBehavior = const Value.absent(),
+                Value<int> quickFrontDefaultBehavior = const Value.absent(),
                 Value<String> pendingFrontingMigrationCleanupSubstate =
                     const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -25014,6 +25254,9 @@ class $$SystemSettingsTableTableTableManager
                 chatBadgePreferences: chatBadgePreferences,
                 defaultSleepQuality: defaultSleepQuality,
                 pendingFrontingMigrationMode: pendingFrontingMigrationMode,
+                frontingListViewMode: frontingListViewMode,
+                addFrontDefaultBehavior: addFrontDefaultBehavior,
+                quickFrontDefaultBehavior: quickFrontDefaultBehavior,
                 pendingFrontingMigrationCleanupSubstate:
                     pendingFrontingMigrationCleanupSubstate,
                 rowid: rowid,
@@ -25079,6 +25322,9 @@ class $$SystemSettingsTableTableTableManager
                 Value<String?> defaultSleepQuality = const Value.absent(),
                 Value<String> pendingFrontingMigrationMode =
                     const Value.absent(),
+                Value<int> frontingListViewMode = const Value.absent(),
+                Value<int> addFrontDefaultBehavior = const Value.absent(),
+                Value<int> quickFrontDefaultBehavior = const Value.absent(),
                 Value<String> pendingFrontingMigrationCleanupSubstate =
                     const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -25141,6 +25387,9 @@ class $$SystemSettingsTableTableTableManager
                 chatBadgePreferences: chatBadgePreferences,
                 defaultSleepQuality: defaultSleepQuality,
                 pendingFrontingMigrationMode: pendingFrontingMigrationMode,
+                frontingListViewMode: frontingListViewMode,
+                addFrontDefaultBehavior: addFrontDefaultBehavior,
+                quickFrontDefaultBehavior: quickFrontDefaultBehavior,
                 pendingFrontingMigrationCleanupSubstate:
                     pendingFrontingMigrationCleanupSubstate,
                 rowid: rowid,

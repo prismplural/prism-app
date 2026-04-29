@@ -69,6 +69,12 @@ class SystemSettingsMapper {
       defaultSleepQuality: row.defaultSleepQuality != null
           ? SleepQuality.values.byName(row.defaultSleepQuality!)
           : null,
+      frontingListViewMode:
+          domain.FrontingListViewMode.values[row.frontingListViewMode],
+      addFrontDefaultBehavior:
+          domain.FrontStartBehavior.values[row.addFrontDefaultBehavior],
+      quickFrontDefaultBehavior:
+          domain.FrontStartBehavior.values[row.quickFrontDefaultBehavior],
     );
   }
 
@@ -131,6 +137,9 @@ class SystemSettingsMapper {
       syncNavigationEnabled: Value(model.syncNavigationEnabled),
       chatBadgePreferences: Value(encodeBadgePrefs(model.chatBadgePreferences)),
       defaultSleepQuality: Value(model.defaultSleepQuality?.name),
+      frontingListViewMode: Value(model.frontingListViewMode.index),
+      addFrontDefaultBehavior: Value(model.addFrontDefaultBehavior.index),
+      quickFrontDefaultBehavior: Value(model.quickFrontDefaultBehavior.index),
     );
   }
 
