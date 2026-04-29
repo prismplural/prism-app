@@ -226,17 +226,22 @@ class _ExtraCountChip extends StatelessWidget {
 /// Sliver delegate that hosts the [AlwaysPresentHeader] at the top of
 /// the home-screen scroll view.
 ///
-/// `minExtent == 0` lets the empty state collapse to zero height
-/// cleanly when no member qualifies — no whitespace gap above the rest
-/// of the home content.
+/// [count] reflects the number of qualifying members. When zero, both
+/// extents collapse to 0 so the sliver reserves no scroll space — without
+/// this, an empty header still leaves a 76px gap above the rest of the
+/// home content.
 class AlwaysPresentSliverDelegate extends SliverPersistentHeaderDelegate {
-  const AlwaysPresentSliverDelegate();
+  const AlwaysPresentSliverDelegate({required this.count});
+
+  /// Number of members currently qualifying for the always-present header.
+  /// Drives extent collapse and rebuild parity.
+  final int count;
 
   @override
-  double get minExtent => 0;
+  double get minExtent => count > 0 ? 76 : 0;
 
   @override
-  double get maxExtent => 76;
+  double get maxExtent => count > 0 ? 76 : 0;
 
   @override
   Widget build(
@@ -244,10 +249,11 @@ class AlwaysPresentSliverDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
+    if (count == 0) return const SizedBox.shrink();
     return const AlwaysPresentHeader();
   }
 
   @override
   bool shouldRebuild(covariant AlwaysPresentSliverDelegate oldDelegate) =>
-      false;
+      oldDelegate.count != count;
 }

@@ -15,6 +15,13 @@ import 'package:prism_plurality/features/members/providers/members_providers.dar
 /// same boundary the provider uses.
 const Duration kAutoPromoteThreshold = Duration(days: 7);
 
+/// Wall-clock source for [alwaysPresentMembersProvider] and its threshold
+/// timer. Defaults to `DateTime.now`; tests override with a controlled
+/// clock so they can exercise the actual Timer-firing path.
+final alwaysPresentClockProvider = Provider<DateTime Function()>(
+  (ref) => DateTime.now,
+);
+
 /// A member that currently qualifies for the always-present pinned header,
 /// bundled with the session that anchors them and the age of that session.
 ///
@@ -88,6 +95,7 @@ final alwaysPresentMembersProvider =
 
   final activeSessions = ref.watch(activeSessionsProvider);
   final members = ref.watch(allMembersProvider);
+  final clock = ref.watch(alwaysPresentClockProvider);
 
   return activeSessions.when(
     loading: () => const AsyncValue.loading(),
@@ -96,7 +104,7 @@ final alwaysPresentMembersProvider =
       loading: () => const AsyncValue.loading(),
       error: AsyncValue.error,
       data: (memberList) {
-        final now = DateTime.now();
+        final now = clock();
         final byId = {for (final m in memberList) m.id: m};
         final qualifying = <AlwaysPresentMember>[];
 
@@ -133,7 +141,7 @@ final alwaysPresentMembersProvider =
         // auto-promote threshold among any not-yet-promoted active rows.
         // No DB write happens at the crossing moment, so without this the
         // header would never render until the user triggers a write.
-        _scheduleThresholdTimer(ref, sessions, byId, now);
+        _scheduleThresholdTimer(ref, sessions, byId, now, clock);
 
         return AsyncValue.data(List.unmodifiable(qualifying));
       },
@@ -141,22 +149,40 @@ final alwaysPresentMembersProvider =
   );
 });
 
+/// Caps the per-wake delay so a wall-clock jump (NTP correction, manual
+/// timezone change, daylight-saving transition) can't keep the timer
+/// asleep past the actual crossing for more than this duration. At each
+/// wake we re-check `DateTime.now()` against the captured wall-clock
+/// crossing — if the clock jumped backward we re-schedule, if it jumped
+/// past the crossing we invalidate and surface the member.
+const Duration _kThresholdTimerWakeCap = Duration(hours: 6);
+
 /// Scans the current [sessions] for the earliest moment a not-yet-promoted
 /// active session would cross [kAutoPromoteThreshold], and schedules a
-/// one-shot Timer to invalidate the provider at that wall-clock moment.
+/// Timer to invalidate the provider at that wall-clock moment.
 ///
 /// "Not yet promoted" means: open + normal + not-deleted + has a memberId
 /// + member exists + member is NOT explicit-always-fronting + age below
 /// threshold. Members already promoted via the explicit flag don't need
 /// a timer — their qualification doesn't depend on the clock.
 ///
-/// The timer is cancelled via `ref.onDispose` so provider invalidation
-/// never leaks pending work.
+/// **Wall-clock resilience.** `Timer(delay)` is monotonic (relative to
+/// when it was scheduled), so a wall-clock jump after scheduling can fire
+/// the timer at the wrong wall-clock moment. We mitigate two ways:
+///   - Each scheduled wake is capped at [_kThresholdTimerWakeCap]; on
+///     wake we re-check the wall clock against the captured `crossing`
+///     and either invalidate (clock at/past crossing) or re-schedule
+///     (clock still before — wall clock jumped backward, or we just hit
+///     the cap).
+///   - The active timer reference is kept in a closure so re-scheduling
+///     replaces it cleanly. Only one `ref.onDispose` cancellation is
+///     registered per provider build.
 void _scheduleThresholdTimer(
   Ref ref,
   List<FrontingSession> sessions,
   Map<String, Member> memberMap,
   DateTime now,
+  DateTime Function() clock,
 ) {
   DateTime? earliestCrossing;
   for (final session in sessions) {
@@ -180,15 +206,30 @@ void _scheduleThresholdTimer(
 
   if (earliestCrossing == null) return;
 
-  // Guard against a zero/negative delay edge case (clock skew, racing
-  // ticker rebuild) — schedule at least one frame out.
-  var delay = earliestCrossing.difference(now);
-  if (delay < Duration.zero) delay = Duration.zero;
+  final crossing = earliestCrossing;
+  Timer? activeTimer;
 
-  final timer = Timer(delay, () {
-    // Provider invalidation triggers re-evaluation; the next pass will
-    // find the now-promoted session and surface the member.
-    ref.invalidateSelf();
-  });
-  ref.onDispose(timer.cancel);
+  void schedule() {
+    final freshNow = clock();
+    var delay = crossing.difference(freshNow);
+    if (delay < Duration.zero) delay = Duration.zero;
+    if (delay > _kThresholdTimerWakeCap) delay = _kThresholdTimerWakeCap;
+
+    activeTimer = Timer(delay, () {
+      final wakeNow = clock();
+      if (wakeNow.isBefore(crossing)) {
+        // Either wall clock jumped backward, or we just hit the wake
+        // cap. Re-check + reschedule. (We do NOT invalidateSelf here —
+        // the qualifying state hasn't changed, and a no-op rebuild
+        // would churn UI.)
+        schedule();
+      } else {
+        // Wall clock at or past the crossing — surface the member.
+        ref.invalidateSelf();
+      }
+    });
+  }
+
+  schedule();
+  ref.onDispose(() => activeTimer?.cancel());
 }

@@ -1,3 +1,4 @@
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -323,6 +324,131 @@ void main() {
       // No exceptions on dispose.
       container.dispose();
     });
+
+    test(
+      'threshold timer actually fires and surfaces the member after elapse',
+      () {
+        // Drive the provider with a fake clock + FakeAsync to exercise
+        // the real Timer-firing path (not just the delay computation).
+        // The session starts 1 hour shy of the auto-promote threshold;
+        // before elapsing, the provider must NOT include the member.
+        // After elapsing past the threshold, the timer must fire,
+        // invalidate the provider, and the member must be present.
+        FakeAsync().run((async) {
+          var fakeNow = DateTime(2026, 1, 1, 12, 0, 0);
+          DateTime now() => fakeNow;
+          final start =
+              fakeNow.subtract(kAutoPromoteThreshold - const Duration(hours: 1));
+          final container = ProviderContainer(overrides: [
+            activeSessionsProvider.overrideWith(
+              (ref) => Stream.value([
+                _session(id: 's1', memberId: 'a', start: start),
+              ]),
+            ),
+            allMembersProvider.overrideWith(
+              (ref) => Stream.value([_member(id: 'a')]),
+            ),
+            alwaysPresentClockProvider.overrideWithValue(now),
+          ]);
+          addTearDown(container.dispose);
+
+          // Subscribe so the provider stays alive across invalidations.
+          container.listen<AsyncValue<List<AlwaysPresentMember>>>(
+            alwaysPresentMembersProvider,
+            (_, _) {},
+            fireImmediately: true,
+          );
+
+          // Pump the upstream streams.
+          async.elapse(Duration.zero);
+          expect(
+            container.read(alwaysPresentMembersProvider).value,
+            isEmpty,
+            reason: 'session under threshold should not qualify yet',
+          );
+
+          // Advance the wall-clock past the auto-promote threshold AND
+          // past the per-wake cap (6h), so the rescheduled wake fires.
+          // After this, the member must be promoted.
+          fakeNow = fakeNow.add(const Duration(hours: 2));
+          async.elapse(const Duration(hours: 2));
+
+          final after = container.read(alwaysPresentMembersProvider).value;
+          expect(after, isNotNull);
+          expect(after!.map((q) => q.member.id), ['a'],
+              reason: 'timer should have fired and surfaced the member');
+        });
+      },
+    );
+
+    test(
+      'wake cap reschedules without invalidating when wall clock has not '
+      'crossed yet (e.g., NTP backward jump)',
+      () {
+        // Schedule a session whose crossing is 8 hours out (longer than
+        // the 6h wake cap). The first wake fires at the cap before the
+        // crossing and must NOT promote the member — instead, the timer
+        // re-checks the (still-pre-crossing) clock and reschedules. The
+        // provider value must stay empty across that wake.
+        FakeAsync().run((async) {
+          var fakeNow = DateTime(2026, 1, 1, 12, 0, 0);
+          DateTime now() => fakeNow;
+          final start = fakeNow.subtract(
+              kAutoPromoteThreshold - const Duration(hours: 8));
+          final container = ProviderContainer(overrides: [
+            activeSessionsProvider.overrideWith(
+              (ref) => Stream.value([
+                _session(id: 's1', memberId: 'a', start: start),
+              ]),
+            ),
+            allMembersProvider.overrideWith(
+              (ref) => Stream.value([_member(id: 'a')]),
+            ),
+            alwaysPresentClockProvider.overrideWithValue(now),
+          ]);
+          addTearDown(container.dispose);
+
+          var emitCount = 0;
+          container.listen<AsyncValue<List<AlwaysPresentMember>>>(
+            alwaysPresentMembersProvider,
+            (_, _) => emitCount++,
+            fireImmediately: true,
+          );
+
+          async.elapse(Duration.zero);
+          final initialEmits = emitCount;
+          expect(
+            container.read(alwaysPresentMembersProvider).value,
+            isEmpty,
+          );
+
+          // Advance only past the wake cap (6h) but not past the
+          // crossing. FakeAsync's elapsed time advances; the fake wall
+          // clock does NOT (simulates backward NTP jump or clock that
+          // didn't progress as expected).
+          //
+          // Note: holding fakeNow constant while async time advances is
+          // an extreme version of "wall clock didn't move with monotonic
+          // time" — the rescheduling logic must handle it without
+          // promoting the member.
+          async.elapse(const Duration(hours: 7));
+
+          // The timer fired but rescheduled (no invalidation).
+          // Member must still NOT be qualifying.
+          expect(
+            container.read(alwaysPresentMembersProvider).value,
+            isEmpty,
+            reason:
+                'wake cap should reschedule, not promote, when wall clock '
+                'has not crossed yet',
+          );
+          // No extra emissions from invalidation (the listen path is
+          // upstream-driven only).
+          expect(emitCount, initialEmits,
+              reason: 'rescheduling must not emit a new value');
+        });
+      },
+    );
   });
 
   group('AlwaysPresentMember value type', () {

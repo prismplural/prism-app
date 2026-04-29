@@ -233,7 +233,7 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
                 controller: widget.scrollController,
                 padding: EdgeInsets.fromLTRB(
                   24,
-                  24,
+                  8,
                   24,
                   24 + MediaQuery.of(context).viewInsets.bottom,
                 ),
