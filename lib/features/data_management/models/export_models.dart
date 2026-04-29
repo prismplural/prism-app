@@ -223,9 +223,7 @@ class V1Export {
           [],
       systemSettings:
           (json['systemSettings'] as List<dynamic>?)
-              ?.map(
-                (e) => V1SystemSettings.fromJson(e as Map<String, dynamic>),
-              )
+              ?.map((e) => V1SystemSettings.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
       habits:
@@ -287,9 +285,8 @@ class V1Export {
       conversationCategories:
           (json['conversationCategories'] as List<dynamic>?)
               ?.map(
-                (e) => V1ConversationCategory.fromJson(
-                  e as Map<String, dynamic>,
-                ),
+                (e) =>
+                    V1ConversationCategory.fromJson(e as Map<String, dynamic>),
               )
               .toList() ??
           [],
@@ -434,6 +431,8 @@ class V1FrontSession {
     this.notes,
     this.confidence,
     this.pluralkitUuid,
+    this.pkImportSource,
+    this.pkFileSwitchId,
     this.pkMemberIdsJson,
     this.sessionType,
     this.quality,
@@ -458,6 +457,8 @@ class V1FrontSession {
   final String? notes;
   final int? confidence;
   final String? pluralkitUuid;
+  final String? pkImportSource;
+  final String? pkFileSwitchId;
   // Legacy-shape: JSON-encoded list of PK member UUIDs for this switch.
   // Retained in v7-era PRISM1 exports for the rescue importer (§4.7); the
   // runtime column is unread from 0.7.0 onwards.
@@ -501,6 +502,8 @@ class V1FrontSession {
     if (notes != null) 'notes': notes,
     if (confidence != null) 'confidence': confidence,
     if (pluralkitUuid != null) 'pluralkitUuid': pluralkitUuid,
+    if (pkImportSource != null) 'pkImportSource': pkImportSource,
+    if (pkFileSwitchId != null) 'pkFileSwitchId': pkFileSwitchId,
     if (pkMemberIdsJson != null) 'pkMemberIdsJson': pkMemberIdsJson,
     if (sessionType != null) 'sessionType': sessionType,
     if (quality != null) 'quality': quality,
@@ -558,13 +561,14 @@ class V1FrontSession {
     // emit either key. Sleep rows in pre-0.7 files lived in
     // `sleepSessions`, never in `frontSessions`, so the legacy
     // importer's normal-only assumption is safe.
-    final hasLegacyKeys = json.containsKey('coFronterIds') ||
-        json.containsKey('pkMemberIdsJson');
+    final hasLegacyKeys =
+        json.containsKey('coFronterIds') || json.containsKey('pkMemberIdsJson');
     final hasNewShapeMarker =
         json.containsKey('sessionType') || json.containsKey('memberId');
     final hasHeadmateId = json.containsKey('headmateId');
     final hasPluralkitUuid = json.containsKey('pluralkitUuid');
-    final isLegacy = forceLegacyShape ||
+    final isLegacy =
+        forceLegacyShape ||
         hasLegacyKeys ||
         (hasPluralkitUuid && !hasNewShapeMarker) ||
         (!hasHeadmateId &&
@@ -607,13 +611,14 @@ class V1FrontSession {
       endTime: json['endTime'] as String?,
       // Accept either key — new-shape exports use `memberId`, legacy use
       // `headmateId`. Stored on the same field.
-      headmateId:
-          json['memberId'] as String? ?? json['headmateId'] as String?,
+      headmateId: json['memberId'] as String? ?? json['headmateId'] as String?,
       coFronterIds: coIds,
       coFronterIdsRawJson: rawCoJson,
       notes: json['notes'] as String?,
       confidence: json['confidence'] as int?,
       pluralkitUuid: json['pluralkitUuid'] as String?,
+      pkImportSource: json['pkImportSource'] as String?,
+      pkFileSwitchId: json['pkFileSwitchId'] as String?,
       pkMemberIdsJson: json['pkMemberIdsJson'] as String?,
       sessionType: json['sessionType'] as int?,
       quality: json['quality'] as int?,
@@ -1612,12 +1617,12 @@ class V1FrontSessionComment {
     // legacy/rescue path even if it carries `targetTime` /
     // `authorMemberId` (the migration-time export emits both shapes on
     // the same row).
-    final hasSessionId = json.containsKey('sessionId') &&
+    final hasSessionId =
+        json.containsKey('sessionId') &&
         (json['sessionId'] as String?)?.isNotEmpty == true;
     final hasNewShapeMarker =
         json.containsKey('targetTime') || json.containsKey('authorMemberId');
-    final isLegacy =
-        forceLegacyShape || (hasSessionId && !hasNewShapeMarker);
+    final isLegacy = forceLegacyShape || (hasSessionId && !hasNewShapeMarker);
     return V1FrontSessionComment(
       id: json['id'] as String,
       sessionId: json['sessionId'] as String?,

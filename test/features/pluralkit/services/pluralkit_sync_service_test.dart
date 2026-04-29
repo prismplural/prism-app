@@ -240,7 +240,7 @@ class FakeMemberRepository implements MemberRepository {
 
   @override
   Future<({domain.Member member, bool wasCreated})>
-      ensureUnknownSentinelMember() => throw UnimplementedError();
+  ensureUnknownSentinelMember() => throw UnimplementedError();
 }
 
 // ---------------------------------------------------------------------------
@@ -428,6 +428,23 @@ void main() {
 
   setUp(storageStub.setup);
   tearDown(storageStub.teardown);
+
+  group('PluralKit switch UUID guard', () {
+    test('accepts only UUID-shaped switch refs', () {
+      expect(
+        isPluralKitSwitchUuid('00000000-0000-0000-0000-000000000001'),
+        isTrue,
+      );
+      expect(
+        isPluralKitSwitchUuid('ABCDEFAB-CDEF-ABCD-EFAB-CDEFABCDEFAB'),
+        isTrue,
+      );
+      expect(isPluralKitSwitchUuid(null), isFalse);
+      expect(isPluralKitSwitchUuid(''), isFalse);
+      expect(isPluralKitSwitchUuid('pkfile:v1:abc'), isFalse);
+      expect(isPluralKitSwitchUuid('uuid-s1'), isFalse);
+    });
+  });
 
   // ── setToken ────────────────────────────────────────────────────────────────
 

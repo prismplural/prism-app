@@ -24,6 +24,8 @@ class FrontingSessionMapper {
             )
           : null,
       pluralkitUuid: row.pluralkitUuid,
+      pkImportSource: row.pkImportSource,
+      pkFileSwitchId: row.pkFileSwitchId,
       quality: row.quality != null
           ? (row.quality! >= 0 &&
                     row.quality! < domain.SleepQuality.values.length
@@ -47,6 +49,8 @@ class FrontingSessionMapper {
       notes: Value(model.notes),
       confidence: Value(model.confidence?.index),
       pluralkitUuid: Value(model.pluralkitUuid),
+      pkImportSource: Value(model.pkImportSource),
+      pkFileSwitchId: Value(model.pkFileSwitchId),
       quality: Value(model.quality?.index),
       isHealthKitImport: Value(model.isHealthKitImport),
       isDeleted: Value(model.isDeleted),

@@ -140,6 +140,16 @@ class PluralKitSyncNotifier extends Notifier<PluralKitSyncState> {
     void Function(double progress, String status)? onProgress,
   }) => _service.importFromFile(export, onProgress: onProgress);
 
+  Future<PkFileTokenFrontingImportResult> importFromFileWithToken(
+    PkFileExport export, {
+    required String token,
+    void Function(double progress, String status)? onProgress,
+  }) => _service.importFromFileWithToken(
+    export,
+    token: token,
+    onProgress: onProgress,
+  );
+
   /// Push any locally-created fronting sessions to PluralKit. Safe to call
   /// on every front change: it no-ops when the service isn't connected /
   /// is mid-mapping, and deduplicates already-pushed sessions via

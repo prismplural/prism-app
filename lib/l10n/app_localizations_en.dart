@@ -5046,6 +5046,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'To get your token, DM the PluralKit bot on Discord with \"pk;token\" and paste the result here.';
 
   @override
+  String get pluralkitFileImportHelp =>
+      'Recover old PluralKit fronting history with a pk;export file and token. The file provides the switch history; the token lets Prism match it safely.';
+
+  @override
   String get pluralkitImportButton => 'Import from PluralKit';
 
   @override
@@ -5127,7 +5131,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get pluralkitInfoSwitches =>
-      'Switches are imported as fronting sessions. Duplicate switches are automatically skipped.';
+      'Fronting history recovery uses a pk;export file plus a token so Prism can match export switches to PluralKit switch IDs.';
 
   @override
   String get pluralkitJustNow => 'Just now';
@@ -7379,7 +7383,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pluralkitRerunMemberMapping => 'Re-run member mapping';
 
   @override
-  String get pluralkitImportFromFile => 'Import from pk;export file';
+  String get pluralkitImportFromFile => 'Recover history from pk;export';
 
   @override
   String pluralkitMappingBannerTitle(String termPluralLower) {
@@ -7948,8 +7952,9 @@ class AppLocalizationsEn extends AppLocalizations {
       count,
       locale: localeName,
       other:
-          'Cleared $count PluralKit-imported sessions (re-import after upgrade).',
-      one: 'Cleared 1 PluralKit-imported session (re-import after upgrade).',
+          'Old-format PluralKit history was cleared ($count sessions). Re-import it from a PluralKit token or a pk;export file.',
+      one:
+          'Old-format PluralKit history was cleared (1 session). Re-import it from a PluralKit token or a pk;export file.',
     );
     return '$_temp0';
   }
@@ -8023,6 +8028,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'All set. Your fronting data is on the new format.';
 
   @override
+  String get frontingUpgradeOpenPluralKitImport => 'Open PluralKit import';
+
+  @override
   String get frontingUpgradeFailureHeadline => 'Migration failed';
 
   @override
@@ -8044,11 +8052,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pkFileImportGroupsLabel => 'Groups';
 
   @override
-  String get pkFileImportFrontingSessionsLabel => 'Fronting sessions';
+  String get pkFileImportFrontingSessionsLabel =>
+      'Switches found (not imported)';
+
+  @override
+  String get pkFileImportSwitchesFoundLabel => 'Switches found (not imported)';
 
   @override
   String pkFileImportPreviewNote(String termPlural) {
-    return 'Existing $termPlural with the same PluralKit ID will be updated. Duplicate switches are skipped.';
+    return 'Existing $termPlural with the same PluralKit ID will be updated. To import fronting history, add a PluralKit token so Prism can match export switches before importing fronts.';
   }
 
   @override
@@ -8065,7 +8077,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get pkFileImportSwitchesSkippedLabel =>
-      'Switches skipped (already present)';
+      'Switches found (not imported)';
 
   @override
   String get settingsFrontingSessionDisplaySectionTitle =>

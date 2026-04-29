@@ -21,6 +21,10 @@ Future<void> _seedV7Db(File dbFile) async {
   final rawDb = raw.sqlite3.open(dbFile.path);
   try {
     rawDb.execute('PRAGMA user_version = 7;');
+    rawDb.execute('ALTER TABLE fronting_sessions DROP COLUMN pk_import_source');
+    rawDb.execute(
+      'ALTER TABLE fronting_sessions DROP COLUMN pk_file_switch_id',
+    );
     rawDb.execute(
       'ALTER TABLE system_settings DROP COLUMN fronting_list_view_mode',
     );
@@ -136,9 +140,11 @@ void main() {
           reason: 'existing row must default to additive (0)',
         );
 
-        // Confirm the schema version bumped.
-        final version = await upgraded.customSelect('PRAGMA user_version').get();
-        expect(version.first.read<int>('user_version'), 8);
+        // Confirm the schema version bumped through all current migrations.
+        final version = await upgraded
+            .customSelect('PRAGMA user_version')
+            .get();
+        expect(version.first.read<int>('user_version'), 9);
       },
     );
   });

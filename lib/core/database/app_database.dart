@@ -90,7 +90,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -222,9 +222,9 @@ class AppDatabase extends _$AppDatabase {
             systemSettingsTable.pendingFrontingMigrationCleanupSubstate,
           );
           await customStatement(
-            "INSERT INTO system_settings (id, pending_fronting_migration_mode) "
+            'INSERT INTO system_settings (id, pending_fronting_migration_mode) '
             "VALUES ('singleton', 'notStarted') "
-            "ON CONFLICT(id) DO UPDATE SET "
+            'ON CONFLICT(id) DO UPDATE SET '
             "pending_fronting_migration_mode = 'notStarted'",
           );
 
@@ -304,15 +304,20 @@ class AppDatabase extends _$AppDatabase {
                 'INSERT INTO _v7_migration_blockers '
                 '(table_name, row_id, reason, detected_at) '
                 'VALUES (?, ?, ?, ?)',
-                ['fronting_sessions', rowId, 'duplicate_pk_uuid_member_id', now],
+                [
+                  'fronting_sessions',
+                  rowId,
+                  'duplicate_pk_uuid_member_id',
+                  now,
+                ],
               );
             }
             // Flip migration mode to 'blocked' so Phase 5 startup surfaces this
             // to the user rather than silently leaving the index absent.
             await customStatement(
-              "INSERT INTO system_settings (id, pending_fronting_migration_mode) "
+              'INSERT INTO system_settings (id, pending_fronting_migration_mode) '
               "VALUES ('singleton', 'blocked') "
-              "ON CONFLICT(id) DO UPDATE SET "
+              'ON CONFLICT(id) DO UPDATE SET '
               "pending_fronting_migration_mode = 'blocked'",
             );
             // Do NOT create the composite index.  On real v6→v7 upgrades from
@@ -367,6 +372,21 @@ class AppDatabase extends _$AppDatabase {
           systemSettingsTable.quickFrontDefaultBehavior,
         );
         current = 8;
+      }
+      if (current == 8 && to >= 9) {
+        // PluralKit file-origin fronting metadata. Additive nullable columns:
+        // existing API/native/SP rows keep nulls, while future file-origin
+        // imports can store a deterministic source switch key without
+        // overloading `pluralkit_uuid`.
+        await migrator.addColumn(
+          frontingSessions,
+          frontingSessions.pkImportSource,
+        );
+        await migrator.addColumn(
+          frontingSessions,
+          frontingSessions.pkFileSwitchId,
+        );
+        current = 9;
       }
       if (current != to) {
         throw UnsupportedError(

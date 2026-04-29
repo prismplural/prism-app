@@ -6649,6 +6649,10 @@
   "@pluralkitConnect": { "description": "Button label to connect PluralKit" },
   "pluralkitTokenHelp": "To get your token, DM the PluralKit bot on Discord with \"pk;token\" and paste the result here.",
   "@pluralkitTokenHelp": { "description": "Help text for finding the PluralKit token" },
+  "pluralkitFileImportHelp": "Recover old PluralKit fronting history with a pk;export file and token. The file provides the switch history; the token lets Prism match it safely.",
+  "@pluralkitFileImportHelp": {
+    "description": "Help text for the PluralKit settings file import entry point"
+  },
   "pluralkitImportButton": "Import from PluralKit",
   "@pluralkitImportButton": { "description": "Button label to import all data from PluralKit" },
   "pluralkitSyncRecent": "Sync Recent Changes",
@@ -6719,8 +6723,8 @@
     "description": "How It Works info row about the link-members step",
     "placeholders": { "termPluralLower": { "type": "String" } }
   },
-  "pluralkitInfoSwitches": "Switches are imported as fronting sessions. Duplicate switches are automatically skipped.",
-  "@pluralkitInfoSwitches": { "description": "How It Works info row about switch import" },
+  "pluralkitInfoSwitches": "Fronting history recovery uses a pk;export file plus a token so Prism can match export switches to PluralKit switch IDs.",
+  "@pluralkitInfoSwitches": { "description": "How It Works info row about fronting history recovery from PluralKit" },
   "pluralkitJustNow": "Just now",
   "@pluralkitJustNow": { "description": "Relative time label when PluralKit sync was less than a minute ago" },
   "pluralkitRepairThisGroup": "This group",
@@ -8097,7 +8101,7 @@
   "@pluralkitRerunMemberMapping": {
     "description": "Button label to re-open the PK member mapping flow"
   },
-  "pluralkitImportFromFile": "Import from pk;export file",
+  "pluralkitImportFromFile": "Recover history from pk;export",
   "@pluralkitImportFromFile": {
     "description": "Button label to import a PluralKit pk;export JSON file"
   },
@@ -8480,9 +8484,9 @@
       "termSingularLower": { "type": "String" }
     }
   },
-  "frontingUpgradeCountPkDeleted": "{count, plural, =1{Cleared 1 PluralKit-imported session (re-import after upgrade).} other{Cleared {count} PluralKit-imported sessions (re-import after upgrade).}}",
+  "frontingUpgradeCountPkDeleted": "{count, plural, =1{Old-format PluralKit history was cleared (1 session). Re-import it from a PluralKit token or a pk;export file.} other{Old-format PluralKit history was cleared ({count} sessions). Re-import it from a PluralKit token or a pk;export file.}}",
   "@frontingUpgradeCountPkDeleted": {
-    "description": "Success counter: PK rows cleared",
+    "description": "Success counter and follow-up guidance when old-format PluralKit fronting history was cleared",
     "placeholders": { "count": { "type": "int" } }
   },
   "frontingUpgradeCountCommentsMigrated": "{count, plural, =1{Migrated 1 comment.} other{Migrated {count} comments.}}",
@@ -8530,6 +8534,10 @@
   "@frontingUpgradeRepairSecondary": { "description": "Re-pair guidance for secondary devices" },
   "frontingUpgradeRepairSolo": "All set. Your fronting data is on the new format.",
   "@frontingUpgradeRepairSolo": { "description": "Final note for solo devices, no re-pair needed" },
+  "frontingUpgradeOpenPluralKitImport": "Open PluralKit import",
+  "@frontingUpgradeOpenPluralKitImport": {
+    "description": "Button label on the fronting migration success screen that opens PluralKit import options"
+  },
 
   "frontingUpgradeFailureHeadline": "Migration failed",
   "@frontingUpgradeFailureHeadline": { "description": "Failure screen headline" },
@@ -8555,13 +8563,17 @@
   "@pkFileImportGroupsLabel": {
     "description": "PluralKit file import preview/result row label for the count of groups. Kept generic — PluralKit's own 'group' concept."
   },
-  "pkFileImportFrontingSessionsLabel": "Fronting sessions",
+  "pkFileImportFrontingSessionsLabel": "Switches found (not imported)",
   "@pkFileImportFrontingSessionsLabel": {
-    "description": "PluralKit file import preview row label for the count of fronting sessions found in the export."
+    "description": "PluralKit file import preview row label for switches found in the export but not imported from file."
   },
-  "pkFileImportPreviewNote": "Existing {termPlural} with the same PluralKit ID will be updated. Duplicate switches are skipped.",
+  "pkFileImportSwitchesFoundLabel": "Switches found (not imported)",
+  "@pkFileImportSwitchesFoundLabel": {
+    "description": "PluralKit file import preview/result row label for switches found in the export but not imported from file."
+  },
+  "pkFileImportPreviewNote": "Existing {termPlural} with the same PluralKit ID will be updated. To import fronting history, add a PluralKit token so Prism can match export switches before importing fronts.",
   "@pkFileImportPreviewNote": {
-    "description": "Informational note shown on the PluralKit file import preview screen.",
+    "description": "Informational note shown on the PluralKit file import preview screen before file plus token fronting import.",
     "placeholders": {
       "termPlural": {
         "type": "String",
@@ -8585,9 +8597,9 @@
   "@pkFileImportSwitchesCreatedLabel": {
     "description": "PluralKit file import result row: count of switches that were newly created. 'Switches' is PluralKit-internal vocabulary and is intentionally not localised through the terminology system."
   },
-  "pkFileImportSwitchesSkippedLabel": "Switches skipped (already present)",
+  "pkFileImportSwitchesSkippedLabel": "Switches found (not imported)",
   "@pkFileImportSwitchesSkippedLabel": {
-    "description": "PluralKit file import result row: count of switches that were skipped because they already existed. 'Switches' is PluralKit-internal vocabulary."
+    "description": "PluralKit file import result row: count of switches found in the export but not imported from file. 'Switches' is PluralKit-internal vocabulary."
   },
   "settingsFrontingSessionDisplaySectionTitle": "Session display & front behavior",
   "@settingsFrontingSessionDisplaySectionTitle": {

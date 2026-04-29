@@ -54,6 +54,11 @@ import 'package:prism_plurality/domain/repositories/fronting_session_repository.
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/features/data_management/services/data_export_service.dart';
 import 'package:prism_plurality/features/fronting/migration/fronting_migration_service.dart';
+import 'package:prism_plurality/features/migration/services/sp_importer.dart';
+import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_groups_importer.dart';
+import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
+import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
 
 AppDatabase _makeDb() => AppDatabase(NativeDatabase.memory());
 
@@ -64,29 +69,40 @@ DataExportService _makeExportService(AppDatabase db, Directory cacheDir) {
   return DataExportService(
     db: db,
     memberRepository: DriftMemberRepository(db.membersDao, null),
-    frontingSessionRepository:
-        DriftFrontingSessionRepository(db.frontingSessionsDao, null),
-    conversationRepository:
-        DriftConversationRepository(db.conversationsDao, null),
-    chatMessageRepository:
-        DriftChatMessageRepository(db.chatMessagesDao, null),
+    frontingSessionRepository: DriftFrontingSessionRepository(
+      db.frontingSessionsDao,
+      null,
+    ),
+    conversationRepository: DriftConversationRepository(
+      db.conversationsDao,
+      null,
+    ),
+    chatMessageRepository: DriftChatMessageRepository(db.chatMessagesDao, null),
     pollRepository: DriftPollRepository(
       db.pollsDao,
       db.pollOptionsDao,
       db.pollVotesDao,
       null,
     ),
-    systemSettingsRepository:
-        DriftSystemSettingsRepository(db.systemSettingsDao, null),
+    systemSettingsRepository: DriftSystemSettingsRepository(
+      db.systemSettingsDao,
+      null,
+    ),
     habitRepository: DriftHabitRepository(db.habitsDao, null),
     pluralKitSyncDao: db.pluralKitSyncDao,
-    memberGroupsRepository:
-        DriftMemberGroupsRepository(db.memberGroupsDao, null),
-    customFieldsRepository:
-        DriftCustomFieldsRepository(db.customFieldsDao, null),
+    memberGroupsRepository: DriftMemberGroupsRepository(
+      db.memberGroupsDao,
+      null,
+    ),
+    customFieldsRepository: DriftCustomFieldsRepository(
+      db.customFieldsDao,
+      null,
+    ),
     notesRepository: DriftNotesRepository(db.notesDao, null),
-    frontSessionCommentsRepository:
-        DriftFrontSessionCommentsRepository(db.frontSessionCommentsDao, null),
+    frontSessionCommentsRepository: DriftFrontSessionCommentsRepository(
+      db.frontSessionCommentsDao,
+      null,
+    ),
     conversationCategoriesRepository: DriftConversationCategoriesRepository(
       db.conversationCategoriesDao,
       null,
@@ -114,15 +130,20 @@ FrontingMigrationService _makeService(
 }) {
   // Avoid the platform-channel hop into getApplicationDocumentsDirectory
   // in unit tests by defaulting the backup dir to a temp dir.
-  final dir = backupDirectory ??
+  final dir =
+      backupDirectory ??
       Directory.systemTemp.createTempSync('prism-mig-backup-');
   return FrontingMigrationService(
     db: db,
     memberRepository: DriftMemberRepository(db.membersDao, null),
-    frontingSessionRepository:
-        DriftFrontingSessionRepository(db.frontingSessionsDao, null),
-    frontSessionCommentsRepository:
-        DriftFrontSessionCommentsRepository(db.frontSessionCommentsDao, null),
+    frontingSessionRepository: DriftFrontingSessionRepository(
+      db.frontingSessionsDao,
+      null,
+    ),
+    frontSessionCommentsRepository: DriftFrontSessionCommentsRepository(
+      db.frontSessionCommentsDao,
+      null,
+    ),
     dataExportService: exportService,
     syncHandle: null,
     resetSyncState: (h) async {
@@ -144,7 +165,9 @@ Future<void> _seedSession(
   String? pluralkitUuid,
   int sessionType = 0,
 }) async {
-  await db.into(db.frontingSessions).insert(
+  await db
+      .into(db.frontingSessions)
+      .insert(
         FrontingSessionsCompanion.insert(
           id: id,
           startTime: startTime,
@@ -164,7 +187,9 @@ Future<void> _seedComment(
   required String body,
   required DateTime timestamp,
 }) async {
-  await db.into(db.frontSessionComments).insert(
+  await db
+      .into(db.frontSessionComments)
+      .insert(
         FrontSessionCommentsCompanion.insert(
           id: id,
           sessionId: sessionId,
@@ -201,6 +226,116 @@ Future<void> _seedMember(AppDatabase db, String id, {String name = 'M'}) async {
   );
 }
 
+PluralKitSyncService _makePkImportService(
+  AppDatabase db,
+  PluralKitClient client,
+) {
+  final memberRepo = DriftMemberRepository(
+    db.membersDao,
+    null,
+    pkSyncDao: db.pluralKitSyncDao,
+  );
+  return PluralKitSyncService(
+    memberRepository: memberRepo,
+    frontingSessionRepository: DriftFrontingSessionRepository(
+      db.frontingSessionsDao,
+      null,
+      pkSyncDao: db.pluralKitSyncDao,
+    ),
+    syncDao: db.pluralKitSyncDao,
+    tokenOverride: 'test-token',
+    clientFactory: (_) => client,
+    groupsImporter: PkGroupsImporter(db: db, memberRepository: memberRepo),
+  );
+}
+
+class _PkMigrationFakeClient implements PluralKitClient {
+  _PkMigrationFakeClient({
+    required this.members,
+    required this.switchesNewestFirst,
+  });
+
+  final List<PKMember> members;
+  final List<PKSwitch> switchesNewestFirst;
+
+  int getSystemCallCount = 0;
+  int getMembersCallCount = 0;
+  int getSwitchesCallCount = 0;
+  int disposeCallCount = 0;
+
+  @override
+  Future<PKSystem> getSystem() async {
+    getSystemCallCount++;
+    return const PKSystem(id: 'pk-system', name: 'PK Fixture System');
+  }
+
+  @override
+  Future<List<PKMember>> getMembers() async {
+    getMembersCallCount++;
+    return members;
+  }
+
+  @override
+  Future<List<PKSwitch>> getSwitches({
+    DateTime? before,
+    int limit = 100,
+  }) async {
+    getSwitchesCallCount++;
+    return before == null ? switchesNewestFirst : const <PKSwitch>[];
+  }
+
+  @override
+  Future<List<PKGroup>> getGroups({bool withMembers = true}) async =>
+      const <PKGroup>[];
+
+  @override
+  Future<List<String>> getGroupMembers(String groupRef) async =>
+      const <String>[];
+
+  @override
+  Future<List<int>> downloadBytes(String url) async => const <int>[];
+
+  @override
+  Future<PKMember> createMember(Map<String, dynamic> data) =>
+      throw UnimplementedError();
+
+  @override
+  Future<PKMember> updateMember(String id, Map<String, dynamic> data) =>
+      throw UnimplementedError();
+
+  @override
+  Future<PKSwitch> createSwitch(
+    List<String> memberIds, {
+    DateTime? timestamp,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<PKSwitch> updateSwitch(
+    String switchId, {
+    required DateTime timestamp,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<PKSwitch> updateSwitchMembers(
+    String switchId,
+    List<String> memberIds,
+  ) => throw UnimplementedError();
+
+  @override
+  Future<void> deleteSwitch(String switchId) => throw UnimplementedError();
+
+  @override
+  Future<void> deleteMember(String id) => throw UnimplementedError();
+
+  @override
+  Future<PKSwitch?> getCurrentFronters() async => null;
+
+  @override
+  void dispose() {
+    disposeCallCount++;
+  }
+}
+
 void main() {
   group('FrontingMigrationService', () {
     late AppDatabase db;
@@ -232,53 +367,56 @@ void main() {
     // re-import. The fix made `db` a required constructor argument so
     // the broken provider path won't compile.
     // -------------------------------------------------------------------
-    test(
-      'PRISM1 migration export carries legacy fields end-to-end '
-      '(co_fronter_ids, pk_member_ids_json, comment session_id)',
-      () async {
-        // Seed a multi-member native row with co-fronters in the v7
-        // legacy column, and a comment with a session_id pointing at it.
-        await _seedMember(db, 'primary');
-        await _seedMember(db, 'co-1');
-        await _seedSession(
-          db,
-          id: 'native-multi',
-          startTime: DateTime.utc(2026, 4, 1, 9),
-          endTime: DateTime.utc(2026, 4, 1, 11),
-          memberId: 'primary',
-          coFronterIds: jsonEncode(['co-1']),
-        );
-        await _seedComment(
-          db,
-          id: 'c-1',
-          sessionId: 'native-multi',
-          body: 'still good',
-          timestamp: DateTime.utc(2026, 4, 1, 10),
-        );
+    test('PRISM1 migration export carries legacy fields end-to-end '
+        '(co_fronter_ids, pk_member_ids_json, comment session_id)', () async {
+      // Seed a multi-member native row with co-fronters in the v7
+      // legacy column, and a comment with a session_id pointing at it.
+      await _seedMember(db, 'primary');
+      await _seedMember(db, 'co-1');
+      await _seedSession(
+        db,
+        id: 'native-multi',
+        startTime: DateTime.utc(2026, 4, 1, 9),
+        endTime: DateTime.utc(2026, 4, 1, 11),
+        memberId: 'primary',
+        coFronterIds: jsonEncode(['co-1']),
+      );
+      await _seedComment(
+        db,
+        id: 'c-1',
+        sessionId: 'native-multi',
+        body: 'still good',
+        timestamp: DateTime.utc(2026, 4, 1, 10),
+      );
 
-        // Build the export through the same code path the migration
-        // service uses. The legacy fields MUST be present in the JSON.
-        final export = await exportService.buildExport(
-          includeLegacyFields: true,
-        );
-        final json = jsonDecode(jsonEncode(export.toJson())) as Map<
-            String, dynamic>;
+      // Build the export through the same code path the migration
+      // service uses. The legacy fields MUST be present in the JSON.
+      final export = await exportService.buildExport(includeLegacyFields: true);
+      final json =
+          jsonDecode(jsonEncode(export.toJson())) as Map<String, dynamic>;
 
-        final sessions = json['frontSessions'] as List<dynamic>;
-        final session = sessions.firstWhere(
-          (s) => (s as Map<String, dynamic>)['id'] == 'native-multi',
-        ) as Map<String, dynamic>;
-        expect(session['coFronterIds'], ['co-1'],
-            reason: 'co_fronter_ids must round-trip through the export');
+      final sessions = json['frontSessions'] as List<dynamic>;
+      final session =
+          sessions.firstWhere(
+                (s) => (s as Map<String, dynamic>)['id'] == 'native-multi',
+              )
+              as Map<String, dynamic>;
+      expect(
+        session['coFronterIds'],
+        ['co-1'],
+        reason: 'co_fronter_ids must round-trip through the export',
+      );
 
-        final comments = json['frontSessionComments'] as List<dynamic>;
-        final comment = comments.firstWhere(
-          (c) => (c as Map<String, dynamic>)['id'] == 'c-1',
-        ) as Map<String, dynamic>;
-        expect(comment['sessionId'], 'native-multi',
-            reason: 'comment.session_id must round-trip through the export');
-      },
-    );
+      final comments = json['frontSessionComments'] as List<dynamic>;
+      final comment =
+          comments.firstWhere((c) => (c as Map<String, dynamic>)['id'] == 'c-1')
+              as Map<String, dynamic>;
+      expect(
+        comment['sessionId'],
+        'native-multi',
+        reason: 'comment.session_id must round-trip through the export',
+      );
+    });
 
     // -------------------------------------------------------------------
     // prepareBackup writes to the injected directory (codex P1 #8)
@@ -289,59 +427,50 @@ void main() {
     // produces a non-null File in the directory we provided, so the
     // upgrade modal can hand that path to the share / save-as actions.
     // -------------------------------------------------------------------
-    test(
-      'prepareBackup writes the PRISM1 file to the injected backup '
-      'directory and returns a non-null File',
-      () async {
-        await _seedMember(db, 'm1');
-        await _seedSession(
-          db,
-          id: 's1',
-          startTime: DateTime(2026, 4, 1, 9).toUtc(),
-          memberId: 'm1',
-        );
+    test('prepareBackup writes the PRISM1 file to the injected backup '
+        'directory and returns a non-null File', () async {
+      await _seedMember(db, 'm1');
+      await _seedSession(
+        db,
+        id: 's1',
+        startTime: DateTime(2026, 4, 1, 9).toUtc(),
+        memberId: 'm1',
+      );
 
-        final backupDir =
-            Directory.systemTemp.createTempSync('prism-mig-backup-prep-');
-        final svc = _makeService(
-          db,
-          exportService,
-          backupDirectory: backupDir,
-        );
+      final backupDir = Directory.systemTemp.createTempSync(
+        'prism-mig-backup-prep-',
+      );
+      final svc = _makeService(db, exportService, backupDirectory: backupDir);
 
-        final file = await svc.prepareBackup(
-          mode: MigrationMode.upgradeAndKeep,
-          password: 'a-strong-password-12',
-        );
+      final file = await svc.prepareBackup(
+        mode: MigrationMode.upgradeAndKeep,
+        password: 'a-strong-password-12',
+      );
 
-        expect(await file.exists(), isTrue);
-        expect(file.path, startsWith(backupDir.path));
-        // Migration mode untouched — prepareBackup is non-destructive.
-        // Default initial value depends on migration onUpgrade; we just
-        // assert it's not the in-progress sentinel.
-        final mode =
-            await db.systemSettingsDao.readPendingFrontingMigrationMode();
-        expect(mode, isNot(FrontingMigrationService.modeInProgress));
+      expect(await file.exists(), isTrue);
+      expect(file.path, startsWith(backupDir.path));
+      // Migration mode untouched — prepareBackup is non-destructive.
+      // Default initial value depends on migration onUpgrade; we just
+      // assert it's not the in-progress sentinel.
+      final mode = await db.systemSettingsDao
+          .readPendingFrontingMigrationMode();
+      expect(mode, isNot(FrontingMigrationService.modeInProgress));
 
-        try {
-          await backupDir.delete(recursive: true);
-        } catch (_) {}
-      },
-    );
+      try {
+        await backupDir.delete(recursive: true);
+      } catch (_) {}
+    });
 
-    test(
-      'prepareBackup rejects MigrationMode.notNow',
-      () async {
-        final svc = _makeService(db, exportService);
-        await expectLater(
-          svc.prepareBackup(
-            mode: MigrationMode.notNow,
-            password: 'irrelevant-12345',
-          ),
-          throwsStateError,
-        );
-      },
-    );
+    test('prepareBackup rejects MigrationMode.notNow', () async {
+      final svc = _makeService(db, exportService);
+      await expectLater(
+        svc.prepareBackup(
+          mode: MigrationMode.notNow,
+          password: 'irrelevant-12345',
+        ),
+        throwsStateError,
+      );
+    });
 
     // -------------------------------------------------------------------
     // notNow mode
@@ -483,9 +612,10 @@ void main() {
         );
         expect(byId['orphan-1']!.memberId, sentinelId);
         // Sentinel member exists.
-        final sentinel =
-            await DriftMemberRepository(db.membersDao, null)
-                .getMemberById(sentinelId);
+        final sentinel = await DriftMemberRepository(
+          db.membersDao,
+          null,
+        ).getMemberById(sentinelId);
         expect(sentinel, isNotNull);
         expect(sentinel!.name, 'Unknown');
 
@@ -495,6 +625,316 @@ void main() {
         expect(await db.syncQuarantineDao.count(), 0);
       },
     );
+
+    test('phase 2 harness: real SP fixture plus native rows survives '
+        'upgradeAndKeep without duplicate or orphaned fronting rows', () async {
+      final fixture = File('test/fixtures/sp_export.json');
+      expect(
+        fixture.existsSync(),
+        isTrue,
+        reason: 'Phase 2 harness depends on the checked-in SP fixture',
+      );
+
+      final importer = SpImporter();
+      final exportData = importer.parseFile(fixture.path);
+      expect(exportData.frontHistory, isNotEmpty);
+
+      final importResult = await importer.executeImport(
+        db: db,
+        data: exportData,
+        memberRepo: DriftMemberRepository(db.membersDao, null),
+        sessionRepo: DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+        ),
+        conversationRepo: DriftConversationRepository(
+          db.conversationsDao,
+          null,
+        ),
+        messageRepo: DriftChatMessageRepository(db.chatMessagesDao, null),
+        pollRepo: DriftPollRepository(
+          db.pollsDao,
+          db.pollOptionsDao,
+          db.pollVotesDao,
+          null,
+        ),
+        notesRepo: DriftNotesRepository(db.notesDao, null),
+        commentsRepo: DriftFrontSessionCommentsRepository(
+          db.frontSessionCommentsDao,
+          null,
+        ),
+        customFieldsRepo: DriftCustomFieldsRepository(db.customFieldsDao, null),
+        groupsRepo: DriftMemberGroupsRepository(db.memberGroupsDao, null),
+        remindersRepo: DriftRemindersRepository(db.remindersDao, null),
+        settingsRepo: DriftSystemSettingsRepository(db.systemSettingsDao, null),
+        categoriesRepo: DriftConversationCategoriesRepository(
+          db.conversationCategoriesDao,
+          null,
+        ),
+        spImportDao: db.spImportDao,
+        downloadAvatars: false,
+      );
+
+      expect(importResult.sessionsImported, greaterThan(0));
+
+      final beforeRows = await db.frontingSessionsDao.getAllSessions();
+      expect(beforeRows, hasLength(importResult.sessionsImported));
+
+      final beforeMappings = await db.spImportDao.getAllMappings();
+      final beforeSessionMappings = beforeMappings
+          .where((m) => m.entityType == 'session')
+          .toList(growable: false);
+      expect(beforeSessionMappings, hasLength(importResult.sessionsImported));
+      final beforeSessionIdBySourceId = {
+        for (final mapping in beforeSessionMappings)
+          mapping.spId: mapping.prismId,
+      };
+
+      const nativePrimary = 'phase2-native-primary';
+      const nativeCo1 = 'phase2-native-co-1';
+      const nativeCo2 = 'phase2-native-co-2';
+      const nativeSingle = 'phase2-native-single';
+      const nativeMulti = 'phase2-native-multi';
+      const nativeUnknown = 'phase2-native-unknown';
+      const nativeComment = 'phase2-native-comment';
+      final nativeCommentTime = DateTime.utc(2026, 4, 2, 9, 30);
+
+      await _seedMember(db, nativePrimary);
+      await _seedMember(db, nativeCo1);
+      await _seedMember(db, nativeCo2);
+      await _seedSession(
+        db,
+        id: nativeSingle,
+        startTime: DateTime.utc(2026, 4, 2, 8),
+        endTime: DateTime.utc(2026, 4, 2, 8, 50),
+        memberId: nativePrimary,
+      );
+      await _seedSession(
+        db,
+        id: nativeMulti,
+        startTime: DateTime.utc(2026, 4, 2, 9),
+        endTime: DateTime.utc(2026, 4, 2, 10),
+        memberId: nativePrimary,
+        coFronterIds: jsonEncode([nativeCo1, nativeCo2]),
+      );
+      await _seedSession(
+        db,
+        id: nativeUnknown,
+        startTime: DateTime.utc(2026, 4, 2, 10, 10),
+        endTime: DateTime.utc(2026, 4, 2, 11),
+      );
+      await _seedComment(
+        db,
+        id: nativeComment,
+        sessionId: nativeMulti,
+        body: 'native comment survives',
+        timestamp: nativeCommentTime,
+      );
+
+      final svc = _makeService(db, exportService);
+      final result = await svc.runMigration(
+        mode: MigrationMode.upgradeAndKeep,
+        role: DeviceRole.solo,
+        shareFile: _noopShare,
+      );
+
+      expect(result.outcome, MigrationOutcome.success);
+      expect(result.spRowsMigrated, importResult.sessionsImported);
+      expect(result.nativeRowsMigrated, 2);
+      expect(result.nativeRowsExpanded, 2);
+      expect(result.orphanRowsAssignedToSentinel, 1);
+      expect(result.unknownSentinelCreated, isTrue);
+      expect(result.pkRowsDeleted, 0);
+      expect(result.corruptCoFronterRowIds, isEmpty);
+
+      final afterRows = await db.frontingSessionsDao.getAllSessions();
+      final afterById = {for (final row in afterRows) row.id: row};
+
+      for (final entry in beforeSessionIdBySourceId.entries) {
+        expect(
+          afterById,
+          contains(entry.value),
+          reason: 'SP session ${entry.key} should survive by Prism id',
+        );
+      }
+
+      expect(afterById[nativeSingle]?.memberId, nativePrimary);
+      expect(afterById[nativeMulti]?.memberId, nativePrimary);
+
+      const uuid = Uuid();
+      final co1RowId = uuid.v5(
+        migrationFrontingNamespace,
+        '$nativeMulti:$nativeCo1',
+      );
+      final co2RowId = uuid.v5(
+        migrationFrontingNamespace,
+        '$nativeMulti:$nativeCo2',
+      );
+      expect(afterById[co1RowId]?.memberId, nativeCo1);
+      expect(afterById[co2RowId]?.memberId, nativeCo2);
+
+      final sentinelId = uuid.v5(
+        spFrontingNamespace,
+        'unknown-member-sentinel',
+      );
+      expect(afterById[nativeUnknown]?.memberId, sentinelId);
+
+      final afterMappings = await db.spImportDao.getAllMappings();
+      final afterSessionIdBySourceId = {
+        for (final mapping in afterMappings.where(
+          (m) => m.entityType == 'session',
+        ))
+          mapping.spId: mapping.prismId,
+      };
+      expect(afterSessionIdBySourceId, beforeSessionIdBySourceId);
+
+      final activeRowsWithNullMember = afterRows.where(
+        (row) => row.sessionType == 0 && row.memberId == null,
+      );
+      expect(activeRowsWithNullMember, isEmpty);
+
+      final activeIds = afterRows.map((row) => row.id).toList();
+      expect(activeIds.toSet(), hasLength(activeIds.length));
+
+      final comments = await db.frontSessionCommentsDao.getAllComments();
+      final comment = comments.singleWhere((c) => c.id == nativeComment);
+      expect(comment.sessionId, '');
+      expect(comment.targetTime?.toUtc(), nativeCommentTime);
+      expect(comment.authorMemberId, nativePrimary);
+      expect(comment.body, 'native comment survives');
+      expect(comment.isDeleted, isFalse);
+    }, timeout: const Timeout(Duration(minutes: 2)));
+
+    test('phase 2 harness: PK full import rows are rebuilt after '
+        'upgradeAndKeep clears them', () async {
+      const pkAliceShortId = 'aaaaa';
+      const pkBobShortId = 'bbbbb';
+      const pkAliceUuid = '11111111-1111-4111-8111-111111111111';
+      const pkBobUuid = '22222222-2222-4222-8222-222222222222';
+      const sw1Id = 'pk-switch-1';
+      const sw2Id = 'pk-switch-2';
+      const sw3Id = 'pk-switch-3';
+      const sw4Id = 'pk-switch-4';
+      final sw1Time = DateTime.utc(2026, 4, 3, 8);
+      final sw2Time = DateTime.utc(2026, 4, 3, 9);
+      final sw3Time = DateTime.utc(2026, 4, 3, 10);
+      final sw4Time = DateTime.utc(2026, 4, 3, 11);
+      final pkMembers = const [
+        PKMember(id: pkAliceShortId, uuid: pkAliceUuid, name: 'PK Alice'),
+        PKMember(id: pkBobShortId, uuid: pkBobUuid, name: 'PK Bob'),
+      ];
+      final pkSwitchesNewestFirst = [
+        PKSwitch(id: sw4Id, timestamp: sw4Time, members: const []),
+        PKSwitch(id: sw3Id, timestamp: sw3Time, members: const [pkBobShortId]),
+        PKSwitch(
+          id: sw2Id,
+          timestamp: sw2Time,
+          members: const [pkAliceShortId, pkBobShortId],
+        ),
+        PKSwitch(
+          id: sw1Id,
+          timestamp: sw1Time,
+          members: const [pkAliceShortId],
+        ),
+      ];
+
+      final firstClient = _PkMigrationFakeClient(
+        members: pkMembers,
+        switchesNewestFirst: pkSwitchesNewestFirst,
+      );
+      await _makePkImportService(db, firstClient).performFullImport();
+
+      final members = await db.membersDao.getAllMembers();
+      final aliceLocalId = members
+          .singleWhere((m) => m.pluralkitUuid == pkAliceUuid)
+          .id;
+      final bobLocalId = members
+          .singleWhere((m) => m.pluralkitUuid == pkBobUuid)
+          .id;
+
+      final aliceRowId = derivePkSessionId(sw1Id, pkAliceUuid);
+      final bobRowId = derivePkSessionId(sw2Id, pkBobUuid);
+      final nonEntrantAliceAtSw2 = derivePkSessionId(sw2Id, pkAliceUuid);
+
+      final importedRows = await db.frontingSessionsDao.getAllSessions();
+      final importedById = {for (final row in importedRows) row.id: row};
+      expect(importedById[aliceRowId]?.memberId, aliceLocalId);
+      expect(importedById[aliceRowId]?.startTime.toUtc(), sw1Time);
+      expect(importedById[aliceRowId]?.endTime?.toUtc(), sw3Time);
+      expect(importedById[bobRowId]?.memberId, bobLocalId);
+      expect(importedById[bobRowId]?.startTime.toUtc(), sw2Time);
+      expect(importedById[bobRowId]?.endTime?.toUtc(), sw4Time);
+      expect(importedById, isNot(contains(nonEntrantAliceAtSw2)));
+
+      const nativeMember = 'phase2-pk-native-member';
+      const nativeSession = 'phase2-pk-native-session';
+      await _seedMember(db, nativeMember);
+      await _seedSession(
+        db,
+        id: nativeSession,
+        startTime: DateTime.utc(2026, 4, 4, 8),
+        endTime: DateTime.utc(2026, 4, 4, 9),
+        memberId: nativeMember,
+      );
+
+      final svc = _makeService(db, exportService);
+      final result = await svc.runMigration(
+        mode: MigrationMode.upgradeAndKeep,
+        role: DeviceRole.solo,
+        shareFile: _noopShare,
+      );
+
+      expect(result.outcome, MigrationOutcome.success);
+      expect(result.pkRowsDeleted, 2);
+      expect(result.nativeRowsMigrated, 1);
+      expect(result.spRowsMigrated, 0);
+      expect(result.orphanRowsAssignedToSentinel, 0);
+
+      final afterMigrationRows = await db.frontingSessionsDao.getAllSessions();
+      final afterMigrationById = {
+        for (final row in afterMigrationRows) row.id: row,
+      };
+      expect(afterMigrationById[nativeSession]?.memberId, nativeMember);
+      expect(
+        afterMigrationRows.where((row) => row.pluralkitUuid != null),
+        isEmpty,
+      );
+
+      final secondClient = _PkMigrationFakeClient(
+        members: pkMembers,
+        switchesNewestFirst: pkSwitchesNewestFirst,
+      );
+      await _makePkImportService(db, secondClient).performFullImport();
+
+      final rebuiltRows = await db.frontingSessionsDao.getAllSessions();
+      final rebuiltById = {for (final row in rebuiltRows) row.id: row};
+      expect(rebuiltById[nativeSession]?.memberId, nativeMember);
+      expect(rebuiltById[aliceRowId]?.memberId, aliceLocalId);
+      expect(rebuiltById[aliceRowId]?.isDeleted, isFalse);
+      expect(rebuiltById[aliceRowId]?.startTime.toUtc(), sw1Time);
+      expect(rebuiltById[aliceRowId]?.endTime?.toUtc(), sw3Time);
+      expect(rebuiltById[bobRowId]?.memberId, bobLocalId);
+      expect(rebuiltById[bobRowId]?.isDeleted, isFalse);
+      expect(rebuiltById[bobRowId]?.startTime.toUtc(), sw2Time);
+      expect(rebuiltById[bobRowId]?.endTime?.toUtc(), sw4Time);
+      expect(rebuiltById, isNot(contains(nonEntrantAliceAtSw2)));
+
+      final rebuiltPkRows = rebuiltRows
+          .where((row) => row.pluralkitUuid != null)
+          .toList();
+      expect(rebuiltPkRows, hasLength(2));
+      final activeRowsWithNullMember = rebuiltRows.where(
+        (row) => row.sessionType == 0 && row.memberId == null,
+      );
+      expect(activeRowsWithNullMember, isEmpty);
+
+      final allRows = await db.frontingSessionsDao
+          .getAllSessionsIncludingDeleted();
+      final allIds = allRows.map((row) => row.id).toList();
+      expect(allIds.toSet(), hasLength(allIds.length));
+      expect(allRows.where((row) => row.id == aliceRowId), hasLength(1));
+      expect(allRows.where((row) => row.id == bobRowId), hasLength(1));
+    }, timeout: const Timeout(Duration(minutes: 2)));
 
     // -------------------------------------------------------------------
     // startFresh — wipes everything, no sentinel
@@ -540,123 +980,117 @@ void main() {
     // -------------------------------------------------------------------
     // Comments preserve / delete + target_time anchored at timestamp
     // -------------------------------------------------------------------
-    test(
-      'primary upgradeAndKeep: comments on PK parents deleted; comments on '
-      'SP/native parents migrated to new shape with target_time = legacy '
-      'timestamp and author_member_id from parent',
-      () async {
-        const memberA = 'mem-a';
-        const memberB = 'mem-b';
-        for (final id in [memberA, memberB]) {
-          await _seedMember(db, id);
-        }
-        // PK parent (its comment will be deleted).
-        await _seedSession(
-          db,
-          id: 'pk-parent',
-          startTime: DateTime(2026, 4, 1, 9).toUtc(),
-          endTime: DateTime(2026, 4, 1, 10).toUtc(),
-          memberId: memberA,
-          pluralkitUuid: '33333333-3333-4333-8333-333333333333',
-        );
-        // Native parent (its comment is migrated).
-        await _seedSession(
-          db,
-          id: 'native-parent',
-          startTime: DateTime(2026, 4, 1, 11).toUtc(),
-          endTime: DateTime(2026, 4, 1, 12).toUtc(),
-          memberId: memberB,
-        );
-        // Comment timestamps differ from createdAt to verify the
-        // anchor truly comes from `timestamp` (per spec warning).
-        final cmt1Time = DateTime(2026, 4, 1, 9, 30).toUtc();
-        final cmt2Time = DateTime(2026, 4, 1, 11, 30).toUtc();
-        await _seedComment(
-          db,
-          id: 'cmt-pk',
-          sessionId: 'pk-parent',
-          body: 'pk note',
-          timestamp: cmt1Time,
-        );
-        await _seedComment(
-          db,
-          id: 'cmt-native',
-          sessionId: 'native-parent',
-          body: 'native note',
-          timestamp: cmt2Time,
-        );
+    test('primary upgradeAndKeep: comments on PK parents deleted; comments on '
+        'SP/native parents migrated to new shape with target_time = legacy '
+        'timestamp and author_member_id from parent', () async {
+      const memberA = 'mem-a';
+      const memberB = 'mem-b';
+      for (final id in [memberA, memberB]) {
+        await _seedMember(db, id);
+      }
+      // PK parent (its comment will be deleted).
+      await _seedSession(
+        db,
+        id: 'pk-parent',
+        startTime: DateTime(2026, 4, 1, 9).toUtc(),
+        endTime: DateTime(2026, 4, 1, 10).toUtc(),
+        memberId: memberA,
+        pluralkitUuid: '33333333-3333-4333-8333-333333333333',
+      );
+      // Native parent (its comment is migrated).
+      await _seedSession(
+        db,
+        id: 'native-parent',
+        startTime: DateTime(2026, 4, 1, 11).toUtc(),
+        endTime: DateTime(2026, 4, 1, 12).toUtc(),
+        memberId: memberB,
+      );
+      // Comment timestamps differ from createdAt to verify the
+      // anchor truly comes from `timestamp` (per spec warning).
+      final cmt1Time = DateTime(2026, 4, 1, 9, 30).toUtc();
+      final cmt2Time = DateTime(2026, 4, 1, 11, 30).toUtc();
+      await _seedComment(
+        db,
+        id: 'cmt-pk',
+        sessionId: 'pk-parent',
+        body: 'pk note',
+        timestamp: cmt1Time,
+      );
+      await _seedComment(
+        db,
+        id: 'cmt-native',
+        sessionId: 'native-parent',
+        body: 'native note',
+        timestamp: cmt2Time,
+      );
 
-        final svc = _makeService(db, exportService);
-        final result = await svc.runMigration(
-          mode: MigrationMode.upgradeAndKeep,
-          role: DeviceRole.primary,
-          shareFile: _noopShare,
-        );
+      final svc = _makeService(db, exportService);
+      final result = await svc.runMigration(
+        mode: MigrationMode.upgradeAndKeep,
+        role: DeviceRole.primary,
+        shareFile: _noopShare,
+      );
 
-        expect(result.outcome, MigrationOutcome.success);
-        expect(result.commentsMigrated, 1);
-        expect(result.commentsDeleted, 1);
+      expect(result.outcome, MigrationOutcome.success);
+      expect(result.commentsMigrated, 1);
+      expect(result.commentsDeleted, 1);
 
-        // Native comment migrated in place: target_time set, author set,
-        // body intact, row id stable.
-        final nativeRow = await db
-            .customSelect(
-              'SELECT target_time, author_member_id, body, is_deleted '
-              'FROM front_session_comments WHERE id = ?',
-              variables: [drift.Variable.withString('cmt-native')],
-            )
-            .getSingle();
-        expect(nativeRow.read<DateTime?>('target_time')?.toUtc(), cmt2Time);
-        expect(nativeRow.read<String?>('author_member_id'), memberB);
-        expect(nativeRow.read<String>('body'), 'native note');
-        expect(nativeRow.read<int>('is_deleted'), 0);
+      // Native comment migrated in place: target_time set, author set,
+      // body intact, row id stable.
+      final nativeRow = await db
+          .customSelect(
+            'SELECT target_time, author_member_id, body, is_deleted '
+            'FROM front_session_comments WHERE id = ?',
+            variables: [drift.Variable.withString('cmt-native')],
+          )
+          .getSingle();
+      expect(nativeRow.read<DateTime?>('target_time')?.toUtc(), cmt2Time);
+      expect(nativeRow.read<String?>('author_member_id'), memberB);
+      expect(nativeRow.read<String>('body'), 'native note');
+      expect(nativeRow.read<int>('is_deleted'), 0);
 
-        // PK comment soft-deleted.
-        final pkRow = await db
-            .customSelect(
-              'SELECT is_deleted FROM front_session_comments WHERE id = ?',
-              variables: [drift.Variable.withString('cmt-pk')],
-            )
-            .getSingle();
-        expect(pkRow.read<int>('is_deleted'), 1);
-      },
-    );
+      // PK comment soft-deleted.
+      final pkRow = await db
+          .customSelect(
+            'SELECT is_deleted FROM front_session_comments WHERE id = ?',
+            variables: [drift.Variable.withString('cmt-pk')],
+          )
+          .getSingle();
+      expect(pkRow.read<int>('is_deleted'), 1);
+    });
 
     // -------------------------------------------------------------------
     // Corrupt co_fronter_ids JSON
     // -------------------------------------------------------------------
-    test(
-      'corrupt co_fronter_ids JSON falls back to single-member migration '
-      'and surfaces the row id (spec §6 edge case)',
-      () async {
-        const primaryId = 'p-corrupt';
-        await _seedMember(db, primaryId);
-        await _seedSession(
-          db,
-          id: 'corrupt-row',
-          startTime: DateTime(2026, 4, 1, 9).toUtc(),
-          endTime: DateTime(2026, 4, 1, 10).toUtc(),
-          memberId: primaryId,
-          coFronterIds: '{not valid json',
-        );
+    test('corrupt co_fronter_ids JSON falls back to single-member migration '
+        'and surfaces the row id (spec §6 edge case)', () async {
+      const primaryId = 'p-corrupt';
+      await _seedMember(db, primaryId);
+      await _seedSession(
+        db,
+        id: 'corrupt-row',
+        startTime: DateTime(2026, 4, 1, 9).toUtc(),
+        endTime: DateTime(2026, 4, 1, 10).toUtc(),
+        memberId: primaryId,
+        coFronterIds: '{not valid json',
+      );
 
-        final svc = _makeService(db, exportService);
-        final result = await svc.runMigration(
-          mode: MigrationMode.upgradeAndKeep,
-          role: DeviceRole.solo,
-          shareFile: _noopShare,
-        );
+      final svc = _makeService(db, exportService);
+      final result = await svc.runMigration(
+        mode: MigrationMode.upgradeAndKeep,
+        role: DeviceRole.solo,
+        shareFile: _noopShare,
+      );
 
-        expect(result.outcome, MigrationOutcome.success);
-        expect(result.nativeRowsMigrated, 1);
-        expect(result.nativeRowsExpanded, 0);
-        expect(result.corruptCoFronterRowIds, contains('corrupt-row'));
-        final rows = await db.frontingSessionsDao.getAllSessions();
-        expect(rows, hasLength(1));
-        expect(rows.single.id, 'corrupt-row');
-        expect(rows.single.memberId, primaryId);
-      },
-    );
+      expect(result.outcome, MigrationOutcome.success);
+      expect(result.nativeRowsMigrated, 1);
+      expect(result.nativeRowsExpanded, 0);
+      expect(result.corruptCoFronterRowIds, contains('corrupt-row'));
+      final rows = await db.frontingSessionsDao.getAllSessions();
+      expect(rows, hasLength(1));
+      expect(rows.single.id, 'corrupt-row');
+      expect(rows.single.memberId, primaryId);
+    });
 
     // -------------------------------------------------------------------
     // Secondary mode
@@ -693,9 +1127,7 @@ void main() {
             .getSingle();
         expect(sessions.read<int>('c'), 0);
         final comments = await db
-            .customSelect(
-              'SELECT COUNT(*) AS c FROM front_session_comments',
-            )
+            .customSelect('SELECT COUNT(*) AS c FROM front_session_comments')
             .getSingle();
         expect(comments.read<int>('c'), 0);
         expect(
@@ -708,224 +1140,233 @@ void main() {
     // -------------------------------------------------------------------
     // Failure inside the transaction rolls back
     // -------------------------------------------------------------------
-    test(
-      'failure inside Drift transaction rolls back; settings stays at '
-      'notStarted; PRISM1 file from step 2 is preserved on disk',
-      () async {
-        // Force a failing reset_sync_state via a non-null mock handle
-        // backed by a thrower.  But the transaction is what we want to
-        // fail.  Easier path: poison a row so step 4's writeSession
-        // throws.  We achieve that by seeding a row with a member_id
-        // referencing a member that exists, then rigging the
-        // memberRepository to throw on update.  Instead, simulate by
-        // throwing from shareFile AFTER export but BEFORE transaction —
-        // that's a different failure surface (the exportFile is still
-        // preserved, but no transaction work runs).
-        //
-        // To genuinely test rollback, we bracket a poison: drop the
-        // fronting_sessions table mid-transaction by injecting a
-        // resetSyncState that throws synchronously.  But that runs
-        // OUTSIDE the transaction.  So instead we pre-seed an invalid
-        // configuration that the transaction's writes will trip on:
-        // a row whose `pluralkit_uuid` collides with a tombstone (the
-        // composite unique index) so the syncRecordUpdate fails.
-        //
-        // Simplest: use a synthetic failing repo via a custom service.
-        // Build a service whose memberRepository throws on createMember
-        // (the orphan-sentinel path will trigger it).
-        // Mirror the post-v7-onUpgrade state: settings starts at
-        // notStarted (only fresh installs default to complete).
-        await db.systemSettingsDao
-            .writePendingFrontingMigrationMode('notStarted');
-        await _seedSession(
-          db,
-          id: 'orphan-only',
-          startTime: DateTime(2026, 4, 1, 9).toUtc(),
-        );
+    test('failure inside Drift transaction rolls back; settings stays at '
+        'notStarted; PRISM1 file from step 2 is preserved on disk', () async {
+      // Force a failing reset_sync_state via a non-null mock handle
+      // backed by a thrower.  But the transaction is what we want to
+      // fail.  Easier path: poison a row so step 4's writeSession
+      // throws.  We achieve that by seeding a row with a member_id
+      // referencing a member that exists, then rigging the
+      // memberRepository to throw on update.  Instead, simulate by
+      // throwing from shareFile AFTER export but BEFORE transaction —
+      // that's a different failure surface (the exportFile is still
+      // preserved, but no transaction work runs).
+      //
+      // To genuinely test rollback, we bracket a poison: drop the
+      // fronting_sessions table mid-transaction by injecting a
+      // resetSyncState that throws synchronously.  But that runs
+      // OUTSIDE the transaction.  So instead we pre-seed an invalid
+      // configuration that the transaction's writes will trip on:
+      // a row whose `pluralkit_uuid` collides with a tombstone (the
+      // composite unique index) so the syncRecordUpdate fails.
+      //
+      // Simplest: use a synthetic failing repo via a custom service.
+      // Build a service whose memberRepository throws on createMember
+      // (the orphan-sentinel path will trigger it).
+      // Mirror the post-v7-onUpgrade state: settings starts at
+      // notStarted (only fresh installs default to complete).
+      await db.systemSettingsDao.writePendingFrontingMigrationMode(
+        'notStarted',
+      );
+      await _seedSession(
+        db,
+        id: 'orphan-only',
+        startTime: DateTime(2026, 4, 1, 9).toUtc(),
+      );
 
-        final svc = FrontingMigrationService(
-          db: db,
-          memberRepository: _ThrowingMemberRepository(
-            DriftMemberRepository(db.membersDao, null),
-          ),
-          frontingSessionRepository:
-              DriftFrontingSessionRepository(db.frontingSessionsDao, null),
-          frontSessionCommentsRepository: DriftFrontSessionCommentsRepository(
-            db.frontSessionCommentsDao,
-            null,
-          ),
-          dataExportService: exportService,
-          syncHandle: null,
-          resetSyncState: (_) async {},
-          backupDirectoryProvider: () async => cacheDir,
-        );
+      final svc = FrontingMigrationService(
+        db: db,
+        memberRepository: _ThrowingMemberRepository(
+          DriftMemberRepository(db.membersDao, null),
+        ),
+        frontingSessionRepository: DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+        ),
+        frontSessionCommentsRepository: DriftFrontSessionCommentsRepository(
+          db.frontSessionCommentsDao,
+          null,
+        ),
+        dataExportService: exportService,
+        syncHandle: null,
+        resetSyncState: (_) async {},
+        backupDirectoryProvider: () async => cacheDir,
+      );
 
-        final result = await svc.runMigration(
-          mode: MigrationMode.upgradeAndKeep,
-          role: DeviceRole.solo,
-          shareFile: _noopShare,
-        );
+      final result = await svc.runMigration(
+        mode: MigrationMode.upgradeAndKeep,
+        role: DeviceRole.solo,
+        shareFile: _noopShare,
+      );
 
-        expect(result.outcome, MigrationOutcome.failed);
-        expect(result.errorMessage, contains('Migration transaction failed'));
-        // PRISM1 export survived even though the transaction rolled back.
-        expect(result.exportFile, isNotNull);
-        expect(await result.exportFile!.exists(), isTrue);
-        // Settings rolled back to default.
-        expect(
-          await db.systemSettingsDao.readPendingFrontingMigrationMode(),
-          'notStarted',
-        );
-        // Orphan row still untouched.
-        final rows = await db.frontingSessionsDao.getAllSessions();
-        expect(rows.single.id, 'orphan-only');
-        expect(rows.single.memberId, isNull);
-      },
-    );
+      expect(result.outcome, MigrationOutcome.failed);
+      expect(result.errorMessage, contains('Migration transaction failed'));
+      // PRISM1 export survived even though the transaction rolled back.
+      expect(result.exportFile, isNotNull);
+      expect(await result.exportFile!.exists(), isTrue);
+      // Settings rolled back to default.
+      expect(
+        await db.systemSettingsDao.readPendingFrontingMigrationMode(),
+        'notStarted',
+      );
+      // Orphan row still untouched.
+      final rows = await db.frontingSessionsDao.getAllSessions();
+      expect(rows.single.id, 'orphan-only');
+      expect(rows.single.memberId, isNull);
+    });
 
     // -------------------------------------------------------------------
     // Sentinel idempotency
     // -------------------------------------------------------------------
-    test(
-      'rerunning migration with an existing Unknown sentinel does not '
-      'duplicate the member (deterministic id)',
-      () async {
-        const uuid = Uuid();
-        final sentinelId =
-            uuid.v5(spFrontingNamespace, 'unknown-member-sentinel');
-        // Pre-create the sentinel as if a prior failed attempt left it
-        // behind.
-        await DriftMemberRepository(db.membersDao, null).createMember(
-          Member(
-            id: sentinelId,
-            name: 'Unknown',
-            emoji: '❔',
-            createdAt: DateTime(2026, 4, 1).toUtc(),
-          ),
-        );
-        await _seedSession(
-          db,
-          id: 'orphan-1',
-          startTime: DateTime(2026, 4, 2, 9).toUtc(),
-        );
+    test('rerunning migration with an existing Unknown sentinel does not '
+        'duplicate the member (deterministic id)', () async {
+      const uuid = Uuid();
+      final sentinelId = uuid.v5(
+        spFrontingNamespace,
+        'unknown-member-sentinel',
+      );
+      // Pre-create the sentinel as if a prior failed attempt left it
+      // behind.
+      await DriftMemberRepository(db.membersDao, null).createMember(
+        Member(
+          id: sentinelId,
+          name: 'Unknown',
+          emoji: '❔',
+          createdAt: DateTime(2026, 4, 1).toUtc(),
+        ),
+      );
+      await _seedSession(
+        db,
+        id: 'orphan-1',
+        startTime: DateTime(2026, 4, 2, 9).toUtc(),
+      );
 
-        final svc = _makeService(db, exportService);
-        final result = await svc.runMigration(
-          mode: MigrationMode.upgradeAndKeep,
-          role: DeviceRole.solo,
-          shareFile: _noopShare,
-        );
+      final svc = _makeService(db, exportService);
+      final result = await svc.runMigration(
+        mode: MigrationMode.upgradeAndKeep,
+        role: DeviceRole.solo,
+        shareFile: _noopShare,
+      );
 
-        expect(result.outcome, MigrationOutcome.success);
-        expect(result.unknownSentinelCreated, isFalse,
-            reason: 'sentinel already existed, no recreate');
-        expect(result.orphanRowsAssignedToSentinel, 1);
-        final allSentinels =
-            await DriftMemberRepository(db.membersDao, null).getAllMembers();
-        expect(
-          allSentinels.where((m) => m.id == sentinelId).toList(),
-          hasLength(1),
-        );
-      },
-    );
+      expect(result.outcome, MigrationOutcome.success);
+      expect(
+        result.unknownSentinelCreated,
+        isFalse,
+        reason: 'sentinel already existed, no recreate',
+      );
+      expect(result.orphanRowsAssignedToSentinel, 1);
+      final allSentinels = await DriftMemberRepository(
+        db.membersDao,
+        null,
+      ).getAllMembers();
+      expect(
+        allSentinels.where((m) => m.id == sentinelId).toList(),
+        hasLength(1),
+      );
+    });
 
     // -------------------------------------------------------------------
     // Sync state reset (Rust FFI mock)
     // -------------------------------------------------------------------
-    test(
-      'sync state reset: when a handle is provided, the FFI '
-      'reset_sync_state is invoked exactly once after the Drift '
-      'transaction commits',
-      () async {
-        final resetCalls = <ffi.PrismSyncHandle>[];
-        // Use an opaque sentinel handle — service treats it as opaque.
-        // We can't construct a real PrismSyncHandle in unit tests
-        // without spinning up the Rust runtime, so we construct via
-        // the mock-only constructor pattern: cast a fake.  The
-        // service's only interaction with the handle is to pass it
-        // through to the resetSyncState callback.
-        await _seedMember(db, 'm1');
-        await _seedSession(
-          db,
-          id: 's1',
-          startTime: DateTime(2026, 4, 1, 9).toUtc(),
-          memberId: 'm1',
-        );
+    test('sync state reset: when a handle is provided, the FFI '
+        'reset_sync_state is invoked exactly once after the Drift '
+        'transaction commits', () async {
+      final resetCalls = <ffi.PrismSyncHandle>[];
+      // Use an opaque sentinel handle — service treats it as opaque.
+      // We can't construct a real PrismSyncHandle in unit tests
+      // without spinning up the Rust runtime, so we construct via
+      // the mock-only constructor pattern: cast a fake.  The
+      // service's only interaction with the handle is to pass it
+      // through to the resetSyncState callback.
+      await _seedMember(db, 'm1');
+      await _seedSession(
+        db,
+        id: 's1',
+        startTime: DateTime(2026, 4, 1, 9).toUtc(),
+        memberId: 'm1',
+      );
 
-        final fakeHandle = _FakePrismSyncHandle();
-        final svc = FrontingMigrationService(
-          db: db,
-          memberRepository: DriftMemberRepository(db.membersDao, null),
-          frontingSessionRepository:
-              DriftFrontingSessionRepository(db.frontingSessionsDao, null),
-          frontSessionCommentsRepository: DriftFrontSessionCommentsRepository(
-            db.frontSessionCommentsDao,
-            null,
-          ),
-          dataExportService: exportService,
-          syncHandle: fakeHandle,
-          resetSyncState: (h) async {
-            resetCalls.add(h);
-          },
-          backupDirectoryProvider: () async => cacheDir,
-        );
+      final fakeHandle = _FakePrismSyncHandle();
+      final svc = FrontingMigrationService(
+        db: db,
+        memberRepository: DriftMemberRepository(db.membersDao, null),
+        frontingSessionRepository: DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+        ),
+        frontSessionCommentsRepository: DriftFrontSessionCommentsRepository(
+          db.frontSessionCommentsDao,
+          null,
+        ),
+        dataExportService: exportService,
+        syncHandle: fakeHandle,
+        resetSyncState: (h) async {
+          resetCalls.add(h);
+        },
+        backupDirectoryProvider: () async => cacheDir,
+      );
 
-        final result = await svc.runMigration(
-          mode: MigrationMode.upgradeAndKeep,
-          role: DeviceRole.solo,
-          shareFile: _noopShare,
-        );
+      final result = await svc.runMigration(
+        mode: MigrationMode.upgradeAndKeep,
+        role: DeviceRole.solo,
+        shareFile: _noopShare,
+      );
 
-        expect(result.outcome, MigrationOutcome.success);
-        expect(resetCalls, hasLength(1));
-        expect(identical(resetCalls.single, fakeHandle), isTrue);
-      },
-    );
+      expect(result.outcome, MigrationOutcome.success);
+      expect(resetCalls, hasLength(1));
+      expect(identical(resetCalls.single, fakeHandle), isTrue);
+    });
 
     // -------------------------------------------------------------------
     // Multi-member fan-out: deterministic v5 ids
     // -------------------------------------------------------------------
-    test(
-      'native multi-member fan-out: primary keeps legacy id, co-fronters '
-      'get migrationFrontingNamespace v5 ids matching 5D',
-      () async {
-        const primaryId = 'primary';
-        const coId1 = 'co1';
-        const coId2 = 'co2';
-        for (final id in [primaryId, coId1, coId2]) {
-          await _seedMember(db, id);
-        }
-        await _seedSession(
-          db,
-          id: 'multi',
-          startTime: DateTime(2026, 4, 1, 9).toUtc(),
-          endTime: DateTime(2026, 4, 1, 10).toUtc(),
-          memberId: primaryId,
-          coFronterIds: jsonEncode([coId1, coId2]),
-        );
+    test('native multi-member fan-out: primary keeps legacy id, co-fronters '
+        'get migrationFrontingNamespace v5 ids matching 5D', () async {
+      const primaryId = 'primary';
+      const coId1 = 'co1';
+      const coId2 = 'co2';
+      for (final id in [primaryId, coId1, coId2]) {
+        await _seedMember(db, id);
+      }
+      await _seedSession(
+        db,
+        id: 'multi',
+        startTime: DateTime(2026, 4, 1, 9).toUtc(),
+        endTime: DateTime(2026, 4, 1, 10).toUtc(),
+        memberId: primaryId,
+        coFronterIds: jsonEncode([coId1, coId2]),
+      );
 
-        final svc = _makeService(db, exportService);
-        final result = await svc.runMigration(
-          mode: MigrationMode.upgradeAndKeep,
-          role: DeviceRole.solo,
-          shareFile: _noopShare,
-        );
+      final svc = _makeService(db, exportService);
+      final result = await svc.runMigration(
+        mode: MigrationMode.upgradeAndKeep,
+        role: DeviceRole.solo,
+        shareFile: _noopShare,
+      );
 
-        expect(result.outcome, MigrationOutcome.success);
-        expect(result.nativeRowsMigrated, 1);
-        expect(result.nativeRowsExpanded, 2);
+      expect(result.outcome, MigrationOutcome.success);
+      expect(result.nativeRowsMigrated, 1);
+      expect(result.nativeRowsExpanded, 2);
 
-        const uuid = Uuid();
-        final co1Id = uuid.v5(migrationFrontingNamespace, 'multi:$coId1');
-        final co2Id = uuid.v5(migrationFrontingNamespace, 'multi:$coId2');
-        final rows = await db.frontingSessionsDao.getAllSessions();
-        final byId = {for (final r in rows) r.id: r};
-        expect(byId.keys, containsAll([['multi'], [co1Id], [co2Id]].expand((e) => e)));
-        expect(byId['multi']!.memberId, primaryId);
-        expect(byId[co1Id]!.memberId, coId1);
-        expect(byId[co2Id]!.memberId, coId2);
-      },
-    );
+      const uuid = Uuid();
+      final co1Id = uuid.v5(migrationFrontingNamespace, 'multi:$coId1');
+      final co2Id = uuid.v5(migrationFrontingNamespace, 'multi:$coId2');
+      final rows = await db.frontingSessionsDao.getAllSessions();
+      final byId = {for (final r in rows) r.id: r};
+      expect(
+        byId.keys,
+        containsAll(
+          [
+            ['multi'],
+            [co1Id],
+            [co2Id],
+          ].expand((e) => e),
+        ),
+      );
+      expect(byId['multi']!.memberId, primaryId);
+      expect(byId[co1Id]!.memberId, coId1);
+      expect(byId[co2Id]!.memberId, coId2);
+    });
 
     // -------------------------------------------------------------------
     // Codex P1 #3 — suppression flag is cleared after migration
@@ -959,8 +1400,11 @@ void main() {
         );
 
         expect(result.outcome, MigrationOutcome.success);
-        expect(SyncRecordMixin.isSuppressed, isFalse,
-            reason: 'suppression must clear by the end of runMigration');
+        expect(
+          SyncRecordMixin.isSuppressed,
+          isFalse,
+          reason: 'suppression must clear by the end of runMigration',
+        );
       },
     );
 
@@ -976,498 +1420,495 @@ void main() {
     // the Drift transaction, this test would fail on the first migrated
     // row.
     // -------------------------------------------------------------------
-    test(
-      'every repository write inside the migration body runs while '
-      'SyncRecordMixin.isSuppressed is true',
-      () async {
-        // Seed a mix of rows that exercises every documented write
-        // path. (The body ends up calling all of: session update,
-        // session create — for fan-out, session delete — for PK rows,
-        // comment update, comment delete, member ensure-sentinel for
-        // orphans.)
-        const primaryId = 'primary-m';
-        const coId = 'co-m';
-        const spMemberId = 'sp-m';
-        const pkMemberId = 'pk-m';
-        for (final id in [primaryId, coId, spMemberId, pkMemberId]) {
-          await _seedMember(db, id, name: id);
-        }
-        // PK row → deleteSession + comment deleteComment via PK parent.
-        await _seedSession(
-          db,
-          id: 'pk-1',
-          startTime: DateTime.utc(2026, 4, 1, 9),
-          endTime: DateTime.utc(2026, 4, 1, 10),
-          memberId: pkMemberId,
-          pluralkitUuid: '11111111-1111-4111-8111-111111111111',
-        );
-        await _seedComment(
-          db,
-          id: 'cmt-pk',
-          sessionId: 'pk-1',
-          body: 'will be deleted (parent is PK)',
-          timestamp: DateTime.utc(2026, 4, 1, 9, 30),
-        );
-        // SP row → updateSession.
-        await _seedSession(
-          db,
-          id: 'sp-1',
-          startTime: DateTime.utc(2026, 4, 2, 9),
-          memberId: spMemberId,
-        );
-        await _seedSpMapping(db, 'sp-1');
-        // Native multi-member row → updateSession + createSession (fan-out).
-        await _seedSession(
-          db,
-          id: 'native-multi',
-          startTime: DateTime.utc(2026, 4, 3, 9),
-          memberId: primaryId,
-          coFronterIds: jsonEncode([coId]),
-        );
-        await _seedComment(
-          db,
-          id: 'cmt-native',
-          sessionId: 'native-multi',
-          body: 'will be migrated (parent kept)',
-          timestamp: DateTime.utc(2026, 4, 3, 10),
-        );
-        // Orphan row (member_id NULL) → triggers ensureUnknownSentinelMember.
-        await _seedSession(
-          db,
-          id: 'orphan-1',
-          startTime: DateTime.utc(2026, 4, 4, 9),
-        );
+    test('every repository write inside the migration body runs while '
+        'SyncRecordMixin.isSuppressed is true', () async {
+      // Seed a mix of rows that exercises every documented write
+      // path. (The body ends up calling all of: session update,
+      // session create — for fan-out, session delete — for PK rows,
+      // comment update, comment delete, member ensure-sentinel for
+      // orphans.)
+      const primaryId = 'primary-m';
+      const coId = 'co-m';
+      const spMemberId = 'sp-m';
+      const pkMemberId = 'pk-m';
+      for (final id in [primaryId, coId, spMemberId, pkMemberId]) {
+        await _seedMember(db, id, name: id);
+      }
+      // PK row → deleteSession + comment deleteComment via PK parent.
+      await _seedSession(
+        db,
+        id: 'pk-1',
+        startTime: DateTime.utc(2026, 4, 1, 9),
+        endTime: DateTime.utc(2026, 4, 1, 10),
+        memberId: pkMemberId,
+        pluralkitUuid: '11111111-1111-4111-8111-111111111111',
+      );
+      await _seedComment(
+        db,
+        id: 'cmt-pk',
+        sessionId: 'pk-1',
+        body: 'will be deleted (parent is PK)',
+        timestamp: DateTime.utc(2026, 4, 1, 9, 30),
+      );
+      // SP row → updateSession.
+      await _seedSession(
+        db,
+        id: 'sp-1',
+        startTime: DateTime.utc(2026, 4, 2, 9),
+        memberId: spMemberId,
+      );
+      await _seedSpMapping(db, 'sp-1');
+      // Native multi-member row → updateSession + createSession (fan-out).
+      await _seedSession(
+        db,
+        id: 'native-multi',
+        startTime: DateTime.utc(2026, 4, 3, 9),
+        memberId: primaryId,
+        coFronterIds: jsonEncode([coId]),
+      );
+      await _seedComment(
+        db,
+        id: 'cmt-native',
+        sessionId: 'native-multi',
+        body: 'will be migrated (parent kept)',
+        timestamp: DateTime.utc(2026, 4, 3, 10),
+      );
+      // Orphan row (member_id NULL) → triggers ensureUnknownSentinelMember.
+      await _seedSession(
+        db,
+        id: 'orphan-1',
+        startTime: DateTime.utc(2026, 4, 4, 9),
+      );
 
-        final memberRepo = DriftMemberRepository(db.membersDao, null);
-        final sessionRepo =
-            DriftFrontingSessionRepository(db.frontingSessionsDao, null);
-        final commentsRepo =
-            DriftFrontSessionCommentsRepository(db.frontSessionCommentsDao, null);
+      final memberRepo = DriftMemberRepository(db.membersDao, null);
+      final sessionRepo = DriftFrontingSessionRepository(
+        db.frontingSessionsDao,
+        null,
+      );
+      final commentsRepo = DriftFrontSessionCommentsRepository(
+        db.frontSessionCommentsDao,
+        null,
+      );
 
-        final svc = FrontingMigrationService(
-          db: db,
-          memberRepository: _SuppressionAssertingMemberRepository(memberRepo),
-          frontingSessionRepository:
-              _SuppressionAssertingFrontingSessionRepository(sessionRepo),
-          frontSessionCommentsRepository:
-              _SuppressionAssertingFrontSessionCommentsRepository(commentsRepo),
-          dataExportService: exportService,
-          syncHandle: null,
-          backupDirectoryProvider: () async => cacheDir,
-        );
+      final svc = FrontingMigrationService(
+        db: db,
+        memberRepository: _SuppressionAssertingMemberRepository(memberRepo),
+        frontingSessionRepository:
+            _SuppressionAssertingFrontingSessionRepository(sessionRepo),
+        frontSessionCommentsRepository:
+            _SuppressionAssertingFrontSessionCommentsRepository(commentsRepo),
+        dataExportService: exportService,
+        syncHandle: null,
+        backupDirectoryProvider: () async => cacheDir,
+      );
 
-        final result = await svc.runMigration(
-          mode: MigrationMode.upgradeAndKeep,
-          role: DeviceRole.solo,
-          shareFile: _noopShare,
-        );
+      final result = await svc.runMigration(
+        mode: MigrationMode.upgradeAndKeep,
+        role: DeviceRole.solo,
+        shareFile: _noopShare,
+      );
 
-        expect(result.outcome, MigrationOutcome.success,
-            reason: 'migration must succeed; '
-                'failure here means an unsuppressed write was attempted '
-                '(see asserting decorator messages)');
-        // Sanity: the body did exercise the paths we care about.
-        expect(result.pkRowsDeleted, greaterThan(0));
-        expect(result.spRowsMigrated, greaterThan(0));
-        expect(result.nativeRowsMigrated, greaterThan(0));
-        expect(result.nativeRowsExpanded, greaterThan(0));
-        expect(result.commentsMigrated, greaterThan(0));
-        expect(result.commentsDeleted, greaterThan(0));
-        expect(result.orphanRowsAssignedToSentinel, greaterThan(0));
-      },
-    );
+      expect(
+        result.outcome,
+        MigrationOutcome.success,
+        reason:
+            'migration must succeed; '
+            'failure here means an unsuppressed write was attempted '
+            '(see asserting decorator messages)',
+      );
+      // Sanity: the body did exercise the paths we care about.
+      expect(result.pkRowsDeleted, greaterThan(0));
+      expect(result.spRowsMigrated, greaterThan(0));
+      expect(result.nativeRowsMigrated, greaterThan(0));
+      expect(result.nativeRowsExpanded, greaterThan(0));
+      expect(result.commentsMigrated, greaterThan(0));
+      expect(result.commentsDeleted, greaterThan(0));
+      expect(result.orphanRowsAssignedToSentinel, greaterThan(0));
+    });
 
     // -------------------------------------------------------------------
     // Codex P1 #4 — engine-reset failure leaves inProgress marker
     // -------------------------------------------------------------------
-    test(
-      'engine reset failure: settings stays at inProgress; '
-      'resumeCleanup() then succeeds and writes complete',
-      () async {
-        await _seedMember(db, 'm1');
-        await _seedSession(
-          db,
-          id: 's1',
-          startTime: DateTime(2026, 4, 1, 9).toUtc(),
-          memberId: 'm1',
-        );
+    test('engine reset failure: settings stays at inProgress; '
+        'resumeCleanup() then succeeds and writes complete', () async {
+      await _seedMember(db, 'm1');
+      await _seedSession(
+        db,
+        id: 's1',
+        startTime: DateTime(2026, 4, 1, 9).toUtc(),
+        memberId: 'm1',
+      );
 
-        // First attempt: reset throws; settings should land at inProgress.
-        // Second attempt (resume) uses clear_sync_state instead of
-        // reset_sync_state — see the larger pass-3 P1 fix.
-        var resetCalls = 0;
-        Future<void> failingReset(ffi.PrismSyncHandle h) async {
-          resetCalls++;
-          throw StateError('Simulated FFI reset failure');
+      // First attempt: reset throws; settings should land at inProgress.
+      // Second attempt (resume) uses clear_sync_state instead of
+      // reset_sync_state — see the larger pass-3 P1 fix.
+      var resetCalls = 0;
+      Future<void> failingReset(ffi.PrismSyncHandle h) async {
+        resetCalls++;
+        throw StateError('Simulated FFI reset failure');
+      }
+
+      var clearCalls = 0;
+      Future<void> okClear(ffi.PrismSyncHandle handle, String syncId) async {
+        clearCalls++;
+      }
+
+      final svc = FrontingMigrationService(
+        db: db,
+        memberRepository: DriftMemberRepository(db.membersDao, null),
+        frontingSessionRepository: DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+        ),
+        frontSessionCommentsRepository: DriftFrontSessionCommentsRepository(
+          db.frontSessionCommentsDao,
+          null,
+        ),
+        dataExportService: exportService,
+        syncHandle: _FakePrismSyncHandle(),
+        resetSyncState: failingReset,
+        clearSyncState: okClear,
+        readSyncId: () async => 'sync-abc',
+        backupDirectoryProvider: () async => cacheDir,
+      );
+
+      final firstResult = await svc.runMigration(
+        mode: MigrationMode.upgradeAndKeep,
+        role: DeviceRole.solo,
+        shareFile: _noopShare,
+      );
+
+      expect(firstResult.outcome, MigrationOutcome.failed);
+      expect(firstResult.errorMessage, contains('Engine reset failed'));
+      expect(
+        await db.systemSettingsDao.readPendingFrontingMigrationMode(),
+        'inProgress',
+        reason:
+            'Drift tx committed but post-tx step failed: marker must be inProgress',
+      );
+
+      // Now resume — clear_sync_state succeeds, finishes the
+      // remaining post-tx steps and lands at `complete`.
+      final resumeResult = await svc.resumeCleanup();
+      expect(resumeResult.outcome, MigrationOutcome.success);
+      expect(
+        await db.systemSettingsDao.readPendingFrontingMigrationMode(),
+        'complete',
+      );
+      expect(resetCalls, 1, reason: 'reset attempted once on first run');
+      expect(
+        clearCalls,
+        1,
+        reason: 'resume path uses clear_sync_state, not reset_sync_state',
+      );
+    });
+
+    test('sync_quarantine clear failure: settings stays at inProgress; '
+        'resumeCleanup recovers', () async {
+      await _seedMember(db, 'm1');
+      await _seedSession(
+        db,
+        id: 's1',
+        startTime: DateTime(2026, 4, 1, 9).toUtc(),
+        memberId: 'm1',
+      );
+      // Inject a failing keychain wipe on first call only.
+      var wipeCalls = 0;
+      var firstWipe = true;
+      Future<void> failingThenOkWipe() async {
+        wipeCalls++;
+        if (firstWipe) {
+          firstWipe = false;
+          throw StateError('Simulated keychain wipe failure');
         }
+      }
 
-        var clearCalls = 0;
-        Future<void> okClear(
-          ffi.PrismSyncHandle handle,
-          String syncId,
-        ) async {
-          clearCalls++;
-        }
+      // Codex pass 2 #B-NEW3 — also count reset calls so the test
+      // proves the substate-based skip behavior: the first attempt
+      // succeeds at reset and writes substate=resetDone, then the
+      // keychain wipe fails. On resume, reset MUST NOT be called
+      // again (the substate already proves it succeeded).
+      var resetCalls = 0;
+      Future<void> countingReset(ffi.PrismSyncHandle _) async {
+        resetCalls++;
+      }
 
-        final svc = FrontingMigrationService(
-          db: db,
-          memberRepository: DriftMemberRepository(db.membersDao, null),
-          frontingSessionRepository:
-              DriftFrontingSessionRepository(db.frontingSessionsDao, null),
-          frontSessionCommentsRepository: DriftFrontSessionCommentsRepository(
-            db.frontSessionCommentsDao,
-            null,
-          ),
-          dataExportService: exportService,
-          syncHandle: _FakePrismSyncHandle(),
-          resetSyncState: failingReset,
-          clearSyncState: okClear,
-          readSyncId: () async => 'sync-abc',
-          backupDirectoryProvider: () async => cacheDir,
-        );
+      final svc = FrontingMigrationService(
+        db: db,
+        memberRepository: DriftMemberRepository(db.membersDao, null),
+        frontingSessionRepository: DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+        ),
+        frontSessionCommentsRepository: DriftFrontSessionCommentsRepository(
+          db.frontSessionCommentsDao,
+          null,
+        ),
+        dataExportService: exportService,
+        syncHandle: _FakePrismSyncHandle(),
+        resetSyncState: countingReset,
+        wipeSyncKeychain: failingThenOkWipe,
+        backupDirectoryProvider: () async => cacheDir,
+      );
 
-        final firstResult = await svc.runMigration(
-          mode: MigrationMode.upgradeAndKeep,
-          role: DeviceRole.solo,
-          shareFile: _noopShare,
-        );
+      final firstResult = await svc.runMigration(
+        mode: MigrationMode.upgradeAndKeep,
+        role: DeviceRole.solo,
+        shareFile: _noopShare,
+      );
+      expect(firstResult.outcome, MigrationOutcome.failed);
+      expect(firstResult.errorMessage, contains('keychain wipe failed'));
+      expect(
+        await db.systemSettingsDao.readPendingFrontingMigrationMode(),
+        'inProgress',
+      );
+      // Substate must be 'resetDone' since the FFI reset DID succeed
+      // — only the keychain wipe failed.
+      expect(
+        await db.systemSettingsDao
+            .readPendingFrontingMigrationCleanupSubstate(),
+        FrontingMigrationService.substateResetDone,
+        reason:
+            'Codex pass 2 #B-NEW3: substate must record that reset '
+            'succeeded so resumeCleanup can skip it on retry',
+      );
+      expect(resetCalls, 1, reason: 'reset succeeded on first attempt');
 
-        expect(firstResult.outcome, MigrationOutcome.failed);
-        expect(firstResult.errorMessage, contains('Engine reset failed'));
-        expect(
-          await db.systemSettingsDao.readPendingFrontingMigrationMode(),
-          'inProgress',
-          reason:
-              'Drift tx committed but post-tx step failed: marker must be inProgress',
-        );
-
-        // Now resume — clear_sync_state succeeds, finishes the
-        // remaining post-tx steps and lands at `complete`.
-        final resumeResult = await svc.resumeCleanup();
-        expect(resumeResult.outcome, MigrationOutcome.success);
-        expect(
-          await db.systemSettingsDao.readPendingFrontingMigrationMode(),
-          'complete',
-        );
-        expect(resetCalls, 1, reason: 'reset attempted once on first run');
-        expect(clearCalls, 1,
-            reason: 'resume path uses clear_sync_state, not reset_sync_state');
-      },
-    );
-
-    test(
-      'sync_quarantine clear failure: settings stays at inProgress; '
-      'resumeCleanup recovers',
-      () async {
-        await _seedMember(db, 'm1');
-        await _seedSession(
-          db,
-          id: 's1',
-          startTime: DateTime(2026, 4, 1, 9).toUtc(),
-          memberId: 'm1',
-        );
-        // Inject a failing keychain wipe on first call only.
-        var wipeCalls = 0;
-        var firstWipe = true;
-        Future<void> failingThenOkWipe() async {
-          wipeCalls++;
-          if (firstWipe) {
-            firstWipe = false;
-            throw StateError('Simulated keychain wipe failure');
-          }
-        }
-        // Codex pass 2 #B-NEW3 — also count reset calls so the test
-        // proves the substate-based skip behavior: the first attempt
-        // succeeds at reset and writes substate=resetDone, then the
-        // keychain wipe fails. On resume, reset MUST NOT be called
-        // again (the substate already proves it succeeded).
-        var resetCalls = 0;
-        Future<void> countingReset(ffi.PrismSyncHandle _) async {
-          resetCalls++;
-        }
-
-        final svc = FrontingMigrationService(
-          db: db,
-          memberRepository: DriftMemberRepository(db.membersDao, null),
-          frontingSessionRepository:
-              DriftFrontingSessionRepository(db.frontingSessionsDao, null),
-          frontSessionCommentsRepository: DriftFrontSessionCommentsRepository(
-            db.frontSessionCommentsDao,
-            null,
-          ),
-          dataExportService: exportService,
-          syncHandle: _FakePrismSyncHandle(),
-          resetSyncState: countingReset,
-          wipeSyncKeychain: failingThenOkWipe,
-          backupDirectoryProvider: () async => cacheDir,
-        );
-
-        final firstResult = await svc.runMigration(
-          mode: MigrationMode.upgradeAndKeep,
-          role: DeviceRole.solo,
-          shareFile: _noopShare,
-        );
-        expect(firstResult.outcome, MigrationOutcome.failed);
-        expect(firstResult.errorMessage, contains('keychain wipe failed'));
-        expect(
-          await db.systemSettingsDao.readPendingFrontingMigrationMode(),
-          'inProgress',
-        );
-        // Substate must be 'resetDone' since the FFI reset DID succeed
-        // — only the keychain wipe failed.
-        expect(
-          await db.systemSettingsDao
-              .readPendingFrontingMigrationCleanupSubstate(),
-          FrontingMigrationService.substateResetDone,
-          reason:
-              'Codex pass 2 #B-NEW3: substate must record that reset '
-              'succeeded so resumeCleanup can skip it on retry',
-        );
-        expect(resetCalls, 1, reason: 'reset succeeded on first attempt');
-
-        final resumeResult = await svc.resumeCleanup();
-        expect(resumeResult.outcome, MigrationOutcome.success);
-        expect(
-          await db.systemSettingsDao.readPendingFrontingMigrationMode(),
-          'complete',
-        );
-        expect(wipeCalls, 2);
-        expect(
-          resetCalls,
-          1,
-          reason:
-              'Codex pass 2 #B-NEW3: resumeCleanup must NOT re-run reset '
-              'when substate already says resetDone — re-running against '
-              'an unconfigured handle would have masked the "sync_id not '
-              'set" error as success',
-        );
-        // After successful complete, substate should be reset to inert.
-        expect(
-          await db.systemSettingsDao
-              .readPendingFrontingMigrationCleanupSubstate(),
-          FrontingMigrationService.substateInert,
-        );
-      },
-    );
+      final resumeResult = await svc.resumeCleanup();
+      expect(resumeResult.outcome, MigrationOutcome.success);
+      expect(
+        await db.systemSettingsDao.readPendingFrontingMigrationMode(),
+        'complete',
+      );
+      expect(wipeCalls, 2);
+      expect(
+        resetCalls,
+        1,
+        reason:
+            'Codex pass 2 #B-NEW3: resumeCleanup must NOT re-run reset '
+            'when substate already says resetDone — re-running against '
+            'an unconfigured handle would have masked the "sync_id not '
+            'set" error as success',
+      );
+      // After successful complete, substate should be reset to inert.
+      expect(
+        await db.systemSettingsDao
+            .readPendingFrontingMigrationCleanupSubstate(),
+        FrontingMigrationService.substateInert,
+      );
+    });
 
     // Codex pass 2 #B-NEW3 + pass 3 P1 — substate stays inert when
     // first-attempt reset fails; resumeCleanup re-attempts using
     // clear_sync_state(sync_id) instead of the configure-briefly-
     // then-reset_sync_state path that had a relay-reconnect bug.
-    test(
-      'engine reset failure: substate stays inert; resumeCleanup runs '
-      'clear_sync_state(sync_id) before completing',
-      () async {
-        await _seedMember(db, 'm1');
-        await _seedSession(
-          db,
-          id: 's1',
-          startTime: DateTime(2026, 4, 1, 9).toUtc(),
-          memberId: 'm1',
-        );
+    test('engine reset failure: substate stays inert; resumeCleanup runs '
+        'clear_sync_state(sync_id) before completing', () async {
+      await _seedMember(db, 'm1');
+      await _seedSession(
+        db,
+        id: 's1',
+        startTime: DateTime(2026, 4, 1, 9).toUtc(),
+        memberId: 'm1',
+      );
 
-        var resetCalls = 0;
-        Future<void> alwaysFailingReset(ffi.PrismSyncHandle _) async {
-          resetCalls++;
-          throw StateError('Simulated FFI reset failure');
-        }
+      var resetCalls = 0;
+      Future<void> alwaysFailingReset(ffi.PrismSyncHandle _) async {
+        resetCalls++;
+        throw StateError('Simulated FFI reset failure');
+      }
 
-        var clearCalls = 0;
-        String? clearedSyncId;
-        Future<void> countingClear(
-          ffi.PrismSyncHandle _,
-          String syncId,
-        ) async {
-          clearCalls++;
-          clearedSyncId = syncId;
-        }
+      var clearCalls = 0;
+      String? clearedSyncId;
+      Future<void> countingClear(ffi.PrismSyncHandle _, String syncId) async {
+        clearCalls++;
+        clearedSyncId = syncId;
+      }
 
-        final svc = FrontingMigrationService(
-          db: db,
-          memberRepository: DriftMemberRepository(db.membersDao, null),
-          frontingSessionRepository:
-              DriftFrontingSessionRepository(db.frontingSessionsDao, null),
-          frontSessionCommentsRepository: DriftFrontSessionCommentsRepository(
-            db.frontSessionCommentsDao,
-            null,
-          ),
-          dataExportService: exportService,
-          syncHandle: _FakePrismSyncHandle(),
-          resetSyncState: alwaysFailingReset,
-          clearSyncState: countingClear,
-          readSyncId: () async => 'sync-123',
-          backupDirectoryProvider: () async => cacheDir,
-        );
+      final svc = FrontingMigrationService(
+        db: db,
+        memberRepository: DriftMemberRepository(db.membersDao, null),
+        frontingSessionRepository: DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+        ),
+        frontSessionCommentsRepository: DriftFrontSessionCommentsRepository(
+          db.frontSessionCommentsDao,
+          null,
+        ),
+        dataExportService: exportService,
+        syncHandle: _FakePrismSyncHandle(),
+        resetSyncState: alwaysFailingReset,
+        clearSyncState: countingClear,
+        readSyncId: () async => 'sync-123',
+        backupDirectoryProvider: () async => cacheDir,
+      );
 
-        final firstResult = await svc.runMigration(
-          mode: MigrationMode.upgradeAndKeep,
-          role: DeviceRole.solo,
-          shareFile: _noopShare,
-        );
-        expect(firstResult.outcome, MigrationOutcome.failed);
-        // First attempt did NOT reach substate write — it failed
-        // before the post-reset write site.
-        expect(
-          await db.systemSettingsDao
-              .readPendingFrontingMigrationCleanupSubstate(),
-          FrontingMigrationService.substateInert,
-          reason:
-              'Reset failure must leave substate inert so resume re-runs '
-              'the wipe (the bug fix prevents re-running being '
-              'misclassified as success)',
-        );
-        expect(
-          clearCalls,
-          0,
-          reason:
-              'first attempt is not the resume path; runMigrationDestructive '
-              'uses reset_sync_state, never clear_sync_state',
-        );
-        expect(resetCalls, 1);
+      final firstResult = await svc.runMigration(
+        mode: MigrationMode.upgradeAndKeep,
+        role: DeviceRole.solo,
+        shareFile: _noopShare,
+      );
+      expect(firstResult.outcome, MigrationOutcome.failed);
+      // First attempt did NOT reach substate write — it failed
+      // before the post-reset write site.
+      expect(
+        await db.systemSettingsDao
+            .readPendingFrontingMigrationCleanupSubstate(),
+        FrontingMigrationService.substateInert,
+        reason:
+            'Reset failure must leave substate inert so resume re-runs '
+            'the wipe (the bug fix prevents re-running being '
+            'misclassified as success)',
+      );
+      expect(
+        clearCalls,
+        0,
+        reason:
+            'first attempt is not the resume path; runMigrationDestructive '
+            'uses reset_sync_state, never clear_sync_state',
+      );
+      expect(resetCalls, 1);
 
-        final resumeResult = await svc.resumeCleanup();
-        expect(resumeResult.outcome, MigrationOutcome.success);
-        expect(
-          resetCalls,
-          1,
-          reason:
-              'resume path must NOT call reset_sync_state — published '
-              'handle is unconfigured on inProgress, so reset would '
-              'fail with sync_id not set; use clear_sync_state instead',
-        );
-        expect(
-          clearCalls,
-          1,
-          reason:
-              'resume path must wipe storage via clear_sync_state(sync_id)',
-        );
-        expect(clearedSyncId, 'sync-123');
-      },
-    );
+      final resumeResult = await svc.resumeCleanup();
+      expect(resumeResult.outcome, MigrationOutcome.success);
+      expect(
+        resetCalls,
+        1,
+        reason:
+            'resume path must NOT call reset_sync_state — published '
+            'handle is unconfigured on inProgress, so reset would '
+            'fail with sync_id not set; use clear_sync_state instead',
+      );
+      expect(
+        clearCalls,
+        1,
+        reason: 'resume path must wipe storage via clear_sync_state(sync_id)',
+      );
+      expect(clearedSyncId, 'sync-123');
+    });
 
     // Codex pass 2 #B-NEW3 — explicit regression: a Rust error from
     // the FIRST-attempt reset must NOT be silently swallowed as
     // "already reset" the way the previous heuristic did. Substate
     // is the source of truth; if it's inert, the error is real.
-    test(
-      'engine reset failure on first attempt is treated as a real failure '
-      '(not silently treated as success)',
-      () async {
-        await _seedMember(db, 'm1');
-        await _seedSession(
-          db,
-          id: 's1',
-          startTime: DateTime(2026, 4, 1, 9).toUtc(),
-          memberId: 'm1',
-        );
+    test('engine reset failure on first attempt is treated as a real failure '
+        '(not silently treated as success)', () async {
+      await _seedMember(db, 'm1');
+      await _seedSession(
+        db,
+        id: 's1',
+        startTime: DateTime(2026, 4, 1, 9).toUtc(),
+        memberId: 'm1',
+      );
 
-        Future<void> alwaysFailing(ffi.PrismSyncHandle _) async {
-          throw StateError('Simulated reset failure');
-        }
+      Future<void> alwaysFailing(ffi.PrismSyncHandle _) async {
+        throw StateError('Simulated reset failure');
+      }
 
-        final svc = FrontingMigrationService(
-          db: db,
-          memberRepository: DriftMemberRepository(db.membersDao, null),
-          frontingSessionRepository:
-              DriftFrontingSessionRepository(db.frontingSessionsDao, null),
-          frontSessionCommentsRepository: DriftFrontSessionCommentsRepository(
-            db.frontSessionCommentsDao,
-            null,
-          ),
-          dataExportService: exportService,
-          syncHandle: _FakePrismSyncHandle(),
-          resetSyncState: alwaysFailing,
-          backupDirectoryProvider: () async => cacheDir,
-        );
+      final svc = FrontingMigrationService(
+        db: db,
+        memberRepository: DriftMemberRepository(db.membersDao, null),
+        frontingSessionRepository: DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+        ),
+        frontSessionCommentsRepository: DriftFrontSessionCommentsRepository(
+          db.frontSessionCommentsDao,
+          null,
+        ),
+        dataExportService: exportService,
+        syncHandle: _FakePrismSyncHandle(),
+        resetSyncState: alwaysFailing,
+        backupDirectoryProvider: () async => cacheDir,
+      );
 
-        final result = await svc.runMigration(
-          mode: MigrationMode.upgradeAndKeep,
-          role: DeviceRole.solo,
-          shareFile: _noopShare,
-        );
+      final result = await svc.runMigration(
+        mode: MigrationMode.upgradeAndKeep,
+        role: DeviceRole.solo,
+        shareFile: _noopShare,
+      );
 
-        // Previously this was incorrectly classified as success via
-        // the _isAlreadyResetError heuristic. With substate as the
-        // source of truth, the error surfaces as a failure and
-        // settings stay at inProgress so the user can retry.
-        expect(result.outcome, MigrationOutcome.failed);
-        expect(result.errorMessage, contains('Engine reset failed'));
-        expect(
-          await db.systemSettingsDao.readPendingFrontingMigrationMode(),
-          'inProgress',
-        );
-        expect(
-          await db.systemSettingsDao
-              .readPendingFrontingMigrationCleanupSubstate(),
-          FrontingMigrationService.substateInert,
-        );
-      },
-    );
+      // Previously this was incorrectly classified as success via
+      // the _isAlreadyResetError heuristic. With substate as the
+      // source of truth, the error surfaces as a failure and
+      // settings stay at inProgress so the user can retry.
+      expect(result.outcome, MigrationOutcome.failed);
+      expect(result.errorMessage, contains('Engine reset failed'));
+      expect(
+        await db.systemSettingsDao.readPendingFrontingMigrationMode(),
+        'inProgress',
+      );
+      expect(
+        await db.systemSettingsDao
+            .readPendingFrontingMigrationCleanupSubstate(),
+        FrontingMigrationService.substateInert,
+      );
+    });
 
     // Codex pass 3 P1 — resume path with no sync_id in keychain
     // (already wiped or solo-device case) advances substate without
     // calling clear_sync_state, so the remaining cleanup steps run.
-    test(
-      'resumeCleanup with no sync_id available skips clear_sync_state '
-      'and advances substate',
-      () async {
-        await _seedMember(db, 'm1');
-        await _seedSession(
-          db,
-          id: 's1',
-          startTime: DateTime(2026, 4, 1, 9).toUtc(),
-          memberId: 'm1',
-        );
+    test('resumeCleanup with no sync_id available skips clear_sync_state '
+        'and advances substate', () async {
+      await _seedMember(db, 'm1');
+      await _seedSession(
+        db,
+        id: 's1',
+        startTime: DateTime(2026, 4, 1, 9).toUtc(),
+        memberId: 'm1',
+      );
 
-        Future<void> alwaysFailingReset(ffi.PrismSyncHandle _) async {
-          throw StateError('Simulated FFI reset failure');
-        }
+      Future<void> alwaysFailingReset(ffi.PrismSyncHandle _) async {
+        throw StateError('Simulated FFI reset failure');
+      }
 
-        var clearCalls = 0;
-        Future<void> countingClear(
-          ffi.PrismSyncHandle handle,
-          String syncId,
-        ) async {
-          clearCalls++;
-        }
+      var clearCalls = 0;
+      Future<void> countingClear(
+        ffi.PrismSyncHandle handle,
+        String syncId,
+      ) async {
+        clearCalls++;
+      }
 
-        final svc = FrontingMigrationService(
-          db: db,
-          memberRepository: DriftMemberRepository(db.membersDao, null),
-          frontingSessionRepository:
-              DriftFrontingSessionRepository(db.frontingSessionsDao, null),
-          frontSessionCommentsRepository: DriftFrontSessionCommentsRepository(
-            db.frontSessionCommentsDao,
-            null,
-          ),
-          dataExportService: exportService,
-          syncHandle: _FakePrismSyncHandle(),
-          resetSyncState: alwaysFailingReset,
-          clearSyncState: countingClear,
-          readSyncId: () async => null,
-          backupDirectoryProvider: () async => cacheDir,
-        );
+      final svc = FrontingMigrationService(
+        db: db,
+        memberRepository: DriftMemberRepository(db.membersDao, null),
+        frontingSessionRepository: DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+        ),
+        frontSessionCommentsRepository: DriftFrontSessionCommentsRepository(
+          db.frontSessionCommentsDao,
+          null,
+        ),
+        dataExportService: exportService,
+        syncHandle: _FakePrismSyncHandle(),
+        resetSyncState: alwaysFailingReset,
+        clearSyncState: countingClear,
+        readSyncId: () async => null,
+        backupDirectoryProvider: () async => cacheDir,
+      );
 
-        // First attempt fails, leaving us at inProgress / inert.
-        final firstResult = await svc.runMigration(
-          mode: MigrationMode.upgradeAndKeep,
-          role: DeviceRole.solo,
-          shareFile: _noopShare,
-        );
-        expect(firstResult.outcome, MigrationOutcome.failed);
+      // First attempt fails, leaving us at inProgress / inert.
+      final firstResult = await svc.runMigration(
+        mode: MigrationMode.upgradeAndKeep,
+        role: DeviceRole.solo,
+        shareFile: _noopShare,
+      );
+      expect(firstResult.outcome, MigrationOutcome.failed);
 
-        final resumeResult = await svc.resumeCleanup();
-        expect(resumeResult.outcome, MigrationOutcome.success);
-        expect(clearCalls, 0,
-            reason: 'no sync_id → nothing to clear in storage');
-      },
-    );
+      final resumeResult = await svc.resumeCleanup();
+      expect(resumeResult.outcome, MigrationOutcome.success);
+      expect(clearCalls, 0, reason: 'no sync_id → nothing to clear in storage');
+    });
 
     test(
       'resumeCleanup() refuses to run when mode is not inProgress',
       () async {
-        await db.systemSettingsDao
-            .writePendingFrontingMigrationMode('notStarted');
+        await db.systemSettingsDao.writePendingFrontingMigrationMode(
+          'notStarted',
+        );
         final svc = _makeService(db, exportService);
         final result = await svc.resumeCleanup();
         expect(result.outcome, MigrationOutcome.failed);
@@ -1481,63 +1922,62 @@ void main() {
     // or left. Under the per-member abstraction those boundaries are
     // arbitrary cosmetic artifacts. Collapse them post-fan-out.
     // -------------------------------------------------------------------
-    test(
-      'continuous-host scenario: Zari fronts 6:42–8:50 then Aimee joins '
-      '8:50–9:07 → 1 Zari row 6:42–9:07 + 1 Aimee row 8:50–9:07',
-      () async {
-        const zari = 'zari';
-        const aimee = 'aimee';
-        for (final id in [zari, aimee]) {
-          await _seedMember(db, id, name: id);
-        }
-        // Old session A: Zari alone, 6:42 → 8:50.
-        await _seedSession(
-          db,
-          id: 'sess-a',
-          startTime: DateTime.utc(2026, 4, 1, 6, 42),
-          endTime: DateTime.utc(2026, 4, 1, 8, 50),
-          memberId: zari,
-        );
-        // Old session B: Zari + Aimee, 8:50 → 9:07 (Aimee joined).
-        await _seedSession(
-          db,
-          id: 'sess-b',
-          startTime: DateTime.utc(2026, 4, 1, 8, 50),
-          endTime: DateTime.utc(2026, 4, 1, 9, 7),
-          memberId: zari,
-          coFronterIds: jsonEncode([aimee]),
-        );
+    test('continuous-host scenario: Zari fronts 6:42–8:50 then Aimee joins '
+        '8:50–9:07 → 1 Zari row 6:42–9:07 + 1 Aimee row 8:50–9:07', () async {
+      const zari = 'zari';
+      const aimee = 'aimee';
+      for (final id in [zari, aimee]) {
+        await _seedMember(db, id, name: id);
+      }
+      // Old session A: Zari alone, 6:42 → 8:50.
+      await _seedSession(
+        db,
+        id: 'sess-a',
+        startTime: DateTime.utc(2026, 4, 1, 6, 42),
+        endTime: DateTime.utc(2026, 4, 1, 8, 50),
+        memberId: zari,
+      );
+      // Old session B: Zari + Aimee, 8:50 → 9:07 (Aimee joined).
+      await _seedSession(
+        db,
+        id: 'sess-b',
+        startTime: DateTime.utc(2026, 4, 1, 8, 50),
+        endTime: DateTime.utc(2026, 4, 1, 9, 7),
+        memberId: zari,
+        coFronterIds: jsonEncode([aimee]),
+      );
 
-        final svc = _makeService(db, exportService);
-        final result = await svc.runMigration(
-          mode: MigrationMode.upgradeAndKeep,
-          role: DeviceRole.solo,
-          shareFile: _noopShare,
-        );
+      final svc = _makeService(db, exportService);
+      final result = await svc.runMigration(
+        mode: MigrationMode.upgradeAndKeep,
+        role: DeviceRole.solo,
+        shareFile: _noopShare,
+      );
 
-        expect(result.outcome, MigrationOutcome.success);
-        expect(result.adjacentMergesPerformed, 1);
+      expect(result.outcome, MigrationOutcome.success);
+      expect(result.adjacentMergesPerformed, 1);
 
-        final rows = await db.frontingSessionsDao.getAllSessions();
-        // 1 Zari row + 1 Aimee row = 2 rows total.
-        expect(rows, hasLength(2));
-        final zariRows = rows.where((r) => r.memberId == zari).toList();
-        expect(zariRows, hasLength(1));
-        expect(zariRows.single.startTime.toUtc(),
-            DateTime.utc(2026, 4, 1, 6, 42));
-        expect(zariRows.single.endTime?.toUtc(),
-            DateTime.utc(2026, 4, 1, 9, 7));
-        // Surviving row keeps the earlier id ('sess-a').
-        expect(zariRows.single.id, 'sess-a');
+      final rows = await db.frontingSessionsDao.getAllSessions();
+      // 1 Zari row + 1 Aimee row = 2 rows total.
+      expect(rows, hasLength(2));
+      final zariRows = rows.where((r) => r.memberId == zari).toList();
+      expect(zariRows, hasLength(1));
+      expect(
+        zariRows.single.startTime.toUtc(),
+        DateTime.utc(2026, 4, 1, 6, 42),
+      );
+      expect(zariRows.single.endTime?.toUtc(), DateTime.utc(2026, 4, 1, 9, 7));
+      // Surviving row keeps the earlier id ('sess-a').
+      expect(zariRows.single.id, 'sess-a');
 
-        final aimeeRows = rows.where((r) => r.memberId == aimee).toList();
-        expect(aimeeRows, hasLength(1));
-        expect(aimeeRows.single.startTime.toUtc(),
-            DateTime.utc(2026, 4, 1, 8, 50));
-        expect(aimeeRows.single.endTime?.toUtc(),
-            DateTime.utc(2026, 4, 1, 9, 7));
-      },
-    );
+      final aimeeRows = rows.where((r) => r.memberId == aimee).toList();
+      expect(aimeeRows, hasLength(1));
+      expect(
+        aimeeRows.single.startTime.toUtc(),
+        DateTime.utc(2026, 4, 1, 8, 50),
+      );
+      expect(aimeeRows.single.endTime?.toUtc(), DateTime.utc(2026, 4, 1, 9, 7));
+    });
 
     test(
       'three-row cascade: A→B→C all adjacent same-member collapse to 1 row',
@@ -1577,10 +2017,8 @@ void main() {
         expect(result.adjacentMergesPerformed, 2);
         final rows = await db.frontingSessionsDao.getAllSessions();
         expect(rows, hasLength(1));
-        expect(rows.single.startTime.toUtc(),
-            DateTime.utc(2026, 4, 1, 6, 42));
-        expect(rows.single.endTime?.toUtc(),
-            DateTime.utc(2026, 4, 1, 9, 30));
+        expect(rows.single.startTime.toUtc(), DateTime.utc(2026, 4, 1, 6, 42));
+        expect(rows.single.endTime?.toUtc(), DateTime.utc(2026, 4, 1, 9, 30));
         expect(rows.single.id, 'a');
       },
     );
@@ -1662,43 +2100,39 @@ void main() {
       },
     );
 
-    test(
-      'open-ended merge: B is currently fronting (end_time NULL) → '
-      'merged row stays open-ended',
-      () async {
-        const host = 'host-open';
-        await _seedMember(db, host);
-        await _seedSession(
-          db,
-          id: 'a',
-          startTime: DateTime.utc(2026, 4, 1, 6, 42),
-          endTime: DateTime.utc(2026, 4, 1, 8, 50),
-          memberId: host,
-        );
-        await _seedSession(
-          db,
-          id: 'b',
-          startTime: DateTime.utc(2026, 4, 1, 8, 50),
-          endTime: null,
-          memberId: host,
-        );
+    test('open-ended merge: B is currently fronting (end_time NULL) → '
+        'merged row stays open-ended', () async {
+      const host = 'host-open';
+      await _seedMember(db, host);
+      await _seedSession(
+        db,
+        id: 'a',
+        startTime: DateTime.utc(2026, 4, 1, 6, 42),
+        endTime: DateTime.utc(2026, 4, 1, 8, 50),
+        memberId: host,
+      );
+      await _seedSession(
+        db,
+        id: 'b',
+        startTime: DateTime.utc(2026, 4, 1, 8, 50),
+        endTime: null,
+        memberId: host,
+      );
 
-        final svc = _makeService(db, exportService);
-        final result = await svc.runMigration(
-          mode: MigrationMode.upgradeAndKeep,
-          role: DeviceRole.solo,
-          shareFile: _noopShare,
-        );
+      final svc = _makeService(db, exportService);
+      final result = await svc.runMigration(
+        mode: MigrationMode.upgradeAndKeep,
+        role: DeviceRole.solo,
+        shareFile: _noopShare,
+      );
 
-        expect(result.outcome, MigrationOutcome.success);
-        expect(result.adjacentMergesPerformed, 1);
-        final rows = await db.frontingSessionsDao.getAllSessions();
-        expect(rows, hasLength(1));
-        expect(rows.single.endTime, isNull);
-        expect(rows.single.startTime.toUtc(),
-            DateTime.utc(2026, 4, 1, 6, 42));
-      },
-    );
+      expect(result.outcome, MigrationOutcome.success);
+      expect(result.adjacentMergesPerformed, 1);
+      final rows = await db.frontingSessionsDao.getAllSessions();
+      expect(rows, hasLength(1));
+      expect(rows.single.endTime, isNull);
+      expect(rows.single.startTime.toUtc(), DateTime.utc(2026, 4, 1, 6, 42));
+    });
 
     test(
       'sleep rows are not merged into normal rows even when boundaries touch',
@@ -1737,59 +2171,55 @@ void main() {
       },
     );
 
-    test(
-      'multi-member sanity: only same-member adjacent rows merge; the '
-      'other member\'s separate row stays untouched',
-      () async {
-        const zari = 'z';
-        const aimee = 'a';
-        for (final id in [zari, aimee]) {
-          await _seedMember(db, id, name: id);
-        }
-        // Two old rows that fan out into Zari×2 + Aimee×1.
-        await _seedSession(
-          db,
-          id: 'sess-a',
-          startTime: DateTime.utc(2026, 4, 1, 6, 42),
-          endTime: DateTime.utc(2026, 4, 1, 8, 50),
-          memberId: zari,
-        );
-        await _seedSession(
-          db,
-          id: 'sess-b',
-          startTime: DateTime.utc(2026, 4, 1, 8, 50),
-          endTime: DateTime.utc(2026, 4, 1, 9, 7),
-          memberId: zari,
-          coFronterIds: jsonEncode([aimee]),
-        );
-        // A separate non-adjacent Aimee row much later: must stay as-is.
-        await _seedSession(
-          db,
-          id: 'aimee-later',
-          startTime: DateTime.utc(2026, 4, 1, 14),
-          endTime: DateTime.utc(2026, 4, 1, 15),
-          memberId: aimee,
-        );
+    test('multi-member sanity: only same-member adjacent rows merge; the '
+        'other member\'s separate row stays untouched', () async {
+      const zari = 'z';
+      const aimee = 'a';
+      for (final id in [zari, aimee]) {
+        await _seedMember(db, id, name: id);
+      }
+      // Two old rows that fan out into Zari×2 + Aimee×1.
+      await _seedSession(
+        db,
+        id: 'sess-a',
+        startTime: DateTime.utc(2026, 4, 1, 6, 42),
+        endTime: DateTime.utc(2026, 4, 1, 8, 50),
+        memberId: zari,
+      );
+      await _seedSession(
+        db,
+        id: 'sess-b',
+        startTime: DateTime.utc(2026, 4, 1, 8, 50),
+        endTime: DateTime.utc(2026, 4, 1, 9, 7),
+        memberId: zari,
+        coFronterIds: jsonEncode([aimee]),
+      );
+      // A separate non-adjacent Aimee row much later: must stay as-is.
+      await _seedSession(
+        db,
+        id: 'aimee-later',
+        startTime: DateTime.utc(2026, 4, 1, 14),
+        endTime: DateTime.utc(2026, 4, 1, 15),
+        memberId: aimee,
+      );
 
-        final svc = _makeService(db, exportService);
-        final result = await svc.runMigration(
-          mode: MigrationMode.upgradeAndKeep,
-          role: DeviceRole.solo,
-          shareFile: _noopShare,
-        );
+      final svc = _makeService(db, exportService);
+      final result = await svc.runMigration(
+        mode: MigrationMode.upgradeAndKeep,
+        role: DeviceRole.solo,
+        shareFile: _noopShare,
+      );
 
-        expect(result.outcome, MigrationOutcome.success);
-        // Only Zari's rows merge.
-        expect(result.adjacentMergesPerformed, 1);
-        final rows = await db.frontingSessionsDao.getAllSessions();
-        // 1 Zari + 1 Aimee fan-out + 1 Aimee later = 3 rows.
-        expect(rows, hasLength(3));
-        final aimeeRows =
-            rows.where((r) => r.memberId == aimee).toList();
-        expect(aimeeRows, hasLength(2));
-        expect(rows.where((r) => r.memberId == zari), hasLength(1));
-      },
-    );
+      expect(result.outcome, MigrationOutcome.success);
+      // Only Zari's rows merge.
+      expect(result.adjacentMergesPerformed, 1);
+      final rows = await db.frontingSessionsDao.getAllSessions();
+      // 1 Zari + 1 Aimee fan-out + 1 Aimee later = 3 rows.
+      expect(rows, hasLength(3));
+      final aimeeRows = rows.where((r) => r.memberId == aimee).toList();
+      expect(aimeeRows, hasLength(2));
+      expect(rows.where((r) => r.memberId == zari), hasLength(1));
+    });
   });
 }
 
@@ -1856,7 +2286,7 @@ class _ThrowingMemberRepository implements MemberRepository {
 
   @override
   Future<({Member member, bool wasCreated})>
-      ensureUnknownSentinelMember() async {
+  ensureUnknownSentinelMember() async {
     throw StateError('Simulated ensureUnknownSentinelMember failure');
   }
 }
@@ -1890,7 +2320,8 @@ void _assertSuppressed(String method) {
   expect(
     SyncRecordMixin.isSuppressed,
     isTrue,
-    reason: 'Migration writes must run inside SyncRecordMixin.suppress; '
+    reason:
+        'Migration writes must run inside SyncRecordMixin.suppress; '
         '$method was called with isSuppressed=false',
   );
 }
@@ -1971,15 +2402,15 @@ class _SuppressionAssertingFrontingSessionRepository
   Stream<List<FrontingSession>> watchSessionsOverlappingRange(
     DateTime start,
     DateTime end,
-  ) =>
-      _inner.watchSessionsOverlappingRange(start, end);
+  ) => _inner.watchSessionsOverlappingRange(start, end);
   @override
   Future<void> endSession(String id, DateTime endTime) =>
       _inner.endSession(id, endTime);
   @override
   Future<List<FrontingSession>> getSessionsBetween(
-          DateTime start, DateTime end) =>
-      _inner.getSessionsBetween(start, end);
+    DateTime start,
+    DateTime end,
+  ) => _inner.getSessionsBetween(start, end);
   @override
   Future<int> getCount() => _inner.getCount();
   @override
@@ -1998,13 +2429,12 @@ class _SuppressionAssertingFrontingSessionRepository
     int? startHour,
     int? endHour,
     int? withinDays,
-  }) =>
-      _inner.getMemberFrontingCounts(
-        recentLimit: recentLimit,
-        startHour: startHour,
-        endHour: endHour,
-        withinDays: withinDays,
-      );
+  }) => _inner.getMemberFrontingCounts(
+    recentLimit: recentLimit,
+    startHour: startHour,
+    endHour: endHour,
+    withinDays: withinDays,
+  );
 }
 
 class _SuppressionAssertingFrontSessionCommentsRepository
@@ -2032,8 +2462,8 @@ class _SuppressionAssertingFrontSessionCommentsRepository
 
   @override
   Stream<List<FrontSessionComment>> watchCommentsForRange(
-          DateTimeRange range) =>
-      _inner.watchCommentsForRange(range);
+    DateTimeRange range,
+  ) => _inner.watchCommentsForRange(range);
 
   @override
   Stream<int> watchCommentCountForRange(DateTimeRange range) =>
@@ -2044,8 +2474,7 @@ class _SuppressionAssertingFrontSessionCommentsRepository
       _inner.watchAllComments();
 
   @override
-  Future<List<FrontSessionComment>> getAllComments() =>
-      _inner.getAllComments();
+  Future<List<FrontSessionComment>> getAllComments() => _inner.getAllComments();
 }
 
 class _SuppressionAssertingMemberRepository implements MemberRepository {
@@ -2054,7 +2483,7 @@ class _SuppressionAssertingMemberRepository implements MemberRepository {
 
   @override
   Future<({Member member, bool wasCreated})>
-      ensureUnknownSentinelMember() async {
+  ensureUnknownSentinelMember() async {
     _assertSuppressed('ensureUnknownSentinelMember');
     return _inner.ensureUnknownSentinelMember();
   }

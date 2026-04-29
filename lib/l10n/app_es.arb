@@ -1471,7 +1471,7 @@
   "pluralkitHowItWorks": "Cómo funciona",
   "pluralkitImportButton": "Importar desde PluralKit",
   "pluralkitInfoMembers": "Después de conectar, vincula tus miembros de PluralKit con {termPluralLower} de Prism — o impórtalos como nuevos — para evitar duplicados.",
-  "pluralkitInfoSwitches": "Los cambios se importan como sesiones al frente. Los cambios duplicados se omiten automáticamente.",
+  "pluralkitInfoSwitches": "La recuperación del historial de fronts usa un archivo pk;export más un token para que Prism pueda vincular los cambios del archivo con los ID de cambios de PluralKit.",
   "pluralkitInfoSync": "Compatible con sincronización en modo entrada, salida o bidireccional. Elige tu dirección preferida arriba.",
   "pluralkitInfoToken": "Tu token se almacena de forma segura en el llavero del dispositivo y nunca sale de él.",
   "pluralkitJustNow": "Ahora mismo",
@@ -1642,6 +1642,7 @@
   "pluralkitSyncRecentCooldown": "Sincronizar cambios recientes ({seconds}s)",
   "pluralkitTitle": "PluralKit",
   "pluralkitTokenHelp": "Para obtener tu token, envía un mensaje directo al bot de PluralKit en Discord con \"pk;token\" y pega el resultado aquí.",
+  "pluralkitFileImportHelp": "Recupera el historial anterior de fronts de PluralKit con un archivo pk;export y un token. El archivo aporta el historial de cambios; el token permite que Prism lo vincule de forma segura.",
   "pluralkitTokenLabel": "Token de PluralKit",
   "pluralkitUpToDate": "Todo está actualizado.",
   "sharingAccept": "Aceptar",
@@ -1992,7 +1993,7 @@
   "pluralkitAutoSyncIntervalLabel": "Consultar cada",
   "pluralkitAutoSyncLoadFailed": "No se pudieron cargar los ajustes de auto-sincronización.",
   "pluralkitRerunMemberMapping": "Volver a vincular integrantes",
-  "pluralkitImportFromFile": "Importar desde archivo pk;export",
+  "pluralkitImportFromFile": "Recuperar historial desde pk;export",
   "pluralkitMappingBannerTitle": "Un paso más: vincula a tus {termPluralLower}",
   "pluralkitMappingBannerBody": "Estás conectado. Antes de activar la sincronización, empareja cada miembro de PluralKit con {termSingularLower} de Prism — o impórtalos como nuevos. Esto evita duplicados y mantiene el historial de fronts ligado a la persona correcta.",
   "pluralkitMappingBannerButton": "Vincular {termPluralLower}",
@@ -2272,9 +2273,9 @@
       }
     }
   },
-  "frontingUpgradeCountPkDeleted": "{count, plural, =1{Se borró 1 sesión importada de PluralKit (vuelve a importar después de la actualización).} other{Se borraron {count} sesiones importadas de PluralKit (vuelve a importar después de la actualización).}}",
+  "frontingUpgradeCountPkDeleted": "{count, plural, =1{Se borró el historial de PluralKit del formato anterior (1 sesión). Vuelve a importarlo desde un token de PluralKit o un archivo pk;export.} other{Se borró el historial de PluralKit del formato anterior ({count} sesiones). Vuelve a importarlo desde un token de PluralKit o un archivo pk;export.}}",
   "@frontingUpgradeCountPkDeleted": {
-    "description": "Success counter: PK rows cleared",
+    "description": "Success counter and follow-up guidance when old-format PluralKit fronting history was cleared",
     "placeholders": {
       "count": {
         "type": "int"
@@ -2332,6 +2333,10 @@
   "@frontingUpgradeRepairSolo": {
     "description": "Final note for solo devices, no re-pair needed"
   },
+  "frontingUpgradeOpenPluralKitImport": "Abrir importación de PluralKit",
+  "@frontingUpgradeOpenPluralKitImport": {
+    "description": "Button label on the fronting migration success screen that opens PluralKit import options"
+  },
   "frontingUpgradeFailureHeadline": "La migración falló",
   "@frontingUpgradeFailureHeadline": {
     "description": "Failure screen headline"
@@ -2350,13 +2355,14 @@
   },
   "pkFileImportMembersLabel": "{termPlural}",
   "pkFileImportGroupsLabel": "Grupos",
-  "pkFileImportFrontingSessionsLabel": "Sesiones de frente",
-  "pkFileImportPreviewNote": "Los/las {termPlural} existentes con el mismo ID de PluralKit se actualizarán. Los cambios duplicados se omiten.",
+  "pkFileImportFrontingSessionsLabel": "Cambios encontrados (no importados)",
+  "pkFileImportSwitchesFoundLabel": "Cambios encontrados (no importados)",
+  "pkFileImportPreviewNote": "Los/las {termPlural} existentes con el mismo ID de PluralKit se actualizarán. Para importar el historial de fronts, agrega un token de PluralKit para que Prism pueda vincular los cambios antes de importarlos.",
   "pkFileImportImportButton": "Importar",
   "pkFileImportPickDifferentButton": "Elegir otro archivo",
   "pkFileImportCompleteHeading": "Importación completa",
   "pkFileImportSwitchesCreatedLabel": "Cambios creados",
-  "pkFileImportSwitchesSkippedLabel": "Cambios omitidos (ya existían)",
+  "pkFileImportSwitchesSkippedLabel": "Cambios encontrados (no importados)",
 
   "frontingAlwaysPresentLabel": "Siempre presente · {duration}",
   "@frontingAlwaysPresentLabel": {

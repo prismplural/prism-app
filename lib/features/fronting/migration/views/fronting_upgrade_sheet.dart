@@ -26,8 +26,10 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
+import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/features/fronting/migration/fronting_migration_service.dart';
 import 'package:prism_plurality/features/fronting/migration/providers/fronting_migration_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
@@ -91,6 +93,7 @@ Future<void> showFrontingUpgradeSheet(
   required bool isDismissible,
   BackupHandoffCallback? shareBackup,
   BackupHandoffCallback? saveBackup,
+  VoidCallback? openPluralKitImport,
 }) {
   return PrismSheet.showFullScreen(
     context: context,
@@ -100,6 +103,7 @@ Future<void> showFrontingUpgradeSheet(
       isDismissible: isDismissible,
       shareBackup: shareBackup,
       saveBackup: saveBackup,
+      openPluralKitImport: openPluralKitImport,
     ),
   );
 }
@@ -111,6 +115,7 @@ class FrontingUpgradeSheet extends ConsumerStatefulWidget {
     this.isDismissible = true,
     this.shareBackup,
     this.saveBackup,
+    this.openPluralKitImport,
   });
 
   final ScrollController? scrollController;
@@ -130,6 +135,12 @@ class FrontingUpgradeSheet extends ConsumerStatefulWidget {
   /// a destination (auto-ticks the acknowledgment checkbox); `false`
   /// if cancelled.
   final BackupHandoffCallback? saveBackup;
+
+  /// Optional override for the success-step PluralKit import CTA.
+  /// Production routing dismisses the sheet and opens the existing
+  /// PluralKit setup/import entry point. Tests pass a callback so the
+  /// route handoff stays hermetic.
+  final VoidCallback? openPluralKitImport;
 
   @override
   ConsumerState<FrontingUpgradeSheet> createState() =>
@@ -451,6 +462,19 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
       _backupAcknowledged = false;
       _step = FrontingUpgradeStep.password;
     });
+  }
+
+  void _openPluralKitImport() {
+    final override = widget.openPluralKitImport;
+    if (override != null) {
+      Navigator.of(context).pop();
+      override();
+      return;
+    }
+
+    final router = GoRouter.maybeOf(context);
+    Navigator.of(context).pop();
+    router?.go(AppRoutePaths.settingsPluralkit);
   }
 
   /// Codex P1 #4 — runs the idempotent post-tx cleanup when the modal
@@ -953,6 +977,10 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
 
   Widget _buildSuccess(ThemeData theme) {
     final result = _result;
+    final showPluralKitImportCta =
+        result != null &&
+        result.pkRowsDeleted > 0 &&
+        _role != DeviceRole.secondary;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -999,6 +1027,16 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
+        if (showPluralKitImportCta) ...[
+          const SizedBox(height: 16),
+          PrismButton(
+            onPressed: _openPluralKitImport,
+            icon: AppIcons.cloudSync,
+            label: context.l10n.frontingUpgradeOpenPluralKitImport,
+            tone: PrismButtonTone.outlined,
+            expanded: true,
+          ),
+        ],
         const SizedBox(height: 24),
         PrismButton(
           onPressed: () => Navigator.of(context).pop(),

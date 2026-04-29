@@ -18,10 +18,23 @@ import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_bidirectional_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_file_parser.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_fronting_switch_matcher.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_groups_importer.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_push_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 import 'package:prism_plurality/shared/utils/avatar_fetcher.dart';
+
+final RegExp _pluralKitSwitchUuidPattern = RegExp(
+  r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+);
+
+@visibleForTesting
+bool isPluralKitSwitchUuid(String? value) {
+  final trimmed = value?.trim();
+  return trimmed != null &&
+      trimmed.isNotEmpty &&
+      _pluralKitSwitchUuidPattern.hasMatch(trimmed);
+}
 
 // ---------------------------------------------------------------------------
 // Sync state
@@ -101,6 +114,9 @@ class PluralKitSyncState {
 // ---------------------------------------------------------------------------
 
 const _pkTokenKey = 'prism_pluralkit_token';
+
+const pkImportSourceFile = 'file';
+const pkImportSourceFileApi = 'file_api';
 
 // ---------------------------------------------------------------------------
 // Sync service / notifier
@@ -609,10 +625,11 @@ class PluralKitSyncService {
       // The 2 stale A rows at det(sw-2, A) and det(sw-3, A) are
       // rescue artifacts the diff sweep never touches.
       //
-      // On the corrective re-import the API is authoritative — any
-      // PK-linked local row whose id isn't an entrant (sw, member)
-      // pair is a stale rescue artifact and must be tombstoned so
-      // paired devices converge. See codex pass 2 #B-NEW2.
+      // On the corrective re-import the API is authoritative for API-backed
+      // switch rows — any API-linked local row whose id isn't an entrant
+      // (sw, member) pair is a stale rescue artifact and must be tombstoned
+      // so paired devices converge. Synthetic/file-origin IDs are not API
+      // switch refs and must not be canonicalized here.
       _emit(
         _state.copyWith(
           syncProgress: 0.40,
@@ -640,7 +657,7 @@ class PluralKitSyncService {
       final allSessions = await _frontingSessionRepository.getAllSessions();
       int tombstonedStale = 0;
       for (final s in allSessions) {
-        if (s.pluralkitUuid != null &&
+        if (isPluralKitSwitchUuid(s.pluralkitUuid) &&
             !s.isDeleted &&
             !canonicalIds.contains(s.id)) {
           await _frontingSessionRepository.deleteSession(s.id);
@@ -673,7 +690,8 @@ class PluralKitSyncService {
         corrective: true,
         onProgress: (i) {
           if (i % 50 == 0) {
-            final progress = 0.50 + (0.45 * (i / (totalSwitches.clamp(1, totalSwitches))));
+            final progress =
+                0.50 + (0.45 * (i / (totalSwitches.clamp(1, totalSwitches))));
             _emit(
               _state.copyWith(
                 syncProgress: progress,
@@ -789,6 +807,172 @@ class PluralKitSyncService {
         _state.copyWith(isSyncing: false, syncError: 'File import failed: $e'),
       );
       rethrow;
+    }
+  }
+
+  /// Import a `pk;export` file while using a token only to canonicalize
+  /// fronting history against PluralKit API switch IDs.
+  ///
+  /// Members/groups still come from the file import path. Fronting rows are
+  /// written only when the file/API switch matcher says canonicalization is
+  /// safe; otherwise this returns a mismatch summary without persisting any
+  /// fronting rows.
+  Future<PkFileTokenFrontingImportResult> importFromFileWithToken(
+    PkFileExport export, {
+    String? token,
+    void Function(double progress, String status)? onProgress,
+  }) async {
+    void progress(double p, String s) {
+      onProgress?.call(p, s);
+      _emit(_state.copyWith(syncProgress: p, syncStatus: s));
+    }
+
+    if (_state.isSyncing) {
+      return PkFileTokenFrontingImportResult(
+        systemName: export.system.name,
+        membersImported: 0,
+        groupsImported: 0,
+        canonicalizationSafe: false,
+        frontingImported: false,
+        exactImportedCount: 0,
+        staleFileCount: 0,
+        ambiguousCount: 0,
+        ambiguousKeys: const [],
+        fileOnlyCount: export.switches.length,
+        apiOnlyInRangeCount: 0,
+        apiOnlyOutsideRangeCount: 0,
+        apiSwitchesFetched: 0,
+        unmappedMemberReferences: 0,
+        apiSwitchIdsByFileIndex: const {},
+      );
+    }
+
+    _emit(
+      _state.copyWith(
+        isSyncing: true,
+        syncProgress: 0.0,
+        syncStatus: 'Importing from file and PluralKit...',
+        clearError: true,
+      ),
+    );
+
+    final client = await _buildRepairClient(token: token);
+    if (client == null) {
+      _emit(_state.copyWith(isSyncing: false));
+      throw StateError('PluralKit token is required for file + token import');
+    }
+
+    try {
+      progress(0.03, 'Checking PluralKit token...');
+      await client.getSystem();
+
+      progress(0.05, 'Importing ${export.members.length} members...');
+      await _importMembers(null, export.members);
+
+      if (export.groups.isNotEmpty && _groupsImporter != null) {
+        progress(0.25, 'Importing ${export.groups.length} groups...');
+        try {
+          await _groupsImporter.importGroups(
+            export.groups,
+            overwriteMetadata: true,
+          );
+        } catch (e) {
+          debugPrint('[PK_FILE_TOKEN] group import failed (non-fatal): $e');
+        }
+      }
+
+      progress(0.40, 'Fetching PluralKit switches...');
+      final apiSwitches = await _fetchSwitchesForFileRange(
+        client,
+        export.switches,
+      );
+
+      progress(0.55, 'Matching file switches to PluralKit...');
+      final match = const PkFrontingSwitchMatcher().compare(
+        fileSwitches: export.switches,
+        apiSwitches: apiSwitches,
+      );
+
+      var frontingImported = false;
+      var unmappedMemberReferences = 0;
+      if (match.canonicalizationSafe) {
+        final fileSwitchIdsByApiSwitchId = <String, String>{
+          for (final exactMatch in match.exactMatches)
+            exactMatch.apiSwitchId: _pkFileSwitchSourceId(
+              exactMatch.fileSwitch,
+            ),
+        };
+        final pkImportSourcesByApiSwitchId = <String, String>{
+          for (final exactMatch in match.exactMatches)
+            exactMatch.apiSwitchId: pkImportSourceFileApi,
+        };
+
+        progress(0.70, 'Importing canonical fronting history...');
+        final shortIdToUuid = await _buildShortIdToUuidMap();
+        if (shortIdToUuid.isEmpty && apiSwitches.isNotEmpty) {
+          throw StateError(
+            'No PluralKit members resolved to local members. '
+            'Ensure members are imported before importing fronting history.',
+          );
+        }
+
+        unmappedMemberReferences = await _runDiffSweep(
+          switches: apiSwitches,
+          shortIdToUuid: shortIdToUuid,
+          prevActive: {},
+          corrective: true,
+          pkImportSourceByApiSwitchId: pkImportSourcesByApiSwitchId,
+          pkFileSwitchIdsByApiSwitchId: fileSwitchIdsByApiSwitchId,
+        );
+        frontingImported = true;
+      } else {
+        debugPrint(
+          '[PK_FILE_TOKEN] switch canonicalization blocked: '
+          'fileOnly=${match.fileOnlyCount}, '
+          'apiOnlyInRange=${match.apiOnlyInsideFileRangeCount}, '
+          'ambiguous=${match.ambiguousCount}',
+        );
+      }
+
+      _emit(
+        _state.copyWith(
+          isSyncing: false,
+          syncProgress: 1.0,
+          syncStatus: frontingImported
+              ? 'Imported canonical PluralKit fronting history.'
+              : 'Imported file data; fronting history needs review.',
+        ),
+      );
+
+      return PkFileTokenFrontingImportResult(
+        systemName: export.system.name,
+        membersImported: export.members.length,
+        groupsImported: export.groups.length,
+        canonicalizationSafe: match.canonicalizationSafe,
+        frontingImported: frontingImported,
+        exactImportedCount: frontingImported ? match.exactMatchCount : 0,
+        staleFileCount: match.apiOnlyOutsideFileRangeCount,
+        ambiguousCount: match.ambiguousCount,
+        ambiguousKeys: List.unmodifiable(
+          match.ambiguousKeys.map((entry) => entry.key.toString()),
+        ),
+        fileOnlyCount: match.fileOnlyCount,
+        apiOnlyInRangeCount: match.apiOnlyInsideFileRangeCount,
+        apiOnlyOutsideRangeCount: match.apiOnlyOutsideFileRangeCount,
+        apiSwitchesFetched: apiSwitches.length,
+        unmappedMemberReferences: unmappedMemberReferences,
+        apiSwitchIdsByFileIndex: match.apiSwitchIdsByFileIndex,
+      );
+    } catch (e) {
+      _emit(
+        _state.copyWith(
+          isSyncing: false,
+          syncError: 'File + token import failed: $e',
+        ),
+      );
+      rethrow;
+    } finally {
+      client.dispose();
     }
   }
 
@@ -929,10 +1113,13 @@ class PluralKitSyncService {
         );
 
         // Reconstitute prevActive from currently-open PK-linked rows.
-        final currentSessions = await _frontingSessionRepository.getAllSessions();
+        final currentSessions = await _frontingSessionRepository
+            .getAllSessions();
         final prevActive = <String>{
           for (final s in currentSessions)
-            if (s.endTime == null && s.pluralkitUuid != null && !s.isDeleted &&
+            if (s.endTime == null &&
+                isPluralKitSwitchUuid(s.pluralkitUuid) &&
+                !s.isDeleted &&
                 s.memberId != null)
               s.memberId!,
         };
@@ -953,14 +1140,15 @@ class PluralKitSyncService {
           // first call), then work backward. We stop when we've found the
           // cursor boundary.
           final DateTime? fetchBefore = newSwitches.isEmpty
-              ? null  // first page: newest switches
+              ? null // first page: newest switches
               : newSwitches.last.timestamp; // paginate backward
 
-          final page = await client.getSwitches(before: fetchBefore, limit: 100);
-          pageNum++;
-          debugPrint(
-            '[PK_PULL] page=$pageNum fetched=${page.length}',
+          final page = await client.getSwitches(
+            before: fetchBefore,
+            limit: 100,
           );
+          pageNum++;
+          debugPrint('[PK_PULL] page=$pageNum fetched=${page.length}');
           if (page.isEmpty) break;
 
           for (final sw in page) {
@@ -986,9 +1174,7 @@ class PluralKitSyncService {
         // Sort oldest-first for chronological diff sweep.
         newSwitches.sort((a, b) => a.timestamp.compareTo(b.timestamp));
 
-        debugPrint(
-          '[PK_PULL] ${newSwitches.length} new switches to process',
-        );
+        debugPrint('[PK_PULL] ${newSwitches.length} new switches to process');
 
         if (newSwitches.isNotEmpty) {
           // Re-build shortIdToUuid in case member sync updated mappings.
@@ -1004,8 +1190,16 @@ class PluralKitSyncService {
               if (i % 50 == 0) {
                 _emit(
                   _state.copyWith(
-                    syncProgress: 0.5 + 0.4 * (i / newSwitches.length.clamp(1, newSwitches.length)),
-                    syncStatus: 'Processing switch ${i + 1}/${newSwitches.length}...',
+                    syncProgress:
+                        0.5 +
+                        0.4 *
+                            (i /
+                                newSwitches.length.clamp(
+                                  1,
+                                  newSwitches.length,
+                                )),
+                    syncStatus:
+                        'Processing switch ${i + 1}/${newSwitches.length}...',
                   ),
                 );
               }
@@ -1368,6 +1562,56 @@ class PluralKitSyncService {
     return allSwitches;
   }
 
+  /// Fetch enough API switch pages to cover the export's timestamp range,
+  /// plus any newer API switches that indicate the file is stale.
+  Future<List<PKSwitch>> _fetchSwitchesForFileRange(
+    PluralKitClient client,
+    List<PkFileSwitch> fileSwitches,
+  ) async {
+    if (fileSwitches.isEmpty) return const <PKSwitch>[];
+
+    final minFileTimestampMicros = fileSwitches
+        .map((entry) => entry.timestamp.toUtc().microsecondsSinceEpoch)
+        .reduce((left, right) => left < right ? left : right);
+
+    final switches = <PKSwitch>[];
+    DateTime? pageBefore;
+    while (true) {
+      final page = await client.getSwitches(before: pageBefore, limit: 100);
+      if (page.isEmpty) break;
+
+      var pageReachedBeforeFileRange = false;
+      for (final switchEntry in page) {
+        final timestampMicros = switchEntry.timestamp
+            .toUtc()
+            .microsecondsSinceEpoch;
+        if (timestampMicros >= minFileTimestampMicros) {
+          switches.add(switchEntry);
+        } else {
+          pageReachedBeforeFileRange = true;
+        }
+      }
+
+      if (pageReachedBeforeFileRange || page.length < 100) break;
+      pageBefore = page.last.timestamp;
+    }
+
+    switches.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    return switches;
+  }
+
+  String _pkFileSwitchSourceId(PkFileSwitch switchEntry) {
+    final explicitId = switchEntry.id?.trim();
+    if (explicitId != null && explicitId.isNotEmpty) return explicitId;
+
+    final timestamp = DateTime.fromMicrosecondsSinceEpoch(
+      switchEntry.timestamp.toUtc().microsecondsSinceEpoch,
+      isUtc: true,
+    ).toIso8601String();
+    final memberIds = switchEntry.memberIds.toSet().toList()..sort();
+    return 'pkfile:v1:$timestamp|${memberIds.join(',')}';
+  }
+
   /// Core diff-sweep algorithm. Processes [switches] in chronological order,
   /// computing per-member presence intervals from the snapshot stream.
   ///
@@ -1402,6 +1646,9 @@ class PluralKitSyncService {
     required Set<String> prevActive,
     void Function(int index)? onProgress,
     bool corrective = false,
+    String? pkImportSource,
+    Map<String, String> pkImportSourceByApiSwitchId = const <String, String>{},
+    Map<String, String> pkFileSwitchIdsByApiSwitchId = const <String, String>{},
   }) async {
     final uuidToLocalId = await _buildUuidToLocalIdMap();
 
@@ -1415,7 +1662,7 @@ class PluralKitSyncService {
       final currentSessions = await _frontingSessionRepository.getAllSessions();
       for (final s in currentSessions) {
         if (s.endTime == null &&
-            s.pluralkitUuid != null &&
+            isPluralKitSwitchUuid(s.pluralkitUuid) &&
             !s.isDeleted &&
             s.memberId != null) {
           openRowIds[s.memberId!] = s.id;
@@ -1468,8 +1715,12 @@ class PluralKitSyncService {
           // Resolve local ID back to PK UUID for deterministic ID derivation.
           final memberUuid = _localIdToPkUuid(localId, uuidToLocalId);
           final rowId = derivePkSessionId(sw.id, memberUuid);
-          final existing =
-              await _frontingSessionRepository.getSessionById(rowId);
+          final switchImportSource =
+              pkImportSourceByApiSwitchId[sw.id] ?? pkImportSource;
+          final pkFileSwitchId = pkFileSwitchIdsByApiSwitchId[sw.id];
+          final existing = await _frontingSessionRepository.getSessionById(
+            rowId,
+          );
           if (existing == null) {
             await _frontingSessionRepository.createSession(
               domain.FrontingSession(
@@ -1477,6 +1728,8 @@ class PluralKitSyncService {
                 startTime: sw.timestamp,
                 memberId: localId,
                 pluralkitUuid: sw.id,
+                pkImportSource: switchImportSource,
+                pkFileSwitchId: pkFileSwitchId,
               ),
             );
           } else {
@@ -1519,6 +1772,10 @@ class PluralKitSyncService {
                 startTime: sw.timestamp,
                 memberId: localId,
                 pluralkitUuid: sw.id,
+                pkImportSource: switchImportSource ?? existing.pkImportSource,
+                pkFileSwitchId: switchImportSource == null
+                    ? existing.pkFileSwitchId
+                    : pkFileSwitchId,
                 endTime: clearEndTime ? null : existing.endTime,
               ),
             );
@@ -1557,10 +1814,7 @@ class PluralKitSyncService {
 
   /// Reverse lookup: given a local member ID, return the PK UUID.
   /// Builds a reverse map from the uuidToLocalId forward map.
-  String _localIdToPkUuid(
-    String localId,
-    Map<String, String> uuidToLocalId,
-  ) {
+  String _localIdToPkUuid(String localId, Map<String, String> uuidToLocalId) {
     // The uuidToLocalId map has pkUuid → localId. Reverse it for this lookup.
     for (final entry in uuidToLocalId.entries) {
       if (entry.value == localId) return entry.key;
@@ -1615,7 +1869,9 @@ class PluralKitSyncService {
       final currentSessions = await _frontingSessionRepository.getAllSessions();
       final prevActive = <String>{
         for (final s in currentSessions)
-          if (s.endTime == null && s.pluralkitUuid != null && !s.isDeleted &&
+          if (s.endTime == null &&
+              isPluralKitSwitchUuid(s.pluralkitUuid) &&
+              !s.isDeleted &&
               s.memberId != null)
             s.memberId!,
       };
@@ -1740,8 +1996,16 @@ class PluralKitSyncService {
       }
 
       final pkUuid = fresh.pluralkitUuid!;
+      if (!isPluralKitSwitchUuid(pkUuid)) {
+        debugPrint(
+          '[PK] Session ${session.id} has non-API pluralkit_uuid=$pkUuid; '
+          'clearing local link without DELETE.',
+        );
+        await _frontingSessionRepository.clearPluralKitLink(session.id);
+        continue;
+      }
       try {
-        await push.pushSwitchDeletion(session.id, pkUuid, client);
+        await push.pushSwitchDeletion(session.id, pkUuid.trim(), client);
         await _frontingSessionRepository.clearPluralKitLink(session.id);
         deleted++;
       } on PkDeletionForbiddenException catch (e) {
@@ -1775,7 +2039,7 @@ class PluralKitSyncService {
     final membersWithLiveLinkedSessions = <String>{};
     for (final s in liveSessions) {
       if (s.isDeleted) continue;
-      if (s.pluralkitUuid == null) continue;
+      if (!isPluralKitSwitchUuid(s.pluralkitUuid)) continue;
       final mid = s.memberId;
       if (mid != null) membersWithLiveLinkedSessions.add(mid);
     }
@@ -1901,6 +2165,7 @@ class PluralKitSyncService {
       final sessions = await _frontingSessionRepository.getAllSessions();
       int pushed = 0;
       for (final session in sessions) {
+        if (session.pkImportSource == pkImportSourceFile) continue;
         if (session.pluralkitUuid != null) continue;
         if (!session.startTime.isAfter(linkedAt)) continue;
         final memberId = session.memberId;

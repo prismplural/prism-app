@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$FrontingSession {
 
- String get id; DateTime get startTime; DateTime? get endTime; String? get memberId; String? get notes; FrontConfidence? get confidence; String? get pluralkitUuid; SessionType get sessionType; SleepQuality? get quality; bool get isHealthKitImport;// Plan 02 (PK deletion push). See Member for rationale.
+ String get id; DateTime get startTime; DateTime? get endTime; String? get memberId; String? get notes; FrontConfidence? get confidence; String? get pluralkitUuid; String? get pkImportSource; String? get pkFileSwitchId; SessionType get sessionType; SleepQuality? get quality; bool get isHealthKitImport;// Plan 02 (PK deletion push). See Member for rationale.
  bool get isDeleted; int? get deleteIntentEpoch; int? get deletePushStartedAt;
 /// Create a copy of FrontingSession
 /// with the given fields replaced by the non-null parameter values.
@@ -29,16 +29,16 @@ $FrontingSessionCopyWith<FrontingSession> get copyWith => _$FrontingSessionCopyW
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is FrontingSession&&(identical(other.id, id) || other.id == id)&&(identical(other.startTime, startTime) || other.startTime == startTime)&&(identical(other.endTime, endTime) || other.endTime == endTime)&&(identical(other.memberId, memberId) || other.memberId == memberId)&&(identical(other.notes, notes) || other.notes == notes)&&(identical(other.confidence, confidence) || other.confidence == confidence)&&(identical(other.pluralkitUuid, pluralkitUuid) || other.pluralkitUuid == pluralkitUuid)&&(identical(other.sessionType, sessionType) || other.sessionType == sessionType)&&(identical(other.quality, quality) || other.quality == quality)&&(identical(other.isHealthKitImport, isHealthKitImport) || other.isHealthKitImport == isHealthKitImport)&&(identical(other.isDeleted, isDeleted) || other.isDeleted == isDeleted)&&(identical(other.deleteIntentEpoch, deleteIntentEpoch) || other.deleteIntentEpoch == deleteIntentEpoch)&&(identical(other.deletePushStartedAt, deletePushStartedAt) || other.deletePushStartedAt == deletePushStartedAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is FrontingSession&&(identical(other.id, id) || other.id == id)&&(identical(other.startTime, startTime) || other.startTime == startTime)&&(identical(other.endTime, endTime) || other.endTime == endTime)&&(identical(other.memberId, memberId) || other.memberId == memberId)&&(identical(other.notes, notes) || other.notes == notes)&&(identical(other.confidence, confidence) || other.confidence == confidence)&&(identical(other.pluralkitUuid, pluralkitUuid) || other.pluralkitUuid == pluralkitUuid)&&(identical(other.pkImportSource, pkImportSource) || other.pkImportSource == pkImportSource)&&(identical(other.pkFileSwitchId, pkFileSwitchId) || other.pkFileSwitchId == pkFileSwitchId)&&(identical(other.sessionType, sessionType) || other.sessionType == sessionType)&&(identical(other.quality, quality) || other.quality == quality)&&(identical(other.isHealthKitImport, isHealthKitImport) || other.isHealthKitImport == isHealthKitImport)&&(identical(other.isDeleted, isDeleted) || other.isDeleted == isDeleted)&&(identical(other.deleteIntentEpoch, deleteIntentEpoch) || other.deleteIntentEpoch == deleteIntentEpoch)&&(identical(other.deletePushStartedAt, deletePushStartedAt) || other.deletePushStartedAt == deletePushStartedAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,startTime,endTime,memberId,notes,confidence,pluralkitUuid,sessionType,quality,isHealthKitImport,isDeleted,deleteIntentEpoch,deletePushStartedAt);
+int get hashCode => Object.hash(runtimeType,id,startTime,endTime,memberId,notes,confidence,pluralkitUuid,pkImportSource,pkFileSwitchId,sessionType,quality,isHealthKitImport,isDeleted,deleteIntentEpoch,deletePushStartedAt);
 
 @override
 String toString() {
-  return 'FrontingSession(id: $id, startTime: $startTime, endTime: $endTime, memberId: $memberId, notes: $notes, confidence: $confidence, pluralkitUuid: $pluralkitUuid, sessionType: $sessionType, quality: $quality, isHealthKitImport: $isHealthKitImport, isDeleted: $isDeleted, deleteIntentEpoch: $deleteIntentEpoch, deletePushStartedAt: $deletePushStartedAt)';
+  return 'FrontingSession(id: $id, startTime: $startTime, endTime: $endTime, memberId: $memberId, notes: $notes, confidence: $confidence, pluralkitUuid: $pluralkitUuid, pkImportSource: $pkImportSource, pkFileSwitchId: $pkFileSwitchId, sessionType: $sessionType, quality: $quality, isHealthKitImport: $isHealthKitImport, isDeleted: $isDeleted, deleteIntentEpoch: $deleteIntentEpoch, deletePushStartedAt: $deletePushStartedAt)';
 }
 
 
@@ -49,7 +49,7 @@ abstract mixin class $FrontingSessionCopyWith<$Res>  {
   factory $FrontingSessionCopyWith(FrontingSession value, $Res Function(FrontingSession) _then) = _$FrontingSessionCopyWithImpl;
 @useResult
 $Res call({
- String id, DateTime startTime, DateTime? endTime, String? memberId, String? notes, FrontConfidence? confidence, String? pluralkitUuid, SessionType sessionType, SleepQuality? quality, bool isHealthKitImport, bool isDeleted, int? deleteIntentEpoch, int? deletePushStartedAt
+ String id, DateTime startTime, DateTime? endTime, String? memberId, String? notes, FrontConfidence? confidence, String? pluralkitUuid, String? pkImportSource, String? pkFileSwitchId, SessionType sessionType, SleepQuality? quality, bool isHealthKitImport, bool isDeleted, int? deleteIntentEpoch, int? deletePushStartedAt
 });
 
 
@@ -66,7 +66,7 @@ class _$FrontingSessionCopyWithImpl<$Res>
 
 /// Create a copy of FrontingSession
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? startTime = null,Object? endTime = freezed,Object? memberId = freezed,Object? notes = freezed,Object? confidence = freezed,Object? pluralkitUuid = freezed,Object? sessionType = null,Object? quality = freezed,Object? isHealthKitImport = null,Object? isDeleted = null,Object? deleteIntentEpoch = freezed,Object? deletePushStartedAt = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? startTime = null,Object? endTime = freezed,Object? memberId = freezed,Object? notes = freezed,Object? confidence = freezed,Object? pluralkitUuid = freezed,Object? pkImportSource = freezed,Object? pkFileSwitchId = freezed,Object? sessionType = null,Object? quality = freezed,Object? isHealthKitImport = null,Object? isDeleted = null,Object? deleteIntentEpoch = freezed,Object? deletePushStartedAt = freezed,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,startTime: null == startTime ? _self.startTime : startTime // ignore: cast_nullable_to_non_nullable
@@ -75,6 +75,8 @@ as DateTime?,memberId: freezed == memberId ? _self.memberId : memberId // ignore
 as String?,notes: freezed == notes ? _self.notes : notes // ignore: cast_nullable_to_non_nullable
 as String?,confidence: freezed == confidence ? _self.confidence : confidence // ignore: cast_nullable_to_non_nullable
 as FrontConfidence?,pluralkitUuid: freezed == pluralkitUuid ? _self.pluralkitUuid : pluralkitUuid // ignore: cast_nullable_to_non_nullable
+as String?,pkImportSource: freezed == pkImportSource ? _self.pkImportSource : pkImportSource // ignore: cast_nullable_to_non_nullable
+as String?,pkFileSwitchId: freezed == pkFileSwitchId ? _self.pkFileSwitchId : pkFileSwitchId // ignore: cast_nullable_to_non_nullable
 as String?,sessionType: null == sessionType ? _self.sessionType : sessionType // ignore: cast_nullable_to_non_nullable
 as SessionType,quality: freezed == quality ? _self.quality : quality // ignore: cast_nullable_to_non_nullable
 as SleepQuality?,isHealthKitImport: null == isHealthKitImport ? _self.isHealthKitImport : isHealthKitImport // ignore: cast_nullable_to_non_nullable
@@ -166,10 +168,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  DateTime startTime,  DateTime? endTime,  String? memberId,  String? notes,  FrontConfidence? confidence,  String? pluralkitUuid,  SessionType sessionType,  SleepQuality? quality,  bool isHealthKitImport,  bool isDeleted,  int? deleteIntentEpoch,  int? deletePushStartedAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  DateTime startTime,  DateTime? endTime,  String? memberId,  String? notes,  FrontConfidence? confidence,  String? pluralkitUuid,  String? pkImportSource,  String? pkFileSwitchId,  SessionType sessionType,  SleepQuality? quality,  bool isHealthKitImport,  bool isDeleted,  int? deleteIntentEpoch,  int? deletePushStartedAt)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _FrontingSession() when $default != null:
-return $default(_that.id,_that.startTime,_that.endTime,_that.memberId,_that.notes,_that.confidence,_that.pluralkitUuid,_that.sessionType,_that.quality,_that.isHealthKitImport,_that.isDeleted,_that.deleteIntentEpoch,_that.deletePushStartedAt);case _:
+return $default(_that.id,_that.startTime,_that.endTime,_that.memberId,_that.notes,_that.confidence,_that.pluralkitUuid,_that.pkImportSource,_that.pkFileSwitchId,_that.sessionType,_that.quality,_that.isHealthKitImport,_that.isDeleted,_that.deleteIntentEpoch,_that.deletePushStartedAt);case _:
   return orElse();
 
 }
@@ -187,10 +189,10 @@ return $default(_that.id,_that.startTime,_that.endTime,_that.memberId,_that.note
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  DateTime startTime,  DateTime? endTime,  String? memberId,  String? notes,  FrontConfidence? confidence,  String? pluralkitUuid,  SessionType sessionType,  SleepQuality? quality,  bool isHealthKitImport,  bool isDeleted,  int? deleteIntentEpoch,  int? deletePushStartedAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  DateTime startTime,  DateTime? endTime,  String? memberId,  String? notes,  FrontConfidence? confidence,  String? pluralkitUuid,  String? pkImportSource,  String? pkFileSwitchId,  SessionType sessionType,  SleepQuality? quality,  bool isHealthKitImport,  bool isDeleted,  int? deleteIntentEpoch,  int? deletePushStartedAt)  $default,) {final _that = this;
 switch (_that) {
 case _FrontingSession():
-return $default(_that.id,_that.startTime,_that.endTime,_that.memberId,_that.notes,_that.confidence,_that.pluralkitUuid,_that.sessionType,_that.quality,_that.isHealthKitImport,_that.isDeleted,_that.deleteIntentEpoch,_that.deletePushStartedAt);case _:
+return $default(_that.id,_that.startTime,_that.endTime,_that.memberId,_that.notes,_that.confidence,_that.pluralkitUuid,_that.pkImportSource,_that.pkFileSwitchId,_that.sessionType,_that.quality,_that.isHealthKitImport,_that.isDeleted,_that.deleteIntentEpoch,_that.deletePushStartedAt);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -207,10 +209,10 @@ return $default(_that.id,_that.startTime,_that.endTime,_that.memberId,_that.note
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  DateTime startTime,  DateTime? endTime,  String? memberId,  String? notes,  FrontConfidence? confidence,  String? pluralkitUuid,  SessionType sessionType,  SleepQuality? quality,  bool isHealthKitImport,  bool isDeleted,  int? deleteIntentEpoch,  int? deletePushStartedAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  DateTime startTime,  DateTime? endTime,  String? memberId,  String? notes,  FrontConfidence? confidence,  String? pluralkitUuid,  String? pkImportSource,  String? pkFileSwitchId,  SessionType sessionType,  SleepQuality? quality,  bool isHealthKitImport,  bool isDeleted,  int? deleteIntentEpoch,  int? deletePushStartedAt)?  $default,) {final _that = this;
 switch (_that) {
 case _FrontingSession() when $default != null:
-return $default(_that.id,_that.startTime,_that.endTime,_that.memberId,_that.notes,_that.confidence,_that.pluralkitUuid,_that.sessionType,_that.quality,_that.isHealthKitImport,_that.isDeleted,_that.deleteIntentEpoch,_that.deletePushStartedAt);case _:
+return $default(_that.id,_that.startTime,_that.endTime,_that.memberId,_that.notes,_that.confidence,_that.pluralkitUuid,_that.pkImportSource,_that.pkFileSwitchId,_that.sessionType,_that.quality,_that.isHealthKitImport,_that.isDeleted,_that.deleteIntentEpoch,_that.deletePushStartedAt);case _:
   return null;
 
 }
@@ -222,7 +224,7 @@ return $default(_that.id,_that.startTime,_that.endTime,_that.memberId,_that.note
 @JsonSerializable()
 
 class _FrontingSession extends FrontingSession {
-  const _FrontingSession({required this.id, required this.startTime, this.endTime, this.memberId, this.notes, this.confidence, this.pluralkitUuid, this.sessionType = SessionType.normal, this.quality, this.isHealthKitImport = false, this.isDeleted = false, this.deleteIntentEpoch, this.deletePushStartedAt}): super._();
+  const _FrontingSession({required this.id, required this.startTime, this.endTime, this.memberId, this.notes, this.confidence, this.pluralkitUuid, this.pkImportSource, this.pkFileSwitchId, this.sessionType = SessionType.normal, this.quality, this.isHealthKitImport = false, this.isDeleted = false, this.deleteIntentEpoch, this.deletePushStartedAt}): super._();
   factory _FrontingSession.fromJson(Map<String, dynamic> json) => _$FrontingSessionFromJson(json);
 
 @override final  String id;
@@ -232,6 +234,8 @@ class _FrontingSession extends FrontingSession {
 @override final  String? notes;
 @override final  FrontConfidence? confidence;
 @override final  String? pluralkitUuid;
+@override final  String? pkImportSource;
+@override final  String? pkFileSwitchId;
 @override@JsonKey() final  SessionType sessionType;
 @override final  SleepQuality? quality;
 @override@JsonKey() final  bool isHealthKitImport;
@@ -253,16 +257,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _FrontingSession&&(identical(other.id, id) || other.id == id)&&(identical(other.startTime, startTime) || other.startTime == startTime)&&(identical(other.endTime, endTime) || other.endTime == endTime)&&(identical(other.memberId, memberId) || other.memberId == memberId)&&(identical(other.notes, notes) || other.notes == notes)&&(identical(other.confidence, confidence) || other.confidence == confidence)&&(identical(other.pluralkitUuid, pluralkitUuid) || other.pluralkitUuid == pluralkitUuid)&&(identical(other.sessionType, sessionType) || other.sessionType == sessionType)&&(identical(other.quality, quality) || other.quality == quality)&&(identical(other.isHealthKitImport, isHealthKitImport) || other.isHealthKitImport == isHealthKitImport)&&(identical(other.isDeleted, isDeleted) || other.isDeleted == isDeleted)&&(identical(other.deleteIntentEpoch, deleteIntentEpoch) || other.deleteIntentEpoch == deleteIntentEpoch)&&(identical(other.deletePushStartedAt, deletePushStartedAt) || other.deletePushStartedAt == deletePushStartedAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _FrontingSession&&(identical(other.id, id) || other.id == id)&&(identical(other.startTime, startTime) || other.startTime == startTime)&&(identical(other.endTime, endTime) || other.endTime == endTime)&&(identical(other.memberId, memberId) || other.memberId == memberId)&&(identical(other.notes, notes) || other.notes == notes)&&(identical(other.confidence, confidence) || other.confidence == confidence)&&(identical(other.pluralkitUuid, pluralkitUuid) || other.pluralkitUuid == pluralkitUuid)&&(identical(other.pkImportSource, pkImportSource) || other.pkImportSource == pkImportSource)&&(identical(other.pkFileSwitchId, pkFileSwitchId) || other.pkFileSwitchId == pkFileSwitchId)&&(identical(other.sessionType, sessionType) || other.sessionType == sessionType)&&(identical(other.quality, quality) || other.quality == quality)&&(identical(other.isHealthKitImport, isHealthKitImport) || other.isHealthKitImport == isHealthKitImport)&&(identical(other.isDeleted, isDeleted) || other.isDeleted == isDeleted)&&(identical(other.deleteIntentEpoch, deleteIntentEpoch) || other.deleteIntentEpoch == deleteIntentEpoch)&&(identical(other.deletePushStartedAt, deletePushStartedAt) || other.deletePushStartedAt == deletePushStartedAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,startTime,endTime,memberId,notes,confidence,pluralkitUuid,sessionType,quality,isHealthKitImport,isDeleted,deleteIntentEpoch,deletePushStartedAt);
+int get hashCode => Object.hash(runtimeType,id,startTime,endTime,memberId,notes,confidence,pluralkitUuid,pkImportSource,pkFileSwitchId,sessionType,quality,isHealthKitImport,isDeleted,deleteIntentEpoch,deletePushStartedAt);
 
 @override
 String toString() {
-  return 'FrontingSession(id: $id, startTime: $startTime, endTime: $endTime, memberId: $memberId, notes: $notes, confidence: $confidence, pluralkitUuid: $pluralkitUuid, sessionType: $sessionType, quality: $quality, isHealthKitImport: $isHealthKitImport, isDeleted: $isDeleted, deleteIntentEpoch: $deleteIntentEpoch, deletePushStartedAt: $deletePushStartedAt)';
+  return 'FrontingSession(id: $id, startTime: $startTime, endTime: $endTime, memberId: $memberId, notes: $notes, confidence: $confidence, pluralkitUuid: $pluralkitUuid, pkImportSource: $pkImportSource, pkFileSwitchId: $pkFileSwitchId, sessionType: $sessionType, quality: $quality, isHealthKitImport: $isHealthKitImport, isDeleted: $isDeleted, deleteIntentEpoch: $deleteIntentEpoch, deletePushStartedAt: $deletePushStartedAt)';
 }
 
 
@@ -273,7 +277,7 @@ abstract mixin class _$FrontingSessionCopyWith<$Res> implements $FrontingSession
   factory _$FrontingSessionCopyWith(_FrontingSession value, $Res Function(_FrontingSession) _then) = __$FrontingSessionCopyWithImpl;
 @override @useResult
 $Res call({
- String id, DateTime startTime, DateTime? endTime, String? memberId, String? notes, FrontConfidence? confidence, String? pluralkitUuid, SessionType sessionType, SleepQuality? quality, bool isHealthKitImport, bool isDeleted, int? deleteIntentEpoch, int? deletePushStartedAt
+ String id, DateTime startTime, DateTime? endTime, String? memberId, String? notes, FrontConfidence? confidence, String? pluralkitUuid, String? pkImportSource, String? pkFileSwitchId, SessionType sessionType, SleepQuality? quality, bool isHealthKitImport, bool isDeleted, int? deleteIntentEpoch, int? deletePushStartedAt
 });
 
 
@@ -290,7 +294,7 @@ class __$FrontingSessionCopyWithImpl<$Res>
 
 /// Create a copy of FrontingSession
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? startTime = null,Object? endTime = freezed,Object? memberId = freezed,Object? notes = freezed,Object? confidence = freezed,Object? pluralkitUuid = freezed,Object? sessionType = null,Object? quality = freezed,Object? isHealthKitImport = null,Object? isDeleted = null,Object? deleteIntentEpoch = freezed,Object? deletePushStartedAt = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? startTime = null,Object? endTime = freezed,Object? memberId = freezed,Object? notes = freezed,Object? confidence = freezed,Object? pluralkitUuid = freezed,Object? pkImportSource = freezed,Object? pkFileSwitchId = freezed,Object? sessionType = null,Object? quality = freezed,Object? isHealthKitImport = null,Object? isDeleted = null,Object? deleteIntentEpoch = freezed,Object? deletePushStartedAt = freezed,}) {
   return _then(_FrontingSession(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,startTime: null == startTime ? _self.startTime : startTime // ignore: cast_nullable_to_non_nullable
@@ -299,6 +303,8 @@ as DateTime?,memberId: freezed == memberId ? _self.memberId : memberId // ignore
 as String?,notes: freezed == notes ? _self.notes : notes // ignore: cast_nullable_to_non_nullable
 as String?,confidence: freezed == confidence ? _self.confidence : confidence // ignore: cast_nullable_to_non_nullable
 as FrontConfidence?,pluralkitUuid: freezed == pluralkitUuid ? _self.pluralkitUuid : pluralkitUuid // ignore: cast_nullable_to_non_nullable
+as String?,pkImportSource: freezed == pkImportSource ? _self.pkImportSource : pkImportSource // ignore: cast_nullable_to_non_nullable
+as String?,pkFileSwitchId: freezed == pkFileSwitchId ? _self.pkFileSwitchId : pkFileSwitchId // ignore: cast_nullable_to_non_nullable
 as String?,sessionType: null == sessionType ? _self.sessionType : sessionType // ignore: cast_nullable_to_non_nullable
 as SessionType,quality: freezed == quality ? _self.quality : quality // ignore: cast_nullable_to_non_nullable
 as SleepQuality?,isHealthKitImport: null == isHealthKitImport ? _self.isHealthKitImport : isHealthKitImport // ignore: cast_nullable_to_non_nullable

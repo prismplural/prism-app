@@ -5,14 +5,7 @@ part 'fronting_session.g.dart';
 
 enum FrontConfidence { unsure, strong, certain }
 
-enum SleepQuality {
-  unknown,
-  veryPoor,
-  poor,
-  fair,
-  good,
-  excellent;
-}
+enum SleepQuality { unknown, veryPoor, poor, fair, good, excellent }
 
 enum SessionType { normal, sleep }
 
@@ -28,6 +21,8 @@ abstract class FrontingSession with _$FrontingSession {
     String? notes,
     FrontConfidence? confidence,
     String? pluralkitUuid,
+    String? pkImportSource,
+    String? pkFileSwitchId,
     @Default(SessionType.normal) SessionType sessionType,
     SleepQuality? quality,
     @Default(false) bool isHealthKitImport,

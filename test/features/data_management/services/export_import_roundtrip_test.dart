@@ -578,11 +578,7 @@ void main() {
           null,
         );
         await sourceGroupsRepo.createGroup(
-          MemberGroup(
-            id: 'group-idem',
-            name: 'Idem Group',
-            createdAt: now,
-          ),
+          MemberGroup(id: 'group-idem', name: 'Idem Group', createdAt: now),
         );
         await sourceGroupsRepo.addMemberToGroup(
           'group-idem',
@@ -657,48 +653,42 @@ void main() {
       },
     );
 
-    test(
-      'PluralKit Phase 2 member fields survive export → import',
-      () async {
-        // Arrange: create a member with all PK Phase 2 fields populated
-        final now = DateTime(2026, 4, 17, 12, 0, 0).toUtc();
-        await DriftMemberRepository(sourceDb.membersDao, null).createMember(
-          Member(
-            id: 'pk-member-1',
-            name: 'Alex',
-            pronouns: 'they/them',
-            emoji: '\u2728',
-            createdAt: now,
-            pluralkitUuid: '11111111-1111-1111-1111-111111111111',
-            pluralkitId: 'abcde',
-            displayName: 'Alex (fronting)',
-            birthday: '1995-06-15',
-            proxyTagsJson: '[{"prefix":"A:","suffix":null}]',
-            pluralkitSyncIgnored: true,
-          ),
-        );
+    test('PluralKit Phase 2 member fields survive export → import', () async {
+      // Arrange: create a member with all PK Phase 2 fields populated
+      final now = DateTime(2026, 4, 17, 12, 0, 0).toUtc();
+      await DriftMemberRepository(sourceDb.membersDao, null).createMember(
+        Member(
+          id: 'pk-member-1',
+          name: 'Alex',
+          pronouns: 'they/them',
+          emoji: '\u2728',
+          createdAt: now,
+          pluralkitUuid: '11111111-1111-1111-1111-111111111111',
+          pluralkitId: 'abcde',
+          displayName: 'Alex (fronting)',
+          birthday: '1995-06-15',
+          proxyTagsJson: '[{"prefix":"A:","suffix":null}]',
+          pluralkitSyncIgnored: true,
+        ),
+      );
 
-        // Act
-        final result = await _roundtrip(exportService, importService);
-        expect(result.membersCreated, 1);
+      // Act
+      final result = await _roundtrip(exportService, importService);
+      expect(result.membersCreated, 1);
 
-        // Assert: all PK fields round-tripped
-        final targetMemberRepo = DriftMemberRepository(
-          targetDb.membersDao,
-          null,
-        );
-        final imported = await targetMemberRepo.getAllMembers();
-        expect(imported, hasLength(1));
-        final m = imported.single;
-        expect(m.id, 'pk-member-1');
-        expect(m.pluralkitUuid, '11111111-1111-1111-1111-111111111111');
-        expect(m.pluralkitId, 'abcde');
-        expect(m.displayName, 'Alex (fronting)');
-        expect(m.birthday, '1995-06-15');
-        expect(m.proxyTagsJson, '[{"prefix":"A:","suffix":null}]');
-        expect(m.pluralkitSyncIgnored, true);
-      },
-    );
+      // Assert: all PK fields round-tripped
+      final targetMemberRepo = DriftMemberRepository(targetDb.membersDao, null);
+      final imported = await targetMemberRepo.getAllMembers();
+      expect(imported, hasLength(1));
+      final m = imported.single;
+      expect(m.id, 'pk-member-1');
+      expect(m.pluralkitUuid, '11111111-1111-1111-1111-111111111111');
+      expect(m.pluralkitId, 'abcde');
+      expect(m.displayName, 'Alex (fronting)');
+      expect(m.birthday, '1995-06-15');
+      expect(m.proxyTagsJson, '[{"prefix":"A:","suffix":null}]');
+      expect(m.pluralkitSyncIgnored, true);
+    });
 
     test(
       'PluralKit fronting session pluralkitUuid survives new-shape roundtrip',
@@ -724,6 +714,8 @@ void main() {
             endTime: now,
             memberId: 'pk-session-member',
             pluralkitUuid: '22222222-2222-2222-2222-222222222222',
+            pkImportSource: 'file',
+            pkFileSwitchId: 'switch-file-2222',
           ),
         );
 
@@ -739,6 +731,8 @@ void main() {
         final s = imported.single;
         expect(s.id, 'pk-session-1');
         expect(s.pluralkitUuid, '22222222-2222-2222-2222-222222222222');
+        expect(s.pkImportSource, 'file');
+        expect(s.pkFileSwitchId, 'switch-file-2222');
         // Post-Phase-5 the FrontingSession model no longer carries
         // `pkMemberIdsJson` — the field is read off the v7 Drift column
         // only when the legacy-fields export branch runs (migration-time).
