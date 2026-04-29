@@ -55,6 +55,14 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
   bool _graceElapsed = false;
   Timer? _graceTimer;
   bool _markedMembersFirstEmit = false;
+  // 1B: latches when we've seeded `timelineViewActiveProvider` from
+  // the user's `fronting_list_view_mode` preference for this screen
+  // instance. The home tab is in an `IndexedStack` keep-alive, so
+  // "first build" effectively means "first visit per app session."
+  // After the seed, the user's toggle wins until the next mount — a
+  // setting change via sync from another device while the user is
+  // mid-screen does NOT override their current toggle position.
+  bool _toggleInitialized = false;
 
   @override
   void initState() {
@@ -62,6 +70,30 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
     _scrollController.addListener(_onScroll);
     _graceTimer = Timer(const Duration(milliseconds: 400), () {
       if (mounted) setState(() => _graceElapsed = true);
+    });
+  }
+
+  /// Seeds `timelineViewActiveProvider` from the user's
+  /// `fronting_list_view_mode` preference. Idempotent within a single
+  /// `FrontingScreen` instance. Called from `build` because the
+  /// preference is a `StreamProvider<SystemSettings>` whose first emit
+  /// can land after `initState` runs.
+  void _maybeInitializeToggleFromPref() {
+    if (_toggleInitialized) return;
+    final mode = ref.read(systemSettingsProvider).whenOrNull(
+          data: (s) => s.frontingListViewMode,
+        );
+    if (mode == null) return;
+    _toggleInitialized = true;
+    final shouldShowTimeline = mode == FrontingListViewMode.timeline;
+    if (ref.read(timelineViewActiveProvider) == shouldShowTimeline) return;
+    // Setting notifier state synchronously inside build is illegal —
+    // defer to the next frame.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref
+          .read(timelineViewActiveProvider.notifier)
+          .setActive(shouldShowTimeline);
     });
   }
 
@@ -98,6 +130,15 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
       _markedMembersFirstEmit = true;
       BootTimings.mark('members first emit');
     }
+
+    // 1B: seed the list↔timeline toggle from the
+    // `fronting_list_view_mode` preference on first emit. Watching the
+    // provider here ensures the seed runs once the StreamProvider has
+    // data — typically the first or second build. Subsequent emits
+    // (e.g., a sync push from another device) won't re-seed because
+    // `_toggleInitialized` latches.
+    ref.watch(systemSettingsProvider);
+    _maybeInitializeToggleFromPref();
     // Scroll to top when the home tab is re-tapped.
     ref.listen(tabRetapProvider, (_, _) {
       if (_scrollController.hasClients) {

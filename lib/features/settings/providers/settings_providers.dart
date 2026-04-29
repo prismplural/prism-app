@@ -191,6 +191,27 @@ class SettingsNotifier extends AsyncNotifier<void> {
     });
   }
 
+  Future<void> updateFrontingListViewMode(FrontingListViewMode mode) async {
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateFrontingListViewMode(mode);
+    });
+  }
+
+  Future<void> updateAddFrontDefaultBehavior(FrontStartBehavior mode) async {
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateAddFrontDefaultBehavior(mode);
+    });
+  }
+
+  Future<void> updateQuickFrontDefaultBehavior(FrontStartBehavior mode) async {
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateQuickFrontDefaultBehavior(mode);
+    });
+  }
+
   Future<void> updateHabitsBadgeEnabled(bool value) async {
     state = await AsyncValue.guard(() async {
       final repo = ref.read(systemSettingsRepositoryProvider);
@@ -637,6 +658,32 @@ final timingModeProvider = Provider<FrontingTimingMode>((ref) {
           .watch(systemSettingsProvider)
           .whenOrNull(data: (s) => s.timingMode) ??
       FrontingTimingMode.flexible;
+});
+
+/// Current fronting list view-mode preference (synced).
+/// Default state of the home-screen session list — combined periods,
+/// per-member rows, or timeline.
+final frontingListViewModeProvider = Provider<FrontingListViewMode>((ref) {
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.frontingListViewMode) ??
+      FrontingListViewMode.combinedPeriods;
+});
+
+/// Default behavior when adding a new front via the add-front sheet (synced).
+final addFrontDefaultBehaviorProvider = Provider<FrontStartBehavior>((ref) {
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.addFrontDefaultBehavior) ??
+      FrontStartBehavior.additive;
+});
+
+/// Default behavior when using quick front (synced).
+final quickFrontDefaultBehaviorProvider = Provider<FrontStartBehavior>((ref) {
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.quickFrontDefaultBehavior) ??
+      FrontStartBehavior.additive;
 });
 
 /// Narrow provider for `hasCompletedOnboarding` flag.

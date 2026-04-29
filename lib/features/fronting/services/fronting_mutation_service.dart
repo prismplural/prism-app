@@ -126,6 +126,79 @@ class FrontingMutationService {
     );
   }
 
+  /// Atomically ends all currently-active normal (non-sleep) fronting
+  /// sessions AND starts a session for each member in [memberIds],
+  /// inside a single MutationRunner transaction with one captured `now`.
+  ///
+  /// Used by the add-front sheet's "replace" mode and quick-front's replace
+  /// mode. A crash mid-block leaves the user with the prior state intact
+  /// (atomicity), not "no fronts at all," which is the failure mode of
+  /// looping `endFronting` then `startFronting` from the call site.
+  ///
+  /// The captured `now` is shared across the end-time of every prior session
+  /// and the start-time of every new session, so the new period begins at
+  /// exactly the same instant the old ones ended (no off-by-microseconds
+  /// gap, no overlap).
+  ///
+  /// If any [memberIds] entry is the Unknown sentinel id, the sentinel
+  /// member is auto-created via [_ensureSentinelIfNeeded] inside the same
+  /// transaction (matching [startFronting]'s contract).
+  ///
+  /// Returns the newly created sessions plus the previous member ids whose
+  /// sessions were ended (for invalidation hooks).
+  Future<MutationResult<FrontingMutationResult>> replaceFronting(
+    List<String> memberIds, {
+    DateTime? now,
+    FrontConfidence? confidence,
+    String? notes,
+  }) {
+    return _mutationRunner.run<FrontingMutationResult>(
+      actionLabel: 'Replace fronting session',
+      action: () async {
+        // Sentinel auto-create runs inside the same transaction so the
+        // member + session writes are atomic together — same contract as
+        // [startFronting].
+        await _ensureSentinelIfNeeded(memberIds);
+
+        final at = now ?? DateTime.now();
+
+        // 1. End every currently-active *normal* (non-sleep) session.
+        //    Sleep sessions are deliberately untouched: replacing fronts
+        //    while sleeping isn't a meaningful UX, and the per-member
+        //    model treats sleep as orthogonal to member fronting.
+        final actives = await _repository.getAllActiveSessionsUnfiltered();
+        final previousMemberIds = <String?>[];
+        for (final s in actives) {
+          if (!s.isSleep) {
+            await _repository.endSession(s.id, at);
+            previousMemberIds.add(s.memberId);
+          }
+        }
+
+        // 2. Start a fresh session for each requested member, all sharing
+        //    the same `at` so end_time of the previous == start_time of
+        //    the new.
+        final created = <FrontingSession>[];
+        for (final memberId in memberIds) {
+          final session = FrontingSession(
+            id: _uuid.v4(),
+            startTime: at,
+            memberId: memberId,
+            confidence: confidence,
+            notes: notes,
+          );
+          await _repository.createSession(session);
+          created.add(session);
+        }
+
+        return FrontingMutationResult(
+          sessions: created,
+          previousMemberIds: previousMemberIds,
+        );
+      },
+    );
+  }
+
   /// Ends active fronting sessions for each member in [memberIds].
   ///
   /// No-op for members that don't have an active (non-sleep) session.

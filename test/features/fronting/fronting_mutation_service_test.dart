@@ -328,6 +328,201 @@ void main() {
     });
 
     // -------------------------------------------------------------------------
+    // replaceFronting — atomic end-actives + start-new in one transaction
+    // -------------------------------------------------------------------------
+
+    group('replaceFronting', () {
+      test(
+        'ends all active normal fronts AND starts the new session in one '
+        'transaction with a single captured now',
+        () async {
+          final repo = FakeFrontingSessionRepository();
+          // Two prior actives (alice, bob) — replaceFronting should end both.
+          await repo.createSession(FrontingSession(
+            id: 'alice-old',
+            startTime: DateTime(2026, 4, 25, 8),
+            memberId: 'alice',
+          ));
+          await repo.createSession(FrontingSession(
+            id: 'bob-old',
+            startTime: DateTime(2026, 4, 25, 9),
+            memberId: 'bob',
+          ));
+
+          final svc = FrontingMutationService(
+            repository: repo,
+            mutationRunner: MutationRunner(
+              transactionRunner: _passthroughTransactionRunner,
+            ),
+          );
+
+          final result = await svc.replaceFronting(['carol']);
+          expect(result.isSuccess, isTrue);
+
+          // alice and bob were ended.
+          final alice = repo.sessions.firstWhere((s) => s.id == 'alice-old');
+          final bob = repo.sessions.firstWhere((s) => s.id == 'bob-old');
+          expect(alice.isActive, isFalse);
+          expect(bob.isActive, isFalse);
+
+          // A new active session for carol was created.
+          final carol = repo.sessions
+              .firstWhere((s) => s.id != 'alice-old' && s.id != 'bob-old');
+          expect(carol.memberId, 'carol');
+          expect(carol.isActive, isTrue);
+
+          // Single captured `now`: end_time of the prior sessions equals
+          // start_time of the new session, exactly. No off-by-microseconds
+          // gap or overlap is acceptable — the contract is "one captured now."
+          expect(alice.endTime, equals(carol.startTime));
+          expect(bob.endTime, equals(carol.startTime));
+        },
+      );
+
+      test(
+        'starting multiple replacement members shares one captured now',
+        () async {
+          final repo = FakeFrontingSessionRepository();
+          await repo.createSession(FrontingSession(
+            id: 'old-1',
+            startTime: DateTime(2026, 4, 25, 8),
+            memberId: 'alice',
+          ));
+
+          final svc = FrontingMutationService(
+            repository: repo,
+            mutationRunner: MutationRunner(
+              transactionRunner: _passthroughTransactionRunner,
+            ),
+          );
+
+          final result = await svc.replaceFronting(['bob', 'carol']);
+          expect(result.isSuccess, isTrue);
+
+          final newSessions = repo.sessions
+              .where((s) => s.id != 'old-1')
+              .toList();
+          expect(newSessions, hasLength(2));
+          // Both new sessions share the same start_time as the captured now.
+          expect(newSessions[0].startTime, equals(newSessions[1].startTime));
+
+          // And that shared start_time equals the prior session's end_time.
+          final alice = repo.sessions.firstWhere((s) => s.id == 'old-1');
+          expect(alice.endTime, equals(newSessions.first.startTime));
+        },
+      );
+
+      test(
+        'leaves sleep sessions untouched (only ends normal fronts)',
+        () async {
+          final repo = FakeFrontingSessionRepository();
+          await repo.createSession(FrontingSession(
+            id: 'sleep-1',
+            startTime: DateTime(2026, 4, 25, 8),
+            memberId: null,
+            sessionType: SessionType.sleep,
+          ));
+
+          final svc = FrontingMutationService(
+            repository: repo,
+            mutationRunner: MutationRunner(
+              transactionRunner: _passthroughTransactionRunner,
+            ),
+          );
+
+          final result = await svc.replaceFronting(['alice']);
+          expect(result.isSuccess, isTrue);
+
+          // Sleep session is still active — replaceFronting does not touch
+          // sleep, only normal fronts.
+          final sleep = repo.sessions.firstWhere((s) => s.id == 'sleep-1');
+          expect(sleep.isActive, isTrue);
+
+          // The new alice session was created.
+          final alice = repo.sessions.firstWhere((s) => s.memberId == 'alice');
+          expect(alice.isActive, isTrue);
+        },
+      );
+
+      test(
+        'atomicity: a failure during start rolls back the end-actives writes',
+        () async {
+          // Use the real DB so the transaction's rollback semantics are in
+          // play — the FakeFrontingSessionRepository has no transaction
+          // boundary so rollbacks are not observable through it.
+          final aliceOld = FrontingSession(
+            id: 'alice-old',
+            startTime: DateTime(2026, 4, 25, 8),
+            memberId: 'alice',
+          );
+          await repository.createSession(aliceOld);
+
+          final failingService = FrontingMutationService(
+            repository: _ThrowOnCreateRepository(
+              db.frontingSessionsDao,
+              null,
+              throwOnMemberId: 'bob',
+            ),
+            mutationRunner: MutationRunner(transactionRunner: db.transaction),
+          );
+
+          final result = await failingService.replaceFronting(['bob']);
+          expect(result.isFailure, isTrue);
+
+          // alice's prior session is STILL active — the end-actives write
+          // was rolled back when the start-new step threw.
+          final alicePersisted = await repository.getSessionById(aliceOld.id);
+          expect(alicePersisted, isNotNull);
+          expect(
+            alicePersisted!.isActive,
+            isTrue,
+            reason: 'a failure mid-replace must leave the prior actives '
+                'intact, not "no fronts at all"',
+          );
+
+          // No bob session was persisted either.
+          final all = await repository.getAllSessions();
+          expect(all.where((s) => s.memberId == 'bob'), isEmpty);
+        },
+      );
+
+      test(
+        'with the Unknown sentinel id ensures the sentinel exists',
+        () async {
+          final repo = FakeFrontingSessionRepository();
+          final memberRepo = FakeMemberRepository();
+          final svc = FrontingMutationService(
+            repository: repo,
+            memberRepository: memberRepo,
+            mutationRunner: MutationRunner(
+              transactionRunner: _passthroughTransactionRunner,
+            ),
+          );
+
+          // Pre-condition: no members exist.
+          expect(
+            await memberRepo.getMemberById(unknownSentinelMemberId),
+            isNull,
+          );
+
+          final result =
+              await svc.replaceFronting([unknownSentinelMemberId]);
+          expect(result.isSuccess, isTrue);
+
+          // Sentinel was lazy-created (same contract as startFronting).
+          final sentinel =
+              await memberRepo.getMemberById(unknownSentinelMemberId);
+          expect(sentinel, isNotNull);
+          expect(sentinel!.name, 'Unknown');
+
+          // The new session is attributed to the sentinel.
+          expect(repo.sessions.single.memberId, unknownSentinelMemberId);
+          expect(repo.sessions.single.isActive, isTrue);
+        },
+      );
+    });
+
+    // -------------------------------------------------------------------------
     // splitSession — deterministic id, PK link cleared
     // -------------------------------------------------------------------------
 
@@ -986,5 +1181,27 @@ class _ThrowOnTargetUpdateRepository extends DriftFrontingSessionRepository {
       throw StateError('forced failure while updating $session');
     }
     await super.updateSession(session);
+  }
+}
+
+/// Throws on `createSession` for any session whose memberId matches
+/// [throwOnMemberId]. Used to verify replaceFronting's atomicity contract:
+/// a failure on the start-new step must roll back the prior end-actives
+/// writes so the user is not left with "no fronts at all."
+class _ThrowOnCreateRepository extends DriftFrontingSessionRepository {
+  _ThrowOnCreateRepository(
+    super.dao,
+    super.syncHandle, {
+    required String throwOnMemberId,
+  }) : _throwOnMemberId = throwOnMemberId;
+
+  final String _throwOnMemberId;
+
+  @override
+  Future<void> createSession(FrontingSession session) async {
+    if (session.memberId == _throwOnMemberId) {
+      throw StateError('forced failure on createSession for $_throwOnMemberId');
+    }
+    await super.createSession(session);
   }
 }

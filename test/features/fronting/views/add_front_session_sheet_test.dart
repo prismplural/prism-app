@@ -30,10 +30,11 @@ Member _member({required String id, required String name}) =>
 List<Member> _bigMemberList() =>
     List.generate(13, (i) => _member(id: 'id$i', name: 'Member $i'));
 
-/// Records `startFronting` calls so tests can assert on the multi-select
-/// payload without hitting the real DB.
+/// Records `startFronting` and `replaceFronting` calls so tests can assert
+/// on the multi-select payload without hitting the real DB.
 class _FakeFrontingNotifier extends FrontingNotifier {
   final List<List<String>> startFrontingCalls = [];
+  final List<List<String>> replaceFrontingCalls = [];
 
   @override
   Future<void> build() async {}
@@ -47,12 +48,22 @@ class _FakeFrontingNotifier extends FrontingNotifier {
   }) async {
     startFrontingCalls.add(List<String>.from(memberIds));
   }
+
+  @override
+  Future<void> replaceFronting(
+    List<String> memberIds, {
+    FrontConfidence? confidence,
+    String? notes,
+  }) async {
+    replaceFrontingCalls.add(List<String>.from(memberIds));
+  }
 }
 
 Widget _buildSheetTrigger({
   required List<Member> members,
   List<FrontingSession> activeSessions = const [],
   _FakeFrontingNotifier? fakeNotifier,
+  FrontStartBehavior addFrontDefaultBehavior = FrontStartBehavior.additive,
 }) {
   return ProviderScope(
     overrides: [
@@ -67,7 +78,9 @@ Widget _buildSheetTrigger({
         (ref) => Stream.value(activeSessions),
       ),
       systemSettingsProvider.overrideWith(
-        (ref) => Stream.value(const SystemSettings()),
+        (ref) => Stream.value(
+          SystemSettings(addFrontDefaultBehavior: addFrontDefaultBehavior),
+        ),
       ),
       if (fakeNotifier != null)
         frontingNotifierProvider.overrideWith(() => fakeNotifier),
@@ -553,5 +566,215 @@ void main() {
         ]),
       );
     });
+  });
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // Add-front mode segmented control (1B-δ)
+  //
+  // The segmented control at the top of the sheet defaults to the
+  // `add_front_default_behavior` system setting and offers a per-action
+  // override. Per spec, the user's override applies only to this submit and
+  // is NEVER written back to the persisted setting.
+  // ══════════════════════════════════════════════════════════════════════════
+
+  group('add-front mode segmented control', () {
+    testWidgets(
+      'segmented control renders both options when settings have loaded',
+      (tester) async {
+        final members = List.generate(
+          3,
+          (i) => _member(id: 'id$i', name: 'M$i'),
+        );
+        await tester.pumpWidget(_buildSheetTrigger(members: members));
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const Key('addFrontModeSegmentedControl')),
+          findsOneWidget,
+        );
+        expect(find.text('Add as co-fronter'), findsOneWidget);
+        expect(find.text('Replace current'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'submitting in additive mode (default) calls startFronting',
+      (tester) async {
+        final notifier = _FakeFrontingNotifier();
+        final members = List.generate(
+          3,
+          (i) => _member(id: 'id$i', name: 'M$i'),
+        );
+        await tester.pumpWidget(
+          _buildSheetTrigger(
+            members: members,
+            fakeNotifier: notifier,
+          ),
+        );
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('M0'));
+        await tester.pumpAndSettle();
+        await tester.tap(_saveButton());
+        await tester.pumpAndSettle();
+
+        expect(notifier.startFrontingCalls, hasLength(1));
+        expect(notifier.startFrontingCalls.single, equals(['id0']));
+        expect(
+          notifier.replaceFrontingCalls,
+          isEmpty,
+          reason: 'additive mode must not call replaceFronting',
+        );
+      },
+    );
+
+    testWidgets(
+      'when preference is replace, submit calls replaceFronting',
+      (tester) async {
+        final notifier = _FakeFrontingNotifier();
+        final members = List.generate(
+          3,
+          (i) => _member(id: 'id$i', name: 'M$i'),
+        );
+        await tester.pumpWidget(
+          _buildSheetTrigger(
+            members: members,
+            fakeNotifier: notifier,
+            addFrontDefaultBehavior: FrontStartBehavior.replace,
+          ),
+        );
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('M0'));
+        await tester.pumpAndSettle();
+        await tester.tap(_saveButton());
+        await tester.pumpAndSettle();
+
+        expect(notifier.replaceFrontingCalls, hasLength(1));
+        expect(notifier.replaceFrontingCalls.single, equals(['id0']));
+        expect(
+          notifier.startFrontingCalls,
+          isEmpty,
+          reason: 'replace mode must not call startFronting',
+        );
+      },
+    );
+
+    testWidgets(
+      'tapping the Replace segment overrides the preference for this submit',
+      (tester) async {
+        final notifier = _FakeFrontingNotifier();
+        final members = List.generate(
+          3,
+          (i) => _member(id: 'id$i', name: 'M$i'),
+        );
+        await tester.pumpWidget(
+          _buildSheetTrigger(
+            members: members,
+            fakeNotifier: notifier,
+            addFrontDefaultBehavior: FrontStartBehavior.additive,
+          ),
+        );
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Replace current'));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('M0'));
+        await tester.pumpAndSettle();
+        await tester.tap(_saveButton());
+        await tester.pumpAndSettle();
+
+        expect(notifier.replaceFrontingCalls, hasLength(1));
+        expect(notifier.startFrontingCalls, isEmpty);
+      },
+    );
+
+    testWidgets(
+      'tapping the Add segment overrides a replace preference for this submit',
+      (tester) async {
+        final notifier = _FakeFrontingNotifier();
+        final members = List.generate(
+          3,
+          (i) => _member(id: 'id$i', name: 'M$i'),
+        );
+        await tester.pumpWidget(
+          _buildSheetTrigger(
+            members: members,
+            fakeNotifier: notifier,
+            addFrontDefaultBehavior: FrontStartBehavior.replace,
+          ),
+        );
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Add as co-fronter'));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('M0'));
+        await tester.pumpAndSettle();
+        await tester.tap(_saveButton());
+        await tester.pumpAndSettle();
+
+        expect(notifier.startFrontingCalls, hasLength(1));
+        expect(notifier.replaceFrontingCalls, isEmpty);
+      },
+    );
+
+    testWidgets(
+      'changing the toggle does NOT write back to the persisted setting',
+      (tester) async {
+        // The sheet must NEVER write to `add_front_default_behavior`.
+        // We assert the negative by observing that the override only affects
+        // the in-flight submit: a second sheet open continues to default
+        // from the (unchanged) preference.
+        final notifier = _FakeFrontingNotifier();
+        final members = List.generate(
+          3,
+          (i) => _member(id: 'id$i', name: 'M$i'),
+        );
+
+        // Open #1: pref=additive, override to replace, submit.
+        await tester.pumpWidget(
+          _buildSheetTrigger(
+            members: members,
+            fakeNotifier: notifier,
+            addFrontDefaultBehavior: FrontStartBehavior.additive,
+          ),
+        );
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Replace current'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('M0'));
+        await tester.pumpAndSettle();
+        await tester.tap(_saveButton());
+        await tester.pumpAndSettle();
+
+        expect(notifier.replaceFrontingCalls, hasLength(1));
+
+        // Open #2: same preference (additive) — submit should call
+        // startFronting (default), NOT replaceFronting (which would
+        // indicate the override leaked back into the setting).
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('M1'));
+        await tester.pumpAndSettle();
+        await tester.tap(_saveButton());
+        await tester.pumpAndSettle();
+
+        expect(
+          notifier.startFrontingCalls,
+          hasLength(1),
+          reason: 'second open should default to additive — the user\'s '
+              'first-open override of "replace" must not have persisted',
+        );
+        expect(notifier.replaceFrontingCalls, hasLength(1));
+      },
+    );
   });
 }

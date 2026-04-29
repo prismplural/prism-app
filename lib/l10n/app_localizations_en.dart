@@ -1716,6 +1716,49 @@ class AppLocalizationsEn extends AppLocalizations {
   String get frontingTimelineIssuesReview => 'Review';
 
   @override
+  String frontingAlwaysPresentLabel(String duration) {
+    return 'Always present · $duration';
+  }
+
+  @override
+  String frontingAlwaysPresentSemantics(String names, String duration) {
+    return 'Always-present fronters: $names, $duration';
+  }
+
+  @override
+  String frontingAlwaysPresentDurationWeeks(int weeks) {
+    String _temp0 = intl.Intl.pluralLogic(
+      weeks,
+      locale: localeName,
+      other: '$weeks weeks',
+      one: '1 week',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String frontingAlwaysPresentDurationDays(int days) {
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      other: '$days days',
+      one: '1 day',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String frontingAlwaysPresentDurationHours(int hours) {
+    String _temp0 = intl.Intl.pluralLogic(
+      hours,
+      locale: localeName,
+      other: '$hours hours',
+      one: '1 hour',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get frontingMenuWakeUpAs => 'Wake Up As...';
 
   @override
@@ -1807,6 +1850,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get frontingSelectFronter => 'Select Fronter';
+
+  @override
+  String get frontingAddFrontModeAdditive => 'Add as co-fronter';
+
+  @override
+  String get frontingAddFrontModeReplace => 'Replace current';
 
   @override
   String frontingSelectMember(String term) {
@@ -7892,4 +7941,60 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get pkFileImportSwitchesSkippedLabel =>
       'Switches skipped (already present)';
+
+  @override
+  String get settingsFrontingSessionDisplaySectionTitle =>
+      'Session display & front behavior';
+
+  @override
+  String get settingsFrontingListViewModeLabel => 'Session list view';
+
+  @override
+  String get settingsFrontingListViewModeCombinedPeriods => 'Combined periods';
+
+  @override
+  String get settingsFrontingListViewModeCombinedPeriodsDescription =>
+      'Avatar stacks for each unique fronter group';
+
+  @override
+  String get settingsFrontingListViewModePerMemberRows => 'Per-member rows';
+
+  @override
+  String get settingsFrontingListViewModePerMemberRowsDescription =>
+      'One row per fronter session, side-by-side';
+
+  @override
+  String get settingsFrontingListViewModeTimeline => 'Timeline';
+
+  @override
+  String get settingsFrontingListViewModeTimelineDescription =>
+      'Bar chart view of fronting over time';
+
+  @override
+  String get settingsAddFrontDefaultBehaviorLabel => 'When adding a new front';
+
+  @override
+  String get settingsAddFrontDefaultBehaviorAdditive => 'Add as co-fronter';
+
+  @override
+  String get settingsAddFrontDefaultBehaviorAdditiveDescription =>
+      'New fronts join existing ones';
+
+  @override
+  String get settingsAddFrontDefaultBehaviorReplace =>
+      'Replace current fronters';
+
+  @override
+  String get settingsAddFrontDefaultBehaviorReplaceDescription =>
+      'End all current fronts before starting new ones';
+
+  @override
+  String get settingsQuickFrontDefaultBehaviorLabel => 'When using quick front';
+
+  @override
+  String get settingsQuickFrontDefaultBehaviorAdditive => 'Add as co-fronter';
+
+  @override
+  String get settingsQuickFrontDefaultBehaviorReplace =>
+      'Replace current fronters';
 }

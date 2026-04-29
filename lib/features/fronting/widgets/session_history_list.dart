@@ -7,6 +7,7 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/models.dart';
+import 'package:prism_plurality/features/fronting/providers/always_present_members_provider.dart';
 import 'package:prism_plurality/features/fronting/providers/derived_periods_provider.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_editing_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
@@ -19,7 +20,9 @@ import 'package:prism_plurality/features/fronting/utils/period_day_grouping.dart
 import 'package:prism_plurality/features/fronting/utils/session_day_grouping.dart';
 import 'package:prism_plurality/features/fronting/utils/sleep_quality_l10n.dart';
 import 'package:prism_plurality/features/fronting/widgets/fronting_duration_text.dart';
+import 'package:prism_plurality/features/fronting/widgets/timeline_view.dart';
 import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/extensions/datetime_extensions.dart';
 import 'package:prism_plurality/shared/extensions/duration_extensions.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
@@ -33,15 +36,47 @@ import 'package:prism_plurality/shared/widgets/prism_grouped_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
-/// A day-grouped list of fronting **periods** (derived from per-member
-/// sessions) plus inline sleep tiles.
+/// A day-grouped list of fronting history rendered per the user's
+/// `fronting_list_view_mode` preference (1B):
 ///
-/// Each row is one period — a maximal time span during which the active
-/// fronter set didn't change (§2.3, §4.6). Co-fronts render as a single
-/// row with an avatar stack, not N rows; brief visitors fold in as
-/// trailing chips.
+///  * `combinedPeriods` (default): one row per derived period with an
+///    avatar stack — the §2.3 / §4.6 1A behavior, unchanged.
+///  * `perMemberRows`: one row per raw per-member session. Always-present
+///    members are filtered out date-scoped — see [_PerMemberRowsList].
+///  * `timeline`: renders [TimelineView] inline as a sliver.
 class SessionHistoryList extends ConsumerWidget {
   const SessionHistoryList({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // The preference is the source of truth for which inline mode to
+    // render. The home screen's `timelineViewActiveProvider` is a separate
+    // toggle that, when true, swaps the list out for the timeline view at
+    // the screen level — that path doesn't reach here, so we only branch
+    // between the two list modes (and the inline timeline fallback for
+    // the rare case the toggle is unavailable, e.g., embedded contexts).
+    final viewMode = ref.watch(systemSettingsProvider).whenOrNull(
+              data: (s) => s.frontingListViewMode,
+            ) ??
+        FrontingListViewMode.combinedPeriods;
+
+    switch (viewMode) {
+      case FrontingListViewMode.timeline:
+        return const SliverToBoxAdapter(
+          child: SizedBox(height: 600, child: TimelineView()),
+        );
+      case FrontingListViewMode.perMemberRows:
+        return const _PerMemberRowsList();
+      case FrontingListViewMode.combinedPeriods:
+        return const _CombinedPeriodsList();
+    }
+  }
+}
+
+/// 1A combined-period rendering: one row per derived period with avatar
+/// stacks per period and inline sleep tiles. Default mode.
+class _CombinedPeriodsList extends ConsumerWidget {
+  const _CombinedPeriodsList();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -131,6 +166,381 @@ class SessionHistoryList extends ConsumerWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// 1B per-member-rows rendering: one row per raw per-member session.
+///
+/// Source: [unifiedHistoryOverlapProvider] (raw sessions, NOT derived
+/// periods). Sleep tiles intermix using the same upstream stream the
+/// combined-period mode uses.
+///
+/// Date-scoped always-present filter: a session row is filtered out of
+/// the inline list ONLY when its `memberId` is in the always-present set
+/// AND its `startTime` is at or after the always-present session's
+/// `startTime` for that member. Earlier sessions for that member (e.g.,
+/// rows that ended before they became "always present") still appear
+/// inline as guests on those older days. This preserves date-scoped
+/// historical accuracy while keeping the pinned glass header (rendered
+/// elsewhere) clean.
+class _PerMemberRowsList extends ConsumerWidget {
+  const _PerMemberRowsList();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final bundleAsync = ref.watch(unifiedHistoryOverlapProvider);
+    final unifiedAsync = ref.watch(unifiedHistoryProvider);
+    final alwaysPresentAsync = ref.watch(alwaysPresentMembersProvider);
+
+    return bundleAsync.when(
+      skipLoadingOnReload: true,
+      loading: () => const SliverToBoxAdapter(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: PrismLoadingState(),
+        ),
+      ),
+      error: (e, _) => SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(context.l10n.frontingErrorLoadingHistory(e)),
+        ),
+      ),
+      data: (bundle) {
+        // Build the per-member always-present anchor map: memberId →
+        // earliest startTime of an always-present (qualifying) session.
+        // Sessions for this member at or after that anchor are filtered
+        // out (covered by the pinned glass header); earlier sessions
+        // stay inline so they appear as guests on past days.
+        final alwaysPresentList = alwaysPresentAsync.maybeWhen(
+          data: (list) => list,
+          orElse: () => const <AlwaysPresentMember>[],
+        );
+        final anchorByMember = <String, DateTime>{};
+        for (final ap in alwaysPresentList) {
+          final existing = anchorByMember[ap.member.id];
+          if (existing == null || ap.session.startTime.isBefore(existing)) {
+            anchorByMember[ap.member.id] = ap.session.startTime;
+          }
+        }
+
+        // Split fronting vs. sleep. perMemberRows shows one row per
+        // fronting session, with sleep tiles intermixed (same
+        // visual treatment as combinedPeriods).
+        final allSessions = bundle.sessions;
+        final frontingSessions = <FrontingSession>[];
+        for (final s in allSessions) {
+          if (s.isSleep) continue;
+          if (s.isDeleted) continue;
+          if (s.memberId == null) continue;
+          // Date-scoped always-present filter.
+          final anchor = anchorByMember[s.memberId];
+          if (anchor != null && !s.startTime.isBefore(anchor)) {
+            continue;
+          }
+          frontingSessions.add(s);
+        }
+
+        final sleepSessions = unifiedAsync
+                .whenOrNull(data: (list) => list.where((s) => s.isSleep).toList()) ??
+            const <FrontingSession>[];
+
+        if (frontingSessions.isEmpty && sleepSessions.isEmpty) {
+          return SliverFillRemaining(
+            hasScrollBody: false,
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    AppIcons.historyOutlined,
+                    size: 48,
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.2),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    context.l10n.frontingNoSessionHistory,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.5),
+                        ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        // Batch-load every member referenced by any visible session.
+        final memberIds = <String>{};
+        for (final s in frontingSessions) {
+          if (s.memberId != null) memberIds.add(s.memberId!);
+        }
+        final key = memberIdsKey(memberIds);
+        final membersAsync = ref.watch(membersByIdsProvider(key));
+        final membersMap = membersAsync.whenOrNull(data: (m) => m) ?? {};
+
+        // Reuse groupSessionsByDay so day headers + midnight-split
+        // semantics match combinedPeriods mode exactly.
+        final frontGroups = groupSessionsByDay(frontingSessions);
+        final sleepGroups = groupSessionsByDay(sleepSessions);
+
+        final mergedByKey = <String, _PerMemberDayGroup>{};
+        for (final g in frontGroups) {
+          mergedByKey[g.dayKey] = _PerMemberDayGroup(
+            dayKey: g.dayKey,
+            fronting: List.of(g.sessions)
+              ..sort((a, b) => b.displayStart.compareTo(a.displayStart)),
+            sleep: const [],
+          );
+        }
+        for (final g in sleepGroups) {
+          final existing = mergedByKey[g.dayKey];
+          if (existing == null) {
+            mergedByKey[g.dayKey] = _PerMemberDayGroup(
+              dayKey: g.dayKey,
+              fronting: const [],
+              sleep: List.of(g.sessions),
+            );
+          } else {
+            mergedByKey[g.dayKey] = _PerMemberDayGroup(
+              dayKey: existing.dayKey,
+              fronting: existing.fronting,
+              sleep: List.of(g.sessions),
+            );
+          }
+        }
+        final dayKeys = mergedByKey.keys.toList()
+          ..sort((a, b) => b.compareTo(a));
+
+        return SliverList.builder(
+          itemCount: dayKeys.length,
+          itemBuilder: (context, index) {
+            final group = mergedByKey[dayKeys[index]]!;
+            return _PerMemberDayGroupWidget(
+              group: group,
+              isFirstGroup: index == 0,
+              membersMap: membersMap,
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+/// One day's worth of per-member rows: fronting sessions then sleep.
+class _PerMemberDayGroup {
+  const _PerMemberDayGroup({
+    required this.dayKey,
+    required this.fronting,
+    required this.sleep,
+  });
+
+  final String dayKey;
+  final List<DisplaySession> fronting;
+  final List<DisplaySession> sleep;
+
+  int get length => fronting.length + sleep.length;
+}
+
+class _PerMemberDayGroupWidget extends StatelessWidget {
+  const _PerMemberDayGroupWidget({
+    required this.group,
+    this.isFirstGroup = false,
+    required this.membersMap,
+  });
+
+  final _PerMemberDayGroup group;
+  final bool isFirstGroup;
+  final Map<String, Member> membersMap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final total = group.length;
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+          child: DateChip(date: DateTime.parse(group.dayKey)),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: PrismGroupedSectionCard(
+            child: Column(
+              children: [
+                for (var i = 0; i < group.fronting.length; i++) ...[
+                  _PerMemberSessionTile(
+                    slice: group.fronting[i],
+                    isLatest: isFirstGroup && i == 0,
+                    membersMap: membersMap,
+                  ),
+                  if (i < total - 1)
+                    Divider(
+                      height: 1,
+                      indent: 64,
+                      endIndent: 12,
+                      color: theme.colorScheme.onSurface
+                          .withValues(alpha: 0.08),
+                    ),
+                ],
+                for (var j = 0; j < group.sleep.length; j++) ...[
+                  _InlineSleepTile(displaySession: group.sleep[j]),
+                  if (group.fronting.length + j < total - 1)
+                    Divider(
+                      height: 1,
+                      indent: 16,
+                      endIndent: 12,
+                      color: theme.colorScheme.onSurface
+                          .withValues(alpha: 0.08),
+                    ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// One row per per-member session in `perMemberRows` mode. Visually
+/// matches the combined-period tile (same row height, same avatar
+/// treatment) but renders a single member rather than an avatar stack.
+class _PerMemberSessionTile extends ConsumerWidget {
+  const _PerMemberSessionTile({
+    required this.slice,
+    this.isLatest = false,
+    required this.membersMap,
+  });
+
+  final DisplaySession slice;
+  final bool isLatest;
+  final Map<String, Member> membersMap;
+
+  FrontingSession get session => slice.session;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final memberId = session.memberId;
+    final member = memberId == null ? null : membersMap[memberId];
+    final isUnknown = member == null;
+
+    final accentColor =
+        member != null && member.customColorEnabled && member.customColorHex != null
+            ? AppColors.fromHex(member.customColorHex!)
+            : theme.colorScheme.primary;
+
+    final timeRange = slice.timeRangeString(context.dateLocale);
+    final name = member?.name ?? 'Unknown';
+
+    final leadingWidget = isUnknown
+        ? Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: theme.colorScheme.surfaceContainerHighest,
+            ),
+            child: Icon(
+              AppIcons.helpOutline,
+              size: 20,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          )
+        : _BorderedAvatar(member: member);
+
+    final showLiveTimer = slice.isActive && !slice.continuesNextDay;
+    final durationColor = isLatest ? accentColor : null;
+    final subtitleWidget = showLiveTimer
+        ? _ActiveSubtitle(
+            startTime: slice.displayStart,
+            timeRange: timeRange,
+            accentColor: accentColor,
+          )
+        : Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: slice.displayDuration.toRoundedString(),
+                  style: TextStyle(
+                    color: durationColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                TextSpan(
+                  text: '  ·  $timeRange',
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          );
+
+    const dimAlpha = 0.6;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => context.go(AppRoutePaths.session(session.id)),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              leadingWidget,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      style: isUnknown
+                          ? theme.textTheme.bodyLarge?.copyWith(
+                              fontStyle: FontStyle.italic,
+                              fontWeight: FontWeight.w300,
+                              color: theme.colorScheme.onSurface
+                                  .withValues(alpha: dimAlpha),
+                            )
+                          : theme.textTheme.bodyLarge?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                    ),
+                    const SizedBox(height: 2),
+                    DefaultTextStyle(
+                      style: (theme.textTheme.bodySmall ?? const TextStyle())
+                          .copyWith(
+                        color: isUnknown
+                            ? theme.colorScheme.onSurface
+                                .withValues(alpha: dimAlpha)
+                            : null,
+                      ),
+                      child: subtitleWidget,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                AppIcons.chevronRightRounded,
+                size: 20,
+                color: theme.colorScheme.onSurfaceVariant.withValues(
+                  alpha: isUnknown ? 0.4 * dimAlpha : 0.4,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

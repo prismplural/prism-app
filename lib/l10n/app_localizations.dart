@@ -3146,6 +3146,36 @@ abstract class AppLocalizations {
   /// **'Review'**
   String get frontingTimelineIssuesReview;
 
+  /// Subtitle on the pinned 'always-present' header at the top of the home screen. The duration placeholder is a pre-formatted localized string like '2 weeks' or '3 hours'.
+  ///
+  /// In en, this message translates to:
+  /// **'Always present · {duration}'**
+  String frontingAlwaysPresentLabel(String duration);
+
+  /// Single combined screen-reader announcement for the always-present pinned header. Names is a comma+ampersand-joined member list; duration is the same pre-formatted string used in the visible subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Always-present fronters: {names}, {duration}'**
+  String frontingAlwaysPresentSemantics(String names, String duration);
+
+  /// Duration formatted in whole weeks for the always-present header.
+  ///
+  /// In en, this message translates to:
+  /// **'{weeks, plural, =1{1 week} other{{weeks} weeks}}'**
+  String frontingAlwaysPresentDurationWeeks(int weeks);
+
+  /// Duration formatted in whole days for the always-present header (used when under one week).
+  ///
+  /// In en, this message translates to:
+  /// **'{days, plural, =1{1 day} other{{days} days}}'**
+  String frontingAlwaysPresentDurationDays(int days);
+
+  /// Duration formatted in whole hours for the always-present header (used when under one day, only reachable for explicit-always-fronting members whose session just started).
+  ///
+  /// In en, this message translates to:
+  /// **'{hours, plural, =1{1 hour} other{{hours} hours}}'**
+  String frontingAlwaysPresentDurationHours(int hours);
+
   /// Menu item to wake up and start fronting as a specific member
   ///
   /// In en, this message translates to:
@@ -3301,6 +3331,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Select Fronter'**
   String get frontingSelectFronter;
+
+  /// Add-front sheet segmented control: additive mode (joins existing fronts)
+  ///
+  /// In en, this message translates to:
+  /// **'Add as co-fronter'**
+  String get frontingAddFrontModeAdditive;
+
+  /// Add-front sheet segmented control: replace mode (ends existing fronts, starts new)
+  ///
+  /// In en, this message translates to:
+  /// **'Replace current'**
+  String get frontingAddFrontModeReplace;
 
   /// Section header when selecting a member in co-front mode
   ///
@@ -12846,6 +12888,102 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Switches skipped (already present)'**
   String get pkFileImportSwitchesSkippedLabel;
+
+  /// Section header on the fronting feature settings screen, grouping the list view-mode preference and the add-front / quick-front default behavior preferences.
+  ///
+  /// In en, this message translates to:
+  /// **'Session display & front behavior'**
+  String get settingsFrontingSessionDisplaySectionTitle;
+
+  /// Row title for the home-screen session list view-mode preference (combined periods / per-member rows / timeline).
+  ///
+  /// In en, this message translates to:
+  /// **'Session list view'**
+  String get settingsFrontingListViewModeLabel;
+
+  /// Option label: render the home-screen session list as combined periods (avatar stacks per unique fronter group).
+  ///
+  /// In en, this message translates to:
+  /// **'Combined periods'**
+  String get settingsFrontingListViewModeCombinedPeriods;
+
+  /// Option subtitle for the combined-periods session list view mode.
+  ///
+  /// In en, this message translates to:
+  /// **'Avatar stacks for each unique fronter group'**
+  String get settingsFrontingListViewModeCombinedPeriodsDescription;
+
+  /// Option label: render the home-screen session list as one row per fronter session, side-by-side.
+  ///
+  /// In en, this message translates to:
+  /// **'Per-member rows'**
+  String get settingsFrontingListViewModePerMemberRows;
+
+  /// Option subtitle for the per-member-rows session list view mode.
+  ///
+  /// In en, this message translates to:
+  /// **'One row per fronter session, side-by-side'**
+  String get settingsFrontingListViewModePerMemberRowsDescription;
+
+  /// Option label: render the home-screen session list as a timeline / bar chart over time.
+  ///
+  /// In en, this message translates to:
+  /// **'Timeline'**
+  String get settingsFrontingListViewModeTimeline;
+
+  /// Option subtitle for the timeline session list view mode.
+  ///
+  /// In en, this message translates to:
+  /// **'Bar chart view of fronting over time'**
+  String get settingsFrontingListViewModeTimelineDescription;
+
+  /// Row title for the default behavior preference when starting a new front from the add-front sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'When adding a new front'**
+  String get settingsAddFrontDefaultBehaviorLabel;
+
+  /// Option label: starting a new front leaves any existing fronts in place; the new member joins as a co-fronter.
+  ///
+  /// In en, this message translates to:
+  /// **'Add as co-fronter'**
+  String get settingsAddFrontDefaultBehaviorAdditive;
+
+  /// Option subtitle for the additive add-front default behavior.
+  ///
+  /// In en, this message translates to:
+  /// **'New fronts join existing ones'**
+  String get settingsAddFrontDefaultBehaviorAdditiveDescription;
+
+  /// Option label: starting a new front ends all existing fronts before the new member begins.
+  ///
+  /// In en, this message translates to:
+  /// **'Replace current fronters'**
+  String get settingsAddFrontDefaultBehaviorReplace;
+
+  /// Option subtitle for the replace add-front default behavior.
+  ///
+  /// In en, this message translates to:
+  /// **'End all current fronts before starting new ones'**
+  String get settingsAddFrontDefaultBehaviorReplaceDescription;
+
+  /// Row title for the default behavior preference when triggering quick front (the per-member quick-action shortcut).
+  ///
+  /// In en, this message translates to:
+  /// **'When using quick front'**
+  String get settingsQuickFrontDefaultBehaviorLabel;
+
+  /// Option label: quick front leaves existing fronts in place; the tapped member joins as a co-fronter.
+  ///
+  /// In en, this message translates to:
+  /// **'Add as co-fronter'**
+  String get settingsQuickFrontDefaultBehaviorAdditive;
+
+  /// Option label: quick front ends all existing fronts before the tapped member begins.
+  ///
+  /// In en, this message translates to:
+  /// **'Replace current fronters'**
+  String get settingsQuickFrontDefaultBehaviorReplace;
 }
 
 class _AppLocalizationsDelegate

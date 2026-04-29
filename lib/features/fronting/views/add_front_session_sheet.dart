@@ -7,6 +7,7 @@ import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/utils/member_search_groups.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
@@ -73,6 +74,22 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
   final _notesKey = GlobalKey();
   bool _saving = false;
 
+  /// Per-action override of the add-front behavior. Initialised from the
+  /// `add_front_default_behavior` system setting on first build (see
+  /// [_resolvedMode]) and toggled by the segmented control. NEVER written
+  /// back to the setting — the segmented control is a per-submit override
+  /// only.
+  ///
+  /// Null until the user touches the segmented control; once non-null, the
+  /// user's local pick is sticky for the rest of the sheet's lifetime.
+  FrontStartBehavior? _modeOverride;
+
+  /// The mode to use for the next submit: explicit override if set,
+  /// otherwise the persisted preference (with [FrontStartBehavior.additive]
+  /// as a fallback if settings haven't loaded yet).
+  FrontStartBehavior _resolvedMode(FrontStartBehavior preferenceDefault) =>
+      _modeOverride ?? preferenceDefault;
+
   bool get _frontAsUnknown => _selectedIds.length == 1 && _selectedIds.contains(_unknownId);
   // The real member IDs to pass to startFronting (excludes the Unknown sentinel).
   List<String> get _memberIds =>
@@ -111,13 +128,22 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
     }
   }
 
-  /// Starts one session per selected member, all sharing the same start time.
+  /// Submits one or more sessions for the selected members.
+  ///
+  /// Branches on [mode]:
+  /// - [FrontStartBehavior.additive]: existing behavior — `startFronting`
+  ///   creates one row per selected member, leaving any other active
+  ///   sessions untouched.
+  /// - [FrontStartBehavior.replace]: `replaceFronting` ends every active
+  ///   normal session AND starts the new ones in a single transaction
+  ///   with one captured `now` (atomic — a crash mid-block leaves the
+  ///   prior state intact, not "no fronts at all").
   ///
   /// If the Unknown sentinel is the only selection, passes
   /// `[unknownSentinelMemberId]` — the mutation service auto-creates the
   /// sentinel member if it doesn't exist, then writes a single session
   /// row attributed to it.
-  Future<void> _submit() async {
+  Future<void> _submit(FrontStartBehavior mode) async {
     if (!_canSubmit) return;
     setState(() => _saving = true);
 
@@ -128,16 +154,25 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
       // Multi-member: each id gets its own session row sharing start_time.
       // The Unknown sentinel id is treated like any other member id — the
       // mutation service auto-creates the sentinel member if needed.
-      // Iterating .sessions is correct; do not use .sessions.single because
-      // the user may have selected more than one member.
       final ids = _frontAsUnknown
           ? <String>[unknownSentinelMemberId]
           : _memberIds;
-      await notifier.startFronting(
-        ids,
-        confidence: _confidence,
-        notes: trimmedNotes.isNotEmpty ? trimmedNotes : null,
-      );
+      final notes = trimmedNotes.isNotEmpty ? trimmedNotes : null;
+
+      switch (mode) {
+        case FrontStartBehavior.additive:
+          await notifier.startFronting(
+            ids,
+            confidence: _confidence,
+            notes: notes,
+          );
+        case FrontStartBehavior.replace:
+          await notifier.replaceFronting(
+            ids,
+            confidence: _confidence,
+            notes: notes,
+          );
+      }
       Haptics.success();
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
@@ -165,6 +200,19 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
         if (s.memberId != null) s.memberId!,
     };
 
+    // Read the persisted default for the segmented control's initial state.
+    // Falls back to additive while the stream is loading. The segmented
+    // control's selected value is _modeOverride ?? settingDefault, so:
+    //   - first build before user touches it: tracks the persisted setting
+    //   - after user toggles: stays on their pick for the rest of this sheet
+    //   - when sheet closes: nothing is written back to the setting
+    final settingsAsync = ref.watch(systemSettingsProvider);
+    final settingDefault = settingsAsync.whenOrNull(
+          data: (s) => s.addFrontDefaultBehavior,
+        ) ??
+        FrontStartBehavior.additive;
+    final mode = _resolvedMode(settingDefault);
+
     return LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.maxHeight < 100) return const SizedBox.shrink();
@@ -175,7 +223,9 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
               trailing: PrismGlassIconButton(
                 icon: AppIcons.check,
                 tooltip: context.l10n.frontingStartSessionTooltip,
-                onPressed: (_saving || !_canSubmit) ? null : _submit,
+                onPressed: (_saving || !_canSubmit)
+                    ? null
+                    : () => _submit(mode),
               ),
             ),
             Expanded(
@@ -188,6 +238,26 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
                   24 + MediaQuery.of(context).viewInsets.bottom,
                 ),
                 children: [
+                  // Per-action mode toggle (1B-δ): defaults from
+                  // `add_front_default_behavior`; the user's pick here
+                  // applies only to this submit and is NOT written back
+                  // to the persisted setting.
+                  PrismSegmentedControl<FrontStartBehavior>(
+                    key: const Key('addFrontModeSegmentedControl'),
+                    segments: [
+                      PrismSegment(
+                        value: FrontStartBehavior.additive,
+                        label: context.l10n.frontingAddFrontModeAdditive,
+                      ),
+                      PrismSegment(
+                        value: FrontStartBehavior.replace,
+                        label: context.l10n.frontingAddFrontModeReplace,
+                      ),
+                    ],
+                    selected: mode,
+                    onChanged: (m) => setState(() => _modeOverride = m),
+                  ),
+                  const SizedBox(height: 24),
                   // Section header — multi-select replaces primary + co-fronter.
                   // TODO(§2.5): Phase 3 — show "already fronting" members as
                   // deselect-to-end with "— ends session" hint per spec §2.5.

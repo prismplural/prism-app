@@ -5,9 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/fronting/widgets/quick_front_section.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 
 class _FakeFrontingNotifier extends FrontingNotifier {
@@ -16,6 +18,16 @@ class _FakeFrontingNotifier extends FrontingNotifier {
   /// the active fronter — kept the legacy name so the existing reason-text
   /// assertions still read sensibly.
   final List<String> switches = [];
+
+  /// Member ids passed to [endFronting]. Populated when the quick-front
+  /// tile is tapped on an already-fronting member — preserved across
+  /// preference values per spec.
+  final List<String> ends = [];
+
+  /// Member ids passed to [replaceFronting]. Populated only when the
+  /// `quick_front_default_behavior` preference is `replace` and the user
+  /// taps a non-fronting member.
+  final List<String> replaces = [];
 
   @override
   Future<void> build() async {}
@@ -28,6 +40,20 @@ class _FakeFrontingNotifier extends FrontingNotifier {
     DateTime? startTime,
   }) async {
     switches.addAll(memberIds);
+  }
+
+  @override
+  Future<void> endFronting(List<String> memberIds) async {
+    ends.addAll(memberIds);
+  }
+
+  @override
+  Future<void> replaceFronting(
+    List<String> memberIds, {
+    FrontConfidence? confidence,
+    String? notes,
+  }) async {
+    replaces.addAll(memberIds);
   }
 }
 
@@ -45,12 +71,20 @@ Widget _harness({
   required Stream<List<FrontingSession>> sessionsStream,
   required Map<String, int> counts,
   _FakeFrontingNotifier? notifier,
+  FrontStartBehavior quickFrontDefaultBehavior = FrontStartBehavior.additive,
 }) {
   return ProviderScope(
     overrides: [
       activeMembersProvider.overrideWith((ref) => Stream.value(members)),
       activeSessionsProvider.overrideWith((ref) => sessionsStream),
       memberFrontingCountsProvider.overrideWith((ref) async => counts),
+      systemSettingsProvider.overrideWith(
+        (ref) => Stream.value(
+          SystemSettings(
+            quickFrontDefaultBehavior: quickFrontDefaultBehavior,
+          ),
+        ),
+      ),
       if (notifier != null)
         frontingNotifierProvider.overrideWith(() => notifier),
     ],
@@ -180,4 +214,152 @@ void main() {
       );
     },
   );
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // 1B-δ: tap behavior honors quick_front_default_behavior preference
+  //
+  // - tap on already-fronting member → end (preserved, regardless of pref)
+  // - tap on non-fronting member, additive pref → startFronting
+  // - tap on non-fronting member, replace pref → replaceFronting
+  // ──────────────────────────────────────────────────────────────────────────
+
+  group('quick-front tap honors quick_front_default_behavior', () {
+    testWidgets(
+      'tapping an already-fronting member ends them (additive pref)',
+      (tester) async {
+        final members = [_m('a', 'Alex'), _m('b', 'Bea')];
+        final controller =
+            StreamController<List<FrontingSession>>.broadcast();
+        addTearDown(controller.close);
+        controller.onListen = () => controller.add([_activeSession('a')]);
+
+        final notifier = _FakeFrontingNotifier();
+        await tester.pumpWidget(
+          _harness(
+            members: members,
+            sessionsStream: controller.stream,
+            counts: {'a': 50, 'b': 30},
+            notifier: notifier,
+            // additive is default — but explicit for clarity.
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Alex IS fronting → tap should end, not start or replace.
+        await tester.tap(find.text('Alex'));
+        await tester.pumpAndSettle();
+
+        expect(notifier.ends, ['a']);
+        expect(notifier.switches, isEmpty);
+        expect(notifier.replaces, isEmpty);
+      },
+    );
+
+    testWidgets(
+      'tapping an already-fronting member ends them (replace pref preserved)',
+      (tester) async {
+        // Per spec, tapping an active fronter ALWAYS ends them — preserved
+        // regardless of `quick_front_default_behavior`.
+        final members = [_m('a', 'Alex'), _m('b', 'Bea')];
+        final controller =
+            StreamController<List<FrontingSession>>.broadcast();
+        addTearDown(controller.close);
+        controller.onListen = () => controller.add([_activeSession('a')]);
+
+        final notifier = _FakeFrontingNotifier();
+        await tester.pumpWidget(
+          _harness(
+            members: members,
+            sessionsStream: controller.stream,
+            counts: {'a': 50, 'b': 30},
+            notifier: notifier,
+            quickFrontDefaultBehavior: FrontStartBehavior.replace,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Alex IS fronting → tap should end, NOT replace, even when the
+        // preference is `replace`. The replace pref only governs the
+        // non-fronting tap path.
+        await tester.tap(find.text('Alex'));
+        await tester.pumpAndSettle();
+
+        expect(notifier.ends, ['a']);
+        expect(
+          notifier.replaces,
+          isEmpty,
+          reason: 'replace pref must NOT change the end-on-tap-of-active '
+              'behavior',
+        );
+        expect(notifier.switches, isEmpty);
+      },
+    );
+
+    testWidgets(
+      'tapping a non-fronting member in additive pref calls startFronting',
+      (tester) async {
+        final members = [_m('a', 'Alex'), _m('b', 'Bea')];
+        final controller =
+            StreamController<List<FrontingSession>>.broadcast();
+        addTearDown(controller.close);
+        controller.onListen = () => controller.add([_activeSession('a')]);
+
+        final notifier = _FakeFrontingNotifier();
+        await tester.pumpWidget(
+          _harness(
+            members: members,
+            sessionsStream: controller.stream,
+            counts: {'a': 50, 'b': 30},
+            notifier: notifier,
+            quickFrontDefaultBehavior: FrontStartBehavior.additive,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Bea is NOT fronting → tap should start, not replace.
+        await tester.tap(find.text('Bea'));
+        await tester.pumpAndSettle();
+
+        expect(notifier.switches, ['b']);
+        expect(notifier.replaces, isEmpty);
+        expect(notifier.ends, isEmpty);
+      },
+    );
+
+    testWidgets(
+      'tapping a non-fronting member in replace pref calls replaceFronting',
+      (tester) async {
+        final members = [_m('a', 'Alex'), _m('b', 'Bea')];
+        final controller =
+            StreamController<List<FrontingSession>>.broadcast();
+        addTearDown(controller.close);
+        controller.onListen = () => controller.add([_activeSession('a')]);
+
+        final notifier = _FakeFrontingNotifier();
+        await tester.pumpWidget(
+          _harness(
+            members: members,
+            sessionsStream: controller.stream,
+            counts: {'a': 50, 'b': 30},
+            notifier: notifier,
+            quickFrontDefaultBehavior: FrontStartBehavior.replace,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Bea is NOT fronting → tap should call replaceFronting (atomic
+        // end-actives + start-new), not startFronting.
+        await tester.tap(find.text('Bea'));
+        await tester.pumpAndSettle();
+
+        expect(notifier.replaces, ['b']);
+        expect(
+          notifier.switches,
+          isEmpty,
+          reason: 'replace pref must call replaceFronting, not startFronting',
+        );
+        expect(notifier.ends, isEmpty);
+      },
+    );
+  });
 }
