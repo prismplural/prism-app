@@ -244,7 +244,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
             trailing: PrismGlassIconButton(
               icon: AppIcons.check,
               size: PrismTokens.topBarActionSize,
-              tooltip: l10n.memberSaveTooltip,
+              tooltip: l10n.memberSaveTooltip(terms.singularLower),
               isLoading: _saving,
               tint: canSave ? theme.colorScheme.primary : null,
               accentIcon: canSave,
@@ -269,7 +269,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
                       children: [
                         Semantics(
                           button: true,
-                          label: l10n.memberChangeAvatar,
+                          label: l10n.memberChangeAvatar(terms.singularLower),
                           child: GestureDetector(
                             onTap: _pickAvatar,
                             child: Stack(
@@ -329,9 +329,8 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
                                   minHeight: 32,
                                 ),
                                 padding: EdgeInsets.zero,
-                                onPressed: () => setState(
-                                  () => _avatarImageData = null,
-                                ),
+                                onPressed: () =>
+                                    setState(() => _avatarImageData = null),
                               ),
                             ),
                           ),
@@ -431,7 +430,9 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
 
                   PrismSwitchRow(
                     title: l10n.memberCustomColorTitle,
-                    subtitle: l10n.memberCustomColorSubtitle,
+                    subtitle: l10n.memberCustomColorSubtitle(
+                      terms.singularLower,
+                    ),
                     value: _customColorEnabled,
                     onChanged: (v) => setState(() => _customColorEnabled = v),
                   ),

@@ -607,7 +607,9 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                 Semantics(
                   label: currentMember != null
                       ? context.l10n.chatSpeakingAs(currentMember.name)
-                      : context.l10n.chatChooseSpeakingMember,
+                      : context.l10n.chatChooseSpeakingMember(
+                          terms.singularLower,
+                        ),
                   button: true,
                   child: BlurPopupAnchor(
                     preferredDirection: BlurPopupDirection.up,

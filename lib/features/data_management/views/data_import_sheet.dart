@@ -11,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/features/data_management/providers/data_management_providers.dart';
 import 'package:prism_plurality/features/data_management/services/data_import_service.dart';
 import 'package:prism_plurality/features/data_management/services/export_crypto.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_field_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
@@ -331,6 +332,7 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
 
   Widget _buildPreview(ThemeData theme) {
     final p = _preview!;
+    final terms = readTerminology(context, ref);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -362,7 +364,7 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _previewRow(
-                context.l10n.dataManagementPreviewMembers,
+                context.l10n.dataManagementPreviewMembers(terms.plural),
                 p.headmates,
               ),
               _previewRow(
@@ -473,6 +475,7 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
 
   Widget _buildComplete(ThemeData theme) {
     final r = _result!;
+    final terms = readTerminology(context, ref);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -498,7 +501,7 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _previewRow(
-                context.l10n.dataManagementPreviewMembers,
+                context.l10n.dataManagementPreviewMembers(terms.plural),
                 r.membersCreated,
               ),
               _previewRow(

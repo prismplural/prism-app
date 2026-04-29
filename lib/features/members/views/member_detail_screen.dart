@@ -56,15 +56,20 @@ class MemberDetailScreen extends ConsumerWidget {
       error: (e, _) => PrismPageScaffold(
         topBar: const PrismTopBar(title: '', showBackButton: true),
         body: Center(
-            child: Text('Error loading ${readTerminology(context, ref).singularLower}: $e')),
+          child: Text(
+            'Error loading ${readTerminology(context, ref).singularLower}: $e',
+          ),
+        ),
       ),
       data: (member) {
         if (member == null) {
           return PrismPageScaffold(
             topBar: const PrismTopBar(title: '', showBackButton: true),
             body: Center(
-                child: Text(
-                    '${readTerminology(context, ref).singular} not found')),
+              child: Text(
+                '${readTerminology(context, ref).singular} not found',
+              ),
+            ),
           );
         }
         return _MemberDetailBody(member: member);
@@ -76,7 +81,10 @@ class MemberDetailScreen extends ConsumerWidget {
 String? _birthdayDisplay(BuildContext context, Member member) {
   final parsed = parseBirthday(member.birthday);
   if (parsed == null) return null;
-  return formatBirthdayDisplay(parsed, Localizations.localeOf(context).toString());
+  return formatBirthdayDisplay(
+    parsed,
+    Localizations.localeOf(context).toString(),
+  );
 }
 
 class _MemberDetailBody extends ConsumerWidget {
@@ -92,11 +100,10 @@ class _MemberDetailBody extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final l10n = context.l10n;
+    final terms = watchTerminology(context, ref);
     final activeSessionsAsync = ref.watch(activeSessionsProvider);
-    final isFronting = activeSessionsAsync.whenOrNull(
-          data: _isFronting,
-        ) ??
-        false;
+    final isFronting =
+        activeSessionsAsync.whenOrNull(data: _isFronting) ?? false;
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
@@ -105,7 +112,7 @@ class _MemberDetailBody extends ConsumerWidget {
         actions: [
           PrismTopBarAction(
             icon: AppIcons.editOutlined,
-            tooltip: l10n.memberEditTooltip,
+            tooltip: l10n.memberEditTooltip(terms.singularLower),
             onPressed: () => _openEditSheet(context),
           ),
           _MoreMenuButton(
@@ -205,9 +212,12 @@ class _MemberDetailBody extends ConsumerWidget {
                             _Chip(
                               icon: AppIcons.flashOn,
                               label: l10n.memberFrontingChip,
-                              backgroundColor:
-                                  AppColors.fronting(theme.brightness).withValues(alpha: 0.15),
-                              foregroundColor: AppColors.fronting(theme.brightness),
+                              backgroundColor: AppColors.fronting(
+                                theme.brightness,
+                              ).withValues(alpha: 0.15),
+                              foregroundColor: AppColors.fronting(
+                                theme.brightness,
+                              ),
                             ),
                           if (member.isAdmin)
                             _Chip(
@@ -290,19 +300,27 @@ class _MemberDetailBody extends ConsumerWidget {
     switch (action) {
       case _MenuAction.setFronter:
         try {
-          await ref.read(frontingNotifierProvider.notifier).startFronting([member.id]);
+          await ref.read(frontingNotifierProvider.notifier).startFronting([
+            member.id,
+          ]);
           if (context.mounted) {
-            PrismToast.show(context, message: context.l10n.memberIsFronting(member.name));
+            PrismToast.show(
+              context,
+              message: context.l10n.memberIsFronting(member.name),
+            );
           }
         } catch (e) {
           if (context.mounted) {
-            PrismToast.error(context, message: context.l10n.frontingErrorWakingUp(e));
+            PrismToast.error(
+              context,
+              message: context.l10n.frontingErrorWakingUp(e),
+            );
           }
         }
       case _MenuAction.toggleActive:
-        await ref.read(membersNotifierProvider.notifier).updateMember(
-              member.copyWith(isActive: !member.isActive),
-            );
+        await ref
+            .read(membersNotifierProvider.notifier)
+            .updateMember(member.copyWith(isActive: !member.isActive));
       case _MenuAction.delete:
         await _confirmDelete(context, ref);
     }
@@ -313,13 +331,16 @@ class _MemberDetailBody extends ConsumerWidget {
     final confirmed = await PrismDialog.confirm(
       context: context,
       title: 'Delete ${terms.singularLower}?',
-      message: 'Are you sure you want to delete ${member.name}? '
+      message:
+          'Are you sure you want to delete ${member.name}? '
           'This action cannot be undone.',
       confirmLabel: context.l10n.delete,
       destructive: true,
     );
     if (confirmed) {
-      unawaited(ref.read(membersNotifierProvider.notifier).deleteMember(member.id));
+      unawaited(
+        ref.read(membersNotifierProvider.notifier).deleteMember(member.id),
+      );
       if (context.mounted) Navigator.of(context).pop();
     }
   }
@@ -388,7 +409,9 @@ class _FrontingStatsSection extends ConsumerWidget {
     if (diff.inDays == 0) return l10n.memberStatsToday as String;
     if (diff.inDays == 1) return l10n.memberStatsYesterday as String;
     if (diff.inDays < 7) return l10n.memberStatsDaysAgo(diff.inDays) as String;
-    if (diff.inDays < 30) return l10n.memberStatsWeeksAgo(diff.inDays ~/ 7) as String;
+    if (diff.inDays < 30) {
+      return l10n.memberStatsWeeksAgo(diff.inDays ~/ 7) as String;
+    }
     return '${dt.month}/${dt.day}/${dt.year}';
   }
 }
@@ -456,20 +479,16 @@ class _SessionTile extends StatelessWidget {
                   : theme.colorScheme.onSurfaceVariant,
             ),
             const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                startDate,
-                style: theme.textTheme.bodyMedium,
-              ),
-            ),
+            Expanded(child: Text(startDate, style: theme.textTheme.bodyMedium)),
             Text(
               session.isActive ? l10n.memberSessionActive : duration,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: session.isActive
                     ? AppColors.fronting(theme.brightness)
                     : theme.colorScheme.onSurfaceVariant,
-                fontWeight:
-                    session.isActive ? FontWeight.w600 : FontWeight.normal,
+                fontWeight: session.isActive
+                    ? FontWeight.w600
+                    : FontWeight.normal,
               ),
             ),
             const SizedBox(width: 4),
@@ -525,7 +544,10 @@ class _ConversationsSection extends ConsumerWidget {
             children: [
               for (var i = 0; i < conversations.length; i++) ...[
                 if (i > 0) const Divider(height: 1),
-                _ConversationTile(conversation: conversations[i], memberId: memberId),
+                _ConversationTile(
+                  conversation: conversations[i],
+                  memberId: memberId,
+                ),
               ],
             ],
           ),
@@ -545,14 +567,19 @@ class _ConversationTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final title =
-        conversation.title ?? conversation.emoji ?? context.l10n.memberConversationFallback;
+        conversation.title ??
+        conversation.emoji ??
+        context.l10n.memberConversationFallback;
 
     final allMembersAsync = ref.watch(allMembersProvider);
     final subtitle = allMembersAsync.whenOrNull(
       data: (members) {
         final others = members
-            .where((m) =>
-                m.id != memberId && conversation.participantIds.contains(m.id))
+            .where(
+              (m) =>
+                  m.id != memberId &&
+                  conversation.participantIds.contains(m.id),
+            )
             .toList();
         if (others.isEmpty) return '';
         if (others.length == 1) return others[0].name;
@@ -570,10 +597,7 @@ class _ConversationTile extends ConsumerWidget {
         child: Row(
           children: [
             if (conversation.emoji != null) ...[
-              Text(
-                conversation.emoji!,
-                style: const TextStyle(fontSize: 20),
-              ),
+              Text(conversation.emoji!, style: const TextStyle(fontSize: 20)),
               const SizedBox(width: 12),
             ] else ...[
               Icon(
@@ -658,9 +682,7 @@ class _SectionCard extends StatelessWidget {
           const SizedBox(height: 8),
           SizedBox(
             width: double.infinity,
-            child: PrismSectionCard(
-              child: child,
-            ),
+            child: PrismSectionCard(child: child),
           ),
         ],
       ),
@@ -715,8 +737,7 @@ class _Chip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final bg =
-        backgroundColor ?? theme.colorScheme.surfaceContainerHighest;
+    final bg = backgroundColor ?? theme.colorScheme.surfaceContainerHighest;
     final fg = foregroundColor ?? theme.colorScheme.onSurfaceVariant;
 
     return Container(
@@ -784,11 +805,7 @@ class _DetailSection extends StatelessWidget {
             width: double.infinity,
             child: PrismSurface(
               padding: const EdgeInsets.all(16),
-              child: child ??
-                  Text(
-                    content!,
-                    style: theme.textTheme.bodyLarge,
-                  ),
+              child: child ?? Text(content!, style: theme.textTheme.bodyLarge),
             ),
           ),
         ],
@@ -798,10 +815,7 @@ class _DetailSection extends StatelessWidget {
 }
 
 class _MoreMenuButton extends StatelessWidget {
-  const _MoreMenuButton({
-    required this.member,
-    required this.onAction,
-  });
+  const _MoreMenuButton({required this.member, required this.onAction});
 
   final Member member;
   final ValueChanged<_MenuAction> onAction;
@@ -839,14 +853,13 @@ class _MoreMenuButton extends StatelessWidget {
       itemBuilder: (context, index, close) {
         final item = items[index];
         final theme = Theme.of(context);
-        final color = item.destructive ? theme.colorScheme.error : theme.colorScheme.onSurface;
+        final color = item.destructive
+            ? theme.colorScheme.error
+            : theme.colorScheme.onSurface;
         return PrismListRow(
           dense: true,
           leading: Icon(item.icon, size: 20, color: color),
-          title: Text(
-            item.label,
-            style: TextStyle(fontSize: 14, color: color),
-          ),
+          title: Text(item.label, style: TextStyle(fontSize: 14, color: color)),
           onTap: () {
             close();
             onAction(item.action);

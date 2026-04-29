@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/models.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/prism_expandable_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
@@ -33,6 +34,7 @@ class _DataBrowserScreenState extends ConsumerState<DataBrowserScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final terms = watchTerminology(context, ref);
     return PrismPageScaffold(
       topBar: PrismTopBar(
         title: context.l10n.settingsDataBrowserTitle,
@@ -53,7 +55,12 @@ class _DataBrowserScreenState extends ConsumerState<DataBrowserScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: PrismSegmentedControl<_DataTable>(
               segments: [
-                PrismSegment(value: _DataTable.members, label: context.l10n.settingsDataBrowserTabMembers),
+                PrismSegment(
+                  value: _DataTable.members,
+                  label: context.l10n.settingsDataBrowserTabMembers(
+                    terms.plural,
+                  ),
+                ),
                 PrismSegment(
                   value: _DataTable.sessions,
                   label: context.l10n.settingsDataBrowserTabSessions,
@@ -62,8 +69,14 @@ class _DataBrowserScreenState extends ConsumerState<DataBrowserScreen> {
                   value: _DataTable.conversations,
                   label: context.l10n.settingsDataBrowserTabChats,
                 ),
-                PrismSegment(value: _DataTable.messages, label: context.l10n.settingsDataBrowserTabMessages),
-                PrismSegment(value: _DataTable.polls, label: context.l10n.settingsDataBrowserTabPolls),
+                PrismSegment(
+                  value: _DataTable.messages,
+                  label: context.l10n.settingsDataBrowserTabMessages,
+                ),
+                PrismSegment(
+                  value: _DataTable.polls,
+                  label: context.l10n.settingsDataBrowserTabPolls,
+                ),
               ],
               selected: _selectedTable,
               onChanged: (value) {
@@ -121,10 +134,21 @@ class _MembersTableState extends ConsumerState<_MembersTable> {
 
   @override
   Widget build(BuildContext context) {
-    if (_error != null) return Center(child: Text(context.l10n.settingsDataBrowserError(_error.toString())));
+    final terms = watchTerminology(context, ref);
+    if (_error != null) {
+      return Center(
+        child: Text(context.l10n.settingsDataBrowserError(_error.toString())),
+      );
+    }
     final data = _data;
     if (data == null) return const PrismLoadingState();
-    if (data.isEmpty) return Center(child: Text(context.l10n.settingsDataBrowserNoMembers));
+    if (data.isEmpty) {
+      return Center(
+        child: Text(
+          context.l10n.settingsDataBrowserNoMembers(terms.pluralLower),
+        ),
+      );
+    }
     return ListView.builder(
       itemCount: data.length,
       itemBuilder: (context, index) {
@@ -185,23 +209,33 @@ class _SessionsTableState extends ConsumerState<_SessionsTable> {
 
   @override
   Widget build(BuildContext context) {
-    if (_error != null) return Center(child: Text(context.l10n.settingsDataBrowserError(_error.toString())));
+    if (_error != null) {
+      return Center(
+        child: Text(context.l10n.settingsDataBrowserError(_error.toString())),
+      );
+    }
     final data = _data;
     if (data == null) return const PrismLoadingState();
-    if (data.isEmpty) return Center(child: Text(context.l10n.settingsDataBrowserNoSessions));
+    if (data.isEmpty) {
+      return Center(child: Text(context.l10n.settingsDataBrowserNoSessions));
+    }
     return ListView.builder(
       itemCount: data.length,
       itemBuilder: (context, index) {
         final s = data[index];
         return _ExpandableRecord(
           primaryField: s.startTime.toIso8601String().substring(0, 16),
-          secondaryField: s.isActive ? context.l10n.settingsDataBrowserSessionActive : context.l10n.settingsDataBrowserSessionEnded,
+          secondaryField: s.isActive
+              ? context.l10n.settingsDataBrowserSessionActive
+              : context.l10n.settingsDataBrowserSessionEnded,
           id: s.id,
           fields: {
             'id': s.id,
             'memberId': s.memberId ?? 'null',
             'startTime': s.startTime.toIso8601String(),
-            'endTime': s.endTime?.toIso8601String() ?? context.l10n.settingsDataBrowserSessionEndTimeActive,
+            'endTime':
+                s.endTime?.toIso8601String() ??
+                context.l10n.settingsDataBrowserSessionEndTimeActive,
             'sessionType': s.sessionType.name,
             'notes': s.notes ?? '',
             'confidence': s.confidence?.name ?? 'null',
@@ -250,17 +284,27 @@ class _ConversationsTableState extends ConsumerState<_ConversationsTable> {
 
   @override
   Widget build(BuildContext context) {
-    if (_error != null) return Center(child: Text(context.l10n.settingsDataBrowserError(_error.toString())));
+    if (_error != null) {
+      return Center(
+        child: Text(context.l10n.settingsDataBrowserError(_error.toString())),
+      );
+    }
     final data = _data;
     if (data == null) return const PrismLoadingState();
-    if (data.isEmpty) return Center(child: Text(context.l10n.settingsDataBrowserNoConversations));
+    if (data.isEmpty) {
+      return Center(
+        child: Text(context.l10n.settingsDataBrowserNoConversations),
+      );
+    }
     return ListView.builder(
       itemCount: data.length,
       itemBuilder: (context, index) {
         final c = data[index];
         return _ExpandableRecord(
           primaryField: c.title ?? context.l10n.settingsDataBrowserUntitled,
-          secondaryField: context.l10n.settingsDataBrowserParticipantCount(c.participantIds.length),
+          secondaryField: context.l10n.settingsDataBrowserParticipantCount(
+            c.participantIds.length,
+          ),
           id: c.id,
           fields: {
             'id': c.id,
@@ -309,10 +353,16 @@ class _MessagesTableState extends ConsumerState<_MessagesTable> {
 
   @override
   Widget build(BuildContext context) {
-    if (_error != null) return Center(child: Text(context.l10n.settingsDataBrowserError(_error.toString())));
+    if (_error != null) {
+      return Center(
+        child: Text(context.l10n.settingsDataBrowserError(_error.toString())),
+      );
+    }
     final data = _data;
     if (data == null) return const PrismLoadingState();
-    if (data.isEmpty) return Center(child: Text(context.l10n.settingsDataBrowserNoMessages));
+    if (data.isEmpty) {
+      return Center(child: Text(context.l10n.settingsDataBrowserNoMessages));
+    }
     final msgRepo = ref.read(chatMessageRepositoryProvider);
     return ListView.builder(
       itemCount: data.length,
@@ -394,7 +444,9 @@ class _MessagesForConversationState extends State<_MessagesForConversation> {
               primaryField: msg.content.length > 50
                   ? '${msg.content.substring(0, 50)}...'
                   : msg.content,
-              secondaryField: msg.isSystemMessage ? context.l10n.settingsDataBrowserSystemMessage : '',
+              secondaryField: msg.isSystemMessage
+                  ? context.l10n.settingsDataBrowserSystemMessage
+                  : '',
               id: msg.id,
               margin: EdgeInsets.zero,
               fields: {
@@ -487,17 +539,25 @@ class _PollsTableState extends ConsumerState<_PollsTable> {
 
   @override
   Widget build(BuildContext context) {
-    if (_error != null) return Center(child: Text(context.l10n.settingsDataBrowserError(_error.toString())));
+    if (_error != null) {
+      return Center(
+        child: Text(context.l10n.settingsDataBrowserError(_error.toString())),
+      );
+    }
     final data = _data;
     if (data == null) return const PrismLoadingState();
-    if (data.isEmpty) return Center(child: Text(context.l10n.settingsDataBrowserNoPolls));
+    if (data.isEmpty) {
+      return Center(child: Text(context.l10n.settingsDataBrowserNoPolls));
+    }
     return ListView.builder(
       itemCount: data.length,
       itemBuilder: (context, index) {
         final p = data[index];
         return _ExpandableRecord(
           primaryField: p.question,
-          secondaryField: p.isClosed ? context.l10n.settingsDataBrowserPollClosed : context.l10n.settingsDataBrowserPollActive,
+          secondaryField: p.isClosed
+              ? context.l10n.settingsDataBrowserPollClosed
+              : context.l10n.settingsDataBrowserPollActive,
           id: p.id,
           fields: {
             'id': p.id,
@@ -586,7 +646,9 @@ class _ExpandableRecord extends StatelessWidget {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: theme.colorScheme.surfaceContainerLowest,
-              borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(8)),
+              borderRadius: BorderRadius.circular(
+                PrismShapes.of(context).radius(8),
+              ),
               border: Border.all(color: theme.colorScheme.outlineVariant),
             ),
             child: Column(

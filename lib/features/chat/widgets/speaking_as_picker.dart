@@ -33,7 +33,7 @@ class SpeakingAsPicker extends ConsumerWidget {
     // placeholder member doesn't make sense in chat.
     final membersAsync = ref.watch(userVisibleMembersProvider);
     final speakingAs = ref.watch(speakingAsProvider);
-    final termPlural = watchTerminology(context, ref).plural;
+    final terms = watchTerminology(context, ref);
 
     return membersAsync.when(
       data: (members) {
@@ -41,7 +41,7 @@ class SpeakingAsPicker extends ConsumerWidget {
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Text(
-              context.l10n.chatNoMembersAvailable,
+              context.l10n.chatNoMembersAvailable(terms.pluralLower),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -65,7 +65,7 @@ class SpeakingAsPicker extends ConsumerWidget {
             theme,
             members,
             speakingAs,
-            termPlural,
+            terms.plural,
             searchGroups,
           );
         }
@@ -113,7 +113,7 @@ class SpeakingAsPicker extends ConsumerWidget {
       error: (error, _) => Padding(
         padding: const EdgeInsets.all(8),
         child: Text(
-          context.l10n.chatErrorLoadingMembersShort,
+          context.l10n.chatErrorLoadingMembersShort(terms.pluralLower),
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.error,
           ),

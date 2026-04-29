@@ -52,8 +52,10 @@ void main() {
       await tester.pumpWidget(buildSubject(repo));
       await tester.pumpAndSettle();
 
-      // Each row's subtitle is the current option label.
-      expect(find.text('Per-member rows'), findsOneWidget);
+      // Each row's subtitle is the current option label. The default
+      // terminology is 'headmates', so the {term} placeholder resolves to
+      // 'headmate' here.
+      expect(find.text('Per-headmate rows'), findsOneWidget);
       // Both the add-front row and the quick-front row read 'Replace current
       // fronters', so we expect two matches.
       expect(find.text('Replace current fronters'), findsNWidgets(2));

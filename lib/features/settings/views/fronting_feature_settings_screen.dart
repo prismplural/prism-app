@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_grouped_section_card.dart';
@@ -20,7 +21,9 @@ class FrontingFeatureSettingsScreen extends ConsumerWidget {
 
   static String _quickSwitchLabel(BuildContext context, int seconds) {
     if (seconds == 0) return context.l10n.featureFrontingQuickSwitchOff;
-    if (seconds < 60) return context.l10n.featureFrontingQuickSwitchSeconds(seconds);
+    if (seconds < 60) {
+      return context.l10n.featureFrontingQuickSwitchSeconds(seconds);
+    }
     return context.l10n.featureFrontingQuickSwitchMinutes(seconds ~/ 60);
   }
 
@@ -69,12 +72,13 @@ class FrontingFeatureSettingsScreen extends ConsumerWidget {
   static String _listViewModeLabel(
     AppLocalizations l10n,
     FrontingListViewMode mode,
+    String memberTermLower,
   ) {
     switch (mode) {
       case FrontingListViewMode.combinedPeriods:
         return l10n.settingsFrontingListViewModeCombinedPeriods;
       case FrontingListViewMode.perMemberRows:
-        return l10n.settingsFrontingListViewModePerMemberRows;
+        return l10n.settingsFrontingListViewModePerMemberRows(memberTermLower);
       case FrontingListViewMode.timeline:
         return l10n.settingsFrontingListViewModeTimeline;
     }
@@ -134,6 +138,7 @@ class FrontingFeatureSettingsScreen extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     FrontingListViewMode current,
+    String memberTermLower,
   ) {
     PrismDialog.show<void>(
       context: context,
@@ -155,7 +160,9 @@ class FrontingFeatureSettingsScreen extends ConsumerWidget {
                   (mode) => RadioListTile<FrontingListViewMode>(
                     contentPadding: EdgeInsets.zero,
                     value: mode,
-                    title: Text(_listViewModeLabel(context.l10n, mode)),
+                    title: Text(
+                      _listViewModeLabel(context.l10n, mode, memberTermLower),
+                    ),
                     subtitle: Text(
                       _listViewModeDescription(context.l10n, mode),
                     ),
@@ -250,10 +257,15 @@ class FrontingFeatureSettingsScreen extends ConsumerWidget {
     final listViewMode = ref.watch(frontingListViewModeProvider);
     final addFrontBehavior = ref.watch(addFrontDefaultBehaviorProvider);
     final quickFrontBehavior = ref.watch(quickFrontDefaultBehaviorProvider);
+    final terms = watchTerminology(context, ref);
+    final memberTermLower = terms.singularLower;
     final theme = Theme.of(context);
 
     return PrismPageScaffold(
-      topBar: PrismTopBar(title: context.l10n.featureFrontingTitle, showBackButton: true),
+      topBar: PrismTopBar(
+        title: context.l10n.featureFrontingTitle,
+        showBackButton: true,
+      ),
       bodyPadding: EdgeInsets.zero,
       body: ListView(
         padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
@@ -276,7 +288,10 @@ class FrontingFeatureSettingsScreen extends ConsumerWidget {
                     icon: AppIcons.flashOn,
                     iconColor: Colors.purple,
                     title: context.l10n.featureFrontingShowQuickFront,
-                    subtitle: context.l10n.featureFrontingShowQuickFrontSubtitle,
+                    subtitle: context.l10n
+                        .featureFrontingShowQuickFrontSubtitle(
+                          terms.pluralLower,
+                        ),
                     value: showQuickFront,
                     onChanged: (value) => ref
                         .read(settingsNotifierProvider.notifier)
@@ -288,7 +303,11 @@ class FrontingFeatureSettingsScreen extends ConsumerWidget {
                     title: context.l10n.featureFrontingQuickSwitch,
                     subtitle: _quickSwitchLabel(context, quickSwitchThreshold),
                     showChevron: true,
-                    onTap: () => _showQuickSwitchPicker(context, ref, quickSwitchThreshold),
+                    onTap: () => _showQuickSwitchPicker(
+                      context,
+                      ref,
+                      quickSwitchThreshold,
+                    ),
                   ),
                 ],
               ),
@@ -303,16 +322,23 @@ class FrontingFeatureSettingsScreen extends ConsumerWidget {
                     icon: AppIcons.viewListRounded,
                     iconColor: Colors.purple,
                     title: context.l10n.settingsFrontingListViewModeLabel,
-                    subtitle: _listViewModeLabel(context.l10n, listViewMode),
+                    subtitle: _listViewModeLabel(
+                      context.l10n,
+                      listViewMode,
+                      memberTermLower,
+                    ),
                     showChevron: true,
-                    onTap: () =>
-                        _showListViewModePicker(context, ref, listViewMode),
+                    onTap: () => _showListViewModePicker(
+                      context,
+                      ref,
+                      listViewMode,
+                      memberTermLower,
+                    ),
                   ),
                   PrismSettingsRow(
                     icon: AppIcons.addCircle,
                     iconColor: Colors.purple,
-                    title:
-                        context.l10n.settingsAddFrontDefaultBehaviorLabel,
+                    title: context.l10n.settingsAddFrontDefaultBehaviorLabel,
                     subtitle: _addFrontBehaviorLabel(
                       context.l10n,
                       addFrontBehavior,
@@ -327,8 +353,7 @@ class FrontingFeatureSettingsScreen extends ConsumerWidget {
                   PrismSettingsRow(
                     icon: AppIcons.flashOn,
                     iconColor: Colors.purple,
-                    title:
-                        context.l10n.settingsQuickFrontDefaultBehaviorLabel,
+                    title: context.l10n.settingsQuickFrontDefaultBehaviorLabel,
                     subtitle: _quickFrontBehaviorLabel(
                       context.l10n,
                       quickFrontBehavior,

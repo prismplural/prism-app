@@ -729,8 +729,9 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get resetDataConfirmAll =>
-      'This will permanently delete all your data including members, fronting sessions, messages, polls, habits, sleep data, and settings. This action cannot be undone.';
+  String resetDataConfirmAll(String termPluralLower) {
+    return 'This will permanently delete all your data including $termPluralLower, fronting sessions, messages, polls, habits, sleep data, and settings. This action cannot be undone.';
+  }
 
   @override
   String get resetDataConfirmSync =>
@@ -1049,8 +1050,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get debugResetDatabaseConfirm2Title => 'Really delete all data?';
 
   @override
-  String get debugResetDatabaseConfirm2Message =>
-      'This will permanently erase all members, sessions, conversations, messages, and polls. There is no undo.';
+  String debugResetDatabaseConfirm2Message(String termPluralLower) {
+    return 'This will permanently erase all $termPluralLower, sessions, conversations, messages, and polls. There is no undo.';
+  }
 
   @override
   String get debugDeleteEverything => 'Delete Everything';
@@ -1127,7 +1129,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get systemInfoChangeAvatar => 'Change avatar';
 
   @override
-  String get memberChangeAvatar => 'Change member avatar';
+  String memberChangeAvatar(String termSingularLower) {
+    return 'Change $termSingularLower avatar';
+  }
 
   @override
   String get avatarCropTitle => 'Crop avatar';
@@ -1483,8 +1487,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Use proxy tags to author messages';
 
   @override
-  String get featureChatProxyTagAuthoringSubtitle =>
-      'Type a PluralKit proxy tag (e.g. A:) to author as that alter for one message. Case-sensitive.';
+  String featureChatProxyTagAuthoringSubtitle(String termSingularLower) {
+    return 'Type a PluralKit proxy tag (e.g. A:) to author as that $termSingularLower for one message. Case-sensitive.';
+  }
 
   @override
   String chatPostingAsProxy(String name) {
@@ -1566,8 +1571,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get featureFrontingShowQuickFront => 'Quick Front';
 
   @override
-  String get featureFrontingShowQuickFrontSubtitle =>
-      'Show frequently fronting members as tap-and-hold shortcuts';
+  String featureFrontingShowQuickFrontSubtitle(String termPluralLower) {
+    return 'Show frequently fronting $termPluralLower as tap-and-hold shortcuts';
+  }
 
   @override
   String featureHabitsDescription(String term) {
@@ -2405,7 +2411,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memberProxyTagsEmpty => 'No proxy tags set.';
 
   @override
-  String get memberEditTooltip => 'Edit member';
+  String memberEditTooltip(String termSingularLower) {
+    return 'Edit $termSingularLower';
+  }
 
   @override
   String get memberMoreOptionsTooltip => 'More options';
@@ -2607,7 +2615,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memberNoteDiscardConfirm => 'Discard';
 
   @override
-  String get memberNoteChooseHeadmate => 'Choose Headmate';
+  String memberNoteChooseHeadmate(String termSingular) {
+    return 'Choose $termSingular';
+  }
 
   @override
   String memberNoteDateSemantics(String date) {
@@ -2615,8 +2625,8 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String memberNoteMemberSemantics(String name) {
-    return 'Headmate: $name. Tap to change';
+  String memberNoteMemberSemantics(String termSingular, String name) {
+    return '$termSingular: $name. Tap to change';
   }
 
   @override
@@ -2647,13 +2657,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memberGroupSubGroupsLabel => 'Sub-groups';
 
   @override
-  String get memberGroupSectionMembers => 'Members';
+  String memberGroupSectionMembers(String termPlural) {
+    return '$termPlural';
+  }
 
   @override
   String get memberGroupStartChat => 'Start chat';
 
   @override
-  String get memberGroupAddMember => 'Add member';
+  String memberGroupAddMember(String termSingularLower) {
+    return 'Add $termSingularLower';
+  }
 
   @override
   String get memberGroupAddSubGroup => 'Add sub-group';
@@ -2670,8 +2684,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memberGroupDeleteTitle => 'Delete group';
 
   @override
-  String memberGroupDeleteMessage(String name) {
-    return 'Are you sure you want to delete \"$name\"? Members will not be deleted.';
+  String memberGroupDeleteMessage(String name, String termPlural) {
+    return 'Are you sure you want to delete \"$name\"? $termPlural will not be deleted.';
   }
 
   @override
@@ -2699,8 +2713,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memberGroupDeleteAllConfirmTitle => 'Delete sub-groups too?';
 
   @override
-  String memberGroupDeleteAllConfirmMessage(String name) {
-    return 'This will permanently delete \"$name\" and all its sub-groups. Members will not be deleted.';
+  String memberGroupDeleteAllConfirmMessage(String name, String termPlural) {
+    return 'This will permanently delete \"$name\" and all its sub-groups. $termPlural will not be deleted.';
   }
 
   @override
@@ -2751,12 +2765,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memberGroupFilterUngrouped => 'Ungrouped';
 
   @override
-  String get memberGroupFrontAllAlreadyFronting =>
-      'All members are already fronting';
+  String memberGroupFrontAllAlreadyFronting(
+    String termPluralLower,
+    Object termPlural,
+  ) {
+    return 'All $termPluralLower are already fronting';
+  }
 
   @override
-  String memberGroupFrontAllInactive(String name) {
-    return 'All members in $name are inactive. Front anyway?';
+  String memberGroupFrontAllInactive(String name, String termPluralLower) {
+    return 'All $termPluralLower in $name are inactive. Front anyway?';
   }
 
   @override
@@ -2768,18 +2786,22 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String memberGroupFrontGroupConfirmMessage(int count) {
-    return 'This will start a co-front session with all $count members.';
+  String memberGroupFrontGroupConfirmMessage(int count, String termForCount) {
+    return 'This will start a co-front session with $count $termForCount.';
   }
 
   @override
-  String memberGroupFrontGroupSemantics(String name) {
-    return 'Front all members in $name';
+  String memberGroupFrontGroupSemantics(String name, String termPluralLower) {
+    return 'Front all $termPluralLower in $name';
   }
 
   @override
-  String memberGroupFrontSomeAlreadyFronting(int count, int remaining) {
-    return '$count members already fronting. Add the remaining $remaining?';
+  String memberGroupFrontSomeAlreadyFronting(
+    int count,
+    String termForCount,
+    int remaining,
+  ) {
+    return '$count $termForCount already fronting. Add the remaining $remaining?';
   }
 
   @override
@@ -2859,8 +2881,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memberCustomColorTitle => 'Custom color';
 
   @override
-  String get memberCustomColorSubtitle =>
-      'Use a personal color for this member';
+  String memberCustomColorSubtitle(String termSingularLower) {
+    return 'Use a personal color for this $termSingularLower';
+  }
 
   @override
   String get memberColorHexLabel => 'Color hex';
@@ -2887,10 +2910,14 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get memberSearchConfirmSelectionTooltip => 'Confirm selected members';
+  String memberSearchConfirmSelectionTooltip(String termPluralLower) {
+    return 'Confirm selected $termPluralLower';
+  }
 
   @override
-  String get memberSaveTooltip => 'Save member';
+  String memberSaveTooltip(String termSingularLower) {
+    return 'Save $termSingularLower';
+  }
 
   @override
   String get memberBulkActivate => 'Activate';
@@ -3038,7 +3065,9 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get chatChooseSpeakingMember => 'Choose speaking member';
+  String chatChooseSpeakingMember(String termSingularLower) {
+    return 'Choose speaking $termSingularLower';
+  }
 
   @override
   String get chatCancelReply => 'Cancel reply';
@@ -3111,7 +3140,9 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get chatInfoAddMembers => 'Add members';
+  String chatInfoAddMembers(String termPluralLower) {
+    return 'Add $termPluralLower';
+  }
 
   @override
   String get chatInfoOwner => 'Owner';
@@ -3120,10 +3151,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chatInfoAdmin => 'Admin';
 
   @override
-  String get chatInfoUnknownMember => 'Unknown Member';
+  String chatInfoUnknownMember(String termSingular) {
+    return 'Unknown $termSingular';
+  }
 
   @override
-  String get chatInfoErrorLoadingMember => 'Error loading member';
+  String chatInfoErrorLoadingMember(String termSingularLower) {
+    return 'Error loading $termSingularLower';
+  }
 
   @override
   String get chatInfoCategory => 'Category';
@@ -3189,15 +3224,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chatSelectNewOwner => 'Select new conversation owner';
 
   @override
-  String get chatAddMembersTitle => 'Add Members';
+  String chatAddMembersTitle(String termPlural) {
+    return 'Add $termPlural';
+  }
 
   @override
-  String get chatAddMembersAllAdded =>
-      'All active members are already in this conversation.';
+  String chatAddMembersAllAdded(String termPluralLower, Object termPlural) {
+    return 'All active $termPluralLower are already in this conversation.';
+  }
 
   @override
-  String chatAddMembersFailed(Object error) {
-    return 'Failed to add members: $error';
+  String chatAddMembersFailed(String termPluralLower, Object error) {
+    return 'Failed to add $termPluralLower: $error';
   }
 
   @override
@@ -3233,8 +3271,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chatCreateDeselectAll => 'Deselect All';
 
   @override
-  String get chatCreateNoMembers =>
-      'No members available. Create members first.';
+  String chatCreateNoMembers(String termPluralLower) {
+    return 'No $termPluralLower available. Create $termPluralLower first.';
+  }
 
   @override
   String get chatCreateFronting => 'Fronting';
@@ -3289,10 +3328,14 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get chatNoMembersAvailable => 'No members available';
+  String chatNoMembersAvailable(String termPluralLower) {
+    return 'No $termPluralLower available';
+  }
 
   @override
-  String get chatErrorLoadingMembersShort => 'Error loading members';
+  String chatErrorLoadingMembersShort(String termPluralLower) {
+    return 'Error loading $termPluralLower';
+  }
 
   @override
   String get chatGifsTitle => 'GIFs';
@@ -3564,10 +3607,17 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get memberAvatarSemanticsUnnamed => 'Member avatar';
+  String memberAvatarSemanticsUnnamed(
+    String termSingular,
+    Object termSingularLower,
+  ) {
+    return '$termSingular avatar';
+  }
 
   @override
-  String get groupMemberAvatarSemantics => 'Group member avatar';
+  String groupMemberAvatarSemantics(String termSingularLower) {
+    return 'Group $termSingularLower avatar';
+  }
 
   @override
   String get habitsReminderNotificationTitle => 'Habit Reminder';
@@ -3643,17 +3693,34 @@ class AppLocalizationsEn extends AppLocalizations {
       'Your words, your colors, your features. Prism adapts to how your system works.';
 
   @override
-  String get onboardingAddMembersNoMembers =>
-      'No members yet.\nTap \"Add Member\" to get started.';
+  String onboardingAddMembersNoMembers(
+    String termPluralLower,
+    String termSingular,
+    Object termSingularLower,
+  ) {
+    return 'No $termPluralLower yet.\nTap \"Add $termSingular\" to get started.';
+  }
 
   @override
-  String get onboardingAddMembersRemoveMember => 'Remove member';
+  String onboardingAddMembersRemoveMember(String termSingularLower) {
+    return 'Remove $termSingularLower';
+  }
 
   @override
-  String get onboardingAddMembersAddMember => 'Add Member';
+  String onboardingAddMembersAddMember(
+    String termSingular,
+    Object termSingularLower,
+  ) {
+    return 'Add $termSingular';
+  }
 
   @override
-  String get onboardingAddMemberSheetTitle => 'Add Member';
+  String onboardingAddMemberSheetTitle(
+    String termSingular,
+    Object termSingularLower,
+  ) {
+    return 'Add $termSingular';
+  }
 
   @override
   String get onboardingAddMemberFieldEmoji => 'Emoji';
@@ -3686,8 +3753,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get onboardingFeaturesChat => 'Chat';
 
   @override
-  String get onboardingFeaturesChatDescription =>
-      'Internal messaging between system members';
+  String onboardingFeaturesChatDescription(String termPluralLower) {
+    return 'Internal messaging between system $termPluralLower';
+  }
 
   @override
   String get onboardingFeaturesPolls => 'Polls';
@@ -3721,8 +3789,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get onboardingFeaturesReminders => 'Reminders';
 
   @override
-  String get onboardingFeaturesRemindersDescription =>
-      'Set reminders for yourself or system members';
+  String onboardingFeaturesRemindersDescription(String termPluralLower) {
+    return 'Set reminders for yourself or system $termPluralLower';
+  }
 
   @override
   String get onboardingCompleteTrackFrontingTitle => 'Track fronting';
@@ -4013,8 +4082,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Tap to select who is currently fronting';
 
   @override
-  String get onboardingWhosFrontingNoMembers =>
-      'No members added yet.\nGo back to add members first.';
+  String onboardingWhosFrontingNoMembers(String termPluralLower) {
+    return 'No $termPluralLower added yet.\nGo back to add $termPluralLower first.';
+  }
 
   @override
   String get onboardingChatSuggestedChannels => 'Suggested Channels';
@@ -4026,7 +4096,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get onboardingChatChannelNameHint => 'Channel name';
 
   @override
-  String get onboardingChatChannelAllMembers => 'All Members';
+  String onboardingChatChannelAllMembers(
+    String termPlural,
+    Object termPluralLower,
+  ) {
+    return 'All $termPlural';
+  }
 
   @override
   String get onboardingChatChannelVenting => 'Venting';
@@ -4059,11 +4134,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get onboardingPreferencesAccentColor => 'Accent Color';
 
   @override
-  String get onboardingPreferencesPerMemberColors => 'Per-Member Colors';
+  String onboardingPreferencesPerMemberColors(
+    String termSingular,
+    Object termSingularLower,
+  ) {
+    return 'Per-$termSingular Colors';
+  }
 
   @override
-  String get onboardingPreferencesPerMemberColorsSubtitle =>
-      'Let each member have their own accent color';
+  String onboardingPreferencesPerMemberColorsSubtitle(
+    String termSingularLower,
+  ) {
+    return 'Let each $termSingularLower have their own accent color';
+  }
 
   @override
   String get onboardingSyncJoinYourGroup => 'Join your sync group';
@@ -4197,7 +4280,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get habitsSectionAssignment => 'ASSIGNMENT';
 
   @override
-  String get habitsAssignedMember => 'Assigned Member';
+  String habitsAssignedMember(String termSingular) {
+    return 'Assigned $termSingular';
+  }
 
   @override
   String get habitsAssignedMemberAnyone => 'Anyone';
@@ -4206,8 +4291,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get habitsOnlyNotifyWhenFronting => 'Only notify when fronting';
 
   @override
-  String get habitsOnlyFrontingCaveat =>
-      'Reminders will fire even if this member isn\'t fronting — fronting-aware delivery requires background access.';
+  String habitsOnlyFrontingCaveat(String termSingularLower) {
+    return 'Reminders will fire even if this $termSingularLower isn\'t fronting — fronting-aware delivery requires background access.';
+  }
 
   @override
   String get habitsPrivate => 'Private';
@@ -4559,7 +4645,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pollsDetailVoteAs => 'Vote as';
 
   @override
-  String get pollsDetailNoMembers => 'No members available';
+  String pollsDetailNoMembers(String termPluralLower) {
+    return 'No $termPluralLower available';
+  }
 
   @override
   String get pollsDetailSubmitVote => 'Submit Vote';
@@ -4648,7 +4736,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get migrationSupportedDataTypes => 'Supported data types';
 
   @override
-  String get migrationSupportedMembers => 'Members';
+  String migrationSupportedMembers(String termPlural) {
+    return '$termPlural';
+  }
 
   @override
   String get migrationSupportedCustomFronts => 'Custom fronts';
@@ -4663,10 +4753,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get migrationSupportedPolls => 'Polls';
 
   @override
-  String get migrationSupportedMemberColors => 'Member colors';
+  String migrationSupportedMemberColors(String termSingular) {
+    return '$termSingular colors';
+  }
 
   @override
-  String get migrationSupportedMemberDescriptions => 'Member descriptions';
+  String migrationSupportedMemberDescriptions(String termSingular) {
+    return '$termSingular descriptions';
+  }
 
   @override
   String get migrationSupportedAvatarImages => 'Avatar images';
@@ -4760,8 +4854,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get migrationReplaceAllTitle => 'Replace all data?';
 
   @override
-  String get migrationReplaceAllMessage =>
-      'This will delete all existing members, front history, conversations, and other data before importing. This action cannot be undone.\n\nIf you have sync set up, other paired devices should also be reset to avoid conflicts.';
+  String migrationReplaceAllMessage(String termPluralLower) {
+    return 'This will delete all existing $termPluralLower, front history, conversations, and other data before importing. This action cannot be undone.\n\nIf you have sync set up, other paired devices should also be reset to avoid conflicts.';
+  }
 
   @override
   String get migrationReplaceAll => 'Replace All';
@@ -4781,7 +4876,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get migrationSummary => 'Summary';
 
   @override
-  String get migrationResultMembers => 'Members';
+  String migrationResultMembers(String termPlural) {
+    return '$termPlural';
+  }
 
   @override
   String get migrationResultFrontSessions => 'Front sessions';
@@ -4979,25 +5076,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pluralkitUpToDate => 'Everything is up to date.';
 
   @override
-  String pluralkitMembersPulled(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count members pulled',
-      one: '1 member pulled',
-    );
-    return '$_temp0';
+  String pluralkitMembersPulled(int count, String termForCount) {
+    return '$count $termForCount pulled';
   }
 
   @override
-  String pluralkitMembersPushed(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count members pushed',
-      one: '1 member pushed',
-    );
-    return '$_temp0';
+  String pluralkitMembersPushed(int count, String termForCount) {
+    return '$count $termForCount pushed';
   }
 
   @override
@@ -5023,14 +5108,8 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String pluralkitMembersUnchanged(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count members unchanged',
-      one: '1 member unchanged',
-    );
-    return '$_temp0';
+  String pluralkitMembersUnchanged(int count, String termForCount) {
+    return '$count $termForCount unchanged';
   }
 
   @override
@@ -5042,8 +5121,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Your token is stored securely in the device keychain and never leaves your device.';
 
   @override
-  String get pluralkitInfoMembers =>
-      'After connecting, link your PluralKit members to Prism members — or import them as new — so nothing gets duplicated.';
+  String pluralkitInfoMembers(String termPluralLower) {
+    return 'After connecting, link your PluralKit members to Prism $termPluralLower — or import them as new — so nothing gets duplicated.';
+  }
 
   @override
   String get pluralkitInfoSwitches =>
@@ -5066,23 +5146,31 @@ class AppLocalizationsEn extends AppLocalizations {
       'Reconnect PluralKit to see comparison details';
 
   @override
-  String pluralkitRepairSharedPkMembers(int count) {
+  String pluralkitRepairSharedPkMembers(
+    int count,
+    String termSingularLower,
+    String termPluralLower,
+  ) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$count shared PK members',
-      one: '1 shared PK member',
+      other: '$count shared PK $termPluralLower',
+      one: '1 shared PK $termSingularLower',
     );
     return '$_temp0';
   }
 
   @override
-  String pluralkitRepairLocalOnlyMembers(int count) {
+  String pluralkitRepairLocalOnlyMembers(
+    int count,
+    String termSingularLower,
+    String termPluralLower,
+  ) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$count local-only members',
-      one: '1 local-only member',
+      other: '$count local-only $termPluralLower',
+      one: '1 local-only $termSingularLower',
     );
     return '$_temp0';
   }
@@ -5135,12 +5223,16 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String pluralkitRepairPreviewLeavePkOnly(int count) {
+  String pluralkitRepairPreviewLeavePkOnly(
+    int count,
+    String termSingularLower,
+    String termPluralLower,
+  ) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$count PK-only members',
-      one: '1 PK-only member',
+      other: '$count PK-only $termPluralLower',
+      one: '1 PK-only $termSingularLower',
     );
     return 'leave $_temp0 unmatched';
   }
@@ -5877,8 +5969,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Restore data from a Prism export file (.json or .prism)';
 
   @override
-  String get dataManagementPluralKitRowSubtitle =>
-      'Import members & fronting via API token';
+  String dataManagementPluralKitRowSubtitle(String termPluralLower) {
+    return 'Import $termPluralLower & fronting via API token';
+  }
 
   @override
   String get dataManagementSimplyPluralRowTitle => 'Simply Plural';
@@ -5891,8 +5984,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dataManagementExportYourData => 'Export Your Data';
 
   @override
-  String get dataManagementExportDescription =>
-      'Create a password-protected backup of all your data including members, fronting sessions, messages, polls, and settings.';
+  String dataManagementExportDescription(String termPluralLower) {
+    return 'Create a password-protected backup of all your data including $termPluralLower, fronting sessions, messages, polls, and settings.';
+  }
 
   @override
   String get dataManagementExportButton => 'Export Data';
@@ -5992,7 +6086,9 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get dataManagementPreviewMembers => 'Members';
+  String dataManagementPreviewMembers(String termPlural) {
+    return '$termPlural';
+  }
 
   @override
   String get dataManagementPreviewFrontSessions => 'Front Sessions';
@@ -6494,8 +6590,9 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get settingsAboutDescription =>
-      'A privacy-focused app for managing plural systems. Track fronting, communicate between headmates, and keep your system organized.';
+  String settingsAboutDescription(String termPluralLower) {
+    return 'A privacy-focused app for managing plural systems. Track fronting, communicate between $termPluralLower, and keep your system organized.';
+  }
 
   @override
   String get settingsAboutGitHub => 'GitHub';
@@ -6530,8 +6627,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsCustomFieldsEmptyTitle => 'No custom fields';
 
   @override
-  String get settingsCustomFieldsEmptySubtitle =>
-      'Add fields to track custom attributes for each member';
+  String settingsCustomFieldsEmptySubtitle(String termSingularLower) {
+    return 'Add fields to track custom attributes for each $termSingularLower';
+  }
 
   @override
   String get settingsCustomFieldsAddAction => 'Add Field';
@@ -6750,7 +6848,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsDataBrowserReloadTooltip => 'Reload data';
 
   @override
-  String get settingsDataBrowserTabMembers => 'Members';
+  String settingsDataBrowserTabMembers(String termPlural) {
+    return '$termPlural';
+  }
 
   @override
   String get settingsDataBrowserTabSessions => 'Sessions';
@@ -6770,7 +6870,9 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get settingsDataBrowserNoMembers => 'No members';
+  String settingsDataBrowserNoMembers(String termPluralLower) {
+    return 'No $termPluralLower';
+  }
 
   @override
   String get settingsDataBrowserNoSessions => 'No sessions';
@@ -7033,15 +7135,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get onboardingPermissionsNotificationTitle => 'Notifications';
 
   @override
-  String get onboardingPermissionsNotificationRationale =>
-      'We\'ll let you know when headmates log a switch or a habit reminder is due';
+  String onboardingPermissionsNotificationRationale(String termPluralLower) {
+    return 'We\'ll let you know when $termPluralLower log a switch or a habit reminder is due';
+  }
 
   @override
   String get onboardingPermissionsMicrophoneTitle => 'Microphone';
 
   @override
-  String get onboardingPermissionsMicrophoneRationale =>
-      'So you can record voice messages for your headmates';
+  String onboardingPermissionsMicrophoneRationale(String termPluralLower) {
+    return 'So you can record voice messages for your $termPluralLower';
+  }
 
   @override
   String get onboardingPermissionsAllowed => 'Allowed';
@@ -7278,14 +7382,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pluralkitImportFromFile => 'Import from pk;export file';
 
   @override
-  String get pluralkitMappingBannerTitle => 'One more step: link your members';
+  String pluralkitMappingBannerTitle(String termPluralLower) {
+    return 'One more step: link your $termPluralLower';
+  }
 
   @override
-  String get pluralkitMappingBannerBody =>
-      'You\'re connected. Before sync turns on, match each PluralKit member to a member in Prism — or import them as new. This prevents duplicates and keeps switch history attached to the right person.';
+  String pluralkitMappingBannerBody(String termSingularLower) {
+    return 'You\'re connected. Before sync turns on, match each PluralKit member to a $termSingularLower in Prism — or import them as new. This prevents duplicates and keeps switch history attached to the right person.';
+  }
 
   @override
-  String get pluralkitMappingBannerButton => 'Link members';
+  String pluralkitMappingBannerButton(String termPluralLower) {
+    return 'Link $termPluralLower';
+  }
 
   @override
   String get sleepWakeUpMorning => 'Good morning!';
@@ -7464,7 +7573,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get migrationCfContinue => 'Continue';
 
   @override
-  String get migrationCfOptionMember => 'Import as member';
+  String migrationCfOptionMember(String termSingularLower) {
+    return 'Import as $termSingularLower';
+  }
 
   @override
   String get migrationCfOptionNote => 'Merge into notes';
@@ -7476,8 +7587,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get migrationCfOptionSkip => 'Skip';
 
   @override
-  String get migrationCfOptionMemberDesc =>
-      'Creates a member with this name. Front history entries for it are kept as member sessions.';
+  String migrationCfOptionMemberDesc(String termSingularLower) {
+    return 'Creates a $termSingularLower with this name. Front history entries for it are kept as $termSingularLower sessions.';
+  }
 
   @override
   String get migrationCfOptionNoteDesc =>
@@ -7699,8 +7811,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'We\'re upgrading how fronting is stored';
 
   @override
-  String get frontingUpgradeIntroBody =>
-      'Co-fronting now uses one record per member instead of one shared record. This makes overlaps, edits, and analytics work correctly. We\'ll save a backup of your current data first, then run the upgrade.';
+  String frontingUpgradeIntroBody(String termSingularLower) {
+    return 'Co-fronting now uses one record per $termSingularLower instead of one shared record. This makes overlaps, edits, and analytics work correctly. We\'ll save a backup of your current data first, then run the upgrade.';
+  }
 
   @override
   String get frontingUpgradeContinue => 'Continue';
@@ -7815,12 +7928,16 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String frontingUpgradeCountNativeExpanded(int count) {
+  String frontingUpgradeCountNativeExpanded(
+    int count,
+    String termSingularLower,
+  ) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: 'Expanded $count co-fronting periods into per-member records.',
-      one: 'Expanded 1 co-fronting period into per-member records.',
+      other:
+          'Expanded $count co-fronting periods into per-$termSingularLower records.',
+      one: 'Expanded 1 co-fronting period into per-$termSingularLower records.',
     );
     return '$_temp0';
   }
@@ -7849,29 +7966,37 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String frontingUpgradeCountOrphansAssigned(int count) {
+  String frontingUpgradeCountOrphansAssigned(
+    int count,
+    String termSingularLower,
+  ) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: 'Assigned $count unattributed sessions to the Unknown member.',
-      one: 'Assigned 1 unattributed session to the Unknown member.',
+      other:
+          'Assigned $count unattributed sessions to the Unknown $termSingularLower.',
+      one: 'Assigned 1 unattributed session to the Unknown $termSingularLower.',
     );
     return '$_temp0';
   }
 
   @override
-  String get frontingUpgradeCountSentinelCreated =>
-      'Created an Unknown member to hold sessions with no clear fronter.';
+  String frontingUpgradeCountSentinelCreated(String termSingularLower) {
+    return 'Created an Unknown $termSingularLower to hold sessions with no clear fronter.';
+  }
 
   @override
-  String frontingUpgradeCountCorruptCoFronters(int count) {
+  String frontingUpgradeCountCorruptCoFronters(
+    int count,
+    String termSingularLower,
+  ) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
       other:
-          '$count sessions had unreadable co-fronter data and were migrated as single-member.',
+          '$count sessions had unreadable co-fronter data and were migrated as single-$termSingularLower.',
       one:
-          '1 session had unreadable co-fronter data and was migrated as single-member.',
+          '1 session had unreadable co-fronter data and was migrated as single-$termSingularLower.',
     );
     return '$_temp0';
   }
@@ -7957,7 +8082,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Avatar stacks for each unique fronter group';
 
   @override
-  String get settingsFrontingListViewModePerMemberRows => 'Per-member rows';
+  String settingsFrontingListViewModePerMemberRows(String term) {
+    return 'Per-$term rows';
+  }
 
   @override
   String get settingsFrontingListViewModePerMemberRowsDescription =>

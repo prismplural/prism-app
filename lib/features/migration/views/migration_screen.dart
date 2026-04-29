@@ -12,6 +12,7 @@ import 'package:prism_plurality/features/migration/services/sp_importer.dart';
 import 'package:prism_plurality/features/migration/services/sp_parser.dart';
 import 'package:prism_plurality/features/migration/widgets/custom_front_disposition_step.dart';
 import 'package:prism_plurality/features/migration/widgets/import_preview_card.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
@@ -36,11 +37,16 @@ class MigrationScreen extends ConsumerWidget {
     final migration = ref.watch(importerProvider);
 
     return PrismPageScaffold(
-      topBar: PrismTopBar(title: context.l10n.migrationImportData, showBackButton: true),
+      topBar: PrismTopBar(
+        title: context.l10n.migrationImportData,
+        showBackButton: true,
+      ),
       bodyPadding: EdgeInsets.zero,
       body: switch (migration.step) {
         ImportState.idle => _IdleView(ref: ref),
-        ImportState.parsing => _LoadingView(message: context.l10n.migrationReadingFile),
+        ImportState.parsing => _LoadingView(
+          message: context.l10n.migrationReadingFile,
+        ),
         ImportState.verifying =>
           migration.spUsername != null
               ? _ConnectedView(username: migration.spUsername!, ref: ref)
@@ -50,8 +56,9 @@ class MigrationScreen extends ConsumerWidget {
           data: migration.exportData!,
           ref: ref,
         ),
-        ImportState.chooseDispositions =>
-          CustomFrontDispositionStep(data: migration.exportData!),
+        ImportState.chooseDispositions => CustomFrontDispositionStep(
+          data: migration.exportData!,
+        ),
         ImportState.importing ||
         ImportState.downloadingAvatars => _ImportingView(state: migration),
         ImportState.complete => _CompleteView(
@@ -80,6 +87,7 @@ class _IdleView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final terms = watchTerminology(context, ref);
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -172,7 +180,10 @@ class _IdleView extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 8),
-              _SupportedItem(icon: AppIcons.person, label: context.l10n.migrationSupportedMembers),
+              _SupportedItem(
+                icon: AppIcons.person,
+                label: context.l10n.migrationSupportedMembers(terms.plural),
+              ),
               _SupportedItem(
                 icon: AppIcons.labelOutlined,
                 label: context.l10n.migrationSupportedCustomFronts,
@@ -185,30 +196,46 @@ class _IdleView extends StatelessWidget {
                 icon: AppIcons.chatBubbleOutline,
                 label: context.l10n.migrationSupportedChatChannels,
               ),
-              _SupportedItem(icon: AppIcons.pollOutlined, label: context.l10n.migrationSupportedPolls),
+              _SupportedItem(
+                icon: AppIcons.pollOutlined,
+                label: context.l10n.migrationSupportedPolls,
+              ),
               _SupportedItem(
                 icon: AppIcons.colorLens,
-                label: context.l10n.migrationSupportedMemberColors,
+                label: context.l10n.migrationSupportedMemberColors(
+                  terms.singular,
+                ),
               ),
               _SupportedItem(
                 icon: AppIcons.notes,
-                label: context.l10n.migrationSupportedMemberDescriptions,
+                label: context.l10n.migrationSupportedMemberDescriptions(
+                  terms.singular,
+                ),
               ),
               _SupportedItem(
                 icon: AppIcons.imageOutlined,
                 label: context.l10n.migrationSupportedAvatarImages,
               ),
-              _SupportedItem(icon: AppIcons.noteOutlined, label: context.l10n.migrationSupportedNotes),
+              _SupportedItem(
+                icon: AppIcons.noteOutlined,
+                label: context.l10n.migrationSupportedNotes,
+              ),
               _SupportedItem(
                 icon: AppIcons.textFields,
                 label: context.l10n.migrationSupportedCustomFields,
               ),
-              _SupportedItem(icon: AppIcons.groupOutlined, label: context.l10n.migrationSupportedGroups),
+              _SupportedItem(
+                icon: AppIcons.groupOutlined,
+                label: context.l10n.migrationSupportedGroups,
+              ),
               _SupportedItem(
                 icon: AppIcons.commentOutlined,
                 label: context.l10n.migrationSupportedComments,
               ),
-              _SupportedItem(icon: AppIcons.alarm, label: context.l10n.migrationSupportedReminders),
+              _SupportedItem(
+                icon: AppIcons.alarm,
+                label: context.l10n.migrationSupportedReminders,
+              ),
             ],
           ),
         ),
@@ -267,15 +294,11 @@ class _ImportMethodCard extends StatelessWidget {
                             color: theme.colorScheme.onSecondaryContainer,
                           ),
                         ),
-                        backgroundColor:
-                            theme.colorScheme.secondaryContainer,
-                        materialTapTargetSize:
-                            MaterialTapTargetSize.shrinkWrap,
+                        backgroundColor: theme.colorScheme.secondaryContainer,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         visualDensity: VisualDensity.compact,
                         padding: EdgeInsets.zero,
-                        labelPadding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                        ),
+                        labelPadding: const EdgeInsets.symmetric(horizontal: 6),
                       ),
                     ],
                   ],
@@ -398,7 +421,9 @@ class _TokenInputScreenState extends ConsumerState<_TokenInputScreen> {
                   icon: _obscured
                       ? AppIcons.visibilityOff
                       : AppIcons.visibility,
-                  tooltip: _obscured ? context.l10n.migrationShowToken : context.l10n.migrationHideToken,
+                  tooltip: _obscured
+                      ? context.l10n.migrationShowToken
+                      : context.l10n.migrationHideToken,
                   onPressed: () {
                     setState(() => _obscured = !_obscured);
                   },
@@ -737,9 +762,7 @@ class _PreviewView extends StatelessWidget {
                 children: [
                   PrismButton(
                     onPressed: () {
-                      ref
-                          .read(importerProvider.notifier)
-                          .proceedFromPreview();
+                      ref.read(importerProvider.notifier).proceedFromPreview();
                     },
                     icon: AppIcons.download,
                     label: context.l10n.migrationImportAllAddToExisting,
@@ -803,15 +826,18 @@ class _PreviewView extends StatelessWidget {
   }
 
   void _showStartFreshDialog(BuildContext context) {
+    final terms = readTerminology(context, ref);
     PrismDialog.confirm(
       context: context,
       title: context.l10n.migrationReplaceAllTitle,
-      message: context.l10n.migrationReplaceAllMessage,
+      message: context.l10n.migrationReplaceAllMessage(terms.pluralLower),
       confirmLabel: context.l10n.migrationReplaceAll,
       destructive: true,
     ).then((confirmed) {
       if (confirmed) {
-        ref.read(importerProvider.notifier).proceedFromPreview(resetFirst: true);
+        ref
+            .read(importerProvider.notifier)
+            .proceedFromPreview(resetFirst: true);
       }
     });
   }
@@ -861,7 +887,9 @@ class _ImportingView extends StatelessWidget {
               const SizedBox(height: 16),
               LinearProgressIndicator(
                 value: state.progress,
-                borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(4)),
+                borderRadius: BorderRadius.circular(
+                  PrismShapes.of(context).radius(4),
+                ),
               ),
               const SizedBox(height: 8),
               Text(
@@ -891,6 +919,7 @@ class _CompleteView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final terms = watchTerminology(context, ref);
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -907,7 +936,10 @@ class _CompleteView extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          context.l10n.migrationImportSuccess(result.totalImported, result.duration.inSeconds),
+          context.l10n.migrationImportSuccess(
+            result.totalImported,
+            result.duration.inSeconds,
+          ),
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
@@ -928,7 +960,10 @@ class _CompleteView extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 8),
-              _ResultRow(label: context.l10n.migrationResultMembers, count: result.membersImported),
+              _ResultRow(
+                label: context.l10n.migrationResultMembers(terms.plural),
+                count: result.membersImported,
+              ),
               _ResultRow(
                 label: context.l10n.migrationResultFrontSessions,
                 count: result.sessionsImported,
@@ -937,19 +972,34 @@ class _CompleteView extends StatelessWidget {
                 label: context.l10n.migrationResultConversations,
                 count: result.conversationsImported,
               ),
-              _ResultRow(label: context.l10n.migrationResultMessages, count: result.messagesImported),
-              _ResultRow(label: context.l10n.migrationResultPolls, count: result.pollsImported),
+              _ResultRow(
+                label: context.l10n.migrationResultMessages,
+                count: result.messagesImported,
+              ),
+              _ResultRow(
+                label: context.l10n.migrationResultPolls,
+                count: result.pollsImported,
+              ),
               if (result.notesImported > 0)
-                _ResultRow(label: context.l10n.migrationResultNotes, count: result.notesImported),
+                _ResultRow(
+                  label: context.l10n.migrationResultNotes,
+                  count: result.notesImported,
+                ),
               if (result.commentsImported > 0)
-                _ResultRow(label: context.l10n.migrationResultComments, count: result.commentsImported),
+                _ResultRow(
+                  label: context.l10n.migrationResultComments,
+                  count: result.commentsImported,
+                ),
               if (result.customFieldsImported > 0)
                 _ResultRow(
                   label: context.l10n.migrationResultCustomFields,
                   count: result.customFieldsImported,
                 ),
               if (result.groupsImported > 0)
-                _ResultRow(label: context.l10n.migrationResultGroups, count: result.groupsImported),
+                _ResultRow(
+                  label: context.l10n.migrationResultGroups,
+                  count: result.groupsImported,
+                ),
               if (result.remindersImported > 0)
                 _ResultRow(
                   label: context.l10n.migrationResultReminders,
@@ -1079,9 +1129,7 @@ class _DisclosureRow extends StatelessWidget {
                 ),
                 Text(
                   detail,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: mutedColor,
-                  ),
+                  style: theme.textTheme.bodySmall?.copyWith(color: mutedColor),
                 ),
               ],
             ),
