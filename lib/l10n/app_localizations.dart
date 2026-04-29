@@ -1415,8 +1415,8 @@ abstract class AppLocalizations {
   /// Confirmation message when resetting all data
   ///
   /// In en, this message translates to:
-  /// **'This will permanently delete all your data including members, fronting sessions, messages, polls, habits, sleep data, and settings. This action cannot be undone.'**
-  String get resetDataConfirmAll;
+  /// **'This will permanently delete all your data including {termPluralLower}, fronting sessions, messages, polls, habits, sleep data, and settings. This action cannot be undone.'**
+  String resetDataConfirmAll(String termPluralLower);
 
   /// Confirmation message when resetting sync
   ///
@@ -1991,8 +1991,8 @@ abstract class AppLocalizations {
   /// Second confirmation message for DB reset
   ///
   /// In en, this message translates to:
-  /// **'This will permanently erase all members, sessions, conversations, messages, and polls. There is no undo.'**
-  String get debugResetDatabaseConfirm2Message;
+  /// **'This will permanently erase all {termPluralLower}, sessions, conversations, messages, and polls. There is no undo.'**
+  String debugResetDatabaseConfirm2Message(String termPluralLower);
 
   /// Second confirmation: delete everything button
   ///
@@ -2123,8 +2123,8 @@ abstract class AppLocalizations {
   /// Semantic label for the member avatar change button
   ///
   /// In en, this message translates to:
-  /// **'Change member avatar'**
-  String get memberChangeAvatar;
+  /// **'Change {termSingularLower} avatar'**
+  String memberChangeAvatar(String termSingularLower);
 
   /// Title for the native avatar cropper
   ///
@@ -2753,8 +2753,8 @@ abstract class AppLocalizations {
   /// Toggle subtitle: explains proxy-tag authoring, mentions PluralKit and case sensitivity
   ///
   /// In en, this message translates to:
-  /// **'Type a PluralKit proxy tag (e.g. A:) to author as that alter for one message. Case-sensitive.'**
-  String get featureChatProxyTagAuthoringSubtitle;
+  /// **'Type a PluralKit proxy tag (e.g. A:) to author as that {termSingularLower} for one message. Case-sensitive.'**
+  String featureChatProxyTagAuthoringSubtitle(String termSingularLower);
 
   /// Chip label shown above the chat composer when a proxy tag matches the draft
   ///
@@ -2891,8 +2891,8 @@ abstract class AppLocalizations {
   /// Subtitle for the show/hide Quick Front toggle
   ///
   /// In en, this message translates to:
-  /// **'Show frequently fronting members as tap-and-hold shortcuts'**
-  String get featureFrontingShowQuickFrontSubtitle;
+  /// **'Show frequently fronting {termPluralLower} as tap-and-hold shortcuts'**
+  String featureFrontingShowQuickFrontSubtitle(String termPluralLower);
 
   /// Description text on habits feature settings screen
   ///
@@ -4229,8 +4229,8 @@ abstract class AppLocalizations {
   /// Tooltip for edit member button
   ///
   /// In en, this message translates to:
-  /// **'Edit member'**
-  String get memberEditTooltip;
+  /// **'Edit {termSingularLower}'**
+  String memberEditTooltip(String termSingularLower);
 
   /// Tooltip for more options menu on member detail screen
   ///
@@ -4565,8 +4565,8 @@ abstract class AppLocalizations {
   /// Sheet title for headmate selection in note sheet
   ///
   /// In en, this message translates to:
-  /// **'Choose Headmate'**
-  String get memberNoteChooseHeadmate;
+  /// **'Choose {termSingular}'**
+  String memberNoteChooseHeadmate(String termSingular);
 
   /// Semantics label for the note date chip
   ///
@@ -4577,8 +4577,8 @@ abstract class AppLocalizations {
   /// Semantics label for the selected headmate chip in note sheet
   ///
   /// In en, this message translates to:
-  /// **'Headmate: {name}. Tap to change'**
-  String memberNoteMemberSemantics(String name);
+  /// **'{termSingular}: {name}. Tap to change'**
+  String memberNoteMemberSemantics(String termSingular, String name);
 
   /// Semantics label for the note sheet headmate picker when nothing is selected
   ///
@@ -4625,8 +4625,8 @@ abstract class AppLocalizations {
   /// Section header for members inside a group detail screen
   ///
   /// In en, this message translates to:
-  /// **'Members'**
-  String get memberGroupSectionMembers;
+  /// **'{termPlural}'**
+  String memberGroupSectionMembers(String termPlural);
 
   /// Button label to start a chat with all members in a group
   ///
@@ -4637,8 +4637,8 @@ abstract class AppLocalizations {
   /// Button label to add a member to a group
   ///
   /// In en, this message translates to:
-  /// **'Add member'**
-  String get memberGroupAddMember;
+  /// **'Add {termSingularLower}'**
+  String memberGroupAddMember(String termSingularLower);
 
   /// Button label to create a new sub-group inside an existing group
   ///
@@ -4667,8 +4667,8 @@ abstract class AppLocalizations {
   /// Confirmation dialog message when deleting a group
   ///
   /// In en, this message translates to:
-  /// **'Are you sure you want to delete \"{name}\"? Members will not be deleted.'**
-  String memberGroupDeleteMessage(String name);
+  /// **'Are you sure you want to delete \"{name}\"? {termPlural} will not be deleted.'**
+  String memberGroupDeleteMessage(String name, String termPlural);
 
   /// Confirm button for group deletion dialog
   ///
@@ -4715,8 +4715,8 @@ abstract class AppLocalizations {
   /// Confirmation dialog message for recursive group delete
   ///
   /// In en, this message translates to:
-  /// **'This will permanently delete \"{name}\" and all its sub-groups. Members will not be deleted.'**
-  String memberGroupDeleteAllConfirmMessage(String name);
+  /// **'This will permanently delete \"{name}\" and all its sub-groups. {termPlural} will not be deleted.'**
+  String memberGroupDeleteAllConfirmMessage(String name, String termPlural);
 
   /// Toast shown after sub-groups are promoted to root
   ///
@@ -4811,14 +4811,17 @@ abstract class AppLocalizations {
   /// Toast shown when all group members are already fronting
   ///
   /// In en, this message translates to:
-  /// **'All members are already fronting'**
-  String get memberGroupFrontAllAlreadyFronting;
+  /// **'All {termPluralLower} are already fronting'**
+  String memberGroupFrontAllAlreadyFronting(
+    String termPluralLower,
+    Object termPlural,
+  );
 
   /// No description provided for @memberGroupFrontAllInactive.
   ///
   /// In en, this message translates to:
-  /// **'All members in {name} are inactive. Front anyway?'**
-  String memberGroupFrontAllInactive(String name);
+  /// **'All {termPluralLower} in {name} are inactive. Front anyway?'**
+  String memberGroupFrontAllInactive(String name, String termPluralLower);
 
   /// Button label to front all members in a group
   ///
@@ -4835,20 +4838,24 @@ abstract class AppLocalizations {
   /// Confirmation dialog body when fronting multiple members in a group
   ///
   /// In en, this message translates to:
-  /// **'This will start a co-front session with all {count} members.'**
-  String memberGroupFrontGroupConfirmMessage(int count);
+  /// **'This will start a co-front session with {count} {termForCount}.'**
+  String memberGroupFrontGroupConfirmMessage(int count, String termForCount);
 
   /// No description provided for @memberGroupFrontGroupSemantics.
   ///
   /// In en, this message translates to:
-  /// **'Front all members in {name}'**
-  String memberGroupFrontGroupSemantics(String name);
+  /// **'Front all {termPluralLower} in {name}'**
+  String memberGroupFrontGroupSemantics(String name, String termPluralLower);
 
   /// No description provided for @memberGroupFrontSomeAlreadyFronting.
   ///
   /// In en, this message translates to:
-  /// **'{count} members already fronting. Add the remaining {remaining}?'**
-  String memberGroupFrontSomeAlreadyFronting(int count, int remaining);
+  /// **'{count} {termForCount} already fronting. Add the remaining {remaining}?'**
+  String memberGroupFrontSomeAlreadyFronting(
+    int count,
+    String termForCount,
+    int remaining,
+  );
 
   /// Empty state message on the manage groups screen
   ///
@@ -5003,8 +5010,8 @@ abstract class AppLocalizations {
   /// Switch subtitle: custom color
   ///
   /// In en, this message translates to:
-  /// **'Use a personal color for this member'**
-  String get memberCustomColorSubtitle;
+  /// **'Use a personal color for this {termSingularLower}'**
+  String memberCustomColorSubtitle(String termSingularLower);
 
   /// Label for the member color hex text field
   ///
@@ -5033,14 +5040,14 @@ abstract class AppLocalizations {
   /// Tooltip and semantics label for confirming selected members in the member search sheet
   ///
   /// In en, this message translates to:
-  /// **'Confirm selected members'**
-  String get memberSearchConfirmSelectionTooltip;
+  /// **'Confirm selected {termPluralLower}'**
+  String memberSearchConfirmSelectionTooltip(String termPluralLower);
 
   /// Tooltip and semantics label for saving a member from the add/edit member sheet
   ///
   /// In en, this message translates to:
-  /// **'Save member'**
-  String get memberSaveTooltip;
+  /// **'Save {termSingularLower}'**
+  String memberSaveTooltip(String termSingularLower);
 
   /// Bulk action button: activate selected members
   ///
@@ -5303,8 +5310,8 @@ abstract class AppLocalizations {
   /// Semantics label for the speaking-as button when no member is selected
   ///
   /// In en, this message translates to:
-  /// **'Choose speaking member'**
-  String get chatChooseSpeakingMember;
+  /// **'Choose speaking {termSingularLower}'**
+  String chatChooseSpeakingMember(String termSingularLower);
 
   /// Tooltip/semantics for dismiss reply banner button
   ///
@@ -5435,8 +5442,8 @@ abstract class AppLocalizations {
   /// Tooltip for add members button in conversation info
   ///
   /// In en, this message translates to:
-  /// **'Add members'**
-  String get chatInfoAddMembers;
+  /// **'Add {termPluralLower}'**
+  String chatInfoAddMembers(String termPluralLower);
 
   /// Role chip label for conversation owner
   ///
@@ -5453,14 +5460,14 @@ abstract class AppLocalizations {
   /// Placeholder name for a member that could not be loaded
   ///
   /// In en, this message translates to:
-  /// **'Unknown Member'**
-  String get chatInfoUnknownMember;
+  /// **'Unknown {termSingular}'**
+  String chatInfoUnknownMember(String termSingular);
 
   /// Error text when a participant member fails to load
   ///
   /// In en, this message translates to:
-  /// **'Error loading member'**
-  String get chatInfoErrorLoadingMember;
+  /// **'Error loading {termSingularLower}'**
+  String chatInfoErrorLoadingMember(String termSingularLower);
 
   /// Label for the category picker row in conversation info
   ///
@@ -5573,20 +5580,20 @@ abstract class AppLocalizations {
   /// Sheet title for adding members to a conversation
   ///
   /// In en, this message translates to:
-  /// **'Add Members'**
-  String get chatAddMembersTitle;
+  /// **'Add {termPlural}'**
+  String chatAddMembersTitle(String termPlural);
 
   /// Message when all members are already participants
   ///
   /// In en, this message translates to:
-  /// **'All active members are already in this conversation.'**
-  String get chatAddMembersAllAdded;
+  /// **'All active {termPluralLower} are already in this conversation.'**
+  String chatAddMembersAllAdded(String termPluralLower, Object termPlural);
 
   /// Toast when adding members fails
   ///
   /// In en, this message translates to:
-  /// **'Failed to add members: {error}'**
-  String chatAddMembersFailed(Object error);
+  /// **'Failed to add {termPluralLower}: {error}'**
+  String chatAddMembersFailed(String termPluralLower, Object error);
 
   /// Sheet title for creating a new conversation
   ///
@@ -5651,8 +5658,8 @@ abstract class AppLocalizations {
   /// Message shown when no members exist for participant selection
   ///
   /// In en, this message translates to:
-  /// **'No members available. Create members first.'**
-  String get chatCreateNoMembers;
+  /// **'No {termPluralLower} available. Create {termPluralLower} first.'**
+  String chatCreateNoMembers(String termPluralLower);
 
   /// Chip label marking the currently fronting member
   ///
@@ -5735,14 +5742,14 @@ abstract class AppLocalizations {
   /// Text shown in speaking-as picker when no members exist
   ///
   /// In en, this message translates to:
-  /// **'No members available'**
-  String get chatNoMembersAvailable;
+  /// **'No {termPluralLower} available'**
+  String chatNoMembersAvailable(String termPluralLower);
 
   /// Short error text in speaking-as picker
   ///
   /// In en, this message translates to:
-  /// **'Error loading members'**
-  String get chatErrorLoadingMembersShort;
+  /// **'Error loading {termPluralLower}'**
+  String chatErrorLoadingMembersShort(String termPluralLower);
 
   /// Sheet title for GIF picker
   ///
@@ -6185,14 +6192,17 @@ abstract class AppLocalizations {
   /// Fallback semantics label for a member avatar image
   ///
   /// In en, this message translates to:
-  /// **'Member avatar'**
-  String get memberAvatarSemanticsUnnamed;
+  /// **'{termSingular} avatar'**
+  String memberAvatarSemanticsUnnamed(
+    String termSingular,
+    Object termSingularLower,
+  );
 
   /// Semantics label for an image inside a grouped member avatar
   ///
   /// In en, this message translates to:
-  /// **'Group member avatar'**
-  String get groupMemberAvatarSemantics;
+  /// **'Group {termSingularLower} avatar'**
+  String groupMemberAvatarSemantics(String termSingularLower);
 
   /// Title for a scheduled habit reminder notification
   ///
@@ -6323,26 +6333,36 @@ abstract class AppLocalizations {
   /// Empty state text in add members step
   ///
   /// In en, this message translates to:
-  /// **'No members yet.\nTap \"Add Member\" to get started.'**
-  String get onboardingAddMembersNoMembers;
+  /// **'No {termPluralLower} yet.\nTap \"Add {termSingular}\" to get started.'**
+  String onboardingAddMembersNoMembers(
+    String termPluralLower,
+    String termSingular,
+    Object termSingularLower,
+  );
 
   /// Tooltip for the remove member button in add members list
   ///
   /// In en, this message translates to:
-  /// **'Remove member'**
-  String get onboardingAddMembersRemoveMember;
+  /// **'Remove {termSingularLower}'**
+  String onboardingAddMembersRemoveMember(String termSingularLower);
 
   /// Button label to open the add member sheet
   ///
   /// In en, this message translates to:
-  /// **'Add Member'**
-  String get onboardingAddMembersAddMember;
+  /// **'Add {termSingular}'**
+  String onboardingAddMembersAddMember(
+    String termSingular,
+    Object termSingularLower,
+  );
 
   /// Title bar of the add member sheet
   ///
   /// In en, this message translates to:
-  /// **'Add Member'**
-  String get onboardingAddMemberSheetTitle;
+  /// **'Add {termSingular}'**
+  String onboardingAddMemberSheetTitle(
+    String termSingular,
+    Object termSingularLower,
+  );
 
   /// Hint text for the emoji field in add member sheet
   ///
@@ -6407,8 +6427,8 @@ abstract class AppLocalizations {
   /// Feature toggle description for chat in features step
   ///
   /// In en, this message translates to:
-  /// **'Internal messaging between system members'**
-  String get onboardingFeaturesChatDescription;
+  /// **'Internal messaging between system {termPluralLower}'**
+  String onboardingFeaturesChatDescription(String termPluralLower);
 
   /// Feature toggle title for polls in features step
   ///
@@ -6467,8 +6487,8 @@ abstract class AppLocalizations {
   /// Feature toggle description for reminders in features step
   ///
   /// In en, this message translates to:
-  /// **'Set reminders for yourself or system members'**
-  String get onboardingFeaturesRemindersDescription;
+  /// **'Set reminders for yourself or system {termPluralLower}'**
+  String onboardingFeaturesRemindersDescription(String termPluralLower);
 
   /// Next step row title in complete step
   ///
@@ -6977,8 +6997,8 @@ abstract class AppLocalizations {
   /// Empty state message in whos fronting step
   ///
   /// In en, this message translates to:
-  /// **'No members added yet.\nGo back to add members first.'**
-  String get onboardingWhosFrontingNoMembers;
+  /// **'No {termPluralLower} added yet.\nGo back to add {termPluralLower} first.'**
+  String onboardingWhosFrontingNoMembers(String termPluralLower);
 
   /// Section header for suggested channels in chat setup step
   ///
@@ -7001,8 +7021,11 @@ abstract class AppLocalizations {
   /// Default onboarding channel: group chat visible to all members (cannot be removed)
   ///
   /// In en, this message translates to:
-  /// **'All Members'**
-  String get onboardingChatChannelAllMembers;
+  /// **'All {termPlural}'**
+  String onboardingChatChannelAllMembers(
+    String termPlural,
+    Object termPluralLower,
+  );
 
   /// Default onboarding channel suggestion: a place to vent
   ///
@@ -7067,14 +7090,17 @@ abstract class AppLocalizations {
   /// Toggle title for per-member colors in preferences step
   ///
   /// In en, this message translates to:
-  /// **'Per-Member Colors'**
-  String get onboardingPreferencesPerMemberColors;
+  /// **'Per-{termSingular} Colors'**
+  String onboardingPreferencesPerMemberColors(
+    String termSingular,
+    Object termSingularLower,
+  );
 
   /// Toggle subtitle for per-member colors in preferences step
   ///
   /// In en, this message translates to:
-  /// **'Let each member have their own accent color'**
-  String get onboardingPreferencesPerMemberColorsSubtitle;
+  /// **'Let each {termSingularLower} have their own accent color'**
+  String onboardingPreferencesPerMemberColorsSubtitle(String termSingularLower);
 
   /// Title on the join sync group prompt view
   ///
@@ -7313,8 +7339,8 @@ abstract class AppLocalizations {
   /// Label for assigned member select field
   ///
   /// In en, this message translates to:
-  /// **'Assigned Member'**
-  String get habitsAssignedMember;
+  /// **'Assigned {termSingular}'**
+  String habitsAssignedMember(String termSingular);
 
   /// Option label for no assigned member
   ///
@@ -7331,8 +7357,8 @@ abstract class AppLocalizations {
   /// Helper text below the only-notify-when-fronting toggle
   ///
   /// In en, this message translates to:
-  /// **'Reminders will fire even if this member isn\'t fronting — fronting-aware delivery requires background access.'**
-  String get habitsOnlyFrontingCaveat;
+  /// **'Reminders will fire even if this {termSingularLower} isn\'t fronting — fronting-aware delivery requires background access.'**
+  String habitsOnlyFrontingCaveat(String termSingularLower);
 
   /// Switch title for private habit toggle
   ///
@@ -7907,8 +7933,8 @@ abstract class AppLocalizations {
   /// Message shown when no members are available for voting
   ///
   /// In en, this message translates to:
-  /// **'No members available'**
-  String get pollsDetailNoMembers;
+  /// **'No {termPluralLower} available'**
+  String pollsDetailNoMembers(String termPluralLower);
 
   /// Button label to submit votes in poll detail
   ///
@@ -8051,8 +8077,8 @@ abstract class AppLocalizations {
   /// Supported data type: members
   ///
   /// In en, this message translates to:
-  /// **'Members'**
-  String get migrationSupportedMembers;
+  /// **'{termPlural}'**
+  String migrationSupportedMembers(String termPlural);
 
   /// Supported data type: custom fronts
   ///
@@ -8081,14 +8107,14 @@ abstract class AppLocalizations {
   /// Supported data type: member colors
   ///
   /// In en, this message translates to:
-  /// **'Member colors'**
-  String get migrationSupportedMemberColors;
+  /// **'{termSingular} colors'**
+  String migrationSupportedMemberColors(String termSingular);
 
   /// Supported data type: member descriptions
   ///
   /// In en, this message translates to:
-  /// **'Member descriptions'**
-  String get migrationSupportedMemberDescriptions;
+  /// **'{termSingular} descriptions'**
+  String migrationSupportedMemberDescriptions(String termSingular);
 
   /// Supported data type: avatar images
   ///
@@ -8261,8 +8287,8 @@ abstract class AppLocalizations {
   /// Confirmation dialog body for replacing all data
   ///
   /// In en, this message translates to:
-  /// **'This will delete all existing members, front history, conversations, and other data before importing. This action cannot be undone.\n\nIf you have sync set up, other paired devices should also be reset to avoid conflicts.'**
-  String get migrationReplaceAllMessage;
+  /// **'This will delete all existing {termPluralLower}, front history, conversations, and other data before importing. This action cannot be undone.\n\nIf you have sync set up, other paired devices should also be reset to avoid conflicts.'**
+  String migrationReplaceAllMessage(String termPluralLower);
 
   /// Confirmation button to replace all data
   ///
@@ -8297,8 +8323,8 @@ abstract class AppLocalizations {
   /// Import result row label for members
   ///
   /// In en, this message translates to:
-  /// **'Members'**
-  String get migrationResultMembers;
+  /// **'{termPlural}'**
+  String migrationResultMembers(String termPlural);
 
   /// Import result row label for front sessions
   ///
@@ -8645,14 +8671,14 @@ abstract class AppLocalizations {
   /// Sync summary row: members pulled from PluralKit
   ///
   /// In en, this message translates to:
-  /// **'{count, plural, =1{1 member pulled} other{{count} members pulled}}'**
-  String pluralkitMembersPulled(int count);
+  /// **'{count} {termForCount} pulled'**
+  String pluralkitMembersPulled(int count, String termForCount);
 
   /// Sync summary row: members pushed to PluralKit
   ///
   /// In en, this message translates to:
-  /// **'{count, plural, =1{1 member pushed} other{{count} members pushed}}'**
-  String pluralkitMembersPushed(int count);
+  /// **'{count} {termForCount} pushed'**
+  String pluralkitMembersPushed(int count, String termForCount);
 
   /// Sync summary row: switches pulled from PluralKit
   ///
@@ -8669,8 +8695,8 @@ abstract class AppLocalizations {
   /// Sync summary row: members with no changes
   ///
   /// In en, this message translates to:
-  /// **'{count, plural, =1{1 member unchanged} other{{count} members unchanged}}'**
-  String pluralkitMembersUnchanged(int count);
+  /// **'{count} {termForCount} unchanged'**
+  String pluralkitMembersUnchanged(int count, String termForCount);
 
   /// How It Works info row about sync direction
   ///
@@ -8687,8 +8713,8 @@ abstract class AppLocalizations {
   /// How It Works info row about the link-members step
   ///
   /// In en, this message translates to:
-  /// **'After connecting, link your PluralKit members to Prism members — or import them as new — so nothing gets duplicated.'**
-  String get pluralkitInfoMembers;
+  /// **'After connecting, link your PluralKit members to Prism {termPluralLower} — or import them as new — so nothing gets duplicated.'**
+  String pluralkitInfoMembers(String termPluralLower);
 
   /// How It Works info row about switch import
   ///
@@ -8729,14 +8755,22 @@ abstract class AppLocalizations {
   /// Chip showing shared PK member count
   ///
   /// In en, this message translates to:
-  /// **'{count, plural, =1{1 shared PK member} other{{count} shared PK members}}'**
-  String pluralkitRepairSharedPkMembers(int count);
+  /// **'{count, plural, =1{1 shared PK {termSingularLower}} other{{count} shared PK {termPluralLower}}}'**
+  String pluralkitRepairSharedPkMembers(
+    int count,
+    String termSingularLower,
+    String termPluralLower,
+  );
 
   /// Chip showing local-only member count
   ///
   /// In en, this message translates to:
-  /// **'{count, plural, =1{1 local-only member} other{{count} local-only members}}'**
-  String pluralkitRepairLocalOnlyMembers(int count);
+  /// **'{count, plural, =1{1 local-only {termSingularLower}} other{{count} local-only {termPluralLower}}}'**
+  String pluralkitRepairLocalOnlyMembers(
+    int count,
+    String termSingularLower,
+    String termPluralLower,
+  );
 
   /// Chip showing candidate-only PK member count
   ///
@@ -8777,8 +8811,12 @@ abstract class AppLocalizations {
   /// Merge action preview fragment
   ///
   /// In en, this message translates to:
-  /// **'leave {count, plural, =1{1 PK-only member} other{{count} PK-only members}} unmatched'**
-  String pluralkitRepairPreviewLeavePkOnly(int count);
+  /// **'leave {count, plural, =1{1 PK-only {termSingularLower}} other{{count} PK-only {termPluralLower}}} unmatched'**
+  String pluralkitRepairPreviewLeavePkOnly(
+    int count,
+    String termSingularLower,
+    String termPluralLower,
+  );
 
   /// Button label for accepting the suggested PluralKit group match
   ///
@@ -9677,8 +9715,8 @@ abstract class AppLocalizations {
   /// Settings row subtitle for PluralKit import
   ///
   /// In en, this message translates to:
-  /// **'Import members & fronting via API token'**
-  String get dataManagementPluralKitRowSubtitle;
+  /// **'Import {termPluralLower} & fronting via API token'**
+  String dataManagementPluralKitRowSubtitle(String termPluralLower);
 
   /// Settings row title for Simply Plural import
   ///
@@ -9701,8 +9739,8 @@ abstract class AppLocalizations {
   /// Body text on the export idle state
   ///
   /// In en, this message translates to:
-  /// **'Create a password-protected backup of all your data including members, fronting sessions, messages, polls, and settings.'**
-  String get dataManagementExportDescription;
+  /// **'Create a password-protected backup of all your data including {termPluralLower}, fronting sessions, messages, polls, and settings.'**
+  String dataManagementExportDescription(String termPluralLower);
 
   /// Button label to start the export flow
   ///
@@ -9881,8 +9919,8 @@ abstract class AppLocalizations {
   /// Import preview row label for members
   ///
   /// In en, this message translates to:
-  /// **'Members'**
-  String get dataManagementPreviewMembers;
+  /// **'{termPlural}'**
+  String dataManagementPreviewMembers(String termPlural);
 
   /// Import preview row label for front sessions
   ///
@@ -10745,8 +10783,8 @@ abstract class AppLocalizations {
   /// Description paragraph in the About section
   ///
   /// In en, this message translates to:
-  /// **'A privacy-focused app for managing plural systems. Track fronting, communicate between headmates, and keep your system organized.'**
-  String get settingsAboutDescription;
+  /// **'A privacy-focused app for managing plural systems. Track fronting, communicate between {termPluralLower}, and keep your system organized.'**
+  String settingsAboutDescription(String termPluralLower);
 
   /// GitHub chip label in About section
   ///
@@ -10811,8 +10849,8 @@ abstract class AppLocalizations {
   /// Empty state subtitle for custom fields screen
   ///
   /// In en, this message translates to:
-  /// **'Add fields to track custom attributes for each member'**
-  String get settingsCustomFieldsEmptySubtitle;
+  /// **'Add fields to track custom attributes for each {termSingularLower}'**
+  String settingsCustomFieldsEmptySubtitle(String termSingularLower);
 
   /// Empty state action button label for adding a custom field
   ///
@@ -11195,8 +11233,8 @@ abstract class AppLocalizations {
   /// Tab label for the members table in the data browser
   ///
   /// In en, this message translates to:
-  /// **'Members'**
-  String get settingsDataBrowserTabMembers;
+  /// **'{termPlural}'**
+  String settingsDataBrowserTabMembers(String termPlural);
 
   /// Tab label for the sessions table in the data browser
   ///
@@ -11231,8 +11269,8 @@ abstract class AppLocalizations {
   /// Empty state text when members table is empty
   ///
   /// In en, this message translates to:
-  /// **'No members'**
-  String get settingsDataBrowserNoMembers;
+  /// **'No {termPluralLower}'**
+  String settingsDataBrowserNoMembers(String termPluralLower);
 
   /// Empty state text when sessions table is empty
   ///
@@ -11693,8 +11731,8 @@ abstract class AppLocalizations {
   /// Rationale for requesting notification permission
   ///
   /// In en, this message translates to:
-  /// **'We\'ll let you know when headmates log a switch or a habit reminder is due'**
-  String get onboardingPermissionsNotificationRationale;
+  /// **'We\'ll let you know when {termPluralLower} log a switch or a habit reminder is due'**
+  String onboardingPermissionsNotificationRationale(String termPluralLower);
 
   /// Title for microphone permission request in onboarding
   ///
@@ -11705,8 +11743,8 @@ abstract class AppLocalizations {
   /// Rationale for requesting microphone permission
   ///
   /// In en, this message translates to:
-  /// **'So you can record voice messages for your headmates'**
-  String get onboardingPermissionsMicrophoneRationale;
+  /// **'So you can record voice messages for your {termPluralLower}'**
+  String onboardingPermissionsMicrophoneRationale(String termPluralLower);
 
   /// Label shown when a permission has been granted
   ///
@@ -12077,20 +12115,20 @@ abstract class AppLocalizations {
   /// Title for the post-connect mapping required banner
   ///
   /// In en, this message translates to:
-  /// **'One more step: link your members'**
-  String get pluralkitMappingBannerTitle;
+  /// **'One more step: link your {termPluralLower}'**
+  String pluralkitMappingBannerTitle(String termPluralLower);
 
   /// Body for the post-connect mapping required banner
   ///
   /// In en, this message translates to:
-  /// **'You\'re connected. Before sync turns on, match each PluralKit member to a member in Prism — or import them as new. This prevents duplicates and keeps switch history attached to the right person.'**
-  String get pluralkitMappingBannerBody;
+  /// **'You\'re connected. Before sync turns on, match each PluralKit member to a {termSingularLower} in Prism — or import them as new. This prevents duplicates and keeps switch history attached to the right person.'**
+  String pluralkitMappingBannerBody(String termSingularLower);
 
   /// Button label inside the mapping banner that opens the mapping flow
   ///
   /// In en, this message translates to:
-  /// **'Link members'**
-  String get pluralkitMappingBannerButton;
+  /// **'Link {termPluralLower}'**
+  String pluralkitMappingBannerButton(String termPluralLower);
 
   /// Wake-up sheet greeting shown between 5am and noon
   ///
@@ -12401,8 +12439,8 @@ abstract class AppLocalizations {
   /// Disposition option: create a tagged member for the custom front
   ///
   /// In en, this message translates to:
-  /// **'Import as member'**
-  String get migrationCfOptionMember;
+  /// **'Import as {termSingularLower}'**
+  String migrationCfOptionMember(String termSingularLower);
 
   /// Disposition option: append the CF name to affected session notes
   ///
@@ -12425,8 +12463,8 @@ abstract class AppLocalizations {
   /// Longer description of the import-as-member disposition
   ///
   /// In en, this message translates to:
-  /// **'Creates a member with this name. Front history entries for it are kept as member sessions.'**
-  String get migrationCfOptionMemberDesc;
+  /// **'Creates a {termSingularLower} with this name. Front history entries for it are kept as {termSingularLower} sessions.'**
+  String migrationCfOptionMemberDesc(String termSingularLower);
 
   /// Longer description of the merge-as-note disposition
   ///
@@ -12568,8 +12606,8 @@ abstract class AppLocalizations {
   /// Intro screen body explaining the upgrade
   ///
   /// In en, this message translates to:
-  /// **'Co-fronting now uses one record per member instead of one shared record. This makes overlaps, edits, and analytics work correctly. We\'ll save a backup of your current data first, then run the upgrade.'**
-  String get frontingUpgradeIntroBody;
+  /// **'Co-fronting now uses one record per {termSingularLower} instead of one shared record. This makes overlaps, edits, and analytics work correctly. We\'ll save a backup of your current data first, then run the upgrade.'**
+  String frontingUpgradeIntroBody(String termSingularLower);
 
   /// Primary continue button on the intro screen
   ///
@@ -12748,8 +12786,11 @@ abstract class AppLocalizations {
   /// Success counter: native rows fanned out
   ///
   /// In en, this message translates to:
-  /// **'{count, plural, =1{Expanded 1 co-fronting period into per-member records.} other{Expanded {count} co-fronting periods into per-member records.}}'**
-  String frontingUpgradeCountNativeExpanded(int count);
+  /// **'{count, plural, =1{Expanded 1 co-fronting period into per-{termSingularLower} records.} other{Expanded {count} co-fronting periods into per-{termSingularLower} records.}}'**
+  String frontingUpgradeCountNativeExpanded(
+    int count,
+    String termSingularLower,
+  );
 
   /// Success counter: PK rows cleared
   ///
@@ -12766,20 +12807,26 @@ abstract class AppLocalizations {
   /// Success counter: orphan rows assigned to sentinel
   ///
   /// In en, this message translates to:
-  /// **'{count, plural, =1{Assigned 1 unattributed session to the Unknown member.} other{Assigned {count} unattributed sessions to the Unknown member.}}'**
-  String frontingUpgradeCountOrphansAssigned(int count);
+  /// **'{count, plural, =1{Assigned 1 unattributed session to the Unknown {termSingularLower}.} other{Assigned {count} unattributed sessions to the Unknown {termSingularLower}.}}'**
+  String frontingUpgradeCountOrphansAssigned(
+    int count,
+    String termSingularLower,
+  );
 
   /// Success counter: sentinel was created
   ///
   /// In en, this message translates to:
-  /// **'Created an Unknown member to hold sessions with no clear fronter.'**
-  String get frontingUpgradeCountSentinelCreated;
+  /// **'Created an Unknown {termSingularLower} to hold sessions with no clear fronter.'**
+  String frontingUpgradeCountSentinelCreated(String termSingularLower);
 
   /// Success counter: rows whose co_fronter_ids JSON failed to parse and were migrated as single-member fallback
   ///
   /// In en, this message translates to:
-  /// **'{count, plural, =1{1 session had unreadable co-fronter data and was migrated as single-member.} other{{count} sessions had unreadable co-fronter data and were migrated as single-member.}}'**
-  String frontingUpgradeCountCorruptCoFronters(int count);
+  /// **'{count, plural, =1{1 session had unreadable co-fronter data and was migrated as single-{termSingularLower}.} other{{count} sessions had unreadable co-fronter data and were migrated as single-{termSingularLower}.}}'**
+  String frontingUpgradeCountCorruptCoFronters(
+    int count,
+    String termSingularLower,
+  );
 
   /// Warning shown on the upgrade modal's intro screen — the sync state wipe clears pending_ops, so any local writes that haven't been pushed yet will only exist on this device after the upgrade.
   ///
@@ -12913,11 +12960,11 @@ abstract class AppLocalizations {
   /// **'Avatar stacks for each unique fronter group'**
   String get settingsFrontingListViewModeCombinedPeriodsDescription;
 
-  /// Option label: render the home-screen session list as one row per fronter session, side-by-side.
+  /// Option label: render the home-screen session list as one row per fronter session, side-by-side. {term} is the user's chosen singular member terminology (lowercase).
   ///
   /// In en, this message translates to:
-  /// **'Per-member rows'**
-  String get settingsFrontingListViewModePerMemberRows;
+  /// **'Per-{term} rows'**
+  String settingsFrontingListViewModePerMemberRows(String term);
 
   /// Option subtitle for the per-member-rows session list view mode.
   ///

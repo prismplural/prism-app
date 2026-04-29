@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/features/pluralkit/providers/pk_group_repair_provider.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_group_repair_service.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -1179,7 +1181,7 @@ class _RepairActionButtons extends StatelessWidget {
   }
 }
 
-class _ReviewItemCard extends StatelessWidget {
+class _ReviewItemCard extends ConsumerWidget {
   const _ReviewItemCard({
     required this.item,
     required this.isRunning,
@@ -1195,10 +1197,11 @@ class _ReviewItemCard extends StatelessWidget {
   final Future<void> Function(String groupId) onDismissReviewItem;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final l10n = context.l10n;
-    final actionPreview = _actionPreview(context);
+    final terms = watchTerminology(context, ref);
+    final actionPreview = _actionPreview(context, ref);
 
     return PrismSurface(
       tone: PrismSurfaceTone.accent,
@@ -1218,9 +1221,13 @@ class _ReviewItemCard extends StatelessWidget {
                 chips: [
                   l10n.pluralkitRepairSharedPkMembers(
                     item.sharedPkMemberUuids.length,
+                    terms.singularLower,
+                    terms.pluralLower,
                   ),
                   l10n.pluralkitRepairLocalOnlyMembers(
                     item.extraLocalMemberIds.length,
+                    terms.singularLower,
+                    terms.pluralLower,
                   ),
                 ],
               );
@@ -1235,6 +1242,8 @@ class _ReviewItemCard extends StatelessWidget {
                     ? [
                         l10n.pluralkitRepairSharedPkMembers(
                           item.sharedPkMemberUuids.length,
+                          terms.singularLower,
+                          terms.pluralLower,
                         ),
                         l10n.pluralkitRepairOnlyInPkMembers(
                           item.onlyInCandidateMemberUuids.length,
@@ -1312,8 +1321,9 @@ class _ReviewItemCard extends StatelessWidget {
     );
   }
 
-  String _actionPreview(BuildContext context) {
+  String _actionPreview(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
+    final terms = readTerminology(context, ref);
     final fragments = <String>[
       l10n.pluralkitRepairPreviewLinkLocalGroup,
       if (item.sharedPkMemberUuids.isNotEmpty)
@@ -1327,6 +1337,8 @@ class _ReviewItemCard extends StatelessWidget {
       if (item.onlyInCandidateMemberUuids.isNotEmpty)
         l10n.pluralkitRepairPreviewLeavePkOnly(
           item.onlyInCandidateMemberUuids.length,
+          terms.singularLower,
+          terms.pluralLower,
         ),
     ];
     return l10n.pluralkitRepairMergeActionPreview(

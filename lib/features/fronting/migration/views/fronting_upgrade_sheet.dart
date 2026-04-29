@@ -179,17 +179,16 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
       _step = FrontingUpgradeStep.resumeCleanup;
       return;
     }
-    ref.listenManual<AsyncValue<String>>(
-      frontingMigrationModeProvider,
-      (prev, next) {
-        if (!mounted) return;
-        if (next.value == FrontingMigrationService.modeInProgress &&
-            _step == FrontingUpgradeStep.intro) {
-          setState(() => _step = FrontingUpgradeStep.resumeCleanup);
-        }
-      },
-      fireImmediately: true,
-    );
+    ref.listenManual<AsyncValue<String>>(frontingMigrationModeProvider, (
+      prev,
+      next,
+    ) {
+      if (!mounted) return;
+      if (next.value == FrontingMigrationService.modeInProgress &&
+          _step == FrontingUpgradeStep.intro) {
+        setState(() => _step = FrontingUpgradeStep.resumeCleanup);
+      }
+    }, fireImmediately: true);
   }
 
   @override
@@ -331,10 +330,7 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
 
     final runner = ref.read(frontingMigrationRunnerProvider);
     try {
-      final file = await runner.prepareBackup(
-        mode: _mode,
-        password: password,
-      );
+      final file = await runner.prepareBackup(mode: _mode, password: password);
       if (!mounted) return;
       setState(() {
         _backupFile = file;
@@ -516,13 +512,13 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
                   FrontingUpgradeStep.mode => _buildMode(theme),
                   FrontingUpgradeStep.password => _buildPassword(theme),
                   FrontingUpgradeStep.exporting => _buildExporting(theme),
-                  FrontingUpgradeStep.backupReady =>
-                    _buildBackupReady(theme),
+                  FrontingUpgradeStep.backupReady => _buildBackupReady(theme),
                   FrontingUpgradeStep.running => _buildRunning(theme),
                   FrontingUpgradeStep.success => _buildSuccess(theme),
                   FrontingUpgradeStep.failure => _buildFailure(theme),
-                  FrontingUpgradeStep.resumeCleanup =>
-                    _buildResumeCleanup(theme),
+                  FrontingUpgradeStep.resumeCleanup => _buildResumeCleanup(
+                    theme,
+                  ),
                 },
               ],
             ),
@@ -537,6 +533,7 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
   // -------------------------------------------------------------------
 
   Widget _buildIntro(ThemeData theme) {
+    final terms = readTerminology(context, ref);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -563,7 +560,7 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
         ),
         const SizedBox(height: 12),
         Text(
-          context.l10n.frontingUpgradeIntroBody,
+          context.l10n.frontingUpgradeIntroBody(terms.singularLower),
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
@@ -810,8 +807,7 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
             tooltip: _obscureConfirm
                 ? context.l10n.dataManagementShowPassword
                 : context.l10n.dataManagementHidePassword,
-            onPressed: () =>
-                setState(() => _obscureConfirm = !_obscureConfirm),
+            onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
           ),
           onSubmitted: (_) => _onPasswordSubmit(),
         ),
@@ -1077,6 +1073,7 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
   /// flow: rows preserved → fan-out → cleanup → sentinel.
   List<Widget> _buildResultCounts(ThemeData theme, MigrationResult r) {
     final l10n = context.l10n;
+    final terms = readTerminology(context, ref);
     final lines = <String>[];
     if (r.spRowsMigrated > 0) {
       lines.add(l10n.frontingUpgradeCountSpMigrated(r.spRowsMigrated));
@@ -1085,7 +1082,12 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
       lines.add(l10n.frontingUpgradeCountNativeMigrated(r.nativeRowsMigrated));
     }
     if (r.nativeRowsExpanded > 0) {
-      lines.add(l10n.frontingUpgradeCountNativeExpanded(r.nativeRowsExpanded));
+      lines.add(
+        l10n.frontingUpgradeCountNativeExpanded(
+          r.nativeRowsExpanded,
+          terms.singularLower,
+        ),
+      );
     }
     if (r.pkRowsDeleted > 0) {
       lines.add(l10n.frontingUpgradeCountPkDeleted(r.pkRowsDeleted));
@@ -1095,11 +1097,14 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
     }
     if (r.orphanRowsAssignedToSentinel > 0) {
       lines.add(
-        l10n.frontingUpgradeCountOrphansAssigned(r.orphanRowsAssignedToSentinel),
+        l10n.frontingUpgradeCountOrphansAssigned(
+          r.orphanRowsAssignedToSentinel,
+          terms.singularLower,
+        ),
       );
     }
     if (r.unknownSentinelCreated) {
-      lines.add(l10n.frontingUpgradeCountSentinelCreated);
+      lines.add(l10n.frontingUpgradeCountSentinelCreated(terms.singularLower));
     }
     // Final-review fix V: surface corrupt-JSON fallback rows. The
     // service falls back to single-member migration when a row's
@@ -1109,6 +1114,7 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
       lines.add(
         l10n.frontingUpgradeCountCorruptCoFronters(
           r.corruptCoFronterRowIds.length,
+          terms.singularLower,
         ),
       );
     }
@@ -1174,8 +1180,9 @@ class _ModeCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: recommended
                 ? accent.withValues(alpha: 0.08)
-                : theme.colorScheme.surfaceContainerHighest
-                    .withValues(alpha: 0.4),
+                : theme.colorScheme.surfaceContainerHighest.withValues(
+                    alpha: 0.4,
+                  ),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: recommended

@@ -115,8 +115,10 @@ class ChatFeatureSettingsScreen extends ConsumerWidget {
                       icon: AppIcons.editOutlined,
                       iconColor: Colors.blue,
                       title: context.l10n.featureChatProxyTagAuthoring,
-                      subtitle:
-                          context.l10n.featureChatProxyTagAuthoringSubtitle,
+                      subtitle: context.l10n
+                          .featureChatProxyTagAuthoringSubtitle(
+                            terms.singularLower,
+                          ),
                       value: useProxyTagsForAuthoring,
                       onChanged: (value) => ref
                           .read(useProxyTagsForAuthoringProvider.notifier)

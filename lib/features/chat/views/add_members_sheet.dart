@@ -29,6 +29,14 @@ class AddMembersSheet {
     Conversation conversation,
   ) async {
     final container = ProviderScope.containerOf(context);
+    final rawTerms = container.read(terminologySettingProvider);
+    final terms = resolveTerminology(
+      context.l10n,
+      rawTerms.term,
+      customSingular: rawTerms.customSingular,
+      customPlural: rawTerms.customPlural,
+      useEnglish: rawTerms.useEnglish,
+    );
     final selectedIds = await PrismSheet.show<Set<String>>(
       context: context,
       maxHeightFactor: 0.95,
@@ -62,7 +70,7 @@ class AddMembersSheet {
       if (context.mounted) {
         PrismToast.error(
           context,
-          message: context.l10n.chatAddMembersFailed(e),
+          message: context.l10n.chatAddMembersFailed(terms.pluralLower, e),
         );
       }
       return null;
@@ -80,14 +88,7 @@ class _AddMembersContent extends ConsumerWidget {
     // Non-fronting picker: hide the Unknown sentinel — you don't add the
     // placeholder member to a conversation.
     final membersAsync = ref.watch(userVisibleMembersProvider);
-    final s = ref.watch(terminologySettingProvider);
-    final termPlural = resolveTerminology(
-      context.l10n,
-      s.term,
-      customSingular: s.customSingular,
-      customPlural: s.customPlural,
-      useEnglish: s.useEnglish,
-    ).plural;
+    final terms = watchTerminology(context, ref);
 
     final existingIds = conversation.participantIds.toSet();
 
@@ -98,7 +99,7 @@ class _AddMembersContent extends ConsumerWidget {
             .toList();
         return MemberSearchSheet(
           members: available,
-          termPlural: termPlural,
+          termPlural: terms.plural,
           groups: watchMemberSearchGroups(ref, available),
           multiSelect: true,
         );
@@ -108,7 +109,7 @@ class _AddMembersContent extends ConsumerWidget {
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Text(
-            context.l10n.chatAddMembersFailed(e),
+            context.l10n.chatAddMembersFailed(terms.pluralLower, e),
             style: TextStyle(color: Theme.of(context).colorScheme.error),
           ),
         ),

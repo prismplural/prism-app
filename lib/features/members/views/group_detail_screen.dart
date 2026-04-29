@@ -130,7 +130,10 @@ class _GroupDetailBody extends ConsumerWidget {
                               tone: PrismButtonTone.outlined,
                               expanded: true,
                               semanticLabel: l10n
-                                  .memberGroupFrontGroupSemantics(group.name),
+                                  .memberGroupFrontGroupSemantics(
+                                    group.name,
+                                    terms.pluralLower,
+                                  ),
                               onPressed: () =>
                                   _onFrontGroup(context, ref, group, entries),
                             ),
@@ -163,7 +166,7 @@ class _GroupDetailBody extends ConsumerWidget {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  l10n.memberGroupSectionMembers,
+                  l10n.memberGroupSectionMembers(terms.plural),
                   style: theme.textTheme.labelLarge?.copyWith(
                     color: theme.colorScheme.primary,
                     fontWeight: FontWeight.w600,
@@ -209,7 +212,7 @@ class _GroupDetailBody extends ConsumerWidget {
                 children: [
                   Expanded(
                     child: PrismButton(
-                      label: l10n.memberGroupAddMember,
+                      label: l10n.memberGroupAddMember(terms.singularLower),
                       onPressed: () => _addMember(context, ref),
                       icon: AppIcons.personAddOutlined,
                       tone: PrismButtonTone.subtle,
@@ -231,7 +234,7 @@ class _GroupDetailBody extends ConsumerWidget {
             else
               Center(
                 child: PrismButton(
-                  label: l10n.memberGroupAddMember,
+                  label: l10n.memberGroupAddMember(terms.singularLower),
                   onPressed: () => _addMember(context, ref),
                   icon: AppIcons.personAddOutlined,
                   tone: PrismButtonTone.subtle,
@@ -269,10 +272,11 @@ class _GroupDetailBody extends ConsumerWidget {
     }
 
     final l10n = context.l10n;
+    final terms = readTerminology(context, ref);
     final confirmed = await PrismDialog.confirm(
       context: context,
       title: l10n.memberGroupDeleteTitle,
-      message: l10n.memberGroupDeleteMessage(group.name),
+      message: l10n.memberGroupDeleteMessage(group.name, terms.plural),
       confirmLabel: l10n.memberGroupDeleteConfirm,
       destructive: true,
     );
@@ -339,6 +343,7 @@ class _GroupDetailBody extends ConsumerWidget {
     List<MemberGroupEntry> entries,
   ) async {
     final l10n = context.l10n;
+    final terms = readTerminology(context, ref);
     final memberIds = entries.map((e) => e.memberId).toList();
     if (memberIds.isEmpty) return;
 
@@ -361,7 +366,10 @@ class _GroupDetailBody extends ConsumerWidget {
       if (!context.mounted) return;
       PrismToast.show(
         context,
-        message: l10n.memberGroupFrontAllAlreadyFronting,
+        message: l10n.memberGroupFrontAllAlreadyFronting(
+          terms.pluralLower,
+          terms.plural,
+        ),
       );
       return;
     }
@@ -375,6 +383,7 @@ class _GroupDetailBody extends ConsumerWidget {
         context: context,
         title: l10n.memberGroupFrontSomeAlreadyFronting(
           alreadyInGroup.length,
+          alreadyInGroup.length == 1 ? terms.singularLower : terms.pluralLower,
           toAdd.length,
         ),
       );
@@ -399,7 +408,7 @@ class _GroupDetailBody extends ConsumerWidget {
     if (allInactive) {
       final confirmed = await PrismDialog.confirm(
         context: context,
-        title: l10n.memberGroupFrontAllInactive(group.name),
+        title: l10n.memberGroupFrontAllInactive(group.name, terms.pluralLower),
       );
       if (!confirmed || !context.mounted) return;
     } else {
@@ -407,7 +416,10 @@ class _GroupDetailBody extends ConsumerWidget {
         context: context,
         title: l10n.memberGroupFrontGroupConfirmTitle(group.name),
         message: toAdd.length > 1
-            ? l10n.memberGroupFrontGroupConfirmMessage(toAdd.length)
+            ? l10n.memberGroupFrontGroupConfirmMessage(
+                toAdd.length,
+                toAdd.length == 1 ? terms.singularLower : terms.pluralLower,
+              )
             : null,
       );
       if (!confirmed || !context.mounted) return;
@@ -415,9 +427,7 @@ class _GroupDetailBody extends ConsumerWidget {
 
     // Start a per-member session for each group member not already fronting.
     // Each id in `toAdd` gets its own session row sharing the same start_time.
-    await ref
-        .read(frontingNotifierProvider.notifier)
-        .startFronting(toAdd);
+    await ref.read(frontingNotifierProvider.notifier).startFronting(toAdd);
   }
 
   void _onStartChat(BuildContext context, List<MemberGroupEntry> entries) {

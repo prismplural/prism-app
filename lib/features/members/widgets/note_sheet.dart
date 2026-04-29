@@ -304,7 +304,10 @@ class _BottomToolbar extends ConsumerWidget {
                 customColorHex: member.customColorHex,
                 size: 20,
               ),
-              semanticLabel: l10n.memberNoteMemberSemantics(member.name),
+              semanticLabel: l10n.memberNoteMemberSemantics(
+                terminology.singular,
+                member.name,
+              ),
             )
           else
             _ToolbarChip(

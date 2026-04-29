@@ -4,6 +4,8 @@ import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:prism_plurality/core/services/local_notification_service.dart';
+import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -32,8 +34,9 @@ class _PermissionsStepState extends ConsumerState<PermissionsStep> {
 
   Future<void> _checkCurrentStatus() async {
     final notifStatus = await Permission.notification.status;
-    final micStatus =
-        kIsWeb ? PermissionStatus.denied : await Permission.microphone.status;
+    final micStatus = kIsWeb
+        ? PermissionStatus.denied
+        : await Permission.microphone.status;
     if (!mounted) return;
     setState(() {
       _notificationsGranted = notifStatus.isGranted;
@@ -72,6 +75,14 @@ class _PermissionsStepState extends ConsumerState<PermissionsStep> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = context.l10n;
+    final onboarding = ref.watch(onboardingProvider);
+    final terms = resolveTerminology(
+      l10n,
+      onboarding.selectedTerminology,
+      customSingular: onboarding.customTermSingular,
+      customPlural: onboarding.customTermPlural,
+      useEnglish: onboarding.terminologyUseEnglish,
+    );
 
     if (_loading) {
       return const PrismLoadingState();
@@ -86,7 +97,9 @@ class _PermissionsStepState extends ConsumerState<PermissionsStep> {
           _PermissionRow(
             icon: AppIcons.editNotificationsOutlined,
             title: l10n.onboardingPermissionsNotificationTitle,
-            rationale: l10n.onboardingPermissionsNotificationRationale,
+            rationale: l10n.onboardingPermissionsNotificationRationale(
+              terms.pluralLower,
+            ),
             isGranted: _notificationsGranted,
             isDeniedPermanently: _notificationsDeniedPermanently,
             onRequest: _requestNotifications,
@@ -100,7 +113,9 @@ class _PermissionsStepState extends ConsumerState<PermissionsStep> {
             _PermissionRow(
               icon: AppIcons.microphone,
               title: l10n.onboardingPermissionsMicrophoneTitle,
-              rationale: l10n.onboardingPermissionsMicrophoneRationale,
+              rationale: l10n.onboardingPermissionsMicrophoneRationale(
+                terms.pluralLower,
+              ),
               isGranted: _micGranted,
               isDeniedPermanently: _micDeniedPermanently,
               onRequest: _requestMicrophone,
@@ -148,28 +163,26 @@ class _PermissionRow extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHighest
-              .withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(16)),
+          color: theme.colorScheme.surfaceContainerHighest.withValues(
+            alpha: 0.5,
+          ),
+          borderRadius: BorderRadius.circular(
+            PrismShapes.of(context).radius(16),
+          ),
         ),
         child: Row(
           children: [
             Icon(
               icon,
               size: 28,
-              color: isGranted
-                  ? AppColors.success
-                  : theme.colorScheme.primary,
+              color: isGranted ? AppColors.success : theme.colorScheme.primary,
             ),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    style: theme.textTheme.titleSmall,
-                  ),
+                  Text(title, style: theme.textTheme.titleSmall),
                   const SizedBox(height: 4),
                   Text(
                     rationale,

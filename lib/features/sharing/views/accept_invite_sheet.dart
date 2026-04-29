@@ -5,6 +5,7 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 import 'package:prism_plurality/core/sharing/share_invite.dart';
 import 'package:prism_plurality/core/sharing/share_scope.dart';
 import 'package:prism_plurality/core/sharing/sharing_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_checkbox_row.dart';
@@ -38,6 +39,7 @@ class _AcceptInviteSheetState extends ConsumerState<AcceptInviteSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final terms = watchTerminology(context, ref);
 
     return SafeArea(
       child: Padding(
@@ -51,7 +53,10 @@ class _AcceptInviteSheetState extends ConsumerState<AcceptInviteSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(context.l10n.sharingUseSharingCode, style: theme.textTheme.titleLarge),
+            Text(
+              context.l10n.sharingUseSharingCode,
+              style: theme.textTheme.titleLarge,
+            ),
             const SizedBox(height: 16),
             if (_error != null) ...[
               PrismSurface(
@@ -85,7 +90,9 @@ class _AcceptInviteSheetState extends ConsumerState<AcceptInviteSheet> {
                     Expanded(
                       child: Text(
                         _parsedInvite!.displayName != null
-                            ? context.l10n.sharingConnectingWith(_parsedInvite!.displayName!)
+                            ? context.l10n.sharingConnectingWith(
+                                _parsedInvite!.displayName!,
+                              )
                             : context.l10n.sharingReadyToSend,
                         style: theme.textTheme.bodyMedium,
                       ),
@@ -114,8 +121,10 @@ class _AcceptInviteSheetState extends ConsumerState<AcceptInviteSheet> {
               (scope) => PrismCheckboxRow(
                 dense: true,
                 leading: Icon(scope.icon, size: 20),
-                title: Text(scope.displayName),
-                subtitle: Text(scope.description),
+                title: Text(scope.displayNameFor(termPlural: terms.plural)),
+                subtitle: Text(
+                  scope.descriptionFor(termSingular: terms.singular),
+                ),
                 value: _selectedScopes.contains(scope),
                 onChanged: (checked) {
                   setState(() {
@@ -141,7 +150,9 @@ class _AcceptInviteSheetState extends ConsumerState<AcceptInviteSheet> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: PrismButton(
-                    label: _submitting ? context.l10n.sharingSending : context.l10n.sharingSendRequest,
+                    label: _submitting
+                        ? context.l10n.sharingSending
+                        : context.l10n.sharingSendRequest,
                     icon: AppIcons.personAdd,
                     enabled:
                         !_submitting &&

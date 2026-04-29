@@ -12,6 +12,7 @@ import 'package:prism_plurality/features/chat/views/creator_transfer_picker.dart
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/utils/member_search_groups.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/datetime_extensions.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
@@ -464,6 +465,7 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
     Member? speakingAsMember,
     ThemeData theme,
   ) {
+    final terms = readTerminology(context, ref);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -482,7 +484,7 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
                 icon: AppIcons.personAdd,
                 size: 32,
                 iconSize: 18,
-                tooltip: context.l10n.chatInfoAddMembers,
+                tooltip: context.l10n.chatInfoAddMembers(terms.pluralLower),
                 onPressed: () => AddMembersSheet.show(context, conversation),
               ),
           ],
@@ -546,6 +548,7 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
     return Consumer(
       builder: (context, ref, _) {
         final memberAsync = ref.watch(memberByIdProvider(otherId));
+        final terms = watchTerminology(context, ref);
         return memberAsync.when(
           data: (member) {
             if (member == null) return const SizedBox.shrink();
@@ -579,7 +582,9 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
             );
           },
           loading: () => const PrismLoadingState(),
-          error: (_, _) => const Text('Error loading member'),
+          error: (_, _) => Text(
+            context.l10n.chatInfoErrorLoadingMember(terms.singularLower),
+          ),
         );
       },
     );
@@ -599,9 +604,7 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
             builder: (context) {
               final isArchived =
                   speakingAsMemberId != null &&
-                  conversation.archivedByMemberIds.contains(
-                    speakingAsMemberId,
-                  );
+                  conversation.archivedByMemberIds.contains(speakingAsMemberId);
               return PrismListRow(
                 leading: Icon(AppIcons.archiveOutlined),
                 title: Text(
@@ -679,6 +682,7 @@ class _ParticipantTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final terms = watchTerminology(context, ref);
     final memberAsync = ref.watch(memberByIdProvider(participantId));
 
     return memberAsync.when(
@@ -690,7 +694,7 @@ class _ParticipantTile extends ConsumerWidget {
               customColorEnabled: false,
               size: 40,
             ),
-            title: Text(context.l10n.chatInfoUnknownMember),
+            title: Text(context.l10n.chatInfoUnknownMember(terms.singular)),
           );
         }
 
@@ -745,8 +749,11 @@ class _ParticipantTile extends ConsumerWidget {
         );
       },
       loading: () => PrismListRow(title: Text(context.l10n.loading)),
-      error: (_, _) =>
-          PrismListRow(title: Text(context.l10n.chatInfoErrorLoadingMember)),
+      error: (_, _) => PrismListRow(
+        title: Text(
+          context.l10n.chatInfoErrorLoadingMember(terms.singularLower),
+        ),
+      ),
     );
   }
 }

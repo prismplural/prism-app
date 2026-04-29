@@ -6,6 +6,7 @@ import 'package:prism_plurality/features/migration/providers/migration_providers
 import 'package:prism_plurality/features/migration/services/sp_custom_front_analysis.dart';
 import 'package:prism_plurality/features/migration/services/sp_custom_front_disposition.dart';
 import 'package:prism_plurality/features/migration/services/sp_parser.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
@@ -25,6 +26,7 @@ class CustomFrontDispositionStep extends ConsumerWidget {
     final suggestions = ref.watch(cfSuggestionsProvider);
     final controller = ref.read(cfDispositionControllerProvider);
     final usage = analyzeCfUsage(data);
+    final terms = watchTerminology(context, ref);
 
     return Column(
       children: [
@@ -39,7 +41,7 @@ class CustomFrontDispositionStep extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              _OptionsLegend(),
+              _OptionsLegend(terms: terms),
               const SizedBox(height: 8),
               Align(
                 alignment: Alignment.centerRight,
@@ -59,7 +61,9 @@ class CustomFrontDispositionStep extends ConsumerWidget {
                     cf: cf,
                     stats: usage[cf.id] ?? const CfUsageStats(),
                     suggestion: suggestions[cf.id],
-                    selected: dispositions[cf.id] ??
+                    terms: terms,
+                    selected:
+                        dispositions[cf.id] ??
                         suggestions[cf.id]?.disposition ??
                         CfDisposition.mergeAsNote,
                     onChanged: (value) =>
@@ -70,11 +74,9 @@ class CustomFrontDispositionStep extends ConsumerWidget {
           ),
         ),
         _BottomBar(
-          onBack: () =>
-              ref.read(importerProvider.notifier).backToPreview(),
-          onContinue: () => ref
-              .read(importerProvider.notifier)
-              .continueFromDispositions(),
+          onBack: () => ref.read(importerProvider.notifier).backToPreview(),
+          onContinue: () =>
+              ref.read(importerProvider.notifier).continueFromDispositions(),
         ),
       ],
     );
@@ -86,6 +88,7 @@ class _CfCard extends StatelessWidget {
     required this.cf,
     required this.stats,
     required this.suggestion,
+    required this.terms,
     required this.selected,
     required this.onChanged,
   });
@@ -93,6 +96,7 @@ class _CfCard extends StatelessWidget {
   final SpCustomFront cf;
   final CfUsageStats stats;
   final CfSuggestion? suggestion;
+  final Terminology terms;
   final CfDisposition selected;
   final ValueChanged<CfDisposition> onChanged;
 
@@ -109,7 +113,7 @@ class _CfCard extends StatelessWidget {
   String _optionLabel(BuildContext context, CfDisposition d) {
     switch (d) {
       case CfDisposition.importAsMember:
-        return context.l10n.migrationCfOptionMember;
+        return context.l10n.migrationCfOptionMember(terms.singularLower);
       case CfDisposition.mergeAsNote:
         return context.l10n.migrationCfOptionNote;
       case CfDisposition.convertToSleep:
@@ -281,6 +285,10 @@ class _OptionRow extends StatelessWidget {
 }
 
 class _OptionsLegend extends StatelessWidget {
+  const _OptionsLegend({required this.terms});
+
+  final Terminology terms;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -295,8 +303,10 @@ class _OptionsLegend extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _LegendLine(
-            label: context.l10n.migrationCfOptionMember,
-            description: context.l10n.migrationCfOptionMemberDesc,
+            label: context.l10n.migrationCfOptionMember(terms.singularLower),
+            description: context.l10n.migrationCfOptionMemberDesc(
+              terms.singularLower,
+            ),
           ),
           const SizedBox(height: 6),
           _LegendLine(

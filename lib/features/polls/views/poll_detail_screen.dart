@@ -388,6 +388,7 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final terms = watchTerminology(context, ref);
     // Non-fronting picker: hide the Unknown sentinel from the vote-as picker.
     // The lookup at _shouldShowResults intentionally keeps activeMembersProvider
     // so existing votes attributed to the sentinel still resolve.
@@ -524,7 +525,7 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
                 data: (members) {
                   if (members.isEmpty) {
                     return Text(
-                      context.l10n.pollsDetailNoMembers,
+                      context.l10n.pollsDetailNoMembers(terms.pluralLower),
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),

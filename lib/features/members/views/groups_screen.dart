@@ -55,10 +55,11 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
     }
 
     final l10n = context.l10n;
+    final terms = readTerminology(context, ref);
     final confirmed = await PrismDialog.confirm(
       context: context,
       title: l10n.memberGroupDeleteTitle,
-      message: l10n.memberGroupDeleteMessage(group.name),
+      message: l10n.memberGroupDeleteMessage(group.name, terms.plural),
       confirmLabel: l10n.memberGroupDeleteConfirm,
       destructive: true,
     );

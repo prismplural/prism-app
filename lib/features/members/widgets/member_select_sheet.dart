@@ -33,9 +33,20 @@ class MemberSelectSheet extends ConsumerWidget {
   /// The sheet opens with a fixed-height scrolling body so longer lists stay
   /// scrollable without becoming full-screen.
   static Future<String?> show(BuildContext context, {String? currentMemberId}) {
+    final rawTerms = ProviderScope.containerOf(
+      context,
+      listen: false,
+    ).read(terminologySettingProvider);
+    final terms = resolveTerminology(
+      context.l10n,
+      rawTerms.term,
+      customSingular: rawTerms.customSingular,
+      customPlural: rawTerms.customPlural,
+      useEnglish: rawTerms.useEnglish,
+    );
     return PrismSheet.show<String>(
       context: context,
-      title: context.l10n.memberNoteChooseHeadmate,
+      title: context.l10n.memberNoteChooseHeadmate(terms.singular),
       builder: (sheetContext) => SizedBox(
         height:
             MediaQuery.sizeOf(sheetContext).height * _kSheetBodyHeightFactor,

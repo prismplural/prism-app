@@ -5,9 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/fronting_analytics.dart';
+import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_table_ticker_provider.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/models/analytics_insight.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 
 /// Wraps a DateTimeRange with an isAllTime flag so providers can
 /// suppress prior-period comparisons when "All" is selected.
@@ -21,11 +23,11 @@ class AnalyticsDateRange {
 class AnalyticsRangeNotifier extends Notifier<AnalyticsDateRange> {
   @override
   AnalyticsDateRange build() => AnalyticsDateRange(
-        range: DateTimeRange(
-          start: DateTime.now().subtract(const Duration(days: 30)),
-          end: DateTime.now(),
-        ),
-      );
+    range: DateTimeRange(
+      start: DateTime.now().subtract(const Duration(days: 30)),
+      end: DateTime.now(),
+    ),
+  );
 
   void setRange(DateTimeRange range, {bool isAllTime = false}) =>
       state = AnalyticsDateRange(range: range, isAllTime: isAllTime);
@@ -33,7 +35,8 @@ class AnalyticsRangeNotifier extends Notifier<AnalyticsDateRange> {
 
 final analyticsRangeProvider =
     NotifierProvider<AnalyticsRangeNotifier, AnalyticsDateRange>(
-        AnalyticsRangeNotifier.new);
+      AnalyticsRangeNotifier.new,
+    );
 
 /// Threshold below which the analytics computation runs synchronously on
 /// the UI isolate. `compute()` has ~10ms of isolate-spawn overhead, which
@@ -53,8 +56,9 @@ const int analyticsIsolateThreshold = 500;
 /// is required at the mutation site. The ticker is debounced so a bulk
 /// import (PK initial / SP / sanitizer batch) coalesces into one
 /// rebuild.
-final frontingAnalyticsProvider =
-    FutureProvider<FrontingAnalytics>((ref) async {
+final frontingAnalyticsProvider = FutureProvider<FrontingAnalytics>((
+  ref,
+) async {
   ref.watch(frontingTableTickerProvider);
   final range = ref.watch(analyticsRangeProvider).range;
   final dao = ref.watch(frontingSessionsDaoProvider);
@@ -66,8 +70,9 @@ final frontingAnalyticsProvider =
 
 /// Analytics for the period immediately preceding the selected range.
 /// Returns null for "All time" — no meaningful prior period exists.
-final previousPeriodAnalyticsProvider =
-    FutureProvider<FrontingAnalytics?>((ref) async {
+final previousPeriodAnalyticsProvider = FutureProvider<FrontingAnalytics?>((
+  ref,
+) async {
   ref.watch(frontingTableTickerProvider);
   final dateRange = ref.watch(analyticsRangeProvider);
   if (dateRange.isAllTime) return null;
@@ -134,10 +139,7 @@ class AnalyticsSessionRow {
 /// Args bundle for the isolate entry point.
 @visibleForTesting
 class AnalyticsComputeArgs {
-  const AnalyticsComputeArgs({
-    required this.rows,
-    required this.range,
-  });
+  const AnalyticsComputeArgs({required this.rows, required this.range});
 
   final List<AnalyticsSessionRow> rows;
   final DateTimeRange range;
@@ -209,15 +211,14 @@ FrontingAnalytics computeAnalyticsFromRows(
     // legacy rows would silently drop out of analytics, leaving
     // `totalSessions` (which counts rows.length) ahead of the
     // member-time data on screen.
-    final memberId =
-        (session.memberId as String?) ?? unknownSentinelMemberId;
+    final memberId = (session.memberId as String?) ?? unknownSentinelMemberId;
 
     final startTime = session.startTime as DateTime;
-    final endTime =
-        (session.endTime as DateTime?) ?? DateTime.now();
+    final endTime = (session.endTime as DateTime?) ?? DateTime.now();
 
-    final clampedStart =
-        startTime.isBefore(range.start) ? range.start : startTime;
+    final clampedStart = startTime.isBefore(range.start)
+        ? range.start
+        : startTime;
     final clampedEnd = endTime.isAfter(range.end) ? range.end : endTime;
     if (!clampedEnd.isAfter(clampedStart)) continue;
 
@@ -244,27 +245,29 @@ FrontingAnalytics computeAnalyticsFromRows(
   final memberStats = <MemberAnalytics>[];
   for (final entry in memberDurations.entries) {
     final durations = entry.value..sort();
-    final total =
-        durations.fold<Duration>(Duration.zero, (a, b) => a + b);
+    final total = durations.fold<Duration>(Duration.zero, (a, b) => a + b);
     final median = durations[durations.length ~/ 2];
     final avg = Duration(
-        microseconds: total.inMicroseconds ~/ durations.length);
+      microseconds: total.inMicroseconds ~/ durations.length,
+    );
 
-    memberStats.add(MemberAnalytics(
-      memberId: entry.key,
-      totalTime: total,
-      // % of system member-minutes — see method-level doc for the
-      // semantic rename. Numerator and denominator both use member-minutes.
-      percentageOfTotal: totalMemberMinutes.inMicroseconds > 0
-          ? (total.inMicroseconds / totalMemberMinutes.inMicroseconds) * 100
-          : 0,
-      sessionCount: durations.length,
-      averageDuration: avg,
-      medianDuration: median,
-      shortestSession: durations.first,
-      longestSession: durations.last,
-      timeOfDayBreakdown: memberTimeBuckets[entry.key] ?? {},
-    ));
+    memberStats.add(
+      MemberAnalytics(
+        memberId: entry.key,
+        totalTime: total,
+        // % of system member-minutes — see method-level doc for the
+        // semantic rename. Numerator and denominator both use member-minutes.
+        percentageOfTotal: totalMemberMinutes.inMicroseconds > 0
+            ? (total.inMicroseconds / totalMemberMinutes.inMicroseconds) * 100
+            : 0,
+        sessionCount: durations.length,
+        averageDuration: avg,
+        medianDuration: median,
+        shortestSession: durations.first,
+        longestSession: durations.last,
+        timeOfDayBreakdown: memberTimeBuckets[entry.key] ?? {},
+      ),
+    );
   }
 
   memberStats.sort((a, b) => b.totalTime.compareTo(a.totalTime));
@@ -313,8 +316,10 @@ FrontingAnalytics computeAnalyticsFromRows(
   // Working in microseconds-since-epoch keeps the sort comparator a
   // single int compare instead of DateTime.compareTo, which is the
   // dominant cost for 10–40k events.
-  final eventCount = memberIntervals.values
-      .fold<int>(0, (s, list) => s + list.length * 2);
+  final eventCount = memberIntervals.values.fold<int>(
+    0,
+    (s, list) => s + list.length * 2,
+  );
   final eventTime = List<int>.filled(eventCount, 0);
   final eventOrder = List<int>.filled(eventCount, 0);
   // Parallel `idx` array; sort uses a permutation index instead of
@@ -492,18 +497,15 @@ FrontingAnalytics computeAnalyticsFromRows(
   final days = rangeSpan.inHours / 24.0;
   final switchesPerDay = days > 0 ? switches / days : 0.0;
 
-  final sortedPairs = pairAccumMicros.entries
-      .map((e) {
-        final a = e.key ~/ memberCount;
-        final b = e.key % memberCount;
-        return CoFrontingPair(
-          memberIdA: sortedMemberIds[a],
-          memberIdB: sortedMemberIds[b],
-          totalTime: Duration(microseconds: e.value),
-        );
-      })
-      .toList()
-    ..sort((a, b) => b.totalTime.compareTo(a.totalTime));
+  final sortedPairs = pairAccumMicros.entries.map((e) {
+    final a = e.key ~/ memberCount;
+    final b = e.key % memberCount;
+    return CoFrontingPair(
+      memberIdA: sortedMemberIds[a],
+      memberIdB: sortedMemberIds[b],
+      totalTime: Duration(microseconds: e.value),
+    );
+  }).toList()..sort((a, b) => b.totalTime.compareTo(a.totalTime));
   final topCoFrontingPairs = sortedPairs.take(3).toList();
 
   return FrontingAnalytics(
@@ -551,7 +553,11 @@ void _addTimeBuckets(
   var cursor = start;
   while (cursor.isBefore(end)) {
     final nextHour = DateTime(
-        cursor.year, cursor.month, cursor.day, cursor.hour + 1);
+      cursor.year,
+      cursor.month,
+      cursor.day,
+      cursor.hour + 1,
+    );
     final chunkEnd = nextHour.isAfter(end) ? end : nextHour;
     final minutes = chunkEnd.difference(cursor).inMinutes;
     final bucket = TimeBucket.fromHour(cursor.hour).name;
@@ -572,23 +578,28 @@ List<AnalyticsInsight> computeInsights(
   FrontingAnalytics current,
   FrontingAnalytics? previous, {
   Map<String, String> names = const {},
+  String termSingularLower = 'member',
+  String termPluralLower = 'members',
 }) {
   final insights = <AnalyticsInsight>[];
 
   // 1. Gap Alert — single window, no prior period needed
-  final totalRangeMinutes =
-      current.rangeEnd.difference(current.rangeStart).inMinutes;
+  final totalRangeMinutes = current.rangeEnd
+      .difference(current.rangeStart)
+      .inMinutes;
   if (totalRangeMinutes > 0) {
     final gapPct = current.totalGapTime.inMinutes / totalRangeMinutes;
     if (gapPct > 0.25) {
-      insights.add(AnalyticsInsight(
-        type: AnalyticsInsightType.gapAlert,
-        iconType: AnalyticsInsightIconType.clockCountdown,
-        headline: '${_fmtDuration(current.totalGapTime)} untracked this period',
-        body:
-            '${(gapPct * 100).round()}% of the time wasn\'t logged.',
-        signalStrength: 80,
-      ));
+      insights.add(
+        AnalyticsInsight(
+          type: AnalyticsInsightType.gapAlert,
+          iconType: AnalyticsInsightIconType.clockCountdown,
+          headline:
+              '${_fmtDuration(current.totalGapTime)} untracked this period',
+          body: '${(gapPct * 100).round()}% of the time wasn\'t logged.',
+          signalStrength: 80,
+        ),
+      );
     }
   }
 
@@ -599,41 +610,45 @@ List<AnalyticsInsight> computeInsights(
     final nameB = _name(names, top.memberIdB);
     final headline = (nameA != null && nameB != null)
         ? '$nameA & $nameB co-fronted a lot this period'
-        : 'Two members co-fronted a lot this period';
-    insights.add(AnalyticsInsight(
-      type: AnalyticsInsightType.coFrontingHighlight,
-      iconType: AnalyticsInsightIconType.usersThree,
-      headline: headline,
-      body: '${_fmtDuration(top.totalTime)} together.',
-      signalStrength: 30,
-    ));
+        : 'Two $termPluralLower co-fronted a lot this period';
+    insights.add(
+      AnalyticsInsight(
+        type: AnalyticsInsightType.coFrontingHighlight,
+        iconType: AnalyticsInsightIconType.usersThree,
+        headline: headline,
+        body: '${_fmtDuration(top.totalTime)} together.',
+        signalStrength: 30,
+      ),
+    );
   }
 
   if (previous != null) {
     // 2. Quiet Member — appeared in previous but absent in current.
     // Surface the quiet member with the most prior-period time (strongest
     // signal); break ties by memberId for determinism.
-    final currentIds =
-        current.memberStats.map((m) => m.memberId).toSet();
-    final quietMembers = previous.memberStats
-        .where((m) => !currentIds.contains(m.memberId))
-        .toList()
-      ..sort((a, b) {
-        final byTime = b.totalTime.compareTo(a.totalTime);
-        return byTime != 0 ? byTime : a.memberId.compareTo(b.memberId);
-      });
+    final currentIds = current.memberStats.map((m) => m.memberId).toSet();
+    final quietMembers =
+        previous.memberStats
+            .where((m) => !currentIds.contains(m.memberId))
+            .toList()
+          ..sort((a, b) {
+            final byTime = b.totalTime.compareTo(a.totalTime);
+            return byTime != 0 ? byTime : a.memberId.compareTo(b.memberId);
+          });
     if (quietMembers.isNotEmpty) {
       final quietest = quietMembers.first;
       final name = _name(names, quietest.memberId);
-      insights.add(AnalyticsInsight(
-        type: AnalyticsInsightType.quietMember,
-        iconType: AnalyticsInsightIconType.moonStars,
-        headline: name != null
-            ? '$name hasn\'t fronted this period'
-            : 'One member hasn\'t fronted this period',
-        body: 'They were active in the last one.',
-        signalStrength: 70,
-      ));
+      insights.add(
+        AnalyticsInsight(
+          type: AnalyticsInsightType.quietMember,
+          iconType: AnalyticsInsightIconType.moonStars,
+          headline: name != null
+              ? '$name hasn\'t fronted this period'
+              : 'One $termSingularLower hasn\'t fronted this period',
+          body: 'They were active in the last one.',
+          signalStrength: 70,
+        ),
+      );
     }
 
     // 3. Session Drift — avg duration changed ≥25%, prior period must have ≥2 sessions
@@ -644,22 +659,23 @@ List<AnalyticsInsight> computeInsights(
       if (prev == null || prev.sessionCount < 2) continue;
       final prevAvgMin = prev.averageDuration.inMinutes;
       if (prevAvgMin == 0) continue;
-      final change =
-          (curr.averageDuration.inMinutes - prevAvgMin) / prevAvgMin;
+      final change = (curr.averageDuration.inMinutes - prevAvgMin) / prevAvgMin;
       if (change.abs() >= 0.25) {
         final longer = change > 0;
         final name = _name(names, curr.memberId);
         final headline = name != null
             ? '$name\'s sessions are running ${longer ? "longer" : "shorter"}'
-            : 'Session lengths are ${longer ? "longer" : "shorter"} for a member';
-        insights.add(AnalyticsInsight(
-          type: AnalyticsInsightType.sessionDrift,
-          iconType: AnalyticsInsightIconType.arrowsHorizontal,
-          headline: headline,
-          body:
-              '${_fmtDuration(curr.averageDuration)} avg, ${longer ? "up" : "down"} from ${_fmtDuration(prev.averageDuration)}.',
-          signalStrength: 60,
-        ));
+            : 'Session lengths are ${longer ? "longer" : "shorter"} for a $termSingularLower';
+        insights.add(
+          AnalyticsInsight(
+            type: AnalyticsInsightType.sessionDrift,
+            iconType: AnalyticsInsightIconType.arrowsHorizontal,
+            headline: headline,
+            body:
+                '${_fmtDuration(curr.averageDuration)} avg, ${longer ? "up" : "down"} from ${_fmtDuration(prev.averageDuration)}.',
+            signalStrength: 60,
+          ),
+        );
         break; // surface at most one drift insight
       }
     }
@@ -675,18 +691,20 @@ List<AnalyticsInsight> computeInsights(
       if (currModal != null && prevModal != null && currModal != prevModal) {
         final isNightward = currModal == 'evening' || currModal == 'night';
         final name = _name(names, curr.memberId);
-        insights.add(AnalyticsInsight(
-          type: AnalyticsInsightType.timeOfDayShift,
-          iconType: isNightward
-              ? AnalyticsInsightIconType.moon
-              : AnalyticsInsightIconType.sun,
-          headline: name != null
-              ? '$name is fronting at a different time'
-              : 'A member\'s fronting time of day shifted',
-          body:
-              'Mostly ${_bucketLabel(currModal)} lately — ${_bucketLabel(prevModal)} is more typical.',
-          signalStrength: 40,
-        ));
+        insights.add(
+          AnalyticsInsight(
+            type: AnalyticsInsightType.timeOfDayShift,
+            iconType: isNightward
+                ? AnalyticsInsightIconType.moon
+                : AnalyticsInsightIconType.sun,
+            headline: name != null
+                ? '$name is fronting at a different time'
+                : 'A $termSingularLower\'s fronting time of day shifted',
+            body:
+                'Mostly ${_bucketLabel(currModal)} lately — ${_bucketLabel(prevModal)} is more typical.',
+            signalStrength: 40,
+          ),
+        );
         break; // surface at most one shift insight
       }
     }
@@ -705,8 +723,7 @@ Duration _median(List<Duration> sorted) {
   final lower = sorted[(n ~/ 2) - 1];
   final upper = sorted[n ~/ 2];
   return Duration(
-    microseconds:
-        (lower.inMicroseconds + upper.inMicroseconds) ~/ 2,
+    microseconds: (lower.inMicroseconds + upper.inMicroseconds) ~/ 2,
   );
 }
 
@@ -726,27 +743,74 @@ String _fmtDuration(Duration d) {
 
 String? _modalBucket(Map<String, int> breakdown) {
   if (breakdown.isEmpty) return null;
-  return breakdown.entries
-      .reduce((a, b) => a.value >= b.value ? a : b)
-      .key;
+  return breakdown.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
 }
 
 String _bucketLabel(String bucket) => switch (bucket) {
-      'morning' => 'mornings',
-      'afternoon' => 'afternoons',
-      'evening' => 'evenings',
-      'night' => 'nights',
-      _ => bucket,
-    };
+  'morning' => 'mornings',
+  'afternoon' => 'afternoons',
+  'evening' => 'evenings',
+  'night' => 'nights',
+  _ => bucket,
+};
 
 /// Auto-generated insight cards for the analytics screen.
-final analyticsInsightsProvider =
-    FutureProvider<List<AnalyticsInsight>>((ref) async {
+final analyticsInsightsProvider = FutureProvider<List<AnalyticsInsight>>((
+  ref,
+) async {
   final current = await ref.watch(frontingAnalyticsProvider.future);
   final previous = await ref.watch(previousPeriodAnalyticsProvider.future);
   final members = await ref.watch(allMembersProvider.future);
+  final terms = ref.watch(terminologySettingProvider);
   final names = <String, String>{
     for (final m in members) m.id: m.displayName ?? m.name,
   };
-  return computeInsights(current, previous, names: names);
+  final englishTerms = _analyticsTerms(
+    terms.term,
+    customSingular: terms.customSingular,
+    customPlural: terms.customPlural,
+  );
+  return computeInsights(
+    current,
+    previous,
+    names: names,
+    termSingularLower: englishTerms.singularLower,
+    termPluralLower: englishTerms.pluralLower,
+  );
 });
+
+({String singularLower, String pluralLower}) _analyticsTerms(
+  SystemTerminology term, {
+  String? customSingular,
+  String? customPlural,
+}) {
+  if (term == SystemTerminology.custom) {
+    final singular = customSingular?.trim();
+    final plural = customPlural?.trim();
+    return (
+      singularLower: singular?.isNotEmpty == true
+          ? singular!.toLowerCase()
+          : 'member',
+      pluralLower: plural?.isNotEmpty == true
+          ? plural!.toLowerCase()
+          : 'members',
+    );
+  }
+  return switch (term) {
+    SystemTerminology.members => (
+      singularLower: 'member',
+      pluralLower: 'members',
+    ),
+    SystemTerminology.headmates => (
+      singularLower: 'headmate',
+      pluralLower: 'headmates',
+    ),
+    SystemTerminology.alters => (singularLower: 'alter', pluralLower: 'alters'),
+    SystemTerminology.parts => (singularLower: 'part', pluralLower: 'parts'),
+    SystemTerminology.facets => (singularLower: 'facet', pluralLower: 'facets'),
+    SystemTerminology.custom => (
+      singularLower: 'member',
+      pluralLower: 'members',
+    ),
+  };
+}

@@ -6,7 +6,7 @@ import 'package:prism_plurality/l10n/app_localizations.dart';
 /// Regression test for the add-edit-member sheet's avatar picker.
 ///
 /// The real widget reads from Drift and Riverpod, so we mirror its exact
-/// `Semantics(button: true, label: l10n.memberChangeAvatar, child: …)` wrapper
+/// `Semantics(button: true, label: l10n.memberChangeAvatar(...), child: …)` wrapper
 /// here instead of standing up the full sheet. If the source widget drops
 /// that wrapper or renames the l10n key, CI still catches it because the
 /// string literal is resolved through `AppLocalizations`.
@@ -27,7 +27,7 @@ void main() {
                 body: Center(
                   child: Semantics(
                     button: true,
-                    label: l10n.memberChangeAvatar,
+                    label: l10n.memberChangeAvatar('member'),
                     child: GestureDetector(
                       onTap: () {},
                       child: const SizedBox(width: 96, height: 96),

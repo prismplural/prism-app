@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -12,12 +14,13 @@ import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 ///
 /// Displays the app icon, name, version, description, and placeholder
 /// action links (GitHub, Privacy, Feedback).
-class AboutSection extends StatelessWidget {
+class AboutSection extends ConsumerWidget {
   const AboutSection({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final terms = watchTerminology(context, ref);
 
     return Column(
       children: [
@@ -28,16 +31,17 @@ class AboutSection extends StatelessWidget {
           height: 72,
           decoration: BoxDecoration(
             color: AppColors.prismPurple,
-            borderRadius: PrismShapes.of(context).cornerStyle == CornerStyle.angular
+            borderRadius:
+                PrismShapes.of(context).cornerStyle == CornerStyle.angular
                 ? BorderRadius.zero
                 : BorderRadius.circular(18),
           ),
           alignment: Alignment.center,
           child: Image.asset(
-              'assets/icon_layers/Prism-Logo-Foreground.png',
-              width: 44,
-              height: 44,
-            ),
+            'assets/icon_layers/Prism-Logo-Foreground.png',
+            width: 44,
+            height: 44,
+          ),
         ),
         const SizedBox(height: 12),
         Text(
@@ -64,7 +68,7 @@ class AboutSection extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Text(
-            context.l10n.settingsAboutDescription,
+            context.l10n.settingsAboutDescription(terms.pluralLower),
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
@@ -80,7 +84,10 @@ class AboutSection extends StatelessWidget {
               label: context.l10n.settingsAboutGitHub,
               selected: false,
               onTap: () {
-                PrismToast.show(context, message: context.l10n.settingsAboutGitHubComingSoon);
+                PrismToast.show(
+                  context,
+                  message: context.l10n.settingsAboutGitHubComingSoon,
+                );
               },
             ),
             PrismChip(
@@ -110,7 +117,10 @@ class AboutSection extends StatelessWidget {
               label: context.l10n.settingsAboutFeedback,
               selected: false,
               onTap: () {
-                PrismToast.show(context, message: context.l10n.settingsAboutFeedbackComingSoon);
+                PrismToast.show(
+                  context,
+                  message: context.l10n.settingsAboutFeedbackComingSoon,
+                );
               },
             ),
           ],

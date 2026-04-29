@@ -1,6 +1,8 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
@@ -30,7 +32,7 @@ class GroupAvatarMember {
 /// - 4 members: 2×2 grid
 ///
 /// Any members beyond 4 are ignored visually (data model supports unlimited).
-class GroupMemberAvatar extends StatelessWidget {
+class GroupMemberAvatar extends ConsumerWidget {
   const GroupMemberAvatar({
     super.key,
     required this.members,
@@ -43,10 +45,11 @@ class GroupMemberAvatar extends StatelessWidget {
   final Color? tint;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     if (members.isEmpty) {
       return SizedBox.square(dimension: size);
     }
+    final terms = watchTerminology(context, ref);
 
     if (members.length == 1) {
       final m = members.first;
@@ -69,13 +72,13 @@ class GroupMemberAvatar extends StatelessWidget {
             borderRadius: BorderRadius.zero,
             child: SizedBox.square(
               dimension: size,
-              child: _buildLayout(context, visible, size),
+              child: _buildLayout(context, visible, size, terms),
             ),
           )
         : ClipOval(
             child: SizedBox.square(
               dimension: size,
-              child: _buildLayout(context, visible, size),
+              child: _buildLayout(context, visible, size, terms),
             ),
           );
 
@@ -90,6 +93,7 @@ class GroupMemberAvatar extends StatelessWidget {
     BuildContext context,
     List<GroupAvatarMember> visible,
     double containerSize,
+    Terminology terms,
   ) {
     final itemSize = containerSize * 0.48;
     final dpr = MediaQuery.devicePixelRatioOf(context);
@@ -104,12 +108,12 @@ class GroupMemberAvatar extends StatelessWidget {
             Positioned(
               top: offset * 0.3,
               left: offset * 0.3,
-                child: _miniAvatar(context, visible[0], dualSize, dpr),
+              child: _miniAvatar(context, visible[0], dualSize, dpr, terms),
             ),
             Positioned(
               bottom: offset * 0.3,
               right: offset * 0.3,
-                child: _miniAvatar(context, visible[1], dualSize, dpr),
+              child: _miniAvatar(context, visible[1], dualSize, dpr, terms),
             ),
           ],
         );
@@ -120,11 +124,11 @@ class GroupMemberAvatar extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _miniAvatar(context, visible[0], itemSize * 0.9, dpr),
-                _miniAvatar(context, visible[1], itemSize * 0.9, dpr),
+                _miniAvatar(context, visible[0], itemSize * 0.9, dpr, terms),
+                _miniAvatar(context, visible[1], itemSize * 0.9, dpr, terms),
               ],
             ),
-            _miniAvatar(context, visible[2], itemSize * 0.9, dpr),
+            _miniAvatar(context, visible[2], itemSize * 0.9, dpr, terms),
           ],
         );
       case 4:
@@ -134,15 +138,15 @@ class GroupMemberAvatar extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _miniAvatar(context, visible[0], itemSize * 0.85, dpr),
-                _miniAvatar(context, visible[1], itemSize * 0.85, dpr),
+                _miniAvatar(context, visible[0], itemSize * 0.85, dpr, terms),
+                _miniAvatar(context, visible[1], itemSize * 0.85, dpr, terms),
               ],
             ),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _miniAvatar(context, visible[2], itemSize * 0.85, dpr),
-                _miniAvatar(context, visible[3], itemSize * 0.85, dpr),
+                _miniAvatar(context, visible[2], itemSize * 0.85, dpr, terms),
+                _miniAvatar(context, visible[3], itemSize * 0.85, dpr, terms),
               ],
             ),
           ],
@@ -157,6 +161,7 @@ class GroupMemberAvatar extends StatelessWidget {
     GroupAvatarMember member,
     double itemSize,
     double devicePixelRatio,
+    Terminology terms,
   ) {
     if (member.avatarImageData != null && member.avatarImageData!.isNotEmpty) {
       final pixelSize = (itemSize * devicePixelRatio).ceil();
@@ -167,10 +172,13 @@ class GroupMemberAvatar extends StatelessWidget {
         fit: BoxFit.cover,
         cacheWidth: pixelSize,
         cacheHeight: pixelSize,
-        semanticLabel: context.l10n.groupMemberAvatarSemantics,
+        semanticLabel: context.l10n.groupMemberAvatarSemantics(
+          terms.singularLower,
+        ),
         errorBuilder: (_, _, _) => _miniEmoji(member.emoji, itemSize),
       );
-      final angular = PrismShapes.of(context).cornerStyle == CornerStyle.angular;
+      final angular =
+          PrismShapes.of(context).cornerStyle == CornerStyle.angular;
       return angular
           ? ClipRRect(borderRadius: BorderRadius.zero, child: image)
           : ClipOval(child: image);
@@ -182,10 +190,7 @@ class GroupMemberAvatar extends StatelessWidget {
     return SizedBox.square(
       dimension: itemSize,
       child: Center(
-        child: MemberAvatar.centeredEmoji(
-          emoji,
-          fontSize: itemSize * 0.6,
-        ),
+        child: MemberAvatar.centeredEmoji(emoji, fontSize: itemSize * 0.6),
       ),
     );
   }

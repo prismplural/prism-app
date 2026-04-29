@@ -7,6 +7,7 @@ import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:share_plus/share_plus.dart';
 
 import 'package:prism_plurality/features/data_management/providers/data_management_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_field_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
@@ -62,7 +63,9 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
       return;
     }
     if (password != confirm) {
-      setState(() => _passwordError = context.l10n.dataManagementPasswordMismatch);
+      setState(
+        () => _passwordError = context.l10n.dataManagementPasswordMismatch,
+      );
       return;
     }
 
@@ -149,6 +152,7 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
   }
 
   Widget _buildIdle(ThemeData theme) {
+    final terms = readTerminology(context, ref);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -170,7 +174,7 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
         ),
         const SizedBox(height: 8),
         Text(
-          context.l10n.dataManagementExportDescription,
+          context.l10n.dataManagementExportDescription(terms.pluralLower),
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
@@ -231,7 +235,9 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
             icon: _obscurePassword
                 ? AppIcons.visibilityOff
                 : AppIcons.visibility,
-            tooltip: _obscurePassword ? context.l10n.dataManagementShowPassword : context.l10n.dataManagementHidePassword,
+            tooltip: _obscurePassword
+                ? context.l10n.dataManagementShowPassword
+                : context.l10n.dataManagementHidePassword,
             onPressed: () =>
                 setState(() => _obscurePassword = !_obscurePassword),
           ),
@@ -251,7 +257,9 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
             icon: _obscureConfirm
                 ? AppIcons.visibilityOff
                 : AppIcons.visibility,
-            tooltip: _obscureConfirm ? context.l10n.dataManagementShowPassword : context.l10n.dataManagementHidePassword,
+            tooltip: _obscureConfirm
+                ? context.l10n.dataManagementShowPassword
+                : context.l10n.dataManagementHidePassword,
             onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
           ),
           onSubmitted: (_) => _onPasswordSubmit(),
@@ -274,7 +282,10 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
         const SizedBox(height: 16),
         const PrismLoadingState(),
         const SizedBox(height: 24),
-        Text(context.l10n.dataManagementExporting, style: theme.textTheme.titleMedium),
+        Text(
+          context.l10n.dataManagementExporting,
+          style: theme.textTheme.titleMedium,
+        ),
         const SizedBox(height: 8),
         Text(
           context.l10n.dataManagementMayTakeMoment,
