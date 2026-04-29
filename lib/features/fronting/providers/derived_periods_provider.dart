@@ -29,23 +29,22 @@ final derivedPeriodsProvider =
     data: (bundle) {
       final members =
           membersAsync.whenOrNull(data: (list) => list) ?? const <Member>[];
-      // Thread the provider's bounds through. Without this, a 400-day
-      // continuous host (whose start was clamped by the DAO query)
-      // would push the sweep's `rangeStart` 400 days back, producing
-      // hundreds of midnight day-slices spanning the whole interval.
+      // Thread the provider's `rangeStart` through. Without this, a
+      // 400-day continuous host (whose start was clamped by the DAO
+      // query) would push the sweep's `rangeStart` 400 days back,
+      // producing hundreds of midnight day-slices spanning the whole
+      // interval.
       //
       // `now` is captured fresh at derivation, NOT at provider build.
-      // The future-dated cutoff inside `deriveMaximalPeriods` keys off
-      // `input.now` so a row inserted after subscription (start ≈ live
-      // wall clock, but > captured-at-build now) round-trips cleanly.
-      // Open sessions still extend to `max(now, rangeEnd)` which is
-      // simply `now` here since `rangeEnd` is itself ≈ now.
+      // It serves as BOTH the future-dated cutoff and the upper-bound
+      // clamp for closed-session spans. The bundle no longer carries
+      // a captured `rangeEnd` — that value was the root cause of the
+      // captured-now class of bugs (see derive_periods.dart).
       final periods = computeDerivedPeriods(
         bundle.sessions,
         members,
         now: DateTime.now(),
         rangeStart: bundle.rangeStart,
-        rangeEnd: bundle.rangeEnd,
       );
       return AsyncValue.data(periods);
     },
@@ -55,17 +54,17 @@ final derivedPeriodsProvider =
 /// Pure derivation entrypoint. Exposed for tests and for any future
 /// surface that wants periods without going through the provider graph.
 ///
-/// When [rangeStart] / [rangeEnd] are omitted, they're inferred from the
-/// session set (earliest start / latest end). The provider always passes
-/// explicit bounds; tests that want to exercise inferred-range behavior
-/// can omit them.
+/// When [rangeStart] is omitted, it's inferred from the session set
+/// (earliest start). The visible-window upper bound is always [now] —
+/// there is no separate `rangeEnd`. The provider always passes an
+/// explicit `rangeStart`; tests that want to exercise inferred-range
+/// behavior can omit it.
 List<FrontingPeriod> computeDerivedPeriods(
   List<FrontingSession> sessions,
   List<Member> members, {
   DateTime? now,
   Duration ephemeralThreshold = kEphemeralThreshold,
   DateTime? rangeStart,
-  DateTime? rangeEnd,
 }) {
   if (sessions.isEmpty) return const [];
 
@@ -73,31 +72,23 @@ List<FrontingPeriod> computeDerivedPeriods(
   final nowAt = now ?? DateTime.now();
 
   DateTime effectiveRangeStart;
-  DateTime effectiveRangeEnd;
-  if (rangeStart != null && rangeEnd != null) {
+  if (rangeStart != null) {
     effectiveRangeStart = rangeStart;
-    effectiveRangeEnd = rangeEnd;
   } else {
-    // Range inferred from the session set: earliest start to latest end
-    // (or now for open-ended). The sweep clamps every event to this
-    // window. Used by tests that want pure derivation without the
-    // provider's bounds.
+    // Range inferred from the session set: earliest start. The sweep
+    // clamps every event to `[earliest, now]`. Used by tests that
+    // want pure derivation without the provider's bounds.
     DateTime earliest = sessions.first.startTime;
-    DateTime latest = nowAt;
     for (final s in sessions) {
       if (s.startTime.isBefore(earliest)) earliest = s.startTime;
-      final end = s.endTime ?? nowAt;
-      if (end.isAfter(latest)) latest = end;
     }
-    effectiveRangeStart = rangeStart ?? earliest;
-    effectiveRangeEnd = rangeEnd ?? latest;
+    effectiveRangeStart = earliest;
   }
 
   return deriveMaximalPeriods(DerivePeriodsInput(
     sessions: sessions,
     members: memberMap,
     rangeStart: effectiveRangeStart,
-    rangeEnd: effectiveRangeEnd,
     now: nowAt,
     ephemeralThreshold: ephemeralThreshold,
   ));

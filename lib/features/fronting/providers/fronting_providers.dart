@@ -379,45 +379,43 @@ const derivedPeriodsLookbackDays = 90;
 /// "schedule a front" use case is covered.
 ///
 /// Crucially, this lookahead does NOT thread through to derivation —
-/// the bundle's `rangeEnd` is bounded at `now` so an open current
-/// front renders bounded at "now" instead of being extended to
-/// "now + 30 days" and split into 30 future midnight slices.
+/// the derivation captures `now` itself and treats the visible window
+/// as `[rangeStart, now]`, so an open current front renders bounded
+/// at "now" instead of being extended to "now + 30 days" and split
+/// into 30 future midnight slices.
 const derivedPeriodsLookaheadDays = 30;
 
 /// Inputs to the derived-period sweep.
 ///
-/// `rangeStart` is the visible window's lower bound (now − lookback).
-/// `rangeEnd` is the visible upper bound captured at provider build
-/// time. Both are captured ONCE at subscription:
-///   * `rangeStart` is genuinely fixed — a 90-day-back window doesn't
-///     drift forward in real time at any cadence the user perceives.
-///     If the screen is held open across midnight, the window slides a
-///     day stale, but the next external rebuild (tab switch, settings
-///     change, etc.) corrects it.
-///   * `rangeEnd` is the trailing edge of the visible window. The
-///     **future-dated cutoff** in the derivation no longer keys off
-///     this value — it keys off a freshly-captured `DateTime.now()`
-///     inside [computeDerivedPeriods], so newly-inserted rows whose
-///     `startTime` is slightly after `rangeEnd` round-trip cleanly
-///     even though the bundle's `rangeEnd` was captured earlier. We
-///     keep `rangeEnd` here because the derivation still uses it as
-///     the upper clamp for closed-session spans; a follow-on rebuild
-///     does refresh it.
+/// `rangeStart` is the visible window's lower bound (now − lookback),
+/// captured ONCE at subscription. It's genuinely fixed — a 90-day-back
+/// window doesn't drift forward in real time at any cadence the user
+/// perceives. If the screen is held open across midnight, the window
+/// slides a day stale, but the next external rebuild (tab switch,
+/// settings change, etc.) corrects it.
+///
+/// There is intentionally NO `rangeEnd` here. The derivation captures
+/// a fresh `DateTime.now()` per run and uses it as the visible upper
+/// bound for everything: the future-dated cutoff, open-session end
+/// substitution, and closed-session end clamping. Threading a
+/// captured-at-subscription `rangeEnd` through here was the root
+/// cause of a captured-now class of bugs — for example, a session
+/// started after subscription got `clampedEnd = min(endTime,
+/// rangeEnd) = rangeEnd`, which was BEFORE its own startTime, so the
+/// row dropped from the sweep ("tap add → tap end → row vanishes").
 class DerivedPeriodsInputBundle {
   const DerivedPeriodsInputBundle({
     required this.sessions,
     required this.rangeStart,
-    required this.rangeEnd,
   });
 
   final List<FrontingSession> sessions;
   final DateTime rangeStart;
-  final DateTime rangeEnd;
 }
 
 /// Sessions overlapping the visible range used by the derived-period
-/// sweep (§4.6 step 1) along with the bounds the derivation should
-/// clamp to.
+/// sweep (§4.6 step 1) along with the visible-window lower bound the
+/// derivation should clamp to.
 ///
 /// Key correctness property: a 400-day continuous host whose row
 /// started before the lookback window but is still open (or ended
@@ -425,17 +423,12 @@ class DerivedPeriodsInputBundle {
 /// `start_time < sql_upper_bound AND (end_time IS NULL OR end_time > range_start)`,
 /// which a row-paged "newest N rows" query would silently drop.
 ///
-/// Two distinct upper bounds are at play:
-///
-///  - **SQL upper bound** (`sqlUpperBound`, `now + 30d`): the value
-///    threaded into `watchSessionsOverlappingRange` so newly-inserted
-///    rows whose `start_time` is slightly after the captured "now"
-///    still match the Drift watch. INTERNAL — never leaves this
-///    provider.
-///  - **Visible `rangeEnd`** (`rangeEnd`, captured `now`): the bound
-///    the derivation clamps closed-session spans to. The future-dated
-///    cutoff is NOT keyed off this value; see
-///    [DerivedPeriodsInputBundle].
+/// The SQL upper bound (`sqlUpperBound`, `now + 30d`) is internal:
+/// it's threaded into `watchSessionsOverlappingRange` so newly-inserted
+/// rows whose `start_time` is slightly after the captured "now" still
+/// match the Drift watch. It does NOT leave this provider — the
+/// derivation reads `DateTime.now()` directly and treats `[rangeStart,
+/// now]` as the visible window.
 final unifiedHistoryOverlapProvider =
     StreamProvider.autoDispose<DerivedPeriodsInputBundle>((ref) {
   final repo = ref.watch(frontingSessionRepositoryProvider);
@@ -447,12 +440,10 @@ final unifiedHistoryOverlapProvider =
   // captured `now` so the Drift `.watch()` re-evaluation surfaces them.
   final sqlUpperBound =
       now.add(const Duration(days: derivedPeriodsLookaheadDays));
-  final rangeEnd = now;
   return repo.watchSessionsOverlappingRange(rangeStart, sqlUpperBound).map(
         (sessions) => DerivedPeriodsInputBundle(
           sessions: sessions,
           rangeStart: rangeStart,
-          rangeEnd: rangeEnd,
         ),
       );
 });

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:drift/drift.dart' show TableUpdate;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -80,6 +81,77 @@ void main() {
             reason: 'analytics must auto-rebuild on a fronting_sessions '
                 'write — no explicit invalidation should be required');
         expect(after.totalTrackedTime, const Duration(hours: 1));
+      },
+    );
+
+    test(
+      'customStatement DELETE + db.notifyUpdates rebuilds analytics — '
+      'truncate-path contract',
+      () async {
+        // Pin the analytics auto-rebuild contract for the truncate
+        // path (migration, SP importer, remote-wipe). customStatement
+        // bypasses Drift's typed-write notification, so call sites
+        // must follow up with db.notifyUpdates. This test verifies
+        // the FutureProvider rebuilds against the post-truncate state.
+        final db = AppDatabase(NativeDatabase.memory());
+        addTearDown(db.close);
+
+        final now = DateTime.now();
+        final container = ProviderContainer(overrides: [
+          databaseProvider.overrideWithValue(db),
+          analyticsRangeProvider.overrideWith(
+            () => _FixedRangeNotifier(
+              AnalyticsDateRange(
+                range: DateTimeRange(
+                  start: now.subtract(const Duration(days: 7)),
+                  end: now.add(const Duration(hours: 1)),
+                ),
+              ),
+            ),
+          ),
+        ]);
+        addTearDown(container.dispose);
+
+        // Seed the DB with one session before subscribing.
+        await db.frontingSessionsDao.insertSession(
+          FrontingSessionMapper.toCompanion(
+            FrontingSession(
+              id: 's1',
+              memberId: 'a',
+              startTime: now.subtract(const Duration(hours: 2)),
+              endTime: now.subtract(const Duration(hours: 1)),
+            ),
+          ),
+        );
+
+        container.listen<AsyncValue<FrontingAnalytics>>(
+          frontingAnalyticsProvider,
+          (_, _) {},
+          fireImmediately: true,
+        );
+
+        final initial = await container
+            .read(frontingAnalyticsProvider.future)
+            .timeout(const Duration(seconds: 2));
+        expect(initial.totalSessions, 1);
+
+        // Truncate via customStatement + notifyUpdates (mirrors the
+        // migration / SP importer / remote-wipe code paths).
+        await db.customStatement('DELETE FROM fronting_sessions');
+        db.notifyUpdates({const TableUpdate('fronting_sessions')});
+
+        // Wait for the ticker debounce + provider rebuild.
+        await Future<void>.delayed(const Duration(milliseconds: 500));
+
+        final after = await container
+            .read(frontingAnalyticsProvider.future)
+            .timeout(const Duration(seconds: 2));
+        expect(after.totalSessions, 0,
+            reason:
+                'analytics must rebuild after a customStatement DELETE + '
+                'notifyUpdates — proves the truncate-path contract '
+                'plumbs through the ticker into FutureProviders');
+        expect(after.totalTrackedTime, Duration.zero);
       },
     );
   });

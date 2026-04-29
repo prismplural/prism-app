@@ -102,13 +102,20 @@ class EphemeralVisit {
 ///
 /// `members` carries `is_always_fronting` so the sweep can split background
 /// hosts out of the active set. `now` is injectable for tests.
+///
+/// `rangeStart` is the visible window's lower bound; everything from
+/// `rangeStart` to `now` is in the visible window. There is no separate
+/// `rangeEnd` — the upper bound is implicitly "now at derivation time."
+/// Threading a captured-at-subscription `rangeEnd` through here was the
+/// root cause of a captured-now whack-a-mole class of bugs (rows whose
+/// startTime was after the captured value got dropped as "future-dated"
+/// or had their endTime clamped below their startTime).
 @immutable
 class DerivePeriodsInput {
   const DerivePeriodsInput({
     required this.sessions,
     required this.members,
     required this.rangeStart,
-    required this.rangeEnd,
     required this.now,
     this.ephemeralThreshold = kEphemeralThreshold,
   });
@@ -120,7 +127,6 @@ class DerivePeriodsInput {
   final Map<String, Member> members;
 
   final DateTime rangeStart;
-  final DateTime rangeEnd;
   final DateTime now;
   final Duration ephemeralThreshold;
 }
@@ -129,11 +135,13 @@ class DerivePeriodsInput {
 ///
 /// Algorithm (§4.6):
 ///
-/// 1. Filter to sessions overlapping `[rangeStart, rangeEnd]`.
+/// 1. Filter to sessions overlapping `[rangeStart, now]`.
 /// 2. Emit `(time, +member, sessionId)` and `(time, -member, sessionId)`
 ///    events, clamped to the range bounds. Open-ended sessions
-///    substitute `max(now, rangeEnd)`; closed sessions clamp to
-///    `rangeEnd`.
+///    substitute `now`; closed sessions clamp to `now` on the upper
+///    edge as well (a closed session whose endTime is past `now` was
+///    written from a clock skew or the user editing into the future,
+///    and we clamp at the visible-window upper bound either way).
 /// 3. Sort events; process all events at the same instant as one batch
 ///    (avoids zero-length "neither fronting" periods on swap).
 /// 4. Sweep, maintaining a per-member set of active session IDs. Emit
@@ -159,30 +167,27 @@ List<FrontingPeriod> deriveMaximalPeriods(DerivePeriodsInput input) {
   // is not yet active and must not produce visible periods — silently
   // drop it here.
   //
-  // Cutoff is `input.now`, NOT `input.rangeEnd`. Earlier the cutoff was
-  // `rangeEnd` captured at provider build, which froze: a row inserted
-  // a millisecond after subscription had `startTime > capturedRangeEnd`
-  // and was silently dropped as "future-dated" forever. Threading a
-  // freshly-captured `now` into derivation means newly-arrived rows
-  // (start within a few ms of subscribe time) round-trip cleanly while
-  // a genuine future-dated typo (start = tomorrow) is still rejected.
+  // Cutoff is `input.now` (captured fresh per derivation). The bundle
+  // no longer carries a `rangeEnd` at all — that captured-at-
+  // subscription value was the root cause of the captured-now class
+  // of bugs (rows inserted after subscription had startTime >
+  // capturedRangeEnd and were silently dropped, OR had endTime
+  // clamped below startTime, dropping the row entirely). Using
+  // `input.now` everywhere means newly-arrived rows round-trip
+  // cleanly while a genuine future-dated typo (start = tomorrow) is
+  // still rejected.
   final sessions = [
     for (final s in input.sessions)
       if (!s.isSleep && !s.isDeleted && !s.startTime.isAfter(input.now)) s,
   ];
   if (sessions.isEmpty) return const [];
 
-  // Open-ended substitution per §4.6: substitute max(now, rangeEnd) so a
-  // currently-active session whose start is in the range produces a period
-  // that extends to the end of the visible range, not an arbitrary "now"
-  // earlier than that. This is ONLY used for null-end sessions; closed
-  // sessions clamp to rangeEnd directly.
-  final openEndSub =
-      input.now.isAfter(input.rangeEnd) ? input.now : input.rangeEnd;
-  // Effective upper bound for clamping spans when emitting periods.
-  // Trailing periods may extend past rangeEnd via openEndSub for live
-  // sessions; closed sessions never bleed past rangeEnd.
-  final effectiveRangeEnd = openEndSub;
+  // Upper bound for ALL clamping (open and closed sessions): `input.now`.
+  // Open-ended sessions substitute it for their missing endTime; closed
+  // sessions whose endTime is past `now` (clock skew, editing-future)
+  // clamp to it too. There is no separate visible `rangeEnd` — the
+  // visible window is implicitly `[rangeStart, input.now]`.
+  final effectiveRangeEnd = input.now;
 
   // Partition into background (always-present) sessions and foreground.
   // Background sessions never enter the active set; instead, every period
@@ -200,20 +205,23 @@ List<FrontingPeriod> deriveMaximalPeriods(DerivePeriodsInput input) {
     if (memberId == null) continue; // Unknown-fronter rows — treat as no-op.
     final start = s.startTime;
     final rawEnd = s.endTime;
-    // Clamp spans:
-    //   - open-ended sessions extend to openEndSub (may be > rangeEnd if
-    //     `now` is past the visible range).
-    //   - closed sessions clamp to rangeEnd; an end past the visible
-    //     range must NOT bleed into a past visible window, so we cut at
-    //     rangeEnd (not effectiveRangeEnd).
-    final end = rawEnd ?? openEndSub;
+    // Clamp spans against `[rangeStart, input.now]`. Open and closed
+    // sessions both use `input.now` as the upper bound:
+    //   - Open-ended: substitutes `now` for the missing endTime.
+    //   - Closed: a closed session whose endTime is past `now` (clock
+    //     skew, future-dated edit) clamps at `now`.
+    // The future-dated rejection above already filtered any session
+    // whose startTime is past `now`, so `start.isBefore(now)` always
+    // holds for sessions that reach this point (modulo the equality
+    // case handled by the `!start.isBefore(...)` guard below).
+    final end = rawEnd ?? input.now;
     if (!end.isAfter(input.rangeStart)) continue;
     if (!start.isBefore(effectiveRangeEnd)) continue;
 
     final clampedStart =
         start.isBefore(input.rangeStart) ? input.rangeStart : start;
-    final upperBound = rawEnd == null ? effectiveRangeEnd : input.rangeEnd;
-    final clampedEnd = end.isAfter(upperBound) ? upperBound : end;
+    final clampedEnd =
+        end.isAfter(effectiveRangeEnd) ? effectiveRangeEnd : end;
     if (!clampedEnd.isAfter(clampedStart)) continue;
 
     final isBackground = input.members[memberId]?.isAlwaysFronting ?? false;
@@ -444,8 +452,8 @@ List<FrontingPeriod> deriveMaximalPeriods(DerivePeriodsInput input) {
     }
   }
 
-  // Trailing period from the last event time to rangeEnd, if active set
-  // is non-empty. Almost always empty in practice (last event is a session
+  // Trailing period from the last event time to `now`, if active set is
+  // non-empty. Almost always empty in practice (last event is a session
   // end), but covers the edge case where the sweep finishes mid-active.
   if (snapshotFirstStart.isNotEmpty && periodStart.isBefore(effectiveRangeEnd)) {
     emitPeriod(effectiveRangeEnd);

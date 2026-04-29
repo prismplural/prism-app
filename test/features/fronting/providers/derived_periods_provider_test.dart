@@ -30,11 +30,12 @@ FrontingSession _s({
     );
 
 /// Wraps a session list in the [DerivedPeriodsInputBundle] the provider
-/// emits, with bounds matching the production lookback/lookahead.
+/// emits, with `rangeStart` matching the production lookback. The
+/// bundle no longer carries a `rangeEnd` — derivation reads
+/// `DateTime.now()` directly for the upper bound.
 DerivedPeriodsInputBundle _bundle(
   List<FrontingSession> sessions, {
   DateTime? rangeStart,
-  DateTime? rangeEnd,
   DateTime? referenceNow,
 }) {
   final now = referenceNow ?? DateTime.now();
@@ -42,8 +43,6 @@ DerivedPeriodsInputBundle _bundle(
     sessions: sessions,
     rangeStart: rangeStart ??
         now.subtract(const Duration(days: derivedPeriodsLookbackDays)),
-    rangeEnd: rangeEnd ??
-        now.add(const Duration(days: derivedPeriodsLookaheadDays)),
   );
 }
 
@@ -326,8 +325,6 @@ void main() {
 
         final providerRangeStart =
             referenceNow.subtract(const Duration(days: derivedPeriodsLookbackDays));
-        final providerRangeEnd =
-            referenceNow.add(const Duration(days: derivedPeriodsLookaheadDays));
 
         final container = ProviderContainer(overrides: [
           unifiedHistoryOverlapProvider.overrideWith((ref) => Stream.value(
@@ -347,7 +344,6 @@ void main() {
                     ),
                   ],
                   rangeStart: providerRangeStart,
-                  rangeEnd: providerRangeEnd,
                 ),
               )),
           allMembersProvider.overrideWith((ref) =>
@@ -470,14 +466,13 @@ void main() {
     );
 
     test(
-      'production provider emits rangeEnd bounded at now (not now + 30d)',
+      'production provider derives open period bounded at now (not now + 30d)',
       () async {
-        // Codex P1 fix-up #3: the bundle's `rangeEnd` is the visible
-        // upper bound, NOT the SQL lookahead. With `rangeEnd = now`,
-        // an open current session extends to `now`, not to
-        // `now + 30 days`. This test reads the live provider bundle
-        // and asserts the bound, then checks the derived open period
-        // ends at-or-before `now` (within a small wall-clock tick).
+        // Codex P1 fix-up #3 (rewritten post-rangeEnd-removal): the
+        // bundle no longer carries a `rangeEnd`; the derivation reads
+        // `DateTime.now()` itself. This test verifies that an open
+        // current session derives a period ending ~now, not ~now+30d,
+        // even though the SQL overlap query uses the +30d lookahead.
         final db = AppDatabase(NativeDatabase.memory());
         addTearDown(db.close);
 
@@ -518,26 +513,17 @@ void main() {
           fireImmediately: true,
         );
 
-        final bundle =
-            await container.read(unifiedHistoryOverlapProvider.future);
-
-        // rangeEnd must be bounded at "now of rebuild" — within a few
-        // seconds, NOT 30 days in the future.
-        final wallNow = DateTime.now();
-        final delta = bundle.rangeEnd.difference(wallNow).abs();
-        expect(delta.inSeconds, lessThan(5),
-            reason: 'rangeEnd must be ~now, not now + 30 days '
-                '(was: ${bundle.rangeEnd}, now: $wallNow)');
-
-        // And the open derived period ends ~now, not ~now + 30d.
+        await container.read(unifiedHistoryOverlapProvider.future);
         await container.read(allMembersProvider.future);
         await Future<void>.delayed(Duration.zero);
+
+        // The open derived period ends ~now, not ~now + 30d.
+        final wallNow = DateTime.now();
         final periods = container.read(derivedPeriodsProvider).value!;
         expect(periods, hasLength(1));
         final open = periods.single;
         expect(open.isOpenEnded, isTrue);
-        // End must be at or before now + a small tolerance — never
-        // 30 days in the future.
+        // End must be at or near now — never 30 days in the future.
         final endDelta = open.end.difference(wallNow).abs();
         expect(endDelta.inMinutes, lessThan(1),
             reason: 'open period end must be ~now, not 30 days out '
@@ -682,6 +668,132 @@ void main() {
                 'new session must appear after upstream re-emission '
                 '(invalidation contract)');
         expect(second.last.activeMembers, ['b']);
+      },
+    );
+
+    test(
+      'P1 regression: real-DB start-then-end after subscription — '
+      'closed session created and ended after subscribe DOES appear',
+      () async {
+        // Concrete bug Codex caught: with the bundle still carrying
+        // `rangeEnd`, the closed-session clamp was `min(endTime,
+        // rangeEnd)`. A user who subscribed at T0, started a front at
+        // T1 > T0, then ended it at T2 > T1 saw `clampedEnd =
+        // rangeEnd = T0`, which was BEFORE clampedStart = T1, so the
+        // row was dropped.
+        //
+        // Post-fix the bundle has no rangeEnd — the derivation uses
+        // `now` directly, so closed sessions ending after subscription
+        // round-trip cleanly through the existing watch chain.
+        final db = AppDatabase(NativeDatabase.memory());
+        addTearDown(db.close);
+
+        final repo = DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+        );
+
+        final container = ProviderContainer(overrides: [
+          frontingSessionRepositoryProvider
+              .overrideWith((ref) => repo as FrontingSessionRepository),
+          allMembersProvider
+              .overrideWith((ref) => Stream.value(const <Member>[])),
+        ]);
+        addTearDown(container.dispose);
+
+        // Subscribe BEFORE any writes — bundle's rangeStart is
+        // captured here. Pre-fix, this is also when rangeEnd was
+        // captured.
+        container.listen<AsyncValue<DerivedPeriodsInputBundle>>(
+          unifiedHistoryOverlapProvider,
+          (_, _) {},
+          fireImmediately: true,
+        );
+        container.listen<AsyncValue<List<FrontingPeriod>>>(
+          derivedPeriodsProvider,
+          (_, _) {},
+          fireImmediately: true,
+        );
+
+        await container.read(unifiedHistoryOverlapProvider.future);
+        await container.read(allMembersProvider.future);
+        await Future<void>.delayed(Duration.zero);
+
+        final initial = container.read(derivedPeriodsProvider).value!;
+        expect(initial, isEmpty);
+
+        // Sleep so the captured-at-subscribe values are meaningfully
+        // in the past relative to the next mutation's wall clock.
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+
+        // Step 1: write an open session that started 5 minutes ago.
+        // Writing with a past startTime simulates "user started front
+        // earlier and the row has been queued / synced in just now."
+        // The point of the test is the timing of the WRITES being
+        // post-subscription, not the wall-clock startTime.
+        // Duration > 2 min keeps it out of ephemeral collapse.
+        final startTime =
+            DateTime.now().subtract(const Duration(minutes: 5));
+        await db.frontingSessionsDao.insertSession(
+          FrontingSessionMapper.toCompanion(
+            FrontingSession(
+              id: 's1',
+              memberId: 'a',
+              startTime: startTime,
+              endTime: null,
+            ),
+          ),
+        );
+
+        // Pump the watch chain so the open session shows up.
+        for (var i = 0; i < 5; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 10));
+        }
+        final opened = container.read(derivedPeriodsProvider).value!;
+        expect(opened, hasLength(1),
+            reason: 'open session should appear after subscription');
+        expect(opened.single.isOpenEnded, isTrue);
+
+        // Step 2: end the session (user taps "end front") with an
+        // endTime ~now. Pre-fix, the closed-session clamp was
+        // `min(endTime, capturedRangeEnd)`. capturedRangeEnd was set
+        // when we subscribed, so the clamp would push end BACK to
+        // ~now-of-subscribe. Combined with the post-subscribe write
+        // timing, the row could disappear.
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+        final endTime = DateTime.now();
+        await db.frontingSessionsDao.endSession('s1', endTime);
+
+        // Pump again.
+        for (var i = 0; i < 5; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 10));
+        }
+
+        final ended = container.read(derivedPeriodsProvider).value!;
+        // The closed period MUST appear. Pre-fix on a row whose
+        // startTime fell after capturedRangeEnd, the clamp pushed
+        // clampedEnd below clampedStart and the row was dropped
+        // entirely.
+        expect(ended, hasLength(1),
+            reason:
+                'closed session created and ended after subscription '
+                'must appear in derived periods (was the P1 regression)');
+        expect(ended.single.activeMembers, ['a']);
+        expect(ended.single.isOpenEnded, isFalse,
+            reason: 'session was ended → period must NOT be open');
+        // Drift rounds DateTime to whole seconds on the way out;
+        // compare with a 1-second tolerance.
+        expect(
+          ended.single.start
+              .difference(startTime)
+              .abs()
+              .inMilliseconds,
+          lessThan(1500),
+        );
+        expect(
+          ended.single.end.difference(endTime).abs().inMilliseconds,
+          lessThan(1500),
+        );
       },
     );
   });
