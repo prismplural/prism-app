@@ -10,6 +10,7 @@ import 'package:prism_sync/generated/api.dart' as ffi;
 
 import 'package:prism_plurality/core/constants/app_constants.dart';
 import 'package:prism_plurality/core/crypto/bip39_validate.dart';
+import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/sync/pairing_ceremony_api.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/core/sync/sync_event_loop.dart';
@@ -37,14 +38,16 @@ class SetupDeviceSheet {
 
     if (!context.mounted) return;
 
-    unawaited(PrismSheet.showFullScreen(
-      context: context,
-      builder: (ctx, sc) => _SetupDeviceSheetContent(
-        handle: handle,
-        relayUrl: relayUrl,
-        scrollController: sc,
+    unawaited(
+      PrismSheet.showFullScreen(
+        context: context,
+        builder: (ctx, sc) => _SetupDeviceSheetContent(
+          handle: handle,
+          relayUrl: relayUrl,
+          scrollController: sc,
+        ),
       ),
-    ));
+    );
   }
 }
 
@@ -261,6 +264,11 @@ class _SetupDeviceSheetContentState
 
       // Drain store after completion (may mutate epoch / credentials)
       await drainRustStore(widget.handle);
+      try {
+        await cacheRuntimeKeys(widget.handle, ref.read(databaseProvider));
+      } catch (e) {
+        debugPrint('[SYNC] Failed to refresh runtime keys after pairing: $e');
+      }
 
       if (!mounted) return;
       // Brief confirmation so the user sees the upload actually finished
@@ -573,7 +581,9 @@ class _JoinerQrScannerView extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         ClipRRect(
-          borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(16)),
+          borderRadius: BorderRadius.circular(
+            PrismShapes.of(context).radius(16),
+          ),
           child: SizedBox(
             height: 280,
             child: MobileScanner(
@@ -661,7 +671,9 @@ class _SasVerificationView extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
           decoration: BoxDecoration(
             color: theme.colorScheme.primary.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(16)),
+            borderRadius: BorderRadius.circular(
+              PrismShapes.of(context).radius(16),
+            ),
             border: Border.all(
               color: theme.colorScheme.primary.withValues(alpha: 0.2),
             ),
@@ -716,10 +728,7 @@ class _SasVerificationView extends StatelessWidget {
 
 /// PIN entry for the initiator after SAS verification.
 class _InitiatorPinView extends StatefulWidget {
-  const _InitiatorPinView({
-    required this.onPinEntered,
-    required this.onBack,
-  });
+  const _InitiatorPinView({required this.onPinEntered, required this.onBack});
 
   final void Function(String pin) onPinEntered;
   final VoidCallback onBack;
@@ -899,7 +908,9 @@ class _InitiatorDoneView extends StatelessWidget {
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: Colors.green.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
+            borderRadius: BorderRadius.circular(
+              PrismShapes.of(context).radius(12),
+            ),
           ),
           child: Row(
             children: [
@@ -921,7 +932,9 @@ class _InitiatorDoneView extends StatelessWidget {
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: theme.colorScheme.primary.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
+            borderRadius: BorderRadius.circular(
+              PrismShapes.of(context).radius(12),
+            ),
           ),
           child: Row(
             children: [
@@ -1074,11 +1087,10 @@ class _InitiatorUploadingView extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           ClipRRect(
-            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(8)),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 8,
+            borderRadius: BorderRadius.circular(
+              PrismShapes.of(context).radius(8),
             ),
+            child: LinearProgressIndicator(value: progress, minHeight: 8),
           ),
           const SizedBox(height: 12),
           Text(
