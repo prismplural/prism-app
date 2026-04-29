@@ -57,6 +57,7 @@ const String prismSyncSchema = '''
         "creator_id": "String",
         "participant_ids": "String",
         "archived_by_member_ids": "String",
+        "muted_by_member_ids": "String",
         "last_read_timestamps": "String",
         "description": "String",
         "category_id": "String",

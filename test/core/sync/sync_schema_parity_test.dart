@@ -190,9 +190,9 @@ void main() {
       // never propagates the missing field across devices.
       //
       // This test scans every repository's `_fields`-style helper and checks
-      // that its emitted keys cover the schema's declared fields. Allow-list
-      // entries below document fields that are intentionally written on a
-      // separate code path (e.g. `delete_push_started_at` is stamped via a
+      // that its emitted keys match the schema's declared fields. Allow-list
+      // entries below document schema fields that are intentionally written on
+      // a separate code path (e.g. `delete_push_started_at` is stamped via a
       // dedicated mutator, not the create/update field map) or are read-only
       // PK-mirror columns the prism repository never originates.
       final schema = jsonDecode(prismSyncSchema) as Map<String, dynamic>;
@@ -205,18 +205,19 @@ void main() {
           source.helperName,
         );
         final schemaFields =
-            ((schemaEntities[source.tableName] as Map<String, dynamic>)['fields']
+            ((schemaEntities[source.tableName]
+                        as Map<String, dynamic>)['fields']
                     as Map<String, dynamic>)
                 .keys
                 .toSet();
 
         final allowed = _writeOmittedFields[source.tableName] ?? const {};
-        final missing = schemaFields
-            .difference(emitted)
-            .difference(allowed);
-        if (missing.isNotEmpty) {
+        final missing = schemaFields.difference(emitted).difference(allowed);
+        final extra = emitted.difference(schemaFields);
+        if (missing.isNotEmpty || extra.isNotEmpty) {
           mismatches['${source.tableName} (${source.helperName})'] =
-              'schema fields missing from repository field map: $missing';
+              'schema fields missing from repository field map: $missing; '
+              'repository-only fields rejected by Rust schema: $extra';
         }
       }
 
@@ -226,58 +227,54 @@ void main() {
         reason:
             'Repository sync field maps are missing fields declared in '
             'prismSyncSchema. These rows will create/update locally but the '
-            'missing fields will never reach other devices. If a field is '
+            'missing fields will never reach other devices. Repository-only '
+            'fields are rejected by the Rust schema. If a field is '
             'intentionally written on a different code path, add it to '
-            r'_writeOmittedFields with a comment.' '\n$mismatches',
+            r'_writeOmittedFields with a comment.'
+            '\n$mismatches',
       );
     },
   );
 
-  test(
-    '_repositoryFieldSources covers every prismSyncSchema entity',
-    () {
-      // Defends against a silent regression in the parity scanner itself:
-      // the test above only checks fields for entities that are listed in
-      // `_repositoryFieldSources`. A future contributor adding a new synced
-      // entity (and a new `_<x>Fields` helper) but forgetting to register
-      // it in `_repositoryFieldSources` would cause the field-map parity
-      // test to silently skip the new entity — schema-vs-field-map drift
-      // would slip through.
-      //
-      // We assert one-to-one coverage: every entity declared in
-      // `prismSyncSchema` MUST have at least one `_repositoryFieldSources`
-      // entry. (The reverse — sources without a schema entry — would be
-      // caught by the existing field-map test, since the schema lookup
-      // would throw on a missing entity.)
-      //
-      // If a new entity is intentionally exempted (e.g. its writes go
-      // through a non-`_fields` code path), add it to `_coverageExempt`
-      // below with a comment explaining why.
-      final schema = jsonDecode(prismSyncSchema) as Map<String, dynamic>;
-      final entities = (schema['entities'] as Map<String, dynamic>).keys
-          .toSet();
+  test('_repositoryFieldSources covers every prismSyncSchema entity', () {
+    // Defends against a silent regression in the parity scanner itself:
+    // the test above only checks fields for entities that are listed in
+    // `_repositoryFieldSources`. A future contributor adding a new synced
+    // entity (and a new `_<x>Fields` helper) but forgetting to register
+    // it in `_repositoryFieldSources` would cause the field-map parity
+    // test to silently skip the new entity — schema-vs-field-map drift
+    // would slip through.
+    //
+    // We assert one-to-one coverage: every entity declared in
+    // `prismSyncSchema` MUST have at least one `_repositoryFieldSources`
+    // entry. (The reverse — sources without a schema entry — would be
+    // caught by the existing field-map test, since the schema lookup
+    // would throw on a missing entity.)
+    //
+    // If a new entity is intentionally exempted (e.g. its writes go
+    // through a non-`_fields` code path), add it to `_coverageExempt`
+    // below with a comment explaining why.
+    final schema = jsonDecode(prismSyncSchema) as Map<String, dynamic>;
+    final entities = (schema['entities'] as Map<String, dynamic>).keys.toSet();
 
-      final covered = _repositoryFieldSources
-          .map((s) => s.tableName)
-          .toSet();
-      const coverageExempt = <String>{};
+    final covered = _repositoryFieldSources.map((s) => s.tableName).toSet();
+    const coverageExempt = <String>{};
 
-      final missing = entities.difference(covered).difference(coverageExempt);
+    final missing = entities.difference(covered).difference(coverageExempt);
 
-      expect(
-        missing,
-        isEmpty,
-        reason:
-            'prismSyncSchema entities have no entry in '
-            '_repositoryFieldSources — the field-map parity test will '
-            'silently skip them, letting schema-vs-field-map drift through. '
-            'Add a _RepoFieldSource entry for each, or add the entity to '
-            '_coverageExempt with a comment if it intentionally has no '
-            '_fields-style helper.\n'
-            'Missing: $missing',
-      );
-    },
-  );
+    expect(
+      missing,
+      isEmpty,
+      reason:
+          'prismSyncSchema entities have no entry in '
+          '_repositoryFieldSources — the field-map parity test will '
+          'silently skip them, letting schema-vs-field-map drift through. '
+          'Add a _RepoFieldSource entry for each, or add the entity to '
+          '_coverageExempt with a comment if it intentionally has no '
+          '_fields-style helper.\n'
+          'Missing: $missing',
+    );
+  });
 
   test(
     'toSyncFields values are compatible with prismSyncSchema field types',
@@ -430,8 +427,7 @@ const _repositoryFieldSources = <_RepoFieldSource>[
   ),
   _RepoFieldSource(
     tableName: 'conversation_categories',
-    file:
-        'lib/data/repositories/drift_conversation_categories_repository.dart',
+    file: 'lib/data/repositories/drift_conversation_categories_repository.dart',
     helperName: '_fields',
   ),
   _RepoFieldSource(
@@ -477,9 +473,7 @@ const _writeOmittedFields = <String, Set<String>>{
   // session deletion; not part of the regular create/update field map.
   // `pluralkit_uuid` is set in _sessionFields, but for SP-only sessions
   //   may not be present; still it appears in the helper.
-  'fronting_sessions': {
-    'delete_push_started_at',
-  },
+  'fronting_sessions': {'delete_push_started_at'},
 };
 
 /// Extracts the set of string keys (e.g. `'created_at':`) from the body of a
@@ -544,10 +538,7 @@ Set<String> _extractFieldKeysFromFile(String relativePath, String helperName) {
 
   // Pull every `'key':` token. Single-quoted, no embedded escapes.
   final keyPattern = RegExp(r"'([a-zA-Z_][a-zA-Z0-9_]*)'\s*:");
-  return keyPattern
-      .allMatches(mapBody)
-      .map((m) => m.group(1)!)
-      .toSet();
+  return keyPattern.allMatches(mapBody).map((m) => m.group(1)!).toSet();
 }
 
 String? _schemaTypeMismatch(String declaredType, Object value) {
