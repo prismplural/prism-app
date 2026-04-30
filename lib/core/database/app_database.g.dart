@@ -232,6 +232,63 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _profileHeaderSourceMeta =
+      const VerificationMeta('profileHeaderSource');
+  @override
+  late final GeneratedColumn<int> profileHeaderSource = GeneratedColumn<int>(
+    'profile_header_source',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
+  static const VerificationMeta _profileHeaderLayoutMeta =
+      const VerificationMeta('profileHeaderLayout');
+  @override
+  late final GeneratedColumn<int> profileHeaderLayout = GeneratedColumn<int>(
+    'profile_header_layout',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _profileHeaderImageDataMeta =
+      const VerificationMeta('profileHeaderImageData');
+  @override
+  late final GeneratedColumn<Uint8List> profileHeaderImageData =
+      GeneratedColumn<Uint8List>(
+        'profile_header_image_data',
+        aliasedName,
+        true,
+        type: DriftSqlType.blob,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _pkBannerImageDataMeta = const VerificationMeta(
+    'pkBannerImageData',
+  );
+  @override
+  late final GeneratedColumn<Uint8List> pkBannerImageData =
+      GeneratedColumn<Uint8List>(
+        'pk_banner_image_data',
+        aliasedName,
+        true,
+        type: DriftSqlType.blob,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _pkBannerCachedUrlMeta = const VerificationMeta(
+    'pkBannerCachedUrl',
+  );
+  @override
+  late final GeneratedColumn<String> pkBannerCachedUrl =
+      GeneratedColumn<String>(
+        'pk_banner_cached_url',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _pluralkitSyncIgnoredMeta =
       const VerificationMeta('pluralkitSyncIgnored');
   @override
@@ -334,6 +391,11 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
     birthday,
     proxyTagsJson,
     pkBannerUrl,
+    profileHeaderSource,
+    profileHeaderLayout,
+    profileHeaderImageData,
+    pkBannerImageData,
+    pkBannerCachedUrl,
     pluralkitSyncIgnored,
     markdownEnabled,
     isDeleted,
@@ -506,6 +568,51 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
         ),
       );
     }
+    if (data.containsKey('profile_header_source')) {
+      context.handle(
+        _profileHeaderSourceMeta,
+        profileHeaderSource.isAcceptableOrUnknown(
+          data['profile_header_source']!,
+          _profileHeaderSourceMeta,
+        ),
+      );
+    }
+    if (data.containsKey('profile_header_layout')) {
+      context.handle(
+        _profileHeaderLayoutMeta,
+        profileHeaderLayout.isAcceptableOrUnknown(
+          data['profile_header_layout']!,
+          _profileHeaderLayoutMeta,
+        ),
+      );
+    }
+    if (data.containsKey('profile_header_image_data')) {
+      context.handle(
+        _profileHeaderImageDataMeta,
+        profileHeaderImageData.isAcceptableOrUnknown(
+          data['profile_header_image_data']!,
+          _profileHeaderImageDataMeta,
+        ),
+      );
+    }
+    if (data.containsKey('pk_banner_image_data')) {
+      context.handle(
+        _pkBannerImageDataMeta,
+        pkBannerImageData.isAcceptableOrUnknown(
+          data['pk_banner_image_data']!,
+          _pkBannerImageDataMeta,
+        ),
+      );
+    }
+    if (data.containsKey('pk_banner_cached_url')) {
+      context.handle(
+        _pkBannerCachedUrlMeta,
+        pkBannerCachedUrl.isAcceptableOrUnknown(
+          data['pk_banner_cached_url']!,
+          _pkBannerCachedUrlMeta,
+        ),
+      );
+    }
     if (data.containsKey('pluralkit_sync_ignored')) {
       context.handle(
         _pluralkitSyncIgnoredMeta,
@@ -646,6 +753,26 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
         DriftSqlType.string,
         data['${effectivePrefix}pk_banner_url'],
       ),
+      profileHeaderSource: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}profile_header_source'],
+      )!,
+      profileHeaderLayout: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}profile_header_layout'],
+      )!,
+      profileHeaderImageData: attachedDatabase.typeMapping.read(
+        DriftSqlType.blob,
+        data['${effectivePrefix}profile_header_image_data'],
+      ),
+      pkBannerImageData: attachedDatabase.typeMapping.read(
+        DriftSqlType.blob,
+        data['${effectivePrefix}pk_banner_image_data'],
+      ),
+      pkBannerCachedUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pk_banner_cached_url'],
+      ),
       pluralkitSyncIgnored: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}pluralkit_sync_ignored'],
@@ -700,6 +827,11 @@ class Member extends DataClass implements Insertable<Member> {
   final String? birthday;
   final String? proxyTagsJson;
   final String? pkBannerUrl;
+  final int profileHeaderSource;
+  final int profileHeaderLayout;
+  final Uint8List? profileHeaderImageData;
+  final Uint8List? pkBannerImageData;
+  final String? pkBannerCachedUrl;
   final bool pluralkitSyncIgnored;
   final bool markdownEnabled;
   final bool isDeleted;
@@ -727,6 +859,11 @@ class Member extends DataClass implements Insertable<Member> {
     this.birthday,
     this.proxyTagsJson,
     this.pkBannerUrl,
+    required this.profileHeaderSource,
+    required this.profileHeaderLayout,
+    this.profileHeaderImageData,
+    this.pkBannerImageData,
+    this.pkBannerCachedUrl,
     required this.pluralkitSyncIgnored,
     required this.markdownEnabled,
     required this.isDeleted,
@@ -780,6 +917,19 @@ class Member extends DataClass implements Insertable<Member> {
     }
     if (!nullToAbsent || pkBannerUrl != null) {
       map['pk_banner_url'] = Variable<String>(pkBannerUrl);
+    }
+    map['profile_header_source'] = Variable<int>(profileHeaderSource);
+    map['profile_header_layout'] = Variable<int>(profileHeaderLayout);
+    if (!nullToAbsent || profileHeaderImageData != null) {
+      map['profile_header_image_data'] = Variable<Uint8List>(
+        profileHeaderImageData,
+      );
+    }
+    if (!nullToAbsent || pkBannerImageData != null) {
+      map['pk_banner_image_data'] = Variable<Uint8List>(pkBannerImageData);
+    }
+    if (!nullToAbsent || pkBannerCachedUrl != null) {
+      map['pk_banner_cached_url'] = Variable<String>(pkBannerCachedUrl);
     }
     map['pluralkit_sync_ignored'] = Variable<bool>(pluralkitSyncIgnored);
     map['markdown_enabled'] = Variable<bool>(markdownEnabled);
@@ -836,6 +986,17 @@ class Member extends DataClass implements Insertable<Member> {
       pkBannerUrl: pkBannerUrl == null && nullToAbsent
           ? const Value.absent()
           : Value(pkBannerUrl),
+      profileHeaderSource: Value(profileHeaderSource),
+      profileHeaderLayout: Value(profileHeaderLayout),
+      profileHeaderImageData: profileHeaderImageData == null && nullToAbsent
+          ? const Value.absent()
+          : Value(profileHeaderImageData),
+      pkBannerImageData: pkBannerImageData == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pkBannerImageData),
+      pkBannerCachedUrl: pkBannerCachedUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pkBannerCachedUrl),
       pluralkitSyncIgnored: Value(pluralkitSyncIgnored),
       markdownEnabled: Value(markdownEnabled),
       isDeleted: Value(isDeleted),
@@ -875,6 +1036,21 @@ class Member extends DataClass implements Insertable<Member> {
       birthday: serializer.fromJson<String?>(json['birthday']),
       proxyTagsJson: serializer.fromJson<String?>(json['proxyTagsJson']),
       pkBannerUrl: serializer.fromJson<String?>(json['pkBannerUrl']),
+      profileHeaderSource: serializer.fromJson<int>(
+        json['profileHeaderSource'],
+      ),
+      profileHeaderLayout: serializer.fromJson<int>(
+        json['profileHeaderLayout'],
+      ),
+      profileHeaderImageData: serializer.fromJson<Uint8List?>(
+        json['profileHeaderImageData'],
+      ),
+      pkBannerImageData: serializer.fromJson<Uint8List?>(
+        json['pkBannerImageData'],
+      ),
+      pkBannerCachedUrl: serializer.fromJson<String?>(
+        json['pkBannerCachedUrl'],
+      ),
       pluralkitSyncIgnored: serializer.fromJson<bool>(
         json['pluralkitSyncIgnored'],
       ),
@@ -911,6 +1087,13 @@ class Member extends DataClass implements Insertable<Member> {
       'birthday': serializer.toJson<String?>(birthday),
       'proxyTagsJson': serializer.toJson<String?>(proxyTagsJson),
       'pkBannerUrl': serializer.toJson<String?>(pkBannerUrl),
+      'profileHeaderSource': serializer.toJson<int>(profileHeaderSource),
+      'profileHeaderLayout': serializer.toJson<int>(profileHeaderLayout),
+      'profileHeaderImageData': serializer.toJson<Uint8List?>(
+        profileHeaderImageData,
+      ),
+      'pkBannerImageData': serializer.toJson<Uint8List?>(pkBannerImageData),
+      'pkBannerCachedUrl': serializer.toJson<String?>(pkBannerCachedUrl),
       'pluralkitSyncIgnored': serializer.toJson<bool>(pluralkitSyncIgnored),
       'markdownEnabled': serializer.toJson<bool>(markdownEnabled),
       'isDeleted': serializer.toJson<bool>(isDeleted),
@@ -941,6 +1124,11 @@ class Member extends DataClass implements Insertable<Member> {
     Value<String?> birthday = const Value.absent(),
     Value<String?> proxyTagsJson = const Value.absent(),
     Value<String?> pkBannerUrl = const Value.absent(),
+    int? profileHeaderSource,
+    int? profileHeaderLayout,
+    Value<Uint8List?> profileHeaderImageData = const Value.absent(),
+    Value<Uint8List?> pkBannerImageData = const Value.absent(),
+    Value<String?> pkBannerCachedUrl = const Value.absent(),
     bool? pluralkitSyncIgnored,
     bool? markdownEnabled,
     bool? isDeleted,
@@ -978,6 +1166,17 @@ class Member extends DataClass implements Insertable<Member> {
         ? proxyTagsJson.value
         : this.proxyTagsJson,
     pkBannerUrl: pkBannerUrl.present ? pkBannerUrl.value : this.pkBannerUrl,
+    profileHeaderSource: profileHeaderSource ?? this.profileHeaderSource,
+    profileHeaderLayout: profileHeaderLayout ?? this.profileHeaderLayout,
+    profileHeaderImageData: profileHeaderImageData.present
+        ? profileHeaderImageData.value
+        : this.profileHeaderImageData,
+    pkBannerImageData: pkBannerImageData.present
+        ? pkBannerImageData.value
+        : this.pkBannerImageData,
+    pkBannerCachedUrl: pkBannerCachedUrl.present
+        ? pkBannerCachedUrl.value
+        : this.pkBannerCachedUrl,
     pluralkitSyncIgnored: pluralkitSyncIgnored ?? this.pluralkitSyncIgnored,
     markdownEnabled: markdownEnabled ?? this.markdownEnabled,
     isDeleted: isDeleted ?? this.isDeleted,
@@ -1031,6 +1230,21 @@ class Member extends DataClass implements Insertable<Member> {
       pkBannerUrl: data.pkBannerUrl.present
           ? data.pkBannerUrl.value
           : this.pkBannerUrl,
+      profileHeaderSource: data.profileHeaderSource.present
+          ? data.profileHeaderSource.value
+          : this.profileHeaderSource,
+      profileHeaderLayout: data.profileHeaderLayout.present
+          ? data.profileHeaderLayout.value
+          : this.profileHeaderLayout,
+      profileHeaderImageData: data.profileHeaderImageData.present
+          ? data.profileHeaderImageData.value
+          : this.profileHeaderImageData,
+      pkBannerImageData: data.pkBannerImageData.present
+          ? data.pkBannerImageData.value
+          : this.pkBannerImageData,
+      pkBannerCachedUrl: data.pkBannerCachedUrl.present
+          ? data.pkBannerCachedUrl.value
+          : this.pkBannerCachedUrl,
       pluralkitSyncIgnored: data.pluralkitSyncIgnored.present
           ? data.pluralkitSyncIgnored.value
           : this.pluralkitSyncIgnored,
@@ -1073,6 +1287,11 @@ class Member extends DataClass implements Insertable<Member> {
           ..write('birthday: $birthday, ')
           ..write('proxyTagsJson: $proxyTagsJson, ')
           ..write('pkBannerUrl: $pkBannerUrl, ')
+          ..write('profileHeaderSource: $profileHeaderSource, ')
+          ..write('profileHeaderLayout: $profileHeaderLayout, ')
+          ..write('profileHeaderImageData: $profileHeaderImageData, ')
+          ..write('pkBannerImageData: $pkBannerImageData, ')
+          ..write('pkBannerCachedUrl: $pkBannerCachedUrl, ')
           ..write('pluralkitSyncIgnored: $pluralkitSyncIgnored, ')
           ..write('markdownEnabled: $markdownEnabled, ')
           ..write('isDeleted: $isDeleted, ')
@@ -1105,6 +1324,11 @@ class Member extends DataClass implements Insertable<Member> {
     birthday,
     proxyTagsJson,
     pkBannerUrl,
+    profileHeaderSource,
+    profileHeaderLayout,
+    $driftBlobEquality.hash(profileHeaderImageData),
+    $driftBlobEquality.hash(pkBannerImageData),
+    pkBannerCachedUrl,
     pluralkitSyncIgnored,
     markdownEnabled,
     isDeleted,
@@ -1139,6 +1363,17 @@ class Member extends DataClass implements Insertable<Member> {
           other.birthday == this.birthday &&
           other.proxyTagsJson == this.proxyTagsJson &&
           other.pkBannerUrl == this.pkBannerUrl &&
+          other.profileHeaderSource == this.profileHeaderSource &&
+          other.profileHeaderLayout == this.profileHeaderLayout &&
+          $driftBlobEquality.equals(
+            other.profileHeaderImageData,
+            this.profileHeaderImageData,
+          ) &&
+          $driftBlobEquality.equals(
+            other.pkBannerImageData,
+            this.pkBannerImageData,
+          ) &&
+          other.pkBannerCachedUrl == this.pkBannerCachedUrl &&
           other.pluralkitSyncIgnored == this.pluralkitSyncIgnored &&
           other.markdownEnabled == this.markdownEnabled &&
           other.isDeleted == this.isDeleted &&
@@ -1168,6 +1403,11 @@ class MembersCompanion extends UpdateCompanion<Member> {
   final Value<String?> birthday;
   final Value<String?> proxyTagsJson;
   final Value<String?> pkBannerUrl;
+  final Value<int> profileHeaderSource;
+  final Value<int> profileHeaderLayout;
+  final Value<Uint8List?> profileHeaderImageData;
+  final Value<Uint8List?> pkBannerImageData;
+  final Value<String?> pkBannerCachedUrl;
   final Value<bool> pluralkitSyncIgnored;
   final Value<bool> markdownEnabled;
   final Value<bool> isDeleted;
@@ -1196,6 +1436,11 @@ class MembersCompanion extends UpdateCompanion<Member> {
     this.birthday = const Value.absent(),
     this.proxyTagsJson = const Value.absent(),
     this.pkBannerUrl = const Value.absent(),
+    this.profileHeaderSource = const Value.absent(),
+    this.profileHeaderLayout = const Value.absent(),
+    this.profileHeaderImageData = const Value.absent(),
+    this.pkBannerImageData = const Value.absent(),
+    this.pkBannerCachedUrl = const Value.absent(),
     this.pluralkitSyncIgnored = const Value.absent(),
     this.markdownEnabled = const Value.absent(),
     this.isDeleted = const Value.absent(),
@@ -1225,6 +1470,11 @@ class MembersCompanion extends UpdateCompanion<Member> {
     this.birthday = const Value.absent(),
     this.proxyTagsJson = const Value.absent(),
     this.pkBannerUrl = const Value.absent(),
+    this.profileHeaderSource = const Value.absent(),
+    this.profileHeaderLayout = const Value.absent(),
+    this.profileHeaderImageData = const Value.absent(),
+    this.pkBannerImageData = const Value.absent(),
+    this.pkBannerCachedUrl = const Value.absent(),
     this.pluralkitSyncIgnored = const Value.absent(),
     this.markdownEnabled = const Value.absent(),
     this.isDeleted = const Value.absent(),
@@ -1256,6 +1506,11 @@ class MembersCompanion extends UpdateCompanion<Member> {
     Expression<String>? birthday,
     Expression<String>? proxyTagsJson,
     Expression<String>? pkBannerUrl,
+    Expression<int>? profileHeaderSource,
+    Expression<int>? profileHeaderLayout,
+    Expression<Uint8List>? profileHeaderImageData,
+    Expression<Uint8List>? pkBannerImageData,
+    Expression<String>? pkBannerCachedUrl,
     Expression<bool>? pluralkitSyncIgnored,
     Expression<bool>? markdownEnabled,
     Expression<bool>? isDeleted,
@@ -1286,6 +1541,14 @@ class MembersCompanion extends UpdateCompanion<Member> {
       if (birthday != null) 'birthday': birthday,
       if (proxyTagsJson != null) 'proxy_tags_json': proxyTagsJson,
       if (pkBannerUrl != null) 'pk_banner_url': pkBannerUrl,
+      if (profileHeaderSource != null)
+        'profile_header_source': profileHeaderSource,
+      if (profileHeaderLayout != null)
+        'profile_header_layout': profileHeaderLayout,
+      if (profileHeaderImageData != null)
+        'profile_header_image_data': profileHeaderImageData,
+      if (pkBannerImageData != null) 'pk_banner_image_data': pkBannerImageData,
+      if (pkBannerCachedUrl != null) 'pk_banner_cached_url': pkBannerCachedUrl,
       if (pluralkitSyncIgnored != null)
         'pluralkit_sync_ignored': pluralkitSyncIgnored,
       if (markdownEnabled != null) 'markdown_enabled': markdownEnabled,
@@ -1319,6 +1582,11 @@ class MembersCompanion extends UpdateCompanion<Member> {
     Value<String?>? birthday,
     Value<String?>? proxyTagsJson,
     Value<String?>? pkBannerUrl,
+    Value<int>? profileHeaderSource,
+    Value<int>? profileHeaderLayout,
+    Value<Uint8List?>? profileHeaderImageData,
+    Value<Uint8List?>? pkBannerImageData,
+    Value<String?>? pkBannerCachedUrl,
     Value<bool>? pluralkitSyncIgnored,
     Value<bool>? markdownEnabled,
     Value<bool>? isDeleted,
@@ -1348,6 +1616,12 @@ class MembersCompanion extends UpdateCompanion<Member> {
       birthday: birthday ?? this.birthday,
       proxyTagsJson: proxyTagsJson ?? this.proxyTagsJson,
       pkBannerUrl: pkBannerUrl ?? this.pkBannerUrl,
+      profileHeaderSource: profileHeaderSource ?? this.profileHeaderSource,
+      profileHeaderLayout: profileHeaderLayout ?? this.profileHeaderLayout,
+      profileHeaderImageData:
+          profileHeaderImageData ?? this.profileHeaderImageData,
+      pkBannerImageData: pkBannerImageData ?? this.pkBannerImageData,
+      pkBannerCachedUrl: pkBannerCachedUrl ?? this.pkBannerCachedUrl,
       pluralkitSyncIgnored: pluralkitSyncIgnored ?? this.pluralkitSyncIgnored,
       markdownEnabled: markdownEnabled ?? this.markdownEnabled,
       isDeleted: isDeleted ?? this.isDeleted,
@@ -1421,6 +1695,25 @@ class MembersCompanion extends UpdateCompanion<Member> {
     if (pkBannerUrl.present) {
       map['pk_banner_url'] = Variable<String>(pkBannerUrl.value);
     }
+    if (profileHeaderSource.present) {
+      map['profile_header_source'] = Variable<int>(profileHeaderSource.value);
+    }
+    if (profileHeaderLayout.present) {
+      map['profile_header_layout'] = Variable<int>(profileHeaderLayout.value);
+    }
+    if (profileHeaderImageData.present) {
+      map['profile_header_image_data'] = Variable<Uint8List>(
+        profileHeaderImageData.value,
+      );
+    }
+    if (pkBannerImageData.present) {
+      map['pk_banner_image_data'] = Variable<Uint8List>(
+        pkBannerImageData.value,
+      );
+    }
+    if (pkBannerCachedUrl.present) {
+      map['pk_banner_cached_url'] = Variable<String>(pkBannerCachedUrl.value);
+    }
     if (pluralkitSyncIgnored.present) {
       map['pluralkit_sync_ignored'] = Variable<bool>(
         pluralkitSyncIgnored.value,
@@ -1470,6 +1763,11 @@ class MembersCompanion extends UpdateCompanion<Member> {
           ..write('birthday: $birthday, ')
           ..write('proxyTagsJson: $proxyTagsJson, ')
           ..write('pkBannerUrl: $pkBannerUrl, ')
+          ..write('profileHeaderSource: $profileHeaderSource, ')
+          ..write('profileHeaderLayout: $profileHeaderLayout, ')
+          ..write('profileHeaderImageData: $profileHeaderImageData, ')
+          ..write('pkBannerImageData: $pkBannerImageData, ')
+          ..write('pkBannerCachedUrl: $pkBannerCachedUrl, ')
           ..write('pluralkitSyncIgnored: $pluralkitSyncIgnored, ')
           ..write('markdownEnabled: $markdownEnabled, ')
           ..write('isDeleted: $isDeleted, ')
@@ -22366,6 +22664,11 @@ typedef $$MembersTableCreateCompanionBuilder =
       Value<String?> birthday,
       Value<String?> proxyTagsJson,
       Value<String?> pkBannerUrl,
+      Value<int> profileHeaderSource,
+      Value<int> profileHeaderLayout,
+      Value<Uint8List?> profileHeaderImageData,
+      Value<Uint8List?> pkBannerImageData,
+      Value<String?> pkBannerCachedUrl,
       Value<bool> pluralkitSyncIgnored,
       Value<bool> markdownEnabled,
       Value<bool> isDeleted,
@@ -22396,6 +22699,11 @@ typedef $$MembersTableUpdateCompanionBuilder =
       Value<String?> birthday,
       Value<String?> proxyTagsJson,
       Value<String?> pkBannerUrl,
+      Value<int> profileHeaderSource,
+      Value<int> profileHeaderLayout,
+      Value<Uint8List?> profileHeaderImageData,
+      Value<Uint8List?> pkBannerImageData,
+      Value<String?> pkBannerCachedUrl,
       Value<bool> pluralkitSyncIgnored,
       Value<bool> markdownEnabled,
       Value<bool> isDeleted,
@@ -22511,6 +22819,31 @@ class $$MembersTableFilterComposer
 
   ColumnFilters<String> get pkBannerUrl => $composableBuilder(
     column: $table.pkBannerUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get profileHeaderSource => $composableBuilder(
+    column: $table.profileHeaderSource,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get profileHeaderLayout => $composableBuilder(
+    column: $table.profileHeaderLayout,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<Uint8List> get profileHeaderImageData => $composableBuilder(
+    column: $table.profileHeaderImageData,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<Uint8List> get pkBannerImageData => $composableBuilder(
+    column: $table.pkBannerImageData,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pkBannerCachedUrl => $composableBuilder(
+    column: $table.pkBannerCachedUrl,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -22654,6 +22987,31 @@ class $$MembersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get profileHeaderSource => $composableBuilder(
+    column: $table.profileHeaderSource,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get profileHeaderLayout => $composableBuilder(
+    column: $table.profileHeaderLayout,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<Uint8List> get profileHeaderImageData => $composableBuilder(
+    column: $table.profileHeaderImageData,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<Uint8List> get pkBannerImageData => $composableBuilder(
+    column: $table.pkBannerImageData,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pkBannerCachedUrl => $composableBuilder(
+    column: $table.pkBannerCachedUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get pluralkitSyncIgnored => $composableBuilder(
     column: $table.pluralkitSyncIgnored,
     builder: (column) => ColumnOrderings(column),
@@ -22774,6 +23132,31 @@ class $$MembersTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<int> get profileHeaderSource => $composableBuilder(
+    column: $table.profileHeaderSource,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get profileHeaderLayout => $composableBuilder(
+    column: $table.profileHeaderLayout,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<Uint8List> get profileHeaderImageData => $composableBuilder(
+    column: $table.profileHeaderImageData,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<Uint8List> get pkBannerImageData => $composableBuilder(
+    column: $table.pkBannerImageData,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get pkBannerCachedUrl => $composableBuilder(
+    column: $table.pkBannerCachedUrl,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<bool> get pluralkitSyncIgnored => $composableBuilder(
     column: $table.pluralkitSyncIgnored,
     builder: (column) => column,
@@ -22851,6 +23234,11 @@ class $$MembersTableTableManager
                 Value<String?> birthday = const Value.absent(),
                 Value<String?> proxyTagsJson = const Value.absent(),
                 Value<String?> pkBannerUrl = const Value.absent(),
+                Value<int> profileHeaderSource = const Value.absent(),
+                Value<int> profileHeaderLayout = const Value.absent(),
+                Value<Uint8List?> profileHeaderImageData = const Value.absent(),
+                Value<Uint8List?> pkBannerImageData = const Value.absent(),
+                Value<String?> pkBannerCachedUrl = const Value.absent(),
                 Value<bool> pluralkitSyncIgnored = const Value.absent(),
                 Value<bool> markdownEnabled = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
@@ -22879,6 +23267,11 @@ class $$MembersTableTableManager
                 birthday: birthday,
                 proxyTagsJson: proxyTagsJson,
                 pkBannerUrl: pkBannerUrl,
+                profileHeaderSource: profileHeaderSource,
+                profileHeaderLayout: profileHeaderLayout,
+                profileHeaderImageData: profileHeaderImageData,
+                pkBannerImageData: pkBannerImageData,
+                pkBannerCachedUrl: pkBannerCachedUrl,
                 pluralkitSyncIgnored: pluralkitSyncIgnored,
                 markdownEnabled: markdownEnabled,
                 isDeleted: isDeleted,
@@ -22909,6 +23302,11 @@ class $$MembersTableTableManager
                 Value<String?> birthday = const Value.absent(),
                 Value<String?> proxyTagsJson = const Value.absent(),
                 Value<String?> pkBannerUrl = const Value.absent(),
+                Value<int> profileHeaderSource = const Value.absent(),
+                Value<int> profileHeaderLayout = const Value.absent(),
+                Value<Uint8List?> profileHeaderImageData = const Value.absent(),
+                Value<Uint8List?> pkBannerImageData = const Value.absent(),
+                Value<String?> pkBannerCachedUrl = const Value.absent(),
                 Value<bool> pluralkitSyncIgnored = const Value.absent(),
                 Value<bool> markdownEnabled = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
@@ -22937,6 +23335,11 @@ class $$MembersTableTableManager
                 birthday: birthday,
                 proxyTagsJson: proxyTagsJson,
                 pkBannerUrl: pkBannerUrl,
+                profileHeaderSource: profileHeaderSource,
+                profileHeaderLayout: profileHeaderLayout,
+                profileHeaderImageData: profileHeaderImageData,
+                pkBannerImageData: pkBannerImageData,
+                pkBannerCachedUrl: pkBannerCachedUrl,
                 pluralkitSyncIgnored: pluralkitSyncIgnored,
                 markdownEnabled: markdownEnabled,
                 isDeleted: isDeleted,

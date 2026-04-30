@@ -5,6 +5,22 @@ import 'package:prism_plurality/domain/models/member.dart' as domain;
 class MemberMapper {
   MemberMapper._();
 
+  static domain.MemberProfileHeaderSource _headerSourceFromDb(int value) {
+    const values = domain.MemberProfileHeaderSource.values;
+    if (value < 0 || value >= values.length) {
+      return domain.MemberProfileHeaderSource.prism;
+    }
+    return values[value];
+  }
+
+  static domain.MemberProfileHeaderLayout _headerLayoutFromDb(int value) {
+    const values = domain.MemberProfileHeaderLayout.values;
+    if (value < 0 || value >= values.length) {
+      return domain.MemberProfileHeaderLayout.compactBackground;
+    }
+    return values[value];
+  }
+
   static domain.Member toDomain(Member row) {
     return domain.Member(
       id: row.id,
@@ -13,8 +29,9 @@ class MemberMapper {
       emoji: row.emoji,
       age: row.age,
       bio: row.bio,
-      avatarImageData:
-          row.avatarImageData != null ? Uint8List.fromList(row.avatarImageData!) : null,
+      avatarImageData: row.avatarImageData != null
+          ? Uint8List.fromList(row.avatarImageData!)
+          : null,
       isActive: row.isActive,
       createdAt: row.createdAt,
       displayOrder: row.displayOrder,
@@ -29,6 +46,15 @@ class MemberMapper {
       birthday: row.birthday,
       proxyTagsJson: row.proxyTagsJson,
       pkBannerUrl: row.pkBannerUrl,
+      profileHeaderSource: _headerSourceFromDb(row.profileHeaderSource),
+      profileHeaderLayout: _headerLayoutFromDb(row.profileHeaderLayout),
+      profileHeaderImageData: row.profileHeaderImageData != null
+          ? Uint8List.fromList(row.profileHeaderImageData!)
+          : null,
+      pkBannerImageData: row.pkBannerImageData != null
+          ? Uint8List.fromList(row.pkBannerImageData!)
+          : null,
+      pkBannerCachedUrl: row.pkBannerCachedUrl,
       pluralkitSyncIgnored: row.pluralkitSyncIgnored,
       isDeleted: row.isDeleted,
       deleteIntentEpoch: row.deleteIntentEpoch,
@@ -60,6 +86,11 @@ class MemberMapper {
       birthday: Value(model.birthday),
       proxyTagsJson: Value(model.proxyTagsJson),
       pkBannerUrl: Value(model.pkBannerUrl),
+      profileHeaderSource: Value(model.profileHeaderSource.index),
+      profileHeaderLayout: Value(model.profileHeaderLayout.index),
+      profileHeaderImageData: Value(model.profileHeaderImageData),
+      pkBannerImageData: Value(model.pkBannerImageData),
+      pkBannerCachedUrl: Value(model.pkBannerCachedUrl),
       pluralkitSyncIgnored: Value(model.pluralkitSyncIgnored),
       isDeleted: Value(model.isDeleted),
       deleteIntentEpoch: Value(model.deleteIntentEpoch),

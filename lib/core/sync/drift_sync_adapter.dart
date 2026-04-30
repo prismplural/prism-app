@@ -1157,6 +1157,15 @@ DriftSyncEntity _membersEntity(
         'birthday': r.birthday,
         'proxy_tags_json': r.proxyTagsJson,
         'pk_banner_url': r.pkBannerUrl,
+        'profile_header_source': r.profileHeaderSource,
+        'profile_header_layout': r.profileHeaderLayout,
+        'profile_header_image_data': r.profileHeaderImageData != null
+            ? base64Encode(r.profileHeaderImageData!)
+            : null,
+        'pk_banner_image_data': r.pkBannerImageData != null
+            ? base64Encode(r.pkBannerImageData!)
+            : null,
+        'pk_banner_cached_url': r.pkBannerCachedUrl,
         'pluralkit_sync_ignored': r.pluralkitSyncIgnored,
         'delete_push_started_at': r.deletePushStartedAt,
         'is_always_fronting': r.isAlwaysFronting,
@@ -1202,6 +1211,13 @@ DriftSyncEntity _membersEntity(
         birthday: f.stringFieldNullable('birthday'),
         proxyTagsJson: f.stringFieldNullable('proxy_tags_json'),
         pkBannerUrl: f.stringFieldNullable('pk_banner_url'),
+        profileHeaderSource: f.intField('profile_header_source'),
+        profileHeaderLayout: f.intField('profile_header_layout'),
+        profileHeaderImageData: f.blobFieldNullable(
+          'profile_header_image_data',
+        ),
+        pkBannerImageData: f.blobFieldNullable('pk_banner_image_data'),
+        pkBannerCachedUrl: f.stringFieldNullable('pk_banner_cached_url'),
         pluralkitSyncIgnored: f.boolField('pluralkit_sync_ignored'),
         deletePushStartedAt: f.intFieldNullable('delete_push_started_at'),
         isAlwaysFronting: f.boolField('is_always_fronting'),
@@ -1267,6 +1283,15 @@ DriftSyncEntity _membersEntity(
         'birthday': row.birthday,
         'proxy_tags_json': row.proxyTagsJson,
         'pk_banner_url': row.pkBannerUrl,
+        'profile_header_source': row.profileHeaderSource,
+        'profile_header_layout': row.profileHeaderLayout,
+        'profile_header_image_data': row.profileHeaderImageData != null
+            ? base64Encode(row.profileHeaderImageData!)
+            : null,
+        'pk_banner_image_data': row.pkBannerImageData != null
+            ? base64Encode(row.pkBannerImageData!)
+            : null,
+        'pk_banner_cached_url': row.pkBannerCachedUrl,
         'pluralkit_sync_ignored': row.pluralkitSyncIgnored,
         'delete_push_started_at': row.deletePushStartedAt,
         'is_always_fronting': row.isAlwaysFronting,

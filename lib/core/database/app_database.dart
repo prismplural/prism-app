@@ -90,7 +90,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -387,6 +387,20 @@ class AppDatabase extends _$AppDatabase {
           frontingSessions.pkFileSwitchId,
         );
         current = 9;
+      }
+      if (current == 9 && to >= 10) {
+        // Member profile headers. Prism-owned headers and cached PluralKit
+        // banners are stored as encrypted synced member blobs.
+        await migrator.addColumn(members, members.profileHeaderSource);
+        await migrator.addColumn(members, members.profileHeaderLayout);
+        await migrator.addColumn(members, members.profileHeaderImageData);
+        await migrator.addColumn(members, members.pkBannerImageData);
+        await migrator.addColumn(members, members.pkBannerCachedUrl);
+        await customStatement(
+          'UPDATE members SET profile_header_source = 0 '
+          "WHERE pk_banner_url IS NOT NULL AND TRIM(pk_banner_url) != ''",
+        );
+        current = 10;
       }
       if (current != to) {
         throw UnsupportedError(

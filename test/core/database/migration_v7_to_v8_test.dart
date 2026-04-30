@@ -25,6 +25,11 @@ Future<void> _seedV7Db(File dbFile) async {
     rawDb.execute(
       'ALTER TABLE fronting_sessions DROP COLUMN pk_file_switch_id',
     );
+    rawDb.execute('ALTER TABLE members DROP COLUMN profile_header_source');
+    rawDb.execute('ALTER TABLE members DROP COLUMN profile_header_layout');
+    rawDb.execute('ALTER TABLE members DROP COLUMN profile_header_image_data');
+    rawDb.execute('ALTER TABLE members DROP COLUMN pk_banner_image_data');
+    rawDb.execute('ALTER TABLE members DROP COLUMN pk_banner_cached_url');
     rawDb.execute(
       'ALTER TABLE system_settings DROP COLUMN fronting_list_view_mode',
     );
@@ -144,7 +149,7 @@ void main() {
         final version = await upgraded
             .customSelect('PRAGMA user_version')
             .get();
-        expect(version.first.read<int>('user_version'), 9);
+        expect(version.first.read<int>('user_version'), 10);
       },
     );
   });

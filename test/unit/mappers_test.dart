@@ -22,6 +22,8 @@ void main() {
 
     test('toDomain maps all fields correctly', () {
       final avatar = Uint8List.fromList([1, 2, 3, 4]);
+      final profileHeader = Uint8List.fromList([5, 6, 7]);
+      final pkBanner = Uint8List.fromList([8, 9, 10]);
       final row = makeDbMember(
         id: 'abc',
         name: 'Test',
@@ -38,6 +40,12 @@ void main() {
         parentSystemId: 'sys-1',
         pluralkitUuid: 'pk-uuid',
         pluralkitId: 'pk-id',
+        profileHeaderSource: domain.MemberProfileHeaderSource.pluralKit.index,
+        profileHeaderLayout:
+            domain.MemberProfileHeaderLayout.classicOverlap.index,
+        profileHeaderImageData: profileHeader,
+        pkBannerImageData: pkBanner,
+        pkBannerCachedUrl: 'https://cdn.example/banner.webp',
       );
 
       final model = MemberMapper.toDomain(row);
@@ -56,6 +64,17 @@ void main() {
       expect(model.parentSystemId, 'sys-1');
       expect(model.pluralkitUuid, 'pk-uuid');
       expect(model.pluralkitId, 'pk-id');
+      expect(
+        model.profileHeaderSource,
+        domain.MemberProfileHeaderSource.pluralKit,
+      );
+      expect(
+        model.profileHeaderLayout,
+        domain.MemberProfileHeaderLayout.classicOverlap,
+      );
+      expect(model.profileHeaderImageData, profileHeader);
+      expect(model.pkBannerImageData, pkBanner);
+      expect(model.pkBannerCachedUrl, 'https://cdn.example/banner.webp');
     });
 
     test('toDomain handles null optional fields', () {
@@ -68,6 +87,9 @@ void main() {
         parentSystemId: null,
         pluralkitUuid: null,
         pluralkitId: null,
+        profileHeaderImageData: null,
+        pkBannerImageData: null,
+        pkBannerCachedUrl: null,
       );
 
       final model = MemberMapper.toDomain(row);
@@ -79,10 +101,20 @@ void main() {
       expect(model.parentSystemId, isNull);
       expect(model.pluralkitUuid, isNull);
       expect(model.pluralkitId, isNull);
+      expect(model.profileHeaderSource, domain.MemberProfileHeaderSource.prism);
+      expect(
+        model.profileHeaderLayout,
+        domain.MemberProfileHeaderLayout.compactBackground,
+      );
+      expect(model.profileHeaderImageData, isNull);
+      expect(model.pkBannerImageData, isNull);
+      expect(model.pkBannerCachedUrl, isNull);
     });
 
     test('toCompanion preserves all fields and sets isDirty to true', () {
       final avatar = Uint8List.fromList([10, 20, 30]);
+      final profileHeader = Uint8List.fromList([31, 32, 33]);
+      final pkBanner = Uint8List.fromList([34, 35, 36]);
       final model = domain.Member(
         id: 'member-99',
         name: 'Bob',
@@ -100,6 +132,11 @@ void main() {
         parentSystemId: 'sys-2',
         pluralkitUuid: 'pk-2',
         pluralkitId: 'pkid-2',
+        profileHeaderSource: domain.MemberProfileHeaderSource.pluralKit,
+        profileHeaderLayout: domain.MemberProfileHeaderLayout.classicOverlap,
+        profileHeaderImageData: profileHeader,
+        pkBannerImageData: pkBanner,
+        pkBannerCachedUrl: 'https://cdn.example/pk.webp',
       );
 
       final companion = MemberMapper.toCompanion(model);
@@ -116,6 +153,11 @@ void main() {
       expect(companion.isAdmin.value, false);
       expect(companion.customColorEnabled.value, true);
       expect(companion.customColorHex.value, '#00FF00');
+      expect(companion.profileHeaderSource.value, 0);
+      expect(companion.profileHeaderLayout.value, 1);
+      expect(companion.profileHeaderImageData.value, profileHeader);
+      expect(companion.pkBannerImageData.value, pkBanner);
+      expect(companion.pkBannerCachedUrl.value, 'https://cdn.example/pk.webp');
     });
 
     test('round-trip: domain -> companion -> toDomain preserves data', () {
@@ -156,6 +198,11 @@ void main() {
         pluralkitUuid: companion.pluralkitUuid.value,
         pluralkitId: companion.pluralkitId.value,
         markdownEnabled: companion.markdownEnabled.value,
+        profileHeaderSource: companion.profileHeaderSource.value,
+        profileHeaderLayout: companion.profileHeaderLayout.value,
+        profileHeaderImageData: companion.profileHeaderImageData.value,
+        pkBannerImageData: companion.pkBannerImageData.value,
+        pkBannerCachedUrl: companion.pkBannerCachedUrl.value,
         pluralkitSyncIgnored: false,
         isDeleted: false,
         isAlwaysFronting: false,
@@ -199,6 +246,8 @@ void main() {
         notes: 'Felt good',
         confidence: domain.FrontConfidence.strong.index,
         pluralkitUuid: 'pk-fs-1',
+        pkImportSource: 'file',
+        pkFileSwitchId: 'switch-2026-04-29T12:00:00Z',
       );
 
       final model = FrontingSessionMapper.toDomain(row);
@@ -212,6 +261,8 @@ void main() {
       expect(model.quality, isNull);
       expect(model.isHealthKitImport, isFalse);
       expect(model.pluralkitUuid, 'pk-fs-1');
+      expect(model.pkImportSource, 'file');
+      expect(model.pkFileSwitchId, 'switch-2026-04-29T12:00:00Z');
     });
 
     test('toDomain maps sleep rows with sleep quality fields', () {
@@ -237,6 +288,8 @@ void main() {
         notes: null,
         confidence: null,
         pluralkitUuid: null,
+        pkImportSource: null,
+        pkFileSwitchId: null,
       );
 
       final model = FrontingSessionMapper.toDomain(row);
@@ -245,6 +298,8 @@ void main() {
       expect(model.notes, isNull);
       expect(model.confidence, isNull);
       expect(model.pluralkitUuid, isNull);
+      expect(model.pkImportSource, isNull);
+      expect(model.pkFileSwitchId, isNull);
       expect(model.isActive, isTrue);
     });
 
@@ -271,6 +326,8 @@ void main() {
         notes: 'Test notes',
         confidence: domain.FrontConfidence.certain,
         pluralkitUuid: 'pk-2',
+        pkImportSource: 'file',
+        pkFileSwitchId: 'switch-key-2',
       );
 
       final companion = FrontingSessionMapper.toCompanion(model);
@@ -283,6 +340,9 @@ void main() {
       expect(companion.sessionType.value, domain.SessionType.normal.index);
       expect(companion.quality.value, isNull);
       expect(companion.isHealthKitImport.value, isFalse);
+      expect(companion.pluralkitUuid.value, 'pk-2');
+      expect(companion.pkImportSource.value, 'file');
+      expect(companion.pkFileSwitchId.value, 'switch-key-2');
     });
 
     test('round-trip: domain -> companion -> toDomain preserves data', () {
@@ -293,6 +353,9 @@ void main() {
         memberId: 'member-rt',
         notes: 'Round trip',
         confidence: domain.FrontConfidence.certain,
+        pluralkitUuid: 'pk-rt',
+        pkImportSource: 'file',
+        pkFileSwitchId: 'switch-rt',
       );
 
       final companion = FrontingSessionMapper.toCompanion(original);
@@ -311,6 +374,8 @@ void main() {
         quality: companion.quality.value,
         isHealthKitImport: companion.isHealthKitImport.value,
         pluralkitUuid: companion.pluralkitUuid.value,
+        pkImportSource: companion.pkImportSource.value,
+        pkFileSwitchId: companion.pkFileSwitchId.value,
         isDeleted: false,
       );
 
@@ -324,6 +389,9 @@ void main() {
       expect(restored.sessionType, original.sessionType);
       expect(restored.quality, original.quality);
       expect(restored.isHealthKitImport, original.isHealthKitImport);
+      expect(restored.pluralkitUuid, original.pluralkitUuid);
+      expect(restored.pkImportSource, original.pkImportSource);
+      expect(restored.pkFileSwitchId, original.pkFileSwitchId);
     });
   });
 

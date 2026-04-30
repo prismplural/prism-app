@@ -234,6 +234,32 @@ class DataImportService {
     r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
   );
 
+  static MemberProfileHeaderSource _profileHeaderSourceFromExport(
+    V1Headmate headmate,
+  ) {
+    final raw = headmate.profileHeaderSource;
+    const values = MemberProfileHeaderSource.values;
+    if (raw != null && raw >= 0 && raw < values.length) {
+      return values[raw];
+    }
+    final pkBannerUrl = headmate.pkBannerUrl;
+    if (pkBannerUrl != null && pkBannerUrl.trim().isNotEmpty) {
+      return MemberProfileHeaderSource.pluralKit;
+    }
+    return MemberProfileHeaderSource.prism;
+  }
+
+  static MemberProfileHeaderLayout _profileHeaderLayoutFromExport(
+    V1Headmate headmate,
+  ) {
+    final raw = headmate.profileHeaderLayout;
+    const values = MemberProfileHeaderLayout.values;
+    if (raw != null && raw >= 0 && raw < values.length) {
+      return values[raw];
+    }
+    return MemberProfileHeaderLayout.compactBackground;
+  }
+
   /// Resolve raw file bytes to a JSON string and optional media blobs.
   ///
   /// PRISM3 encrypted files return both the JSON and any embedded media blobs.
@@ -454,6 +480,12 @@ class DataImportService {
                 displayName: h.displayName,
                 birthday: h.birthday,
                 proxyTagsJson: h.proxyTagsJson,
+                pkBannerUrl: h.pkBannerUrl,
+                profileHeaderSource: _profileHeaderSourceFromExport(h),
+                profileHeaderLayout: _profileHeaderLayoutFromExport(h),
+                profileHeaderImageData: h.profileHeaderImageBytes,
+                pkBannerImageData: h.pkBannerImageBytes,
+                pkBannerCachedUrl: h.pkBannerCachedUrl,
                 pluralkitSyncIgnored: h.pluralkitSyncIgnored,
               ),
             );

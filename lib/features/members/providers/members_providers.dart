@@ -56,8 +56,10 @@ final userVisibleAllMembersProvider = Provider<AsyncValue<List<Member>>>((ref) {
 });
 
 /// Single member by ID.
-final memberByIdProvider =
-    StreamProvider.autoDispose.family<Member?, String>((ref, id) {
+final memberByIdProvider = StreamProvider.autoDispose.family<Member?, String>((
+  ref,
+  id,
+) {
   final link = ref.keepAlive();
   Timer? timer;
   ref.onDispose(() => timer?.cancel());
@@ -96,6 +98,11 @@ class MembersNotifier extends AsyncNotifier<void> {
     String? customColorHex,
     String? displayName,
     String? birthday,
+    MemberProfileHeaderSource profileHeaderSource =
+        MemberProfileHeaderSource.prism,
+    MemberProfileHeaderLayout profileHeaderLayout =
+        MemberProfileHeaderLayout.compactBackground,
+    Uint8List? profileHeaderImageData,
   }) async {
     state = await AsyncValue.guard(() async {
       final repo = ref.read(memberRepositoryProvider);
@@ -112,6 +119,9 @@ class MembersNotifier extends AsyncNotifier<void> {
         customColorHex: customColorHex,
         displayName: displayName,
         birthday: birthday,
+        profileHeaderSource: profileHeaderSource,
+        profileHeaderLayout: profileHeaderLayout,
+        profileHeaderImageData: profileHeaderImageData,
         createdAt: DateTime.now(),
       );
       await repo.createMember(member);
@@ -146,5 +156,6 @@ class MembersNotifier extends AsyncNotifier<void> {
   }
 }
 
-final membersNotifierProvider =
-    AsyncNotifierProvider<MembersNotifier, void>(MembersNotifier.new);
+final membersNotifierProvider = AsyncNotifierProvider<MembersNotifier, void>(
+  MembersNotifier.new,
+);

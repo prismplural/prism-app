@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -116,6 +117,8 @@ void main() {
         quality: domain.SleepQuality.unknown.index,
         isHealthKitImport: true,
         pluralkitUuid: null,
+        pkImportSource: null,
+        pkFileSwitchId: null,
         isDeleted: false,
       );
 
@@ -123,6 +126,8 @@ void main() {
       expect(fields['session_type'], 1);
       expect(fields['quality'], 0);
       expect(fields['is_health_kit_import'], isTrue);
+      expect(fields['pk_import_source'], isNull);
+      expect(fields['pk_file_switch_id'], isNull);
     },
   );
 
@@ -312,6 +317,30 @@ void main() {
     return back!;
   }
 
+  Future<Map<String, Object?>> roundTripFrontingSession(
+    database.AppDatabase db,
+    database.FrontingSession input,
+  ) async {
+    final syncAdapter = buildSyncAdapterWithCompletion(db);
+    final fronting = syncAdapter.adapter.entities.singleWhere(
+      (e) => e.tableName == 'fronting_sessions',
+    );
+
+    await db
+        .into(db.frontingSessions)
+        .insertOnConflictUpdate(input.toCompanion(false));
+
+    final packed = fronting.toSyncFields(input);
+
+    await (db.delete(
+      db.frontingSessions,
+    )..where((t) => t.id.equals(input.id))).go();
+    await fronting.applyFields(input.id, Map<String, dynamic>.from(packed));
+
+    final back = await fronting.readRow(input.id);
+    return back!;
+  }
+
   test(
     'members: PK fields round-trip through sync adapter when populated',
     () async {
@@ -322,6 +351,7 @@ void main() {
         id: 'm-1',
         name: 'Ada',
         emoji: '✨',
+        avatarImageData: Uint8List.fromList([1, 2, 3]),
         isActive: true,
         createdAt: DateTime.utc(2026, 3, 18),
         displayOrder: 1,
@@ -332,6 +362,12 @@ void main() {
         displayName: 'Ada Lovelace',
         birthday: '1815-12-10',
         proxyTagsJson: '[{"prefix":"A:","suffix":null}]',
+        pkBannerUrl: 'https://example.invalid/banner.png',
+        profileHeaderSource: 0,
+        profileHeaderLayout: 1,
+        profileHeaderImageData: Uint8List.fromList([4, 5, 6]),
+        pkBannerImageData: Uint8List.fromList([7, 8, 9]),
+        pkBannerCachedUrl: 'https://example.invalid/banner.png',
         pluralkitSyncIgnored: true,
         markdownEnabled: true,
         isDeleted: false,
@@ -345,6 +381,15 @@ void main() {
       expect(back['pluralkit_sync_ignored'], isTrue);
       expect(back['pluralkit_id'], 'ada');
       expect(back['pluralkit_uuid'], 'uuid-ada');
+      expect(back['pk_banner_url'], 'https://example.invalid/banner.png');
+      expect(back['profile_header_source'], 0);
+      expect(back['profile_header_layout'], 1);
+      expect(back['profile_header_image_data'], 'BAUG');
+      expect(back['pk_banner_image_data'], 'BwgJ');
+      expect(
+        back['pk_banner_cached_url'],
+        'https://example.invalid/banner.png',
+      );
     },
   );
 
@@ -363,6 +408,8 @@ void main() {
         displayOrder: 0,
         isAdmin: false,
         customColorEnabled: false,
+        profileHeaderSource: 1,
+        profileHeaderLayout: 0,
         pluralkitSyncIgnored: false,
         markdownEnabled: false,
         isDeleted: false,
@@ -380,9 +427,73 @@ void main() {
       expect(back['birthday'], isNull);
       expect(back.containsKey('proxy_tags_json'), isTrue);
       expect(back['proxy_tags_json'], isNull);
+      expect(back.containsKey('pk_banner_url'), isTrue);
+      expect(back['pk_banner_url'], isNull);
+      expect(back['profile_header_source'], 1);
+      expect(back['profile_header_layout'], 0);
+      expect(back.containsKey('profile_header_image_data'), isTrue);
+      expect(back['profile_header_image_data'], isNull);
+      expect(back.containsKey('pk_banner_image_data'), isTrue);
+      expect(back['pk_banner_image_data'], isNull);
+      expect(back.containsKey('pk_banner_cached_url'), isTrue);
+      expect(back['pk_banner_cached_url'], isNull);
       expect(back['pluralkit_sync_ignored'], isFalse);
       expect(back['pluralkit_uuid'], isNull);
       expect(back['pluralkit_id'], isNull);
+    },
+  );
+
+  test(
+    'fronting_sessions: PK file-origin metadata round-trips through sync adapter',
+    () async {
+      final db = database.AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+
+      final session = database.FrontingSession(
+        id: 'fs-pk-file-1',
+        startTime: DateTime.utc(2026, 4, 29, 12),
+        endTime: DateTime.utc(2026, 4, 29, 12, 30),
+        memberId: 'member-1',
+        coFronterIds: '[]',
+        sessionType: domain.SessionType.normal.index,
+        isHealthKitImport: false,
+        pluralkitUuid: null,
+        pkImportSource: 'file',
+        pkFileSwitchId: '2026-04-29T12:00:00Z|switch-1',
+        isDeleted: false,
+      );
+
+      final back = await roundTripFrontingSession(db, session);
+      expect(back['pluralkit_uuid'], isNull);
+      expect(back['pk_import_source'], 'file');
+      expect(back['pk_file_switch_id'], '2026-04-29T12:00:00Z|switch-1');
+    },
+  );
+
+  test(
+    'fronting_sessions: PK file-origin metadata round-trips as null',
+    () async {
+      final db = database.AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+
+      final session = database.FrontingSession(
+        id: 'fs-native-1',
+        startTime: DateTime.utc(2026, 4, 29, 12),
+        memberId: 'member-1',
+        coFronterIds: '[]',
+        sessionType: domain.SessionType.normal.index,
+        isHealthKitImport: false,
+        pluralkitUuid: null,
+        pkImportSource: null,
+        pkFileSwitchId: null,
+        isDeleted: false,
+      );
+
+      final back = await roundTripFrontingSession(db, session);
+      expect(back.containsKey('pk_import_source'), isTrue);
+      expect(back['pk_import_source'], isNull);
+      expect(back.containsKey('pk_file_switch_id'), isTrue);
+      expect(back['pk_file_switch_id'], isNull);
     },
   );
 
@@ -420,6 +531,8 @@ void main() {
         quality: domain.SleepQuality.unknown.index,
         isHealthKitImport: false,
         pluralkitUuid: null,
+        pkImportSource: null,
+        pkFileSwitchId: null,
         isDeleted: false,
       );
 
@@ -467,6 +580,8 @@ void main() {
       displayOrder: 0,
       isAdmin: false,
       customColorEnabled: false,
+      profileHeaderSource: 1,
+      profileHeaderLayout: 0,
       pluralkitSyncIgnored: false,
       markdownEnabled: false,
       isDeleted: false,
@@ -507,6 +622,8 @@ void main() {
         quality: domain.SleepQuality.unknown.index,
         isHealthKitImport: false,
         pluralkitUuid: null,
+        pkImportSource: null,
+        pkFileSwitchId: null,
         isDeleted: false,
       );
 
@@ -690,6 +807,11 @@ const _remoteCreatePayloads = <String, Map<String, dynamic>>{
     'birthday': '2000-01-01',
     'proxy_tags_json': '[]',
     'pk_banner_url': 'https://example.invalid/banner.png',
+    'profile_header_source': 0,
+    'profile_header_layout': 1,
+    'profile_header_image_data': 'BAUG',
+    'pk_banner_image_data': 'BwgJ',
+    'pk_banner_cached_url': 'https://example.invalid/banner.png',
     'pluralkit_sync_ignored': false,
     'delete_push_started_at': 0,
     'is_always_fronting': false,
@@ -705,6 +827,8 @@ const _remoteCreatePayloads = <String, Map<String, dynamic>>{
     'quality': 1,
     'is_health_kit_import': false,
     'pluralkit_uuid': 'pk-switch-uuid',
+    'pk_import_source': 'file',
+    'pk_file_switch_id': 'remote-switch-1',
     'delete_push_started_at': 0,
     'is_deleted': false,
   },

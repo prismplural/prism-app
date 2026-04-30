@@ -55,8 +55,13 @@ class PKMember {
   /// `null` means PK did not supply the field; `"[]"` means empty array.
   final String? proxyTagsJson;
 
-  /// PK `banner` URL. Stored as a URL; no bytes download until UI exists.
+  /// PK `banner` URL.
   final String? bannerUrl;
+
+  /// Whether the PK payload included the `banner` field at all.
+  ///
+  /// Missing means "unknown/preserve"; present null means "clear".
+  final bool hasBannerField;
 
   const PKMember({
     required this.id,
@@ -70,6 +75,7 @@ class PKMember {
     this.birthday,
     this.proxyTagsJson,
     this.bannerUrl,
+    this.hasBannerField = false,
   });
 
   factory PKMember.fromJson(Map<String, dynamic> json) {
@@ -90,6 +96,7 @@ class PKMember {
       birthday: json['birthday'] as String?,
       proxyTagsJson: proxyTagsJson,
       bannerUrl: json['banner'] as String?,
+      hasBannerField: json.containsKey('banner'),
     );
   }
 }

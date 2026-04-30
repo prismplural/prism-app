@@ -457,7 +457,7 @@ const _repositoryFieldSources = <_RepoFieldSource>[
 const _writeOmittedFields = <String, Set<String>>{
   // `delete_push_started_at` is stamped via DriftMemberRepository
   //   .stampDeletePushStartedAt(), not the create/update field map.
-  // `display_name`, `birthday`, `proxy_tags_json`, `pk_banner_url`,
+  // `display_name`, `birthday`, `proxy_tags_json`, and
   //   `pluralkit_sync_ignored` are PK-import-only columns — the prism
   //   repository never originates them on its own writes; they are only ever
   //   set by the PluralKit import service.
@@ -466,7 +466,6 @@ const _writeOmittedFields = <String, Set<String>>{
     'display_name',
     'birthday',
     'proxy_tags_json',
-    'pk_banner_url',
     'pluralkit_sync_ignored',
   },
   // `delete_push_started_at` — stamped through a separate code path on
@@ -587,6 +586,12 @@ Future<void> _seedDummyRows(AppDatabase db) async {
           name: 'Test Member',
           createdAt: now,
           avatarImageData: Value(Uint8List.fromList([1, 2, 3])),
+          pkBannerUrl: const Value('https://example.invalid/banner.png'),
+          profileHeaderSource: const Value(0),
+          profileHeaderLayout: const Value(1),
+          profileHeaderImageData: Value(Uint8List.fromList([4, 5, 6])),
+          pkBannerImageData: Value(Uint8List.fromList([7, 8, 9])),
+          pkBannerCachedUrl: const Value('https://example.invalid/banner.png'),
         ),
       );
 

@@ -4,6 +4,7 @@ import 'package:prism_plurality/core/database/daos/pk_mapping_state_dao.dart';
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_banner_cache_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_push_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 import 'package:uuid/uuid.dart';
@@ -82,6 +83,7 @@ class PkMappingApplier {
   final PkMappingStateDao _state;
   final PkPushService _pushService;
   final PluralKitClient _client;
+  final PkBannerCacheService _bannerCacheService;
   final Uuid _uuid;
   final DateTime Function() _now;
 
@@ -90,12 +92,14 @@ class PkMappingApplier {
     required PkMappingStateDao state,
     required PkPushService pushService,
     required PluralKitClient client,
+    PkBannerCacheService? bannerCacheService,
     Uuid? uuid,
     DateTime Function()? now,
   }) : _members = members,
        _state = state,
        _pushService = pushService,
        _client = client,
+       _bannerCacheService = bannerCacheService ?? PkBannerCacheService(),
        _uuid = uuid ?? const Uuid(),
        _now = now ?? DateTime.now;
 
@@ -235,10 +239,34 @@ class PkMappingApplier {
       }
     }
 
+    final bannerCache = await _bannerCacheService.resolve(
+      PkBannerCacheInput(
+        currentPkBannerUrl: local.pkBannerUrl,
+        currentPkBannerImageData: local.pkBannerImageData,
+        currentPkBannerCachedUrl: local.pkBannerCachedUrl,
+        hasIncomingBannerField: pk.hasBannerField,
+        incomingBannerUrl: pk.bannerUrl,
+      ),
+    );
+    updated = updated.copyWith(
+      pkBannerUrl: bannerCache.pkBannerUrl,
+      pkBannerImageData: bannerCache.pkBannerImageData,
+      pkBannerCachedUrl: bannerCache.pkBannerCachedUrl,
+      profileHeaderSource:
+          updated.profileHeaderSource ==
+                  domain.MemberProfileHeaderSource.prism &&
+              updated.profileHeaderImageData == null &&
+              _hasText(bannerCache.pkBannerUrl)
+          ? domain.MemberProfileHeaderSource.pluralKit
+          : updated.profileHeaderSource,
+    );
+
     await _members.updateMember(updated);
   }
 
   static bool _isNullOrEmpty(String? s) => s == null || s.isEmpty;
+
+  static bool _hasText(String? s) => s != null && s.trim().isNotEmpty;
 
   /// Conservative "is the local name a default placeholder?" check. We only
   /// treat literally empty names as defaults — real user-typed names (even
@@ -260,6 +288,15 @@ class PkMappingApplier {
     final avatarBytes = d.pkMember.avatarUrl != null
         ? await _downloadAvatarBytes(d.pkMember.avatarUrl!)
         : null;
+    final bannerCache = await _bannerCacheService.resolve(
+      PkBannerCacheInput(
+        currentPkBannerUrl: null,
+        currentPkBannerImageData: null,
+        currentPkBannerCachedUrl: null,
+        hasIncomingBannerField: d.pkMember.hasBannerField,
+        incomingBannerUrl: d.pkMember.bannerUrl,
+      ),
+    );
 
     final member = domain.Member(
       id: _uuid.v4(),
@@ -272,6 +309,12 @@ class PkMappingApplier {
       birthday: d.pkMember.birthday,
       proxyTagsJson: d.pkMember.proxyTagsJson,
       avatarImageData: avatarBytes,
+      pkBannerUrl: bannerCache.pkBannerUrl,
+      profileHeaderSource: _hasText(bannerCache.pkBannerUrl)
+          ? domain.MemberProfileHeaderSource.pluralKit
+          : domain.MemberProfileHeaderSource.prism,
+      pkBannerImageData: bannerCache.pkBannerImageData,
+      pkBannerCachedUrl: bannerCache.pkBannerCachedUrl,
       pluralkitUuid: d.pkMember.uuid,
       pluralkitId: d.pkMember.id,
       createdAt: _now(),

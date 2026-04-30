@@ -2,6 +2,7 @@ import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_banner_cache_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_push_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 
@@ -12,9 +13,13 @@ import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dar
 /// or pushes (Prism -> PK, via `PkPushService`).
 class PkBidirectionalService {
   final PkPushService _pushService;
+  final PkBannerCacheService _bannerCacheService;
 
-  PkBidirectionalService({PkPushService? pushService})
-    : _pushService = pushService ?? const PkPushService();
+  PkBidirectionalService({
+    PkPushService? pushService,
+    PkBannerCacheService? bannerCacheService,
+  }) : _pushService = pushService ?? const PkPushService(),
+       _bannerCacheService = bannerCacheService ?? PkBannerCacheService();
 
   /// Sync members bidirectionally.
   ///
@@ -279,6 +284,26 @@ class PkBidirectionalService {
     // PK is authoritative.
     if (pk.proxyTagsJson != null && local.proxyTagsJson != pk.proxyTagsJson) {
       updated = updated.copyWith(proxyTagsJson: pk.proxyTagsJson);
+      changed = true;
+    }
+
+    final bannerCache = await _bannerCacheService.resolve(
+      PkBannerCacheInput(
+        currentPkBannerUrl: local.pkBannerUrl,
+        currentPkBannerImageData: local.pkBannerImageData,
+        currentPkBannerCachedUrl: local.pkBannerCachedUrl,
+        hasIncomingBannerField: pk.hasBannerField,
+        incomingBannerUrl: pk.bannerUrl,
+      ),
+    );
+    if (updated.pkBannerUrl != bannerCache.pkBannerUrl ||
+        updated.pkBannerImageData != bannerCache.pkBannerImageData ||
+        updated.pkBannerCachedUrl != bannerCache.pkBannerCachedUrl) {
+      updated = updated.copyWith(
+        pkBannerUrl: bannerCache.pkBannerUrl,
+        pkBannerImageData: bannerCache.pkBannerImageData,
+        pkBannerCachedUrl: bannerCache.pkBannerCachedUrl,
+      );
       changed = true;
     }
 

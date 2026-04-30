@@ -1557,6 +1557,62 @@
   "@memberRemoveAvatar": {
     "description": "Button label to clear the saved member profile photo and revert to emoji"
   },
+  "memberProfileHeaderSectionTitle": "Profile header",
+  "@memberProfileHeaderSectionTitle": {
+    "description": "Section title for member profile header settings"
+  },
+  "memberProfileHeaderSectionDescription": "Choose the image source and layout for this profile.",
+  "@memberProfileHeaderSectionDescription": {
+    "description": "Short description for member profile header settings"
+  },
+  "memberProfileHeaderSourcePluralKit": "PluralKit",
+  "@memberProfileHeaderSourcePluralKit": {
+    "description": "Profile header source option label for PluralKit"
+  },
+  "memberProfileHeaderSourcePrism": "Prism",
+  "@memberProfileHeaderSourcePrism": {
+    "description": "Profile header source option label for Prism"
+  },
+  "memberProfileHeaderSourcePluralKitHelper": "Refreshed from PluralKit when Prism syncs.",
+  "@memberProfileHeaderSourcePluralKitHelper": {
+    "description": "Helper text shown when the PluralKit profile header source is selected"
+  },
+  "memberProfileHeaderSourcePrismHelper": "Private to Prism. Does not update PluralKit.",
+  "@memberProfileHeaderSourcePrismHelper": {
+    "description": "Helper text shown when the Prism profile header source is selected"
+  },
+  "memberProfileHeaderPluralKitUnavailable": "PluralKit appears after this member has a linked or cached banner.",
+  "@memberProfileHeaderPluralKitUnavailable": {
+    "description": "Explanation shown when PluralKit cannot be selected as a profile header source"
+  },
+  "memberProfileHeaderChangeImage": "Change image",
+  "@memberProfileHeaderChangeImage": {
+    "description": "Button label to choose a Prism-owned profile header image"
+  },
+  "memberProfileHeaderRemoveImage": "Remove image",
+  "@memberProfileHeaderRemoveImage": {
+    "description": "Button label to remove a Prism-owned profile header image"
+  },
+  "memberProfileHeaderLayoutLabel": "Layout",
+  "@memberProfileHeaderLayoutLabel": {
+    "description": "Label for the member profile header layout selector"
+  },
+  "memberProfileHeaderLayoutCompact": "Compact",
+  "@memberProfileHeaderLayoutCompact": {
+    "description": "Profile header layout option that preserves the compact member row"
+  },
+  "memberProfileHeaderLayoutClassic": "Classic",
+  "@memberProfileHeaderLayoutClassic": {
+    "description": "Profile header layout option with a wide banner and overlapping avatar"
+  },
+  "memberProfileHeaderCropTitle": "Crop profile header",
+  "@memberProfileHeaderCropTitle": {
+    "description": "Title for the native profile header cropper"
+  },
+  "memberProfileHeaderProcessingError": "Could not process that image.",
+  "@memberProfileHeaderProcessingError": {
+    "description": "Toast message shown when profile header image processing fails"
+  },
   "systemInfoNameLabel": "Name",
   "@systemInfoNameLabel": {
     "description": "System name field label"
