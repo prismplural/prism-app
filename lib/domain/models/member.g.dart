@@ -40,6 +40,7 @@ _Member _$MemberFromJson(Map<String, dynamic> json) => _Member(
         json['profileHeaderLayout'],
       ) ??
       MemberProfileHeaderLayout.compactBackground,
+  profileHeaderVisible: json['profileHeaderVisible'] as bool? ?? true,
   profileHeaderImageData: _uint8ListFromJson(
     json['profileHeaderImageData'] as String?,
   ),
@@ -78,6 +79,7 @@ Map<String, dynamic> _$MemberToJson(_Member instance) => <String, dynamic>{
       _$MemberProfileHeaderSourceEnumMap[instance.profileHeaderSource]!,
   'profileHeaderLayout':
       _$MemberProfileHeaderLayoutEnumMap[instance.profileHeaderLayout]!,
+  'profileHeaderVisible': instance.profileHeaderVisible,
   'profileHeaderImageData': _uint8ListToJson(instance.profileHeaderImageData),
   'pkBannerImageData': _uint8ListToJson(instance.pkBannerImageData),
   'pkBannerCachedUrl': instance.pkBannerCachedUrl,

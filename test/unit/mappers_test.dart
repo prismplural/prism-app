@@ -43,6 +43,7 @@ void main() {
         profileHeaderSource: domain.MemberProfileHeaderSource.pluralKit.index,
         profileHeaderLayout:
             domain.MemberProfileHeaderLayout.classicOverlap.index,
+        profileHeaderVisible: false,
         profileHeaderImageData: profileHeader,
         pkBannerImageData: pkBanner,
         pkBannerCachedUrl: 'https://cdn.example/banner.webp',
@@ -72,6 +73,7 @@ void main() {
         model.profileHeaderLayout,
         domain.MemberProfileHeaderLayout.classicOverlap,
       );
+      expect(model.profileHeaderVisible, isFalse);
       expect(model.profileHeaderImageData, profileHeader);
       expect(model.pkBannerImageData, pkBanner);
       expect(model.pkBannerCachedUrl, 'https://cdn.example/banner.webp');
@@ -106,6 +108,7 @@ void main() {
         model.profileHeaderLayout,
         domain.MemberProfileHeaderLayout.compactBackground,
       );
+      expect(model.profileHeaderVisible, isTrue);
       expect(model.profileHeaderImageData, isNull);
       expect(model.pkBannerImageData, isNull);
       expect(model.pkBannerCachedUrl, isNull);
@@ -134,6 +137,7 @@ void main() {
         pluralkitId: 'pkid-2',
         profileHeaderSource: domain.MemberProfileHeaderSource.pluralKit,
         profileHeaderLayout: domain.MemberProfileHeaderLayout.classicOverlap,
+        profileHeaderVisible: false,
         profileHeaderImageData: profileHeader,
         pkBannerImageData: pkBanner,
         pkBannerCachedUrl: 'https://cdn.example/pk.webp',
@@ -155,6 +159,7 @@ void main() {
       expect(companion.customColorHex.value, '#00FF00');
       expect(companion.profileHeaderSource.value, 0);
       expect(companion.profileHeaderLayout.value, 1);
+      expect(companion.profileHeaderVisible.value, isFalse);
       expect(companion.profileHeaderImageData.value, profileHeader);
       expect(companion.pkBannerImageData.value, pkBanner);
       expect(companion.pkBannerCachedUrl.value, 'https://cdn.example/pk.webp');
@@ -200,6 +205,7 @@ void main() {
         markdownEnabled: companion.markdownEnabled.value,
         profileHeaderSource: companion.profileHeaderSource.value,
         profileHeaderLayout: companion.profileHeaderLayout.value,
+        profileHeaderVisible: companion.profileHeaderVisible.value,
         profileHeaderImageData: companion.profileHeaderImageData.value,
         pkBannerImageData: companion.pkBannerImageData.value,
         pkBannerCachedUrl: companion.pkBannerCachedUrl.value,

@@ -2156,6 +2156,18 @@ abstract class AppLocalizations {
   /// **'Choose the image source and layout for this profile.'**
   String get memberProfileHeaderSectionDescription;
 
+  /// Toggle label controlling whether a member profile header banner is visible
+  ///
+  /// In en, this message translates to:
+  /// **'Show profile header'**
+  String get memberProfileHeaderVisibleTitle;
+
+  /// Helper text for the member profile header visibility toggle
+  ///
+  /// In en, this message translates to:
+  /// **'Keeps the image and source saved while hiding the banner.'**
+  String get memberProfileHeaderVisibleSubtitle;
+
   /// Profile header source option label for PluralKit
   ///
   /// In en, this message translates to:

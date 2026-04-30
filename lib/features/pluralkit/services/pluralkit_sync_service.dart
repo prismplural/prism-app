@@ -1491,6 +1491,13 @@ class PluralKitSyncService {
               pkBannerUrl: bannerCache.pkBannerUrl,
               pkBannerImageData: bannerCache.pkBannerImageData,
               pkBannerCachedUrl: bannerCache.pkBannerCachedUrl,
+              profileHeaderSource:
+                  localMember.profileHeaderSource ==
+                          domain.MemberProfileHeaderSource.prism &&
+                      localMember.profileHeaderImageData == null &&
+                      _hasText(bannerCache.pkBannerUrl)
+                  ? domain.MemberProfileHeaderSource.pluralKit
+                  : localMember.profileHeaderSource,
               pluralkitUuid: pk.uuid,
               pluralkitId: pk.id,
               avatarImageData: avatarData ?? localMember.avatarImageData,

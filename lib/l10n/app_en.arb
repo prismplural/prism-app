@@ -1565,6 +1565,14 @@
   "@memberProfileHeaderSectionDescription": {
     "description": "Short description for member profile header settings"
   },
+  "memberProfileHeaderVisibleTitle": "Show profile header",
+  "@memberProfileHeaderVisibleTitle": {
+    "description": "Toggle label controlling whether a member profile header banner is visible"
+  },
+  "memberProfileHeaderVisibleSubtitle": "Keeps the image and source saved while hiding the banner.",
+  "@memberProfileHeaderVisibleSubtitle": {
+    "description": "Helper text for the member profile header visibility toggle"
+  },
   "memberProfileHeaderSourcePluralKit": "PluralKit",
   "@memberProfileHeaderSourcePluralKit": {
     "description": "Profile header source option label for PluralKit"

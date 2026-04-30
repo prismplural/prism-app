@@ -1150,6 +1150,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Choose the image source and layout for this profile.';
 
   @override
+  String get memberProfileHeaderVisibleTitle => 'Show profile header';
+
+  @override
+  String get memberProfileHeaderVisibleSubtitle =>
+      'Keeps the image and source saved while hiding the banner.';
+
+  @override
   String get memberProfileHeaderSourcePluralKit => 'PluralKit';
 
   @override

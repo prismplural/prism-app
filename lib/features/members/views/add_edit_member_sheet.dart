@@ -61,6 +61,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
   Uint8List? _avatarImageData;
   late MemberProfileHeaderSource _profileHeaderSource;
   late MemberProfileHeaderLayout _profileHeaderLayout;
+  bool _profileHeaderVisible = true;
   Uint8List? _profileHeaderImageData;
   bool _saving = false;
   bool _saved = false;
@@ -97,6 +98,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
         m?.profileHeaderSource ?? MemberProfileHeaderSource.prism;
     _profileHeaderLayout =
         m?.profileHeaderLayout ?? MemberProfileHeaderLayout.compactBackground;
+    _profileHeaderVisible = m?.profileHeaderVisible ?? true;
     _profileHeaderImageData = m?.profileHeaderImageData;
   }
 
@@ -157,6 +159,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
               : null,
           profileHeaderSource: _profileHeaderSource,
           profileHeaderLayout: _profileHeaderLayout,
+          profileHeaderVisible: _profileHeaderVisible,
           profileHeaderImageData: _profileHeaderImageData,
         );
   }
@@ -236,6 +239,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
           birthday: birthdayWire,
           profileHeaderSource: _profileHeaderSource,
           profileHeaderLayout: _profileHeaderLayout,
+          profileHeaderVisible: _profileHeaderVisible,
           profileHeaderImageData: _profileHeaderImageData,
         );
         await notifier.updateMember(updated);
@@ -254,6 +258,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
           birthday: birthdayWire,
           profileHeaderSource: _profileHeaderSource,
           profileHeaderLayout: _profileHeaderLayout,
+          profileHeaderVisible: _profileHeaderVisible,
           profileHeaderImageData: _profileHeaderImageData,
         );
       }
@@ -395,12 +400,15 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
                     member: _previewMember(),
                     source: _profileHeaderSource,
                     layout: _profileHeaderLayout,
+                    visible: _profileHeaderVisible,
                     prismHeaderImageData: _profileHeaderImageData,
                     pluralKitHeaderImageData: widget.member?.pkBannerImageData,
                     onSourceChanged: (source) =>
                         setState(() => _profileHeaderSource = source),
                     onLayoutChanged: (layout) =>
                         setState(() => _profileHeaderLayout = layout),
+                    onVisibleChanged: (visible) =>
+                        setState(() => _profileHeaderVisible = visible),
                     onPrismHeaderImageChanged: (bytes) =>
                         setState(() => _profileHeaderImageData = bytes),
                   ),

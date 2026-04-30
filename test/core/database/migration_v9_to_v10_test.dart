@@ -35,6 +35,7 @@ Future<void> _seedV9Db(File dbFile) async {
   try {
     rawDb.execute('ALTER TABLE members DROP COLUMN profile_header_source');
     rawDb.execute('ALTER TABLE members DROP COLUMN profile_header_layout');
+    rawDb.execute('ALTER TABLE members DROP COLUMN profile_header_visible');
     rawDb.execute('ALTER TABLE members DROP COLUMN profile_header_image_data');
     rawDb.execute('ALTER TABLE members DROP COLUMN pk_banner_image_data');
     rawDb.execute('ALTER TABLE members DROP COLUMN pk_banner_cached_url');
@@ -55,6 +56,7 @@ void main() {
       final names = columns.map((row) => row.read<String>('name')).toSet();
       expect(names, contains('profile_header_source'));
       expect(names, contains('profile_header_layout'));
+      expect(names, contains('profile_header_visible'));
       expect(names, contains('profile_header_image_data'));
       expect(names, contains('pk_banner_image_data'));
       expect(names, contains('pk_banner_cached_url'));
@@ -82,6 +84,7 @@ void main() {
         )..where((m) => m.id.equals('member-with-banner'))).getSingle();
         expect(withBanner.profileHeaderSource, 0);
         expect(withBanner.profileHeaderLayout, 0);
+        expect(withBanner.profileHeaderVisible, isTrue);
         expect(withBanner.profileHeaderImageData, isNull);
         expect(withBanner.pkBannerImageData, isNull);
         expect(withBanner.pkBannerCachedUrl, isNull);
@@ -91,11 +94,12 @@ void main() {
         )..where((m) => m.id.equals('member-without-banner'))).getSingle();
         expect(withoutBanner.profileHeaderSource, 1);
         expect(withoutBanner.profileHeaderLayout, 0);
+        expect(withoutBanner.profileHeaderVisible, isTrue);
 
         final version = await upgraded
             .customSelect('PRAGMA user_version')
             .get();
-        expect(version.first.read<int>('user_version'), 10);
+        expect(version.first.read<int>('user_version'), 11);
       },
     );
   });

@@ -483,6 +483,7 @@ class DataImportService {
                 pkBannerUrl: h.pkBannerUrl,
                 profileHeaderSource: _profileHeaderSourceFromExport(h),
                 profileHeaderLayout: _profileHeaderLayoutFromExport(h),
+                profileHeaderVisible: h.profileHeaderVisible ?? true,
                 profileHeaderImageData: h.profileHeaderImageBytes,
                 pkBannerImageData: h.pkBannerImageBytes,
                 pkBannerCachedUrl: h.pkBannerCachedUrl,

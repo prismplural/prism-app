@@ -48,6 +48,7 @@ class MemberMapper {
       pkBannerUrl: row.pkBannerUrl,
       profileHeaderSource: _headerSourceFromDb(row.profileHeaderSource),
       profileHeaderLayout: _headerLayoutFromDb(row.profileHeaderLayout),
+      profileHeaderVisible: row.profileHeaderVisible,
       profileHeaderImageData: row.profileHeaderImageData != null
           ? Uint8List.fromList(row.profileHeaderImageData!)
           : null,
@@ -88,6 +89,7 @@ class MemberMapper {
       pkBannerUrl: Value(model.pkBannerUrl),
       profileHeaderSource: Value(model.profileHeaderSource.index),
       profileHeaderLayout: Value(model.profileHeaderLayout.index),
+      profileHeaderVisible: Value(model.profileHeaderVisible),
       profileHeaderImageData: Value(model.profileHeaderImageData),
       pkBannerImageData: Value(model.pkBannerImageData),
       pkBannerCachedUrl: Value(model.pkBannerCachedUrl),

@@ -365,6 +365,7 @@ void main() {
         pkBannerUrl: 'https://example.invalid/banner.png',
         profileHeaderSource: 0,
         profileHeaderLayout: 1,
+        profileHeaderVisible: false,
         profileHeaderImageData: Uint8List.fromList([4, 5, 6]),
         pkBannerImageData: Uint8List.fromList([7, 8, 9]),
         pkBannerCachedUrl: 'https://example.invalid/banner.png',
@@ -384,6 +385,7 @@ void main() {
       expect(back['pk_banner_url'], 'https://example.invalid/banner.png');
       expect(back['profile_header_source'], 0);
       expect(back['profile_header_layout'], 1);
+      expect(back['profile_header_visible'], isFalse);
       expect(back['profile_header_image_data'], 'BAUG');
       expect(back['pk_banner_image_data'], 'BwgJ');
       expect(
@@ -410,6 +412,7 @@ void main() {
         customColorEnabled: false,
         profileHeaderSource: 1,
         profileHeaderLayout: 0,
+        profileHeaderVisible: true,
         pluralkitSyncIgnored: false,
         markdownEnabled: false,
         isDeleted: false,
@@ -428,6 +431,7 @@ void main() {
       expect(back.containsKey('proxy_tags_json'), isTrue);
       expect(back['proxy_tags_json'], isNull);
       expect(back.containsKey('pk_banner_url'), isTrue);
+      expect(back['profile_header_visible'], isTrue);
       expect(back['pk_banner_url'], isNull);
       expect(back['profile_header_source'], 1);
       expect(back['profile_header_layout'], 0);
@@ -582,6 +586,7 @@ void main() {
       customColorEnabled: false,
       profileHeaderSource: 1,
       profileHeaderLayout: 0,
+      profileHeaderVisible: true,
       pluralkitSyncIgnored: false,
       markdownEnabled: false,
       isDeleted: false,

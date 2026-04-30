@@ -17,6 +17,7 @@ class MemberProfileHeader extends StatelessWidget {
     this.isFronting = false,
     this.source,
     this.layout,
+    this.visible,
     this.prismHeaderImageData,
     this.pluralKitHeaderImageData,
   });
@@ -25,6 +26,7 @@ class MemberProfileHeader extends StatelessWidget {
   final bool isFronting;
   final MemberProfileHeaderSource? source;
   final MemberProfileHeaderLayout? layout;
+  final bool? visible;
   final Uint8List? prismHeaderImageData;
   final Uint8List? pluralKitHeaderImageData;
 
@@ -34,6 +36,7 @@ class MemberProfileHeader extends StatelessWidget {
       member,
       sourceOverride: source,
       layoutOverride: layout,
+      visibleOverride: visible,
       prismImageDataOverride: prismHeaderImageData,
       pluralKitImageDataOverride: pluralKitHeaderImageData,
     );

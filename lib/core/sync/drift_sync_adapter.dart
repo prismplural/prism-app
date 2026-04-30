@@ -1159,6 +1159,7 @@ DriftSyncEntity _membersEntity(
         'pk_banner_url': r.pkBannerUrl,
         'profile_header_source': r.profileHeaderSource,
         'profile_header_layout': r.profileHeaderLayout,
+        'profile_header_visible': r.profileHeaderVisible,
         'profile_header_image_data': r.profileHeaderImageData != null
             ? base64Encode(r.profileHeaderImageData!)
             : null,
@@ -1213,6 +1214,7 @@ DriftSyncEntity _membersEntity(
         pkBannerUrl: f.stringFieldNullable('pk_banner_url'),
         profileHeaderSource: f.intField('profile_header_source'),
         profileHeaderLayout: f.intField('profile_header_layout'),
+        profileHeaderVisible: f.boolField('profile_header_visible'),
         profileHeaderImageData: f.blobFieldNullable(
           'profile_header_image_data',
         ),
@@ -1285,6 +1287,7 @@ DriftSyncEntity _membersEntity(
         'pk_banner_url': row.pkBannerUrl,
         'profile_header_source': row.profileHeaderSource,
         'profile_header_layout': row.profileHeaderLayout,
+        'profile_header_visible': row.profileHeaderVisible,
         'profile_header_image_data': row.profileHeaderImageData != null
             ? base64Encode(row.profileHeaderImageData!)
             : null,

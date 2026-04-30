@@ -6,6 +6,7 @@ class MemberProfileHeaderResolution {
   const MemberProfileHeaderResolution({
     required this.source,
     required this.layout,
+    required this.visible,
     required this.activeImageData,
     required this.pluralKitEligible,
     required this.pluralKitImageData,
@@ -14,6 +15,7 @@ class MemberProfileHeaderResolution {
 
   final MemberProfileHeaderSource source;
   final MemberProfileHeaderLayout layout;
+  final bool visible;
   final Uint8List? activeImageData;
   final bool pluralKitEligible;
   final Uint8List? pluralKitImageData;
@@ -26,6 +28,7 @@ MemberProfileHeaderResolution resolveMemberProfileHeader(
   Member member, {
   MemberProfileHeaderSource? sourceOverride,
   MemberProfileHeaderLayout? layoutOverride,
+  bool? visibleOverride,
   Uint8List? prismImageDataOverride,
   Uint8List? pluralKitImageDataOverride,
 }) {
@@ -52,14 +55,23 @@ MemberProfileHeaderResolution resolveMemberProfileHeader(
       layoutOverride ??
       _futureLayout(member, _FutureMemberField.profileHeaderLayout) ??
       MemberProfileHeaderLayout.compactBackground;
-  final activeImageData = switch (source) {
-    MemberProfileHeaderSource.pluralKit => _nonEmptyBytes(pluralKitImageData),
-    MemberProfileHeaderSource.prism => _nonEmptyBytes(prismImageData),
-  };
+  final visible =
+      visibleOverride ??
+      _futureBool(member, _FutureMemberField.profileHeaderVisible) ??
+      true;
+  final activeImageData = visible
+      ? switch (source) {
+          MemberProfileHeaderSource.pluralKit => _nonEmptyBytes(
+            pluralKitImageData,
+          ),
+          MemberProfileHeaderSource.prism => _nonEmptyBytes(prismImageData),
+        }
+      : null;
 
   return MemberProfileHeaderResolution(
     source: source,
     layout: layout,
+    visible: visible,
     activeImageData: activeImageData,
     pluralKitEligible: pluralKitEligible,
     pluralKitImageData: _nonEmptyBytes(pluralKitImageData),
@@ -101,6 +113,7 @@ MemberProfileHeaderSource _defaultSource(
 enum _FutureMemberField {
   profileHeaderSource,
   profileHeaderLayout,
+  profileHeaderVisible,
   profileHeaderImageData,
   pkBannerImageData,
   pkBannerCachedUrl,
@@ -114,6 +127,8 @@ Object? _futureValue(Member member, _FutureMemberField field) {
         futureMember.profileHeaderSource,
       _FutureMemberField.profileHeaderLayout =>
         futureMember.profileHeaderLayout,
+      _FutureMemberField.profileHeaderVisible =>
+        futureMember.profileHeaderVisible,
       _FutureMemberField.profileHeaderImageData =>
         futureMember.profileHeaderImageData,
       _FutureMemberField.pkBannerImageData => futureMember.pkBannerImageData,
@@ -132,6 +147,11 @@ Uint8List? _futureBytes(Member member, _FutureMemberField field) {
 String? _futureString(Member member, _FutureMemberField field) {
   final value = _futureValue(member, field);
   return value is String ? value : null;
+}
+
+bool? _futureBool(Member member, _FutureMemberField field) {
+  final value = _futureValue(member, field);
+  return value is bool ? value : null;
 }
 
 MemberProfileHeaderSource? _futureSource(

@@ -102,6 +102,7 @@ class MembersNotifier extends AsyncNotifier<void> {
         MemberProfileHeaderSource.prism,
     MemberProfileHeaderLayout profileHeaderLayout =
         MemberProfileHeaderLayout.compactBackground,
+    bool profileHeaderVisible = true,
     Uint8List? profileHeaderImageData,
   }) async {
     state = await AsyncValue.guard(() async {
@@ -121,6 +122,7 @@ class MembersNotifier extends AsyncNotifier<void> {
         birthday: birthday,
         profileHeaderSource: profileHeaderSource,
         profileHeaderLayout: profileHeaderLayout,
+        profileHeaderVisible: profileHeaderVisible,
         profileHeaderImageData: profileHeaderImageData,
         createdAt: DateTime.now(),
       );

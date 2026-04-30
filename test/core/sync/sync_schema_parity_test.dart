@@ -589,6 +589,7 @@ Future<void> _seedDummyRows(AppDatabase db) async {
           pkBannerUrl: const Value('https://example.invalid/banner.png'),
           profileHeaderSource: const Value(0),
           profileHeaderLayout: const Value(1),
+          profileHeaderVisible: const Value(false),
           profileHeaderImageData: Value(Uint8List.fromList([4, 5, 6])),
           pkBannerImageData: Value(Uint8List.fromList([7, 8, 9])),
           pkBannerCachedUrl: const Value('https://example.invalid/banner.png'),

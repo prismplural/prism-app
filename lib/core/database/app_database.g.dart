@@ -254,6 +254,20 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _profileHeaderVisibleMeta =
+      const VerificationMeta('profileHeaderVisible');
+  @override
+  late final GeneratedColumn<bool> profileHeaderVisible = GeneratedColumn<bool>(
+    'profile_header_visible',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("profile_header_visible" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
   static const VerificationMeta _profileHeaderImageDataMeta =
       const VerificationMeta('profileHeaderImageData');
   @override
@@ -393,6 +407,7 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
     pkBannerUrl,
     profileHeaderSource,
     profileHeaderLayout,
+    profileHeaderVisible,
     profileHeaderImageData,
     pkBannerImageData,
     pkBannerCachedUrl,
@@ -586,6 +601,15 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
         ),
       );
     }
+    if (data.containsKey('profile_header_visible')) {
+      context.handle(
+        _profileHeaderVisibleMeta,
+        profileHeaderVisible.isAcceptableOrUnknown(
+          data['profile_header_visible']!,
+          _profileHeaderVisibleMeta,
+        ),
+      );
+    }
     if (data.containsKey('profile_header_image_data')) {
       context.handle(
         _profileHeaderImageDataMeta,
@@ -761,6 +785,10 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
         DriftSqlType.int,
         data['${effectivePrefix}profile_header_layout'],
       )!,
+      profileHeaderVisible: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}profile_header_visible'],
+      )!,
       profileHeaderImageData: attachedDatabase.typeMapping.read(
         DriftSqlType.blob,
         data['${effectivePrefix}profile_header_image_data'],
@@ -829,6 +857,7 @@ class Member extends DataClass implements Insertable<Member> {
   final String? pkBannerUrl;
   final int profileHeaderSource;
   final int profileHeaderLayout;
+  final bool profileHeaderVisible;
   final Uint8List? profileHeaderImageData;
   final Uint8List? pkBannerImageData;
   final String? pkBannerCachedUrl;
@@ -861,6 +890,7 @@ class Member extends DataClass implements Insertable<Member> {
     this.pkBannerUrl,
     required this.profileHeaderSource,
     required this.profileHeaderLayout,
+    required this.profileHeaderVisible,
     this.profileHeaderImageData,
     this.pkBannerImageData,
     this.pkBannerCachedUrl,
@@ -920,6 +950,7 @@ class Member extends DataClass implements Insertable<Member> {
     }
     map['profile_header_source'] = Variable<int>(profileHeaderSource);
     map['profile_header_layout'] = Variable<int>(profileHeaderLayout);
+    map['profile_header_visible'] = Variable<bool>(profileHeaderVisible);
     if (!nullToAbsent || profileHeaderImageData != null) {
       map['profile_header_image_data'] = Variable<Uint8List>(
         profileHeaderImageData,
@@ -988,6 +1019,7 @@ class Member extends DataClass implements Insertable<Member> {
           : Value(pkBannerUrl),
       profileHeaderSource: Value(profileHeaderSource),
       profileHeaderLayout: Value(profileHeaderLayout),
+      profileHeaderVisible: Value(profileHeaderVisible),
       profileHeaderImageData: profileHeaderImageData == null && nullToAbsent
           ? const Value.absent()
           : Value(profileHeaderImageData),
@@ -1042,6 +1074,9 @@ class Member extends DataClass implements Insertable<Member> {
       profileHeaderLayout: serializer.fromJson<int>(
         json['profileHeaderLayout'],
       ),
+      profileHeaderVisible: serializer.fromJson<bool>(
+        json['profileHeaderVisible'],
+      ),
       profileHeaderImageData: serializer.fromJson<Uint8List?>(
         json['profileHeaderImageData'],
       ),
@@ -1089,6 +1124,7 @@ class Member extends DataClass implements Insertable<Member> {
       'pkBannerUrl': serializer.toJson<String?>(pkBannerUrl),
       'profileHeaderSource': serializer.toJson<int>(profileHeaderSource),
       'profileHeaderLayout': serializer.toJson<int>(profileHeaderLayout),
+      'profileHeaderVisible': serializer.toJson<bool>(profileHeaderVisible),
       'profileHeaderImageData': serializer.toJson<Uint8List?>(
         profileHeaderImageData,
       ),
@@ -1126,6 +1162,7 @@ class Member extends DataClass implements Insertable<Member> {
     Value<String?> pkBannerUrl = const Value.absent(),
     int? profileHeaderSource,
     int? profileHeaderLayout,
+    bool? profileHeaderVisible,
     Value<Uint8List?> profileHeaderImageData = const Value.absent(),
     Value<Uint8List?> pkBannerImageData = const Value.absent(),
     Value<String?> pkBannerCachedUrl = const Value.absent(),
@@ -1168,6 +1205,7 @@ class Member extends DataClass implements Insertable<Member> {
     pkBannerUrl: pkBannerUrl.present ? pkBannerUrl.value : this.pkBannerUrl,
     profileHeaderSource: profileHeaderSource ?? this.profileHeaderSource,
     profileHeaderLayout: profileHeaderLayout ?? this.profileHeaderLayout,
+    profileHeaderVisible: profileHeaderVisible ?? this.profileHeaderVisible,
     profileHeaderImageData: profileHeaderImageData.present
         ? profileHeaderImageData.value
         : this.profileHeaderImageData,
@@ -1236,6 +1274,9 @@ class Member extends DataClass implements Insertable<Member> {
       profileHeaderLayout: data.profileHeaderLayout.present
           ? data.profileHeaderLayout.value
           : this.profileHeaderLayout,
+      profileHeaderVisible: data.profileHeaderVisible.present
+          ? data.profileHeaderVisible.value
+          : this.profileHeaderVisible,
       profileHeaderImageData: data.profileHeaderImageData.present
           ? data.profileHeaderImageData.value
           : this.profileHeaderImageData,
@@ -1289,6 +1330,7 @@ class Member extends DataClass implements Insertable<Member> {
           ..write('pkBannerUrl: $pkBannerUrl, ')
           ..write('profileHeaderSource: $profileHeaderSource, ')
           ..write('profileHeaderLayout: $profileHeaderLayout, ')
+          ..write('profileHeaderVisible: $profileHeaderVisible, ')
           ..write('profileHeaderImageData: $profileHeaderImageData, ')
           ..write('pkBannerImageData: $pkBannerImageData, ')
           ..write('pkBannerCachedUrl: $pkBannerCachedUrl, ')
@@ -1326,6 +1368,7 @@ class Member extends DataClass implements Insertable<Member> {
     pkBannerUrl,
     profileHeaderSource,
     profileHeaderLayout,
+    profileHeaderVisible,
     $driftBlobEquality.hash(profileHeaderImageData),
     $driftBlobEquality.hash(pkBannerImageData),
     pkBannerCachedUrl,
@@ -1365,6 +1408,7 @@ class Member extends DataClass implements Insertable<Member> {
           other.pkBannerUrl == this.pkBannerUrl &&
           other.profileHeaderSource == this.profileHeaderSource &&
           other.profileHeaderLayout == this.profileHeaderLayout &&
+          other.profileHeaderVisible == this.profileHeaderVisible &&
           $driftBlobEquality.equals(
             other.profileHeaderImageData,
             this.profileHeaderImageData,
@@ -1405,6 +1449,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
   final Value<String?> pkBannerUrl;
   final Value<int> profileHeaderSource;
   final Value<int> profileHeaderLayout;
+  final Value<bool> profileHeaderVisible;
   final Value<Uint8List?> profileHeaderImageData;
   final Value<Uint8List?> pkBannerImageData;
   final Value<String?> pkBannerCachedUrl;
@@ -1438,6 +1483,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
     this.pkBannerUrl = const Value.absent(),
     this.profileHeaderSource = const Value.absent(),
     this.profileHeaderLayout = const Value.absent(),
+    this.profileHeaderVisible = const Value.absent(),
     this.profileHeaderImageData = const Value.absent(),
     this.pkBannerImageData = const Value.absent(),
     this.pkBannerCachedUrl = const Value.absent(),
@@ -1472,6 +1518,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
     this.pkBannerUrl = const Value.absent(),
     this.profileHeaderSource = const Value.absent(),
     this.profileHeaderLayout = const Value.absent(),
+    this.profileHeaderVisible = const Value.absent(),
     this.profileHeaderImageData = const Value.absent(),
     this.pkBannerImageData = const Value.absent(),
     this.pkBannerCachedUrl = const Value.absent(),
@@ -1508,6 +1555,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
     Expression<String>? pkBannerUrl,
     Expression<int>? profileHeaderSource,
     Expression<int>? profileHeaderLayout,
+    Expression<bool>? profileHeaderVisible,
     Expression<Uint8List>? profileHeaderImageData,
     Expression<Uint8List>? pkBannerImageData,
     Expression<String>? pkBannerCachedUrl,
@@ -1545,6 +1593,8 @@ class MembersCompanion extends UpdateCompanion<Member> {
         'profile_header_source': profileHeaderSource,
       if (profileHeaderLayout != null)
         'profile_header_layout': profileHeaderLayout,
+      if (profileHeaderVisible != null)
+        'profile_header_visible': profileHeaderVisible,
       if (profileHeaderImageData != null)
         'profile_header_image_data': profileHeaderImageData,
       if (pkBannerImageData != null) 'pk_banner_image_data': pkBannerImageData,
@@ -1584,6 +1634,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
     Value<String?>? pkBannerUrl,
     Value<int>? profileHeaderSource,
     Value<int>? profileHeaderLayout,
+    Value<bool>? profileHeaderVisible,
     Value<Uint8List?>? profileHeaderImageData,
     Value<Uint8List?>? pkBannerImageData,
     Value<String?>? pkBannerCachedUrl,
@@ -1618,6 +1669,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
       pkBannerUrl: pkBannerUrl ?? this.pkBannerUrl,
       profileHeaderSource: profileHeaderSource ?? this.profileHeaderSource,
       profileHeaderLayout: profileHeaderLayout ?? this.profileHeaderLayout,
+      profileHeaderVisible: profileHeaderVisible ?? this.profileHeaderVisible,
       profileHeaderImageData:
           profileHeaderImageData ?? this.profileHeaderImageData,
       pkBannerImageData: pkBannerImageData ?? this.pkBannerImageData,
@@ -1701,6 +1753,11 @@ class MembersCompanion extends UpdateCompanion<Member> {
     if (profileHeaderLayout.present) {
       map['profile_header_layout'] = Variable<int>(profileHeaderLayout.value);
     }
+    if (profileHeaderVisible.present) {
+      map['profile_header_visible'] = Variable<bool>(
+        profileHeaderVisible.value,
+      );
+    }
     if (profileHeaderImageData.present) {
       map['profile_header_image_data'] = Variable<Uint8List>(
         profileHeaderImageData.value,
@@ -1765,6 +1822,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
           ..write('pkBannerUrl: $pkBannerUrl, ')
           ..write('profileHeaderSource: $profileHeaderSource, ')
           ..write('profileHeaderLayout: $profileHeaderLayout, ')
+          ..write('profileHeaderVisible: $profileHeaderVisible, ')
           ..write('profileHeaderImageData: $profileHeaderImageData, ')
           ..write('pkBannerImageData: $pkBannerImageData, ')
           ..write('pkBannerCachedUrl: $pkBannerCachedUrl, ')
@@ -22666,6 +22724,7 @@ typedef $$MembersTableCreateCompanionBuilder =
       Value<String?> pkBannerUrl,
       Value<int> profileHeaderSource,
       Value<int> profileHeaderLayout,
+      Value<bool> profileHeaderVisible,
       Value<Uint8List?> profileHeaderImageData,
       Value<Uint8List?> pkBannerImageData,
       Value<String?> pkBannerCachedUrl,
@@ -22701,6 +22760,7 @@ typedef $$MembersTableUpdateCompanionBuilder =
       Value<String?> pkBannerUrl,
       Value<int> profileHeaderSource,
       Value<int> profileHeaderLayout,
+      Value<bool> profileHeaderVisible,
       Value<Uint8List?> profileHeaderImageData,
       Value<Uint8List?> pkBannerImageData,
       Value<String?> pkBannerCachedUrl,
@@ -22829,6 +22889,11 @@ class $$MembersTableFilterComposer
 
   ColumnFilters<int> get profileHeaderLayout => $composableBuilder(
     column: $table.profileHeaderLayout,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get profileHeaderVisible => $composableBuilder(
+    column: $table.profileHeaderVisible,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -22997,6 +23062,11 @@ class $$MembersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get profileHeaderVisible => $composableBuilder(
+    column: $table.profileHeaderVisible,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<Uint8List> get profileHeaderImageData => $composableBuilder(
     column: $table.profileHeaderImageData,
     builder: (column) => ColumnOrderings(column),
@@ -23142,6 +23212,11 @@ class $$MembersTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<bool> get profileHeaderVisible => $composableBuilder(
+    column: $table.profileHeaderVisible,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<Uint8List> get profileHeaderImageData => $composableBuilder(
     column: $table.profileHeaderImageData,
     builder: (column) => column,
@@ -23236,6 +23311,7 @@ class $$MembersTableTableManager
                 Value<String?> pkBannerUrl = const Value.absent(),
                 Value<int> profileHeaderSource = const Value.absent(),
                 Value<int> profileHeaderLayout = const Value.absent(),
+                Value<bool> profileHeaderVisible = const Value.absent(),
                 Value<Uint8List?> profileHeaderImageData = const Value.absent(),
                 Value<Uint8List?> pkBannerImageData = const Value.absent(),
                 Value<String?> pkBannerCachedUrl = const Value.absent(),
@@ -23269,6 +23345,7 @@ class $$MembersTableTableManager
                 pkBannerUrl: pkBannerUrl,
                 profileHeaderSource: profileHeaderSource,
                 profileHeaderLayout: profileHeaderLayout,
+                profileHeaderVisible: profileHeaderVisible,
                 profileHeaderImageData: profileHeaderImageData,
                 pkBannerImageData: pkBannerImageData,
                 pkBannerCachedUrl: pkBannerCachedUrl,
@@ -23304,6 +23381,7 @@ class $$MembersTableTableManager
                 Value<String?> pkBannerUrl = const Value.absent(),
                 Value<int> profileHeaderSource = const Value.absent(),
                 Value<int> profileHeaderLayout = const Value.absent(),
+                Value<bool> profileHeaderVisible = const Value.absent(),
                 Value<Uint8List?> profileHeaderImageData = const Value.absent(),
                 Value<Uint8List?> pkBannerImageData = const Value.absent(),
                 Value<String?> pkBannerCachedUrl = const Value.absent(),
@@ -23337,6 +23415,7 @@ class $$MembersTableTableManager
                 pkBannerUrl: pkBannerUrl,
                 profileHeaderSource: profileHeaderSource,
                 profileHeaderLayout: profileHeaderLayout,
+                profileHeaderVisible: profileHeaderVisible,
                 profileHeaderImageData: profileHeaderImageData,
                 pkBannerImageData: pkBannerImageData,
                 pkBannerCachedUrl: pkBannerCachedUrl,

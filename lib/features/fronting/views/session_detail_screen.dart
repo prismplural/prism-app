@@ -19,6 +19,7 @@ import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/features/fronting/ui/delete_strategy_dialog.dart';
 import 'package:prism_plurality/features/fronting/widgets/fronting_duration_text.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/members/utils/member_profile_header_resolver.dart';
 import 'package:prism_plurality/shared/extensions/datetime_extensions.dart';
 import 'package:prism_plurality/shared/extensions/duration_extensions.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
@@ -100,12 +101,12 @@ class SessionDetailScreen extends ConsumerWidget {
 
     // Convert to snapshots
     final sessionSnapshot = FrontingSanitizerService.toSnapshot(session);
-    final allSnapshots =
-        allSessions.map(FrontingSanitizerService.toSnapshot).toList();
+    final allSnapshots = allSessions
+        .map(FrontingSanitizerService.toSnapshot)
+        .toList();
 
     // Build delete context
-    final deleteCtx =
-        editGuard.getDeleteContext(sessionSnapshot, allSnapshots);
+    final deleteCtx = editGuard.getDeleteContext(sessionSnapshot, allSnapshots);
 
     // Show strategy dialog
     if (!context.mounted) return;
@@ -193,7 +194,9 @@ class _SleepSessionBody extends StatelessWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      session.isActive ? context.l10n.frontingSleepingNow : context.l10n.frontingSleepSession,
+                      session.isActive
+                          ? context.l10n.frontingSleepingNow
+                          : context.l10n.frontingSleepSession,
                       style: theme.textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -209,7 +212,9 @@ class _SleepSessionBody extends StatelessWidget {
               const SizedBox(height: 8),
               _InfoRow(
                 label: context.l10n.frontingInfoEnded,
-                value: session.endTime?.toDateTimeString(context.dateLocale) ?? context.l10n.frontingInfoActive,
+                value:
+                    session.endTime?.toDateTimeString(context.dateLocale) ??
+                    context.l10n.frontingInfoActive,
               ),
               const SizedBox(height: 8),
               Row(
@@ -255,10 +260,7 @@ class _SleepSessionBody extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  session.notes!,
-                  style: theme.textTheme.bodyMedium,
-                ),
+                Text(session.notes!, style: theme.textTheme.bodyMedium),
               ],
             ],
           ),
@@ -311,7 +313,9 @@ class _SessionDetailBody extends ConsumerWidget {
               const SizedBox(height: 8),
               _InfoRow(
                 label: context.l10n.frontingInfoEnded,
-                value: session.endTime?.toDateTimeString(context.dateLocale) ?? context.l10n.frontingInfoActive,
+                value:
+                    session.endTime?.toDateTimeString(context.dateLocale) ??
+                    context.l10n.frontingInfoActive,
               ),
               const SizedBox(height: 8),
               Row(
@@ -412,9 +416,7 @@ class _FronterSection extends ConsumerWidget {
             Icon(
               AppIcons.helpOutline,
               size: 64,
-              color: theme.colorScheme.onSurfaceVariant.withValues(
-                alpha: 0.5,
-              ),
+              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
             ),
             const SizedBox(height: 12),
             Text(
@@ -438,47 +440,117 @@ class _FronterSection extends ConsumerWidget {
       error: (_, _) => const SizedBox.shrink(),
       data: (member) {
         if (member == null) return const SizedBox.shrink();
+        final header = resolveMemberProfileHeader(
+          member,
+          layoutOverride: MemberProfileHeaderLayout.compactBackground,
+        );
+
+        if (header.hasImage) {
+          return PrismSurface(
+            onTap: () => context.go(AppRoutePaths.settingsMember(member.id)),
+            padding: EdgeInsets.zero,
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: Image.memory(
+                    header.activeImageData!,
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    cacheWidth:
+                        (MediaQuery.sizeOf(context).width *
+                                MediaQuery.devicePixelRatioOf(context))
+                            .ceil(),
+                    semanticLabel: '${member.name} profile header',
+                    errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                  ),
+                ),
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.black.withValues(alpha: 0.28),
+                          Colors.black.withValues(alpha: 0.64),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: _FronterMemberRow(
+                    member: member,
+                    titleColor: Colors.white,
+                    subtitleColor: Colors.white.withValues(alpha: 0.82),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
 
         return PrismSurface(
           onTap: () => context.go(AppRoutePaths.settingsMember(member.id)),
           padding: const EdgeInsets.all(20),
-          child: Row(
-            children: [
-              MemberAvatar(
-                avatarImageData: member.avatarImageData,
-                memberName: member.name,
-                emoji: member.emoji,
-                customColorEnabled: member.customColorEnabled,
-                customColorHex: member.customColorHex,
-                size: 80,
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      member.name,
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    if (member.pronouns != null) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        member.pronouns!,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ),
+          child: _FronterMemberRow(member: member),
         );
       },
+    );
+  }
+}
+
+class _FronterMemberRow extends StatelessWidget {
+  const _FronterMemberRow({
+    required this.member,
+    this.titleColor,
+    this.subtitleColor,
+  });
+
+  final Member member;
+  final Color? titleColor;
+  final Color? subtitleColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        MemberAvatar(
+          avatarImageData: member.avatarImageData,
+          memberName: member.name,
+          emoji: member.emoji,
+          customColorEnabled: member.customColorEnabled,
+          customColorHex: member.customColorHex,
+          size: 80,
+          showBorder: titleColor != null,
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                member.name,
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  color: titleColor,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              if (member.pronouns != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  member.pronouns!,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: subtitleColor ?? theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

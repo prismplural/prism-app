@@ -90,7 +90,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -401,6 +401,12 @@ class AppDatabase extends _$AppDatabase {
           "WHERE pk_banner_url IS NOT NULL AND TRIM(pk_banner_url) != ''",
         );
         current = 10;
+      }
+      if (current == 10 && to >= 11) {
+        // Per-profile banner visibility. Source/layout stay configured while
+        // hidden so users can temporarily suppress a banner without losing it.
+        await migrator.addColumn(members, members.profileHeaderVisible);
+        current = 11;
       }
       if (current != to) {
         throw UnsupportedError(
