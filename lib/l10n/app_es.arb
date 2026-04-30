@@ -708,7 +708,7 @@
   "memberSectionRecentSessions": "Sesiones recientes",
   "memberSectionConversations": "Conversaciones",
   "memberSectionNotes": "Notas",
-  "memberSectionBio": "Notas",
+  "memberSectionBio": "Biografía",
   "memberSectionProxyTags": "Etiquetas de proxy",
   "memberProxyTagsManagedOnPk": "Las etiquetas de proxy se gestionan en PluralKit.",
   "memberProxyTagsEditOnPk": "Editar en PluralKit",

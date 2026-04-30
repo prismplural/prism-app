@@ -4,10 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/providers/always_present_members_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
-import 'package:prism_plurality/shared/widgets/member_avatar.dart';
-import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
+import 'package:prism_plurality/shared/widgets/glass_surface.dart';
+import 'package:prism_plurality/shared/widgets/group_member_avatar.dart';
 
-/// Pinned glass row at the top of the home-screen scroll view, surfacing
+/// Sticky glass row in the home-screen scroll view, surfacing
 /// members who are currently "always present" — either explicitly opted-in
 /// via [Member.isAlwaysFronting], or auto-promoted because their open
 /// fronting session has been running for at least
@@ -36,8 +36,10 @@ class AlwaysPresentHeader extends ConsumerWidget {
     final duration = _shortestAge(qualifying);
     final durationLabel = _formatDuration(context, duration);
     final headerLabel = context.l10n.frontingAlwaysPresentLabel(durationLabel);
-    final semanticsLabel =
-        context.l10n.frontingAlwaysPresentSemantics(names, durationLabel);
+    final semanticsLabel = context.l10n.frontingAlwaysPresentSemantics(
+      names,
+      durationLabel,
+    );
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
@@ -45,11 +47,22 @@ class AlwaysPresentHeader extends ConsumerWidget {
         container: true,
         label: semanticsLabel,
         excludeSemantics: true,
-        child: TintedGlassSurface(
+        child: GlassSurface(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
             children: [
-              _AvatarStack(members: members),
+              GroupMemberAvatar(
+                size: 36,
+                members: [
+                  for (final member in members)
+                    GroupAvatarMember(
+                      avatarImageData: member.avatarImageData,
+                      emoji: member.emoji,
+                      customColorEnabled: member.customColorEnabled,
+                      customColorHex: member.customColorHex,
+                    ),
+                ],
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -128,103 +141,7 @@ String _formatDuration(BuildContext context, Duration age) {
   return l10n.frontingAlwaysPresentDurationHours(hours < 1 ? 1 : hours);
 }
 
-/// Compact overlapping avatar row, capped at three visible avatars
-/// followed by a "+N" pill when there are more.
-///
-/// Mirrors the period-row stack in `session_history_list.dart` so the
-/// pinned header reads as the same visual family as the inline list.
-class _AvatarStack extends StatelessWidget {
-  const _AvatarStack({required this.members});
-  final List<Member> members;
-
-  static const double _avatarSize = 36;
-  static const double _overlap = 12;
-
-  @override
-  Widget build(BuildContext context) {
-    if (members.isEmpty) {
-      return const SizedBox(width: _avatarSize, height: _avatarSize);
-    }
-
-    final visible = members.take(3).toList();
-    final extra = members.length - visible.length;
-    final stackWidth = _avatarSize +
-        (visible.length - 1) * (_avatarSize - _overlap) +
-        (extra > 0 ? (_avatarSize - _overlap) : 0);
-
-    return SizedBox(
-      width: stackWidth,
-      height: _avatarSize,
-      child: Stack(
-        children: [
-          for (var i = 0; i < visible.length; i++)
-            Positioned(
-              left: i * (_avatarSize - _overlap),
-              child: _BorderedAvatar(member: visible[i]),
-            ),
-          if (extra > 0)
-            Positioned(
-              left: visible.length * (_avatarSize - _overlap),
-              child: _ExtraCountChip(count: extra),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _BorderedAvatar extends StatelessWidget {
-  const _BorderedAvatar({required this.member});
-  final Member member;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: theme.colorScheme.surface, width: 2),
-      ),
-      child: MemberAvatar(
-        avatarImageData: member.avatarImageData,
-        memberName: member.name,
-        emoji: member.emoji,
-        customColorEnabled: member.customColorEnabled,
-        customColorHex: member.customColorHex,
-        size: _AvatarStack._avatarSize,
-      ),
-    );
-  }
-}
-
-class _ExtraCountChip extends StatelessWidget {
-  const _ExtraCountChip({required this.count});
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      width: _AvatarStack._avatarSize,
-      height: _AvatarStack._avatarSize,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: theme.colorScheme.surfaceContainerHighest,
-        border: Border.all(color: theme.colorScheme.surface, width: 2),
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        '+$count',
-        style: theme.textTheme.labelSmall?.copyWith(
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-}
-
-/// Sliver delegate that hosts the [AlwaysPresentHeader] at the top of
-/// the home-screen scroll view.
+/// Sliver delegate that hosts the sticky [AlwaysPresentHeader].
 ///
 /// [count] reflects the number of qualifying members. When zero, both
 /// extents collapse to 0 so the sliver reserves no scroll space — without

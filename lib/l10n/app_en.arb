@@ -3326,9 +3326,9 @@
   "@memberSectionNotes": {
     "description": "Section header for notes on member detail screen"
   },
-  "memberSectionBio": "Notes",
+  "memberSectionBio": "Bio",
   "@memberSectionBio": {
-    "description": "Section header shown above member bio/notes field on detail screen"
+    "description": "Section header shown above member bio/about field on detail screen"
   },
   "memberSectionProxyTags": "Proxy Tags",
   "@memberSectionProxyTags": {

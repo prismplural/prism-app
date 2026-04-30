@@ -4,9 +4,12 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/fronting/providers/always_present_members_provider.dart';
 import 'package:prism_plurality/features/fronting/widgets/always_present_header.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/widgets/group_member_avatar.dart';
 
 Member _member({
   required String id,
@@ -37,6 +40,12 @@ Future<void> _pumpHeader(
     ProviderScope(
       overrides: [
         alwaysPresentMembersProvider.overrideWithValue(value),
+        terminologySettingProvider.overrideWithValue((
+          term: SystemTerminology.headmates,
+          customSingular: null,
+          customPlural: null,
+          useEnglish: false,
+        )),
       ],
       // ignore: prefer_const_constructors — `value` is non-const.
       child: MaterialApp(
@@ -65,8 +74,9 @@ void main() {
       expect(find.textContaining('Always present'), findsNothing);
     });
 
-    testWidgets('renders name + duration label for one qualifying member',
-        (tester) async {
+    testWidgets('renders name + duration label for one qualifying member', (
+      tester,
+    ) async {
       final member = _member(id: 'host', name: 'Host');
       await _pumpHeader(
         tester,
@@ -84,8 +94,9 @@ void main() {
       expect(find.text('Always present · 2 weeks'), findsOneWidget);
     });
 
-    testWidgets('joins names for two qualifying members with ampersand',
-        (tester) async {
+    testWidgets('joins names for two qualifying members with ampersand', (
+      tester,
+    ) async {
       final host = _member(id: 'host', name: 'Host');
       final friend = _member(id: 'friend', name: 'Friend');
       await _pumpHeader(
@@ -110,7 +121,7 @@ void main() {
     });
 
     testWidgets(
-      'shows +N pill when more than three members qualify (avatar cap)',
+      'uses the shared group avatar for multiple qualifying members',
       (tester) async {
         final members = [
           for (var i = 0; i < 5; i++) _member(id: 'm$i', name: 'M$i'),
@@ -127,18 +138,16 @@ void main() {
           ]),
         );
 
-        // 5 members, cap is 3 → "+2" pill in the avatar row.
-        expect(find.text('+2'), findsOneWidget);
+        expect(find.byType(GroupMemberAvatar), findsOneWidget);
+        expect(find.text('+2'), findsNothing);
       },
     );
 
-    testWidgets('renders days bucket when duration is < 1 week', (tester) async {
+    testWidgets('renders days bucket when duration is < 1 week', (
+      tester,
+    ) async {
       // Reachable only via explicit-always-fronting (auto-promote is 7d).
-      final host = _member(
-        id: 'host',
-        name: 'Host',
-        isAlwaysFronting: true,
-      );
+      final host = _member(id: 'host', name: 'Host', isAlwaysFronting: true);
       await _pumpHeader(
         tester,
         value: AsyncValue.data([
@@ -153,12 +162,10 @@ void main() {
       expect(find.text('Always present · 3 days'), findsOneWidget);
     });
 
-    testWidgets('renders hours bucket when duration is < 1 day', (tester) async {
-      final host = _member(
-        id: 'host',
-        name: 'Host',
-        isAlwaysFronting: true,
-      );
+    testWidgets('renders hours bucket when duration is < 1 day', (
+      tester,
+    ) async {
+      final host = _member(id: 'host', name: 'Host', isAlwaysFronting: true);
       await _pumpHeader(
         tester,
         value: AsyncValue.data([

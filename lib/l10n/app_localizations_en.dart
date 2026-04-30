@@ -2497,7 +2497,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memberSectionNotes => 'Notes';
 
   @override
-  String get memberSectionBio => 'Notes';
+  String get memberSectionBio => 'Bio';
 
   @override
   String get memberSectionProxyTags => 'Proxy Tags';

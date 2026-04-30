@@ -24,7 +24,6 @@ import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
-import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/features/members/widgets/member_groups_section.dart';
@@ -95,6 +94,27 @@ class _MemberDetailBody extends ConsumerWidget {
     final isFronting =
         activeSessionsAsync.whenOrNull(data: _isFronting) ?? false;
 
+    final memberAccent =
+        (member.customColorEnabled &&
+            member.customColorHex != null &&
+            member.customColorHex!.isNotEmpty)
+        ? AppColors.fromHex(member.customColorHex!)
+        : null;
+
+    Widget body = SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(24, 0, 24, NavBarInset.of(context)),
+      child: _buildBodyColumn(context, theme, isFronting),
+    );
+
+    if (memberAccent != null) {
+      body = Theme(
+        data: theme.copyWith(
+          colorScheme: theme.colorScheme.copyWith(primary: memberAccent),
+        ),
+        child: body,
+      );
+    }
+
     return PrismPageScaffold(
       topBar: PrismTopBar(
         title: '',
@@ -112,52 +132,40 @@ class _MemberDetailBody extends ConsumerWidget {
         ],
       ),
       bodyPadding: EdgeInsets.zero,
-      body: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(24, 0, 24, NavBarInset.of(context)),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 16),
-            MemberProfileHeader(member: member, isFronting: isFronting),
+      body: body,
+    );
+  }
 
-            const SizedBox(height: 24),
-
-            // Bio
-            if (member.bio != null && member.bio!.isNotEmpty)
-              _DetailSection(
-                icon: AppIcons.notesOutlined,
-                title: l10n.memberSectionBio,
-                child: MarkdownText(
-                  data: member.bio!,
-                  enabled: member.markdownEnabled,
-                  baseStyle: theme.textTheme.bodyLarge,
-                ),
-              ),
-
-            CustomFieldsDisplay(memberId: member.id),
-            NotesSection(memberId: member.id),
-
-            MemberGroupsSection(memberId: member.id, memberName: member.name),
-
-            ProxyTagsSection(
-              member: member,
-              onEditInPrism: () => _openEditSheet(context),
-            ),
-
-            _FrontingStatsSection(memberId: member.id),
-
-            const SizedBox(height: 8),
-
-            _RecentSessionsSection(memberId: member.id),
-
-            const SizedBox(height: 8),
-
-            _ConversationsSection(memberId: member.id),
-
-            const SizedBox(height: 32),
-          ],
-        ),
-      ),
+  Widget _buildBodyColumn(
+    BuildContext context,
+    ThemeData theme,
+    bool isFronting,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 16),
+        MemberProfileHeader(member: member, isFronting: isFronting),
+        if (member.bio != null && member.bio!.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          MarkdownText(
+            data: member.bio!,
+            enabled: member.markdownEnabled,
+            baseStyle: theme.textTheme.bodyLarge,
+          ),
+        ],
+        const SizedBox(height: 24),
+        CustomFieldsDisplay(memberId: member.id),
+        NotesSection(memberId: member.id),
+        MemberGroupsSection(memberId: member.id, memberName: member.name),
+        ProxyTagsSection(member: member),
+        _FrontingStatsSection(memberId: member.id),
+        const SizedBox(height: 8),
+        _RecentSessionsSection(memberId: member.id),
+        const SizedBox(height: 8),
+        _ConversationsSection(memberId: member.id),
+        const SizedBox(height: 32),
+      ],
     );
   }
 
@@ -592,54 +600,6 @@ class _StatRow extends StatelessWidget {
             value,
             style: theme.textTheme.bodyMedium?.copyWith(
               fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DetailSection extends StatelessWidget {
-  const _DetailSection({
-    required this.icon,
-    required this.title,
-    this.content,
-    this.child,
-  }) : assert(content != null || child != null);
-
-  final IconData icon;
-  final String title;
-  final String? content;
-  final Widget? child;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: 18, color: theme.colorScheme.primary),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: theme.colorScheme.primary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity,
-            child: PrismSurface(
-              padding: const EdgeInsets.all(16),
-              child: child ?? Text(content!, style: theme.textTheme.bodyLarge),
             ),
           ),
         ],
