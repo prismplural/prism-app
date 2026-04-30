@@ -402,6 +402,37 @@ class FrontingMutationService {
     );
   }
 
+  Future<MutationResult<FrontingSession>> logHistoricalSleep({
+    required DateTime startTime,
+    required DateTime endTime,
+    SleepQuality? quality,
+    String? notes,
+  }) {
+    return _mutationRunner.run<FrontingSession>(
+      actionLabel: 'Log historical sleep session',
+      action: () async {
+        if (!endTime.isAfter(startTime)) {
+          throw AppFailure.validation('end must be after start');
+        }
+        if (startTime.isAfter(DateTime.now())) {
+          throw AppFailure.validation('cannot log sleep in the future');
+        }
+        final created = FrontingSession(
+          id: _uuid.v4(),
+          startTime: startTime,
+          endTime: endTime,
+          memberId: null,
+          coFronterIds: const [],
+          notes: notes,
+          sessionType: SessionType.sleep,
+          quality: quality ?? SleepQuality.unknown,
+        );
+        await _repository.createSession(created);
+        return created;
+      },
+    );
+  }
+
   // ---------------------------------------------------------------------------
   // Edit / update
   // ---------------------------------------------------------------------------

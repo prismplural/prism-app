@@ -65,6 +65,22 @@ class SleepNotifier extends Notifier<void> {
   Future<void> deleteSleep(String id) async {
     await ref.read(frontingMutationServiceProvider).deleteSleep(id);
   }
+
+  Future<FrontingSession> logHistoricalSleep({
+    required DateTime startTime,
+    required DateTime endTime,
+    SleepQuality? quality,
+    String? notes,
+  }) =>
+      ref
+          .read(frontingMutationServiceProvider)
+          .logHistoricalSleep(
+            startTime: startTime,
+            endTime: endTime,
+            quality: quality,
+            notes: notes,
+          )
+          .then((r) => r.dataOrNull!);
 }
 
 final sleepNotifierProvider =
