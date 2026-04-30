@@ -62,6 +62,82 @@ double floatingNavBarExpandedHeight(
       (_kNavBarRowGap * overflowRows);
 }
 
+/// Pure decision used by [AppShell] to decide whether to auto-surface
+/// the per-member fronting upgrade modal, and whether the modal should
+/// be dismissible.
+///
+/// Defined as a top-level function so the rule lives in one place and
+/// can be unit-tested without spinning up the full widget tree.
+///
+/// Inputs:
+/// - [gate]: resolved [FrontingMigrationGateStatus] from
+///   [frontingMigrationGateProvider].
+/// - [rawMode]: the underlying `pending_fronting_migration_mode`
+///   string. Needed to disambiguate `needsModal` between "user has
+///   never seen the modal" (auto-present, non-dismissible) and "user
+///   already chose to defer" (banner-only, modal not auto-shown).
+///
+/// Returns:
+/// - `shouldShow == false`: gate is `complete`, or it's `needsModal`
+///   with the underlying mode being `deferred` (the home banner is the
+///   surface in that case).
+/// - `shouldShow == true, isDismissible == false`: any state where the
+///   user must pick a recovery path before runtime new-shape work
+///   resumes — `blocked`, `inProgress`, or `needsModal` with mode
+///   `notStarted` / `upgradeAndKeep` / `startFresh`.
+@visibleForTesting
+FrontingUpgradeSheetDecision frontingUpgradeSheetDecision({
+  required FrontingMigrationGateStatus gate,
+  required String? rawMode,
+}) {
+  switch (gate) {
+    case FrontingMigrationGateStatus.complete:
+      return const FrontingUpgradeSheetDecision.hidden();
+    case FrontingMigrationGateStatus.blocked:
+    case FrontingMigrationGateStatus.inProgress:
+      // Hard read-only states — modal is the only recovery surface.
+      return const FrontingUpgradeSheetDecision.show(isDismissible: false);
+    case FrontingMigrationGateStatus.needsModal:
+      // `deferred` already means the user picked "Not now" once;
+      // banner re-entry handles re-prompting them, so don't auto-pop
+      // the modal on every shell rebuild.
+      if (rawMode == FrontingMigrationService.modeDeferred) {
+        return const FrontingUpgradeSheetDecision.hidden();
+      }
+      // First-time prompt or crashed-retry sentinels
+      // (`notStarted` / `upgradeAndKeep` / `startFresh`) — present
+      // non-dismissible until the user picks something.
+      return const FrontingUpgradeSheetDecision.show(isDismissible: false);
+  }
+}
+
+/// Result of [frontingUpgradeSheetDecision].
+@immutable
+@visibleForTesting
+class FrontingUpgradeSheetDecision {
+  const FrontingUpgradeSheetDecision.hidden()
+      : shouldShow = false,
+        isDismissible = false;
+  const FrontingUpgradeSheetDecision.show({required this.isDismissible})
+      : shouldShow = true;
+
+  final bool shouldShow;
+  final bool isDismissible;
+
+  @override
+  bool operator ==(Object other) =>
+      other is FrontingUpgradeSheetDecision &&
+      other.shouldShow == shouldShow &&
+      other.isDismissible == isDismissible;
+
+  @override
+  int get hashCode => Object.hash(shouldShow, isDismissible);
+
+  @override
+  String toString() => 'FrontingUpgradeSheetDecision('
+      'shouldShow: $shouldShow, isDismissible: $isDismissible)';
+}
+
 double _measureNavBarLabelHeight({
   required List<String> labels,
   required double slotWidth,
@@ -595,24 +671,36 @@ class _AppShellState extends ConsumerState<AppShell>
     // has resolved and the lock overlay is down, so the modal renders
     // over the home tabs (not over the lock).
     //
-    // - 'notStarted' / 'blocked': non-dismissible — user MUST pick a
-    //   path, with "Not now" being the explicit defer.
-    // - 'deferred': dismissible — user already chose to defer; the
-    //   home banner reminds them, the modal re-opens on tap.
+    // We watch the resolved [frontingMigrationGateProvider] rather than
+    // the raw mode string so the policy lives at the gate provider and
+    // every consumer (PK push/poll, sync apply, this listener) agrees
+    // on what blocks runtime new-shape work. See WS1 step 4 + 5 in the
+    // remediation plan.
     //
-    // Mid-transaction sentinels ('upgradeAndKeep' / 'startFresh')
-    // indicate a crashed retry — treat as 'notStarted' for re-prompt.
-    ref.listen<AsyncValue<String>>(frontingMigrationModeProvider, (prev, next) {
-      final mode = next.value;
-      if (mode == null) return;
+    // Behavior per status:
+    // - [FrontingMigrationGateStatus.complete]: hidden.
+    // - [FrontingMigrationGateStatus.needsModal]: present non-dismissible
+    //   only when the underlying mode is `notStarted` /
+    //   `upgradeAndKeep` / `startFresh`. The deferred case is part of
+    //   the same enum value but the home banner is its surface — see
+    //   the resolver below.
+    // - [FrontingMigrationGateStatus.inProgress]: present non-dismissible.
+    //   The modal opens straight to a "Finish migration" screen that
+    //   calls `resumeCleanup()` (the Drift transaction committed but a
+    //   post-tx step failed).
+    // - [FrontingMigrationGateStatus.blocked]: present non-dismissible.
+    //   v7 onUpgrade refused the composite index because of duplicates;
+    //   the modal is the user's only recovery path.
+    ref.listen<FrontingMigrationGateStatus>(frontingMigrationGateProvider,
+        (prev, next) {
       if (!_pinCheckResolved || _locked) return;
-      _showFrontingUpgradeSheetIfNeeded(context, ref, mode);
+      final mode = ref.read(frontingMigrationModeProvider).value;
+      _showFrontingUpgradeSheetIfNeeded(context, ref, next, mode);
     });
     if (!_locked && _pinCheckResolved) {
+      final gate = ref.read(frontingMigrationGateProvider);
       final mode = ref.read(frontingMigrationModeProvider).value;
-      if (mode != null) {
-        _showFrontingUpgradeSheetIfNeeded(context, ref, mode);
-      }
+      _showFrontingUpgradeSheetIfNeeded(context, ref, gate, mode);
     }
 
     void onTabSelected(AppShellTab tab, {required bool useHaptics}) {
@@ -861,38 +949,21 @@ class _AppShellState extends ConsumerState<AppShell>
   void _showFrontingUpgradeSheetIfNeeded(
     BuildContext context,
     WidgetRef ref,
-    String mode,
+    FrontingMigrationGateStatus gate,
+    String? rawMode,
   ) {
-    // Hidden states: nothing to show.
-    if (mode == FrontingMigrationService.modeComplete) return;
-
-    // Mid-transaction modes mean a prior attempt crashed; we treat
-    // them as 'notStarted' for retry.  'blocked' (v7 onUpgrade
-    // refused the composite index) shows the modal too — the user can
-    // try migration to clear the duplicates, or defer. 'inProgress'
-    // (Codex P1 #4) means the Drift transaction committed but a
-    // post-tx step (engine reset / keychain wipe / quarantine clear)
-    // failed; the modal opens straight to a "Finish migration" screen
-    // that calls `resumeCleanup()`.
-    final isMandatory = mode == FrontingMigrationService.modeNotStarted ||
-        mode == FrontingMigrationService.modeUpgradeAndKeep ||
-        mode == FrontingMigrationService.modeStartFresh ||
-        mode == FrontingMigrationService.modeInProgress ||
-        mode == 'blocked';
-    final isDeferred = mode == FrontingMigrationService.modeDeferred;
-    if (!isMandatory && !isDeferred) return;
-
-    // Deferred mode does NOT auto-present — the home banner is the
-    // surface.  Auto-present only the first-time / crash-retry modes.
-    if (isDeferred) return;
-
+    final decision = frontingUpgradeSheetDecision(gate: gate, rawMode: rawMode);
+    if (!decision.shouldShow) return;
     if (_frontingUpgradeSheetShowing) return;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!context.mounted) return;
       if (_frontingUpgradeSheetShowing) return;
       _frontingUpgradeSheetShowing = true;
-      showFrontingUpgradeSheet(context, isDismissible: false).whenComplete(() {
+      showFrontingUpgradeSheet(
+        context,
+        isDismissible: decision.isDismissible,
+      ).whenComplete(() {
         _frontingUpgradeSheetShowing = false;
       });
     });
