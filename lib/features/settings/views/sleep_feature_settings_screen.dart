@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import 'package:prism_plurality/core/router/app_routes.dart';
 
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/features/fronting/utils/sleep_quality_l10n.dart';
@@ -160,22 +163,51 @@ class _SleepFeatureSettingsScreenState
               ),
             ),
           ),
-          PrismSection(
-            title: context.l10n.featureSleepGeneral,
-            child: PrismSectionCard(
-              padding: EdgeInsets.zero,
-              child: PrismSwitchRow(
-                icon: AppIcons.bedtimeOutlined,
-                iconColor: AppColors.sleep(theme.brightness),
-                title: context.l10n.featureSleepEnable,
-                subtitle: context.l10n.featureSleepEnableSubtitle,
-                value: sleepEnabled,
-                onChanged: (value) => ref
-                    .read(settingsNotifierProvider.notifier)
-                    .updateFeatureToggle(sleepTrackingEnabled: value),
+          if (sleepEnabled)
+            PrismSection(
+              title: context.l10n.featureSleepGeneral,
+              child: PrismSectionCard(
+                padding: EdgeInsets.zero,
+                child: Column(
+                  children: [
+                    PrismSettingsRow(
+                      icon: AppIcons.bedtimeRounded,
+                      iconColor: AppColors.sleep(theme.brightness),
+                      title: context.l10n.sleepViewAllHistory,
+                      onTap: () => context.push(AppRoutePaths.sleep),
+                    ),
+                    const Divider(height: 1, indent: 56),
+                    PrismSwitchRow(
+                      icon: AppIcons.bedtimeOutlined,
+                      iconColor: AppColors.sleep(theme.brightness),
+                      title: context.l10n.featureSleepEnable,
+                      subtitle: context.l10n.featureSleepEnableSubtitle,
+                      value: sleepEnabled,
+                      onChanged: (value) => ref
+                          .read(settingsNotifierProvider.notifier)
+                          .updateFeatureToggle(sleepTrackingEnabled: value),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            PrismSection(
+              title: context.l10n.featureSleepGeneral,
+              child: PrismSectionCard(
+                padding: EdgeInsets.zero,
+                child: PrismSwitchRow(
+                  icon: AppIcons.bedtimeOutlined,
+                  iconColor: AppColors.sleep(theme.brightness),
+                  title: context.l10n.featureSleepEnable,
+                  subtitle: context.l10n.featureSleepEnableSubtitle,
+                  value: sleepEnabled,
+                  onChanged: (value) => ref
+                      .read(settingsNotifierProvider.notifier)
+                      .updateFeatureToggle(sleepTrackingEnabled: value),
+                ),
               ),
             ),
-          ),
           if (sleepEnabled)
             PrismSection(
               title: context.l10n.featureSleepOptions,

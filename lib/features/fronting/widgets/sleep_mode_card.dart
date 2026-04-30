@@ -1,10 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
+import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart';
 import 'package:prism_plurality/features/fronting/widgets/fronting_duration_text.dart';
@@ -89,7 +91,10 @@ class _ActiveSleepCardState extends ConsumerState<_ActiveSleepCard> {
           ),
           const SizedBox(height: 6),
         ],
-        Container(
+        GestureDetector(
+          onLongPress: () => context.push(AppRoutePaths.sleep),
+          behavior: HitTestBehavior.opaque,
+          child: Container(
           decoration: BoxDecoration(
             color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(20)),
@@ -134,6 +139,7 @@ class _ActiveSleepCardState extends ConsumerState<_ActiveSleepCard> {
               ),
             ],
           ),
+        ),
         ),
       ],
     );
