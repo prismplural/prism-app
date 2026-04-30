@@ -16,6 +16,11 @@ abstract class FrontSessionComment with _$FrontSessionComment {
     DateTime? targetTime,
     // Optional author — which member wrote this comment.
     String? authorMemberId,
+    // Legacy v6 FK to fronting_sessions.id. Kept on the model so migration
+    // and import code can read the legacy column for backfill until the v8
+    // cleanup migration drops the column. New code uses targetTime instead.
+    // Removal target: 0.8.0 (drop with the v8 TableMigration rebuild).
+    String? sessionId,
   }) = _FrontSessionComment;
 
   factory FrontSessionComment.fromJson(Map<String, dynamic> json) =>

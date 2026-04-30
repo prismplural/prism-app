@@ -1,17 +1,26 @@
-/// Codex P1 #3 — `SyncRecordMixin.suppress` tests.
+/// `SyncRecordMixin` tests.
 ///
-/// Pins the suppression contract used by the per-member fronting
-/// migration:
-///   - [SyncRecordMixin.suppress] short-circuits every `syncRecord*`
-///     call so the FFI never runs while the body executes.
-///   - Outside `suppress`, the mixin behaves as before.
-///   - The flag clears even if the body throws (verified via a probe
-///     repository that records every FFI invocation).
+/// Pins two contracts:
+///
+/// 1. The suppression contract used by the per-member fronting migration:
+///    - [SyncRecordMixin.suppress] short-circuits every `syncRecord*`
+///      call so the FFI never runs while the body executes.
+///    - Outside `suppress`, the mixin behaves as before.
+///    - The flag clears even if the body throws (verified via a probe
+///      repository that records every FFI invocation).
+///
+/// 2. The best-effort failure contract (Workstream 2 step 3,
+///    remediation-plan-2026-04-30): when the underlying FFI call throws,
+///    the mixin reports to `ErrorReportingService` exactly once and
+///    swallows the exception. User data has already been persisted to
+///    Drift; sync-log emission is best-effort and must not surface as a
+///    write failure to the UI.
 library;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 
+import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 
 void main() {
@@ -106,6 +115,59 @@ void main() {
       );
     });
   });
+
+  group('SyncRecordMixin best-effort failure contract', () {
+    // Workstream 2 step 3 (remediation-plan-2026-04-30): an FFI failure
+    // must not surface to the UI. The user data has already been written
+    // to Drift; sync-log emission is best-effort, so the mixin reports
+    // once and swallows. A throwing `syncHandle` getter is the simplest
+    // way to drive the catch path in tests — the throw originates inside
+    // `_runWithConfiguredRetry` (line `final handle = syncHandle;`),
+    // propagates to the outer try/catch in each `syncRecord*` method,
+    // and gets reported via `ErrorReportingService.report`.
+
+    late List<AppError> reported;
+    late ErrorListener listener;
+
+    setUp(() {
+      reported = <AppError>[];
+      listener = (e) => reported.add(e);
+      ErrorReportingService.instance.addListener(listener);
+    });
+
+    tearDown(() {
+      ErrorReportingService.instance.removeListener(listener);
+    });
+
+    test('syncRecordCreate swallows FFI failure and reports once', () async {
+      final repo = _ThrowingHandleRepository();
+      await repo.syncRecordCreate('members', 'm1', const <String, dynamic>{});
+      expect(
+        reported.where((e) => e.message.contains('recordCreate')),
+        hasLength(1),
+        reason: 'failure must be reported exactly once per failed FFI call',
+      );
+    });
+
+    test('syncRecordUpdate swallows FFI failure and reports once', () async {
+      final repo = _ThrowingHandleRepository();
+      await repo.syncRecordUpdate('members', 'm1', const <String, dynamic>{});
+      expect(
+        reported.where((e) => e.message.contains('recordUpdate')),
+        hasLength(1),
+      );
+    });
+
+    test('syncRecordDelete swallows FFI failure and reports once', () async {
+      final repo = _ThrowingHandleRepository();
+      await repo.syncRecordDelete('members', 'm1');
+      expect(
+        reported.where((e) => e.message.contains('recordDelete')),
+        hasLength(1),
+      );
+    });
+
+  });
 }
 
 /// Test double that exposes a counter on the syncHandle getter so we
@@ -119,4 +181,15 @@ class _ProbeRepository with SyncRecordMixin {
     handleAccessCount++;
     return null;
   }
+}
+
+/// Test double whose `syncHandle` getter throws on access. The throw
+/// propagates out of `_runWithConfiguredRetry` (it happens before the
+/// inner try/catch), gets caught by the outer try/catch in
+/// `syncRecord{Create,Update,Delete}`, and exercises the best-effort
+/// log-and-swallow path.
+class _ThrowingHandleRepository with SyncRecordMixin {
+  @override
+  ffi.PrismSyncHandle? get syncHandle =>
+      throw StateError('simulated FFI failure');
 }

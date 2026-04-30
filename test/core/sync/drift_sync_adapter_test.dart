@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -158,6 +159,165 @@ void main() {
       expect(row.targetTime?.toUtc(), DateTime.utc(2026, 4, 29, 12));
       expect(row.authorMemberId, 'member-1');
       expect(row.body, 'hello');
+    },
+  );
+
+  test(
+    'front_session_comments applyFields preserves existing legacy session_id '
+    'on update',
+    () async {
+      // Issue #4 (review-2026-04-30): a v6 row arriving on a v7 device with a
+      // real session_id (FK to fronting_sessions.id) must NOT have that
+      // column clobbered to '' on the next sync update — the v8 cleanup
+      // migration is going to read this column to backfill target_time.
+      final db = database.AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+
+      // Seed a row with a legacy session_id, then apply an updated payload.
+      await db
+          .into(db.frontSessionComments)
+          .insert(
+            database.FrontSessionCommentsCompanion.insert(
+              id: 'comment-1',
+              sessionId: 'legacy-session-fk',
+              body: 'original body',
+              timestamp: DateTime.utc(2026, 4, 29, 12, 1),
+              createdAt: DateTime.utc(2026, 4, 29, 12, 2),
+            ),
+          );
+
+      final syncAdapter = buildSyncAdapterWithCompletion(db);
+      final comments = syncAdapter.adapter.entities.singleWhere(
+        (entity) => entity.tableName == 'front_session_comments',
+      );
+
+      await comments.applyFields('comment-1', {
+        'target_time': DateTime.utc(2026, 4, 29, 12).toIso8601String(),
+        'author_member_id': 'member-1',
+        'body': 'edited body',
+        'timestamp': DateTime.utc(2026, 4, 29, 12, 1).toIso8601String(),
+        'created_at': DateTime.utc(2026, 4, 29, 12, 2).toIso8601String(),
+        'is_deleted': false,
+      });
+
+      final row = await (db.select(
+        db.frontSessionComments,
+      )..where((t) => t.id.equals('comment-1'))).getSingle();
+      expect(
+        row.sessionId,
+        'legacy-session-fk',
+        reason:
+            'apply path must use Value.absent() for session_id on update so '
+            'a legacy FK survives until the v8 cleanup migration reads it',
+      );
+      expect(row.body, 'edited body');
+    },
+  );
+
+  test(
+    'fronting_sessions applyFields without pk_member_ids_json preserves the '
+    'local column value',
+    () async {
+      // Workstream 2 step 1 (remediation-plan-2026-04-30): a v7 receiver
+      // applying a payload that omits the transitional `pk_member_ids_json`
+      // field must NOT clobber whatever is on disk — that column is the
+      // input to the v8 cleanup migration's PK fan-out backfill.
+      final db = database.AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+
+      await db
+          .into(db.frontingSessions)
+          .insert(
+            database.FrontingSessionsCompanion.insert(
+              id: 'session-1',
+              startTime: DateTime.utc(2026, 4, 29, 10),
+              pkMemberIdsJson: const Value('["pkmem-1","pkmem-2"]'),
+            ),
+          );
+
+      final syncAdapter = buildSyncAdapterWithCompletion(db);
+      final sessions = syncAdapter.adapter.entities.singleWhere(
+        (entity) => entity.tableName == 'fronting_sessions',
+      );
+
+      // Apply an update payload that does NOT include pk_member_ids_json.
+      await sessions.applyFields('session-1', {
+        'start_time': DateTime.utc(2026, 4, 29, 10).toIso8601String(),
+        'session_type': 0,
+        'is_health_kit_import': false,
+        'is_deleted': false,
+      });
+
+      final row = await (db.select(
+        db.frontingSessions,
+      )..where((t) => t.id.equals('session-1'))).getSingle();
+      expect(
+        row.pkMemberIdsJson,
+        '["pkmem-1","pkmem-2"]',
+        reason:
+            'omitted transitional fields must use Value.absent() in the '
+            'companion so the local column survives',
+      );
+    },
+  );
+
+  test(
+    'fronting_sessions applyFields writes pk_member_ids_json when the '
+    'payload carries it',
+    () async {
+      final db = database.AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+
+      final syncAdapter = buildSyncAdapterWithCompletion(db);
+      final sessions = syncAdapter.adapter.entities.singleWhere(
+        (entity) => entity.tableName == 'fronting_sessions',
+      );
+
+      await sessions.applyFields('session-1', {
+        'start_time': DateTime.utc(2026, 4, 29, 10).toIso8601String(),
+        'session_type': 0,
+        'is_health_kit_import': false,
+        'is_deleted': false,
+        'pk_member_ids_json': '["pkmem-7"]',
+      });
+
+      final row = await (db.select(
+        db.frontingSessions,
+      )..where((t) => t.id.equals('session-1'))).getSingle();
+      expect(row.pkMemberIdsJson, '["pkmem-7"]');
+    },
+  );
+
+  test(
+    'fronting_sessions toSyncFields emits pk_member_ids_json when present on '
+    'the local row',
+    () async {
+      final db = database.AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+
+      final syncAdapter = buildSyncAdapterWithCompletion(db);
+      final sessions = syncAdapter.adapter.entities.singleWhere(
+        (entity) => entity.tableName == 'fronting_sessions',
+      );
+
+      final row = database.FrontingSession(
+        id: 'session-2',
+        startTime: DateTime.utc(2026, 4, 29, 10),
+        endTime: null,
+        memberId: null,
+        coFronterIds: '[]',
+        sessionType: 0,
+        quality: null,
+        isHealthKitImport: false,
+        pluralkitUuid: null,
+        pkImportSource: null,
+        pkFileSwitchId: null,
+        pkMemberIdsJson: '["pkmem-9"]',
+        isDeleted: false,
+      );
+
+      final fields = sessions.toSyncFields(row);
+      expect(fields['pk_member_ids_json'], '["pkmem-9"]');
     },
   );
 

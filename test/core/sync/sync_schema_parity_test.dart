@@ -462,7 +462,10 @@ const _writeOmittedFields = <String, Set<String>>{
   // session deletion; not part of the regular create/update field map.
   // `pluralkit_uuid` is set in _sessionFields, but for SP-only sessions
   //   may not be present; still it appears in the helper.
-  'fronting_sessions': {'delete_push_started_at'},
+  // `pk_member_ids_json` — transitional legacy field (see sync_schema.dart).
+  //   v7+ does not write to it from the repository, but the adapter must
+  //   still round-trip the column for legacy peers. Removal target: 0.8.0.
+  'fronting_sessions': {'delete_push_started_at', 'pk_member_ids_json'},
 };
 
 /// Extracts the set of string keys (e.g. `'created_at':`) from the body of a
