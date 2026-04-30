@@ -67,4 +67,58 @@ void main() {
       handle.dispose();
     }
   });
+
+  testWidgets(
+    'BlurPopupAnchor excludes keyboard inset when choosing direction',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(400, 800));
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      addTearDown(() {
+        tester.view.resetViewInsets();
+        return tester.binding.setSurfaceSize(null);
+      });
+
+      const anchorKey = Key('keyboard-aware-anchor');
+
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: const [Locale('en'), Locale('es')],
+          home: Scaffold(
+            body: Stack(
+              children: [
+                Positioned(
+                  top: 340,
+                  left: 160,
+                  child: BlurPopupAnchor(
+                    width: 180,
+                    maxHeight: 260,
+                    itemCount: 6,
+                    itemBuilder: (context, index, close) => SizedBox(
+                      height: 44,
+                      child: Center(child: Text('Menu $index')),
+                    ),
+                    child: const SizedBox(
+                      key: anchorKey,
+                      width: 80,
+                      height: 40,
+                      child: Center(child: Text('Anchor')),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Anchor'));
+      await tester.pumpAndSettle();
+
+      final anchorTop = tester.getTopLeft(find.byKey(anchorKey)).dy;
+      final firstMenuTop = tester.getTopLeft(find.text('Menu 0')).dy;
+
+      expect(firstMenuTop, lessThan(anchorTop));
+    },
+  );
 }
