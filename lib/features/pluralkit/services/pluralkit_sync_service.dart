@@ -40,6 +40,76 @@ bool isPluralKitSwitchUuid(String? value) {
       _pluralKitSwitchUuidPattern.hasMatch(trimmed);
 }
 
+/// Snapshot of one local member's currently-active PluralKit presence
+/// during a diff sweep (WS3 step 3).
+///
+/// Replaces the previous `Map<String, String> openRowIds` representation,
+/// which only carried the row id and silently lost track of presences
+/// whose row writes were skipped (e.g. tombstoned-row collisions). The
+/// struct keeps every active local member as a peg in the active map so
+/// later leaver events have something to match against, while
+/// distinguishing presences that own a real fronting-session row from
+/// those that don't.
+///
+/// Fields:
+/// - [pkMemberUuid]: the member's PluralKit UUID at sweep start. Carried
+///   so PR E2 can re-derive ids without re-scanning the reverse map.
+///   Nullable because a DB-rebuilt presence may belong to a local member
+///   whose PK mapping was dropped between writes.
+/// - [startedAt]: when the presence began (the entrant switch's timestamp,
+///   or the open row's start_time when reconstituted from the DB).
+/// - [rowId]: the fronting-session row id, or `null` if no row was written
+///   for this presence (tombstoned-row collision; the diff sweep correctly
+///   skips both the entrant write and the future leaver close).
+/// - [isTombstonedCollision]: `true` when the entrant write was skipped
+///   because the deterministic row id collided with a soft-deleted row
+///   during incremental sync. PR E1 only records the flag — PR E2 will
+///   use it to fix findings #7 and #33.
+///
+/// Equality is value-based so tests and assertions can compare snapshots
+/// without caring about identity.
+@immutable
+class _PkActivePresence {
+  const _PkActivePresence({
+    required this.localMemberId,
+    required this.pkMemberUuid,
+    required this.startedAt,
+    this.rowId,
+    this.isTombstonedCollision = false,
+  });
+
+  final String localMemberId;
+  final String? pkMemberUuid;
+  final DateTime startedAt;
+  final String? rowId;
+  final bool isTombstonedCollision;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is _PkActivePresence &&
+          localMemberId == other.localMemberId &&
+          pkMemberUuid == other.pkMemberUuid &&
+          startedAt == other.startedAt &&
+          rowId == other.rowId &&
+          isTombstonedCollision == other.isTombstonedCollision;
+
+  @override
+  int get hashCode => Object.hash(
+        localMemberId,
+        pkMemberUuid,
+        startedAt,
+        rowId,
+        isTombstonedCollision,
+      );
+
+  @override
+  String toString() =>
+      '_PkActivePresence(localMemberId: $localMemberId, '
+      'pkMemberUuid: $pkMemberUuid, startedAt: $startedAt, '
+      'rowId: $rowId, isTombstonedCollision: $isTombstonedCollision)';
+}
+
 // ---------------------------------------------------------------------------
 // Sync state
 // ---------------------------------------------------------------------------
@@ -1848,16 +1918,17 @@ class PluralKitSyncService {
       for (final entry in uuidToLocalId.entries) entry.value: entry.key,
     };
 
-    // Track which open PK rows exist for each local member ID.
-    // Key: local member ID → row ID of the currently-open session.
+    // Track active PluralKit presence by local member ID. Each entry is a
+    // [_PkActivePresence] snapshot — see the class docstring for why we
+    // moved off the previous `Map<String, String> openRowIds`.
     //
-    // TODO(PR-E1): Replace `Map<String, String> openRowIds` with the richer
-    // active-state struct described in WS3 step 3 (carries pkMemberUuid,
-    // startedAt, isTombstonedCollision). Out of scope for PR D — the
-    // pagination/cursor/id-derivation fixes here don't depend on it.
-    final openRowIds = <String, String>{};
+    // The keys of this map ARE the running prev-active set; we recompute
+    // entrants/leavers off `active.keys` each switch. The DB-rebuild
+    // pre-loop below populates one entry per currently-open PK row, and
+    // the entrant/leaver paths below add and remove entries.
+    final active = <String, _PkActivePresence>{};
 
-    // Populate openRowIds from the database (for crash-resume on incremental).
+    // Populate `active` from the database (for crash-resume on incremental).
     // For full re-import, all open rows were pre-closed so this starts empty.
     if (prevActive.isNotEmpty) {
       final currentSessions = await _frontingSessionRepository.getAllSessions();
@@ -1866,7 +1937,16 @@ class PluralKitSyncService {
             isPluralKitSwitchUuid(s.pluralkitUuid) &&
             !s.isDeleted &&
             s.memberId != null) {
-          openRowIds[s.memberId!] = s.id;
+          final localId = s.memberId!;
+          active[localId] = _PkActivePresence(
+            localMemberId: localId,
+            // Reverse-map at rebuild time. May be null if the member's
+            // PK mapping was dropped between writes — that's fine for
+            // E1; only E2 readers will care.
+            pkMemberUuid: pkUuidByLocalId[localId],
+            startedAt: s.startTime,
+            rowId: s.id,
+          );
         }
       }
     }
@@ -1903,8 +1983,13 @@ class PluralKitSyncService {
       }
       unmappedCount += switchUnmapped;
 
-      final entrants = newActive.difference(prevActive);
-      final leavers = prevActive.difference(newActive);
+      // `active` carries the running prev-active set as its key space. The
+      // first iteration's keys come from the DB-rebuild block above (or
+      // are empty for full re-import); subsequent iterations see whatever
+      // the previous iteration's entrant/leaver block left behind.
+      final prevActiveKeys = active.keys.toSet();
+      final entrants = newActive.difference(prevActiveKeys);
+      final leavers = prevActiveKeys.difference(newActive);
 
       // Atomic transaction: opens + closes for this switch.
       await _syncDao.attachedDatabase.transaction(() async {
@@ -1958,18 +2043,44 @@ class PluralKitSyncService {
             pkFileSwitchId: pkFileSwitchId,
           );
           if (openRowId == null) {
+            // Tombstoned-row collision: the entrant's deterministic row id
+            // pointed at a soft-deleted row, so we (correctly) didn't write
+            // a fronting-session row for this presence. We still record the
+            // member as active — without a rowId — so a future leaver event
+            // has a peg to match against and so the prev-active key set
+            // stays in sync with the loop's view of who is fronting.
+            //
+            // TODO(PR-E2): use isTombstonedCollision to actually reopen or
+            // re-derive a row for this presence so it isn't dropped from
+            // history (review findings #7 / #33).
+            active[localId] = _PkActivePresence(
+              localMemberId: localId,
+              pkMemberUuid: pkUuidByLocalId[localId],
+              startedAt: sw.timestamp,
+              isTombstonedCollision: true,
+            );
             continue;
           }
-          openRowIds[localId] = openRowId;
+          active[localId] = _PkActivePresence(
+            localMemberId: localId,
+            pkMemberUuid: pkUuidByLocalId[localId],
+            startedAt: sw.timestamp,
+            rowId: openRowId,
+          );
         }
 
         // Close rows for leavers.
         for (final localId in leavers) {
-          final rowId = openRowIds[localId];
+          final presence = active[localId];
+          final rowId = presence?.rowId;
           if (rowId != null) {
             await _frontingSessionRepository.endSession(rowId, sw.timestamp);
-            openRowIds.remove(localId);
           }
+          // Always drop the presence: with no rowId there's nothing to
+          // close, but the member is no longer active either way. This
+          // matches the prior behavior where leavers were unconditionally
+          // removed from `prevActive` via `prevActive = newActive`.
+          active.remove(localId);
         }
       });
 
@@ -1985,7 +2096,10 @@ class PluralKitSyncService {
         batchNewestId = sw.id;
       }
 
-      prevActive = newActive;
+      // `active` already reflects newActive after the entrant + leaver
+      // blocks above — the previous `prevActive = newActive` reassignment
+      // is no longer needed now that `active.keys` is the single source
+      // of truth for "who is fronting going into the next switch".
     }
 
     if (advanceCursor && batchNewestTs != null && batchNewestId != null) {
