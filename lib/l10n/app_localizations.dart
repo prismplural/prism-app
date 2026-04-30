@@ -2840,16 +2840,16 @@ abstract class AppLocalizations {
   /// **'Changing who\'s speaking in chat also logs a front'**
   String get featureChatLogFrontSubtitle;
 
-  /// Toggle title: use PluralKit proxy tags to author single messages
+  /// Toggle title: use proxy tags to author single messages
   ///
   /// In en, this message translates to:
   /// **'Use proxy tags to author messages'**
   String get featureChatProxyTagAuthoring;
 
-  /// Toggle subtitle: explains proxy-tag authoring, mentions PluralKit and case sensitivity
+  /// Toggle subtitle: explains proxy-tag authoring and case sensitivity
   ///
   /// In en, this message translates to:
-  /// **'Type a PluralKit proxy tag (e.g. A:) to author as that {termSingularLower} for one message. Case-sensitive.'**
+  /// **'Type a proxy tag (e.g. A:) to author as that {termSingularLower} for one message. Case-sensitive.'**
   String featureChatProxyTagAuthoringSubtitle(String termSingularLower);
 
   /// Chip label shown above the chat composer when a proxy tag matches the draft
@@ -4298,7 +4298,7 @@ abstract class AppLocalizations {
   /// **'Notes'**
   String get memberSectionBio;
 
-  /// Section header for PluralKit proxy tags on member detail screen
+  /// Section header for proxy tags on member surfaces
   ///
   /// In en, this message translates to:
   /// **'Proxy Tags'**
@@ -4316,7 +4316,55 @@ abstract class AppLocalizations {
   /// **'Edit on PluralKit'**
   String get memberProxyTagsEditOnPk;
 
-  /// Shown when a PK-linked member has no proxy tags
+  /// Help text for local proxy tag editing on the member edit sheet and detail screen
+  ///
+  /// In en, this message translates to:
+  /// **'Saved in Prism for chat proxy-tag authoring. Linked members sync with PluralKit when push sync is enabled.'**
+  String get memberProxyTagsLocalDescription;
+
+  /// Button label that opens Prism's local member editor for proxy tags
+  ///
+  /// In en, this message translates to:
+  /// **'Edit proxy tags'**
+  String get memberProxyTagsEditInPrism;
+
+  /// Button label for adding a proxy tag row
+  ///
+  /// In en, this message translates to:
+  /// **'Add proxy tag'**
+  String get memberProxyTagsAdd;
+
+  /// Tooltip and semantic label for removing a proxy tag row
+  ///
+  /// In en, this message translates to:
+  /// **'Remove proxy tag'**
+  String get memberProxyTagsRemove;
+
+  /// Text field label for the proxy tag prefix
+  ///
+  /// In en, this message translates to:
+  /// **'Prefix'**
+  String get memberProxyTagPrefixLabel;
+
+  /// Example proxy tag prefix hint
+  ///
+  /// In en, this message translates to:
+  /// **'A:'**
+  String get memberProxyTagPrefixHint;
+
+  /// Text field label for the proxy tag suffix
+  ///
+  /// In en, this message translates to:
+  /// **'Suffix'**
+  String get memberProxyTagSuffixLabel;
+
+  /// Example proxy tag suffix hint
+  ///
+  /// In en, this message translates to:
+  /// **'-a'**
+  String get memberProxyTagSuffixHint;
+
+  /// Shown when a member has no proxy tags
   ///
   /// In en, this message translates to:
   /// **'No proxy tags set.'**

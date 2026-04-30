@@ -2090,11 +2090,11 @@
   },
   "featureChatProxyTagAuthoring": "Use proxy tags to author messages",
   "@featureChatProxyTagAuthoring": {
-    "description": "Toggle title: use PluralKit proxy tags to author single messages"
+    "description": "Toggle title: use proxy tags to author single messages"
   },
-  "featureChatProxyTagAuthoringSubtitle": "Type a PluralKit proxy tag (e.g. A:) to author as that {termSingularLower} for one message. Case-sensitive.",
+  "featureChatProxyTagAuthoringSubtitle": "Type a proxy tag (e.g. A:) to author as that {termSingularLower} for one message. Case-sensitive.",
   "@featureChatProxyTagAuthoringSubtitle": {
-    "description": "Toggle subtitle: explains proxy-tag authoring, mentions PluralKit and case sensitivity",
+    "description": "Toggle subtitle: explains proxy-tag authoring and case sensitivity",
     "placeholders": {
       "termSingularLower": {
         "type": "String"
@@ -3268,7 +3268,7 @@
   },
   "memberSectionProxyTags": "Proxy Tags",
   "@memberSectionProxyTags": {
-    "description": "Section header for PluralKit proxy tags on member detail screen"
+    "description": "Section header for proxy tags on member surfaces"
   },
   "memberProxyTagsManagedOnPk": "Proxy tags are managed on PluralKit.",
   "@memberProxyTagsManagedOnPk": {
@@ -3278,9 +3278,41 @@
   "@memberProxyTagsEditOnPk": {
     "description": "Button label that opens the member's PluralKit dashboard page"
   },
+  "memberProxyTagsLocalDescription": "Saved in Prism for chat proxy-tag authoring. Linked members sync with PluralKit when push sync is enabled.",
+  "@memberProxyTagsLocalDescription": {
+    "description": "Help text for local proxy tag editing on the member edit sheet and detail screen"
+  },
+  "memberProxyTagsEditInPrism": "Edit proxy tags",
+  "@memberProxyTagsEditInPrism": {
+    "description": "Button label that opens Prism's local member editor for proxy tags"
+  },
+  "memberProxyTagsAdd": "Add proxy tag",
+  "@memberProxyTagsAdd": {
+    "description": "Button label for adding a proxy tag row"
+  },
+  "memberProxyTagsRemove": "Remove proxy tag",
+  "@memberProxyTagsRemove": {
+    "description": "Tooltip and semantic label for removing a proxy tag row"
+  },
+  "memberProxyTagPrefixLabel": "Prefix",
+  "@memberProxyTagPrefixLabel": {
+    "description": "Text field label for the proxy tag prefix"
+  },
+  "memberProxyTagPrefixHint": "A:",
+  "@memberProxyTagPrefixHint": {
+    "description": "Example proxy tag prefix hint"
+  },
+  "memberProxyTagSuffixLabel": "Suffix",
+  "@memberProxyTagSuffixLabel": {
+    "description": "Text field label for the proxy tag suffix"
+  },
+  "memberProxyTagSuffixHint": "-a",
+  "@memberProxyTagSuffixHint": {
+    "description": "Example proxy tag suffix hint"
+  },
   "memberProxyTagsEmpty": "No proxy tags set.",
   "@memberProxyTagsEmpty": {
-    "description": "Shown when a PK-linked member has no proxy tags"
+    "description": "Shown when a member has no proxy tags"
   },
   "memberEditTooltip": "Edit {termSingularLower}",
   "@memberEditTooltip": {

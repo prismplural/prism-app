@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
@@ -190,6 +192,13 @@ class PkBidirectionalService {
         }
       }
     }
+    if (_pushField(config.proxyTags, direction)) {
+      final localTags = _normalizeProxyTags(local.proxyTagsJson);
+      final pkTags = _normalizeProxyTags(pk.proxyTagsJson);
+      // Null means "no local opinion" so first-link push paths don't clear
+      // existing PK tags. An explicit [] is a local clear and may be pushed.
+      if (localTags != null && localTags != pkTags) return true;
+    }
     return false;
   }
 
@@ -205,9 +214,6 @@ class PkBidirectionalService {
   /// when any pull-direction field differs. Returns whether anything was
   /// applied (so the caller can bump the "pulled" counter).
   ///
-  /// Note: `proxyTags` is always pull-only — there is no push path. It is
-  /// applied here regardless of direction config (guarded by overall
-  /// `direction.pullEnabled`, which the caller already checks).
   Future<bool> _applyPkChanges(
     domain.Member local,
     PKMember pk,
@@ -280,11 +286,13 @@ class PkBidirectionalService {
       }
     }
 
-    // proxy_tags is pull-only — Prism has no editor UI for proxy tags, so
-    // PK is authoritative.
-    if (pk.proxyTagsJson != null && local.proxyTagsJson != pk.proxyTagsJson) {
-      updated = updated.copyWith(proxyTagsJson: pk.proxyTagsJson);
-      changed = true;
+    if (_pullField(config.proxyTags, direction)) {
+      final localTags = _normalizeProxyTags(local.proxyTagsJson);
+      final pkTags = _normalizeProxyTags(pk.proxyTagsJson);
+      if (pkTags != null && localTags != pkTags) {
+        updated = updated.copyWith(proxyTagsJson: pk.proxyTagsJson);
+        changed = true;
+      }
     }
 
     final bannerCache = await _bannerCacheService.resolve(
@@ -347,5 +355,21 @@ class PkBidirectionalService {
     if (value == null) return null;
     final trimmed = value.trim();
     return trimmed.isEmpty ? null : trimmed;
+  }
+
+  /// Normalize PK proxy tag JSON for comparison.
+  ///
+  /// Returns null when the field is absent or malformed. Returns `"[]"` for
+  /// an explicit empty tag list so the sync layer can distinguish "unknown"
+  /// from "clear all proxy tags."
+  String? _normalizeProxyTags(String? value) {
+    if (value == null) return null;
+    try {
+      final decoded = jsonDecode(value);
+      if (decoded is! List) return null;
+      return jsonEncode(decoded);
+    } catch (_) {
+      return null;
+    }
   }
 }

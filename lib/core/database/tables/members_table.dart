@@ -24,8 +24,9 @@ class Members extends Table {
   // PK `birthday` raw wire string (YYYY-MM-DD). Sentinel `0004-MM-DD` means
   // the year is hidden. Stored as-is, parsed only for display.
   TextColumn get birthday => text().nullable()();
-  // PK `proxy_tags` raw JSON array: `[{"prefix": "...", "suffix": "..."}]`.
-  // Read-only in Prism — no editor UI.
+  // Proxy tags JSON array, PK-compatible:
+  // `[{"prefix": "...", "suffix": "..."}]`.
+  // May be pulled from PluralKit sync or edited locally in Prism.
   TextColumn get proxyTagsJson => text().nullable()();
   // PK `banner` URL. Stored for future banner UI; no bytes download yet.
   TextColumn get pkBannerUrl => text().nullable()();

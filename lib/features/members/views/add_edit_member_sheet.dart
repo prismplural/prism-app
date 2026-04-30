@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/utils/birthday.dart';
+import 'package:prism_plurality/features/members/utils/proxy_tag.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
@@ -17,6 +18,8 @@ import 'package:prism_plurality/shared/utils/avatar_image_picker.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_emoji_picker.dart';
+import 'package:prism_plurality/shared/widgets/prism_field_icon_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_picker_text_field_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
@@ -54,6 +57,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
   late final TextEditingController _ageController;
   late final TextEditingController _colorHexController;
   late final TextEditingController _displayNameController;
+  final List<_ProxyTagDraft> _proxyTagDrafts = [];
 
   bool _isAdmin = false;
   bool _markdownEnabled = false;
@@ -86,6 +90,9 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
     );
     _colorHexController = TextEditingController(text: m?.customColorHex ?? '');
     _displayNameController = TextEditingController(text: m?.displayName ?? '');
+    _proxyTagDrafts
+      ..clear()
+      ..addAll(parseProxyTags(m?.proxyTagsJson).map(_ProxyTagDraft.fromTag));
     final parsedBirthday = parseBirthday(m?.birthday);
     _birthday = parsedBirthday;
     _birthdayHideYear =
@@ -116,6 +123,9 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
     _ageController.dispose();
     _colorHexController.dispose();
     _displayNameController.dispose();
+    for (final draft in _proxyTagDrafts) {
+      draft.dispose();
+    }
     super.dispose();
   }
 
@@ -124,6 +134,27 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
     if (bytes != null && mounted) {
       setState(() => _avatarImageData = bytes);
     }
+  }
+
+  String? _proxyTagsJson() => encodeProxyTags(
+    _proxyTagDrafts.map(
+      (draft) => ProxyTag(
+        prefix: draft.prefixController.text,
+        suffix: draft.suffixController.text,
+      ),
+    ),
+    emptyAsJsonList: widget.member?.proxyTagsJson != null,
+  );
+
+  void _addProxyTag() {
+    setState(() => _proxyTagDrafts.add(_ProxyTagDraft()));
+  }
+
+  void _removeProxyTag(_ProxyTagDraft draft) {
+    setState(() {
+      _proxyTagDrafts.remove(draft);
+      draft.dispose();
+    });
   }
 
   Member _previewMember() {
@@ -151,6 +182,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
           emoji: emoji.isNotEmpty ? emoji : '❔',
           age: age,
           birthday: birthdayWire,
+          proxyTagsJson: _proxyTagsJson(),
           displayName: displayName.isNotEmpty ? displayName : null,
           avatarImageData: _avatarImageData,
           customColorEnabled: _customColorEnabled,
@@ -219,6 +251,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
     final birthdayWire = _birthday == null
         ? null
         : formatBirthdayWire(_birthday!, hideYear: _birthdayHideYear);
+    final proxyTagsJson = _proxyTagsJson();
 
     try {
       final notifier = ref.read(membersNotifierProvider.notifier);
@@ -237,6 +270,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
           customColorHex: colorHex,
           displayName: displayName.isNotEmpty ? displayName : null,
           birthday: birthdayWire,
+          proxyTagsJson: proxyTagsJson,
           profileHeaderSource: _profileHeaderSource,
           profileHeaderLayout: _profileHeaderLayout,
           profileHeaderVisible: _profileHeaderVisible,
@@ -256,6 +290,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
           customColorHex: colorHex,
           displayName: displayName.isNotEmpty ? displayName : null,
           birthday: birthdayWire,
+          proxyTagsJson: proxyTagsJson,
           profileHeaderSource: _profileHeaderSource,
           profileHeaderLayout: _profileHeaderLayout,
           profileHeaderVisible: _profileHeaderVisible,
@@ -451,6 +486,14 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
                   ),
                   const SizedBox(height: 16),
 
+                  _ProxyTagsEditor(
+                    drafts: _proxyTagDrafts,
+                    onAdd: _addProxyTag,
+                    onRemove: _removeProxyTag,
+                    onChanged: () => setState(() {}),
+                  ),
+                  const SizedBox(height: 16),
+
                   PrismTextField(
                     controller: _pronounsController,
                     labelText: l10n.memberPronounsLabel,
@@ -556,6 +599,174 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ProxyTagDraft {
+  _ProxyTagDraft({String? prefix, String? suffix})
+    : prefixController = TextEditingController(text: prefix ?? ''),
+      suffixController = TextEditingController(text: suffix ?? '');
+
+  factory _ProxyTagDraft.fromTag(ProxyTag tag) =>
+      _ProxyTagDraft(prefix: tag.prefix, suffix: tag.suffix);
+
+  final TextEditingController prefixController;
+  final TextEditingController suffixController;
+
+  void dispose() {
+    prefixController.dispose();
+    suffixController.dispose();
+  }
+}
+
+class _ProxyTagsEditor extends StatelessWidget {
+  const _ProxyTagsEditor({
+    required this.drafts,
+    required this.onAdd,
+    required this.onRemove,
+    required this.onChanged,
+  });
+
+  final List<_ProxyTagDraft> drafts;
+  final VoidCallback onAdd;
+  final ValueChanged<_ProxyTagDraft> onRemove;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = context.l10n;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(AppIcons.tag, size: 18, color: theme.colorScheme.primary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                l10n.memberSectionProxyTags,
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: theme.colorScheme.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            PrismButton(
+              label: l10n.memberProxyTagsAdd,
+              icon: AppIcons.add,
+              tone: PrismButtonTone.subtle,
+              density: PrismControlDensity.compact,
+              onPressed: onAdd,
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          l10n.memberProxyTagsLocalDescription,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (drafts.isEmpty)
+          Text(
+            l10n.memberProxyTagsEmpty,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          )
+        else
+          for (final draft in drafts) ...[
+            _ProxyTagDraftRow(
+              draft: draft,
+              onRemove: () => onRemove(draft),
+              onChanged: onChanged,
+            ),
+            if (draft != drafts.last) const SizedBox(height: 12),
+          ],
+      ],
+    );
+  }
+}
+
+class _ProxyTagDraftRow extends StatelessWidget {
+  const _ProxyTagDraftRow({
+    required this.draft,
+    required this.onRemove,
+    required this.onChanged,
+  });
+
+  final _ProxyTagDraft draft;
+  final VoidCallback onRemove;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+
+    final removeButton = PrismFieldIconButton(
+      icon: AppIcons.deleteOutline,
+      tooltip: l10n.memberProxyTagsRemove,
+      semanticLabel: l10n.memberProxyTagsRemove,
+      color: theme.colorScheme.error,
+      onPressed: onRemove,
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 430;
+        final prefixField = PrismTextField(
+          controller: draft.prefixController,
+          labelText: l10n.memberProxyTagPrefixLabel,
+          hintText: l10n.memberProxyTagPrefixHint,
+          onChanged: (_) => onChanged(),
+          textInputAction: TextInputAction.next,
+        );
+        final suffixField = PrismTextField(
+          controller: draft.suffixController,
+          labelText: l10n.memberProxyTagSuffixLabel,
+          hintText: l10n.memberProxyTagSuffixHint,
+          onChanged: (_) => onChanged(),
+        );
+
+        if (compact) {
+          return Column(
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: prefixField),
+                  const SizedBox(width: 8),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: removeButton,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              suffixField,
+            ],
+          );
+        }
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: prefixField),
+            const SizedBox(width: 12),
+            Expanded(child: suffixField),
+            const SizedBox(width: 8),
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: removeButton,
+            ),
+          ],
+        );
+      },
     );
   }
 }

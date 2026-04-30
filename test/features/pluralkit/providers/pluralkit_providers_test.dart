@@ -13,42 +13,41 @@ void _installSecureStorageStub() {
   final store = <String, String?>{};
   TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
       .setMockMethodCallHandler(
-    const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
-    (MethodCall call) async {
-      switch (call.method) {
-        case 'write':
-          store[call.arguments['key'] as String] =
-              call.arguments['value'] as String?;
-          return null;
-        case 'read':
-          return store[call.arguments['key'] as String];
-        case 'delete':
-          store.remove(call.arguments['key'] as String);
-          return null;
-        case 'containsKey':
-          return store.containsKey(call.arguments['key'] as String);
-        default:
-          return null;
-      }
-    },
-  );
+        const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
+        (MethodCall call) async {
+          switch (call.method) {
+            case 'write':
+              store[call.arguments['key'] as String] =
+                  call.arguments['value'] as String?;
+              return null;
+            case 'read':
+              return store[call.arguments['key'] as String];
+            case 'delete':
+              store.remove(call.arguments['key'] as String);
+              return null;
+            case 'containsKey':
+              return store.containsKey(call.arguments['key'] as String);
+            default:
+              return null;
+          }
+        },
+      );
 }
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test(
-    'pkSyncDirectionNotifier.setDirection includes displayName and birthday '
-    '(regression B4)',
+    'pkSyncDirectionNotifier.setDirection includes every member field',
     () async {
       _installSecureStorageStub();
       final db = AppDatabase(NativeDatabase.memory());
       addTearDown(db.close);
       final dao = PluralKitSyncDao(db);
 
-      final container = ProviderContainer(overrides: [
-        pluralKitSyncDaoProvider.overrideWithValue(dao),
-      ]);
+      final container = ProviderContainer(
+        overrides: [pluralKitSyncDaoProvider.overrideWithValue(dao)],
+      );
       addTearDown(container.dispose);
 
       // Trigger build (which async-loads existing state), then wait for the
@@ -66,8 +65,11 @@ void main() {
       final row = await dao.getSyncState();
       final config = parseFieldSyncConfig(row.fieldSyncConfig);
       final global = config['__global__'];
-      expect(global, isNotNull,
-          reason: 'setDirection must persist a __global__ config entry');
+      expect(
+        global,
+        isNotNull,
+        reason: 'setDirection must persist a __global__ config entry',
+      );
 
       // Every field — including displayName and birthday — must reflect the
       // user's chosen direction. Before the fix both silently fell back to
@@ -78,6 +80,7 @@ void main() {
       expect(global.description, PkSyncDirection.pushOnly);
       expect(global.color, PkSyncDirection.pushOnly);
       expect(global.birthday, PkSyncDirection.pushOnly);
+      expect(global.proxyTags, PkSyncDirection.pushOnly);
     },
   );
 }
