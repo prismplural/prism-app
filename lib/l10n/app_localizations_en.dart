@@ -8171,6 +8171,80 @@ class AppLocalizationsEn extends AppLocalizations {
   String get frontingUpgradeBannerMessage => 'Tap to continue the upgrade.';
 
   @override
+  String get frontingUpgradeResumeCleanupHeadline => 'Finish migration';
+
+  @override
+  String get frontingUpgradeResumeCleanupBody =>
+      'A previous upgrade attempt finished the data migration but couldn\'t complete the sync reset. Tap below to finish — no data will be touched, only the sync credentials.';
+
+  @override
+  String get frontingUpgradeResumeCleanupButton => 'Finish migration';
+
+  @override
+  String get frontingUpgradePkTokenDialogTitle => 'PluralKit token';
+
+  @override
+  String get frontingUpgradePkTokenDialogMessage =>
+      'Import PluralKit fronting history now. This uses the token once and does not turn on PluralKit sync.';
+
+  @override
+  String get frontingUpgradePkTokenLabel => 'PluralKit token';
+
+  @override
+  String get frontingUpgradePkTokenHint => 'Paste your PluralKit token';
+
+  @override
+  String get frontingUpgradePkTokenImport => 'Import';
+
+  @override
+  String get frontingUpgradePkImportButton => 'Import with PluralKit token';
+
+  @override
+  String get frontingUpgradePkImportIdle =>
+      'PluralKit history can be re-imported here with a temporary token. The token is used once and PluralKit sync stays off.';
+
+  @override
+  String get frontingUpgradePkImportRunning =>
+      'Re-importing PluralKit history...';
+
+  @override
+  String get frontingUpgradePkImportImported =>
+      'PluralKit history was re-imported.';
+
+  @override
+  String frontingUpgradePkImportTombstoneLine(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count deleted rows were left as-is to honor the local delete.',
+      one: '1 deleted row was left as-is to honor the local delete.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String frontingUpgradePkImportZeroLengthLine(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          '$count zero-length closes were skipped (PluralKit listed an enter and a leave at the same instant).',
+      one:
+          '1 zero-length close was skipped (PluralKit listed an enter and a leave at the same instant).',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get frontingUpgradePkImportNeedsToken =>
+      'No stored PluralKit token was found. You can import with a temporary token here without turning on PluralKit sync.';
+
+  @override
+  String frontingUpgradePkImportFailed(String error) {
+    return 'PluralKit re-import failed: $error';
+  }
+
+  @override
   String pkFileImportMembersLabel(String termPlural) {
     return '$termPlural';
   }
@@ -8192,6 +8266,34 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get pkFileImportImportButton => 'Import';
+
+  @override
+  String get pkFileImportSwitchesMatchedLabel => 'Switches matched with token';
+
+  @override
+  String get pkFileImportNewerSwitchesLabel => 'Newer switches from PluralKit';
+
+  @override
+  String get pkFileImportFrontingImportedNote =>
+      'Fronting history was imported through the token-backed PluralKit path so Prism can keep using canonical switch IDs.';
+
+  @override
+  String pkFileImportFrontingImportedNoteWithNewer(int count) {
+    return 'Fronting history was imported through the token-backed PluralKit path so Prism can keep using canonical switch IDs. Prism also imported $count newer switches from PluralKit that were not in the export.';
+  }
+
+  @override
+  String get pkFileImportFrontingNotImportedNote =>
+      'Fronting history was not imported because the export and PluralKit API did not match safely.';
+
+  @override
+  String get pkFileImportDoneButton => 'Done';
+
+  @override
+  String get pkFileImportFailedHeadline => 'Import failed';
+
+  @override
+  String get pkFileImportTryAgainButton => 'Try again';
 
   @override
   String get pkFileImportPickDifferentButton => 'Pick a different file';

@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:prism_plurality/core/database/app_database.dart';
+import 'package:prism_plurality/data/utils/sync_datetime.dart';
 
 typedef PkGroupCatchupRecordCallback =
     Future<void> Function({
@@ -195,10 +196,10 @@ class PkGroupSyncV2CatchupService {
       'parent_group_id': row.parentGroupId,
       'group_type': row.groupType,
       'filter_rules': row.filterRules,
-      'created_at': _toSyncUtc(row.createdAt),
+      'created_at': toSyncUtc(row.createdAt),
       'pluralkit_id': row.pluralkitId,
       'pluralkit_uuid': row.pluralkitUuid,
-      'last_seen_from_pk_at': _toSyncUtcOrNull(row.lastSeenFromPkAt),
+      'last_seen_from_pk_at': toSyncUtcOrNull(row.lastSeenFromPkAt),
       'is_deleted': row.isDeleted,
     };
   }
@@ -235,13 +236,3 @@ class PkGroupSyncV2CatchupResult {
 
   bool get succeeded => error == null;
 }
-
-/// Normalizes a DateTime to UTC ISO-8601 (Z-suffixed) for sync wire emission.
-///
-/// Local DateTimes serialize with no offset/Z, so a peer in a different
-/// timezone would parse the value as their own local time and shift the
-/// absolute moment by the timezone delta on every sync. Mirrors the
-/// `_dateTimeToSyncString` helper in `core/sync/drift_sync_adapter.dart`.
-String _toSyncUtc(DateTime dt) => dt.toUtc().toIso8601String();
-
-String? _toSyncUtcOrNull(DateTime? dt) => dt?.toUtc().toIso8601String();

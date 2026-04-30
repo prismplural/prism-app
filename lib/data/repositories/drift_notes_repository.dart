@@ -3,12 +3,11 @@ import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/core/database/daos/notes_dao.dart';
 import 'package:prism_plurality/data/mappers/note_mapper.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
+import 'package:prism_plurality/data/utils/sync_datetime.dart';
 import 'package:prism_plurality/domain/models/note.dart' as domain;
 import 'package:prism_plurality/domain/repositories/notes_repository.dart';
 
-class DriftNotesRepository
-    with SyncRecordMixin
-    implements NotesRepository {
+class DriftNotesRepository with SyncRecordMixin implements NotesRepository {
   final NotesDao _dao;
   final ffi.PrismSyncHandle? _syncHandle;
 
@@ -27,8 +26,10 @@ class DriftNotesRepository
   }
 
   @override
-  Stream<List<domain.Note>> watchRecentNotesForMember(String memberId,
-      {int limit = 5}) {
+  Stream<List<domain.Note>> watchRecentNotesForMember(
+    String memberId, {
+    int limit = 5,
+  }) {
     return _dao
         .watchRecentNotesForMember(memberId, limit: limit)
         .map((rows) => rows.map(NoteMapper.toDomain).toList());
@@ -36,9 +37,9 @@ class DriftNotesRepository
 
   @override
   Stream<List<domain.Note>> watchAllNotes() {
-    return _dao
-        .watchAllNotes()
-        .map((rows) => rows.map(NoteMapper.toDomain).toList());
+    return _dao.watchAllNotes().map(
+      (rows) => rows.map(NoteMapper.toDomain).toList(),
+    );
   }
 
   @override
@@ -86,18 +87,10 @@ class DriftNotesRepository
       'body': n.body,
       'color_hex': n.colorHex,
       'member_id': n.memberId,
-      'date': _toSyncUtc(n.date),
-      'created_at': _toSyncUtc(n.createdAt),
-      'modified_at': _toSyncUtc(n.modifiedAt),
+      'date': toSyncUtc(n.date),
+      'created_at': toSyncUtc(n.createdAt),
+      'modified_at': toSyncUtc(n.modifiedAt),
       'is_deleted': false,
     };
   }
 }
-
-/// Normalizes a DateTime to UTC ISO-8601 (Z-suffixed) for sync wire emission.
-///
-/// Local DateTimes serialize with no offset/Z, so a peer in a different
-/// timezone would parse the value as their own local time and shift the
-/// absolute moment by the timezone delta on every sync. Mirrors the
-/// `_dateTimeToSyncString` helper in `core/sync/drift_sync_adapter.dart`.
-String _toSyncUtc(DateTime dt) => dt.toUtc().toIso8601String();

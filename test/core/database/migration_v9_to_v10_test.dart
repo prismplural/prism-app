@@ -68,7 +68,7 @@ void main() {
     });
 
     test(
-      'v9 -> v10 adds header columns and infers source from pk banner URL',
+      'v9 -> v10 adds header columns and leaves source default for URL-only rows',
       () async {
         final tempDir = Directory.systemTemp.createTempSync(
           'prism_migration_v9_to_v10_',
@@ -84,10 +84,14 @@ void main() {
         addTearDown(upgraded.close);
         await upgraded.customSelect('SELECT 1').get();
 
+        // At v9 the rows have a URL but no resolved image bytes (the
+        // column doesn't even exist yet). After the v10 migration the
+        // image-data column is null, so the predicate must NOT flip the
+        // source to PluralKit — a URL alone is not a useful banner.
         final withBanner = await (upgraded.select(
           upgraded.members,
         )..where((m) => m.id.equals('member-with-banner'))).getSingle();
-        expect(withBanner.profileHeaderSource, 0);
+        expect(withBanner.profileHeaderSource, 1);
         expect(withBanner.profileHeaderLayout, 0);
         expect(withBanner.profileHeaderVisible, isTrue);
         expect(withBanner.profileHeaderImageData, isNull);
@@ -104,7 +108,7 @@ void main() {
         final version = await upgraded
             .customSelect('PRAGMA user_version')
             .get();
-        expect(version.first.read<int>('user_version'), 12);
+        expect(version.first.read<int>('user_version'), 13);
       },
     );
   });

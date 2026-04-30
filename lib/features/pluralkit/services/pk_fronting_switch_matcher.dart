@@ -1,5 +1,9 @@
+import 'package:collection/collection.dart';
+
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_file_parser.dart';
+
+const _stringListEq = ListEquality<String>();
 
 /// Canonical identity for matching file-export switches to API switches.
 ///
@@ -59,7 +63,7 @@ class PkFrontingSwitchKey implements Comparable<PkFrontingSwitchKey> {
     return identical(this, other) ||
         other is PkFrontingSwitchKey &&
             timestampMicrosecondsUtc == other.timestampMicrosecondsUtc &&
-            _stringListsEqual(memberIds, other.memberIds);
+            _stringListEq.equals(memberIds, other.memberIds);
   }
 
   @override
@@ -369,12 +373,4 @@ class _FileSwitchRange {
     return key.timestampMicrosecondsUtc < minTimestampMicrosecondsUtc ||
         key.timestampMicrosecondsUtc > maxTimestampMicrosecondsUtc;
   }
-}
-
-bool _stringListsEqual(List<String> left, List<String> right) {
-  if (left.length != right.length) return false;
-  for (var i = 0; i < left.length; i++) {
-    if (left[i] != right[i]) return false;
-  }
-  return true;
 }

@@ -67,12 +67,13 @@ Future<void> _seedV6Db(
       'ALTER TABLE system_settings '
       'DROP COLUMN pending_fronting_migration_mode',
     );
-    // Codex pass 2 #B-NEW3 — folded into the v6→v7 block, so drop the
-    // column here before re-opening so the addColumn call can run.
+    // Regression: the cleanup-substate column is folded into the v6 -> v7
+    // block, so drop the column here before reopening so addColumn can run.
     rawDb.execute(
       'ALTER TABLE system_settings '
       'DROP COLUMN pending_fronting_migration_cleanup_substate',
     );
+    rawDb.execute('DROP INDEX IF EXISTS idx_comments_target_time');
     rawDb.execute('ALTER TABLE front_session_comments DROP COLUMN target_time');
     rawDb.execute(
       'ALTER TABLE front_session_comments DROP COLUMN author_member_id',

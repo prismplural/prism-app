@@ -202,7 +202,7 @@ class DriftSystemSettingsRepository
   @override
   Future<void> updateHasCompletedOnboarding(bool value) async {
     await _dao.updateHasCompletedOnboarding(value);
-    // Device-local onboarding state must not sync to newly paired devices.
+    // Onboarding completion is device-local; not synced to peers.
   }
 
   // Enum fields

@@ -43,14 +43,12 @@ import 'package:prism_plurality/features/settings/providers/device_management_pr
 /// migration service or the modal's "Not now" handler — propagates to
 /// every watcher without manual invalidation.
 final frontingMigrationModeProvider = StreamProvider<String>((ref) {
-  final repo = ref.watch(systemSettingsRepositoryProvider);
-  // Bridge the domain stream — the SystemSettings model doesn't expose
+  // The SystemSettings domain model doesn't expose
   // pendingFrontingMigrationMode (it's lifecycle infrastructure, not a
-  // user-facing setting), so we read directly off the DAO row instead.
+  // user-facing setting), so we watch the DAO row directly. The DAO's
+  // watchSettings() stream emits whenever the singleton row is reseeded
+  // or any column on it changes, which is sufficient for this gate.
   final dao = ref.watch(databaseProvider).systemSettingsDao;
-  // Touch the repo so the stream rebuilds when the singleton row reseeds.
-  // ignore: unused_local_variable
-  final _ = repo;
   return dao.watchSettings().map((row) => row.pendingFrontingMigrationMode);
 });
 
@@ -97,9 +95,13 @@ final frontingMigrationModeProvider = StreamProvider<String>((ref) {
 /// persisted, this device WAS configured for sync at some point, even
 /// if the live handle isn't currently up.
 final pairedDeviceCountProvider = FutureProvider<int>((ref) async {
+  // Watch the primary gating dependency only; secondary deps are read
+  // to avoid mid-await re-execution when an unrelated dependency ticks.
+  // The existing structure is safe in practice, but watch-after-await is
+  // fragile.
   final handle = await ref.watch(prismSyncHandleProvider.future);
   if (handle == null) {
-    final syncId = await ref.watch(syncIdProvider.future);
+    final syncId = await ref.read(syncIdProvider.future);
     if (syncId == null || syncId.isEmpty) {
       // Never paired.
       return 0;
@@ -114,7 +116,7 @@ final pairedDeviceCountProvider = FutureProvider<int>((ref) async {
   // Reuse the existing device list provider — it already handles the
   // FFI listDevices call and credential plumbing.  Errors bubble; the
   // modal treats those as "assume paired."
-  final devices = await ref.watch(deviceListProvider.future);
+  final devices = await ref.read(deviceListProvider.future);
   // The list includes self; conservatively treat any active peers as
   // "paired."  Revoked/stale entries don't count.
   return devices.where((d) => d.isActive).length > 1
@@ -173,8 +175,9 @@ enum FrontingMigrationGateStatus {
 /// because the upstream provider's failure mode is "DAO read failed"
 /// and we'd rather hold off on PK push than risk pushing a row that
 /// belongs to the still-unmigrated set.
-final frontingMigrationGateProvider =
-    Provider<FrontingMigrationGateStatus>((ref) {
+final frontingMigrationGateProvider = Provider<FrontingMigrationGateStatus>((
+  ref,
+) {
   final modeAsync = ref.watch(frontingMigrationModeProvider);
   return modeAsync.when(
     data: (mode) {
@@ -212,27 +215,27 @@ final frontingMigrationWritesBlockedProvider = Provider<bool>((ref) {
 /// repositories already exposed by [databaseProviders].  Built as a
 /// `Provider` (not a `FutureProvider`) so the modal can `ref.read` it
 /// synchronously when the user taps "Continue."
-final frontingMigrationRunnerProvider = Provider<FrontingMigrationService>(
-  (ref) {
-    return FrontingMigrationService(
-      db: ref.watch(databaseProvider),
-      memberRepository: ref.watch(memberRepositoryProvider),
-      frontingSessionRepository:
-          ref.watch(frontingSessionRepositoryProvider),
-      frontSessionCommentsRepository:
-          ref.watch(frontSessionCommentsRepositoryProvider),
-      dataExportService: ref.watch(dataExportServiceProvider),
-      // Handle may be null when sync isn't configured — the service
-      // skips the FFI reset step in that case (solo mode).
-      syncHandle: ref.watch(prismSyncHandleProvider).value,
-      // Wipe platform-keychain credentials after the FFI reset so a
-      // backgrounded app between reset and next launch can't re-seed
-      // Rust with the credentials that should have been wiped.
-      wipeSyncKeychain: wipeFrontingMigrationSyncKeychain,
-      // Resume path uses `clear_sync_state(sync_id)` — surgical
-      // storage-only wipe that doesn't touch the engine, so we don't
-      // need a configure-briefly path that risked a relay reconnect.
-      readSyncId: readFrontingMigrationSyncId,
-    );
-  },
-);
+final frontingMigrationRunnerProvider = Provider<FrontingMigrationService>((
+  ref,
+) {
+  return FrontingMigrationService(
+    db: ref.watch(databaseProvider),
+    memberRepository: ref.watch(memberRepositoryProvider),
+    frontingSessionRepository: ref.watch(frontingSessionRepositoryProvider),
+    frontSessionCommentsRepository: ref.watch(
+      frontSessionCommentsRepositoryProvider,
+    ),
+    dataExportService: ref.watch(dataExportServiceProvider),
+    // Handle may be null when sync isn't configured — the service
+    // skips the FFI reset step in that case (solo mode).
+    syncHandle: ref.watch(prismSyncHandleProvider).value,
+    // Wipe platform-keychain credentials after the FFI reset so a
+    // backgrounded app between reset and next launch can't re-seed
+    // Rust with the credentials that should have been wiped.
+    wipeSyncKeychain: wipeFrontingMigrationSyncKeychain,
+    // Resume path uses `clear_sync_state(sync_id)` — surgical
+    // storage-only wipe that doesn't touch the engine, so we don't
+    // need a configure-briefly path that risked a relay reconnect.
+    readSyncId: readFrontingMigrationSyncId,
+  );
+});

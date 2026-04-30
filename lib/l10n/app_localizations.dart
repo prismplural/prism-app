@@ -12963,7 +12963,7 @@ abstract class AppLocalizations {
   /// **'This may take a moment. Don\'t close the app.'**
   String get frontingUpgradeRunningSubtitle;
 
-  /// Title shown while the PRISM1 backup is being exported (codex P1 #8)
+  /// Title shown while the PRISM1 backup is being exported
   ///
   /// In en, this message translates to:
   /// **'Building your backup…'**
@@ -12975,7 +12975,7 @@ abstract class AppLocalizations {
   /// **'Encrypting your fronting data so you can keep a copy.'**
   String get frontingUpgradeExportingSubtitle;
 
-  /// Headline of the durable-save gate that runs before the destructive migration step (codex P1 #8)
+  /// Headline of the durable-save gate that runs before the destructive migration step
   ///
   /// In en, this message translates to:
   /// **'Backup ready'**
@@ -13134,6 +13134,102 @@ abstract class AppLocalizations {
   /// **'Tap to continue the upgrade.'**
   String get frontingUpgradeBannerMessage;
 
+  /// Headline shown when a previous migration attempt left the device mid-cleanup and the modal is offering to finish the remaining sync-credential reset.
+  ///
+  /// In en, this message translates to:
+  /// **'Finish migration'**
+  String get frontingUpgradeResumeCleanupHeadline;
+
+  /// Body text on the resume-cleanup step explaining what the remaining work touches.
+  ///
+  /// In en, this message translates to:
+  /// **'A previous upgrade attempt finished the data migration but couldn\'t complete the sync reset. Tap below to finish — no data will be touched, only the sync credentials.'**
+  String get frontingUpgradeResumeCleanupBody;
+
+  /// Primary button on the resume-cleanup step.
+  ///
+  /// In en, this message translates to:
+  /// **'Finish migration'**
+  String get frontingUpgradeResumeCleanupButton;
+
+  /// Title of the dialog that asks for a PluralKit token after the migration finishes, used to re-import PK fronting history.
+  ///
+  /// In en, this message translates to:
+  /// **'PluralKit token'**
+  String get frontingUpgradePkTokenDialogTitle;
+
+  /// Body of the post-migration PluralKit token dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Import PluralKit fronting history now. This uses the token once and does not turn on PluralKit sync.'**
+  String get frontingUpgradePkTokenDialogMessage;
+
+  /// Field label inside the post-migration PluralKit token dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'PluralKit token'**
+  String get frontingUpgradePkTokenLabel;
+
+  /// Field placeholder inside the post-migration PluralKit token dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste your PluralKit token'**
+  String get frontingUpgradePkTokenHint;
+
+  /// Confirm button on the post-migration PluralKit token dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Import'**
+  String get frontingUpgradePkTokenImport;
+
+  /// Button on the post-migration success screen that opens the PK token dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Import with PluralKit token'**
+  String get frontingUpgradePkImportButton;
+
+  /// Idle hint shown on the post-migration success screen before the user opts into a one-shot PK re-import.
+  ///
+  /// In en, this message translates to:
+  /// **'PluralKit history can be re-imported here with a temporary token. The token is used once and PluralKit sync stays off.'**
+  String get frontingUpgradePkImportIdle;
+
+  /// Status line shown while the post-migration PluralKit re-import is running.
+  ///
+  /// In en, this message translates to:
+  /// **'Re-importing PluralKit history...'**
+  String get frontingUpgradePkImportRunning;
+
+  /// Confirmation line shown after a successful post-migration PluralKit re-import.
+  ///
+  /// In en, this message translates to:
+  /// **'PluralKit history was re-imported.'**
+  String get frontingUpgradePkImportImported;
+
+  /// Optional follow-on line on the post-migration success screen reporting tombstoned rows the corrective re-import declined to resurrect.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 deleted row was left as-is to honor the local delete.} other{{count} deleted rows were left as-is to honor the local delete.}}'**
+  String frontingUpgradePkImportTombstoneLine(int count);
+
+  /// Optional follow-on line reporting zero-length presence skips during the post-migration PluralKit re-import.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 zero-length close was skipped (PluralKit listed an enter and a leave at the same instant).} other{{count} zero-length closes were skipped (PluralKit listed an enter and a leave at the same instant).}}'**
+  String frontingUpgradePkImportZeroLengthLine(int count);
+
+  /// Status line shown when the post-migration PluralKit re-import needs a token from the user.
+  ///
+  /// In en, this message translates to:
+  /// **'No stored PluralKit token was found. You can import with a temporary token here without turning on PluralKit sync.'**
+  String get frontingUpgradePkImportNeedsToken;
+
+  /// Status line shown when the post-migration PluralKit re-import errors out.
+  ///
+  /// In en, this message translates to:
+  /// **'PluralKit re-import failed: {error}'**
+  String frontingUpgradePkImportFailed(String error);
+
   /// PluralKit file import preview/result row label for the count of members. Uses the user's terminology.
   ///
   /// In en, this message translates to:
@@ -13169,6 +13265,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Import'**
   String get pkFileImportImportButton;
+
+  /// PluralKit file import result row label for switches reconciled against the API by the token-backed import path.
+  ///
+  /// In en, this message translates to:
+  /// **'Switches matched with token'**
+  String get pkFileImportSwitchesMatchedLabel;
+
+  /// PluralKit file import result row label for API-only switches outside the export's range.
+  ///
+  /// In en, this message translates to:
+  /// **'Newer switches from PluralKit'**
+  String get pkFileImportNewerSwitchesLabel;
+
+  /// Note shown on the import-complete screen when fronting history was imported via the token path.
+  ///
+  /// In en, this message translates to:
+  /// **'Fronting history was imported through the token-backed PluralKit path so Prism can keep using canonical switch IDs.'**
+  String get pkFileImportFrontingImportedNote;
+
+  /// Variant of the imported note that also reports the count of newer API-only switches.
+  ///
+  /// In en, this message translates to:
+  /// **'Fronting history was imported through the token-backed PluralKit path so Prism can keep using canonical switch IDs. Prism also imported {count} newer switches from PluralKit that were not in the export.'**
+  String pkFileImportFrontingImportedNoteWithNewer(int count);
+
+  /// Note shown on the import-complete screen when fronting history was not imported.
+  ///
+  /// In en, this message translates to:
+  /// **'Fronting history was not imported because the export and PluralKit API did not match safely.'**
+  String get pkFileImportFrontingNotImportedNote;
+
+  /// Primary button on the PluralKit file import complete screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get pkFileImportDoneButton;
+
+  /// Headline on the PluralKit file import error screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Import failed'**
+  String get pkFileImportFailedHeadline;
+
+  /// Button on the PluralKit file import error screen that resets the flow.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again'**
+  String get pkFileImportTryAgainButton;
 
   /// PluralKit file import: secondary action button on the preview screen to choose a different file
   ///

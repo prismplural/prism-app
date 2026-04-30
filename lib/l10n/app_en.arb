@@ -8607,12 +8607,12 @@
   "@frontingUpgradeRunningSubtitle": { "description": "Subtitle shown while the migration is running" },
 
   "frontingUpgradeExporting": "Building your backup…",
-  "@frontingUpgradeExporting": { "description": "Title shown while the PRISM1 backup is being exported (codex P1 #8)" },
+  "@frontingUpgradeExporting": { "description": "Title shown while the PRISM1 backup is being exported" },
   "frontingUpgradeExportingSubtitle": "Encrypting your fronting data so you can keep a copy.",
   "@frontingUpgradeExportingSubtitle": { "description": "Subtitle shown while the PRISM1 backup is being exported" },
 
   "frontingUpgradeBackupReadyHeadline": "Backup ready",
-  "@frontingUpgradeBackupReadyHeadline": { "description": "Headline of the durable-save gate that runs before the destructive migration step (codex P1 #8)" },
+  "@frontingUpgradeBackupReadyHeadline": { "description": "Headline of the durable-save gate that runs before the destructive migration step" },
   "frontingUpgradeBackupReadyBody": "Save this backup somewhere you'll be able to find it later — outside the app. Without it, you can't recover your old data if anything goes wrong.",
   "@frontingUpgradeBackupReadyBody": { "description": "Body text on the durable-save gate explaining why saving the file is important" },
   "frontingUpgradeBackupSaveAs": "Save backup…",
@@ -8709,6 +8709,56 @@
   "frontingUpgradeBannerMessage": "Tap to continue the upgrade.",
   "@frontingUpgradeBannerMessage": { "description": "Home-screen banner message for deferred upgrade" },
 
+  "frontingUpgradeResumeCleanupHeadline": "Finish migration",
+  "@frontingUpgradeResumeCleanupHeadline": { "description": "Headline shown when a previous migration attempt left the device mid-cleanup and the modal is offering to finish the remaining sync-credential reset." },
+  "frontingUpgradeResumeCleanupBody": "A previous upgrade attempt finished the data migration but couldn't complete the sync reset. Tap below to finish — no data will be touched, only the sync credentials.",
+  "@frontingUpgradeResumeCleanupBody": { "description": "Body text on the resume-cleanup step explaining what the remaining work touches." },
+  "frontingUpgradeResumeCleanupButton": "Finish migration",
+  "@frontingUpgradeResumeCleanupButton": { "description": "Primary button on the resume-cleanup step." },
+
+  "frontingUpgradePkTokenDialogTitle": "PluralKit token",
+  "@frontingUpgradePkTokenDialogTitle": { "description": "Title of the dialog that asks for a PluralKit token after the migration finishes, used to re-import PK fronting history." },
+  "frontingUpgradePkTokenDialogMessage": "Import PluralKit fronting history now. This uses the token once and does not turn on PluralKit sync.",
+  "@frontingUpgradePkTokenDialogMessage": { "description": "Body of the post-migration PluralKit token dialog." },
+  "frontingUpgradePkTokenLabel": "PluralKit token",
+  "@frontingUpgradePkTokenLabel": { "description": "Field label inside the post-migration PluralKit token dialog." },
+  "frontingUpgradePkTokenHint": "Paste your PluralKit token",
+  "@frontingUpgradePkTokenHint": { "description": "Field placeholder inside the post-migration PluralKit token dialog." },
+  "frontingUpgradePkTokenImport": "Import",
+  "@frontingUpgradePkTokenImport": { "description": "Confirm button on the post-migration PluralKit token dialog." },
+
+  "frontingUpgradePkImportButton": "Import with PluralKit token",
+  "@frontingUpgradePkImportButton": { "description": "Button on the post-migration success screen that opens the PK token dialog." },
+  "frontingUpgradePkImportIdle": "PluralKit history can be re-imported here with a temporary token. The token is used once and PluralKit sync stays off.",
+  "@frontingUpgradePkImportIdle": { "description": "Idle hint shown on the post-migration success screen before the user opts into a one-shot PK re-import." },
+  "frontingUpgradePkImportRunning": "Re-importing PluralKit history...",
+  "@frontingUpgradePkImportRunning": { "description": "Status line shown while the post-migration PluralKit re-import is running." },
+  "frontingUpgradePkImportImported": "PluralKit history was re-imported.",
+  "@frontingUpgradePkImportImported": { "description": "Confirmation line shown after a successful post-migration PluralKit re-import." },
+  "frontingUpgradePkImportTombstoneLine": "{count, plural, =1{1 deleted row was left as-is to honor the local delete.} other{{count} deleted rows were left as-is to honor the local delete.}}",
+  "@frontingUpgradePkImportTombstoneLine": {
+    "description": "Optional follow-on line on the post-migration success screen reporting tombstoned rows the corrective re-import declined to resurrect.",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "frontingUpgradePkImportZeroLengthLine": "{count, plural, =1{1 zero-length close was skipped (PluralKit listed an enter and a leave at the same instant).} other{{count} zero-length closes were skipped (PluralKit listed an enter and a leave at the same instant).}}",
+  "@frontingUpgradePkImportZeroLengthLine": {
+    "description": "Optional follow-on line reporting zero-length presence skips during the post-migration PluralKit re-import.",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "frontingUpgradePkImportNeedsToken": "No stored PluralKit token was found. You can import with a temporary token here without turning on PluralKit sync.",
+  "@frontingUpgradePkImportNeedsToken": { "description": "Status line shown when the post-migration PluralKit re-import needs a token from the user." },
+  "frontingUpgradePkImportFailed": "PluralKit re-import failed: {error}",
+  "@frontingUpgradePkImportFailed": {
+    "description": "Status line shown when the post-migration PluralKit re-import errors out.",
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+
   "pkFileImportMembersLabel": "{termPlural}",
   "@pkFileImportMembersLabel": {
     "description": "PluralKit file import preview/result row label for the count of members. Uses the user's terminology.",
@@ -8745,6 +8795,35 @@
   "@pkFileImportImportButton": {
     "description": "PluralKit file import: primary action button on the preview screen"
   },
+  "pkFileImportSwitchesMatchedLabel": "Switches matched with token",
+  "@pkFileImportSwitchesMatchedLabel": {
+    "description": "PluralKit file import result row label for switches reconciled against the API by the token-backed import path."
+  },
+  "pkFileImportNewerSwitchesLabel": "Newer switches from PluralKit",
+  "@pkFileImportNewerSwitchesLabel": {
+    "description": "PluralKit file import result row label for API-only switches outside the export's range."
+  },
+  "pkFileImportFrontingImportedNote": "Fronting history was imported through the token-backed PluralKit path so Prism can keep using canonical switch IDs.",
+  "@pkFileImportFrontingImportedNote": {
+    "description": "Note shown on the import-complete screen when fronting history was imported via the token path."
+  },
+  "pkFileImportFrontingImportedNoteWithNewer": "Fronting history was imported through the token-backed PluralKit path so Prism can keep using canonical switch IDs. Prism also imported {count} newer switches from PluralKit that were not in the export.",
+  "@pkFileImportFrontingImportedNoteWithNewer": {
+    "description": "Variant of the imported note that also reports the count of newer API-only switches.",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "pkFileImportFrontingNotImportedNote": "Fronting history was not imported because the export and PluralKit API did not match safely.",
+  "@pkFileImportFrontingNotImportedNote": {
+    "description": "Note shown on the import-complete screen when fronting history was not imported."
+  },
+  "pkFileImportDoneButton": "Done",
+  "@pkFileImportDoneButton": { "description": "Primary button on the PluralKit file import complete screen." },
+  "pkFileImportFailedHeadline": "Import failed",
+  "@pkFileImportFailedHeadline": { "description": "Headline on the PluralKit file import error screen." },
+  "pkFileImportTryAgainButton": "Try again",
+  "@pkFileImportTryAgainButton": { "description": "Button on the PluralKit file import error screen that resets the flow." },
   "pkFileImportPickDifferentButton": "Pick a different file",
   "@pkFileImportPickDifferentButton": {
     "description": "PluralKit file import: secondary action button on the preview screen to choose a different file"

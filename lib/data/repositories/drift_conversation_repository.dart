@@ -5,6 +5,7 @@ import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/core/database/daos/conversations_dao.dart';
 import 'package:prism_plurality/data/mappers/conversation_mapper.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
+import 'package:prism_plurality/data/utils/sync_datetime.dart';
 import 'package:prism_plurality/domain/models/conversation.dart' as domain;
 import 'package:prism_plurality/domain/repositories/conversation_repository.dart';
 
@@ -157,7 +158,7 @@ class DriftConversationRepository
     // so a peer in a different timezone would parse the value as local and
     // shift the absolute moment by the timezone delta on every sync.
     final json = jsonEncode(
-      timestamps.map((k, v) => MapEntry(k, _toSyncUtc(v))),
+      timestamps.map((k, v) => MapEntry(k, toSyncUtc(v))),
     );
     await _dao.updateLastReadTimestamps(conversationId, json);
     await syncRecordUpdate(_table, conversationId, {
@@ -197,11 +198,11 @@ class DriftConversationRepository
 
   Map<String, dynamic> _conversationFields(domain.Conversation c) {
     final lastReadTimestampsJson = jsonEncode(
-      c.lastReadTimestamps.map((k, v) => MapEntry(k, _toSyncUtc(v))),
+      c.lastReadTimestamps.map((k, v) => MapEntry(k, toSyncUtc(v))),
     );
     return {
-      'created_at': _toSyncUtc(c.createdAt),
-      'last_activity_at': _toSyncUtc(c.lastActivityAt),
+      'created_at': toSyncUtc(c.createdAt),
+      'last_activity_at': toSyncUtc(c.lastActivityAt),
       'title': c.title,
       'emoji': c.emoji,
       'is_direct_message': c.isDirectMessage,
@@ -217,12 +218,3 @@ class DriftConversationRepository
     };
   }
 }
-
-/// Normalizes a DateTime to UTC ISO-8601 (Z-suffixed) for sync wire emission.
-///
-/// Local DateTimes serialize with no offset/Z, so a peer in a different
-/// timezone would parse the value as their own local time and shift the
-/// absolute moment by the timezone delta on every sync. Routing every
-/// DateTime through here mirrors the `_dateTimeToSyncString` helper in
-/// `core/sync/drift_sync_adapter.dart`.
-String _toSyncUtc(DateTime dt) => dt.toUtc().toIso8601String();

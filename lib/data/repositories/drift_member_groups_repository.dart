@@ -9,6 +9,7 @@ import 'package:prism_plurality/core/database/daos/member_groups_dao.dart';
 import 'package:prism_plurality/data/mappers/member_group_mapper.dart';
 import 'package:prism_plurality/data/mappers/member_group_entry_mapper.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
+import 'package:prism_plurality/data/utils/sync_datetime.dart';
 import 'package:prism_plurality/domain/models/member.dart' as member_domain;
 import 'package:prism_plurality/domain/models/member_group.dart' as domain;
 import 'package:prism_plurality/domain/models/member_group_entry.dart'
@@ -498,10 +499,10 @@ class DriftMemberGroupsRepository
       'parent_group_id': row.parentGroupId,
       'group_type': row.groupType,
       'filter_rules': row.filterRules,
-      'created_at': _toSyncUtc(row.createdAt),
+      'created_at': toSyncUtc(row.createdAt),
       'pluralkit_id': row.pluralkitId,
       'pluralkit_uuid': row.pluralkitUuid,
-      'last_seen_from_pk_at': _toSyncUtcOrNull(row.lastSeenFromPkAt),
+      'last_seen_from_pk_at': toSyncUtcOrNull(row.lastSeenFromPkAt),
       'is_deleted': row.isDeleted,
     };
   }
@@ -575,17 +576,7 @@ class _NoopMemberRepository implements MemberRepository {
 
   @override
   Future<({member_domain.Member member, bool wasCreated})>
-      ensureUnknownSentinelMember() => throw UnsupportedError(
-            '_NoopMemberRepository does not support ensureUnknownSentinelMember',
-          );
+  ensureUnknownSentinelMember() => throw UnsupportedError(
+    '_NoopMemberRepository does not support ensureUnknownSentinelMember',
+  );
 }
-
-/// Normalizes a DateTime to UTC ISO-8601 (Z-suffixed) for sync wire emission.
-///
-/// Local DateTimes serialize with no offset/Z, so a peer in a different
-/// timezone would parse the value as their own local time and shift the
-/// absolute moment by the timezone delta on every sync. Mirrors the
-/// `_dateTimeToSyncString` helper in `core/sync/drift_sync_adapter.dart`.
-String _toSyncUtc(DateTime dt) => dt.toUtc().toIso8601String();
-
-String? _toSyncUtcOrNull(DateTime? dt) => dt?.toUtc().toIso8601String();

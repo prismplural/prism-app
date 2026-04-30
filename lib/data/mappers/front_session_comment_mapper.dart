@@ -27,16 +27,17 @@ class FrontSessionCommentMapper {
   }
 
   static FrontSessionCommentsCompanion toCompanion(
-      domain.FrontSessionComment model) {
-    // sessionId is a NOT NULL legacy column that v8 cleanup will drop via
-    // TableMigration rebuild. v7-era inserts must still satisfy the NOT
-    // NULL constraint; we write the model's legacy sessionId when present
-    // (so migration/import paths can preserve it) and otherwise an empty
-    // string sentinel — new-shape readers consult target_time, not
-    // session_id, and the column is unread by the new code paths.
+    domain.FrontSessionComment model,
+  ) {
+    // sessionId is a NOT NULL legacy column that the schema cleanup will
+    // drop via TableMigration rebuild. Inserts must still satisfy the
+    // NOT NULL constraint; we write the model's legacy sessionId when
+    // present (so migration/import paths can preserve it) and otherwise
+    // an empty-string sentinel — new-shape readers consult target_time,
+    // not session_id, and the column is unread by the new code paths.
     //
-    // TODO(phase-5d): once the v8 schema rebuild lands and `session_id`
-    // is gone, drop the model field and this column write together.
+    // Once the schema rebuild lands and `session_id` is gone, drop the
+    // model field and this column write together.
     return FrontSessionCommentsCompanion(
       id: Value(model.id),
       sessionId: Value(model.sessionId ?? ''),

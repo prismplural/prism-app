@@ -171,7 +171,8 @@ class SystemSettingsTable extends Table {
   IntColumn get quickFrontDefaultBehavior =>
       integer().withDefault(const Constant(0))();
 
-  // Codex pass 2 #B-NEW3 — substate within the `'inProgress'` window.
+  // Substate within the `'inProgress'` window of the per-member fronting
+  // migration.
   //
   // Allowed values:
   //   ''           — initial / inert (no destructive post-tx step has run yet)

@@ -1115,15 +1115,15 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
       if (mounted) {
         setState(() => _importPhase = _PkTokenPhase.importingMembers);
       }
-      debugPrint('[PK_ONBOARDING] calling importFromTokenOnce...');
+      debugPrint('[PK_ONBOARDING] calling performOneTimeFullImport...');
       // The onboarding token path is an import, not a connection setup.
-      // importFromTokenOnce() uses the token ephemerally and never stores it
-      // or flips PluralKit into connected/canAutoSync state.
-      final result = await pkNotifier.importFromTokenOnce(token);
+      // performOneTimeFullImport() uses the token ephemerally and never
+      // stores it or flips PluralKit into connected/canAutoSync state.
+      final result = await pkNotifier.performOneTimeFullImport(token: token);
       final systemName = result.system.name;
       final importedMembers = result.members;
       debugPrint(
-        '[PK_ONBOARDING] importFromTokenOnce returned: '
+        '[PK_ONBOARDING] performOneTimeFullImport returned: '
         'systemName=$systemName '
         'importedMembers.length=${importedMembers.length} '
         'switchesImported=${result.switchesImported}',

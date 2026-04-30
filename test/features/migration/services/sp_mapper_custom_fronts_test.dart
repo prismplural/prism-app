@@ -266,8 +266,10 @@ void main() {
       expect(r1.sessions.first.memberId, r2.sessions.first.memberId);
       // And it equals the derivation formula (v5 in spFrontingNamespace).
       const uuid = Uuid();
-      final expectedId =
-          uuid.v5(spFrontingNamespace, 'unknown-member-sentinel');
+      final expectedId = uuid.v5(
+        spFrontingNamespace,
+        'unknown-member-sentinel',
+      );
       expect(r1.sessions.first.memberId, expectedId);
     });
 
@@ -295,9 +297,7 @@ void main() {
       expect(sentinels, hasLength(1));
       // Both sessions point to the same sentinel.
       expect(
-        result.sessions.every(
-          (s) => s.memberId == sentinels.first.id,
-        ),
+        result.sessions.every((s) => s.memberId == sentinels.first.id),
         isTrue,
       );
     });
@@ -347,45 +347,45 @@ void main() {
       expect(result.sessions.first.id, existingLocalId);
     });
 
-    test('re-import idempotency: same input twice → same row count, same IDs',
-        () {
-      final hist = [
-        SpFrontHistory(
-          id: 'sp1',
-          memberId: 'sp-a',
-          startTime: DateTime(2024, 1, 1, 9),
-          endTime: DateTime(2024, 1, 1, 11),
-          live: false,
-        ),
-        SpFrontHistory(
-          id: 'sp2',
-          memberId: 'sp-a',
-          startTime: DateTime(2024, 1, 2, 9),
-          endTime: DateTime(2024, 1, 2, 11),
-          live: false,
-        ),
-      ];
+    test(
+      're-import idempotency: same input twice → same row count, same IDs',
+      () {
+        final hist = [
+          SpFrontHistory(
+            id: 'sp1',
+            memberId: 'sp-a',
+            startTime: DateTime(2024, 1, 1, 9),
+            endTime: DateTime(2024, 1, 1, 11),
+            live: false,
+          ),
+          SpFrontHistory(
+            id: 'sp2',
+            memberId: 'sp-a',
+            startTime: DateTime(2024, 1, 2, 9),
+            endTime: DateTime(2024, 1, 2, 11),
+            live: false,
+          ),
+        ];
 
-      final data = _data(members: const [_alice], frontHistory: hist);
+        final data = _data(members: const [_alice], frontHistory: hist);
 
-      // First import.
-      final mapper1 = SpMapper();
-      final r1 = mapper1.mapAll(data);
-      // Capture the session ids and the session map produced.
-      final sessionMap = Map<String, String>.from(mapper1.sessionIdMap);
+        // First import.
+        final mapper1 = SpMapper();
+        final r1 = mapper1.mapAll(data);
+        // Capture the session ids and the session map produced.
+        final sessionMap = Map<String, String>.from(mapper1.sessionIdMap);
 
-      // Second import using the session map from the first run.
-      final mapper2 = SpMapper(
-        existingMappings: {'session': sessionMap},
-      );
-      final r2 = mapper2.mapAll(data);
+        // Second import using the session map from the first run.
+        final mapper2 = SpMapper(existingMappings: {'session': sessionMap});
+        final r2 = mapper2.mapAll(data);
 
-      expect(r2.sessions, hasLength(r1.sessions.length));
-      // IDs are identical — no new rows would be created on upsert.
-      final ids1 = r1.sessions.map((s) => s.id).toSet();
-      final ids2 = r2.sessions.map((s) => s.id).toSet();
-      expect(ids2, ids1);
-    });
+        expect(r2.sessions, hasLength(r1.sessions.length));
+        // IDs are identical — no new rows would be created on upsert.
+        final ids1 = r1.sessions.map((s) => s.id).toSet();
+        final ids2 = r2.sessions.map((s) => s.id).toSet();
+        expect(ids2, ids1);
+      },
+    );
   });
 
   // ---------------------------------------------------------------------------
@@ -480,10 +480,7 @@ void main() {
       final result = mapper.mapAll(data);
       expect(result.members.any((m) => m.name == 'Away'), isFalse);
       expect(result.sessions, isEmpty);
-      expect(
-        result.warnings.any((w) => w.contains('dropped')),
-        isTrue,
-      );
+      expect(result.warnings.any((w) => w.contains('dropped')), isTrue);
     });
   });
 
@@ -548,44 +545,43 @@ void main() {
         result.sessions.first.endTime,
         start.add(const Duration(hours: 24)),
       );
-      expect(
-        result.warnings.any((w) => w.contains('clamped to 24h')),
-        isTrue,
-      );
+      expect(result.warnings.any((w) => w.contains('clamped to 24h')), isTrue);
     });
 
-    test('same-start defensive dedup within 60s collapses to one (test 13)',
-        () {
-      final start = DateTime(2024, 1, 1);
-      final data = _data(
-        customFronts: const [SpCustomFront(id: 'cf1', name: 'Asleep')],
-        frontHistory: [
-          SpFrontHistory(
-            id: 'f1',
-            memberId: 'cf1',
-            startTime: start,
-            endTime: start.add(const Duration(hours: 1)),
-            isCustomFront: true,
-          ),
-          SpFrontHistory(
-            id: 'f2',
-            memberId: 'cf1',
-            startTime: start.add(const Duration(seconds: 30)),
-            endTime: start.add(const Duration(hours: 2)),
-            isCustomFront: true,
-          ),
-        ],
-      );
-      final mapper = SpMapper(
-        customFrontDispositions: const {'cf1': CfDisposition.convertToSleep},
-      );
-      final result = mapper.mapAll(data);
-      expect(result.sessions, hasLength(1));
-      expect(
-        result.warnings.any((w) => w.contains('duplicate-start')),
-        isTrue,
-      );
-    });
+    test(
+      'same-start defensive dedup within 60s collapses to one (test 13)',
+      () {
+        final start = DateTime(2024, 1, 1);
+        final data = _data(
+          customFronts: const [SpCustomFront(id: 'cf1', name: 'Asleep')],
+          frontHistory: [
+            SpFrontHistory(
+              id: 'f1',
+              memberId: 'cf1',
+              startTime: start,
+              endTime: start.add(const Duration(hours: 1)),
+              isCustomFront: true,
+            ),
+            SpFrontHistory(
+              id: 'f2',
+              memberId: 'cf1',
+              startTime: start.add(const Duration(seconds: 30)),
+              endTime: start.add(const Duration(hours: 2)),
+              isCustomFront: true,
+            ),
+          ],
+        );
+        final mapper = SpMapper(
+          customFrontDispositions: const {'cf1': CfDisposition.convertToSleep},
+        );
+        final result = mapper.mapAll(data);
+        expect(result.sessions, hasLength(1));
+        expect(
+          result.warnings.any((w) => w.contains('duplicate-start')),
+          isTrue,
+        );
+      },
+    );
   });
 
   group('Mapper — stale mapping scrub (test 6)', () {
@@ -624,7 +620,8 @@ void main() {
       // Warning surfaced.
       expect(
         result.warnings.any(
-            (w) => w.contains('previously-imported custom fronts')),
+          (w) => w.contains('previously-imported custom fronts'),
+        ),
         isTrue,
       );
     });
@@ -646,34 +643,37 @@ void main() {
   });
 
   group('Mapper — synthetic CF fallback (test 7)', () {
-    test('isCustomFront id missing from customFronts list is handled as note',
-        () {
-      final data = _data(
-        frontHistory: [
-          SpFrontHistory(
-            id: 'f1',
-            memberId: 'cf-ghost',
-            startTime: DateTime(2024, 1, 1),
-            isCustomFront: true,
+    test(
+      'isCustomFront id missing from customFronts list is handled as note',
+      () {
+        final data = _data(
+          frontHistory: [
+            SpFrontHistory(
+              id: 'f1',
+              memberId: 'cf-ghost',
+              startTime: DateTime(2024, 1, 1),
+              isCustomFront: true,
+            ),
+          ],
+        );
+        final mapper = SpMapper();
+        final result = mapper.mapAll(data);
+        // No member for the synthesized CF.
+        expect(result.members.where((m) => m.name != 'Unknown'), isEmpty);
+        // Session emitted as sessionless note.
+        expect(result.sessions, hasLength(1));
+        final s = result.sessions.first;
+        expect(s.memberId, isNull);
+        expect(s.notes, contains('deleted custom front'));
+        expect(
+          result.warnings.any(
+            (w) =>
+                w.contains('deleted in SP') || w.contains('handled as notes'),
           ),
-        ],
-      );
-      final mapper = SpMapper();
-      final result = mapper.mapAll(data);
-      // No member for the synthesized CF.
-      expect(result.members.where((m) => m.name != 'Unknown'), isEmpty);
-      // Session emitted as sessionless note.
-      expect(result.sessions, hasLength(1));
-      final s = result.sessions.first;
-      expect(s.memberId, isNull);
-      expect(s.notes, contains('deleted custom front'));
-      expect(
-        result.warnings.any((w) =>
-            w.contains('deleted in SP') ||
-            w.contains('handled as notes')),
-        isTrue,
-      );
-    });
+          isTrue,
+        );
+      },
+    );
   });
 
   group('Mapper — timer dispositions (test 8)', () {
@@ -731,23 +731,18 @@ void main() {
       expect(fcReminders, hasLength(2));
 
       // importAsMember timer keeps its target.
-      final memCfId =
-          result.members.firstWhere((m) => m.name == 'MemCF').id;
-      expect(
-        fcReminders.any((r) => r.targetMemberId == memCfId),
-        isTrue,
-      );
+      final memCfId = result.members.firstWhere((m) => m.name == 'MemCF').id;
+      expect(fcReminders.any((r) => r.targetMemberId == memCfId), isTrue);
       // mergeAsNote timer has no target.
-      expect(
-        fcReminders.any((r) => r.targetMemberId == null),
-        isTrue,
-      );
+      expect(fcReminders.any((r) => r.targetMemberId == null), isTrue);
 
       // Warning surfaces for CF timer changes.
       expect(
-        result.warnings.any((w) =>
-            w.contains('targeted custom fronts') ||
-            w.contains('target dropped or timer removed')),
+        result.warnings.any(
+          (w) =>
+              w.contains('targeted custom fronts') ||
+              w.contains('target dropped or timer removed'),
+        ),
         isTrue,
       );
     });
@@ -783,8 +778,9 @@ void main() {
       expect(result.frontComments, isEmpty);
       // Dropped-comment warning surfaced.
       expect(
-        result.warnings.any((w) =>
-            w.contains('comments dropped') || w.contains('c1')),
+        result.warnings.any(
+          (w) => w.contains('comments dropped') || w.contains('c1'),
+        ),
         isTrue,
       );
     });
@@ -852,7 +848,7 @@ void main() {
     });
   });
 
-  group('Mapper — legacy sessionless emit preserved (codex P1 #1)', () {
+  group('Mapper — legacy sessionless emit preserved', () {
     test('unknown sentinel emits session with sentinel memberId + comment', () {
       final data = _data(
         frontHistory: [
@@ -882,31 +878,30 @@ void main() {
       expect(result.frontComments.first.targetTime, DateTime(2024, 1, 1, 1));
     });
 
-    test('missing real-member id still emits sessionless session (not dropped)',
-        () {
-      // Unresolved real-member id → warn + emit session with null primary.
-      final data = _data(
-        members: const [_alice],
-        frontHistory: [
-          SpFrontHistory(
-            id: 'f1',
-            memberId: 'sp-ghost',
-            startTime: DateTime(2024, 1, 1),
-          ),
-        ],
-      );
-      final mapper = SpMapper();
-      final result = mapper.mapAll(data);
-      expect(result.sessions, hasLength(1));
-      expect(result.sessions.first.memberId, isNull);
-      expect(
-        result.warnings.any((w) => w.contains('sp-ghost')),
-        isTrue,
-      );
-    });
+    test(
+      'missing real-member id still emits sessionless session (not dropped)',
+      () {
+        // Unresolved real-member id → warn + emit session with null primary.
+        final data = _data(
+          members: const [_alice],
+          frontHistory: [
+            SpFrontHistory(
+              id: 'f1',
+              memberId: 'sp-ghost',
+              startTime: DateTime(2024, 1, 1),
+            ),
+          ],
+        );
+        final mapper = SpMapper();
+        final result = mapper.mapAll(data);
+        expect(result.sessions, hasLength(1));
+        expect(result.sessions.first.memberId, isNull);
+        expect(result.warnings.any((w) => w.contains('sp-ghost')), isTrue);
+      },
+    );
   });
 
-  group('Mapper — stale CF mapping + synthetic CF (codex P1 #2)', () {
+  group('Mapper — stale CF mapping + synthetic CF', () {
     test('CF deleted from export but flagged isCustomFront: scrubs stale '
         'member mapping and synthesizes as note', () {
       final data = _data(
@@ -926,10 +921,7 @@ void main() {
       );
       final result = mapper.mapAll(data);
       // No resolution to stale uuid.
-      expect(
-        result.sessions.any((s) => s.memberId == 'stale-uuid'),
-        isFalse,
-      );
+      expect(result.sessions.any((s) => s.memberId == 'stale-uuid'), isFalse);
       // Stale mapping scrubbed + queued for DAO delete.
       expect(mapper.memberIdMap.containsKey('cf-ghost'), isFalse);
       expect(mapper.pendingStaleMappingDeletes, contains('cf-ghost'));
@@ -939,7 +931,7 @@ void main() {
     });
   });
 
-  group('Mapper — E5 overlap warning (codex P2 #5)', () {
+  group('Mapper — E5 overlap warning', () {
     test('overlapping sleep + normal session produces overlap warning', () {
       final data = _data(
         members: const [_alice],
@@ -966,47 +958,50 @@ void main() {
       final result = mapper.mapAll(data);
       expect(result.sessions, hasLength(2));
       expect(
-        result.warnings.any((w) =>
-            w.contains('sleep sessions overlap') &&
-            w.contains('resolve in the Fronting tab')),
+        result.warnings.any(
+          (w) =>
+              w.contains('sleep sessions overlap') &&
+              w.contains('resolve in the Fronting tab'),
+        ),
         isTrue,
       );
     });
 
     test(
-        'open-ended regular session alongside sleep does not throw and counts overlap',
-        () {
-      final data = _data(
-        members: const [_alice],
-        customFronts: const [SpCustomFront(id: 'cf1', name: 'Asleep')],
-        frontHistory: [
-          // Open-ended regular session (null endTime / live = false for now).
-          SpFrontHistory(
-            id: 'f1',
-            memberId: 'sp-a',
-            startTime: DateTime(2024, 1, 1, 0),
-          ),
-          // Sleep session starting later, inside the open-ended regular span.
-          SpFrontHistory(
-            id: 'f2',
-            memberId: 'cf1',
-            startTime: DateTime(2024, 1, 1, 4),
-            endTime: DateTime(2024, 1, 1, 10),
-            isCustomFront: true,
-          ),
-        ],
-      );
-      final mapper = SpMapper(
-        customFrontDispositions: const {'cf1': CfDisposition.convertToSleep},
-      );
-      // Must not throw.
-      final result = mapper.mapAll(data);
-      expect(result.sessions, hasLength(2));
-      expect(
-        result.warnings.any((w) => w.contains('sleep sessions overlap')),
-        isTrue,
-      );
-    });
+      'open-ended regular session alongside sleep does not throw and counts overlap',
+      () {
+        final data = _data(
+          members: const [_alice],
+          customFronts: const [SpCustomFront(id: 'cf1', name: 'Asleep')],
+          frontHistory: [
+            // Open-ended regular session (null endTime / live = false for now).
+            SpFrontHistory(
+              id: 'f1',
+              memberId: 'sp-a',
+              startTime: DateTime(2024, 1, 1, 0),
+            ),
+            // Sleep session starting later, inside the open-ended regular span.
+            SpFrontHistory(
+              id: 'f2',
+              memberId: 'cf1',
+              startTime: DateTime(2024, 1, 1, 4),
+              endTime: DateTime(2024, 1, 1, 10),
+              isCustomFront: true,
+            ),
+          ],
+        );
+        final mapper = SpMapper(
+          customFrontDispositions: const {'cf1': CfDisposition.convertToSleep},
+        );
+        // Must not throw.
+        final result = mapper.mapAll(data);
+        expect(result.sessions, hasLength(2));
+        expect(
+          result.warnings.any((w) => w.contains('sleep sessions overlap')),
+          isTrue,
+        );
+      },
+    );
 
     test('non-overlapping sleep sessions produce no overlap warning', () {
       final data = _data(

@@ -1,4 +1,4 @@
-/// Phase 5C — widget tests for the per-member fronting upgrade modal.
+/// Phase 5C - widget tests for the per-member fronting upgrade modal.
 ///
 /// Spec: `docs/plans/fronting-per-member-sessions.md` §2.2 + §4.1 + §4.2.
 ///
@@ -53,7 +53,7 @@ class _FakeRunner implements FrontingMigrationService {
   /// result; tests that exercise the failure branch override this.
   MigrationResult? result;
 
-  /// When true, `prepareBackup` throws — exercises the export-failure
+  /// When true, `prepareBackup` throws - exercises the export-failure
   /// transition into the `failure` step from `exporting`.
   bool prepareBackupThrows;
 
@@ -84,7 +84,7 @@ class _FakeRunner implements FrontingMigrationService {
     if (prepareBackupThrows) {
       throw StateError('Simulated prepareBackup failure');
     }
-    // No real I/O — widget tests don't drain real async I/O between
+    // No real I/O - widget tests don't drain real async I/O between
     // tester.pump() calls. The widget only needs a non-null File
     // reference to advance into the backupReady step. Use a synthetic
     // path to keep the helper hermetic.
@@ -193,7 +193,7 @@ Widget _buildSheetSubject({
 /// Drives the `backupReady` step's manual checkbox so tests that don't
 /// care about the durable-save gate can keep their happy-path
 /// pump-and-tap flow short. The new state machine inserts this gate
-/// between password-submit and the destructive phase (codex P1 #8).
+/// between password-submit and the destructive phase.
 ///
 /// The `exporting` and `running` steps both render an indefinitely
 /// animated PrismSpinner which deadlocks `pumpAndSettle`. This helper
@@ -263,14 +263,14 @@ void main() {
       await tester.tap(find.text('Continue'));
       await tester.pumpAndSettle();
 
-      // Skips the role question — lands on the mode picker.
+      // Skips the role question - lands on the mode picker.
       expect(find.text('Is this your main device?'), findsNothing);
       expect(find.text('How should we upgrade?'), findsOneWidget);
       expect(find.text('Keep my data'), findsOneWidget);
       expect(find.text('Start fresh'), findsOneWidget);
     });
 
-    // Codex P2 final2: pin the intro screen's pending-ops warning.
+    // Regression: pin the intro screen's pending-ops warning.
     // The migration's sync state wipe clears `pending_ops`, so any
     // local writes that haven't been pushed yet exist only on this
     // device. If a future copy edit silently drops or hides the
@@ -309,16 +309,15 @@ void main() {
       expect(find.text('No, this is a secondary'), findsOneWidget);
     });
 
-    // Final-review fix V (codex P2): when `prismSyncHandleProvider` is
-    // still loading on cold open, the previous `.value` read returned
-    // `null` → `pairedCount = 0` → solo path. Paired installs were
-    // mis-classified. The provider now awaits `.future`; loading/error
+    // Regression: when `prismSyncHandleProvider` is still loading on
+    // cold open, the previous `.value` read returned null and selected
+    // the solo path. The provider now awaits `.future`; loading/error
     // states surface as a thrown future, the modal's existing try/catch
     // falls back to `pairedCount = 1`, and the role question appears.
     //
     // We override the public-facing `pairedDeviceCountProvider` with a
     // throwing future (the observable shape of "handle never resolved")
-    // rather than overriding `prismSyncHandleProvider` directly — that
+    // rather than overriding `prismSyncHandleProvider` directly - that
     // provider has a heavy `build()` (secure_storage I/O, FFI handle
     // construction) that we don't want to plumb in widget tests.
     testWidgets(
@@ -370,7 +369,7 @@ void main() {
         await tester.tap(find.text('Continue'));
         await tester.pumpAndSettle();
 
-        // Role question MUST appear — not the mode picker.
+        // Role question MUST appear - not the mode picker.
         expect(find.text('Is this your main device?'), findsOneWidget);
         expect(find.text('How should we upgrade?'), findsNothing);
       },
@@ -391,7 +390,7 @@ void main() {
       expect(runner.calls, hasLength(1));
       expect(runner.calls.single.mode, MigrationMode.notNow);
       expect(runner.lastDeferredWrite, FrontingMigrationService.modeDeferred);
-      // Modal popped — only the original launcher button is visible.
+      // Modal popped - only the original launcher button is visible.
       expect(find.text('Continue'), findsNothing);
       expect(find.text('open'), findsOneWidget);
     });
@@ -419,7 +418,7 @@ void main() {
         await tester.tap(find.text('Not now'));
         await tester.pumpAndSettle();
 
-        // Modal must NOT have popped — the failure step is rendered
+        // Modal must NOT have popped - the failure step is rendered
         // with the runner-supplied error message. (The launcher button
         // remains in the widget tree behind the fullscreen sheet, so
         // we don't assert on it; the failure step's presence is the
@@ -560,7 +559,7 @@ void main() {
       );
       await tester.tap(find.text('Back up and upgrade'));
       await tester.pumpAndSettle();
-      // Codex P1 #8: drive past the durable-save gate.
+      // Regression: drive past the durable-save gate.
       await _ackBackupAndContinue(tester);
 
       expect(find.text('Migration complete!'), findsOneWidget);
@@ -577,7 +576,7 @@ void main() {
       );
       expect(find.textContaining('All set.'), findsOneWidget);
       // §4.3 analytics FYI must render with the term placeholder
-      // substituted — pin the lowercase noun-modifier so a future
+      // substituted - pin the lowercase noun-modifier so a future
       // regression that drops the substitution fails. Don't pin the
       // full sentence; it's brittle to copy edits.
       expect(find.textContaining('headmate-minutes'), findsOneWidget);
@@ -620,7 +619,7 @@ void main() {
         find.textContaining('Your other devices need to pair'),
         findsOneWidget,
       );
-      // §4.3 analytics FYI placeholder substitution — see the solo-path
+      // §4.3 analytics FYI placeholder substitution - see the solo-path
       // test for rationale. Pinning the noun-modifier proves the
       // {term} bind ran on this path too.
       expect(find.textContaining('headmate-minutes'), findsOneWidget);
@@ -751,7 +750,7 @@ void main() {
       expect(find.text('Retry'), findsOneWidget);
 
       // Tapping retry takes us back to the password step (mode/role
-      // preserved per spec — user only re-enters the password).
+      // preserved per spec - user only re-enters the password).
       await tester.tap(find.text('Retry'));
       await tester.pumpAndSettle();
       expect(find.text('Back up and upgrade'), findsOneWidget);
@@ -759,7 +758,7 @@ void main() {
       expect(find.text('How should we upgrade?'), findsNothing);
     });
 
-    // Codex P2 final2: pin the corrupt-co-fronter success line. The
+    // Regression: pin the corrupt-co-fronter success line. The
     // migration falls back to single-member when a row's
     // `co_fronter_ids` JSON fails to parse; without surfacing the
     // count, users silently lose co-fronter relationships on those
@@ -816,7 +815,7 @@ void main() {
             outcome: MigrationOutcome.success,
             spRowsMigrated: 1,
             // Default is `const []`, but make the contract explicit
-            // here — this test exists to pin the `isEmpty` branch.
+            // here - this test exists to pin the `isEmpty` branch.
             corruptCoFronterRowIds: [],
           ),
         );
@@ -867,7 +866,7 @@ void main() {
     });
 
     testWidgets('hidden when mode is notStarted', (tester) async {
-      // notStarted is the modal's domain, not the banner's — banner
+      // notStarted is the modal's domain, not the banner's - banner
       // stays out of the way so we don't double up.
       await tester.pumpWidget(
         _buildBannerSubject(mode: FrontingMigrationService.modeNotStarted),
@@ -877,7 +876,7 @@ void main() {
       expect(find.text('Fronting upgrade pending'), findsNothing);
     });
 
-    // Codex P1 #4: the banner now also surfaces when post-tx cleanup
+    // Regression: the banner now also surfaces when post-tx cleanup
     // partially failed. The user re-enters via the same modal, which
     // adapts to render the resume-cleanup screen for the inProgress
     // state.
@@ -893,7 +892,7 @@ void main() {
     });
   });
 
-  group('FrontingUpgradeSheet — resume-cleanup', () {
+  group('FrontingUpgradeSheet - resume-cleanup', () {
     testWidgets('renders the Finish-migration screen when mode is inProgress', (
       tester,
     ) async {
@@ -916,7 +915,7 @@ void main() {
       // migration" headline (post-l10n we'd switch to a localized
       // key).
       expect(find.text('Finish migration'), findsAtLeastNWidgets(1));
-      // The standard intro Continue button is NOT present — its
+      // The standard intro Continue button is NOT present - its
       // localized text is `frontingUpgradeContinue` ("Continue") but
       // here we pin on the "Finish migration" CTA being the dominant
       // affordance.
@@ -924,7 +923,7 @@ void main() {
   });
 
   // ───────────────────────────────────────────────────────────────────
-  // Codex P1 #8 — durable-save backup gate
+  // Durable-save backup gate
   //
   // Pins the new step that runs between password submission and the
   // destructive phase. The user must save the PRISM1 backup somewhere
@@ -932,7 +931,7 @@ void main() {
   // "I saved this" checkbox before the Continue button enables.
   // Dismissing from this step must NOT trigger runMigrationDestructive.
   // ───────────────────────────────────────────────────────────────────
-  group('FrontingUpgradeSheet — backup gate', () {
+  group('FrontingUpgradeSheet - backup gate', () {
     Future<void> navigateToBackupReady(
       WidgetTester tester,
       _FakeRunner runner,
@@ -1110,7 +1109,7 @@ void main() {
 
       final cb = tester.widget<CheckboxListTile>(find.byType(CheckboxListTile));
       expect(cb.value, isFalse);
-      // Still on the backupReady step — no migration outcome
+      // Still on the backupReady step - no migration outcome
       // surfaced (success or failure).
       expect(find.text('Backup ready'), findsOneWidget);
       expect(find.text('Migration complete!'), findsNothing);
@@ -1128,7 +1127,7 @@ void main() {
         await navigateToBackupReady(tester, runner);
 
         // Pop the modal from the backupReady step (analogous to
-        // user-initiated dismissal — back gesture / tap outside).
+        // user-initiated dismissal - back gesture / tap outside).
         final navState = tester.state<NavigatorState>(find.byType(Navigator));
         navState.pop();
         await tester.pumpAndSettle();
@@ -1138,7 +1137,7 @@ void main() {
           isEmpty,
           reason: 'destructive phase must NOT run on dismiss',
         );
-        // Sheet is gone — only the launcher button remains.
+        // Sheet is gone - only the launcher button remains.
         expect(find.text('Backup ready'), findsNothing);
         expect(find.text('open'), findsOneWidget);
       },
@@ -1187,7 +1186,7 @@ void main() {
     // Argon2id pass. We exercise this by writing a real backup file to
     // a temp dir, having the fake runner return a failure result that
     // carries that file as `exportFile`, then tapping Retry from the
-    // failure step — the modal should land on `backupReady` (not back
+    // failure step - the modal should land on `backupReady` (not back
     // on `password`).
     //
     // TODO(skylar): widget-level test hangs in `pumpAndSettle` for the
@@ -1199,7 +1198,7 @@ void main() {
     testWidgets(
       'retry after post-backup failure preserves _backupFile and lands '
       'on backupReady (not password)',
-      skip: true, // flaky pumpAndSettle hang — see TODO above
+      skip: true, // flaky pumpAndSettle hang - see TODO above
       (tester) async {
         final tempDir = Directory.systemTemp.createTempSync(
           'prism-mig-retry-preserves-',
@@ -1225,9 +1224,7 @@ void main() {
               frontingMigrationRunnerProvider.overrideWithValue(runner),
               pairedDeviceCountProvider.overrideWith((ref) async => 0),
               frontingMigrationModeProvider.overrideWith(
-                (ref) => Stream.value(
-                  FrontingMigrationService.modeNotStarted,
-                ),
+                (ref) => Stream.value(FrontingMigrationService.modeNotStarted),
               ),
               terminologySettingProvider.overrideWith(
                 (ref) => (
@@ -1272,7 +1269,7 @@ void main() {
           'a-strong-password-12',
         );
         await tester.tap(find.text('Back up and upgrade'));
-        // Don't pumpAndSettle — exporting / running steps render an
+        // Don't pumpAndSettle - exporting / running steps render an
         // indefinite PrismSpinner. Poll instead.
         await _ackBackupAndContinue(tester);
 
@@ -1328,8 +1325,7 @@ void main() {
         ],
       );
       addTearDown(container.dispose);
-      final sub =
-          container.listen(frontingMigrationModeProvider, (_, __) {});
+      final sub = container.listen(frontingMigrationModeProvider, (_, _) {});
       addTearDown(sub.close);
       controller.add(mode);
       await settle();
@@ -1346,38 +1342,47 @@ void main() {
       return container.read(frontingMigrationWritesBlockedProvider);
     }
 
-    test('blocked mode resolves to FrontingMigrationGateStatus.blocked', () async {
-      expect(
-        await readGate(FrontingMigrationService.modeBlocked),
-        FrontingMigrationGateStatus.blocked,
-      );
-      expect(
-        await readWritesBlocked(FrontingMigrationService.modeBlocked),
-        isTrue,
-      );
-    });
+    test(
+      'blocked mode resolves to FrontingMigrationGateStatus.blocked',
+      () async {
+        expect(
+          await readGate(FrontingMigrationService.modeBlocked),
+          FrontingMigrationGateStatus.blocked,
+        );
+        expect(
+          await readWritesBlocked(FrontingMigrationService.modeBlocked),
+          isTrue,
+        );
+      },
+    );
 
-    test('inProgress mode resolves to FrontingMigrationGateStatus.inProgress', () async {
-      expect(
-        await readGate(FrontingMigrationService.modeInProgress),
-        FrontingMigrationGateStatus.inProgress,
-      );
-      expect(
-        await readWritesBlocked(FrontingMigrationService.modeInProgress),
-        isTrue,
-      );
-    });
+    test(
+      'inProgress mode resolves to FrontingMigrationGateStatus.inProgress',
+      () async {
+        expect(
+          await readGate(FrontingMigrationService.modeInProgress),
+          FrontingMigrationGateStatus.inProgress,
+        );
+        expect(
+          await readWritesBlocked(FrontingMigrationService.modeInProgress),
+          isTrue,
+        );
+      },
+    );
 
-    test('complete mode resolves to FrontingMigrationGateStatus.complete', () async {
-      expect(
-        await readGate(FrontingMigrationService.modeComplete),
-        FrontingMigrationGateStatus.complete,
-      );
-      expect(
-        await readWritesBlocked(FrontingMigrationService.modeComplete),
-        isFalse,
-      );
-    });
+    test(
+      'complete mode resolves to FrontingMigrationGateStatus.complete',
+      () async {
+        expect(
+          await readGate(FrontingMigrationService.modeComplete),
+          FrontingMigrationGateStatus.complete,
+        );
+        expect(
+          await readWritesBlocked(FrontingMigrationService.modeComplete),
+          isFalse,
+        );
+      },
+    );
 
     test('notStarted / deferred resolve to needsModal', () async {
       for (final mode in [
@@ -1403,7 +1408,7 @@ class _RealBackupFileFakeRunner implements FrontingMigrationService {
   _RealBackupFileFakeRunner(this._file);
   final File _file;
   final List<({MigrationMode mode, DeviceRole role, File file})>
-      destructiveCalls = [];
+  destructiveCalls = [];
 
   @override
   Future<File> prepareBackup({

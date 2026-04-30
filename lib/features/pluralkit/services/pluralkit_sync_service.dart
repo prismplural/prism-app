@@ -15,6 +15,7 @@ import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/domain/repositories/system_settings_repository.dart';
+import 'package:prism_plurality/features/pluralkit/models/pk_import_source.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_bidirectional_service.dart';
@@ -96,12 +97,12 @@ class _PkActivePresence {
 
   @override
   int get hashCode => Object.hash(
-        localMemberId,
-        pkMemberUuid,
-        startedAt,
-        rowId,
-        isTombstonedCollision,
-      );
+    localMemberId,
+    pkMemberUuid,
+    startedAt,
+    rowId,
+    isTombstonedCollision,
+  );
 
   @override
   String toString() =>
@@ -189,9 +190,6 @@ class PluralKitSyncState {
 
 const _pkTokenKey = 'prism_pluralkit_token';
 
-const pkImportSourceFile = 'file';
-const pkImportSourceFileApi = 'file_api';
-
 /// Cutoff for treating a fronting session with `pkImportSource == null` as
 /// push-eligible.
 ///
@@ -261,30 +259,39 @@ class PkRepairReferenceData {
   });
 }
 
-/// Result for a one-shot PluralKit token import.
+/// Result for a full PluralKit import run.
 ///
-/// The token is used only for the import run. It is not persisted, and the
-/// PluralKit connection state is not enabled.
+/// Used both for token-backed one-shot imports (where the token is used only
+/// for the import and not persisted) and for full re-imports under an
+/// already-connected PluralKit configuration. The connection state is set
+/// by the caller before invoking the import; this DTO only reports what
+/// happened during the run.
 class PkTokenImportResult {
   final PKSystem system;
   final List<PKMember> members;
   final int switchesImported;
   final int unmappedMemberReferences;
 
-  /// WS3 step 4 / review #3: number of pre-existing tombstoned PK rows whose
-  /// `deleteIntentEpoch` was non-null at the moment a corrective re-import
-  /// would otherwise have resurrected them. These rows are *kept* tombstoned
-  /// — the user explicitly deleted them locally and the corrective path now
-  /// honours that intent rather than silently undoing it. Surfaced in the
+  /// Number of pre-existing tombstoned PK rows whose `deleteIntentEpoch`
+  /// was non-null at the moment a corrective re-import would otherwise
+  /// have resurrected them. These rows are *kept* tombstoned — the user
+  /// explicitly deleted them locally and the corrective path now honours
+  /// that intent rather than silently undoing it. Surfaced in the
   /// post-import UI summary so the user understands why expected history
   /// did not reappear.
   final int tombstonePreservedCount;
 
-  /// WS3 step 6 / review #30: number of leaver closes that were skipped
-  /// because the leaver timestamp was equal to the row's start timestamp
-  /// (zero-length presence). The row is left open, not closed; the next
-  /// non-zero-length leaver in the same sweep will close it.
+  /// Number of leaver closes that were skipped because the leaver
+  /// timestamp was equal to the row's start timestamp (zero-length
+  /// presence). The row is left open, not closed; the next non-zero-length
+  /// leaver in the same sweep will close it.
   final int zeroLengthCloseSkipped;
+
+  /// Wall-clock timestamp when this import finished and persisted its
+  /// cursor / last-sync state. Null when the caller asked the import to
+  /// skip persistence (token-only one-shot path that doesn't update the
+  /// stored sync state).
+  final DateTime? completedAt;
 
   const PkTokenImportResult({
     required this.system,
@@ -293,26 +300,7 @@ class PkTokenImportResult {
     required this.unmappedMemberReferences,
     this.tombstonePreservedCount = 0,
     this.zeroLengthCloseSkipped = 0,
-  });
-}
-
-class _PkFullImportRun {
-  final PKSystem system;
-  final List<PKMember> members;
-  final int totalSwitches;
-  final int unmappedMemberReferences;
-  final int tombstonePreservedCount;
-  final int zeroLengthCloseSkipped;
-  final DateTime? completedAt;
-
-  const _PkFullImportRun({
-    required this.system,
-    required this.members,
-    required this.totalSwitches,
-    required this.unmappedMemberReferences,
-    required this.tombstonePreservedCount,
-    required this.zeroLengthCloseSkipped,
-    required this.completedAt,
+    this.completedAt,
   });
 }
 
@@ -339,19 +327,15 @@ class _PkUpsertOutcome {
 
   const _PkUpsertOutcome.row(String id) : this._(_PkUpsertOutcomeKind.row, id);
   const _PkUpsertOutcome.tombstoneCollision()
-      : this._(_PkUpsertOutcomeKind.tombstoneCollision, null);
+    : this._(_PkUpsertOutcomeKind.tombstoneCollision, null);
   const _PkUpsertOutcome.tombstonePreserved()
-      : this._(_PkUpsertOutcomeKind.tombstonePreserved, null);
+    : this._(_PkUpsertOutcomeKind.tombstonePreserved, null);
 
   final _PkUpsertOutcomeKind kind;
   final String? rowId;
 }
 
-enum _PkUpsertOutcomeKind {
-  row,
-  tombstoneCollision,
-  tombstonePreserved,
-}
+enum _PkUpsertOutcomeKind { row, tombstoneCollision, tombstonePreserved }
 
 /// Aggregate counters returned by [_runDiffSweep] (WS3 PR E2).
 ///
@@ -852,7 +836,7 @@ class PluralKitSyncService {
       final run = await _runFullImportWithClient(client, updateSyncState: true);
       final statusParts = [
         'Imported ${run.members.length} members and '
-            '${run.totalSwitches} switches.',
+            '${run.switchesImported} switches.',
         if (run.unmappedMemberReferences > 0)
           '${run.unmappedMemberReferences} switches had unmapped members.',
         if (run.tombstonePreservedCount > 0)
@@ -869,14 +853,7 @@ class PluralKitSyncService {
           lastSyncDate: run.completedAt,
         ),
       );
-      return PkTokenImportResult(
-        system: run.system,
-        members: run.members,
-        switchesImported: run.totalSwitches,
-        unmappedMemberReferences: run.unmappedMemberReferences,
-        tombstonePreservedCount: run.tombstonePreservedCount,
-        zeroLengthCloseSkipped: run.zeroLengthCloseSkipped,
-      );
+      return run;
     } catch (e) {
       _emit(
         _state.copyWith(isSyncing: false, syncError: 'Full import failed: $e'),
@@ -886,13 +863,6 @@ class PluralKitSyncService {
       client.dispose();
     }
   }
-
-  /// One-shot token import used by onboarding.
-  ///
-  /// This imports members, groups, and complete switch history without calling
-  /// [setToken], writing secure storage, or marking PK sync connected.
-  Future<PkTokenImportResult> importFromTokenOnce(String token) =>
-      performOneTimeFullImport(token: token);
 
   /// Import a parsed `pk;export` file.
   ///
@@ -1362,18 +1332,11 @@ class PluralKitSyncService {
             shortIdToUuid: resolvedShortIdToUuid,
             onProgress: (i) {
               if (i % 50 == 0) {
+                final total = newSwitches.length;
                 _emit(
                   _state.copyWith(
-                    syncProgress:
-                        0.5 +
-                        0.4 *
-                            (i /
-                                newSwitches.length.clamp(
-                                  1,
-                                  newSwitches.length,
-                                )),
-                    syncStatus:
-                        'Processing switch ${i + 1}/${newSwitches.length}...',
+                    syncProgress: 0.5 + 0.4 * (total == 0 ? 1.0 : i / total),
+                    syncStatus: 'Processing switch ${i + 1}/$total...',
                   ),
                 );
               }
@@ -1760,7 +1723,7 @@ class PluralKitSyncService {
     return allSwitches;
   }
 
-  Future<_PkFullImportRun> _runFullImportWithClient(
+  Future<PkTokenImportResult> _runFullImportWithClient(
     PluralKitClient client, {
     required bool updateSyncState,
   }) async {
@@ -1871,11 +1834,13 @@ class PluralKitSyncService {
         newActive.add(localId);
       }
       for (final entrantLocalId in newActive.difference(canonPrev)) {
-        canonicalIds.add(deriveCanonicalPkSessionId(
-          switchId: sw.id,
-          localMemberId: entrantLocalId,
-          pkUuidByLocalId: pkUuidByLocalId,
-        ));
+        canonicalIds.add(
+          deriveCanonicalPkSessionId(
+            switchId: sw.id,
+            localMemberId: entrantLocalId,
+            pkUuidByLocalId: pkUuidByLocalId,
+          ),
+        );
       }
       canonPrev
         ..clear()
@@ -1924,7 +1889,7 @@ class PluralKitSyncService {
       onProgress: (i) {
         if (i % 50 == 0) {
           final progress =
-              0.50 + (0.45 * (i / (totalSwitches.clamp(1, totalSwitches))));
+              0.50 + 0.45 * (totalSwitches == 0 ? 1.0 : i / totalSwitches);
           _emit(
             _state.copyWith(
               syncProgress: progress,
@@ -1947,10 +1912,10 @@ class PluralKitSyncService {
       );
     }
 
-    return _PkFullImportRun(
+    return PkTokenImportResult(
       system: system,
       members: pkMembers,
-      totalSwitches: totalSwitches,
+      switchesImported: totalSwitches,
       unmappedMemberReferences: sweepResult.unmappedCount,
       tombstonePreservedCount: sweepResult.tombstonePreservedCount,
       zeroLengthCloseSkipped: sweepResult.zeroLengthCloseSkipped,
@@ -2056,8 +2021,8 @@ class PluralKitSyncService {
   ///   `end_time` to `null` on entrant collisions so currently-active API
   ///   rows actually surface as open after the rescue→re-import recovery
   ///   flow. The user has explicitly asked to rebuild PK history from API,
-  ///   so clobber is the point. See codex pass 2 #B-NEW2. Tombstones with
-  ///   a non-null `deleteIntentEpoch` are preserved either way.
+  ///   so clobber is the point. Tombstones with a non-null
+  ///   `deleteIntentEpoch` are preserved either way.
   Future<_PkDiffSweepResult> _runDiffSweep({
     required List<PKSwitch> switches,
     required Map<String, String> shortIdToUuid,
@@ -2079,7 +2044,8 @@ class PluralKitSyncService {
     // unified [deriveCanonicalPkSessionId] helper. Rebuilding mid-sweep
     // would defeat the determinism contract guarded by the assert below.
     // Replaces the previous per-entrant `_localIdToPkUuid` reverse scan.
-    final pkUuidByLocalId = pkUuidByLocalIdOverride ??
+    final pkUuidByLocalId =
+        pkUuidByLocalIdOverride ??
         <String, String>{
           for (final entry in uuidToLocalId.entries) entry.value: entry.key,
         };

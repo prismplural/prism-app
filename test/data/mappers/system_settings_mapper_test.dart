@@ -112,6 +112,21 @@ void main() {
       );
     });
 
+    test('invalid stored index falls back to combinedPeriods', () {
+      expect(
+        SystemSettingsMapper.toDomain(
+          makeDbRow(frontingListViewMode: -1),
+        ).frontingListViewMode,
+        FrontingListViewMode.combinedPeriods,
+      );
+      expect(
+        SystemSettingsMapper.toDomain(
+          makeDbRow(frontingListViewMode: 999),
+        ).frontingListViewMode,
+        FrontingListViewMode.combinedPeriods,
+      );
+    });
+
     test('toCompanion stores enum index for each variant', () {
       for (final mode in FrontingListViewMode.values) {
         final settings = const SystemSettings().copyWith(
@@ -153,6 +168,21 @@ void main() {
       );
     });
 
+    test('invalid stored index falls back to additive', () {
+      expect(
+        SystemSettingsMapper.toDomain(
+          makeDbRow(addFrontDefaultBehavior: -1),
+        ).addFrontDefaultBehavior,
+        FrontStartBehavior.additive,
+      );
+      expect(
+        SystemSettingsMapper.toDomain(
+          makeDbRow(addFrontDefaultBehavior: 999),
+        ).addFrontDefaultBehavior,
+        FrontStartBehavior.additive,
+      );
+    });
+
     test('round-trip: every variant survives toCompanion → toDomain', () {
       for (final behavior in FrontStartBehavior.values) {
         final settings = const SystemSettings().copyWith(
@@ -191,6 +221,21 @@ void main() {
       );
     });
 
+    test('invalid stored index falls back to additive', () {
+      expect(
+        SystemSettingsMapper.toDomain(
+          makeDbRow(quickFrontDefaultBehavior: -1),
+        ).quickFrontDefaultBehavior,
+        FrontStartBehavior.additive,
+      );
+      expect(
+        SystemSettingsMapper.toDomain(
+          makeDbRow(quickFrontDefaultBehavior: 999),
+        ).quickFrontDefaultBehavior,
+        FrontStartBehavior.additive,
+      );
+    });
+
     test('round-trip: every variant survives toCompanion → toDomain', () {
       for (final behavior in FrontStartBehavior.values) {
         final settings = const SystemSettings().copyWith(
@@ -207,16 +252,22 @@ void main() {
     });
   });
 
-  group('SystemSettingsMapper — independence of the two FrontStartBehavior fields', () {
-    test('add-front and quick-front behaviors are independent on round-trip', () {
-      // add=replace, quick=additive
-      final row = makeDbRow(
-        addFrontDefaultBehavior: 1,
-        quickFrontDefaultBehavior: 0,
+  group(
+    'SystemSettingsMapper — independence of the two FrontStartBehavior fields',
+    () {
+      test(
+        'add-front and quick-front behaviors are independent on round-trip',
+        () {
+          // add=replace, quick=additive
+          final row = makeDbRow(
+            addFrontDefaultBehavior: 1,
+            quickFrontDefaultBehavior: 0,
+          );
+          final domain = SystemSettingsMapper.toDomain(row);
+          expect(domain.addFrontDefaultBehavior, FrontStartBehavior.replace);
+          expect(domain.quickFrontDefaultBehavior, FrontStartBehavior.additive);
+        },
       );
-      final domain = SystemSettingsMapper.toDomain(row);
-      expect(domain.addFrontDefaultBehavior, FrontStartBehavior.replace);
-      expect(domain.quickFrontDefaultBehavior, FrontStartBehavior.additive);
-    });
-  });
+    },
+  );
 }

@@ -286,7 +286,7 @@ class DataExportService {
       // (`coFronterIds: []`, `pkMemberIdsJson: null`) means per-row
       // sniff alone misses native single-member rows and orphan rows;
       // the envelope flag forces the importer to route ALL session /
-      // comment rows through the rescue path (codex pass 2 #B-NEW1).
+      // comment rows through the rescue path.
       rescueLegacyFields: includeLegacyFields,
     );
   }
@@ -304,7 +304,7 @@ class DataExportService {
   /// migration's PRISM1 rescue file passes
   /// `getApplicationDocumentsDirectory()` so the file survives across
   /// app launches even if the user dismisses the upgrade modal before
-  /// confirming they saved it (codex P1 #8).
+  /// confirming they saved it.
   Future<File> exportEncryptedData({
     required String password,
     bool includeLegacyFields = false,
@@ -317,7 +317,8 @@ class DataExportService {
     final mediaBlobs = await _collectMediaBlobs(export.mediaAttachments);
 
     final outputDir = targetDirectory ?? await _cacheDirectoryProvider();
-    final resolvedName = fileName ??
+    final resolvedName =
+        fileName ??
         'Prism-Export-${DateFormat('yyyy-MM-dd').format(DateTime.now())}.prism';
     final file = File('${outputDir.path}/$resolvedName');
     final encrypted = await Isolate.run(
@@ -713,9 +714,14 @@ class DataExportService {
   Future<Map<String, _LegacySessionFields>> _fetchLegacySessionFields(
     AppDatabase db,
   ) async {
-    final hasCoFronter = await _hasColumn('fronting_sessions', 'co_fronter_ids');
-    final hasPkMemberIds =
-        await _hasColumn('fronting_sessions', 'pk_member_ids_json');
+    final hasCoFronter = await _hasColumn(
+      'fronting_sessions',
+      'co_fronter_ids',
+    );
+    final hasPkMemberIds = await _hasColumn(
+      'fronting_sessions',
+      'pk_member_ids_json',
+    );
     if (!hasCoFronter && !hasPkMemberIds) {
       return const <String, _LegacySessionFields>{};
     }
@@ -749,8 +755,9 @@ class DataExportService {
       }
       out[id] = _LegacySessionFields(
         coFronterIds: parsed,
-        pkMemberIdsJson:
-            hasPkMemberIds ? row.read<String?>('pk_member_ids_json') : null,
+        pkMemberIdsJson: hasPkMemberIds
+            ? row.read<String?>('pk_member_ids_json')
+            : null,
       );
     }
     return out;

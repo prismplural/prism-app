@@ -172,13 +172,6 @@ class PluralKitSyncNotifier extends Notifier<PluralKitSyncState> {
     return _service.performOneTimeFullImport(token: token);
   }
 
-  Future<PkTokenImportResult> importFromTokenOnce(String token) async {
-    if (ref.read(frontingMigrationWritesBlockedProvider)) {
-      throw const PkSyncMigrationGatedException();
-    }
-    return _service.importFromTokenOnce(token);
-  }
-
   Future<void> acknowledgeMapping() => _service.acknowledgeMapping();
 
   Future<bool> hasRepairToken({String? token}) =>

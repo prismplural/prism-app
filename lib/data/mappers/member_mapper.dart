@@ -1,41 +1,10 @@
 import 'package:drift/drift.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
+import 'package:prism_plurality/data/utils/enum_decoder.dart';
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 
 class MemberMapper {
   MemberMapper._();
-
-  static domain.MemberProfileHeaderSource _headerSourceFromDb(int value) {
-    const values = domain.MemberProfileHeaderSource.values;
-    if (value < 0 || value >= values.length) {
-      return domain.MemberProfileHeaderSource.prism;
-    }
-    return values[value];
-  }
-
-  static domain.MemberProfileHeaderLayout _headerLayoutFromDb(int value) {
-    const values = domain.MemberProfileHeaderLayout.values;
-    if (value < 0 || value >= values.length) {
-      return domain.MemberProfileHeaderLayout.compactBackground;
-    }
-    return values[value];
-  }
-
-  static domain.MemberNameFont _nameFontFromDb(int value) {
-    const values = domain.MemberNameFont.values;
-    if (value < 0 || value >= values.length) {
-      return domain.MemberNameFont.standard;
-    }
-    return values[value];
-  }
-
-  static domain.MemberNameColorMode _nameColorModeFromDb(int value) {
-    const values = domain.MemberNameColorMode.values;
-    if (value < 0 || value >= values.length) {
-      return domain.MemberNameColorMode.standard;
-    }
-    return values[value];
-  }
 
   static domain.Member toDomain(Member row) {
     return domain.Member(
@@ -62,13 +31,29 @@ class MemberMapper {
       birthday: row.birthday,
       proxyTagsJson: row.proxyTagsJson,
       pkBannerUrl: row.pkBannerUrl,
-      profileHeaderSource: _headerSourceFromDb(row.profileHeaderSource),
-      profileHeaderLayout: _headerLayoutFromDb(row.profileHeaderLayout),
+      profileHeaderSource: enumByIndex(
+        row.profileHeaderSource,
+        domain.MemberProfileHeaderSource.values,
+        domain.MemberProfileHeaderSource.prism,
+      ),
+      profileHeaderLayout: enumByIndex(
+        row.profileHeaderLayout,
+        domain.MemberProfileHeaderLayout.values,
+        domain.MemberProfileHeaderLayout.compactBackground,
+      ),
       profileHeaderVisible: row.profileHeaderVisible,
-      nameStyleFont: _nameFontFromDb(row.nameStyleFont),
+      nameStyleFont: enumByIndex(
+        row.nameStyleFont,
+        domain.MemberNameFont.values,
+        domain.MemberNameFont.standard,
+      ),
       nameStyleBold: row.nameStyleBold,
       nameStyleItalic: row.nameStyleItalic,
-      nameStyleColorMode: _nameColorModeFromDb(row.nameStyleColorMode),
+      nameStyleColorMode: enumByIndex(
+        row.nameStyleColorMode,
+        domain.MemberNameColorMode.values,
+        domain.MemberNameColorMode.standard,
+      ),
       nameStyleColorHex: row.nameStyleColorHex,
       profileHeaderImageData: row.profileHeaderImageData != null
           ? Uint8List.fromList(row.profileHeaderImageData!)

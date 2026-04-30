@@ -1,11 +1,13 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/core/database/daos/front_session_comments_dao.dart';
 import 'package:prism_plurality/data/mappers/front_session_comment_mapper.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
+import 'package:prism_plurality/data/utils/sync_datetime.dart';
 import 'package:prism_plurality/domain/models/front_session_comment.dart'
     as domain;
 import 'package:prism_plurality/domain/repositories/front_session_comments_repository.dart';
+import 'package:prism_plurality/domain/utils/time_range.dart';
 
 class DriftFrontSessionCommentsRepository
     with SyncRecordMixin
@@ -27,37 +29,31 @@ class DriftFrontSessionCommentsRepository
   /// Returns comments whose [domain.FrontSessionComment.targetTime] falls in
   /// [range] (inclusive start, exclusive end).
   ///
-  /// Comments with `targetTime == null` are excluded: they are pre-Phase-5
-  /// rows awaiting backfill and don't fall in any range until Phase 5 writes a
-  /// real timestamp.  After backfill every row has a non-null `targetTime`.
-  ///
-  /// Filtering is done in Dart rather than SQL so we can reuse the DAO's
-  /// `watchAllComments()` stream without a new DAO method.  The comment table
-  /// is small (typically < few hundred rows per user) so client-side filtering
-  /// is fine; if it becomes a concern a dedicated DAO query can replace this.
+  /// Filtering happens in SQL — backed by `idx_comments_target_time` — so
+  /// each watcher only wakes when a row in its own range changes.
+  /// Comments with `targetTime == null` are excluded; see the
+  /// repository-interface docstring for the rationale.
   @override
   Stream<List<domain.FrontSessionComment>> watchCommentsForRange(
-      DateTimeRange range) {
-    return _dao.watchAllComments().map((rows) => rows
-        .map(FrontSessionCommentMapper.toDomain)
-        .where((c) =>
-            c.targetTime != null &&
-            !c.targetTime!.isBefore(range.start) &&
-            c.targetTime!.isBefore(range.end))
-        .toList());
+    TimeRange range,
+  ) {
+    return _dao
+        .watchCommentsForRange(range.start, range.end)
+        .map((rows) => rows.map(FrontSessionCommentMapper.toDomain).toList());
   }
 
-  /// Comment count for a time range.  Pre-backfill (null targetTime) rows
+  /// Comment count for a time range. Pre-backfill (null targetTime) rows
   /// are excluded — see [watchCommentsForRange].
   @override
-  Stream<int> watchCommentCountForRange(DateTimeRange range) {
-    return watchCommentsForRange(range).map((list) => list.length);
+  Stream<int> watchCommentCountForRange(TimeRange range) {
+    return _dao.watchCommentCountForRange(range.start, range.end);
   }
 
   @override
   Stream<List<domain.FrontSessionComment>> watchAllComments() {
     return _dao.watchAllComments().map(
-        (rows) => rows.map(FrontSessionCommentMapper.toDomain).toList());
+      (rows) => rows.map(FrontSessionCommentMapper.toDomain).toList(),
+    );
   }
 
   @override
@@ -104,27 +100,16 @@ class DriftFrontSessionCommentsRepository
 
   Map<String, dynamic> _commentFields(domain.FrontSessionComment c) {
     return {
-      // session_id column still exists in v7 Drift schema (dropped in v8
-      // cleanup via TableMigration rebuild); leave null on new inserts so the
-      // column stays inert.  Do NOT write a session_id here — new comments
-      // are anchored to target_time, not a session FK.
-      'target_time': _toSyncUtcOrNull(c.targetTime),
+      // session_id column still exists in v7 Drift schema (dropped in
+      // schema cleanup via TableMigration rebuild); leave null on new
+      // inserts so the column stays inert. Do NOT write a session_id
+      // here — new comments are anchored to target_time, not a session FK.
+      'target_time': toSyncUtcOrNull(c.targetTime),
       'author_member_id': c.authorMemberId,
       'body': c.body,
-      'timestamp': _toSyncUtc(c.timestamp),
-      'created_at': _toSyncUtc(c.createdAt),
+      'timestamp': toSyncUtc(c.timestamp),
+      'created_at': toSyncUtc(c.createdAt),
       'is_deleted': false,
     };
   }
 }
-
-/// Normalizes a DateTime to UTC ISO-8601 (Z-suffixed) for sync wire emission.
-///
-/// Local DateTimes serialize with no offset/Z, so a peer in a different
-/// timezone would parse the value as their own local time and shift the
-/// absolute moment by the timezone delta on every sync. Routing every
-/// DateTime through here mirrors the `_dateTimeToSyncString` helper in
-/// `core/sync/drift_sync_adapter.dart`.
-String _toSyncUtc(DateTime dt) => dt.toUtc().toIso8601String();
-
-String? _toSyncUtcOrNull(DateTime? dt) => dt?.toUtc().toIso8601String();
