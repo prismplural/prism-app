@@ -76,6 +76,7 @@ class PkSyncDirectionNotifier extends Notifier<PkSyncDirection> {
       description: direction,
       color: direction,
       birthday: direction,
+      proxyTags: direction,
     );
     await syncDao.upsertSyncState(
       PluralKitSyncStateCompanion(

@@ -457,17 +457,7 @@ const _repositoryFieldSources = <_RepoFieldSource>[
 const _writeOmittedFields = <String, Set<String>>{
   // `delete_push_started_at` is stamped via DriftMemberRepository
   //   .stampDeletePushStartedAt(), not the create/update field map.
-  // `display_name`, `birthday`, `proxy_tags_json`, and
-  //   `pluralkit_sync_ignored` are PK-import-only columns — the prism
-  //   repository never originates them on its own writes; they are only ever
-  //   set by the PluralKit import service.
-  'members': {
-    'delete_push_started_at',
-    'display_name',
-    'birthday',
-    'proxy_tags_json',
-    'pluralkit_sync_ignored',
-  },
+  'members': {'delete_push_started_at'},
   // `delete_push_started_at` — stamped through a separate code path on
   // session deletion; not part of the regular create/update field map.
   // `pluralkit_uuid` is set in _sessionFields, but for SP-only sessions

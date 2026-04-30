@@ -51,6 +51,7 @@ class PkFieldSyncConfig {
   final PkSyncDirection description;
   final PkSyncDirection color;
   final PkSyncDirection birthday;
+  final PkSyncDirection proxyTags;
 
   const PkFieldSyncConfig({
     this.name = PkSyncDirection.bidirectional,
@@ -59,6 +60,7 @@ class PkFieldSyncConfig {
     this.description = PkSyncDirection.bidirectional,
     this.color = PkSyncDirection.bidirectional,
     this.birthday = PkSyncDirection.bidirectional,
+    this.proxyTags = PkSyncDirection.bidirectional,
   });
 
   /// Returns the direction for a named field.
@@ -76,6 +78,8 @@ class PkFieldSyncConfig {
         return color;
       case 'birthday':
         return birthday;
+      case 'proxyTags':
+        return proxyTags;
       default:
         return PkSyncDirection.bidirectional;
     }
@@ -88,6 +92,7 @@ class PkFieldSyncConfig {
     'description': description.toJson(),
     'color': color.toJson(),
     'birthday': birthday.toJson(),
+    'proxyTags': proxyTags.toJson(),
   };
 
   factory PkFieldSyncConfig.fromJson(Map<String, dynamic> json) {
@@ -110,6 +115,9 @@ class PkFieldSyncConfig {
       birthday: PkSyncDirection.fromJson(
         json['birthday'] as String? ?? 'bidirectional',
       ),
+      proxyTags: PkSyncDirection.fromJson(
+        json['proxyTags'] as String? ?? 'bidirectional',
+      ),
     );
   }
 
@@ -120,6 +128,7 @@ class PkFieldSyncConfig {
     PkSyncDirection? description,
     PkSyncDirection? color,
     PkSyncDirection? birthday,
+    PkSyncDirection? proxyTags,
   }) {
     return PkFieldSyncConfig(
       name: name ?? this.name,
@@ -128,6 +137,7 @@ class PkFieldSyncConfig {
       description: description ?? this.description,
       color: color ?? this.color,
       birthday: birthday ?? this.birthday,
+      proxyTags: proxyTags ?? this.proxyTags,
     );
   }
 }

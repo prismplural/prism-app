@@ -227,6 +227,9 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
       'pluralkit_uuid': m.pluralkitUuid,
       'pluralkit_id': m.pluralkitId,
       'markdown_enabled': m.markdownEnabled,
+      'display_name': m.displayName,
+      'birthday': m.birthday,
+      'proxy_tags_json': m.proxyTagsJson,
       'pk_banner_url': m.pkBannerUrl,
       'profile_header_source': m.profileHeaderSource.index,
       'profile_header_layout': m.profileHeaderLayout.index,
@@ -238,6 +241,7 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
           ? base64Encode(m.pkBannerImageData!)
           : null,
       'pk_banner_cached_url': m.pkBannerCachedUrl,
+      'pluralkit_sync_ignored': m.pluralkitSyncIgnored,
       'is_always_fronting': m.isAlwaysFronting,
       'is_deleted': false,
     };

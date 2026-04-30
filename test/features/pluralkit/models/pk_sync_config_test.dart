@@ -37,6 +37,7 @@ void main() {
         pronouns: PkSyncDirection.pushOnly,
         description: PkSyncDirection.bidirectional,
         color: PkSyncDirection.disabled,
+        proxyTags: PkSyncDirection.pushOnly,
       );
 
       final json = config.toJson();
@@ -46,6 +47,7 @@ void main() {
       expect(restored.pronouns, PkSyncDirection.pushOnly);
       expect(restored.description, PkSyncDirection.bidirectional);
       expect(restored.color, PkSyncDirection.disabled);
+      expect(restored.proxyTags, PkSyncDirection.pushOnly);
     });
 
     test('default values are bidirectional', () {
@@ -54,6 +56,7 @@ void main() {
       expect(config.pronouns, PkSyncDirection.bidirectional);
       expect(config.description, PkSyncDirection.bidirectional);
       expect(config.color, PkSyncDirection.bidirectional);
+      expect(config.proxyTags, PkSyncDirection.bidirectional);
     });
 
     test('fromJson handles missing fields with defaults', () {
@@ -62,6 +65,7 @@ void main() {
       expect(config.pronouns, PkSyncDirection.bidirectional);
       expect(config.description, PkSyncDirection.bidirectional);
       expect(config.color, PkSyncDirection.bidirectional);
+      expect(config.proxyTags, PkSyncDirection.bidirectional);
     });
 
     test('directionFor returns correct direction for known fields', () {
@@ -70,12 +74,14 @@ void main() {
         pronouns: PkSyncDirection.pushOnly,
         description: PkSyncDirection.disabled,
         color: PkSyncDirection.bidirectional,
+        proxyTags: PkSyncDirection.pushOnly,
       );
 
       expect(config.directionFor('name'), PkSyncDirection.pullOnly);
       expect(config.directionFor('pronouns'), PkSyncDirection.pushOnly);
       expect(config.directionFor('description'), PkSyncDirection.disabled);
       expect(config.directionFor('color'), PkSyncDirection.bidirectional);
+      expect(config.directionFor('proxyTags'), PkSyncDirection.pushOnly);
     });
 
     test('directionFor returns bidirectional for unknown fields', () {
@@ -106,6 +112,7 @@ void main() {
           'pronouns': 'pushOnly',
           'description': 'bidirectional',
           'color': 'disabled',
+          'proxyTags': 'pushOnly',
         },
       });
 
@@ -115,6 +122,7 @@ void main() {
       expect(result['member-1']!.pronouns, PkSyncDirection.pushOnly);
       expect(result['member-1']!.description, PkSyncDirection.bidirectional);
       expect(result['member-1']!.color, PkSyncDirection.disabled);
+      expect(result['member-1']!.proxyTags, PkSyncDirection.pushOnly);
     });
   });
 
@@ -128,6 +136,7 @@ void main() {
           pronouns: PkSyncDirection.pushOnly,
           description: PkSyncDirection.bidirectional,
           color: PkSyncDirection.disabled,
+          proxyTags: PkSyncDirection.pullOnly,
         ),
       };
 
@@ -140,6 +149,7 @@ void main() {
       expect(memberConfig['pronouns'], 'pushOnly');
       expect(memberConfig['description'], 'bidirectional');
       expect(memberConfig['color'], 'disabled');
+      expect(memberConfig['proxyTags'], 'pullOnly');
     });
 
     test('round-trip: serialize then parse', () {

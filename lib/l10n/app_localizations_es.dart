@@ -1582,7 +1582,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String featureChatProxyTagAuthoringSubtitle(String termSingularLower) {
-    return 'Escribe una etiqueta de proxy de PluralKit (p. ej. A:) para firmar un solo mensaje como $termSingularLower. Distingue mayúsculas y minúsculas.';
+    return 'Escribe una etiqueta de proxy (p. ej. A:) para firmar un solo mensaje como $termSingularLower. Distingue mayúsculas y minúsculas.';
   }
 
   @override
@@ -2516,6 +2516,31 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get memberProxyTagsEditOnPk => 'Editar en PluralKit';
+
+  @override
+  String get memberProxyTagsLocalDescription =>
+      'Se guardan en Prism para firmar mensajes de chat con etiquetas de proxy. Los miembros vinculados se sincronizan con PluralKit cuando la sincronización de subida está activada.';
+
+  @override
+  String get memberProxyTagsEditInPrism => 'Editar etiquetas de proxy';
+
+  @override
+  String get memberProxyTagsAdd => 'Agregar etiqueta de proxy';
+
+  @override
+  String get memberProxyTagsRemove => 'Quitar etiqueta de proxy';
+
+  @override
+  String get memberProxyTagPrefixLabel => 'Prefijo';
+
+  @override
+  String get memberProxyTagPrefixHint => 'A:';
+
+  @override
+  String get memberProxyTagSuffixLabel => 'Sufijo';
+
+  @override
+  String get memberProxyTagSuffixHint => '-a';
 
   @override
   String get memberProxyTagsEmpty => 'No hay etiquetas de proxy.';

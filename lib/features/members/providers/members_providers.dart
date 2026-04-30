@@ -98,6 +98,7 @@ class MembersNotifier extends AsyncNotifier<void> {
     String? customColorHex,
     String? displayName,
     String? birthday,
+    String? proxyTagsJson,
     MemberProfileHeaderSource profileHeaderSource =
         MemberProfileHeaderSource.prism,
     MemberProfileHeaderLayout profileHeaderLayout =
@@ -120,6 +121,7 @@ class MembersNotifier extends AsyncNotifier<void> {
         customColorHex: customColorHex,
         displayName: displayName,
         birthday: birthday,
+        proxyTagsJson: proxyTagsJson,
         profileHeaderSource: profileHeaderSource,
         profileHeaderLayout: profileHeaderLayout,
         profileHeaderVisible: profileHeaderVisible,

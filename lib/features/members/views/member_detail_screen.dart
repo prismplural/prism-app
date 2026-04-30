@@ -134,12 +134,16 @@ class _MemberDetailBody extends ConsumerWidget {
                 ),
               ),
 
-            ProxyTagsSection(member: member),
+            CustomFieldsDisplay(memberId: member.id),
+            NotesSection(memberId: member.id),
 
             MemberGroupsSection(memberId: member.id, memberName: member.name),
 
-            CustomFieldsDisplay(memberId: member.id),
-            NotesSection(memberId: member.id),
+            ProxyTagsSection(
+              member: member,
+              onEditInPrism: () => _openEditSheet(context),
+            ),
+
             _FrontingStatsSection(memberId: member.id),
 
             const SizedBox(height: 8),

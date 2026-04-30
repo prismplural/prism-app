@@ -1542,7 +1542,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String featureChatProxyTagAuthoringSubtitle(String termSingularLower) {
-    return 'Type a PluralKit proxy tag (e.g. A:) to author as that $termSingularLower for one message. Case-sensitive.';
+    return 'Type a proxy tag (e.g. A:) to author as that $termSingularLower for one message. Case-sensitive.';
   }
 
   @override
@@ -2460,6 +2460,31 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get memberProxyTagsEditOnPk => 'Edit on PluralKit';
+
+  @override
+  String get memberProxyTagsLocalDescription =>
+      'Saved in Prism for chat proxy-tag authoring. Linked members sync with PluralKit when push sync is enabled.';
+
+  @override
+  String get memberProxyTagsEditInPrism => 'Edit proxy tags';
+
+  @override
+  String get memberProxyTagsAdd => 'Add proxy tag';
+
+  @override
+  String get memberProxyTagsRemove => 'Remove proxy tag';
+
+  @override
+  String get memberProxyTagPrefixLabel => 'Prefix';
+
+  @override
+  String get memberProxyTagPrefixHint => 'A:';
+
+  @override
+  String get memberProxyTagSuffixLabel => 'Suffix';
+
+  @override
+  String get memberProxyTagSuffixHint => '-a';
 
   @override
   String get memberProxyTagsEmpty => 'No proxy tags set.';
