@@ -10,16 +10,16 @@ abstract class FrontSessionComment with _$FrontSessionComment {
     required String body,
     required DateTime timestamp,
     required DateTime createdAt,
-    // target_time: the moment this comment is about. Nullable until Phase 5
-    // migration backfills existing rows; downstream code falls back to
-    // timestamp when targetTime is null.
+    // target_time: the moment this comment is about. Nullable until the
+    // app-layer migration backfills existing rows. Range queries exclude
+    // null-targetTime rows by design; after backfill every row carries a
+    // non-null value.
     DateTime? targetTime,
     // Optional author — which member wrote this comment.
     String? authorMemberId,
     // Legacy v6 FK to fronting_sessions.id. Kept on the model so migration
-    // and import code can read the legacy column for backfill until the v8
-    // cleanup migration drops the column. New code uses targetTime instead.
-    // Removal target: 0.8.0 (drop with the v8 TableMigration rebuild).
+    // and import code can read the legacy column for backfill until the
+    // schema cleanup drops the column. New code uses targetTime instead.
     String? sessionId,
   }) = _FrontSessionComment;
 

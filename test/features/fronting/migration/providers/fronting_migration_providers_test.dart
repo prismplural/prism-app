@@ -1,5 +1,5 @@
 // Provider-level tests for [pairedDeviceCountProvider]'s null-handle
-// discriminator (final-review fix Z, codex P3 follow-up).
+// discriminator.
 //
 // Fix Z's existing test (in `upgrade_modal_test.dart`) overrides the
 // public-facing `pairedDeviceCountProvider` with a throwing future and asserts
@@ -31,8 +31,7 @@ class _FakePrismSyncHandle implements ffi.PrismSyncHandle {
   const _FakePrismSyncHandle();
 
   @override
-  dynamic noSuchMethod(Invocation invocation) =>
-      super.noSuchMethod(invocation);
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _FakeHandleNotifier extends PrismSyncHandleNotifier {
@@ -87,8 +86,9 @@ void main() {
       () async {
         final container = ProviderContainer(
           overrides: [
-            prismSyncHandleProvider
-                .overrideWith(() => _FakeHandleNotifier(null)),
+            prismSyncHandleProvider.overrideWith(
+              () => _FakeHandleNotifier(null),
+            ),
             syncIdProvider.overrideWith((ref) async => 'sync-id-foo'),
           ],
         );
@@ -110,14 +110,12 @@ void main() {
         const handle = _FakePrismSyncHandle();
         final container = ProviderContainer(
           overrides: [
-            prismSyncHandleProvider
-                .overrideWith(() => _FakeHandleNotifier(handle)),
+            prismSyncHandleProvider.overrideWith(
+              () => _FakeHandleNotifier(handle),
+            ),
             syncIdProvider.overrideWith((ref) async => 'sync-id-foo'),
             deviceListProvider.overrideWith(
-              () => _FakeDeviceListNotifier([
-                _device('d1'),
-                _device('d2'),
-              ]),
+              () => _FakeDeviceListNotifier([_device('d1'), _device('d2')]),
             ),
           ],
         );
@@ -129,30 +127,28 @@ void main() {
       },
     );
 
-    test(
-      'handle non-null + listDevices returns 3 active → 2',
-      () async {
-        const handle = _FakePrismSyncHandle();
-        final container = ProviderContainer(
-          overrides: [
-            prismSyncHandleProvider
-                .overrideWith(() => _FakeHandleNotifier(handle)),
-            syncIdProvider.overrideWith((ref) async => 'sync-id-foo'),
-            deviceListProvider.overrideWith(
-              () => _FakeDeviceListNotifier([
-                _device('d1'),
-                _device('d2'),
-                _device('d3'),
-              ]),
-            ),
-          ],
-        );
-        addTearDown(container.dispose);
+    test('handle non-null + listDevices returns 3 active → 2', () async {
+      const handle = _FakePrismSyncHandle();
+      final container = ProviderContainer(
+        overrides: [
+          prismSyncHandleProvider.overrideWith(
+            () => _FakeHandleNotifier(handle),
+          ),
+          syncIdProvider.overrideWith((ref) async => 'sync-id-foo'),
+          deviceListProvider.overrideWith(
+            () => _FakeDeviceListNotifier([
+              _device('d1'),
+              _device('d2'),
+              _device('d3'),
+            ]),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
 
-        final count = await container.read(pairedDeviceCountProvider.future);
-        expect(count, 2);
-      },
-    );
+      final count = await container.read(pairedDeviceCountProvider.future);
+      expect(count, 2);
+    });
 
     test(
       'handle non-null + listDevices returns 1 active + 1 revoked → 0',
@@ -160,8 +156,9 @@ void main() {
         const handle = _FakePrismSyncHandle();
         final container = ProviderContainer(
           overrides: [
-            prismSyncHandleProvider
-                .overrideWith(() => _FakeHandleNotifier(handle)),
+            prismSyncHandleProvider.overrideWith(
+              () => _FakeHandleNotifier(handle),
+            ),
             syncIdProvider.overrideWith((ref) async => 'sync-id-foo'),
             deviceListProvider.overrideWith(
               () => _FakeDeviceListNotifier([

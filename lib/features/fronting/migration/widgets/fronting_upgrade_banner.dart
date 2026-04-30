@@ -32,10 +32,11 @@ class FrontingUpgradeBanner extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final mode = ref.watch(frontingMigrationModeProvider).value;
     // Show the banner for both `deferred` (user opted out) and
-    // `inProgress` (Codex P1 #4: post-tx cleanup partially failed and
-    // can be resumed). Either way the user re-enters via the modal,
-    // which adapts to whichever state is current.
-    final isVisible = mode == FrontingMigrationService.modeDeferred ||
+    // `inProgress` (post-tx cleanup partially failed and can be
+    // resumed). Either way the user re-enters via the modal, which
+    // adapts to whichever state is current.
+    final isVisible =
+        mode == FrontingMigrationService.modeDeferred ||
         mode == FrontingMigrationService.modeInProgress;
     if (!isVisible) {
       return const SizedBox.shrink();

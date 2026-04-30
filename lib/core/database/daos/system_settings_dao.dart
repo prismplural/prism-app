@@ -236,26 +236,24 @@ class SystemSettingsDao extends DatabaseAccessor<AppDatabase>
     // alone would no-op on an empty table.
     await getSettings();
     await _updateField(
-      SystemSettingsTableCompanion(
-        pendingFrontingMigrationMode: Value(mode),
-      ),
+      SystemSettingsTableCompanion(pendingFrontingMigrationMode: Value(mode)),
     );
   }
 
-  /// Codex pass 2 #B-NEW3. Reads the cleanup substate that
-  /// disambiguates the in-progress window of the per-member fronting
-  /// migration. See the column comment in `system_settings_table.dart`
-  /// for value semantics.  Defaults to `''` on fresh installs.
+  /// Reads the cleanup substate that disambiguates the in-progress
+  /// window of the per-member fronting migration. See the column comment
+  /// in `system_settings_table.dart` for value semantics. Defaults to
+  /// `''` on fresh installs.
   Future<String> readPendingFrontingMigrationCleanupSubstate() async {
     final row = await getSettings();
     return row.pendingFrontingMigrationCleanupSubstate;
   }
 
-  /// Codex pass 2 #B-NEW3. Writes the cleanup substate. Caller is
-  /// responsible for using one of the documented values (`''` /
-  /// `'resetDone'`).
+  /// Writes the cleanup substate. Caller is responsible for using one
+  /// of the documented values (`''` / `'resetDone'`).
   Future<void> writePendingFrontingMigrationCleanupSubstate(
-      String substate) async {
+    String substate,
+  ) async {
     await getSettings();
     await _updateField(
       SystemSettingsTableCompanion(

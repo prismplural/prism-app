@@ -12,7 +12,7 @@
 //   3. Selecting a new fronter via the sheet updates the displayed fronter.
 //   4. Picking "Unknown" from the sheet → save flow emits a patch carrying
 //      [unknownSentinelMemberId] (NOT clearMemberId / null), so the
-//      executor's ensure-sentinel branch runs.  Pins the codex pass-7 fix
+//      executor's ensure-sentinel branch runs.  Pins the unknown-sentinel fix
 //      against regression.
 
 import 'package:flutter/material.dart';
@@ -55,14 +55,12 @@ import 'package:prism_plurality/features/fronting/validation/fronting_validation
 Member _member({required String id, required String name}) =>
     Member(id: id, name: name, emoji: '😀', createdAt: DateTime(2024));
 
-FrontingSession _session({
-  String id = 'test-session',
-  String? memberId,
-}) => FrontingSession(
-  id: id,
-  startTime: DateTime(2024, 1, 1, 10),
-  memberId: memberId,
-);
+FrontingSession _session({String id = 'test-session', String? memberId}) =>
+    FrontingSession(
+      id: id,
+      startTime: DateTime(2024, 1, 1, 10),
+      memberId: memberId,
+    );
 
 /// Builds EditFrontSessionScreen with the given session and members, all
 /// real-provider reads mocked out so no database is hit.
@@ -212,7 +210,7 @@ void main() {
   });
 
   // ══════════════════════════════════════════════════════════════════════════
-  // Unknown picker → save: pins codex pass-7 fix
+  // Unknown picker → save: pins unknown-sentinel fix
   //
   // Before the fix the Unknown picker mapped to `_memberId = null` and save
   // emitted `clearMemberId: true`, bypassing the executor's
@@ -268,7 +266,9 @@ void main() {
               sessionByIdProvider(
                 originalSession.id,
               ).overrideWith((ref) => Stream.value(originalSession)),
-              activeMembersProvider.overrideWith((ref) => Stream.value(members)),
+              activeMembersProvider.overrideWith(
+                (ref) => Stream.value(members),
+              ),
               allGroupsProvider.overrideWith(
                 (ref) => Stream.value(const <MemberGroup>[]),
               ),
@@ -313,14 +313,20 @@ void main() {
         expect(capturing.captured, hasLength(1));
         final batch = capturing.captured.single;
         // The first change is always the primary update (insert at index 0).
-        final update =
-            batch.whereType<UpdateSessionChange>().single;
+        final update = batch.whereType<UpdateSessionChange>().single;
         expect(update.sessionId, originalSession.id);
-        expect(update.patch.memberId, unknownSentinelMemberId,
-            reason: 'Unknown picker must write the sentinel id, not null');
-        expect(update.patch.clearMemberId, isFalse,
-            reason: 'clearMemberId must NOT be set for Unknown — that '
-                'bypasses the executor ensure-sentinel branch');
+        expect(
+          update.patch.memberId,
+          unknownSentinelMemberId,
+          reason: 'Unknown picker must write the sentinel id, not null',
+        );
+        expect(
+          update.patch.clearMemberId,
+          isFalse,
+          reason:
+              'clearMemberId must NOT be set for Unknown — that '
+              'bypasses the executor ensure-sentinel branch',
+        );
       },
     );
   });

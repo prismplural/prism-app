@@ -4,6 +4,7 @@ import 'package:prism_plurality/core/database/daos/fronting_sessions_dao.dart';
 import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
 import 'package:prism_plurality/data/mappers/fronting_session_mapper.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
+import 'package:prism_plurality/data/utils/sync_datetime.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart' as domain;
 import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
 
@@ -273,8 +274,8 @@ class DriftFrontingSessionRepository
 
   Map<String, dynamic> _sessionFields(domain.FrontingSession s) {
     return {
-      'start_time': _toSyncUtc(s.startTime),
-      'end_time': _toSyncUtcOrNull(s.endTime),
+      'start_time': toSyncUtc(s.startTime),
+      'end_time': toSyncUtcOrNull(s.endTime),
       'member_id': s.memberId,
       'notes': s.notes,
       'confidence': s.confidence?.index,
@@ -288,14 +289,3 @@ class DriftFrontingSessionRepository
     };
   }
 }
-
-/// Normalizes a DateTime to UTC ISO-8601 (Z-suffixed) for sync wire emission.
-///
-/// Local DateTimes serialize with no offset/Z, so a peer in a different
-/// timezone would parse the value as their own local time and shift the
-/// absolute moment by the timezone delta on every sync. Routing every
-/// DateTime through here mirrors the `_dateTimeToSyncString` helper in
-/// `core/sync/drift_sync_adapter.dart`.
-String _toSyncUtc(DateTime dt) => dt.toUtc().toIso8601String();
-
-String? _toSyncUtcOrNull(DateTime? dt) => dt?.toUtc().toIso8601String();

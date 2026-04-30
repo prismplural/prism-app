@@ -9,19 +9,14 @@ FrontingSession _s({
   required DateTime start,
   DateTime? end,
 }) =>
-    FrontingSession(
-      id: id,
-      memberId: memberId,
-      startTime: start,
-      endTime: end,
-    );
+    FrontingSession(id: id, memberId: memberId, startTime: start, endTime: end);
 
 Member _m(String id, {bool isAlwaysFronting = false}) => Member(
-      id: id,
-      name: id,
-      createdAt: DateTime(2026, 1, 1),
-      isAlwaysFronting: isAlwaysFronting,
-    );
+  id: id,
+  name: id,
+  createdAt: DateTime(2026, 1, 1),
+  isAlwaysFronting: isAlwaysFronting,
+);
 
 DerivePeriodsInput _input({
   required List<FrontingSession> sessions,
@@ -40,9 +35,11 @@ DerivePeriodsInput _input({
 }) {
   final effectiveNow = now ?? rangeEnd ?? DateTime(2026, 4, 2);
   if (now != null && rangeEnd != null) {
-    assert(now == rangeEnd,
-        'now and rangeEnd must match in tests — production has no '
-        'separate rangeEnd, the visible window is [rangeStart, now]');
+    assert(
+      now == rangeEnd,
+      'now and rangeEnd must match in tests — production has no '
+      'separate rangeEnd, the visible window is [rangeStart, now]',
+    );
   }
   return DerivePeriodsInput(
     sessions: sessions,
@@ -63,9 +60,11 @@ void main() {
     test('single session 6:42–9:07 → 1 period', () {
       final start = DateTime(2026, 4, 1, 6, 42);
       final end = DateTime(2026, 4, 1, 9, 7);
-      final result = deriveMaximalPeriods(_input(sessions: [
-        _s(id: 's1', memberId: 'a', start: start, end: end),
-      ]));
+      final result = deriveMaximalPeriods(
+        _input(
+          sessions: [_s(id: 's1', memberId: 'a', start: start, end: end)],
+        ),
+      );
       expect(result, hasLength(1));
       expect(result[0].start, start);
       expect(result[0].end, end);
@@ -78,10 +77,14 @@ void main() {
     test('two members co-front entire range → 1 period with both', () {
       final start = DateTime(2026, 4, 1, 10);
       final end = DateTime(2026, 4, 1, 14);
-      final result = deriveMaximalPeriods(_input(sessions: [
-        _s(id: 's1', memberId: 'a', start: start, end: end),
-        _s(id: 's2', memberId: 'b', start: start, end: end),
-      ]));
+      final result = deriveMaximalPeriods(
+        _input(
+          sessions: [
+            _s(id: 's1', memberId: 'a', start: start, end: end),
+            _s(id: 's2', memberId: 'b', start: start, end: end),
+          ],
+        ),
+      );
       expect(result, hasLength(1));
       expect(result[0].activeMembers.toSet(), {'a', 'b'});
       expect(result[0].sessionIds.toSet(), {'s1', 's2'});
@@ -93,10 +96,14 @@ void main() {
       final t2 = DateTime(2026, 4, 1, 12);
       final t3 = DateTime(2026, 4, 1, 13);
 
-      final result = deriveMaximalPeriods(_input(sessions: [
-        _s(id: 'a', memberId: 'a', start: t0, end: t3),
-        _s(id: 'b', memberId: 'b', start: t1, end: t2),
-      ]));
+      final result = deriveMaximalPeriods(
+        _input(
+          sessions: [
+            _s(id: 'a', memberId: 'a', start: t0, end: t3),
+            _s(id: 'b', memberId: 'b', start: t1, end: t2),
+          ],
+        ),
+      );
 
       expect(result, hasLength(3));
       expect(result[0].activeMembers, ['a']);
@@ -115,18 +122,25 @@ void main() {
       final t1 = DateTime(2026, 4, 1, 12);
       final t2 = DateTime(2026, 4, 1, 14);
 
-      final result = deriveMaximalPeriods(_input(sessions: [
-        _s(id: 'a', memberId: 'a', start: t0, end: t1),
-        _s(id: 'b', memberId: 'b', start: t1, end: t2),
-      ]));
+      final result = deriveMaximalPeriods(
+        _input(
+          sessions: [
+            _s(id: 'a', memberId: 'a', start: t0, end: t1),
+            _s(id: 'b', memberId: 'b', start: t1, end: t2),
+          ],
+        ),
+      );
 
       expect(result, hasLength(2));
       expect(result[0].activeMembers, ['a']);
       expect(result[1].activeMembers, ['b']);
       // No zero-length "neither fronting" period in between.
       for (final p in result) {
-        expect(p.duration > Duration.zero, isTrue,
-            reason: 'period $p has zero duration');
+        expect(
+          p.duration > Duration.zero,
+          isTrue,
+          reason: 'period $p has zero duration',
+        );
       }
     });
 
@@ -140,13 +154,15 @@ void main() {
       final tBriefStart = DateTime(2026, 4, 1, 11);
       final tBriefEnd = DateTime(2026, 4, 1, 11, 0, 30); // 30s
 
-      final result = deriveMaximalPeriods(_input(
-        sessions: [
-          _s(id: 'a', memberId: 'a', start: t0, end: t3),
-          _s(id: 'b', memberId: 'b', start: tBriefStart, end: tBriefEnd),
-        ],
-        ephemeralThreshold: const Duration(minutes: 2),
-      ));
+      final result = deriveMaximalPeriods(
+        _input(
+          sessions: [
+            _s(id: 'a', memberId: 'a', start: t0, end: t3),
+            _s(id: 'b', memberId: 'b', start: tBriefStart, end: tBriefEnd),
+          ],
+          ephemeralThreshold: const Duration(minutes: 2),
+        ),
+      );
 
       // The 30s middle slice (active set {a,b}) is collapsed; only one
       // long period for {a} survives, with b as a brief visitor.
@@ -154,53 +170,62 @@ void main() {
       expect(result[0].activeMembers, ['a']);
       expect(result[0].briefVisitors, hasLength(1));
       expect(result[0].briefVisitors.first.memberId, 'b');
-      expect(result[0].briefVisitors.first.duration,
-          tBriefEnd.difference(tBriefStart));
+      expect(
+        result[0].briefVisitors.first.duration,
+        tBriefEnd.difference(tBriefStart),
+      );
     });
 
-    test(
-      'default threshold (Duration.zero post-1B): every session gets its '
-      'own row — no brief-visitor collapse',
-      () {
-        // Same shape as above but using the production default. Pins
-        // the post-smoke-test behavior: a 30s pop-in by `b` during
-        // `a`'s 2h front renders as three rows (a / a+b / a), not one
-        // row with a "+b briefly" chip.
-        final t0 = DateTime(2026, 4, 1, 10);
-        final t3 = DateTime(2026, 4, 1, 12);
-        final tBriefStart = DateTime(2026, 4, 1, 11);
-        final tBriefEnd = DateTime(2026, 4, 1, 11, 0, 30);
+    test('default threshold (Duration.zero post-1B): every session gets its '
+        'own row — no brief-visitor collapse', () {
+      // Same shape as above but using the production default. Pins
+      // the post-smoke-test behavior: a 30s pop-in by `b` during
+      // `a`'s 2h front renders as three rows (a / a+b / a), not one
+      // row with a "+b briefly" chip.
+      final t0 = DateTime(2026, 4, 1, 10);
+      final t3 = DateTime(2026, 4, 1, 12);
+      final tBriefStart = DateTime(2026, 4, 1, 11);
+      final tBriefEnd = DateTime(2026, 4, 1, 11, 0, 30);
 
-        final result = deriveMaximalPeriods(_input(sessions: [
-          _s(id: 'a', memberId: 'a', start: t0, end: t3),
-          _s(id: 'b', memberId: 'b', start: tBriefStart, end: tBriefEnd),
-        ]));
+      final result = deriveMaximalPeriods(
+        _input(
+          sessions: [
+            _s(id: 'a', memberId: 'a', start: t0, end: t3),
+            _s(id: 'b', memberId: 'b', start: tBriefStart, end: tBriefEnd),
+          ],
+        ),
+      );
 
-        expect(result, hasLength(3),
-            reason:
-                'no collapse: three periods — {a}, {a,b}, {a} — surface '
-                'the short visit as its own row');
-        expect(result[0].activeMembers, ['a']);
-        expect(result[1].activeMembers.toSet(), {'a', 'b'});
-        expect(result[2].activeMembers, ['a']);
-        for (final p in result) {
-          expect(p.briefVisitors, isEmpty,
-              reason: 'brief-visitor list stays empty under zero threshold');
-        }
-      },
-    );
+      expect(
+        result,
+        hasLength(3),
+        reason:
+            'no collapse: three periods — {a}, {a,b}, {a} — surface '
+            'the short visit as its own row',
+      );
+      expect(result[0].activeMembers, ['a']);
+      expect(result[1].activeMembers.toSet(), {'a', 'b'});
+      expect(result[2].activeMembers, ['a']);
+      for (final p in result) {
+        expect(
+          p.briefVisitors,
+          isEmpty,
+          reason: 'brief-visitor list stays empty under zero threshold',
+        );
+      }
+    });
 
     test('open-ended session extends to now', () {
       final t0 = DateTime(2026, 4, 1, 10);
       final now = DateTime(2026, 4, 1, 15);
 
-      final result = deriveMaximalPeriods(_input(
-        sessions: [
-          _s(id: 'a', memberId: 'a', start: t0, end: null),
-        ],
-        rangeStart: DateTime(2026, 4, 1),
-        now: now,
-      ));
+      final result = deriveMaximalPeriods(
+        _input(
+          sessions: [_s(id: 'a', memberId: 'a', start: t0, end: null)],
+          rangeStart: DateTime(2026, 4, 1),
+          now: now,
+        ),
+      );
 
       expect(result, hasLength(1));
       expect(result[0].start, t0);
@@ -217,15 +242,17 @@ void main() {
       final visitorStart = DateTime(2026, 4, 1, 14);
       final visitorEnd = DateTime(2026, 4, 1, 16);
 
-      final result = deriveMaximalPeriods(_input(
-        sessions: [
-          _s(id: 'host', memberId: 'host', start: hostStart, end: null),
-          _s(id: 'v', memberId: 'v', start: visitorStart, end: visitorEnd),
-        ],
-        rangeStart: visibleStart,
-        rangeEnd: visibleEnd,
-        now: visibleEnd,
-      ));
+      final result = deriveMaximalPeriods(
+        _input(
+          sessions: [
+            _s(id: 'host', memberId: 'host', start: hostStart, end: null),
+            _s(id: 'v', memberId: 'v', start: visitorStart, end: visitorEnd),
+          ],
+          rangeStart: visibleStart,
+          rangeEnd: visibleEnd,
+          now: visibleEnd,
+        ),
+      );
 
       // Three periods: host alone, host+v, host alone.
       expect(result, hasLength(3));
@@ -246,16 +273,18 @@ void main() {
       final visitorStart = DateTime(2026, 4, 1, 14);
       final visitorEnd = DateTime(2026, 4, 1, 16);
 
-      final result = deriveMaximalPeriods(_input(
-        sessions: [
-          _s(id: 'host', memberId: 'host', start: hostStart, end: null),
-          _s(id: 'v', memberId: 'v', start: visitorStart, end: visitorEnd),
-        ],
-        members: {'host': _m('host', isAlwaysFronting: true), 'v': _m('v')},
-        rangeStart: visibleStart,
-        rangeEnd: visibleEnd,
-        now: visibleEnd,
-      ));
+      final result = deriveMaximalPeriods(
+        _input(
+          sessions: [
+            _s(id: 'host', memberId: 'host', start: hostStart, end: null),
+            _s(id: 'v', memberId: 'v', start: visitorStart, end: visitorEnd),
+          ],
+          members: {'host': _m('host', isAlwaysFronting: true), 'v': _m('v')},
+          rangeStart: visibleStart,
+          rangeEnd: visibleEnd,
+          now: visibleEnd,
+        ),
+      );
 
       // Only the visitor's period (foreground) is rendered. Always-present
       // host is surfaced via alwaysPresentMembers, not activeMembers.
@@ -272,15 +301,20 @@ void main() {
       final t2 = DateTime(2026, 4, 1, 12); // B joins
       final t3 = DateTime(2026, 4, 1, 13); // all end
 
-      final result = deriveMaximalPeriods(_input(sessions: [
-        _s(id: 'c', memberId: 'c', start: t0, end: t3),
-        _s(id: 'a', memberId: 'a', start: t1, end: t3),
-        _s(id: 'b', memberId: 'b', start: t2, end: t3),
-      ]));
+      final result = deriveMaximalPeriods(
+        _input(
+          sessions: [
+            _s(id: 'c', memberId: 'c', start: t0, end: t3),
+            _s(id: 'a', memberId: 'a', start: t1, end: t3),
+            _s(id: 'b', memberId: 'b', start: t2, end: t3),
+          ],
+        ),
+      );
 
       // Find the period where all three are active.
-      final triple =
-          result.firstWhere((p) => p.activeMembers.toSet().length == 3);
+      final triple = result.firstWhere(
+        (p) => p.activeMembers.toSet().length == 3,
+      );
       expect(triple.activeMembers, ['c', 'a', 'b']);
     });
 
@@ -291,26 +325,33 @@ void main() {
       // NOT alphabetize by memberId.
       final t0 = DateTime(2026, 4, 1, 10);
       final t1 = DateTime(2026, 4, 1, 11);
-      final result = deriveMaximalPeriods(_input(sessions: [
-        // Input order: b first, then a — that's the "selection order".
-        _s(id: 's1', memberId: 'b', start: t0, end: t1),
-        _s(id: 's2', memberId: 'a', start: t0, end: t1),
-      ]));
+      final result = deriveMaximalPeriods(
+        _input(
+          sessions: [
+            // Input order: b first, then a — that's the "selection order".
+            _s(id: 's1', memberId: 'b', start: t0, end: t1),
+            _s(id: 's2', memberId: 'a', start: t0, end: t1),
+          ],
+        ),
+      );
       expect(result, hasLength(1));
       // Both share firstStart = t0; tiebreak is input order, so 'b'
       // (selected first) leads.
       expect(result[0].activeMembers, ['b', 'a']);
     });
 
-    test('avatar stack ordering: input-order tiebreak survives reverse',
-        () {
+    test('avatar stack ordering: input-order tiebreak survives reverse', () {
       final t0 = DateTime(2026, 4, 1, 10);
       final t1 = DateTime(2026, 4, 1, 11);
       // Same data, reversed input → 'a' is the selected-first one now.
-      final result = deriveMaximalPeriods(_input(sessions: [
-        _s(id: 's2', memberId: 'a', start: t0, end: t1),
-        _s(id: 's1', memberId: 'b', start: t0, end: t1),
-      ]));
+      final result = deriveMaximalPeriods(
+        _input(
+          sessions: [
+            _s(id: 's2', memberId: 'a', start: t0, end: t1),
+            _s(id: 's1', memberId: 'b', start: t0, end: t1),
+          ],
+        ),
+      );
       expect(result, hasLength(1));
       expect(result[0].activeMembers, ['a', 'b']);
     });
@@ -318,45 +359,61 @@ void main() {
     test('sleep sessions are skipped', () {
       final t0 = DateTime(2026, 4, 1, 10);
       final t1 = DateTime(2026, 4, 1, 12);
-      final result = deriveMaximalPeriods(_input(sessions: [
-        FrontingSession(
-          id: 'sleep',
-          memberId: 'a',
-          startTime: t0,
-          endTime: t1,
-          sessionType: SessionType.sleep,
+      final result = deriveMaximalPeriods(
+        _input(
+          sessions: [
+            FrontingSession(
+              id: 'sleep',
+              memberId: 'a',
+              startTime: t0,
+              endTime: t1,
+              sessionType: SessionType.sleep,
+            ),
+          ],
         ),
-      ]));
+      );
       expect(result, isEmpty);
     });
 
     test('deleted sessions are skipped', () {
       final t0 = DateTime(2026, 4, 1, 10);
       final t1 = DateTime(2026, 4, 1, 12);
-      final result = deriveMaximalPeriods(_input(sessions: [
-        FrontingSession(
-          id: 'd',
-          memberId: 'a',
-          startTime: t0,
-          endTime: t1,
-          isDeleted: true,
+      final result = deriveMaximalPeriods(
+        _input(
+          sessions: [
+            FrontingSession(
+              id: 'd',
+              memberId: 'a',
+              startTime: t0,
+              endTime: t1,
+              isDeleted: true,
+            ),
+          ],
         ),
-      ]));
+      );
       expect(result, isEmpty);
     });
 
     test('Unknown-fronter row (memberId == null) is treated as no-op', () {
       final t0 = DateTime(2026, 4, 1, 10);
       final t1 = DateTime(2026, 4, 1, 12);
-      final result = deriveMaximalPeriods(_input(sessions: [
-        FrontingSession(id: 'u', memberId: null, startTime: t0, endTime: t1),
-      ]));
+      final result = deriveMaximalPeriods(
+        _input(
+          sessions: [
+            FrontingSession(
+              id: 'u',
+              memberId: null,
+              startTime: t0,
+              endTime: t1,
+            ),
+          ],
+        ),
+      );
       expect(result, isEmpty);
     });
 
-    test('A → A+B → A: each period\'s sessionIds covers contributors',
-        () {
-      // Codex P1 #3 fix: sessionIds must reflect the active sessions
+    test('A → A+B → A: each period\'s sessionIds covers contributors', () {
+      // Regression: sessionIds must reflect the active sessions
       // throughout the period, not just the boundary events. The
       // middle co-front period was previously missing 'a' (only the
       // boundary +b/-b events recorded), and the trailing {a} period
@@ -367,10 +424,14 @@ void main() {
       final t2 = DateTime(2026, 4, 1, 12);
       final t3 = DateTime(2026, 4, 1, 13);
 
-      final result = deriveMaximalPeriods(_input(sessions: [
-        _s(id: 'session-a', memberId: 'a', start: t0, end: t3),
-        _s(id: 'session-b', memberId: 'b', start: t1, end: t2),
-      ]));
+      final result = deriveMaximalPeriods(
+        _input(
+          sessions: [
+            _s(id: 'session-a', memberId: 'a', start: t0, end: t3),
+            _s(id: 'session-b', memberId: 'b', start: t1, end: t2),
+          ],
+        ),
+      );
 
       expect(result, hasLength(3));
 
@@ -385,43 +446,50 @@ void main() {
       // Trailing {a} period: only a's session, NOT b's.
       expect(result[2].activeMembers, ['a']);
       expect(result[2].sessionIds.toSet(), {'session-a'});
-      expect(result[2].sessionIds, isNot(contains('session-b')),
-          reason: 'b\'s session must not bleed into the trailing {a} period');
+      expect(
+        result[2].sessionIds,
+        isNot(contains('session-b')),
+        reason: 'b\'s session must not bleed into the trailing {a} period',
+      );
     });
 
     test('isOpenEnded is scoped to the trailing-edge period only', () {
-      // Codex P1 #2 fix: an active session must NOT mark earlier
+      // Regression: an active session must NOT mark earlier
       // closed periods as open-ended.
       final t0 = DateTime(2026, 4, 1, 8);
       final t1 = DateTime(2026, 4, 1, 9);
       final t2 = DateTime(2026, 4, 1, 12); // a's open session starts here
       final now = DateTime(2026, 4, 1, 15);
 
-      final result = deriveMaximalPeriods(_input(
-        sessions: [
-          // Earlier closed period: just B.
-          _s(id: 'closed-b', memberId: 'b', start: t0, end: t1),
-          // Current/open: A.
-          _s(id: 'open-a', memberId: 'a', start: t2, end: null),
-        ],
-        rangeStart: DateTime(2026, 4, 1),
-        rangeEnd: now,
-        now: now,
-      ));
+      final result = deriveMaximalPeriods(
+        _input(
+          sessions: [
+            // Earlier closed period: just B.
+            _s(id: 'closed-b', memberId: 'b', start: t0, end: t1),
+            // Current/open: A.
+            _s(id: 'open-a', memberId: 'a', start: t2, end: null),
+          ],
+          rangeStart: DateTime(2026, 4, 1),
+          rangeEnd: now,
+          now: now,
+        ),
+      );
 
       // Two periods: closed {b} and open {a}.
       expect(result, hasLength(2));
       // Earlier closed period must not be marked open-ended even
       // though a later session is currently open.
       final closed = result.firstWhere((p) => p.activeMembers.contains('b'));
-      expect(closed.isOpenEnded, isFalse,
-          reason: 'closed earlier periods must not render the live timer');
+      expect(
+        closed.isOpenEnded,
+        isFalse,
+        reason: 'closed earlier periods must not render the live timer',
+      );
       final open = result.firstWhere((p) => p.activeMembers.contains('a'));
       expect(open.isOpenEnded, isTrue);
     });
 
-    test(
-        'closed session entirely within rangeStart..now clamps to its '
+    test('closed session entirely within rangeStart..now clamps to its '
         'own endTime, not to now', () {
       // Post-rangeEnd-removal contract: the visible upper bound is
       // `now`. A closed session whose endTime is BEFORE `now` clamps
@@ -435,25 +503,29 @@ void main() {
       final closedEnd = DateTime(2026, 4, 1, 11); // strictly before now
       final now = DateTime(2026, 4, 1, 15);
 
-      final result = deriveMaximalPeriods(_input(
-        sessions: [
-          _s(id: 's', memberId: 'a', start: closedStart, end: closedEnd),
-        ],
-        rangeStart: visibleStart,
-        now: now,
-      ));
+      final result = deriveMaximalPeriods(
+        _input(
+          sessions: [
+            _s(id: 's', memberId: 'a', start: closedStart, end: closedEnd),
+          ],
+          rangeStart: visibleStart,
+          now: now,
+        ),
+      );
 
       expect(result, hasLength(1));
       // End must be the session's own endTime, NOT now.
-      expect(result[0].end, closedEnd,
-          reason:
-              'closed session within the window clamps to its own '
-              'endTime, not now');
+      expect(
+        result[0].end,
+        closedEnd,
+        reason:
+            'closed session within the window clamps to its own '
+            'endTime, not now',
+      );
       expect(result[0].isOpenEnded, isFalse);
     });
 
-    test(
-        'closed session whose endTime is past now clamps to now (clock-skew '
+    test('closed session whose endTime is past now clamps to now (clock-skew '
         'or future-edited row)', () {
       // Edge case: a closed session was edited with an endTime in the
       // future relative to wall clock (or written under clock skew).
@@ -463,67 +535,77 @@ void main() {
       final now = DateTime(2026, 4, 1, 12);
       final closedEnd = now.add(const Duration(hours: 5)); // past now
 
-      final result = deriveMaximalPeriods(_input(
-        sessions: [
-          _s(id: 's', memberId: 'a', start: closedStart, end: closedEnd),
-        ],
-        rangeStart: visibleStart,
-        now: now,
-      ));
+      final result = deriveMaximalPeriods(
+        _input(
+          sessions: [
+            _s(id: 's', memberId: 'a', start: closedStart, end: closedEnd),
+          ],
+          rangeStart: visibleStart,
+          now: now,
+        ),
+      );
 
       expect(result, hasLength(1));
-      expect(result[0].end, now,
-          reason:
-              'closed session whose endTime is past now clamps to now');
-      expect(result[0].isOpenEnded, isFalse,
-          reason: 'closed sessions never render the live timer');
+      expect(
+        result[0].end,
+        now,
+        reason: 'closed session whose endTime is past now clamps to now',
+      );
+      expect(
+        result[0].isOpenEnded,
+        isFalse,
+        reason: 'closed sessions never render the live timer',
+      );
     });
 
-    test('cascading shorts: all-short input still emits one row',
-        () {
-      // Codex P2 fix: the previous collapse skipped every short
+    test('cascading shorts: all-short input still emits one row', () {
+      // Regression: fix: the previous collapse skipped every short
       // period when there were multiple in a row, producing empty
       // output for an all-short history. With a non-zero threshold,
       // we must emit at least one row covering the span with everyone
       // as briefs. Default threshold is zero post-1B; this test pins
       // the legacy code path with an explicit 2-min override.
       final t0 = DateTime(2026, 4, 1, 10);
-      final result = deriveMaximalPeriods(_input(
-        sessions: [
-          _s(
-            id: 's1',
-            memberId: 'a',
-            start: t0,
-            end: t0.add(const Duration(seconds: 10)),
-          ),
-          _s(
-            id: 's2',
-            memberId: 'b',
-            start: t0.add(const Duration(seconds: 15)),
-            end: t0.add(const Duration(seconds: 25)),
-          ),
-          _s(
-            id: 's3',
-            memberId: 'c',
-            start: t0.add(const Duration(seconds: 30)),
-            end: t0.add(const Duration(seconds: 40)),
-          ),
-        ],
-        ephemeralThreshold: const Duration(minutes: 2),
-      ));
+      final result = deriveMaximalPeriods(
+        _input(
+          sessions: [
+            _s(
+              id: 's1',
+              memberId: 'a',
+              start: t0,
+              end: t0.add(const Duration(seconds: 10)),
+            ),
+            _s(
+              id: 's2',
+              memberId: 'b',
+              start: t0.add(const Duration(seconds: 15)),
+              end: t0.add(const Duration(seconds: 25)),
+            ),
+            _s(
+              id: 's3',
+              memberId: 'c',
+              start: t0.add(const Duration(seconds: 30)),
+              end: t0.add(const Duration(seconds: 40)),
+            ),
+          ],
+          ephemeralThreshold: const Duration(minutes: 2),
+        ),
+      );
 
       // All three are below the 2-minute threshold; expect a single
       // emitted row with all three as briefs.
       expect(result, hasLength(1));
-      expect(result[0].briefVisitors.map((v) => v.memberId).toSet(),
-          {'a', 'b', 'c'});
+      expect(result[0].briefVisitors.map((v) => v.memberId).toSet(), {
+        'a',
+        'b',
+        'c',
+      });
     });
 
-    test(
-        'same-member tied handoff: A1 ends at T, A2 starts at T '
+    test('same-member tied handoff: A1 ends at T, A2 starts at T '
         '(different session ids) → merged period covers both, '
         'isOpenEnded reflects A2', () {
-      // Codex P1 #2 fix-up: the snapshot-refresh predicate previously
+      // Regression: the snapshot-refresh predicate previously
       // checked only the active MEMBER set. A same-member tied
       // transition (A1 ends, A2 starts at the same instant for the
       // same member) kept stale activeSessionIds and hasOpenSession
@@ -538,18 +620,20 @@ void main() {
       final t1 = DateTime(2026, 4, 1, 11);
       final t2 = DateTime(2026, 4, 1, 13);
 
-      final result = deriveMaximalPeriods(_input(
-        sessions: [
-          // First session for member 'a': closes at t1.
-          _s(id: 'a1', memberId: 'a', start: t0, end: t1),
-          // Second session for member 'a': starts at the same instant
-          // t1 (tied batch) and is OPEN (still ongoing).
-          _s(id: 'a2', memberId: 'a', start: t1, end: null),
-        ],
-        rangeStart: DateTime(2026, 4, 1),
-        rangeEnd: t2,
-        now: t2,
-      ));
+      final result = deriveMaximalPeriods(
+        _input(
+          sessions: [
+            // First session for member 'a': closes at t1.
+            _s(id: 'a1', memberId: 'a', start: t0, end: t1),
+            // Second session for member 'a': starts at the same instant
+            // t1 (tied batch) and is OPEN (still ongoing).
+            _s(id: 'a2', memberId: 'a', start: t1, end: null),
+          ],
+          rangeStart: DateTime(2026, 4, 1),
+          rangeEnd: t2,
+          now: t2,
+        ),
+      );
 
       // One merged period covering both halves. Without the snapshot
       // refresh fix, the merged period would still appear but its
@@ -558,19 +642,24 @@ void main() {
       expect(result, hasLength(1));
       final merged = result.single;
       expect(merged.activeMembers, ['a']);
-      expect(merged.sessionIds.toSet(), {'a1', 'a2'},
-          reason:
-              'merged same-member period must include BOTH contributing '
-              'session ids — a2 was missing pre-fix because the snapshot '
-              'never refreshed at the tied batch');
-      expect(merged.isOpenEnded, isTrue,
-          reason:
-              'merged period inherits a2\'s open-ended state — pre-fix, '
-              'hasOpenSession was stale and the live timer was missing');
+      expect(
+        merged.sessionIds.toSet(),
+        {'a1', 'a2'},
+        reason:
+            'merged same-member period must include BOTH contributing '
+            'session ids — a2 was missing pre-fix because the snapshot '
+            'never refreshed at the tied batch',
+      );
+      expect(
+        merged.isOpenEnded,
+        isTrue,
+        reason:
+            'merged period inherits a2\'s open-ended state — pre-fix, '
+            'hasOpenSession was stale and the live timer was missing',
+      );
     });
 
-    test(
-        'same-member tied handoff: both closed → merged period unions '
+    test('same-member tied handoff: both closed → merged period unions '
         'sessionIds and stays closed', () {
       // Variant: both sides closed, ensuring the snapshot still
       // refreshes when only sessionIds change (the symmetric case)
@@ -579,28 +668,36 @@ void main() {
       final t1 = DateTime(2026, 4, 1, 11);
       final t2 = DateTime(2026, 4, 1, 12);
 
-      final result = deriveMaximalPeriods(_input(sessions: [
-        _s(id: 'a1', memberId: 'a', start: t0, end: t1),
-        _s(id: 'a2', memberId: 'a', start: t1, end: t2),
-      ]));
+      final result = deriveMaximalPeriods(
+        _input(
+          sessions: [
+            _s(id: 'a1', memberId: 'a', start: t0, end: t1),
+            _s(id: 'a2', memberId: 'a', start: t1, end: t2),
+          ],
+        ),
+      );
 
       // Same-member merge folds the two raw periods into one.
       expect(result, hasLength(1));
       final merged = result.single;
       expect(merged.activeMembers, ['a']);
-      expect(merged.sessionIds.toSet(), {'a1', 'a2'},
-          reason:
-              'merged period must include both contributing session ids');
+      expect(
+        merged.sessionIds.toSet(),
+        {'a1', 'a2'},
+        reason: 'merged period must include both contributing session ids',
+      );
       expect(merged.start, t0);
       expect(merged.end, t2);
-      expect(merged.isOpenEnded, isFalse,
-          reason: 'both sessions closed → merged period stays closed');
+      expect(
+        merged.isOpenEnded,
+        isFalse,
+        reason: 'both sessions closed → merged period stays closed',
+      );
     });
 
-    test(
-        'all-short input with an OPEN current period does not collapse '
+    test('all-short input with an OPEN current period does not collapse '
         'into a Unknown row', () {
-      // Codex P2 fix: a just-started current front (under 2 minutes,
+      // Regression: fix: a just-started current front (under 2 minutes,
       // the ephemeral threshold) used to land in the all-short
       // shortcut, which zeroed out activeMembers and rendered as
       // "Unknown". The fix skips the all-short collapse when any raw
@@ -610,76 +707,93 @@ void main() {
       final sessions = <FrontingSession>[];
       for (var i = 0; i < 5; i++) {
         final start = now.subtract(Duration(minutes: 30 - i * 5));
-        sessions.add(_s(
-          id: 'h$i',
-          memberId: 'h$i',
-          start: start,
-          end: start.add(const Duration(seconds: 30)),
-        ));
+        sessions.add(
+          _s(
+            id: 'h$i',
+            memberId: 'h$i',
+            start: start,
+            end: start.add(const Duration(seconds: 30)),
+          ),
+        );
       }
       // One open current period under 2 min: started 30s ago, no end.
-      sessions.add(_s(
-        id: 'current',
-        memberId: 'now',
-        start: now.subtract(const Duration(seconds: 30)),
-        end: null,
-      ));
+      sessions.add(
+        _s(
+          id: 'current',
+          memberId: 'now',
+          start: now.subtract(const Duration(seconds: 30)),
+          end: null,
+        ),
+      );
 
-      final result = deriveMaximalPeriods(_input(
-        sessions: sessions,
-        rangeStart: now.subtract(const Duration(hours: 1)),
-        rangeEnd: now,
-        now: now,
-      ));
+      final result = deriveMaximalPeriods(
+        _input(
+          sessions: sessions,
+          rangeStart: now.subtract(const Duration(hours: 1)),
+          rangeEnd: now,
+          now: now,
+        ),
+      );
 
       // The open current period should be present as its own row
       // with activeMembers = ['now'], NOT collapsed into a brief-only
       // combined row.
       expect(result, isNotEmpty);
-      final current =
-          result.where((p) => p.activeMembers.contains('now')).toList();
-      expect(current, isNotEmpty,
-          reason: 'open current period must not collapse to all-briefs');
-      expect(current.first.isOpenEnded, isTrue,
-          reason: 'the open current period must render the live timer');
+      final current = result
+          .where((p) => p.activeMembers.contains('now'))
+          .toList();
+      expect(
+        current,
+        isNotEmpty,
+        reason: 'open current period must not collapse to all-briefs',
+      );
+      expect(
+        current.first.isOpenEnded,
+        isTrue,
+        reason: 'the open current period must render the live timer',
+      );
     });
 
-    test(
-        'all-short input with all closed sessions still emits one '
+    test('all-short input with all closed sessions still emits one '
         'combined row (existing behavior preserved)', () {
       // Regression-pin: the all-short shortcut still fires when no
       // session is open and the threshold is non-zero. Same as the
       // "cascading shorts" test but expressed as a property of the
       // open-guard fix.
       final t0 = DateTime(2026, 4, 1, 10);
-      final result = deriveMaximalPeriods(_input(
-        sessions: [
-          _s(
-            id: 's1',
-            memberId: 'a',
-            start: t0,
-            end: t0.add(const Duration(seconds: 10)),
-          ),
-          _s(
-            id: 's2',
-            memberId: 'b',
-            start: t0.add(const Duration(seconds: 15)),
-            end: t0.add(const Duration(seconds: 25)),
-          ),
-        ],
-        ephemeralThreshold: const Duration(minutes: 2),
-      ));
+      final result = deriveMaximalPeriods(
+        _input(
+          sessions: [
+            _s(
+              id: 's1',
+              memberId: 'a',
+              start: t0,
+              end: t0.add(const Duration(seconds: 10)),
+            ),
+            _s(
+              id: 's2',
+              memberId: 'b',
+              start: t0.add(const Duration(seconds: 15)),
+              end: t0.add(const Duration(seconds: 25)),
+            ),
+          ],
+          ephemeralThreshold: const Duration(minutes: 2),
+        ),
+      );
       expect(result, hasLength(1));
-      expect(result[0].activeMembers, isEmpty,
-          reason:
-              'all-closed-short still collapses to brief-visitors-only row');
-      expect(result[0].briefVisitors.map((v) => v.memberId).toSet(),
-          {'a', 'b'});
+      expect(
+        result[0].activeMembers,
+        isEmpty,
+        reason: 'all-closed-short still collapses to brief-visitors-only row',
+      );
+      expect(result[0].briefVisitors.map((v) => v.memberId).toSet(), {
+        'a',
+        'b',
+      });
       expect(result[0].isOpenEnded, isFalse);
     });
 
-    test(
-        'future-dated session (start_time > now) is rejected by the '
+    test('future-dated session (start_time > now) is rejected by the '
         'derivation pre-pass', () {
       // The SQL overlap query uses a +30d lookahead so newly-inserted
       // rows reach the watch. A typo'd session with start_time =
@@ -692,27 +806,29 @@ void main() {
       final now = DateTime(2026, 4, 1, 12);
       final visibleStart = now.subtract(const Duration(hours: 5));
 
-      final result = deriveMaximalPeriods(_input(
-        sessions: [
-          // Real, in-range session.
-          _s(
-            id: 'real',
-            memberId: 'a',
-            start: now.subtract(const Duration(hours: 2)),
-            end: now.subtract(const Duration(hours: 1)),
-          ),
-          // Future-dated typo: start_time is one day past now.
-          _s(
-            id: 'future',
-            memberId: 'b',
-            start: now.add(const Duration(days: 1)),
-            end: now.add(const Duration(days: 1, hours: 1)),
-          ),
-        ],
-        rangeStart: visibleStart,
-        rangeEnd: now,
-        now: now,
-      ));
+      final result = deriveMaximalPeriods(
+        _input(
+          sessions: [
+            // Real, in-range session.
+            _s(
+              id: 'real',
+              memberId: 'a',
+              start: now.subtract(const Duration(hours: 2)),
+              end: now.subtract(const Duration(hours: 1)),
+            ),
+            // Future-dated typo: start_time is one day past now.
+            _s(
+              id: 'future',
+              memberId: 'b',
+              start: now.add(const Duration(days: 1)),
+              end: now.add(const Duration(days: 1, hours: 1)),
+            ),
+          ],
+          rangeStart: visibleStart,
+          rangeEnd: now,
+          now: now,
+        ),
+      );
 
       // Only the real session contributes to a period.
       expect(result, hasLength(1));
@@ -725,8 +841,7 @@ void main() {
       }
     });
 
-    test(
-        'open session started after subscription IS included '
+    test('open session started after subscription IS included '
         '(regression guard: rangeEnd no longer exists in the contract)', () {
       // Pre-fix bug: the future-dated cutoff was `input.rangeEnd`,
       // which the provider froze at subscription time. A row created
@@ -740,24 +855,28 @@ void main() {
       // hypothetical earlier subscription.
       final mutationStart = liveNow.subtract(const Duration(milliseconds: 1));
 
-      final result = deriveMaximalPeriods(_input(
-        sessions: [
-          _s(id: 'fresh', memberId: 'a', start: mutationStart, end: null),
-        ],
-        rangeStart: liveNow.subtract(const Duration(hours: 1)),
-        now: liveNow,
-      ));
+      final result = deriveMaximalPeriods(
+        _input(
+          sessions: [
+            _s(id: 'fresh', memberId: 'a', start: mutationStart, end: null),
+          ],
+          rangeStart: liveNow.subtract(const Duration(hours: 1)),
+          now: liveNow,
+        ),
+      );
 
-      expect(result, hasLength(1),
-          reason:
-              'a row whose start is before live now MUST appear in '
-              'derived periods regardless of when the bundle was built');
+      expect(
+        result,
+        hasLength(1),
+        reason:
+            'a row whose start is before live now MUST appear in '
+            'derived periods regardless of when the bundle was built',
+      );
       expect(result.single.activeMembers, ['a']);
       expect(result.single.isOpenEnded, isTrue);
     });
 
-    test(
-        'P1 regression: start-then-end after subscription — closed-session '
+    test('P1 regression: start-then-end after subscription — closed-session '
         'end clamping must NOT use a captured rangeEnd', () {
       // Concrete scenario from the field:
       //   T0 = subscribe time
@@ -781,19 +900,22 @@ void main() {
       // moment a fresh derivation runs after the end-front mutation.)
       final liveNow = t2.add(const Duration(seconds: 1));
 
-      final result = deriveMaximalPeriods(_input(
-        sessions: [
-          _s(id: 'fresh', memberId: 'a', start: t1, end: t2),
-        ],
-        rangeStart: t0.subtract(const Duration(hours: 1)),
-        now: liveNow,
-      ));
+      final result = deriveMaximalPeriods(
+        _input(
+          sessions: [_s(id: 'fresh', memberId: 'a', start: t1, end: t2)],
+          rangeStart: t0.subtract(const Duration(hours: 1)),
+          now: liveNow,
+        ),
+      );
 
-      expect(result, hasLength(1),
-          reason:
-              'session that started AND ended after subscription must '
-              'survive — the closed-session clamp is `now`, not a '
-              'captured rangeEnd');
+      expect(
+        result,
+        hasLength(1),
+        reason:
+            'session that started AND ended after subscription must '
+            'survive — the closed-session clamp is `now`, not a '
+            'captured rangeEnd',
+      );
       expect(result.single.activeMembers, ['a']);
       expect(result.single.start, t1);
       expect(result.single.end, t2);
@@ -809,49 +931,55 @@ void main() {
       // render). We test the realistic boundary: a row inserted ~1ms
       // before the live wall clock.
       final now = DateTime(2026, 4, 1, 12);
-      final result = deriveMaximalPeriods(_input(
-        sessions: [
-          _s(
-            id: 'edge',
-            memberId: 'a',
-            start: now.subtract(const Duration(milliseconds: 1)),
-            end: null,
-          ),
-        ],
-        rangeStart: now.subtract(const Duration(hours: 1)),
-        rangeEnd: now,
-        now: now,
-      ));
-      expect(result, hasLength(1),
-          reason:
-              'a row inserted ~1ms before live now must be included');
+      final result = deriveMaximalPeriods(
+        _input(
+          sessions: [
+            _s(
+              id: 'edge',
+              memberId: 'a',
+              start: now.subtract(const Duration(milliseconds: 1)),
+              end: null,
+            ),
+          ],
+          rangeStart: now.subtract(const Duration(hours: 1)),
+          rangeEnd: now,
+          now: now,
+        ),
+      );
+      expect(
+        result,
+        hasLength(1),
+        reason: 'a row inserted ~1ms before live now must be included',
+      );
       expect(result.single.activeMembers, ['a']);
     });
 
-    test('session in the future relative to now (now + 1 day) IS dropped',
-        () {
+    test('session in the future relative to now (now + 1 day) IS dropped', () {
       final now = DateTime(2026, 4, 1, 12);
-      final result = deriveMaximalPeriods(_input(
-        sessions: [
-          _s(
-            id: 'future',
-            memberId: 'a',
-            start: now.add(const Duration(days: 1)),
-            end: now.add(const Duration(days: 1, hours: 1)),
-          ),
-        ],
-        rangeStart: now.subtract(const Duration(hours: 1)),
-        rangeEnd: now,
-        now: now,
-      ));
-      expect(result, isEmpty,
-          reason: 'genuinely future-dated session must be filtered');
+      final result = deriveMaximalPeriods(
+        _input(
+          sessions: [
+            _s(
+              id: 'future',
+              memberId: 'a',
+              start: now.add(const Duration(days: 1)),
+              end: now.add(const Duration(days: 1, hours: 1)),
+            ),
+          ],
+          rangeStart: now.subtract(const Duration(hours: 1)),
+          rangeEnd: now,
+          now: now,
+        ),
+      );
+      expect(
+        result,
+        isEmpty,
+        reason: 'genuinely future-dated session must be filtered',
+      );
     });
 
-    test(
-        'open current front bounded at now does not extend past rangeEnd',
-        () {
-      // Codex P1 fix-up #3: the provider used to thread `now + 30d`
+    test('open current front bounded at now does not extend past rangeEnd', () {
+      // Regression: the provider used to thread `now + 30d`
       // through to derivation as `rangeEnd`. An open current session
       // would extend to `now + 30d`, producing future-dated periods
       // and (post-day-grouping) future midnight slices. With
@@ -859,16 +987,16 @@ void main() {
       final now = DateTime(2026, 4, 1, 12);
       final start = now.subtract(const Duration(hours: 2));
 
-      final result = deriveMaximalPeriods(_input(
-        sessions: [
-          _s(id: 'open', memberId: 'a', start: start, end: null),
-        ],
-        rangeStart: now.subtract(const Duration(days: 1)),
-        // rangeEnd is `now`, NOT `now + 30d`. This mirrors the
-        // production provider's bundle.
-        rangeEnd: now,
-        now: now,
-      ));
+      final result = deriveMaximalPeriods(
+        _input(
+          sessions: [_s(id: 'open', memberId: 'a', start: start, end: null)],
+          rangeStart: now.subtract(const Duration(days: 1)),
+          // rangeEnd is `now`, NOT `now + 30d`. This mirrors the
+          // production provider's bundle.
+          rangeEnd: now,
+          now: now,
+        ),
+      );
 
       expect(result, hasLength(1));
       expect(result.single.start, start);
@@ -881,10 +1009,9 @@ void main() {
       expect(result.single.duration, now.difference(start));
     });
 
-    test(
-        'closed-short → open-short same-member handoff: A is active, '
+    test('closed-short → open-short same-member handoff: A is active, '
         'NOT a brief visitor of A\'s own period', () {
-      // Codex P2 fix-up #3: a closed short period for member A
+      // Regression: a closed short period for member A
       // immediately before an open short period for the same member A
       // used to flush A as a brief visitor into A's own active
       // period (because the closed short went into pendingBrief and
@@ -897,25 +1024,30 @@ void main() {
       final t1 = now.subtract(const Duration(seconds: 60));
       // Open short for A starts at t1 and is currently active (under
       // threshold but open — must not collapse).
-      final result = deriveMaximalPeriods(_input(
-        sessions: [
-          _s(id: 'closed-a', memberId: 'a', start: t0, end: t1),
-          _s(id: 'open-a', memberId: 'a', start: t1, end: null),
-        ],
-        rangeStart: now.subtract(const Duration(hours: 1)),
-        rangeEnd: now,
-        now: now,
-      ));
+      final result = deriveMaximalPeriods(
+        _input(
+          sessions: [
+            _s(id: 'closed-a', memberId: 'a', start: t0, end: t1),
+            _s(id: 'open-a', memberId: 'a', start: t1, end: null),
+          ],
+          rangeStart: now.subtract(const Duration(hours: 1)),
+          rangeEnd: now,
+          now: now,
+        ),
+      );
 
       // Whatever the period structure, A must be in activeMembers of
       // every emitted period (it's their handoff to themselves) and
       // NEVER appear as a brief visitor.
       expect(result, isNotEmpty);
       for (final p in result) {
-        expect(p.briefVisitors.map((v) => v.memberId), isNot(contains('a')),
-            reason:
-                'A is the active member of this period — must not also be '
-                'rendered as their own brief visitor');
+        expect(
+          p.briefVisitors.map((v) => v.memberId),
+          isNot(contains('a')),
+          reason:
+              'A is the active member of this period — must not also be '
+              'rendered as their own brief visitor',
+        );
       }
       // The trailing/open period must list A as active and be live.
       final open = result.lastWhere((p) => p.isOpenEnded);
@@ -934,8 +1066,9 @@ void main() {
         _s(id: 'c', memberId: 'c', start: t1, end: t3),
       ];
       final r1 = deriveMaximalPeriods(_input(sessions: sessions));
-      final r2 =
-          deriveMaximalPeriods(_input(sessions: sessions.reversed.toList()));
+      final r2 = deriveMaximalPeriods(
+        _input(sessions: sessions.reversed.toList()),
+      );
       expect(r1.length, r2.length);
       for (var i = 0; i < r1.length; i++) {
         expect(r1[i].start, r2[i].start);

@@ -2252,7 +2252,7 @@
   },
   "frontingUpgradeExporting": "Preparando tu copia de seguridad…",
   "@frontingUpgradeExporting": {
-    "description": "Title shown while the PRISM1 backup is being exported (codex P1 #8)"
+    "description": "Title shown while the PRISM1 backup is being exported"
   },
   "frontingUpgradeExportingSubtitle": "Cifrando tus datos de frente para que puedas conservar una copia.",
   "@frontingUpgradeExportingSubtitle": {
@@ -2260,7 +2260,7 @@
   },
   "frontingUpgradeBackupReadyHeadline": "Copia de seguridad lista",
   "@frontingUpgradeBackupReadyHeadline": {
-    "description": "Headline of the durable-save gate that runs before the destructive migration step (codex P1 #8)"
+    "description": "Headline of the durable-save gate that runs before the destructive migration step"
   },
   "frontingUpgradeBackupReadyBody": "Guarda esta copia de seguridad en un lugar donde puedas encontrarla más tarde — fuera de la app. Sin ella, no podrás recuperar tus datos antiguos si algo sale mal.",
   "@frontingUpgradeBackupReadyBody": {
@@ -2393,12 +2393,60 @@
   "@frontingUpgradeBannerMessage": {
     "description": "Home-screen banner message for deferred upgrade"
   },
+
+  "frontingUpgradeResumeCleanupHeadline": "Terminar la migración",
+  "frontingUpgradeResumeCleanupBody": "Un intento anterior terminó la migración de datos pero no pudo completar el restablecimiento de sincronización. Toca abajo para terminar — solo se actualizan las credenciales de sincronización, no se tocan tus datos.",
+  "frontingUpgradeResumeCleanupButton": "Terminar la migración",
+
+  "frontingUpgradePkTokenDialogTitle": "Token de PluralKit",
+  "frontingUpgradePkTokenDialogMessage": "Importa el historial de fronts de PluralKit ahora. El token se usa una sola vez y no activa la sincronización con PluralKit.",
+  "frontingUpgradePkTokenLabel": "Token de PluralKit",
+  "frontingUpgradePkTokenHint": "Pega tu token de PluralKit",
+  "frontingUpgradePkTokenImport": "Importar",
+
+  "frontingUpgradePkImportButton": "Importar con token de PluralKit",
+  "frontingUpgradePkImportIdle": "El historial de PluralKit se puede reimportar aquí con un token temporal. El token se usa una sola vez y la sincronización con PluralKit permanece desactivada.",
+  "frontingUpgradePkImportRunning": "Reimportando el historial de PluralKit...",
+  "frontingUpgradePkImportImported": "Se reimportó el historial de PluralKit.",
+  "frontingUpgradePkImportTombstoneLine": "{count, plural, =1{Se conservó 1 registro eliminado para respetar la eliminación local.} other{Se conservaron {count} registros eliminados para respetar la eliminación local.}}",
+  "@frontingUpgradePkImportTombstoneLine": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "frontingUpgradePkImportZeroLengthLine": "{count, plural, =1{Se omitió 1 cierre de duración cero (PluralKit registró una entrada y una salida en el mismo instante).} other{Se omitieron {count} cierres de duración cero (PluralKit registró entradas y salidas en el mismo instante).}}",
+  "@frontingUpgradePkImportZeroLengthLine": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "frontingUpgradePkImportNeedsToken": "No se encontró un token de PluralKit guardado. Puedes importar con un token temporal sin activar la sincronización con PluralKit.",
+  "frontingUpgradePkImportFailed": "La reimportación de PluralKit falló: {error}",
+  "@frontingUpgradePkImportFailed": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+
   "pkFileImportMembersLabel": "{termPlural}",
   "pkFileImportGroupsLabel": "Grupos",
   "pkFileImportFrontingSessionsLabel": "Cambios encontrados (no importados)",
   "pkFileImportSwitchesFoundLabel": "Cambios encontrados (no importados)",
   "pkFileImportPreviewNote": "Los/las {termPlural} existentes con el mismo ID de PluralKit se actualizarán. Para importar el historial de fronts, agrega un token de PluralKit para que Prism pueda vincular los cambios antes de importarlos.",
   "pkFileImportImportButton": "Importar",
+  "pkFileImportSwitchesMatchedLabel": "Cambios vinculados con el token",
+  "pkFileImportNewerSwitchesLabel": "Cambios nuevos desde PluralKit",
+  "pkFileImportFrontingImportedNote": "El historial de fronts se importó por la ruta de PluralKit con token, así Prism puede seguir usando los IDs canónicos de los cambios.",
+  "pkFileImportFrontingImportedNoteWithNewer": "El historial de fronts se importó por la ruta de PluralKit con token, así Prism puede seguir usando los IDs canónicos de los cambios. Prism también importó {count} cambios nuevos desde PluralKit que no estaban en la exportación.",
+  "@pkFileImportFrontingImportedNoteWithNewer": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "pkFileImportFrontingNotImportedNote": "El historial de fronts no se importó porque la exportación y la API de PluralKit no coincidieron de forma segura.",
+  "pkFileImportDoneButton": "Listo",
+  "pkFileImportFailedHeadline": "La importación falló",
+  "pkFileImportTryAgainButton": "Intentar de nuevo",
   "pkFileImportPickDifferentButton": "Elegir otro archivo",
   "pkFileImportCompleteHeading": "Importación completa",
   "pkFileImportSwitchesCreatedLabel": "Cambios creados",

@@ -38,12 +38,7 @@ FrontingSession _s({
   required DateTime start,
   DateTime? end,
 }) =>
-    FrontingSession(
-      id: id,
-      memberId: memberId,
-      startTime: start,
-      endTime: end,
-    );
+    FrontingSession(id: id, memberId: memberId, startTime: start, endTime: end);
 
 Widget _buildSubject({
   required List<FrontingSession> sessions,
@@ -51,7 +46,8 @@ Widget _buildSubject({
   required Map<String, Member> members,
   GoRouter? router,
 }) {
-  final routerInstance = router ??
+  final routerInstance =
+      router ??
       GoRouter(
         routes: [
           GoRoute(
@@ -91,8 +87,7 @@ Widget _buildSubject({
 
 void main() {
   group('SessionHistoryList – derived-period rendering', () {
-    testWidgets('renders one row per period with avatar stack',
-        (tester) async {
+    testWidgets('renders one row per period with avatar stack', (tester) async {
       final t0 = DateTime(2026, 4, 1, 10);
       final t1 = DateTime(2026, 4, 1, 11);
       final t2 = DateTime(2026, 4, 1, 12);
@@ -128,17 +123,16 @@ void main() {
         ),
       ];
 
-      await tester.pumpWidget(_buildSubject(
-        sessions: [
-          _s(id: 's-a', memberId: 'a', start: t0, end: t3),
-          _s(id: 's-b', memberId: 'b', start: t1, end: t2),
-        ],
-        periods: periods,
-        members: {
-          'a': _member('a', 'Alice'),
-          'b': _member('b', 'Bob'),
-        },
-      ));
+      await tester.pumpWidget(
+        _buildSubject(
+          sessions: [
+            _s(id: 's-a', memberId: 'a', start: t0, end: t3),
+            _s(id: 's-b', memberId: 'b', start: t1, end: t2),
+          ],
+          periods: periods,
+          members: {'a': _member('a', 'Alice'), 'b': _member('b', 'Bob')},
+        ),
+      );
       await tester.pumpAndSettle();
 
       // Three rows: "Alice", "Alice & Bob", "Alice".
@@ -146,8 +140,9 @@ void main() {
       expect(find.text('Alice & Bob'), findsOneWidget);
     });
 
-    testWidgets('renders day group header for the period\'s day',
-        (tester) async {
+    testWidgets('renders day group header for the period\'s day', (
+      tester,
+    ) async {
       final t0 = DateTime(2026, 4, 1, 10);
       final t1 = DateTime(2026, 4, 1, 11);
 
@@ -163,11 +158,13 @@ void main() {
         ),
       ];
 
-      await tester.pumpWidget(_buildSubject(
-        sessions: [_s(id: 's-a', memberId: 'a', start: t0, end: t1)],
-        periods: periods,
-        members: {'a': _member('a', 'Alice')},
-      ));
+      await tester.pumpWidget(
+        _buildSubject(
+          sessions: [_s(id: 's-a', memberId: 'a', start: t0, end: t1)],
+          periods: periods,
+          members: {'a': _member('a', 'Alice')},
+        ),
+      );
       await tester.pumpAndSettle();
 
       // The DateChip renders the formatted day; "April" should appear in
@@ -175,8 +172,7 @@ void main() {
       expect(find.textContaining('April'), findsOneWidget);
     });
 
-    testWidgets('brief visitors render as trailing chips',
-        (tester) async {
+    testWidgets('brief visitors render as trailing chips', (tester) async {
       final t0 = DateTime(2026, 4, 1, 10);
       final t1 = DateTime(2026, 4, 1, 12);
 
@@ -199,22 +195,21 @@ void main() {
         ),
       ];
 
-      await tester.pumpWidget(_buildSubject(
-        sessions: [
-          _s(id: 's-a', memberId: 'a', start: t0, end: t1),
-          _s(
-            id: 's-b',
-            memberId: 'b',
-            start: DateTime(2026, 4, 1, 11),
-            end: DateTime(2026, 4, 1, 11, 0, 30),
-          ),
-        ],
-        periods: periods,
-        members: {
-          'a': _member('a', 'Alice'),
-          'b': _member('b', 'Bob'),
-        },
-      ));
+      await tester.pumpWidget(
+        _buildSubject(
+          sessions: [
+            _s(id: 's-a', memberId: 'a', start: t0, end: t1),
+            _s(
+              id: 's-b',
+              memberId: 'b',
+              start: DateTime(2026, 4, 1, 11),
+              end: DateTime(2026, 4, 1, 11, 0, 30),
+            ),
+          ],
+          periods: periods,
+          members: {'a': _member('a', 'Alice'), 'b': _member('b', 'Bob')},
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('+Bob briefly'), findsOneWidget);
@@ -238,19 +233,21 @@ void main() {
           ),
         ];
 
-        await tester.pumpWidget(_buildSubject(
-          sessions: [_s(id: 's-v', memberId: 'v', start: t0, end: t1)],
-          periods: periods,
-          members: {
-            'v': _member('v', 'Visitor'),
-            'host': Member(
-              id: 'host',
-              name: 'Host',
-              createdAt: DateTime(2025, 1, 1),
-              isAlwaysFronting: true,
-            ),
-          },
-        ));
+        await tester.pumpWidget(
+          _buildSubject(
+            sessions: [_s(id: 's-v', memberId: 'v', start: t0, end: t1)],
+            periods: periods,
+            members: {
+              'v': _member('v', 'Visitor'),
+              'host': Member(
+                id: 'host',
+                name: 'Host',
+                createdAt: DateTime(2025, 1, 1),
+                isAlwaysFronting: true,
+              ),
+            },
+          ),
+        );
         await tester.pumpAndSettle();
 
         // Title shows only the foreground member.
@@ -261,8 +258,9 @@ void main() {
       },
     );
 
-    testWidgets('tapping a row navigates to the first session id',
-        (tester) async {
+    testWidgets('tapping a row navigates to the first session id', (
+      tester,
+    ) async {
       final t0 = DateTime(2026, 4, 1, 10);
       final t1 = DateTime(2026, 4, 1, 12);
 
@@ -288,19 +286,20 @@ void main() {
           ),
           GoRoute(
             path: '/session/:id',
-            builder: (_, state) => Scaffold(
-              body: Text('session-${state.pathParameters['id']}'),
-            ),
+            builder: (_, state) =>
+                Scaffold(body: Text('session-${state.pathParameters['id']}')),
           ),
         ],
       );
 
-      await tester.pumpWidget(_buildSubject(
-        sessions: [_s(id: 's-a', memberId: 'a', start: t0, end: t1)],
-        periods: periods,
-        members: {'a': _member('a', 'Alice')},
-        router: router,
-      ));
+      await tester.pumpWidget(
+        _buildSubject(
+          sessions: [_s(id: 's-a', memberId: 'a', start: t0, end: t1)],
+          periods: periods,
+          members: {'a': _member('a', 'Alice')},
+          router: router,
+        ),
+      );
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Alice'));
@@ -309,13 +308,12 @@ void main() {
       expect(find.text('session-s-a'), findsOneWidget);
     });
 
-    testWidgets('empty periods + empty sessions renders the empty state',
-        (tester) async {
-      await tester.pumpWidget(_buildSubject(
-        sessions: const [],
-        periods: const [],
-        members: const {},
-      ));
+    testWidgets('empty periods + empty sessions renders the empty state', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _buildSubject(sessions: const [], periods: const [], members: const {}),
+      );
       await tester.pumpAndSettle();
 
       // The empty-state copy comes from l10n; assert presence of the icon
@@ -326,7 +324,7 @@ void main() {
     testWidgets(
       'brief visitor before midnight does NOT duplicate on continuation day',
       (tester) async {
-        // Codex test gap #7: a period crossing midnight with a brief
+        // Regression: a period crossing midnight with a brief
         // visitor whose visit is entirely on day 1 must not render the
         // chip on day 2's continuation row. The slice-aware filtering
         // in DisplayPeriod.briefVisitors is what enforces this.
@@ -353,16 +351,15 @@ void main() {
           ),
         ];
 
-        await tester.pumpWidget(_buildSubject(
-          sessions: [
-            _s(id: 's-a', memberId: 'a', start: dayOneStart, end: dayTwoEnd),
-          ],
-          periods: periods,
-          members: {
-            'a': _member('a', 'Alice'),
-            'b': _member('b', 'Bob'),
-          },
-        ));
+        await tester.pumpWidget(
+          _buildSubject(
+            sessions: [
+              _s(id: 's-a', memberId: 'a', start: dayOneStart, end: dayTwoEnd),
+            ],
+            periods: periods,
+            members: {'a': _member('a', 'Alice'), 'b': _member('b', 'Bob')},
+          ),
+        );
         await tester.pumpAndSettle();
 
         // The visitor's chip should appear EXACTLY once — on the day
@@ -374,7 +371,7 @@ void main() {
     testWidgets(
       'tapping a co-front middle period navigates to a contributing session',
       (tester) async {
-        // Codex test gap #8: in `A → A+B → A`, the middle period's
+        // Regression: in `A → A+B → A`, the middle period's
         // sessionIds must include both contributors so a tap routes
         // to a real co-front session, not to a "boundary event"
         // session that doesn't span the middle.
@@ -427,25 +424,23 @@ void main() {
             ),
             GoRoute(
               path: '/session/:id',
-              builder: (_, state) => Scaffold(
-                body: Text('session-${state.pathParameters['id']}'),
-              ),
+              builder: (_, state) =>
+                  Scaffold(body: Text('session-${state.pathParameters['id']}')),
             ),
           ],
         );
 
-        await tester.pumpWidget(_buildSubject(
-          sessions: [
-            _s(id: 'session-a', memberId: 'a', start: t0, end: t3),
-            _s(id: 'session-b', memberId: 'b', start: t1, end: t2),
-          ],
-          periods: periods,
-          members: {
-            'a': _member('a', 'Alice'),
-            'b': _member('b', 'Bob'),
-          },
-          router: router,
-        ));
+        await tester.pumpWidget(
+          _buildSubject(
+            sessions: [
+              _s(id: 'session-a', memberId: 'a', start: t0, end: t3),
+              _s(id: 'session-b', memberId: 'b', start: t1, end: t2),
+            ],
+            periods: periods,
+            members: {'a': _member('a', 'Alice'), 'b': _member('b', 'Bob')},
+            router: router,
+          ),
+        );
         await tester.pumpAndSettle();
 
         await tester.tap(find.text('Alice & Bob'));
@@ -455,69 +450,76 @@ void main() {
         // sessionIds. The widget routes to the first id (current 1A
         // behavior). What matters: it's one of the period's real
         // contributors, NOT a stray ID.
-        final routedToA =
-            find.text('session-session-a').evaluate().isNotEmpty;
-        final routedToB =
-            find.text('session-session-b').evaluate().isNotEmpty;
-        expect(routedToA || routedToB, isTrue,
-            reason: 'tap on middle co-front period must route to a '
-                'contributing session');
-      },
-    );
-
-    test(
-      'open current front produces a single midnight slice (not 30+) when '
-      'rangeEnd is bounded at now',
-      () {
-        // Codex P1 fix-up #3: when the provider conflated the SQL
-        // lookahead (now + 30d) with the visible rangeEnd, an open
-        // current front would extend to "now + 30 days" and the
-        // midnight splitter would carve it into ~30 day-group rows,
-        // each labelled with a future date. With rangeEnd bounded at
-        // `now`, the open period extends exactly to `now`; the
-        // midnight splitter produces at most 1–2 slices (today, plus
-        // possibly yesterday if started before midnight).
-        //
-        // Tested at the splitter layer (pure function) rather than
-        // via widget test — the live FrontingDurationText timer leaks
-        // pending timers when exercised through pumpAndSettle, and the
-        // midnight-slice contract is a pure function of the period's
-        // start/end.
-        final start = DateTime.now().subtract(const Duration(hours: 2));
-        final endBoundedAtNow = DateTime.now();
-
-        // Period as the (post-fix) derivation would emit: end ≈ now.
-        final period = FrontingPeriod(
-          start: start,
-          end: endBoundedAtNow,
-          activeMembers: const ['a'],
-          briefVisitors: const [],
-          sessionIds: const ['open'],
-          alwaysPresentMembers: const [],
-          isOpenEnded: true,
+        final routedToA = find.text('session-session-a').evaluate().isNotEmpty;
+        final routedToB = find.text('session-session-b').evaluate().isNotEmpty;
+        expect(
+          routedToA || routedToB,
+          isTrue,
+          reason:
+              'tap on middle co-front period must route to a '
+              'contributing session',
         );
-
-        final slices = splitPeriodAtMidnight(period);
-        // 2-hour open period spans at most TODAY (and possibly
-        // YESTERDAY if "now" is between midnight and 02:00). Must
-        // NEVER produce 30+ slices spanning the SQL lookahead window.
-        expect(slices.length, lessThanOrEqualTo(2),
-            reason: 'a 2-hour open period should produce 1–2 day slices, '
-                'not 30+ future midnight slices');
-        // No slice should start in the future.
-        for (final s in slices) {
-          expect(s.displayStart.isAfter(endBoundedAtNow), isFalse,
-              reason: 'no slice should start after the period\'s end '
-                  '(which is bounded at "now")');
-        }
       },
     );
+
+    test('open current front produces a single midnight slice (not 30+) when '
+        'rangeEnd is bounded at now', () {
+      // Regression: when the provider conflated the SQL
+      // lookahead (now + 30d) with the visible rangeEnd, an open
+      // current front would extend to "now + 30 days" and the
+      // midnight splitter would carve it into ~30 day-group rows,
+      // each labelled with a future date. With rangeEnd bounded at
+      // `now`, the open period extends exactly to `now`; the
+      // midnight splitter produces at most 1–2 slices (today, plus
+      // possibly yesterday if started before midnight).
+      //
+      // Tested at the splitter layer (pure function) rather than
+      // via widget test — the live FrontingDurationText timer leaks
+      // pending timers when exercised through pumpAndSettle, and the
+      // midnight-slice contract is a pure function of the period's
+      // start/end.
+      final start = DateTime.now().subtract(const Duration(hours: 2));
+      final endBoundedAtNow = DateTime.now();
+
+      // Period as the (post-fix) derivation would emit: end ≈ now.
+      final period = FrontingPeriod(
+        start: start,
+        end: endBoundedAtNow,
+        activeMembers: const ['a'],
+        briefVisitors: const [],
+        sessionIds: const ['open'],
+        alwaysPresentMembers: const [],
+        isOpenEnded: true,
+      );
+
+      final slices = splitPeriodAtMidnight(period);
+      // 2-hour open period spans at most TODAY (and possibly
+      // YESTERDAY if "now" is between midnight and 02:00). Must
+      // NEVER produce 30+ slices spanning the SQL lookahead window.
+      expect(
+        slices.length,
+        lessThanOrEqualTo(2),
+        reason:
+            'a 2-hour open period should produce 1–2 day slices, '
+            'not 30+ future midnight slices',
+      );
+      // No slice should start in the future.
+      for (final s in slices) {
+        expect(
+          s.displayStart.isAfter(endBoundedAtNow),
+          isFalse,
+          reason:
+              'no slice should start after the period\'s end '
+              '(which is bounded at "now")',
+        );
+      }
+    });
 
     testWidgets(
       'tap routing through actual provider chain (real Drift) lands on '
       'a contributing session for a co-front period',
       (tester) async {
-        // Codex test gap #7: instead of overriding `derivedPeriodsProvider`
+        // Regression: instead of overriding `derivedPeriodsProvider`
         // with hand-built periods, drive the render through the real
         // `unifiedHistoryOverlapProvider` → `derivedPeriodsProvider`
         // chain backed by an in-memory Drift DB. Tap a co-front middle
@@ -569,9 +571,8 @@ void main() {
             ),
             GoRoute(
               path: '/session/:id',
-              builder: (_, state) => Scaffold(
-                body: Text('routed-${state.pathParameters['id']}'),
-              ),
+              builder: (_, state) =>
+                  Scaffold(body: Text('routed-${state.pathParameters['id']}')),
             ),
           ],
         );
@@ -580,8 +581,9 @@ void main() {
           overrides: [
             // Real repository → exercises the real overlap query and
             // the real derivation through the provider chain.
-            frontingSessionRepositoryProvider
-                .overrideWith((ref) => repo as FrontingSessionRepository),
+            frontingSessionRepositoryProvider.overrideWith(
+              (ref) => repo as FrontingSessionRepository,
+            ),
             // 1B: SessionHistoryList now reads `systemSettingsProvider`
             // to pick the inline view mode. Pin to combinedPeriods so
             // this test continues to exercise the derived-period path
@@ -592,18 +594,12 @@ void main() {
             // Members are looked up by the widget for avatars/names —
             // we override these two streams (not the repository) so we
             // don't have to wire the full member repo.
-            allMembersProvider.overrideWith((ref) => Stream.value([
-                  Member(
-                    id: 'a',
-                    name: 'Alice',
-                    createdAt: DateTime(2026, 1, 1),
-                  ),
-                  Member(
-                    id: 'b',
-                    name: 'Bob',
-                    createdAt: DateTime(2026, 1, 1),
-                  ),
-                ])),
+            allMembersProvider.overrideWith(
+              (ref) => Stream.value([
+                Member(id: 'a', name: 'Alice', createdAt: DateTime(2026, 1, 1)),
+                Member(id: 'b', name: 'Bob', createdAt: DateTime(2026, 1, 1)),
+              ]),
+            ),
             membersByIdsProvider.overrideWith(
               (ref, _) => Stream.value({
                 'a': Member(
@@ -634,18 +630,24 @@ void main() {
         // include both contributors (the algorithm guarantees this);
         // the route opens on whichever id the widget surfaces first.
         final cofront = find.text('Alice & Bob');
-        expect(cofront, findsOneWidget,
-            reason:
-                'real Drift chain must produce a co-front period for A → A+B → A');
+        expect(
+          cofront,
+          findsOneWidget,
+          reason:
+              'real Drift chain must produce a co-front period for A → A+B → A',
+        );
         await tester.tap(cofront);
         await tester.pumpAndSettle();
 
         final routedToA = find.text('routed-session-a').evaluate().isNotEmpty;
         final routedToB = find.text('routed-session-b').evaluate().isNotEmpty;
-        expect(routedToA || routedToB, isTrue,
-            reason:
-                'tap on co-front period must route to a real contributing '
-                'session id (not a boundary event)');
+        expect(
+          routedToA || routedToB,
+          isTrue,
+          reason:
+              'tap on co-front period must route to a real contributing '
+              'session id (not a boundary event)',
+        );
       },
     );
   });
@@ -655,9 +657,8 @@ void main() {
   // ─────────────────────────────────────────────────────────────────────
 
   group('SessionHistoryList – view mode (1B)', () {
-    SystemSettings settings(FrontingListViewMode mode) => SystemSettings(
-          frontingListViewMode: mode,
-        );
+    SystemSettings settings(FrontingListViewMode mode) =>
+        SystemSettings(frontingListViewMode: mode);
 
     Widget buildModeSubject({
       required FrontingListViewMode mode,
@@ -692,19 +693,23 @@ void main() {
 
       return ProviderScope(
         overrides: [
-          systemSettingsProvider
-              .overrideWith((ref) => Stream.value(settings(mode))),
+          systemSettingsProvider.overrideWith(
+            (ref) => Stream.value(settings(mode)),
+          ),
           unifiedHistoryProvider.overrideWith((ref) => Stream.value(sessions)),
-          unifiedHistoryOverlapProvider
-              .overrideWith((ref) => Stream.value(bundle)),
-          derivedPeriodsProvider
-              .overrideWith((ref) => AsyncValue.data(periods)),
-          alwaysPresentMembersProvider
-              .overrideWith((ref) => AsyncValue.data(alwaysPresent)),
-          membersByIdsProvider
-              .overrideWith((ref, _) => Stream.value(members)),
-          allMembersProvider
-              .overrideWith((ref) => Stream.value(members.values.toList())),
+          unifiedHistoryOverlapProvider.overrideWith(
+            (ref) => Stream.value(bundle),
+          ),
+          derivedPeriodsProvider.overrideWith(
+            (ref) => AsyncValue.data(periods),
+          ),
+          alwaysPresentMembersProvider.overrideWith(
+            (ref) => AsyncValue.data(alwaysPresent),
+          ),
+          membersByIdsProvider.overrideWith((ref, _) => Stream.value(members)),
+          allMembersProvider.overrideWith(
+            (ref) => Stream.value(members.values.toList()),
+          ),
         ],
         child: MaterialApp.router(
           localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -714,8 +719,9 @@ void main() {
       );
     }
 
-    testWidgets('combinedPeriods mode renders derived-period rows',
-        (tester) async {
+    testWidgets('combinedPeriods mode renders derived-period rows', (
+      tester,
+    ) async {
       final t0 = DateTime(2026, 4, 1, 10);
       final t1 = DateTime(2026, 4, 1, 11);
       final periods = [
@@ -730,34 +736,36 @@ void main() {
         ),
       ];
 
-      await tester.pumpWidget(buildModeSubject(
-        mode: FrontingListViewMode.combinedPeriods,
-        sessions: [_s(id: 's-a', memberId: 'a', start: t0, end: t1)],
-        periods: periods,
-        members: {'a': _member('a', 'Alice')},
-      ));
+      await tester.pumpWidget(
+        buildModeSubject(
+          mode: FrontingListViewMode.combinedPeriods,
+          sessions: [_s(id: 's-a', memberId: 'a', start: t0, end: t1)],
+          periods: periods,
+          members: {'a': _member('a', 'Alice')},
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('Alice'), findsOneWidget);
     });
 
-    testWidgets('perMemberRows mode renders one row per session',
-        (tester) async {
+    testWidgets('perMemberRows mode renders one row per session', (
+      tester,
+    ) async {
       final t0 = DateTime(2026, 4, 1, 10);
       final t1 = DateTime(2026, 4, 1, 11);
       final t2 = DateTime(2026, 4, 1, 12);
 
-      await tester.pumpWidget(buildModeSubject(
-        mode: FrontingListViewMode.perMemberRows,
-        sessions: [
-          _s(id: 's-a', memberId: 'a', start: t0, end: t2),
-          _s(id: 's-b', memberId: 'b', start: t1, end: t2),
-        ],
-        members: {
-          'a': _member('a', 'Alice'),
-          'b': _member('b', 'Bob'),
-        },
-      ));
+      await tester.pumpWidget(
+        buildModeSubject(
+          mode: FrontingListViewMode.perMemberRows,
+          sessions: [
+            _s(id: 's-a', memberId: 'a', start: t0, end: t2),
+            _s(id: 's-b', memberId: 'b', start: t1, end: t2),
+          ],
+          members: {'a': _member('a', 'Alice'), 'b': _member('b', 'Bob')},
+        ),
+      );
       await tester.pumpAndSettle();
 
       // Two rows — one per session, NOT a combined "Alice & Bob" row.
@@ -796,21 +804,20 @@ void main() {
           isAlwaysFronting: true,
         );
 
-        await tester.pumpWidget(buildModeSubject(
-          mode: FrontingListViewMode.perMemberRows,
-          sessions: [hostSession, day2VisitorSession],
-          members: {
-            'host': hostMember,
-            'bob': _member('bob', 'Bob'),
-          },
-          alwaysPresent: [
-            AlwaysPresentMember(
-              member: hostMember,
-              session: hostSession,
-              age: const Duration(days: 8),
-            ),
-          ],
-        ));
+        await tester.pumpWidget(
+          buildModeSubject(
+            mode: FrontingListViewMode.perMemberRows,
+            sessions: [hostSession, day2VisitorSession],
+            members: {'host': hostMember, 'bob': _member('bob', 'Bob')},
+            alwaysPresent: [
+              AlwaysPresentMember(
+                member: hostMember,
+                session: hostSession,
+                age: const Duration(days: 8),
+              ),
+            ],
+          ),
+        );
         await tester.pumpAndSettle();
 
         // Bob's session shows. Host's open session is filtered.
@@ -851,18 +858,20 @@ void main() {
           isAlwaysFronting: true,
         );
 
-        await tester.pumpWidget(buildModeSubject(
-          mode: FrontingListViewMode.perMemberRows,
-          sessions: [pinnedHostSession, earlyHostSession],
-          members: {'host': hostMember},
-          alwaysPresent: [
-            AlwaysPresentMember(
-              member: hostMember,
-              session: pinnedHostSession,
-              age: const Duration(days: 1),
-            ),
-          ],
-        ));
+        await tester.pumpWidget(
+          buildModeSubject(
+            mode: FrontingListViewMode.perMemberRows,
+            sessions: [pinnedHostSession, earlyHostSession],
+            members: {'host': hostMember},
+            alwaysPresent: [
+              AlwaysPresentMember(
+                member: hostMember,
+                session: pinnedHostSession,
+                age: const Duration(days: 1),
+              ),
+            ],
+          ),
+        );
         await tester.pumpAndSettle();
 
         // The April 1 session stays inline (ended before pinned start).
@@ -912,6 +921,5 @@ void main() {
         expect(find.byType(TimelineView), findsNothing);
       },
     );
-
   });
 }

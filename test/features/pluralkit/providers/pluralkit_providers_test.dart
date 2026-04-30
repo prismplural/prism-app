@@ -108,14 +108,13 @@ void main() {
     }
 
     Future<({ProviderContainer container, _ThrowingPkSyncService service})>
-        primedContainer(
+    primedContainer(
       String mode, {
       PluralKitSyncState initialServiceState = const PluralKitSyncState(),
     }) async {
       final controller = StreamController<String>.broadcast();
       addTearDown(controller.close);
-      final service = _ThrowingPkSyncService()
-        ..fakeState = initialServiceState;
+      final service = _ThrowingPkSyncService()..fakeState = initialServiceState;
       final container = ProviderContainer(
         overrides: [
           pluralKitSyncServiceProvider.overrideWithValue(service),
@@ -128,8 +127,7 @@ void main() {
       // Subscribe so the stream actually emits — see the
       // `FrontingMigrationGateProvider` group in upgrade_modal_test for why
       // a bare `read` won't deliver the first event.
-      final sub =
-          container.listen(frontingMigrationModeProvider, (_, _) {});
+      final sub = container.listen(frontingMigrationModeProvider, (_, _) {});
       addTearDown(sub.close);
       controller.add(mode);
       await settle();
@@ -145,12 +143,14 @@ void main() {
         FrontingMigrationService.modeBlocked,
         initialServiceState: const PluralKitSyncState(isConnected: true),
       );
-      final notifier =
-          ctx.container.read(pluralKitSyncProvider.notifier);
+      final notifier = ctx.container.read(pluralKitSyncProvider.notifier);
       final pushed = await notifier.pushPendingSwitches();
       expect(pushed, 0);
-      expect(ctx.service.pushPendingCalls, 0,
-          reason: 'gate must short-circuit before _service is called');
+      expect(
+        ctx.service.pushPendingCalls,
+        0,
+        reason: 'gate must short-circuit before _service is called',
+      );
     });
 
     test('pushPendingSwitches returns 0 while inProgress', () async {
@@ -158,18 +158,15 @@ void main() {
         FrontingMigrationService.modeInProgress,
         initialServiceState: const PluralKitSyncState(isConnected: true),
       );
-      final notifier =
-          ctx.container.read(pluralKitSyncProvider.notifier);
+      final notifier = ctx.container.read(pluralKitSyncProvider.notifier);
       final pushed = await notifier.pushPendingSwitches();
       expect(pushed, 0);
       expect(ctx.service.pushPendingCalls, 0);
     });
 
     test('syncRecentData returns null while blocked', () async {
-      final ctx =
-          await primedContainer(FrontingMigrationService.modeBlocked);
-      final notifier =
-          ctx.container.read(pluralKitSyncProvider.notifier);
+      final ctx = await primedContainer(FrontingMigrationService.modeBlocked);
+      final notifier = ctx.container.read(pluralKitSyncProvider.notifier);
       final summary = await notifier.syncRecentData();
       expect(summary, isNull);
       expect(ctx.service.syncRecentCalls, 0);
@@ -180,8 +177,7 @@ void main() {
         FrontingMigrationService.modeBlocked,
         initialServiceState: const PluralKitSyncState(isConnected: true),
       );
-      final notifier =
-          ctx.container.read(pluralKitSyncProvider.notifier);
+      final notifier = ctx.container.read(pluralKitSyncProvider.notifier);
       final member = domain.Member(
         id: 'm-1',
         name: 'Ada',
@@ -199,10 +195,8 @@ void main() {
 
     test('performFullImport throws PkSyncMigrationGatedException while '
         'blocked', () async {
-      final ctx =
-          await primedContainer(FrontingMigrationService.modeBlocked);
-      final notifier =
-          ctx.container.read(pluralKitSyncProvider.notifier);
+      final ctx = await primedContainer(FrontingMigrationService.modeBlocked);
+      final notifier = ctx.container.read(pluralKitSyncProvider.notifier);
       await expectLater(
         notifier.performFullImport(),
         throwsA(isA<PkSyncMigrationGatedException>()),
@@ -213,9 +207,9 @@ void main() {
     test('performOneTimeFullImport throws PkSyncMigrationGatedException '
         'while inProgress', () async {
       final ctx = await primedContainer(
-          FrontingMigrationService.modeInProgress);
-      final notifier =
-          ctx.container.read(pluralKitSyncProvider.notifier);
+        FrontingMigrationService.modeInProgress,
+      );
+      final notifier = ctx.container.read(pluralKitSyncProvider.notifier);
       await expectLater(
         notifier.performOneTimeFullImport(token: 'tok'),
         throwsA(isA<PkSyncMigrationGatedException>()),
@@ -223,25 +217,21 @@ void main() {
       expect(ctx.service.oneTimeImportCalls, 0);
     });
 
-    test('importFromTokenOnce throws PkSyncMigrationGatedException while '
-        'blocked', () async {
-      final ctx =
-          await primedContainer(FrontingMigrationService.modeBlocked);
-      final notifier =
-          ctx.container.read(pluralKitSyncProvider.notifier);
+    test('performOneTimeFullImport with explicit token throws '
+        'PkSyncMigrationGatedException while blocked', () async {
+      final ctx = await primedContainer(FrontingMigrationService.modeBlocked);
+      final notifier = ctx.container.read(pluralKitSyncProvider.notifier);
       await expectLater(
-        notifier.importFromTokenOnce('tok'),
+        notifier.performOneTimeFullImport(token: 'tok'),
         throwsA(isA<PkSyncMigrationGatedException>()),
       );
-      expect(ctx.service.tokenOnceCalls, 0);
+      expect(ctx.service.oneTimeImportCalls, 0);
     });
 
     test('importFromFile throws PkSyncMigrationGatedException while '
         'blocked', () async {
-      final ctx =
-          await primedContainer(FrontingMigrationService.modeBlocked);
-      final notifier =
-          ctx.container.read(pluralKitSyncProvider.notifier);
+      final ctx = await primedContainer(FrontingMigrationService.modeBlocked);
+      final notifier = ctx.container.read(pluralKitSyncProvider.notifier);
       const fakeExport = PkFileExport(
         system: PKSystem(id: 'sys-1'),
         members: [],
@@ -264,8 +254,7 @@ void main() {
       // stub returns 7 deliberately so we can distinguish "gate fired"
       // (returns 0) from "gate cleared, service ran" (returns 7).
       ctx.service.pushReturn = 7;
-      final notifier =
-          ctx.container.read(pluralKitSyncProvider.notifier);
+      final notifier = ctx.container.read(pluralKitSyncProvider.notifier);
       final pushed = await notifier.pushPendingSwitches();
       expect(pushed, 7);
       expect(ctx.service.pushPendingCalls, 1);
@@ -284,7 +273,6 @@ class _ThrowingPkSyncService implements PluralKitSyncService {
   int syncRecentCalls = 0;
   int fullImportCalls = 0;
   int oneTimeImportCalls = 0;
-  int tokenOnceCalls = 0;
   int fileImportCalls = 0;
   int pushReturn = 0;
 
@@ -336,12 +324,6 @@ class _ThrowingPkSyncService implements PluralKitSyncService {
   }
 
   @override
-  Future<PkTokenImportResult> importFromTokenOnce(String token) async {
-    tokenOnceCalls++;
-    throw UnimplementedError('not used in gate tests');
-  }
-
-  @override
   Future<PkFileImportResult> importFromFile(
     PkFileExport export, {
     void Function(double progress, String status)? onProgress,
@@ -352,6 +334,5 @@ class _ThrowingPkSyncService implements PluralKitSyncService {
 
   @override
   dynamic noSuchMethod(Invocation invocation) =>
-      throw UnimplementedError(
-          'unexpected call to ${invocation.memberName}');
+      throw UnimplementedError('unexpected call to ${invocation.memberName}');
 }

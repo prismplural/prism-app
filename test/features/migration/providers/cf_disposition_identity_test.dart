@@ -29,10 +29,14 @@ SpExportData _export({
 }
 
 void main() {
-  group('CfDispositionNotifier — seed identity (codex P2 #4)', () {
+  group('CfDispositionNotifier — seed identity', () {
     test('identical CF ids + counts but different CF names → reseeds', () {
-      final a = _export(cfs: const [SpCustomFront(id: 'cf1', name: 'Foo')]);
-      final b = _export(cfs: const [SpCustomFront(id: 'cf1', name: 'Bar')]);
+      final a = _export(
+        cfs: const [SpCustomFront(id: 'cf1', name: 'Foo')],
+      );
+      final b = _export(
+        cfs: const [SpCustomFront(id: 'cf1', name: 'Bar')],
+      );
 
       final container = ProviderContainer();
       addTearDown(container.dispose);
@@ -43,10 +47,7 @@ void main() {
       final id1 = container.read(cfDispositionProvider);
       // User edits the disposition.
       controller.setDisposition('cf1', CfDisposition.skip);
-      expect(
-        container.read(cfDispositionProvider)['cf1'],
-        CfDisposition.skip,
-      );
+      expect(container.read(cfDispositionProvider)['cf1'], CfDisposition.skip);
 
       // Re-seeding with a different-named export should RESEED (identity
       // differs), clobbering the user edit.
@@ -86,7 +87,9 @@ void main() {
     });
 
     test('same export seeded twice preserves user edits', () {
-      final data = _export(cfs: const [SpCustomFront(id: 'cf1', name: 'Foo')]);
+      final data = _export(
+        cfs: const [SpCustomFront(id: 'cf1', name: 'Foo')],
+      );
       final container = ProviderContainer();
       addTearDown(container.dispose);
       final controller = container.read(cfDispositionControllerProvider);

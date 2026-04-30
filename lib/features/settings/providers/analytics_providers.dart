@@ -283,7 +283,7 @@ FrontingAnalytics computeAnalyticsFromRows(
   // Naive nested-pair overlap is O(M²·Na·Nb). For 5k members × 4
   // sessions that's 400M comparisons per recompute — and the worker ran
   // synchronously on the UI isolate, so it janked badly on real
-  // datasets (codex pass 6 P2.2).
+  // datasets.
   //
   // Sweep-line replacement: build an event stream of session
   // starts/ends, sort by timestamp (ENDs before STARTs on ties so

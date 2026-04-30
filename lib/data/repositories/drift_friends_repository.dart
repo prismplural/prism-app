@@ -5,6 +5,7 @@ import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/core/database/daos/friends_dao.dart';
 import 'package:prism_plurality/data/mappers/friend_mapper.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
+import 'package:prism_plurality/data/utils/sync_datetime.dart';
 import 'package:prism_plurality/domain/models/friend_record.dart' as domain;
 import 'package:prism_plurality/domain/repositories/friends_repository.dart';
 
@@ -75,20 +76,10 @@ class DriftFriendsRepository with SyncRecordMixin implements FriendsRepository {
       'granted_scopes': jsonEncode(f.grantedScopes),
       'is_verified': f.isVerified,
       'init_id': f.initId,
-      'created_at': _toSyncUtc(f.createdAt),
-      'established_at': _toSyncUtcOrNull(f.establishedAt),
-      'last_sync_at': _toSyncUtcOrNull(f.lastSyncAt),
+      'created_at': toSyncUtc(f.createdAt),
+      'established_at': toSyncUtcOrNull(f.establishedAt),
+      'last_sync_at': toSyncUtcOrNull(f.lastSyncAt),
       'is_deleted': false,
     };
   }
 }
-
-/// Normalizes a DateTime to UTC ISO-8601 (Z-suffixed) for sync wire emission.
-///
-/// Local DateTimes serialize with no offset/Z, so a peer in a different
-/// timezone would parse the value as their own local time and shift the
-/// absolute moment by the timezone delta on every sync. Mirrors the
-/// `_dateTimeToSyncString` helper in `core/sync/drift_sync_adapter.dart`.
-String _toSyncUtc(DateTime dt) => dt.toUtc().toIso8601String();
-
-String? _toSyncUtcOrNull(DateTime? dt) => dt?.toUtc().toIso8601String();

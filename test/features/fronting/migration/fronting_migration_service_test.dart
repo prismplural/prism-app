@@ -46,7 +46,7 @@ import 'package:prism_plurality/data/repositories/drift_notes_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_poll_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_reminders_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_system_settings_repository.dart';
-import 'package:flutter/material.dart' show DateTimeRange;
+import 'package:prism_plurality/domain/utils/time_range.dart';
 import 'package:prism_plurality/domain/models/front_session_comment.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/member.dart' show Member;
@@ -118,7 +118,7 @@ DataExportService _makeExportService(AppDatabase db, Directory cacheDir) {
 
 /// Builds a service wired to in-memory Drift + a mock resetSyncState.
 ///
-/// The Rust FFI handle is null by default — the service skips the real
+/// The Rust FFI handle is null by default - the service skips the real
 /// reset call when [syncHandle] is null.  The mock callback also runs
 /// in that mode so tests can record whether the FFI branch *would*
 /// have run; tests that need to assert "FFI invoked" pass an explicit
@@ -357,13 +357,13 @@ void main() {
     });
 
     // -------------------------------------------------------------------
-    // PRISM1 export wiring — DataExportService must receive `db`
-    // (codex P1 #1 regression).
+    // PRISM1 export wiring - DataExportService must receive `db`
+    // (Regression: #1 regression).
     //
     // The migration calls dataExportService.exportEncryptedData with
     // includeLegacyFields: true. Without `db` wired the legacy column
     // reads silently no-op and the resulting PRISM1 file omits every
-    // co_fronter_ids / pk_member_ids_json / session_id field — making
+    // co_fronter_ids / pk_member_ids_json / session_id field - making
     // the rescue file unable to reconstruct the per-member fan-out on
     // re-import. The fix made `db` a required constructor argument so
     // the broken provider path won't compile.
@@ -420,7 +420,7 @@ void main() {
     });
 
     // -------------------------------------------------------------------
-    // prepareBackup writes to the injected directory (codex P1 #8)
+    // prepareBackup writes to the injected directory
     //
     // The split between prepareBackup + runMigrationDestructive lets the
     // upgrade modal gate the destructive phase on the user actually
@@ -450,7 +450,7 @@ void main() {
 
       expect(await file.exists(), isTrue);
       expect(file.path, startsWith(backupDir.path));
-      // Migration mode untouched — prepareBackup is non-destructive.
+      // Migration mode untouched - prepareBackup is non-destructive.
       // Default initial value depends on migration onUpgrade; we just
       // assert it's not the in-progress sentinel.
       final mode = await db.systemSettingsDao
@@ -501,14 +501,14 @@ void main() {
           await db.systemSettingsDao.readPendingFrontingMigrationMode(),
           'deferred',
         );
-        // Session still on disk — no destructive work ran.
+        // Session still on disk - no destructive work ran.
         final rows = await db.frontingSessionsDao.getAllSessions();
         expect(rows, hasLength(1));
       },
     );
 
     // -------------------------------------------------------------------
-    // Solo upgradeAndKeep — mixed data
+    // Solo upgradeAndKeep - mixed data
     // -------------------------------------------------------------------
     test(
       'solo upgradeAndKeep with mixed PK/SP/native rows: PK deleted, SP/'
@@ -557,7 +557,7 @@ void main() {
           memberId: primaryId,
           coFronterIds: jsonEncode([coId]),
         );
-        // Native orphan row (no member_id) — gets Unknown sentinel
+        // Native orphan row (no member_id) - gets Unknown sentinel
         await _seedSession(
           db,
           id: 'orphan-1',
@@ -820,7 +820,7 @@ void main() {
       final sw2Time = DateTime.utc(2026, 4, 3, 9);
       final sw3Time = DateTime.utc(2026, 4, 3, 10);
       final sw4Time = DateTime.utc(2026, 4, 3, 11);
-      final pkMembers = const [
+      const pkMembers = [
         PKMember(id: pkAliceShortId, uuid: pkAliceUuid, name: 'PK Alice'),
         PKMember(id: pkBobShortId, uuid: pkBobUuid, name: 'PK Bob'),
       ];
@@ -938,7 +938,7 @@ void main() {
     }, timeout: const Timeout(Duration(minutes: 2)));
 
     // -------------------------------------------------------------------
-    // startFresh — wipes everything, no sentinel
+    // startFresh - wipes everything, no sentinel
     // -------------------------------------------------------------------
     test(
       'solo startFresh wipes every fronting row and creates no sentinel',
@@ -1149,7 +1149,7 @@ void main() {
       // throws.  We achieve that by seeding a row with a member_id
       // referencing a member that exists, then rigging the
       // memberRepository to throw on update.  Instead, simulate by
-      // throwing from shareFile AFTER export but BEFORE transaction —
+      // throwing from shareFile AFTER export but BEFORE transaction  -
       // that's a different failure surface (the exportFile is still
       // preserved, but no transaction work runs).
       //
@@ -1273,7 +1273,7 @@ void main() {
         'reset_sync_state is invoked exactly once after the Drift '
         'transaction commits', () async {
       final resetCalls = <ffi.PrismSyncHandle>[];
-      // Use an opaque sentinel handle — service treats it as opaque.
+      // Use an opaque sentinel handle - service treats it as opaque.
       // We can't construct a real PrismSyncHandle in unit tests
       // without spinning up the Rust runtime, so we construct via
       // the mock-only constructor pattern: cast a fake.  The
@@ -1370,10 +1370,9 @@ void main() {
     });
 
     // -------------------------------------------------------------------
-    // Codex P1 #3 — suppression flag is cleared after migration
+    // Regression: suppression flag is cleared after migration.
     //
-    // (Renamed from "suppression e2e" per codex pass 2 #C-NEW3.) This
-    // test only proves the post-migration invariant (suppression flag
+    // This test only proves the post-migration invariant (suppression flag
     // is back to false). The "suppression actually wraps every write"
     // invariant is asserted by the next test, which uses asserting
     // fake repositories that fail loudly on any unsuppressed write
@@ -1410,7 +1409,7 @@ void main() {
     );
 
     // -------------------------------------------------------------------
-    // Codex pass 2 #C-NEW3 — suppression IS active during the body
+    // Regression: suppression is active during the migration body.
     //
     // Wraps every repository the migration writes through with an
     // asserting decorator that fails fast if `SyncRecordMixin.isSuppressed`
@@ -1425,7 +1424,7 @@ void main() {
         'SyncRecordMixin.isSuppressed is true', () async {
       // Seed a mix of rows that exercises every documented write
       // path. (The body ends up calling all of: session update,
-      // session create — for fan-out, session delete — for PK rows,
+      // session create - for fan-out, session delete - for PK rows,
       // comment update, comment delete, member ensure-sentinel for
       // orphans.)
       const primaryId = 'primary-m';
@@ -1528,7 +1527,7 @@ void main() {
     });
 
     // -------------------------------------------------------------------
-    // Codex P1 #4 — engine-reset failure leaves inProgress marker
+    // Regression: engine-reset failure leaves the inProgress marker.
     // -------------------------------------------------------------------
     test('engine reset failure: settings stays at inProgress; '
         'resumeCleanup() then succeeds and writes complete', () async {
@@ -1542,7 +1541,7 @@ void main() {
 
       // First attempt: reset throws; settings should land at inProgress.
       // Second attempt (resume) uses clear_sync_state instead of
-      // reset_sync_state — see the larger pass-3 P1 fix.
+      // reset_sync_state.
       var resetCalls = 0;
       Future<void> failingReset(ffi.PrismSyncHandle h) async {
         resetCalls++;
@@ -1588,7 +1587,7 @@ void main() {
             'Drift tx committed but post-tx step failed: marker must be inProgress',
       );
 
-      // Now resume — clear_sync_state succeeds, finishes the
+      // Now resume - clear_sync_state succeeds, finishes the
       // remaining post-tx steps and lands at `complete`.
       final resumeResult = await svc.resumeCleanup();
       expect(resumeResult.outcome, MigrationOutcome.success);
@@ -1624,7 +1623,7 @@ void main() {
         }
       }
 
-      // Codex pass 2 #B-NEW3 — also count reset calls so the test
+      // Also count reset calls so the test
       // proves the substate-based skip behavior: the first attempt
       // succeeds at reset and writes substate=resetDone, then the
       // keychain wipe fails. On resume, reset MUST NOT be called
@@ -1664,13 +1663,13 @@ void main() {
         'inProgress',
       );
       // Substate must be 'resetDone' since the FFI reset DID succeed
-      // — only the keychain wipe failed.
+      // - only the keychain wipe failed.
       expect(
         await db.systemSettingsDao
             .readPendingFrontingMigrationCleanupSubstate(),
         FrontingMigrationService.substateResetDone,
         reason:
-            'Codex pass 2 #B-NEW3: substate must record that reset '
+            'Regression: substate must record that reset '
             'succeeded so resumeCleanup can skip it on retry',
       );
       expect(resetCalls, 1, reason: 'reset succeeded on first attempt');
@@ -1686,8 +1685,8 @@ void main() {
         resetCalls,
         1,
         reason:
-            'Codex pass 2 #B-NEW3: resumeCleanup must NOT re-run reset '
-            'when substate already says resetDone — re-running against '
+            'Regression: resumeCleanup must NOT re-run reset '
+            'when substate already says resetDone - re-running against '
             'an unconfigured handle would have masked the "sync_id not '
             'set" error as success',
       );
@@ -1699,10 +1698,9 @@ void main() {
       );
     });
 
-    // Codex pass 2 #B-NEW3 + pass 3 P1 — substate stays inert when
-    // first-attempt reset fails; resumeCleanup re-attempts using
-    // clear_sync_state(sync_id) instead of the configure-briefly-
-    // then-reset_sync_state path that had a relay-reconnect bug.
+    // Regression: substate stays inert when first-attempt reset fails;
+    // resumeCleanup re-attempts using clear_sync_state(sync_id) instead
+    // of the configure-briefly-then-reset_sync_state path.
     test('engine reset failure: substate stays inert; resumeCleanup runs '
         'clear_sync_state(sync_id) before completing', () async {
       await _seedMember(db, 'm1');
@@ -1751,7 +1749,7 @@ void main() {
         shareFile: _noopShare,
       );
       expect(firstResult.outcome, MigrationOutcome.failed);
-      // First attempt did NOT reach substate write — it failed
+      // First attempt did NOT reach substate write - it failed
       // before the post-reset write site.
       expect(
         await db.systemSettingsDao
@@ -1777,7 +1775,7 @@ void main() {
         resetCalls,
         1,
         reason:
-            'resume path must NOT call reset_sync_state — published '
+            'resume path must NOT call reset_sync_state - published '
             'handle is unconfigured on inProgress, so reset would '
             'fail with sync_id not set; use clear_sync_state instead',
       );
@@ -1789,10 +1787,9 @@ void main() {
       expect(clearedSyncId, 'sync-123');
     });
 
-    // Codex pass 2 #B-NEW3 — explicit regression: a Rust error from
-    // the FIRST-attempt reset must NOT be silently swallowed as
-    // "already reset" the way the previous heuristic did. Substate
-    // is the source of truth; if it's inert, the error is real.
+    // Regression: a Rust error from the first-attempt reset must not be
+    // silently swallowed as "already reset." Substate is the source of truth;
+    // if it's inert, the error is real.
     test('engine reset failure on first attempt is treated as a real failure '
         '(not silently treated as success)', () async {
       await _seedMember(db, 'm1');
@@ -1847,9 +1844,9 @@ void main() {
       );
     });
 
-    // Codex pass 3 P1 — resume path with no sync_id in keychain
-    // (already wiped or solo-device case) advances substate without
-    // calling clear_sync_state, so the remaining cleanup steps run.
+    // Regression: resume path with no sync_id in keychain (already wiped
+    // or solo-device case) advances substate without calling
+    // clear_sync_state, so the remaining cleanup steps run.
     test('resumeCleanup with no sync_id available skips clear_sync_state '
         'and advances substate', () async {
       await _seedMember(db, 'm1');
@@ -1918,7 +1915,7 @@ void main() {
     );
 
     // -------------------------------------------------------------------
-    // Adjacent-merge pass (spec §2.1) — fan-out preserves boundaries
+    // Adjacent-merge pass (spec §2.1) - fan-out preserves boundaries
     // that existed in the old shape only because a co-fronter joined
     // or left. Under the per-member abstraction those boundaries are
     // arbitrary cosmetic artifacts. Collapse them post-fan-out.
@@ -2148,7 +2145,7 @@ void main() {
           endTime: DateTime.utc(2026, 4, 1, 8, 50),
           memberId: host,
         );
-        // Sleep row 8:50 → 9:07 — adjacent to normal but session_type = 1.
+        // Sleep row 8:50 → 9:07 - adjacent to normal but session_type = 1.
         await _seedSession(
           db,
           id: 'sleep',
@@ -2235,8 +2232,9 @@ void main() {
       'transaction failpoint: marker and destructive writes roll back together '
       '(mode reverts; rows untouched)',
       () async {
-        await db.systemSettingsDao
-            .writePendingFrontingMigrationMode('notStarted');
+        await db.systemSettingsDao.writePendingFrontingMigrationMode(
+          'notStarted',
+        );
         await _seedMember(db, 'm1');
         await _seedSession(
           db,
@@ -2288,8 +2286,9 @@ void main() {
       'post-commit failpoint: leaves marker at inProgress; resumeCleanup '
       'recovers; the destructive writes survived the original commit',
       () async {
-        await db.systemSettingsDao
-            .writePendingFrontingMigrationMode('notStarted');
+        await db.systemSettingsDao.writePendingFrontingMigrationMode(
+          'notStarted',
+        );
         await _seedMember(db, 'm1');
         await _seedSession(
           db,
@@ -2370,172 +2369,163 @@ void main() {
     // -------------------------------------------------------------------
     // WS1 step 3: shareFile cancellation aborts before destructive work.
     // -------------------------------------------------------------------
-    test(
-      'runMigration honors shareFile null (user cancelled): no destructive '
-      'writes; mode stays at notStarted; export file preserved',
-      () async {
-        await db.systemSettingsDao
-            .writePendingFrontingMigrationMode('notStarted');
-        await _seedMember(db, 'm1');
-        await _seedSession(
-          db,
-          id: 's1',
-          startTime: DateTime.utc(2026, 4, 1, 9),
-          memberId: 'm1',
-        );
+    test('runMigration honors shareFile null (user cancelled): no destructive '
+        'writes; mode stays at notStarted; export file preserved', () async {
+      await db.systemSettingsDao.writePendingFrontingMigrationMode(
+        'notStarted',
+      );
+      await _seedMember(db, 'm1');
+      await _seedSession(
+        db,
+        id: 's1',
+        startTime: DateTime.utc(2026, 4, 1, 9),
+        memberId: 'm1',
+      );
 
-        final svc = _makeService(db, exportService);
+      final svc = _makeService(db, exportService);
 
-        final result = await svc.runMigration(
-          mode: MigrationMode.upgradeAndKeep,
-          role: DeviceRole.solo,
-          shareFile: (_) async => null, // cancel
-        );
+      final result = await svc.runMigration(
+        mode: MigrationMode.upgradeAndKeep,
+        role: DeviceRole.solo,
+        shareFile: (_) async => null, // cancel
+      );
 
-        expect(result.outcome, MigrationOutcome.failed);
-        expect(result.exportFile, isNotNull);
-        expect(await result.exportFile!.exists(), isTrue);
-        expect(
-          result.errorMessage,
-          contains('cancelled'),
-          reason: 'cancellation surfaces as a typed failure',
-        );
-        // The destructive phase did not run: data and mode are untouched.
-        final mode = await db.systemSettingsDao
-            .readPendingFrontingMigrationMode();
-        expect(mode, 'notStarted');
-        final rows = await db.frontingSessionsDao.getAllSessions();
-        expect(rows.single.id, 's1');
-      },
-    );
+      expect(result.outcome, MigrationOutcome.failed);
+      expect(result.exportFile, isNotNull);
+      expect(await result.exportFile!.exists(), isTrue);
+      expect(
+        result.errorMessage,
+        contains('cancelled'),
+        reason: 'cancellation surfaces as a typed failure',
+      );
+      // The destructive phase did not run: data and mode are untouched.
+      final mode = await db.systemSettingsDao
+          .readPendingFrontingMigrationMode();
+      expect(mode, 'notStarted');
+      final rows = await db.frontingSessionsDao.getAllSessions();
+      expect(rows.single.id, 's1');
+    });
 
     // -------------------------------------------------------------------
     // WS1 step 6: same-day backup retry produces a distinct filename
     // and refuses to overwrite an existing rescue file.
     // -------------------------------------------------------------------
-    test(
-      'prepareBackup mints unique filenames on same-day retries '
-      '(timestamped + nonced)',
-      () async {
-        await _seedMember(db, 'm1');
-        await _seedSession(
-          db,
-          id: 's1',
-          startTime: DateTime.utc(2026, 4, 1, 9),
-          memberId: 'm1',
-        );
-        final dir = Directory.systemTemp.createTempSync(
-          'prism-mig-filename-collide-',
-        );
-        addTearDown(() async {
-          try {
-            await dir.delete(recursive: true);
-          } catch (_) {}
-        });
-        // Walk the clock forward by 1s on each call so the epoch
-        // suffix is guaranteed to differ even on a clock-stuck
-        // simulator. Real wall-clock retries are seconds apart, but
-        // we don't want this test to be flaky on a test runner that
-        // calls `prepareBackup` twice in the same millisecond.
-        var clockTick = DateTime.utc(2026, 4, 1, 9, 0, 0);
-        DateTime tickClock() {
-          final t = clockTick;
-          clockTick = clockTick.add(const Duration(seconds: 1));
-          return t;
-        }
+    test('prepareBackup mints unique filenames on same-day retries '
+        '(timestamped + nonced)', () async {
+      await _seedMember(db, 'm1');
+      await _seedSession(
+        db,
+        id: 's1',
+        startTime: DateTime.utc(2026, 4, 1, 9),
+        memberId: 'm1',
+      );
+      final dir = Directory.systemTemp.createTempSync(
+        'prism-mig-filename-collide-',
+      );
+      addTearDown(() async {
+        try {
+          await dir.delete(recursive: true);
+        } catch (_) {}
+      });
+      // Walk the clock forward by 1s on each call so the epoch
+      // suffix is guaranteed to differ even on a clock-stuck
+      // simulator. Real wall-clock retries are seconds apart, but
+      // we don't want this test to be flaky on a test runner that
+      // calls `prepareBackup` twice in the same millisecond.
+      var clockTick = DateTime.utc(2026, 4, 1, 9, 0, 0);
+      DateTime tickClock() {
+        final t = clockTick;
+        clockTick = clockTick.add(const Duration(seconds: 1));
+        return t;
+      }
 
-        final svc = FrontingMigrationService(
-          db: db,
-          memberRepository: DriftMemberRepository(db.membersDao, null),
-          frontingSessionRepository: DriftFrontingSessionRepository(
-            db.frontingSessionsDao,
-            null,
-          ),
-          frontSessionCommentsRepository: DriftFrontSessionCommentsRepository(
-            db.frontSessionCommentsDao,
-            null,
-          ),
-          dataExportService: exportService,
-          syncHandle: null,
-          backupDirectoryProvider: () async => dir,
-          clock: tickClock,
-        );
+      final svc = FrontingMigrationService(
+        db: db,
+        memberRepository: DriftMemberRepository(db.membersDao, null),
+        frontingSessionRepository: DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+        ),
+        frontSessionCommentsRepository: DriftFrontSessionCommentsRepository(
+          db.frontSessionCommentsDao,
+          null,
+        ),
+        dataExportService: exportService,
+        syncHandle: null,
+        backupDirectoryProvider: () async => dir,
+        clock: tickClock,
+      );
 
-        final fileA = await svc.prepareBackup(
+      final fileA = await svc.prepareBackup(
+        mode: MigrationMode.upgradeAndKeep,
+        password: 'a-strong-password-12',
+      );
+      final fileB = await svc.prepareBackup(
+        mode: MigrationMode.upgradeAndKeep,
+        password: 'a-strong-password-12',
+      );
+
+      expect(fileA.path, isNot(equals(fileB.path)));
+      expect(await fileA.exists(), isTrue);
+      expect(await fileB.exists(), isTrue);
+      // Both should be Prism-Export-...prism in the chosen dir.
+      expect(fileA.path, startsWith(dir.path));
+      expect(fileB.path, startsWith(dir.path));
+      expect(fileA.path, endsWith('.prism'));
+      expect(fileB.path, endsWith('.prism'));
+    });
+
+    test('prepareBackup refuses to overwrite a same-named rescue file '
+        '(throws BackupFileCollisionException)', () async {
+      await _seedMember(db, 'm1');
+      final dir = Directory.systemTemp.createTempSync(
+        'prism-mig-filename-refuse-',
+      );
+      addTearDown(() async {
+        try {
+          await dir.delete(recursive: true);
+        } catch (_) {}
+      });
+
+      // Pin the clock and nonce so the derived filename is
+      // deterministic. We pre-create that exact file to force the
+      // collision path.
+      final fixedNow = DateTime.utc(2026, 4, 1, 9, 0, 0);
+      final fixedNowEpoch = fixedNow.millisecondsSinceEpoch ~/ 1000;
+      final pinnedRandom = _PinnedRandom([0xab, 0xcd]); // → "abcd"
+      final expectedName = 'Prism-Export-2026-04-01-$fixedNowEpoch-abcd.prism';
+      final precreated = File('${dir.path}/$expectedName');
+      await precreated.writeAsBytes(const [1, 2, 3, 4]);
+
+      final svc = FrontingMigrationService(
+        db: db,
+        memberRepository: DriftMemberRepository(db.membersDao, null),
+        frontingSessionRepository: DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+        ),
+        frontSessionCommentsRepository: DriftFrontSessionCommentsRepository(
+          db.frontSessionCommentsDao,
+          null,
+        ),
+        dataExportService: exportService,
+        syncHandle: null,
+        backupDirectoryProvider: () async => dir,
+        clock: () => fixedNow,
+        nonceRandom: pinnedRandom,
+      );
+
+      await expectLater(
+        svc.prepareBackup(
           mode: MigrationMode.upgradeAndKeep,
           password: 'a-strong-password-12',
-        );
-        final fileB = await svc.prepareBackup(
-          mode: MigrationMode.upgradeAndKeep,
-          password: 'a-strong-password-12',
-        );
-
-        expect(fileA.path, isNot(equals(fileB.path)));
-        expect(await fileA.exists(), isTrue);
-        expect(await fileB.exists(), isTrue);
-        // Both should be Prism-Export-...prism in the chosen dir.
-        expect(fileA.path, startsWith(dir.path));
-        expect(fileB.path, startsWith(dir.path));
-        expect(fileA.path, endsWith('.prism'));
-        expect(fileB.path, endsWith('.prism'));
-      },
-    );
-
-    test(
-      'prepareBackup refuses to overwrite a same-named rescue file '
-      '(throws BackupFileCollisionException)',
-      () async {
-        await _seedMember(db, 'm1');
-        final dir = Directory.systemTemp.createTempSync(
-          'prism-mig-filename-refuse-',
-        );
-        addTearDown(() async {
-          try {
-            await dir.delete(recursive: true);
-          } catch (_) {}
-        });
-
-        // Pin the clock and nonce so the derived filename is
-        // deterministic. We pre-create that exact file to force the
-        // collision path.
-        final fixedNow = DateTime.utc(2026, 4, 1, 9, 0, 0);
-        final fixedNowEpoch = fixedNow.millisecondsSinceEpoch ~/ 1000;
-        final pinnedRandom = _PinnedRandom([0xab, 0xcd]); // → "abcd"
-        final expectedName =
-            'Prism-Export-2026-04-01-$fixedNowEpoch-abcd.prism';
-        final precreated = File('${dir.path}/$expectedName');
-        await precreated.writeAsBytes(const [1, 2, 3, 4]);
-
-        final svc = FrontingMigrationService(
-          db: db,
-          memberRepository: DriftMemberRepository(db.membersDao, null),
-          frontingSessionRepository: DriftFrontingSessionRepository(
-            db.frontingSessionsDao,
-            null,
-          ),
-          frontSessionCommentsRepository: DriftFrontSessionCommentsRepository(
-            db.frontSessionCommentsDao,
-            null,
-          ),
-          dataExportService: exportService,
-          syncHandle: null,
-          backupDirectoryProvider: () async => dir,
-          clock: () => fixedNow,
-          nonceRandom: pinnedRandom,
-        );
-
-        await expectLater(
-          svc.prepareBackup(
-            mode: MigrationMode.upgradeAndKeep,
-            password: 'a-strong-password-12',
-          ),
-          throwsA(isA<BackupFileCollisionException>()),
-        );
-        // Pre-existing file is untouched (no overwrite).
-        final bytes = await precreated.readAsBytes();
-        expect(bytes, [1, 2, 3, 4]);
-      },
-    );
+        ),
+        throwsA(isA<BackupFileCollisionException>()),
+      );
+      // Pre-existing file is untouched (no overwrite).
+      final bytes = await precreated.readAsBytes();
+      expect(bytes, [1, 2, 3, 4]);
+    });
   });
 }
 
@@ -2565,7 +2555,7 @@ class _PinnedRandom implements Random {
 
 /// Delegates every method to [_inner] except the sentinel write paths,
 /// which throw so the orphan-sentinel branch fails inside the Drift
-/// transaction — used to verify rollback semantics (settings unchanged,
+/// transaction - used to verify rollback semantics (settings unchanged,
 /// PRISM1 file preserved).
 class _ThrowingMemberRepository implements MemberRepository {
   _ThrowingMemberRepository(this._inner);
@@ -2628,7 +2618,7 @@ class _ThrowingMemberRepository implements MemberRepository {
 }
 
 /// Minimal stand-in for the FFI handle.  The migration service treats
-/// the handle as opaque — the only interaction is passing it to the
+/// the handle as opaque - the only interaction is passing it to the
 /// resetSyncState callback, which we mock.
 class _FakePrismSyncHandle implements ffi.PrismSyncHandle {
   @override
@@ -2639,7 +2629,7 @@ class _FakePrismSyncHandle implements ffi.PrismSyncHandle {
 }
 
 // ---------------------------------------------------------------------------
-// Codex pass 2 #C-NEW3 — suppression-asserting repository decorators
+// Suppression-asserting repository decorators
 //
 // Wrap the real Drift repos and assert `SyncRecordMixin.isSuppressed ==
 // true` at the moment any sync-emitting method (create/update/delete +
@@ -2685,7 +2675,7 @@ class _SuppressionAssertingFrontingSessionRepository
     return _inner.deleteSession(id);
   }
 
-  // Pass-throughs below — none of these emit sync ops on their own, so
+  // Pass-throughs below - none of these emit sync ops on their own, so
   // they're safe to leave without an assert.
   @override
   Future<List<FrontingSession>> getAllSessions() => _inner.getAllSessions();
@@ -2797,12 +2787,11 @@ class _SuppressionAssertingFrontSessionCommentsRepository
   }
 
   @override
-  Stream<List<FrontSessionComment>> watchCommentsForRange(
-    DateTimeRange range,
-  ) => _inner.watchCommentsForRange(range);
+  Stream<List<FrontSessionComment>> watchCommentsForRange(TimeRange range) =>
+      _inner.watchCommentsForRange(range);
 
   @override
-  Stream<int> watchCommentCountForRange(DateTimeRange range) =>
+  Stream<int> watchCommentCountForRange(TimeRange range) =>
       _inner.watchCommentCountForRange(range);
 
   @override

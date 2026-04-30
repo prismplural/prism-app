@@ -223,10 +223,10 @@ List<FrontingPeriod> deriveMaximalPeriods(DerivePeriodsInput input) {
     if (!end.isAfter(input.rangeStart)) continue;
     if (!start.isBefore(effectiveRangeEnd)) continue;
 
-    final clampedStart =
-        start.isBefore(input.rangeStart) ? input.rangeStart : start;
-    final clampedEnd =
-        end.isAfter(effectiveRangeEnd) ? effectiveRangeEnd : end;
+    final clampedStart = start.isBefore(input.rangeStart)
+        ? input.rangeStart
+        : start;
+    final clampedEnd = end.isAfter(effectiveRangeEnd) ? effectiveRangeEnd : end;
     if (!clampedEnd.isAfter(clampedStart)) continue;
 
     final isBackground = input.members[memberId]?.isAlwaysFronting ?? false;
@@ -281,16 +281,10 @@ List<FrontingPeriod> deriveMaximalPeriods(DerivePeriodsInput input) {
   // a (start, +) and (end, -) event.
   final events = <_Event>[];
   for (final s in foreground) {
-    events.add(_Event(
-      time: s.clampedStart,
-      kind: _EventKind.start,
-      session: s,
-    ));
-    events.add(_Event(
-      time: s.clampedEnd,
-      kind: _EventKind.end,
-      session: s,
-    ));
+    events.add(
+      _Event(time: s.clampedStart, kind: _EventKind.start, session: s),
+    );
+    events.add(_Event(time: s.clampedEnd, kind: _EventKind.end, session: s));
   }
 
   events.sort((a, b) {
@@ -354,13 +348,15 @@ List<FrontingPeriod> deriveMaximalPeriods(DerivePeriodsInput input) {
       return ai.compareTo(bi);
     });
 
-    rawPeriods.add(_RawPeriod(
-      start: periodStart,
-      end: end,
-      activeMembers: memberIds,
-      sessionIds: snapshotSessionIds.toList(),
-      hasOpenSession: snapshotHasOpenSession,
-    ));
+    rawPeriods.add(
+      _RawPeriod(
+        start: periodStart,
+        end: end,
+        activeMembers: memberIds,
+        sessionIds: snapshotSessionIds.toList(),
+        hasOpenSession: snapshotHasOpenSession,
+      ),
+    );
   }
 
   void refreshSnapshots() {
@@ -460,7 +456,8 @@ List<FrontingPeriod> deriveMaximalPeriods(DerivePeriodsInput input) {
   // Trailing period from the last event time to `now`, if active set is
   // non-empty. Almost always empty in practice (last event is a session
   // end), but covers the edge case where the sweep finishes mid-active.
-  if (snapshotFirstStart.isNotEmpty && periodStart.isBefore(effectiveRangeEnd)) {
+  if (snapshotFirstStart.isNotEmpty &&
+      periodStart.isBefore(effectiveRangeEnd)) {
     emitPeriod(effectiveRangeEnd);
   }
 
@@ -525,14 +522,16 @@ List<FrontingPeriod> _collapseAndAnnotate(
       for (final mid in p.activeMembers) {
         final sess = _findBestSessionForMember(foregroundByMember, mid, p);
         if (sess != null) {
-          brief.add(EphemeralVisit(
-            memberId: mid,
-            start: p.start.isBefore(sess.clampedStart)
-                ? sess.clampedStart
-                : p.start,
-            end: p.end.isAfter(sess.clampedEnd) ? sess.clampedEnd : p.end,
-            sessionId: sess.sessionId,
-          ));
+          brief.add(
+            EphemeralVisit(
+              memberId: mid,
+              start: p.start.isBefore(sess.clampedStart)
+                  ? sess.clampedStart
+                  : p.start,
+              end: p.end.isAfter(sess.clampedEnd) ? sess.clampedEnd : p.end,
+              sessionId: sess.sessionId,
+            ),
+          );
         }
       }
     }
@@ -569,8 +568,7 @@ List<FrontingPeriod> _collapseAndAnnotate(
     // guard, a just-started current front would land in pendingBrief
     // and either render with empty activeMembers (the "Unknown" bug)
     // or get dropped entirely.
-    final isShort =
-        p.duration < ephemeralThreshold && !p.hasOpenSession;
+    final isShort = p.duration < ephemeralThreshold && !p.hasOpenSession;
 
     if (isShort) {
       // Try to fold this period's "extra" members into adjacent periods
@@ -591,19 +589,20 @@ List<FrontingPeriod> _collapseAndAnnotate(
         }
       }
       // Members appearing only in this short period are the "brief" set.
-      final brief =
-          p.activeMembers.where((m) => !neighborMembers.contains(m));
+      final brief = p.activeMembers.where((m) => !neighborMembers.contains(m));
       for (final mid in brief) {
         final sess = _findBestSessionForMember(foregroundByMember, mid, p);
         if (sess != null) {
-          pendingBrief.add(EphemeralVisit(
-            memberId: mid,
-            start: p.start.isBefore(sess.clampedStart)
-                ? sess.clampedStart
-                : p.start,
-            end: p.end.isAfter(sess.clampedEnd) ? sess.clampedEnd : p.end,
-            sessionId: sess.sessionId,
-          ));
+          pendingBrief.add(
+            EphemeralVisit(
+              memberId: mid,
+              start: p.start.isBefore(sess.clampedStart)
+                  ? sess.clampedStart
+                  : p.start,
+              end: p.end.isAfter(sess.clampedEnd) ? sess.clampedEnd : p.end,
+              sessionId: sess.sessionId,
+            ),
+          );
         }
       }
       pendingSessionIds.addAll(p.sessionIds);
@@ -614,7 +613,7 @@ List<FrontingPeriod> _collapseAndAnnotate(
     // deduping members who are already active in this period — a
     // closed-short → open-short same-member handoff would otherwise
     // render the active member as a "brief visitor" of their own
-    // active period (Codex P2).
+    // active period.
     final allSessionIds = <String>{...p.sessionIds, ...pendingSessionIds};
     final activeMemberSet = p.activeMembers.toSet();
     final brief = <EphemeralVisit>[
@@ -633,27 +632,31 @@ List<FrontingPeriod> _collapseAndAnnotate(
     if (result.isNotEmpty &&
         _listEquals(result.last.activeMembers, p.activeMembers)) {
       final prev = result.removeLast();
-      result.add(FrontingPeriod(
-        start: prev.start,
-        end: p.end,
-        activeMembers: prev.activeMembers,
-        briefVisitors: [...prev.briefVisitors, ...brief],
-        sessionIds: {...prev.sessionIds, ...allSessionIds}.toList(),
-        alwaysPresentMembers: alwaysPresent,
-        // The merged period inherits the latter's trailing-edge state —
-        // only the most recent end matters for liveness.
-        isOpenEnded: isOpen,
-      ));
+      result.add(
+        FrontingPeriod(
+          start: prev.start,
+          end: p.end,
+          activeMembers: prev.activeMembers,
+          briefVisitors: [...prev.briefVisitors, ...brief],
+          sessionIds: {...prev.sessionIds, ...allSessionIds}.toList(),
+          alwaysPresentMembers: alwaysPresent,
+          // The merged period inherits the latter's trailing-edge state —
+          // only the most recent end matters for liveness.
+          isOpenEnded: isOpen,
+        ),
+      );
     } else {
-      result.add(FrontingPeriod(
-        start: p.start,
-        end: p.end,
-        activeMembers: p.activeMembers,
-        briefVisitors: brief,
-        sessionIds: allSessionIds.toList(),
-        alwaysPresentMembers: alwaysPresent,
-        isOpenEnded: isOpen,
-      ));
+      result.add(
+        FrontingPeriod(
+          start: p.start,
+          end: p.end,
+          activeMembers: p.activeMembers,
+          briefVisitors: brief,
+          sessionIds: allSessionIds.toList(),
+          alwaysPresentMembers: alwaysPresent,
+          isOpenEnded: isOpen,
+        ),
+      );
     }
   }
 
@@ -669,15 +672,17 @@ List<FrontingPeriod> _collapseAndAnnotate(
       for (final v in pendingBrief)
         if (!lastActiveSet.contains(v.memberId)) v,
     ];
-    result.add(FrontingPeriod(
-      start: last.start,
-      end: last.end,
-      activeMembers: last.activeMembers,
-      briefVisitors: [...last.briefVisitors, ...dedupedTrailing],
-      sessionIds: {...last.sessionIds, ...pendingSessionIds}.toList(),
-      alwaysPresentMembers: last.alwaysPresentMembers,
-      isOpenEnded: last.isOpenEnded,
-    ));
+    result.add(
+      FrontingPeriod(
+        start: last.start,
+        end: last.end,
+        activeMembers: last.activeMembers,
+        briefVisitors: [...last.briefVisitors, ...dedupedTrailing],
+        sessionIds: {...last.sessionIds, ...pendingSessionIds}.toList(),
+        alwaysPresentMembers: last.alwaysPresentMembers,
+        isOpenEnded: last.isOpenEnded,
+      ),
+    );
   }
 
   return result;
@@ -693,10 +698,10 @@ _NormalizedSession? _findBestSessionForMember(
   _NormalizedSession? best;
   var bestOverlap = Duration.zero;
   for (final s in list) {
-    final overlapStart =
-        s.clampedStart.isAfter(p.start) ? s.clampedStart : p.start;
-    final overlapEnd =
-        s.clampedEnd.isBefore(p.end) ? s.clampedEnd : p.end;
+    final overlapStart = s.clampedStart.isAfter(p.start)
+        ? s.clampedStart
+        : p.start;
+    final overlapEnd = s.clampedEnd.isBefore(p.end) ? s.clampedEnd : p.end;
     if (overlapEnd.isAfter(overlapStart)) {
       final dur = overlapEnd.difference(overlapStart);
       if (dur > bestOverlap) {
@@ -782,6 +787,7 @@ class _RawPeriod {
   final DateTime end;
   final List<String> activeMembers;
   final List<String> sessionIds;
+
   /// Whether the active session set at the time this period was emitted
   /// included at least one open-ended session. Combined with the
   /// trailing-edge check at emit time, this drives `isOpenEnded`.

@@ -343,8 +343,8 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
 
   /// Phase 1: invoke `prepareBackup`. On success, transitions to
   /// `backupReady` so the user can save / share / acknowledge before
-  /// the destructive phase runs (codex P1 #8). On failure, transitions
-  /// to `failure` with the export error.
+  /// the destructive phase runs. On failure, transitions to `failure`
+  /// with the export error.
   Future<void> _runMigration() async {
     setState(() {
       _step = FrontingUpgradeStep.exporting;
@@ -613,16 +613,14 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
     try {
       final token = await PrismDialog.show<String>(
         context: context,
-        title: 'PluralKit token',
-        message:
-            'Import PluralKit fronting history now. This uses the token once '
-            'and does not turn on PluralKit sync.',
+        title: context.l10n.frontingUpgradePkTokenDialogTitle,
+        message: context.l10n.frontingUpgradePkTokenDialogMessage,
         builder: (dialogContext) => PrismTextField(
           controller: controller,
           autofocus: true,
           obscureText: true,
-          labelText: 'PluralKit token',
-          hintText: 'Paste your PluralKit token',
+          labelText: context.l10n.frontingUpgradePkTokenLabel,
+          hintText: context.l10n.frontingUpgradePkTokenHint,
           onSubmitted: (_) {
             final trimmed = controller.text.trim();
             if (trimmed.isEmpty) return;
@@ -636,7 +634,7 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
             onPressed: () => Navigator.of(context).pop(),
           ),
           PrismButton(
-            label: 'Import',
+            label: context.l10n.frontingUpgradePkTokenImport,
             tone: PrismButtonTone.filled,
             onPressed: () {
               final trimmed = controller.text.trim();
@@ -786,12 +784,7 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
         ),
         const SizedBox(height: 16),
         Text(
-          // Localized strings ship with the modal but the resume-cleanup
-          // path is new in this PR — fall back to literal copy until the
-          // l10n strings land. Intentionally minimal so the user
-          // understands "previous attempt left the device in a partial
-          // state; tap to finish."
-          'Finish migration',
+          context.l10n.frontingUpgradeResumeCleanupHeadline,
           style: theme.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.bold,
           ),
@@ -799,9 +792,7 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
         ),
         const SizedBox(height: 12),
         Text(
-          'A previous upgrade attempt finished the data migration but '
-          "couldn't complete the sync reset. Tap below to finish — no "
-          'data will be touched, only the sync credentials.',
+          context.l10n.frontingUpgradeResumeCleanupBody,
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
@@ -810,7 +801,7 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
         const SizedBox(height: 24),
         PrismButton(
           onPressed: _runResumeCleanup,
-          label: 'Finish migration',
+          label: context.l10n.frontingUpgradeResumeCleanupButton,
           tone: PrismButtonTone.filled,
           expanded: true,
         ),
@@ -1184,7 +1175,7 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
             PrismButton(
               onPressed: _promptForPluralKitTokenAndImport,
               icon: AppIcons.cloudSync,
-              label: 'Import with PluralKit token',
+              label: context.l10n.frontingUpgradePkImportButton,
               tone: PrismButtonTone.filled,
               expanded: true,
             ),
@@ -1205,8 +1196,7 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
     switch (_pkImportStatus) {
       case _PostMigrationPkImportStatus.idle:
         return Text(
-          'PluralKit history can be re-imported here with a temporary '
-          'token. The token is used once and PluralKit sync stays off.',
+          context.l10n.frontingUpgradePkImportIdle,
           textAlign: TextAlign.center,
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
@@ -1219,7 +1209,7 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
             const PrismLoadingState(),
             const SizedBox(height: 8),
             Text(
-              'Re-importing PluralKit history...',
+              context.l10n.frontingUpgradePkImportRunning,
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
@@ -1228,23 +1218,24 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
           ],
         );
       case _PostMigrationPkImportStatus.imported:
-        // Build a single-paragraph status with optional follow-on lines for
-        // the PR E2 counters (tombstones preserved, zero-length closes
-        // skipped). Both counters are zero on a clean import — only render
-        // the lines when non-zero so a typical run reads as a single line.
-        final lines = <String>['PluralKit history was re-imported.'];
+        // Build a single-paragraph status with optional follow-on lines
+        // for the corrective-import counters (tombstones preserved,
+        // zero-length closes skipped). Both counters are zero on a clean
+        // import — only render the lines when non-zero so a typical run
+        // reads as a single line.
+        final lines = <String>[context.l10n.frontingUpgradePkImportImported];
         if (_pkImportTombstonePreserved > 0) {
           lines.add(
-            '$_pkImportTombstonePreserved deleted '
-            '${_pkImportTombstonePreserved == 1 ? 'row was' : 'rows were'} '
-            'left as-is to honor the local delete.',
+            context.l10n.frontingUpgradePkImportTombstoneLine(
+              _pkImportTombstonePreserved,
+            ),
           );
         }
         if (_pkImportZeroLengthSkipped > 0) {
           lines.add(
-            '$_pkImportZeroLengthSkipped zero-length '
-            '${_pkImportZeroLengthSkipped == 1 ? 'close was' : 'closes were'} '
-            'skipped (PluralKit listed an enter and a leave at the same instant).',
+            context.l10n.frontingUpgradePkImportZeroLengthLine(
+              _pkImportZeroLengthSkipped,
+            ),
           );
         }
         return Text(
@@ -1256,8 +1247,7 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
         );
       case _PostMigrationPkImportStatus.needsToken:
         return Text(
-          'No stored PluralKit token was found. You can import with a '
-          'temporary token here without turning on PluralKit sync.',
+          context.l10n.frontingUpgradePkImportNeedsToken,
           textAlign: TextAlign.center,
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
@@ -1265,7 +1255,9 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
         );
       case _PostMigrationPkImportStatus.failed:
         return Text(
-          'PluralKit re-import failed: ${_pkImportError ?? 'unknown error'}',
+          context.l10n.frontingUpgradePkImportFailed(
+            _pkImportError ?? context.l10n.migrationUnknownError,
+          ),
           textAlign: TextAlign.center,
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.error,

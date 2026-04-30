@@ -8315,6 +8315,82 @@ class AppLocalizationsEs extends AppLocalizations {
       'Toca para continuar con la actualización.';
 
   @override
+  String get frontingUpgradeResumeCleanupHeadline => 'Terminar la migración';
+
+  @override
+  String get frontingUpgradeResumeCleanupBody =>
+      'Un intento anterior terminó la migración de datos pero no pudo completar el restablecimiento de sincronización. Toca abajo para terminar — solo se actualizan las credenciales de sincronización, no se tocan tus datos.';
+
+  @override
+  String get frontingUpgradeResumeCleanupButton => 'Terminar la migración';
+
+  @override
+  String get frontingUpgradePkTokenDialogTitle => 'Token de PluralKit';
+
+  @override
+  String get frontingUpgradePkTokenDialogMessage =>
+      'Importa el historial de fronts de PluralKit ahora. El token se usa una sola vez y no activa la sincronización con PluralKit.';
+
+  @override
+  String get frontingUpgradePkTokenLabel => 'Token de PluralKit';
+
+  @override
+  String get frontingUpgradePkTokenHint => 'Pega tu token de PluralKit';
+
+  @override
+  String get frontingUpgradePkTokenImport => 'Importar';
+
+  @override
+  String get frontingUpgradePkImportButton => 'Importar con token de PluralKit';
+
+  @override
+  String get frontingUpgradePkImportIdle =>
+      'El historial de PluralKit se puede reimportar aquí con un token temporal. El token se usa una sola vez y la sincronización con PluralKit permanece desactivada.';
+
+  @override
+  String get frontingUpgradePkImportRunning =>
+      'Reimportando el historial de PluralKit...';
+
+  @override
+  String get frontingUpgradePkImportImported =>
+      'Se reimportó el historial de PluralKit.';
+
+  @override
+  String frontingUpgradePkImportTombstoneLine(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'Se conservaron $count registros eliminados para respetar la eliminación local.',
+      one:
+          'Se conservó 1 registro eliminado para respetar la eliminación local.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String frontingUpgradePkImportZeroLengthLine(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'Se omitieron $count cierres de duración cero (PluralKit registró entradas y salidas en el mismo instante).',
+      one:
+          'Se omitió 1 cierre de duración cero (PluralKit registró una entrada y una salida en el mismo instante).',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get frontingUpgradePkImportNeedsToken =>
+      'No se encontró un token de PluralKit guardado. Puedes importar con un token temporal sin activar la sincronización con PluralKit.';
+
+  @override
+  String frontingUpgradePkImportFailed(String error) {
+    return 'La reimportación de PluralKit falló: $error';
+  }
+
+  @override
   String pkFileImportMembersLabel(String termPlural) {
     return '$termPlural';
   }
@@ -8337,6 +8413,35 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get pkFileImportImportButton => 'Importar';
+
+  @override
+  String get pkFileImportSwitchesMatchedLabel =>
+      'Cambios vinculados con el token';
+
+  @override
+  String get pkFileImportNewerSwitchesLabel => 'Cambios nuevos desde PluralKit';
+
+  @override
+  String get pkFileImportFrontingImportedNote =>
+      'El historial de fronts se importó por la ruta de PluralKit con token, así Prism puede seguir usando los IDs canónicos de los cambios.';
+
+  @override
+  String pkFileImportFrontingImportedNoteWithNewer(int count) {
+    return 'El historial de fronts se importó por la ruta de PluralKit con token, así Prism puede seguir usando los IDs canónicos de los cambios. Prism también importó $count cambios nuevos desde PluralKit que no estaban en la exportación.';
+  }
+
+  @override
+  String get pkFileImportFrontingNotImportedNote =>
+      'El historial de fronts no se importó porque la exportación y la API de PluralKit no coincidieron de forma segura.';
+
+  @override
+  String get pkFileImportDoneButton => 'Listo';
+
+  @override
+  String get pkFileImportFailedHeadline => 'La importación falló';
+
+  @override
+  String get pkFileImportTryAgainButton => 'Intentar de nuevo';
 
   @override
   String get pkFileImportPickDifferentButton => 'Elegir otro archivo';

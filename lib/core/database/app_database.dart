@@ -90,7 +90,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 13;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -189,11 +189,12 @@ class AppDatabase extends _$AppDatabase {
         // Old columns (co_fronter_ids, pk_member_ids_json, comments.session_id)
         // stay in place; they are dropped in v8 cleanup.
         //
-        // The entire v6→v7 block is wrapped in a transaction (P2-C).  Drift
-        // does NOT auto-wrap onUpgrade; without an explicit transaction a
-        // failure mid-migration leaves user_version=6 with partial v7 schema.
-        // The user_version bump is applied by Drift after this callback returns
-        // successfully, so the transaction here covers all DDL + DML.
+        // The entire v6→v7 block is wrapped in a transaction. Drift does
+        // NOT auto-wrap onUpgrade; without an explicit transaction a
+        // failure mid-migration leaves user_version=6 with partial v7
+        // schema. The user_version bump is applied by Drift after this
+        // callback returns successfully, so the transaction here covers
+        // all DDL + DML.
         await transaction(() async {
           // New column: members.is_always_fronting (§2.3)
           await migrator.addColumn(members, members.isAlwaysFronting);
@@ -201,7 +202,7 @@ class AppDatabase extends _$AppDatabase {
           // New column: system_settings.pending_fronting_migration_mode (§4.1)
           // Column default is 'complete' (fresh-install semantics); immediately
           // upsert the singleton row with 'notStarted' so that users upgrading
-          // from v6 see the migration modal (P2-B).
+          // from v6 see the migration modal.
           //
           // We use INSERT ... ON CONFLICT DO UPDATE rather than a plain UPDATE
           // because a test (or a very early-lifecycle production DB) might open
@@ -211,12 +212,13 @@ class AppDatabase extends _$AppDatabase {
             systemSettingsTable,
             systemSettingsTable.pendingFrontingMigrationMode,
           );
-          // Codex pass 2 #B-NEW3 — folded into the v6→v7 block alongside the
-          // mode column it disambiguates. Defaults to '' (no destructive
-          // post-tx step has run yet); the migration service flips it to
-          // 'resetDone' between the Rust reset and the remaining post-tx
-          // steps so resumeCleanup() can distinguish "must run reset" from
-          // "reset already succeeded — skip it."
+          // Cleanup substate for the in-progress migration window. Folded
+          // into the v6→v7 block alongside the mode column it
+          // disambiguates. Defaults to '' (no destructive post-tx step has
+          // run yet); the migration service flips it to 'resetDone'
+          // between the Rust reset and the remaining post-tx steps so
+          // resumeCleanup() can distinguish "must run reset" from "reset
+          // already succeeded — skip it."
           await migrator.addColumn(
             systemSettingsTable,
             systemSettingsTable.pendingFrontingMigrationCleanupSubstate,
@@ -238,8 +240,9 @@ class AppDatabase extends _$AppDatabase {
             frontSessionComments.authorMemberId,
           );
 
-          // Create the migration-blockers side table used by detect-and-refuse
-          // (P2-D).  Using IF NOT EXISTS so a partial-failure retry is safe.
+          // Create the migration-blockers side table used by
+          // detect-and-refuse. Using IF NOT EXISTS so a partial-failure
+          // retry is safe.
           await customStatement('''
             CREATE TABLE IF NOT EXISTS _v7_migration_blockers (
               table_name TEXT NOT NULL,
@@ -259,9 +262,9 @@ class AppDatabase extends _$AppDatabase {
           // but rather than delete data at Phase 1 launch (before the Phase 5
           // PRISM1 backup), we detect-and-refuse: log any blockers, set the
           // migration mode to 'blocked', and skip creating the composite index
-          // so the app can surface the problem to the user (P2-D).
+          // so the app can surface the problem to the user.
           //
-          // Check both partitions (P2-E):
+          // Check both partitions:
           //   (a) resolved rows:  (pluralkit_uuid, member_id) where member_id IS NOT NULL
           //   (b) orphan rows:    (pluralkit_uuid)            where member_id IS NULL
           final now = DateTime.now().millisecondsSinceEpoch;
@@ -328,8 +331,8 @@ class AppDatabase extends _$AppDatabase {
             // the user resolves the blocker, so unprotected blocked DBs never
             // accept new duplicate inserts.
           } else {
-            // No duplicates: safe to replace the old single-column index with
-            // the new composite + orphan pair (P2-E).
+            // No duplicates: safe to replace the old single-column index
+            // with the new composite + orphan pair.
             await customStatement(
               'DROP INDEX IF EXISTS idx_fronting_sessions_pluralkit_uuid',
             );
@@ -396,9 +399,15 @@ class AppDatabase extends _$AppDatabase {
         await migrator.addColumn(members, members.profileHeaderImageData);
         await migrator.addColumn(members, members.pkBannerImageData);
         await migrator.addColumn(members, members.pkBannerCachedUrl);
+        // Flip the header source to PluralKit only when the banner has
+        // actually been resolved to local image bytes. A URL alone isn't a
+        // useful banner; the resolver may not have fetched it yet, and
+        // marking the source as PK would suppress the user's Prism-owned
+        // header without any pixels to show in its place.
         await customStatement(
           'UPDATE members SET profile_header_source = 0 '
-          "WHERE pk_banner_url IS NOT NULL AND TRIM(pk_banner_url) != ''",
+          "WHERE pk_banner_url IS NOT NULL AND TRIM(pk_banner_url) != '' "
+          'AND pk_banner_image_data IS NOT NULL',
         );
         current = 10;
       }
@@ -416,6 +425,13 @@ class AppDatabase extends _$AppDatabase {
         await migrator.addColumn(members, members.nameStyleColorHex);
         current = 12;
       }
+      if (current == 12 && to >= 13) {
+        // SQL-backed range queries on front_session_comments now filter by
+        // target_time. Add an index so each period-detail watcher only wakes
+        // on rows in its own window.
+        await _createCommentsTargetTimeIndex();
+        current = 13;
+      }
       if (current != to) {
         throw UnsupportedError(
           'Schema baseline was reset to v1 for the private beta. '
@@ -427,6 +443,7 @@ class AppDatabase extends _$AppDatabase {
     onCreate: (migrator) async {
       await migrator.createAll();
       await _createCurrentIndexes();
+      await _createCommentsTargetTimeIndex();
       await _createPkUniqueIndexes();
       // Fresh v7 install: jump straight to composite + orphan fronting indexes.
       // Empty table, so no detect-and-refuse needed.
@@ -507,7 +524,7 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
-  /// Creates the orphan partial unique index on fronting_sessions (P2-E).
+  /// Creates the orphan partial unique index on fronting_sessions.
   ///
   /// Covers rows where pluralkit_uuid is non-null but member_id IS NULL.
   /// SQLite treats NULL as distinct in unique constraints, so without this
@@ -703,6 +720,14 @@ class AppDatabase extends _$AppDatabase {
     await customStatement(
       'CREATE INDEX IF NOT EXISTS idx_member_groups_parent_id '
       'ON member_groups (parent_group_id) WHERE parent_group_id IS NOT NULL',
+    );
+  }
+
+  Future<void> _createCommentsTargetTimeIndex() async {
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_comments_target_time '
+      'ON front_session_comments (target_time, is_deleted) '
+      'WHERE target_time IS NOT NULL',
     );
   }
 

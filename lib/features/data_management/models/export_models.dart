@@ -118,7 +118,7 @@ class V1Export {
   /// single-member rows and orphan rows (member_id null) both bypassed
   /// the rescue path entirely; orphans then imported with `memberId =
   /// null` instead of being assigned to the Unknown sentinel — and the
-  /// v8 CHECK constraint rejects those rows. Codex pass 2 #B-NEW1.
+  /// schema cleanup CHECK constraint rejects those rows.
   ///
   /// Per-row sniff stays as a fallback for genuinely-old PRISM1 files
   /// that pre-date this marker.
@@ -203,7 +203,7 @@ class V1Export {
     // Read the envelope marker first so it can be threaded into the
     // session / comment fromJson factories. When set, every session /
     // comment row is forced through the legacy/rescue path regardless
-    // of the per-row sniff (codex pass 2 #B-NEW1).
+    // of the per-row sniff.
     final rescueLegacy = json['rescueLegacyFields'] as bool? ?? false;
     return V1Export(
       formatVersion: formatVersion,
@@ -524,8 +524,7 @@ class V1FrontSession {
   /// wild. Tests should reset via [resetRowShapeLegacyFallbackCount]
   /// in setUp/tearDown to avoid cross-test bleed.
   static int _rowShapeLegacyFallbackCount = 0;
-  static int get rowShapeLegacyFallbackCount =>
-      _rowShapeLegacyFallbackCount;
+  static int get rowShapeLegacyFallbackCount => _rowShapeLegacyFallbackCount;
   static void resetRowShapeLegacyFallbackCount() {
     _rowShapeLegacyFallbackCount = 0;
   }
@@ -611,8 +610,7 @@ class V1FrontSession {
     // keys, so a backup row with `co_fronter_ids = []` and
     // `pk_member_ids_json = NULL` (i.e., every native single-member
     // row, plus orphan rows) carries no per-row marker at all and
-    // would otherwise bypass the rescue importer entirely (codex pass
-    // 2 #B-NEW1).
+    // would otherwise bypass the rescue importer entirely.
     //
     // Per-row legacy-shape sniff: any legacy-only key present routes
     // the row through the rescue path regardless of new-shape markers.
@@ -620,7 +618,7 @@ class V1FrontSession {
     // `sessionType` for the same row (it's a self-sufficient rescue
     // bundle), so an AND-NOT detection would silently route those
     // rows through the new-shape importer and drop the PK / native
-    // fan-out (codex P1 #2).
+    // fan-out.
     //
     // The two unambiguously legacy-only keys are `coFronterIds` and
     // `pkMemberIdsJson`. `headmateId` does NOT count: the new-shape
@@ -631,10 +629,9 @@ class V1FrontSession {
     // `headmateId` as a legacy marker would force every new-shape PK
     // row through the rescue path on re-import.
     //
-    // Codex pass 3 #B-PASS3-P2: real pre-0.7 PRISM1 exports omit empty
-    // / null legacy keys exactly like new-shape exports do, so the
-    // explicit-key sniff ALONE leaks two row shapes through to the
-    // new-shape path:
+    // Real pre-0.7 PRISM1 exports omit empty / null legacy keys exactly
+    // like new-shape exports do, so the explicit-key sniff ALONE leaks
+    // two row shapes through to the new-shape path:
     //   1. Solo PK rows (pluralkitUuid set, headmateId set, no
     //      coFronterIds, no pkMemberIdsJson) — would skip the PK
     //      deterministic-id derivation and land at the legacy random
@@ -656,7 +653,8 @@ class V1FrontSession {
         json.containsKey('sessionType') || json.containsKey('memberId');
     final hasHeadmateId = json.containsKey('headmateId');
     final hasPluralkitUuid = json.containsKey('pluralkitUuid');
-    final rowShapeLegacy = hasLegacyKeys ||
+    final rowShapeLegacy =
+        hasLegacyKeys ||
         (hasPluralkitUuid && !hasNewShapeMarker) ||
         (!hasHeadmateId &&
             !json.containsKey('coFronterIds') &&
@@ -1674,8 +1672,7 @@ class V1FrontSessionComment {
   /// Mirrors [V1FrontSession.rowShapeLegacyFallbackCount] for comments.
   /// See review finding #39 + remediation plan WS4 step 7.
   static int _rowShapeLegacyFallbackCount = 0;
-  static int get rowShapeLegacyFallbackCount =>
-      _rowShapeLegacyFallbackCount;
+  static int get rowShapeLegacyFallbackCount => _rowShapeLegacyFallbackCount;
   static void resetRowShapeLegacyFallbackCount() {
     _rowShapeLegacyFallbackCount = 0;
   }
@@ -1719,12 +1716,11 @@ class V1FrontSessionComment {
     Map<String, dynamic> json, {
     bool forceLegacyShape = false,
   }) {
-    // Envelope-level marker takes precedence (see V1FrontSession.fromJson
-    // — codex pass 2 #B-NEW1). When the parent V1Export carries
-    // `rescueLegacyFields: true`, route every comment through the
-    // legacy/rescue path even if it carries `targetTime` /
-    // `authorMemberId` (the migration-time export emits both shapes on
-    // the same row).
+    // Envelope-level marker takes precedence (see V1FrontSession.fromJson).
+    // When the parent V1Export carries `rescueLegacyFields: true`, route
+    // every comment through the legacy/rescue path even if it carries
+    // `targetTime` / `authorMemberId` (the migration-time export emits
+    // both shapes on the same row).
     final hasSessionId =
         json.containsKey('sessionId') &&
         (json['sessionId'] as String?)?.isNotEmpty == true;

@@ -38,6 +38,15 @@ abstract class FrontingSession with _$FrontingSession {
 
   bool get isSleep => sessionType == SessionType.sleep;
 
+  /// Deprecated: in the per-member shape, "is this row part of a co-front?"
+  /// is computed from overlapping sessions rather than carried on the row
+  /// itself. Use `sessionsCoFront` in
+  /// `features/fronting/services/co_front_detector.dart`.
+  @Deprecated(
+    'Use sessionsCoFront from features/fronting/services/co_front_detector.dart.',
+  )
+  bool get isCoFronting => false;
+
   factory FrontingSession.fromJson(Map<String, dynamic> json) =>
       _$FrontingSessionFromJson(json);
 }

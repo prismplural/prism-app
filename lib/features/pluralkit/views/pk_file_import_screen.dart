@@ -382,7 +382,7 @@ class _CompleteView extends ConsumerWidget {
                 ),
               if (recoveredFronting && switchesFound > 0)
                 _PreviewRow(
-                  label: 'Switches matched with token',
+                  label: context.l10n.pkFileImportSwitchesMatchedLabel,
                   count: frontingResult?.exactImportedCount ?? switchesFound,
                 )
               else if (result.switchesCreated > 0)
@@ -392,7 +392,7 @@ class _CompleteView extends ConsumerWidget {
                 ),
               if (recoveredFronting && newerSwitches > 0)
                 _PreviewRow(
-                  label: 'Newer switches from PluralKit',
+                  label: context.l10n.pkFileImportNewerSwitchesLabel,
                   count: newerSwitches,
                 ),
               if (!recoveredFronting && result.switchesSkipped > 0)
@@ -412,12 +412,13 @@ class _CompleteView extends ConsumerWidget {
             padding: const EdgeInsets.all(12),
             child: Text(
               recoveredFronting
-                  ? 'Fronting history was imported through the token-backed '
-                        'PluralKit path so Prism can keep using canonical '
-                        'switch IDs.'
-                        '${newerSwitches > 0 ? ' Prism also imported $newerSwitches newer switches from PluralKit that were not in the export.' : ''}'
-                  : 'Fronting history was not imported because the export and '
-                        'PluralKit API did not match safely.',
+                  ? (newerSwitches > 0
+                        ? context.l10n
+                              .pkFileImportFrontingImportedNoteWithNewer(
+                                newerSwitches,
+                              )
+                        : context.l10n.pkFileImportFrontingImportedNote)
+                  : context.l10n.pkFileImportFrontingNotImportedNote,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -430,7 +431,7 @@ class _CompleteView extends ConsumerWidget {
             ref.read(pkFileImportProvider.notifier).reset();
             Navigator.of(context).pop();
           },
-          label: 'Done',
+          label: context.l10n.pkFileImportDoneButton,
           tone: PrismButtonTone.filled,
           expanded: true,
         ),
@@ -459,7 +460,7 @@ class _ErrorView extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'Import failed',
+              context.l10n.pkFileImportFailedHeadline,
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -477,7 +478,7 @@ class _ErrorView extends ConsumerWidget {
               onPressed: () {
                 ref.read(pkFileImportProvider.notifier).reset();
               },
-              label: 'Try again',
+              label: context.l10n.pkFileImportTryAgainButton,
               tone: PrismButtonTone.filled,
             ),
           ],

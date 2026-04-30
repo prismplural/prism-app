@@ -9,6 +9,7 @@ import 'package:prism_plurality/domain/models/fronting_session.dart' as domain;
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
+import 'package:prism_plurality/features/pluralkit/models/pk_import_source.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
@@ -933,7 +934,7 @@ void main() {
     });
   });
 
-  group('importFromTokenOnce', () {
+  group('performOneTimeFullImport with explicit token', () {
     test('imports data without storing token or enabling sync', () async {
       final db = _makeDb();
       addTearDown(db.close);
@@ -952,7 +953,9 @@ void main() {
         memberRepo: memberRepo,
       );
 
-      final result = await service.importFromTokenOnce('one-shot-token');
+      final result = await service.performOneTimeFullImport(
+        token: 'one-shot-token',
+      );
 
       expect(result.system.name, 'Import Me');
       expect(result.members, hasLength(1));
@@ -1206,9 +1209,7 @@ void main() {
 
   group('pushPendingSwitches source-aware gate', () {
     Future<({PluralKitSyncService service, _RecordingPushClient client})>
-    setupGate({
-      required List<domain.FrontingSession> sessions,
-    }) async {
+    setupGate({required List<domain.FrontingSession> sessions}) async {
       final db = _makeDb();
       addTearDown(db.close);
 
@@ -1607,9 +1608,11 @@ void _registerWs3PrDTests() {
             final offset = pageIdx * 100 + rowIdx;
             return PKSwitch(
               id: 'p$pageIdx-r$rowIdx',
-              timestamp: DateTime.utc(2026, 1, 1).subtract(
-                Duration(seconds: offset),
-              ),
+              timestamp: DateTime.utc(
+                2026,
+                1,
+                1,
+              ).subtract(Duration(seconds: offset)),
               members: const ['pkA'],
             );
           }),
