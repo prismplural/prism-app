@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
@@ -121,6 +123,11 @@ class _FakeRepo implements FrontingSessionRepository {
     int? endHour,
     int? withinDays,
   }) async => {};
+  @override
+  Stream<List<FrontingSession>> watchSessionsOverlappingRange(
+    DateTime start,
+    DateTime end,
+  ) => Stream.value(const []);
 }
 
 // ---------------------------------------------------------------------------
@@ -232,7 +239,7 @@ void main() {
       expect(stats.avg7dPrior.avgDuration, isNotNull);
     });
 
-    test('ticker invalidation causes re-evaluation', () async {
+    test('invalidation causes re-evaluation against fresh repo state', () async {
       final repo = _FakeRepo();
       final container = _makeContainer(repo);
 
@@ -240,7 +247,8 @@ void main() {
       final before = await container.read(sleepStatsProvider.future);
       expect(before.totalEverCount, 0);
 
-      // Add a session, then bump the ticker
+      // Add a session, then invalidate (mirrors what frontingTableTickerProvider
+      // emissions trigger via ref.watch in production)
       repo.seed([
         _sleepSession(
           id: 'new',
@@ -248,9 +256,8 @@ void main() {
           end: now.subtract(const Duration(days: 1) - const Duration(hours: 8)),
         ),
       ]);
-      container.read(frontingTableTickerProvider.notifier).bump();
+      container.invalidate(sleepStatsProvider);
 
-      // After bump the provider should re-evaluate
       final after = await container.read(sleepStatsProvider.future);
       expect(after.totalEverCount, 1);
     });
