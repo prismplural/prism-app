@@ -41,6 +41,18 @@ _Member _$MemberFromJson(Map<String, dynamic> json) => _Member(
       ) ??
       MemberProfileHeaderLayout.compactBackground,
   profileHeaderVisible: json['profileHeaderVisible'] as bool? ?? true,
+  nameStyleFont:
+      $enumDecodeNullable(_$MemberNameFontEnumMap, json['nameStyleFont']) ??
+      MemberNameFont.standard,
+  nameStyleBold: json['nameStyleBold'] as bool? ?? true,
+  nameStyleItalic: json['nameStyleItalic'] as bool? ?? false,
+  nameStyleColorMode:
+      $enumDecodeNullable(
+        _$MemberNameColorModeEnumMap,
+        json['nameStyleColorMode'],
+      ) ??
+      MemberNameColorMode.standard,
+  nameStyleColorHex: json['nameStyleColorHex'] as String?,
   profileHeaderImageData: _uint8ListFromJson(
     json['profileHeaderImageData'] as String?,
   ),
@@ -80,6 +92,12 @@ Map<String, dynamic> _$MemberToJson(_Member instance) => <String, dynamic>{
   'profileHeaderLayout':
       _$MemberProfileHeaderLayoutEnumMap[instance.profileHeaderLayout]!,
   'profileHeaderVisible': instance.profileHeaderVisible,
+  'nameStyleFont': _$MemberNameFontEnumMap[instance.nameStyleFont]!,
+  'nameStyleBold': instance.nameStyleBold,
+  'nameStyleItalic': instance.nameStyleItalic,
+  'nameStyleColorMode':
+      _$MemberNameColorModeEnumMap[instance.nameStyleColorMode]!,
+  'nameStyleColorHex': instance.nameStyleColorHex,
   'profileHeaderImageData': _uint8ListToJson(instance.profileHeaderImageData),
   'pkBannerImageData': _uint8ListToJson(instance.pkBannerImageData),
   'pkBannerCachedUrl': instance.pkBannerCachedUrl,
@@ -98,4 +116,18 @@ const _$MemberProfileHeaderSourceEnumMap = {
 const _$MemberProfileHeaderLayoutEnumMap = {
   MemberProfileHeaderLayout.compactBackground: 'compactBackground',
   MemberProfileHeaderLayout.classicOverlap: 'classicOverlap',
+};
+
+const _$MemberNameFontEnumMap = {
+  MemberNameFont.standard: 'standard',
+  MemberNameFont.display: 'display',
+  MemberNameFont.serif: 'serif',
+  MemberNameFont.mono: 'mono',
+  MemberNameFont.rounded: 'rounded',
+};
+
+const _$MemberNameColorModeEnumMap = {
+  MemberNameColorMode.standard: 'standard',
+  MemberNameColorMode.accent: 'accent',
+  MemberNameColorMode.custom: 'custom',
 };

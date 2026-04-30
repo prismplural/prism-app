@@ -28,6 +28,9 @@ class MemberProfileHeaderEditor extends StatelessWidget {
     this.pluralKitHeaderImageData,
     this.pluralKitEligible,
     this.onPrismHeaderImageRemoved,
+    this.onAvatarTap,
+    this.onAvatarRemove,
+    this.onNameStyleTap,
     @visibleForTesting this.pickCroppedHeaderBytes,
   });
 
@@ -43,6 +46,18 @@ class MemberProfileHeaderEditor extends StatelessWidget {
   final ValueChanged<bool> onVisibleChanged;
   final ValueChanged<Uint8List?> onPrismHeaderImageChanged;
   final VoidCallback? onPrismHeaderImageRemoved;
+
+  /// Tapping the avatar inside the preview triggers this — typically opens
+  /// the system avatar picker.
+  final VoidCallback? onAvatarTap;
+
+  /// When set and the member has an avatar image, a small remove control is
+  /// rendered in the corner of the preview avatar.
+  final VoidCallback? onAvatarRemove;
+
+  /// Opens the member name style controls from the preview header.
+  final VoidCallback? onNameStyleTap;
+
   @visibleForTesting
   final Future<Uint8List?> Function(BuildContext context)?
   pickCroppedHeaderBytes;
@@ -82,20 +97,56 @@ class MemberProfileHeaderEditor extends StatelessWidget {
         ? MemberProfileHeaderSource.prism
         : source;
 
+    final theme = Theme.of(context);
+    final canRemovePrismImage =
+        previewSource == MemberProfileHeaderSource.prism &&
+        prismHeaderImageData != null &&
+        prismHeaderImageData!.isNotEmpty;
+
     return PrismSection(
       title: context.l10n.memberProfileHeaderSectionTitle,
       description: context.l10n.memberProfileHeaderSectionDescription,
+      padding: const EdgeInsets.only(top: 24, bottom: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          PrismSwitchRow(
-            title: context.l10n.memberProfileHeaderVisibleTitle,
-            subtitle: context.l10n.memberProfileHeaderVisibleSubtitle,
-            value: visible,
-            onChanged: onVisibleChanged,
-            icon: AppIcons.imageOutlined,
+          PrismSectionCard(
+            padding: const EdgeInsets.all(12),
+            child: MemberProfileHeader(
+              member: member,
+              source: previewSource,
+              layout: layout,
+              visible: visible,
+              prismHeaderImageData: prismHeaderImageData,
+              pluralKitHeaderImageData: pluralKitHeaderImageData,
+              onAvatarTap: onAvatarTap,
+              onAvatarRemove: onAvatarRemove,
+              onNameStyleTap: onNameStyleTap,
+            ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              PrismIconButton(
+                icon: AppIcons.imageOutlined,
+                tooltip: context.l10n.memberProfileHeaderChangeImage,
+                onPressed: () => _changePrismHeader(context),
+              ),
+              const SizedBox(width: 8),
+              PrismIconButton(
+                icon: AppIcons.deleteOutline,
+                tooltip: context.l10n.memberProfileHeaderRemoveImage,
+                color: theme.colorScheme.error,
+                enabled: canRemovePrismImage,
+                onPressed: () {
+                  onPrismHeaderImageChanged(null);
+                  onPrismHeaderImageRemoved?.call();
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
           PrismSegmentedControl<MemberProfileHeaderSource>(
             selected: previewSource,
             onChanged: onSourceChanged,
@@ -111,76 +162,19 @@ class MemberProfileHeaderEditor extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
-            previewSource == MemberProfileHeaderSource.pluralKit
+            !resolvedPluralKitEligible
+                ? context.l10n.memberProfileHeaderPluralKitUnavailable
+                : previewSource == MemberProfileHeaderSource.pluralKit
                 ? context.l10n.memberProfileHeaderSourcePluralKitHelper
                 : context.l10n.memberProfileHeaderSourcePrismHelper,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
               height: 1.35,
             ),
           ),
-          if (!resolvedPluralKitEligible) ...[
-            const SizedBox(height: 4),
-            Text(
-              context.l10n.memberProfileHeaderPluralKitUnavailable,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                height: 1.35,
-              ),
-            ),
-          ],
           const SizedBox(height: 12),
-          PrismSectionCard(
-            padding: const EdgeInsets.all(12),
-            child: MemberProfileHeader(
-              member: member,
-              source: previewSource,
-              layout: layout,
-              visible: visible,
-              prismHeaderImageData: prismHeaderImageData,
-              pluralKitHeaderImageData: pluralKitHeaderImageData,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              PrismButton(
-                label: context.l10n.memberProfileHeaderChangeImage,
-                icon: AppIcons.imageOutlined,
-                density: PrismControlDensity.compact,
-                onPressed: () => _changePrismHeader(context),
-              ),
-              PrismButton(
-                label: context.l10n.memberProfileHeaderRemoveImage,
-                icon: AppIcons.deleteOutline,
-                density: PrismControlDensity.compact,
-                tone: PrismButtonTone.destructive,
-                enabled:
-                    previewSource == MemberProfileHeaderSource.prism &&
-                    prismHeaderImageData != null &&
-                    prismHeaderImageData!.isNotEmpty,
-                onPressed: () {
-                  onPrismHeaderImageChanged(null);
-                  onPrismHeaderImageRemoved?.call();
-                },
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            context.l10n.memberProfileHeaderLayoutLabel,
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              color: Theme.of(
-                context,
-              ).colorScheme.onSurface.withValues(alpha: 0.56),
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 8),
           PrismSegmentedControl<MemberProfileHeaderLayout>(
             selected: layout,
             onChanged: onLayoutChanged,
@@ -194,6 +188,14 @@ class MemberProfileHeaderEditor extends StatelessWidget {
                 label: context.l10n.memberProfileHeaderLayoutClassic,
               ),
             ],
+          ),
+          const SizedBox(height: 12),
+          PrismSwitchRow(
+            title: context.l10n.memberProfileHeaderVisibleTitle,
+            subtitle: context.l10n.memberProfileHeaderVisibleSubtitle,
+            value: visible,
+            onChanged: onVisibleChanged,
+            icon: AppIcons.imageOutlined,
           ),
         ],
       ),

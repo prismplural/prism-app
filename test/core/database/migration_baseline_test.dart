@@ -37,6 +37,11 @@ void _dropPostV3Schema(raw.Database db) {
 
   const drops = <List<String>>[
     ['members', 'profile_header_visible'],
+    ['members', 'name_style_font'],
+    ['members', 'name_style_bold'],
+    ['members', 'name_style_italic'],
+    ['members', 'name_style_color_mode'],
+    ['members', 'name_style_color_hex'],
     ['members', 'profile_header_source'],
     ['members', 'profile_header_layout'],
     ['members', 'profile_header_image_data'],

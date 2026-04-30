@@ -2240,6 +2240,102 @@ abstract class AppLocalizations {
   /// **'Could not process that image.'**
   String get memberProfileHeaderProcessingError;
 
+  /// Tooltip for the button that opens member name style controls
+  ///
+  /// In en, this message translates to:
+  /// **'Edit name style'**
+  String get memberNameStyleTooltip;
+
+  /// Title of the member name style dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Name style'**
+  String get memberNameStyleDialogTitle;
+
+  /// Label for the member name font selector
+  ///
+  /// In en, this message translates to:
+  /// **'Font'**
+  String get memberNameStyleFontLabel;
+
+  /// Default member name font option
+  ///
+  /// In en, this message translates to:
+  /// **'Default'**
+  String get memberNameStyleFontDefault;
+
+  /// Display member name font option
+  ///
+  /// In en, this message translates to:
+  /// **'Display'**
+  String get memberNameStyleFontDisplay;
+
+  /// Serif member name font option
+  ///
+  /// In en, this message translates to:
+  /// **'Serif'**
+  String get memberNameStyleFontSerif;
+
+  /// Monospace member name font option
+  ///
+  /// In en, this message translates to:
+  /// **'Mono'**
+  String get memberNameStyleFontMono;
+
+  /// Rounded member name font option
+  ///
+  /// In en, this message translates to:
+  /// **'Rounded'**
+  String get memberNameStyleFontRounded;
+
+  /// Label for member name bold and italic toggles
+  ///
+  /// In en, this message translates to:
+  /// **'Style'**
+  String get memberNameStyleStyleLabel;
+
+  /// Bold toggle label for member name style
+  ///
+  /// In en, this message translates to:
+  /// **'Bold'**
+  String get memberNameStyleBold;
+
+  /// Italic toggle label for member name style
+  ///
+  /// In en, this message translates to:
+  /// **'Italic'**
+  String get memberNameStyleItalic;
+
+  /// Label for the member name color selector
+  ///
+  /// In en, this message translates to:
+  /// **'Color'**
+  String get memberNameStyleColorLabel;
+
+  /// Default member name color option
+  ///
+  /// In en, this message translates to:
+  /// **'Default'**
+  String get memberNameStyleColorDefault;
+
+  /// Member accent color option for member name style
+  ///
+  /// In en, this message translates to:
+  /// **'Accent'**
+  String get memberNameStyleColorAccent;
+
+  /// Custom color option for member name style
+  ///
+  /// In en, this message translates to:
+  /// **'Custom'**
+  String get memberNameStyleColorCustom;
+
+  /// Button label to reset member name style to defaults
+  ///
+  /// In en, this message translates to:
+  /// **'Reset'**
+  String get memberNameStyleReset;
+
   /// System name field label
   ///
   /// In en, this message translates to:

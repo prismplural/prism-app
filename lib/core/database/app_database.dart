@@ -90,7 +90,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -407,6 +407,14 @@ class AppDatabase extends _$AppDatabase {
         // hidden so users can temporarily suppress a banner without losing it.
         await migrator.addColumn(members, members.profileHeaderVisible);
         current = 11;
+      }
+      if (current == 11 && to >= 12) {
+        await migrator.addColumn(members, members.nameStyleFont);
+        await migrator.addColumn(members, members.nameStyleBold);
+        await migrator.addColumn(members, members.nameStyleItalic);
+        await migrator.addColumn(members, members.nameStyleColorMode);
+        await migrator.addColumn(members, members.nameStyleColorHex);
+        current = 12;
       }
       if (current != to) {
         throw UnsupportedError(

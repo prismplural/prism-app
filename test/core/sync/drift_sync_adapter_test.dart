@@ -366,6 +366,11 @@ void main() {
         profileHeaderSource: 0,
         profileHeaderLayout: 1,
         profileHeaderVisible: false,
+        nameStyleFont: 1,
+        nameStyleBold: false,
+        nameStyleItalic: true,
+        nameStyleColorMode: 2,
+        nameStyleColorHex: '#445566',
         profileHeaderImageData: Uint8List.fromList([4, 5, 6]),
         pkBannerImageData: Uint8List.fromList([7, 8, 9]),
         pkBannerCachedUrl: 'https://example.invalid/banner.png',
@@ -386,6 +391,11 @@ void main() {
       expect(back['profile_header_source'], 0);
       expect(back['profile_header_layout'], 1);
       expect(back['profile_header_visible'], isFalse);
+      expect(back['name_style_font'], 1);
+      expect(back['name_style_bold'], isFalse);
+      expect(back['name_style_italic'], isTrue);
+      expect(back['name_style_color_mode'], 2);
+      expect(back['name_style_color_hex'], '#445566');
       expect(back['profile_header_image_data'], 'BAUG');
       expect(back['pk_banner_image_data'], 'BwgJ');
       expect(
@@ -413,6 +423,10 @@ void main() {
         profileHeaderSource: 1,
         profileHeaderLayout: 0,
         profileHeaderVisible: true,
+        nameStyleFont: 0,
+        nameStyleBold: true,
+        nameStyleItalic: false,
+        nameStyleColorMode: 0,
         pluralkitSyncIgnored: false,
         markdownEnabled: false,
         isDeleted: false,
@@ -435,6 +449,12 @@ void main() {
       expect(back['pk_banner_url'], isNull);
       expect(back['profile_header_source'], 1);
       expect(back['profile_header_layout'], 0);
+      expect(back['name_style_font'], 0);
+      expect(back['name_style_bold'], isTrue);
+      expect(back['name_style_italic'], isFalse);
+      expect(back['name_style_color_mode'], 0);
+      expect(back.containsKey('name_style_color_hex'), isTrue);
+      expect(back['name_style_color_hex'], isNull);
       expect(back.containsKey('profile_header_image_data'), isTrue);
       expect(back['profile_header_image_data'], isNull);
       expect(back.containsKey('pk_banner_image_data'), isTrue);
@@ -587,6 +607,10 @@ void main() {
       profileHeaderSource: 1,
       profileHeaderLayout: 0,
       profileHeaderVisible: true,
+      nameStyleFont: 0,
+      nameStyleBold: true,
+      nameStyleItalic: false,
+      nameStyleColorMode: 0,
       pluralkitSyncIgnored: false,
       markdownEnabled: false,
       isDeleted: false,
@@ -814,6 +838,12 @@ const _remoteCreatePayloads = <String, Map<String, dynamic>>{
     'pk_banner_url': 'https://example.invalid/banner.png',
     'profile_header_source': 0,
     'profile_header_layout': 1,
+    'profile_header_visible': true,
+    'name_style_font': 1,
+    'name_style_bold': false,
+    'name_style_italic': true,
+    'name_style_color_mode': 2,
+    'name_style_color_hex': '#445566',
     'profile_header_image_data': 'BAUG',
     'pk_banner_image_data': 'BwgJ',
     'pk_banner_cached_url': 'https://example.invalid/banner.png',

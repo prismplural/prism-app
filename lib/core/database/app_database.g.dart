@@ -268,6 +268,71 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
     ),
     defaultValue: const Constant(true),
   );
+  static const VerificationMeta _nameStyleFontMeta = const VerificationMeta(
+    'nameStyleFont',
+  );
+  @override
+  late final GeneratedColumn<int> nameStyleFont = GeneratedColumn<int>(
+    'name_style_font',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _nameStyleBoldMeta = const VerificationMeta(
+    'nameStyleBold',
+  );
+  @override
+  late final GeneratedColumn<bool> nameStyleBold = GeneratedColumn<bool>(
+    'name_style_bold',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("name_style_bold" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _nameStyleItalicMeta = const VerificationMeta(
+    'nameStyleItalic',
+  );
+  @override
+  late final GeneratedColumn<bool> nameStyleItalic = GeneratedColumn<bool>(
+    'name_style_italic',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("name_style_italic" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _nameStyleColorModeMeta =
+      const VerificationMeta('nameStyleColorMode');
+  @override
+  late final GeneratedColumn<int> nameStyleColorMode = GeneratedColumn<int>(
+    'name_style_color_mode',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _nameStyleColorHexMeta = const VerificationMeta(
+    'nameStyleColorHex',
+  );
+  @override
+  late final GeneratedColumn<String> nameStyleColorHex =
+      GeneratedColumn<String>(
+        'name_style_color_hex',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _profileHeaderImageDataMeta =
       const VerificationMeta('profileHeaderImageData');
   @override
@@ -408,6 +473,11 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
     profileHeaderSource,
     profileHeaderLayout,
     profileHeaderVisible,
+    nameStyleFont,
+    nameStyleBold,
+    nameStyleItalic,
+    nameStyleColorMode,
+    nameStyleColorHex,
     profileHeaderImageData,
     pkBannerImageData,
     pkBannerCachedUrl,
@@ -610,6 +680,51 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
         ),
       );
     }
+    if (data.containsKey('name_style_font')) {
+      context.handle(
+        _nameStyleFontMeta,
+        nameStyleFont.isAcceptableOrUnknown(
+          data['name_style_font']!,
+          _nameStyleFontMeta,
+        ),
+      );
+    }
+    if (data.containsKey('name_style_bold')) {
+      context.handle(
+        _nameStyleBoldMeta,
+        nameStyleBold.isAcceptableOrUnknown(
+          data['name_style_bold']!,
+          _nameStyleBoldMeta,
+        ),
+      );
+    }
+    if (data.containsKey('name_style_italic')) {
+      context.handle(
+        _nameStyleItalicMeta,
+        nameStyleItalic.isAcceptableOrUnknown(
+          data['name_style_italic']!,
+          _nameStyleItalicMeta,
+        ),
+      );
+    }
+    if (data.containsKey('name_style_color_mode')) {
+      context.handle(
+        _nameStyleColorModeMeta,
+        nameStyleColorMode.isAcceptableOrUnknown(
+          data['name_style_color_mode']!,
+          _nameStyleColorModeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('name_style_color_hex')) {
+      context.handle(
+        _nameStyleColorHexMeta,
+        nameStyleColorHex.isAcceptableOrUnknown(
+          data['name_style_color_hex']!,
+          _nameStyleColorHexMeta,
+        ),
+      );
+    }
     if (data.containsKey('profile_header_image_data')) {
       context.handle(
         _profileHeaderImageDataMeta,
@@ -789,6 +904,26 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
         DriftSqlType.bool,
         data['${effectivePrefix}profile_header_visible'],
       )!,
+      nameStyleFont: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}name_style_font'],
+      )!,
+      nameStyleBold: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}name_style_bold'],
+      )!,
+      nameStyleItalic: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}name_style_italic'],
+      )!,
+      nameStyleColorMode: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}name_style_color_mode'],
+      )!,
+      nameStyleColorHex: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name_style_color_hex'],
+      ),
       profileHeaderImageData: attachedDatabase.typeMapping.read(
         DriftSqlType.blob,
         data['${effectivePrefix}profile_header_image_data'],
@@ -858,6 +993,11 @@ class Member extends DataClass implements Insertable<Member> {
   final int profileHeaderSource;
   final int profileHeaderLayout;
   final bool profileHeaderVisible;
+  final int nameStyleFont;
+  final bool nameStyleBold;
+  final bool nameStyleItalic;
+  final int nameStyleColorMode;
+  final String? nameStyleColorHex;
   final Uint8List? profileHeaderImageData;
   final Uint8List? pkBannerImageData;
   final String? pkBannerCachedUrl;
@@ -891,6 +1031,11 @@ class Member extends DataClass implements Insertable<Member> {
     required this.profileHeaderSource,
     required this.profileHeaderLayout,
     required this.profileHeaderVisible,
+    required this.nameStyleFont,
+    required this.nameStyleBold,
+    required this.nameStyleItalic,
+    required this.nameStyleColorMode,
+    this.nameStyleColorHex,
     this.profileHeaderImageData,
     this.pkBannerImageData,
     this.pkBannerCachedUrl,
@@ -951,6 +1096,13 @@ class Member extends DataClass implements Insertable<Member> {
     map['profile_header_source'] = Variable<int>(profileHeaderSource);
     map['profile_header_layout'] = Variable<int>(profileHeaderLayout);
     map['profile_header_visible'] = Variable<bool>(profileHeaderVisible);
+    map['name_style_font'] = Variable<int>(nameStyleFont);
+    map['name_style_bold'] = Variable<bool>(nameStyleBold);
+    map['name_style_italic'] = Variable<bool>(nameStyleItalic);
+    map['name_style_color_mode'] = Variable<int>(nameStyleColorMode);
+    if (!nullToAbsent || nameStyleColorHex != null) {
+      map['name_style_color_hex'] = Variable<String>(nameStyleColorHex);
+    }
     if (!nullToAbsent || profileHeaderImageData != null) {
       map['profile_header_image_data'] = Variable<Uint8List>(
         profileHeaderImageData,
@@ -1020,6 +1172,13 @@ class Member extends DataClass implements Insertable<Member> {
       profileHeaderSource: Value(profileHeaderSource),
       profileHeaderLayout: Value(profileHeaderLayout),
       profileHeaderVisible: Value(profileHeaderVisible),
+      nameStyleFont: Value(nameStyleFont),
+      nameStyleBold: Value(nameStyleBold),
+      nameStyleItalic: Value(nameStyleItalic),
+      nameStyleColorMode: Value(nameStyleColorMode),
+      nameStyleColorHex: nameStyleColorHex == null && nullToAbsent
+          ? const Value.absent()
+          : Value(nameStyleColorHex),
       profileHeaderImageData: profileHeaderImageData == null && nullToAbsent
           ? const Value.absent()
           : Value(profileHeaderImageData),
@@ -1077,6 +1236,13 @@ class Member extends DataClass implements Insertable<Member> {
       profileHeaderVisible: serializer.fromJson<bool>(
         json['profileHeaderVisible'],
       ),
+      nameStyleFont: serializer.fromJson<int>(json['nameStyleFont']),
+      nameStyleBold: serializer.fromJson<bool>(json['nameStyleBold']),
+      nameStyleItalic: serializer.fromJson<bool>(json['nameStyleItalic']),
+      nameStyleColorMode: serializer.fromJson<int>(json['nameStyleColorMode']),
+      nameStyleColorHex: serializer.fromJson<String?>(
+        json['nameStyleColorHex'],
+      ),
       profileHeaderImageData: serializer.fromJson<Uint8List?>(
         json['profileHeaderImageData'],
       ),
@@ -1125,6 +1291,11 @@ class Member extends DataClass implements Insertable<Member> {
       'profileHeaderSource': serializer.toJson<int>(profileHeaderSource),
       'profileHeaderLayout': serializer.toJson<int>(profileHeaderLayout),
       'profileHeaderVisible': serializer.toJson<bool>(profileHeaderVisible),
+      'nameStyleFont': serializer.toJson<int>(nameStyleFont),
+      'nameStyleBold': serializer.toJson<bool>(nameStyleBold),
+      'nameStyleItalic': serializer.toJson<bool>(nameStyleItalic),
+      'nameStyleColorMode': serializer.toJson<int>(nameStyleColorMode),
+      'nameStyleColorHex': serializer.toJson<String?>(nameStyleColorHex),
       'profileHeaderImageData': serializer.toJson<Uint8List?>(
         profileHeaderImageData,
       ),
@@ -1163,6 +1334,11 @@ class Member extends DataClass implements Insertable<Member> {
     int? profileHeaderSource,
     int? profileHeaderLayout,
     bool? profileHeaderVisible,
+    int? nameStyleFont,
+    bool? nameStyleBold,
+    bool? nameStyleItalic,
+    int? nameStyleColorMode,
+    Value<String?> nameStyleColorHex = const Value.absent(),
     Value<Uint8List?> profileHeaderImageData = const Value.absent(),
     Value<Uint8List?> pkBannerImageData = const Value.absent(),
     Value<String?> pkBannerCachedUrl = const Value.absent(),
@@ -1206,6 +1382,13 @@ class Member extends DataClass implements Insertable<Member> {
     profileHeaderSource: profileHeaderSource ?? this.profileHeaderSource,
     profileHeaderLayout: profileHeaderLayout ?? this.profileHeaderLayout,
     profileHeaderVisible: profileHeaderVisible ?? this.profileHeaderVisible,
+    nameStyleFont: nameStyleFont ?? this.nameStyleFont,
+    nameStyleBold: nameStyleBold ?? this.nameStyleBold,
+    nameStyleItalic: nameStyleItalic ?? this.nameStyleItalic,
+    nameStyleColorMode: nameStyleColorMode ?? this.nameStyleColorMode,
+    nameStyleColorHex: nameStyleColorHex.present
+        ? nameStyleColorHex.value
+        : this.nameStyleColorHex,
     profileHeaderImageData: profileHeaderImageData.present
         ? profileHeaderImageData.value
         : this.profileHeaderImageData,
@@ -1277,6 +1460,21 @@ class Member extends DataClass implements Insertable<Member> {
       profileHeaderVisible: data.profileHeaderVisible.present
           ? data.profileHeaderVisible.value
           : this.profileHeaderVisible,
+      nameStyleFont: data.nameStyleFont.present
+          ? data.nameStyleFont.value
+          : this.nameStyleFont,
+      nameStyleBold: data.nameStyleBold.present
+          ? data.nameStyleBold.value
+          : this.nameStyleBold,
+      nameStyleItalic: data.nameStyleItalic.present
+          ? data.nameStyleItalic.value
+          : this.nameStyleItalic,
+      nameStyleColorMode: data.nameStyleColorMode.present
+          ? data.nameStyleColorMode.value
+          : this.nameStyleColorMode,
+      nameStyleColorHex: data.nameStyleColorHex.present
+          ? data.nameStyleColorHex.value
+          : this.nameStyleColorHex,
       profileHeaderImageData: data.profileHeaderImageData.present
           ? data.profileHeaderImageData.value
           : this.profileHeaderImageData,
@@ -1331,6 +1529,11 @@ class Member extends DataClass implements Insertable<Member> {
           ..write('profileHeaderSource: $profileHeaderSource, ')
           ..write('profileHeaderLayout: $profileHeaderLayout, ')
           ..write('profileHeaderVisible: $profileHeaderVisible, ')
+          ..write('nameStyleFont: $nameStyleFont, ')
+          ..write('nameStyleBold: $nameStyleBold, ')
+          ..write('nameStyleItalic: $nameStyleItalic, ')
+          ..write('nameStyleColorMode: $nameStyleColorMode, ')
+          ..write('nameStyleColorHex: $nameStyleColorHex, ')
           ..write('profileHeaderImageData: $profileHeaderImageData, ')
           ..write('pkBannerImageData: $pkBannerImageData, ')
           ..write('pkBannerCachedUrl: $pkBannerCachedUrl, ')
@@ -1369,6 +1572,11 @@ class Member extends DataClass implements Insertable<Member> {
     profileHeaderSource,
     profileHeaderLayout,
     profileHeaderVisible,
+    nameStyleFont,
+    nameStyleBold,
+    nameStyleItalic,
+    nameStyleColorMode,
+    nameStyleColorHex,
     $driftBlobEquality.hash(profileHeaderImageData),
     $driftBlobEquality.hash(pkBannerImageData),
     pkBannerCachedUrl,
@@ -1409,6 +1617,11 @@ class Member extends DataClass implements Insertable<Member> {
           other.profileHeaderSource == this.profileHeaderSource &&
           other.profileHeaderLayout == this.profileHeaderLayout &&
           other.profileHeaderVisible == this.profileHeaderVisible &&
+          other.nameStyleFont == this.nameStyleFont &&
+          other.nameStyleBold == this.nameStyleBold &&
+          other.nameStyleItalic == this.nameStyleItalic &&
+          other.nameStyleColorMode == this.nameStyleColorMode &&
+          other.nameStyleColorHex == this.nameStyleColorHex &&
           $driftBlobEquality.equals(
             other.profileHeaderImageData,
             this.profileHeaderImageData,
@@ -1450,6 +1663,11 @@ class MembersCompanion extends UpdateCompanion<Member> {
   final Value<int> profileHeaderSource;
   final Value<int> profileHeaderLayout;
   final Value<bool> profileHeaderVisible;
+  final Value<int> nameStyleFont;
+  final Value<bool> nameStyleBold;
+  final Value<bool> nameStyleItalic;
+  final Value<int> nameStyleColorMode;
+  final Value<String?> nameStyleColorHex;
   final Value<Uint8List?> profileHeaderImageData;
   final Value<Uint8List?> pkBannerImageData;
   final Value<String?> pkBannerCachedUrl;
@@ -1484,6 +1702,11 @@ class MembersCompanion extends UpdateCompanion<Member> {
     this.profileHeaderSource = const Value.absent(),
     this.profileHeaderLayout = const Value.absent(),
     this.profileHeaderVisible = const Value.absent(),
+    this.nameStyleFont = const Value.absent(),
+    this.nameStyleBold = const Value.absent(),
+    this.nameStyleItalic = const Value.absent(),
+    this.nameStyleColorMode = const Value.absent(),
+    this.nameStyleColorHex = const Value.absent(),
     this.profileHeaderImageData = const Value.absent(),
     this.pkBannerImageData = const Value.absent(),
     this.pkBannerCachedUrl = const Value.absent(),
@@ -1519,6 +1742,11 @@ class MembersCompanion extends UpdateCompanion<Member> {
     this.profileHeaderSource = const Value.absent(),
     this.profileHeaderLayout = const Value.absent(),
     this.profileHeaderVisible = const Value.absent(),
+    this.nameStyleFont = const Value.absent(),
+    this.nameStyleBold = const Value.absent(),
+    this.nameStyleItalic = const Value.absent(),
+    this.nameStyleColorMode = const Value.absent(),
+    this.nameStyleColorHex = const Value.absent(),
     this.profileHeaderImageData = const Value.absent(),
     this.pkBannerImageData = const Value.absent(),
     this.pkBannerCachedUrl = const Value.absent(),
@@ -1556,6 +1784,11 @@ class MembersCompanion extends UpdateCompanion<Member> {
     Expression<int>? profileHeaderSource,
     Expression<int>? profileHeaderLayout,
     Expression<bool>? profileHeaderVisible,
+    Expression<int>? nameStyleFont,
+    Expression<bool>? nameStyleBold,
+    Expression<bool>? nameStyleItalic,
+    Expression<int>? nameStyleColorMode,
+    Expression<String>? nameStyleColorHex,
     Expression<Uint8List>? profileHeaderImageData,
     Expression<Uint8List>? pkBannerImageData,
     Expression<String>? pkBannerCachedUrl,
@@ -1595,6 +1828,12 @@ class MembersCompanion extends UpdateCompanion<Member> {
         'profile_header_layout': profileHeaderLayout,
       if (profileHeaderVisible != null)
         'profile_header_visible': profileHeaderVisible,
+      if (nameStyleFont != null) 'name_style_font': nameStyleFont,
+      if (nameStyleBold != null) 'name_style_bold': nameStyleBold,
+      if (nameStyleItalic != null) 'name_style_italic': nameStyleItalic,
+      if (nameStyleColorMode != null)
+        'name_style_color_mode': nameStyleColorMode,
+      if (nameStyleColorHex != null) 'name_style_color_hex': nameStyleColorHex,
       if (profileHeaderImageData != null)
         'profile_header_image_data': profileHeaderImageData,
       if (pkBannerImageData != null) 'pk_banner_image_data': pkBannerImageData,
@@ -1635,6 +1874,11 @@ class MembersCompanion extends UpdateCompanion<Member> {
     Value<int>? profileHeaderSource,
     Value<int>? profileHeaderLayout,
     Value<bool>? profileHeaderVisible,
+    Value<int>? nameStyleFont,
+    Value<bool>? nameStyleBold,
+    Value<bool>? nameStyleItalic,
+    Value<int>? nameStyleColorMode,
+    Value<String?>? nameStyleColorHex,
     Value<Uint8List?>? profileHeaderImageData,
     Value<Uint8List?>? pkBannerImageData,
     Value<String?>? pkBannerCachedUrl,
@@ -1670,6 +1914,11 @@ class MembersCompanion extends UpdateCompanion<Member> {
       profileHeaderSource: profileHeaderSource ?? this.profileHeaderSource,
       profileHeaderLayout: profileHeaderLayout ?? this.profileHeaderLayout,
       profileHeaderVisible: profileHeaderVisible ?? this.profileHeaderVisible,
+      nameStyleFont: nameStyleFont ?? this.nameStyleFont,
+      nameStyleBold: nameStyleBold ?? this.nameStyleBold,
+      nameStyleItalic: nameStyleItalic ?? this.nameStyleItalic,
+      nameStyleColorMode: nameStyleColorMode ?? this.nameStyleColorMode,
+      nameStyleColorHex: nameStyleColorHex ?? this.nameStyleColorHex,
       profileHeaderImageData:
           profileHeaderImageData ?? this.profileHeaderImageData,
       pkBannerImageData: pkBannerImageData ?? this.pkBannerImageData,
@@ -1758,6 +2007,21 @@ class MembersCompanion extends UpdateCompanion<Member> {
         profileHeaderVisible.value,
       );
     }
+    if (nameStyleFont.present) {
+      map['name_style_font'] = Variable<int>(nameStyleFont.value);
+    }
+    if (nameStyleBold.present) {
+      map['name_style_bold'] = Variable<bool>(nameStyleBold.value);
+    }
+    if (nameStyleItalic.present) {
+      map['name_style_italic'] = Variable<bool>(nameStyleItalic.value);
+    }
+    if (nameStyleColorMode.present) {
+      map['name_style_color_mode'] = Variable<int>(nameStyleColorMode.value);
+    }
+    if (nameStyleColorHex.present) {
+      map['name_style_color_hex'] = Variable<String>(nameStyleColorHex.value);
+    }
     if (profileHeaderImageData.present) {
       map['profile_header_image_data'] = Variable<Uint8List>(
         profileHeaderImageData.value,
@@ -1823,6 +2087,11 @@ class MembersCompanion extends UpdateCompanion<Member> {
           ..write('profileHeaderSource: $profileHeaderSource, ')
           ..write('profileHeaderLayout: $profileHeaderLayout, ')
           ..write('profileHeaderVisible: $profileHeaderVisible, ')
+          ..write('nameStyleFont: $nameStyleFont, ')
+          ..write('nameStyleBold: $nameStyleBold, ')
+          ..write('nameStyleItalic: $nameStyleItalic, ')
+          ..write('nameStyleColorMode: $nameStyleColorMode, ')
+          ..write('nameStyleColorHex: $nameStyleColorHex, ')
           ..write('profileHeaderImageData: $profileHeaderImageData, ')
           ..write('pkBannerImageData: $pkBannerImageData, ')
           ..write('pkBannerCachedUrl: $pkBannerCachedUrl, ')
@@ -22725,6 +22994,11 @@ typedef $$MembersTableCreateCompanionBuilder =
       Value<int> profileHeaderSource,
       Value<int> profileHeaderLayout,
       Value<bool> profileHeaderVisible,
+      Value<int> nameStyleFont,
+      Value<bool> nameStyleBold,
+      Value<bool> nameStyleItalic,
+      Value<int> nameStyleColorMode,
+      Value<String?> nameStyleColorHex,
       Value<Uint8List?> profileHeaderImageData,
       Value<Uint8List?> pkBannerImageData,
       Value<String?> pkBannerCachedUrl,
@@ -22761,6 +23035,11 @@ typedef $$MembersTableUpdateCompanionBuilder =
       Value<int> profileHeaderSource,
       Value<int> profileHeaderLayout,
       Value<bool> profileHeaderVisible,
+      Value<int> nameStyleFont,
+      Value<bool> nameStyleBold,
+      Value<bool> nameStyleItalic,
+      Value<int> nameStyleColorMode,
+      Value<String?> nameStyleColorHex,
       Value<Uint8List?> profileHeaderImageData,
       Value<Uint8List?> pkBannerImageData,
       Value<String?> pkBannerCachedUrl,
@@ -22894,6 +23173,31 @@ class $$MembersTableFilterComposer
 
   ColumnFilters<bool> get profileHeaderVisible => $composableBuilder(
     column: $table.profileHeaderVisible,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get nameStyleFont => $composableBuilder(
+    column: $table.nameStyleFont,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get nameStyleBold => $composableBuilder(
+    column: $table.nameStyleBold,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get nameStyleItalic => $composableBuilder(
+    column: $table.nameStyleItalic,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get nameStyleColorMode => $composableBuilder(
+    column: $table.nameStyleColorMode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get nameStyleColorHex => $composableBuilder(
+    column: $table.nameStyleColorHex,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -23067,6 +23371,31 @@ class $$MembersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get nameStyleFont => $composableBuilder(
+    column: $table.nameStyleFont,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get nameStyleBold => $composableBuilder(
+    column: $table.nameStyleBold,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get nameStyleItalic => $composableBuilder(
+    column: $table.nameStyleItalic,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get nameStyleColorMode => $composableBuilder(
+    column: $table.nameStyleColorMode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get nameStyleColorHex => $composableBuilder(
+    column: $table.nameStyleColorHex,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<Uint8List> get profileHeaderImageData => $composableBuilder(
     column: $table.profileHeaderImageData,
     builder: (column) => ColumnOrderings(column),
@@ -23217,6 +23546,31 @@ class $$MembersTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<int> get nameStyleFont => $composableBuilder(
+    column: $table.nameStyleFont,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get nameStyleBold => $composableBuilder(
+    column: $table.nameStyleBold,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get nameStyleItalic => $composableBuilder(
+    column: $table.nameStyleItalic,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get nameStyleColorMode => $composableBuilder(
+    column: $table.nameStyleColorMode,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get nameStyleColorHex => $composableBuilder(
+    column: $table.nameStyleColorHex,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<Uint8List> get profileHeaderImageData => $composableBuilder(
     column: $table.profileHeaderImageData,
     builder: (column) => column,
@@ -23312,6 +23666,11 @@ class $$MembersTableTableManager
                 Value<int> profileHeaderSource = const Value.absent(),
                 Value<int> profileHeaderLayout = const Value.absent(),
                 Value<bool> profileHeaderVisible = const Value.absent(),
+                Value<int> nameStyleFont = const Value.absent(),
+                Value<bool> nameStyleBold = const Value.absent(),
+                Value<bool> nameStyleItalic = const Value.absent(),
+                Value<int> nameStyleColorMode = const Value.absent(),
+                Value<String?> nameStyleColorHex = const Value.absent(),
                 Value<Uint8List?> profileHeaderImageData = const Value.absent(),
                 Value<Uint8List?> pkBannerImageData = const Value.absent(),
                 Value<String?> pkBannerCachedUrl = const Value.absent(),
@@ -23346,6 +23705,11 @@ class $$MembersTableTableManager
                 profileHeaderSource: profileHeaderSource,
                 profileHeaderLayout: profileHeaderLayout,
                 profileHeaderVisible: profileHeaderVisible,
+                nameStyleFont: nameStyleFont,
+                nameStyleBold: nameStyleBold,
+                nameStyleItalic: nameStyleItalic,
+                nameStyleColorMode: nameStyleColorMode,
+                nameStyleColorHex: nameStyleColorHex,
                 profileHeaderImageData: profileHeaderImageData,
                 pkBannerImageData: pkBannerImageData,
                 pkBannerCachedUrl: pkBannerCachedUrl,
@@ -23382,6 +23746,11 @@ class $$MembersTableTableManager
                 Value<int> profileHeaderSource = const Value.absent(),
                 Value<int> profileHeaderLayout = const Value.absent(),
                 Value<bool> profileHeaderVisible = const Value.absent(),
+                Value<int> nameStyleFont = const Value.absent(),
+                Value<bool> nameStyleBold = const Value.absent(),
+                Value<bool> nameStyleItalic = const Value.absent(),
+                Value<int> nameStyleColorMode = const Value.absent(),
+                Value<String?> nameStyleColorHex = const Value.absent(),
                 Value<Uint8List?> profileHeaderImageData = const Value.absent(),
                 Value<Uint8List?> pkBannerImageData = const Value.absent(),
                 Value<String?> pkBannerCachedUrl = const Value.absent(),
@@ -23416,6 +23785,11 @@ class $$MembersTableTableManager
                 profileHeaderSource: profileHeaderSource,
                 profileHeaderLayout: profileHeaderLayout,
                 profileHeaderVisible: profileHeaderVisible,
+                nameStyleFont: nameStyleFont,
+                nameStyleBold: nameStyleBold,
+                nameStyleItalic: nameStyleItalic,
+                nameStyleColorMode: nameStyleColorMode,
+                nameStyleColorHex: nameStyleColorHex,
                 profileHeaderImageData: profileHeaderImageData,
                 pkBannerImageData: pkBannerImageData,
                 pkBannerCachedUrl: pkBannerCachedUrl,

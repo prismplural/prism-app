@@ -234,6 +234,11 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
       'profile_header_source': m.profileHeaderSource.index,
       'profile_header_layout': m.profileHeaderLayout.index,
       'profile_header_visible': m.profileHeaderVisible,
+      'name_style_font': m.nameStyleFont.index,
+      'name_style_bold': m.nameStyleBold,
+      'name_style_italic': m.nameStyleItalic,
+      'name_style_color_mode': m.nameStyleColorMode.index,
+      'name_style_color_hex': m.nameStyleColorHex,
       'profile_header_image_data': m.profileHeaderImageData != null
           ? base64Encode(m.profileHeaderImageData!)
           : null,

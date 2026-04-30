@@ -9,7 +9,6 @@ import 'package:prism_plurality/features/members/utils/proxy_tag.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
-import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
@@ -25,6 +24,7 @@ import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/members/widgets/custom_fields_editor.dart';
+import 'package:prism_plurality/features/members/widgets/member_name_style_dialog.dart';
 import 'package:prism_plurality/features/members/widgets/member_profile_header_editor.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:uuid/uuid.dart';
@@ -66,6 +66,11 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
   late MemberProfileHeaderSource _profileHeaderSource;
   late MemberProfileHeaderLayout _profileHeaderLayout;
   bool _profileHeaderVisible = true;
+  late MemberNameFont _nameStyleFont;
+  bool _nameStyleBold = true;
+  bool _nameStyleItalic = false;
+  late MemberNameColorMode _nameStyleColorMode;
+  String? _nameStyleColorHex;
   Uint8List? _profileHeaderImageData;
   bool _saving = false;
   bool _saved = false;
@@ -106,6 +111,11 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
     _profileHeaderLayout =
         m?.profileHeaderLayout ?? MemberProfileHeaderLayout.compactBackground;
     _profileHeaderVisible = m?.profileHeaderVisible ?? true;
+    _nameStyleFont = m?.nameStyleFont ?? MemberNameFont.standard;
+    _nameStyleBold = m?.nameStyleBold ?? true;
+    _nameStyleItalic = m?.nameStyleItalic ?? false;
+    _nameStyleColorMode = m?.nameStyleColorMode ?? MemberNameColorMode.standard;
+    _nameStyleColorHex = m?.nameStyleColorHex;
     _profileHeaderImageData = m?.profileHeaderImageData;
   }
 
@@ -192,6 +202,13 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
           profileHeaderSource: _profileHeaderSource,
           profileHeaderLayout: _profileHeaderLayout,
           profileHeaderVisible: _profileHeaderVisible,
+          nameStyleFont: _nameStyleFont,
+          nameStyleBold: _nameStyleBold,
+          nameStyleItalic: _nameStyleItalic,
+          nameStyleColorMode: _nameStyleColorMode,
+          nameStyleColorHex: _nameStyleColorMode == MemberNameColorMode.custom
+              ? _nameStyleColorHex
+              : null,
           profileHeaderImageData: _profileHeaderImageData,
         );
   }
@@ -227,6 +244,23 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
     if (picked != null && mounted) {
       setState(() => _birthday = picked);
     }
+  }
+
+  Future<void> _openNameStyleDialog() {
+    return MemberNameStyleDialog.show(
+      context: context,
+      member: _previewMember(),
+      onSaved: (member) => setState(() {
+        _nameStyleFont = member.nameStyleFont;
+        _nameStyleBold = member.nameStyleBold;
+        _nameStyleItalic = member.nameStyleItalic;
+        _nameStyleColorMode = member.nameStyleColorMode;
+        _nameStyleColorHex =
+            member.nameStyleColorMode == MemberNameColorMode.custom
+            ? member.nameStyleColorHex
+            : null;
+      }),
+    );
   }
 
   Future<void> _save() async {
@@ -274,6 +308,13 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
           profileHeaderSource: _profileHeaderSource,
           profileHeaderLayout: _profileHeaderLayout,
           profileHeaderVisible: _profileHeaderVisible,
+          nameStyleFont: _nameStyleFont,
+          nameStyleBold: _nameStyleBold,
+          nameStyleItalic: _nameStyleItalic,
+          nameStyleColorMode: _nameStyleColorMode,
+          nameStyleColorHex: _nameStyleColorMode == MemberNameColorMode.custom
+              ? _nameStyleColorHex
+              : null,
           profileHeaderImageData: _profileHeaderImageData,
         );
         await notifier.updateMember(updated);
@@ -294,6 +335,13 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
           profileHeaderSource: _profileHeaderSource,
           profileHeaderLayout: _profileHeaderLayout,
           profileHeaderVisible: _profileHeaderVisible,
+          nameStyleFont: _nameStyleFont,
+          nameStyleBold: _nameStyleBold,
+          nameStyleItalic: _nameStyleItalic,
+          nameStyleColorMode: _nameStyleColorMode,
+          nameStyleColorHex: _nameStyleColorMode == MemberNameColorMode.custom
+              ? _nameStyleColorHex
+              : null,
           profileHeaderImageData: _profileHeaderImageData,
         );
       }
@@ -355,82 +403,6 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
                   bottom: MediaQuery.of(context).viewInsets.bottom + 16,
                 ),
                 children: [
-                  Center(
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        Semantics(
-                          button: true,
-                          label: l10n.memberChangeAvatar(terms.singularLower),
-                          child: GestureDetector(
-                            onTap: _pickAvatar,
-                            child: Stack(
-                              children: [
-                                MemberAvatar(
-                                  avatarImageData: _avatarImageData,
-                                  emoji: _emojiController.text.isNotEmpty
-                                      ? _emojiController.text
-                                      : '❔',
-                                  customColorEnabled: _customColorEnabled,
-                                  customColorHex:
-                                      _colorHexController.text.isNotEmpty
-                                      ? _colorHexController.text
-                                      : null,
-                                  size: 96,
-                                  showBorder: true,
-                                ),
-                                Positioned(
-                                  right: 0,
-                                  bottom: 0,
-                                  child: Container(
-                                    padding: const EdgeInsets.all(6),
-                                    decoration: BoxDecoration(
-                                      color: theme.colorScheme.primaryContainer,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(
-                                      AppIcons.cameraAlt,
-                                      size: 18,
-                                      color:
-                                          theme.colorScheme.onPrimaryContainer,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        if (_avatarImageData != null)
-                          Positioned(
-                            right: -4,
-                            top: -4,
-                            child: Material(
-                              color: theme.colorScheme.surfaceContainerHighest,
-                              shape: const CircleBorder(),
-                              clipBehavior: Clip.antiAlias,
-                              child: IconButton(
-                                tooltip: l10n.memberRemoveAvatar,
-                                icon: Icon(
-                                  AppIcons.close,
-                                  size: 18,
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                                visualDensity: VisualDensity.compact,
-                                constraints: const BoxConstraints(
-                                  minWidth: 32,
-                                  minHeight: 32,
-                                ),
-                                padding: EdgeInsets.zero,
-                                onPressed: () =>
-                                    setState(() => _avatarImageData = null),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
                   MemberProfileHeaderEditor(
                     member: _previewMember(),
                     source: _profileHeaderSource,
@@ -446,6 +418,11 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
                         setState(() => _profileHeaderVisible = visible),
                     onPrismHeaderImageChanged: (bytes) =>
                         setState(() => _profileHeaderImageData = bytes),
+                    onAvatarTap: _pickAvatar,
+                    onAvatarRemove: _avatarImageData != null
+                        ? () => setState(() => _avatarImageData = null)
+                        : null,
+                    onNameStyleTap: _openNameStyleDialog,
                   ),
                   const SizedBox(height: 24),
 
@@ -483,6 +460,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
                     labelText: l10n.memberDisplayNameLabel,
                     hintText: l10n.memberDisplayNameHint,
                     textCapitalization: TextCapitalization.words,
+                    onChanged: (_) => setState(() {}),
                   ),
                   const SizedBox(height: 16),
 

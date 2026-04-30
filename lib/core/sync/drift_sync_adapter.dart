@@ -1160,6 +1160,11 @@ DriftSyncEntity _membersEntity(
         'profile_header_source': r.profileHeaderSource,
         'profile_header_layout': r.profileHeaderLayout,
         'profile_header_visible': r.profileHeaderVisible,
+        'name_style_font': r.nameStyleFont,
+        'name_style_bold': r.nameStyleBold,
+        'name_style_italic': r.nameStyleItalic,
+        'name_style_color_mode': r.nameStyleColorMode,
+        'name_style_color_hex': r.nameStyleColorHex,
         'profile_header_image_data': r.profileHeaderImageData != null
             ? base64Encode(r.profileHeaderImageData!)
             : null,
@@ -1215,6 +1220,11 @@ DriftSyncEntity _membersEntity(
         profileHeaderSource: f.intField('profile_header_source'),
         profileHeaderLayout: f.intField('profile_header_layout'),
         profileHeaderVisible: f.boolField('profile_header_visible'),
+        nameStyleFont: f.intField('name_style_font'),
+        nameStyleBold: f.boolField('name_style_bold'),
+        nameStyleItalic: f.boolField('name_style_italic'),
+        nameStyleColorMode: f.intField('name_style_color_mode'),
+        nameStyleColorHex: f.stringFieldNullable('name_style_color_hex'),
         profileHeaderImageData: f.blobFieldNullable(
           'profile_header_image_data',
         ),
@@ -1288,6 +1298,11 @@ DriftSyncEntity _membersEntity(
         'profile_header_source': row.profileHeaderSource,
         'profile_header_layout': row.profileHeaderLayout,
         'profile_header_visible': row.profileHeaderVisible,
+        'name_style_font': row.nameStyleFont,
+        'name_style_bold': row.nameStyleBold,
+        'name_style_italic': row.nameStyleItalic,
+        'name_style_color_mode': row.nameStyleColorMode,
+        'name_style_color_hex': row.nameStyleColorHex,
         'profile_header_image_data': row.profileHeaderImageData != null
             ? base64Encode(row.profileHeaderImageData!)
             : null,

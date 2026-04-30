@@ -28,6 +28,11 @@ Future<void> _seedV7Db(File dbFile) async {
     rawDb.execute('ALTER TABLE members DROP COLUMN profile_header_source');
     rawDb.execute('ALTER TABLE members DROP COLUMN profile_header_layout');
     rawDb.execute('ALTER TABLE members DROP COLUMN profile_header_visible');
+    rawDb.execute('ALTER TABLE members DROP COLUMN name_style_font');
+    rawDb.execute('ALTER TABLE members DROP COLUMN name_style_bold');
+    rawDb.execute('ALTER TABLE members DROP COLUMN name_style_italic');
+    rawDb.execute('ALTER TABLE members DROP COLUMN name_style_color_mode');
+    rawDb.execute('ALTER TABLE members DROP COLUMN name_style_color_hex');
     rawDb.execute('ALTER TABLE members DROP COLUMN profile_header_image_data');
     rawDb.execute('ALTER TABLE members DROP COLUMN pk_banner_image_data');
     rawDb.execute('ALTER TABLE members DROP COLUMN pk_banner_cached_url');
@@ -150,7 +155,7 @@ void main() {
         final version = await upgraded
             .customSelect('PRAGMA user_version')
             .get();
-        expect(version.first.read<int>('user_version'), 11);
+        expect(version.first.read<int>('user_version'), 12);
       },
     );
   });

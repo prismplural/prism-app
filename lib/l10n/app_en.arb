@@ -1621,6 +1621,70 @@
   "@memberProfileHeaderProcessingError": {
     "description": "Toast message shown when profile header image processing fails"
   },
+  "memberNameStyleTooltip": "Edit name style",
+  "@memberNameStyleTooltip": {
+    "description": "Tooltip for the button that opens member name style controls"
+  },
+  "memberNameStyleDialogTitle": "Name style",
+  "@memberNameStyleDialogTitle": {
+    "description": "Title of the member name style dialog"
+  },
+  "memberNameStyleFontLabel": "Font",
+  "@memberNameStyleFontLabel": {
+    "description": "Label for the member name font selector"
+  },
+  "memberNameStyleFontDefault": "Default",
+  "@memberNameStyleFontDefault": {
+    "description": "Default member name font option"
+  },
+  "memberNameStyleFontDisplay": "Display",
+  "@memberNameStyleFontDisplay": {
+    "description": "Display member name font option"
+  },
+  "memberNameStyleFontSerif": "Serif",
+  "@memberNameStyleFontSerif": {
+    "description": "Serif member name font option"
+  },
+  "memberNameStyleFontMono": "Mono",
+  "@memberNameStyleFontMono": {
+    "description": "Monospace member name font option"
+  },
+  "memberNameStyleFontRounded": "Rounded",
+  "@memberNameStyleFontRounded": {
+    "description": "Rounded member name font option"
+  },
+  "memberNameStyleStyleLabel": "Style",
+  "@memberNameStyleStyleLabel": {
+    "description": "Label for member name bold and italic toggles"
+  },
+  "memberNameStyleBold": "Bold",
+  "@memberNameStyleBold": {
+    "description": "Bold toggle label for member name style"
+  },
+  "memberNameStyleItalic": "Italic",
+  "@memberNameStyleItalic": {
+    "description": "Italic toggle label for member name style"
+  },
+  "memberNameStyleColorLabel": "Color",
+  "@memberNameStyleColorLabel": {
+    "description": "Label for the member name color selector"
+  },
+  "memberNameStyleColorDefault": "Default",
+  "@memberNameStyleColorDefault": {
+    "description": "Default member name color option"
+  },
+  "memberNameStyleColorAccent": "Accent",
+  "@memberNameStyleColorAccent": {
+    "description": "Member accent color option for member name style"
+  },
+  "memberNameStyleColorCustom": "Custom",
+  "@memberNameStyleColorCustom": {
+    "description": "Custom color option for member name style"
+  },
+  "memberNameStyleReset": "Reset",
+  "@memberNameStyleReset": {
+    "description": "Button label to reset member name style to defaults"
+  },
   "systemInfoNameLabel": "Name",
   "@systemInfoNameLabel": {
     "description": "System name field label"
