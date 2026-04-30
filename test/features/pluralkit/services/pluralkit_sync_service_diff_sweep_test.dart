@@ -210,6 +210,15 @@ class _FlakyDeleteRepo implements FrontingSessionRepository {
   Stream<List<domain_fs.FrontingSession>> watchAllSleepSessions() =>
       delegate.watchAllSleepSessions();
   @override
+  Future<({int count, Duration? avgDuration})> getSleepStats({
+    required DateTime since,
+    DateTime? until,
+  }) => delegate.getSleepStats(since: since, until: until);
+  @override
+  Stream<List<domain_fs.FrontingSession>> watchRecentSleepSessions({
+    required int limit,
+  }) => delegate.watchRecentSleepSessions(limit: limit);
+  @override
   Future<domain_fs.FrontingSession?> getSessionById(String id) =>
       delegate.getSessionById(id);
   @override

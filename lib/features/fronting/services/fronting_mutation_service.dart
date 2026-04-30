@@ -422,7 +422,6 @@ class FrontingMutationService {
           startTime: startTime,
           endTime: endTime,
           memberId: null,
-          coFronterIds: const [],
           notes: notes,
           sessionType: SessionType.sleep,
           quality: quality ?? SleepQuality.unknown,
