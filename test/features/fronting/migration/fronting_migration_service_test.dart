@@ -2704,6 +2704,15 @@ class _SuppressionAssertingFrontingSessionRepository
   Stream<List<FrontingSession>> watchAllSleepSessions() =>
       _inner.watchAllSleepSessions();
   @override
+  Future<({int count, Duration? avgDuration})> getSleepStats({
+    required DateTime since,
+    DateTime? until,
+  }) => _inner.getSleepStats(since: since, until: until);
+  @override
+  Stream<List<FrontingSession>> watchRecentSleepSessions({
+    required int limit,
+  }) => _inner.watchRecentSleepSessions(limit: limit);
+  @override
   Future<FrontingSession?> getSessionById(String id) =>
       _inner.getSessionById(id);
   @override
