@@ -117,6 +117,8 @@ void main() {
 
     final rows = await db.membersDao.getAllMembers();
     expect(rows.single.pkBannerUrl, 'https://cdn.example.com/banner.png');
+    expect(rows.single.pkBannerImageData, Uint8List.fromList([1, 2, 3]));
+    expect(rows.single.pkBannerCachedUrl, 'https://cdn.example.com/banner.png');
   });
 
   // ---------------------------------------------------------------------------

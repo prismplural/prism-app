@@ -341,6 +341,7 @@ class V1Headmate {
     this.pkBannerUrl,
     this.profileHeaderSource,
     this.profileHeaderLayout,
+    this.profileHeaderVisible,
     this.profileHeaderImageData,
     this.pkBannerImageData,
     this.pkBannerCachedUrl,
@@ -371,6 +372,7 @@ class V1Headmate {
   final String? pkBannerUrl;
   final int? profileHeaderSource;
   final int? profileHeaderLayout;
+  final bool? profileHeaderVisible;
   final String? profileHeaderImageData; // base64
   final String? pkBannerImageData; // base64
   final String? pkBannerCachedUrl;
@@ -400,6 +402,8 @@ class V1Headmate {
     if (pkBannerUrl != null) 'pkBannerUrl': pkBannerUrl,
     if (profileHeaderSource != null) 'profileHeaderSource': profileHeaderSource,
     if (profileHeaderLayout != null) 'profileHeaderLayout': profileHeaderLayout,
+    if (profileHeaderVisible != null)
+      'profileHeaderVisible': profileHeaderVisible,
     if (profileHeaderImageData != null)
       'profileHeaderImageData': profileHeaderImageData,
     if (pkBannerImageData != null) 'pkBannerImageData': pkBannerImageData,
@@ -431,6 +435,7 @@ class V1Headmate {
     pkBannerUrl: json['pkBannerUrl'] as String?,
     profileHeaderSource: json['profileHeaderSource'] as int?,
     profileHeaderLayout: json['profileHeaderLayout'] as int?,
+    profileHeaderVisible: json['profileHeaderVisible'] as bool?,
     profileHeaderImageData: json['profileHeaderImageData'] as String?,
     pkBannerImageData: json['pkBannerImageData'] as String?,
     pkBannerCachedUrl: json['pkBannerCachedUrl'] as String?,

@@ -230,6 +230,7 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
       'pk_banner_url': m.pkBannerUrl,
       'profile_header_source': m.profileHeaderSource.index,
       'profile_header_layout': m.profileHeaderLayout.index,
+      'profile_header_visible': m.profileHeaderVisible,
       'profile_header_image_data': m.profileHeaderImageData != null
           ? base64Encode(m.profileHeaderImageData!)
           : null,

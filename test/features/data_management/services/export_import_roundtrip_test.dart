@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:drift/drift.dart' as drift;
 import 'package:drift/native.dart';
@@ -304,6 +305,139 @@ void main() {
         expect(imported.chatLogsFront, true);
         expect(imported.syncThemeEnabled, true);
         expect(imported.systemName, 'Test System');
+      },
+    );
+
+    test('member profile header fields survive export -> import', () async {
+      final createdAt = DateTime(2026, 4, 2, 9, 30).toUtc();
+      final prismHeader = Uint8List.fromList([10, 20, 30, 40]);
+      final pkBanner = Uint8List.fromList([50, 60, 70, 80]);
+
+      await DriftMemberRepository(sourceDb.membersDao, null).createMember(
+        Member(
+          id: 'member-header',
+          name: 'Header Member',
+          emoji: '*',
+          createdAt: createdAt,
+          pkBannerUrl: 'https://cdn.example.com/member/banner.png',
+          profileHeaderSource: MemberProfileHeaderSource.pluralKit,
+          profileHeaderLayout: MemberProfileHeaderLayout.classicOverlap,
+          profileHeaderVisible: false,
+          profileHeaderImageData: prismHeader,
+          pkBannerImageData: pkBanner,
+          pkBannerCachedUrl: 'https://cdn.example.com/member/banner.png',
+        ),
+      );
+
+      final export = await exportService.buildExport();
+      final exported = export.headmates.single;
+      expect(
+        exported.profileHeaderSource,
+        MemberProfileHeaderSource.pluralKit.index,
+      );
+      expect(
+        exported.profileHeaderLayout,
+        MemberProfileHeaderLayout.classicOverlap.index,
+      );
+      expect(exported.profileHeaderVisible, isFalse);
+      expect(exported.profileHeaderImageData, base64Encode(prismHeader));
+      expect(exported.pkBannerImageData, base64Encode(pkBanner));
+      expect(
+        exported.pkBannerCachedUrl,
+        'https://cdn.example.com/member/banner.png',
+      );
+      expect(exported.pkBannerUrl, 'https://cdn.example.com/member/banner.png');
+
+      final result = await importService.importData(
+        const JsonEncoder().convert(export.toJson()),
+      );
+      expect(result.membersCreated, 1);
+
+      final imported = (await targetDb.membersDao.getAllMembers()).single;
+      expect(
+        imported.profileHeaderSource,
+        MemberProfileHeaderSource.pluralKit.index,
+      );
+      expect(
+        imported.profileHeaderLayout,
+        MemberProfileHeaderLayout.classicOverlap.index,
+      );
+      expect(imported.profileHeaderVisible, isFalse);
+      expect(imported.profileHeaderImageData, prismHeader);
+      expect(imported.pkBannerImageData, pkBanner);
+      expect(
+        imported.pkBannerCachedUrl,
+        'https://cdn.example.com/member/banner.png',
+      );
+      expect(imported.pkBannerUrl, 'https://cdn.example.com/member/banner.png');
+    });
+
+    test(
+      'old member exports default profile header fields on import',
+      () async {
+        final oldExport = V1Export(
+          formatVersion: '1.0',
+          version: '1.0',
+          appName: 'Prism Plurality',
+          exportDate: DateTime(2026, 4, 3).toUtc().toIso8601String(),
+          totalRecords: 2,
+          headmates: [
+            V1Headmate(
+              id: 'old-with-banner',
+              name: 'Old PK',
+              createdAt: DateTime(2026, 4, 3).toUtc().toIso8601String(),
+              pkBannerUrl: 'https://cdn.example.com/old/banner.png',
+            ),
+            V1Headmate(
+              id: 'old-without-banner',
+              name: 'Old Prism',
+              createdAt: DateTime(2026, 4, 3).toUtc().toIso8601String(),
+            ),
+          ],
+          frontSessions: const [],
+          sleepSessions: const [],
+          conversations: const [],
+          messages: const [],
+          polls: const [],
+          pollOptions: const [],
+          systemSettings: const [],
+          habits: const [],
+          habitCompletions: const [],
+        );
+
+        final result = await importService.importData(
+          const JsonEncoder().convert(oldExport.toJson()),
+        );
+
+        expect(result.membersCreated, 2);
+        final imported = await targetDb.membersDao.getAllMembers();
+        final withBanner = imported.singleWhere(
+          (m) => m.id == 'old-with-banner',
+        );
+        final withoutBanner = imported.singleWhere(
+          (m) => m.id == 'old-without-banner',
+        );
+        expect(
+          withBanner.profileHeaderSource,
+          MemberProfileHeaderSource.pluralKit.index,
+        );
+        expect(
+          withBanner.profileHeaderLayout,
+          MemberProfileHeaderLayout.compactBackground.index,
+        );
+        expect(withBanner.profileHeaderVisible, isTrue);
+        expect(withBanner.profileHeaderImageData, isNull);
+        expect(withBanner.pkBannerImageData, isNull);
+        expect(withBanner.pkBannerCachedUrl, isNull);
+        expect(
+          withoutBanner.profileHeaderSource,
+          MemberProfileHeaderSource.prism.index,
+        );
+        expect(
+          withoutBanner.profileHeaderLayout,
+          MemberProfileHeaderLayout.compactBackground.index,
+        );
+        expect(withoutBanner.profileHeaderVisible, isTrue);
       },
     );
 

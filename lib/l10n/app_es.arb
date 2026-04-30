@@ -343,6 +343,8 @@
   "memberRemoveAvatar": "Eliminar foto",
   "memberProfileHeaderSectionTitle": "Encabezado del perfil",
   "memberProfileHeaderSectionDescription": "Elige el origen de la imagen y el diseño de este perfil.",
+  "memberProfileHeaderVisibleTitle": "Mostrar encabezado del perfil",
+  "memberProfileHeaderVisibleSubtitle": "Conserva la imagen y el origen guardados mientras oculta el encabezado.",
   "memberProfileHeaderSourcePluralKit": "PluralKit",
   "memberProfileHeaderSourcePrism": "Prism",
   "memberProfileHeaderSourcePluralKitHelper": "Se actualiza desde PluralKit cuando Prism sincroniza.",

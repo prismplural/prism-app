@@ -370,6 +370,7 @@ class DataExportService {
     pkBannerUrl: m.pkBannerUrl,
     profileHeaderSource: m.profileHeaderSource.index,
     profileHeaderLayout: m.profileHeaderLayout.index,
+    profileHeaderVisible: m.profileHeaderVisible,
     profileHeaderImageData: m.profileHeaderImageData != null
         ? base64Encode(m.profileHeaderImageData!)
         : null,

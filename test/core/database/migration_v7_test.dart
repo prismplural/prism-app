@@ -44,6 +44,7 @@ Future<void> _seedV6Db(
     );
     rawDb.execute('ALTER TABLE members DROP COLUMN profile_header_source');
     rawDb.execute('ALTER TABLE members DROP COLUMN profile_header_layout');
+    rawDb.execute('ALTER TABLE members DROP COLUMN profile_header_visible');
     rawDb.execute('ALTER TABLE members DROP COLUMN profile_header_image_data');
     rawDb.execute('ALTER TABLE members DROP COLUMN pk_banner_image_data');
     rawDb.execute('ALTER TABLE members DROP COLUMN pk_banner_cached_url');

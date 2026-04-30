@@ -1180,6 +1180,13 @@ class AppLocalizationsEs extends AppLocalizations {
       'Elige el origen de la imagen y el diseño de este perfil.';
 
   @override
+  String get memberProfileHeaderVisibleTitle => 'Mostrar encabezado del perfil';
+
+  @override
+  String get memberProfileHeaderVisibleSubtitle =>
+      'Conserva la imagen y el origen guardados mientras oculta el encabezado.';
+
+  @override
   String get memberProfileHeaderSourcePluralKit => 'PluralKit';
 
   @override

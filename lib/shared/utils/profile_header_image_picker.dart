@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/utils/profile_header_image_normalizer.dart';
 
 @visibleForTesting
@@ -63,9 +64,9 @@ class ProfileHeaderImagePicker {
     final cropped = await (cropImage ?? _defaultCropImage)(
       picked.path,
       context,
-      title: 'Crop profile header',
-      doneButtonTitle: 'Done',
-      cancelButtonTitle: 'Cancel',
+      title: context.l10n.memberProfileHeaderCropTitle,
+      doneButtonTitle: context.l10n.done,
+      cancelButtonTitle: context.l10n.cancel,
     );
 
     final croppedBytes = await cropped?.readAsBytes();

@@ -75,6 +75,23 @@ void main() {
       expect(resolution.activeImageData, isNull);
       expect(resolution.hasImage, isFalse);
     });
+
+    test(
+      'visibility override suppresses active image without losing source',
+      () {
+        final resolution = resolveMemberProfileHeader(
+          _member(),
+          sourceOverride: MemberProfileHeaderSource.prism,
+          visibleOverride: false,
+          prismImageDataOverride: Uint8List.fromList([1, 2, 3]),
+        );
+
+        expect(resolution.visible, isFalse);
+        expect(resolution.source, MemberProfileHeaderSource.prism);
+        expect(resolution.activeImageData, isNull);
+        expect(resolution.hasImage, isFalse);
+      },
+    );
   });
 }
 

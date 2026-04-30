@@ -1,5 +1,4 @@
-import 'dart:typed_data';
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/members/utils/member_profile_header_resolver.dart';
@@ -11,6 +10,7 @@ import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
+import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
 class MemberProfileHeaderEditor extends StatelessWidget {
@@ -19,34 +19,42 @@ class MemberProfileHeaderEditor extends StatelessWidget {
     required this.member,
     required this.source,
     required this.layout,
+    required this.visible,
     required this.prismHeaderImageData,
     required this.onSourceChanged,
     required this.onLayoutChanged,
+    required this.onVisibleChanged,
     required this.onPrismHeaderImageChanged,
     this.pluralKitHeaderImageData,
     this.pluralKitEligible,
     this.onPrismHeaderImageRemoved,
+    @visibleForTesting this.pickCroppedHeaderBytes,
   });
 
   final Member member;
   final MemberProfileHeaderSource source;
   final MemberProfileHeaderLayout layout;
+  final bool visible;
   final Uint8List? prismHeaderImageData;
   final Uint8List? pluralKitHeaderImageData;
   final bool? pluralKitEligible;
   final ValueChanged<MemberProfileHeaderSource> onSourceChanged;
   final ValueChanged<MemberProfileHeaderLayout> onLayoutChanged;
+  final ValueChanged<bool> onVisibleChanged;
   final ValueChanged<Uint8List?> onPrismHeaderImageChanged;
   final VoidCallback? onPrismHeaderImageRemoved;
+  @visibleForTesting
+  final Future<Uint8List?> Function(BuildContext context)?
+  pickCroppedHeaderBytes;
 
   Future<void> _changePrismHeader(BuildContext context) async {
     if (source == MemberProfileHeaderSource.pluralKit) {
       onSourceChanged(MemberProfileHeaderSource.prism);
     }
     try {
-      final bytes = await ProfileHeaderImagePicker.pickCroppedHeaderBytes(
-        context,
-      );
+      final bytes =
+          await (pickCroppedHeaderBytes ??
+              ProfileHeaderImagePicker.pickCroppedHeaderBytes)(context);
       if (bytes != null) {
         onPrismHeaderImageChanged(bytes);
       }
@@ -80,6 +88,14 @@ class MemberProfileHeaderEditor extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          PrismSwitchRow(
+            title: context.l10n.memberProfileHeaderVisibleTitle,
+            subtitle: context.l10n.memberProfileHeaderVisibleSubtitle,
+            value: visible,
+            onChanged: onVisibleChanged,
+            icon: AppIcons.imageOutlined,
+          ),
+          const SizedBox(height: 12),
           PrismSegmentedControl<MemberProfileHeaderSource>(
             selected: previewSource,
             onChanged: onSourceChanged,
@@ -122,6 +138,7 @@ class MemberProfileHeaderEditor extends StatelessWidget {
               member: member,
               source: previewSource,
               layout: layout,
+              visible: visible,
               prismHeaderImageData: prismHeaderImageData,
               pluralKitHeaderImageData: pluralKitHeaderImageData,
             ),

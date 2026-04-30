@@ -45,6 +45,7 @@ abstract class Member with _$Member {
     MemberProfileHeaderSource profileHeaderSource,
     @Default(MemberProfileHeaderLayout.compactBackground)
     MemberProfileHeaderLayout profileHeaderLayout,
+    @Default(true) bool profileHeaderVisible,
     @JsonKey(fromJson: _uint8ListFromJson, toJson: _uint8ListToJson)
     Uint8List? profileHeaderImageData,
     @JsonKey(fromJson: _uint8ListFromJson, toJson: _uint8ListToJson)

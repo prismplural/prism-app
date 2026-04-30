@@ -33,6 +33,8 @@ class Members extends Table {
       integer().withDefault(const Constant(1))();
   IntColumn get profileHeaderLayout =>
       integer().withDefault(const Constant(0))();
+  BoolColumn get profileHeaderVisible =>
+      boolean().withDefault(const Constant(true))();
   BlobColumn get profileHeaderImageData => blob().nullable()();
   BlobColumn get pkBannerImageData => blob().nullable()();
   TextColumn get pkBannerCachedUrl => text().nullable()();

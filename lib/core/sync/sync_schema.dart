@@ -28,6 +28,7 @@ const String prismSyncSchema = '''
         "pk_banner_url": "String",
         "profile_header_source": "Int",
         "profile_header_layout": "Int",
+        "profile_header_visible": "Bool",
         "profile_header_image_data": "Blob",
         "pk_banner_image_data": "Blob",
         "pk_banner_cached_url": "String",
