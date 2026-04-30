@@ -1,10 +1,8 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:prism_plurality/core/diagnostics/boot_timings.dart';
@@ -30,7 +28,6 @@ import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
-import 'package:prism_plurality/features/fronting/providers/fronting_sanitization_providers.dart';
 import 'package:prism_plurality/features/fronting/widgets/sleep_mode_card.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/info_banner.dart';
@@ -344,36 +341,6 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
           ),
         ),
       ],
-    );
-  }
-}
-
-/// Displays a warning banner when the post-edit (or future post-sync) rescan
-/// detects timeline validation issues. Hidden when the count is zero.
-class _TimelineIssueBanner extends ConsumerWidget {
-  const _TimelineIssueBanner({
-    required this.theme,
-    this.padding = const EdgeInsets.fromLTRB(16, 8, 16, 0),
-  });
-
-  final ThemeData theme;
-  final EdgeInsetsGeometry padding;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final issueCount = ref.watch(frontingIssueCountProvider);
-    if (issueCount <= 0) return const SizedBox.shrink();
-
-    return Padding(
-      padding: padding,
-      child: InfoBanner(
-        icon: AppIcons.warningAmberRounded,
-        iconColor: theme.colorScheme.error,
-        title: context.l10n.frontingTimelineIssuesFound,
-        message: context.l10n.frontingTimelineIssuesBannerMessage(issueCount),
-        buttonText: context.l10n.frontingTimelineIssuesReview,
-        onButtonPressed: () => context.push('/settings/timeline-sanitization'),
-      ),
     );
   }
 }
@@ -738,11 +705,6 @@ class FrontingBannerStack extends StatelessWidget {
         const FrontingUpgradeBanner(
           padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
         ),
-        if (!kReleaseMode)
-          _TimelineIssueBanner(
-            theme: theme,
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-          ),
         _BedtimeReminderBanner(
           theme: theme,
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),

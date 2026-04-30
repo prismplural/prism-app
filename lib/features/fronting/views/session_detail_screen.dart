@@ -7,11 +7,10 @@ import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_editing_providers.dart';
-import 'package:prism_plurality/features/fronting/providers/fronting_sanitization_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
-import 'package:prism_plurality/features/fronting/sanitization/fronting_sanitizer_service.dart';
+import 'package:prism_plurality/features/fronting/validation/fronting_validation_models.dart';
 import 'package:prism_plurality/features/fronting/utils/sleep_quality_l10n.dart';
 import 'package:prism_plurality/features/fronting/views/edit_sleep_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
@@ -99,11 +98,8 @@ class SessionDetailScreen extends ConsumerWidget {
     final resolutionService = ref.read(frontingEditResolutionServiceProvider);
     final changeExecutor = ref.read(frontingChangeExecutorProvider);
 
-    // Convert to snapshots
-    final sessionSnapshot = FrontingSanitizerService.toSnapshot(session);
-    final allSnapshots = allSessions
-        .map(FrontingSanitizerService.toSnapshot)
-        .toList();
+    final sessionSnapshot = session.toSnapshot();
+    final allSnapshots = allSessions.map((s) => s.toSnapshot()).toList();
 
     // Build delete context
     final deleteCtx = editGuard.getDeleteContext(sessionSnapshot, allSnapshots);
@@ -123,14 +119,6 @@ class SessionDetailScreen extends ConsumerWidget {
     if (!context.mounted) return;
     result.when(
       success: (_) {
-        // Drift table-watch + frontingTableTickerProvider rebuild
-        // every dependent provider on the fronting_sessions write.
-        // Fire-and-forget rescan to update the issue banner
-        triggerPostEditRescan(
-          ref,
-          sessionStart: session.startTime,
-          sessionEnd: session.endTime,
-        );
         if (context.mounted) Navigator.of(context).pop();
       },
       failure: (error) {

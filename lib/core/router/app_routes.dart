@@ -45,7 +45,6 @@ abstract final class AppRoutePaths {
   static const settingsSyncTroubleshooting = '/settings/sync-troubleshooting';
   static const settingsDevices = '/settings/devices';
   static const settingsDataBrowser = '/settings/data-browser';
-  static const settingsTimelineSanitization = '/settings/timeline-sanitization';
   static const settingsMembersManage = '/settings/members/manage';
   static const settingsGroups = '/settings/members/groups';
   static const settingsCustomFields = '/settings/custom-fields';

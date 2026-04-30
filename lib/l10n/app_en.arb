@@ -783,6 +783,22 @@
   "@pinLockBiometricDisabledSubtitle": {
     "description": "Biometric unlock subtitle when PIN is not set"
   },
+  "pinLockUnlockOptionsSection": "Unlock Options",
+  "@pinLockUnlockOptionsSection": {
+    "description": "Unlock options section title in PIN lock settings"
+  },
+  "pinLockHardSyncLockTitle": "Require recovery for sync",
+  "@pinLockHardSyncLockTitle": {
+    "description": "Title for optional hard sync lock toggle"
+  },
+  "pinLockHardSyncLockSubtitle": "When the app locks, forget the sync quick-unlock key. Background sync pauses until you enter your PIN and recovery phrase.",
+  "@pinLockHardSyncLockSubtitle": {
+    "description": "Subtitle for optional hard sync lock toggle when PIN lock is set"
+  },
+  "pinLockHardSyncLockDisabledSubtitle": "Enable PIN Lock to require recovery after app lock.",
+  "@pinLockHardSyncLockDisabledSubtitle": {
+    "description": "Subtitle for optional hard sync lock toggle when PIN lock is not set"
+  },
   "pinLockAutoLockSection": "Auto-Lock",
   "@pinLockAutoLockSection": {
     "description": "Auto-lock section title"
@@ -1382,14 +1398,6 @@
   "debugTools": "Tools",
   "@debugTools": {
     "description": "Debug: Tools section title"
-  },
-  "debugTimelineSanitization": "Timeline Sanitization",
-  "@debugTimelineSanitization": {
-    "description": "Debug tools: timeline sanitization title"
-  },
-  "debugTimelineSanitizationSubtitle": "Scan for and fix timeline issues",
-  "@debugTimelineSanitizationSubtitle": {
-    "description": "Debug tools: timeline sanitization subtitle"
   },
   "debugDevice": "Device",
   "@debugDevice": {
@@ -2435,23 +2443,6 @@
   "@frontingLoadingOlderSessions": {
     "description": "Accessibility announcement when loading older sessions on scroll"
   },
-  "frontingTimelineIssuesFound": "Timeline issues found",
-  "@frontingTimelineIssuesFound": {
-    "description": "Info banner title when timeline validation issues are detected"
-  },
-  "frontingTimelineIssuesBannerMessage": "{count, plural, =1{1 timeline issue found. Tap to review.} other{{count} timeline issues found. Tap to review.}}",
-  "@frontingTimelineIssuesBannerMessage": {
-    "description": "Info banner message showing timeline issue count",
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
-  "frontingTimelineIssuesReview": "Review",
-  "@frontingTimelineIssuesReview": {
-    "description": "Button label in timeline issues banner"
-  },
   "frontingAlwaysPresentLabel": "Always present · {duration}",
   "@frontingAlwaysPresentLabel": {
     "description": "Subtitle on the pinned 'always-present' header at the top of the home screen. The duration placeholder is a pre-formatted localized string like '2 weeks' or '3 hours'.",
@@ -3049,160 +3040,6 @@
   "frontingTimelineNoHistorySubtitle": "Start a fronting session to see it appear on the timeline.",
   "@frontingTimelineNoHistorySubtitle": {
     "description": "Empty state subtitle in timeline view"
-  },
-  "frontingSanitizationTitle": "Timeline Sanitization",
-  "@frontingSanitizationTitle": {
-    "description": "Screen title for the timeline sanitization screen"
-  },
-  "frontingSanitizationScanning": "Scanning timeline…",
-  "@frontingSanitizationScanning": {
-    "description": "Text shown while the sanitization scan is running"
-  },
-  "frontingSanitizationIntroTitle": "Timeline Sanitization",
-  "@frontingSanitizationIntroTitle": {
-    "description": "Title on the initial state of sanitization screen"
-  },
-  "frontingSanitizationIntroBody": "Scan your fronting history for overlapping, duplicate, or invalid sessions, then apply automatic fixes.",
-  "@frontingSanitizationIntroBody": {
-    "description": "Description on the initial state of sanitization screen"
-  },
-  "frontingSanitizationScanButton": "Scan Timeline",
-  "@frontingSanitizationScanButton": {
-    "description": "Button to start a sanitization scan"
-  },
-  "frontingSanitizationCleanTitle": "Timeline looks clean!",
-  "@frontingSanitizationCleanTitle": {
-    "description": "Empty state title when no issues are found"
-  },
-  "frontingSanitizationCleanSubtitle": "No overlaps, duplicates, or invalid sessions found.",
-  "@frontingSanitizationCleanSubtitle": {
-    "description": "Empty state subtitle when no issues are found"
-  },
-  "frontingSanitizationScanAgain": "Scan Again",
-  "@frontingSanitizationScanAgain": {
-    "description": "Button to run a new scan after viewing results"
-  },
-  "frontingSanitizationIssuesFound": "{count, plural, =1{Found 1 issue in your timeline.} other{Found {count} issues in your timeline.}}",
-  "@frontingSanitizationIssuesFound": {
-    "description": "Summary banner showing total issues found",
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
-  "frontingSanitizationFixesApplied": "{count, plural, =1{1 fix applied successfully.} other{{count} fixes applied successfully.}}",
-  "@frontingSanitizationFixesApplied": {
-    "description": "Banner showing number of fixes applied",
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
-  "frontingSanitizationScanFailed": "Scan failed: {error}",
-  "@frontingSanitizationScanFailed": {
-    "description": "Error toast when a scan fails",
-    "placeholders": {
-      "error": {
-        "type": "Object"
-      }
-    }
-  },
-  "frontingSanitizationFixFailed": "Fix failed: {error}",
-  "@frontingSanitizationFixFailed": {
-    "description": "Error toast when applying a fix fails",
-    "placeholders": {
-      "error": {
-        "type": "Object"
-      }
-    }
-  },
-  "frontingSanitizationLoadFixFailed": "Could not load fix options: {error}",
-  "@frontingSanitizationLoadFixFailed": {
-    "description": "Error toast when fix options cannot be loaded",
-    "placeholders": {
-      "error": {
-        "type": "Object"
-      }
-    }
-  },
-  "frontingSanitizationFixOptionsTitle": "Fix Options",
-  "@frontingSanitizationFixOptionsTitle": {
-    "description": "Sheet title for fix options"
-  },
-  "frontingSanitizationNoAutoFix": "No automated fixes available for this issue.\nPlease review and resolve it manually.",
-  "@frontingSanitizationNoAutoFix": {
-    "description": "Message shown when no automated fix plans are available"
-  },
-  "frontingSanitizationPreview": "Preview",
-  "@frontingSanitizationPreview": {
-    "description": "Button label to show fix preview"
-  },
-  "frontingSanitizationHidePreview": "Hide Preview",
-  "@frontingSanitizationHidePreview": {
-    "description": "Button label to hide fix preview"
-  },
-  "frontingSanitizationApply": "Apply",
-  "@frontingSanitizationApply": {
-    "description": "Button label to apply a fix plan"
-  },
-  "frontingIssueTypeOverlap": "Overlap",
-  "@frontingIssueTypeOverlap": {
-    "description": "Issue type chip label: overlap"
-  },
-  "frontingIssueTypeGap": "Gap",
-  "@frontingIssueTypeGap": {
-    "description": "Issue type chip label: gap"
-  },
-  "frontingIssueTypeDuplicate": "Duplicate",
-  "@frontingIssueTypeDuplicate": {
-    "description": "Issue type chip label: duplicate"
-  },
-  "frontingIssueTypeMergeable": "Mergeable",
-  "@frontingIssueTypeMergeable": {
-    "description": "Issue type chip label: mergeable adjacent"
-  },
-  "frontingIssueTypeInvalidRange": "Invalid Range",
-  "@frontingIssueTypeInvalidRange": {
-    "description": "Issue type chip label: invalid range"
-  },
-  "frontingIssueTypeFutureSession": "Future Session",
-  "@frontingIssueTypeFutureSession": {
-    "description": "Issue type chip label: future session"
-  },
-  "frontingIssueSectionOverlap": "Overlapping Sessions",
-  "@frontingIssueSectionOverlap": {
-    "description": "Section header for overlapping issues in sanitization results"
-  },
-  "frontingIssueSectionGap": "Gaps",
-  "@frontingIssueSectionGap": {
-    "description": "Section header for gap issues in sanitization results"
-  },
-  "frontingIssueSectionDuplicate": "Duplicates",
-  "@frontingIssueSectionDuplicate": {
-    "description": "Section header for duplicate issues in sanitization results"
-  },
-  "frontingIssueSectionMergeable": "Mergeable Adjacent",
-  "@frontingIssueSectionMergeable": {
-    "description": "Section header for mergeable adjacent issues in sanitization results"
-  },
-  "frontingIssueSectionInvalidRange": "Invalid Ranges",
-  "@frontingIssueSectionInvalidRange": {
-    "description": "Section header for invalid range issues in sanitization results"
-  },
-  "frontingIssueSectionFutureSession": "Future Sessions",
-  "@frontingIssueSectionFutureSession": {
-    "description": "Section header for future session issues in sanitization results"
-  },
-  "frontingIssueSessionCount": "{count, plural, =1{1 session} other{{count} sessions}}",
-  "@frontingIssueSessionCount": {
-    "description": "Session count shown on a validation issue tile",
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
   },
   "frontingDeleteStrategyTitle": "What should happen to this time?",
   "@frontingDeleteStrategyTitle": {

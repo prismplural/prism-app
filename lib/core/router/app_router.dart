@@ -44,7 +44,6 @@ import '../../features/sharing/views/friend_detail_screen.dart';
 import '../../features/habits/views/habits_list_screen.dart';
 import '../../features/habits/views/habit_detail_screen.dart';
 import '../../features/data_management/views/import_export_screen.dart';
-import '../../features/fronting/ui/fronting_sanitization_screen.dart';
 import '../../features/settings/views/features_settings_screen.dart';
 import '../../features/settings/views/chat_feature_settings_screen.dart';
 import '../../features/settings/views/habits_feature_settings_screen.dart';
@@ -469,12 +468,6 @@ final routerProvider = Provider<GoRouter>((ref) {
                     path: 'reset',
                     builder: (context, state) => const ResetDataScreen(),
                   ),
-                  if (!kReleaseMode)
-                    GoRoute(
-                      path: 'timeline-sanitization',
-                      builder: (context, state) =>
-                          const FrontingSanitizationScreen(),
-                    ),
                   GoRoute(
                     path: 'custom-fields',
                     builder: (context, state) => const CustomFieldsScreen(),

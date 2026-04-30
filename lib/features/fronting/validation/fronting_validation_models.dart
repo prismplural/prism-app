@@ -61,3 +61,18 @@ class FrontingSessionSnapshot {
     this.isDeleted = false,
   });
 }
+
+extension FrontingSessionSnapshotConversion on FrontingSession {
+  FrontingSessionSnapshot toSnapshot() => FrontingSessionSnapshot(
+    id: id,
+    memberId: memberId,
+    start: startTime,
+    end: endTime,
+    notes: notes,
+    confidenceIndex: confidence?.index,
+    sessionType: sessionType,
+    quality: quality,
+    isHealthKitImport: isHealthKitImport,
+    isDeleted: isDeleted,
+  );
+}

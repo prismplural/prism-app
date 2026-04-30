@@ -44,9 +44,6 @@ import 'package:prism_plurality/core/database/app_database.dart' as appdb;
 import 'package:prism_plurality/core/mutations/mutation_runner.dart';
 import 'package:prism_plurality/data/repositories/drift_fronting_session_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
-import 'package:prism_plurality/features/fronting/providers/fronting_sanitization_providers.dart';
-import 'package:prism_plurality/features/fronting/sanitization/fronting_sanitizer_service.dart';
-import 'package:prism_plurality/features/fronting/validation/fronting_validation_models.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -251,10 +248,6 @@ void main() {
           memberRepository: memberRepo,
         );
 
-        // Stub sanitizer so triggerPostEditRescan is a no-op.  The real one
-        // would pull a long chain of providers we don't need here.
-        final sanitizer = _StubSanitizerService();
-
         final members = [
           _member(id: 'alice', name: 'Alice'),
           _member(id: 'bob', name: 'Bob'),
@@ -280,7 +273,6 @@ void main() {
               ),
               frontingSessionRepositoryProvider.overrideWithValue(repo),
               frontingChangeExecutorProvider.overrideWithValue(capturing),
-              frontingSanitizerServiceProvider.overrideWithValue(sanitizer),
             ],
             child: MaterialApp(
               localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -357,17 +349,3 @@ class _CapturingFrontingChangeExecutor extends FrontingChangeExecutor {
   }
 }
 
-/// Stand-in sanitizer service that returns no issues for any scan.  Lets
-/// `triggerPostEditRescan` complete without spinning up validators or
-/// planners.
-class _StubSanitizerService implements FrontingSanitizerService {
-  @override
-  Future<List<FrontingValidationIssue>> scan({
-    String? memberId,
-    DateTime? from,
-    DateTime? to,
-  }) async => const [];
-
-  @override
-  noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}

@@ -582,6 +582,20 @@ class AppLocalizationsEn extends AppLocalizations {
       'Enable PIN Lock to use biometric unlock';
 
   @override
+  String get pinLockUnlockOptionsSection => 'Unlock Options';
+
+  @override
+  String get pinLockHardSyncLockTitle => 'Require recovery for sync';
+
+  @override
+  String get pinLockHardSyncLockSubtitle =>
+      'When the app locks, forget the sync quick-unlock key. Background sync pauses until you enter your PIN and recovery phrase.';
+
+  @override
+  String get pinLockHardSyncLockDisabledSubtitle =>
+      'Enable PIN Lock to require recovery after app lock.';
+
+  @override
   String get pinLockAutoLockSection => 'Auto-Lock';
 
   @override
@@ -1807,23 +1821,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get frontingLoadingOlderSessions => 'Loading older sessions';
 
   @override
-  String get frontingTimelineIssuesFound => 'Timeline issues found';
-
-  @override
-  String frontingTimelineIssuesBannerMessage(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count timeline issues found. Tap to review.',
-      one: '1 timeline issue found. Tap to review.',
-    );
-    return '$_temp0';
-  }
-
-  @override
-  String get frontingTimelineIssuesReview => 'Review';
-
-  @override
   String frontingAlwaysPresentLabel(String duration) {
     return 'Always present · $duration';
   }
@@ -2261,132 +2258,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get frontingTimelineNoHistorySubtitle =>
       'Start a fronting session to see it appear on the timeline.';
-
-  @override
-  String get frontingSanitizationTitle => 'Timeline Sanitization';
-
-  @override
-  String get frontingSanitizationScanning => 'Scanning timeline…';
-
-  @override
-  String get frontingSanitizationIntroTitle => 'Timeline Sanitization';
-
-  @override
-  String get frontingSanitizationIntroBody =>
-      'Scan your fronting history for overlapping, duplicate, or invalid sessions, then apply automatic fixes.';
-
-  @override
-  String get frontingSanitizationScanButton => 'Scan Timeline';
-
-  @override
-  String get frontingSanitizationCleanTitle => 'Timeline looks clean!';
-
-  @override
-  String get frontingSanitizationCleanSubtitle =>
-      'No overlaps, duplicates, or invalid sessions found.';
-
-  @override
-  String get frontingSanitizationScanAgain => 'Scan Again';
-
-  @override
-  String frontingSanitizationIssuesFound(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: 'Found $count issues in your timeline.',
-      one: 'Found 1 issue in your timeline.',
-    );
-    return '$_temp0';
-  }
-
-  @override
-  String frontingSanitizationFixesApplied(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count fixes applied successfully.',
-      one: '1 fix applied successfully.',
-    );
-    return '$_temp0';
-  }
-
-  @override
-  String frontingSanitizationScanFailed(Object error) {
-    return 'Scan failed: $error';
-  }
-
-  @override
-  String frontingSanitizationFixFailed(Object error) {
-    return 'Fix failed: $error';
-  }
-
-  @override
-  String frontingSanitizationLoadFixFailed(Object error) {
-    return 'Could not load fix options: $error';
-  }
-
-  @override
-  String get frontingSanitizationFixOptionsTitle => 'Fix Options';
-
-  @override
-  String get frontingSanitizationNoAutoFix =>
-      'No automated fixes available for this issue.\nPlease review and resolve it manually.';
-
-  @override
-  String get frontingSanitizationPreview => 'Preview';
-
-  @override
-  String get frontingSanitizationHidePreview => 'Hide Preview';
-
-  @override
-  String get frontingSanitizationApply => 'Apply';
-
-  @override
-  String get frontingIssueTypeOverlap => 'Overlap';
-
-  @override
-  String get frontingIssueTypeGap => 'Gap';
-
-  @override
-  String get frontingIssueTypeDuplicate => 'Duplicate';
-
-  @override
-  String get frontingIssueTypeMergeable => 'Mergeable';
-
-  @override
-  String get frontingIssueTypeInvalidRange => 'Invalid Range';
-
-  @override
-  String get frontingIssueTypeFutureSession => 'Future Session';
-
-  @override
-  String get frontingIssueSectionOverlap => 'Overlapping Sessions';
-
-  @override
-  String get frontingIssueSectionGap => 'Gaps';
-
-  @override
-  String get frontingIssueSectionDuplicate => 'Duplicates';
-
-  @override
-  String get frontingIssueSectionMergeable => 'Mergeable Adjacent';
-
-  @override
-  String get frontingIssueSectionInvalidRange => 'Invalid Ranges';
-
-  @override
-  String get frontingIssueSectionFutureSession => 'Future Sessions';
-
-  @override
-  String frontingIssueSessionCount(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count sessions',
-      one: '1 session',
-    );
-    return '$_temp0';
-  }
 
   @override
   String get frontingDeleteStrategyTitle => 'What should happen to this time?';
