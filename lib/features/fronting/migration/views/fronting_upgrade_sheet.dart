@@ -187,6 +187,12 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
   String? _pkImportError;
   bool _pkTokenPromptShown = false;
 
+  /// PR E2 (WS3 step 4 / review #3): tombstones the corrective re-import
+  /// preserved instead of resurrecting. Surfaced beneath the "imported"
+  /// status string so the user knows why expected history did not return.
+  int _pkImportTombstonePreserved = 0;
+  int _pkImportZeroLengthSkipped = 0;
+
   @override
   void initState() {
     super.initState();
@@ -580,13 +586,19 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
     setState(() {
       _pkImportStatus = _PostMigrationPkImportStatus.running;
       _pkImportError = null;
+      _pkImportTombstonePreserved = 0;
+      _pkImportZeroLengthSkipped = 0;
     });
     try {
-      await ref
+      final result = await ref
           .read(pluralKitSyncProvider.notifier)
           .performOneTimeFullImport(token: token);
       if (!mounted) return;
-      setState(() => _pkImportStatus = _PostMigrationPkImportStatus.imported);
+      setState(() {
+        _pkImportStatus = _PostMigrationPkImportStatus.imported;
+        _pkImportTombstonePreserved = result.tombstonePreservedCount;
+        _pkImportZeroLengthSkipped = result.zeroLengthCloseSkipped;
+      });
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -1216,8 +1228,27 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
           ],
         );
       case _PostMigrationPkImportStatus.imported:
+        // Build a single-paragraph status with optional follow-on lines for
+        // the PR E2 counters (tombstones preserved, zero-length closes
+        // skipped). Both counters are zero on a clean import — only render
+        // the lines when non-zero so a typical run reads as a single line.
+        final lines = <String>['PluralKit history was re-imported.'];
+        if (_pkImportTombstonePreserved > 0) {
+          lines.add(
+            '$_pkImportTombstonePreserved deleted '
+            '${_pkImportTombstonePreserved == 1 ? 'row was' : 'rows were'} '
+            'left as-is to honor the local delete.',
+          );
+        }
+        if (_pkImportZeroLengthSkipped > 0) {
+          lines.add(
+            '$_pkImportZeroLengthSkipped zero-length '
+            '${_pkImportZeroLengthSkipped == 1 ? 'close was' : 'closes were'} '
+            'skipped (PluralKit listed an enter and a leave at the same instant).',
+          );
+        }
         return Text(
-          'PluralKit history was re-imported.',
+          lines.join('\n'),
           textAlign: TextAlign.center,
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
