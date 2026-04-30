@@ -1952,18 +1952,6 @@ abstract class AppLocalizations {
   /// **'Tools'**
   String get debugTools;
 
-  /// Debug tools: timeline sanitization title
-  ///
-  /// In en, this message translates to:
-  /// **'Timeline Sanitization'**
-  String get debugTimelineSanitization;
-
-  /// Debug tools: timeline sanitization subtitle
-  ///
-  /// In en, this message translates to:
-  /// **'Scan for and fix timeline issues'**
-  String get debugTimelineSanitizationSubtitle;
-
   /// Debug: Device section title
   ///
   /// In en, this message translates to:
@@ -11715,6 +11703,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'View sleep history'**
   String get sleepViewAllHistory;
+
+  /// Trend line on the 7-day average sleep stat card showing change vs prior 7 days
+  ///
+  /// In en, this message translates to:
+  /// **'vs prior week: {delta}'**
+  String sleepTrendVsPriorWeek(String delta);
+
+  /// Inline warning chip on a sleep session row when the start date is in the future (clock skew)
+  ///
+  /// In en, this message translates to:
+  /// **'Date looks off'**
+  String get sleepDateLooksOff;
+
+  /// Soft warning shown in StartSleepSheet when a historical sleep entry overlaps an existing session
+  ///
+  /// In en, this message translates to:
+  /// **'This overlaps an existing sleep session'**
+  String get sleepOverlapsExistingWarning;
+
+  /// Disclosure link in StartSleepSheet to switch into historical-logging mode with an end-time field
+  ///
+  /// In en, this message translates to:
+  /// **'Log past sleep'**
+  String get logPastSleep;
+
+  /// Link in StartSleepSheet to cancel historical-logging mode and return to start-now defaults
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get cancelHistoricalSleep;
 
   /// Header title for the onboarding welcome step
   ///
