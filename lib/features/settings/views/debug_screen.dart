@@ -308,16 +308,6 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
                   ),
                 ),
                 PrismListRow(
-                  leading: Icon(AppIcons.healing),
-                  title: Text(context.l10n.debugTimelineSanitization),
-                  subtitle: Text(
-                    context.l10n.debugTimelineSanitizationSubtitle,
-                  ),
-                  trailing: Icon(AppIcons.chevronRight),
-                  onTap: () =>
-                      context.push(AppRoutePaths.settingsTimelineSanitization),
-                ),
-                PrismListRow(
                   leading: Icon(AppIcons.group),
                   title: const Text('PluralKit group tester'),
                   subtitle: const Text(

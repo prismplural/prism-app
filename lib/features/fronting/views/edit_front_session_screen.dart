@@ -8,10 +8,9 @@ import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/editing/fronting_edit_resolution_models.dart';
 import 'package:prism_plurality/features/fronting/editing/fronting_session_change.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_editing_providers.dart';
-import 'package:prism_plurality/features/fronting/providers/fronting_sanitization_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
-import 'package:prism_plurality/features/fronting/sanitization/fronting_sanitizer_service.dart';
+import 'package:prism_plurality/features/fronting/validation/fronting_validation_models.dart';
 import 'package:prism_plurality/features/fronting/views/edit_sleep_sheet.dart';
 import 'package:prism_plurality/features/fronting/ui/gap_resolution_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
@@ -156,7 +155,7 @@ class _EditFrontSessionScreenState
     }
 
     // 4. Build snapshot and patch for the edit guard
-    final originalSnapshot = FrontingSanitizerService.toSnapshot(original);
+    final originalSnapshot = original.toSnapshot();
     // memberId handling: the picker now writes [unknownSentinelMemberId]
     // (not null) when the user selects "Unknown", so any non-null change
     // — including transitioning from a legacy null to the sentinel — flows
@@ -181,9 +180,7 @@ class _EditFrontSessionScreenState
     // 5. Load nearby sessions directly from repository (not stream provider,
     // which may not be loaded yet)
     final allSessions = await repo.getAllSessions();
-    final nearbySnapshots = allSessions
-        .map(FrontingSanitizerService.toSnapshot)
-        .toList();
+    final nearbySnapshots = allSessions.map((s) => s.toSnapshot()).toList();
 
     // 6. Run edit validation
     //    (no proposed-snapshot needed: cross-member overlap resolution was
@@ -243,15 +240,6 @@ class _EditFrontSessionScreenState
       final result = await changeExecutor.execute(allChanges);
       result.when(
         success: (_) {
-          // Drift table-watch + frontingTableTickerProvider rebuild
-          // every dependent provider on the fronting_sessions write —
-          // no explicit invalidation required.
-          // Fire-and-forget rescan to update the issue banner
-          triggerPostEditRescan(
-            ref,
-            sessionStart: _startTime,
-            sessionEnd: _endTime,
-          );
           if (mounted) Navigator.of(context).pop(true);
         },
         failure: (error) {

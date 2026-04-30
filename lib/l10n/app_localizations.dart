@@ -1142,6 +1142,30 @@ abstract class AppLocalizations {
   /// **'Enable PIN Lock to use biometric unlock'**
   String get pinLockBiometricDisabledSubtitle;
 
+  /// Unlock options section title in PIN lock settings
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock Options'**
+  String get pinLockUnlockOptionsSection;
+
+  /// Title for optional hard sync lock toggle
+  ///
+  /// In en, this message translates to:
+  /// **'Require recovery for sync'**
+  String get pinLockHardSyncLockTitle;
+
+  /// Subtitle for optional hard sync lock toggle when PIN lock is set
+  ///
+  /// In en, this message translates to:
+  /// **'When the app locks, forget the sync quick-unlock key. Background sync pauses until you enter your PIN and recovery phrase.'**
+  String get pinLockHardSyncLockSubtitle;
+
+  /// Subtitle for optional hard sync lock toggle when PIN lock is not set
+  ///
+  /// In en, this message translates to:
+  /// **'Enable PIN Lock to require recovery after app lock.'**
+  String get pinLockHardSyncLockDisabledSubtitle;
+
   /// Auto-lock section title
   ///
   /// In en, this message translates to:
@@ -3320,24 +3344,6 @@ abstract class AppLocalizations {
   /// **'Loading older sessions'**
   String get frontingLoadingOlderSessions;
 
-  /// Info banner title when timeline validation issues are detected
-  ///
-  /// In en, this message translates to:
-  /// **'Timeline issues found'**
-  String get frontingTimelineIssuesFound;
-
-  /// Info banner message showing timeline issue count
-  ///
-  /// In en, this message translates to:
-  /// **'{count, plural, =1{1 timeline issue found. Tap to review.} other{{count} timeline issues found. Tap to review.}}'**
-  String frontingTimelineIssuesBannerMessage(int count);
-
-  /// Button label in timeline issues banner
-  ///
-  /// In en, this message translates to:
-  /// **'Review'**
-  String get frontingTimelineIssuesReview;
-
   /// Subtitle on the pinned 'always-present' header at the top of the home screen. The duration placeholder is a pre-formatted localized string like '2 weeks' or '3 hours'.
   ///
   /// In en, this message translates to:
@@ -4045,192 +4051,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Start a fronting session to see it appear on the timeline.'**
   String get frontingTimelineNoHistorySubtitle;
-
-  /// Screen title for the timeline sanitization screen
-  ///
-  /// In en, this message translates to:
-  /// **'Timeline Sanitization'**
-  String get frontingSanitizationTitle;
-
-  /// Text shown while the sanitization scan is running
-  ///
-  /// In en, this message translates to:
-  /// **'Scanning timeline…'**
-  String get frontingSanitizationScanning;
-
-  /// Title on the initial state of sanitization screen
-  ///
-  /// In en, this message translates to:
-  /// **'Timeline Sanitization'**
-  String get frontingSanitizationIntroTitle;
-
-  /// Description on the initial state of sanitization screen
-  ///
-  /// In en, this message translates to:
-  /// **'Scan your fronting history for overlapping, duplicate, or invalid sessions, then apply automatic fixes.'**
-  String get frontingSanitizationIntroBody;
-
-  /// Button to start a sanitization scan
-  ///
-  /// In en, this message translates to:
-  /// **'Scan Timeline'**
-  String get frontingSanitizationScanButton;
-
-  /// Empty state title when no issues are found
-  ///
-  /// In en, this message translates to:
-  /// **'Timeline looks clean!'**
-  String get frontingSanitizationCleanTitle;
-
-  /// Empty state subtitle when no issues are found
-  ///
-  /// In en, this message translates to:
-  /// **'No overlaps, duplicates, or invalid sessions found.'**
-  String get frontingSanitizationCleanSubtitle;
-
-  /// Button to run a new scan after viewing results
-  ///
-  /// In en, this message translates to:
-  /// **'Scan Again'**
-  String get frontingSanitizationScanAgain;
-
-  /// Summary banner showing total issues found
-  ///
-  /// In en, this message translates to:
-  /// **'{count, plural, =1{Found 1 issue in your timeline.} other{Found {count} issues in your timeline.}}'**
-  String frontingSanitizationIssuesFound(int count);
-
-  /// Banner showing number of fixes applied
-  ///
-  /// In en, this message translates to:
-  /// **'{count, plural, =1{1 fix applied successfully.} other{{count} fixes applied successfully.}}'**
-  String frontingSanitizationFixesApplied(int count);
-
-  /// Error toast when a scan fails
-  ///
-  /// In en, this message translates to:
-  /// **'Scan failed: {error}'**
-  String frontingSanitizationScanFailed(Object error);
-
-  /// Error toast when applying a fix fails
-  ///
-  /// In en, this message translates to:
-  /// **'Fix failed: {error}'**
-  String frontingSanitizationFixFailed(Object error);
-
-  /// Error toast when fix options cannot be loaded
-  ///
-  /// In en, this message translates to:
-  /// **'Could not load fix options: {error}'**
-  String frontingSanitizationLoadFixFailed(Object error);
-
-  /// Sheet title for fix options
-  ///
-  /// In en, this message translates to:
-  /// **'Fix Options'**
-  String get frontingSanitizationFixOptionsTitle;
-
-  /// Message shown when no automated fix plans are available
-  ///
-  /// In en, this message translates to:
-  /// **'No automated fixes available for this issue.\nPlease review and resolve it manually.'**
-  String get frontingSanitizationNoAutoFix;
-
-  /// Button label to show fix preview
-  ///
-  /// In en, this message translates to:
-  /// **'Preview'**
-  String get frontingSanitizationPreview;
-
-  /// Button label to hide fix preview
-  ///
-  /// In en, this message translates to:
-  /// **'Hide Preview'**
-  String get frontingSanitizationHidePreview;
-
-  /// Button label to apply a fix plan
-  ///
-  /// In en, this message translates to:
-  /// **'Apply'**
-  String get frontingSanitizationApply;
-
-  /// Issue type chip label: overlap
-  ///
-  /// In en, this message translates to:
-  /// **'Overlap'**
-  String get frontingIssueTypeOverlap;
-
-  /// Issue type chip label: gap
-  ///
-  /// In en, this message translates to:
-  /// **'Gap'**
-  String get frontingIssueTypeGap;
-
-  /// Issue type chip label: duplicate
-  ///
-  /// In en, this message translates to:
-  /// **'Duplicate'**
-  String get frontingIssueTypeDuplicate;
-
-  /// Issue type chip label: mergeable adjacent
-  ///
-  /// In en, this message translates to:
-  /// **'Mergeable'**
-  String get frontingIssueTypeMergeable;
-
-  /// Issue type chip label: invalid range
-  ///
-  /// In en, this message translates to:
-  /// **'Invalid Range'**
-  String get frontingIssueTypeInvalidRange;
-
-  /// Issue type chip label: future session
-  ///
-  /// In en, this message translates to:
-  /// **'Future Session'**
-  String get frontingIssueTypeFutureSession;
-
-  /// Section header for overlapping issues in sanitization results
-  ///
-  /// In en, this message translates to:
-  /// **'Overlapping Sessions'**
-  String get frontingIssueSectionOverlap;
-
-  /// Section header for gap issues in sanitization results
-  ///
-  /// In en, this message translates to:
-  /// **'Gaps'**
-  String get frontingIssueSectionGap;
-
-  /// Section header for duplicate issues in sanitization results
-  ///
-  /// In en, this message translates to:
-  /// **'Duplicates'**
-  String get frontingIssueSectionDuplicate;
-
-  /// Section header for mergeable adjacent issues in sanitization results
-  ///
-  /// In en, this message translates to:
-  /// **'Mergeable Adjacent'**
-  String get frontingIssueSectionMergeable;
-
-  /// Section header for invalid range issues in sanitization results
-  ///
-  /// In en, this message translates to:
-  /// **'Invalid Ranges'**
-  String get frontingIssueSectionInvalidRange;
-
-  /// Section header for future session issues in sanitization results
-  ///
-  /// In en, this message translates to:
-  /// **'Future Sessions'**
-  String get frontingIssueSectionFutureSession;
-
-  /// Session count shown on a validation issue tile
-  ///
-  /// In en, this message translates to:
-  /// **'{count, plural, =1{1 session} other{{count} sessions}}'**
-  String frontingIssueSessionCount(int count);
 
   /// Dialog title when choosing a delete strategy for a session
   ///

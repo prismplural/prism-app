@@ -606,6 +606,21 @@ class AppLocalizationsEs extends AppLocalizations {
       'Activa el bloqueo por PIN para usar el desbloqueo biométrico';
 
   @override
+  String get pinLockUnlockOptionsSection => 'Opciones de desbloqueo';
+
+  @override
+  String get pinLockHardSyncLockTitle =>
+      'Requerir recuperación para sincronizar';
+
+  @override
+  String get pinLockHardSyncLockSubtitle =>
+      'Cuando la app se bloquee, olvida la clave de desbloqueo rápido de sincronización. La sincronización en segundo plano se pausa hasta que ingreses tu PIN y frase de recuperación.';
+
+  @override
+  String get pinLockHardSyncLockDisabledSubtitle =>
+      'Activa el bloqueo por PIN para requerir recuperación después del bloqueo de la app.';
+
+  @override
   String get pinLockAutoLockSection => 'Bloqueo automático';
 
   @override
@@ -1856,24 +1871,6 @@ class AppLocalizationsEs extends AppLocalizations {
   String get frontingLoadingOlderSessions => 'Cargando sesiones anteriores';
 
   @override
-  String get frontingTimelineIssuesFound =>
-      'Problemas de cronología encontrados';
-
-  @override
-  String frontingTimelineIssuesBannerMessage(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count problemas de cronología encontrados. Toca para revisar.',
-      one: '1 problema de cronología encontrado. Toca para revisar.',
-    );
-    return '$_temp0';
-  }
-
-  @override
-  String get frontingTimelineIssuesReview => 'Revisar';
-
-  @override
   String frontingAlwaysPresentLabel(String duration) {
     return 'Siempre presente · $duration';
   }
@@ -2315,132 +2312,6 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get frontingTimelineNoHistorySubtitle =>
       'Inicia una sesión de frente para verla en la cronología.';
-
-  @override
-  String get frontingSanitizationTitle => 'Limpieza de cronología';
-
-  @override
-  String get frontingSanitizationScanning => 'Escaneando cronología…';
-
-  @override
-  String get frontingSanitizationIntroTitle => 'Limpieza de cronología';
-
-  @override
-  String get frontingSanitizationIntroBody =>
-      'Escanea tu historial de frente en busca de sesiones superpuestas, duplicadas o inválidas, y aplica correcciones automáticas.';
-
-  @override
-  String get frontingSanitizationScanButton => 'Escanear cronología';
-
-  @override
-  String get frontingSanitizationCleanTitle => '¡La cronología está limpia!';
-
-  @override
-  String get frontingSanitizationCleanSubtitle =>
-      'No se encontraron superposiciones, duplicados ni sesiones inválidas.';
-
-  @override
-  String get frontingSanitizationScanAgain => 'Escanear de nuevo';
-
-  @override
-  String frontingSanitizationIssuesFound(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: 'Se encontraron $count problemas en tu cronología.',
-      one: 'Se encontró 1 problema en tu cronología.',
-    );
-    return '$_temp0';
-  }
-
-  @override
-  String frontingSanitizationFixesApplied(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count correcciones aplicadas correctamente.',
-      one: '1 corrección aplicada correctamente.',
-    );
-    return '$_temp0';
-  }
-
-  @override
-  String frontingSanitizationScanFailed(Object error) {
-    return 'Error al escanear: $error';
-  }
-
-  @override
-  String frontingSanitizationFixFailed(Object error) {
-    return 'Error al aplicar la corrección: $error';
-  }
-
-  @override
-  String frontingSanitizationLoadFixFailed(Object error) {
-    return 'No se pudieron cargar las opciones de corrección: $error';
-  }
-
-  @override
-  String get frontingSanitizationFixOptionsTitle => 'Opciones de corrección';
-
-  @override
-  String get frontingSanitizationNoAutoFix =>
-      'No hay correcciones automáticas disponibles para este problema.\nRevisa y resuélvelo manualmente.';
-
-  @override
-  String get frontingSanitizationPreview => 'Vista previa';
-
-  @override
-  String get frontingSanitizationHidePreview => 'Ocultar vista previa';
-
-  @override
-  String get frontingSanitizationApply => 'Aplicar';
-
-  @override
-  String get frontingIssueTypeOverlap => 'Superposición';
-
-  @override
-  String get frontingIssueTypeGap => 'Brecha';
-
-  @override
-  String get frontingIssueTypeDuplicate => 'Duplicado';
-
-  @override
-  String get frontingIssueTypeMergeable => 'Fusionable';
-
-  @override
-  String get frontingIssueTypeInvalidRange => 'Rango inválido';
-
-  @override
-  String get frontingIssueTypeFutureSession => 'Sesión futura';
-
-  @override
-  String get frontingIssueSectionOverlap => 'Sesiones superpuestas';
-
-  @override
-  String get frontingIssueSectionGap => 'Brechas';
-
-  @override
-  String get frontingIssueSectionDuplicate => 'Duplicados';
-
-  @override
-  String get frontingIssueSectionMergeable => 'Adyacentes fusionables';
-
-  @override
-  String get frontingIssueSectionInvalidRange => 'Rangos inválidos';
-
-  @override
-  String get frontingIssueSectionFutureSession => 'Sesiones futuras';
-
-  @override
-  String frontingIssueSessionCount(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count sesiones',
-      one: '1 sesión',
-    );
-    return '$_temp0';
-  }
 
   @override
   String get frontingDeleteStrategyTitle => '¿Qué debe pasar con este tiempo?';

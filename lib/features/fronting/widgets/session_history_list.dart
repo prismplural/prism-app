@@ -11,10 +11,9 @@ import 'package:prism_plurality/features/fronting/providers/always_present_membe
 import 'package:prism_plurality/features/fronting/providers/derived_periods_provider.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_editing_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
-import 'package:prism_plurality/features/fronting/providers/fronting_sanitization_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart';
-import 'package:prism_plurality/features/fronting/sanitization/fronting_sanitizer_service.dart';
 import 'package:prism_plurality/features/fronting/services/derive_periods.dart';
+import 'package:prism_plurality/features/fronting/validation/fronting_validation_models.dart';
 import 'package:prism_plurality/features/fronting/ui/delete_strategy_dialog.dart';
 import 'package:prism_plurality/features/fronting/utils/period_day_grouping.dart';
 import 'package:prism_plurality/features/fronting/utils/session_day_grouping.dart';
@@ -287,30 +286,21 @@ class _PerMemberRowsList extends ConsumerWidget {
         final frontGroups = groupSessionsByDay(frontingSessions);
         final sleepGroups = groupSessionsByDay(sleepSessions);
 
-        final mergedByKey = <String, _PerMemberDayGroup>{};
+        final entriesByKey = <String, List<DisplaySession>>{};
         for (final g in frontGroups) {
-          mergedByKey[g.dayKey] = _PerMemberDayGroup(
-            dayKey: g.dayKey,
-            fronting: List.of(g.sessions)
-              ..sort((a, b) => b.displayStart.compareTo(a.displayStart)),
-            sleep: const [],
-          );
+          entriesByKey.putIfAbsent(g.dayKey, () => []).addAll(g.sessions);
         }
         for (final g in sleepGroups) {
-          final existing = mergedByKey[g.dayKey];
-          if (existing == null) {
-            mergedByKey[g.dayKey] = _PerMemberDayGroup(
-              dayKey: g.dayKey,
-              fronting: const [],
-              sleep: List.of(g.sessions),
-            );
-          } else {
-            mergedByKey[g.dayKey] = _PerMemberDayGroup(
-              dayKey: existing.dayKey,
-              fronting: existing.fronting,
-              sleep: List.of(g.sessions),
-            );
-          }
+          entriesByKey.putIfAbsent(g.dayKey, () => []).addAll(g.sessions);
+        }
+        final mergedByKey = <String, _PerMemberDayGroup>{};
+        for (final entry in entriesByKey.entries) {
+          final entries = entry.value
+            ..sort((a, b) => b.displayStart.compareTo(a.displayStart));
+          mergedByKey[entry.key] = _PerMemberDayGroup(
+            dayKey: entry.key,
+            entries: entries,
+          );
         }
         final dayKeys = mergedByKey.keys.toList()
           ..sort((a, b) => b.compareTo(a));
@@ -331,19 +321,18 @@ class _PerMemberRowsList extends ConsumerWidget {
   }
 }
 
-/// One day's worth of per-member rows: fronting sessions then sleep.
+/// One day's worth of per-member rows, fronting and sleep interleaved
+/// in chronological order (newest first).
 class _PerMemberDayGroup {
   const _PerMemberDayGroup({
     required this.dayKey,
-    required this.fronting,
-    required this.sleep,
+    required this.entries,
   });
 
   final String dayKey;
-  final List<DisplaySession> fronting;
-  final List<DisplaySession> sleep;
+  final List<DisplaySession> entries;
 
-  int get length => fronting.length + sleep.length;
+  int get length => entries.length;
 }
 
 class _PerMemberDayGroupWidget extends StatelessWidget {
@@ -372,27 +361,19 @@ class _PerMemberDayGroupWidget extends StatelessWidget {
           child: PrismGroupedSectionCard(
             child: Column(
               children: [
-                for (var i = 0; i < group.fronting.length; i++) ...[
-                  _PerMemberSessionTile(
-                    slice: group.fronting[i],
-                    isLatest: isFirstGroup && i == 0,
-                    membersMap: membersMap,
-                  ),
+                for (var i = 0; i < group.entries.length; i++) ...[
+                  if (group.entries[i].session.isSleep)
+                    _InlineSleepTile(displaySession: group.entries[i])
+                  else
+                    _PerMemberSessionTile(
+                      slice: group.entries[i],
+                      isLatest: isFirstGroup && i == 0,
+                      membersMap: membersMap,
+                    ),
                   if (i < total - 1)
                     Divider(
                       height: 1,
-                      indent: 64,
-                      endIndent: 12,
-                      color: theme.colorScheme.onSurface
-                          .withValues(alpha: 0.08),
-                    ),
-                ],
-                for (var j = 0; j < group.sleep.length; j++) ...[
-                  _InlineSleepTile(displaySession: group.sleep[j]),
-                  if (group.fronting.length + j < total - 1)
-                    Divider(
-                      height: 1,
-                      indent: 16,
+                      indent: group.entries[i].session.isSleep ? 16 : 64,
                       endIndent: 12,
                       color: theme.colorScheme.onSurface
                           .withValues(alpha: 0.08),
@@ -669,9 +650,8 @@ class _PeriodTile extends ConsumerWidget {
         ref.read(frontingEditResolutionServiceProvider);
     final changeExecutor = ref.read(frontingChangeExecutorProvider);
 
-    final sessionSnapshot = FrontingSanitizerService.toSnapshot(session);
-    final allSnapshots =
-        allSessions.map(FrontingSanitizerService.toSnapshot).toList();
+    final sessionSnapshot = session.toSnapshot();
+    final allSnapshots = allSessions.map((s) => s.toSnapshot()).toList();
     final deleteCtx =
         editGuard.getDeleteContext(sessionSnapshot, allSnapshots);
 
@@ -686,16 +666,7 @@ class _PeriodTile extends ConsumerWidget {
     final changes = resolutionService.computeDeleteChanges(deleteCtx, strategy);
     final result = await changeExecutor.execute(changes);
     return result.when(
-      success: (_) {
-        // Drift table-watch + frontingTableTickerProvider cover the
-        // dependent providers; only the post-edit rescan stays explicit.
-        triggerPostEditRescan(
-          ref,
-          sessionStart: session.startTime,
-          sessionEnd: session.endTime,
-        );
-        return true;
-      },
+      success: (_) => true,
       failure: (error) {
         if (context.mounted) {
           PrismToast.error(
