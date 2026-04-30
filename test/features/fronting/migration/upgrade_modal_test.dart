@@ -149,7 +149,6 @@ Widget _buildSheetSubject({
   String mode = FrontingMigrationService.modeNotStarted,
   Future<bool> Function(File file)? shareBackup,
   Future<bool> Function(File file)? saveBackup,
-  VoidCallback? openPluralKitImport,
 }) {
   return ProviderScope(
     overrides: [
@@ -179,7 +178,6 @@ Widget _buildSheetSubject({
                 isDismissible: true,
                 shareBackup: shareBackup,
                 saveBackup: saveBackup,
-                openPluralKitImport: openPluralKitImport,
                 autoRunPluralKitImport: false,
               ),
               child: const Text('open'),
@@ -628,10 +626,8 @@ void main() {
     });
 
     testWidgets(
-      'pk-clearing success explains PluralKit re-import options and opens '
-      'the import entry point',
+      'pk-clearing success prompts for PluralKit token inside migration',
       (tester) async {
-        var openedPluralKitImport = false;
         final runner = _FakeRunner(
           result: const MigrationResult(
             outcome: MigrationOutcome.success,
@@ -640,11 +636,7 @@ void main() {
           ),
         );
         await tester.pumpWidget(
-          _buildSheetSubject(
-            runner: runner,
-            pairedCount: 0,
-            openPluralKitImport: () => openedPluralKitImport = true,
-          ),
+          _buildSheetSubject(runner: runner, pairedCount: 0),
         );
         await _openSheet(tester);
         await tester.tap(find.text('Continue'));
@@ -668,18 +660,15 @@ void main() {
           find.textContaining('Old-format PluralKit history was cleared'),
           findsOneWidget,
         );
-        expect(
-          find.textContaining('PluralKit token or a pk;export file'),
-          findsOneWidget,
-        );
-        expect(find.text('Open PluralKit import'), findsOneWidget);
+        expect(find.textContaining('token is used once'), findsOneWidget);
+        expect(find.text('Open PluralKit import'), findsNothing);
+        expect(find.text('Import with PluralKit token'), findsOneWidget);
 
-        await tester.tap(find.text('Open PluralKit import'));
+        await tester.tap(find.text('Import with PluralKit token'));
         await tester.pumpAndSettle();
 
-        expect(openedPluralKitImport, isTrue);
-        expect(find.text('Migration complete!'), findsNothing);
-        expect(find.text('open'), findsOneWidget);
+        expect(find.text('PluralKit token'), findsWidgets);
+        expect(find.text('Migration complete!'), findsOneWidget);
       },
     );
 
