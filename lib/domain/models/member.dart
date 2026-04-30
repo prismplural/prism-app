@@ -16,6 +16,10 @@ enum MemberProfileHeaderSource { pluralKit, prism }
 
 enum MemberProfileHeaderLayout { compactBackground, classicOverlap }
 
+enum MemberNameFont { standard, display, serif, mono, rounded }
+
+enum MemberNameColorMode { standard, accent, custom }
+
 @freezed
 abstract class Member with _$Member {
   const factory Member({
@@ -46,6 +50,12 @@ abstract class Member with _$Member {
     @Default(MemberProfileHeaderLayout.compactBackground)
     MemberProfileHeaderLayout profileHeaderLayout,
     @Default(true) bool profileHeaderVisible,
+    @Default(MemberNameFont.standard) MemberNameFont nameStyleFont,
+    @Default(true) bool nameStyleBold,
+    @Default(false) bool nameStyleItalic,
+    @Default(MemberNameColorMode.standard)
+    MemberNameColorMode nameStyleColorMode,
+    String? nameStyleColorHex,
     @JsonKey(fromJson: _uint8ListFromJson, toJson: _uint8ListToJson)
     Uint8List? profileHeaderImageData,
     @JsonKey(fromJson: _uint8ListFromJson, toJson: _uint8ListToJson)

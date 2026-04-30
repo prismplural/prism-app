@@ -1227,6 +1227,54 @@ class AppLocalizationsEs extends AppLocalizations {
       'No se pudo procesar esa imagen.';
 
   @override
+  String get memberNameStyleTooltip => 'Editar estilo del nombre';
+
+  @override
+  String get memberNameStyleDialogTitle => 'Estilo del nombre';
+
+  @override
+  String get memberNameStyleFontLabel => 'Fuente';
+
+  @override
+  String get memberNameStyleFontDefault => 'Predeterminada';
+
+  @override
+  String get memberNameStyleFontDisplay => 'Display';
+
+  @override
+  String get memberNameStyleFontSerif => 'Serif';
+
+  @override
+  String get memberNameStyleFontMono => 'Mono';
+
+  @override
+  String get memberNameStyleFontRounded => 'Redondeada';
+
+  @override
+  String get memberNameStyleStyleLabel => 'Estilo';
+
+  @override
+  String get memberNameStyleBold => 'Negrita';
+
+  @override
+  String get memberNameStyleItalic => 'Cursiva';
+
+  @override
+  String get memberNameStyleColorLabel => 'Color';
+
+  @override
+  String get memberNameStyleColorDefault => 'Predeterminado';
+
+  @override
+  String get memberNameStyleColorAccent => 'Acento';
+
+  @override
+  String get memberNameStyleColorCustom => 'Personalizado';
+
+  @override
+  String get memberNameStyleReset => 'Restablecer';
+
+  @override
   String get systemInfoNameLabel => 'Nombre';
 
   @override

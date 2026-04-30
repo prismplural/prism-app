@@ -44,6 +44,11 @@ void main() {
         profileHeaderLayout:
             domain.MemberProfileHeaderLayout.classicOverlap.index,
         profileHeaderVisible: false,
+        nameStyleFont: domain.MemberNameFont.display.index,
+        nameStyleBold: false,
+        nameStyleItalic: true,
+        nameStyleColorMode: domain.MemberNameColorMode.custom.index,
+        nameStyleColorHex: '#445566',
         profileHeaderImageData: profileHeader,
         pkBannerImageData: pkBanner,
         pkBannerCachedUrl: 'https://cdn.example/banner.webp',
@@ -74,6 +79,11 @@ void main() {
         domain.MemberProfileHeaderLayout.classicOverlap,
       );
       expect(model.profileHeaderVisible, isFalse);
+      expect(model.nameStyleFont, domain.MemberNameFont.display);
+      expect(model.nameStyleBold, isFalse);
+      expect(model.nameStyleItalic, isTrue);
+      expect(model.nameStyleColorMode, domain.MemberNameColorMode.custom);
+      expect(model.nameStyleColorHex, '#445566');
       expect(model.profileHeaderImageData, profileHeader);
       expect(model.pkBannerImageData, pkBanner);
       expect(model.pkBannerCachedUrl, 'https://cdn.example/banner.webp');
@@ -109,6 +119,11 @@ void main() {
         domain.MemberProfileHeaderLayout.compactBackground,
       );
       expect(model.profileHeaderVisible, isTrue);
+      expect(model.nameStyleFont, domain.MemberNameFont.standard);
+      expect(model.nameStyleBold, isTrue);
+      expect(model.nameStyleItalic, isFalse);
+      expect(model.nameStyleColorMode, domain.MemberNameColorMode.standard);
+      expect(model.nameStyleColorHex, isNull);
       expect(model.profileHeaderImageData, isNull);
       expect(model.pkBannerImageData, isNull);
       expect(model.pkBannerCachedUrl, isNull);
@@ -138,6 +153,11 @@ void main() {
         profileHeaderSource: domain.MemberProfileHeaderSource.pluralKit,
         profileHeaderLayout: domain.MemberProfileHeaderLayout.classicOverlap,
         profileHeaderVisible: false,
+        nameStyleFont: domain.MemberNameFont.mono,
+        nameStyleBold: false,
+        nameStyleItalic: true,
+        nameStyleColorMode: domain.MemberNameColorMode.custom,
+        nameStyleColorHex: '#123456',
         profileHeaderImageData: profileHeader,
         pkBannerImageData: pkBanner,
         pkBannerCachedUrl: 'https://cdn.example/pk.webp',
@@ -160,6 +180,11 @@ void main() {
       expect(companion.profileHeaderSource.value, 0);
       expect(companion.profileHeaderLayout.value, 1);
       expect(companion.profileHeaderVisible.value, isFalse);
+      expect(companion.nameStyleFont.value, 3);
+      expect(companion.nameStyleBold.value, isFalse);
+      expect(companion.nameStyleItalic.value, isTrue);
+      expect(companion.nameStyleColorMode.value, 2);
+      expect(companion.nameStyleColorHex.value, '#123456');
       expect(companion.profileHeaderImageData.value, profileHeader);
       expect(companion.pkBannerImageData.value, pkBanner);
       expect(companion.pkBannerCachedUrl.value, 'https://cdn.example/pk.webp');
@@ -206,6 +231,11 @@ void main() {
         profileHeaderSource: companion.profileHeaderSource.value,
         profileHeaderLayout: companion.profileHeaderLayout.value,
         profileHeaderVisible: companion.profileHeaderVisible.value,
+        nameStyleFont: companion.nameStyleFont.value,
+        nameStyleBold: companion.nameStyleBold.value,
+        nameStyleItalic: companion.nameStyleItalic.value,
+        nameStyleColorMode: companion.nameStyleColorMode.value,
+        nameStyleColorHex: companion.nameStyleColorHex.value,
         profileHeaderImageData: companion.profileHeaderImageData.value,
         pkBannerImageData: companion.pkBannerImageData.value,
         pkBannerCachedUrl: companion.pkBannerCachedUrl.value,

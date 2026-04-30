@@ -194,6 +194,8 @@ abstract final class AppIcons {
   static final cameraAlt = PhosphorIcons.camera();
   static final addAPhotoOutlined = PhosphorIcons.camera();
   static final textFields = PhosphorIcons.textT();
+  static final textBold = PhosphorIcons.textB();
+  static final textItalic = PhosphorIcons.textItalic();
   static final alternateEmail = PhosphorIcons.at();
   static final tag = PhosphorIcons.hashStraight();
   static final label = PhosphorIcons.tag();

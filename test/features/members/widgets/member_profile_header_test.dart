@@ -9,7 +9,6 @@ import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/members/widgets/member_profile_header.dart';
 import 'package:prism_plurality/features/members/widgets/member_profile_header_editor.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
-import 'package:prism_plurality/shared/widgets/prism_button.dart';
 
 final Uint8List _pngBytes = base64Decode(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/lB0Q9wAAAABJRU5ErkJggg==',
@@ -167,18 +166,14 @@ void main() {
       await tester.pumpAndSettle();
       expect(layout, MemberProfileHeaderLayout.classicOverlap);
 
-      await tester.ensureVisible(
-        find.widgetWithText(PrismButton, 'Change image'),
-      );
-      await tester.tap(find.widgetWithText(PrismButton, 'Change image'));
+      await tester.ensureVisible(find.byTooltip('Change image'));
+      await tester.tap(find.byTooltip('Change image'));
       await tester.pumpAndSettle();
       expect(source, MemberProfileHeaderSource.prism);
       expect(prismHeaderImageData, Uint8List.fromList([9, 8, 7]));
 
-      await tester.ensureVisible(
-        find.widgetWithText(PrismButton, 'Remove image'),
-      );
-      await tester.tap(find.widgetWithText(PrismButton, 'Remove image'));
+      await tester.ensureVisible(find.byTooltip('Remove image'));
+      await tester.tap(find.byTooltip('Remove image'));
       await tester.pumpAndSettle();
       expect(prismHeaderImageData, isNull);
       expect(removed, isTrue);

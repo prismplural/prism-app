@@ -104,6 +104,11 @@ class MembersNotifier extends AsyncNotifier<void> {
     MemberProfileHeaderLayout profileHeaderLayout =
         MemberProfileHeaderLayout.compactBackground,
     bool profileHeaderVisible = true,
+    MemberNameFont nameStyleFont = MemberNameFont.standard,
+    bool nameStyleBold = true,
+    bool nameStyleItalic = false,
+    MemberNameColorMode nameStyleColorMode = MemberNameColorMode.standard,
+    String? nameStyleColorHex,
     Uint8List? profileHeaderImageData,
   }) async {
     state = await AsyncValue.guard(() async {
@@ -125,6 +130,11 @@ class MembersNotifier extends AsyncNotifier<void> {
         profileHeaderSource: profileHeaderSource,
         profileHeaderLayout: profileHeaderLayout,
         profileHeaderVisible: profileHeaderVisible,
+        nameStyleFont: nameStyleFont,
+        nameStyleBold: nameStyleBold,
+        nameStyleItalic: nameStyleItalic,
+        nameStyleColorMode: nameStyleColorMode,
+        nameStyleColorHex: nameStyleColorHex,
         profileHeaderImageData: profileHeaderImageData,
         createdAt: DateTime.now(),
       );

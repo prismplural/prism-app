@@ -1197,6 +1197,54 @@ class AppLocalizationsEn extends AppLocalizations {
       'Could not process that image.';
 
   @override
+  String get memberNameStyleTooltip => 'Edit name style';
+
+  @override
+  String get memberNameStyleDialogTitle => 'Name style';
+
+  @override
+  String get memberNameStyleFontLabel => 'Font';
+
+  @override
+  String get memberNameStyleFontDefault => 'Default';
+
+  @override
+  String get memberNameStyleFontDisplay => 'Display';
+
+  @override
+  String get memberNameStyleFontSerif => 'Serif';
+
+  @override
+  String get memberNameStyleFontMono => 'Mono';
+
+  @override
+  String get memberNameStyleFontRounded => 'Rounded';
+
+  @override
+  String get memberNameStyleStyleLabel => 'Style';
+
+  @override
+  String get memberNameStyleBold => 'Bold';
+
+  @override
+  String get memberNameStyleItalic => 'Italic';
+
+  @override
+  String get memberNameStyleColorLabel => 'Color';
+
+  @override
+  String get memberNameStyleColorDefault => 'Default';
+
+  @override
+  String get memberNameStyleColorAccent => 'Accent';
+
+  @override
+  String get memberNameStyleColorCustom => 'Custom';
+
+  @override
+  String get memberNameStyleReset => 'Reset';
+
+  @override
   String get systemInfoNameLabel => 'Name';
 
   @override

@@ -31,6 +31,7 @@ class MemberAvatar extends ConsumerWidget {
     this.tintOverride,
     this.opacity = 1.0,
     this.shape,
+    this.flushImage = false,
   });
 
   final Uint8List? avatarImageData;
@@ -54,6 +55,12 @@ class MemberAvatar extends ConsumerWidget {
   /// Shape override. When null, derives from the theme's [PrismShapes] corner style.
   final MemberAvatarShape? shape;
 
+  /// When true and an avatar image is set, the image fills the full circle
+  /// without the tinted glass surface behind it. The optional border still
+  /// renders. Used for profile-header avatars where the image is the
+  /// primary content.
+  final bool flushImage;
+
   Color _circleColor(BuildContext context) {
     if (tintOverride != null) return tintOverride!;
     if (customColorEnabled && customColorHex != null) {
@@ -76,7 +83,13 @@ class MemberAvatar extends ConsumerWidget {
     Widget child;
     if (avatarImageData != null && avatarImageData!.isNotEmpty) {
       final terms = watchTerminology(context, ref);
-      final imageInset = size * 0.1;
+      // Larger avatars (profile headers) look strong with a near-flush image;
+      // small avatars (lists, chat rows) need more inset so the tinted ring
+      // remains legible. flushImage drops the inset entirely.
+      final double insetFactor = flushImage
+          ? 0.0
+          : (size >= 64 ? 0.04 : 0.1);
+      final imageInset = size * insetFactor;
       final imageSize = size - imageInset * 2;
       final pixelSize = (imageSize * MediaQuery.devicePixelRatioOf(context))
           .ceil();
@@ -97,7 +110,15 @@ class MemberAvatar extends ConsumerWidget {
         colorBlendMode: dimmed ? BlendMode.modulate : null,
         errorBuilder: (_, _, _) => _centeredEmoji(size),
       );
-      if (effectiveShape == MemberAvatarShape.square) {
+      if (flushImage) {
+        child = SizedBox(
+          width: size,
+          height: size,
+          child: effectiveShape == MemberAvatarShape.square
+              ? image
+              : ClipOval(child: image),
+        );
+      } else if (effectiveShape == MemberAvatarShape.square) {
         child = TintedGlassSurface(
           width: size,
           height: size,

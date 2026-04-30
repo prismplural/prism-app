@@ -21,6 +21,22 @@ class MemberMapper {
     return values[value];
   }
 
+  static domain.MemberNameFont _nameFontFromDb(int value) {
+    const values = domain.MemberNameFont.values;
+    if (value < 0 || value >= values.length) {
+      return domain.MemberNameFont.standard;
+    }
+    return values[value];
+  }
+
+  static domain.MemberNameColorMode _nameColorModeFromDb(int value) {
+    const values = domain.MemberNameColorMode.values;
+    if (value < 0 || value >= values.length) {
+      return domain.MemberNameColorMode.standard;
+    }
+    return values[value];
+  }
+
   static domain.Member toDomain(Member row) {
     return domain.Member(
       id: row.id,
@@ -49,6 +65,11 @@ class MemberMapper {
       profileHeaderSource: _headerSourceFromDb(row.profileHeaderSource),
       profileHeaderLayout: _headerLayoutFromDb(row.profileHeaderLayout),
       profileHeaderVisible: row.profileHeaderVisible,
+      nameStyleFont: _nameFontFromDb(row.nameStyleFont),
+      nameStyleBold: row.nameStyleBold,
+      nameStyleItalic: row.nameStyleItalic,
+      nameStyleColorMode: _nameColorModeFromDb(row.nameStyleColorMode),
+      nameStyleColorHex: row.nameStyleColorHex,
       profileHeaderImageData: row.profileHeaderImageData != null
           ? Uint8List.fromList(row.profileHeaderImageData!)
           : null,
@@ -90,6 +111,11 @@ class MemberMapper {
       profileHeaderSource: Value(model.profileHeaderSource.index),
       profileHeaderLayout: Value(model.profileHeaderLayout.index),
       profileHeaderVisible: Value(model.profileHeaderVisible),
+      nameStyleFont: Value(model.nameStyleFont.index),
+      nameStyleBold: Value(model.nameStyleBold),
+      nameStyleItalic: Value(model.nameStyleItalic),
+      nameStyleColorMode: Value(model.nameStyleColorMode.index),
+      nameStyleColorHex: Value(model.nameStyleColorHex),
       profileHeaderImageData: Value(model.profileHeaderImageData),
       pkBannerImageData: Value(model.pkBannerImageData),
       pkBannerCachedUrl: Value(model.pkBannerCachedUrl),
