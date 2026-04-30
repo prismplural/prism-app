@@ -283,7 +283,8 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
   /// 2. Converts the mnemonic to secret-key bytes.
   /// 3. Calls `ffi.initialize()` — derives MEK, wraps DEK, creates device keys.
   /// 4. Drains Rust's MemorySecureStore to the platform keychain.
-  /// 5. Caches the runtime DEK (`kRuntimeDekKey`) for Signal-style fast unlock.
+  /// 5. Rotates local database keys and caches a device-bound wrapped runtime
+  ///    DEK when a sync identity already exists.
   /// 6. Stores the PIN hash via [PinLockService].
   /// 7. Advances to [OnboardingStep.recoveryPhrase] so the user can write the
   ///    mnemonic down. The phrase is NEVER persisted — it is an offline
@@ -335,8 +336,8 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
       //    they change their PIN or pair another device.
       await drainRustStore(handle);
 
-      // 6. Export raw DEK and cache it (Signal-style: bypasses Argon2id on
-      //    next launch). Also derives and caches the database key.
+      // 6. Rotate local database keys. If a sync identity already exists, also
+      //    cache a device-bound wrapped DEK for Signal-style fast unlock.
       await cacheRuntimeKeys(handle, ref.read(databaseProvider));
       final dekBytes = await ffi.exportDek(handle: handle);
 

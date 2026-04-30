@@ -33,6 +33,7 @@ const String prismSyncSchema = '''
         "markdown_enabled": "Bool",
         "display_name": "String",
         "birthday": "String",
+        "is_always_fronting": "Bool",
         "proxy_tags_json": "String",
         "pk_banner_url": "String",
         "profile_header_source": "Int",
@@ -48,7 +49,6 @@ const String prismSyncSchema = '''
         "pk_banner_cached_url": "String",
         "pluralkit_sync_ignored": "Bool",
         "delete_push_started_at": "Int",
-        "is_always_fronting": "Bool",
         "is_deleted": "Bool"
       }
     },

@@ -54,10 +54,12 @@ DeviceSecret (32 bytes, per-device CSPRNG — NOT derived from DEK)
 - Batch signatures use hybrid Ed25519 + ML-DSA-65 (protocol V3)
 
 ### Signal-Style Key Persistence (IMPORTANT)
-On first setup, the raw DEK is cached in the platform keychain (`prism_sync.runtime_dek`) so subsequent app launches bypass the expensive Argon2id derivation. The Rust FFI provides:
-- `restoreRuntimeKeys(handle, dek, deviceSecret)` — fast restore from keychain
-- `exportDek(handle)` — export raw DEK after first unlock for caching
+On first setup, the runtime DEK is cached as a device-bound wrapped blob (`prism_sync.runtime_dek_wrapped_v1`) so subsequent app launches bypass the expensive Argon2id derivation without persisting the raw DEK. The legacy raw `prism_sync.runtime_dek` slot is migration/delete-only.
+- `restoreRuntimeKeys(handle, dek, deviceSecret)` — fast restore after native unwrap
+- `exportDek(handle)` — export raw DEK after first unlock so Dart can hand it to the native wrapper
 - `ffi.unlock(handle, pin, secretKey)` — full Argon2id path (fallback only; `pin` is the 6-digit PIN string)
+
+Runtime DEK wrapping uses AAD `sync_id|device_id|1`. Android uses a non-exportable Android Keystore AES-GCM key; iOS uses a non-extractable P-256 Keychain private key with `AfterFirstUnlockThisDeviceOnly` accessibility and derives an AES-GCM wrapping key by ECDH. This preserves after-first-unlock background sync without per-launch biometric/PIN prompts.
 
 ### Secure Storage Configuration
 **All sync credentials use a centralized `FlutterSecureStorage` instance** defined in `lib/core/services/secure_storage.dart`:
@@ -78,13 +80,14 @@ On first setup, the raw DEK is cached in the platform keychain (`prism_sync.runt
 | `dek_salt` | base64(Argon2id salt) | Rust (drain) |
 | `session_token` | base64(auth token) | Rust (drain) |
 | `epoch` | base64(epoch counter) | Rust (drain) |
-| `runtime_dek` | base64(raw 32-byte DEK) | Dart (`cacheRuntimeKeys`) |
+| `runtime_dek_wrapped_v1` | JSON wrapped runtime DEK ciphertext | Dart (`cacheRuntimeKeys`) |
+| `runtime_dek` | legacy base64(raw 32-byte DEK), migration/delete only | Older builds |
 | `biometric_dek` | base64(raw 32-byte DEK, biometric-gated) | Dart (`BiometricService.enroll`) |
 
 ### Sync Health System
 `SyncHealthState` enum tracks sync credential health:
 - `healthy` — sync configured and working (or not paired)
-- `needsPassword` — `runtime_dek` missing but `wrapped_dek` exists (shows `SyncPinSheet` PIN prompt via `AppShell` listener)
+- `needsPassword` — wrapped runtime cache missing but `wrapped_dek` exists (shows `SyncPinSheet` PIN prompt via `AppShell` listener)
 - `disconnected` — credentials wiped or device revoked (shows reconnect card in sync settings)
 
 `DeviceRevoked` events from the relay WebSocket automatically transition to `disconnected`.
@@ -112,7 +115,7 @@ PrismSyncHandleNotifier.build()
   │   ├─ createPrismSync(relayUrl, dbPath)
   │   ├─ _seedRustStore(handle) — restore keychain → Rust
   │   ├─ _autoConfigureIfReady(handle) → SyncHealthState
-  │   │   ├─ runtime_dek exists? → restoreRuntimeKeys → configureEngine → healthy
+  │   │   ├─ runtime_dek_wrapped_v1 unwraps? → restoreRuntimeKeys → configureEngine → healthy
   │   │   ├─ wrapped_dek exists? → needsPassword (user prompted)
   │   │   └─ nothing? → disconnected
   │   └─ ref.read(syncHealthProvider.notifier).setState(health)

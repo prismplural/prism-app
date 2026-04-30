@@ -345,6 +345,7 @@ void main() {
         ..seedSyncValue('prism_sync.pending_sync_id', 'P1')
         ..seedSyncValue('prism_sync.registration_token', 'R1')
         ..seedSyncValue('prism_sync.runtime_dek', 'D1')
+        ..seedSyncValue('prism_sync.runtime_dek_wrapped_v1', 'W1')
         ..seedSyncValue('prism_sync.database_key', 'KEEP1')
         ..seedSyncValue('prism_sync.database_key_staging', 'KEEP2')
         ..seedSyncValue('prism_sync.sync_database_key', 'KEEP3')
@@ -399,6 +400,10 @@ void main() {
         harness.secureStore.readSyncValue('prism_sync.runtime_dek'),
         isNull,
       );
+      expect(
+        harness.secureStore.readSyncValue('prism_sync.runtime_dek_wrapped_v1'),
+        isNull,
+      );
     });
 
     test('reset_preserves_database_keys', () async {
@@ -421,7 +426,8 @@ void main() {
           base64Encode(utf8.encode('sync-abc')),
         )
         ..seedSyncValue('prism_sync.registration_token', 'WIPE_REGISTRATION')
-        ..seedSyncValue('prism_sync.runtime_dek', 'WIPE_RUNTIME');
+        ..seedSyncValue('prism_sync.runtime_dek', 'WIPE_RUNTIME')
+        ..seedSyncValue('prism_sync.runtime_dek_wrapped_v1', 'WIPE_WRAPPED');
 
       await harness.reset(ResetCategory.sync);
 
@@ -450,6 +456,10 @@ void main() {
       );
       expect(
         harness.secureStore.readSyncValue('prism_sync.runtime_dek'),
+        isNull,
+      );
+      expect(
+        harness.secureStore.readSyncValue('prism_sync.runtime_dek_wrapped_v1'),
         isNull,
       );
     });
@@ -1270,6 +1280,7 @@ class _ResetHarness {
       'prism_sync.runtime_dek',
       base64Encode(List<int>.generate(8, (index) => index)),
     );
+    secureStore.seedSyncValue('prism_sync.runtime_dek_wrapped_v1', 'wrapped');
     secureStore.seedSyncValue('prism_pluralkit_token', 'pk-secret-token');
   }
 

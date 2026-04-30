@@ -89,11 +89,7 @@ class _FakePairingCeremonyApi extends PairingCeremonyApi {
 }
 
 String _structuredSyncError({required String code, required String message}) {
-  return 'PRISM_SYNC_ERROR_JSON:${jsonEncode({
-    'message': message,
-    'code': code,
-    'error_type': 'sync',
-  })}';
+  return 'PRISM_SYNC_ERROR_JSON:${jsonEncode({'message': message, 'code': code, 'error_type': 'sync'})}';
 }
 
 void main() {
@@ -557,7 +553,7 @@ void main() {
       expect(progressState.liveCounts, isEmpty);
     });
 
-    // Regression for codex Finding A: a non-timeout exception thrown
+    // Regression for non-timeout failure regression: a non-timeout exception thrown
     // AFTER `completeJoinerCeremony` succeeds (e.g. from `configureEngine`)
     // must NOT wipe the keychain — the joiner is already registered on
     // the relay and orphaning it forces an unrecoverable state. The
@@ -722,7 +718,7 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
-  // Apply watchdog idle-reset policy (codex Finding B regression)
+  // Apply watchdog idle-reset policy regression.
   // ---------------------------------------------------------------------------
   group('apply watchdog — idle-reset policy', () {
     /// Build a container with a controllable sync-event stream and a
@@ -888,7 +884,7 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
-  // Drain-ordering regression (codex P1: ceremonyCompleted vs drainRustStore)
+  // Drain-ordering regression (Regression: ceremonyCompleted vs drainRustStore)
   // ---------------------------------------------------------------------------
   //
   // Before the fix, `ceremonyCompleted = true` flipped immediately after

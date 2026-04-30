@@ -67,10 +67,15 @@ class _PinLockSettingsScreenState extends ConsumerState<PinLockSettingsScreen> {
     final service = ref.read(pinLockServiceProvider);
     await service.clearPin();
     ref.invalidate(isPinSetProvider);
-    unawaited(ref.read(settingsNotifierProvider.notifier).updatePinLockEnabled(false));
-    unawaited(ref
-        .read(settingsNotifierProvider.notifier)
-        .updateBiometricLockEnabled(false));
+    unawaited(
+      ref.read(settingsNotifierProvider.notifier).updatePinLockEnabled(false),
+    );
+    unawaited(
+      ref
+          .read(settingsNotifierProvider.notifier)
+          .updateBiometricLockEnabled(false),
+    );
+    unawaited(ref.read(hardLockSyncOnAppLockProvider.notifier).set(false));
   }
 
   @override
@@ -86,13 +91,19 @@ class _PinLockSettingsScreenState extends ConsumerState<PinLockSettingsScreen> {
     final autoLockDelay = ref.watch(autoLockDelaySecondsProvider);
     final isPinSetAsync = ref.watch(isPinSetProvider);
     final biometricAvailableAsync = ref.watch(isBiometricAvailableProvider);
+    final hardLockSyncAsync = ref.watch(hardLockSyncOnAppLockProvider);
 
     final pinSet = isPinSetAsync.value ?? false;
+    final pinReady = isPinEnabled && pinSet;
     final biometricAvailable = biometricAvailableAsync.value ?? false;
+    final hardLockSyncEnabled = hardLockSyncAsync.value ?? false;
 
     if (!settingsLoaded) {
       return PrismPageScaffold(
-        topBar: PrismTopBar(title: context.l10n.privacySecurityTitle, showBackButton: true),
+        topBar: PrismTopBar(
+          title: context.l10n.privacySecurityTitle,
+          showBackButton: true,
+        ),
         body: const PrismLoadingState(),
       );
     }
@@ -131,34 +142,57 @@ class _PinLockSettingsScreenState extends ConsumerState<PinLockSettingsScreen> {
             ),
           ),
 
-          // Biometric (shown when available, disabled when PIN is not set)
-          if (biometricAvailable)
-            Opacity(
-              opacity: isPinEnabled && pinSet ? 1.0 : 0.5,
-              child: PrismSection(
-                title: context.l10n.pinLockBiometricSection,
-                child: PrismSectionCard(
-                  child: PrismSwitchRow(
-                    icon: AppIcons.fingerprint,
-                    iconColor: Colors.teal,
-                    title: context.l10n.pinLockBiometricTitle,
-                    subtitle: isPinEnabled && pinSet
-                        ? context.l10n.pinLockBiometricSubtitle
-                        : context.l10n.pinLockBiometricDisabledSubtitle,
-                    value: biometricLockEnabled,
-                    enabled: isPinEnabled && pinSet,
-                    onChanged: (value) {
-                      ref
-                          .read(settingsNotifierProvider.notifier)
-                          .updateBiometricLockEnabled(value);
-                    },
-                  ),
+          // Unlock options (disabled until PIN is set).
+          Opacity(
+            opacity: pinReady ? 1.0 : 0.5,
+            child: PrismSection(
+              title: context.l10n.pinLockUnlockOptionsSection,
+              child: PrismSectionCard(
+                child: Column(
+                  children: [
+                    if (biometricAvailable) ...[
+                      PrismSwitchRow(
+                        icon: AppIcons.fingerprint,
+                        iconColor: Colors.teal,
+                        title: context.l10n.pinLockBiometricTitle,
+                        subtitle: pinReady
+                            ? context.l10n.pinLockBiometricSubtitle
+                            : context.l10n.pinLockBiometricDisabledSubtitle,
+                        value: biometricLockEnabled,
+                        enabled: pinReady,
+                        onChanged: (value) {
+                          ref
+                              .read(settingsNotifierProvider.notifier)
+                              .updateBiometricLockEnabled(value);
+                        },
+                      ),
+                      const Divider(height: 1, indent: 56, endIndent: 12),
+                    ],
+                    PrismSwitchRow(
+                      icon: AppIcons.duotoneLock,
+                      iconColor: Colors.indigo,
+                      title: context.l10n.pinLockHardSyncLockTitle,
+                      subtitle: pinReady
+                          ? context.l10n.pinLockHardSyncLockSubtitle
+                          : context.l10n.pinLockHardSyncLockDisabledSubtitle,
+                      value: hardLockSyncEnabled && pinReady,
+                      enabled: pinReady && hardLockSyncAsync.hasValue,
+                      onChanged: (value) {
+                        unawaited(
+                          ref
+                              .read(hardLockSyncOnAppLockProvider.notifier)
+                              .set(value),
+                        );
+                      },
+                    ),
+                  ],
                 ),
               ),
             ),
+          ),
 
           // Auto-lock delay
-          if (isPinEnabled && pinSet)
+          if (pinReady)
             PrismSection(
               title: context.l10n.pinLockAutoLockSection,
               child: PrismSectionCard(
@@ -209,7 +243,7 @@ class _PinLockSettingsScreenState extends ConsumerState<PinLockSettingsScreen> {
             ),
 
           // Change PIN / Remove PIN buttons
-          if (isPinEnabled && pinSet)
+          if (pinReady)
             PrismSection(
               title: context.l10n.pinLockManageSection,
               child: PrismSectionCard(
@@ -461,7 +495,9 @@ class _CapturePinScreenState extends State<_CapturePinScreen>
                     child: AnimatedBuilder(
                       animation: _dotScaleAnim,
                       builder: (context, child) => Transform.scale(
-                        scale: i == _lastFilledDotIndex ? _dotScaleAnim.value : 1.0,
+                        scale: i == _lastFilledDotIndex
+                            ? _dotScaleAnim.value
+                            : 1.0,
                         child: child,
                       ),
                       child: AnimatedContainer(
@@ -507,7 +543,11 @@ class _CapturePinScreenState extends State<_CapturePinScreen>
     if (row < 3) {
       return List.generate(3, (col) {
         final digit = '${row * 3 + col + 1}';
-        return PinNumpadButton(label: digit, onTap: () => _onDigit(digit), size: 72);
+        return PinNumpadButton(
+          label: digit,
+          onTap: () => _onDigit(digit),
+          size: 72,
+        );
       });
     }
     return [

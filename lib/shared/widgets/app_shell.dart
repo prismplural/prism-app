@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui';
 
@@ -116,10 +117,10 @@ FrontingUpgradeSheetDecision frontingUpgradeSheetDecision({
 @visibleForTesting
 class FrontingUpgradeSheetDecision {
   const FrontingUpgradeSheetDecision.hidden()
-      : shouldShow = false,
-        isDismissible = false;
+    : shouldShow = false,
+      isDismissible = false;
   const FrontingUpgradeSheetDecision.show({required this.isDismissible})
-      : shouldShow = true;
+    : shouldShow = true;
 
   final bool shouldShow;
   final bool isDismissible;
@@ -134,7 +135,8 @@ class FrontingUpgradeSheetDecision {
   int get hashCode => Object.hash(shouldShow, isDismissible);
 
   @override
-  String toString() => 'FrontingUpgradeSheetDecision('
+  String toString() =>
+      'FrontingUpgradeSheetDecision('
       'shouldShow: $shouldShow, isDismissible: $isDismissible)';
 }
 
@@ -288,14 +290,14 @@ class _NavLayoutSignature {
 
   @override
   int get hashCode => Object.hash(
-        barWidth,
-        textScaleFactor,
-        textDirection,
-        fontSize,
-        fontWeight,
-        Object.hashAll(primaryLabels),
-        Object.hashAll(overflowLabels),
-      );
+    barWidth,
+    textScaleFactor,
+    textDirection,
+    fontSize,
+    fontWeight,
+    Object.hashAll(primaryLabels),
+    Object.hashAll(overflowLabels),
+  );
 
   static bool _listEquals(List<String> a, List<String> b) {
     if (a.length != b.length) return false;
@@ -468,6 +470,7 @@ class _AppShellState extends ConsumerState<AppShell>
     with WidgetsBindingObserver {
   bool _wasDesktop = false;
   bool _locked = false;
+  int _lockGeneration = 0;
 
   /// Whether the initial PIN check has completed. While false, the app shows
   /// a loading/locked state to prevent content from being visible before we
@@ -561,6 +564,44 @@ class _AppShellState extends ConsumerState<AppShell>
       _locked = decision.locked;
       _pinCheckResolved = true;
     });
+    if (decision.locked) {
+      _startHardSyncLockIfEnabled(++_lockGeneration);
+    }
+  }
+
+  void _lockApp() {
+    if (_locked) return;
+    final generation = ++_lockGeneration;
+    setState(() => _locked = true);
+    _startHardSyncLockIfEnabled(generation);
+  }
+
+  void _unlockApp() {
+    ++_lockGeneration;
+    setState(() => _locked = false);
+  }
+
+  void _startHardSyncLockIfEnabled(int generation) {
+    unawaited(_hardLockSyncIfEnabled(generation));
+  }
+
+  Future<void> _hardLockSyncIfEnabled(int generation) async {
+    try {
+      final enabled = await ref.read(hardLockSyncOnAppLockProvider.future);
+      if (!mounted || !enabled || !_locked || generation != _lockGeneration) {
+        return;
+      }
+      await ref.read(syncHealthProvider.notifier).lock(hard: true);
+    } catch (e, st) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: e,
+          stack: st,
+          library: 'prism_plurality',
+          context: ErrorDescription('hard locking sync on app lock'),
+        ),
+      );
+    }
   }
 
   @override
@@ -588,7 +629,7 @@ class _AppShellState extends ConsumerState<AppShell>
     );
 
     if (shouldLock) {
-      setState(() => _locked = true);
+      _lockApp();
     }
   }
 
@@ -617,6 +658,9 @@ class _AppShellState extends ConsumerState<AppShell>
 
     // Keep syncStatusProvider alive so DeviceRevoked events are received.
     ref.watch(syncStatusProvider);
+
+    // Keep the local privacy preference loaded for app-lock decisions.
+    ref.watch(hardLockSyncOnAppLockProvider);
 
     // Keep the PK auto-poll notifier alive for its timer lifecycle.
     ref.watch(pkAutoPollProvider);
@@ -691,8 +735,10 @@ class _AppShellState extends ConsumerState<AppShell>
     // - [FrontingMigrationGateStatus.blocked]: present non-dismissible.
     //   v7 onUpgrade refused the composite index because of duplicates;
     //   the modal is the user's only recovery path.
-    ref.listen<FrontingMigrationGateStatus>(frontingMigrationGateProvider,
-        (prev, next) {
+    ref.listen<FrontingMigrationGateStatus>(frontingMigrationGateProvider, (
+      prev,
+      next,
+    ) {
       if (!_pinCheckResolved || _locked) return;
       final mode = ref.read(frontingMigrationModeProvider).value;
       _showFrontingUpgradeSheetIfNeeded(context, ref, next, mode);
@@ -907,7 +953,7 @@ class _AppShellState extends ConsumerState<AppShell>
           Positioned.fill(
             child: PinInputScreen(
               mode: PinInputMode.unlock,
-              onSuccess: () => setState(() => _locked = false),
+              onSuccess: _unlockApp,
             ),
           ),
         ],

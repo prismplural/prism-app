@@ -52,47 +52,52 @@ void main() {
   // ---------------------------------------------------------------------------
 
   group('cornerStyleProvider', () {
-    test('returns DB value (rounded) when ignoreSyncedAppearance is false',
-        () async {
-      final container = await makeContainerWithIgnore(
-        ignoreSynced: false,
-        settings: const domain.SystemSettings(
-          cornerStyle: domain.CornerStyle.rounded,
-        ),
-      );
-      addTearDown(container.dispose);
+    test(
+      'returns DB value (rounded) when ignoreSyncedAppearance is false',
+      () async {
+        final container = await makeContainerWithIgnore(
+          ignoreSynced: false,
+          settings: const domain.SystemSettings(
+            cornerStyle: domain.CornerStyle.rounded,
+          ),
+        );
+        addTearDown(container.dispose);
 
-      expect(container.read(cornerStyleProvider), CornerStyle.rounded);
-    });
-
-    test('returns DB value (angular) when ignoreSyncedAppearance is false',
-        () async {
-      final container = await makeContainerWithIgnore(
-        ignoreSynced: false,
-        settings: const domain.SystemSettings(
-          cornerStyle: domain.CornerStyle.angular,
-        ),
-      );
-      addTearDown(container.dispose);
-
-      expect(container.read(cornerStyleProvider), CornerStyle.angular);
-    });
+        expect(container.read(cornerStyleProvider), CornerStyle.rounded);
+      },
+    );
 
     test(
-        'returns cached (local) value when ignoreSyncedAppearance is true',
-        () async {
-      // DB says angular, cached says rounded; with ignore=true we get rounded.
-      final container = await makeContainerWithIgnore(
-        ignoreSynced: true,
-        settings: const domain.SystemSettings(
-          cornerStyle: domain.CornerStyle.angular,
-        ),
-        cachedCornerStyle: CornerStyle.rounded,
-      );
-      addTearDown(container.dispose);
+      'returns DB value (angular) when ignoreSyncedAppearance is false',
+      () async {
+        final container = await makeContainerWithIgnore(
+          ignoreSynced: false,
+          settings: const domain.SystemSettings(
+            cornerStyle: domain.CornerStyle.angular,
+          ),
+        );
+        addTearDown(container.dispose);
 
-      expect(container.read(cornerStyleProvider), CornerStyle.rounded);
-    });
+        expect(container.read(cornerStyleProvider), CornerStyle.angular);
+      },
+    );
+
+    test(
+      'returns cached (local) value when ignoreSyncedAppearance is true',
+      () async {
+        // DB says angular, cached says rounded; with ignore=true we get rounded.
+        final container = await makeContainerWithIgnore(
+          ignoreSynced: true,
+          settings: const domain.SystemSettings(
+            cornerStyle: domain.CornerStyle.angular,
+          ),
+          cachedCornerStyle: CornerStyle.rounded,
+        );
+        addTearDown(container.dispose);
+
+        expect(container.read(cornerStyleProvider), CornerStyle.rounded);
+      },
+    );
 
     test('falls back to cached rounded when settings is loading', () async {
       SharedPreferences.setMockInitialValues({});
@@ -117,60 +122,63 @@ void main() {
   // ---------------------------------------------------------------------------
 
   group('updateCornerStyle (SettingsNotifier)', () {
-    test('writes domain.CornerStyle.angular to repo and caches index 1',
-        () async {
-      SharedPreferences.setMockInitialValues({});
-      final fakeRepo = FakeSystemSettingsRepository();
-      final container = ProviderContainer(
-        overrides: [
-          systemSettingsProvider.overrideWithValue(
-            AsyncValue.data(fakeRepo.settings),
-          ),
-          systemSettingsRepositoryProvider.overrideWithValue(fakeRepo),
-        ],
-      );
-      addTearDown(container.dispose);
-
-      await container
-          .read(settingsNotifierProvider.notifier)
-          .updateCornerStyle(CornerStyle.angular);
-
-      // Repo received the domain type with the correct value.
-      expect(fakeRepo.settings.cornerStyle, domain.CornerStyle.angular);
-
-      // SharedPreferences cache was written (index 1 = angular).
-      final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getInt('prism.cache.theme_corner_style'), 1);
-    });
-
-    test('writes domain.CornerStyle.rounded to repo and caches index 0',
-        () async {
-      SharedPreferences.setMockInitialValues({});
-      final fakeRepo = FakeSystemSettingsRepository()
-        ..settings = const domain.SystemSettings(
-          cornerStyle: domain.CornerStyle.angular,
+    test(
+      'writes domain.CornerStyle.angular to repo and caches index 1',
+      () async {
+        SharedPreferences.setMockInitialValues({});
+        final fakeRepo = FakeSystemSettingsRepository();
+        final container = ProviderContainer(
+          overrides: [
+            systemSettingsProvider.overrideWithValue(
+              AsyncValue.data(fakeRepo.settings),
+            ),
+            systemSettingsRepositoryProvider.overrideWithValue(fakeRepo),
+          ],
         );
-      final container = ProviderContainer(
-        overrides: [
-          systemSettingsProvider.overrideWithValue(
-            AsyncValue.data(fakeRepo.settings),
-          ),
-          systemSettingsRepositoryProvider.overrideWithValue(fakeRepo),
-        ],
-      );
-      addTearDown(container.dispose);
+        addTearDown(container.dispose);
 
-      await container
-          .read(settingsNotifierProvider.notifier)
-          .updateCornerStyle(CornerStyle.rounded);
+        await container
+            .read(settingsNotifierProvider.notifier)
+            .updateCornerStyle(CornerStyle.angular);
 
-      expect(fakeRepo.settings.cornerStyle, domain.CornerStyle.rounded);
-      final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getInt('prism.cache.theme_corner_style'), 0);
-    });
+        // Repo received the domain type with the correct value.
+        expect(fakeRepo.settings.cornerStyle, domain.CornerStyle.angular);
+
+        // SharedPreferences cache was written (index 1 = angular).
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.getInt('prism.cache.theme_corner_style'), 1);
+      },
+    );
 
     test(
-        'enabling ignoreSyncedAppearance does not prevent writes — '
+      'writes domain.CornerStyle.rounded to repo and caches index 0',
+      () async {
+        SharedPreferences.setMockInitialValues({});
+        final fakeRepo = FakeSystemSettingsRepository()
+          ..settings = const domain.SystemSettings(
+            cornerStyle: domain.CornerStyle.angular,
+          );
+        final container = ProviderContainer(
+          overrides: [
+            systemSettingsProvider.overrideWithValue(
+              AsyncValue.data(fakeRepo.settings),
+            ),
+            systemSettingsRepositoryProvider.overrideWithValue(fakeRepo),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        await container
+            .read(settingsNotifierProvider.notifier)
+            .updateCornerStyle(CornerStyle.rounded);
+
+        expect(fakeRepo.settings.cornerStyle, domain.CornerStyle.rounded);
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.getInt('prism.cache.theme_corner_style'), 0);
+      },
+    );
+
+    test('enabling ignoreSyncedAppearance does not prevent writes — '
         'updateCornerStyle still goes through repo', () async {
       // Seed ignore=true in SharedPreferences.
       SharedPreferences.setMockInitialValues({
@@ -233,9 +241,7 @@ void main() {
 
       await container.read(ignoreSyncedAppearanceProvider.future);
 
-      await container
-          .read(ignoreSyncedAppearanceProvider.notifier)
-          .set(true);
+      await container.read(ignoreSyncedAppearanceProvider.notifier).set(true);
 
       expect(container.read(ignoreSyncedAppearanceProvider).value, isTrue);
 
@@ -243,26 +249,28 @@ void main() {
       expect(prefs.getBool('prism.pref.ignore_synced_appearance'), isTrue);
     });
 
-    test('set(false) updates state and persists false to SharedPreferences',
-        () async {
-      SharedPreferences.setMockInitialValues({
-        'prism.pref.ignore_synced_appearance': true,
-      });
+    test(
+      'set(false) updates state and persists false to SharedPreferences',
+      () async {
+        SharedPreferences.setMockInitialValues({
+          'prism.pref.ignore_synced_appearance': true,
+        });
 
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
 
-      await container.read(ignoreSyncedAppearanceProvider.future);
+        await container.read(ignoreSyncedAppearanceProvider.future);
 
-      await container
-          .read(ignoreSyncedAppearanceProvider.notifier)
-          .set(false);
+        await container
+            .read(ignoreSyncedAppearanceProvider.notifier)
+            .set(false);
 
-      expect(container.read(ignoreSyncedAppearanceProvider).value, isFalse);
+        expect(container.read(ignoreSyncedAppearanceProvider).value, isFalse);
 
-      final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getBool('prism.pref.ignore_synced_appearance'), isFalse);
-    });
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.getBool('prism.pref.ignore_synced_appearance'), isFalse);
+      },
+    );
   });
 
   // ---------------------------------------------------------------------------
@@ -270,8 +278,7 @@ void main() {
   // ---------------------------------------------------------------------------
 
   group('themeStyleProvider ignoreSyncedAppearance gate', () {
-    test(
-        'returns cached style when ignoreSyncedAppearance is true, '
+    test('returns cached style when ignoreSyncedAppearance is true, '
         'ignoring DB value', () async {
       // DB says OLED, cached says standard; with ignore=true we get standard.
       final container = await makeContainerWithIgnore(
@@ -311,10 +318,7 @@ void main() {
       addTearDown(container.dispose);
 
       await container.read(useProxyTagsForAuthoringProvider.future);
-      expect(
-        container.read(useProxyTagsForAuthoringProvider).value,
-        isTrue,
-      );
+      expect(container.read(useProxyTagsForAuthoringProvider).value, isTrue);
     });
 
     test('reads false from SharedPreferences when pre-seeded', () async {
@@ -325,10 +329,7 @@ void main() {
       addTearDown(container.dispose);
 
       await container.read(useProxyTagsForAuthoringProvider.future);
-      expect(
-        container.read(useProxyTagsForAuthoringProvider).value,
-        isFalse,
-      );
+      expect(container.read(useProxyTagsForAuthoringProvider).value, isFalse);
     });
 
     test('reads true from SharedPreferences when pre-seeded', () async {
@@ -339,10 +340,7 @@ void main() {
       addTearDown(container.dispose);
 
       await container.read(useProxyTagsForAuthoringProvider.future);
-      expect(
-        container.read(useProxyTagsForAuthoringProvider).value,
-        isTrue,
-      );
+      expect(container.read(useProxyTagsForAuthoringProvider).value, isTrue);
     });
 
     test('set(true) flips a previously-false value and persists', () async {
@@ -353,19 +351,11 @@ void main() {
       addTearDown(container.dispose);
 
       await container.read(useProxyTagsForAuthoringProvider.future);
-      await container
-          .read(useProxyTagsForAuthoringProvider.notifier)
-          .set(true);
+      await container.read(useProxyTagsForAuthoringProvider.notifier).set(true);
 
-      expect(
-        container.read(useProxyTagsForAuthoringProvider).value,
-        isTrue,
-      );
+      expect(container.read(useProxyTagsForAuthoringProvider).value, isTrue);
       final prefs = await SharedPreferences.getInstance();
-      expect(
-        prefs.getBool('prism.pref.use_proxy_tags_for_authoring'),
-        isTrue,
-      );
+      expect(prefs.getBool('prism.pref.use_proxy_tags_for_authoring'), isTrue);
     });
 
     test('set(false) flips a previously-true value back', () async {
@@ -380,15 +370,65 @@ void main() {
           .read(useProxyTagsForAuthoringProvider.notifier)
           .set(false);
 
-      expect(
-        container.read(useProxyTagsForAuthoringProvider).value,
-        isFalse,
-      );
+      expect(container.read(useProxyTagsForAuthoringProvider).value, isFalse);
       final prefs = await SharedPreferences.getInstance();
-      expect(
-        prefs.getBool('prism.pref.use_proxy_tags_for_authoring'),
-        isFalse,
-      );
+      expect(prefs.getBool('prism.pref.use_proxy_tags_for_authoring'), isFalse);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // hardLockSyncOnAppLockProvider (self-hydrating AsyncNotifier, local-only)
+  // ---------------------------------------------------------------------------
+
+  group('hardLockSyncOnAppLockProvider', () {
+    test('defaults to false when no prefs entry exists', () async {
+      SharedPreferences.setMockInitialValues({});
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      await container.read(hardLockSyncOnAppLockProvider.future);
+      expect(container.read(hardLockSyncOnAppLockProvider).value, isFalse);
+    });
+
+    test('reads true from SharedPreferences when pre-seeded', () async {
+      SharedPreferences.setMockInitialValues({
+        'prism.pref.hard_lock_sync_on_app_lock': true,
+      });
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      await container.read(hardLockSyncOnAppLockProvider.future);
+      expect(container.read(hardLockSyncOnAppLockProvider).value, isTrue);
+    });
+
+    test('set(true) flips a previously-false value and persists', () async {
+      SharedPreferences.setMockInitialValues({
+        'prism.pref.hard_lock_sync_on_app_lock': false,
+      });
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      await container.read(hardLockSyncOnAppLockProvider.future);
+      await container.read(hardLockSyncOnAppLockProvider.notifier).set(true);
+
+      expect(container.read(hardLockSyncOnAppLockProvider).value, isTrue);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool('prism.pref.hard_lock_sync_on_app_lock'), isTrue);
+    });
+
+    test('set(false) flips a previously-true value back', () async {
+      SharedPreferences.setMockInitialValues({
+        'prism.pref.hard_lock_sync_on_app_lock': true,
+      });
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      await container.read(hardLockSyncOnAppLockProvider.future);
+      await container.read(hardLockSyncOnAppLockProvider.notifier).set(false);
+
+      expect(container.read(hardLockSyncOnAppLockProvider).value, isFalse);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool('prism.pref.hard_lock_sync_on_app_lock'), isFalse);
     });
   });
 }

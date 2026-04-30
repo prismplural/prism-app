@@ -12,7 +12,7 @@ import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 /// an FFI handle that can't be constructed in a unit test, we test the
 /// pure `buildSeedRequestJson` that `_seedRustStore` now delegates to.
 /// Together with the round-trip test in `basic_ffi.rs`, this closes the
-/// cross-language seed/drain symmetry gap codex flagged in its review.
+/// cross-language seed/drain symmetry gap.
 void main() {
   group('buildSeedRequestJson', () {
     test('returns null for empty keychain (nothing to seed)', () {

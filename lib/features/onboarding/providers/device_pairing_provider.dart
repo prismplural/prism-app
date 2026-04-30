@@ -347,8 +347,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     // (`cancelAndRemoveDevice`) or a server-confirmed `device_revoked`
     // event. Any unexpected exception after this flips routes to
     // `PairingStep.snapshotFailure` so the user can retry the snapshot
-    // phase without losing the joined identity (see Finding A and the
-    // follow-up drain-ordering finding in the codex review).
+    // phase without losing the joined identity.
     //
     // Critically: the flag is NOT flipped between ceremony returning and
     // drain succeeding. If drain itself throws we are still effectively
@@ -758,7 +757,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     ref.invalidate(relayUrlProvider);
     ref.invalidate(syncIdProvider);
 
-    // Cache raw DEK so subsequent launches bypass Argon2id (Signal-style)
+    // Cache a device-bound wrapped DEK so launches bypass Argon2id.
     await cacheRuntimeKeys(handle, ref.read(databaseProvider));
 
     // Store Device 1's PIN as this device's app lock PIN so the user
@@ -798,7 +797,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
   /// `SyncCompleted` and `WebSocketStateChanged` are intentionally NOT
   /// treated as progress: they can fire from auto-sync completions or
   /// reconnect churn while an apply handler is stuck inside `asyncMap`,
-  /// which would mask a real hang indefinitely (codex Finding B).
+  /// which would mask a real hang indefinitely.
   ///
   /// Arbitrarily large snapshots still succeed as long as `RemoteChanges`
   /// keeps firing; [idleTimeout] of silence is treated as failure.
@@ -998,6 +997,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
       '${prefix}relay_url',
       '${prefix}mnemonic',
       '${prefix}runtime_dek',
+      '${prefix}runtime_dek_wrapped_v1',
     ];
     for (final key in keysToClean) {
       try {
