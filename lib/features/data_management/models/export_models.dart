@@ -169,14 +169,44 @@ class V1Export {
     if (rescueLegacyFields) 'rescueLegacyFields': true,
   };
 
+  /// Format versions this codebase knows how to parse.
+  ///
+  /// Mirrors `DataImportService.supportedVersions` — the import service
+  /// also rejects unsupported versions before invoking parsing — but the
+  /// envelope-level reject here gives a tighter contract: any caller
+  /// touching `V1Export.fromJson` (preview parsers, tests, future
+  /// tools) gets the same gate. Review finding #39 + remediation plan
+  /// WS4 step 7 explicitly require envelope-level rejection so an
+  /// unknown future formatVersion can't accidentally route through the
+  /// per-row legacy sniff and produce mis-rescued rows.
+  static const _supportedFormatVersions = {'1.0', '2025.1'};
+
   factory V1Export.fromJson(Map<String, dynamic> json) {
+    // Envelope `formatVersion` is the primary shape gate (review
+    // finding #39 + remediation plan WS4 step 7). Reject unknown
+    // versions explicitly before any per-row parsing runs so a future
+    // PRISM1 v3+ shape with renamed fields can't be silently
+    // misclassified as legacy and routed through the rescue path with
+    // every field null. Per-row shape inference stays as a fallback
+    // for legitimately-old files that pre-date the
+    // `rescueLegacyFields` envelope marker (introduced alongside the
+    // 0.7.0 migration-time exporter).
+    final rawFormatVersion = json['formatVersion'] as String?;
+    final formatVersion = rawFormatVersion ?? '1.0';
+    if (rawFormatVersion != null &&
+        !_supportedFormatVersions.contains(rawFormatVersion)) {
+      throw FormatException(
+        'Unsupported export formatVersion: $rawFormatVersion. '
+        'Supported versions: ${_supportedFormatVersions.join(', ')}',
+      );
+    }
     // Read the envelope marker first so it can be threaded into the
     // session / comment fromJson factories. When set, every session /
     // comment row is forced through the legacy/rescue path regardless
     // of the per-row sniff (codex pass 2 #B-NEW1).
     final rescueLegacy = json['rescueLegacyFields'] as bool? ?? false;
     return V1Export(
-      formatVersion: json['formatVersion'] as String? ?? '1.0',
+      formatVersion: formatVersion,
       version: json['version'] as String? ?? '1.0',
       appName: json['appName'] as String? ?? 'Prism Plurality',
       exportDate: json['exportDate'] as String? ?? '',
@@ -480,6 +510,26 @@ class V1FrontSession {
     this.isLegacyShape = false,
   });
 
+  /// Process-wide counter for the per-row legacy-shape fallback.
+  ///
+  /// Incremented whenever `V1FrontSession.fromJson` flips a row to
+  /// legacy via row-shape sniff WITHOUT the envelope-level
+  /// `rescueLegacyFields` flag being set. The envelope flag is the
+  /// primary classifier (review finding #39 + remediation plan WS4
+  /// step 7); the per-row sniff is the back-compat fallback for
+  /// pre-marker (pre-0.7.0) files. A non-zero count after a successful
+  /// import indicates the fallback was actually exercised — surface it
+  /// in tests and (eventually) in import-result diagnostics so the
+  /// fallback's removal can be justified once it stops firing in the
+  /// wild. Tests should reset via [resetRowShapeLegacyFallbackCount]
+  /// in setUp/tearDown to avoid cross-test bleed.
+  static int _rowShapeLegacyFallbackCount = 0;
+  static int get rowShapeLegacyFallbackCount =>
+      _rowShapeLegacyFallbackCount;
+  static void resetRowShapeLegacyFallbackCount() {
+    _rowShapeLegacyFallbackCount = 0;
+  }
+
   final String id;
   final String startTime;
   final String? endTime;
@@ -606,13 +656,22 @@ class V1FrontSession {
         json.containsKey('sessionType') || json.containsKey('memberId');
     final hasHeadmateId = json.containsKey('headmateId');
     final hasPluralkitUuid = json.containsKey('pluralkitUuid');
-    final isLegacy =
-        forceLegacyShape ||
-        hasLegacyKeys ||
+    final rowShapeLegacy = hasLegacyKeys ||
         (hasPluralkitUuid && !hasNewShapeMarker) ||
         (!hasHeadmateId &&
             !json.containsKey('coFronterIds') &&
             !hasNewShapeMarker);
+    final isLegacy = forceLegacyShape || rowShapeLegacy;
+    // Diagnostic counter for review finding #39 + remediation plan WS4
+    // step 7: log every time the per-row sniff (rather than the
+    // envelope `rescueLegacyFields` flag) is what flipped a row to
+    // legacy. Production migration-time exports always set the
+    // envelope flag, so a non-zero count here means we hit a real
+    // pre-marker file in the wild — useful evidence for keeping (or
+    // eventually removing) the row-shape fallback.
+    if (!forceLegacyShape && rowShapeLegacy) {
+      _rowShapeLegacyFallbackCount++;
+    }
 
     // Tolerate a malformed `coFronterIds` value (per §6 edge cases — if
     // expansion fails to parse, fall back to single-member migration).
@@ -1611,6 +1670,16 @@ class V1FrontSessionComment {
     this.isLegacyShape = false,
   });
 
+  /// Process-wide counter for the per-row legacy-shape fallback.
+  /// Mirrors [V1FrontSession.rowShapeLegacyFallbackCount] for comments.
+  /// See review finding #39 + remediation plan WS4 step 7.
+  static int _rowShapeLegacyFallbackCount = 0;
+  static int get rowShapeLegacyFallbackCount =>
+      _rowShapeLegacyFallbackCount;
+  static void resetRowShapeLegacyFallbackCount() {
+    _rowShapeLegacyFallbackCount = 0;
+  }
+
   final String id;
   // Legacy-shape FK to fronting_sessions. Required in pre-0.7.0 exports;
   // omitted in new-shape exports (comments anchor to targetTime, not a
@@ -1661,7 +1730,11 @@ class V1FrontSessionComment {
         (json['sessionId'] as String?)?.isNotEmpty == true;
     final hasNewShapeMarker =
         json.containsKey('targetTime') || json.containsKey('authorMemberId');
-    final isLegacy = forceLegacyShape || (hasSessionId && !hasNewShapeMarker);
+    final rowShapeLegacy = hasSessionId && !hasNewShapeMarker;
+    final isLegacy = forceLegacyShape || rowShapeLegacy;
+    if (!forceLegacyShape && rowShapeLegacy) {
+      _rowShapeLegacyFallbackCount++;
+    }
     return V1FrontSessionComment(
       id: json['id'] as String,
       sessionId: json['sessionId'] as String?,

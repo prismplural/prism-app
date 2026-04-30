@@ -9,6 +9,8 @@ import 'package:prism_plurality/core/database/app_database.dart'
     show AppDatabase, MediaAttachmentsCompanion, PluralKitSyncStateCompanion;
 import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
 import 'package:prism_plurality/core/database/sqlite_constraint.dart';
+import 'package:prism_plurality/data/repositories/drift_fronting_session_repository.dart';
+import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/domain/repositories/chat_message_repository.dart';
 import 'package:prism_plurality/domain/repositories/conversation_repository.dart';
@@ -127,6 +129,8 @@ class ImportResult {
     this.legacyPkShortIdsSkipped = 0,
     this.legacyCorruptCoFronterRows = const [],
     this.unknownSentinelCreated = false,
+    this.legacyClampedCommentsCount = 0,
+    this.legacySpIdPreservedCount = 0,
   });
 
   final int membersCreated;
@@ -166,6 +170,19 @@ class ImportResult {
   // Surfaced so the upgrade flow can remind the user the sentinel is
   // non-deletable and can be renamed.
   final bool unknownSentinelCreated;
+  // Number of legacy comments whose `target_time` was clamped to a
+  // parent session boundary because their original timestamp fell
+  // outside [parent.startTime, parent.endTime]. Surfaced so the
+  // import-result UI can tell users how many comments were anchored
+  // at a session edge rather than at their authored timestamp.
+  // Review finding #41.
+  final int legacyClampedCommentsCount;
+  // Number of SP rescue rows whose id we preserved verbatim (legacy v4)
+  // because no `sp_id_map` reverse entry existed and no SP entityId was
+  // available on the row — tier 3 of the SP id-derivation policy
+  // (review finding #43). Surfaced so duplicates produced by a future
+  // SP re-import doing tier-1 deterministic derivation can be diagnosed.
+  final int legacySpIdPreservedCount;
 
   int get totalRecordsCreated =>
       membersCreated +
@@ -401,6 +418,12 @@ class DataImportService {
       await _writeMediaToTemp(mediaBlobs, mediaDir);
     }
 
+    // Hoisted out of the transaction so the post-commit pass can iterate
+    // it after the closure returns. Populated by `writeSession` inside
+    // the rescue/import loop (review finding #9 + remediation plan WS4
+    // step 1).
+    final rescueTouchedSessionIds = <String>{};
+
     final ImportResult result;
     try {
       result = await db.transaction(() async {
@@ -556,6 +579,22 @@ class DataImportService {
         var legacyPkShortIdsSkipped = 0;
         final legacyCorruptCoFronterRows = <String>[];
         var unknownSentinelCreated = false;
+        // Counter for legacy comments whose timestamp fell outside their
+        // parent session's [startTime, endTime] window. The clamp policy
+        // (review finding #41 + remediation plan WS4 step 5): comments
+        // before parent.startTime → target_time = parent.startTime;
+        // comments after parent.endTime → target_time = parent.endTime;
+        // comments inside bounds keep their own timestamp. Surface the
+        // count so the import-result UI can tell users how many comments
+        // were anchored at a session boundary.
+        var legacyClampedCommentsCount = 0;
+        // Counter for SP rescue rows whose id we couldn't derive
+        // deterministically (no `sp_id_map` entry, no SP entityId on the
+        // row) — fell back to preserving the legacy v4 id (tier 3 of
+        // the three-tier policy, review finding #43). Surfaced so a
+        // future SP re-import doing tier-1 derivation can be diagnosed
+        // when duplicates appear.
+        var legacySpIdPreservedCount = 0;
         // Map from legacy session id → (memberId, startTime) used by the
         // legacy comments branch to derive `target_time` / `author_member_id`
         // when joining a comment back to its parent session row.
@@ -585,19 +624,45 @@ class DataImportService {
           return pkShortIdToLocalUuid!;
         }
 
-        // Cached: SP id-map session-entity rows keyed by local prismId. The
-        // rescue importer treats SP-imported rows as already-1:1 (§2.2);
-        // any legacy session whose id appears here is migrated 1:1 with the
+        // Cached: SP id-map session-entity rows. The rescue importer
+        // treats SP-imported rows as already-1:1 (§2.2); any legacy
+        // session whose id appears here is migrated 1:1 with the
         // existing `headmateId` as `member_id`.
+        //
+        // Two views are exposed:
+        //   - `spSessionPrismIds` — set of Prism ids known to be SP
+        //     imports; used to detect whether a row is the SP branch.
+        //   - `spPrismToEntityId` — reverse map (prism id → SP entity
+        //     id) used by the three-tier id derivation in the SP
+        //     rescue branch (review finding #43). Tier 1 derives the
+        //     row id via `deriveSpSessionId(entityId)` so a future SP
+        //     re-import collides on the deterministic id; tier 3
+        //     (legacy v4 with no map entry) preserves `s.id` and
+        //     increments `legacySpIdPreservedCount` so the import
+        //     result UI can surface the count.
         Set<String>? spSessionPrismIds;
-        Future<Set<String>> resolveSpSessionPrismIds() async {
-          if (spSessionPrismIds != null) return spSessionPrismIds!;
+        Map<String, String>? spPrismToEntityId;
+        Future<void> ensureSpMappingsLoaded() async {
+          if (spSessionPrismIds != null && spPrismToEntityId != null) return;
           final all = await db.spImportDao.getAllMappings();
           spSessionPrismIds = {
             for (final r in all)
               if (r.entityType == 'session') r.prismId,
           };
+          spPrismToEntityId = {
+            for (final r in all)
+              if (r.entityType == 'session') r.prismId: r.spId,
+          };
+        }
+
+        Future<Set<String>> resolveSpSessionPrismIds() async {
+          await ensureSpMappingsLoaded();
           return spSessionPrismIds!;
+        }
+
+        Future<Map<String, String>> resolveSpPrismToEntityId() async {
+          await ensureSpMappingsLoaded();
+          return spPrismToEntityId!;
         }
 
         // Lazy creation of the Unknown sentinel for orphan native rows
@@ -623,12 +688,30 @@ class DataImportService {
         // post-Phase-5 unique index is composite, not single-column on
         // pluralkit_uuid alone — fanned-out PK rescue rows MUST be allowed
         // to share a switch UUID across different members.
-        final existingPkPairs = <String>{
+        //
+        // Uses [PkSessionMemberKey] rather than `'$uuid|$memberId'` to
+        // avoid delimiter-collision in member ids that contain `'|'`
+        // (review finding #44) and to keep the null-`memberId` case
+        // unambiguously distinct from a literal-empty-string `memberId`.
+        final existingPkPairs = <PkSessionMemberKey>{
           for (final s in allSessionRows)
             if (s.pluralkitUuid != null && s.pluralkitUuid!.isNotEmpty)
-              '${s.pluralkitUuid!}|${s.memberId ?? ''}',
+              PkSessionMemberKey(
+                pluralkitUuid: s.pluralkitUuid!,
+                localMemberId: s.memberId,
+              ),
         };
 
+        // `rescueTouchedSessionIds` (declared outside the transaction)
+        // captures every session id that `writeSession` actually wrote
+        // during the suppressed fronting-session import + merge pass.
+        // The post-commit pass walks these ids, looks up whatever row
+        // survived (after any merge-driven soft-deletes), and emits a
+        // single `syncRecordCreate` per survivor — matching the
+        // deterministic ids the original device's emissions would
+        // produce. Convergence relies on the ids in
+        // `fronting_namespaces.dart` being stable across paired
+        // devices (review finding #9 + remediation plan WS4 step 1).
         Future<bool> writeSession({
           required String id,
           required DateTime startTime,
@@ -645,7 +728,10 @@ class DataImportService {
         }) async {
           if (existingSessionIds.contains(id)) return false;
           if (pluralkitUuid != null && pluralkitUuid.isNotEmpty) {
-            final key = '$pluralkitUuid|${memberId ?? ''}';
+            final key = PkSessionMemberKey(
+              pluralkitUuid: pluralkitUuid,
+              localMemberId: memberId,
+            );
             if (existingPkPairs.contains(key)) {
               // Pre-existing local row already covers this (switch_uuid,
               // member_id) pair (e.g., a prior API import wrote a row with
@@ -688,12 +774,35 @@ class DataImportService {
             rethrow;
           }
           existingSessionIds.add(id);
+          rescueTouchedSessionIds.add(id);
           if (pluralkitUuid != null && pluralkitUuid.isNotEmpty) {
-            existingPkPairs.add('$pluralkitUuid|${memberId ?? ''}');
+            existingPkPairs.add(
+              PkSessionMemberKey(
+                pluralkitUuid: pluralkitUuid,
+                localMemberId: memberId,
+              ),
+            );
           }
           return true;
         }
 
+        // Suppress sync emission across the entire fronting-session
+        // import + adjacent-merge pass (review finding #9, remediation
+        // plan WS4 step 1). The migration's destructive transaction
+        // already runs under the same `SyncRecordMixin.suppress`, but
+        // the rescue importer didn't — so legacy-rescue rows that the
+        // merge then deleted as duplicates emitted phantom create ops
+        // (no compensating delete because the merge was the source of
+        // intermediate writes). After the transaction commits, the
+        // post-commit sweep below walks `rescueTouchedSessionIds` and
+        // emits exactly one `syncRecordCreate` per surviving row,
+        // producing the same final-state ops a fresh write would have
+        // produced — minus the transient mid-merge churn. Deterministic
+        // ids (`derivePkSessionId`, `deriveMigrationFanoutSessionId`,
+        // `deriveSpSessionId`) make these emissions convergent with the
+        // original device's emissions: a paired peer that already has
+        // these ids merges via field-LWW rather than duplicating.
+        await SyncRecordMixin.suppress(() async {
         for (final s in export.frontSessions) {
           final start = DateTime.parse(s.startTime);
           final end = s.endTime != null ? DateTime.parse(s.endTime!) : null;
@@ -742,6 +851,7 @@ class DataImportService {
             legacySessionParents[s.id] = _LegacyParentInfo(
               memberId: s.headmateId,
               startTime: start,
+              endTime: end,
             );
             continue;
           }
@@ -818,6 +928,7 @@ class DataImportService {
                 legacySessionParents[s.id] = _LegacyParentInfo(
                   memberId: null,
                   startTime: start,
+                  endTime: end,
                 );
                 continue;
               }
@@ -835,12 +946,15 @@ class DataImportService {
               if (memberPkUuid == null) {
                 debugPrint(
                   '[Import][rescue] PK row ${s.id} headmateId '
-                  '"${s.headmateId}" has no pluralkit_uuid; skipping.',
+                  '"${s.headmateId}" has no pluralkit_uuid (member may '
+                  'be soft-deleted with no pluralkit link, or PK link '
+                  'never set); skipping.',
                 );
                 legacyPkShortIdsSkipped++;
                 legacySessionParents[s.id] = _LegacyParentInfo(
                   memberId: s.headmateId,
                   startTime: start,
+                  endTime: end,
                 );
                 continue;
               }
@@ -865,6 +979,7 @@ class DataImportService {
               legacySessionParents[s.id] = _LegacyParentInfo(
                 memberId: s.headmateId,
                 startTime: start,
+                endTime: end,
               );
               continue;
             }
@@ -886,6 +1001,7 @@ class DataImportService {
             legacySessionParents[s.id] = _LegacyParentInfo(
               memberId: firstResolvedLocalId,
               startTime: start,
+              endTime: end,
             );
             for (final memberPkUuid in resolvedMemberUuids) {
               final derivedId = derivePkSessionId(
@@ -919,11 +1035,40 @@ class DataImportService {
           final spIds = await resolveSpSessionPrismIds();
           final isSp = spIds.contains(s.id);
           if (isSp) {
-            // SP rescue — already 1:1 per-member by SP source semantics.
-            // Preserve id; rely on existing sp_id_map entry to keep the
-            // SP re-import idempotent (§2.6).
+            // SP rescue — already 1:1 per-member by SP source semantics
+            // (§2.2). The id derivation follows the three-tier policy
+            // (review finding #43, remediation plan WS4 step 6):
+            //
+            //   Tier 1: `sp_id_map` has a reverse entry for this Prism
+            //           id. Derive the row id via
+            //           `deriveSpSessionId(entityId)` so a future SP
+            //           re-import (which now uses the same deterministic
+            //           derivation) collides on the id and field-LWW
+            //           reconciles boundaries instead of duplicating.
+            //   Tier 2: No map entry, but the rescue row carries the SP
+            //           `entityId` directly. Derive deterministically
+            //           from that. (Today no V1FrontSession field carries
+            //           a raw SP entityId so this tier is unreachable;
+            //           it's listed here so a future export-format
+            //           extension that adds the field can opt in without
+            //           a code change to the rescue branch.)
+            //   Tier 3: No map entry and no entityId — legacy v4 random
+            //           id from a pre-deterministic-derivation rescue
+            //           file. Preserve `s.id` and increment
+            //           `legacySpIdPreservedCount` so duplicates produced
+            //           by a future SP re-import (which would derive a
+            //           different id) can be diagnosed.
+            final spPrismToEntity = await resolveSpPrismToEntityId();
+            final entityId = spPrismToEntity[s.id];
+            final String spRowId;
+            if (entityId != null && entityId.isNotEmpty) {
+              spRowId = deriveSpSessionId(entityId);
+            } else {
+              spRowId = s.id;
+              legacySpIdPreservedCount++;
+            }
             final created = await writeSession(
-              id: s.id,
+              id: spRowId,
               startTime: start,
               endTime: end,
               memberId: s.headmateId,
@@ -935,9 +1080,14 @@ class DataImportService {
             if (s.headmateId != null) {
               legacyTouchedMemberIds.add(s.headmateId!);
             }
+            // Use the original legacy session id as the parent-info key
+            // so legacy comments anchored to `s.id` still resolve, even
+            // when the new row was written under the deterministic
+            // derived id.
             legacySessionParents[s.id] = _LegacyParentInfo(
               memberId: s.headmateId,
               startTime: start,
+              endTime: end,
             );
             continue;
           }
@@ -975,6 +1125,7 @@ class DataImportService {
             legacySessionParents[s.id] = _LegacyParentInfo(
               memberId: sentinelId,
               startTime: start,
+              endTime: end,
             );
             continue;
           }
@@ -999,6 +1150,7 @@ class DataImportService {
           legacySessionParents[s.id] = _LegacyParentInfo(
             memberId: s.headmateId,
             startTime: start,
+            endTime: end,
           );
           for (final coId in coFronters) {
             if (coId == s.headmateId) continue; // sanity guard
@@ -1026,12 +1178,22 @@ class DataImportService {
         // so the rescue file produces the same shape as a fresh
         // migration. Skipped for new-shape rows (already correctly
         // bounded). Sleep rows are excluded by the helper's query.
+        //
+        // The Unknown sentinel is excluded from the merge (review
+        // finding #42): orphan rescue rows assigned to the sentinel
+        // are distinct source events that happened to lose their
+        // member binding before export — collapsing them into one
+        // giant sentinel session would erase per-row identity (notes,
+        // confidence, individual time windows). Native rows still
+        // merge normally; only the sentinel is special-cased.
         if (legacyTouchedMemberIds.isNotEmpty) {
           await mergeAdjacentSameMemberRows(
             frontingSessionRepository,
             memberIds: legacyTouchedMemberIds,
+            excludeMemberIds: {unknownSentinelMemberId},
           );
         }
+        }); // end SyncRecordMixin.suppress for fronting-session import
 
         // 3. Import sleep sessions
         //
@@ -1540,8 +1702,25 @@ class DataImportService {
               authorMemberId = null;
             } else {
               // §4.1 step 5: target_time = comment's own timestamp;
-              // author = parent session's member_id.
-              targetTime = timestamp;
+              // author = parent session's member_id. With clamping
+              // (review finding #41 + remediation plan WS4 step 5):
+              // if the comment's timestamp falls outside the parent
+              // session's [startTime, endTime] window, anchor it at
+              // the nearest bound so the period-detail view's range
+              // join still surfaces the comment. Comments authored
+              // moments after a session's `endTime` are very common
+              // in practice (users review their front and add a note
+              // shortly after) and would otherwise become invisible.
+              final parentEnd = parent.endTime;
+              if (parentEnd != null && timestamp.isAfter(parentEnd)) {
+                targetTime = parentEnd;
+                legacyClampedCommentsCount++;
+              } else if (timestamp.isBefore(parent.startTime)) {
+                targetTime = parent.startTime;
+                legacyClampedCommentsCount++;
+              } else {
+                targetTime = timestamp;
+              }
               authorMemberId = parent.memberId;
             }
           } else {
@@ -1701,6 +1880,8 @@ class DataImportService {
             legacyCorruptCoFronterRows,
           ),
           unknownSentinelCreated: unknownSentinelCreated,
+          legacyClampedCommentsCount: legacyClampedCommentsCount,
+          legacySpIdPreservedCount: legacySpIdPreservedCount,
         );
       });
     } catch (e) {
@@ -1711,6 +1892,41 @@ class DataImportService {
 
     // Atomically rename temp media files to final paths after DB commit
     if (mediaDir != null) await _finalizeMedia(mediaBlobs, mediaDir);
+
+    // Final-state sync emission for the rescue/import path.
+    //
+    // The fronting-session import + adjacent-merge pass ran under
+    // `SyncRecordMixin.suppress`, so no Rust pending_ops were emitted
+    // during the transaction body for the touched ids. Now that the
+    // transaction has committed and Drift has the final shape, walk
+    // each id once and emit a single `syncRecordCreate` per surviving
+    // row. Merge-deleted (soft-deleted) rows are intentionally
+    // skipped: the merge collapsed them into an earlier row whose
+    // create op above already carries the merged data.
+    //
+    // We re-fetch through the repository's DAO (rather than caching
+    // domain models in the transaction closure) so the emitted field
+    // map reflects the post-merge state — `endTime` for the survivor
+    // row may have been updated by the merge to absorb the deleted
+    // row's end. The deterministic ids from
+    // `fronting_namespaces.dart` make these emissions convergent
+    // across paired devices: peers that already imported the same
+    // file independently produce identical (id, fields) pairs and
+    // CRDT field-LWW reconciles boundaries via HLC ordering.
+    if (rescueTouchedSessionIds.isNotEmpty) {
+      // The repository concrete type owns the field-map encoding, so
+      // route through it rather than reaching into the DAO directly.
+      // `frontingSessionRepository` is always the Drift-backed
+      // implementation in production wiring (see
+      // `migration_providers.dart`); test seams that pass a fake should
+      // also pass a `DriftFrontingSessionRepository` since the rescue
+      // path requires the DAO + sync handle.
+      final concrete =
+          frontingSessionRepository as DriftFrontingSessionRepository;
+      for (final id in rescueTouchedSessionIds) {
+        await concrete.emitFinalStateCreateIfSurviving(id);
+      }
+    }
 
     return result;
   }
@@ -1763,11 +1979,19 @@ class DataImportService {
   /// to PK switches and to populate `member_id` on the per-member
   /// fan-out rows.
   ///
+  /// Includes soft-deleted tombstones: the rescue file's intent is
+  /// "re-create everything that existed," so a row whose `headmateId`
+  /// points at a member the user has since deleted should still resolve
+  /// to that member's pluralkit uuid (the API will produce the same
+  /// (switch, member) id, and field-LWW honors the user's tombstone).
+  /// Filtering tombstones here would silently lose PK history (review
+  /// finding #10).
+  ///
   /// Returns null when no local member matches — the rescue path
   /// counts that as a skip rather than crashing.
   Future<String?> _localMemberIdForPkUuid(String? pkUuid) async {
     if (pkUuid == null || pkUuid.isEmpty) return null;
-    final allMembers = await memberRepository.getAllMembers();
+    final allMembers = await db.membersDao.getAllMembersIncludingDeleted();
     for (final m in allMembers) {
       if (m.pluralkitUuid == pkUuid) return m.id;
     }
@@ -1781,9 +2005,14 @@ class DataImportService {
   /// canonical (switch, member) id that the live PK API importer would
   /// produce — without it, the rescue and API legs land on different
   /// ids and lose the field-LWW boundary correction.
+  ///
+  /// Includes soft-deleted tombstones (review finding #10): see
+  /// [_localMemberIdForPkUuid] for the rationale. The two helpers must
+  /// share a tombstone policy so the same headmate id resolves the same
+  /// way through both directions.
   Future<String?> _pkUuidForLocalMemberId(String localId) async {
     if (localId.isEmpty) return null;
-    final allMembers = await memberRepository.getAllMembers();
+    final allMembers = await db.membersDao.getAllMembersIncludingDeleted();
     for (final m in allMembers) {
       if (m.id == localId) {
         final uuid = m.pluralkitUuid;
@@ -1804,8 +2033,56 @@ class DataImportService {
 /// rescue rows, `memberId` is the local id of the **first resolved PK
 /// member** of the parent switch — the spec's chosen author proxy when
 /// the original switch had multiple fronters.
+///
+/// `endTime` carries the parent session's end (or null for an
+/// open-ended row) so the comment-rescue pass can clamp comment
+/// timestamps that fall outside the parent's bounds (review finding
+/// #41). Without this, comments authored seconds-to-minutes after a
+/// session's `endTime` (very common in practice — users review their
+/// front and add a note moments later) anchor outside any session and
+/// become invisible to the period-detail view's range filter.
 class _LegacyParentInfo {
-  const _LegacyParentInfo({this.memberId, required this.startTime});
+  const _LegacyParentInfo({
+    this.memberId,
+    required this.startTime,
+    this.endTime,
+  });
   final String? memberId;
   final DateTime startTime;
+  final DateTime? endTime;
+}
+
+/// Structured dedup key for the (PK switch UUID, local member id) pair
+/// used by the rescue importer's `existingPkPairs` set.
+///
+/// Replaces the previous `'$pluralkitUuid|$memberId'` string-concat
+/// scheme which was vulnerable to delimiter-collision in member ids
+/// containing `'|'` (review finding #44 — the dedup key is also used
+/// for cross-row collision detection, where a false collision skips
+/// a legitimate rescue write). A real value type with explicit
+/// equality also makes the null-`memberId` case unambiguous: a missing
+/// local member id is not the same as the literal string `''`.
+@immutable
+class PkSessionMemberKey {
+  const PkSessionMemberKey({
+    required this.pluralkitUuid,
+    required this.localMemberId,
+  });
+
+  final String pluralkitUuid;
+  final String? localMemberId;
+
+  @override
+  bool operator ==(Object other) =>
+      other is PkSessionMemberKey &&
+      other.pluralkitUuid == pluralkitUuid &&
+      other.localMemberId == localMemberId;
+
+  @override
+  int get hashCode => Object.hash(pluralkitUuid, localMemberId);
+
+  @override
+  String toString() =>
+      'PkSessionMemberKey(pluralkitUuid: $pluralkitUuid, '
+      'localMemberId: $localMemberId)';
 }
