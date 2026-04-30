@@ -68,22 +68,21 @@ final frontingMigrationModeProvider = StreamProvider<String>((ref) {
 /// to the local device id is filtered out.  Sync state being absent
 /// (no resolved handle) returns 0.
 ///
-/// Final-review fix V: previously this read `prismSyncHandleProvider.value`
-/// synchronously and returned `0` while the AsyncNotifier was still
-/// resolving on cold open. The modal then treated that as "solo, skip
-/// role question," which mis-classified paired installs. Awaiting the
-/// `.future` defers until the handle either resolves to a real value
-/// or to `null`. Loading/error cases now propagate up as failures —
-/// the modal's existing `try/catch` falls back to `pairedCount = 1`
-/// ("when in doubt, ask").
+/// Awaits `prismSyncHandleProvider.future` rather than reading
+/// `.value` synchronously: a synchronous read returns `null` while the
+/// AsyncNotifier is still resolving on cold open, which would
+/// mis-classify a paired install as solo and skip the role question.
+/// Loading/error cases now propagate up as failures — the modal's
+/// existing `try/catch` falls back to `pairedCount = 1` ("when in
+/// doubt, ask").
 ///
-/// Final-review fix Z: the handle future can resolve to `null` even on
-/// configured installs — see `prism_sync_providers.dart` around line 170,
-/// where the auto-create catch returns `null` if FFI handle construction
-/// throws (e.g., transient SQLite/keystore failure on cold open). The
-/// previous version of this provider treated `null` uniformly as solo,
-/// which silently mis-classified a configured-but-broken paired install
-/// as solo and skipped the role question.
+/// The handle future can also resolve to `null` even on configured
+/// installs — `prismSyncHandleProvider`'s auto-create path returns
+/// `null` if FFI handle construction throws (e.g., transient SQLite
+/// or keystore failure on cold open). Treating `null` uniformly as
+/// solo would mis-classify a configured-but-broken paired install
+/// as solo. We discriminate using the keychain-stored sync_id
+/// instead.
 ///
 /// We discriminate with the keychain-stored `prism_sync.sync_id`:
 ///   - handle null AND sync_id absent → genuinely unpaired, return 0.
@@ -123,6 +122,90 @@ final pairedDeviceCountProvider = FutureProvider<int>((ref) async {
       : 0;
 });
 
+/// Resolved status of the per-member fronting migration as observed by
+/// runtime gates (app shell startup, PK push/poll, sync apply for
+/// fronting_sessions / front_session_comments).
+///
+/// Distinct from the raw `pending_fronting_migration_mode` string: this
+/// enum collapses the wire values into the small set of states that
+/// callers care about and adds the `repairing` value as an alias for
+/// `inProgress` to make intent obvious at the call site.
+enum FrontingMigrationGateStatus {
+  /// Migration finished successfully. All new-shape paths are safe.
+  complete,
+
+  /// Migration has not started or is deferred. The upgrade modal will
+  /// surface to the user; runtime new-shape paths must stay read-only
+  /// until the user picks a mode.
+  needsModal,
+
+  /// v6→v7 onUpgrade detected duplicate `(pluralkit_uuid, member_id)`
+  /// rows and refused to install the composite unique index. Until the
+  /// user resolves the blocker the legacy single-column unique index
+  /// is still in place, so any code path that writes new-shape
+  /// fronting rows or runs PK importers can corrupt local state by
+  /// hitting the wrong constraint. Hard read-only — Option A in the
+  /// remediation plan WS1.
+  blocked,
+
+  /// Drift transaction committed; post-tx cleanup (engine reset /
+  /// keychain wipe / quarantine clear) hasn't finished. Local data is
+  /// already in the new shape but the sync side hasn't been cut over.
+  /// Hard read-only on PK push/poll/sync-apply until cleanup completes.
+  inProgress,
+}
+
+/// Watches [frontingMigrationModeProvider] and resolves it into a
+/// [FrontingMigrationGateStatus] for runtime gating.
+///
+/// Callers should treat any non-[FrontingMigrationGateStatus.complete]
+/// result as "do not perform new-shape work." That includes:
+///   - PK push (`pushPendingSwitches`, `pushMemberUpdate`).
+///   - PK poll / one-shot import (`performOneTimeFullImport`,
+///     `performFullImport`, `syncRecentData`).
+///   - Sync engine apply path for `fronting_sessions` and
+///     `front_session_comments` (see `drift_sync_adapter.dart`).
+///   - Any direct fronting-session repository writes initiated by user
+///     UI on the home tab while the modal is open.
+///
+/// Loading / error states from the underlying stream resolve to
+/// [FrontingMigrationGateStatus.needsModal] — the safer default,
+/// because the upstream provider's failure mode is "DAO read failed"
+/// and we'd rather hold off on PK push than risk pushing a row that
+/// belongs to the still-unmigrated set.
+final frontingMigrationGateProvider =
+    Provider<FrontingMigrationGateStatus>((ref) {
+  final modeAsync = ref.watch(frontingMigrationModeProvider);
+  return modeAsync.when(
+    data: (mode) {
+      switch (mode) {
+        case FrontingMigrationService.modeComplete:
+          return FrontingMigrationGateStatus.complete;
+        case FrontingMigrationService.modeBlocked:
+          return FrontingMigrationGateStatus.blocked;
+        case FrontingMigrationService.modeInProgress:
+          return FrontingMigrationGateStatus.inProgress;
+        // notStarted / deferred / upgradeAndKeep / startFresh all surface
+        // as "modal pending" — the modal is the user's recovery path.
+        default:
+          return FrontingMigrationGateStatus.needsModal;
+      }
+    },
+    loading: () => FrontingMigrationGateStatus.needsModal,
+    // ignore: unused_local_variable
+    error: (err, stack) => FrontingMigrationGateStatus.needsModal,
+  );
+});
+
+/// Convenience: true when the gate forbids new-shape writes (PK push,
+/// sync apply for fronting tables, etc.). Equivalent to
+/// `gate != complete`. Exposed as a separate provider so call sites
+/// don't have to pattern-match the enum at the read site.
+final frontingMigrationWritesBlockedProvider = Provider<bool>((ref) {
+  final gate = ref.watch(frontingMigrationGateProvider);
+  return gate != FrontingMigrationGateStatus.complete;
+});
+
 /// Wraps [FrontingMigrationService] for the upgrade modal.
 ///
 /// The migration service is constructed on-demand from the database +
@@ -142,15 +225,13 @@ final frontingMigrationRunnerProvider = Provider<FrontingMigrationService>(
       // Handle may be null when sync isn't configured — the service
       // skips the FFI reset step in that case (solo mode).
       syncHandle: ref.watch(prismSyncHandleProvider).value,
-      // Codex P1 #5: wipe platform-keychain credentials after the FFI
-      // reset so a backgrounded app between reset and next launch
-      // can't re-seed Rust with the credentials that should have been
-      // wiped.
+      // Wipe platform-keychain credentials after the FFI reset so a
+      // backgrounded app between reset and next launch can't re-seed
+      // Rust with the credentials that should have been wiped.
       wipeSyncKeychain: wipeFrontingMigrationSyncKeychain,
-      // Codex pass 3 P1: resume path uses `clear_sync_state(sync_id)`
-      // — surgical storage-only wipe that doesn't touch the engine,
-      // so we don't need the configure-briefly hack the previous
-      // implementation used (which had a relay-reconnect bug).
+      // Resume path uses `clear_sync_state(sync_id)` — surgical
+      // storage-only wipe that doesn't touch the engine, so we don't
+      // need a configure-briefly path that risked a relay reconnect.
       readSyncId: readFrontingMigrationSyncId,
     );
   },

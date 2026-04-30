@@ -13,12 +13,12 @@
 ///   - 12+ char password gate with confirm field, show/hide toggles.
 ///   - Same headline + icon pattern per step.
 ///
-/// Codex P1 #8: the `backupReady` step is a hard gate before any
-/// destructive work — the user must save the PRISM1 backup somewhere
-/// durable (file picker), share it, or tick the manual "I saved this"
-/// checkbox before the Continue button enables. Dismissing from this
-/// step leaves settings at `'notStarted'` so the destructive phase
-/// never runs.
+/// The `backupReady` step is a hard gate before any destructive work —
+/// the user must save the PRISM1 backup somewhere durable (file
+/// picker), share it, or tick the manual "I saved this" checkbox
+/// before the Continue button enables. Dismissing from this step
+/// leaves settings at `'notStarted'` so the destructive phase never
+/// runs.
 library;
 
 import 'dart:async';
@@ -50,18 +50,17 @@ enum FrontingUpgradeStep {
   mode,
   password,
 
-  /// Codex P1 #8 — the PRISM1 export is being built (between password
-  /// submission and the durable-save gate). Renders a spinner. On
-  /// success, transitions to [backupReady]; on failure, transitions to
-  /// [failure].
+  /// PRISM1 export is being built (between password submission and the
+  /// durable-save gate). Renders a spinner. On success, transitions to
+  /// [backupReady]; on failure, transitions to [failure].
   exporting,
 
-  /// Codex P1 #8 — durable-save gate. Renders the freshly-built backup
-  /// file with three actions (save to file, share, manual checkbox)
-  /// and a Continue button that's disabled until the user confirms
-  /// they have saved the file somewhere recoverable. Dismissing from
-  /// this step leaves settings at `'notStarted'`; the destructive
-  /// phase never runs.
+  /// Durable-save gate. Renders the freshly-built backup file with
+  /// three actions (save to file, share, manual checkbox) and a
+  /// Continue button that's disabled until the user confirms they have
+  /// saved the file somewhere recoverable. Dismissing from this step
+  /// leaves settings at `'notStarted'`; the destructive phase never
+  /// runs.
   backupReady,
 
   /// The destructive Drift transaction + post-tx cleanup is running.
@@ -69,12 +68,12 @@ enum FrontingUpgradeStep {
   success,
   failure,
 
-  /// Codex P1 #4 — when the modal opens to mode == 'inProgress' (Drift
-  /// transaction committed but a post-tx step like the FFI engine reset
-  /// or keychain wipe failed), we render a streamlined "Finish
-  /// migration" screen that calls `resumeCleanup()` on tap. No password,
-  /// no role, no destructive DB work — just the post-tx idempotent
-  /// cleanup.
+  /// Entered when the modal opens to mode == 'inProgress' (Drift
+  /// transaction committed but a post-tx step like the FFI engine
+  /// reset or keychain wipe failed). Renders a streamlined "Finish
+  /// migration" screen that calls `resumeCleanup()` on tap. No
+  /// password, no role, no destructive DB work — just the post-tx
+  /// idempotent cleanup.
   resumeCleanup,
 }
 
@@ -191,10 +190,10 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
   @override
   void initState() {
     super.initState();
-    // Codex P1 #4: if the migration is mid-cleanup (Drift tx committed
-    // but post-tx step failed), advance to the resume-cleanup screen
-    // instead of the normal intro. Try the cached value first; if not
-    // yet available, listen for the first stream emission and advance
+    // If the migration is mid-cleanup (Drift tx committed but post-tx
+    // step failed), advance to the resume-cleanup screen instead of
+    // the normal intro. Try the cached value first; if not yet
+    // available, listen for the first stream emission and advance
     // then. listenManual handles the disposal lifecycle so we don't
     // leak the subscription past widget unmount.
     final cached = ref.read(frontingMigrationModeProvider).value;
@@ -410,8 +409,8 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
   }
 
   /// Default share-sheet handoff. Inspects `ShareResult.status` so a
-  /// dismissed share doesn't auto-tick the acknowledgment checkbox
-  /// (codex P1 #8). Tests override via [FrontingUpgradeSheet.shareBackup].
+  /// dismissed share doesn't auto-tick the acknowledgment checkbox.
+  /// Tests override via [FrontingUpgradeSheet.shareBackup].
   Future<bool> _defaultShareBackup(File file) async {
     try {
       final result = await SharePlus.instance.share(
@@ -427,9 +426,9 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
   }
 
   /// Default save-as handoff. Uses `file_picker` to let the user pick
-  /// a destination outside the app's documents directory (codex P1 #8).
-  /// Returns `true` if the user confirmed a destination, `false` on
-  /// cancel. Tests override via [FrontingUpgradeSheet.saveBackup].
+  /// a destination outside the app's documents directory. Returns
+  /// `true` if the user confirmed a destination, `false` on cancel.
+  /// Tests override via [FrontingUpgradeSheet.saveBackup].
   Future<bool> _defaultSaveBackup(File file) async {
     try {
       final bytes = await file.readAsBytes();
@@ -468,22 +467,43 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
   }
 
   void _retry() {
+    // Preserve `_backupFile` when the prior failure occurred AFTER the
+    // backup was successfully written to disk (i.e. somewhere between
+    // `backupReady` acknowledgement and the destructive transaction).
+    // Re-running `prepareBackup` would force the user to redo the
+    // expensive Argon2id pass and orphan a usable rescue file on disk
+    // that the new attempt won't overwrite (filename collision
+    // protection). Jumping directly to `backupReady` lets the user
+    // re-acknowledge and proceed.
+    //
+    // When the prior failure happened in `prepareBackup` itself
+    // (`_backupFile` is null), drop back to the password step so the
+    // user can retry export.
+    final preservedBackup = _backupFile;
+    final hasPreservedBackup =
+        preservedBackup != null && preservedBackup.existsSync();
     setState(() {
       _result = null;
-      _backupFile = null;
       _backupAcknowledged = false;
       _pkImportStatus = _PostMigrationPkImportStatus.idle;
       _pkImportError = null;
       _pkTokenPromptShown = false;
-      _step = FrontingUpgradeStep.password;
+      if (hasPreservedBackup) {
+        // Keep _backupFile; resume at the durable-save gate. The user
+        // re-confirms saving (or trusts their previous save) and the
+        // destructive phase reuses the existing rescue file.
+        _step = FrontingUpgradeStep.backupReady;
+      } else {
+        _backupFile = null;
+        _step = FrontingUpgradeStep.password;
+      }
     });
   }
 
-  /// Codex P1 #4 — runs the idempotent post-tx cleanup when the modal
-  /// opens to the `inProgress` state. No password / role / mode picker
-  /// needed: the destructive Drift work already committed; only the
-  /// engine reset + keychain wipe + quarantine clear + mark-complete
-  /// remain.
+  /// Runs the idempotent post-tx cleanup when the modal opens to the
+  /// `inProgress` state. No password / role / mode picker needed: the
+  /// destructive Drift work already committed; only the engine reset +
+  /// keychain wipe + quarantine clear + mark-complete remain.
   Future<void> _runResumeCleanup() async {
     setState(() => _step = FrontingUpgradeStep.running);
     final runner = ref.read(frontingMigrationRunnerProvider);
@@ -706,10 +726,10 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
           ),
         ),
         const SizedBox(height: 12),
-        // Final-review fix V: pre-migration `pending_ops` loss warning.
-        // The migration's sync state wipe clears `pending_ops`, so any
-        // local writes that haven't been pushed yet exist only on this
-        // device. Set expectations early so the user can sync first.
+        // Pre-migration `pending_ops` loss warning. The migration's
+        // sync state wipe clears `pending_ops`, so any local writes
+        // that haven't been pushed yet exist only on this device. Set
+        // expectations early so the user can sync first.
         Text(
           context.l10n.frontingUpgradeIntroPendingSyncWarning,
           textAlign: TextAlign.center,
@@ -1319,10 +1339,10 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
     if (r.unknownSentinelCreated) {
       lines.add(l10n.frontingUpgradeCountSentinelCreated(terms.singularLower));
     }
-    // Final-review fix V: surface corrupt-JSON fallback rows. The
-    // service falls back to single-member migration when a row's
-    // `co_fronter_ids` JSON fails to parse; without this counter the
-    // user silently loses co-fronter relationships on those rows.
+    // Surface corrupt-JSON fallback rows. The service falls back to
+    // single-member migration when a row's `co_fronter_ids` JSON fails
+    // to parse; without this counter the user silently loses
+    // co-fronter relationships on those rows.
     if (r.corruptCoFronterRowIds.isNotEmpty) {
       lines.add(
         l10n.frontingUpgradeCountCorruptCoFronters(

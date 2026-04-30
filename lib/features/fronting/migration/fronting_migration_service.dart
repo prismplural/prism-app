@@ -13,10 +13,19 @@
 /// block, the local DB rolls back and `pending_fronting_migration_mode`
 /// stays at `'notStarted'` so the user can retry.  The PRISM1 file from
 /// step 2 is preserved on disk regardless.
+///
+/// Atomicity note: the [modeInProgress] sentinel is written as the FIRST
+/// statement inside the destructive Drift transaction so the marker and
+/// the migrated rows commit (or roll back) atomically. A crash between
+/// "data fanned out" and "marker stamped" is no longer possible — the
+/// only crash window left is between the transaction commit and the
+/// post-tx steps (engine reset / keychain wipe / quarantine clear),
+/// which is recoverable via [resumeCleanup].
 library;
 
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:drift/drift.dart' show TableUpdate;
 import 'package:flutter/foundation.dart' show immutable;
@@ -154,6 +163,23 @@ class FrontingSessionRow {
   final bool isHealthKitImport;
 }
 
+/// Thrown by [FrontingMigrationService.prepareBackup] when the freshly
+/// derived rescue filename already exists on disk. Surfacing this as a
+/// typed error rather than silently overwriting protects the previous
+/// attempt's PRISM1 file — that file is the only recovery path for a
+/// user whose retry is itself broken.
+class BackupFileCollisionException implements Exception {
+  BackupFileCollisionException(this.path);
+
+  /// Absolute path of the file we refused to overwrite.
+  final String path;
+
+  @override
+  String toString() =>
+      'BackupFileCollisionException: refused to overwrite existing rescue '
+      'file at $path';
+}
+
 class FrontingMigrationService {
   FrontingMigrationService({
     required this.db,
@@ -168,6 +194,10 @@ class FrontingMigrationService {
     Future<String?> Function()? readSyncId,
     Future<void> Function()? wipeSyncKeychain,
     Future<Directory> Function()? backupDirectoryProvider,
+    Future<void> Function()? midTransactionFailpoint,
+    Future<void> Function()? postTransactionFailpoint,
+    DateTime Function()? clock,
+    Random? nonceRandom,
   })  : _resetSyncState = resetSyncState ??
             ((handle) => ffi.resetSyncState(handle: handle)),
         _clearSyncState = clearSyncState ??
@@ -179,7 +209,11 @@ class FrontingMigrationService {
         _readSyncId = readSyncId ?? (() async => null),
         _wipeSyncKeychain = wipeSyncKeychain ?? (() async {}),
         _backupDirectoryProvider =
-            backupDirectoryProvider ?? getApplicationDocumentsDirectory;
+            backupDirectoryProvider ?? getApplicationDocumentsDirectory,
+        _midTransactionFailpoint = midTransactionFailpoint,
+        _postTransactionFailpoint = postTransactionFailpoint,
+        _clock = clock ?? DateTime.now,
+        _nonceRandom = nonceRandom ?? Random.secure();
 
   final AppDatabase db;
   final MemberRepository memberRepository;
@@ -235,18 +269,39 @@ class FrontingMigrationService {
   /// tests don't need a `FlutterSecureStorage` instance; production wiring
   /// in `frontingMigrationRunnerProvider` passes
   /// `wipeFrontingMigrationSyncKeychain` (top-level helper in
-  /// `prism_sync_providers.dart`). Codex P1 #5: without this, a backgrounded
-  /// app between `_resetSyncState` and the next launch would re-seed Rust
-  /// from the keychain entries that should have been wiped.
+  /// `prism_sync_providers.dart`). Without this, a backgrounded app between
+  /// `_resetSyncState` and the next launch would re-seed Rust from the
+  /// keychain entries that should have been wiped.
   final Future<void> Function() _wipeSyncKeychain;
 
   /// Where the PRISM1 rescue backup is written by [prepareBackup]. Defaults
   /// to `getApplicationDocumentsDirectory()` so the file survives across
   /// app launches even if the user dismisses the upgrade modal before
-  /// confirming. Codex P1 #8: cache (the previous default) is purgeable
-  /// by the OS or user without warning, leaving the user with no
-  /// recoverable backup if they proceeded to the destructive phase.
+  /// confirming. The cache directory is purgeable by the OS or user
+  /// without warning, which would leave the user with no recoverable
+  /// backup if they proceeded to the destructive phase.
   final Future<Directory> Function() _backupDirectoryProvider;
+
+  /// Test-only hook fired inside the destructive Drift transaction
+  /// AFTER `modeInProgress` is stamped and BEFORE the destructive
+  /// fan-out runs. Throwing from this callback exercises the
+  /// transaction-rollback path (mode and data both revert).
+  final Future<void> Function()? _midTransactionFailpoint;
+
+  /// Test-only hook fired AFTER the Drift transaction commits and
+  /// BEFORE any post-tx step runs (engine reset / keychain wipe /
+  /// quarantine clear). Throwing from this callback exercises the
+  /// resume-cleanup path (transaction stays committed; mode stays
+  /// `inProgress`; user can re-enter the modal to finish).
+  final Future<void> Function()? _postTransactionFailpoint;
+
+  /// Wall-clock source. Override in tests so backup filename suffixes
+  /// are deterministic.
+  final DateTime Function() _clock;
+
+  /// CSPRNG used to mint a 4-hex-char nonce for the backup filename.
+  /// Override in tests for determinism.
+  final Random _nonceRandom;
 
   /// Sentinel string written to `system_settings.pending_fronting_migration_mode`.
   static const String modeNotStarted = 'notStarted';
@@ -254,16 +309,30 @@ class FrontingMigrationService {
   static const String modeUpgradeAndKeep = 'upgradeAndKeep';
   static const String modeStartFresh = 'startFresh';
 
-  /// Codex P1 #4. Written BEFORE the Drift transaction commits and BEFORE
-  /// the post-tx steps (FFI reset, keychain wipe, sync_quarantine clear).
-  /// Stays set until the post-tx steps all succeed; if any of them fail,
-  /// the user can resume via [resumeCleanup] from the upgrade modal.
+  /// Stamped as the FIRST statement inside the destructive Drift
+  /// transaction so the marker and the migrated rows commit (or roll
+  /// back) atomically. Stays set until the post-tx steps all succeed;
+  /// if any of them fail, the user can resume via [resumeCleanup] from
+  /// the upgrade modal. App startup and the runtime migration gate
+  /// treat this state as "data is in the new shape but the sync side
+  /// has not been cut over yet" — sync apply, PK push/poll, and other
+  /// new-shape-dependent paths are gated read-only until the user
+  /// resolves cleanup.
   static const String modeInProgress = 'inProgress';
 
   static const String modeComplete = 'complete';
 
-  /// Codex pass 2 #B-NEW3 — values for
-  /// `system_settings.pending_fronting_migration_cleanup_substate`.
+  /// v6→v7 onUpgrade sentinel. Written when duplicate `(pluralkit_uuid,
+  /// member_id)` rows prevent the composite unique index from being
+  /// created. The modal still surfaces and the user can run the
+  /// migration to clear the duplicates; until then the runtime gate
+  /// treats this state as hard read-only (Option A in the WS1 plan)
+  /// for PK and fronting-session sync paths so the legacy single-column
+  /// unique index doesn't reject legitimate multi-member PK switches
+  /// while we're in a partially-protected schema state.
+  static const String modeBlocked = 'blocked';
+
+  /// Values for `system_settings.pending_fronting_migration_cleanup_substate`.
   /// `''` is the inert default (no destructive post-tx step has run yet);
   /// [substateResetDone] is written ONLY after `_resetSyncState` returns
   /// success and before the keychain wipe / quarantine clear / mark
@@ -276,11 +345,18 @@ class FrontingMigrationService {
   /// the caller should surface the error and leave settings at
   /// `notStarted` so the user can retry.
   ///
-  /// Codex P1 #8: writes to `getApplicationDocumentsDirectory()` (or the
-  /// injected [_backupDirectoryProvider]) instead of cache so the file
-  /// survives across app launches even if the user dismisses the upgrade
-  /// modal between this and [runMigrationDestructive]. The user can then
+  /// Writes to `getApplicationDocumentsDirectory()` (or the injected
+  /// [_backupDirectoryProvider]) instead of cache so the file survives
+  /// across app launches even if the user dismisses the upgrade modal
+  /// between this and [runMigrationDestructive]. The user can then
   /// recover the file via the platform Files app / file manager.
+  ///
+  /// Filename is `Prism-Export-yyyy-MM-dd-<epoch_seconds>-<nonce>.prism`
+  /// so a same-day retry never silently overwrites the previous attempt's
+  /// rescue file. Refuses to write (throws [BackupFileCollisionException])
+  /// if a file at the chosen path already exists, so a clock-stuck or
+  /// nonce-collision case surfaces to the modal rather than clobbering
+  /// the original rescue artifact.
   Future<File> prepareBackup({
     required MigrationMode mode,
     required String password,
@@ -292,11 +368,39 @@ class FrontingMigrationService {
       );
     }
     final dir = await _backupDirectoryProvider();
+    final fileName = _buildBackupFileName();
+    final target = File('${dir.path}/$fileName');
+    if (await target.exists()) {
+      throw BackupFileCollisionException(target.path);
+    }
     return dataExportService.exportEncryptedData(
       password: password,
       includeLegacyFields: true,
       targetDirectory: dir,
+      fileName: fileName,
     );
+  }
+
+  /// Generates the unique backup filename. The day-stamp keeps human-
+  /// readable sortability for the user; the epoch-seconds stamp gives a
+  /// monotonic disambiguator within a single day; the 4-hex nonce
+  /// protects against a same-second retry on a clock-stuck device.
+  String _buildBackupFileName() {
+    final now = _clock();
+    final dateStr =
+        '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    final epochSeconds = (now.millisecondsSinceEpoch ~/ 1000).toString();
+    final nonce = _generateNonceHex(4);
+    return 'Prism-Export-$dateStr-$epochSeconds-$nonce.prism';
+  }
+
+  String _generateNonceHex(int hexChars) {
+    final byteCount = (hexChars + 1) ~/ 2;
+    final bytes = List<int>.generate(byteCount, (_) => _nonceRandom.nextInt(256));
+    final hex = bytes
+        .map((b) => b.toRadixString(16).padLeft(2, '0'))
+        .join();
+    return hex.substring(0, hexChars);
   }
 
   /// Phase 2 of the upgrade: run the destructive Drift transaction +
@@ -317,25 +421,45 @@ class FrontingMigrationService {
     required DeviceRole role,
     required File exportFile,
   }) async {
-    // Steps 3-7: wrap in a single Drift transaction. Codex P1 #3:
-    // Repository writes inside this block run with `SyncRecordMixin`
-    // emission SUPPRESSED so they don't push CRDT ops to the Rust
-    // engine. Those ops would commit to Rust's SEPARATE SQLite store
-    // (Drift can't roll them back), and auto-sync would push them to
-    // peers BEFORE step 8's `reset_sync_state` runs. Suppression keeps
-    // Rust's pending_ops untouched until the cutover.
+    // Steps 3-7: wrap in a single Drift transaction. Repository writes
+    // inside this block run with `SyncRecordMixin` emission SUPPRESSED
+    // so they don't push CRDT ops to the Rust engine. Those ops would
+    // commit to Rust's SEPARATE SQLite store (Drift can't roll them
+    // back), and auto-sync would push them to peers BEFORE the post-tx
+    // `reset_sync_state` runs. Suppression keeps Rust's pending_ops
+    // untouched until the cutover.
     //
-    // Migration mode is written OUTSIDE the transaction (Codex P1 #4)
-    // so the post-tx steps' failure mode — engine reset, keychain
-    // wipe, quarantine clear — remains recoverable via [resumeCleanup]
-    // when the user re-opens the app. If we wrote `inProgress` inside
-    // the tx, a Drift rollback would erase it and the user would be
-    // back on `notStarted` even though the actual mid-tx commit work
-    // had been suppressed.
+    // Atomicity contract: `pending_fronting_migration_mode = inProgress`
+    // is the FIRST statement inside this transaction. The marker and
+    // the destructive fan-out commit (or roll back) as a unit. If the
+    // body throws, Drift rolls back and the marker reverts to whatever
+    // it was before (typically `notStarted` after v6→v7 onUpgrade). If
+    // the body succeeds, the marker is durable on disk before any
+    // post-tx step runs, so a crash between commit and the post-tx
+    // sequence (engine reset / keychain wipe / quarantine clear) leaves
+    // the user on the recoverable resumeCleanup path rather than back
+    // at `notStarted` with already-migrated data.
     _MigrationCounters counters;
     try {
       counters = await SyncRecordMixin.suppress(() {
         return db.transaction<_MigrationCounters>(() async {
+          // Step 1 (atomicity): stamp the in-progress marker FIRST so
+          // it commits in the same Drift transaction as the destructive
+          // writes below. Calling the DAO from inside a `db.transaction`
+          // block uses the active transactional connection (Drift
+          // propagates the transaction via zones); no separate
+          // connection is opened.
+          await db.systemSettingsDao
+              .writePendingFrontingMigrationMode(modeInProgress);
+
+          // Test-only failpoint: throwing here exercises the rollback
+          // path — both the marker and any subsequent destructive work
+          // revert atomically.
+          final midHook = _midTransactionFailpoint;
+          if (midHook != null) {
+            await midHook();
+          }
+
           switch (role) {
             case DeviceRole.secondary:
               // Spec §4.1 final paragraph: secondaries skip per-row
@@ -349,7 +473,8 @@ class FrontingMigrationService {
         });
       });
     } catch (e) {
-      // Drift rolled back; settings still at the prior value
+      // Drift rolled back; the in-progress marker reverted with the
+      // destructive writes. Settings still at the prior value
       // (typically `notStarted`). Suppression also cleared on the way
       // out via the `suppress` finally block.
       return MigrationResult(
@@ -359,15 +484,24 @@ class FrontingMigrationService {
       );
     }
 
-    // Mark in-progress AFTER the Drift tx commits, BEFORE the post-tx
-    // cleanup steps. If any of those fail, the user can resume via
-    // [resumeCleanup] — surfaced by the upgrade modal as a "Finish
-    // migration" entry. App startup also checks for this marker and
-    // skips Rust seeding/configuration so a backgrounded app between
-    // reset and keychain wipe doesn't re-seed credentials about to be
-    // wiped.
-    await db.systemSettingsDao
-        .writePendingFrontingMigrationMode(modeInProgress);
+    // Test-only failpoint: throwing here simulates a crash between the
+    // Drift commit and the post-tx cleanup. The marker is already
+    // durable as `inProgress`; the user re-enters via
+    // [resumeCleanup].
+    final postHook = _postTransactionFailpoint;
+    if (postHook != null) {
+      try {
+        await postHook();
+      } catch (e) {
+        return _failPostTx(
+          exportFile: exportFile,
+          counters: counters,
+          errorMessage:
+              'Post-transaction failpoint: $e. Please reopen the upgrade '
+              'modal to finish migration.',
+        );
+      }
+    }
 
     return _runPostTransactionCleanup(
       exportFile: exportFile,
@@ -386,9 +520,12 @@ class FrontingMigrationService {
   /// backup-ready acknowledgment step in between, so production never
   /// reaches this fallback path.
   ///
-  /// [shareFile] is invoked between the two phases. Its return value is
-  /// not inspected — callers that need the durable-save gate must drive
-  /// the two phases manually (see `FrontingUpgradeSheet`).
+  /// [shareFile]'s return value gates the destructive phase: a `null`
+  /// return is treated as user cancellation (e.g. Share dialog
+  /// dismissed) and the destructive phase is skipped, returning a
+  /// `failed` outcome with the export file preserved on disk so a
+  /// retry can re-use it. A non-null `Uri` is treated as a successful
+  /// hand-off and the destructive phase proceeds.
   Future<MigrationResult> runMigration({
     required MigrationMode mode,
     required DeviceRole role,
@@ -412,13 +549,27 @@ class FrontingMigrationService {
       );
     }
 
+    Uri? shareResult;
     try {
-      await shareFile(exportFile);
+      shareResult = await shareFile(exportFile);
     } catch (e) {
       return MigrationResult(
         outcome: MigrationOutcome.failed,
         exportFile: exportFile,
         errorMessage: 'Share-sheet failed: $e',
+      );
+    }
+
+    if (shareResult == null) {
+      // User cancelled the share/save sheet. Do NOT proceed to the
+      // destructive phase — the rescue file is on disk but we have no
+      // confirmation it ended up anywhere recoverable. Surface the
+      // export file so the modal/test caller can offer a retry.
+      return MigrationResult(
+        outcome: MigrationOutcome.failed,
+        exportFile: exportFile,
+        errorMessage: 'Backup share/save was cancelled before destructive '
+            'migration. The PRISM1 file is still on disk; retry to continue.',
       );
     }
 
@@ -437,17 +588,16 @@ class FrontingMigrationService {
   /// just the engine reset (when not already done), keychain wipe,
   /// sync_quarantine clear, and final mode write.
   ///
-  /// Codex pass 2 #B-NEW3 + pass 3 P1: reads
-  /// `pending_fronting_migration_cleanup_substate` to decide whether
-  /// the Rust reset still needs to run. When the substate is
+  /// Reads `pending_fronting_migration_cleanup_substate` to decide
+  /// whether the Rust reset still needs to run. When the substate is
   /// [substateResetDone] we KNOW the previous attempt's Rust reset
   /// returned success — skip the FFI call entirely. When the substate
   /// is the inert default we MUST run a clear; the handle is
   /// unconfigured (app startup gates that detect `inProgress` publish
   /// an unconfigured handle), so we use `clear_sync_state(sync_id)`
   /// which operates on storage directly without touching the engine.
-  /// This sidesteps the configure-briefly hack the previous
-  /// implementation used (which had a relay-reconnect bug).
+  /// This sidesteps the configure-briefly path that had a
+  /// relay-reconnect bug.
   Future<MigrationResult> resumeCleanup() async {
     final currentMode =
         await db.systemSettingsDao.readPendingFrontingMigrationMode();
@@ -471,14 +621,13 @@ class FrontingMigrationService {
   /// path and [resumeCleanup]; on any failure the in-progress marker
   /// stays set so the user can retry without losing progress.
   ///
-  /// Codex pass 2 #B-NEW3: writes
-  /// `pending_fronting_migration_cleanup_substate = 'resetDone'`
+  /// Writes `pending_fronting_migration_cleanup_substate = 'resetDone'`
   /// between Rust reset success and the keychain wipe so a second
   /// invocation (via [resumeCleanup]) can skip the reset call instead
-  /// of relying on the "sync_id not set" heuristic — which in the
-  /// failure mode this fixes was erroneously treating "engine never
-  /// configured because Rust persistent state was never cleared" as
-  /// "reset already succeeded."
+  /// of relying on a "sync_id not set" heuristic — that heuristic
+  /// would otherwise mis-classify "engine never configured because
+  /// Rust persistent state was never cleared" as "reset already
+  /// succeeded."
   Future<MigrationResult> _runPostTransactionCleanup({
     required File? exportFile,
     required _MigrationCounters counters,
@@ -553,11 +702,11 @@ class FrontingMigrationService {
       }
     }
 
-    // Step 8b: wipe the platform keychain. Codex P1 #5: without this,
-    // a fresh app launch would re-seed Rust from the still-present
-    // wrapped_dek/sync_id/device_secret/etc. and silently re-attach to
-    // the OLD sync group. Idempotent — wiping already-wiped slots is
-    // a no-op.
+    // Step 8b: wipe the platform keychain. Without this, a fresh app
+    // launch would re-seed Rust from the still-present
+    // wrapped_dek/sync_id/device_secret/etc. and silently re-attach
+    // to the OLD sync group. Idempotent — wiping already-wiped slots
+    // is a no-op.
     try {
       await _wipeSyncKeychain();
     } catch (e) {
@@ -584,8 +733,8 @@ class FrontingMigrationService {
       );
     }
 
-    // P1 (final review): ensure the v7 fronting indexes are installed
-    // BEFORE we mark the migration complete.
+    // Ensure the v7 fronting indexes are installed BEFORE we mark the
+    // migration complete.
     //
     // v7 onUpgrade's detect-and-refuse path skips composite + orphan
     // index creation when duplicates are detected, so a DB that took
@@ -675,10 +824,14 @@ class FrontingMigrationService {
     final allComments = await _readAllComments();
 
     if (mode == MigrationMode.startFresh) {
-      // Step 6: delete every fronting row + every comment.  We still
-      // need to read the rows first to issue per-row `syncRecordDelete`
-      // so tombstones emit (the wipe at step 8 nukes those tombstones,
-      // but the local Drift `is_deleted` flips correctly).
+      // Step 6: delete every fronting row + every comment via the
+      // repository. The whole transaction body runs under
+      // `SyncRecordMixin.suppress`, so these deletes emit NO sync ops;
+      // the local Drift `is_deleted` flips correctly without producing
+      // tombstones in `pending_ops`. The post-tx sync state wipe will
+      // erase any pre-existing CRDT state, so we deliberately don't
+      // emit deletes — the new-shape snapshot rebuild is the canonical
+      // post-migration state for paired peers.
       var commentsDeleted = 0;
       for (final c in allComments) {
         await frontSessionCommentsRepository.deleteComment(c.id);
@@ -839,6 +992,15 @@ class FrontingMigrationService {
     // there's at least one orphan to assign.  The shared
     // `ensureUnknownSentinelMember` helper is idempotent (returns
     // wasCreated=false if a prior failed attempt already created it).
+    //
+    // Determinism contract: `unknownSentinelMemberId` is a UUIDv5
+    // derived from `spFrontingNamespace` + the literal string
+    // `'unknown-member-sentinel'` (see
+    // `core/constants/fronting_namespaces.dart`). The id is byte-
+    // identical on every device. That property is load-bearing here:
+    // orphan-rescue rows reference this member id under suppression,
+    // so paired devices that re-pair after migration must resolve the
+    // sentinel locally without an explicit sync op carrying it across.
     if (orphans.isNotEmpty) {
       final ensured = await memberRepository.ensureUnknownSentinelMember();
       if (ensured.wasCreated) {
