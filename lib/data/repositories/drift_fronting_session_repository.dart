@@ -221,6 +221,21 @@ class DriftFrontingSessionRepository
   }
 
   @override
+  Future<({int count, Duration? avgDuration})> getSleepStats({
+    required DateTime since,
+    DateTime? until,
+  }) => _dao.getSleepStats(since, until);
+
+  @override
+  Stream<List<domain.FrontingSession>> watchRecentSleepSessions({
+    required int limit,
+  }) {
+    return _dao
+        .watchRecentSleepSessions(limit)
+        .map((rows) => rows.map(FrontingSessionMapper.toDomain).toList());
+  }
+
+  @override
   Future<int> getCount() => _dao.getCount();
 
   @override

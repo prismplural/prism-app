@@ -290,6 +290,47 @@ class FrontingSessionsDao extends DatabaseAccessor<AppDatabase>
   ///
   /// Optional [startHour]/[endHour] filter by local time-of-day
   /// (e.g. 6..11 for morning sessions).
+  Future<({int count, Duration? avgDuration})> getSleepStats(
+    DateTime since,
+    DateTime? until,
+  ) async {
+    // Drift stores DateTimes as Unix seconds (integer). Convert accordingly.
+    final variables = <Variable>[
+      Variable.withInt(since.millisecondsSinceEpoch ~/ 1000),
+    ];
+    var untilClause = '';
+    if (until != null) {
+      untilClause = ' AND end_time < ?';
+      variables.add(Variable.withInt(until.millisecondsSinceEpoch ~/ 1000));
+    }
+    final sql = 'SELECT COUNT(*) AS c, AVG(end_time - start_time) AS avg_secs '
+        'FROM fronting_sessions '
+        'WHERE session_type = $_sleepSessionType '
+        'AND end_time IS NOT NULL '
+        'AND end_time > start_time '
+        'AND end_time >= ?'
+        '$untilClause '
+        'AND is_deleted = 0';
+    final row = (await customSelect(sql, variables: variables).get()).first;
+    final count = row.read<int>('c');
+    if (count == 0) return (count: 0, avgDuration: null);
+    final avgSecs = row.read<double?>('avg_secs');
+    final avg = avgSecs != null ? Duration(seconds: avgSecs.round()) : null;
+    return (count: count, avgDuration: avg);
+  }
+
+  Stream<List<FrontingSession>> watchRecentSleepSessions(int limit) =>
+      (select(frontingSessions)
+            ..where(
+              (t) =>
+                  t.sessionType.equals(_sleepSessionType) &
+                  t.isDeleted.equals(false) &
+                  t.endTime.isNotNull(),
+            )
+            ..orderBy([(t) => OrderingTerm.desc(t.startTime)])
+            ..limit(limit))
+          .watch();
+
   Future<Map<String, int>> getMemberFrontingCounts({
     int recentLimit = 50,
     int? startHour,
