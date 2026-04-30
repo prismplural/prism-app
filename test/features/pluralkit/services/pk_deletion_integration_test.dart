@@ -390,6 +390,17 @@ class _FakeSessionRepo implements FrontingSessionRepository {
       sessions[i] = sessions[i].copyWith(deletePushStartedAt: timestampMs);
     }
   }
+
+  @override
+  Future<({int count, Duration? avgDuration})> getSleepStats({
+    required DateTime since,
+    DateTime? until,
+  }) async => (count: 0, avgDuration: null);
+
+  @override
+  Stream<List<domain.FrontingSession>> watchRecentSleepSessions({
+    required int limit,
+  }) => Stream.value(const []);
 }
 
 // ---------------------------------------------------------------------------

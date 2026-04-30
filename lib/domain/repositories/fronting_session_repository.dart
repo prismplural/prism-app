@@ -57,4 +57,18 @@ abstract class FrontingSessionRepository {
     int? endHour,
     int? withinDays,
   });
+
+  /// [until] is exclusive; pass null to mean "up to now".
+  /// Excludes active sessions (endTime == null), zero/negative duration,
+  /// deleted rows, and non-sleep types.
+  Future<({int count, Duration? avgDuration})> getSleepStats({
+    required DateTime since,
+    DateTime? until,
+  });
+
+  /// Returns at most [limit] completed sleep sessions, newest first by
+  /// startTime. Active sessions (endTime == null) and deleted rows excluded.
+  Stream<List<domain.FrontingSession>> watchRecentSleepSessions({
+    required int limit,
+  });
 }
