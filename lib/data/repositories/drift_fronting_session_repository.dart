@@ -255,6 +255,22 @@ class DriftFrontingSessionRepository
   Map<String, dynamic> debugSessionFields(domain.FrontingSession s) =>
       _sessionFields(s);
 
+  /// Emit a final-state `syncRecordCreate` for [id] reflecting the
+  /// row's current on-disk shape, or no-op when the row is missing or
+  /// soft-deleted. Used by the data-import rescue path
+  /// (`DataImportService.importData`) to emit one create per surviving
+  /// session id after the suppressed in-transaction rescue + merge
+  /// pass — see review finding #9. The post-suppress emission keeps
+  /// peer state convergent without leaking the intermediate merge
+  /// churn (create-then-update-then-delete) that the rescue body
+  /// generates internally.
+  Future<void> emitFinalStateCreateIfSurviving(String id) async {
+    final row = await _dao.getSessionById(id);
+    if (row == null || row.isDeleted) return;
+    final session = FrontingSessionMapper.toDomain(row);
+    await syncRecordCreate(_table, id, _sessionFields(session));
+  }
+
   Map<String, dynamic> _sessionFields(domain.FrontingSession s) {
     return {
       'start_time': _toSyncUtc(s.startTime),

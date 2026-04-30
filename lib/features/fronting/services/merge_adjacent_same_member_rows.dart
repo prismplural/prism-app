@@ -57,13 +57,22 @@ import 'package:prism_plurality/domain/repositories/fronting_session_repository.
 /// (i.e., the count of rows that were soft-deleted as their data was
 /// folded into an earlier row). Useful for migration / import result
 /// counters.
+///
+/// [excludeMemberIds] is consulted before any per-member merge runs.
+/// Member ids in that set are skipped entirely. The PRISM1 rescue
+/// importer (§4.7) passes the Unknown sentinel id here so adjacent
+/// orphan-rescue rows stay distinct rather than being collapsed into
+/// one giant Unknown-sentinel session that loses per-row notes /
+/// confidence identity (review finding #42).
 Future<int> mergeAdjacentSameMemberRows(
   FrontingSessionRepository repo, {
   required Iterable<String> memberIds,
+  Set<String> excludeMemberIds = const {},
 }) async {
   var merges = 0;
   for (final memberId in memberIds) {
     if (memberId.isEmpty) continue;
+    if (excludeMemberIds.contains(memberId)) continue;
     // Re-fetch on each pass so cascading merges see the updated
     // earlier-row end_time without us having to maintain a parallel
     // in-memory model of the table.
