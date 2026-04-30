@@ -75,10 +75,35 @@ List<DayGroup> groupSessionsByDay(List<FrontingSession> sessions) {
       .toList();
 }
 
+/// Groups sleep sessions by their wake-date (end date), or start date when
+/// active. Each session appears in exactly one group — unlike
+/// [splitAtMidnight], cross-midnight sessions are NOT split into two
+/// continuation slices, since a sleep event is one thing, keyed by when
+/// you woke up.
+///
+/// Returns a map keyed by midnight DateTime (00:00:00) → list of sessions
+/// in input order.
+Map<DateTime, List<FrontingSession>> groupSleepByEndDate(
+  List<FrontingSession> sessions,
+) {
+  final map = <DateTime, List<FrontingSession>>{};
+
+  for (final session in sessions) {
+    final anchor = session.endTime ?? session.startTime;
+    final key = DateTime(anchor.year, anchor.month, anchor.day);
+    (map[key] ??= []).add(session);
+  }
+
+  return map;
+}
+
 /// Splits a session into display slices at each midnight boundary.
 /// A session from 11 PM to 2 AM becomes two slices:
 ///   Day 1: 11:00 PM – 12:00 AM (continuesNextDay)
 ///   Day 2: 12:00 AM – 2:00 AM (isContinuation)
+///
+/// The standalone Sleep view uses [groupSleepByEndDate] instead — a sleep
+/// event is one thing keyed by wake-date, not a pair of continuation slices.
 List<DisplaySession> splitAtMidnight(FrontingSession session) {
   final end = session.endTime ?? DateTime.now();
   final startDay = DateTime(
