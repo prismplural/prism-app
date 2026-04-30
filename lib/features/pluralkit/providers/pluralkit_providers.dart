@@ -14,6 +14,26 @@ import 'package:prism_plurality/features/pluralkit/services/pk_groups_importer.d
 import 'package:prism_plurality/features/fronting/migration/providers/fronting_migration_providers.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
 
+/// Thrown by [PluralKitSyncNotifier] surfaces when the per-member
+/// fronting migration is `blocked` or `inProgress` and the requested
+/// pull/push would write fronting rows in a transitional shape. UI
+/// callers should treat this as "tell the user the migration modal is
+/// the recovery surface" rather than a hard failure.
+///
+/// Push surfaces (e.g. `pushPendingSwitches`) opt to return 0 instead
+/// of throwing because they're called fire-and-forget from listeners
+/// and aren't user-initiated; pull surfaces throw because they're
+/// always invoked from explicit user actions where a no-op would be
+/// confusing.
+class PkSyncMigrationGatedException implements Exception {
+  const PkSyncMigrationGatedException();
+
+  @override
+  String toString() =>
+      'PkSyncMigrationGatedException: PluralKit sync is paused while the '
+      'per-member fronting migration is in progress or blocked.';
+}
+
 // ---------------------------------------------------------------------------
 // Sync service provider (singleton)
 // ---------------------------------------------------------------------------
@@ -133,13 +153,28 @@ class PluralKitSyncNotifier extends Notifier<PluralKitSyncState> {
   Future<(String? systemName, List<PKMember> pkMembers)> importMembersOnly() =>
       _service.importMembersOnly();
 
-  Future<void> performFullImport() => _service.performFullImport();
+  Future<void> performFullImport() async {
+    if (ref.read(frontingMigrationWritesBlockedProvider)) {
+      // Pull writes new fronting rows; defer until the migration is
+      // resolved. Same rationale as `pushPendingSwitches`.
+      throw const PkSyncMigrationGatedException();
+    }
+    await _service.performFullImport();
+  }
 
-  Future<PkTokenImportResult> performOneTimeFullImport({String? token}) =>
-      _service.performOneTimeFullImport(token: token);
+  Future<PkTokenImportResult> performOneTimeFullImport({String? token}) async {
+    if (ref.read(frontingMigrationWritesBlockedProvider)) {
+      throw const PkSyncMigrationGatedException();
+    }
+    return _service.performOneTimeFullImport(token: token);
+  }
 
-  Future<PkTokenImportResult> importFromTokenOnce(String token) =>
-      _service.importFromTokenOnce(token);
+  Future<PkTokenImportResult> importFromTokenOnce(String token) async {
+    if (ref.read(frontingMigrationWritesBlockedProvider)) {
+      throw const PkSyncMigrationGatedException();
+    }
+    return _service.importFromTokenOnce(token);
+  }
 
   Future<void> acknowledgeMapping() => _service.acknowledgeMapping();
 
@@ -149,17 +184,27 @@ class PluralKitSyncNotifier extends Notifier<PluralKitSyncState> {
   Future<PkFileImportResult> importFromFile(
     PkFileExport export, {
     void Function(double progress, String status)? onProgress,
-  }) => _service.importFromFile(export, onProgress: onProgress);
+  }) async {
+    if (ref.read(frontingMigrationWritesBlockedProvider)) {
+      throw const PkSyncMigrationGatedException();
+    }
+    return _service.importFromFile(export, onProgress: onProgress);
+  }
 
   Future<PkFileTokenFrontingImportResult> importFromFileWithToken(
     PkFileExport export, {
     required String token,
     void Function(double progress, String status)? onProgress,
-  }) => _service.importFromFileWithToken(
-    export,
-    token: token,
-    onProgress: onProgress,
-  );
+  }) async {
+    if (ref.read(frontingMigrationWritesBlockedProvider)) {
+      throw const PkSyncMigrationGatedException();
+    }
+    return _service.importFromFileWithToken(
+      export,
+      token: token,
+      onProgress: onProgress,
+    );
+  }
 
   /// Push any locally-created fronting sessions to PluralKit. Safe to call
   /// on every front change: it no-ops when the service isn't connected /

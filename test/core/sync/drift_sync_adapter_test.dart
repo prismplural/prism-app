@@ -909,6 +909,156 @@ void main() {
       reason: 'sentinel guard must not affect non-sentinel ids',
     );
   });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // WS1 step 4 + 5 (PR B): the apply path for fronting_sessions and
+  // front_session_comments must defer remote payloads via the quarantine
+  // channel (rather than silently skip) when the per-member fronting
+  // migration is `blocked` or `inProgress`.
+  // ──────────────────────────────────────────────────────────────────────────
+
+  test(
+    'fronting_sessions applyFields defers via quarantine while migration is '
+    'blocked',
+    () async {
+      final db = database.AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+
+      final quarantine = SyncQuarantineService(db.syncQuarantineDao);
+      final syncAdapter = buildSyncAdapterWithCompletion(
+        db,
+        quarantine: quarantine,
+        applyGate: (table) {
+          if (table == 'fronting_sessions') {
+            return DriftSyncApplyRefusal.frontingMigrationGate;
+          }
+          return null;
+        },
+      );
+
+      final sessions = syncAdapter.adapter.entities.singleWhere(
+        (entity) => entity.tableName == 'fronting_sessions',
+      );
+
+      syncAdapter.beginSyncBatch();
+      await sessions.applyFields('session-blocked', {
+        'start_time': DateTime.utc(2026, 4, 29, 10).toIso8601String(),
+        'session_type': 0,
+        'is_health_kit_import': false,
+        'is_deleted': false,
+      });
+      await syncAdapter.completeSyncBatch();
+
+      // No fronting_sessions row should have been written.
+      final row = await (db.select(
+        db.frontingSessions,
+      )..where((t) => t.id.equals('session-blocked'))).getSingleOrNull();
+      expect(row, isNull,
+          reason: 'gate must hold the apply back from disk');
+
+      // Quarantine must have logged the deferred apply with a typed reason.
+      final entries = await db.syncQuarantineDao.getAll();
+      expect(entries, hasLength(1));
+      final entry = entries.single;
+      expect(entry.entityType, 'fronting_sessions');
+      expect(entry.entityId, 'session-blocked');
+      expect(entry.expectedType, 'apply');
+      expect(entry.receivedType, 'deferred');
+      expect(
+        entry.errorMessage,
+        contains('frontingMigrationGate'),
+        reason:
+            'errorMessage must name the refusal reason so diagnostics can '
+            'trace deferred rows back to the migration gate',
+      );
+    },
+  );
+
+  test(
+    'front_session_comments applyFields defers via quarantine while migration '
+    'is blocked',
+    () async {
+      final db = database.AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+
+      final quarantine = SyncQuarantineService(db.syncQuarantineDao);
+      final syncAdapter = buildSyncAdapterWithCompletion(
+        db,
+        quarantine: quarantine,
+        applyGate: (table) {
+          if (table == 'front_session_comments') {
+            return DriftSyncApplyRefusal.frontingMigrationGate;
+          }
+          return null;
+        },
+      );
+
+      final comments = syncAdapter.adapter.entities.singleWhere(
+        (entity) => entity.tableName == 'front_session_comments',
+      );
+
+      syncAdapter.beginSyncBatch();
+      await comments.applyFields('comment-blocked', {
+        'target_time': DateTime.utc(2026, 4, 29, 12).toIso8601String(),
+        'author_member_id': 'member-1',
+        'body': 'queued comment',
+        'timestamp': DateTime.utc(2026, 4, 29, 12, 1).toIso8601String(),
+        'created_at': DateTime.utc(2026, 4, 29, 12, 2).toIso8601String(),
+        'is_deleted': false,
+      });
+      await syncAdapter.completeSyncBatch();
+
+      final row = await (db.select(
+        db.frontSessionComments,
+      )..where((t) => t.id.equals('comment-blocked'))).getSingleOrNull();
+      expect(row, isNull);
+
+      final entries = await db.syncQuarantineDao.getAll();
+      expect(entries, hasLength(1));
+      final entry = entries.single;
+      expect(entry.entityType, 'front_session_comments');
+      expect(entry.entityId, 'comment-blocked');
+      expect(entry.receivedType, 'deferred');
+    },
+  );
+
+  test(
+    'fronting_sessions apply succeeds when the gate clears (no quarantine '
+    'entry)',
+    () async {
+      // Control: with no gate refusal, the existing apply path runs and no
+      // deferred-quarantine entry is created. Pins that the gate is the
+      // only writer to that channel.
+      final db = database.AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+
+      final quarantine = SyncQuarantineService(db.syncQuarantineDao);
+      final syncAdapter = buildSyncAdapterWithCompletion(
+        db,
+        quarantine: quarantine,
+        applyGate: (_) => null,
+      );
+
+      final sessions = syncAdapter.adapter.entities.singleWhere(
+        (entity) => entity.tableName == 'fronting_sessions',
+      );
+
+      syncAdapter.beginSyncBatch();
+      await sessions.applyFields('session-clear', {
+        'start_time': DateTime.utc(2026, 4, 29, 10).toIso8601String(),
+        'session_type': 0,
+        'is_health_kit_import': false,
+        'is_deleted': false,
+      });
+      await syncAdapter.completeSyncBatch();
+
+      final row = await (db.select(
+        db.frontingSessions,
+      )..where((t) => t.id.equals('session-clear'))).getSingleOrNull();
+      expect(row, isNotNull);
+      expect(await db.syncQuarantineDao.count(), 0);
+    },
+  );
 }
 
 Map<String, dynamic> _expectedReadRowForRemotePayload(

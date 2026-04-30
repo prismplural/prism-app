@@ -92,6 +92,34 @@ enum DriftSyncApplyRefusal {
 typedef DriftSyncApplyGate = DriftSyncApplyRefusal? Function(
     String tableName);
 
+/// Records a "this remote payload was deferred because the per-member
+/// fronting migration is blocked/inProgress" entry in the quarantine
+/// table. The user can see deferred apply attempts in sync diagnostics
+/// rather than the data silently disappearing.
+///
+/// Returns immediately when [quarantine] is null (most production code
+/// paths supply one; some tests don't).
+void _trackMigrationGatedQuarantine({
+  required SyncQuarantineService? quarantine,
+  required void Function(Future<void> write) trackQuarantineWrite,
+  required String tableName,
+  required String entityId,
+  required DriftSyncApplyRefusal refusal,
+}) {
+  final q = quarantine;
+  if (q == null) return;
+  final write = q.quarantineField(
+    entityType: tableName,
+    entityId: entityId,
+    fieldName: null,
+    expectedType: 'apply',
+    receivedType: 'deferred',
+    errorMessage: 'fronting migration gate (${refusal.name}): apply deferred '
+        'until the per-member fronting migration completes',
+  );
+  trackQuarantineWrite(write);
+}
+
 SyncAdapterWithCompletion buildSyncAdapterWithCompletion(
   AppDatabase db, {
   SyncQuarantineService? quarantine,
@@ -1398,11 +1426,23 @@ DriftSyncEntity _frontingSessionsEntity(
       // a transitional shape (single-column unique index still in
       // place, or new-shape rows pending the post-tx sync state cutover)
       // and applying remote new-shape rows would race with the
-      // in-flight migration. Skip the apply silently — the post-cleanup
-      // re-pair flow snapshots the converged state from the migrated
-      // primary.
+      // in-flight migration. Surface the deferred apply through the
+      // quarantine channel so the user can see what was held back —
+      // silently skipping would make the deferral invisible. The
+      // post-cleanup re-pair flow snapshots the converged state from
+      // the migrated primary, so the deferred row reaches us through
+      // bootstrap rather than the apply path.
       final refusal = gate('fronting_sessions');
-      if (refusal != null) return;
+      if (refusal != null) {
+        _trackMigrationGatedQuarantine(
+          quarantine: quarantine,
+          trackQuarantineWrite: trackQuarantineWrite,
+          tableName: 'fronting_sessions',
+          entityId: id,
+          refusal: refusal,
+        );
+        return;
+      }
       final f = _FieldContext(
         entityType: 'fronting_sessions',
         entityId: id,
@@ -2933,8 +2973,19 @@ DriftSyncEntity _frontSessionCommentsEntity(
       // Migration gate — same rationale as fronting_sessions above.
       // Comments live on the same migration boundary; new-shape comment
       // rows depend on the new fronting_sessions shape being in place.
+      // Surface deferred applies through quarantine instead of silent
+      // skip so the user can audit what was held back.
       final refusal = gate('front_session_comments');
-      if (refusal != null) return;
+      if (refusal != null) {
+        _trackMigrationGatedQuarantine(
+          quarantine: quarantine,
+          trackQuarantineWrite: trackQuarantineWrite,
+          tableName: 'front_session_comments',
+          entityId: id,
+          refusal: refusal,
+        );
+        return;
+      }
       final f = _FieldContext(
         entityType: 'front_session_comments',
         entityId: id,
