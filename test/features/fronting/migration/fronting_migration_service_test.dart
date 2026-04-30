@@ -20,6 +20,7 @@ library;
 
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:drift/drift.dart' as drift;
 import 'package:drift/native.dart';
@@ -2220,7 +2221,342 @@ void main() {
       expect(aimeeRows, hasLength(2));
       expect(rows.where((r) => r.memberId == zari), hasLength(1));
     });
+
+    // -------------------------------------------------------------------
+    // WS1 step 1 + 2: atomic mode-marker + failpoints.
+    //
+    // The destructive Drift transaction stamps `inProgress` as its
+    // FIRST statement. Throwing inside the transaction must roll back
+    // both the marker and the destructive writes; throwing AFTER the
+    // commit must leave `inProgress` durable so the modal's resume
+    // path can finish cleanup.
+    // -------------------------------------------------------------------
+    test(
+      'transaction failpoint: marker and destructive writes roll back together '
+      '(mode reverts; rows untouched)',
+      () async {
+        await db.systemSettingsDao
+            .writePendingFrontingMigrationMode('notStarted');
+        await _seedMember(db, 'm1');
+        await _seedSession(
+          db,
+          id: 's1',
+          startTime: DateTime.utc(2026, 4, 1, 9),
+          memberId: 'm1',
+        );
+
+        final svc = FrontingMigrationService(
+          db: db,
+          memberRepository: DriftMemberRepository(db.membersDao, null),
+          frontingSessionRepository: DriftFrontingSessionRepository(
+            db.frontingSessionsDao,
+            null,
+          ),
+          frontSessionCommentsRepository: DriftFrontSessionCommentsRepository(
+            db.frontSessionCommentsDao,
+            null,
+          ),
+          dataExportService: exportService,
+          syncHandle: null,
+          backupDirectoryProvider: () async => cacheDir,
+          midTransactionFailpoint: () async {
+            throw StateError('synthetic mid-tx failure');
+          },
+        );
+
+        final result = await svc.runMigration(
+          mode: MigrationMode.upgradeAndKeep,
+          role: DeviceRole.solo,
+          shareFile: _noopShare,
+        );
+
+        expect(result.outcome, MigrationOutcome.failed);
+        expect(result.errorMessage, contains('Migration transaction failed'));
+        // Marker must NOT be inProgress: the Drift rollback rolled it
+        // back along with the destructive writes.
+        final mode = await db.systemSettingsDao
+            .readPendingFrontingMigrationMode();
+        expect(mode, 'notStarted');
+        // Sessions table is unchanged.
+        final rows = await db.frontingSessionsDao.getAllSessions();
+        expect(rows, hasLength(1));
+        expect(rows.single.id, 's1');
+      },
+    );
+
+    test(
+      'post-commit failpoint: leaves marker at inProgress; resumeCleanup '
+      'recovers; the destructive writes survived the original commit',
+      () async {
+        await db.systemSettingsDao
+            .writePendingFrontingMigrationMode('notStarted');
+        await _seedMember(db, 'm1');
+        await _seedSession(
+          db,
+          id: 's1',
+          startTime: DateTime.utc(2026, 4, 1, 9),
+          memberId: 'm1',
+        );
+
+        var hookCalls = 0;
+        Future<void> postHook() async {
+          hookCalls++;
+          throw StateError('synthetic post-commit failure');
+        }
+
+        final svc = FrontingMigrationService(
+          db: db,
+          memberRepository: DriftMemberRepository(db.membersDao, null),
+          frontingSessionRepository: DriftFrontingSessionRepository(
+            db.frontingSessionsDao,
+            null,
+          ),
+          frontSessionCommentsRepository: DriftFrontSessionCommentsRepository(
+            db.frontSessionCommentsDao,
+            null,
+          ),
+          dataExportService: exportService,
+          syncHandle: null,
+          backupDirectoryProvider: () async => cacheDir,
+          postTransactionFailpoint: postHook,
+        );
+
+        final firstResult = await svc.runMigration(
+          mode: MigrationMode.upgradeAndKeep,
+          role: DeviceRole.solo,
+          shareFile: _noopShare,
+        );
+
+        expect(firstResult.outcome, MigrationOutcome.failed);
+        expect(hookCalls, 1);
+        expect(
+          firstResult.errorMessage,
+          contains('Post-transaction failpoint'),
+        );
+        expect(
+          await db.systemSettingsDao.readPendingFrontingMigrationMode(),
+          'inProgress',
+          reason:
+              'Drift transaction committed with the marker stamped; the '
+              'post-commit failure must NOT roll the marker back.',
+        );
+
+        // Build a service with no failpoint so resumeCleanup completes.
+        final svcResume = FrontingMigrationService(
+          db: db,
+          memberRepository: DriftMemberRepository(db.membersDao, null),
+          frontingSessionRepository: DriftFrontingSessionRepository(
+            db.frontingSessionsDao,
+            null,
+          ),
+          frontSessionCommentsRepository: DriftFrontSessionCommentsRepository(
+            db.frontSessionCommentsDao,
+            null,
+          ),
+          dataExportService: exportService,
+          syncHandle: null,
+          backupDirectoryProvider: () async => cacheDir,
+        );
+
+        final resumeResult = await svcResume.resumeCleanup();
+        expect(resumeResult.outcome, MigrationOutcome.success);
+        expect(
+          await db.systemSettingsDao.readPendingFrontingMigrationMode(),
+          'complete',
+        );
+      },
+    );
+
+    // -------------------------------------------------------------------
+    // WS1 step 3: shareFile cancellation aborts before destructive work.
+    // -------------------------------------------------------------------
+    test(
+      'runMigration honors shareFile null (user cancelled): no destructive '
+      'writes; mode stays at notStarted; export file preserved',
+      () async {
+        await db.systemSettingsDao
+            .writePendingFrontingMigrationMode('notStarted');
+        await _seedMember(db, 'm1');
+        await _seedSession(
+          db,
+          id: 's1',
+          startTime: DateTime.utc(2026, 4, 1, 9),
+          memberId: 'm1',
+        );
+
+        final svc = _makeService(db, exportService);
+
+        final result = await svc.runMigration(
+          mode: MigrationMode.upgradeAndKeep,
+          role: DeviceRole.solo,
+          shareFile: (_) async => null, // cancel
+        );
+
+        expect(result.outcome, MigrationOutcome.failed);
+        expect(result.exportFile, isNotNull);
+        expect(await result.exportFile!.exists(), isTrue);
+        expect(
+          result.errorMessage,
+          contains('cancelled'),
+          reason: 'cancellation surfaces as a typed failure',
+        );
+        // The destructive phase did not run: data and mode are untouched.
+        final mode = await db.systemSettingsDao
+            .readPendingFrontingMigrationMode();
+        expect(mode, 'notStarted');
+        final rows = await db.frontingSessionsDao.getAllSessions();
+        expect(rows.single.id, 's1');
+      },
+    );
+
+    // -------------------------------------------------------------------
+    // WS1 step 6: same-day backup retry produces a distinct filename
+    // and refuses to overwrite an existing rescue file.
+    // -------------------------------------------------------------------
+    test(
+      'prepareBackup mints unique filenames on same-day retries '
+      '(timestamped + nonced)',
+      () async {
+        await _seedMember(db, 'm1');
+        await _seedSession(
+          db,
+          id: 's1',
+          startTime: DateTime.utc(2026, 4, 1, 9),
+          memberId: 'm1',
+        );
+        final dir = Directory.systemTemp.createTempSync(
+          'prism-mig-filename-collide-',
+        );
+        addTearDown(() async {
+          try {
+            await dir.delete(recursive: true);
+          } catch (_) {}
+        });
+        // Walk the clock forward by 1s on each call so the epoch
+        // suffix is guaranteed to differ even on a clock-stuck
+        // simulator. Real wall-clock retries are seconds apart, but
+        // we don't want this test to be flaky on a test runner that
+        // calls `prepareBackup` twice in the same millisecond.
+        var clockTick = DateTime.utc(2026, 4, 1, 9, 0, 0);
+        DateTime tickClock() {
+          final t = clockTick;
+          clockTick = clockTick.add(const Duration(seconds: 1));
+          return t;
+        }
+
+        final svc = FrontingMigrationService(
+          db: db,
+          memberRepository: DriftMemberRepository(db.membersDao, null),
+          frontingSessionRepository: DriftFrontingSessionRepository(
+            db.frontingSessionsDao,
+            null,
+          ),
+          frontSessionCommentsRepository: DriftFrontSessionCommentsRepository(
+            db.frontSessionCommentsDao,
+            null,
+          ),
+          dataExportService: exportService,
+          syncHandle: null,
+          backupDirectoryProvider: () async => dir,
+          clock: tickClock,
+        );
+
+        final fileA = await svc.prepareBackup(
+          mode: MigrationMode.upgradeAndKeep,
+          password: 'a-strong-password-12',
+        );
+        final fileB = await svc.prepareBackup(
+          mode: MigrationMode.upgradeAndKeep,
+          password: 'a-strong-password-12',
+        );
+
+        expect(fileA.path, isNot(equals(fileB.path)));
+        expect(await fileA.exists(), isTrue);
+        expect(await fileB.exists(), isTrue);
+        // Both should be Prism-Export-...prism in the chosen dir.
+        expect(fileA.path, startsWith(dir.path));
+        expect(fileB.path, startsWith(dir.path));
+        expect(fileA.path, endsWith('.prism'));
+        expect(fileB.path, endsWith('.prism'));
+      },
+    );
+
+    test(
+      'prepareBackup refuses to overwrite a same-named rescue file '
+      '(throws BackupFileCollisionException)',
+      () async {
+        await _seedMember(db, 'm1');
+        final dir = Directory.systemTemp.createTempSync(
+          'prism-mig-filename-refuse-',
+        );
+        addTearDown(() async {
+          try {
+            await dir.delete(recursive: true);
+          } catch (_) {}
+        });
+
+        // Pin the clock and nonce so the derived filename is
+        // deterministic. We pre-create that exact file to force the
+        // collision path.
+        final fixedNow = DateTime.utc(2026, 4, 1, 9, 0, 0);
+        final fixedNowEpoch = fixedNow.millisecondsSinceEpoch ~/ 1000;
+        final pinnedRandom = _PinnedRandom([0xab, 0xcd]); // → "abcd"
+        final expectedName =
+            'Prism-Export-2026-04-01-$fixedNowEpoch-abcd.prism';
+        final precreated = File('${dir.path}/$expectedName');
+        await precreated.writeAsBytes(const [1, 2, 3, 4]);
+
+        final svc = FrontingMigrationService(
+          db: db,
+          memberRepository: DriftMemberRepository(db.membersDao, null),
+          frontingSessionRepository: DriftFrontingSessionRepository(
+            db.frontingSessionsDao,
+            null,
+          ),
+          frontSessionCommentsRepository: DriftFrontSessionCommentsRepository(
+            db.frontSessionCommentsDao,
+            null,
+          ),
+          dataExportService: exportService,
+          syncHandle: null,
+          backupDirectoryProvider: () async => dir,
+          clock: () => fixedNow,
+          nonceRandom: pinnedRandom,
+        );
+
+        await expectLater(
+          svc.prepareBackup(
+            mode: MigrationMode.upgradeAndKeep,
+            password: 'a-strong-password-12',
+          ),
+          throwsA(isA<BackupFileCollisionException>()),
+        );
+        // Pre-existing file is untouched (no overwrite).
+        final bytes = await precreated.readAsBytes();
+        expect(bytes, [1, 2, 3, 4]);
+      },
+    );
   });
+}
+
+/// Random subclass that returns a fixed sequence of bytes via
+/// `nextInt(256)`. Used to pin the backup filename's nonce hex.
+class _PinnedRandom implements Random {
+  _PinnedRandom(this._bytes);
+  final List<int> _bytes;
+  int _i = 0;
+
+  @override
+  int nextInt(int max) {
+    final v = _bytes[_i % _bytes.length];
+    _i++;
+    return v % max;
+  }
+
+  @override
+  bool nextBool() => false;
+  @override
+  double nextDouble() => 0;
 }
 
 // ---------------------------------------------------------------------------

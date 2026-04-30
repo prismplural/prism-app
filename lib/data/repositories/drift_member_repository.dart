@@ -168,6 +168,12 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
   @override
   Future<({domain.Member member, bool wasCreated})>
   ensureUnknownSentinelMember() async {
+    // Determinism contract: `unknownSentinelMemberId` is a UUIDv5 derived
+    // from a fixed namespace + literal name (see
+    // `core/constants/fronting_namespaces.dart`). The id is byte-
+    // identical across devices and across fresh AppDatabase instances,
+    // so paired peers that ensure-the-sentinel under sync suppression
+    // converge on the same member row without a sync op carrying the id.
     final existing = await getMemberById(unknownSentinelMemberId);
     if (existing != null) {
       return (member: existing, wasCreated: false);
