@@ -1482,4 +1482,151 @@ void main() {
       expect(state.switchCursorId, 'some-uuid');
     });
   });
+
+  // -- WS3 step 2 / review #6: cursor boundary semantics --------------------
+
+  group('cursor boundary lexicographic skip (WS3 #6)', () {
+    test(
+      'same-timestamp switch with different id after the cursor IS processed',
+      () async {
+        // Regression for review finding #6: the previous loop break on
+        // `sw.timestamp == cursorTs && sw.id == cursorId` only stopped at
+        // the EXACT cursor switch — so a switch at the same timestamp but
+        // a different id was added to newSwitches AFTER the cursor was
+        // reached, then on the next page sweep was filtered as "before"
+        // the cursor and silently dropped. With the fix, the lexicographic
+        // `(ts, id) > cursor` rule processes such switches exactly once.
+        final db = _makeDb();
+        addTearDown(db.close);
+
+        final memberRepo = DriftMemberRepository(db.membersDao, null);
+        await memberRepo.createMember(
+          _member(localId: 'local-a', pkShortId: 'pkA', pkUuid: 'uuid-a'),
+        );
+
+        // Seed the cursor at (T, 'sw-1'). Pretend a previous incremental
+        // sweep processed sw-1; sw-2 shares the same timestamp but a later
+        // id, and was *missed* (it appeared after sw-1 in the page on the
+        // first sweep but before the cursor break). Also seed
+        // `lastSyncDate` so syncRecentData enters the incremental path
+        // rather than diverting to performFullImport.
+        final cursorTs = DateTime.utc(2026, 1, 1, 12);
+        await db.pluralKitSyncDao.upsertSyncState(
+          PluralKitSyncStateCompanion(
+            id: const Value('pk_config'),
+            switchCursorTimestamp: Value(cursorTs),
+            switchCursorId: const Value('sw-1'),
+            lastSyncDate: Value(DateTime.utc(2026, 1, 1, 13)),
+          ),
+        );
+
+        // The current sweep fetches a page with sw-2 and sw-1 (newest-first
+        // is sw-2, then sw-1 — string compare 'sw-2' > 'sw-1'). The cursor
+        // covers sw-1; sw-2 must be processed.
+        final sw1 = PKSwitch(
+          id: 'sw-1',
+          timestamp: cursorTs,
+          members: const ['pkA'],
+        );
+        final sw2 = PKSwitch(
+          id: 'sw-2',
+          timestamp: cursorTs,
+          members: const ['pkA'],
+        );
+
+        // Newest-first page: sw-2 first, then sw-1 (string-id tiebreak).
+        final client = _FakeClient([
+          [sw2, sw1],
+          [],
+        ]);
+
+        final service = _makeService(db: db, client: client);
+        await service.setToken('t');
+        await service.acknowledgeMapping();
+        await service.loadState();
+
+        await service.syncRecentData();
+
+        final sessionRepo = DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+        );
+        final sessions = await sessionRepo.getAllSessions();
+
+        // Exactly one row, derived from sw-2 (the "missed" same-timestamp
+        // switch). sw-1 was below the cursor and skipped.
+        expect(
+          sessions,
+          hasLength(1),
+          reason: 'sw-2 must be processed; sw-1 already covered by cursor',
+        );
+        expect(
+          sessions.single.pluralkitUuid,
+          'sw-2',
+          reason: 'entrant came from sw-2',
+        );
+        expect(sessions.single.id, _expectedRowId('sw-2', 'uuid-a'));
+
+        // Cursor advanced to (T, 'sw-2').
+        final state = await db.pluralKitSyncDao.getSyncState();
+        expect(state.switchCursorId, 'sw-2');
+        expect(state.switchCursorTimestamp, _sameInstant(cursorTs));
+      },
+    );
+  });
+
+  // -- WS3 step 9 / review #8: id derivation parity -------------------------
+
+  group('id derivation parity: diff sweep ↔ canonicalization (WS3 #9)', () {
+    test(
+      'corrective full re-import does NOT tombstone rows the diff sweep just '
+      'wrote — both call sites derive the same id',
+      () async {
+        // The two id-derivation sites previously diverged: the diff sweep
+        // routed local id → PK uuid via _localIdToPkUuid (with a localId
+        // fallback); the canonicalization pass derived directly from the
+        // PK uuid. Under odd map-state conditions they could disagree and
+        // canonicalization would tombstone a row the sweep would write.
+        //
+        // After unifying via deriveCanonicalPkSessionId, both paths must
+        // produce the same id, so the canonicalization tombstone-pass
+        // never sees a "stale" row produced by the sweep.
+        final db = _makeDb();
+        addTearDown(db.close);
+
+        final memberRepo = DriftMemberRepository(db.membersDao, null);
+        await memberRepo.createMember(
+          _member(localId: 'local-a', pkShortId: 'pkA', pkUuid: 'uuid-a'),
+        );
+
+        final sw1 = PKSwitch(
+          id: 'sw-1',
+          timestamp: DateTime.utc(2026, 1, 1, 10),
+          members: const ['pkA'],
+        );
+        final client = _FakeClient([
+          [sw1],
+          [],
+        ]);
+
+        final service = _makeService(db: db, client: client);
+        await service.setToken('t');
+        await service.acknowledgeMapping();
+        // performFullImport runs the canonicalization + diff sweep; if the
+        // two paths derive different ids, canonicalization will tombstone
+        // the row the sweep writes (or vice versa).
+        await service.performFullImport();
+
+        final sessionRepo = DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+        );
+        final sessions = await sessionRepo.getAllSessions();
+        // Exactly one row, not deleted, with the deterministic id.
+        expect(sessions, hasLength(1));
+        expect(sessions.single.isDeleted, isFalse);
+        expect(sessions.single.id, _expectedRowId('sw-1', 'uuid-a'));
+      },
+    );
+  });
 }
