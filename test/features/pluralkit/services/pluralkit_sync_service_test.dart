@@ -1176,11 +1176,15 @@ void main() {
         await service.loadState();
 
         // Session created after linkedAt — should be pushed.
+        // Explicit `pkImportSourceFileApi` so the source-aware push gate
+        // (WS3 step 10) treats this as push-eligible regardless of the
+        // null-source adoption cutoff.
         sessionRepo.sessions.add(
           domain.FrontingSession(
             id: 's-new',
             startTime: DateTime(2026, 2, 1, 12),
             memberId: 'local-a',
+            pkImportSource: pkImportSourceFileApi,
           ),
         );
         expect(service.state.needsMapping, isFalse);
@@ -1197,6 +1201,157 @@ void main() {
       },
     );
   });
+
+  // ── Source-aware push gate (WS3 step 10 / #38) ──────────────────────────────
+
+  group('pushPendingSwitches source-aware gate', () {
+    Future<({PluralKitSyncService service, _RecordingPushClient client})>
+    setupGate({
+      required List<domain.FrontingSession> sessions,
+    }) async {
+      final db = _makeDb();
+      addTearDown(db.close);
+
+      final memberRepo = FakeMemberRepository()
+        ..seed([
+          domain.Member(
+            id: 'local-a',
+            name: 'Alice',
+            emoji: '❔',
+            isActive: true,
+            createdAt: DateTime(2026, 1, 1),
+            pluralkitId: 'pkA',
+          ),
+        ]);
+      final sessionRepo = FakeFrontingSessionRepository()
+        ..sessions.addAll(sessions);
+
+      final fakeClient = _RecordingPushClient();
+      final service = PluralKitSyncService(
+        memberRepository: memberRepo,
+        frontingSessionRepository: sessionRepo,
+        syncDao: db.pluralKitSyncDao,
+        secureStorage: const FlutterSecureStorage(),
+        clientFactory: (_) => fakeClient,
+      );
+      await service.setToken('valid-token');
+      await service.acknowledgeMapping();
+      // linkedAt before all session startTimes used in these tests.
+      await db.pluralKitSyncDao.upsertSyncState(
+        PluralKitSyncStateCompanion(
+          id: const Value('pk_config'),
+          linkedAt: Value(DateTime.utc(2024, 1, 1)),
+          lastSyncDate: Value(DateTime.utc(2024, 1, 2)),
+        ),
+      );
+      await service.loadState();
+      return (service: service, client: fakeClient);
+    }
+
+    test(
+      'null pkImportSource BEFORE adoption cutoff is skipped and counted',
+      () async {
+        // Cutoff is pkPushSourceAdoptionCutoff (2026-04-30 UTC).
+        final harness = await setupGate(
+          sessions: [
+            domain.FrontingSession(
+              id: 's-legacy',
+              startTime: DateTime.utc(2026, 4, 1, 12),
+              memberId: 'local-a',
+              // pkImportSource: null — the unclassifiable pre-source-tracking
+              // shape we don't want to push.
+            ),
+          ],
+        );
+
+        final result = await harness.service.pushPendingSwitches();
+
+        expect(result.pushed, 0);
+        expect(result.legacyNullSourceSkipped, 1);
+        expect(harness.client.createSwitchCallCount, 0);
+      },
+    );
+
+    test('null pkImportSource AFTER adoption cutoff is pushed', () async {
+      final harness = await setupGate(
+        sessions: [
+          domain.FrontingSession(
+            id: 's-new-null',
+            startTime: pkPushSourceAdoptionCutoff.add(const Duration(days: 1)),
+            memberId: 'local-a',
+          ),
+        ],
+      );
+
+      final result = await harness.service.pushPendingSwitches();
+
+      expect(result.pushed, 1);
+      expect(result.legacyNullSourceSkipped, 0);
+      expect(harness.client.createSwitchCallCount, 1);
+    });
+
+    test('explicit pkImportSourceFile is NEVER pushed', () async {
+      final harness = await setupGate(
+        sessions: [
+          // Even AFTER the cutoff: file-source rows must not push, ever.
+          domain.FrontingSession(
+            id: 's-file',
+            startTime: pkPushSourceAdoptionCutoff.add(const Duration(days: 1)),
+            memberId: 'local-a',
+            pkImportSource: pkImportSourceFile,
+          ),
+        ],
+      );
+
+      final result = await harness.service.pushPendingSwitches();
+
+      expect(result.pushed, 0);
+      expect(result.legacyNullSourceSkipped, 0);
+      expect(harness.client.createSwitchCallCount, 0);
+    });
+
+    test(
+      'explicit pkImportSourceFileApi IS pushed regardless of cutoff',
+      () async {
+        final harness = await setupGate(
+          sessions: [
+            // BEFORE the cutoff but explicitly file-API tagged: still push.
+            domain.FrontingSession(
+              id: 's-fileapi',
+              startTime: DateTime.utc(2026, 1, 15, 9),
+              memberId: 'local-a',
+              pkImportSource: pkImportSourceFileApi,
+            ),
+          ],
+        );
+
+        final result = await harness.service.pushPendingSwitches();
+
+        expect(result.pushed, 1);
+        expect(result.legacyNullSourceSkipped, 0);
+        expect(harness.client.createSwitchCallCount, 1);
+      },
+    );
+  });
+}
+
+// Subclass that records createSwitch invocations and returns a unique switch
+// id on each call. Used by the source-aware push gate tests above.
+class _RecordingPushClient extends FakePluralKitClient {
+  int createSwitchCallCount = 0;
+
+  @override
+  Future<PKSwitch> createSwitch(
+    List<String> memberIds, {
+    DateTime? timestamp,
+  }) async {
+    createSwitchCallCount++;
+    return PKSwitch(
+      id: 'sw-$createSwitchCallCount',
+      timestamp: timestamp ?? DateTime.now(),
+      members: memberIds,
+    );
+  }
 }
 
 // Subclass of FakePluralKitClient that always 404s createSwitch, simulating

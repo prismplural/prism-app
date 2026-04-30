@@ -298,12 +298,12 @@ class _ThrowingPkSyncService implements PluralKitSyncService {
   Future<void> loadState() async {}
 
   @override
-  Future<int> pushPendingSwitches({
+  Future<PkPushSwitchesResult> pushPendingSwitches({
     Object? pushService,
     void Function(String message)? onStaleLink,
   }) async {
     pushPendingCalls++;
-    return pushReturn;
+    return PkPushSwitchesResult(pushed: pushReturn);
   }
 
   @override

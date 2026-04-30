@@ -192,6 +192,49 @@ const _pkTokenKey = 'prism_pluralkit_token';
 const pkImportSourceFile = 'file';
 const pkImportSourceFileApi = 'file_api';
 
+/// Cutoff for treating a fronting session with `pkImportSource == null` as
+/// push-eligible.
+///
+/// Background (#38 / WS3 step 10): before per-member fronting landed, file and
+/// file-API import paths didn't always tag rows with a `pkImportSource`. Those
+/// legacy null-source rows are not safely classifiable as "user-created
+/// locally" vs "imported from PK," so pushing them is the wrong default — it
+/// risks creating duplicate PK switches for sessions that originally came from
+/// PK.
+///
+/// Conservative gate: a null-source row is pushable only when its `startTime`
+/// is at or after this cutoff. We use `startTime` as a proxy for row creation
+/// time because `FrontingSession` has no dedicated `createdAt` column. This
+/// has a known false-negative: a user logging a backdated session today won't
+/// push it. That's an acceptable trade for not duplicating real data; the user
+/// can re-push from the PK mapping screen.
+///
+/// The cutoff is set to the merge date of the per-member-fronting branch
+/// (2026-04-30). A future PR can replace this with a one-time backfill that
+/// classifies legacy null-source rows by inspecting `pluralkitUuid`/`pkFileSwitchId`,
+/// at which point this gate can be relaxed.
+final DateTime pkPushSourceAdoptionCutoff = DateTime.utc(2026, 4, 30);
+
+/// Result of [PluralKitSyncService.pushPendingSwitches].
+///
+/// `pushed` is the count of local sessions that were successfully pushed to
+/// PluralKit as switches.
+///
+/// `legacyNullSourceSkipped` is the count of sessions that were held back by
+/// the [pkPushSourceAdoptionCutoff] gate — null `pkImportSource` rows whose
+/// `startTime` predates the cutoff. Surfaced so callers / UI can show how
+/// many rows were not pushed for source-classification reasons (distinct from
+/// the much larger "not push-eligible at all" pool).
+class PkPushSwitchesResult {
+  final int pushed;
+  final int legacyNullSourceSkipped;
+
+  const PkPushSwitchesResult({
+    this.pushed = 0,
+    this.legacyNullSourceSkipped = 0,
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Sync service / notifier
 // ---------------------------------------------------------------------------
@@ -1346,9 +1389,10 @@ class PluralKitSyncService {
       }
 
       // Phase 4: scoped push.
-      final int switchesPushed = direction.pushEnabled
+      final pushResult = direction.pushEnabled
           ? await pushPendingSwitches(onStaleLink: staleLinkMessages.add)
-          : 0;
+          : const PkPushSwitchesResult();
+      final int switchesPushed = pushResult.pushed;
 
       // Push deletions with switches first.
       int switchesDeletedOnPk = 0;
@@ -2749,8 +2793,10 @@ class PluralKitSyncService {
   /// convention for "no one is fronting." The returned PK switch UUID is
   /// stored on the local session so subsequent syncs don't duplicate it.
   ///
-  /// Returns the number of local sessions that were pushed.
-  Future<int> pushPendingSwitches({
+  /// Returns a [PkPushSwitchesResult] with the number of switches pushed and
+  /// the number of legacy null-`pkImportSource` rows held back by the
+  /// adoption cutoff (see [pkPushSourceAdoptionCutoff]).
+  Future<PkPushSwitchesResult> pushPendingSwitches({
     PkPushService? pushService,
     void Function(String message)? onStaleLink,
   }) async {
@@ -2759,7 +2805,7 @@ class PluralKitSyncService {
     }
     final linkedAt = _state.linkedAt;
     if (linkedAt == null) {
-      return 0;
+      return const PkPushSwitchesResult();
     }
 
     final client = await _buildClient();
@@ -2778,8 +2824,23 @@ class PluralKitSyncService {
 
       final sessions = await _frontingSessionRepository.getAllSessions();
       int pushed = 0;
+      int legacyNullSourceSkipped = 0;
       for (final session in sessions) {
+        // Source-aware push gate (WS3 step 10 / #38):
+        // - Explicit `pkImportSourceFile` rows: never push (came from a
+        //   token-less file import, would duplicate when the user later
+        //   connects with a token).
+        // - Null source rows: only push if `startTime` is at or after the
+        //   adoption cutoff. Older null-source rows are pre-source-tracking
+        //   and can't be safely classified as locally-authored.
+        // - Explicit `pkImportSourceFileApi` (or any other future explicit
+        //   non-file source): push as normal.
         if (session.pkImportSource == pkImportSourceFile) continue;
+        if (session.pkImportSource == null &&
+            session.startTime.isBefore(pkPushSourceAdoptionCutoff)) {
+          legacyNullSourceSkipped++;
+          continue;
+        }
         if (session.pluralkitUuid != null) continue;
         if (!session.startTime.isAfter(linkedAt)) continue;
         final memberId = session.memberId;
@@ -2845,7 +2906,10 @@ class PluralKitSyncService {
           );
         }
       }
-      return pushed;
+      return PkPushSwitchesResult(
+        pushed: pushed,
+        legacyNullSourceSkipped: legacyNullSourceSkipped,
+      );
     } finally {
       client.dispose();
     }
