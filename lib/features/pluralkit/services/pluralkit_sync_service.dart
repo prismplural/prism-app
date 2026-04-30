@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:uuid/uuid.dart';
 
-import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/daos/pk_mapping_state_dao.dart';
 import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
@@ -24,6 +23,8 @@ import 'package:prism_plurality/features/pluralkit/services/pk_file_parser.dart'
 import 'package:prism_plurality/features/pluralkit/services/pk_fronting_switch_matcher.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_groups_importer.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_push_service.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_session_id.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_switch_cursor.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 import 'package:prism_plurality/shared/utils/avatar_fetcher.dart';
 
@@ -186,6 +187,19 @@ class _PkFullImportRun {
 /// Designed to be driven by a Riverpod notifier that passes a
 /// [SyncStateCallback] so the notifier can update its state.
 class PluralKitSyncService {
+  /// Hard cap on incremental sweep pagination: 1000 pages × 100 switches/page
+  /// = 100,000 switches, well above any realistic system. Hitting it means
+  /// either the API is stuck or the cursor is so stale a full re-import is
+  /// the appropriate path; we surface [PkImportTooLargeError] instead of
+  /// looping. See WS3 step 2.
+  static const int _maxIncrementalPages = 1000;
+
+  /// Test-only accessor for [_maxIncrementalPages]. Exposed so the
+  /// page-cap guard test can build a fixture sized to the cap without
+  /// hard-coding the constant in two places.
+  @visibleForTesting
+  static int get maxIncrementalPagesForTesting => _maxIncrementalPages;
+
   final MemberRepository _memberRepository;
   final FrontingSessionRepository _frontingSessionRepository;
   final PluralKitSyncDao _syncDao;
@@ -1035,20 +1049,34 @@ class PluralKitSyncService {
 
       // -- Pull recent switches via incremental diff sweep --
       //
-      // Resume cursor: read (switchCursorTimestamp, switchCursorId) from DB.
-      // Fetch pages with `before = cursor.timestamp + 1µs` to get everything
-      // at or after the last processed switch. Filter out the cursor switch
-      // itself (already processed). Process in chronological order.
+      // Resume cursor: read (switchCursorTimestamp, switchCursorId) from DB
+      // as a `PkSwitchCursor`. PK paginates newest-first via the `before`
+      // query param (max 100 switches/page). We fetch newest first, walk
+      // backwards by `before = page.last.timestamp`, and accept every switch
+      // strictly newer than the cursor — i.e. `(sw.ts, sw.id) > cursor`
+      // lexicographically. Switches at the same timestamp as the cursor with
+      // a different id are *not* skipped, because they were never processed
+      // on the prior sweep (regression fix: WS3 step 2 / review finding #6).
+      //
+      // Pagination is bounded by [_maxIncrementalPages] and aborts on a
+      // no-progress page (where `before = page.last.timestamp` doesn't
+      // advance), surfacing typed errors instead of spinning forever.
       int totalNew = 0;
       int totalUnmapped = 0;
       if (direction.pullEnabled) {
         final cursorRow = await _syncDao.getSyncState();
-        final cursorTs = cursorRow.switchCursorTimestamp;
-        final cursorId = cursorRow.switchCursorId;
+        final PkSwitchCursor? cursor =
+            (cursorRow.switchCursorTimestamp != null &&
+                cursorRow.switchCursorId != null)
+            ? PkSwitchCursor(
+                timestamp: cursorRow.switchCursorTimestamp!,
+                switchId: cursorRow.switchCursorId!,
+              )
+            : null;
 
         debugPrint(
           '[PK_PULL] incremental sweep cursor='
-          '${cursorTs?.toIso8601String() ?? 'null'} id=${cursorId ?? 'null'}',
+          '${cursor?.toString() ?? 'null'}',
         );
 
         // Reconstitute prevActive from currently-open PK-linked rows.
@@ -1067,21 +1095,18 @@ class PluralKitSyncService {
           '[PK_PULL] prevActive from open rows: ${prevActive.length} members',
         );
 
-        // Fetch new switches since cursor. PK pagination is newest-first.
-        // We fetch newest first, accumulate, then stop when we reach the
-        // cursor boundary. Then sort oldest-first for the diff sweep.
         final newSwitches = <PKSwitch>[];
         int pageNum = 0;
-        bool reachedCursor = (cursorTs == null); // no cursor → fetch all
+        bool reachedCursor = (cursor == null); // no cursor → fetch all
+        DateTime? previousPageBefore;
 
         while (true) {
-          // For incremental sync, fetch newest page first (no before param on
-          // first call), then work backward. We stop when we've found the
-          // cursor boundary.
-          final DateTime? fetchBefore = newSwitches.isEmpty
-              ? null // first page: newest switches
-              : newSwitches.last.timestamp; // paginate backward
-
+          // First page: no `before`, fetch newest. Subsequent pages: page
+          // backwards from the previous page's oldest timestamp. Note that
+          // we use the *page's* last timestamp, not `newSwitches.last`, so
+          // that even if the cursor break trims the page partway through we
+          // continue paging from the actual API boundary.
+          final DateTime? fetchBefore = previousPageBefore;
           final page = await client.getSwitches(
             before: fetchBefore,
             limit: 100,
@@ -1090,24 +1115,38 @@ class PluralKitSyncService {
           debugPrint('[PK_PULL] page=$pageNum fetched=${page.length}');
           if (page.isEmpty) break;
 
+          // No-progress guard: a non-empty page that doesn't advance the
+          // paging boundary would loop forever under naive `before =
+          // page.last.timestamp`. Bail with a typed error so the caller
+          // sees a real failure rather than a hung sweep.
+          final pageOldest = page.last.timestamp;
+          if (previousPageBefore != null && pageOldest == previousPageBefore) {
+            throw PkPaginationNoProgressError(
+              lastBefore: pageOldest,
+              pagesFetched: pageNum,
+            );
+          }
+          previousPageBefore = pageOldest;
+
           for (final sw in page) {
-            // If we've reached or passed the cursor timestamp+id, stop.
-            if (cursorTs != null) {
-              if (sw.timestamp.isBefore(cursorTs)) {
-                reachedCursor = true;
-                break;
-              }
-              // Same timestamp — only skip if it's the exact cursor switch.
-              if (sw.timestamp == cursorTs && sw.id == cursorId) {
-                reachedCursor = true;
-                break;
-              }
+            // Skip any switch at or before the cursor lexicographically.
+            // Crucially, switches at the same timestamp as the cursor but a
+            // different id are NOT covered and must be processed.
+            if (cursor != null && cursor.covers(sw.timestamp, sw.id)) {
+              reachedCursor = true;
+              continue;
             }
             newSwitches.add(sw);
           }
 
           if (reachedCursor) break;
           if (page.length < 100) break; // last page
+          if (pageNum >= _maxIncrementalPages) {
+            throw PkImportTooLargeError(
+              pagesFetched: pageNum,
+              cap: _maxIncrementalPages,
+            );
+          }
         }
 
         // Sort oldest-first for chronological diff sweep.
@@ -1604,16 +1643,33 @@ class PluralKitSyncService {
     );
     final canonicalIds = <String>{};
     {
+      // Resolve canonical entrant ids in (switchId, localMemberId) space —
+      // exactly what the diff sweep writes — via the shared
+      // [deriveCanonicalPkSessionId] helper. Routing both call sites through
+      // one helper guarantees the canonicalization pass and the live diff
+      // sweep agree byte-for-byte on the row id, so we can never tombstone
+      // a row the sweep just wrote (WS3 step 9 / review finding #8).
+      final uuidToLocalIdForCanon = await _buildUuidToLocalIdMap();
+      final pkUuidByLocalId = <String, String>{
+        for (final entry in uuidToLocalIdForCanon.entries)
+          entry.value: entry.key,
+      };
       final prevActive = <String>{};
       for (final sw in allSwitches) {
         final newActive = <String>{};
         for (final shortId in sw.members) {
           final pkUuid = shortIdToUuid[shortId];
           if (pkUuid == null) continue;
-          newActive.add(pkUuid);
+          final localId = uuidToLocalIdForCanon[pkUuid];
+          if (localId == null) continue;
+          newActive.add(localId);
         }
-        for (final entrantPkUuid in newActive.difference(prevActive)) {
-          canonicalIds.add(derivePkSessionId(sw.id, entrantPkUuid));
+        for (final entrantLocalId in newActive.difference(prevActive)) {
+          canonicalIds.add(deriveCanonicalPkSessionId(
+            switchId: sw.id,
+            localMemberId: entrantLocalId,
+            pkUuidByLocalId: pkUuidByLocalId,
+          ));
         }
         prevActive
           ..clear()
@@ -1752,9 +1808,13 @@ class PluralKitSyncService {
   ///     for each leaver in prevActive - newActive:
   ///       close the open row at switch.timestamp
   ///     prevActive = newActive
-  ///     advance resume cursor (switch.timestamp, switch.id)
+  ///   advance resume cursor once at end of the batch to (newest.ts, newest.id)
   ///
-  /// Each switch's writes commit in a single Drift transaction (atomic).
+  /// Each switch's row writes commit in a single Drift transaction (atomic).
+  /// The resume cursor advances ONCE after the batch loop succeeds (WS3 step 7),
+  /// not per switch — so a partial-batch crash leaves the cursor at the prior
+  /// boundary and the sweep re-processes from there. Re-processing is safe
+  /// because row ids are deterministic and the upsert is idempotent.
   ///
   /// Returns the count of switch member references that couldn't be resolved
   /// to a local member (i.e., the PK short ID has no matching local member).
@@ -1780,9 +1840,21 @@ class PluralKitSyncService {
     Map<String, String> pkFileSwitchIdsByApiSwitchId = const <String, String>{},
   }) async {
     final uuidToLocalId = await _buildUuidToLocalIdMap();
+    // Forward map: local member id → PK UUID. Built once and passed to the
+    // unified [deriveCanonicalPkSessionId] helper. Rebuilding mid-sweep
+    // would defeat the determinism contract guarded by the assert below.
+    // Replaces the previous per-entrant `_localIdToPkUuid` reverse scan.
+    final pkUuidByLocalId = <String, String>{
+      for (final entry in uuidToLocalId.entries) entry.value: entry.key,
+    };
 
     // Track which open PK rows exist for each local member ID.
     // Key: local member ID → row ID of the currently-open session.
+    //
+    // TODO(PR-E1): Replace `Map<String, String> openRowIds` with the richer
+    // active-state struct described in WS3 step 3 (carries pkMemberUuid,
+    // startedAt, isTombstonedCollision). Out of scope for PR D — the
+    // pagination/cursor/id-derivation fixes here don't depend on it.
     final openRowIds = <String, String>{};
 
     // Populate openRowIds from the database (for crash-resume on incremental).
@@ -1800,6 +1872,13 @@ class PluralKitSyncService {
     }
 
     int unmappedCount = 0;
+
+    // Track newest successfully-processed switch in memory; advance the resume
+    // cursor once after the loop succeeds (WS3 step 7). Per-switch cursor
+    // writes were unnecessary (deterministic ids make replay safe) and made
+    // every switch a separate `pluralkit_sync_state` upsert.
+    DateTime? batchNewestTs;
+    String? batchNewestId;
 
     for (var i = 0; i < switches.length; i++) {
       final sw = switches[i];
@@ -1827,7 +1906,7 @@ class PluralKitSyncService {
       final entrants = newActive.difference(prevActive);
       final leavers = prevActive.difference(newActive);
 
-      // Atomic transaction: opens + closes + cursor advance.
+      // Atomic transaction: opens + closes for this switch.
       await _syncDao.attachedDatabase.transaction(() async {
         // Open rows for entrants.
         //
@@ -1841,9 +1920,32 @@ class PluralKitSyncService {
         // pattern recorded the row id but never wrote the API values,
         // leaving rescue-derived boundaries on disk forever.
         for (final localId in entrants) {
-          // Resolve local ID back to PK UUID for deterministic ID derivation.
-          final memberUuid = _localIdToPkUuid(localId, uuidToLocalId);
-          final rowId = derivePkSessionId(sw.id, memberUuid);
+          // Derive the row id via the shared helper so this site and the
+          // canonicalization pass agree on the id (WS3 step 9 / #8).
+          final rowId = deriveCanonicalPkSessionId(
+            switchId: sw.id,
+            localMemberId: localId,
+            pkUuidByLocalId: pkUuidByLocalId,
+          );
+          // Debug-only invariant: the derived id is stable for a given
+          // (switchId, localMemberId) regardless of map state, so long as
+          // pkUuidByLocalId either contains the same mapping or is missing
+          // the local id. Re-deriving against an empty map must equal
+          // re-deriving against the full map IFF the local id is absent
+          // from the full map; otherwise the two derivations differ on
+          // purpose (the fallback only applies to unmapped ids). We assert
+          // the more useful invariant: re-derivation against the SAME map
+          // is idempotent.
+          assert(
+            deriveCanonicalPkSessionId(
+                  switchId: sw.id,
+                  localMemberId: localId,
+                  pkUuidByLocalId: pkUuidByLocalId,
+                ) ==
+                rowId,
+            'deriveCanonicalPkSessionId is non-deterministic for '
+            '(${sw.id}, $localId) — id derivation contract broken.',
+          );
           final switchImportSource =
               pkImportSourceByApiSwitchId[sw.id] ?? pkImportSource;
           final pkFileSwitchId = pkFileSwitchIdsByApiSwitchId[sw.id];
@@ -1869,20 +1971,32 @@ class PluralKitSyncService {
             openRowIds.remove(localId);
           }
         }
-
-        if (advanceCursor) {
-          // Advance the resume cursor.
-          await _syncDao.upsertSyncState(
-            PluralKitSyncStateCompanion(
-              id: const Value('pk_config'),
-              switchCursorTimestamp: Value(sw.timestamp),
-              switchCursorId: Value(sw.id),
-            ),
-          );
-        }
       });
 
+      // Track newest (timestamp, id) we've seen for the batch-end cursor
+      // write. Switches are sorted oldest-first, so the last one wins —
+      // but we compare lexicographically anyway in case a caller hands us
+      // an unsorted list.
+      if (batchNewestTs == null ||
+          sw.timestamp.isAfter(batchNewestTs) ||
+          (sw.timestamp == batchNewestTs &&
+              (batchNewestId == null || sw.id.compareTo(batchNewestId) > 0))) {
+        batchNewestTs = sw.timestamp;
+        batchNewestId = sw.id;
+      }
+
       prevActive = newActive;
+    }
+
+    if (advanceCursor && batchNewestTs != null && batchNewestId != null) {
+      // One cursor write per batch (WS3 step 7).
+      await _syncDao.upsertSyncState(
+        PluralKitSyncStateCompanion(
+          id: const Value('pk_config'),
+          switchCursorTimestamp: Value(batchNewestTs),
+          switchCursorId: Value(batchNewestId),
+        ),
+      );
     }
 
     debugPrint(
@@ -1992,18 +2106,6 @@ class PluralKitSyncService {
               ..limit(1))
             .getSingleOrNull();
     return row == null ? null : FrontingSessionMapper.toDomain(row);
-  }
-
-  /// Reverse lookup: given a local member ID, return the PK UUID.
-  /// Builds a reverse map from the uuidToLocalId forward map.
-  String _localIdToPkUuid(String localId, Map<String, String> uuidToLocalId) {
-    // The uuidToLocalId map has pkUuid → localId. Reverse it for this lookup.
-    for (final entry in uuidToLocalId.entries) {
-      if (entry.value == localId) return entry.key;
-    }
-    // Should not happen: we only ever add localIds that resolved from a UUID.
-    // Fall back to the localId itself so the row ID is still deterministic.
-    return localId;
   }
 
   /// Walk PK switch history after a mapping Apply and import every switch.
