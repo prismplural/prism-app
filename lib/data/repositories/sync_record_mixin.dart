@@ -103,19 +103,17 @@ mixin SyncRecordMixin {
         );
       });
     } catch (e, st) {
-      // Codex P1 #3: previously this swallowed FFI exceptions silently
-      // with `debugPrint`, hiding real failures (a Rust write that
-      // throws produces a Drift row with no corresponding pending_op
-      // and no surface signal). Report the failure and rethrow so
-      // callers can decide what to do — most repository writes still
-      // tolerate this via their own try/catch, but at least the error
-      // reaches the reporter.
+      // Sync-log emission is best-effort; user data has already been
+      // persisted to Drift. Failure here must not surface to the UI.
+      // Report once so the failure reaches `ErrorReportingService` (the
+      // visibility motivation that originally introduced the rethrow),
+      // then swallow — repository call sites do not catch and the user
+      // shouldn't see "save failed" toasts for sync emission errors.
       ErrorReportingService.instance.report(
         'Sync recordCreate failed: $e',
         severity: ErrorSeverity.error,
         stackTrace: st,
       );
-      rethrow;
     }
   }
 
@@ -136,12 +134,13 @@ mixin SyncRecordMixin {
         );
       });
     } catch (e, st) {
+      // Sync-log emission is best-effort; user data has already been
+      // persisted to Drift. Failure here must not surface to the UI.
       ErrorReportingService.instance.report(
         'Sync recordUpdate failed: $e',
         severity: ErrorSeverity.error,
         stackTrace: st,
       );
-      rethrow;
     }
   }
 
@@ -156,12 +155,13 @@ mixin SyncRecordMixin {
         );
       });
     } catch (e, st) {
+      // Sync-log emission is best-effort; user data has already been
+      // persisted to Drift. Failure here must not surface to the UI.
       ErrorReportingService.instance.report(
         'Sync recordDelete failed: $e',
         severity: ErrorSeverity.error,
         stackTrace: st,
       );
-      rethrow;
     }
   }
 }

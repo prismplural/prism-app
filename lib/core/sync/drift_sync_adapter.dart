@@ -69,15 +69,45 @@ class SyncAdapterWithCompletion {
   }
 }
 
+/// Reasons the adapter may refuse to apply a remote payload to a local
+/// row. Callers can match on these values at logging or telemetry sites
+/// without inspecting magic strings.
+enum DriftSyncApplyRefusal {
+  /// Per-member fronting migration is blocked or in-progress; the
+  /// fronting tables are in a transitional shape and apply for
+  /// `fronting_sessions` / `front_session_comments` is hard read-only.
+  frontingMigrationGate,
+}
+
+/// Predicate used by per-table apply paths to gate writes. Returning
+/// `null` means "apply normally"; returning a non-null reason short-
+/// circuits the apply call and causes the engine to leave the local
+/// row untouched.
+///
+/// The predicate is synchronous because it's read on every apply call;
+/// today the only consumer is the fronting migration gate, which
+/// resolves a Riverpod-backed boolean stamped at startup and updated by
+/// the Drift settings stream. Make this async only if a future gate
+/// truly needs an awaited check.
+typedef DriftSyncApplyGate = DriftSyncApplyRefusal? Function(
+    String tableName);
+
 SyncAdapterWithCompletion buildSyncAdapterWithCompletion(
   AppDatabase db, {
   SyncQuarantineService? quarantine,
+  DriftSyncApplyGate? applyGate,
 }) {
   final pendingQuarantineWrites = <Future<void>>[];
+  final gate = applyGate ?? ((_) => null);
   final adapter = DriftSyncAdapter(
     entities: [
       _membersEntity(db, quarantine, pendingQuarantineWrites.add),
-      _frontingSessionsEntity(db, quarantine, pendingQuarantineWrites.add),
+      _frontingSessionsEntity(
+        db,
+        quarantine,
+        pendingQuarantineWrites.add,
+        gate,
+      ),
       _conversationsEntity(db, quarantine, pendingQuarantineWrites.add),
       _chatMessagesEntity(db, quarantine, pendingQuarantineWrites.add),
       _systemSettingsEntity(db, quarantine, pendingQuarantineWrites.add),
@@ -97,7 +127,12 @@ SyncAdapterWithCompletion buildSyncAdapterWithCompletion(
       _customFieldsEntity(db, quarantine, pendingQuarantineWrites.add),
       _customFieldValuesEntity(db, quarantine, pendingQuarantineWrites.add),
       _notesEntity(db, quarantine, pendingQuarantineWrites.add),
-      _frontSessionCommentsEntity(db, quarantine, pendingQuarantineWrites.add),
+      _frontSessionCommentsEntity(
+        db,
+        quarantine,
+        pendingQuarantineWrites.add,
+        gate,
+      ),
       _friendsEntity(db, quarantine, pendingQuarantineWrites.add),
       _mediaAttachmentsEntity(db, quarantine, pendingQuarantineWrites.add),
     ],
@@ -1333,6 +1368,7 @@ DriftSyncEntity _frontingSessionsEntity(
   AppDatabase db,
   SyncQuarantineService? quarantine,
   void Function(Future<void> write) trackQuarantineWrite,
+  DriftSyncApplyGate gate,
 ) {
   return DriftSyncEntity(
     tableName: 'fronting_sessions',
@@ -1350,11 +1386,23 @@ DriftSyncEntity _frontingSessionsEntity(
         'pluralkit_uuid': r.pluralkitUuid,
         'pk_import_source': r.pkImportSource,
         'pk_file_switch_id': r.pkFileSwitchId,
+        // Transitional. Removed in 0.8.0 with v8 cleanup. See sync_schema.dart.
+        'pk_member_ids_json': r.pkMemberIdsJson,
         'delete_push_started_at': r.deletePushStartedAt,
         'is_deleted': r.isDeleted,
       };
     },
     applyFields: (String id, Map<String, dynamic> fields) async {
+      // Migration gate (WS1 step 4 + 5): if the per-member fronting
+      // migration is `blocked` or `inProgress`, the local schema is in
+      // a transitional shape (single-column unique index still in
+      // place, or new-shape rows pending the post-tx sync state cutover)
+      // and applying remote new-shape rows would race with the
+      // in-flight migration. Skip the apply silently — the post-cleanup
+      // re-pair flow snapshots the converged state from the migrated
+      // primary.
+      final refusal = gate('fronting_sessions');
+      if (refusal != null) return;
       final f = _FieldContext(
         entityType: 'fronting_sessions',
         entityId: id,
@@ -1375,6 +1423,10 @@ DriftSyncEntity _frontingSessionsEntity(
         pluralkitUuid: f.stringFieldNullable('pluralkit_uuid'),
         pkImportSource: f.stringFieldNullable('pk_import_source'),
         pkFileSwitchId: f.stringFieldNullable('pk_file_switch_id'),
+        // Transitional. `stringFieldNullable` returns `Value.absent()` when
+        // the payload omits the key, so a v7 peer's apply does not clobber a
+        // legacy peer's value, and a legacy peer's apply still writes through.
+        pkMemberIdsJson: f.stringFieldNullable('pk_member_ids_json'),
         deletePushStartedAt: f.intFieldNullable('delete_push_started_at'),
         isDeleted: f.boolField('is_deleted'),
       );
@@ -1407,6 +1459,8 @@ DriftSyncEntity _frontingSessionsEntity(
         'pluralkit_uuid': row.pluralkitUuid,
         'pk_import_source': row.pkImportSource,
         'pk_file_switch_id': row.pkFileSwitchId,
+        // Transitional. Removed in 0.8.0 with v8 cleanup.
+        'pk_member_ids_json': row.pkMemberIdsJson,
         'delete_push_started_at': row.deletePushStartedAt,
         'is_deleted': row.isDeleted,
       };
@@ -2860,6 +2914,7 @@ DriftSyncEntity _frontSessionCommentsEntity(
   AppDatabase db,
   SyncQuarantineService? quarantine,
   void Function(Future<void> write) trackQuarantineWrite,
+  DriftSyncApplyGate gate,
 ) {
   return DriftSyncEntity(
     tableName: 'front_session_comments',
@@ -2875,6 +2930,11 @@ DriftSyncEntity _frontSessionCommentsEntity(
       };
     },
     applyFields: (String id, Map<String, dynamic> fields) async {
+      // Migration gate — same rationale as fronting_sessions above.
+      // Comments live on the same migration boundary; new-shape comment
+      // rows depend on the new fronting_sessions shape being in place.
+      final refusal = gate('front_session_comments');
+      if (refusal != null) return;
       final f = _FieldContext(
         entityType: 'front_session_comments',
         entityId: id,
@@ -2882,13 +2942,19 @@ DriftSyncEntity _frontSessionCommentsEntity(
         quarantine: quarantine,
         trackQuarantineWrite: trackQuarantineWrite,
       );
+      // `session_id` is a NOT NULL legacy column that still exists on disk
+      // until the v8 cleanup rebuild removes it. Remote sync payloads only
+      // carry the new timestamp-based shape, so inserts on a newly paired
+      // device must write the same inert sentinel the local mapper uses.
+      // On UPDATE we must NOT touch the column — a v6 row imported with a
+      // real session_id has to keep it for the v8 cleanup migration to
+      // backfill from. Issue #4 (review-2026-04-30).
+      final existing = await (db.select(
+        db.frontSessionComments,
+      )..where((t) => t.id.equals(id))).getSingleOrNull();
       final companion = FrontSessionCommentsCompanion(
         id: Value(id),
-        // `session_id` is a NOT NULL legacy column that still exists on disk
-        // until the cleanup rebuild removes it. Remote sync payloads only
-        // carry the new timestamp-based shape, so inserts on a newly paired
-        // device must write the same inert sentinel the local mapper uses.
-        sessionId: const Value(''),
+        sessionId: existing == null ? const Value('') : const Value.absent(),
         targetTime: f.dateTimeFieldNullable('target_time'),
         authorMemberId: f.stringFieldNullable('author_member_id'),
         body: f.stringField('body'),

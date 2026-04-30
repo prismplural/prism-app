@@ -393,4 +393,58 @@ void main() {
       },
     );
   });
+
+  // --------------------------------------------------------------------
+  // wipeFrontingMigrationSyncKeychain — Workstream 2 step 4
+  // (remediation-plan-2026-04-30): the migration's wipe pass must
+  // consume `_secureStoreKeys` and `_dynamicSecureStorePrefixes` instead
+  // of inlining the list. We expose the static-key set + dynamic prefix
+  // list via two `@visibleForTesting` helpers so the contract is pinned.
+  // --------------------------------------------------------------------
+  group('frontingMigrationWipeStaticKeys', () {
+    test('includes every key in the seed allow-list', () {
+      // Anything seeded into Rust must also be wiped on migration cutover —
+      // otherwise the next launch re-seeds an old DEK / sync_id and the
+      // device silently re-attaches to the previous sync group.
+      final keys = frontingMigrationWipeStaticKeys();
+      expect(keys, containsAll(const <String>[
+        'wrapped_dek',
+        'dek_salt',
+        'device_secret',
+        'device_id',
+        'sync_id',
+        'session_token',
+        'epoch',
+        'relay_url',
+        'setup_rollback_marker',
+        'sharing_prekey_store',
+        'sharing_id_cache',
+        'min_signature_version_floor',
+      ]));
+    });
+
+    test(
+      'includes wipe-only legacy slots not present in the seed allow-list',
+      () {
+        // `mnemonic` was sometimes persisted by older builds; `runtime_dek`
+        // is the Signal-style cached DEK from `cacheRuntimeKeys`. Neither
+        // is seed material, but both must be wiped on reset.
+        final keys = frontingMigrationWipeStaticKeys();
+        expect(keys, contains('mnemonic'));
+        expect(keys, contains('runtime_dek'));
+      },
+    );
+  });
+
+  group('frontingMigrationWipeDynamicPrefixes', () {
+    test('matches the seed-side dynamic prefix list', () {
+      // The wipe path must scan the same dynamic prefixes the seed path
+      // scans — otherwise an `epoch_key_1` left behind by a prior pairing
+      // gets re-seeded into Rust on the next launch. `computeSeedEntries`
+      // already pins `epoch_key_*` and `runtime_keys_*` as the dynamic
+      // prefix set; the wipe helper must mirror it.
+      final prefixes = frontingMigrationWipeDynamicPrefixes();
+      expect(prefixes, containsAll(const <String>['epoch_key_', 'runtime_keys_']));
+    });
+  });
 }

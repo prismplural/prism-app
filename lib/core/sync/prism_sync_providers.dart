@@ -21,6 +21,7 @@ import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/core/database/daos/sync_quarantine_dao.dart';
 import 'package:prism_plurality/core/sync/drift_sync_adapter.dart';
+import 'package:prism_plurality/features/fronting/migration/providers/fronting_migration_providers.dart';
 import 'package:prism_plurality/core/sync/sync_event_loop.dart';
 import 'package:prism_plurality/core/sync/sync_quarantine.dart';
 import 'package:prism_plurality/core/services/media/media_providers.dart';
@@ -783,25 +784,38 @@ Future<String?> readFrontingMigrationSyncId() async {
   }
 }
 
+/// Secure-store keys not tracked by `_secureStoreKeys` (the seed allow-list)
+/// that the wipe path still needs to clear. `mnemonic` is kept here as a
+/// defensive entry — the BIP39 mnemonic is normally never persisted (see
+/// the comment on `_secureStoreKeys`), but earlier builds may have left
+/// one behind. `runtime_dek` is the Signal-style cached DEK from
+/// `cacheRuntimeKeys`; it is not seed material so it never appears in
+/// `_secureStoreKeys`, but it must be wiped on reset.
+const _legacyWipeOnlyKeys = ['mnemonic', 'runtime_dek'];
+
+/// Returns the full set of unprefixed secure-store keys the migration's
+/// wipe path will clear via the static allow-list, before the dynamic
+/// prefix scan runs. Exposed for tests so they can pin the contract that
+/// every entry in `_secureStoreKeys` (plus the wipe-only legacy entries)
+/// is part of the wipe set.
+@visibleForTesting
+Set<String> frontingMigrationWipeStaticKeys() {
+  return {..._secureStoreKeys, ..._legacyWipeOnlyKeys};
+}
+
+/// Returns the dynamic prefixes the wipe path scans for after the static
+/// pass. Exposed for tests.
+@visibleForTesting
+List<String> frontingMigrationWipeDynamicPrefixes() {
+  return List.unmodifiable(_dynamicSecureStorePrefixes);
+}
+
 Future<void> wipeFrontingMigrationSyncKeychain() async {
-  // Static allow-list (mirrors `_secureStoreKeys` plus the same
-  // defensive entries `_wipeSyncKeychainEntries` lists).
-  for (final key in const [
-    'wrapped_dek',
-    'dek_salt',
-    'device_secret',
-    'device_id',
-    'sync_id',
-    'session_token',
-    'epoch',
-    'relay_url',
-    'mnemonic',
-    'setup_rollback_marker',
-    'sharing_prekey_store',
-    'sharing_id_cache',
-    'min_signature_version_floor',
-    'runtime_dek',
-  ]) {
+  // Static allow-list — drives off the same constants the seed/reset
+  // paths use. Adding a new sync-storage key in `_secureStoreKeys` (or a
+  // new dynamic prefix in `_dynamicSecureStorePrefixes`) is automatically
+  // covered here without a second hand-maintained list.
+  for (final key in frontingMigrationWipeStaticKeys()) {
     try {
       await _storage.delete(key: '$_secureStorePrefix$key');
     } catch (_) {
@@ -1123,7 +1137,25 @@ final quarantinedItemsProvider = FutureProvider<List<SyncQuarantineData>>((
 final driftSyncAdapterProvider = Provider<SyncAdapterWithCompletion>((ref) {
   final db = ref.watch(databaseProvider);
   final quarantine = ref.watch(syncQuarantineServiceProvider);
-  return buildSyncAdapterWithCompletion(db, quarantine: quarantine);
+  // Gate fronting_sessions / front_session_comments apply on the
+  // per-member fronting migration. While the migration is `blocked` or
+  // `inProgress` the local schema is in a transitional shape (see WS1
+  // step 4 + 5 in the remediation plan) and applying remote new-shape
+  // rows would race with the in-flight migration. We read from
+  // `frontingMigrationWritesBlockedProvider` lazily inside the closure
+  // so the adapter doesn't have to be rebuilt on every state change.
+  return buildSyncAdapterWithCompletion(
+    db,
+    quarantine: quarantine,
+    applyGate: (tableName) {
+      if (tableName != 'fronting_sessions' &&
+          tableName != 'front_session_comments') {
+        return null;
+      }
+      final blocked = ref.read(frontingMigrationWritesBlockedProvider);
+      return blocked ? DriftSyncApplyRefusal.frontingMigrationGate : null;
+    },
+  );
 });
 
 // ---------------------------------------------------------------------------

@@ -18,6 +18,11 @@ class FrontSessionCommentMapper {
       // (pure translation, no fallback here).
       targetTime: row.targetTime,
       authorMemberId: row.authorMemberId,
+      // Surface the legacy column on the model so migration/import
+      // backfill code can read it. Empty string maps to null so callers
+      // don't have to special-case the inert sentinel. Removed in 0.8.0
+      // alongside the column drop.
+      sessionId: row.sessionId.isEmpty ? null : row.sessionId,
     );
   }
 
@@ -25,15 +30,16 @@ class FrontSessionCommentMapper {
       domain.FrontSessionComment model) {
     // sessionId is a NOT NULL legacy column that v8 cleanup will drop via
     // TableMigration rebuild. v7-era inserts must still satisfy the NOT
-    // NULL constraint; we write an empty string (the inert sentinel)
-    // since new-shape readers consult target_time, not session_id, and
-    // the column is unread by the new code paths.
+    // NULL constraint; we write the model's legacy sessionId when present
+    // (so migration/import paths can preserve it) and otherwise an empty
+    // string sentinel — new-shape readers consult target_time, not
+    // session_id, and the column is unread by the new code paths.
     //
     // TODO(phase-5d): once the v8 schema rebuild lands and `session_id`
-    // is gone, drop the explicit empty-string write here.
+    // is gone, drop the model field and this column write together.
     return FrontSessionCommentsCompanion(
       id: Value(model.id),
-      sessionId: const Value(''),
+      sessionId: Value(model.sessionId ?? ''),
       body: Value(model.body),
       timestamp: Value(model.timestamp),
       createdAt: Value(model.createdAt),

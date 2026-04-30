@@ -81,6 +81,12 @@ class DataExportService {
   final Future<Directory> Function() _cacheDirectoryProvider;
   final Future<Directory> Function() _appSupportDirectoryProvider;
 
+  /// Cache of `(table, column) -> exists` results so repeat lookups during
+  /// a single export don't re-issue `PRAGMA table_info` per call. Issue #40
+  /// (review-2026-04-30) — survives a future v8 cleanup migration that
+  /// drops `co_fronter_ids` / `pk_member_ids_json` / comment `session_id`.
+  final Map<String, bool> _columnExistenceCache = <String, bool>{};
+
   /// Build the [V1Export] model from the current database state.
   ///
   /// This is separated from file I/O so it can be used in tests without
@@ -303,6 +309,7 @@ class DataExportService {
     required String password,
     bool includeLegacyFields = false,
     Directory? targetDirectory,
+    String? fileName,
   }) async {
     final export = await buildExport(includeLegacyFields: includeLegacyFields);
     final jsonStr = const JsonEncoder.withIndent('  ').convert(export.toJson());
@@ -310,8 +317,9 @@ class DataExportService {
     final mediaBlobs = await _collectMediaBlobs(export.mediaAttachments);
 
     final outputDir = targetDirectory ?? await _cacheDirectoryProvider();
-    final dateStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
-    final file = File('${outputDir.path}/Prism-Export-$dateStr.prism');
+    final resolvedName = fileName ??
+        'Prism-Export-${DateFormat('yyyy-MM-dd').format(DateTime.now())}.prism';
+    final file = File('${outputDir.path}/$resolvedName');
     final encrypted = await Isolate.run(
       () => ExportCrypto.encrypt(jsonStr, mediaBlobs, password),
     );
@@ -677,38 +685,72 @@ class DataExportService {
     lastSyncAt: f.lastSyncAt?.toUtc().toIso8601String(),
   );
 
+  /// Returns true when [column] exists on [table] in the current Drift
+  /// schema. Uses `PRAGMA table_info(...)` so the check is robust across
+  /// migration versions — once the v8 cleanup migration drops a column,
+  /// the corresponding legacy SELECT silently no-ops instead of throwing.
+  Future<bool> _hasColumn(String table, String column) async {
+    final cacheKey = '$table.$column';
+    final cached = _columnExistenceCache[cacheKey];
+    if (cached != null) return cached;
+    // PRAGMA table_info is parameterless and the table name is hard-coded
+    // by every caller — no SQL injection surface, just shape introspection.
+    final rows = await db.customSelect('PRAGMA table_info($table)').get();
+    final exists = rows.any((row) => row.read<String>('name') == column);
+    _columnExistenceCache[cacheKey] = exists;
+    return exists;
+  }
+
   /// Reads `co_fronter_ids` (JSON list) and `pk_member_ids_json` directly
   /// off the v7 Drift columns for every non-deleted fronting session.
   /// Used only when `includeLegacyFields = true` is passed to
   /// [buildExport]; otherwise the export skips this query entirely.
+  ///
+  /// Each legacy column is selected only when present, so a future v8
+  /// cleanup migration that drops one or both columns turns this into a
+  /// graceful no-op for the dropped column(s) rather than a runtime
+  /// `SqliteException` on `SELECT`. Issue #40 (review-2026-04-30).
   Future<Map<String, _LegacySessionFields>> _fetchLegacySessionFields(
     AppDatabase db,
   ) async {
+    final hasCoFronter = await _hasColumn('fronting_sessions', 'co_fronter_ids');
+    final hasPkMemberIds =
+        await _hasColumn('fronting_sessions', 'pk_member_ids_json');
+    if (!hasCoFronter && !hasPkMemberIds) {
+      return const <String, _LegacySessionFields>{};
+    }
+    final selectColumns = <String>[
+      'id',
+      if (hasCoFronter) 'co_fronter_ids',
+      if (hasPkMemberIds) 'pk_member_ids_json',
+    ].join(', ');
     final rows = await db
         .customSelect(
-          'SELECT id, co_fronter_ids, pk_member_ids_json '
-          'FROM fronting_sessions WHERE is_deleted = 0',
+          'SELECT $selectColumns FROM fronting_sessions WHERE is_deleted = 0',
         )
         .get();
     final out = <String, _LegacySessionFields>{};
     for (final row in rows) {
       final id = row.read<String>('id');
-      final raw = row.read<String?>('co_fronter_ids') ?? '[]';
-      List<String> parsed;
-      try {
-        final decoded = jsonDecode(raw);
-        parsed = decoded is List
-            ? decoded.whereType<String>().toList()
-            : const <String>[];
-      } catch (_) {
-        // Defensive: a malformed JSON value shouldn't kill the whole export.
-        // The corrupt-co-fronter-ids edge case (§6) is already handled by
-        // the migration service; export just round-trips whatever's there.
-        parsed = const <String>[];
+      List<String> parsed = const <String>[];
+      if (hasCoFronter) {
+        final raw = row.read<String?>('co_fronter_ids') ?? '[]';
+        try {
+          final decoded = jsonDecode(raw);
+          parsed = decoded is List
+              ? decoded.whereType<String>().toList()
+              : const <String>[];
+        } catch (_) {
+          // Defensive: a malformed JSON value shouldn't kill the whole export.
+          // The corrupt-co-fronter-ids edge case (§6) is already handled by
+          // the migration service; export just round-trips whatever's there.
+          parsed = const <String>[];
+        }
       }
       out[id] = _LegacySessionFields(
         coFronterIds: parsed,
-        pkMemberIdsJson: row.read<String?>('pk_member_ids_json'),
+        pkMemberIdsJson:
+            hasPkMemberIds ? row.read<String?>('pk_member_ids_json') : null,
       );
     }
     return out;
@@ -717,10 +759,14 @@ class DataExportService {
   /// Reads the v7 `session_id` column off `front_session_comments` for
   /// every non-deleted comment row. Returns the empty map if no rows have
   /// a non-empty `session_id` (post-migration the comments mapper writes
-  /// an empty string sentinel into the column).
+  /// an empty string sentinel into the column), or if the column has been
+  /// dropped by a future cleanup migration. Issue #40 (review-2026-04-30).
   Future<Map<String, String>> _fetchLegacyCommentSessionIds(
     AppDatabase db,
   ) async {
+    if (!await _hasColumn('front_session_comments', 'session_id')) {
+      return const <String, String>{};
+    }
     final rows = await db
         .customSelect(
           'SELECT id, session_id FROM front_session_comments '

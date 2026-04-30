@@ -16,6 +16,7 @@ _FrontSessionComment _$FrontSessionCommentFromJson(Map<String, dynamic> json) =>
           ? null
           : DateTime.parse(json['targetTime'] as String),
       authorMemberId: json['authorMemberId'] as String?,
+      sessionId: json['sessionId'] as String?,
     );
 
 Map<String, dynamic> _$FrontSessionCommentToJson(
@@ -27,4 +28,5 @@ Map<String, dynamic> _$FrontSessionCommentToJson(
   'createdAt': instance.createdAt.toIso8601String(),
   'targetTime': instance.targetTime?.toIso8601String(),
   'authorMemberId': instance.authorMemberId,
+  'sessionId': instance.sessionId,
 };
