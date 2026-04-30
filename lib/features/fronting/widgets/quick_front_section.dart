@@ -28,10 +28,7 @@ class QuickFrontSection extends ConsumerWidget {
     final countsAsync = ref.watch(memberFrontingCountsProvider);
 
     return membersAsync.when(
-      loading: () => const SizedBox(
-        height: 100,
-        child: PrismLoadingState(),
-      ),
+      loading: () => const SizedBox(height: 100, child: PrismLoadingState()),
       error: (_, _) => Text(context.l10n.error),
       data: (members) {
         final activeSessions = sessionsAsync.value ?? [];
@@ -45,8 +42,9 @@ class QuickFrontSection extends ConsumerWidget {
 
         // Pin the most-recently-started fronter at the head of quick tiles.
         final currentMemberId = activeSessions.isNotEmpty
-            ? activeSessions.reduce((a, b) =>
-                a.startTime.isAfter(b.startTime) ? a : b).memberId
+            ? activeSessions
+                  .reduce((a, b) => a.startTime.isAfter(b.startTime) ? a : b)
+                  .memberId
             : null;
 
         final top = sortMembersByFrequency(
@@ -56,10 +54,7 @@ class QuickFrontSection extends ConsumerWidget {
           take: 4,
         );
 
-        return _AnimatedQuickFrontRow(
-          members: top,
-          frontingIds: frontingIds,
-        );
+        return _AnimatedQuickFrontRow(members: top, frontingIds: frontingIds);
       },
     );
   }
@@ -110,21 +105,16 @@ class _AnimatedQuickFrontRow extends StatelessWidget {
 const _kAvatarSize = 62.0;
 const _kRingSize = 76.0;
 const _kRingWidth = 3.5;
+const _kHoldDuration = Duration(milliseconds: 800);
 
 /// Quick-front tile for a single member.
 ///
-/// A tap toggles this member's session: starts a new per-member session when
-/// not fronting, or ends the active session when fronting. Other members'
-/// sessions are unaffected — co-fronting is emergent overlap, not a field.
-///
-/// Long-hold behavior from the old model ("second tap is a co-front") has been
-/// removed; co-fronts are now initiated by opening the add-front sheet with
-/// multiple members selected per spec §2.5.
+/// A completed hold toggles this member's session: starts a new per-member
+/// session when not fronting, or ends the active session when fronting.
+/// Other members' sessions are affected only when the user's quick-front
+/// preference is `replace`.
 class _QuickFrontButton extends ConsumerStatefulWidget {
-  const _QuickFrontButton({
-    required this.member,
-    required this.isFronting,
-  });
+  const _QuickFrontButton({required this.member, required this.isFronting});
 
   final Member member;
   final bool isFronting;
@@ -133,20 +123,58 @@ class _QuickFrontButton extends ConsumerStatefulWidget {
   ConsumerState<_QuickFrontButton> createState() => _QuickFrontButtonState();
 }
 
-class _QuickFrontButtonState extends ConsumerState<_QuickFrontButton> {
+class _QuickFrontButtonState extends ConsumerState<_QuickFrontButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
   bool _isPressed = false;
+  bool _pendingToggle = false;
 
-  void _onTap(FrontStartBehavior pref) {
-    unawaited(_toggleFronting(pref));
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: _kHoldDuration);
+    _controller.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        _onHoldComplete();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onPressStart() {
+    setState(() => _isPressed = true);
+    Haptics.light();
+    _pendingToggle = false;
+    _controller.forward(from: 0);
+  }
+
+  void _onPressEnd(FrontStartBehavior pref) {
+    setState(() => _isPressed = false);
+    if (_pendingToggle) {
+      _pendingToggle = false;
+      unawaited(_toggleFronting(pref));
+    }
+    if (_controller.value != 0) {
+      _controller.reset();
+    }
+  }
+
+  void _onHoldComplete() {
+    Haptics.success();
+    _pendingToggle = true;
   }
 
   Future<void> _toggleFronting(FrontStartBehavior pref) async {
-    Haptics.light();
     try {
       final notifier = ref.read(frontingNotifierProvider.notifier);
       if (widget.isFronting) {
-        // Tapping an already-fronting member always ends them, regardless of
-        // the `quick_front_default_behavior` preference. The preference only
+        // An already-fronting member always ends, regardless of the
+        // `quick_front_default_behavior` preference. The preference only
         // affects what happens when starting a non-fronting member.
         await notifier.endFronting([widget.member.id]);
       } else {
@@ -160,7 +188,6 @@ class _QuickFrontButtonState extends ConsumerState<_QuickFrontButton> {
             await notifier.replaceFronting([widget.member.id]);
         }
       }
-      if (mounted) Haptics.success();
     } catch (e) {
       if (mounted) {
         PrismToast.error(
@@ -175,16 +202,18 @@ class _QuickFrontButtonState extends ConsumerState<_QuickFrontButton> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final member = widget.member;
-    final accentColor = member.customColorEnabled && member.customColorHex != null
+    final accentColor =
+        member.customColorEnabled && member.customColorHex != null
         ? AppColors.fromHex(member.customColorHex!)
         : theme.colorScheme.primary;
 
-    // Watch the persisted default for the non-fronting tap path. Watching
+    // Watch the persisted default for the non-fronting hold path. Watching
     // (rather than reading on tap) ensures the StreamProvider is subscribed
-    // before the user taps — otherwise the first tap may fire while the
+    // before the user presses — otherwise the first hold may fire while the
     // stream is still in `AsyncLoading`, silently falling back to additive
     // even when the synced setting says replace.
-    final pref = ref
+    final pref =
+        ref
             .watch(systemSettingsProvider)
             .whenOrNull(data: (s) => s.quickFrontDefaultBehavior) ??
         FrontStartBehavior.additive;
@@ -193,13 +222,11 @@ class _QuickFrontButtonState extends ConsumerState<_QuickFrontButton> {
       button: true,
       enabled: true,
       label: context.l10n.frontingQuickFrontLabel(member.name),
+      onLongPressHint: context.l10n.frontingQuickFrontHoldHint,
       child: GestureDetector(
-        onTapDown: (_) => setState(() => _isPressed = true),
-        onTapUp: (_) {
-          setState(() => _isPressed = false);
-          _onTap(pref);
-        },
-        onTapCancel: () => setState(() => _isPressed = false),
+        onLongPressStart: (_) => _onPressStart(),
+        onLongPressEnd: (_) => _onPressEnd(pref),
+        onLongPressCancel: () => _onPressEnd(pref),
         child: AnimatedScale(
           scale: _isPressed ? 0.93 : 1.0,
           duration: const Duration(milliseconds: 100),
@@ -227,6 +254,26 @@ class _QuickFrontButtonState extends ConsumerState<_QuickFrontButton> {
                           ),
                         ),
                       ),
+                    if (!widget.isFronting)
+                      AnimatedBuilder(
+                        animation: _controller,
+                        builder: (context, child) {
+                          if (_controller.value == 0) {
+                            return const SizedBox.shrink();
+                          }
+                          return CustomPaint(
+                            size: const Size(_kRingSize, _kRingSize),
+                            painter: _ProgressRingPainter(
+                              progress: _controller.value,
+                              color: accentColor,
+                              strokeWidth: _kRingWidth,
+                              cornerRadius: PrismShapes.of(
+                                context,
+                              ).radius(_kRingSize / 2),
+                            ),
+                          );
+                        },
+                      ),
                     // Avatar
                     MemberAvatar(
                       avatarImageData: member.avatarImageData,
@@ -243,8 +290,9 @@ class _QuickFrontButtonState extends ConsumerState<_QuickFrontButton> {
               Text(
                 member.name,
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight:
-                      widget.isFronting ? FontWeight.bold : FontWeight.normal,
+                  fontWeight: widget.isFronting
+                      ? FontWeight.bold
+                      : FontWeight.normal,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -258,3 +306,63 @@ class _QuickFrontButtonState extends ConsumerState<_QuickFrontButton> {
   }
 }
 
+class _ProgressRingPainter extends CustomPainter {
+  _ProgressRingPainter({
+    required this.progress,
+    required this.color,
+    required this.strokeWidth,
+    this.cornerRadius = 0,
+  });
+
+  final double progress;
+  final Color color;
+  final double strokeWidth;
+  final double cornerRadius;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (progress == 0) return;
+
+    final inset = strokeWidth / 2;
+    final rect = Rect.fromLTWH(
+      inset,
+      inset,
+      size.width - strokeWidth,
+      size.height - strokeWidth,
+    );
+    final innerRadius = (cornerRadius - inset).clamp(0.0, double.infinity);
+    final fullPath = innerRadius > 0
+        ? (Path()..addRRect(
+            RRect.fromRectAndRadius(rect, Radius.circular(innerRadius)),
+          ))
+        : (Path()..addRect(rect));
+    final metrics = fullPath.computeMetrics().first;
+    final totalLength = metrics.length;
+    final startOffset = ((size.width - strokeWidth) / 2 - innerRadius).clamp(
+      0.0,
+      double.infinity,
+    );
+    final sweepLength = totalLength * progress;
+    final endOffset = startOffset + sweepLength;
+
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.square;
+
+    if (endOffset <= totalLength) {
+      canvas.drawPath(metrics.extractPath(startOffset, endOffset), paint);
+    } else {
+      canvas.drawPath(metrics.extractPath(startOffset, totalLength), paint);
+      canvas.drawPath(metrics.extractPath(0, endOffset - totalLength), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_ProgressRingPainter oldDelegate) =>
+      progress != oldDelegate.progress ||
+      color != oldDelegate.color ||
+      strokeWidth != oldDelegate.strokeWidth ||
+      cornerRadius != oldDelegate.cornerRadius;
+}
