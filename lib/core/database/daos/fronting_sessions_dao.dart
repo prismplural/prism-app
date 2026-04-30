@@ -155,6 +155,38 @@ class FrontingSessionsDao extends DatabaseAccessor<AppDatabase>
             ..limit(limit))
           .get();
 
+  /// Completed (non-active) sleep sessions that started within [start, end].
+  Future<List<FrontingSession>> getCompletedSleepSessionsBetween(
+    DateTime start,
+    DateTime end,
+  ) =>
+      (select(frontingSessions)
+            ..where(
+              (s) =>
+                  s.sessionType.equals(_sleepSessionType) &
+                  s.endTime.isNotNull() &
+                  s.isDeleted.equals(false) &
+                  s.startTime.isBiggerOrEqualValue(start) &
+                  s.startTime.isSmallerOrEqualValue(end),
+            )
+            ..orderBy([(s) => OrderingTerm.desc(s.startTime)]))
+          .get();
+
+  /// Streams the [limit] most recent completed sleep sessions.
+  Stream<List<FrontingSession>> watchRecentCompletedSleepSessions({
+    int limit = 20,
+  }) =>
+      (select(frontingSessions)
+            ..where(
+              (s) =>
+                  s.sessionType.equals(_sleepSessionType) &
+                  s.endTime.isNotNull() &
+                  s.isDeleted.equals(false),
+            )
+            ..orderBy([(s) => OrderingTerm.desc(s.startTime)])
+            ..limit(limit))
+          .watch();
+
   Future<int> insertSession(FrontingSessionsCompanion session) =>
       into(frontingSessions).insert(session);
 

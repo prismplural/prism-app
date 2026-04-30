@@ -136,7 +136,7 @@ final timelineRowsProvider =
     Provider.autoDispose<AsyncValue<TimelineData>>((ref) {
   final limit = ref.watch(timelineSessionLimitProvider);
   final sessionsAsync = ref.watch(frontingHistoryProvider(limit));
-  final sleepSessionsAsync = ref.watch(recentSleepSessionsProvider);
+  final sleepSessionsAsync = ref.watch(recentSleepSessionsPaginatedProvider(20));
   final membersAsync = ref.watch(activeMembersProvider);
 
   return sessionsAsync.when(
