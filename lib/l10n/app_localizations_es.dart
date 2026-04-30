@@ -1061,13 +1061,6 @@ class AppLocalizationsEs extends AppLocalizations {
   String get debugTools => 'Herramientas';
 
   @override
-  String get debugTimelineSanitization => 'Limpieza de cronología';
-
-  @override
-  String get debugTimelineSanitizationSubtitle =>
-      'Buscar y corregir problemas de cronología';
-
-  @override
   String get debugDevice => 'Dispositivo';
 
   @override
@@ -7216,6 +7209,24 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get sleepViewAllHistory => 'Ver historial de sueño';
+
+  @override
+  String sleepTrendVsPriorWeek(String delta) {
+    return 'vs. semana anterior: $delta';
+  }
+
+  @override
+  String get sleepDateLooksOff => 'La fecha parece incorrecta';
+
+  @override
+  String get sleepOverlapsExistingWarning =>
+      'Se solapa con una sesión de sueño existente';
+
+  @override
+  String get logPastSleep => 'Registrar sueño pasado';
+
+  @override
+  String get cancelHistoricalSleep => 'Cancelar';
 
   @override
   String get onboardingWelcomeTitle => 'Bienvenide a Prism';

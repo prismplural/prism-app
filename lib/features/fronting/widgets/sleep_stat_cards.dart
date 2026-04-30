@@ -87,12 +87,12 @@ class _LastNightCard extends StatelessWidget {
     final quality = session?.quality ?? SleepQuality.unknown;
     final durationText = session != null ? session!.duration.toRoundedString() : '—';
     final qualityLabel = quality == SleepQuality.unknown
-        ? l10n.sleepUnknownQualityLabel
+        ? l10n.sleepQualityNotRated
         : quality.localizedLabel(l10n);
 
     final semanticLabel = session != null
-        ? '${l10n.sleepLastNight}, $durationText, $qualityLabel'
-        : '${l10n.sleepLastNight}, —';
+        ? '${l10n.sleepLastNightLabel}, $durationText, $qualityLabel'
+        : '${l10n.sleepLastNightLabel}, —';
 
     return Semantics(
       label: semanticLabel,
@@ -104,7 +104,7 @@ class _LastNightCard extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              l10n.sleepLastNight,
+              l10n.sleepLastNightLabel,
               style: theme.textTheme.labelMedium?.copyWith(
                 color: sleepColor.withValues(alpha: 0.85),
               ),
@@ -181,14 +181,12 @@ class _Avg7dCard extends StatelessWidget {
     if (hasTrend) {
       // Both nullability guards are checked in hasTrend above.
       final delta = avgDuration - avg7dPrior.avgDuration!;
-      trendText = l10n.sleepTrendVsPriorWeek(
-        delta: _formatDelta(delta),
-      );
+      trendText = l10n.sleepTrendVsPriorWeek(_formatDelta(delta));
     }
 
     final semanticLabel = hasTrend
-        ? '${l10n.sleepSevenDayAverage}, $durationText, $trendText'
-        : '${l10n.sleepSevenDayAverage}, $durationText';
+        ? '${l10n.sleepSevenDayAvgLabel}, $durationText, $trendText'
+        : '${l10n.sleepSevenDayAvgLabel}, $durationText';
 
     return Semantics(
       label: semanticLabel,
@@ -200,7 +198,7 @@ class _Avg7dCard extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              l10n.sleepSevenDayAverage,
+              l10n.sleepSevenDayAvgLabel,
               style: theme.textTheme.labelMedium?.copyWith(
                 color: sleepColor.withValues(alpha: 0.85),
               ),

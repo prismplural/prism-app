@@ -1032,13 +1032,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get debugTools => 'Tools';
 
   @override
-  String get debugTimelineSanitization => 'Timeline Sanitization';
-
-  @override
-  String get debugTimelineSanitizationSubtitle =>
-      'Scan for and fix timeline issues';
-
-  @override
   String get debugDevice => 'Device';
 
   @override
@@ -7090,6 +7083,24 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get sleepViewAllHistory => 'View sleep history';
+
+  @override
+  String sleepTrendVsPriorWeek(String delta) {
+    return 'vs prior week: $delta';
+  }
+
+  @override
+  String get sleepDateLooksOff => 'Date looks off';
+
+  @override
+  String get sleepOverlapsExistingWarning =>
+      'This overlaps an existing sleep session';
+
+  @override
+  String get logPastSleep => 'Log past sleep';
+
+  @override
+  String get cancelHistoricalSleep => 'Cancel';
 
   @override
   String get onboardingWelcomeTitle => 'Welcome to Prism';

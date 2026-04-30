@@ -1922,6 +1922,11 @@
   "sleepRecentSectionHeader": "Reciente",
   "sleepStatUnavailable": "—",
   "sleepViewAllHistory": "Ver historial de sueño",
+  "sleepTrendVsPriorWeek": "vs. semana anterior: {delta}",
+  "sleepDateLooksOff": "La fecha parece incorrecta",
+  "sleepOverlapsExistingWarning": "Se solapa con una sesión de sueño existente",
+  "logPastSleep": "Registrar sueño pasado",
+  "cancelHistoricalSleep": "Cancelar",
 
   "onboardingWelcomeTitle": "Bienvenide a Prism",
   "onboardingWelcomeSubtitle": "Tu sistema, a tu manera.",

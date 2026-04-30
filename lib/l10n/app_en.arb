@@ -7780,6 +7780,21 @@
   "@sleepStatUnavailable": { "description": "Placeholder shown in a stat card when no data is available (em dash)" },
   "sleepViewAllHistory": "View sleep history",
   "@sleepViewAllHistory": { "description": "Row label in Settings → Features → Sleep that navigates to the Sleep screen" },
+  "sleepTrendVsPriorWeek": "vs prior week: {delta}",
+  "@sleepTrendVsPriorWeek": {
+    "description": "Trend line on the 7-day average sleep stat card showing change vs prior 7 days",
+    "placeholders": {
+      "delta": { "type": "String", "example": "+18m" }
+    }
+  },
+  "sleepDateLooksOff": "Date looks off",
+  "@sleepDateLooksOff": { "description": "Inline warning chip on a sleep session row when the start date is in the future (clock skew)" },
+  "sleepOverlapsExistingWarning": "This overlaps an existing sleep session",
+  "@sleepOverlapsExistingWarning": { "description": "Soft warning shown in StartSleepSheet when a historical sleep entry overlaps an existing session" },
+  "logPastSleep": "Log past sleep",
+  "@logPastSleep": { "description": "Disclosure link in StartSleepSheet to switch into historical-logging mode with an end-time field" },
+  "cancelHistoricalSleep": "Cancel",
+  "@cancelHistoricalSleep": { "description": "Link in StartSleepSheet to cancel historical-logging mode and return to start-now defaults" },
 
   "onboardingWelcomeTitle": "Welcome to Prism",
   "@onboardingWelcomeTitle": { "description": "Header title for the onboarding welcome step" },
