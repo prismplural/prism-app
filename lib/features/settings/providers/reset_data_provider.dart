@@ -14,6 +14,7 @@ import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/services/media/media_providers.dart';
+import 'package:prism_plurality/core/services/runtime_dek_store.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/domain/models/models.dart';
@@ -297,9 +298,7 @@ class ResetDataNotifier extends AsyncNotifier<void> {
       // member, so nulling member_id orphans the row to "unknown" without
       // any co-fronter list to reset.  The v7 `co_fronter_ids` column is
       // legacy/unread storage and is not touched here.
-      await db.customStatement(
-        'UPDATE fronting_sessions SET member_id = NULL',
-      );
+      await db.customStatement('UPDATE fronting_sessions SET member_id = NULL');
       // Delete child data that references members
       await db.customStatement('DELETE FROM custom_field_values');
       await db.customStatement('DELETE FROM member_group_entries');
@@ -543,6 +542,11 @@ class ResetDataNotifier extends AsyncNotifier<void> {
       }
     } catch (e) {
       _log('Keychain wipe-by-prefix failed (non-fatal): $e');
+    }
+    try {
+      await const DeviceBoundRuntimeDekStore().deleteWrappingKey();
+    } catch (e) {
+      _log('Runtime DEK wrapping-key delete failed (non-fatal): $e');
     }
 
     // 6. Clear the biometric-gated DEK copy. This is stored under a separate

@@ -16,6 +16,10 @@ import java.security.KeyStore
 import java.security.MessageDigest
 import java.security.cert.X509Certificate
 import java.security.spec.ECGenParameterSpec
+import javax.crypto.Cipher
+import javax.crypto.KeyGenerator
+import javax.crypto.SecretKey
+import javax.crypto.spec.GCMParameterSpec
 import android.view.WindowManager
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -28,7 +32,10 @@ class MainActivity : FlutterActivity() {
         private const val SECURE_DISPLAY_CHANNEL = "com.prism.prism_plurality/secure_display"
         private const val FIRST_DEVICE_ADMISSION_CHANNEL =
             "com.prism.prism_plurality/first_device_admission"
+        private const val RUNTIME_DEK_WRAP_CHANNEL =
+            "com.prism.prism_plurality/runtime_dek_wrap"
         private const val ANDROID_ATTESTATION_CONTEXT = "PRISM_SYNC_ANDROID_ATTEST_V1\u0000"
+        private const val RUNTIME_DEK_KEY_ALIAS = "prism_runtime_dek_wrap_v1"
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -75,6 +82,94 @@ class MainActivity : FlutterActivity() {
             } catch (t: Throwable) {
                 result.error("attestation_failed", t.message, null)
             }
+        }
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            RUNTIME_DEK_WRAP_CHANNEL,
+        ).setMethodCallHandler { call, result ->
+            try {
+                when (call.method) {
+                    "wrapRuntimeDek" -> {
+                        val dek = call.argument<ByteArray>("dek")
+                        val aad = call.argument<String>("aad")
+                        if (dek == null || dek.isEmpty()) {
+                            result.error("bad_args", "dek is required", null)
+                            return@setMethodCallHandler
+                        }
+                        if (aad.isNullOrEmpty()) {
+                            result.error("bad_args", "aad is required", null)
+                            return@setMethodCallHandler
+                        }
+                        result.success(wrapRuntimeDek(dek, aad))
+                    }
+                    "unwrapRuntimeDek" -> result.success(unwrapRuntimeDek(call.arguments))
+                    "deleteRuntimeDekWrappingKey" -> {
+                        deleteRuntimeDekWrappingKey()
+                        result.success(null)
+                    }
+                    else -> result.notImplemented()
+                }
+            } catch (t: Throwable) {
+                result.error("runtime_dek_wrap_failed", t.message, null)
+            }
+        }
+    }
+
+    private fun wrapRuntimeDek(dek: ByteArray, aad: String): Map<String, Any> {
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.ENCRYPT_MODE, getOrCreateRuntimeDekWrappingKey())
+        cipher.updateAAD(aad.toByteArray(Charsets.UTF_8))
+        val ciphertext = cipher.doFinal(dek)
+        return mapOf(
+            "version" to 1,
+            "platform" to "android_keystore_aes_gcm",
+            "iv" to Base64.encodeToString(cipher.iv, Base64.NO_WRAP),
+            "ciphertext" to Base64.encodeToString(ciphertext, Base64.NO_WRAP),
+        )
+    }
+
+    private fun unwrapRuntimeDek(arguments: Any?): ByteArray {
+        val args = arguments as? Map<*, *>
+            ?: throw IllegalArgumentException("wrapped runtime DEK blob is required")
+        val aad = args["aad"] as? String
+            ?: throw IllegalArgumentException("aad is required")
+        val iv = Base64.decode(args["iv"] as? String ?: "", Base64.NO_WRAP)
+        val ciphertext = Base64.decode(args["ciphertext"] as? String ?: "", Base64.NO_WRAP)
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(
+            Cipher.DECRYPT_MODE,
+            getOrCreateRuntimeDekWrappingKey(),
+            GCMParameterSpec(128, iv),
+        )
+        cipher.updateAAD(aad.toByteArray(Charsets.UTF_8))
+        return cipher.doFinal(ciphertext)
+    }
+
+    private fun getOrCreateRuntimeDekWrappingKey(): SecretKey {
+        val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+        (keyStore.getKey(RUNTIME_DEK_KEY_ALIAS, null) as? SecretKey)?.let { return it }
+
+        val generator = KeyGenerator.getInstance(
+            KeyProperties.KEY_ALGORITHM_AES,
+            "AndroidKeyStore",
+        )
+        val spec = KeyGenParameterSpec.Builder(
+            RUNTIME_DEK_KEY_ALIAS,
+            KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT,
+        )
+            .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+            .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+            .setRandomizedEncryptionRequired(true)
+            .setUserAuthenticationRequired(false)
+            .build()
+        generator.init(spec)
+        return generator.generateKey()
+    }
+
+    private fun deleteRuntimeDekWrappingKey() {
+        val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+        if (keyStore.containsAlias(RUNTIME_DEK_KEY_ALIAS)) {
+            keyStore.deleteEntry(RUNTIME_DEK_KEY_ALIAS)
         }
     }
 

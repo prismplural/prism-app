@@ -9,9 +9,13 @@ import UIKit
   private var screenshotEventSink: FlutterEventSink?
   private var firstDeviceAdmissionChannel: FlutterMethodChannel?
   private var secureDisplayChannel: FlutterMethodChannel?
+  private var runtimeDekWrapChannel: FlutterMethodChannel?
   private var secureTextField: UITextField?
   private let appAttestKeychainService = "com.prism.prism_plurality.app_attest"
   private let appAttestKeychainAccount = "key_id"
+  private let runtimeDekPrivateKeyTag = Data(
+    "com.prism.prism_plurality.runtime_dek_wrap.private.v1".utf8
+  )
 
   override func application(
     _ application: UIApplication,
@@ -84,6 +88,54 @@ import UIKit
         result(proof)
       }
     }
+    runtimeDekWrapChannel = FlutterMethodChannel(
+      name: "com.prism.prism_plurality/runtime_dek_wrap",
+      binaryMessenger: registrar.messenger()
+    )
+    runtimeDekWrapChannel?.setMethodCallHandler { [weak self] call, result in
+      guard let self else {
+        result(FlutterError(code: "UNAVAILABLE", message: "AppDelegate unavailable", details: nil))
+        return
+      }
+      do {
+        switch call.method {
+        case "wrapRuntimeDek":
+          let arguments = call.arguments as? [String: Any] ?? [:]
+          guard
+            let typedData = arguments["dek"] as? FlutterStandardTypedData,
+            let aad = arguments["aad"] as? String,
+            !aad.isEmpty
+          else {
+            result(FlutterError(code: "INVALID_ARGS", message: "dek is required", details: nil))
+            return
+          }
+          result(try self.wrapRuntimeDek(typedData.data, aad: Data(aad.utf8)))
+        case "unwrapRuntimeDek":
+          guard let arguments = call.arguments as? [String: Any] else {
+            result(FlutterError(code: "INVALID_ARGS", message: "wrapped blob is required", details: nil))
+            return
+          }
+          guard let aad = arguments["aad"] as? String, !aad.isEmpty else {
+            result(FlutterError(code: "INVALID_ARGS", message: "aad is required", details: nil))
+            return
+          }
+          result(FlutterStandardTypedData(
+            bytes: try self.unwrapRuntimeDek(arguments, aad: Data(aad.utf8))
+          ))
+        case "deleteRuntimeDekWrappingKey":
+          self.deleteRuntimeDekWrappingKey()
+          result(nil)
+        default:
+          result(FlutterMethodNotImplemented)
+        }
+      } catch {
+        result(FlutterError(
+          code: "RUNTIME_DEK_WRAP_FAILED",
+          message: error.localizedDescription,
+          details: nil
+        ))
+      }
+    }
     let fileUtilsChannel = FlutterMethodChannel(
       name: "com.prism.prism_plurality/file_utils",
       binaryMessenger: registrar.messenger()
@@ -108,6 +160,181 @@ import UIKit
         result(FlutterError(code: "FAILED", message: error.localizedDescription, details: nil))
       }
     }
+  }
+
+  private func wrapRuntimeDek(_ dek: Data, aad: Data) throws -> [String: Any] {
+    let recipientPrivateKey = try loadOrCreateRuntimeDekPrivateKey()
+    guard let recipientPublicKey = SecKeyCopyPublicKey(recipientPrivateKey) else {
+      throw runtimeDekError("Failed to load runtime DEK public wrapping key")
+    }
+    let recipientPublicKeyData = try externalRepresentation(recipientPublicKey)
+    let ephemeralPrivateKey = try createEphemeralRuntimeDekPrivateKey()
+    guard let ephemeralPublicKey = SecKeyCopyPublicKey(ephemeralPrivateKey) else {
+      throw runtimeDekError("Failed to create ephemeral runtime DEK public key")
+    }
+    let ephemeralPublicKeyData = try externalRepresentation(ephemeralPublicKey)
+    let key = try deriveRuntimeDekAesKey(
+      privateKey: ephemeralPrivateKey,
+      peerPublicKeyData: recipientPublicKeyData,
+      aad: aad
+    )
+    let sealed = try AES.GCM.seal(dek, using: key, authenticating: aad)
+    guard let combined = sealed.combined else {
+      throw runtimeDekError("AES-GCM combined box unavailable")
+    }
+    return [
+      "version": 1,
+      "platform": "ios_keychain_ecdh_p256_aes_gcm",
+      "ephemeral_public": ephemeralPublicKeyData.base64EncodedString(),
+      "combined": combined.base64EncodedString(),
+    ]
+  }
+
+  private func unwrapRuntimeDek(_ blob: [String: Any], aad: Data) throws -> Data {
+    guard
+      let ephemeralPublicB64 = blob["ephemeral_public"] as? String,
+      let ephemeralPublicKeyData = Data(base64Encoded: ephemeralPublicB64),
+      let combinedB64 = blob["combined"] as? String,
+      let combined = Data(base64Encoded: combinedB64)
+    else {
+      throw runtimeDekError("Invalid wrapped runtime DEK blob")
+    }
+    let key = try deriveRuntimeDekAesKey(
+      privateKey: try loadOrCreateRuntimeDekPrivateKey(),
+      peerPublicKeyData: ephemeralPublicKeyData,
+      aad: aad
+    )
+    let sealed = try AES.GCM.SealedBox(combined: combined)
+    return try AES.GCM.open(sealed, using: key, authenticating: aad)
+  }
+
+  private func loadOrCreateRuntimeDekPrivateKey() throws -> SecKey {
+    if let key = readRuntimeDekPrivateKey() {
+      return key
+    }
+    return try createRuntimeDekPrivateKey()
+  }
+
+  private func readRuntimeDekPrivateKey() -> SecKey? {
+    let query: [String: Any] = [
+      kSecClass as String: kSecClassKey,
+      kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
+      kSecAttrApplicationTag as String: runtimeDekPrivateKeyTag,
+      kSecReturnRef as String: true,
+      kSecMatchLimit as String: kSecMatchLimitOne,
+    ]
+
+    var item: CFTypeRef?
+    let status = SecItemCopyMatching(query as CFDictionary, &item)
+    guard status == errSecSuccess, let item else { return nil }
+    return (item as! SecKey)
+  }
+
+  private func createRuntimeDekPrivateKey() throws -> SecKey {
+    let attributes: [String: Any] = [
+      kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
+      kSecAttrKeySizeInBits as String: 256,
+      kSecPrivateKeyAttrs as String: [
+        kSecAttrIsPermanent as String: true,
+        kSecAttrApplicationTag as String: runtimeDekPrivateKeyTag,
+        kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+        kSecAttrIsExtractable as String: false,
+      ],
+    ]
+
+    var error: Unmanaged<CFError>?
+    guard let key = SecKeyCreateRandomKey(attributes as CFDictionary, &error) else {
+      throw error?.takeRetainedValue() ?? runtimeDekError(
+        "Failed to create runtime DEK wrapping key"
+      )
+    }
+    return key
+  }
+
+  private func createEphemeralRuntimeDekPrivateKey() throws -> SecKey {
+    let attributes: [String: Any] = [
+      kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
+      kSecAttrKeySizeInBits as String: 256,
+    ]
+
+    var error: Unmanaged<CFError>?
+    guard let key = SecKeyCreateRandomKey(attributes as CFDictionary, &error) else {
+      throw error?.takeRetainedValue() ?? runtimeDekError(
+        "Failed to create ephemeral runtime DEK key"
+      )
+    }
+    return key
+  }
+
+  private func deriveRuntimeDekAesKey(
+    privateKey: SecKey,
+    peerPublicKeyData: Data,
+    aad: Data
+  ) throws -> SymmetricKey {
+    let peerPublicKey = try publicKey(from: peerPublicKeyData)
+    let algorithm = SecKeyAlgorithm.ecdhKeyExchangeStandardX963SHA256
+    guard SecKeyIsAlgorithmSupported(privateKey, .keyExchange, algorithm) else {
+      throw runtimeDekError("Runtime DEK key exchange is not supported")
+    }
+    let parameters: [String: Any] = [
+      SecKeyKeyExchangeParameter.requestedSize.rawValue as String: 32,
+      SecKeyKeyExchangeParameter.sharedInfo.rawValue as String: aad,
+    ]
+    var error: Unmanaged<CFError>?
+    guard let secret = SecKeyCopyKeyExchangeResult(
+      privateKey,
+      algorithm,
+      peerPublicKey,
+      parameters as CFDictionary,
+      &error
+    ) as Data? else {
+      throw error?.takeRetainedValue() ?? runtimeDekError(
+        "Runtime DEK key exchange failed"
+      )
+    }
+    return SymmetricKey(data: secret)
+  }
+
+  private func publicKey(from data: Data) throws -> SecKey {
+    let attributes: [String: Any] = [
+      kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
+      kSecAttrKeyClass as String: kSecAttrKeyClassPublic,
+      kSecAttrKeySizeInBits as String: 256,
+    ]
+    var error: Unmanaged<CFError>?
+    guard let key = SecKeyCreateWithData(data as CFData, attributes as CFDictionary, &error) else {
+      throw error?.takeRetainedValue() ?? runtimeDekError(
+        "Invalid runtime DEK public wrapping key"
+      )
+    }
+    return key
+  }
+
+  private func externalRepresentation(_ key: SecKey) throws -> Data {
+    var error: Unmanaged<CFError>?
+    guard let data = SecKeyCopyExternalRepresentation(key, &error) as Data? else {
+      throw error?.takeRetainedValue() ?? runtimeDekError(
+        "Failed to export runtime DEK public wrapping key"
+      )
+    }
+    return data
+  }
+
+  private func runtimeDekError(_ message: String) -> NSError {
+    NSError(
+      domain: "com.prism.prism_plurality.runtime_dek_wrap",
+      code: -1,
+      userInfo: [NSLocalizedDescriptionKey: message]
+    )
+  }
+
+  private func deleteRuntimeDekWrappingKey() {
+    let query: [String: Any] = [
+      kSecClass as String: kSecClassKey,
+      kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
+      kSecAttrApplicationTag as String: runtimeDekPrivateKeyTag,
+    ]
+    SecItemDelete(query as CFDictionary)
   }
 
   /// Toggle secure display using the iOS secure text field trick.

@@ -270,7 +270,7 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
       state = state.copyWith(currentProgress: SyncSetupProgress.cachingKeys);
       await drainRustStore(handle);
 
-      // Cache raw DEK so subsequent launches bypass Argon2id (Signal-style)
+      // Cache a device-bound wrapped DEK so launches bypass Argon2id.
       await cacheRuntimeKeys(handle, ref.read(databaseProvider));
 
       // Bootstrap: seed the Rust engine's field_versions from existing Drift

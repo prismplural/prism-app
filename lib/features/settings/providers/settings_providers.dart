@@ -15,6 +15,7 @@ const _kThemeStyleCache = 'prism.cache.theme_style';
 const _kThemeCornerStyleCache = 'prism.cache.theme_corner_style';
 const _kIgnoreSyncedAppearance = 'prism.pref.ignore_synced_appearance';
 const _kUseProxyTagsForAuthoring = 'prism.pref.use_proxy_tags_for_authoring';
+const _kHardLockSyncOnAppLock = 'prism.pref.hard_lock_sync_on_app_lock';
 
 /// Transient storage for a generated mnemonic during secret key setup.
 /// Auto-disposed when no longer watched (Riverpod 3 auto-disposes by default).
@@ -855,6 +856,28 @@ class UseProxyTagsForAuthoringNotifier extends AsyncNotifier<bool> {
     state = AsyncValue.data(value);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_kUseProxyTagsForAuthoring, value);
+  }
+}
+
+/// Per-device local privacy override: when true, app lock also forgets the
+/// wrapped runtime sync DEK so sync requires recovery before resuming.
+/// Stored ONLY in SharedPreferences because this controls device behavior.
+final hardLockSyncOnAppLockProvider =
+    AsyncNotifierProvider<HardLockSyncOnAppLockNotifier, bool>(
+      HardLockSyncOnAppLockNotifier.new,
+    );
+
+class HardLockSyncOnAppLockNotifier extends AsyncNotifier<bool> {
+  @override
+  Future<bool> build() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_kHardLockSyncOnAppLock) ?? false;
+  }
+
+  Future<void> set(bool value) async {
+    state = AsyncValue.data(value);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kHardLockSyncOnAppLock, value);
   }
 }
 
