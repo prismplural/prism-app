@@ -2553,7 +2553,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get memberSectionNotes => 'Notas';
 
   @override
-  String get memberSectionBio => 'Notas';
+  String get memberSectionBio => 'Biografía';
 
   @override
   String get memberSectionProxyTags => 'Etiquetas de proxy';

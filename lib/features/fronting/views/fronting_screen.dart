@@ -234,11 +234,9 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
     FrontingSession? sleepSession,
   ) {
     final showQuickFront = ref.watch(showQuickFrontProvider);
-    // 1B: pinned glass "Always-present" header. Watching the provider
-    // here (rather than only inside the widget) lets the sliver's
+    // Watching here (rather than only inside the widget) lets the sliver's
     // [AlwaysPresentSliverDelegate] collapse its extent to 0 when no
-    // member qualifies — without this, an empty header would still
-    // reserve scroll space above the rest of the home content.
+    // member qualifies, so the home content does not keep an empty gap.
     final alwaysPresentCount =
         ref.watch(alwaysPresentMembersProvider).value?.length ?? 0;
     return CustomScrollView(
@@ -255,13 +253,6 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
           ),
         ),
 
-        // 1B: pinned glass header for always-present fronters. Stays
-        // pinned below the top bar; collapses to zero height when empty.
-        SliverPersistentHeader(
-          pinned: true,
-          delegate: AlwaysPresentSliverDelegate(count: alwaysPresentCount),
-        ),
-
         // 1. Quick Front (shown based on user setting)
         if (showQuickFront)
           const SliverToBoxAdapter(
@@ -271,10 +262,17 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
             ),
           ),
 
-        // 2. Home banners share one placement under Quick Front.
+        // 2. Always-present fronters sit under Quick Front, then pin while
+        // the rest of the fronting feed scrolls.
+        SliverPersistentHeader(
+          pinned: true,
+          delegate: AlwaysPresentSliverDelegate(count: alwaysPresentCount),
+        ),
+
+        // 3. Home banners share one placement under the sticky chip.
         SliverToBoxAdapter(child: FrontingBannerStack(theme: theme)),
 
-        // 3. Active sleep session card
+        // 4. Active sleep session card
         if (isSleeping)
           const SliverToBoxAdapter(
             child: Padding(
@@ -283,10 +281,10 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
             ),
           ),
 
-        // 4. Sessions grouped by day (active session naturally at top)
+        // 5. Sessions grouped by day (active session naturally at top)
         const SessionHistoryList(),
 
-        // 5. Loading indicator for infinite scroll
+        // 6. Loading indicator for infinite scroll
         Consumer(
           builder: (context, ref, _) {
             final limit = ref.watch(sessionLimitProvider);

@@ -4388,10 +4388,10 @@ abstract class AppLocalizations {
   /// **'Notes'**
   String get memberSectionNotes;
 
-  /// Section header shown above member bio/notes field on detail screen
+  /// Section header shown above member bio/about field on detail screen
   ///
   /// In en, this message translates to:
-  /// **'Notes'**
+  /// **'Bio'**
   String get memberSectionBio;
 
   /// Section header for proxy tags on member surfaces
