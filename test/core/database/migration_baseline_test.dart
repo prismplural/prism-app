@@ -7,6 +7,61 @@ import 'package:sqlite3/sqlite3.dart' as raw;
 
 import 'package:prism_plurality/core/database/app_database.dart';
 
+bool _hasColumn(raw.Database db, String tableName, String columnName) {
+  final rows = db.select('PRAGMA table_info($tableName)');
+  return rows.any((row) => row['name'] == columnName);
+}
+
+void _dropColumnIfExists(raw.Database db, String tableName, String columnName) {
+  if (_hasColumn(db, tableName, columnName)) {
+    db.execute('ALTER TABLE $tableName DROP COLUMN $columnName;');
+  }
+}
+
+void _dropPostV3Schema(raw.Database db) {
+  // These tests create a fresh current-schema DB, seed data through current
+  // DAOs, then force an older user_version. Keep the resulting fixture
+  // coherent by removing columns that did not exist at schema v3 before
+  // Drift runs the v3 -> current migration chain.
+  db.execute('DROP INDEX IF EXISTS idx_member_group_entries_pk_canonicalize;');
+  db.execute(
+    'DROP INDEX IF EXISTS idx_fronting_sessions_pluralkit_uuid_member_id;',
+  );
+  db.execute(
+    'DROP INDEX IF EXISTS idx_fronting_sessions_pluralkit_uuid_orphan;',
+  );
+  db.execute(
+    'CREATE UNIQUE INDEX IF NOT EXISTS idx_fronting_sessions_pluralkit_uuid '
+    'ON fronting_sessions(pluralkit_uuid) WHERE pluralkit_uuid IS NOT NULL;',
+  );
+
+  const drops = <List<String>>[
+    ['members', 'profile_header_visible'],
+    ['members', 'profile_header_source'],
+    ['members', 'profile_header_layout'],
+    ['members', 'profile_header_image_data'],
+    ['members', 'pk_banner_image_data'],
+    ['members', 'pk_banner_cached_url'],
+    ['members', 'is_always_fronting'],
+    ['members', 'pk_banner_url'],
+    ['fronting_sessions', 'pk_import_source'],
+    ['fronting_sessions', 'pk_file_switch_id'],
+    ['system_settings', 'fronting_list_view_mode'],
+    ['system_settings', 'add_front_default_behavior'],
+    ['system_settings', 'quick_front_default_behavior'],
+    ['system_settings', 'pending_fronting_migration_mode'],
+    ['system_settings', 'pending_fronting_migration_cleanup_substate'],
+    ['front_session_comments', 'target_time'],
+    ['front_session_comments', 'author_member_id'],
+    ['plural_kit_sync_state', 'switch_cursor_timestamp'],
+    ['plural_kit_sync_state', 'switch_cursor_id'],
+  ];
+
+  for (final drop in drops) {
+    _dropColumnIfExists(db, drop[0], drop[1]);
+  }
+}
+
 void main() {
   group('squashed database baseline', () {
     test('fresh database creates expected indexes and FTS artifacts', () async {
@@ -234,7 +289,10 @@ void main() {
 
       final rawDb = raw.sqlite3.open(dbFile.path);
       try {
+        rawDb.execute('PRAGMA foreign_keys = OFF;');
+        _dropPostV3Schema(rawDb);
         rawDb.execute('PRAGMA user_version = 3;');
+        rawDb.execute('PRAGMA foreign_keys = ON;');
       } finally {
         rawDb.close();
       }
@@ -270,6 +328,7 @@ void main() {
       final rawDb = raw.sqlite3.open(dbFile.path);
       try {
         rawDb.execute('PRAGMA foreign_keys = OFF;');
+        _dropPostV3Schema(rawDb);
         rawDb.execute(
           'DROP INDEX IF EXISTS idx_member_groups_sync_suppressed;',
         );
@@ -417,7 +476,10 @@ void main() {
 
         final rawDb = raw.sqlite3.open(dbFile.path);
         try {
+          rawDb.execute('PRAGMA foreign_keys = OFF;');
+          _dropPostV3Schema(rawDb);
           rawDb.execute('PRAGMA user_version = 3;');
+          rawDb.execute('PRAGMA foreign_keys = ON;');
         } finally {
           rawDb.close();
         }

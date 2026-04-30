@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/services/session_lifecycle_service.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 
@@ -497,6 +498,10 @@ void main() {
     });
 
     test('delete with time range creates unknown fill session', () async {
+      final memberRepo = FakeMemberRepository();
+      final serviceWithMemberRepo = SessionLifecycleService(
+        memberRepository: memberRepo,
+      );
       final session = _session(
         id: 'to-delete',
         startTime: DateTime(2025, 1, 1, 10, 0),
@@ -511,14 +516,20 @@ void main() {
         availableOptions: [DeleteOption.delete],
       );
 
-      final unknownId =
-          await service.executeDelete(DeleteOption.delete, ctx, repo);
+      final unknownId = await serviceWithMemberRepo.executeDelete(
+        DeleteOption.delete,
+        ctx,
+        repo,
+      );
       expect(unknownId, isNotNull);
       expect(repo.deletedIds, contains('to-delete'));
       final unknown = repo.sessions.firstWhere((s) => s.id == unknownId);
-      expect(unknown.memberId, isNull);
+      expect(unknown.memberId, unknownSentinelMemberId);
       expect(unknown.startTime, DateTime(2025, 1, 1, 10, 0));
       expect(unknown.endTime, DateTime(2025, 1, 1, 11, 0));
+
+      final sentinel = await memberRepo.getMemberById(unknownSentinelMemberId);
+      expect(sentinel, isNotNull);
     });
 
     test('extendPrevious stretches previous to cover deleted session end',
@@ -555,7 +566,11 @@ void main() {
 
   group('fillGaps', () {
     test('creates unknown sessions for each gap', () async {
+      final memberRepo = FakeMemberRepository();
       final repo = FakeFrontingSessionRepository();
+      final serviceWithMemberRepo = SessionLifecycleService(
+        memberRepository: memberRepo,
+      );
       final gaps = [
         GapInfo(
           startTime: DateTime(2025, 1, 1, 11, 0),
@@ -573,11 +588,14 @@ void main() {
         ),
       ];
 
-      await service.fillGaps(gaps, repo);
+      await serviceWithMemberRepo.fillGaps(gaps, repo);
       expect(repo.sessions, hasLength(1));
-      expect(repo.sessions.first.memberId, isNull);
+      expect(repo.sessions.first.memberId, unknownSentinelMemberId);
       expect(repo.sessions.first.startTime, DateTime(2025, 1, 1, 11, 0));
       expect(repo.sessions.first.endTime, DateTime(2025, 1, 1, 12, 0));
+
+      final sentinel = await memberRepo.getMemberById(unknownSentinelMemberId);
+      expect(sentinel, isNotNull);
     });
   });
 }
