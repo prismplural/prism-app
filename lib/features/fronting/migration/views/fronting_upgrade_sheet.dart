@@ -32,10 +32,12 @@ import 'package:share_plus/share_plus.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/features/fronting/migration/fronting_migration_service.dart';
 import 'package:prism_plurality/features/fronting/migration/providers/fronting_migration_providers.dart';
+import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_field_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
@@ -77,6 +79,14 @@ enum FrontingUpgradeStep {
   resumeCleanup,
 }
 
+enum _PostMigrationPkImportStatus {
+  idle,
+  running,
+  imported,
+  needsToken,
+  failed,
+}
+
 /// Result of the share-or-save callback. `true` means the user
 /// committed to a destination (selected a save location, completed a
 /// share); `false` means they cancelled or dismissed without saving.
@@ -94,6 +104,7 @@ Future<void> showFrontingUpgradeSheet(
   BackupHandoffCallback? shareBackup,
   BackupHandoffCallback? saveBackup,
   VoidCallback? openPluralKitImport,
+  bool autoRunPluralKitImport = true,
 }) {
   return PrismSheet.showFullScreen(
     context: context,
@@ -104,6 +115,7 @@ Future<void> showFrontingUpgradeSheet(
       shareBackup: shareBackup,
       saveBackup: saveBackup,
       openPluralKitImport: openPluralKitImport,
+      autoRunPluralKitImport: autoRunPluralKitImport,
     ),
   );
 }
@@ -116,6 +128,7 @@ class FrontingUpgradeSheet extends ConsumerStatefulWidget {
     this.shareBackup,
     this.saveBackup,
     this.openPluralKitImport,
+    this.autoRunPluralKitImport = true,
   });
 
   final ScrollController? scrollController;
@@ -141,6 +154,11 @@ class FrontingUpgradeSheet extends ConsumerStatefulWidget {
   /// PluralKit setup/import entry point. Tests pass a callback so the
   /// route handoff stays hermetic.
   final VoidCallback? openPluralKitImport;
+
+  /// When true, a successful migration that cleared PK rows attempts a
+  /// one-time PK API re-import before asking the user to visit sync settings.
+  /// Tests can disable this to keep the sheet hermetic.
+  final bool autoRunPluralKitImport;
 
   @override
   ConsumerState<FrontingUpgradeSheet> createState() =>
@@ -175,6 +193,9 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
   bool _backupAcknowledged = false;
 
   MigrationResult? _result;
+  _PostMigrationPkImportStatus _pkImportStatus =
+      _PostMigrationPkImportStatus.idle;
+  String? _pkImportError;
 
   @override
   void initState() {
@@ -460,6 +481,8 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
       _result = null;
       _backupFile = null;
       _backupAcknowledged = false;
+      _pkImportStatus = _PostMigrationPkImportStatus.idle;
+      _pkImportError = null;
       _step = FrontingUpgradeStep.password;
     });
   }
@@ -494,6 +517,9 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
             ? FrontingUpgradeStep.success
             : FrontingUpgradeStep.failure;
       });
+      if (result.outcome == MigrationOutcome.success) {
+        await _maybeAutoRunPluralKitImport(result);
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -503,6 +529,104 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
         );
         _step = FrontingUpgradeStep.failure;
       });
+    }
+  }
+
+  bool _shouldHandlePluralKitImport(MigrationResult result) {
+    return result.pkRowsDeleted > 0 && _role != DeviceRole.secondary;
+  }
+
+  Future<void> _maybeAutoRunPluralKitImport(MigrationResult result) async {
+    if (!widget.autoRunPluralKitImport) return;
+    if (!_shouldHandlePluralKitImport(result)) return;
+
+    final notifier = ref.read(pluralKitSyncProvider.notifier);
+    bool hasToken;
+    try {
+      hasToken = await notifier.hasRepairToken();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _pkImportStatus = _PostMigrationPkImportStatus.failed;
+        _pkImportError = e.toString();
+      });
+      return;
+    }
+
+    if (!mounted) return;
+    if (!hasToken) {
+      setState(() {
+        _pkImportStatus = _PostMigrationPkImportStatus.needsToken;
+        _pkImportError = null;
+      });
+      return;
+    }
+
+    await _runOneTimePluralKitImport();
+  }
+
+  Future<void> _runOneTimePluralKitImport({String? token}) async {
+    setState(() {
+      _pkImportStatus = _PostMigrationPkImportStatus.running;
+      _pkImportError = null;
+    });
+    try {
+      await ref
+          .read(pluralKitSyncProvider.notifier)
+          .performOneTimeFullImport(token: token);
+      if (!mounted) return;
+      setState(() => _pkImportStatus = _PostMigrationPkImportStatus.imported);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _pkImportStatus = _PostMigrationPkImportStatus.failed;
+        _pkImportError = e.toString();
+      });
+    }
+  }
+
+  Future<void> _promptForPluralKitTokenAndImport() async {
+    final controller = TextEditingController();
+    try {
+      final token = await PrismDialog.show<String>(
+        context: context,
+        title: 'PluralKit token',
+        message:
+            'Import PluralKit fronting history now. This uses the token once '
+            'and does not turn on PluralKit sync.',
+        builder: (dialogContext) => PrismTextField(
+          controller: controller,
+          autofocus: true,
+          obscureText: true,
+          labelText: 'PluralKit token',
+          hintText: 'Paste your PluralKit token',
+          onSubmitted: (_) {
+            final trimmed = controller.text.trim();
+            if (trimmed.isEmpty) return;
+            Navigator.of(dialogContext).pop(trimmed);
+          },
+        ),
+        actions: [
+          PrismButton(
+            label: context.l10n.cancel,
+            tone: PrismButtonTone.outlined,
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          PrismButton(
+            label: 'Import',
+            tone: PrismButtonTone.filled,
+            onPressed: () {
+              final trimmed = controller.text.trim();
+              if (trimmed.isEmpty) return;
+              Navigator.of(context).pop(trimmed);
+            },
+          ),
+        ],
+      );
+      if (!mounted || token == null || token.trim().isEmpty) return;
+      await _runOneTimePluralKitImport(token: token.trim());
+    } finally {
+      controller.dispose();
     }
   }
 
@@ -1029,6 +1153,19 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
         ),
         if (showPluralKitImportCta) ...[
           const SizedBox(height: 16),
+          _buildPluralKitImportStatus(theme),
+          if (_pkImportStatus == _PostMigrationPkImportStatus.needsToken ||
+              _pkImportStatus == _PostMigrationPkImportStatus.failed) ...[
+            const SizedBox(height: 8),
+            PrismButton(
+              onPressed: _promptForPluralKitTokenAndImport,
+              icon: AppIcons.cloudSync,
+              label: 'Import with PluralKit token',
+              tone: PrismButtonTone.filled,
+              expanded: true,
+            ),
+          ],
+          const SizedBox(height: 8),
           PrismButton(
             onPressed: _openPluralKitImport,
             icon: AppIcons.cloudSync,
@@ -1046,6 +1183,60 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
         ),
       ],
     );
+  }
+
+  Widget _buildPluralKitImportStatus(ThemeData theme) {
+    switch (_pkImportStatus) {
+      case _PostMigrationPkImportStatus.idle:
+        return Text(
+          'PluralKit history can be re-imported from a stored token, a '
+          'temporary token, or a pk;export file.',
+          textAlign: TextAlign.center,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        );
+      case _PostMigrationPkImportStatus.running:
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const PrismLoadingState(),
+            const SizedBox(height: 8),
+            Text(
+              'Re-importing PluralKit history...',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        );
+      case _PostMigrationPkImportStatus.imported:
+        return Text(
+          'PluralKit history was re-imported.',
+          textAlign: TextAlign.center,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        );
+      case _PostMigrationPkImportStatus.needsToken:
+        return Text(
+          'No stored PluralKit token was found. You can import with a '
+          'temporary token here without turning on PluralKit sync.',
+          textAlign: TextAlign.center,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        );
+      case _PostMigrationPkImportStatus.failed:
+        return Text(
+          'PluralKit re-import failed: ${_pkImportError ?? 'unknown error'}',
+          textAlign: TextAlign.center,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.error,
+          ),
+        );
+    }
   }
 
   Widget _buildFailure(ThemeData theme) {

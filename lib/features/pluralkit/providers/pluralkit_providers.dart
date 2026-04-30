@@ -133,7 +133,16 @@ class PluralKitSyncNotifier extends Notifier<PluralKitSyncState> {
 
   Future<void> performFullImport() => _service.performFullImport();
 
+  Future<PkTokenImportResult> performOneTimeFullImport({String? token}) =>
+      _service.performOneTimeFullImport(token: token);
+
+  Future<PkTokenImportResult> importFromTokenOnce(String token) =>
+      _service.importFromTokenOnce(token);
+
   Future<void> acknowledgeMapping() => _service.acknowledgeMapping();
+
+  Future<bool> hasRepairToken({String? token}) =>
+      _service.hasRepairToken(token: token);
 
   Future<PkFileImportResult> importFromFile(
     PkFileExport export, {
