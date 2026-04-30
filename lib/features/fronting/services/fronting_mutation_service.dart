@@ -6,6 +6,7 @@ import 'package:prism_plurality/core/services/session_lifecycle_service.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
+import 'package:prism_plurality/features/fronting/editing/fronting_edit_guard.dart';
 import 'package:prism_plurality/features/fronting/models/update_fronting_session_patch.dart';
 import 'package:uuid/uuid.dart';
 
@@ -32,11 +33,13 @@ class FrontingMutationService {
     required MutationRunner mutationRunner,
     MemberRepository? memberRepository,
     SessionLifecycleService lifecycle = const SessionLifecycleService(),
+    FrontingEditGuard editGuard = const FrontingEditGuard(),
     Uuid? uuid,
   }) : _repository = repository,
        _mutationRunner = mutationRunner,
        _memberRepository = memberRepository,
        _lifecycle = lifecycle,
+       _editGuard = editGuard,
        _uuid = uuid ?? const Uuid();
 
   final FrontingSessionRepository _repository;
@@ -47,7 +50,20 @@ class FrontingMutationService {
   // [_ensureSentinelIfNeeded]).
   final MemberRepository? _memberRepository;
   final SessionLifecycleService _lifecycle;
+  final FrontingEditGuard _editGuard;
   final Uuid _uuid;
+
+  /// Throws [AppFailure.validation] if [start]/[end] violate the basic
+  /// time invariants (end <= start, start in the future, end in the
+  /// future). The single choke point every public write method is
+  /// expected to call before touching the repository.
+  void _assertTimeRange(DateTime start, DateTime? end) {
+    final issues = _editGuard.validateTimeRange(start, end);
+    if (issues.isEmpty) return;
+    throw AppFailure.validation(
+      issues.map((i) => i.summary).join('; '),
+    );
+  }
 
   /// If [memberIds] contains the Unknown sentinel id, lazily creates the
   /// sentinel member so the freshly-emitted fronting_sessions row has a
@@ -98,6 +114,7 @@ class FrontingMutationService {
         await _ensureSentinelIfNeeded(memberIds);
 
         final now = startTime ?? DateTime.now();
+        _assertTimeRange(now, null);
         final created = <FrontingSession>[];
 
         for (final memberId in memberIds) {
@@ -161,6 +178,7 @@ class FrontingMutationService {
         await _ensureSentinelIfNeeded(memberIds);
 
         final at = now ?? DateTime.now();
+        _assertTimeRange(at, null);
 
         // 1. End every currently-active *normal* (non-sleep) session.
         //    Sleep sessions are deliberately untouched: replacing fronts
@@ -215,6 +233,9 @@ class FrontingMutationService {
           if (session.memberId != null &&
               memberIds.contains(session.memberId) &&
               !session.isSleep) {
+            // Caller-supplied [endTime] could pre-date the session start
+            // or sit in the future — either would produce an invalid row.
+            _assertTimeRange(session.startTime, now);
             await _repository.endSession(session.id, now);
           }
         }
@@ -265,6 +286,7 @@ class FrontingMutationService {
         final activeSessions = await _repository.getAllActiveSessionsUnfiltered();
         final previousMemberIds = activeSessions.map((s) => s.memberId).toList();
         final now = startTime ?? DateTime.now();
+        _assertTimeRange(now, null);
         for (final session in activeSessions) {
           await _repository.endSession(session.id, now);
         }
@@ -393,6 +415,7 @@ class FrontingMutationService {
       action: () async {
         final session = await _requireSession(sessionId);
         final updated = patch.applyTo(session);
+        _assertTimeRange(updated.startTime, updated.endTime);
         await _repository.updateSession(updated);
         return updated;
       },
@@ -429,6 +452,7 @@ class FrontingMutationService {
       action: () async {
         final session = await _requireSession(sessionId);
         var updated = patch.applyTo(session);
+        _assertTimeRange(updated.startTime, updated.endTime);
 
         if (trimOverlaps) {
           for (final overlap in validationResult.overlaps) {
@@ -502,6 +526,25 @@ class FrontingMutationService {
       actionLabel: 'Split fronting session',
       action: () async {
         final session = await _requireSession(sessionId);
+
+        // splitTime must land strictly inside the original range, else
+        // the resulting halves would have invalid (zero or negative)
+        // duration. For an open-ended session, only the lower bound
+        // applies.
+        if (!splitTime.isAfter(session.startTime)) {
+          throw AppFailure.validation(
+            'Split time must be after the session start.',
+          );
+        }
+        if (session.endTime != null && !splitTime.isBefore(session.endTime!)) {
+          throw AppFailure.validation(
+            'Split time must be before the session end.',
+          );
+        }
+        // The two halves still have to clear the time-range invariant
+        // (notably: future-time guard, in case splitTime is in the future).
+        _assertTimeRange(session.startTime, splitTime);
+        _assertTimeRange(splitTime, session.endTime);
 
         final firstHalf = session.copyWith(endTime: splitTime);
         await _repository.updateSession(firstHalf);
