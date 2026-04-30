@@ -444,7 +444,7 @@ All notable changes to Prism will be documented in this file.
 ## [0.2.4] - 2026-03-25
 
 ### Changed
-- **Zero-knowledge metadata minimization:** Removed device permissions, enrollment invitations table, epoch numbers from URLs, and X-Epoch headers from the relay protocol. The relay now has zero knowledge of device permission levels and leaks less metadata about key rotation timing.
+- **Relay metadata minimization:** Removed device permissions, enrollment invitations table, epoch numbers from URLs, and X-Epoch headers from the relay protocol. The relay no longer stores device permission levels and leaks less metadata about key rotation timing.
 - **Wipe status embedded in auth response:** Removed the unauthenticated `/wipe-status` endpoint. Wipe status is now returned in the 401 response body when a revoked device authenticates, eliminating a public information disclosure vector.
 - **WebSocket auth hardened:** WebSocket authentication now checks device active status, preventing revoked devices from maintaining connections and receiving notification metadata.
 - **Rekey artifact lookup:** Epoch passed as query parameter instead of URL path segment, preserving correctness during concurrent epoch rotations while keeping epoch out of the URL.

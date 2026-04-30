@@ -1,7 +1,7 @@
 # Prism — Flutter Cross-Platform App
 
 ## Overview
-Prism is a plural system management app built with Flutter. It provides member management, fronting tracking, internal chat, polls, habits, sleep tracking, and zero-knowledge encrypted sync. Porting the existing SwiftUI (iOS/macOS) app to reach Android, web, and beyond.
+Prism is a plural system management app built with Flutter. It provides member management, fronting tracking, internal chat, polls, habits, sleep tracking, and end-to-end encrypted sync. Porting the existing SwiftUI (iOS/macOS) app to reach Android, web, and beyond.
 
 **Package name:** `prism_plurality` (avoids Dart `prism` package conflict)
 
@@ -96,7 +96,7 @@ On first setup, the raw DEK is cached in the platform keychain (`prism_sync.runt
 - Snapshot bootstrap for first sync / pairing, then incremental pull / push
 - Startup / resume catch-up sync plus WebSocket notifications
 - Pluggable relay interface — current implementation: self-hosted Rust relay
-- Zero-knowledge: server stores only encrypted blobs, no user accounts
+- Ciphertext-only relay: server stores only encrypted blobs, no user accounts
 - Pull → decrypt → merge → push → mark clean cycle
 - **Session tokens are permanent** (no TTL, no refresh). If lost, device must re-pair.
 - `drainRustStore(handle)` persists Rust MemorySecureStore → platform keychain after state-changing ops

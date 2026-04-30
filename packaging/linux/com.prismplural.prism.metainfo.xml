@@ -5,7 +5,7 @@
   <project_license>AGPL-3.0-only</project_license>
 
   <name>Prism</name>
-  <summary>Plural system management with zero-knowledge encrypted sync</summary>
+  <summary>Plural system management with end-to-end encrypted sync</summary>
 
   <description>
     <p>
@@ -25,7 +25,7 @@
       <li>Habits with streaks, assignable per member</li>
       <li>Polls for collective decisions</li>
       <li>Sleep tracking and front-gap comments</li>
-      <li>Zero-knowledge end-to-end encrypted sync (XChaCha20-Poly1305 + post-quantum hybrid signatures)</li>
+      <li>End-to-end encrypted sync, relay only sees ciphertext (XChaCha20-Poly1305 + post-quantum hybrid signatures)</li>
       <li>Self-hostable relay — your data stays yours</li>
       <li>Import from Simply Plural and PluralKit</li>
     </ul>
@@ -66,7 +66,7 @@
   </supports>
 
   <!-- Prism has no networked social features: chat is internal between parts
-       of a single system on one account, and sync is zero-knowledge
+       of a single system on one account, and sync is end-to-end encrypted
        device-to-device. An empty content_rating declares "none" to OARS. -->
   <content_rating type="oars-1.1" />
 

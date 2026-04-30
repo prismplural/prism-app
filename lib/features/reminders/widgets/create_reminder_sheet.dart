@@ -384,7 +384,7 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
                   ),
                   if (_targetMemberId != null) ...[
                     const SizedBox(height: 12),
-                    // Honesty disclosure: Prism's relay is zero-knowledge, so
+                    // Honesty disclosure: Prism's relay only sees ciphertext, so
                     // member-targeted reminders can't be push-delivered — they
                     // only fire when THIS device observes the switch.
                     InfoBanner(
