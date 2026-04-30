@@ -959,4 +959,115 @@ void main() {
       },
     );
   });
+
+  // -------------------------------------------------------------------------
+  // Proxy tag canonicalization (#37 / WS3 step 11)
+  //
+  // Pre-fix: jsonEncode(localTags) != jsonEncode(pkTags) was a raw string
+  // compare that drifted on map key order or list element order. That made
+  // the bidirectional push-decision return "different" for two semantically
+  // equal tag lists → push every sync. These tests pin the canonical-form
+  // comparison so equality survives both reorderings.
+  // -------------------------------------------------------------------------
+
+  group('proxy tag canonicalization', () {
+    test(
+      'reordered per-tag map keys are treated as equal (no push)',
+      () async {
+        // Local tag is `{"prefix":"X:","suffix":null}`; PK tag is the same
+        // payload but with the keys serialized in the opposite order. The
+        // raw JSON strings differ but the canonical form must match.
+        final local = _localMember(
+          id: 'local-1',
+          pluralkitId: 'pk001',
+          proxyTagsJson: '[{"prefix":"X:","suffix":null}]',
+        );
+        final pk = _pkMember(
+          id: 'pk001',
+          proxyTagsJson: '[{"suffix":null,"prefix":"X:"}]',
+        );
+
+        final summary = await service.syncMembers(
+          localMembers: [local],
+          pkMembers: [pk],
+          fieldConfigs: {},
+          direction: PkSyncDirection.bidirectional,
+          lastSyncDate: null,
+          memberRepository: fakeRepo,
+          client: fakeClient,
+        );
+
+        expect(summary.membersPushed, 0);
+        expect(
+          fakeClient.calls.any((c) => c.method == 'updateMember'),
+          isFalse,
+          reason:
+              'Identical tags with reordered map keys must not trigger push',
+        );
+      },
+    );
+
+    test(
+      'reordered outer list elements are treated as equal (no push)',
+      () async {
+        final local = _localMember(
+          id: 'local-1',
+          pluralkitId: 'pk001',
+          proxyTagsJson:
+              '[{"prefix":"A:","suffix":null},{"prefix":"B:","suffix":null}]',
+        );
+        final pk = _pkMember(
+          id: 'pk001',
+          proxyTagsJson:
+              '[{"prefix":"B:","suffix":null},{"prefix":"A:","suffix":null}]',
+        );
+
+        final summary = await service.syncMembers(
+          localMembers: [local],
+          pkMembers: [pk],
+          fieldConfigs: {},
+          direction: PkSyncDirection.bidirectional,
+          lastSyncDate: null,
+          memberRepository: fakeRepo,
+          client: fakeClient,
+        );
+
+        expect(summary.membersPushed, 0);
+        expect(
+          fakeClient.calls.any((c) => c.method == 'updateMember'),
+          isFalse,
+          reason:
+              'Same tag set in different list order must not trigger push',
+        );
+      },
+    );
+
+    test('genuinely different tag content triggers push', () async {
+      final local = _localMember(
+        id: 'local-1',
+        pluralkitId: 'pk001',
+        proxyTagsJson: '[{"prefix":"LOCAL:","suffix":null}]',
+      );
+      final pk = _pkMember(
+        id: 'pk001',
+        proxyTagsJson: '[{"prefix":"PK:","suffix":null}]',
+      );
+
+      final summary = await service.syncMembers(
+        localMembers: [local],
+        pkMembers: [pk],
+        fieldConfigs: {},
+        direction: PkSyncDirection.bidirectional,
+        lastSyncDate: null,
+        memberRepository: fakeRepo,
+        client: fakeClient,
+      );
+
+      expect(summary.membersPushed, 1);
+      expect(
+        fakeClient.calls.any((c) => c.method == 'updateMember'),
+        isTrue,
+      );
+    });
+  });
 }

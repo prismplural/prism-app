@@ -53,6 +53,12 @@ class PkFieldSyncConfig {
   final PkSyncDirection birthday;
   final PkSyncDirection proxyTags;
 
+  /// `proxyTags` defaults to [PkSyncDirection.bidirectional] by intentional
+  /// product policy: proxy tags are now editable inside Prism, and bidirectional
+  /// is the right default for an editable field — local edits should propagate
+  /// to PK and PK-side edits should propagate back. Keep this default; do not
+  /// flip to pull-only or disabled without re-deciding the product behavior of
+  /// the editable proxy-tag UI in `member_profile_header_editor.dart`.
   const PkFieldSyncConfig({
     this.name = PkSyncDirection.bidirectional,
     this.displayName = PkSyncDirection.bidirectional,

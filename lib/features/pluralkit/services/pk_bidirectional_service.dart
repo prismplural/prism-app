@@ -362,14 +362,52 @@ class PkBidirectionalService {
   /// Returns null when the field is absent or malformed. Returns `"[]"` for
   /// an explicit empty tag list so the sync layer can distinguish "unknown"
   /// from "clear all proxy tags."
+  ///
+  /// Equality must survive list reordering and per-tag map key reordering,
+  /// otherwise we'd push every sync just because the JSON keys came back in
+  /// a different order than we sent them. See [_canonicalProxyTagsList].
   String? _normalizeProxyTags(String? value) {
     if (value == null) return null;
     try {
       final decoded = jsonDecode(value);
       if (decoded is! List) return null;
-      return jsonEncode(decoded);
+      return _canonicalProxyTagsList(decoded);
     } catch (_) {
       return null;
     }
+  }
+
+  /// Build a stable string for two proxy-tag JSON arrays so equality survives
+  /// reordering at both levels:
+  ///   1. Sort each tag's map keys alphabetically before encoding.
+  ///   2. Sort the outer list by `(prefix, suffix)` ascending.
+  ///
+  /// The result is intended only for `==` comparison — do NOT round-trip it
+  /// back into PK or persist it; it's a comparison-only canonical form.
+  String _canonicalProxyTagsList(List<dynamic> list) {
+    final canonical = <Map<String, dynamic>>[];
+    for (final entry in list) {
+      if (entry is Map) {
+        final sortedKeys = entry.keys.map((k) => k.toString()).toList()..sort();
+        final sorted = <String, dynamic>{
+          for (final k in sortedKeys) k: entry[k],
+        };
+        canonical.add(sorted);
+      } else {
+        // Non-map entry: preserve as-is under a synthetic wrapper so the
+        // outer sort still terminates without throwing.
+        canonical.add({'__raw__': entry});
+      }
+    }
+    canonical.sort((a, b) {
+      final aPrefix = (a['prefix'] ?? '').toString();
+      final bPrefix = (b['prefix'] ?? '').toString();
+      final byPrefix = aPrefix.compareTo(bPrefix);
+      if (byPrefix != 0) return byPrefix;
+      final aSuffix = (a['suffix'] ?? '').toString();
+      final bSuffix = (b['suffix'] ?? '').toString();
+      return aSuffix.compareTo(bSuffix);
+    });
+    return jsonEncode(canonical);
   }
 }

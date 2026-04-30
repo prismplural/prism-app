@@ -59,6 +59,19 @@ void main() {
       expect(config.proxyTags, PkSyncDirection.bidirectional);
     });
 
+    test(
+      'proxyTags default is bidirectional by documented product policy (#36)',
+      () {
+        // Pinned: proxy tags are editable in Prism (see proxy_tags_section
+        // in features/members/widgets/) and the product decision is that
+        // local edits should propagate to PK and vice versa. Do not flip
+        // this default to pull-only or disabled without re-deciding the
+        // product behavior of the editable proxy-tag UI.
+        const config = PkFieldSyncConfig();
+        expect(config.proxyTags, PkSyncDirection.bidirectional);
+      },
+    );
+
     test('fromJson handles missing fields with defaults', () {
       final config = PkFieldSyncConfig.fromJson(<String, dynamic>{});
       expect(config.name, PkSyncDirection.bidirectional);

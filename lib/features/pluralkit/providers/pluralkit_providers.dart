@@ -97,6 +97,9 @@ class PkSyncDirectionNotifier extends Notifier<PkSyncDirection> {
       description: direction,
       color: direction,
       birthday: direction,
+      // Proxy tags follow the global direction by design — see the
+      // PkFieldSyncConfig constructor doc in `pk_sync_config.dart` for why
+      // bidirectional remains the default for proxy tags.
       proxyTags: direction,
     );
     await syncDao.upsertSyncState(
@@ -222,7 +225,8 @@ class PluralKitSyncNotifier extends Notifier<PluralKitSyncState> {
     if (ref.read(frontingMigrationWritesBlockedProvider)) return 0;
     if (!state.isConnected || state.needsMapping) return 0;
     try {
-      return await _service.pushPendingSwitches();
+      final result = await _service.pushPendingSwitches();
+      return result.pushed;
     } catch (_) {
       return 0;
     }
