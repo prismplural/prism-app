@@ -7059,6 +7059,39 @@ class AppLocalizationsEn extends AppLocalizations {
   String get navTimeline => 'Timeline';
 
   @override
+  String get navSleep => 'Sleep';
+
+  @override
+  String get sleepScreenTitle => 'Sleep';
+
+  @override
+  String get sleepScreenAddTooltip => 'Log sleep';
+
+  @override
+  String get sleepScreenSettingsTooltip => 'Sleep settings';
+
+  @override
+  String get sleepEmptyTitle => 'No sleep sessions yet';
+
+  @override
+  String get sleepEmptyBody => 'Tap + to log your first';
+
+  @override
+  String get sleepLastNightLabel => 'Last night';
+
+  @override
+  String get sleepSevenDayAvgLabel => '7-day avg';
+
+  @override
+  String get sleepRecentSectionHeader => 'Recent';
+
+  @override
+  String get sleepStatUnavailable => '—';
+
+  @override
+  String get sleepViewAllHistory => 'View sleep history';
+
+  @override
   String get onboardingWelcomeTitle => 'Welcome to Prism';
 
   @override

@@ -6,6 +6,7 @@ import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import '../../features/fronting/views/fronting_screen.dart';
 import '../../features/fronting/views/session_detail_screen.dart';
+import '../../features/fronting/views/sleep_screen.dart';
 import '../../features/fronting/views/timeline_screen.dart';
 import '../../features/fronting/views/edit_front_session_screen.dart';
 import '../../features/members/views/members_screen.dart';
@@ -77,6 +78,7 @@ final _statisticsNavigatorKey = GlobalKey<NavigatorState>(
   debugLabel: 'statistics',
 );
 final _timelineNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'timeline');
+final _sleepNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'sleep');
 
 /// Notifier that triggers GoRouter redirect re-evaluation when onboarding
 /// status changes.
@@ -586,6 +588,21 @@ final routerProvider = Provider<GoRouter>((ref) {
                 name: AppRouteNames.timeline,
                 path: AppRoutePaths.timeline,
                 builder: (context, state) => const TimelineScreen(),
+              ),
+            ],
+          ),
+          // Branch 10: Sleep (opt-in tab; feature-flagged)
+          StatefulShellBranch(
+            navigatorKey: _sleepNavigatorKey,
+            routes: [
+              GoRoute(
+                path: AppRoutePaths.sleep,
+                redirect: (context, state) {
+                  final flags = ref.read(featureFlagsProvider);
+                  return flags.sleep ? null : AppRoutePaths.home;
+                },
+                builder: (context, state) =>
+                    const SleepScreen(showBackButton: false),
               ),
             ],
           ),

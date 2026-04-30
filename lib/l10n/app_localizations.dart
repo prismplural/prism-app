@@ -11650,6 +11650,72 @@ abstract class AppLocalizations {
   /// **'Timeline'**
   String get navTimeline;
 
+  /// Bottom navigation tab label for the Sleep tab
+  ///
+  /// In en, this message translates to:
+  /// **'Sleep'**
+  String get navSleep;
+
+  /// Title shown in the top bar of the Sleep screen
+  ///
+  /// In en, this message translates to:
+  /// **'Sleep'**
+  String get sleepScreenTitle;
+
+  /// Tooltip for the + icon button on the Sleep screen top bar
+  ///
+  /// In en, this message translates to:
+  /// **'Log sleep'**
+  String get sleepScreenAddTooltip;
+
+  /// Tooltip for the settings gear icon button on the Sleep screen top bar
+  ///
+  /// In en, this message translates to:
+  /// **'Sleep settings'**
+  String get sleepScreenSettingsTooltip;
+
+  /// Empty state heading on the Sleep screen when no sessions exist
+  ///
+  /// In en, this message translates to:
+  /// **'No sleep sessions yet'**
+  String get sleepEmptyTitle;
+
+  /// Empty state body on the Sleep screen (em dash, no period per spec)
+  ///
+  /// In en, this message translates to:
+  /// **'Tap + to log your first'**
+  String get sleepEmptyBody;
+
+  /// Label for the Last Night stat card on the Sleep screen
+  ///
+  /// In en, this message translates to:
+  /// **'Last night'**
+  String get sleepLastNightLabel;
+
+  /// Label for the 7-day average stat card on the Sleep screen
+  ///
+  /// In en, this message translates to:
+  /// **'7-day avg'**
+  String get sleepSevenDayAvgLabel;
+
+  /// Section header for the recent sleep sessions list on the Sleep screen
+  ///
+  /// In en, this message translates to:
+  /// **'Recent'**
+  String get sleepRecentSectionHeader;
+
+  /// Placeholder shown in a stat card when no data is available (em dash)
+  ///
+  /// In en, this message translates to:
+  /// **'—'**
+  String get sleepStatUnavailable;
+
+  /// Row label in Settings → Features → Sleep that navigates to the Sleep screen
+  ///
+  /// In en, this message translates to:
+  /// **'View sleep history'**
+  String get sleepViewAllHistory;
+
   /// Header title for the onboarding welcome step
   ///
   /// In en, this message translates to:

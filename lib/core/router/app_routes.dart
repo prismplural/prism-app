@@ -13,6 +13,7 @@ abstract final class AppRoutePaths {
   static const reminders = '/reminders';
   static const notes = '/notes';
   static const statistics = '/statistics';
+  static const sleep = '/sleep';
 
   // Settings sub-routes
   static const settingsMembers = '/settings/members';
@@ -104,6 +105,7 @@ enum AppShellTabId {
   notes,
   statistics,
   timeline,
+  sleep,
 }
 
 class AppShellTab {
@@ -153,6 +155,7 @@ class AppShellTab {
       AppShellTabId.notes => l10n.navNotes,
       AppShellTabId.statistics => l10n.navStatistics,
       AppShellTabId.timeline => l10n.navTimeline,
+      AppShellTabId.sleep => l10n.navSleep,
     };
   }
 
@@ -178,6 +181,7 @@ class AppShellTab {
       AppShellTabId.notes => flags.notes,
       AppShellTabId.statistics => true,
       AppShellTabId.timeline => true,
+      AppShellTabId.sleep => flags.sleep,
     };
   }
 }
@@ -262,6 +266,14 @@ final appShellTabs = [
     activeIcon: AppIcons.navTimelineActive,
     branchIndex: 9,
     rootLocation: AppRoutePaths.timeline,
+  ),
+  AppShellTab(
+    id: AppShellTabId.sleep,
+    label: 'Sleep',
+    icon: AppIcons.navSleep,
+    activeIcon: AppIcons.navSleepActive,
+    branchIndex: 10,
+    rootLocation: AppRoutePaths.sleep,
   ),
 ];
 
