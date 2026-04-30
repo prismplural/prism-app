@@ -99,6 +99,11 @@ class _FakeRepo implements FrontingSessionRepository {
     int? endHour,
     int? withinDays,
   }) async => {};
+  @override
+  Stream<List<FrontingSession>> watchSessionsOverlappingRange(
+    DateTime start,
+    DateTime end,
+  ) => Stream.value(const []);
 }
 
 // ---------------------------------------------------------------------------
