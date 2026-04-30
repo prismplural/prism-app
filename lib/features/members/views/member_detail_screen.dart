@@ -16,7 +16,6 @@ import 'package:prism_plurality/features/members/views/add_edit_member_sheet.dar
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
-import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
@@ -29,10 +28,10 @@ import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/features/members/widgets/member_groups_section.dart';
-import 'package:prism_plurality/features/members/utils/birthday.dart';
 import 'package:prism_plurality/features/members/widgets/proxy_tags_section.dart';
 import 'package:prism_plurality/features/members/widgets/custom_fields_display.dart';
 import 'package:prism_plurality/features/members/widgets/notes_section.dart';
+import 'package:prism_plurality/features/members/widgets/member_profile_header.dart';
 import 'package:prism_plurality/shared/widgets/markdown_text.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -78,15 +77,6 @@ class MemberDetailScreen extends ConsumerWidget {
   }
 }
 
-String? _birthdayDisplay(BuildContext context, Member member) {
-  final parsed = parseBirthday(member.birthday);
-  if (parsed == null) return null;
-  return formatBirthdayDisplay(
-    parsed,
-    Localizations.localeOf(context).toString(),
-  );
-}
-
 class _MemberDetailBody extends ConsumerWidget {
   const _MemberDetailBody({required this.member});
 
@@ -128,122 +118,7 @@ class _MemberDetailBody extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 16),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                MemberAvatar(
-                  avatarImageData: member.avatarImageData,
-                  memberName: member.name,
-                  emoji: member.emoji,
-                  customColorEnabled: member.customColorEnabled,
-                  customColorHex: member.customColorHex,
-                  size: 80,
-                  showBorder: true,
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        member.name,
-                        style: theme.textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      if (member.displayName != null &&
-                          member.displayName!.trim().isNotEmpty) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          member.displayName!.trim(),
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
-                      ],
-                      if (member.pronouns != null &&
-                          member.pronouns!.isNotEmpty) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          member.pronouns!,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                      if (member.age != null) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          l10n.memberAgeDisplay(member.age!),
-                          style: theme.textTheme.bodyLarge?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                      if (_birthdayDisplay(context, member) != null) ...[
-                        const SizedBox(height: 2),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              AppIcons.calendarTodayOutlined,
-                              size: 16,
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                            const SizedBox(width: 6),
-                            Flexible(
-                              child: Text(
-                                _birthdayDisplay(context, member)!,
-                                style: theme.textTheme.bodyLarge?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: [
-                          if (isFronting)
-                            _Chip(
-                              icon: AppIcons.flashOn,
-                              label: l10n.memberFrontingChip,
-                              backgroundColor: AppColors.fronting(
-                                theme.brightness,
-                              ).withValues(alpha: 0.15),
-                              foregroundColor: AppColors.fronting(
-                                theme.brightness,
-                              ),
-                            ),
-                          if (member.isAdmin)
-                            _Chip(
-                              icon: AppIcons.shieldOutlined,
-                              label: l10n.memberAdminChip,
-                              backgroundColor:
-                                  theme.colorScheme.tertiaryContainer,
-                              foregroundColor:
-                                  theme.colorScheme.onTertiaryContainer,
-                            ),
-                          if (!member.isActive)
-                            _Chip(
-                              icon: AppIcons.visibilityOffOutlined,
-                              label: l10n.memberInactiveChip,
-                              backgroundColor:
-                                  theme.colorScheme.surfaceContainerHighest,
-                              foregroundColor:
-                                  theme.colorScheme.onSurfaceVariant,
-                            ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+            MemberProfileHeader(member: member, isFronting: isFronting),
 
             const SizedBox(height: 24),
 
@@ -712,51 +587,6 @@ class _StatRow extends StatelessWidget {
           Text(
             value,
             style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Chip extends StatelessWidget {
-  const _Chip({
-    required this.label,
-    this.icon,
-    this.backgroundColor,
-    this.foregroundColor,
-  });
-
-  final String label;
-  final IconData? icon;
-  final Color? backgroundColor;
-  final Color? foregroundColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final bg = backgroundColor ?? theme.colorScheme.surfaceContainerHighest;
-    final fg = foregroundColor ?? theme.colorScheme.onSurfaceVariant;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(20)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (icon != null) ...[
-            Icon(icon, size: 16, color: fg),
-            const SizedBox(width: 6),
-          ],
-          Text(
-            label,
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: fg,
               fontWeight: FontWeight.w600,
             ),
           ),

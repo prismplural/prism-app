@@ -2144,6 +2144,90 @@ abstract class AppLocalizations {
   /// **'Remove photo'**
   String get memberRemoveAvatar;
 
+  /// Section title for member profile header settings
+  ///
+  /// In en, this message translates to:
+  /// **'Profile header'**
+  String get memberProfileHeaderSectionTitle;
+
+  /// Short description for member profile header settings
+  ///
+  /// In en, this message translates to:
+  /// **'Choose the image source and layout for this profile.'**
+  String get memberProfileHeaderSectionDescription;
+
+  /// Profile header source option label for PluralKit
+  ///
+  /// In en, this message translates to:
+  /// **'PluralKit'**
+  String get memberProfileHeaderSourcePluralKit;
+
+  /// Profile header source option label for Prism
+  ///
+  /// In en, this message translates to:
+  /// **'Prism'**
+  String get memberProfileHeaderSourcePrism;
+
+  /// Helper text shown when the PluralKit profile header source is selected
+  ///
+  /// In en, this message translates to:
+  /// **'Refreshed from PluralKit when Prism syncs.'**
+  String get memberProfileHeaderSourcePluralKitHelper;
+
+  /// Helper text shown when the Prism profile header source is selected
+  ///
+  /// In en, this message translates to:
+  /// **'Private to Prism. Does not update PluralKit.'**
+  String get memberProfileHeaderSourcePrismHelper;
+
+  /// Explanation shown when PluralKit cannot be selected as a profile header source
+  ///
+  /// In en, this message translates to:
+  /// **'PluralKit appears after this member has a linked or cached banner.'**
+  String get memberProfileHeaderPluralKitUnavailable;
+
+  /// Button label to choose a Prism-owned profile header image
+  ///
+  /// In en, this message translates to:
+  /// **'Change image'**
+  String get memberProfileHeaderChangeImage;
+
+  /// Button label to remove a Prism-owned profile header image
+  ///
+  /// In en, this message translates to:
+  /// **'Remove image'**
+  String get memberProfileHeaderRemoveImage;
+
+  /// Label for the member profile header layout selector
+  ///
+  /// In en, this message translates to:
+  /// **'Layout'**
+  String get memberProfileHeaderLayoutLabel;
+
+  /// Profile header layout option that preserves the compact member row
+  ///
+  /// In en, this message translates to:
+  /// **'Compact'**
+  String get memberProfileHeaderLayoutCompact;
+
+  /// Profile header layout option with a wide banner and overlapping avatar
+  ///
+  /// In en, this message translates to:
+  /// **'Classic'**
+  String get memberProfileHeaderLayoutClassic;
+
+  /// Title for the native profile header cropper
+  ///
+  /// In en, this message translates to:
+  /// **'Crop profile header'**
+  String get memberProfileHeaderCropTitle;
+
+  /// Toast message shown when profile header image processing fails
+  ///
+  /// In en, this message translates to:
+  /// **'Could not process that image.'**
+  String get memberProfileHeaderProcessingError;
+
   /// System name field label
   ///
   /// In en, this message translates to:

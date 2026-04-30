@@ -29,6 +29,13 @@ class Members extends Table {
   TextColumn get proxyTagsJson => text().nullable()();
   // PK `banner` URL. Stored for future banner UI; no bytes download yet.
   TextColumn get pkBannerUrl => text().nullable()();
+  IntColumn get profileHeaderSource =>
+      integer().withDefault(const Constant(1))();
+  IntColumn get profileHeaderLayout =>
+      integer().withDefault(const Constant(0))();
+  BlobColumn get profileHeaderImageData => blob().nullable()();
+  BlobColumn get pkBannerImageData => blob().nullable()();
+  TextColumn get pkBannerCachedUrl => text().nullable()();
   // Set when the user picked "Skip" or "Don't push" for this member in the
   // mapping flow. Durable — never re-offered until the user clears it.
   BoolColumn get pluralkitSyncIgnored =>

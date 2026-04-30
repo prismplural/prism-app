@@ -1173,6 +1173,53 @@ class AppLocalizationsEs extends AppLocalizations {
   String get memberRemoveAvatar => 'Eliminar foto';
 
   @override
+  String get memberProfileHeaderSectionTitle => 'Encabezado del perfil';
+
+  @override
+  String get memberProfileHeaderSectionDescription =>
+      'Elige el origen de la imagen y el diseño de este perfil.';
+
+  @override
+  String get memberProfileHeaderSourcePluralKit => 'PluralKit';
+
+  @override
+  String get memberProfileHeaderSourcePrism => 'Prism';
+
+  @override
+  String get memberProfileHeaderSourcePluralKitHelper =>
+      'Se actualiza desde PluralKit cuando Prism sincroniza.';
+
+  @override
+  String get memberProfileHeaderSourcePrismHelper =>
+      'Privado para Prism. No actualiza PluralKit.';
+
+  @override
+  String get memberProfileHeaderPluralKitUnavailable =>
+      'PluralKit aparece cuando este miembro tiene un encabezado vinculado o guardado en cache.';
+
+  @override
+  String get memberProfileHeaderChangeImage => 'Cambiar imagen';
+
+  @override
+  String get memberProfileHeaderRemoveImage => 'Eliminar imagen';
+
+  @override
+  String get memberProfileHeaderLayoutLabel => 'Diseño';
+
+  @override
+  String get memberProfileHeaderLayoutCompact => 'Compacto';
+
+  @override
+  String get memberProfileHeaderLayoutClassic => 'Clásico';
+
+  @override
+  String get memberProfileHeaderCropTitle => 'Recortar encabezado del perfil';
+
+  @override
+  String get memberProfileHeaderProcessingError =>
+      'No se pudo procesar esa imagen.';
+
+  @override
   String get systemInfoNameLabel => 'Nombre';
 
   @override

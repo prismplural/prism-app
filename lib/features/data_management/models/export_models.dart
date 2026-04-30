@@ -338,6 +338,12 @@ class V1Headmate {
     this.displayName,
     this.birthday,
     this.proxyTagsJson,
+    this.pkBannerUrl,
+    this.profileHeaderSource,
+    this.profileHeaderLayout,
+    this.profileHeaderImageData,
+    this.pkBannerImageData,
+    this.pkBannerCachedUrl,
     this.pluralkitSyncIgnored = false,
   });
 
@@ -362,6 +368,12 @@ class V1Headmate {
   final String? displayName;
   final String? birthday;
   final String? proxyTagsJson;
+  final String? pkBannerUrl;
+  final int? profileHeaderSource;
+  final int? profileHeaderLayout;
+  final String? profileHeaderImageData; // base64
+  final String? pkBannerImageData; // base64
+  final String? pkBannerCachedUrl;
   final bool pluralkitSyncIgnored;
 
   Map<String, dynamic> toJson() => {
@@ -385,6 +397,13 @@ class V1Headmate {
     if (displayName != null) 'displayName': displayName,
     if (birthday != null) 'birthday': birthday,
     if (proxyTagsJson != null) 'proxyTagsJson': proxyTagsJson,
+    if (pkBannerUrl != null) 'pkBannerUrl': pkBannerUrl,
+    if (profileHeaderSource != null) 'profileHeaderSource': profileHeaderSource,
+    if (profileHeaderLayout != null) 'profileHeaderLayout': profileHeaderLayout,
+    if (profileHeaderImageData != null)
+      'profileHeaderImageData': profileHeaderImageData,
+    if (pkBannerImageData != null) 'pkBannerImageData': pkBannerImageData,
+    if (pkBannerCachedUrl != null) 'pkBannerCachedUrl': pkBannerCachedUrl,
     'pluralkitSyncIgnored': pluralkitSyncIgnored,
   };
 
@@ -409,12 +428,27 @@ class V1Headmate {
     displayName: json['displayName'] as String?,
     birthday: json['birthday'] as String?,
     proxyTagsJson: json['proxyTagsJson'] as String?,
+    pkBannerUrl: json['pkBannerUrl'] as String?,
+    profileHeaderSource: json['profileHeaderSource'] as int?,
+    profileHeaderLayout: json['profileHeaderLayout'] as int?,
+    profileHeaderImageData: json['profileHeaderImageData'] as String?,
+    pkBannerImageData: json['pkBannerImageData'] as String?,
+    pkBannerCachedUrl: json['pkBannerCachedUrl'] as String?,
     pluralkitSyncIgnored: json['pluralkitSyncIgnored'] as bool? ?? false,
   );
 
   /// Convert base64 profilePhotoData to Uint8List.
   Uint8List? get avatarImageData =>
       profilePhotoData != null ? base64Decode(profilePhotoData!) : null;
+
+  /// Convert base64 profileHeaderImageData to Uint8List.
+  Uint8List? get profileHeaderImageBytes => profileHeaderImageData != null
+      ? base64Decode(profileHeaderImageData!)
+      : null;
+
+  /// Convert base64 pkBannerImageData to Uint8List.
+  Uint8List? get pkBannerImageBytes =>
+      pkBannerImageData != null ? base64Decode(pkBannerImageData!) : null;
 }
 
 // ---------------------------------------------------------------------------

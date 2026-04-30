@@ -22,6 +22,7 @@ import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/members/widgets/custom_fields_editor.dart';
+import 'package:prism_plurality/features/members/widgets/member_profile_header_editor.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:uuid/uuid.dart';
 
@@ -58,6 +59,9 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
   bool _markdownEnabled = false;
   bool _customColorEnabled = false;
   Uint8List? _avatarImageData;
+  late MemberProfileHeaderSource _profileHeaderSource;
+  late MemberProfileHeaderLayout _profileHeaderLayout;
+  Uint8List? _profileHeaderImageData;
   bool _saving = false;
   bool _saved = false;
 
@@ -89,6 +93,11 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
     _markdownEnabled = m?.markdownEnabled ?? false;
     _customColorEnabled = m?.customColorEnabled ?? false;
     _avatarImageData = m?.avatarImageData;
+    _profileHeaderSource =
+        m?.profileHeaderSource ?? MemberProfileHeaderSource.prism;
+    _profileHeaderLayout =
+        m?.profileHeaderLayout ?? MemberProfileHeaderLayout.compactBackground;
+    _profileHeaderImageData = m?.profileHeaderImageData;
   }
 
   @override
@@ -113,6 +122,43 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
     if (bytes != null && mounted) {
       setState(() => _avatarImageData = bytes);
     }
+  }
+
+  Member _previewMember() {
+    final name = _nameController.text.trim();
+    final emoji = _emojiController.text.trim();
+    final displayName = _displayNameController.text.trim();
+    final pronouns = _pronounsController.text.trim();
+    final ageText = _ageController.text.trim();
+    final age = ageText.isNotEmpty ? int.tryParse(ageText) : null;
+    final colorHex = _colorHexController.text.trim();
+    final birthdayWire = _birthday == null
+        ? null
+        : formatBirthdayWire(_birthday!, hideYear: _birthdayHideYear);
+
+    return (widget.member ??
+            Member(
+              id: _memberId,
+              name: name.isNotEmpty ? name : '',
+              emoji: emoji.isNotEmpty ? emoji : '❔',
+              createdAt: DateTime.now(),
+            ))
+        .copyWith(
+          name: name.isNotEmpty ? name : (widget.member?.name ?? ''),
+          pronouns: pronouns.isNotEmpty ? pronouns : null,
+          emoji: emoji.isNotEmpty ? emoji : '❔',
+          age: age,
+          birthday: birthdayWire,
+          displayName: displayName.isNotEmpty ? displayName : null,
+          avatarImageData: _avatarImageData,
+          customColorEnabled: _customColorEnabled,
+          customColorHex: _customColorEnabled && colorHex.isNotEmpty
+              ? colorHex
+              : null,
+          profileHeaderSource: _profileHeaderSource,
+          profileHeaderLayout: _profileHeaderLayout,
+          profileHeaderImageData: _profileHeaderImageData,
+        );
   }
 
   Color? _previewColor() {
@@ -188,6 +234,9 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
           customColorHex: colorHex,
           displayName: displayName.isNotEmpty ? displayName : null,
           birthday: birthdayWire,
+          profileHeaderSource: _profileHeaderSource,
+          profileHeaderLayout: _profileHeaderLayout,
+          profileHeaderImageData: _profileHeaderImageData,
         );
         await notifier.updateMember(updated);
       } else {
@@ -203,6 +252,9 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
           customColorHex: colorHex,
           displayName: displayName.isNotEmpty ? displayName : null,
           birthday: birthdayWire,
+          profileHeaderSource: _profileHeaderSource,
+          profileHeaderLayout: _profileHeaderLayout,
+          profileHeaderImageData: _profileHeaderImageData,
         );
       }
 
@@ -336,6 +388,21 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
                           ),
                       ],
                     ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  MemberProfileHeaderEditor(
+                    member: _previewMember(),
+                    source: _profileHeaderSource,
+                    layout: _profileHeaderLayout,
+                    prismHeaderImageData: _profileHeaderImageData,
+                    pluralKitHeaderImageData: widget.member?.pkBannerImageData,
+                    onSourceChanged: (source) =>
+                        setState(() => _profileHeaderSource = source),
+                    onLayoutChanged: (layout) =>
+                        setState(() => _profileHeaderLayout = layout),
+                    onPrismHeaderImageChanged: (bytes) =>
+                        setState(() => _profileHeaderImageData = bytes),
                   ),
                   const SizedBox(height: 24),
 

@@ -6,6 +6,8 @@
 ///   are counted and reported but no fronting sessions are created.
 library;
 
+import 'dart:typed_data';
+
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -14,6 +16,7 @@ import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/data/repositories/drift_fronting_session_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_banner_cache_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_file_parser.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_groups_importer.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
@@ -41,6 +44,10 @@ void main() {
     ),
     syncDao: db.pluralKitSyncDao,
     groupsImporter: PkGroupsImporter(db: db, memberRepository: memberRepo),
+    bannerCacheService: PkBannerCacheService(
+      fetcher: (_) async => Uint8List.fromList([1, 2, 3]),
+      normalizer: (bytes) async => bytes,
+    ),
   );
 
   test('imports groups from file without a PK token linked', () async {
@@ -99,6 +106,7 @@ void main() {
           uuid: 'u-alice',
           name: 'Alice',
           bannerUrl: 'https://cdn.example.com/banner.png',
+          hasBannerField: true,
         ),
       ],
       groups: [],

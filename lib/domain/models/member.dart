@@ -12,6 +12,10 @@ Uint8List? _uint8ListFromJson(String? json) =>
 String? _uint8ListToJson(Uint8List? bytes) =>
     bytes == null ? null : base64Encode(bytes);
 
+enum MemberProfileHeaderSource { pluralKit, prism }
+
+enum MemberProfileHeaderLayout { compactBackground, classicOverlap }
+
 @freezed
 abstract class Member with _$Member {
   const factory Member({
@@ -37,6 +41,15 @@ abstract class Member with _$Member {
     String? birthday,
     String? proxyTagsJson,
     String? pkBannerUrl,
+    @Default(MemberProfileHeaderSource.prism)
+    MemberProfileHeaderSource profileHeaderSource,
+    @Default(MemberProfileHeaderLayout.compactBackground)
+    MemberProfileHeaderLayout profileHeaderLayout,
+    @JsonKey(fromJson: _uint8ListFromJson, toJson: _uint8ListToJson)
+    Uint8List? profileHeaderImageData,
+    @JsonKey(fromJson: _uint8ListFromJson, toJson: _uint8ListToJson)
+    Uint8List? pkBannerImageData,
+    String? pkBannerCachedUrl,
     @Default(false) bool pluralkitSyncIgnored,
     // Plan 02 (PK deletion push). Set by the repo when a PK-linked member is
     // soft-deleted; consumed only by the PK push path. `isDeleted` is mirrored

@@ -29,6 +29,11 @@ db.Member makeDbMember({
   String? pluralkitUuid,
   String? pluralkitId,
   bool markdownEnabled = false,
+  int profileHeaderSource = 1,
+  int profileHeaderLayout = 0,
+  Uint8List? profileHeaderImageData,
+  Uint8List? pkBannerImageData,
+  String? pkBannerCachedUrl,
 }) {
   return db.Member(
     id: id,
@@ -48,6 +53,11 @@ db.Member makeDbMember({
     pluralkitUuid: pluralkitUuid,
     pluralkitId: pluralkitId,
     markdownEnabled: markdownEnabled,
+    profileHeaderSource: profileHeaderSource,
+    profileHeaderLayout: profileHeaderLayout,
+    profileHeaderImageData: profileHeaderImageData,
+    pkBannerImageData: pkBannerImageData,
+    pkBannerCachedUrl: pkBannerCachedUrl,
     pluralkitSyncIgnored: false,
     isDeleted: false,
     isAlwaysFronting: false,
@@ -67,6 +77,8 @@ db.FrontingSession makeDbFrontingSession({
   int? quality,
   bool isHealthKitImport = false,
   String? pluralkitUuid,
+  String? pkImportSource,
+  String? pkFileSwitchId,
 }) {
   // The `coFronterIds` and `pkMemberIdsJson` columns survive on the Drift table
   // for now (the mapper no longer reads or writes them after the per-member-
@@ -83,6 +95,8 @@ db.FrontingSession makeDbFrontingSession({
     quality: quality,
     isHealthKitImport: isHealthKitImport,
     pluralkitUuid: pluralkitUuid,
+    pkImportSource: pkImportSource,
+    pkFileSwitchId: pkFileSwitchId,
     isDeleted: false,
   );
 }

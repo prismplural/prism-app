@@ -367,6 +367,16 @@ class DataExportService {
     displayName: m.displayName,
     birthday: m.birthday,
     proxyTagsJson: m.proxyTagsJson,
+    pkBannerUrl: m.pkBannerUrl,
+    profileHeaderSource: m.profileHeaderSource.index,
+    profileHeaderLayout: m.profileHeaderLayout.index,
+    profileHeaderImageData: m.profileHeaderImageData != null
+        ? base64Encode(m.profileHeaderImageData!)
+        : null,
+    pkBannerImageData: m.pkBannerImageData != null
+        ? base64Encode(m.pkBannerImageData!)
+        : null,
+    pkBannerCachedUrl: m.pkBannerCachedUrl,
     pluralkitSyncIgnored: m.pluralkitSyncIgnored,
   );
 

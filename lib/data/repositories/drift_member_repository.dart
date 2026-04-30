@@ -24,8 +24,11 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
 
   static const _table = 'members';
 
-  DriftMemberRepository(this._dao, this._syncHandle, {PluralKitSyncDao? pkSyncDao})
-      : _pkSyncDao = pkSyncDao;
+  DriftMemberRepository(
+    this._dao,
+    this._syncHandle, {
+    PluralKitSyncDao? pkSyncDao,
+  }) : _pkSyncDao = pkSyncDao;
 
   @override
   Future<List<domain.Member>> getAllMembers() async {
@@ -65,7 +68,11 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
     final normalizedMember = _normalizeMember(member);
     final companion = MemberMapper.toCompanion(normalizedMember);
     await _dao.insertMember(companion);
-    await syncRecordCreate(_table, normalizedMember.id, _memberFields(normalizedMember));
+    await syncRecordCreate(
+      _table,
+      normalizedMember.id,
+      _memberFields(normalizedMember),
+    );
   }
 
   @override
@@ -73,7 +80,11 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
     final normalizedMember = _normalizeMember(member);
     final companion = MemberMapper.toCompanion(normalizedMember);
     await _dao.updateMember(companion);
-    await syncRecordUpdate(_table, normalizedMember.id, _memberFields(normalizedMember));
+    await syncRecordUpdate(
+      _table,
+      normalizedMember.id,
+      _memberFields(normalizedMember),
+    );
   }
 
   @override
@@ -97,7 +108,8 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
     int? epoch;
     final pkDao = _pkSyncDao;
     final existing = await _dao.getMemberById(id);
-    final isLinked = existing != null &&
+    final isLinked =
+        existing != null &&
         ((existing.pluralkitId != null && existing.pluralkitId!.isNotEmpty) ||
             (existing.pluralkitUuid != null &&
                 existing.pluralkitUuid!.isNotEmpty));
@@ -134,9 +146,7 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
   @override
   Future<void> stampDeletePushStartedAt(String id, int timestampMs) async {
     await _dao.stampDeletePushStartedAt(id, timestampMs);
-    await syncRecordUpdate(_table, id, {
-      'delete_push_started_at': timestampMs,
-    });
+    await syncRecordUpdate(_table, id, {'delete_push_started_at': timestampMs});
   }
 
   @override
@@ -157,7 +167,7 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
 
   @override
   Future<({domain.Member member, bool wasCreated})>
-      ensureUnknownSentinelMember() async {
+  ensureUnknownSentinelMember() async {
     final existing = await getMemberById(unknownSentinelMemberId);
     if (existing != null) {
       return (member: existing, wasCreated: false);
@@ -217,6 +227,16 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
       'pluralkit_uuid': m.pluralkitUuid,
       'pluralkit_id': m.pluralkitId,
       'markdown_enabled': m.markdownEnabled,
+      'pk_banner_url': m.pkBannerUrl,
+      'profile_header_source': m.profileHeaderSource.index,
+      'profile_header_layout': m.profileHeaderLayout.index,
+      'profile_header_image_data': m.profileHeaderImageData != null
+          ? base64Encode(m.profileHeaderImageData!)
+          : null,
+      'pk_banner_image_data': m.pkBannerImageData != null
+          ? base64Encode(m.pkBannerImageData!)
+          : null,
+      'pk_banner_cached_url': m.pkBannerCachedUrl,
       'is_always_fronting': m.isAlwaysFronting,
       'is_deleted': false,
     };

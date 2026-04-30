@@ -1143,6 +1143,53 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memberRemoveAvatar => 'Remove photo';
 
   @override
+  String get memberProfileHeaderSectionTitle => 'Profile header';
+
+  @override
+  String get memberProfileHeaderSectionDescription =>
+      'Choose the image source and layout for this profile.';
+
+  @override
+  String get memberProfileHeaderSourcePluralKit => 'PluralKit';
+
+  @override
+  String get memberProfileHeaderSourcePrism => 'Prism';
+
+  @override
+  String get memberProfileHeaderSourcePluralKitHelper =>
+      'Refreshed from PluralKit when Prism syncs.';
+
+  @override
+  String get memberProfileHeaderSourcePrismHelper =>
+      'Private to Prism. Does not update PluralKit.';
+
+  @override
+  String get memberProfileHeaderPluralKitUnavailable =>
+      'PluralKit appears after this member has a linked or cached banner.';
+
+  @override
+  String get memberProfileHeaderChangeImage => 'Change image';
+
+  @override
+  String get memberProfileHeaderRemoveImage => 'Remove image';
+
+  @override
+  String get memberProfileHeaderLayoutLabel => 'Layout';
+
+  @override
+  String get memberProfileHeaderLayoutCompact => 'Compact';
+
+  @override
+  String get memberProfileHeaderLayoutClassic => 'Classic';
+
+  @override
+  String get memberProfileHeaderCropTitle => 'Crop profile header';
+
+  @override
+  String get memberProfileHeaderProcessingError =>
+      'Could not process that image.';
+
+  @override
   String get systemInfoNameLabel => 'Name';
 
   @override

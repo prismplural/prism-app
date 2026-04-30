@@ -17,6 +17,7 @@ import 'package:prism_plurality/domain/repositories/system_settings_repository.d
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_bidirectional_service.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_banner_cache_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_file_parser.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_fronting_switch_matcher.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_groups_importer.dart';
@@ -158,6 +159,7 @@ class PluralKitSyncService {
   final PluralKitClient Function(String token)? _clientFactory;
   final String? _tokenOverride;
   final PkGroupsImporter? _groupsImporter;
+  final PkBannerCacheService _bannerCacheService;
 
   PluralKitSyncState _state = const PluralKitSyncState();
   SyncStateCallback? onStateChanged;
@@ -171,6 +173,7 @@ class PluralKitSyncService {
     PluralKitClient Function(String token)? clientFactory,
     String? tokenOverride,
     PkGroupsImporter? groupsImporter,
+    PkBannerCacheService? bannerCacheService,
   }) : _memberRepository = memberRepository,
        _frontingSessionRepository = frontingSessionRepository,
        _syncDao = syncDao,
@@ -179,7 +182,8 @@ class PluralKitSyncService {
        _uuid = const Uuid(),
        _clientFactory = clientFactory,
        _tokenOverride = tokenOverride,
-       _groupsImporter = groupsImporter;
+       _groupsImporter = groupsImporter,
+       _bannerCacheService = bannerCacheService ?? PkBannerCacheService();
 
   PluralKitSyncState get state => _state;
 
@@ -212,6 +216,9 @@ class PluralKitSyncService {
 
   Future<PluralKitClient?> _buildClient() async =>
       _buildClientFromToken(await _getToken());
+
+  static bool _hasText(String? value) =>
+      value != null && value.trim().isNotEmpty;
 
   Future<String?> _getRepairToken({String? token}) async {
     if (token != null) return _normalizeToken(token);
@@ -1057,7 +1064,9 @@ class PluralKitSyncService {
             if (m.pluralkitId != null || m.pluralkitUuid != null) m.id: m.name,
         };
 
-        final biService = PkBidirectionalService();
+        final biService = PkBidirectionalService(
+          bannerCacheService: _bannerCacheService,
+        );
         summary = await biService.syncMembers(
           localMembers: allMembers,
           pkMembers: pkMembers,
@@ -1459,6 +1468,15 @@ class PluralKitSyncService {
 
       try {
         final localMember = byPkUuid[pk.uuid];
+        final bannerCache = await _bannerCacheService.resolve(
+          PkBannerCacheInput(
+            currentPkBannerUrl: localMember?.pkBannerUrl,
+            currentPkBannerImageData: localMember?.pkBannerImageData,
+            currentPkBannerCachedUrl: localMember?.pkBannerCachedUrl,
+            hasIncomingBannerField: pk.hasBannerField,
+            incomingBannerUrl: pk.bannerUrl,
+          ),
+        );
         if (localMember != null) {
           await _memberRepository.updateMember(
             localMember.copyWith(
@@ -1470,7 +1488,9 @@ class PluralKitSyncService {
               customColorHex: pk.color,
               customColorEnabled: pk.color != null && pk.color!.isNotEmpty,
               proxyTagsJson: pk.proxyTagsJson ?? localMember.proxyTagsJson,
-              pkBannerUrl: pk.bannerUrl ?? localMember.pkBannerUrl,
+              pkBannerUrl: bannerCache.pkBannerUrl,
+              pkBannerImageData: bannerCache.pkBannerImageData,
+              pkBannerCachedUrl: bannerCache.pkBannerCachedUrl,
               pluralkitUuid: pk.uuid,
               pluralkitId: pk.id,
               avatarImageData: avatarData ?? localMember.avatarImageData,
@@ -1492,7 +1512,12 @@ class PluralKitSyncService {
               customColorHex: pk.color,
               customColorEnabled: pk.color != null && pk.color!.isNotEmpty,
               proxyTagsJson: pk.proxyTagsJson,
-              pkBannerUrl: pk.bannerUrl,
+              pkBannerUrl: bannerCache.pkBannerUrl,
+              profileHeaderSource: _hasText(bannerCache.pkBannerUrl)
+                  ? domain.MemberProfileHeaderSource.pluralKit
+                  : domain.MemberProfileHeaderSource.prism,
+              pkBannerImageData: bannerCache.pkBannerImageData,
+              pkBannerCachedUrl: bannerCache.pkBannerCachedUrl,
               pluralkitUuid: pk.uuid,
               pluralkitId: pk.id,
               avatarImageData: avatarData,
