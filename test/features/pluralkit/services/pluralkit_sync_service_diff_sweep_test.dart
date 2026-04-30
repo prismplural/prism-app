@@ -874,6 +874,72 @@ void main() {
       expect(row.memberId, 'local-a');
       expect(row.pluralkitUuid, switchId);
     });
+
+    test('performFullImport resurrects soft-deleted PK row when legacy id '
+        'differs from deterministic id', () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+
+      final memberRepo = DriftMemberRepository(db.membersDao, null);
+      await memberRepo.createMember(
+        _member(localId: 'local-a', pkShortId: 'pkA', pkUuid: 'uuid-a'),
+      );
+
+      const switchId = 'sw-legacy';
+      final lossyStart = DateTime.utc(2026, 1, 1, 9);
+      final apiStart = DateTime.utc(2026, 1, 1, 10);
+      final deterministicId = derivePkSessionId(switchId, 'uuid-a');
+
+      final sessionRepo = DriftFrontingSessionRepository(
+        db.frontingSessionsDao,
+        null,
+      );
+      await sessionRepo.createSession(
+        domain_fs.FrontingSession(
+          id: 'legacy-pk-row',
+          startTime: lossyStart,
+          memberId: 'local-a',
+          pluralkitUuid: switchId,
+        ),
+      );
+      await sessionRepo.deleteSession('legacy-pk-row');
+
+      final sw = PKSwitch(
+        id: switchId,
+        timestamp: apiStart,
+        members: const ['pkA'],
+      );
+      final client = _FakeClient([
+        [sw],
+        [],
+      ]);
+      final service = _makeService(
+        db: db,
+        client: client,
+        memberRepo: memberRepo,
+        sessionRepo: sessionRepo,
+      );
+      await service.setToken('t');
+      await service.acknowledgeMapping();
+
+      await service.performFullImport();
+
+      final active = await sessionRepo.getAllSessions();
+      expect(active, hasLength(1));
+      final row = active.single;
+      expect(row.id, 'legacy-pk-row');
+      expect(row.id, isNot(deterministicId));
+      expect(row.isDeleted, isFalse);
+      expect(row.startTime, _sameInstant(apiStart));
+      expect(row.endTime, isNull);
+      expect(row.memberId, 'local-a');
+      expect(row.pluralkitUuid, switchId);
+
+      final deterministicRow = await sessionRepo.getSessionById(
+        deterministicId,
+      );
+      expect(deterministicRow, isNull);
+    });
   });
 
   // -- Member resolution ----------------------------------------------------

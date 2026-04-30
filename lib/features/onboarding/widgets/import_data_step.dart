@@ -14,6 +14,7 @@ import 'package:prism_plurality/features/data_management/services/export_crypto.
 import 'package:prism_plurality/features/onboarding/models/onboarding_data_counts.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pk_file_import_provider.dart';
+import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_file_parser.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
 import 'package:prism_plurality/features/migration/providers/migration_providers.dart';
@@ -417,10 +418,11 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
         _SourceCard(
           icon: AppIcons.sync,
           color: theme.colorScheme.primary,
-          title: 'Connect with a token',
+          title: 'Import with a token',
           description:
-              'Recommended. Paste a PluralKit token and Prism will keep '
-              'pulling new switches and push your Prism fronts back to PK.',
+              'Recommended. Paste a PluralKit token and Prism will import '
+              'members, groups, and switch history without enabling ongoing '
+              'sync.',
           onTap: () => _pickMode(_PkMode.token),
         ),
         const SizedBox(height: 12),
@@ -1110,45 +1112,21 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
     try {
       final pkNotifier = ref.read(pluralKitSyncProvider.notifier);
 
-      debugPrint('[PK_ONBOARDING] calling setToken...');
-      await pkNotifier.setToken(token);
-      final stateAfterSet = ref.read(pluralKitSyncProvider);
-      debugPrint(
-        '[PK_ONBOARDING] after setToken: '
-        'isConnected=${stateAfterSet.isConnected} '
-        'needsMapping=${stateAfterSet.needsMapping} '
-        'syncError=${stateAfterSet.syncError}',
-      );
-
-      debugPrint('[PK_ONBOARDING] calling testConnection...');
-      final connected = await pkNotifier.testConnection();
-      debugPrint('[PK_ONBOARDING] testConnection result: $connected');
-      if (!connected) {
-        debugPrint('[PK_ONBOARDING] testConnection failed — clearing token');
-        // Clear the invalid token so it doesn't persist
-        await pkNotifier.clearToken();
-        setState(() {
-          _isImporting = false;
-          _errorMessage = context.l10n.onboardingPluralKitErrorCouldNotConnect;
-        });
-        return;
-      }
-
       if (mounted) {
         setState(() => _importPhase = _PkTokenPhase.importingMembers);
       }
-      debugPrint('[PK_ONBOARDING] calling importMembersOnly...');
-      // importMembersOnly() already creates/updates members in the DB via the
-      // sync service's _importMembers helper (which deduplicates by PK UUID).
-      // We intentionally do NOT create members again here — the previous code
-      // duplicated every PK member on each import because createMember() does
-      // not set pluralkitUuid, so the service's dedup couldn't catch them.
-      final (systemName, importedMembers) = await pkNotifier
-          .importMembersOnly();
+      debugPrint('[PK_ONBOARDING] calling importFromTokenOnce...');
+      // The onboarding token path is an import, not a connection setup.
+      // importFromTokenOnce() uses the token ephemerally and never stores it
+      // or flips PluralKit into connected/canAutoSync state.
+      final result = await pkNotifier.importFromTokenOnce(token);
+      final systemName = result.system.name;
+      final importedMembers = result.members;
       debugPrint(
-        '[PK_ONBOARDING] importMembersOnly returned: '
+        '[PK_ONBOARDING] importFromTokenOnce returned: '
         'systemName=$systemName '
-        'importedMembers.length=${importedMembers.length}',
+        'importedMembers.length=${importedMembers.length} '
+        'switchesImported=${result.switchesImported}',
       );
 
       // Confirm the writes actually landed in the local DB by reading back.
@@ -1167,23 +1145,6 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
       }
       ref.read(onboardingProvider.notifier).setWasImportedFromPluralKit(true);
 
-      // Fresh-install onboarding has no existing data to "map to", so
-      // acknowledge the mapping and run a full import so switches (front
-      // history) and groups come along too — not just members.
-      try {
-        if (mounted) {
-          setState(() => _importPhase = _PkTokenPhase.importingHistory);
-        }
-        debugPrint('[PK_ONBOARDING] acknowledgeMapping + performFullImport...');
-        await pkNotifier.acknowledgeMapping();
-        await pkNotifier.performFullImport();
-        debugPrint('[PK_ONBOARDING] full import done');
-      } catch (e, st) {
-        // Non-fatal: members already imported. Log and continue so the user
-        // doesn't get blocked at onboarding if switch history fails.
-        debugPrint('[PK_ONBOARDING] full import failed (non-fatal): $e\n$st');
-      }
-
       if (!mounted) return;
       setState(() {
         _isImporting = false;
@@ -1196,6 +1157,12 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
       // system name is shown prefilled without requiring a second tap.
       ref.read(onboardingPendingImportActionProvider.notifier).set(null);
       ref.read(onboardingProvider.notifier).next();
+    } on PluralKitAuthError catch (e, st) {
+      debugPrint('[PK_ONBOARDING] token auth failed: $e\n$st');
+      setState(() {
+        _isImporting = false;
+        _errorMessage = context.l10n.onboardingPluralKitErrorCouldNotConnect;
+      });
     } catch (e, st) {
       debugPrint('[PK_ONBOARDING] _handleImport CAUGHT exception: $e\n$st');
       setState(() {

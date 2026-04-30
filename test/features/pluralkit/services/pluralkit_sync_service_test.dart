@@ -927,6 +927,47 @@ void main() {
     });
   });
 
+  group('importFromTokenOnce', () {
+    test('imports data without storing token or enabling sync', () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+
+      final memberRepo = FakeMemberRepository();
+      final fakeClient = FakePluralKitClient()
+        ..systemToReturn = const PKSystem(id: 'sys-import', name: 'Import Me')
+        ..membersToReturn = const [
+          PKMember(id: 'abcde', uuid: 'pk-member-1', name: 'Alice'),
+        ]
+        ..switchesToReturn = const [];
+
+      final service = _makeService(
+        fakeClient: fakeClient,
+        db: db,
+        memberRepo: memberRepo,
+      );
+
+      final result = await service.importFromTokenOnce('one-shot-token');
+
+      expect(result.system.name, 'Import Me');
+      expect(result.members, hasLength(1));
+      expect(result.switchesImported, 0);
+      expect(memberRepo._members.values.single.pluralkitUuid, 'pk-member-1');
+      expect(fakeClient.getSystemCallCount, 1);
+      expect(fakeClient.getMembersCallCount, 1);
+      expect(fakeClient.getSwitchesCallCount, 1);
+      expect(storageStub.writeCount, 0);
+      expect(storageStub._store.containsKey(_pkTokenKey), isFalse);
+      expect(service.state.isConnected, isFalse);
+      expect(service.state.needsMapping, isFalse);
+      expect(service.state.canAutoSync, isFalse);
+
+      final row = await db.pluralKitSyncDao.getSyncState();
+      expect(row.isConnected, isFalse);
+      expect(row.mappingAcknowledged, isFalse);
+      expect(row.lastSyncDate, isNotNull);
+    });
+  });
+
   // ── syncRecentData — null lastSyncDate triggers full import ──────────────────
 
   group('syncRecentData — null lastSyncDate', () {

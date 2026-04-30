@@ -103,7 +103,10 @@ class _FakePluralKitClient implements PluralKitClient {
   Future<List<PKGroup>> getGroups({bool withMembers = true}) async => const [];
 
   @override
-  Future<List<PKSwitch>> getSwitches({DateTime? before, int limit = 100}) async {
+  Future<List<PKSwitch>> getSwitches({
+    DateTime? before,
+    int limit = 100,
+  }) async {
     // Single page — return the switches once, then empty so the paging
     // loop terminates.
     if (before != null) return const [];
@@ -167,123 +170,128 @@ void main() {
   setUp(storageStub.setup);
   tearDown(storageStub.teardown);
 
-  test(
-    'performFullImport tolerates a tombstoned PK-linked session colliding '
-    'on the partial unique index',
-    () async {
-      final db = AppDatabase(NativeDatabase.memory());
-      addTearDown(db.close);
+  test('performFullImport tolerates a tombstoned PK-linked session colliding '
+      'on the partial unique index', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
 
-      // -- Seed the local member that the PK switch refers to ---------------
-      // The switch lists member 'pk-short-id'.  Seeding a Prism member with
-      // pluralkitId='pk-short-id' causes _resolvePkMembers to map that to
-      // 'local-member-id', so the importer's INSERT carries
-      // (pluralkit_uuid='X', member_id='local-member-id') — exactly matching
-      // the tombstone below and triggering the composite unique-constraint catch.
-      await db.membersDao.upsertMember(
-        MembersCompanion.insert(
-          id: 'local-member-id',
-          name: 'Test Member',
-          createdAt: DateTime(2026, 1, 1),
-          pluralkitId: const Value('pk-short-id'),
+    // -- Seed the local member that the PK switch refers to ---------------
+    // The switch lists member 'pk-short-id'.  Seeding a Prism member with
+    // pluralkitId='pk-short-id' and pluralkitUuid='pk-member-uuid' causes
+    // the diff sweep to map that to 'local-member-id', so the importer's
+    // INSERT carries
+    // (pluralkit_uuid='X', member_id='local-member-id') — exactly matching
+    // the tombstone below and triggering the composite unique-constraint catch.
+    await db.membersDao.upsertMember(
+      MembersCompanion.insert(
+        id: 'local-member-id',
+        name: 'Test Member',
+        createdAt: DateTime(2026, 1, 1),
+        pluralkitId: const Value('pk-short-id'),
+        pluralkitUuid: const Value('pk-member-uuid'),
+      ),
+    );
+
+    // -- Seed a tombstone row carrying pluralkit_uuid='X' ---------------
+    // We bypass the repository sync hooks here — this models a row that
+    // already exists in the local DB after a soft-delete that hasn't yet
+    // pushed up to the relay (and thus hasn't had its PK link cleared).
+    // The composite partial unique index on (pluralkit_uuid, member_id)
+    // prevents a new live row for the same (uuid, member) pair — but only
+    // when member_id is non-null (SQLite treats NULL != NULL in unique
+    // indexes, so unresolvable-member rows bypass this protection).
+    // Drift stores DateTimes as Unix seconds and round-trips through local
+    // time, so use a local DateTime for round-trip equality.
+    final tombstoneStart = DateTime(2026, 4, 1, 12);
+    await db.frontingSessionsDao.insertSession(
+      FrontingSessionsCompanion.insert(
+        id: 'tombstone-id',
+        startTime: tombstoneStart,
+        memberId: const Value('local-member-id'),
+        pluralkitUuid: const Value('X'),
+        isDeleted: const Value(true),
+        deleteIntentEpoch: const Value(0),
+      ),
+    );
+
+    // Sanity: getAllSessions filters tombstones, so the precompute set
+    // inside `performFullImport` will MISS this row — that's the whole
+    // reason the catch-site has to handle the unique-constraint throw.
+    final activeBefore = await db.frontingSessionsDao.getAllSessions();
+    expect(activeBefore, isEmpty);
+
+    // -- Build the service with real Drift repos (sync handle = null) ---
+    final memberRepo = DriftMemberRepository(db.membersDao, null);
+    final sessionRepo = DriftFrontingSessionRepository(
+      db.frontingSessionsDao,
+      null,
+    );
+
+    final fakeClient = _FakePluralKitClient(
+      switchesToReturn: [
+        PKSwitch(
+          id: 'X',
+          timestamp: DateTime.utc(2026, 4, 2, 9),
+          members: const ['pk-short-id'],
         ),
-      );
+      ],
+    );
 
-      // -- Seed a tombstone row carrying pluralkit_uuid='X' ---------------
-      // We bypass the repository sync hooks here — this models a row that
-      // already exists in the local DB after a soft-delete that hasn't yet
-      // pushed up to the relay (and thus hasn't had its PK link cleared).
-      // The composite partial unique index on (pluralkit_uuid, member_id)
-      // prevents a new live row for the same (uuid, member) pair — but only
-      // when member_id is non-null (SQLite treats NULL != NULL in unique
-      // indexes, so unresolvable-member rows bypass this protection).
-      // Drift stores DateTimes as Unix seconds and round-trips through local
-      // time, so use a local DateTime for round-trip equality.
-      final tombstoneStart = DateTime(2026, 4, 1, 12);
-      await db.frontingSessionsDao.insertSession(
-        FrontingSessionsCompanion.insert(
-          id: 'tombstone-id',
-          startTime: tombstoneStart,
-          memberId: const Value('local-member-id'),
-          pluralkitUuid: const Value('X'),
-          isDeleted: const Value(true),
-          deleteIntentEpoch: const Value(0),
-        ),
-      );
+    final service = PluralKitSyncService(
+      memberRepository: memberRepo,
+      frontingSessionRepository: sessionRepo,
+      syncDao: db.pluralKitSyncDao,
+      secureStorage: const FlutterSecureStorage(),
+      tokenOverride: 'test-token',
+      clientFactory: (_) => fakeClient,
+    );
 
-      // Sanity: getAllSessions filters tombstones, so the precompute set
-      // inside `performFullImport` will MISS this row — that's the whole
-      // reason the catch-site has to handle the unique-constraint throw.
-      final activeBefore = await db.frontingSessionsDao.getAllSessions();
-      expect(activeBefore, isEmpty);
+    // -- The act --------------------------------------------------------
+    // Without the fix this throws SqliteException(2067) when _importSwitch
+    // tries to INSERT a session with pluralkit_uuid='X' and the partial
+    // unique index fires against the tombstone.
+    await service.performFullImport();
 
-      // -- Build the service with real Drift repos (sync handle = null) ---
-      final memberRepo = DriftMemberRepository(db.membersDao, null);
-      final sessionRepo = DriftFrontingSessionRepository(
-        db.frontingSessionsDao,
-        null,
-      );
+    // -- Assertions -----------------------------------------------------
+    expect(
+      service.state.syncError,
+      isNull,
+      reason:
+          'Tombstone collision must be absorbed by the unique-constraint '
+          'helper, not surface as a sync error',
+    );
 
-      final fakeClient = _FakePluralKitClient(
-        switchesToReturn: [
-          PKSwitch(
-            id: 'X',
-            timestamp: DateTime.utc(2026, 4, 2, 9),
-            members: const ['pk-short-id'],
-          ),
-        ],
-      );
+    // The original tombstone was resurrected and corrected in place. Full
+    // import is the corrective path used after the fronting migration clears
+    // old PK rows, so API truth wins over the tombstone left behind by the
+    // migration.
+    final allRows = await (db.select(
+      db.frontingSessions,
+    )..where((s) => s.id.equals('tombstone-id'))).get();
+    expect(allRows, hasLength(1));
+    final resurrected = allRows.single;
+    expect(resurrected.isDeleted, isFalse);
+    expect(resurrected.pluralkitUuid, 'X');
+    expect(resurrected.memberId, 'local-member-id');
+    expect(
+      resurrected.startTime.millisecondsSinceEpoch,
+      DateTime.utc(2026, 4, 2, 9).millisecondsSinceEpoch,
+    );
 
-      final service = PluralKitSyncService(
-        memberRepository: memberRepo,
-        frontingSessionRepository: sessionRepo,
-        syncDao: db.pluralKitSyncDao,
-        secureStorage: const FlutterSecureStorage(),
-        tokenOverride: 'test-token',
-        clientFactory: (_) => fakeClient,
-      );
-
-      // -- The act --------------------------------------------------------
-      // Without the fix this throws SqliteException(2067) when _importSwitch
-      // tries to INSERT a session with pluralkit_uuid='X' and the partial
-      // unique index fires against the tombstone.
-      await service.performFullImport();
-
-      // -- Assertions -----------------------------------------------------
-      expect(
-        service.state.syncError,
-        isNull,
-        reason:
-            'Tombstone collision must be absorbed by the unique-constraint '
-            'helper, not surface as a sync error',
-      );
-
-      // The original tombstone is unchanged.
-      final allRows = await (db.select(
-        db.frontingSessions,
-      )..where((s) => s.id.equals('tombstone-id'))).get();
-      expect(allRows, hasLength(1));
-      final tombstone = allRows.single;
-      expect(tombstone.isDeleted, isTrue);
-      expect(tombstone.pluralkitUuid, 'X');
-      expect(tombstone.startTime, tombstoneStart);
-
-      // No new live row was created with the same pluralkit_uuid. (The
-      // catch site treats a unique-constraint violation as a duplicate, so
-      // the import should noop on this switch rather than insert.)
-      final liveRowsWithSamePkUuid = await (db.select(db.frontingSessions)
-            ..where(
-              (s) =>
-                  s.pluralkitUuid.equals('X') & s.isDeleted.equals(false),
+    // No second row was created with the same pluralkit_uuid. The catch site
+    // refetches by `(pluralkit_uuid, member_id)` and updates that row instead.
+    final liveRowsWithSamePkUuid =
+        await (db.select(db.frontingSessions)..where(
+              (s) => s.pluralkitUuid.equals('X') & s.isDeleted.equals(false),
             ))
-          .get();
-      expect(
-        liveRowsWithSamePkUuid,
-        isEmpty,
-        reason:
-            'The catch site should swallow the 2067, not let a new live row '
-            'land alongside the tombstone',
-      );
-    },
-  );
+            .get();
+    expect(
+      liveRowsWithSamePkUuid,
+      hasLength(1),
+      reason:
+          'The catch site should swallow the 2067 by updating the colliding '
+          'row, not by inserting a second live row',
+    );
+    expect(liveRowsWithSamePkUuid.single.id, 'tombstone-id');
+  });
 }

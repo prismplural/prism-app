@@ -180,6 +180,7 @@ Widget _buildSheetSubject({
                 shareBackup: shareBackup,
                 saveBackup: saveBackup,
                 openPluralKitImport: openPluralKitImport,
+                autoRunPluralKitImport: false,
               ),
               child: const Text('open'),
             ),
@@ -356,6 +357,7 @@ void main() {
                       onPressed: () => showFrontingUpgradeSheet(
                         context,
                         isDismissible: true,
+                        autoRunPluralKitImport: false,
                       ),
                       child: const Text('open'),
                     ),
