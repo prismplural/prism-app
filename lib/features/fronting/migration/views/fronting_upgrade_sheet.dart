@@ -21,15 +21,14 @@
 /// never runs.
 library;
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
-import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/features/fronting/migration/fronting_migration_service.dart';
 import 'package:prism_plurality/features/fronting/migration/providers/fronting_migration_providers.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
@@ -103,7 +102,6 @@ Future<void> showFrontingUpgradeSheet(
   required bool isDismissible,
   BackupHandoffCallback? shareBackup,
   BackupHandoffCallback? saveBackup,
-  VoidCallback? openPluralKitImport,
   bool autoRunPluralKitImport = true,
 }) {
   return PrismSheet.showFullScreen(
@@ -114,7 +112,6 @@ Future<void> showFrontingUpgradeSheet(
       isDismissible: isDismissible,
       shareBackup: shareBackup,
       saveBackup: saveBackup,
-      openPluralKitImport: openPluralKitImport,
       autoRunPluralKitImport: autoRunPluralKitImport,
     ),
   );
@@ -127,7 +124,6 @@ class FrontingUpgradeSheet extends ConsumerStatefulWidget {
     this.isDismissible = true,
     this.shareBackup,
     this.saveBackup,
-    this.openPluralKitImport,
     this.autoRunPluralKitImport = true,
   });
 
@@ -149,14 +145,8 @@ class FrontingUpgradeSheet extends ConsumerStatefulWidget {
   /// if cancelled.
   final BackupHandoffCallback? saveBackup;
 
-  /// Optional override for the success-step PluralKit import CTA.
-  /// Production routing dismisses the sheet and opens the existing
-  /// PluralKit setup/import entry point. Tests pass a callback so the
-  /// route handoff stays hermetic.
-  final VoidCallback? openPluralKitImport;
-
   /// When true, a successful migration that cleared PK rows attempts a
-  /// one-time PK API re-import before asking the user to visit sync settings.
+  /// one-time PK API re-import before prompting for a temporary token.
   /// Tests can disable this to keep the sheet hermetic.
   final bool autoRunPluralKitImport;
 
@@ -196,6 +186,7 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
   _PostMigrationPkImportStatus _pkImportStatus =
       _PostMigrationPkImportStatus.idle;
   String? _pkImportError;
+  bool _pkTokenPromptShown = false;
 
   @override
   void initState() {
@@ -483,21 +474,9 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
       _backupAcknowledged = false;
       _pkImportStatus = _PostMigrationPkImportStatus.idle;
       _pkImportError = null;
+      _pkTokenPromptShown = false;
       _step = FrontingUpgradeStep.password;
     });
-  }
-
-  void _openPluralKitImport() {
-    final override = widget.openPluralKitImport;
-    if (override != null) {
-      Navigator.of(context).pop();
-      override();
-      return;
-    }
-
-    final router = GoRouter.maybeOf(context);
-    Navigator.of(context).pop();
-    router?.go(AppRoutePaths.settingsPluralkit);
   }
 
   /// Codex P1 #4 — runs the idempotent post-tx cleanup when the modal
@@ -559,10 +538,22 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
         _pkImportStatus = _PostMigrationPkImportStatus.needsToken;
         _pkImportError = null;
       });
+      _schedulePluralKitTokenPrompt();
       return;
     }
 
     await _runOneTimePluralKitImport();
+  }
+
+  void _schedulePluralKitTokenPrompt() {
+    if (_pkTokenPromptShown) return;
+    _pkTokenPromptShown = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_step != FrontingUpgradeStep.success) return;
+      if (_pkImportStatus != _PostMigrationPkImportStatus.needsToken) return;
+      unawaited(_promptForPluralKitTokenAndImport());
+    });
   }
 
   Future<void> _runOneTimePluralKitImport({String? token}) async {
@@ -1154,7 +1145,8 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
         if (showPluralKitImportCta) ...[
           const SizedBox(height: 16),
           _buildPluralKitImportStatus(theme),
-          if (_pkImportStatus == _PostMigrationPkImportStatus.needsToken ||
+          if (_pkImportStatus == _PostMigrationPkImportStatus.idle ||
+              _pkImportStatus == _PostMigrationPkImportStatus.needsToken ||
               _pkImportStatus == _PostMigrationPkImportStatus.failed) ...[
             const SizedBox(height: 8),
             PrismButton(
@@ -1165,14 +1157,6 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
               expanded: true,
             ),
           ],
-          const SizedBox(height: 8),
-          PrismButton(
-            onPressed: _openPluralKitImport,
-            icon: AppIcons.cloudSync,
-            label: context.l10n.frontingUpgradeOpenPluralKitImport,
-            tone: PrismButtonTone.outlined,
-            expanded: true,
-          ),
         ],
         const SizedBox(height: 24),
         PrismButton(
@@ -1189,8 +1173,8 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
     switch (_pkImportStatus) {
       case _PostMigrationPkImportStatus.idle:
         return Text(
-          'PluralKit history can be re-imported from a stored token, a '
-          'temporary token, or a pk;export file.',
+          'PluralKit history can be re-imported here with a temporary '
+          'token. The token is used once and PluralKit sync stays off.',
           textAlign: TextAlign.center,
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
