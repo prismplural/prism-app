@@ -28,7 +28,9 @@ import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart'
     as domain_fs;
 import 'package:prism_plurality/domain/models/member.dart' as domain;
+import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_switch_cursor.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
 
@@ -146,6 +148,146 @@ class _FakeClient implements PluralKitClient {
 
   @override
   void dispose() {}
+}
+
+// ---------------------------------------------------------------------------
+// Forwarding fronting-session repository whose [deleteSession] throws on
+// the Nth invocation. Used by the canonicalization-atomicity test to
+// simulate a mid-loop failure without manually mocking 30 methods.
+// ---------------------------------------------------------------------------
+
+class _FlakyDeleteRepo implements FrontingSessionRepository {
+  _FlakyDeleteRepo({
+    required this.delegate,
+    required this.throwOnDeleteCount,
+  });
+
+  final FrontingSessionRepository delegate;
+
+  /// 1-based count of [deleteSession] calls before the throw fires. The
+  /// Nth call throws; calls 1..(N-1) delegate normally.
+  final int throwOnDeleteCount;
+  int _deleteCalls = 0;
+
+  @override
+  Future<void> deleteSession(String id) async {
+    _deleteCalls++;
+    if (_deleteCalls == throwOnDeleteCount) {
+      throw StateError('flaky deleteSession failure on call $_deleteCalls');
+    }
+    return delegate.deleteSession(id);
+  }
+
+  // -- All other interface methods: delegate verbatim -----------------------
+  // Manual forwarding instead of `noSuchMethod` so the analyzer + Dart's
+  // implements-checker stay happy.
+
+  @override
+  Future<List<domain_fs.FrontingSession>> getAllSessions() =>
+      delegate.getAllSessions();
+  @override
+  Future<List<domain_fs.FrontingSession>> getFrontingSessions() =>
+      delegate.getFrontingSessions();
+  @override
+  Stream<List<domain_fs.FrontingSession>> watchAllSessions() =>
+      delegate.watchAllSessions();
+  @override
+  Future<List<domain_fs.FrontingSession>> getActiveSessions() =>
+      delegate.getActiveSessions();
+  @override
+  Future<List<domain_fs.FrontingSession>> getAllActiveSessionsUnfiltered() =>
+      delegate.getAllActiveSessionsUnfiltered();
+  @override
+  Stream<List<domain_fs.FrontingSession>> watchActiveSessions() =>
+      delegate.watchActiveSessions();
+  @override
+  Future<domain_fs.FrontingSession?> getActiveSession() =>
+      delegate.getActiveSession();
+  @override
+  Stream<domain_fs.FrontingSession?> watchActiveSession() =>
+      delegate.watchActiveSession();
+  @override
+  Stream<domain_fs.FrontingSession?> watchActiveSleepSession() =>
+      delegate.watchActiveSleepSession();
+  @override
+  Stream<List<domain_fs.FrontingSession>> watchAllSleepSessions() =>
+      delegate.watchAllSleepSessions();
+  @override
+  Future<domain_fs.FrontingSession?> getSessionById(String id) =>
+      delegate.getSessionById(id);
+  @override
+  Stream<domain_fs.FrontingSession?> watchSessionById(String id) =>
+      delegate.watchSessionById(id);
+  @override
+  Future<List<domain_fs.FrontingSession>> getSessionsForMember(
+    String memberId,
+  ) =>
+      delegate.getSessionsForMember(memberId);
+  @override
+  Future<List<domain_fs.FrontingSession>> getRecentSessions({int limit = 20}) =>
+      delegate.getRecentSessions(limit: limit);
+  @override
+  Future<List<domain_fs.FrontingSession>> getRecentSleepSessions({
+    int limit = 10,
+  }) =>
+      delegate.getRecentSleepSessions(limit: limit);
+  @override
+  Stream<List<domain_fs.FrontingSession>> watchRecentSessions({
+    int limit = 20,
+  }) =>
+      delegate.watchRecentSessions(limit: limit);
+  @override
+  Stream<List<domain_fs.FrontingSession>> watchRecentAllSessions({
+    int limit = 30,
+  }) =>
+      delegate.watchRecentAllSessions(limit: limit);
+  @override
+  Stream<List<domain_fs.FrontingSession>> watchSessionsOverlappingRange(
+    DateTime start,
+    DateTime end,
+  ) =>
+      delegate.watchSessionsOverlappingRange(start, end);
+  @override
+  Future<void> createSession(domain_fs.FrontingSession session) =>
+      delegate.createSession(session);
+  @override
+  Future<void> updateSession(domain_fs.FrontingSession session) =>
+      delegate.updateSession(session);
+  @override
+  Future<void> endSession(String id, DateTime endTime) =>
+      delegate.endSession(id, endTime);
+  @override
+  Future<List<domain_fs.FrontingSession>> getSessionsBetween(
+    DateTime start,
+    DateTime end,
+  ) =>
+      delegate.getSessionsBetween(start, end);
+  @override
+  Future<int> getCount() => delegate.getCount();
+  @override
+  Future<int> getFrontingCount() => delegate.getFrontingCount();
+  @override
+  Future<List<domain_fs.FrontingSession>> getDeletedLinkedSessions() =>
+      delegate.getDeletedLinkedSessions();
+  @override
+  Future<void> clearPluralKitLink(String id) =>
+      delegate.clearPluralKitLink(id);
+  @override
+  Future<void> stampDeletePushStartedAt(String id, int timestampMs) =>
+      delegate.stampDeletePushStartedAt(id, timestampMs);
+  @override
+  Future<Map<String, int>> getMemberFrontingCounts({
+    int recentLimit = 50,
+    int? startHour,
+    int? endHour,
+    int? withinDays,
+  }) =>
+      delegate.getMemberFrontingCounts(
+        recentLimit: recentLimit,
+        startHour: startHour,
+        endHour: endHour,
+        withinDays: withinDays,
+      );
 }
 
 // ---------------------------------------------------------------------------
@@ -1626,6 +1768,515 @@ void main() {
         expect(sessions, hasLength(1));
         expect(sessions.single.isDeleted, isFalse);
         expect(sessions.single.id, _expectedRowId('sw-1', 'uuid-a'));
+      },
+    );
+  });
+
+  // -- WS3 step 5 / review #29: full import seeds prevActive from open DB rows
+  //
+  // Before PR E2, _runFullImportWithClient called _runDiffSweep with
+  // `prevActive: {}`, so existing-but-no-longer-fronting members were never
+  // closed by the leaver path. PR E2 unifies the seed: both the incremental
+  // and corrective paths reconstitute prevActive from open PK-linked DB rows
+  // inside _runDiffSweep. This group locks in that invariant.
+
+  group('full import seeds prevActive from open DB rows (WS3 #29)', () {
+    test(
+      'open existing PK row gets closed by the next leaver in a corrective '
+      'sweep (no longer stranded open after PR E2)',
+      () async {
+        final db = _makeDb();
+        addTearDown(db.close);
+
+        final memberRepo = DriftMemberRepository(db.membersDao, null);
+        await memberRepo.createMember(
+          _member(localId: 'local-a', pkShortId: 'pkA', pkUuid: 'uuid-a'),
+        );
+
+        final sessionRepo = DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+        );
+
+        // Seed an open PK-linked row at a canonical entrant id from a prior
+        // sweep. Use a real-shaped PK switch UUID because the diff-sweep
+        // prev-active reconstitution filters on `isPluralKitSwitchUuid`.
+        const oldSwitchId = '11111111-1111-1111-1111-111111111111';
+        final openRowId = derivePkSessionId(oldSwitchId, 'uuid-a');
+        await sessionRepo.createSession(
+          domain_fs.FrontingSession(
+            id: openRowId,
+            startTime: DateTime.utc(2026, 1, 1, 9),
+            memberId: 'local-a',
+            pluralkitUuid: oldSwitchId,
+          ),
+        );
+
+        // The API switch list contains only sw-new (an empty switch).
+        // The seeded sw-old row is canonicalized away (not in the API
+        // entrant set), so it gets tombstoned by canonicalization. A
+        // pre-PR-E2 sweep with `prevActive: {}` would have left it
+        // stranded open. The PR E2 invariant: no PK-linked row remains
+        // open + live after the sweep.
+        final swNew = PKSwitch(
+          id: '22222222-2222-2222-2222-222222222222',
+          timestamp: DateTime.utc(2026, 1, 1, 12),
+          members: const [],
+        );
+
+        final client = _FakeClient([
+          [swNew],
+          [],
+        ]);
+
+        final service = _makeService(
+          db: db,
+          client: client,
+          memberRepo: memberRepo,
+          sessionRepo: sessionRepo,
+        );
+        await service.setToken('t');
+        await service.acknowledgeMapping();
+        await service.performFullImport();
+
+        // The pre-existing open row must not still be open + live. It can
+        // be closed (leaver fired) or tombstoned by canonicalization —
+        // either way the "stranded open forever" failure mode is gone.
+        final raw = await sessionRepo.getSessionById(openRowId);
+        expect(raw, isNotNull);
+        if (!raw!.isDeleted) {
+          expect(
+            raw.endTime,
+            isNotNull,
+            reason:
+                'PR E2: corrective sweep must seed prevActive from open DB '
+                'rows so a subsequent empty switch closes the row instead '
+                'of leaving it stranded open',
+          );
+        }
+        // No PK-linked row should remain open + live — A is no longer
+        // fronting per the API.
+        final stillOpen = await sessionRepo.getAllSessions();
+        for (final s in stillOpen) {
+          expect(
+            s.endTime,
+            isNotNull,
+            reason: 'no PK-linked row should remain open after the sweep',
+          );
+        }
+      },
+    );
+
+    test(
+      'open existing PK row stays open if API still lists the member as '
+      'fronting on the latest switch (idempotent)',
+      () async {
+        // Companion to the above. A row already open at the canonical id
+        // for the API's only entrant must stay open across the corrective
+        // sweep (no false leaver fires).
+        final db = _makeDb();
+        addTearDown(db.close);
+
+        final memberRepo = DriftMemberRepository(db.membersDao, null);
+        await memberRepo.createMember(
+          _member(localId: 'local-a', pkShortId: 'pkA', pkUuid: 'uuid-a'),
+        );
+
+        final sessionRepo = DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+        );
+
+        const switchId = '33333333-3333-3333-3333-333333333333';
+        final rowId = derivePkSessionId(switchId, 'uuid-a');
+        await sessionRepo.createSession(
+          domain_fs.FrontingSession(
+            id: rowId,
+            startTime: DateTime.utc(2026, 1, 1, 9),
+            memberId: 'local-a',
+            pluralkitUuid: switchId,
+          ),
+        );
+
+        final sw = PKSwitch(
+          id: switchId,
+          timestamp: DateTime.utc(2026, 1, 1, 9),
+          members: const ['pkA'],
+        );
+
+        final client = _FakeClient([
+          [sw],
+          [],
+        ]);
+
+        final service = _makeService(
+          db: db,
+          client: client,
+          memberRepo: memberRepo,
+          sessionRepo: sessionRepo,
+        );
+        await service.setToken('t');
+        await service.acknowledgeMapping();
+        await service.performFullImport();
+
+        final after = await sessionRepo.getAllSessions();
+        expect(after, hasLength(1));
+        expect(
+          after.single.endTime,
+          isNull,
+          reason:
+              'API still says A is fronting; the seeded prev-active entry '
+              'matches the API entrant so no leaver fires',
+        );
+      },
+    );
+  });
+
+  // -- WS3 step 6 / review #30: zero-length close guard + ordering error
+  //
+  // The leaver path used to call `endSession(rowId, sw.timestamp)` without
+  // checking the row's start_time. Two pathological cases needed to be
+  // handled:
+  //   1. end == start: zero-length presence (skip the close, increment
+  //      `zeroLengthCloseSkipped`).
+  //   2. end <  start: corrupt input ordering (throw PkSwitchOrderingError).
+
+  group('leaver close guard (WS3 #30)', () {
+    test(
+      'same-timestamp leave-then-enter on a member produces no zero-length '
+      'row and does not throw',
+      () async {
+        final db = _makeDb();
+        addTearDown(db.close);
+
+        final memberRepo = DriftMemberRepository(db.membersDao, null);
+        await memberRepo.createMember(
+          _member(localId: 'local-a', pkShortId: 'pkA', pkUuid: 'uuid-a'),
+        );
+
+        // Two switches at the same timestamp: A enters at sw-1, then sw-2
+        // arrives at the same moment with members=[] (A leaves). The leaver
+        // path would normally call endSession(rowId, sw.timestamp) but the
+        // close timestamp equals the row's start — that's a zero-length
+        // presence and we must not write it.
+        final ts = DateTime.utc(2026, 1, 1, 12);
+        final sw1 = PKSwitch(
+          id: 'sw-1',
+          timestamp: ts,
+          members: const ['pkA'],
+        );
+        final sw2 = PKSwitch(
+          id: 'sw-2',
+          timestamp: ts,
+          members: const [],
+        );
+
+        // Pages must be newest-first. With identical timestamps, sw-2 ('sw-2'
+        // > 'sw-1' lexicographically) is "newer" by tiebreak.
+        final client = _FakeClient([
+          [sw2, sw1],
+          [],
+        ]);
+
+        final service = _makeService(db: db, client: client);
+        await service.setToken('t');
+        await service.acknowledgeMapping();
+        // The sweep must complete without throwing.
+        await expectLater(service.importSwitchesAfterLink(), completes);
+
+        final sessionRepo = DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+        );
+        final sessions = await sessionRepo.getAllSessions();
+        expect(sessions, hasLength(1));
+        // The row is still open: the zero-length close was skipped.
+        expect(
+          sessions.single.endTime,
+          isNull,
+          reason:
+              'WS3 #30: when end == start the leaver close must be skipped '
+              'so we do not write a zero-duration row',
+        );
+        // Sanity: the row's start_time matches the entrant timestamp.
+        expect(sessions.single.startTime, _sameInstant(ts));
+      },
+    );
+
+    test(
+      'corrupt switch ordering (leaver before entrant) throws '
+      'PkSwitchOrderingError and stops the batch',
+      () async {
+        final db = _makeDb();
+        addTearDown(db.close);
+
+        final memberRepo = DriftMemberRepository(db.membersDao, null);
+        await memberRepo.createMember(
+          _member(localId: 'local-a', pkShortId: 'pkA', pkUuid: 'uuid-a'),
+        );
+
+        final sessionRepo = DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+        );
+
+        // Seed an open row at startTime = T (later than the leaver below).
+        // The diff sweep reconstitutes prevActive from open PK-linked rows
+        // — that filter requires `pluralkitUuid` to match the strict PK
+        // switch UUID format, so we use a real-shaped UUID here (not the
+        // 'sw-1' shorthand the diff-sweep correctness tests use, where
+        // prevActive is empty and the filter never runs).
+        const switchId = '11111111-1111-1111-1111-111111111111';
+        final rowId = derivePkSessionId(switchId, 'uuid-a');
+        final laterStart = DateTime.utc(2026, 1, 1, 12);
+        await sessionRepo.createSession(
+          domain_fs.FrontingSession(
+            id: rowId,
+            startTime: laterStart,
+            memberId: 'local-a',
+            pluralkitUuid: switchId,
+          ),
+        );
+
+        // The "API" returns one switch at T-1h with members=[] — the
+        // leaver. Because the row's startTime is T (later), the leaver's
+        // close timestamp predates the start. The sweep must throw the
+        // typed ordering error rather than write a negative-duration close.
+        final earlierLeaver = PKSwitch(
+          id: '22222222-2222-2222-2222-222222222222',
+          timestamp: DateTime.utc(2026, 1, 1, 11),
+          members: const [],
+        );
+
+        final client = _FakeClient([
+          [earlierLeaver],
+          [],
+        ]);
+
+        final service = _makeService(
+          db: db,
+          client: client,
+          memberRepo: memberRepo,
+          sessionRepo: sessionRepo,
+        );
+        await service.setToken('t');
+        await service.acknowledgeMapping();
+
+        await expectLater(
+          service.importSwitchesAfterLink(),
+          throwsA(isA<PkSwitchOrderingError>()),
+        );
+
+        // The original row is unchanged (the failing transaction rolled back).
+        final raw = await sessionRepo.getSessionById(rowId);
+        expect(raw, isNotNull);
+        expect(raw!.startTime, _sameInstant(laterStart));
+        expect(
+          raw.endTime,
+          isNull,
+          reason: 'transaction must roll back on the ordering error',
+        );
+      },
+    );
+  });
+
+  // -- WS3 step 8 / review #34: canonicalization wrapped in a transaction
+  //
+  // Before PR E2 the corrective canonicalization pass called
+  // _frontingSessionRepository.deleteSession(rowId) per duplicate without a
+  // surrounding transaction, so a crash mid-loop left the CRDT half-
+  // canonicalized: some stale rows tombstoned, others still live, and
+  // paired devices receiving the partial set converged on an inconsistent
+  // timeline. PR E2 wraps the entire detect+tombstone loop in
+  // db.transaction(); a throw mid-loop rolls back every soft-delete in the
+  // batch.
+
+  group('canonicalization atomic transaction (WS3 #34)', () {
+    test(
+      'deleteSession failure mid-canonicalization rolls back all earlier '
+      'soft-deletes in the same batch',
+      () async {
+        final db = _makeDb();
+        addTearDown(db.close);
+
+        final memberRepo = DriftMemberRepository(db.membersDao, null);
+        await memberRepo.createMember(
+          _member(localId: 'local-a', pkShortId: 'pkA', pkUuid: 'uuid-a'),
+        );
+
+        final realRepo = DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+        );
+
+        // Seed 4 stale PK-linked rows the API doesn't know about. The
+        // canonicalization pass will iterate these and call deleteSession
+        // on each. We make the flaky wrapper throw on the 3rd delete so
+        // a partial rollback is observable.
+        for (var i = 0; i < 4; i++) {
+          await realRepo.createSession(
+            domain_fs.FrontingSession(
+              id: 'stale-$i',
+              startTime: DateTime.utc(2025, 1, i + 1),
+              memberId: 'local-a',
+              // A non-canonical PK switch UUID so canonicalization tombstones
+              // these but they're still recognized as PK-linked.
+              pluralkitUuid: '00000000-0000-0000-0000-00000000000$i',
+            ),
+          );
+        }
+        final beforeIds = (await realRepo.getAllSessions())
+            .map((s) => s.id)
+            .toSet();
+        expect(beforeIds, hasLength(4));
+
+        final flakyRepo = _FlakyDeleteRepo(
+          delegate: realRepo,
+          throwOnDeleteCount: 3,
+        );
+
+        // The API confirms only sw-fresh as the canonical entrant — none of
+        // the stale rows match, so canonicalization will try to delete all 4.
+        final swFresh = PKSwitch(
+          id: 'sw-fresh',
+          timestamp: DateTime.utc(2026, 1, 1, 10),
+          members: const ['pkA'],
+        );
+        final client = _FakeClient([
+          [swFresh],
+          [],
+        ]);
+
+        final service = PluralKitSyncService(
+          memberRepository: memberRepo,
+          frontingSessionRepository: flakyRepo,
+          syncDao: db.pluralKitSyncDao,
+          secureStorage: const FlutterSecureStorage(),
+          clientFactory: (_) => client,
+        );
+
+        await service.setToken('t');
+        await service.acknowledgeMapping();
+        // The flaky 3rd delete must propagate up.
+        await expectLater(
+          service.performFullImport(),
+          throwsA(isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            contains('flaky'),
+          )),
+        );
+
+        // None of the stale rows were soft-deleted: the transaction rolled
+        // back the first two soft-deletes when the 3rd threw.
+        final after = await db.frontingSessionsDao.getAllSessions();
+        final afterIds = after.map((s) => s.id).toSet();
+        for (var i = 0; i < 4; i++) {
+          expect(
+            afterIds,
+            contains('stale-$i'),
+            reason:
+                'WS3 #34: canonicalization tx must roll back all earlier '
+                'soft-deletes when a later one fails — stale-$i is missing',
+          );
+        }
+        // Sanity: check none of them are tombstoned either.
+        for (final id in ['stale-0', 'stale-1', 'stale-2', 'stale-3']) {
+          final raw = await realRepo.getSessionById(id);
+          expect(raw, isNotNull);
+          expect(raw!.isDeleted, isFalse, reason: '$id was rolled back');
+        }
+      },
+    );
+  });
+
+  // -- Review #33: tombstoned-collision presence is not silently dropped
+  //
+  // E1 added _PkActivePresence.isTombstonedCollision; PR E2 wires up the
+  // leaver path so a leaver fires on a tombstoned-collision presence
+  // surfaces the member in unmappedMemberReferences (rather than the
+  // presence being silently dropped from the timeline).
+
+  group('tombstoned-collision visibility (review #33)', () {
+    test(
+      'incremental leaver on a tombstoned-collision presence increments '
+      'unmappedMemberReferences (no row to close, surface for visibility)',
+      () async {
+        final db = _makeDb();
+        addTearDown(db.close);
+
+        final memberRepo = DriftMemberRepository(db.membersDao, null);
+        await memberRepo.createMember(
+          _member(localId: 'local-a', pkShortId: 'pkA', pkUuid: 'uuid-a'),
+        );
+
+        final sessionRepo = DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+        );
+
+        // Seed a tombstoned row at the canonical id for (sw-1, uuid-a) so
+        // the entrant write is skipped (preserved as a tombstone-collision
+        // presence with rowId == null) on the incremental path.
+        const enterSwitchId = 'sw-1';
+        final tombstoneId = derivePkSessionId(enterSwitchId, 'uuid-a');
+        await sessionRepo.createSession(
+          domain_fs.FrontingSession(
+            id: tombstoneId,
+            startTime: DateTime.utc(2026, 1, 1, 8),
+            memberId: 'local-a',
+            pluralkitUuid: enterSwitchId,
+          ),
+        );
+        await sessionRepo.deleteSession(tombstoneId);
+
+        // sw-1: A enters (collides with tombstone, no row written).
+        // sw-2: A leaves (would close — but no rowId).
+        final sw1 = PKSwitch(
+          id: enterSwitchId,
+          timestamp: DateTime.utc(2026, 1, 1, 10),
+          members: const ['pkA'],
+        );
+        final sw2 = PKSwitch(
+          id: 'sw-2',
+          timestamp: DateTime.utc(2026, 1, 1, 12),
+          members: const [],
+        );
+
+        final client = _FakeClient([
+          [sw2, sw1],
+          [],
+        ]);
+
+        final service = _makeService(
+          db: db,
+          client: client,
+          memberRepo: memberRepo,
+          sessionRepo: sessionRepo,
+        );
+        await service.setToken('t');
+        await service.acknowledgeMapping();
+        await expectLater(
+          service.importSwitchesAfterLink(),
+          completes,
+          reason:
+              'leaver on tombstoned-collision presence must not throw — it '
+              'just surfaces in unmappedMemberReferences',
+        );
+
+        // No live row was created — the tombstone was preserved (incremental
+        // path always preserves user tombstones).
+        final live = await sessionRepo.getAllSessions();
+        expect(
+          live,
+          isEmpty,
+          reason:
+              'incremental sweep must not resurrect the tombstone; the '
+              'leaver has no row to close',
+        );
+        final raw = await sessionRepo.getSessionById(tombstoneId);
+        expect(raw, isNotNull);
+        expect(raw!.isDeleted, isTrue);
       },
     );
   });

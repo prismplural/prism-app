@@ -107,3 +107,43 @@ class PkImportTooLargeError extends Error {
   String toString() =>
       'PkImportTooLargeError: aborted after $pagesFetched pages (cap $cap).';
 }
+
+/// Typed error thrown by the diff sweep (WS3 step 6 / review #30) when a
+/// leaver's close timestamp is strictly *before* the row's start timestamp.
+///
+/// This means the input switch stream has a corrupt ordering — a "leave"
+/// event whose timestamp predates the entrant's start. The diff sweep cannot
+/// produce a sensible row for this situation (start > end is meaningless),
+/// so it bails out rather than silently writing a zero/negative-duration
+/// row that would re-export to PK as garbage. Surfacing as a typed error
+/// lets the UI show the user that the source data is bad.
+///
+/// Same-timestamp leaves (`end == start`) are not corrupt — they just mean
+/// the API listed an entrant and a leave at the same moment. The sweep
+/// skips the close and bumps `zeroLengthCloseSkipped` instead of throwing.
+class PkSwitchOrderingError extends Error {
+  PkSwitchOrderingError({
+    required this.rowId,
+    required this.startTime,
+    required this.endTime,
+    required this.switchId,
+  });
+
+  /// The fronting-session row id whose close was attempted.
+  final String rowId;
+
+  /// The row's existing start timestamp (from the entrant write).
+  final DateTime startTime;
+
+  /// The leaver switch's timestamp (which would be the close end_time).
+  final DateTime endTime;
+
+  /// The leaver switch's id, for diagnostic messaging.
+  final String switchId;
+
+  @override
+  String toString() =>
+      'PkSwitchOrderingError: leaver close at ${endTime.toIso8601String()} '
+      'precedes start ${startTime.toIso8601String()} for row $rowId '
+      '(leaver switch $switchId).';
+}
