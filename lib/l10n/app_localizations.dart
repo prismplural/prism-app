@@ -10996,7 +10996,7 @@ abstract class AppLocalizations {
   /// **'Any front change'**
   String get remindersTargetAny;
 
-  /// Honesty disclosure shown when a member-targeted front-change reminder is configured. Prism is zero-knowledge, so the relay cannot push notifications for a specific member switch.
+  /// Honesty disclosure shown when a member-targeted front-change reminder is configured. Prism is end-to-end encrypted, so the relay cannot push notifications for a specific member switch.
   ///
   /// In en, this message translates to:
   /// **'Fires when Prism is running and sees the switch. External switches logged while Prism is closed may not trigger this reminder.'**

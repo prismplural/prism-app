@@ -1,7 +1,7 @@
 # Prism
 
 A plural system management app built with Flutter. Track who's fronting, chat between
-headmates, build habits together, and sync everything across devices with zero-knowledge
+headmates, build habits together, and sync everything across devices with end-to-end
 encryption.
 
 Built by a plural system, for plural systems.
@@ -16,7 +16,7 @@ Built by a plural system, for plural systems.
 - **Sleep** — sleep/wake tracking integrated into the fronting timeline
 - **Notes** — per-member or shared notes with inline markdown
 - **Analytics** — fronting stats, activity charts, and co-fronting patterns
-- **Encrypted Sync** — zero-knowledge CRDT sync across devices via a self-hosted relay
+- **Encrypted Sync** — end-to-end encrypted CRDT sync across devices via a self-hosted relay
 - **Simply Plural Import** — migrate your data from SP exports or the SP API
 - **PluralKit Sync** — bidirectional sync with PluralKit via their API
 
