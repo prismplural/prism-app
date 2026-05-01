@@ -17,6 +17,8 @@ import 'package:prism_plurality/core/diagnostics/boot_timings.dart';
 import 'package:prism_plurality/core/database/database_encryption.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/services/app_data_dir.dart';
+import 'package:prism_plurality/core/services/biometric_service.dart';
+import 'package:prism_plurality/core/services/biometric_service_provider.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/services/runtime_dek_store.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
@@ -740,7 +742,6 @@ Map<String, String> computeSeedEntries(Map<String, String> all) {
 /// the static allow-list approach used to silently leak transient
 /// pairing keys (`bootstrap_joiner_bundle`, `pending_sync_id`,
 /// `registration_token`, etc.) that nobody remembered to add.
-@visibleForTesting
 List<String> computeKeysToClearOnReset(Map<String, String> all) {
   final out = <String>[];
   for (final fullKey in all.keys) {
@@ -868,12 +869,9 @@ const _legacyWipeOnlyKeys = [
   'runtime_dek_wrapped_v1',
 ];
 
-/// Returns the full set of unprefixed secure-store keys the migration's
-/// wipe path will clear via the static allow-list, before the dynamic
-/// prefix scan runs. Exposed for tests so they can pin the contract that
-/// every entry in `_secureStoreKeys` (plus the wipe-only legacy entries)
-/// is part of the wipe set.
-@visibleForTesting
+/// Returns the full set of unprefixed secure-store keys used when a platform
+/// keychain cannot provide a prefix scan. Tests pin this fallback contract so
+/// every static seed entry plus wipe-only legacy entry remains covered.
 Set<String> frontingMigrationWipeStaticKeys() {
   return {..._secureStoreKeys, ..._legacyWipeOnlyKeys};
 }
@@ -885,39 +883,59 @@ List<String> frontingMigrationWipeDynamicPrefixes() {
   return List.unmodifiable(_dynamicSecureStorePrefixes);
 }
 
-Future<void> wipeFrontingMigrationSyncKeychain() async {
-  // Static allow-list — drives off the same constants the seed/reset
-  // paths use. Adding a new sync-storage key in `_secureStoreKeys` (or a
-  // new dynamic prefix in `_dynamicSecureStorePrefixes`) is automatically
-  // covered here without a second hand-maintained list.
-  for (final key in frontingMigrationWipeStaticKeys()) {
+Set<String> _staticSyncCredentialWipeFallbackKeys() {
+  return {
+    for (final key in frontingMigrationWipeStaticKeys())
+      '$_secureStorePrefix$key',
+  }..removeAll(kProtectedFromReset);
+}
+
+Future<void> _deleteSyncCredentialKeychainEntries({
+  required Future<Map<String, String>> Function() readAll,
+  required Future<void> Function(String key) deleteKey,
+}) async {
+  Set<String> keysToDelete;
+  try {
+    keysToDelete = computeKeysToClearOnReset(await readAll()).toSet();
+  } catch (_) {
+    // Best-effort fallback for platform keychains where readAll() fails or is
+    // unavailable: delete every known static sync credential/cache slot.
+    keysToDelete = _staticSyncCredentialWipeFallbackKeys();
+  }
+
+  for (final fullKey in keysToDelete) {
     try {
-      await _storage.delete(key: '$_secureStorePrefix$key');
+      await deleteKey(fullKey);
     } catch (_) {
       // Best effort — continue clearing remaining keys.
     }
   }
+}
+
+Future<void> _clearBiometricSyncDekBestEffort([Ref? ref]) async {
+  try {
+    if (ref != null) {
+      await ref.read(biometricServiceProvider).clear();
+    } else {
+      await BiometricService().clear();
+    }
+  } catch (_) {
+    // Best effort — the regular keychain wipe may already have removed the
+    // non-biometric copy, and reset/revoke cleanup must continue.
+  }
+}
+
+Future<void> wipeFrontingMigrationSyncKeychain() async {
+  await _deleteSyncCredentialKeychainEntries(
+    readAll: _storage.readAll,
+    deleteKey: (key) => _storage.delete(key: key),
+  );
   try {
     await _runtimeDekStore.deleteWrappingKey();
   } catch (_) {
     // Best effort — the wrapped blob was already deleted above.
   }
-  // Dynamic-prefix scan for any `epoch_key_*` / `runtime_keys_*`
-  // entries left over from prior pairings.
-  try {
-    final all = await _storage.readAll();
-    for (final entry in all.entries) {
-      if (!entry.key.startsWith(_secureStorePrefix)) continue;
-      final bare = entry.key.substring(_secureStorePrefix.length);
-      if (_dynamicSecureStorePrefixes.any(bare.startsWith)) {
-        try {
-          await _storage.delete(key: entry.key);
-        } catch (_) {}
-      }
-    }
-  } catch (_) {
-    // Non-fatal — the next reset will pick them up.
-  }
+  await _clearBiometricSyncDekBestEffort();
 }
 
 @visibleForTesting
@@ -2021,6 +2039,12 @@ Duration? debugPostRevokeRecleanOverride;
 @visibleForTesting
 Future<void> Function()? debugPostRevokeRecleanOverrideCallback;
 
+/// Test seam: when non-null, `SyncStatusNotifier._queryPendingOps` calls this
+/// instead of the Rust status FFI. Used to hold pending-op queries open while
+/// exercising sync event ordering races.
+@visibleForTesting
+Future<int> Function()? debugQueryPendingOpsOverride;
+
 @visibleForTesting
 SyncStatus syncStatusAfterCompleted({
   required SyncStatus previous,
@@ -2049,6 +2073,14 @@ final syncStatusProvider = NotifierProvider<SyncStatusNotifier, SyncStatus>(
 
 class SyncStatusNotifier extends Notifier<SyncStatus> {
   Timer? _drainDebounce;
+
+  /// Monotonic generation for async status refreshes spawned by sync events.
+  ///
+  /// SyncStarted and SyncCompleted both query extra state asynchronously. Fast
+  /// failure paths can emit SyncStarted followed by SyncCompleted/Error before
+  /// those futures resolve; this token keeps an older callback from overwriting
+  /// the terminal `isSyncing: false` state that re-enables the settings UI.
+  int _statusEventGeneration = 0;
 
   /// Timer for the belt-and-suspenders post-revoke re-cleanup pass.
   Timer? _postRevokeRecleanTimer;
@@ -2178,6 +2210,16 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
     _postRevokeRecleanTimer = null;
   }
 
+  /// Prepare for an explicit local reset/re-pair flow.
+  ///
+  /// This uses the same drain-suppression barrier as self-revoke cleanup so a
+  /// queued or already-running event-driven drain cannot write old credentials
+  /// back into the keychain after the reset path deletes them.
+  void prepareForCredentialReset() {
+    _abortPendingDrainForRevoke();
+    state = const SyncStatus();
+  }
+
   @override
   SyncStatus build() {
     ref.onDispose(() {
@@ -2218,6 +2260,7 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
     ref.listen(syncEventStreamProvider, (prev, next) {
       next.whenData((event) {
         if (event.isSyncCompleted) {
+          final generation = ++_statusEventGeneration;
           final rawResultError =
               (event.data['result'] as Map<String, dynamic>?)?['error']
                   as String?;
@@ -2235,12 +2278,22 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
           final structuredError = rawResultError == null
               ? null
               : PrismSyncStructuredError.tryParseMessage(rawResultError);
+          final completedError = structuredError?.userMessage ?? rawResultError;
           final previous = state;
+          state = state.copyWith(
+            isSyncing: false,
+            lastError: completedError != null && completedError.isNotEmpty
+                ? completedError
+                : null,
+          );
           // Re-query pending ops and quarantine state after sync completes.
           Future.wait([_queryPendingOps(), _queryQuarantine()]).then((results) {
+            if (generation != _statusEventGeneration) {
+              return;
+            }
             state = syncStatusAfterCompleted(
               previous: previous,
-              rawResultError: structuredError?.userMessage ?? rawResultError,
+              rawResultError: completedError,
               pendingOps: results[0] as int,
               hasQuarantinedItems: results[1] as bool,
               completedAt: DateTime.now(),
@@ -2275,12 +2328,18 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
           // next restart.
           _scheduleDrain();
         } else if (event.isSyncStarted) {
+          final generation = ++_statusEventGeneration;
+          state = state.copyWith(isSyncing: true);
           // Snapshot current pending ops count when sync begins so the UI
           // can show how many ops are waiting to be pushed.
           _queryPendingOps().then((count) {
+            if (generation != _statusEventGeneration) {
+              return;
+            }
             state = state.copyWith(isSyncing: true, pendingOps: count);
           });
         } else if (event.isError) {
+          _statusEventGeneration++;
           final structuredError =
               PrismSyncStructuredError.fromSyncEvent(event) ??
               PrismSyncStructuredError.tryParseMessage(
@@ -2300,6 +2359,8 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
             );
           }
         } else if (event.isDeviceRevoked) {
+          _statusEventGeneration++;
+          state = state.copyWith(isSyncing: false);
           _handleDeviceRevoked(event);
         }
       });
@@ -2370,6 +2431,10 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
 
   /// Query the Rust sync engine for the current number of unpushed pending ops.
   Future<int> _queryPendingOps() async {
+    final override = debugQueryPendingOpsOverride;
+    if (override != null) {
+      return await override();
+    }
     try {
       final handle = ref.read(prismSyncHandleProvider).value;
       if (handle == null) return 0;
@@ -2639,57 +2704,22 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
   }
 
   /// Narrow keychain-wipe helper — deletes every static allow-list
-  /// entry plus any dynamic `epoch_key_*` / `runtime_keys_*` entries.
+  /// entry plus any dynamic `prism_sync.*` entries present in the keychain.
   /// No state transitions, no provider invalidation, no UI side effects.
   /// Shared between `_clearSyncCredentials` (primary cleanup) and
   /// `_abortPendingDrainForRevoke`'s belt-and-suspenders post-revoke
   /// re-cleanup timer.
   Future<void> _wipeSyncKeychainEntries() async {
-    for (final key in const [
-      'wrapped_dek',
-      'dek_salt',
-      'device_secret',
-      'device_id',
-      'sync_id',
-      'session_token',
-      'epoch',
-      'relay_url',
-      'registration_token',
-      'mnemonic',
-      'setup_rollback_marker',
-      'sharing_prekey_store',
-      'sharing_id_cache',
-      'min_signature_version_floor',
-      'runtime_dek',
-      'runtime_dek_wrapped_v1',
-    ]) {
-      try {
-        await _storage.delete(key: '$_secureStorePrefix$key');
-      } catch (_) {
-        // Best effort — continue clearing remaining keys
-      }
-    }
+    await _deleteSyncCredentialKeychainEntries(
+      readAll: _storage.readAll,
+      deleteKey: (key) => _storage.delete(key: key),
+    );
     try {
       await _runtimeDekStore.deleteWrappingKey();
     } catch (_) {
       // Best effort — the wrapped blob was already deleted above.
     }
-    // Dynamic-prefix scan — scan and delete any prefixed entries left
-    // over from a previous pairing.
-    try {
-      final all = await _storage.readAll();
-      for (final entry in all.entries) {
-        if (!entry.key.startsWith(_secureStorePrefix)) continue;
-        final bare = entry.key.substring(_secureStorePrefix.length);
-        if (_dynamicSecureStorePrefixes.any(bare.startsWith)) {
-          try {
-            await _storage.delete(key: entry.key);
-          } catch (_) {}
-        }
-      }
-    } catch (_) {
-      // Non-fatal — the next reset will pick them up.
-    }
+    await _clearBiometricSyncDekBestEffort(ref);
   }
 
   /// Clear all sync credentials from the platform keychain.
