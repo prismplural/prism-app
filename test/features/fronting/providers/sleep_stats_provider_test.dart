@@ -1,11 +1,8 @@
-import 'dart:async';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
-import 'package:prism_plurality/features/fronting/providers/fronting_table_ticker_provider.dart';
 import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart';
 
 // ---------------------------------------------------------------------------
@@ -63,8 +60,7 @@ class _FakeRepo implements FrontingSessionRepository {
   Future<List<FrontingSession>> getAllActiveSessionsUnfiltered() async =>
       const [];
   @override
-  Stream<List<FrontingSession>> watchActiveSessions() =>
-      Stream.value(const []);
+  Stream<List<FrontingSession>> watchActiveSessions() => Stream.value(const []);
   @override
   Future<FrontingSession?> getActiveSession() async => null;
   @override
@@ -85,8 +81,9 @@ class _FakeRepo implements FrontingSessionRepository {
   Future<List<FrontingSession>> getRecentSessions({int limit = 20}) async =>
       const [];
   @override
-  Future<List<FrontingSession>> getRecentSleepSessions({int limit = 10}) async =>
-      const [];
+  Future<List<FrontingSession>> getRecentSleepSessions({
+    int limit = 10,
+  }) async => const [];
   @override
   Stream<List<FrontingSession>> watchRecentSessions({int limit = 20}) =>
       Stream.value(const []);
@@ -139,17 +136,15 @@ FrontingSession _sleepSession({
   required DateTime start,
   required DateTime end,
 }) => FrontingSession(
-      id: id,
-      startTime: start,
-      endTime: end,
-      sessionType: SessionType.sleep,
-    );
+  id: id,
+  startTime: start,
+  endTime: end,
+  sessionType: SessionType.sleep,
+);
 
 ProviderContainer _makeContainer(_FakeRepo repo) {
   final container = ProviderContainer(
-    overrides: [
-      frontingSessionRepositoryProvider.overrideWithValue(repo),
-    ],
+    overrides: [frontingSessionRepositoryProvider.overrideWithValue(repo)],
   );
   addTearDown(container.dispose);
   return container;
@@ -175,69 +170,87 @@ void main() {
       expect(stats.avg7dPrior, (count: 0, avgDuration: null));
     });
 
-    test('one sleep within last 7d → lastNight populated, avg7d.count == 1', () async {
-      final repo = _FakeRepo();
-      repo.seed([
-        _sleepSession(
-          id: 's1',
-          start: now.subtract(const Duration(days: 1)),
-          end: now.subtract(const Duration(days: 1) - const Duration(hours: 8)),
-        ),
-      ]);
-      final container = _makeContainer(repo);
+    test(
+      'one sleep within last 7d → lastNight populated, avg7d.count == 1',
+      () async {
+        final repo = _FakeRepo();
+        repo.seed([
+          _sleepSession(
+            id: 's1',
+            start: now.subtract(const Duration(days: 1)),
+            end: now.subtract(
+              const Duration(days: 1) - const Duration(hours: 8),
+            ),
+          ),
+        ]);
+        final container = _makeContainer(repo);
 
-      final stats = await container.read(sleepStatsProvider.future);
+        final stats = await container.read(sleepStatsProvider.future);
 
-      expect(stats.totalEverCount, 1);
-      expect(stats.lastNight, isNotNull);
-      expect(stats.lastNight!.id, 's1');
-      expect(stats.avg7d.count, 1);
-      expect(stats.avg7d.avgDuration, isNotNull);
-      expect(stats.avg7dPrior.count, 0);
-      expect(stats.avg7dPrior.avgDuration, isNull);
-    });
+        expect(stats.totalEverCount, 1);
+        expect(stats.lastNight, isNotNull);
+        expect(stats.lastNight!.id, 's1');
+        expect(stats.avg7d.count, 1);
+        expect(stats.avg7d.avgDuration, isNotNull);
+        expect(stats.avg7dPrior.count, 0);
+        expect(stats.avg7dPrior.avgDuration, isNull);
+      },
+    );
 
-    test('3 in last 7d, 2 in prior 7d → both populated, totalEverCount == 5', () async {
-      final repo = _FakeRepo();
-      repo.seed([
-        // 3 in current 7d window
-        _sleepSession(
-          id: 'c1',
-          start: now.subtract(const Duration(days: 1)),
-          end: now.subtract(const Duration(days: 1) - const Duration(hours: 7)),
-        ),
-        _sleepSession(
-          id: 'c2',
-          start: now.subtract(const Duration(days: 3)),
-          end: now.subtract(const Duration(days: 3) - const Duration(hours: 8)),
-        ),
-        _sleepSession(
-          id: 'c3',
-          start: now.subtract(const Duration(days: 5)),
-          end: now.subtract(const Duration(days: 5) - const Duration(hours: 9)),
-        ),
-        // 2 in prior 7d window (8-14 days ago)
-        _sleepSession(
-          id: 'p1',
-          start: now.subtract(const Duration(days: 8)),
-          end: now.subtract(const Duration(days: 8) - const Duration(hours: 8)),
-        ),
-        _sleepSession(
-          id: 'p2',
-          start: now.subtract(const Duration(days: 12)),
-          end: now.subtract(const Duration(days: 12) - const Duration(hours: 7)),
-        ),
-      ]);
-      final container = _makeContainer(repo);
+    test(
+      '3 in last 7d, 2 in prior 7d → both populated, totalEverCount == 5',
+      () async {
+        final repo = _FakeRepo();
+        repo.seed([
+          // 3 in current 7d window
+          _sleepSession(
+            id: 'c1',
+            start: now.subtract(const Duration(days: 1)),
+            end: now.subtract(
+              const Duration(days: 1) - const Duration(hours: 7),
+            ),
+          ),
+          _sleepSession(
+            id: 'c2',
+            start: now.subtract(const Duration(days: 3)),
+            end: now.subtract(
+              const Duration(days: 3) - const Duration(hours: 8),
+            ),
+          ),
+          _sleepSession(
+            id: 'c3',
+            start: now.subtract(const Duration(days: 5)),
+            end: now.subtract(
+              const Duration(days: 5) - const Duration(hours: 9),
+            ),
+          ),
+          // 2 in prior 7d window (8-14 days ago)
+          _sleepSession(
+            id: 'p1',
+            start: now.subtract(const Duration(days: 8)),
+            end: now.subtract(
+              const Duration(days: 8) - const Duration(hours: 8),
+            ),
+          ),
+          _sleepSession(
+            id: 'p2',
+            start: now.subtract(const Duration(days: 12)),
+            end: now.subtract(
+              const Duration(days: 12) - const Duration(hours: 7),
+            ),
+          ),
+        ]);
+        final container = _makeContainer(repo);
 
-      final stats = await container.read(sleepStatsProvider.future);
+        final stats = await container.read(sleepStatsProvider.future);
 
-      expect(stats.totalEverCount, 5);
-      expect(stats.avg7d.count, 3);
-      expect(stats.avg7d.avgDuration, isNotNull);
-      expect(stats.avg7dPrior.count, 2);
-      expect(stats.avg7dPrior.avgDuration, isNotNull);
-    });
+        expect(stats.totalEverCount, 5);
+        expect(stats.avg7d.count, 3);
+        expect(stats.avg7d.avgDuration, isNotNull);
+        expect(stats.avg7dPrior.count, 2);
+        expect(stats.avg7dPrior.avgDuration, isNotNull);
+      },
+    );
 
     test('invalidation causes re-evaluation against fresh repo state', () async {
       final repo = _FakeRepo();

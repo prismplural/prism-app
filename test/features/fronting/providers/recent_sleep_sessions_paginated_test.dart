@@ -16,8 +16,7 @@ class _FakeRepo implements FrontingSessionRepository {
 
   @override
   Stream<List<FrontingSession>> watchRecentSleepSessions({int limit = 20}) {
-    final completed =
-        _sessions.where((s) => s.isSleep && !s.isActive).toList();
+    final completed = _sessions.where((s) => s.isSleep && !s.isActive).toList();
     return Stream.value(completed.take(limit).toList());
   }
 
@@ -39,8 +38,7 @@ class _FakeRepo implements FrontingSessionRepository {
   Future<List<FrontingSession>> getAllActiveSessionsUnfiltered() async =>
       const [];
   @override
-  Stream<List<FrontingSession>> watchActiveSessions() =>
-      Stream.value(const []);
+  Stream<List<FrontingSession>> watchActiveSessions() => Stream.value(const []);
   @override
   Future<FrontingSession?> getActiveSession() async => null;
   @override
@@ -61,8 +59,9 @@ class _FakeRepo implements FrontingSessionRepository {
   Future<List<FrontingSession>> getRecentSessions({int limit = 20}) async =>
       const [];
   @override
-  Future<List<FrontingSession>> getRecentSleepSessions({int limit = 10}) async =>
-      const [];
+  Future<List<FrontingSession>> getRecentSleepSessions({
+    int limit = 10,
+  }) async => const [];
   @override
   Stream<List<FrontingSession>> watchRecentSessions({int limit = 20}) =>
       Stream.value(const []);
@@ -127,7 +126,7 @@ Future<List<FrontingSession>> _readPaginated(
   final provider = recentSleepSessionsPaginatedProvider(limit);
   final sub = container.listen<AsyncValue<List<FrontingSession>>>(
     provider,
-    (_, __) {},
+    (_, _) {},
   );
   final result = await container.read(provider.future);
   sub.close();
@@ -197,8 +196,11 @@ void main() {
       final repo = _FakeRepo();
       repo.seed([
         // Completed
-        _sleep('done', base.subtract(const Duration(days: 1)),
-            base.subtract(const Duration(days: 1) - const Duration(hours: 8))),
+        _sleep(
+          'done',
+          base.subtract(const Duration(days: 1)),
+          base.subtract(const Duration(days: 1) - const Duration(hours: 8)),
+        ),
         // Active (no endTime)
         FrontingSession(
           id: 'active',
