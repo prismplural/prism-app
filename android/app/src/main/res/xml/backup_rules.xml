@@ -9,6 +9,8 @@
     <exclude domain="database" path="." />
     <!-- Exclude shared prefs (may contain sensitive flags) -->
     <exclude domain="sharedpref" path="." />
+    <!-- Exclude app files and encrypted media caches -->
+    <exclude domain="file" path="." />
     <!-- Exclude exported .prism backup files in external storage -->
     <exclude domain="external" path="." />
 </full-backup-content>

@@ -4,6 +4,95 @@ import Flutter
 import Security
 import UIKit
 
+enum BackupExclusionPathError: Error, Equatable, LocalizedError {
+  case invalidPath
+  case outsideAppContainer
+
+  var errorDescription: String? {
+    switch self {
+    case .invalidPath:
+      return "Backup exclusion path must be an absolute file path"
+    case .outsideAppContainer:
+      return "Backup exclusion path must be inside the app container"
+    }
+  }
+}
+
+enum BackupExclusionPathValidator {
+  private static let maxSymlinkDepth = 32
+
+  static func validatedURL(
+    for path: String,
+    containerRoot: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
+  ) throws -> URL {
+    guard path.hasPrefix("/") else {
+      throw BackupExclusionPathError.invalidPath
+    }
+
+    let candidate = try resolvedFileURL(forAbsolutePath: path)
+    let root = try resolvedFileURL(forAbsolutePath: containerRoot.path)
+    let rootPath = root.path
+    let rootPrefix = rootPath.hasSuffix("/") ? rootPath : "\(rootPath)/"
+    guard candidate.path == rootPath || candidate.path.hasPrefix(rootPrefix) else {
+      throw BackupExclusionPathError.outsideAppContainer
+    }
+
+    return candidate
+  }
+
+  private static func resolvedFileURL(forAbsolutePath path: String) throws -> URL {
+    try resolvedFileURL(
+      pathComponents: URL(fileURLWithPath: path).pathComponents,
+      symlinkDepth: 0
+    )
+  }
+
+  private static func resolvedFileURL(
+    pathComponents components: [String],
+    symlinkDepth: Int
+  ) throws -> URL {
+    var current = URL(fileURLWithPath: "/", isDirectory: true)
+    var index = components.first == "/" ? 1 : 0
+    var depth = symlinkDepth
+
+    while index < components.count {
+      let component = components[index]
+      index += 1
+
+      switch component {
+      case "", ".":
+        continue
+      case "..":
+        current.deleteLastPathComponent()
+        continue
+      default:
+        current.appendPathComponent(component)
+      }
+
+      guard let destination = try? FileManager.default.destinationOfSymbolicLink(
+        atPath: current.path
+      ) else {
+        continue
+      }
+      depth += 1
+      guard depth <= maxSymlinkDepth else {
+        throw BackupExclusionPathError.invalidPath
+      }
+
+      let destinationURL = destination.hasPrefix("/")
+        ? URL(fileURLWithPath: destination)
+        : current.deletingLastPathComponent().appendingPathComponent(destination)
+      let remainingComponents = index < components.count ? Array(components[index...]) : []
+      return try resolvedFileURL(
+        pathComponents: destinationURL.standardizedFileURL.pathComponents + remainingComponents,
+        symlinkDepth: depth
+      )
+    }
+
+    return current.standardizedFileURL
+  }
+}
+
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   private var screenshotEventSink: FlutterEventSink?
@@ -151,11 +240,19 @@ import UIKit
         return
       }
       do {
-        var url = URL(fileURLWithPath: path)
+        var url = try BackupExclusionPathValidator.validatedURL(for: path)
         var resourceValues = URLResourceValues()
         resourceValues.isExcludedFromBackup = true
         try url.setResourceValues(resourceValues)
         result(nil)
+      } catch BackupExclusionPathError.invalidPath {
+        result(FlutterError(code: "INVALID_PATH", message: "path must be absolute", details: nil))
+      } catch BackupExclusionPathError.outsideAppContainer {
+        result(FlutterError(
+          code: "OUTSIDE_APP_CONTAINER",
+          message: "path must be inside the app container",
+          details: nil
+        ))
       } catch {
         result(FlutterError(code: "FAILED", message: error.localizedDescription, details: nil))
       }
