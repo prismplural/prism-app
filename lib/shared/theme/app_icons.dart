@@ -297,6 +297,11 @@ abstract final class AppIcons {
   static final bugReportOutlined = PhosphorIcons.bug();
   static final buildCircleOutlined = PhosphorIcons.wrench();
   static final feedbackOutlined = PhosphorIcons.chatCircleDots();
+  static final website = PhosphorIcons.globeSimple();
+  static final githubLogo = PhosphorIcons.githubLogo();
+  static final discordLogo = PhosphorIcons.discordLogo();
+  static final bluesky = PhosphorIcons.butterfly();
+  static final tumblrLogo = PhosphorIcons.tumblrLogo();
   static final speed = PhosphorIcons.gauge();
   static final healing = PhosphorIcons.firstAid();
   static final emojiEvents = PhosphorIcons.trophy();

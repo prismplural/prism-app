@@ -10882,11 +10882,35 @@ abstract class AppLocalizations {
   /// **'A privacy-focused app for managing plural systems. Track fronting, communicate between {termPluralLower}, and keep your system organized.'**
   String settingsAboutDescription(String termPluralLower);
 
+  /// Website chip label in About section
+  ///
+  /// In en, this message translates to:
+  /// **'Website'**
+  String get settingsAboutWebsite;
+
   /// GitHub chip label in About section
   ///
   /// In en, this message translates to:
   /// **'GitHub'**
   String get settingsAboutGitHub;
+
+  /// Discord chip label in About section
+  ///
+  /// In en, this message translates to:
+  /// **'Discord'**
+  String get settingsAboutDiscord;
+
+  /// Bluesky chip label in About section
+  ///
+  /// In en, this message translates to:
+  /// **'Bluesky'**
+  String get settingsAboutBluesky;
+
+  /// Tumblr chip label in About section
+  ///
+  /// In en, this message translates to:
+  /// **'Tumblr'**
+  String get settingsAboutTumblr;
 
   /// Privacy chip label in About section
   ///
@@ -10899,6 +10923,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Feedback'**
   String get settingsAboutFeedback;
+
+  /// Toast shown when an About section external link cannot be opened
+  ///
+  /// In en, this message translates to:
+  /// **'Could not open that link'**
+  String get settingsAboutLinkOpenFailed;
 
   /// Toast shown when GitHub chip is tapped
   ///

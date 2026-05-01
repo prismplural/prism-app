@@ -6613,13 +6613,28 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get settingsAboutWebsite => 'Website';
+
+  @override
   String get settingsAboutGitHub => 'GitHub';
+
+  @override
+  String get settingsAboutDiscord => 'Discord';
+
+  @override
+  String get settingsAboutBluesky => 'Bluesky';
+
+  @override
+  String get settingsAboutTumblr => 'Tumblr';
 
   @override
   String get settingsAboutPrivacy => 'Privacy';
 
   @override
   String get settingsAboutFeedback => 'Feedback';
+
+  @override
+  String get settingsAboutLinkOpenFailed => 'Could not open that link';
 
   @override
   String get settingsAboutGitHubComingSoon => 'GitHub link coming soon';
