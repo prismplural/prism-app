@@ -13,9 +13,7 @@ void main() {
   // pin the picker→Dart conversion and confirm the loop is bounded.
 
   group('nextWeekdayOccurrenceFrom', () {
-    setUpAll(() {
-      tzdata.initializeTimeZones();
-    });
+    setUpAll(tzdata.initializeTimeZones);
 
     // Anchor on a known weekday so each case has a deterministic expected
     // jump. 2026-04-20 is a Monday in UTC.
@@ -56,14 +54,15 @@ void main() {
     });
   });
 
-
   // ── Occurrence count formula ───────────────────────────────────────
 
   group('scheduleExactInterval occurrence count', () {
     // Formula: n = ceil(30 / intervalDays).clamp(2, maxIntervalOccurrences)
 
-    int occurrences(int intervalDays) =>
-        (30 / intervalDays).ceil().clamp(2, LocalNotificationService.maxIntervalOccurrences);
+    int occurrences(int intervalDays) => (30 / intervalDays).ceil().clamp(
+      2,
+      LocalNotificationService.maxIntervalOccurrences,
+    );
 
     test('intervalDays=1 → 30 occurrences', () {
       // ceil(30/1) = 30, clamp(2,30) = 30
