@@ -2486,5 +2486,12 @@
   "settingsAddFrontDefaultBehaviorReplaceDescription": "Termina todos los frentes actuales antes de iniciar uno nuevo",
   "settingsQuickFrontDefaultBehaviorLabel": "Al usar frente rápido",
   "settingsQuickFrontDefaultBehaviorAdditive": "Agregar al co-frente",
-  "settingsQuickFrontDefaultBehaviorReplace": "Reemplazar quienes están al frente"
+  "settingsQuickFrontDefaultBehaviorReplace": "Reemplazar quienes están al frente",
+  "frontingEndSessionButton": "Terminar sesión",
+  "frontingEndSessionEndedToast": "Sesión de {member} terminada",
+  "frontingNextFronterTitle": "¿Quién está al frente ahora?",
+  "frontingNextFronterBody": "Después de esto no habrá nadie al frente.",
+  "frontingNextFronterPick": "Elegir quién al frente",
+  "frontingNextFronterUnknown": "Desconocido",
+  "frontingNextFronterEnd": "Terminar sin nadie al frente"
 }
