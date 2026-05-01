@@ -103,6 +103,7 @@ dependencies:
   record: ^6.2.0
   flutter_soloud: ^4.0.2
   ogg_caf_converter: ^0.1.4
+  package_info_plus: ^9.0.1
 
 dev_dependencies:
   flutter_test:

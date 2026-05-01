@@ -6725,13 +6725,28 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String get settingsAboutWebsite => 'Sitio web';
+
+  @override
   String get settingsAboutGitHub => 'GitHub';
+
+  @override
+  String get settingsAboutDiscord => 'Discord';
+
+  @override
+  String get settingsAboutBluesky => 'Bluesky';
+
+  @override
+  String get settingsAboutTumblr => 'Tumblr';
 
   @override
   String get settingsAboutPrivacy => 'Privacidad';
 
   @override
   String get settingsAboutFeedback => 'Sugerencias';
+
+  @override
+  String get settingsAboutLinkOpenFailed => 'No se pudo abrir ese enlace';
 
   @override
   String get settingsAboutGitHubComingSoon => 'Enlace de GitHub próximamente';

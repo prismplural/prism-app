@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
@@ -132,11 +131,6 @@ class SettingsScreen extends ConsumerWidget {
                       title: context.l10n.settingsNotifications,
                       onTap: () =>
                           context.push(AppRoutePaths.settingsNotifications),
-                    ),
-                    PrismListRow(
-                      title: Text(context.l10n.settingsLanguageTitle),
-                      subtitle: Text(context.l10n.settingsLanguageSubtitle),
-                      leading: Icon(PhosphorIcons.translate()),
                     ),
                   ],
                 ),
