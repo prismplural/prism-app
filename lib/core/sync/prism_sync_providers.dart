@@ -628,18 +628,27 @@ const _dynamicSecureStorePrefixes = ['epoch_key_', 'runtime_keys_'];
 /// End-to-end seed request builder.
 ///
 /// Takes the output of `FlutterSecureStorage.readAll()` and returns the
-/// JSON string that `_seedRustStore` passes into `ffi.seedSecureStore`,
-/// or `null` if there are no entries to seed. Equivalent to
-/// `jsonEncode(computeSeedEntries(all))` but returns `null` on empty
-/// so tests can assert "should not have been called at all".
+/// binary map that `_seedRustStore` passes into `ffi.seedSecureStore`,
+/// or `null` if there are no entries to seed. Platform keychain values
+/// stay base64 strings at rest, but the FFI boundary receives bytes.
 ///
 /// Used by `_seedRustStore` and by unit tests that want to verify the
-/// full read + filter + encode pipeline without a real FFI handle.
+/// full read + filter + decode pipeline without a real FFI handle.
 @visibleForTesting
-String? buildSeedRequestJson(Map<String, String> keychainContents) {
+Map<String, Uint8List>? buildSeedEntries(Map<String, String> keychainContents) {
   final entries = computeSeedEntries(keychainContents);
   if (entries.isEmpty) return null;
-  return jsonEncode(entries);
+  return decodeSeedEntries(entries);
+}
+
+@visibleForTesting
+Map<String, Uint8List> decodeSeedEntries(Map<String, String> entries) {
+  return entries.map((key, value) => MapEntry(key, base64Decode(value)));
+}
+
+@visibleForTesting
+Map<String, String> encodeDrainedEntries(Map<String, Uint8List> entries) {
+  return entries.map((key, value) => MapEntry(key, base64Encode(value)));
 }
 
 /// Compute the set of (un-prefixed) secure-store entries that should be
@@ -647,7 +656,7 @@ String? buildSeedRequestJson(Map<String, String> keychainContents) {
 ///
 /// Pure function — takes a `readAll()`-style map keyed by the full
 /// platform-keychain keys (with `prism_sync.` prefix) and returns the
-/// bare key -> base64 map that gets passed to `ffi.seedSecureStore`.
+/// bare key -> base64 map that [buildSeedEntries] decodes before FFI.
 /// Extracted so unit tests can exercise the "dynamic prefix scan"
 /// behavior without touching `FlutterSecureStorage`.
 @visibleForTesting
@@ -726,9 +735,9 @@ Future<void> _seedRustStore(ffi.PrismSyncHandle handle) async {
     }
   }
 
-  final json = buildSeedRequestJson(all);
-  if (json != null) {
-    await ffi.seedSecureStore(handle: handle, entriesJson: json);
+  final entries = buildSeedEntries(all);
+  if (entries != null) {
+    await ffi.seedSecureStore(handle: handle, entries: entries);
   }
 }
 
@@ -1174,7 +1183,7 @@ Future<void> drainRustStore(
   ffi.PrismSyncHandle handle, {
   bool Function()? shouldAbort,
 }) async {
-  final json = await ffi.drainSecureStore(handle: handle);
+  final drained = await ffi.drainSecureStore(handle: handle);
 
   // Pre-write barrier: if revocation landed during the FFI call, log
   // and bail before touching the keychain.
@@ -1183,7 +1192,7 @@ Future<void> drainRustStore(
     return;
   }
 
-  final entries = Map<String, String>.from(jsonDecode(json) as Map);
+  final entries = encodeDrainedEntries(drained);
   await applyDrainedEntries(
     entries: entries,
     deleteKey: (full) => _storage.delete(key: full),
