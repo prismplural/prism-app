@@ -1,3 +1,5 @@
+// ignore_for_file: experimental_member_use
+
 import 'package:drift/remote.dart' show DriftRemoteException;
 import 'package:sqlite3/sqlite3.dart' show SqlExtendedError, SqliteException;
 
