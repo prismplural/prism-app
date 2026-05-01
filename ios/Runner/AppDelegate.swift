@@ -160,9 +160,11 @@ enum BackupExclusionPathValidator {
         let syncId = arguments["sync_id"] as? String,
         let deviceId = arguments["device_id"] as? String,
         let nonce = arguments["nonce"] as? String,
+        let registrationKeyBundleHash = arguments["registration_key_bundle_hash"] as? String,
         !syncId.isEmpty,
         !deviceId.isEmpty,
-        !nonce.isEmpty
+        !nonce.isEmpty,
+        !registrationKeyBundleHash.isEmpty
       else {
         result(nil)
         return
@@ -172,7 +174,8 @@ enum BackupExclusionPathValidator {
         let proof = await self.collectFirstDeviceAdmissionProof(
           syncId: syncId,
           deviceId: deviceId,
-          nonce: nonce
+          nonce: nonce,
+          registrationKeyBundleHash: registrationKeyBundleHash
         )
         result(proof)
       }
@@ -471,17 +474,19 @@ enum BackupExclusionPathValidator {
   private func collectFirstDeviceAdmissionProof(
     syncId: String,
     deviceId: String,
-    nonce: String
+    nonce: String,
+    registrationKeyBundleHash: String
   ) async -> [String: Any]? {
     guard #available(iOS 14.0, *) else { return nil }
     let service = DCAppAttestService.shared
     guard service.isSupported else { return nil }
 
-    let clientDataHash = buildAppAttestClientDataHash(
+    guard let clientDataHash = buildAppAttestClientDataHash(
       syncId: syncId,
       deviceId: deviceId,
-      nonce: nonce
-    )
+      nonce: nonce,
+      registrationKeyBundleHash: registrationKeyBundleHash
+    ) else { return nil }
 
     for attempt in 0..<2 {
       guard let keyId = await loadOrCreateAppAttestKeyID(recreate: attempt > 0) else {
@@ -567,16 +572,43 @@ enum BackupExclusionPathValidator {
   private func buildAppAttestClientDataHash(
     syncId: String,
     deviceId: String,
-    nonce: String
-  ) -> Data {
-    var input = Data("PRISM_SYNC_APPLE_APP_ATTEST_V1".utf8)
+    nonce: String,
+    registrationKeyBundleHash: String
+  ) -> Data? {
+    guard let registrationKeyBundleHashData = hexData(registrationKeyBundleHash),
+          registrationKeyBundleHashData.count == 32 else {
+      return nil
+    }
+
+    var input = Data("PRISM_SYNC_APPLE_APP_ATTEST_V2".utf8)
     input.append(0)
     input.append(Data(syncId.utf8))
     input.append(0)
     input.append(Data(deviceId.utf8))
     input.append(0)
     input.append(Data(nonce.utf8))
+    input.append(0)
+    input.append(registrationKeyBundleHashData)
     return Data(SHA256.hash(data: input))
+  }
+
+  private func hexData(_ hex: String) -> Data? {
+    guard hex.count.isMultiple(of: 2) else { return nil }
+
+    var data = Data()
+    data.reserveCapacity(hex.count / 2)
+
+    var index = hex.startIndex
+    while index < hex.endIndex {
+      let nextIndex = hex.index(index, offsetBy: 2)
+      guard let byte = UInt8(hex[index..<nextIndex], radix: 16) else {
+        return nil
+      }
+      data.append(byte)
+      index = nextIndex
+    }
+
+    return data
   }
 
   private func readKeychainString() -> String? {

@@ -34,7 +34,7 @@ class MainActivity : FlutterActivity() {
             "com.prism.prism_plurality/first_device_admission"
         private const val RUNTIME_DEK_WRAP_CHANNEL =
             "com.prism.prism_plurality/runtime_dek_wrap"
-        private const val ANDROID_ATTESTATION_CONTEXT = "PRISM_SYNC_ANDROID_ATTEST_V1\u0000"
+        private const val ANDROID_ATTESTATION_CONTEXT = "PRISM_SYNC_ANDROID_ATTEST_V2\u0000"
         private const val RUNTIME_DEK_KEY_ALIAS = "prism_runtime_dek_wrap_v1"
     }
 
@@ -72,13 +72,30 @@ class MainActivity : FlutterActivity() {
             val syncId = call.argument<String>("sync_id")
             val deviceId = call.argument<String>("device_id")
             val nonce = call.argument<String>("nonce")
-            if (syncId.isNullOrEmpty() || deviceId.isNullOrEmpty() || nonce.isNullOrEmpty()) {
-                result.error("bad_args", "sync_id, device_id, and nonce are required", null)
+            val registrationKeyBundleHash = call.argument<String>("registration_key_bundle_hash")
+            if (
+                syncId.isNullOrEmpty() ||
+                deviceId.isNullOrEmpty() ||
+                nonce.isNullOrEmpty() ||
+                registrationKeyBundleHash.isNullOrEmpty()
+            ) {
+                result.error(
+                    "bad_args",
+                    "sync_id, device_id, nonce, and registration_key_bundle_hash are required",
+                    null,
+                )
                 return@setMethodCallHandler
             }
 
             try {
-                result.success(collectFirstDeviceAdmissionProof(syncId, deviceId, nonce))
+                result.success(
+                    collectFirstDeviceAdmissionProof(
+                        syncId,
+                        deviceId,
+                        nonce,
+                        registrationKeyBundleHash,
+                    ),
+                )
             } catch (t: Throwable) {
                 result.error("attestation_failed", t.message, null)
             }
@@ -177,13 +194,19 @@ class MainActivity : FlutterActivity() {
         syncId: String,
         deviceId: String,
         nonce: String,
+        registrationKeyBundleHash: String,
     ): Map<String, Any>? {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
             return null
         }
 
         val alias = "prism_sync_attestation_${System.nanoTime()}"
-        val challenge = buildAndroidAttestationChallenge(syncId, deviceId, nonce)
+        val challenge = buildAndroidAttestationChallenge(
+            syncId,
+            deviceId,
+            nonce,
+            registrationKeyBundleHash,
+        )
         val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
 
         return try {
@@ -224,6 +247,7 @@ class MainActivity : FlutterActivity() {
         syncId: String,
         deviceId: String,
         nonce: String,
+        registrationKeyBundleHash: String,
     ): ByteArray {
         val digest = MessageDigest.getInstance("SHA-256")
         digest.update(ANDROID_ATTESTATION_CONTEXT.toByteArray(Charsets.UTF_8))
@@ -232,7 +256,17 @@ class MainActivity : FlutterActivity() {
         digest.update(deviceId.toByteArray(Charsets.UTF_8))
         digest.update(byteArrayOf(0))
         digest.update(nonce.toByteArray(Charsets.UTF_8))
+        digest.update(byteArrayOf(0))
+        digest.update(hexToBytes(registrationKeyBundleHash))
         return digest.digest()
+    }
+
+    private fun hexToBytes(hex: String): ByteArray {
+        require(hex.length % 2 == 0) { "hex value must have even length" }
+        return ByteArray(hex.length / 2) { index ->
+            val offset = index * 2
+            hex.substring(offset, offset + 2).toInt(16).toByte()
+        }
     }
 
     inner class ScreenshotStreamHandler : EventChannel.StreamHandler {
