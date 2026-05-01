@@ -117,7 +117,6 @@ class _OnboardingRedirectNotifier extends ChangeNotifier {
 // during development that a hot restart (not hot reload) resets this.
 final _onboardingRedirectNotifier = _OnboardingRedirectNotifier();
 
-const _syncDeviceIdKey = 'prism_sync.device_id';
 const _syncWrappedDekKey = 'prism_sync.wrapped_dek';
 const _syncRuntimeDekKey = 'prism_sync.runtime_dek';
 const _syncRuntimeDekWrappedKey = 'prism_sync.runtime_dek_wrapped_v1';
@@ -129,11 +128,20 @@ Future<bool> recoverCompletedOnboardingFromPairedState({
   required Future<void> Function() markOnboardingComplete,
 }) async {
   final syncId = await readSecureValue(kSyncIdKey);
-  final deviceId = await readSecureValue(_syncDeviceIdKey);
+  final deviceId = await readSecureValue(kSyncDeviceIdKey);
   if (syncId == null ||
       syncId.isEmpty ||
       deviceId == null ||
       deviceId.isEmpty) {
+    return false;
+  }
+
+  final snapshotApplyMarker = await readSecureValue(kSnapshotApplyCompleteKey);
+  if (!snapshotApplyCompleteMarkerMatches(
+    marker: snapshotApplyMarker,
+    syncId: syncId,
+    deviceId: deviceId,
+  )) {
     return false;
   }
 

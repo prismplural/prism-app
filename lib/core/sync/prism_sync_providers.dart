@@ -624,6 +624,13 @@ const kRuntimeDekKey = '${_secureStorePrefix}runtime_dek';
 /// AEAD ciphertext produced by [DeviceBoundRuntimeDekStore].
 const kRuntimeDekWrappedKey = '${_secureStorePrefix}runtime_dek_wrapped_v1';
 
+/// Device identity persisted by prism-sync.
+const kSyncDeviceIdKey = '${_secureStorePrefix}device_id';
+
+/// Durable marker written only after the joiner snapshot has applied locally.
+const kSnapshotApplyCompleteKey =
+    '${_secureStorePrefix}snapshot_apply_complete_v1';
+
 const _storage = secureStorage;
 const _runtimeDekStore = DeviceBoundRuntimeDekStore();
 
@@ -635,6 +642,22 @@ String? decodeStoredUtf8(String? raw) {
   } catch (_) {
     return raw;
   }
+}
+
+String snapshotApplyCompleteMarkerValue({
+  required String syncId,
+  required String deviceId,
+}) {
+  return '$syncId\n$deviceId';
+}
+
+bool snapshotApplyCompleteMarkerMatches({
+  required String? marker,
+  required String syncId,
+  required String deviceId,
+}) {
+  return marker ==
+      snapshotApplyCompleteMarkerValue(syncId: syncId, deviceId: deviceId);
 }
 
 void _zeroBytesBestEffort(List<int>? bytes) {
@@ -867,6 +890,7 @@ const _legacyWipeOnlyKeys = [
   'mnemonic',
   'runtime_dek',
   'runtime_dek_wrapped_v1',
+  'snapshot_apply_complete_v1',
 ];
 
 /// Returns the full set of unprefixed secure-store keys used when a platform

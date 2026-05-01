@@ -1009,6 +1009,7 @@ void main() {
     /// (cancelAndRemoveDevice test) or assert post-write contents.
     Map<String, String> installSecureStorageMock([
       Map<String, String>? initial,
+      Set<String> failWrites = const {},
     ]) {
       final store = <String, String>{...?initial};
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -1023,7 +1024,14 @@ void main() {
                 return Map<String, String>.from(store);
               case 'write':
                 final args = call.arguments as Map;
-                store[args['key'] as String] = args['value'] as String;
+                final key = args['key'] as String;
+                if (failWrites.contains(key)) {
+                  throw PlatformException(
+                    code: 'write_failed',
+                    message: 'simulated write failure',
+                  );
+                }
+                store[key] = args['value'] as String;
                 return null;
               case 'delete':
                 final key = (call.arguments as Map)['key'] as String;
@@ -1066,6 +1074,52 @@ void main() {
       container.listen<PairingState>(devicePairingProvider, (_, _) {});
       return container;
     }
+
+    test(
+      'snapshot apply marker is tied to current sync and device IDs',
+      () async {
+        final keychain = installSecureStorageMock({
+          kSyncIdKey: base64Encode(utf8.encode('sync-1')),
+          kSyncDeviceIdKey: base64Encode(utf8.encode('device-1')),
+        });
+        final container = makeContainer();
+        addTearDown(container.dispose);
+
+        final notifier = container.read(devicePairingProvider.notifier);
+        await notifier.writeSnapshotApplyCompleteMarkerForTest();
+
+        expect(
+          keychain[kSnapshotApplyCompleteKey],
+          snapshotApplyCompleteMarkerValue(
+            syncId: keychain[kSyncIdKey]!,
+            deviceId: keychain[kSyncDeviceIdKey]!,
+          ),
+        );
+      },
+    );
+
+    test(
+      'snapshot apply marker write failure surfaces before success',
+      () async {
+        final keychain = installSecureStorageMock(
+          {
+            kSyncIdKey: base64Encode(utf8.encode('sync-1')),
+            kSyncDeviceIdKey: base64Encode(utf8.encode('device-1')),
+          },
+          {kSnapshotApplyCompleteKey},
+        );
+        final container = makeContainer();
+        addTearDown(container.dispose);
+
+        final notifier = container.read(devicePairingProvider.notifier);
+
+        await expectLater(
+          notifier.writeSnapshotApplyCompleteMarkerForTest(),
+          throwsA(isA<PlatformException>()),
+        );
+        expect(keychain[kSnapshotApplyCompleteKey], isNull);
+      },
+    );
 
     test('drainRustStore failure before ceremonyCompleted flag wipes keychain '
         '(pre-ceremony semantics)', () async {
@@ -1261,6 +1315,10 @@ void main() {
         'prism_sync.device_id': base64Encode(utf8.encode('device-xyz')),
         'prism_sync.session_token': base64Encode(utf8.encode('token-xyz')),
         'prism_sync.wrapped_dek': base64Encode(utf8.encode('dek-xyz')),
+        kSnapshotApplyCompleteKey: snapshotApplyCompleteMarkerValue(
+          syncId: base64Encode(utf8.encode('sync-xyz')),
+          deviceId: base64Encode(utf8.encode('device-xyz')),
+        ),
       });
 
       final container = makeContainer();
@@ -1304,6 +1362,7 @@ void main() {
       expect(keychain['prism_sync.device_id'], isNull);
       expect(keychain['prism_sync.session_token'], isNull);
       expect(keychain['prism_sync.wrapped_dek'], isNull);
+      expect(keychain[kSnapshotApplyCompleteKey], isNull);
       expect(
         container.read(devicePairingProvider).step,
         PairingStep.enterUrl,

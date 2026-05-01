@@ -859,6 +859,26 @@ class DevicePairingNotifier extends Notifier<PairingState> {
       return;
     }
 
+    try {
+      await _writeSnapshotApplyCompleteMarker();
+    } catch (e, st) {
+      ErrorReportingService.instance.report(
+        'Snapshot apply completed but recovery marker write failed: $e',
+        severity: ErrorSeverity.error,
+        stackTrace: st,
+      );
+      if (_generation != myGeneration) return;
+      state = state.copyWith(
+        step: PairingStep.snapshotFailure,
+        errorMessage:
+            'Pairing restored your system, but setup could not be saved '
+            'durably. Please try again.',
+        errorCode: null,
+        syncIncomplete: true,
+      );
+      return;
+    }
+
     // BOUNDARY 3: syncBatchComplete resolved — entering finishing phase.
     if (_generation == myGeneration) {
       progressNotifier.setPhase(PairingProgressPhase.finishing);
@@ -1015,6 +1035,32 @@ class DevicePairingNotifier extends Notifier<PairingState> {
       counts: counts,
       syncIncomplete: syncIncomplete,
     );
+  }
+
+  Future<void> _writeSnapshotApplyCompleteMarker() async {
+    final syncId = await secureStorage.read(key: kSyncIdKey);
+    final deviceId = await secureStorage.read(key: kSyncDeviceIdKey);
+    if (syncId == null ||
+        syncId.isEmpty ||
+        deviceId == null ||
+        deviceId.isEmpty) {
+      throw StateError(
+        'Cannot mark snapshot apply complete without sync_id and device_id',
+      );
+    }
+
+    await secureStorage.write(
+      key: kSnapshotApplyCompleteKey,
+      value: snapshotApplyCompleteMarkerValue(
+        syncId: syncId,
+        deviceId: deviceId,
+      ),
+    );
+  }
+
+  @visibleForTesting
+  Future<void> writeSnapshotApplyCompleteMarkerForTest() {
+    return _writeSnapshotApplyCompleteMarker();
   }
 
   /// Wait for a strict-apply outcome while enforcing an idle (activity)
@@ -1224,6 +1270,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
       '${prefix}mnemonic',
       '${prefix}runtime_dek',
       '${prefix}runtime_dek_wrapped_v1',
+      kSnapshotApplyCompleteKey,
     ];
     for (final key in keysToClean) {
       try {
