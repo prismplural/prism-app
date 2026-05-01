@@ -15,7 +15,6 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
-import 'package:prism_plurality/shared/widgets/date_chip.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
@@ -203,16 +202,10 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
               ),
             ),
           ),
-          for (final dayKey in sortedKeys) ...[
+          for (final dayKey in sortedKeys)
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                child: DateChip(date: dayKey),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                 child: PrismSectionCard(
                   padding: EdgeInsets.zero,
                   child: Column(
@@ -228,7 +221,6 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
                 ),
               ),
             ),
-          ],
         ];
       },
     );
