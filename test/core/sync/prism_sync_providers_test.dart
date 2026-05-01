@@ -74,10 +74,12 @@ void main() {
         'prism_sync.wrapped_dek': 'aW==',
         'prism_sync.device_id': 'ZGV2aWNlMQ==',
         'prism_sync.sync_id': 'c3luYzE=',
+        'prism_sync.registration_token': 'cmVnLXRva2Vu',
       });
       expect(result['wrapped_dek'], 'aW==');
       expect(result['device_id'], 'ZGV2aWNlMQ==');
       expect(result['sync_id'], 'c3luYzE=');
+      expect(result['registration_token'], 'cmVnLXRva2Vu');
     });
 
     test('seed includes epoch_key_* entries from the keychain', () {
@@ -546,6 +548,7 @@ void main() {
           'session_token',
           'epoch',
           'relay_url',
+          'registration_token',
           'setup_rollback_marker',
           'sharing_prekey_store',
           'sharing_id_cache',

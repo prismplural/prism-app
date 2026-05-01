@@ -242,17 +242,7 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
       final syncId = invite['sync_id'] as String;
       final persistedRelayUrl =
           (invite['relay_url'] as String?) ?? state.relayUrl;
-      // Base64-encode before storing — seedRustStore expects base64
-      await secureStorage.write(
-        key: kSyncRelayUrlKey,
-        value: base64Encode(utf8.encode(persistedRelayUrl)),
-      );
-      await secureStorage.write(
-        key: kSyncIdKey,
-        value: base64Encode(utf8.encode(syncId)),
-      );
-      ref.invalidate(relayUrlProvider);
-      ref.invalidate(syncIdProvider);
+      await _persistSyncIdentity(relayUrl: persistedRelayUrl, syncId: syncId);
 
       state = state.copyWith(
         currentProgress: SyncSetupProgress.configuringEngine,
@@ -269,6 +259,10 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
       // Drain Rust SecureStore back to platform keychain
       state = state.copyWith(currentProgress: SyncSetupProgress.cachingKeys);
       await drainRustStore(handle);
+      // `drainRustStore` is a delete-then-write mirror of Rust's secure store.
+      // Keep the user-facing identity slots authoritative even if an older or
+      // partially upgraded Rust layer omits them from the drained snapshot.
+      await _persistSyncIdentity(relayUrl: persistedRelayUrl, syncId: syncId);
 
       // Cache a device-bound wrapped DEK so launches bypass Argon2id.
       await cacheRuntimeKeys(handle, ref.read(databaseProvider));
@@ -315,6 +309,29 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
   @visibleForTesting
   Future<void> restoreKeychainSnapshotForTest(Map<String, String> snapshot) =>
       _restoreKeychainSnapshot(snapshot);
+
+  @visibleForTesting
+  Future<void> persistSyncIdentityForTest({
+    required String relayUrl,
+    required String syncId,
+  }) => _persistSyncIdentity(relayUrl: relayUrl, syncId: syncId);
+
+  Future<void> _persistSyncIdentity({
+    required String relayUrl,
+    required String syncId,
+  }) async {
+    // Base64-encode before storing — seedRustStore expects base64.
+    await secureStorage.write(
+      key: kSyncRelayUrlKey,
+      value: base64Encode(utf8.encode(relayUrl)),
+    );
+    await secureStorage.write(
+      key: kSyncIdKey,
+      value: base64Encode(utf8.encode(syncId)),
+    );
+    ref.invalidate(relayUrlProvider);
+    ref.invalidate(syncIdProvider);
+  }
 
   Future<Map<String, String>> _snapshotPrismSyncKeychain() async {
     final all = await readPrefixed('prism_sync.');
