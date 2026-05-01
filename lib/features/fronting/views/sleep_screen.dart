@@ -6,7 +6,6 @@ import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart';
 import 'package:prism_plurality/features/fronting/utils/session_day_grouping.dart';
-import 'package:prism_plurality/features/fronting/views/edit_sleep_sheet.dart';
 import 'package:prism_plurality/features/fronting/views/start_sleep_sheet.dart';
 import 'package:prism_plurality/features/fronting/widgets/sleep_mode_card.dart';
 import 'package:prism_plurality/features/fronting/widgets/sleep_session_row.dart';
@@ -60,8 +59,11 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
     final pos = _scrollController.position;
     if (pos.pixels >= pos.maxScrollExtent - 300) {
       final loaded =
-          ref.read(recentSleepSessionsPaginatedProvider(_limit)).value?.length ??
-              0;
+          ref
+              .read(recentSleepSessionsPaginatedProvider(_limit))
+              .value
+              ?.length ??
+          0;
       if (loaded >= _limit) {
         setState(() => _limit += _kSleepPageSize);
       }
@@ -83,8 +85,8 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
     );
   }
 
-  Future<void> _openEditSheet(FrontingSession session) async {
-    await EditSleepSheet.show(context, session);
+  void _openSessionDetail(FrontingSession session) {
+    context.push(AppRoutePaths.sleepSession(session.id));
   }
 
   @override
@@ -166,10 +168,7 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
       error: (e, _) => [
         SliverFillRemaining(
           hasScrollBody: false,
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text('$e'),
-          ),
+          child: Padding(padding: const EdgeInsets.all(24), child: Text('$e')),
         ),
       ],
       data: (sessions) {
@@ -217,7 +216,7 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
                       for (final session in grouped[dayKey]!)
                         SleepSessionRow(
                           session: session,
-                          onTap: () => _openEditSheet(session),
+                          onTap: () => _openSessionDetail(session),
                           onLongPress: () => _confirmDelete(session),
                         ),
                     ],

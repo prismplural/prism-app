@@ -68,6 +68,7 @@ abstract final class AppRoutePaths {
   static String chatConversation(String id) => '/chat/$id';
   static String session(String id) => '/session/$id';
   static String sessionEdit(String id) => '/session/$id/edit';
+  static String sleepSession(String id) => '/sleep/session/$id';
   static String poll(String id) => '/polls/$id';
   static String habit(String id) => '/habits/$id';
   static String note(String id) => '/notes/$id';
