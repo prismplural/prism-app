@@ -13,6 +13,7 @@ import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/services/media/download_manager.dart';
 import 'package:prism_plurality/core/services/media/media_encryption_service.dart';
 import 'package:prism_plurality/core/services/media/media_providers.dart';
+import 'package:prism_plurality/core/sync/prism_sync_providers.dart' as sync;
 import 'package:prism_plurality/data/repositories/drift_system_settings_repository.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_group_repair_run_gate.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_group_sync_v2_catchup_service.dart';
@@ -279,6 +280,29 @@ void main() {
       expect(await harness.syncShmFile.exists(), isFalse);
     });
 
+    test('sync reset leaves sync state ready for fresh setup', () async {
+      final harness = await _ResetHarness.create();
+      addTearDown(harness.dispose);
+
+      harness.container
+          .read(sync.syncHealthProvider.notifier)
+          .setState(sync.SyncHealthState.disconnected);
+
+      await harness.seedAllData();
+      await harness.reset(ResetCategory.sync);
+
+      expect(
+        harness.container.read(sync.syncHealthProvider),
+        sync.SyncHealthState.unpaired,
+      );
+      final status = harness.container.read(sync.syncStatusProvider);
+      expect(status.isSyncing, isFalse);
+      expect(status.pendingOps, 0);
+      expect(status.lastError, isNull);
+      expect(status.hasQuarantinedItems, isFalse);
+      expect(harness.container.read(sync.websocketConnectedProvider), isFalse);
+    });
+
     test(
       'sync reset deletes dynamic epoch_key_* and runtime_keys_* entries',
       () async {
@@ -314,6 +338,42 @@ void main() {
         expect(
           harness.secureStore.readSyncValue('other_app.epoch_key_1'),
           'DDDD',
+        );
+      },
+    );
+
+    test(
+      'sync reset falls back to known credential keys when readAll fails',
+      () async {
+        final harness = await _ResetHarness.create();
+        addTearDown(harness.dispose);
+
+        harness.secureStore
+          ..seedSyncValue(
+            'prism_sync.sync_id',
+            base64Encode(utf8.encode('sync-abc')),
+          )
+          ..seedSyncValue('prism_sync.registration_token', 'WIPE_REGISTRATION')
+          ..seedSyncValue('prism_sync.runtime_dek_wrapped_v1', 'WIPE_WRAPPED')
+          ..seedSyncValue('prism_sync.database_key', 'KEEP_DATABASE');
+        harness.secureStore.throwOnReadAll = true;
+
+        await harness.reset(ResetCategory.sync);
+
+        expect(harness.secureStore.readSyncValue('prism_sync.sync_id'), isNull);
+        expect(
+          harness.secureStore.readSyncValue('prism_sync.registration_token'),
+          isNull,
+        );
+        expect(
+          harness.secureStore.readSyncValue(
+            'prism_sync.runtime_dek_wrapped_v1',
+          ),
+          isNull,
+        );
+        expect(
+          harness.secureStore.readSyncValue('prism_sync.database_key'),
+          'KEEP_DATABASE',
         );
       },
     );
@@ -1312,6 +1372,7 @@ class _ResetHarness {
 
 class _FakeResetSecureStore implements ResetSecureStore {
   final Map<String, String> _values = <String, String>{};
+  bool throwOnReadAll = false;
 
   @override
   Future<String?> read(String key) async => _values[key];
@@ -1322,8 +1383,12 @@ class _FakeResetSecureStore implements ResetSecureStore {
   }
 
   @override
-  Future<Map<String, String>> readAll() async =>
-      Map<String, String>.from(_values);
+  Future<Map<String, String>> readAll() async {
+    if (throwOnReadAll) {
+      throw StateError('readAll failed');
+    }
+    return Map<String, String>.from(_values);
+  }
 
   @override
   Future<void> deleteAll() async => _values.clear();
