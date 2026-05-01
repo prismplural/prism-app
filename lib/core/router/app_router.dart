@@ -4,6 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/core/services/error_reporting_service.dart';
+import 'package:prism_plurality/core/services/secure_storage.dart';
+import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import '../../features/fronting/views/fronting_screen.dart';
 import '../../features/fronting/views/session_detail_screen.dart';
 import '../../features/fronting/views/sleep_screen.dart';
@@ -114,6 +117,61 @@ class _OnboardingRedirectNotifier extends ChangeNotifier {
 // during development that a hot restart (not hot reload) resets this.
 final _onboardingRedirectNotifier = _OnboardingRedirectNotifier();
 
+const _syncDeviceIdKey = 'prism_sync.device_id';
+const _syncWrappedDekKey = 'prism_sync.wrapped_dek';
+const _syncRuntimeDekKey = 'prism_sync.runtime_dek';
+const _syncRuntimeDekWrappedKey = 'prism_sync.runtime_dek_wrapped_v1';
+
+@visibleForTesting
+Future<bool> recoverCompletedOnboardingFromPairedState({
+  required Future<String?> Function(String key) readSecureValue,
+  required Future<int> Function() getMemberCount,
+  required Future<void> Function() markOnboardingComplete,
+}) async {
+  final syncId = await readSecureValue(kSyncIdKey);
+  final deviceId = await readSecureValue(_syncDeviceIdKey);
+  if (syncId == null ||
+      syncId.isEmpty ||
+      deviceId == null ||
+      deviceId.isEmpty) {
+    return false;
+  }
+
+  final wrappedDek = await readSecureValue(_syncWrappedDekKey);
+  final runtimeDek = await readSecureValue(_syncRuntimeDekKey);
+  final runtimeDekWrapped = await readSecureValue(_syncRuntimeDekWrappedKey);
+  if ((wrappedDek == null || wrappedDek.isEmpty) &&
+      (runtimeDek == null || runtimeDek.isEmpty) &&
+      (runtimeDekWrapped == null || runtimeDekWrapped.isEmpty)) {
+    return false;
+  }
+
+  final memberCount = await getMemberCount();
+  if (memberCount == 0) return false;
+
+  await markOnboardingComplete();
+  return true;
+}
+
+Future<bool> _recoverCompletedOnboardingFromPairedState(Ref ref) async {
+  try {
+    return await recoverCompletedOnboardingFromPairedState(
+      readSecureValue: (key) => secureStorage.read(key: key),
+      getMemberCount: ref.read(memberRepositoryProvider).getCount,
+      markOnboardingComplete: () => ref
+          .read(systemSettingsRepositoryProvider)
+          .updateHasCompletedOnboarding(true),
+    );
+  } catch (e, st) {
+    ErrorReportingService.instance.report(
+      'Recovered paired onboarding check failed: $e',
+      severity: ErrorSeverity.warning,
+      stackTrace: st,
+    );
+    return false;
+  }
+}
+
 final routerProvider = Provider<GoRouter>((ref) {
   // Update the redirect notifier reactively.
   ref.listen(systemSettingsProvider, (_, next) {
@@ -149,6 +207,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (hasCompleted == null) return null;
 
       final isOnboarding = state.matchedLocation == AppRoutePaths.onboarding;
+
+      if (!hasCompleted) {
+        final recovered = await _recoverCompletedOnboardingFromPairedState(ref);
+        if (recovered) {
+          return isOnboarding ? AppRoutePaths.home : null;
+        }
+      }
 
       if (!hasCompleted && !isOnboarding) {
         return AppRoutePaths.onboarding;
