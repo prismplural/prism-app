@@ -13,6 +13,7 @@ import 'package:prism_plurality/core/crypto/bip39_validate.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/security/pin_buffer.dart';
 import 'package:prism_plurality/core/sync/pairing_ceremony_api.dart';
+import 'package:prism_plurality/core/sync/pairing_sas_display.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/core/sync/sync_event_loop.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -90,8 +91,7 @@ class _SetupDeviceSheetContentState
     extends ConsumerState<_SetupDeviceSheetContent> {
   _InitiatorStep _step = _InitiatorStep.enterMnemonic;
   bool _joinerScanned = false;
-  String? _sasWords;
-  String? _sasDecimal;
+  List<String>? _sasWords;
   String? _error;
   MobileScannerController? _joinerScannerController;
 
@@ -114,6 +114,13 @@ class _SetupDeviceSheetContentState
   // Recovery phrase typed by the user; required because the mnemonic is
   // never persisted in the keychain. Zeroed on dispose.
   String? _mnemonic;
+  late final PairingCeremonyApi _pairingApi;
+
+  @override
+  void initState() {
+    super.initState();
+    _pairingApi = ref.read(pairingCeremonyApiProvider);
+  }
 
   MobileScannerController _ensureJoinerScanner() {
     return _joinerScannerController ??= MobileScannerController();
@@ -121,6 +128,9 @@ class _SetupDeviceSheetContentState
 
   @override
   void dispose() {
+    if (_shouldCancelActiveCeremony()) {
+      unawaited(_cancelActiveCeremony());
+    }
     _joinerScannerController?.dispose();
     _uploadEventSubscription?.close();
     _uploadEventSubscription = null;
@@ -129,6 +139,9 @@ class _SetupDeviceSheetContentState
   }
 
   void _reset() {
+    if (_shouldCancelActiveCeremony()) {
+      unawaited(_cancelActiveCeremony());
+    }
     _joinerScannerController?.dispose();
     _joinerScannerController = null;
     _uploadEventSubscription?.close();
@@ -137,7 +150,6 @@ class _SetupDeviceSheetContentState
       _step = _InitiatorStep.enterMnemonic;
       _joinerScanned = false;
       _sasWords = null;
-      _sasDecimal = null;
       _joinerDeviceId = null;
       _uploadBytesSent = null;
       _uploadBytesTotal = null;
@@ -145,6 +157,32 @@ class _SetupDeviceSheetContentState
       _error = null;
       _mnemonic = null;
     });
+  }
+
+  bool _shouldCancelActiveCeremony() {
+    return switch (_step) {
+      _InitiatorStep.scanning ||
+      _InitiatorStep.connecting ||
+      _InitiatorStep.sasVerification ||
+      _InitiatorStep.passwordEntry ||
+      _InitiatorStep.uploading ||
+      _InitiatorStep.completing ||
+      _InitiatorStep.error => true,
+      _InitiatorStep.enterMnemonic ||
+      _InitiatorStep.prompt ||
+      _InitiatorStep.uploadComplete ||
+      _InitiatorStep.done => false,
+    };
+  }
+
+  Future<void> _cancelActiveCeremony() async {
+    try {
+      await _pairingApi
+          .cancelPairingCeremony(handle: widget.handle)
+          .timeout(const Duration(seconds: 5));
+    } catch (e) {
+      debugPrint('[SYNC] Pairing ceremony cancel failed: $e');
+    }
   }
 
   Future<void> _startInitiatorCeremony(Uint8List tokenBytes) async {
@@ -160,8 +198,7 @@ class _SetupDeviceSheetContentState
         tokenBytes: tokenBytes,
       );
       final json = jsonDecode(jsonString) as Map<String, dynamic>;
-      final sasWords = json['sas_words'] as String;
-      final sasDecimal = json['sas_decimal'] as String;
+      final sas = PairingSasDisplay.fromJson(json);
       // Captured for uploadPairingSnapshot(forDeviceId:) in _completeInitiator.
       // May be absent on older Rust builds; threading it through lets the
       // joiner DELETE the snapshot once it has applied the bootstrap.
@@ -169,12 +206,12 @@ class _SetupDeviceSheetContentState
 
       if (!mounted) return;
       setState(() {
-        _sasWords = sasWords;
-        _sasDecimal = sasDecimal;
+        _sasWords = sas.words;
         _joinerDeviceId = joinerDeviceId;
         _step = _InitiatorStep.sasVerification;
       });
     } catch (e) {
+      unawaited(_cancelActiveCeremony());
       if (!mounted) return;
       setState(() {
         _error = e.toString();
@@ -380,7 +417,6 @@ class _SetupDeviceSheetContentState
       ),
       _InitiatorStep.sasVerification => _SasVerificationView(
         sasWords: _sasWords!,
-        sasDecimal: _sasDecimal!,
         onConfirm: () => setState(() => _step = _InitiatorStep.passwordEntry),
         onReject: _reset,
       ),
@@ -628,20 +664,17 @@ class _JoinerQrScannerView extends StatelessWidget {
 class _SasVerificationView extends StatelessWidget {
   const _SasVerificationView({
     required this.sasWords,
-    required this.sasDecimal,
     required this.onConfirm,
     required this.onReject,
   });
 
-  final String sasWords;
-  final String sasDecimal;
+  final List<String> sasWords;
   final VoidCallback onConfirm;
   final VoidCallback onReject;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final words = sasWords.split(' ');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -685,26 +718,17 @@ class _SasVerificationView extends StatelessWidget {
                 spacing: 12,
                 runSpacing: 8,
                 alignment: WrapAlignment.center,
-                children: words
+                children: sasWords
                     .map(
                       (word) => Text(
                         word,
                         style: theme.textTheme.headlineSmall?.copyWith(
                           fontWeight: FontWeight.w600,
-                          letterSpacing: 0.5,
+                          letterSpacing: 0,
                         ),
                       ),
                     )
                     .toList(),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                sasDecimal,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                  fontFamily: 'monospace',
-                  letterSpacing: 2,
-                ),
               ),
             ],
           ),

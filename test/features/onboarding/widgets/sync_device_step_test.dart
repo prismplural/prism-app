@@ -13,6 +13,8 @@ class _FakeDevicePairingNotifier extends DevicePairingNotifier {
   final PairingState initialState;
   String? capturedPin;
   int completionCount = 0;
+  int confirmSasCount = 0;
+  int resetCount = 0;
 
   @override
   PairingState build() => initialState;
@@ -24,7 +26,13 @@ class _FakeDevicePairingNotifier extends DevicePairingNotifier {
   }
 
   @override
+  void confirmSas() {
+    confirmSasCount++;
+  }
+
+  @override
   void reset() {
+    resetCount++;
     state = const PairingState();
   }
 }
@@ -141,5 +149,43 @@ void main() {
 
     expect(notifier.capturedPin, '123456');
     expect(notifier.completionCount, 1);
+  });
+
+  testWidgets('SAS step displays five words and no decimal fallback', (
+    tester,
+  ) async {
+    final notifier = _FakeDevicePairingNotifier(
+      const PairingState(
+        step: PairingStep.showingSas,
+        sasWords: ['alpha', 'bravo', 'charlie', 'delta', 'echo'],
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [devicePairingProvider.overrideWith(() => notifier)],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: const [Locale('en')],
+          home: Scaffold(
+            body: SyncDeviceStep(onBack: () {}, onComplete: () {}),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Verify Security Code'), findsOneWidget);
+    for (final word in ['alpha', 'bravo', 'charlie', 'delta', 'echo']) {
+      expect(find.text(word), findsOneWidget);
+    }
+    expect(find.text('123456'), findsNothing);
+
+    await tester.tap(find.text('They Match'));
+    await tester.pump();
+    expect(notifier.confirmSasCount, 1);
+
+    await tester.tap(find.text("They Don't Match"));
+    await tester.pump();
+    expect(notifier.resetCount, 1);
   });
 }

@@ -53,6 +53,10 @@ class _AcceptMnemonicApi extends PairingCeremonyApi {
       throw UnimplementedError();
 
   @override
+  Future<void> cancelPairingCeremony({required ffi.PrismSyncHandle handle}) =>
+      Future.value();
+
+  @override
   Future<String> completeJoinerCeremony({
     required ffi.PrismSyncHandle handle,
     required String password,

@@ -8,6 +8,8 @@ abstract class PairingCeremonyApi {
 
   Future<String> startJoinerCeremony({required ffi.PrismSyncHandle handle});
 
+  Future<void> cancelPairingCeremony({required ffi.PrismSyncHandle handle});
+
   Future<String> getJoinerSas({required ffi.PrismSyncHandle handle});
 
   Future<String> completeJoinerCeremony({
@@ -33,6 +35,11 @@ class FrbPairingCeremonyApi extends PairingCeremonyApi {
   @override
   Future<String> startJoinerCeremony({required ffi.PrismSyncHandle handle}) {
     return ffi.startJoinerCeremony(handle: handle);
+  }
+
+  @override
+  Future<void> cancelPairingCeremony({required ffi.PrismSyncHandle handle}) {
+    return ffi.cancelPairingCeremony(handle: handle);
   }
 
   @override
