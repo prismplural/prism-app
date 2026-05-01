@@ -53,7 +53,10 @@ class DeviceBoundRuntimeDekStore {
     if (dek == null) {
       throw StateError('runtime DEK wrapper returned no plaintext');
     }
-    return dek;
+    // Platform channel byte buffers may be backed by an immutable native view.
+    // Return a mutable Dart-owned copy so callers can zero the plaintext after
+    // restoring runtime keys.
+    return Uint8List.fromList(dek);
   }
 
   Future<void> deleteWrappingKey() async {

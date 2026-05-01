@@ -536,6 +536,19 @@ class _ConfiguredView extends ConsumerWidget {
             .createHandle(relayUrl: relayUrl);
       }
 
+      final health = await ref
+          .read(prismSyncHandleProvider.notifier)
+          .ensureConfigured(handle);
+      if (health != SyncHealthState.healthy) {
+        if (context.mounted) {
+          PrismToast.error(
+            context,
+            message: _manualSyncUnavailableMessage(health),
+          );
+        }
+        return;
+      }
+
       // If the WebSocket is disconnected, trigger an immediate reconnect
       // (resets exponential backoff) so real-time notifications resume.
       try {
@@ -553,6 +566,16 @@ class _ConfiguredView extends ConsumerWidget {
       }
     }
   }
+
+  String _manualSyncUnavailableMessage(SyncHealthState health) =>
+      switch (health) {
+        SyncHealthState.needsPassword =>
+          'Sync needs your PIN and recovery phrase before it can reconnect.',
+        SyncHealthState.disconnected =>
+          'Sync credentials are missing. Set up sync again to reconnect.',
+        SyncHealthState.unpaired => 'Sync is not set up on this device.',
+        SyncHealthState.healthy => 'Sync is not ready yet.',
+      };
 }
 
 class _SyncAppearanceToggle extends ConsumerWidget {
