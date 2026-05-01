@@ -199,6 +199,30 @@ void main() {
       },
     );
 
+    test('wrapped restore returns a mutable Dart-owned copy', () async {
+      final restoredDek = Uint8List.fromList(
+        List<int>.generate(32, (i) => 255 - i),
+      ).asUnmodifiableView();
+      final store = <String, String>{kRuntimeDekWrappedKey: 'wrapped-json'};
+
+      final restored = await readCachedRuntimeDekForRestoreCore(
+        aad: 'sync-1|device-1|1',
+        readKey: (key) async => store[key],
+        deleteKey: (key) async {
+          store.remove(key);
+        },
+        writeKey: (key, value) async {
+          store[key] = value;
+        },
+        unwrapDek: (_, _) async => restoredDek,
+        wrapDek: (_, _) => throw StateError('should not wrap'),
+      );
+
+      expect(restored, restoredDek);
+      expect(() => restored!.fillRange(0, restored.length, 0), returnsNormally);
+      expect(restored, everyElement(0));
+    });
+
     test(
       'falls back to legacy raw runtime_dek when wrapped restore fails',
       () async {

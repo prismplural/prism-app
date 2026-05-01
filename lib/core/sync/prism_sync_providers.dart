@@ -279,7 +279,7 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
     // re-emit / drainRustStore / onResume) is skipped entirely. This keeps the
     // old sync group detached until the user completes the migration reset and
     // pairs again.
-    late final SyncHealthState health;
+    late SyncHealthState health;
     try {
       if (migrationGateHealth != null) {
         // `unpaired` already means "engine isn't configured; skip the
@@ -292,6 +292,14 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
         health = await _autoConfigureIfReady(handle);
       }
       BootTimings.mark('createHandle:_autoConfigureIfReady');
+      ref.read(syncHealthProvider.notifier).setState(health);
+    } catch (e, st) {
+      health = SyncHealthState.disconnected;
+      ErrorReportingService.instance.report(
+        'Auto-configure sync failed unexpectedly: $e',
+        severity: ErrorSeverity.error,
+        stackTrace: st,
+      );
       ref.read(syncHealthProvider.notifier).setState(health);
     } finally {
       syncAutoConfigureInProgress.value = false;
@@ -367,6 +375,31 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
     }
 
     return handle;
+  }
+
+  /// Re-run the startup credential restore + configure path for an existing
+  /// handle. Manual reconnect uses this when a handle was published but the
+  /// earlier auto-configure attempt failed before `configureEngine`.
+  Future<SyncHealthState> ensureConfigured(ffi.PrismSyncHandle handle) async {
+    syncAutoConfigureInProgress.value = true;
+    try {
+      final health = await _autoConfigureIfReady(handle);
+      ref.read(syncHealthProvider.notifier).setState(health);
+      if (health == SyncHealthState.healthy) {
+        try {
+          await drainRustStore(handle);
+        } catch (e, st) {
+          ErrorReportingService.instance.report(
+            'Post-manual-configure drain failed: $e',
+            severity: ErrorSeverity.warning,
+            stackTrace: st,
+          );
+        }
+      }
+      return health;
+    } finally {
+      syncAutoConfigureInProgress.value = false;
+    }
   }
 }
 
@@ -475,7 +508,7 @@ Future<SyncHealthState> _autoConfigureIfReady(
         );
         return SyncHealthState.disconnected;
       } finally {
-        dekBytes.fillRange(0, dekBytes.length, 0);
+        _zeroBytesBestEffort(dekBytes);
       }
     } else {
       // No cached DEK. Check if we can recover with a password.
@@ -599,6 +632,16 @@ String? decodeStoredUtf8(String? raw) {
     return utf8.decode(base64Decode(raw));
   } catch (_) {
     return raw;
+  }
+}
+
+void _zeroBytesBestEffort(List<int>? bytes) {
+  if (bytes == null) return;
+  try {
+    bytes.fillRange(0, bytes.length, 0);
+  } on UnsupportedError {
+    // Some platform-channel byte views are immutable. The restore path copies
+    // secrets before use, but scrubbing must never mask the real sync result.
   }
 }
 
@@ -891,7 +934,7 @@ Future<Uint8List?> readCachedRuntimeDekForRestoreCore({
   final wrapped = await readKey(kRuntimeDekWrappedKey);
   if (wrapped != null && wrapped.isNotEmpty) {
     try {
-      final dekBytes = await unwrapDek(wrapped, aad);
+      final dekBytes = Uint8List.fromList(await unwrapDek(wrapped, aad));
       await deleteKey(kRuntimeDekKey);
       return dekBytes;
     } catch (e, st) {
@@ -921,7 +964,7 @@ Future<Uint8List?> readCachedRuntimeDekForRestoreCore({
   }
 
   if (dekBytes.length != 32) {
-    dekBytes.fillRange(0, dekBytes.length, 0);
+    _zeroBytesBestEffort(dekBytes);
     await deleteKey(kRuntimeDekKey);
     return null;
   }
@@ -932,7 +975,7 @@ Future<Uint8List?> readCachedRuntimeDekForRestoreCore({
     await deleteKey(kRuntimeDekKey);
     return dekBytes;
   } catch (e, st) {
-    dekBytes.fillRange(0, dekBytes.length, 0);
+    _zeroBytesBestEffort(dekBytes);
     await deleteKey(kRuntimeDekKey);
     reportWarning?.call(
       'Legacy runtime DEK migration failed; raw cache deleted: $e',
@@ -1020,7 +1063,7 @@ Future<void> cacheRuntimeKeys(
         stackTrace: st,
       );
     } finally {
-      dekBytes.fillRange(0, dekBytes.length, 0);
+      _zeroBytesBestEffort(dekBytes);
     }
   }
 
@@ -1789,7 +1832,9 @@ class SyncHealthNotifier extends Notifier<SyncHealthState> {
     List<int>? secretKeyBytes;
     try {
       try {
-        secretKeyBytes = await ffi.mnemonicToBytes(mnemonic: normalized);
+        secretKeyBytes = Uint8List.fromList(
+          await ffi.mnemonicToBytes(mnemonic: normalized),
+        );
       } catch (_) {
         // Invalid mnemonic — treat as failed unlock without disclosing
         // which input was wrong.
@@ -1836,7 +1881,7 @@ class SyncHealthNotifier extends Notifier<SyncHealthState> {
     } finally {
       // Always zero any secret-key bytes that made it into Dart memory.
       if (secretKeyBytes != null) {
-        secretKeyBytes.fillRange(0, secretKeyBytes.length, 0);
+        _zeroBytesBestEffort(secretKeyBytes);
       }
     }
   }
