@@ -2,23 +2,30 @@ package com.prismplural.prism
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.content.pm.PackageManager
 import android.database.ContentObserver
 import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
+import android.security.keystore.KeyInfo
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
+import android.security.keystore.StrongBoxUnavailableException
 import android.util.Base64
+import android.util.Log
 import java.security.KeyPairGenerator
 import java.security.KeyStore
 import java.security.MessageDigest
+import java.security.ProviderException
+import java.security.InvalidAlgorithmParameterException
 import java.security.cert.X509Certificate
 import java.security.spec.ECGenParameterSpec
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
+import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.GCMParameterSpec
 import android.view.WindowManager
 import io.flutter.embedding.android.FlutterActivity
@@ -28,6 +35,7 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
     companion object {
+        private const val TAG = "PrismMainActivity"
         private const val SCREENSHOT_CHANNEL = "com.prism.prism_plurality/screenshot_events"
         private const val SECURE_DISPLAY_CHANNEL = "com.prism.prism_plurality/secure_display"
         private const val FIRST_DEVICE_ADMISSION_CHANNEL =
@@ -80,7 +88,7 @@ class MainActivity : FlutterActivity() {
                 registrationKeyBundleHash.isNullOrEmpty()
             ) {
                 result.error(
-                    "bad_args",
+                    "permanent_failure",
                     "sync_id, device_id, nonce, and registration_key_bundle_hash are required",
                     null,
                 )
@@ -96,8 +104,12 @@ class MainActivity : FlutterActivity() {
                         registrationKeyBundleHash,
                     ),
                 )
+            } catch (e: PlatformAttestationException) {
+                result.error(e.code, e.message, null)
+            } catch (e: IllegalArgumentException) {
+                result.error("permanent_failure", e.message, null)
             } catch (t: Throwable) {
-                result.error("attestation_failed", t.message, null)
+                result.error("transient_failure", t.message, null)
             }
         }
         MethodChannel(
@@ -133,8 +145,9 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun wrapRuntimeDek(dek: ByteArray, aad: String): Map<String, Any> {
+        val wrappingKey = getOrCreateRuntimeDekWrappingKey()
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(Cipher.ENCRYPT_MODE, getOrCreateRuntimeDekWrappingKey())
+        cipher.init(Cipher.ENCRYPT_MODE, wrappingKey)
         cipher.updateAAD(aad.toByteArray(Charsets.UTF_8))
         val ciphertext = cipher.doFinal(dek)
         return mapOf(
@@ -142,6 +155,7 @@ class MainActivity : FlutterActivity() {
             "platform" to "android_keystore_aes_gcm",
             "iv" to Base64.encodeToString(cipher.iv, Base64.NO_WRAP),
             "ciphertext" to Base64.encodeToString(ciphertext, Base64.NO_WRAP),
+            "key_security" to runtimeDekKeySecurity(wrappingKey),
         )
     }
 
@@ -166,11 +180,36 @@ class MainActivity : FlutterActivity() {
         val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
         (keyStore.getKey(RUNTIME_DEK_KEY_ALIAS, null) as? SecretKey)?.let { return it }
 
+        if (shouldTryStrongBox()) {
+            try {
+                val strongBoxKey = generateRuntimeDekWrappingKey(strongBoxBacked = true)
+                Log.i(TAG, "Generated runtime DEK wrapping key with StrongBox requested")
+                return strongBoxKey
+            } catch (e: StrongBoxUnavailableException) {
+                Log.i(TAG, "StrongBox unavailable for runtime DEK wrapping key; falling back", e)
+            } catch (e: InvalidAlgorithmParameterException) {
+                Log.i(TAG, "StrongBox rejected runtime DEK wrapping key parameters; falling back", e)
+            } catch (e: ProviderException) {
+                Log.i(TAG, "StrongBox provider failed for runtime DEK wrapping key; falling back", e)
+            }
+        } else {
+            Log.i(TAG, "StrongBox not reported for this device; generating runtime DEK key normally")
+        }
+
+        return generateRuntimeDekWrappingKey(strongBoxBacked = false)
+    }
+
+    private fun generateRuntimeDekWrappingKey(strongBoxBacked: Boolean): SecretKey {
         val generator = KeyGenerator.getInstance(
             KeyProperties.KEY_ALGORITHM_AES,
             "AndroidKeyStore",
         )
-        val spec = KeyGenParameterSpec.Builder(
+        generator.init(runtimeDekKeySpec(strongBoxBacked))
+        return generator.generateKey()
+    }
+
+    private fun runtimeDekKeySpec(strongBoxBacked: Boolean): KeyGenParameterSpec {
+        val builder = KeyGenParameterSpec.Builder(
             RUNTIME_DEK_KEY_ALIAS,
             KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT,
         )
@@ -178,9 +217,55 @@ class MainActivity : FlutterActivity() {
             .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
             .setRandomizedEncryptionRequired(true)
             .setUserAuthenticationRequired(false)
-            .build()
-        generator.init(spec)
-        return generator.generateKey()
+
+        if (strongBoxBacked && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            builder.setIsStrongBoxBacked(true)
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+            // Android documents Android 12-14 bugs for unlocked-device-required
+            // keys: generation/use failures without secure lock screen,
+            // deletion after lock-screen removal, and biometric reauthorization
+            // gaps. Android 15 fixes those issues, so keep the initial gate at
+            // API 35+ rather than applying this to Android 12-14 devices.
+            builder.setUnlockedDeviceRequired(true)
+        }
+
+        return builder.build()
+    }
+
+    private fun shouldTryStrongBox(): Boolean =
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.P &&
+            packageManager.hasSystemFeature(PackageManager.FEATURE_STRONGBOX_KEYSTORE)
+
+    @SuppressLint("NewApi")
+    private fun runtimeDekKeySecurity(key: SecretKey): Map<String, Any> {
+        val metadata = mutableMapOf<String, Any>()
+        val keyInfo = runCatching {
+            SecretKeyFactory.getInstance(key.algorithm, "AndroidKeyStore")
+                .getKeySpec(key, KeyInfo::class.java) as KeyInfo
+        }.getOrNull()
+
+        @Suppress("DEPRECATION")
+        metadata["inside_secure_hardware"] = keyInfo?.isInsideSecureHardware == true
+        if (keyInfo != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            metadata["security_level"] = when (keyInfo.securityLevel) {
+                KeyProperties.SECURITY_LEVEL_STRONGBOX -> "strongbox"
+                KeyProperties.SECURITY_LEVEL_TRUSTED_ENVIRONMENT -> "trusted_environment"
+                KeyProperties.SECURITY_LEVEL_SOFTWARE -> "software"
+                KeyProperties.SECURITY_LEVEL_UNKNOWN_SECURE -> "unknown_secure"
+                else -> "unknown"
+            }
+            metadata["strongbox_backed"] =
+                keyInfo.securityLevel == KeyProperties.SECURITY_LEVEL_STRONGBOX
+        }
+        metadata["unlocked_device_required_policy"] =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+                "enabled_api_35_plus"
+            } else {
+                "not_enabled_android_12_14_caveat"
+            }
+        return metadata
     }
 
     private fun deleteRuntimeDekWrappingKey() {
@@ -195,9 +280,12 @@ class MainActivity : FlutterActivity() {
         deviceId: String,
         nonce: String,
         registrationKeyBundleHash: String,
-    ): Map<String, Any>? {
+    ): Map<String, Any> {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
-            return null
+            throw PlatformAttestationException(
+                "missing_api",
+                "Android Key Attestation requires Android 7.0 or newer",
+            )
         }
 
         val alias = "prism_sync_attestation_${System.nanoTime()}"
@@ -231,7 +319,10 @@ class MainActivity : FlutterActivity() {
                 ?.map { der -> Base64.encodeToString(der, Base64.NO_WRAP) }
                 .orEmpty()
             if (certificates.isEmpty()) {
-                null
+                throw PlatformAttestationException(
+                    "transient_failure",
+                    "Android Keystore returned no attestation certificate chain",
+                )
             } else {
                 mapOf(
                     "kind" to "android_key_attestation",
@@ -260,6 +351,11 @@ class MainActivity : FlutterActivity() {
         digest.update(hexToBytes(registrationKeyBundleHash))
         return digest.digest()
     }
+
+    private class PlatformAttestationException(
+        val code: String,
+        message: String,
+    ) : Exception(message)
 
     private fun hexToBytes(hex: String): ByteArray {
         require(hex.length % 2 == 0) { "hex value must have even length" }
