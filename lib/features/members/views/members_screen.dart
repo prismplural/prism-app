@@ -14,9 +14,11 @@ import 'package:prism_plurality/features/members/providers/member_groups_provide
 import 'package:prism_plurality/features/members/utils/member_search_groups.dart';
 import 'package:prism_plurality/features/members/widgets/member_group_filter_bar.dart';
 import 'package:prism_plurality/features/members/widgets/group_section_header.dart';
+import 'package:prism_plurality/features/members/widgets/manage_groups_sheet.dart';
 import 'package:prism_plurality/features/members/views/add_edit_member_sheet.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/prism_pill.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
@@ -466,17 +468,12 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                     }
 
                     if (!hasGroups) {
-                      return _buildFlatList(rawMembers, frontingIds, terms);
+                      return _buildFlatList(rawMembers, frontingIds);
                     }
 
                     final groupedItems = ref.watch(groupedMemberListProvider);
                     final counts = ref.watch(groupMemberCountsProvider);
-                    return _buildGroupedList(
-                      groupedItems,
-                      counts,
-                      frontingIds,
-                      terms,
-                    );
+                    return _buildGroupedList(groupedItems, counts, frontingIds);
                   },
                 ),
               ),
@@ -487,12 +484,9 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     );
   }
 
-  Widget _buildFlatList(
-    List<Member> members,
-    Set<String> frontingIds,
-    dynamic terms,
-  ) {
+  Widget _buildFlatList(List<Member> members, Set<String> frontingIds) {
     return ReorderableListView.builder(
+      buildDefaultDragHandles: false,
       padding: EdgeInsets.only(top: 8, bottom: NavBarInset.of(context)),
       itemCount: members.length,
       onReorder: (oldIndex, newIndex) =>
@@ -515,7 +509,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
       itemBuilder: (context, index) {
         final member = members[index];
         final isFronting = frontingIds.contains(member.id);
-        return _buildMemberTile(member, isFronting, terms, reorderIndex: index);
+        return _buildMemberTile(member, isFronting, reorderIndex: index);
       },
     );
   }
@@ -524,7 +518,6 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     List<GroupedMemberListItem> items,
     Map<String, int> counts,
     Set<String> frontingIds,
-    dynamic terms,
   ) {
     return CustomScrollView(
       controller: _scrollController,
@@ -582,7 +575,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                 final indent = item.depth.clamp(0, 2) * 16.0;
                 return Padding(
                   padding: EdgeInsets.only(left: indent),
-                  child: _buildMemberTile(item.member, isFronting, terms),
+                  child: _buildMemberTile(item.member, isFronting),
                 );
               }
               return const SizedBox.shrink();
@@ -593,39 +586,30 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     );
   }
 
-  Widget _buildMemberTile(
-    Member member,
-    bool isFronting,
-    dynamic terms, {
-    int? reorderIndex,
-  }) {
+  Widget _buildMemberTile(Member member, bool isFronting, {int? reorderIndex}) {
     final theme = Theme.of(context);
-    return Dismissible(
-      key: ValueKey(member.id),
-      direction: DismissDirection.horizontal,
-      background: Container(
-        alignment: Alignment.centerLeft,
-        padding: const EdgeInsets.only(left: 24),
-        color: member.isActive ? Colors.orange : Colors.green,
-        child: Icon(
-          member.isActive
-              ? AppIcons.archiveOutlined
-              : AppIcons.unarchiveOutlined,
-          color: AppColors.warmWhite,
-        ),
-      ),
-      secondaryBackground: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 24),
-        color: theme.colorScheme.error,
-        child: Icon(AppIcons.delete, color: theme.colorScheme.onError),
-      ),
-      confirmDismiss: (direction) {
-        if (direction == DismissDirection.endToStart) {
-          return _confirmDeleteMember(context, member.id, member.name);
-        }
-        _toggleMemberActive(member);
-        return Future.value(false);
+    final actions = _memberContextActions(member, isFronting);
+
+    return BlurPopupAnchor(
+      key: reorderIndex != null ? ValueKey(member.id) : null,
+      trigger: BlurPopupTrigger.longPress,
+      width: 220,
+      maxHeight: 320,
+      semanticLabel: context.l10n.memberMoreOptionsTooltip,
+      itemCount: actions.length,
+      itemBuilder: (context, index, close) {
+        final action = actions[index];
+        return PrismListRow(
+          dense: true,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          leading: Icon(action.icon, size: 20),
+          title: Text(action.label),
+          destructive: action.destructive,
+          onTap: () {
+            close();
+            unawaited(Future<void>.sync(action.onSelected));
+          },
+        );
       },
       child: MemberCard(
         member: member,
@@ -657,4 +641,80 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
       ),
     );
   }
+
+  List<_MemberContextAction> _memberContextActions(
+    Member member,
+    bool isFronting,
+  ) {
+    return [
+      if (!isFronting)
+        _MemberContextAction(
+          label: context.l10n.memberSetAsFronter,
+          icon: AppIcons.flashOn,
+          onSelected: () => _startFronting(member),
+        ),
+      _MemberContextAction(
+        label: context.l10n.memberGroupAddToGroup,
+        icon: AppIcons.groupOutlined,
+        onSelected: () => _showManageGroupsSheet(member),
+      ),
+      _MemberContextAction(
+        label: member.isActive
+            ? context.l10n.deactivate
+            : context.l10n.activate,
+        icon: member.isActive
+            ? AppIcons.archiveOutlined
+            : AppIcons.unarchiveOutlined,
+        onSelected: () => _toggleMemberActive(member),
+      ),
+      _MemberContextAction(
+        label: context.l10n.delete,
+        icon: AppIcons.deleteOutline,
+        destructive: true,
+        onSelected: () => _confirmDeleteMember(context, member.id, member.name),
+      ),
+    ];
+  }
+
+  Future<void> _startFronting(Member member) async {
+    try {
+      await ref.read(frontingNotifierProvider.notifier).startFronting([
+        member.id,
+      ]);
+      if (!mounted) return;
+      PrismToast.show(
+        context,
+        message: context.l10n.memberIsFronting(member.name),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      PrismToast.error(
+        context,
+        message: context.l10n.frontingErrorSwitchingFronter(e),
+      );
+    }
+  }
+
+  void _showManageGroupsSheet(Member member) {
+    PrismSheet.show<void>(
+      context: context,
+      title: context.l10n.memberGroupManageTitle,
+      builder: (_) =>
+          ManageGroupsSheet(memberId: member.id, memberName: member.name),
+    );
+  }
+}
+
+class _MemberContextAction {
+  const _MemberContextAction({
+    required this.label,
+    required this.icon,
+    required this.onSelected,
+    this.destructive = false,
+  });
+
+  final String label;
+  final IconData icon;
+  final FutureOr<void> Function() onSelected;
+  final bool destructive;
 }

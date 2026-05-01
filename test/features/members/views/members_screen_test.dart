@@ -77,6 +77,15 @@ Widget _buildSubject({
       ),
       allGroupsProvider.overrideWith((ref) => Stream.value(groups)),
       allGroupEntriesProvider.overrideWith((ref) => Stream.value(entries)),
+      memberGroupsProvider.overrideWith((ref, memberId) {
+        final groupIds = entries
+            .where((entry) => entry.memberId == memberId)
+            .map((entry) => entry.groupId)
+            .toSet();
+        return Stream.value(
+          groups.where((group) => groupIds.contains(group.id)).toList(),
+        );
+      }),
     ],
     child: child,
   );
@@ -179,5 +188,32 @@ void main() {
 
     expect(find.byType(MemberSearchSheet), findsNothing);
     expect(find.text('Member detail bob'), findsOneWidget);
+  });
+
+  testWidgets('member rows expose actions from long-press menu', (
+    tester,
+  ) async {
+    final members = [_member('alice')];
+
+    await tester.pumpWidget(
+      _buildSubject(members: members, groups: const [], entries: const []),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(Dismissible), findsNothing);
+
+    await tester.longPress(find.text('Member alice'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Set as fronter'), findsOneWidget);
+    expect(find.text('Add to group'), findsOneWidget);
+    expect(find.text('Deactivate'), findsOneWidget);
+    expect(find.text('Delete'), findsOneWidget);
+
+    await tester.tap(find.text('Add to group'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Groups'), findsOneWidget);
+    expect(find.text('No groups yet'), findsOneWidget);
   });
 }
