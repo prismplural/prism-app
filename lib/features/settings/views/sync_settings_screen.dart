@@ -31,6 +31,17 @@ import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 // Sync entity counts provider
 // ---------------------------------------------------------------------------
 
+@visibleForTesting
+bool canTriggerManualSync({
+  required bool hasHandle,
+  required bool hasRelayUrl,
+  required bool isSyncActive,
+  required bool isHandleLoading,
+}) {
+  if (isSyncActive || isHandleLoading) return false;
+  return hasHandle || hasRelayUrl;
+}
+
 class SyncEntityCounts {
   const SyncEntityCounts({required this.total, required this.last24h});
   final int total;
@@ -146,7 +157,10 @@ class SyncSettingsScreen extends ConsumerWidget {
 
     if (syncHealth == SyncHealthState.disconnected) {
       return PrismPageScaffold(
-        topBar: PrismTopBar(title: context.l10n.syncTitle, showBackButton: true),
+        topBar: PrismTopBar(
+          title: context.l10n.syncTitle,
+          showBackButton: true,
+        ),
         body: _StateMessageView(
           icon: AppIcons.syncDisabled,
           title: context.l10n.syncDisconnectedTitle,
@@ -162,7 +176,10 @@ class SyncSettingsScreen extends ConsumerWidget {
         !syncIdAsync.hasValue &&
         !isConfigured) {
       return PrismPageScaffold(
-        topBar: PrismTopBar(title: context.l10n.syncTitle, showBackButton: true),
+        topBar: PrismTopBar(
+          title: context.l10n.syncTitle,
+          showBackButton: true,
+        ),
         body: const PrismLoadingState(),
       );
     }
@@ -175,7 +192,10 @@ class SyncSettingsScreen extends ConsumerWidget {
 
     if (loadError != null && !isConfigured) {
       return PrismPageScaffold(
-        topBar: PrismTopBar(title: context.l10n.syncTitle, showBackButton: true),
+        topBar: PrismTopBar(
+          title: context.l10n.syncTitle,
+          showBackButton: true,
+        ),
         body: _StateMessageView(
           icon: AppIcons.syncProblem,
           title: context.l10n.syncUnableToLoad,
@@ -321,13 +341,20 @@ class _ConfiguredView extends ConsumerWidget {
     final syncHealth = ref.watch(syncHealthProvider);
     final handleAsync = ref.watch(prismSyncHandleProvider);
     final handle = handleAsync.value;
+    final isHandleLoading = handleAsync.isLoading && handle == null;
     final nodeId = ref.watch(nodeIdProvider).value;
     final wsConnected = ref.watch(websocketConnectedProvider);
 
     final quarantinedAsync = ref.watch(quarantinedItemsProvider);
 
     final isSyncActive = syncStatus.isSyncing;
-    final canSyncNow = handle != null && !isSyncActive;
+    final hasRelayUrl = relayUrl.isNotEmpty;
+    final canSyncNow = canTriggerManualSync(
+      hasHandle: handle != null,
+      hasRelayUrl: hasRelayUrl,
+      isSyncActive: isSyncActive,
+      isHandleLoading: isHandleLoading,
+    );
 
     return ListView(
       padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
@@ -336,6 +363,8 @@ class _ConfiguredView extends ConsumerWidget {
         _StatusCard(
           syncStatus: syncStatus,
           hasActiveHandle: handle != null,
+          handleIsLoading: isHandleLoading,
+          canAttemptReconnect: hasRelayUrl,
           wsConnected: wsConnected,
         ),
 
@@ -350,17 +379,19 @@ class _ConfiguredView extends ConsumerWidget {
                   title: context.l10n.syncNowTitle,
                   subtitle: isSyncActive
                       ? context.l10n.syncInProgress
+                      : isHandleLoading
+                      ? context.l10n.syncStatusWaiting
                       : context.l10n.syncNowSubtitle,
                   showChevron: false,
                   enabled: canSyncNow,
-                  trailing: isSyncActive
+                  trailing: isSyncActive || isHandleLoading
                       ? PrismSpinner(
                           color: Theme.of(context).colorScheme.primary,
                           size: 20,
                         )
                       : null,
                   onTap: canSyncNow
-                      ? () => _syncNow(context, ref, handle)
+                      ? () => _syncNow(context, ref, handle, relayUrl)
                       : null,
                 ),
                 if (handle != null) ...[
@@ -491,9 +522,20 @@ class _ConfiguredView extends ConsumerWidget {
   Future<void> _syncNow(
     BuildContext context,
     WidgetRef ref,
-    ffi.PrismSyncHandle handle,
+    ffi.PrismSyncHandle? currentHandle,
+    String relayUrl,
   ) async {
     try {
+      var handle = currentHandle;
+      if (handle == null) {
+        if (relayUrl.isEmpty) {
+          throw StateError('Sync relay URL is missing.');
+        }
+        handle = await ref
+            .read(prismSyncHandleProvider.notifier)
+            .createHandle(relayUrl: relayUrl);
+      }
+
       // If the WebSocket is disconnected, trigger an immediate reconnect
       // (resets exponential backoff) so real-time notifications resume.
       try {
@@ -511,7 +553,6 @@ class _ConfiguredView extends ConsumerWidget {
       }
     }
   }
-
 }
 
 class _SyncAppearanceToggle extends ConsumerWidget {
@@ -606,7 +647,10 @@ class _SyncEntityCountRows extends ConsumerWidget {
             value: context.l10n.syncEntitiesCount(counts.last24h),
           ),
           const Divider(height: 1),
-          _DetailRow(label: context.l10n.syncTotal, value: context.l10n.syncEntitiesCount(counts.total)),
+          _DetailRow(
+            label: context.l10n.syncTotal,
+            value: context.l10n.syncEntitiesCount(counts.total),
+          ),
         ],
       ),
       loading: () => Column(
@@ -636,10 +680,7 @@ class _DetailRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: theme.textTheme.bodyMedium,
-          ),
+          Text(label, style: theme.textTheme.bodyMedium),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
@@ -661,11 +702,15 @@ class _StatusCard extends StatelessWidget {
   const _StatusCard({
     required this.syncStatus,
     required this.hasActiveHandle,
+    required this.handleIsLoading,
+    required this.canAttemptReconnect,
     required this.wsConnected,
   });
 
   final SyncStatus syncStatus;
   final bool hasActiveHandle;
+  final bool handleIsLoading;
+  final bool canAttemptReconnect;
   final bool wsConnected;
 
   @override
@@ -698,16 +743,21 @@ class _StatusCard extends StatelessWidget {
       statusIcon = AppIcons.cloudDone;
       statusText = context.l10n.syncStatusLastSynced;
       statusDetail = _formatTime(syncStatus.lastSyncAt!, context);
-    } else if (hasActiveHandle) {
+    } else if (hasActiveHandle || handleIsLoading) {
       statusColor = theme.colorScheme.primary;
       statusIcon = AppIcons.cloudQueue;
       statusText = context.l10n.syncStatusReadyToSync;
       statusDetail = context.l10n.syncStatusWaiting;
-    } else {
+    } else if (canAttemptReconnect) {
       statusColor = theme.colorScheme.outline;
       statusIcon = AppIcons.cloudOff;
       statusText = context.l10n.syncStatusNeedsReconnect;
       statusDetail = context.l10n.syncStatusTapToReconnect;
+    } else {
+      statusColor = theme.colorScheme.outline;
+      statusIcon = AppIcons.cloudOff;
+      statusText = context.l10n.syncStatusNeedsReconnect;
+      statusDetail = '';
     }
 
     return Padding(
