@@ -898,8 +898,23 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     ref.invalidate(relayUrlProvider);
     ref.invalidate(syncIdProvider);
 
-    // Cache a device-bound wrapped DEK so launches bypass Argon2id.
-    await cacheRuntimeKeys(handle, ref.read(databaseProvider));
+    // From here on, the snapshot has been imported and applied locally. These
+    // finishing steps improve startup/sync continuity, but they must not turn
+    // a restored device back into snapshotFailure and strand it in onboarding.
+    var syncIncomplete = false;
+
+    // Cache a device-bound wrapped DEK so launches bypass Argon2id. Non-fatal:
+    // if the cache write fails, the next launch can still recover through the
+    // mnemonic + PIN unlock sheet because wrapped credentials are durable.
+    try {
+      await cacheRuntimeKeys(handle, ref.read(databaseProvider));
+    } catch (e, st) {
+      ErrorReportingService.instance.report(
+        'cacheRuntimeKeys after pairing failed (non-fatal): $e',
+        severity: ErrorSeverity.warning,
+        stackTrace: st,
+      );
+    }
 
     // Store Device 1's PIN as this device's app lock PIN so the user
     // has one PIN across all devices. Non-fatal: credentials are already
@@ -926,7 +941,16 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     // next epoch immediately after credentials are exchanged; starting the
     // auto-sync driver before bootstrap can race that epoch catch-up sync
     // against the snapshot apply path.
-    await _enableAutoSync(handle);
+    try {
+      await _enableAutoSync(handle);
+    } catch (e, st) {
+      syncIncomplete = true;
+      ErrorReportingService.instance.report(
+        'setAutoSync after pairing failed (non-fatal): $e',
+        severity: ErrorSeverity.warning,
+        stackTrace: st,
+      );
+    }
 
     if (_generation != myGeneration) return;
 
@@ -934,13 +958,38 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     // trigger. Run one explicit catch-up now so the joiner recovers the
     // initiator's post-pairing epoch rotation and applies any rows that landed
     // after the snapshot was cut.
-    await _runPostBootstrapCatchUp(handle);
+    try {
+      await _runPostBootstrapCatchUp(handle);
+    } on TimeoutException catch (e, st) {
+      syncIncomplete = true;
+      if (_generation == myGeneration) {
+        progressNotifier.markTimedOut();
+      }
+      ErrorReportingService.instance.report(
+        'Post-pairing catch-up timed out after snapshot apply '
+        '(non-fatal): $e',
+        severity: ErrorSeverity.warning,
+        stackTrace: st,
+      );
+    } catch (e, st) {
+      final structuredError = PrismSyncStructuredError.tryParse(e);
+      if (_isEpochVerificationFailure(structuredError)) {
+        Error.throwWithStackTrace(e, st);
+      }
+      syncIncomplete = true;
+      ErrorReportingService.instance.report(
+        'Post-pairing catch-up failed after snapshot apply '
+        '(non-fatal): $e',
+        severity: ErrorSeverity.warning,
+        stackTrace: st,
+      );
+    }
 
     if (_generation != myGeneration) return;
 
-    // Snapshot apply and the immediate post-pairing catch-up both succeeded.
-    // ACK now so failures in the catch-up path can still route to
-    // snapshotFailure and retry against the still-retained relay snapshot.
+    // Snapshot apply succeeded. ACK now so the relay can discard the retained
+    // bootstrap snapshot; transient catch-up failures above do not need a
+    // snapshot retry because the restored baseline is already local.
     // Best-effort: errors here don't undo a good pairing, and older relays
     // respond 405 which the FFI folds to Ok.
     try {
@@ -964,7 +1013,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     state = state.copyWith(
       step: PairingStep.success,
       counts: counts,
-      syncIncomplete: false,
+      syncIncomplete: syncIncomplete,
     );
   }
 
