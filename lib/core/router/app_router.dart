@@ -446,8 +446,11 @@ final routerProvider = Provider<GoRouter>((ref) {
                       ),
                       GoRoute(
                         path: 'sleep',
-                        builder: (context, state) =>
-                            const SleepFeatureSettingsScreen(),
+                        builder: (context, state) => SleepFeatureSettingsScreen(
+                          args: state.extra is SleepFeatureSettingsArgs
+                              ? state.extra as SleepFeatureSettingsArgs
+                              : null,
+                        ),
                       ),
                       GoRoute(
                         path: 'polls',
