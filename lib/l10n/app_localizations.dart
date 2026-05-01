@@ -3722,6 +3722,48 @@ abstract class AppLocalizations {
   /// **'Error saving session: {error}'**
   String frontingErrorSavingSession(Object error);
 
+  /// Floating button label on active session detail to end the session
+  ///
+  /// In en, this message translates to:
+  /// **'End session'**
+  String get frontingEndSessionButton;
+
+  /// Toast confirming a fronting session was ended
+  ///
+  /// In en, this message translates to:
+  /// **'Ended {member}\'s session'**
+  String frontingEndSessionEndedToast(String member);
+
+  /// Title of dialog shown when ending the only active session
+  ///
+  /// In en, this message translates to:
+  /// **'Who\'s fronting next?'**
+  String get frontingNextFronterTitle;
+
+  /// Body of next-fronter dialog
+  ///
+  /// In en, this message translates to:
+  /// **'No one will be fronting after this.'**
+  String get frontingNextFronterBody;
+
+  /// Dialog action: open the new-front sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a fronter'**
+  String get frontingNextFronterPick;
+
+  /// Dialog action: start an Unknown sentinel front
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown'**
+  String get frontingNextFronterUnknown;
+
+  /// Dialog action: end the session, leave no one fronting
+  ///
+  /// In en, this message translates to:
+  /// **'End without fronting'**
+  String get frontingNextFronterEnd;
+
   /// Tooltip on edit button in session detail screen
   ///
   /// In en, this message translates to:

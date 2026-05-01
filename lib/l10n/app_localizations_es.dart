@@ -2133,6 +2133,29 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String get frontingEndSessionButton => 'End session';
+
+  @override
+  String frontingEndSessionEndedToast(String member) {
+    return 'Ended $member\'s session';
+  }
+
+  @override
+  String get frontingNextFronterTitle => 'Who\'s fronting next?';
+
+  @override
+  String get frontingNextFronterBody => 'No one will be fronting after this.';
+
+  @override
+  String get frontingNextFronterPick => 'Pick a fronter';
+
+  @override
+  String get frontingNextFronterUnknown => 'Unknown';
+
+  @override
+  String get frontingNextFronterEnd => 'End without fronting';
+
+  @override
   String get frontingSessionDetailEditTooltip => 'Editar';
 
   @override
