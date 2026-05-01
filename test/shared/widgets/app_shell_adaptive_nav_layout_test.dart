@@ -8,6 +8,7 @@ import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
+import 'package:prism_plurality/features/fronting/migration/providers/fronting_migration_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pk_auto_poll_provider.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
@@ -334,6 +335,14 @@ void main() {
               activeSessionProvider.overrideWith((ref) => Stream.value(null)),
               allMembersProvider.overrideWith((ref) => Stream.value(const [])),
               unreadConversationCountProvider.overrideWith((ref) => 0),
+              // Pre-existing test setup didn't override this. After commit
+              // a1cbd1a1 the AppShell auto-presents the per-member fronting
+              // upgrade modal whenever the gate isn't `complete`, which
+              // intercepts the More-tabs tap and prevents the navbar from
+              // expanding. Force the gate to complete here so the modal
+              // doesn't surface during the test.
+              frontingMigrationGateProvider
+                  .overrideWith((ref) => FrontingMigrationGateStatus.complete),
             ],
             child: MaterialApp.router(
               localizationsDelegates: AppLocalizations.localizationsDelegates,
