@@ -2804,6 +2804,39 @@
       }
     }
   },
+  "frontingEndSessionButton": "End session",
+  "@frontingEndSessionButton": {
+    "description": "Floating button label on active session detail to end the session"
+  },
+  "frontingEndSessionEndedToast": "Ended {member}'s session",
+  "@frontingEndSessionEndedToast": {
+    "description": "Toast confirming a fronting session was ended",
+    "placeholders": {
+      "member": {
+        "type": "String"
+      }
+    }
+  },
+  "frontingNextFronterTitle": "Who's fronting next?",
+  "@frontingNextFronterTitle": {
+    "description": "Title of dialog shown when ending the only active session"
+  },
+  "frontingNextFronterBody": "No one will be fronting after this.",
+  "@frontingNextFronterBody": {
+    "description": "Body of next-fronter dialog"
+  },
+  "frontingNextFronterPick": "Pick a fronter",
+  "@frontingNextFronterPick": {
+    "description": "Dialog action: open the new-front sheet"
+  },
+  "frontingNextFronterUnknown": "Unknown",
+  "@frontingNextFronterUnknown": {
+    "description": "Dialog action: start an Unknown sentinel front"
+  },
+  "frontingNextFronterEnd": "End without fronting",
+  "@frontingNextFronterEnd": {
+    "description": "Dialog action: end the session, leave no one fronting"
+  },
   "frontingSessionDetailEditTooltip": "Edit",
   "@frontingSessionDetailEditTooltip": {
     "description": "Tooltip on edit button in session detail screen"
