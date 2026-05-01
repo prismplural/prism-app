@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
@@ -215,6 +216,41 @@ void main() {
 
     expect(find.text('Groups'), findsOneWidget);
     expect(find.text('No groups yet'), findsOneWidget);
+  });
+
+  testWidgets('member long-press menu emits selection haptic', (tester) async {
+    final hapticCalls = <MethodCall>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+          if (call.method == 'HapticFeedback.vibrate') {
+            hapticCalls.add(call);
+          }
+          return null;
+        });
+    addTearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null);
+    });
+
+    await tester.pumpWidget(
+      _buildSubject(
+        members: [_member('alice')],
+        groups: const [],
+        entries: const [],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.longPress(find.text('Member alice'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Set as fronter'), findsOneWidget);
+    expect(
+      hapticCalls.any(
+        (call) => call.arguments == 'HapticFeedbackType.selectionClick',
+      ),
+      isTrue,
+    );
   });
 
   testWidgets('archive action confirms before changing member state', (

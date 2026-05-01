@@ -6,6 +6,7 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
+import 'package:prism_plurality/shared/utils/haptics.dart';
 
 /// Direction the popup opens relative to the anchor.
 enum BlurPopupDirection { up, down }
@@ -112,14 +113,16 @@ class BlurPopupAnchorState extends State<BlurPopupAnchor>
   }
 
   /// Programmatically show the popup. Useful with [BlurPopupTrigger.manual].
-  void show() => _showPopup();
+  void show() {
+    _showPopup();
+  }
 
-  void _showPopup() {
-    if (_overlayEntry != null) return; // already showing
+  bool _showPopup() {
+    if (_overlayEntry != null) return false; // already showing
 
     final renderBox =
         _anchorKey.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox == null) return;
+    if (renderBox == null) return false;
 
     final overlay = Overlay.of(context);
     final overlayRenderBox = overlay.context.findRenderObject() as RenderBox?;
@@ -186,6 +189,16 @@ class BlurPopupAnchorState extends State<BlurPopupAnchor>
 
     overlay.insert(_overlayEntry!);
     _animController.forward(from: 0);
+    return true;
+  }
+
+  void _handleLongPress() {
+    final didOpen = _showPopup();
+    if (didOpen) Haptics.selection();
+  }
+
+  void _handleTap() {
+    _showPopup();
   }
 
   Future<void> _removeOverlay({required bool animate}) async {
@@ -207,9 +220,9 @@ class BlurPopupAnchorState extends State<BlurPopupAnchor>
       child: TextFieldTapRegion(
         child: GestureDetector(
           key: _anchorKey,
-          onTap: widget.trigger == BlurPopupTrigger.tap ? _showPopup : null,
+          onTap: widget.trigger == BlurPopupTrigger.tap ? _handleTap : null,
           onLongPress: widget.trigger == BlurPopupTrigger.longPress
-              ? _showPopup
+              ? _handleLongPress
               : null,
           behavior: widget.trigger == BlurPopupTrigger.manual
               ? null
