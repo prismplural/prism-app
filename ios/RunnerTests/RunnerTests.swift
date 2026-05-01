@@ -90,4 +90,55 @@ class RunnerTests: XCTestCase {
     }
   }
 
+  func testSensitiveFileProtectionPolicyDoesNotDowngradeProtectedFiles() throws {
+    XCTAssertFalse(
+      SensitiveFileProtection.shouldUpgrade(.complete),
+      "Complete protection must not be downgraded"
+    )
+    XCTAssertFalse(
+      SensitiveFileProtection.shouldUpgrade(.completeUnlessOpen),
+      "Complete-unless-open protection must not be downgraded"
+    )
+    XCTAssertFalse(
+      SensitiveFileProtection.shouldUpgrade(.completeUntilFirstUserAuthentication),
+      "The baseline protection class should be left unchanged"
+    )
+    XCTAssertTrue(SensitiveFileProtection.shouldUpgrade(.none))
+    XCTAssertTrue(SensitiveFileProtection.shouldUpgrade(nil))
+  }
+
+  func testSensitiveFileProtectionAppliesBaselineToDirectory() throws {
+    let root = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+      .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    try FileManager.default.createDirectory(
+      at: root,
+      withIntermediateDirectories: true
+    )
+
+    try SensitiveFileProtection.applyMinimumProtection(to: root)
+
+    let protection = try SensitiveFileProtection.protectionClass(for: root)
+    XCTAssertTrue(
+      SensitiveFileProtection.meetsMinimum(protection),
+      "Expected \(root.path) to have at least baseline iOS file protection"
+    )
+  }
+
+  func testSensitiveFileProtectionUsesParentForFutureDatabaseFile() throws {
+    let root = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+      .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    try FileManager.default.createDirectory(
+      at: root,
+      withIntermediateDirectories: true
+    )
+    let futureDatabase = root.appendingPathComponent("prism.db")
+
+    try SensitiveFileProtection.applyMinimumProtection(to: futureDatabase)
+
+    let status = try SensitiveFileProtection.protectionStatus(for: futureDatabase)
+    XCTAssertEqual(status["exists"] as? Bool, false)
+    XCTAssertEqual(status["target_path"] as? String, root.path)
+    XCTAssertEqual(status["meets_minimum"] as? Bool, true)
+  }
+
 }

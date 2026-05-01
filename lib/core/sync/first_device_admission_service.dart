@@ -90,10 +90,12 @@ class FirstDeviceAdmissionService {
       return Map<String, dynamic>.from(result as Map);
     } on MissingPluginException {
       return null;
-    } on PlatformException {
-      return null;
-    } catch (_) {
-      return null;
+    } on PlatformException catch (e) {
+      final code = e.code.toLowerCase();
+      if (code == 'unsupported' || code == 'missing_api') {
+        return null;
+      }
+      rethrow;
     }
   }
 

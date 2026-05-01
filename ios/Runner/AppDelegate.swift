@@ -93,6 +93,152 @@ enum BackupExclusionPathValidator {
   }
 }
 
+enum SensitiveFileProtection {
+  static let minimumProtection = URLFileProtection.completeUntilFirstUserAuthentication
+  private static let creationProtection = FileProtectionType.completeUntilFirstUserAuthentication
+  private static let databaseNames = ["prism.db", "prism_sync.db"]
+  private static let sqliteSidecarSuffixes = ["", "-wal", "-shm"]
+
+  static func applyKnownSensitiveProtection(fileManager: FileManager = .default) {
+    for directory in knownSensitiveDirectories(fileManager: fileManager) {
+      do {
+        try createProtectedDirectoryIfNeeded(at: directory, fileManager: fileManager)
+      } catch {
+        print("[FILE_PROTECTION] Failed to protect directory \(directory.path): \(error)")
+      }
+    }
+
+    for databaseURL in knownSensitiveDatabaseURLs(fileManager: fileManager) {
+      do {
+        try applyMinimumProtection(to: databaseURL, fileManager: fileManager)
+      } catch {
+        print("[FILE_PROTECTION] Failed to protect database path \(databaseURL.path): \(error)")
+      }
+    }
+  }
+
+  static func applyMinimumProtection(
+    to url: URL,
+    fileManager: FileManager = .default
+  ) throws {
+    guard let targetURL = protectionTarget(for: url, fileManager: fileManager) else {
+      return
+    }
+    let current = try protectionClass(for: targetURL)
+    guard shouldUpgrade(current) else { return }
+    try (targetURL as NSURL).setResourceValue(
+      minimumProtection,
+      forKey: .fileProtectionKey
+    )
+  }
+
+  static func protectionStatus(
+    for url: URL,
+    fileManager: FileManager = .default
+  ) throws -> [String: Any] {
+    let targetURL = protectionTarget(for: url, fileManager: fileManager)
+    let protection = try targetURL.flatMap { try protectionClass(for: $0) }
+    return [
+      "path": url.path,
+      "target_path": targetURL?.path ?? NSNull(),
+      "exists": fileManager.fileExists(atPath: url.path),
+      "protection": protection?.rawValue ?? NSNull(),
+      "minimum_protection": minimumProtection.rawValue,
+      "meets_minimum": meetsMinimum(protection),
+    ]
+  }
+
+  static func protectionClass(for url: URL) throws -> URLFileProtection? {
+    try url.resourceValues(forKeys: [.fileProtectionKey]).fileProtection
+  }
+
+  static func meetsMinimum(_ protection: URLFileProtection?) -> Bool {
+    guard let protection else { return false }
+    return protection != .none
+  }
+
+  static func shouldUpgrade(_ protection: URLFileProtection?) -> Bool {
+    guard let protection else { return true }
+    return protection == .none
+  }
+
+  private static func createProtectedDirectoryIfNeeded(
+    at url: URL,
+    fileManager: FileManager
+  ) throws {
+    try fileManager.createDirectory(
+      at: url,
+      withIntermediateDirectories: true,
+      attributes: [.protectionKey: creationProtection]
+    )
+    try applyMinimumProtection(to: url, fileManager: fileManager)
+  }
+
+  private static func knownSensitiveDirectories(fileManager: FileManager) -> [URL] {
+    var directories: [URL] = []
+    if let appSupport = fileManager.urls(
+      for: .applicationSupportDirectory,
+      in: .userDomainMask
+    ).first {
+      directories.append(appSupport)
+      directories.append(appSupport.appendingPathComponent("prism_media", isDirectory: true))
+    }
+    if let documents = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first {
+      directories.append(documents)
+    }
+    return directories
+  }
+
+  private static func knownSensitiveDatabaseURLs(fileManager: FileManager) -> [URL] {
+    guard let documents = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
+      return []
+    }
+    return databaseNames.flatMap { name in
+      sqliteSidecarSuffixes.map { suffix in
+        documents.appendingPathComponent("\(name)\(suffix)")
+      }
+    }
+  }
+
+  private static func protectionTarget(for url: URL, fileManager: FileManager) -> URL? {
+    if fileManager.fileExists(atPath: url.path) {
+      return url
+    }
+    let parent = url.deletingLastPathComponent()
+    return fileManager.fileExists(atPath: parent.path) ? parent : nil
+  }
+}
+
+enum PlatformAttestationError: Error, LocalizedError {
+  case missingAPI(String)
+  case unsupported(String)
+  case transientFailure(String)
+  case permanentFailure(String)
+
+  var flutterCode: String {
+    switch self {
+    case .missingAPI:
+      return "missing_api"
+    case .unsupported:
+      return "unsupported"
+    case .transientFailure:
+      return "transient_failure"
+    case .permanentFailure:
+      return "permanent_failure"
+    }
+  }
+
+  var errorDescription: String? {
+    switch self {
+    case .missingAPI(let message),
+         .unsupported(let message),
+         .transientFailure(let message),
+         .permanentFailure(let message):
+      return message
+    }
+  }
+}
+
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   private var screenshotEventSink: FlutterEventSink?
@@ -110,6 +256,7 @@ enum BackupExclusionPathValidator {
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
+    SensitiveFileProtection.applyKnownSensitiveProtection()
     NotificationCenter.default.addObserver(
       self,
       selector: #selector(screenshotDetected),
@@ -152,7 +299,11 @@ enum BackupExclusionPathValidator {
         return
       }
       guard let self else {
-        result(nil)
+        result(FlutterError(
+          code: "transient_failure",
+          message: "AppDelegate unavailable",
+          details: nil
+        ))
         return
       }
       let arguments = call.arguments as? [String: Any] ?? [:]
@@ -166,18 +317,26 @@ enum BackupExclusionPathValidator {
         !nonce.isEmpty,
         !registrationKeyBundleHash.isEmpty
       else {
-        result(nil)
+        result(FlutterError(
+          code: "permanent_failure",
+          message: "sync_id, device_id, nonce, and registration_key_bundle_hash are required",
+          details: nil
+        ))
         return
       }
 
       Task { @MainActor in
-        let proof = await self.collectFirstDeviceAdmissionProof(
-          syncId: syncId,
-          deviceId: deviceId,
-          nonce: nonce,
-          registrationKeyBundleHash: registrationKeyBundleHash
-        )
-        result(proof)
+        do {
+          let proof = try await self.collectFirstDeviceAdmissionProof(
+            syncId: syncId,
+            deviceId: deviceId,
+            nonce: nonce,
+            registrationKeyBundleHash: registrationKeyBundleHash
+          )
+          result(proof)
+        } catch {
+          result(self.firstDeviceAdmissionFlutterError(from: error))
+        }
       }
     }
     runtimeDekWrapChannel = FlutterMethodChannel(
@@ -233,7 +392,7 @@ enum BackupExclusionPathValidator {
       binaryMessenger: registrar.messenger()
     )
     fileUtilsChannel.setMethodCallHandler { call, result in
-      guard call.method == "excludeFromBackup" else {
+      guard call.method == "excludeFromBackup" || call.method == "fileProtectionStatus" else {
         result(FlutterMethodNotImplemented)
         return
       }
@@ -244,10 +403,20 @@ enum BackupExclusionPathValidator {
       }
       do {
         var url = try BackupExclusionPathValidator.validatedURL(for: path)
-        var resourceValues = URLResourceValues()
-        resourceValues.isExcludedFromBackup = true
-        try url.setResourceValues(resourceValues)
-        result(nil)
+        try SensitiveFileProtection.applyMinimumProtection(to: url)
+        switch call.method {
+        case "excludeFromBackup":
+          if FileManager.default.fileExists(atPath: url.path) {
+            var resourceValues = URLResourceValues()
+            resourceValues.isExcludedFromBackup = true
+            try url.setResourceValues(resourceValues)
+          }
+          result(nil)
+        case "fileProtectionStatus":
+          result(try SensitiveFileProtection.protectionStatus(for: url))
+        default:
+          result(FlutterMethodNotImplemented)
+        }
       } catch BackupExclusionPathError.invalidPath {
         result(FlutterError(code: "INVALID_PATH", message: "path must be absolute", details: nil))
       } catch BackupExclusionPathError.outsideAppContainer {
@@ -476,22 +645,32 @@ enum BackupExclusionPathValidator {
     deviceId: String,
     nonce: String,
     registrationKeyBundleHash: String
-  ) async -> [String: Any]? {
-    guard #available(iOS 14.0, *) else { return nil }
+  ) async throws -> [String: Any] {
+    guard #available(iOS 14.0, *) else {
+      throw PlatformAttestationError.missingAPI(
+        "App Attest requires iOS 14.0 or newer"
+      )
+    }
     let service = DCAppAttestService.shared
-    guard service.isSupported else { return nil }
+    guard service.isSupported else {
+      throw PlatformAttestationError.unsupported(
+        "App Attest is not supported on this device"
+      )
+    }
 
     guard let clientDataHash = buildAppAttestClientDataHash(
       syncId: syncId,
       deviceId: deviceId,
       nonce: nonce,
       registrationKeyBundleHash: registrationKeyBundleHash
-    ) else { return nil }
+    ) else {
+      throw PlatformAttestationError.permanentFailure(
+        "registration_key_bundle_hash must be a 32-byte hex value"
+      )
+    }
 
     for attempt in 0..<2 {
-      guard let keyId = await loadOrCreateAppAttestKeyID(recreate: attempt > 0) else {
-        return nil
-      }
+      let keyId = try await loadOrCreateAppAttestKeyID(recreate: attempt > 0)
       do {
         let attestationObject = try await attestAppAttestKey(
           keyId: keyId,
@@ -503,29 +682,83 @@ enum BackupExclusionPathValidator {
           "attestation_object": attestationObject.base64EncodedString(),
         ]
       } catch {
-        if attempt == 0 {
+        if attempt == 0 && isInvalidAppAttestKey(error) {
           clearAppAttestKeyID()
           continue
         }
-        return nil
+        throw classifyAppAttestError(error, operation: "App Attest attestation")
       }
     }
 
-    return nil
+    throw PlatformAttestationError.permanentFailure("App Attest key was rejected")
   }
 
-  private func loadOrCreateAppAttestKeyID(recreate: Bool = false) async -> String? {
+  private func loadOrCreateAppAttestKeyID(recreate: Bool = false) async throws -> String {
     if !recreate, let storedKeyID = readKeychainString() {
       return storedKeyID
     }
 
     do {
       let keyID = try await generateAppAttestKey()
-      guard storeKeychainString(keyID) else { return nil }
+      guard storeKeychainString(keyID) else {
+        throw PlatformAttestationError.transientFailure(
+          "Failed to store App Attest key ID in Keychain"
+        )
+      }
       return keyID
     } catch {
-      return nil
+      throw classifyAppAttestError(error, operation: "App Attest key generation")
     }
+  }
+
+  private func firstDeviceAdmissionFlutterError(from error: Error) -> FlutterError {
+    if let platformError = error as? PlatformAttestationError {
+      return FlutterError(
+        code: platformError.flutterCode,
+        message: platformError.localizedDescription,
+        details: nil
+      )
+    }
+    return FlutterError(
+      code: "transient_failure",
+      message: error.localizedDescription,
+      details: nil
+    )
+  }
+
+  private func classifyAppAttestError(
+    _ error: Error,
+    operation: String
+  ) -> PlatformAttestationError {
+    if let platformError = error as? PlatformAttestationError {
+      return platformError
+    }
+
+    let nsError = error as NSError
+    if nsError.domain == DCErrorDomain,
+       let code = DCError.Code(rawValue: nsError.code) {
+      switch code {
+      case .featureUnsupported:
+        return .unsupported("\(operation) is unsupported on this device")
+      case .serverUnavailable, .unknownSystemFailure:
+        return .transientFailure("\(operation) failed transiently: \(nsError.localizedDescription)")
+      case .invalidInput, .invalidKey:
+        return .permanentFailure("\(operation) failed verification: \(nsError.localizedDescription)")
+      @unknown default:
+        return .transientFailure("\(operation) failed: \(nsError.localizedDescription)")
+      }
+    }
+
+    return .transientFailure("\(operation) failed: \(error.localizedDescription)")
+  }
+
+  private func isInvalidAppAttestKey(_ error: Error) -> Bool {
+    let nsError = error as NSError
+    guard nsError.domain == DCErrorDomain,
+          let code = DCError.Code(rawValue: nsError.code) else {
+      return false
+    }
+    return code == .invalidKey
   }
 
   private func generateAppAttestKey() async throws -> String {
