@@ -21,7 +21,13 @@ void main() {
       'android/app/src/main/res/xml/backup_rules.xml',
     ).readAsStringSync();
 
-    for (final domain in const ['database', 'sharedpref', 'file', 'external']) {
+    for (final domain in const [
+      'root',
+      'database',
+      'sharedpref',
+      'file',
+      'external',
+    ]) {
       expect(
         _hasExclude(rules, domain),
         isTrue,
@@ -37,7 +43,13 @@ void main() {
     final cloudBackup = _section(rules, 'cloud-backup');
     final deviceTransfer = _section(rules, 'device-transfer');
 
-    for (final domain in const ['database', 'sharedpref', 'file', 'external']) {
+    for (final domain in const [
+      'root',
+      'database',
+      'sharedpref',
+      'file',
+      'external',
+    ]) {
       expect(
         _hasExclude(cloudBackup, domain),
         isTrue,
