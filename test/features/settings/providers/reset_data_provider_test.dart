@@ -406,6 +406,7 @@ void main() {
         ..seedSyncValue('prism_sync.registration_token', 'R1')
         ..seedSyncValue('prism_sync.runtime_dek', 'D1')
         ..seedSyncValue('prism_sync.runtime_dek_wrapped_v1', 'W1')
+        ..seedSyncValue('prism_sync.snapshot_apply_complete_v1', 'S1')
         ..seedSyncValue('prism_sync.database_key', 'KEEP1')
         ..seedSyncValue('prism_sync.database_key_staging', 'KEEP2')
         ..seedSyncValue('prism_sync.sync_database_key', 'KEEP3')
@@ -462,6 +463,12 @@ void main() {
       );
       expect(
         harness.secureStore.readSyncValue('prism_sync.runtime_dek_wrapped_v1'),
+        isNull,
+      );
+      expect(
+        harness.secureStore.readSyncValue(
+          'prism_sync.snapshot_apply_complete_v1',
+        ),
         isNull,
       );
     });

@@ -300,6 +300,7 @@ void main() {
         'prism_sync.registration_token': 'r',
         'prism_sync.runtime_dek': 'd',
         'prism_sync.runtime_dek_wrapped_v1': 'wrapped',
+        kSnapshotApplyCompleteKey: 'applied',
         'prism_sync.epoch_key_1': 'key1',
         'prism_sync.epoch_key_42': 'key42',
         'prism_sync.runtime_keys_foo': 'runtime',
@@ -311,6 +312,7 @@ void main() {
       expect(result, contains('prism_sync.registration_token'));
       expect(result, contains('prism_sync.runtime_dek'));
       expect(result, contains(kRuntimeDekWrappedKey));
+      expect(result, contains(kSnapshotApplyCompleteKey));
       expect(result, contains('prism_sync.epoch_key_1'));
       expect(result, contains('prism_sync.epoch_key_42'));
       expect(result, contains('prism_sync.runtime_keys_foo'));
@@ -590,6 +592,7 @@ void main() {
         expect(keys, contains('mnemonic'));
         expect(keys, contains('runtime_dek'));
         expect(keys, contains('runtime_dek_wrapped_v1'));
+        expect(keys, contains('snapshot_apply_complete_v1'));
       },
     );
   });
