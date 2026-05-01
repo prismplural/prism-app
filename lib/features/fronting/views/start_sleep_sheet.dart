@@ -194,17 +194,14 @@ class _StartSleepSheetState extends ConsumerState<StartSleepSheet> {
                 const SizedBox(height: 8),
                 Align(
                   alignment: Alignment.centerLeft,
-                  child: TextButton(
-                    onPressed: _saving
-                        ? null
-                        : (_isHistorical
-                            ? _exitHistorical
-                            : _enterHistorical),
-                    child: Text(
-                      _isHistorical
-                          ? l10n.cancelHistoricalSleep
-                          : l10n.logPastSleep,
-                    ),
+                  child: PrismButton(
+                    label: _isHistorical
+                        ? l10n.cancelHistoricalSleep
+                        : l10n.logPastSleep,
+                    onPressed: _isHistorical ? _exitHistorical : _enterHistorical,
+                    enabled: !_saving,
+                    tone: PrismButtonTone.subtle,
+                    density: PrismControlDensity.compact,
                   ),
                 ),
                 if (overlap) ...[

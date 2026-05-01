@@ -123,7 +123,7 @@ void main() {
       expect(find.text('Timeline'), findsOneWidget);
 
       // Each available tab gets an add button.
-      expect(find.byIcon(AppIcons.addCircleOutline), findsNWidgets(8));
+      expect(find.byIcon(AppIcons.addCircleOutline), findsNWidgets(9));
     });
 
     testWidgets('disabled features appear in Disabled Features section', (
