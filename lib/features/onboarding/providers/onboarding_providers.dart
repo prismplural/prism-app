@@ -4,13 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/core/constants/app_constants.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/core/security/secret_bytes.dart';
 import 'package:prism_plurality/core/services/auth_policy_provider.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/onboarding/models/onboarding_data_counts.dart';
 import 'package:prism_plurality/features/onboarding/providers/device_pairing_provider.dart';
-import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:uuid/uuid.dart';
@@ -318,16 +318,34 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
       final mnemonic = await ffi.generateSecretKey();
       final mnemonicWords = mnemonic.split(' ');
 
-      // 3. Convert mnemonic phrase to secret-key bytes.
-      final secretKeyBytes = await ffi.mnemonicToBytes(mnemonic: mnemonic);
+      // 3. Convert mnemonic phrase to secret-key bytes. The generated
+      // mnemonic remains as display text below until the user saves it; the
+      // FFI input copy is scrubbed as soon as conversion returns.
+      Uint8List? mnemonicBytes = secretUtf8Bytes(mnemonic);
+      Uint8List? secretKeyBytes;
+      Uint8List? pinBytes;
+      try {
+        secretKeyBytes = await ffi.mnemonicToBytes(mnemonic: mnemonicBytes);
+      } finally {
+        zeroBytesBestEffort(mnemonicBytes);
+        mnemonicBytes = null;
+      }
 
       // 4. Initialize the key hierarchy: PIN is the password, secretKey
       //    is the BIP39 entropy. This derives MEK → DEK → device keys.
-      await ffi.initialize(
-        handle: handle,
-        password: pin,
-        secretKey: secretKeyBytes,
-      );
+      try {
+        pinBytes = secretUtf8Bytes(pin);
+        await ffi.initialize(
+          handle: handle,
+          password: pinBytes,
+          secretKey: secretKeyBytes,
+        );
+      } finally {
+        zeroBytesBestEffort(pinBytes);
+        zeroBytesBestEffort(secretKeyBytes);
+        pinBytes = null;
+        secretKeyBytes = null;
+      }
 
       // 5. Drain Rust's MemorySecureStore to the platform keychain
       //    (writes wrapped_dek, dek_salt, device_secret, device_id, etc.).
@@ -344,16 +362,13 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
       // 7. PIN hash already stored by PinSetupStep.onPinEntered before
       //    calling onPinConfirmed — no second storePin() call here.
 
-      // 9. Also use the PIN as the sync auth password — record it in the
-      //    pendingMnemonicProvider so the secret-key screen can show it if
-      //    needed (not required here, but keeps state consistent).
-      ref.read(pendingMnemonicProvider.notifier).set(mnemonic);
-
-      // 9b. Record PIN as freshly verified so the 30-day check doesn't fire
+      // 9. Record PIN as freshly verified so the 30-day check doesn't fire
       //     immediately after a new install.
       await ref.read(authPolicyServiceProvider).recordPinVerified();
 
-      // 10. Store words and DEK in ephemeral state, advance step.
+      // 10. Store words and DEK in ephemeral state, advance step. The mnemonic
+      // words are retained only for the recovery-phrase display and are cleared
+      // when the user leaves the biometric setup step.
       state = state.copyWith(
         mnemonicWords: mnemonicWords,
         dekBytes: dekBytes,

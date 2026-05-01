@@ -8,6 +8,7 @@ import 'package:prism_plurality/core/constants/app_constants.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
+import 'package:prism_plurality/core/security/secret_bytes.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/core/sync/pairing_ceremony_api.dart';
 import 'package:prism_plurality/core/sync/pairing_sas_display.dart';
@@ -421,9 +422,11 @@ class DevicePairingNotifier extends Notifier<PairingState> {
 
       // PHASE 1 — Ceremony (45 s hard timeout). Credentials are not yet
       // established, so a timeout here is safe to clean up the keychain.
+      Uint8List? passwordBytes;
       try {
+        passwordBytes = secretUtf8Bytes(password);
         await pairingApi
-            .completeJoinerCeremony(handle: handle, password: password)
+            .completeJoinerCeremony(handle: handle, password: passwordBytes)
             .timeout(const Duration(seconds: 45));
         _activeCeremonyHandle = null;
       } on TimeoutException {
@@ -437,6 +440,8 @@ class DevicePairingNotifier extends Notifier<PairingState> {
           errorCode: null,
         );
         return;
+      } finally {
+        zeroBytesBestEffort(passwordBytes);
       }
 
       // Ceremony returned — credentials live in Rust's in-memory secure

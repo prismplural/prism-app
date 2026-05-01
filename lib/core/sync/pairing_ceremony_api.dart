@@ -14,7 +14,7 @@ abstract class PairingCeremonyApi {
 
   Future<String> completeJoinerCeremony({
     required ffi.PrismSyncHandle handle,
-    required String password,
+    required List<int> password,
   });
 
   Future<String> startInitiatorCeremony({
@@ -24,8 +24,8 @@ abstract class PairingCeremonyApi {
 
   Future<String> completeInitiatorCeremony({
     required ffi.PrismSyncHandle handle,
-    required String password,
-    required String mnemonic,
+    required List<int> password,
+    required List<int> mnemonic,
   });
 }
 
@@ -50,7 +50,7 @@ class FrbPairingCeremonyApi extends PairingCeremonyApi {
   @override
   Future<String> completeJoinerCeremony({
     required ffi.PrismSyncHandle handle,
-    required String password,
+    required List<int> password,
   }) {
     return ffi.completeJoinerCeremony(handle: handle, password: password);
   }
@@ -66,8 +66,8 @@ class FrbPairingCeremonyApi extends PairingCeremonyApi {
   @override
   Future<String> completeInitiatorCeremony({
     required ffi.PrismSyncHandle handle,
-    required String password,
-    required String mnemonic,
+    required List<int> password,
+    required List<int> mnemonic,
   }) {
     return ffi.completeInitiatorCeremony(
       handle: handle,

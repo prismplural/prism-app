@@ -12,6 +12,7 @@ import 'package:prism_plurality/core/constants/app_constants.dart';
 import 'package:prism_plurality/core/crypto/bip39_validate.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/security/pin_buffer.dart';
+import 'package:prism_plurality/core/security/secret_bytes.dart';
 import 'package:prism_plurality/core/sync/pairing_ceremony_api.dart';
 import 'package:prism_plurality/core/sync/pairing_sas_display.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
@@ -111,8 +112,9 @@ class _SetupDeviceSheetContentState
 
   ProviderSubscription<AsyncValue<SyncEvent>>? _uploadEventSubscription;
 
-  // Recovery phrase typed by the user; required because the mnemonic is
-  // never persisted in the keychain. Zeroed on dispose.
+  // Recovery phrase typed by the user; required because the mnemonic is never
+  // persisted in the keychain. Dart Strings cannot be zeroed, so this is kept
+  // only until completeInitiatorCeremony returns, reset, or dispose.
   String? _mnemonic;
   late final PairingCeremonyApi _pairingApi;
 
@@ -294,11 +296,21 @@ class _SetupDeviceSheetContentState
       }
 
       final pairingApi = ref.read(pairingCeremonyApiProvider);
-      await pairingApi.completeInitiatorCeremony(
-        handle: widget.handle,
-        password: pin,
-        mnemonic: mnemonic,
-      );
+      Uint8List? pinBytes;
+      Uint8List? mnemonicBytes;
+      try {
+        pinBytes = secretUtf8Bytes(pin);
+        mnemonicBytes = secretUtf8Bytes(mnemonic);
+        await pairingApi.completeInitiatorCeremony(
+          handle: widget.handle,
+          password: pinBytes,
+          mnemonic: mnemonicBytes,
+        );
+      } finally {
+        zeroBytesBestEffort(pinBytes);
+        zeroBytesBestEffort(mnemonicBytes);
+        _mnemonic = null;
+      }
 
       // Drain store after completion (may mutate epoch / credentials)
       await drainRustStore(widget.handle);

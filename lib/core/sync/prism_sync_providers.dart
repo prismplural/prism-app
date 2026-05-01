@@ -16,6 +16,8 @@ import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/diagnostics/boot_timings.dart';
 import 'package:prism_plurality/core/database/database_encryption.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
+import 'package:prism_plurality/core/security/secret_bytes.dart'
+    show secretUtf8Bytes;
 import 'package:prism_plurality/core/services/app_data_dir.dart';
 import 'package:prism_plurality/core/services/biometric_service.dart';
 import 'package:prism_plurality/core/services/biometric_service_provider.dart';
@@ -1871,29 +1873,39 @@ class SyncHealthNotifier extends Notifier<SyncHealthState> {
     if (handle == null) return false;
 
     final normalized = mnemonic.trim().toLowerCase();
+    Uint8List? mnemonicBytes;
+    Uint8List? pinBytes;
     List<int>? secretKeyBytes;
     try {
       try {
-        secretKeyBytes = Uint8List.fromList(
-          await ffi.mnemonicToBytes(mnemonic: normalized),
-        );
+        mnemonicBytes = secretUtf8Bytes(normalized);
+        secretKeyBytes = await ffi.mnemonicToBytes(mnemonic: mnemonicBytes);
       } catch (_) {
         // Invalid mnemonic — treat as failed unlock without disclosing
         // which input was wrong.
         return false;
+      } finally {
+        _zeroBytesBestEffort(mnemonicBytes);
+        mnemonicBytes = null;
       }
 
       // Unlock the key hierarchy — throws on wrong PIN or mismatched mnemonic.
       try {
+        pinBytes = secretUtf8Bytes(pin);
         await ffi.unlock(
           handle: handle,
-          password: pin,
+          password: pinBytes,
           secretKey: secretKeyBytes,
         );
       } on Exception {
         // Wrong PIN or wrong mnemonic — don't change state; UI shows a
         // generic error and lets the user retry.
         return false;
+      } finally {
+        _zeroBytesBestEffort(pinBytes);
+        _zeroBytesBestEffort(secretKeyBytes);
+        pinBytes = null;
+        secretKeyBytes = null;
       }
 
       // Configure engine and auto-sync BEFORE caching keys.
@@ -1921,10 +1933,10 @@ class SyncHealthNotifier extends Notifier<SyncHealthState> {
       // Unexpected error (mnemonicToBytes, engine config, etc.)
       return false;
     } finally {
-      // Always zero any secret-key bytes that made it into Dart memory.
-      if (secretKeyBytes != null) {
-        _zeroBytesBestEffort(secretKeyBytes);
-      }
+      // Always zero any secret bytes that made it into Dart memory.
+      _zeroBytesBestEffort(mnemonicBytes);
+      _zeroBytesBestEffort(pinBytes);
+      _zeroBytesBestEffort(secretKeyBytes);
     }
   }
 }

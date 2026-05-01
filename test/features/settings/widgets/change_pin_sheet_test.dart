@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -49,16 +50,20 @@ void _useTallViewport(WidgetTester tester) {
 void _installFfiOverrides({
   required bool unlockSucceeds,
   List<String>? capturedPins,
+  List<List<int>>? capturedPasswordBuffers,
+  List<List<int>>? capturedMnemonicBuffers,
 }) {
   ChangePinSheet.debugMnemonicToBytesOverride = ({required mnemonic}) async {
-    expect(mnemonic, _validMnemonic);
+    expect(utf8.decode(mnemonic), _validMnemonic);
+    capturedMnemonicBuffers?.add(mnemonic);
     return Uint8List.fromList(List<int>.generate(16, (i) => i));
   };
   ChangePinSheet.debugUnlockOverride =
       ({required handle, required password, required secretKey}) async {
         expect(handle, isA<_FakePrismSyncHandle>());
         expect(secretKey, hasLength(16));
-        capturedPins?.add(password);
+        capturedPins?.add(utf8.decode(password));
+        capturedPasswordBuffers?.add(password);
         if (!unlockSucceeds) {
           throw Exception('wrong pin');
         }
@@ -173,5 +178,28 @@ void main() {
     expect(find.byType(PinNumpadButton), findsNWidgets(11));
     expect(find.byType(PrismTextField), findsNothing);
     expect(find.byType(TextField), findsNothing);
+  });
+
+  testWidgets('verification FFI password and mnemonic buffers are cleared', (
+    tester,
+  ) async {
+    _useTallViewport(tester);
+    final passwordBuffers = <List<int>>[];
+    final mnemonicBuffers = <List<int>>[];
+    _installFfiOverrides(
+      unlockSucceeds: true,
+      capturedPasswordBuffers: passwordBuffers,
+      capturedMnemonicBuffers: mnemonicBuffers,
+    );
+
+    await tester.pumpWidget(_buildSheet());
+    await tester.pumpAndSettle();
+    await _advancePastMnemonicStep(tester);
+    await _tapPin(tester, '123456');
+
+    expect(passwordBuffers, hasLength(1));
+    expect(passwordBuffers.single, everyElement(0));
+    expect(mnemonicBuffers, hasLength(1));
+    expect(mnemonicBuffers.single, everyElement(0));
   });
 }

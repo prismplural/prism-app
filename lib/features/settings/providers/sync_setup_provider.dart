@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/core/constants/app_constants.dart';
 import 'package:prism_plurality/core/crypto/bip39_english_wordlist.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
+import 'package:prism_plurality/core/security/secret_bytes.dart';
 import 'package:prism_plurality/core/services/build_info.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/core/sync/drift_sync_adapter_bootstrap.dart';
@@ -150,36 +151,51 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
     state = state.copyWith(isProcessing: true, error: null);
 
     // Derive secret key bytes from mnemonic and verify against this account.
-    final Uint8List secretKeyBytes;
+    Uint8List? mnemonicBytes;
+    Uint8List? pinBytes;
+    Uint8List? secretKeyBytes;
     try {
-      secretKeyBytes = await ffi.mnemonicToBytes(mnemonic: normalized);
+      mnemonicBytes = secretUtf8Bytes(normalized);
+      secretKeyBytes = await ffi.mnemonicToBytes(mnemonic: mnemonicBytes);
     } catch (e) {
       state = state.copyWith(
         isProcessing: false,
         error: 'Check that all 12 words are correct.',
       );
       return false;
+    } finally {
+      zeroBytesBestEffort(mnemonicBytes);
+      mnemonicBytes = null;
     }
 
-    // If wrapped_dek exists, verify the phrase unlocks the existing key
-    // hierarchy before creating a new sync group. After a sync reset,
-    // wrapped_dek is gone — skip verification and go straight to createSyncGroup.
-    final wrappedDek = await secureStorage.read(key: 'prism_sync.wrapped_dek');
-    if (wrappedDek != null) {
-      try {
+    try {
+      // If wrapped_dek exists, verify the phrase unlocks the existing key
+      // hierarchy before creating a new sync group. After a sync reset,
+      // wrapped_dek is gone — skip verification and go straight to
+      // createSyncGroup.
+      final wrappedDek = await secureStorage.read(
+        key: 'prism_sync.wrapped_dek',
+      );
+      if (wrappedDek != null) {
+        pinBytes = secretUtf8Bytes(pin);
         await ffi.unlock(
           handle: handle,
-          password: pin,
+          password: pinBytes,
           secretKey: secretKeyBytes,
         );
-      } catch (e) {
-        state = state.copyWith(
-          isProcessing: false,
-          error:
-              'Incorrect PIN or recovery phrase. Check each word and try again.',
-        );
-        return false;
       }
+    } catch (e) {
+      state = state.copyWith(
+        isProcessing: false,
+        error:
+            'Incorrect PIN or recovery phrase. Check each word and try again.',
+      );
+      return false;
+    } finally {
+      zeroBytesBestEffort(pinBytes);
+      zeroBytesBestEffort(secretKeyBytes);
+      pinBytes = null;
+      secretKeyBytes = null;
     }
 
     return _complete(pin, normalized);
@@ -226,15 +242,25 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
         registrationToken: state.registrationToken,
       );
 
-      // createSyncGroup handles key hierarchy creation internally.
-      // Pass the mnemonic so it uses the one the user entered (which they
-      // already verified they have) rather than generating a new one.
-      final inviteJson = await ffi.createSyncGroup(
-        handle: handle,
-        password: pin,
-        relayUrl: state.relayUrl,
-        mnemonic: mnemonic,
-      );
+      // createSyncGroup handles key hierarchy creation internally. Pass
+      // byte buffers so the FFI input copies can be scrubbed immediately
+      // after the call returns.
+      Uint8List? pinBytes;
+      Uint8List? mnemonicBytes;
+      String inviteJson;
+      try {
+        pinBytes = secretUtf8Bytes(pin);
+        mnemonicBytes = secretUtf8Bytes(mnemonic);
+        inviteJson = await ffi.createSyncGroup(
+          handle: handle,
+          password: pinBytes,
+          relayUrl: state.relayUrl,
+          mnemonic: mnemonicBytes,
+        );
+      } finally {
+        zeroBytesBestEffort(pinBytes);
+        zeroBytesBestEffort(mnemonicBytes);
+      }
 
       // Parse the invite to extract sync_id and relay_url, then persist both
       // so relayUrlProvider and syncIdProvider survive app restarts.
