@@ -260,9 +260,11 @@ class DevicePairingNotifier extends Notifier<PairingState> {
   ) {
     return ffi.seedSecureStore(
       handle: handle,
-      entriesJson: jsonEncode({
-        'registration_token': base64Encode(utf8.encode(registrationToken)),
-      }),
+      entries: {
+        'registration_token': Uint8List.fromList(
+          utf8.encode(registrationToken),
+        ),
+      },
     );
   }
 

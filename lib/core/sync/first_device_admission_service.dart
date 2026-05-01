@@ -24,7 +24,9 @@ class FirstDeviceAdmissionService {
     if (registrationToken != null && registrationToken.isNotEmpty) {
       nonceHeaders['X-Registration-Token'] = registrationToken;
     }
-    final nonceResp = await http.get(nonceUri, headers: nonceHeaders).timeout(_httpTimeout);
+    final nonceResp = await http
+        .get(nonceUri, headers: nonceHeaders)
+        .timeout(_httpTimeout);
     if (nonceResp.statusCode < 200 || nonceResp.statusCode >= 300) {
       throw Exception(
         'Failed to prepare registration challenge: HTTP ${nonceResp.statusCode}',
@@ -43,7 +45,7 @@ class FirstDeviceAdmissionService {
       nonce: nonce,
     );
 
-    final pendingEntries = <String, String>{
+    final pendingEntries = <String, Uint8List>{
       'pending_sync_id': _encodeUtf8(syncId),
       'pending_registration_nonce_response': _encodeJson(nonceJson),
     };
@@ -53,14 +55,12 @@ class FirstDeviceAdmissionService {
       );
     }
     if (registrationToken != null && registrationToken.isNotEmpty) {
-      pendingEntries['pending_registration_token'] =
-          _encodeUtf8(registrationToken);
+      pendingEntries['pending_registration_token'] = _encodeUtf8(
+        registrationToken,
+      );
     }
 
-    await ffi.seedSecureStore(
-      handle: handle,
-      entriesJson: jsonEncode(pendingEntries),
-    );
+    await ffi.seedSecureStore(handle: handle, entries: pendingEntries);
   }
 
   Future<Map<String, dynamic>?> _collectPlatformProof({
@@ -102,7 +102,7 @@ class FirstDeviceAdmissionService {
     return buffer.toString();
   }
 
-  String _encodeJson(Object value) => _encodeUtf8(jsonEncode(value));
+  Uint8List _encodeJson(Object value) => _encodeUtf8(jsonEncode(value));
 
-  String _encodeUtf8(String value) => base64Encode(utf8.encode(value));
+  Uint8List _encodeUtf8(String value) => Uint8List.fromList(utf8.encode(value));
 }
