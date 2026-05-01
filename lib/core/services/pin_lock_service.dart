@@ -15,7 +15,7 @@ const _pinHashVersionKey = 'prism.pin_hash_version';
 /// Service for PIN lock and biometric authentication.
 class PinLockService {
   PinLockService({LocalAuthentication? localAuth})
-      : _localAuth = localAuth ?? LocalAuthentication();
+    : _localAuth = localAuth ?? LocalAuthentication();
 
   final LocalAuthentication _localAuth;
 
@@ -30,6 +30,16 @@ class PinLockService {
 
   /// Hash a PIN with Argon2id (slow hash, resistant to brute force).
   static List<int> hashPinArgon2id(String pin, String salt) {
+    final pinBytes = Uint8List.fromList(utf8.encode(pin));
+    try {
+      return hashPinArgon2idBytes(pinBytes, salt);
+    } finally {
+      pinBytes.fillRange(0, pinBytes.length, 0);
+    }
+  }
+
+  /// Hash PIN bytes with Argon2id (slow hash, resistant to brute force).
+  static List<int> hashPinArgon2idBytes(List<int> pinBytes, String salt) {
     final argon2 = hashlib.Argon2(
       hashLength: 32,
       iterations: 3,
@@ -38,7 +48,7 @@ class PinLockService {
       type: hashlib.Argon2Type.argon2id,
       salt: utf8.encode(salt),
     );
-    final output = argon2.convert(utf8.encode(pin));
+    final output = argon2.convert(pinBytes);
     return output.bytes;
   }
 
@@ -75,8 +85,18 @@ class PinLockService {
   /// crash after hash but before salt), verifyStoredPin won't misinterpret
   /// an Argon2id hash as legacy SHA-256.
   Future<void> storePin(String pin) async {
+    final pinBytes = Uint8List.fromList(utf8.encode(pin));
+    try {
+      await storePinBytes(pinBytes);
+    } finally {
+      pinBytes.fillRange(0, pinBytes.length, 0);
+    }
+  }
+
+  /// Store new PIN bytes (hashed with Argon2id) in secure storage.
+  Future<void> storePinBytes(List<int> pinBytes) async {
     final salt = _generateSalt();
-    final hash = hashPinArgon2id(pin, salt);
+    final hash = hashPinArgon2idBytes(pinBytes, salt);
     final hashBase64 = base64Encode(Uint8List.fromList(hash));
     await secureStorage.write(key: _pinHashVersionKey, value: '2');
     await secureStorage.write(key: _pinHashKey, value: hashBase64);

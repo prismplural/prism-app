@@ -108,6 +108,30 @@ void main() {
     });
   });
 
+  group('hashPinArgon2idBytes', () {
+    test('matches String API for UTF-8 encoded PIN bytes', () {
+      const pin = '123456';
+      const salt = 'salt-abc';
+      final pinBytes = Uint8List.fromList(utf8.encode(pin));
+      addTearDown(() => pinBytes.fillRange(0, pinBytes.length, 0));
+
+      final stringHash = PinLockService.hashPinArgon2id(pin, salt);
+      final bytesHash = PinLockService.hashPinArgon2idBytes(pinBytes, salt);
+
+      expect(bytesHash, equals(stringHash));
+    });
+
+    test('does not mutate caller-owned PIN bytes', () {
+      final pinBytes = Uint8List.fromList(utf8.encode('654321'));
+      addTearDown(() => pinBytes.fillRange(0, pinBytes.length, 0));
+      final original = List<int>.from(pinBytes);
+
+      PinLockService.hashPinArgon2idBytes(pinBytes, 'salt-abc');
+
+      expect(pinBytes, equals(original));
+    });
+  });
+
   // ── verifyPin ─────────────────────────────────────────────────────────────
 
   group('verifyPin', () {
@@ -179,27 +203,30 @@ void main() {
       expect(_simulateVerifyStoredPin(service, '0000', storage), isFalse);
     });
 
-    test('no version (legacy), correct PIN returns true and migrates to Argon2id', () {
-      const pin = '1234';
-      const salt = 'legacy-salt';
-      // Store SHA-256 hash (legacy format, no version key)
-      final legacyHash = service.hashPin(pin, salt);
-      final legacyHashBase64 = base64Encode(legacyHash);
+    test(
+      'no version (legacy), correct PIN returns true and migrates to Argon2id',
+      () {
+        const pin = '1234';
+        const salt = 'legacy-salt';
+        // Store SHA-256 hash (legacy format, no version key)
+        final legacyHash = service.hashPin(pin, salt);
+        final legacyHashBase64 = base64Encode(legacyHash);
 
-      final storage = <String, String>{
-        'prism.pin_hash': legacyHashBase64,
-        'prism.pin_salt': salt,
-      };
+        final storage = <String, String>{
+          'prism.pin_hash': legacyHashBase64,
+          'prism.pin_salt': salt,
+        };
 
-      // Should succeed
-      expect(_simulateVerifyStoredPin(service, pin, storage), isTrue);
+        // Should succeed
+        expect(_simulateVerifyStoredPin(service, pin, storage), isTrue);
 
-      // Should have migrated: version is now '2'
-      expect(storage['prism.pin_hash_version'], '2');
+        // Should have migrated: version is now '2'
+        expect(storage['prism.pin_hash_version'], '2');
 
-      // Hash should have been updated (no longer the SHA-256 value)
-      expect(storage['prism.pin_hash'], isNot(equals(legacyHashBase64)));
-    });
+        // Hash should have been updated (no longer the SHA-256 value)
+        expect(storage['prism.pin_hash'], isNot(equals(legacyHashBase64)));
+      },
+    );
 
     test('no version (legacy), wrong PIN returns false', () {
       const pin = '1234';
