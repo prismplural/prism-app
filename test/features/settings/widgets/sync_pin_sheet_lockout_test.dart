@@ -59,7 +59,7 @@ class _AcceptMnemonicApi extends PairingCeremonyApi {
   @override
   Future<String> completeJoinerCeremony({
     required ffi.PrismSyncHandle handle,
-    required String password,
+    required List<int> password,
   }) => throw UnimplementedError();
 
   @override
@@ -71,8 +71,8 @@ class _AcceptMnemonicApi extends PairingCeremonyApi {
   @override
   Future<String> completeInitiatorCeremony({
     required ffi.PrismSyncHandle handle,
-    required String password,
-    required String mnemonic,
+    required List<int> password,
+    required List<int> mnemonic,
   }) => throw UnimplementedError();
 }
 

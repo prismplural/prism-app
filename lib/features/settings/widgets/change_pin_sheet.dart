@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/core/crypto/bip39_validate.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/security/pin_buffer.dart';
+import 'package:prism_plurality/core/security/secret_bytes.dart';
 import 'package:prism_plurality/core/sharing/sharing_providers.dart';
 import 'package:prism_plurality/features/settings/providers/pin_lock_providers.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
@@ -24,13 +25,13 @@ enum _NewPinPhase { newPin, confirmPin }
 
 @visibleForTesting
 typedef ChangePinMnemonicToBytes =
-    Future<typed_data.Uint8List> Function({required String mnemonic});
+    Future<typed_data.Uint8List> Function({required List<int> mnemonic});
 
 @visibleForTesting
 typedef ChangePinUnlock =
     Future<void> Function({
       required ffi.PrismSyncHandle handle,
-      required String password,
+      required List<int> password,
       required List<int> secretKey,
     });
 
@@ -91,6 +92,8 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
   // Step 1 — recovery phrase entry
   final _mnemonicController = TextEditingController();
   String? _mnemonicError;
+  // Dart Strings cannot be zeroed; this is retained only between recovery
+  // phrase entry and current-PIN verification, then cleared.
   String? _mnemonic;
 
   // Step 2
@@ -191,7 +194,7 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
     }
 
     _verifiedCurrentPin.replaceWith(_currentPin);
-    String? pin = _currentPin.consumeStringAndClear();
+    typed_data.Uint8List? pinBytes = _currentPin.consumeBytesAndClear();
     final mnemonic = _mnemonic;
     if (mnemonic == null) {
       setState(() {
@@ -199,7 +202,8 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
         _step = _Step.enterMnemonic;
         _mnemonicError = context.l10n.settingsChangePinSessionExpired;
       });
-      pin = null;
+      zeroBytesBestEffort(pinBytes);
+      pinBytes = null;
       return;
     }
 
@@ -208,11 +212,18 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
       _currentError = null;
     });
 
+    typed_data.Uint8List? mnemonicBytes;
     List<int>? secretKeyBytes;
     try {
       final mnemonicToBytes =
           ChangePinSheet.debugMnemonicToBytesOverride ?? ffi.mnemonicToBytes;
-      secretKeyBytes = await mnemonicToBytes(mnemonic: mnemonic);
+      try {
+        mnemonicBytes = secretUtf8Bytes(mnemonic);
+        secretKeyBytes = await mnemonicToBytes(mnemonic: mnemonicBytes);
+      } finally {
+        zeroBytesBestEffort(mnemonicBytes);
+        mnemonicBytes = null;
+      }
       if (!mounted) {
         secretKeyBytes.fillRange(0, secretKeyBytes.length, 0);
         return;
@@ -231,7 +242,11 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
 
       try {
         final unlock = ChangePinSheet.debugUnlockOverride ?? ffi.unlock;
-        await unlock(handle: handle, password: pin, secretKey: secretKeyBytes);
+        await unlock(
+          handle: handle,
+          password: pinBytes,
+          secretKey: secretKeyBytes,
+        );
       } on Exception {
         // Use a generic verification error so we don't disclose whether
         // the PIN or the mnemonic was wrong.
@@ -275,7 +290,7 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
         );
       });
     } finally {
-      pin = null;
+      zeroBytesBestEffort(pinBytes);
     }
   }
 
