@@ -16,7 +16,10 @@ class FirstDeviceAdmissionService {
     required String relayUrl,
     String? registrationToken,
   }) async {
-    final deviceId = await ffi.preparePendingDeviceIdentity(handle: handle);
+    final pendingIdentity = _PendingDeviceIdentity.decode(
+      await ffi.preparePendingDeviceIdentity(handle: handle),
+    );
+    final deviceId = pendingIdentity.deviceId;
     final syncId = _generateSyncId();
 
     final nonceUri = Uri.parse('$relayUrl/v1/sync/$syncId/register-nonce');
@@ -43,6 +46,7 @@ class FirstDeviceAdmissionService {
       syncId: syncId,
       deviceId: deviceId,
       nonce: nonce,
+      registrationKeyBundleHash: pendingIdentity.registrationKeyBundleHash,
     );
 
     final pendingEntries = <String, Uint8List>{
@@ -67,12 +71,16 @@ class FirstDeviceAdmissionService {
     required String syncId,
     required String deviceId,
     required String nonce,
+    required String registrationKeyBundleHash,
   }) async {
+    if (registrationKeyBundleHash.isEmpty) return null;
+
     try {
       final arguments = <String, dynamic>{
         'sync_id': syncId,
         'device_id': deviceId,
         'nonce': nonce,
+        'registration_key_bundle_hash': registrationKeyBundleHash,
       };
       final result = await _channel.invokeMethod<Object?>(
         'collectFirstDeviceAdmissionProof',
@@ -105,4 +113,32 @@ class FirstDeviceAdmissionService {
   Uint8List _encodeJson(Object value) => _encodeUtf8(jsonEncode(value));
 
   Uint8List _encodeUtf8(String value) => Uint8List.fromList(utf8.encode(value));
+}
+
+class _PendingDeviceIdentity {
+  const _PendingDeviceIdentity({
+    required this.deviceId,
+    required this.registrationKeyBundleHash,
+  });
+
+  final String deviceId;
+  final String registrationKeyBundleHash;
+
+  static _PendingDeviceIdentity decode(String raw) {
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map<String, dynamic>) {
+        return _PendingDeviceIdentity(
+          deviceId: decoded['device_id'] as String,
+          registrationKeyBundleHash:
+              decoded['registration_key_bundle_hash'] as String? ?? '',
+        );
+      }
+    } on Object {
+      // Older FFI returned only the device id. Fall through so setup can
+      // still proceed through the relay's PoW fallback.
+    }
+
+    return _PendingDeviceIdentity(deviceId: raw, registrationKeyBundleHash: '');
+  }
 }
