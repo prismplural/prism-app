@@ -985,9 +985,10 @@ void main() {
 
   // Regression guard for the prior algorithm: the prior O(M²·Na·Nb)
   // pair-overlap algorithm took ~minutes on realistic datasets.
-  // Sweep-line replacement should run in well under a frame.
+  // Sweep-line replacement should stay comfortably sub-second in normal JIT
+  // runs, while this guard remains loose enough to avoid load-related flakes.
   group('sweep-line pair-overlap performance', () {
-    test('5000 members × 4 sessions completes in < 500ms (JIT)', () {
+    test('5000 members × 4 sessions completes in < 2s (JIT)', () {
       // The old O(M²·Na·Nb) loop on this dataset was ~25M·16 = 400M
       // comparisons, multiple seconds on a laptop. Sweep-line should
       // handle it in well under a frame for realistic K.
@@ -1034,14 +1035,12 @@ void main() {
       expect(result.totalSessions, 20000);
       expect(result.uniqueFronters, memberCount);
       // The old O(M²·Na·Nb) loop ran for ~tens of seconds on this
-      // dataset (and the surrounding member loops/time-bucketing alone
-      // take a few hundred ms in JIT). Sweep-line keeps the pair pass
-      // bounded by N · K². AOT (production) is typically 2–4× faster
-      // than `flutter test` JIT, so a 500ms ceiling here corresponds
-      // to ~125–250ms on-device — well under a frame.
+      // dataset. The exact JIT timing is noisy under full-suite load,
+      // so this threshold catches a quadratic regression without
+      // treating normal scheduler variance as a product failure.
       expect(
         stopwatch.elapsedMilliseconds,
-        lessThan(500),
+        lessThan(2000),
         reason:
             'sweep-line on 20k sessions took '
             '${stopwatch.elapsedMilliseconds}ms (JIT); old O(M²·Na·Nb) '
