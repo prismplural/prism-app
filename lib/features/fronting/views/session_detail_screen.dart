@@ -3,8 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/models.dart';
+import 'package:prism_plurality/features/fronting/views/add_front_session_sheet.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_editing_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
@@ -13,6 +17,8 @@ import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/features/fronting/validation/fronting_validation_models.dart';
 import 'package:prism_plurality/features/fronting/utils/sleep_quality_l10n.dart';
 import 'package:prism_plurality/features/fronting/views/edit_sleep_sheet.dart';
+import 'package:prism_plurality/shared/widgets/glass_surface.dart';
+import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/features/fronting/ui/delete_strategy_dialog.dart';
@@ -270,8 +276,21 @@ class _SessionDetailBody extends ConsumerWidget {
     final theme = Theme.of(context);
 
     final navBarInset = NavBarInset.of(context);
-    return ListView(
-      padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + navBarInset),
+    final memberAsync = session.memberId != null
+        ? ref.watch(memberByIdProvider(session.memberId!))
+        : null;
+    final member = memberAsync?.value;
+    final showPill =
+        session.isActive && !session.isSleep && session.memberId != null;
+    final bottomReserve = showPill ? navBarInset + 84 : 24 + navBarInset;
+
+    // Pre-resolve active sessions so the value is available synchronously
+    // when the end-session button is tapped.
+    final activeSessions =
+        showPill ? ref.watch(activeSessionsProvider).value : null;
+
+    final list = ListView(
+      padding: EdgeInsets.fromLTRB(24, 24, 24, bottomReserve),
       children: [
         // Fronter info
         _FronterSection(session: session),
@@ -382,6 +401,38 @@ class _SessionDetailBody extends ConsumerWidget {
             ),
           ),
         ],
+      ],
+    );
+
+    if (!showPill) return list;
+
+    final tint = (member != null &&
+            member.customColorEnabled &&
+            member.customColorHex != null)
+        ? AppColors.fromHex(member.customColorHex!)
+        : theme.colorScheme.primary;
+
+    return Stack(
+      children: [
+        list,
+        Positioned(
+          left: 16,
+          right: 16,
+          bottom: navBarInset + 16,
+          child: Center(
+            child: _FloatingEndSessionButton(
+              memberName: member?.name ?? '',
+              tintColor: tint,
+              onPressed: () => _handleEndSession(
+                context,
+                ref,
+                session,
+                member?.name ?? '',
+                activeSessions: activeSessions,
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -570,6 +621,201 @@ class _InfoRow extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// End-session pill + dialog
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum _NextFronterChoice { pickFronter, unknown, endWithoutFronting }
+
+Future<_NextFronterChoice?> _showNextFronterDialog(BuildContext context) {
+  // Capture l10n strings before entering the dialog so we can reference them
+  // from the builder context without holding onto the outer BuildContext.
+  final l10n = context.l10n;
+
+  return PrismDialog.show<_NextFronterChoice>(
+    context: context,
+    title: l10n.frontingNextFronterTitle,
+    message: l10n.frontingNextFronterBody,
+    builder: (ctx) => Wrap(
+      alignment: WrapAlignment.end,
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        PrismButton(
+          label: l10n.frontingNextFronterPick,
+          tone: PrismButtonTone.filled,
+          onPressed: () =>
+              Navigator.of(ctx).pop(_NextFronterChoice.pickFronter),
+        ),
+        PrismButton(
+          label: l10n.frontingNextFronterUnknown,
+          tone: PrismButtonTone.outlined,
+          onPressed: () =>
+              Navigator.of(ctx).pop(_NextFronterChoice.unknown),
+        ),
+        PrismButton(
+          label: l10n.frontingNextFronterEnd,
+          tone: PrismButtonTone.outlined,
+          onPressed: () =>
+              Navigator.of(ctx).pop(_NextFronterChoice.endWithoutFronting),
+        ),
+      ],
+    ),
+  );
+}
+
+Future<void> _handleEndSession(
+  BuildContext context,
+  WidgetRef ref,
+  FrontingSession session,
+  String memberName, {
+  List<FrontingSession>? activeSessions,
+  Future<bool?> Function(BuildContext)? showAddSheetOverride,
+}) async {
+  final memberId = session.memberId;
+  if (memberId == null) return;
+
+  // Use the pre-resolved value passed from the widget; fall back to reading
+  // from the provider (used in tests that call the handler directly).
+  final active = activeSessions ?? ref.read(activeSessionsProvider).value;
+  if (active == null) return;
+
+  final notifier = ref.read(frontingNotifierProvider.notifier);
+  Haptics.medium();
+
+  Future<bool> safeEnd() async {
+    try {
+      await notifier.endFronting([memberId]);
+      return true;
+    } catch (e) {
+      if (context.mounted) {
+        PrismToast.error(
+          context,
+          message: context.l10n.frontingErrorSavingSession(e),
+        );
+      }
+      return false;
+    }
+  }
+
+  Future<void> safeStartUnknown() async {
+    try {
+      await notifier.startFronting([unknownSentinelMemberId]);
+    } catch (e) {
+      if (context.mounted) {
+        PrismToast.error(
+          context,
+          message: context.l10n.frontingErrorCreatingSession(e),
+        );
+      }
+    }
+  }
+
+  void showEndedToast() {
+    if (!context.mounted) return;
+    PrismToast.success(
+      context,
+      message: context.l10n.frontingEndSessionEndedToast(memberName),
+    );
+  }
+
+  void popIfAble() {
+    if (!context.mounted) return;
+    if (Navigator.of(context).canPop()) Navigator.of(context).pop();
+  }
+
+  if (active.length > 1) {
+    if (await safeEnd()) {
+      showEndedToast();
+      popIfAble();
+    }
+    return;
+  }
+
+  final choice = await _showNextFronterDialog(context);
+  if (choice == null || !context.mounted) return;
+
+  final showSheet = showAddSheetOverride ?? AddFrontSessionSheet.show;
+
+  switch (choice) {
+    case _NextFronterChoice.pickFronter:
+      final started = await showSheet(context);
+      if (started == true && context.mounted && await safeEnd()) {
+        showEndedToast();
+        popIfAble();
+      }
+    case _NextFronterChoice.unknown:
+      if (await safeEnd()) {
+        await safeStartUnknown();
+        showEndedToast();
+        popIfAble();
+      }
+    case _NextFronterChoice.endWithoutFronting:
+      if (await safeEnd()) {
+        showEndedToast();
+        popIfAble();
+      }
+  }
+}
+
+class _FloatingEndSessionButton extends StatelessWidget {
+  const _FloatingEndSessionButton({
+    required this.memberName,
+    required this.tintColor,
+    required this.onPressed,
+  });
+
+  final String memberName;
+  final Color tintColor;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final pillRadius = BorderRadius.circular(PrismTokens.radiusPill);
+    final label = context.l10n.frontingEndSessionButton;
+
+    return Semantics(
+      button: true,
+      enabled: true,
+      label: memberName.isEmpty ? label : '$label for $memberName',
+      child: GlassSurface(
+        borderRadius: pillRadius,
+        tint: tintColor,
+        padding: EdgeInsets.zero,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onPressed,
+            borderRadius: pillRadius,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    AppIcons.stopRounded,
+                    size: 18,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    label,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
