@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/security/pin_buffer.dart';
 
@@ -37,5 +39,23 @@ void main() {
       expect(buffer.length, 0);
       expect(buffer.debugCodeUnits, [0, 0, 0, 0, 0, 0]);
     });
+
+    test(
+      'consumeBytesAndClear returns PIN bytes and zeros backing storage',
+      () {
+        final buffer = PinBuffer(length: 6);
+        for (final digit in ['1', '2', '3', '4', '5', '6']) {
+          expect(buffer.appendDigit(digit), isTrue);
+        }
+
+        final bytes = buffer.consumeBytesAndClear();
+        addTearDown(() => bytes.fillRange(0, bytes.length, 0));
+
+        expect(bytes, isA<Uint8List>());
+        expect(bytes, [0x31, 0x32, 0x33, 0x34, 0x35, 0x36]);
+        expect(buffer.length, 0);
+        expect(buffer.debugCodeUnits, [0, 0, 0, 0, 0, 0]);
+      },
+    );
   });
 }
