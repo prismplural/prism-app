@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/domain/models/member.dart';
@@ -19,6 +20,7 @@ import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_emoji_picker.dart';
 import 'package:prism_plurality/shared/widgets/prism_field_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_picker_text_field_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
@@ -93,7 +95,9 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
     _ageController = TextEditingController(
       text: m?.age != null ? '${m!.age}' : '',
     );
-    _colorHexController = TextEditingController(text: m?.customColorHex ?? '');
+    _colorHexController = TextEditingController(
+      text: _normalizeColorHexForField(m?.customColorHex),
+    );
     _displayNameController = TextEditingController(text: m?.displayName ?? '');
     _proxyTagDrafts
       ..clear()
@@ -222,6 +226,58 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
     } catch (_) {
       return null;
     }
+  }
+
+  String _normalizeColorHexForField(String? hex) {
+    final cleaned = (hex ?? '').trim().replaceFirst('#', '');
+    if (cleaned.length == 8 && cleaned.toUpperCase().startsWith('FF')) {
+      return cleaned.substring(2).toUpperCase();
+    }
+    return cleaned.toUpperCase();
+  }
+
+  String _colorToFieldHex(Color color) {
+    final value = color.toARGB32() & 0xFFFFFF;
+    return value.toRadixString(16).padLeft(6, '0').toUpperCase();
+  }
+
+  Future<void> _openCustomColorPicker() async {
+    var pickerColor = _previewColor() ?? const Color(0xFFAF8EE9);
+
+    await PrismDialog.show<void>(
+      context: context,
+      title: context.l10n.settingsAccentColorPickerTitle,
+      builder: (_) {
+        return SingleChildScrollView(
+          child: ColorPicker(
+            pickerColor: pickerColor,
+            onColorChanged: (color) {
+              pickerColor = color;
+            },
+            enableAlpha: false,
+            hexInputBar: true,
+            labelTypes: const [],
+            pickerAreaHeightPercent: 0.7,
+          ),
+        );
+      },
+      actions: [
+        PrismButton(
+          onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
+          label: context.l10n.cancel,
+        ),
+        PrismButton(
+          onPressed: () {
+            Navigator.of(context, rootNavigator: true).pop();
+            setState(() {
+              _colorHexController.text = _colorToFieldHex(pickerColor);
+            });
+          },
+          label: context.l10n.settingsAccentColorSelect,
+          tone: PrismButtonTone.filled,
+        ),
+      ],
+    );
   }
 
   Future<void> _pickBirthday(BuildContext anchorContext) async {
@@ -536,16 +592,26 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color:
-                                _previewColor() ??
-                                theme.colorScheme.surfaceContainerHighest,
-                            border: Border.all(
-                              color: theme.colorScheme.outline,
+                        Tooltip(
+                          message: l10n.settingsAccentColorPickerTitle,
+                          child: Semantics(
+                            button: true,
+                            label: l10n.settingsAccentColorPickerTitle,
+                            child: GestureDetector(
+                              onTap: _openCustomColorPicker,
+                              child: Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color:
+                                      _previewColor() ??
+                                      theme.colorScheme.surfaceContainerHighest,
+                                  border: Border.all(
+                                    color: theme.colorScheme.outline,
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
                         ),
@@ -557,6 +623,11 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
                             hintText: '#AF8EE9',
                             prefixText: '#',
                             onChanged: (_) => setState(() {}),
+                            suffix: PrismFieldIconButton(
+                              icon: AppIcons.colorize,
+                              tooltip: l10n.settingsAccentColorPickerTitle,
+                              onPressed: _openCustomColorPicker,
+                            ),
                             inputFormatters: [
                               FilteringTextInputFormatter.allow(
                                 RegExp(r'[0-9a-fA-F]'),
