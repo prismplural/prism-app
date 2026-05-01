@@ -30,6 +30,7 @@ void _dropPostV3Schema(raw.Database db) {
   db.execute(
     'DROP INDEX IF EXISTS idx_fronting_sessions_pluralkit_uuid_orphan;',
   );
+  db.execute('DROP INDEX IF EXISTS idx_comments_target_time;');
   db.execute(
     'CREATE UNIQUE INDEX IF NOT EXISTS idx_fronting_sessions_pluralkit_uuid '
     'ON fronting_sessions(pluralkit_uuid) WHERE pluralkit_uuid IS NOT NULL;',
