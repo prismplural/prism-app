@@ -1,9 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/features/onboarding/providers/device_pairing_provider.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/widgets/secure_scope.dart';
 
 import 'package:prism_plurality/features/onboarding/widgets/sync_device_step.dart';
+
+class _FakeDevicePairingNotifier extends DevicePairingNotifier {
+  _FakeDevicePairingNotifier(this.initialState);
+
+  final PairingState initialState;
+  String? capturedPin;
+  int completionCount = 0;
+
+  @override
+  PairingState build() => initialState;
+
+  @override
+  Future<void> completeJoinerWithPin(String pin) async {
+    capturedPin = pin;
+    completionCount++;
+  }
+
+  @override
+  void reset() {
+    state = const PairingState();
+  }
+}
 
 void main() {
   testWidgets('defaults to request-to-join without legacy invite option', (
@@ -85,5 +109,37 @@ void main() {
 
     expect(find.text('Relay URL'), findsOneWidget);
     expect(find.text('Relay URL must start with https://'), findsOneWidget);
+  });
+
+  testWidgets('PIN entry is secure-scoped and submits six digits', (
+    tester,
+  ) async {
+    final notifier = _FakeDevicePairingNotifier(
+      const PairingState(step: PairingStep.enterPin),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [devicePairingProvider.overrideWith(() => notifier)],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: const [Locale('en')],
+          home: Scaffold(
+            body: SyncDeviceStep(onBack: () {}, onComplete: () {}),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byType(SecureScope), findsOneWidget);
+    expect(find.text('Enter your sync PIN'), findsOneWidget);
+
+    for (final digit in ['1', '2', '3', '4', '5', '6']) {
+      await tester.tap(find.text(digit));
+      await tester.pump();
+    }
+
+    expect(notifier.capturedPin, '123456');
+    expect(notifier.completionCount, 1);
   });
 }

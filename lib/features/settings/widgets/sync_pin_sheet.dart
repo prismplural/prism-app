@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/core/crypto/bip39_validate.dart';
+import 'package:prism_plurality/core/security/pin_buffer.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/providers/visual_effects_provider.dart';
@@ -12,6 +13,7 @@ import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_mnemonic_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
+import 'package:prism_plurality/shared/widgets/secure_scope.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Two-step modal sheet that prompts for the 12-word BIP39 recovery
@@ -51,8 +53,8 @@ class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
   bool _lostPhraseExpanded = false;
 
   // Step 2 — PIN entry
-  String _pin = '';
   static const _pinLength = 6;
+  late final PinBuffer _pin = PinBuffer(length: _pinLength);
   bool _isLoading = false;
   bool _hasError = false;
 
@@ -79,16 +81,16 @@ class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
       vsync: this,
       duration: const Duration(milliseconds: 400),
     );
-    _shakeAnimation = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 0, end: -12), weight: 1),
-      TweenSequenceItem(tween: Tween(begin: -12, end: 12), weight: 2),
-      TweenSequenceItem(tween: Tween(begin: 12, end: -8), weight: 2),
-      TweenSequenceItem(tween: Tween(begin: -8, end: 8), weight: 2),
-      TweenSequenceItem(tween: Tween(begin: 8, end: 0), weight: 1),
-    ]).animate(CurvedAnimation(
-      parent: _shakeController,
-      curve: Curves.easeInOut,
-    ));
+    _shakeAnimation =
+        TweenSequence<double>([
+          TweenSequenceItem(tween: Tween(begin: 0, end: -12), weight: 1),
+          TweenSequenceItem(tween: Tween(begin: -12, end: 12), weight: 2),
+          TweenSequenceItem(tween: Tween(begin: 12, end: -8), weight: 2),
+          TweenSequenceItem(tween: Tween(begin: -8, end: 8), weight: 2),
+          TweenSequenceItem(tween: Tween(begin: 8, end: 0), weight: 1),
+        ]).animate(
+          CurvedAnimation(parent: _shakeController, curve: Curves.easeInOut),
+        );
     _dotController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 200),
@@ -129,7 +131,9 @@ class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
     await prefs.setInt(_prefsKeyAttempts, _failedAttempts);
     if (_lockedUntil != null) {
       await prefs.setInt(
-          _prefsKeyLockedUntil, _lockedUntil!.millisecondsSinceEpoch);
+        _prefsKeyLockedUntil,
+        _lockedUntil!.millisecondsSinceEpoch,
+      );
     } else {
       await prefs.remove(_prefsKeyLockedUntil);
     }
@@ -149,6 +153,7 @@ class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
     _mnemonicController.clear();
     _mnemonicController.dispose();
     _mnemonic = null;
+    _pin.clear();
     _shakeController.dispose();
     _dotController.dispose();
     super.dispose();
@@ -179,11 +184,9 @@ class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
   // ── Step 1 actions ────────────────────────────────────────────────────
 
   Future<void> _submitMnemonic() async {
-    final normalized =
-        PrismMnemonicField.normalize(_mnemonicController.text);
+    final normalized = PrismMnemonicField.normalize(_mnemonicController.text);
     if (normalized.isEmpty) {
-      setState(() =>
-          _mnemonicError = context.l10n.syncPinSheetMnemonicInvalid);
+      setState(() => _mnemonicError = context.l10n.syncPinSheetMnemonicInvalid);
       return;
     }
 
@@ -212,10 +215,9 @@ class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
   // ── Step 2 actions ────────────────────────────────────────────────────
 
   void _onDigit(String digit) {
-    if (_pin.length >= _pinLength || _isLoading || _isLockedOut) return;
+    if (_isLoading || _isLockedOut || !_pin.appendDigit(digit)) return;
     Haptics.light();
     setState(() {
-      _pin += digit;
       _hasError = false;
     });
     final mode = VisualEffectsModeX.of(context, ref);
@@ -223,7 +225,7 @@ class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
       setState(() => _lastFilledDotIndex = _pin.length - 1);
       _dotController.forward(from: 0);
     }
-    if (_pin.length == _pinLength) {
+    if (_pin.isFull) {
       _onPinComplete();
     }
   }
@@ -231,7 +233,7 @@ class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
   void _onBackspace() {
     if (_pin.isEmpty || _isLoading) return;
     Haptics.selection();
-    setState(() => _pin = _pin.substring(0, _pin.length - 1));
+    setState(_pin.removeLast);
   }
 
   Future<void> _onPinComplete() async {
@@ -244,18 +246,18 @@ class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
       // Defensive: shouldn't happen — step 2 isn't reachable without it.
       setState(() {
         _step = _SyncPinStep.enterMnemonic;
-        _pin = '';
+        _pin.clear();
         _hasError = false;
       });
       return;
     }
 
+    final pin = _pin.consumeStringAndClear();
     setState(() => _isLoading = true);
 
-    final success = await ref.read(syncHealthProvider.notifier).attemptUnlock(
-          pin: _pin,
-          mnemonic: mnemonic,
-        );
+    final success = await ref
+        .read(syncHealthProvider.notifier)
+        .attemptUnlock(pin: pin, mnemonic: mnemonic);
 
     if (!mounted) return;
 
@@ -285,7 +287,7 @@ class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
     HapticFeedback.heavyImpact();
     _shakeController.forward(from: 0);
     setState(() {
-      _pin = '';
+      _pin.clear();
       _lastFilledDotIndex = null;
     });
   }
@@ -297,27 +299,28 @@ class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
     final theme = Theme.of(context);
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
-    return SingleChildScrollView(
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 16,
-        bottom: 16 + bottomInset,
+    return SecureScope(
+      child: SingleChildScrollView(
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 16,
+          bottom: 16 + bottomInset,
+        ),
+        child: switch (_step) {
+          _SyncPinStep.enterMnemonic => _buildMnemonicStep(theme),
+          _SyncPinStep.enterPin => _buildPinStep(theme),
+        },
       ),
-      child: switch (_step) {
-        _SyncPinStep.enterMnemonic => _buildMnemonicStep(theme),
-        _SyncPinStep.enterPin => _buildPinStep(theme),
-      },
     );
   }
 
   Widget _buildMnemonicStep(ThemeData theme) {
     final accentColor = theme.colorScheme.primary;
     final l10n = context.l10n;
-    final wordsEntered = PrismMnemonicField.normalize(_mnemonicController.text)
-        .split(' ')
-        .where((w) => w.isNotEmpty)
-        .length;
+    final wordsEntered = PrismMnemonicField.normalize(
+      _mnemonicController.text,
+    ).split(' ').where((w) => w.isNotEmpty).length;
     final canContinue = wordsEntered == 12 && !_mnemonicBusy;
 
     return Column(
@@ -367,9 +370,8 @@ class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
             label: l10n.syncPinSheetLostPhrase,
             tone: PrismButtonTone.subtle,
             density: PrismControlDensity.compact,
-            onPressed: () => setState(
-              () => _lostPhraseExpanded = !_lostPhraseExpanded,
-            ),
+            onPressed: () =>
+                setState(() => _lostPhraseExpanded = !_lostPhraseExpanded),
           ),
         ),
         AnimatedCrossFade(
@@ -410,10 +412,10 @@ class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
             onPressed: _isLoading
                 ? () {}
                 : () => setState(() {
-                      _step = _SyncPinStep.enterMnemonic;
-                      _pin = '';
-                      _hasError = false;
-                    }),
+                    _step = _SyncPinStep.enterMnemonic;
+                    _pin.clear();
+                    _hasError = false;
+                  }),
           ),
         ),
         Icon(AppIcons.lockOutline, size: 40, color: accentColor),
@@ -504,11 +506,7 @@ class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
     }
     return [
       const SizedBox(width: 64, height: 64),
-      PinNumpadButton(
-        label: '0',
-        onTap: () => _onDigit('0'),
-        size: 64,
-      ),
+      PinNumpadButton(label: '0', onTap: () => _onDigit('0'), size: 64),
       PinNumpadButton(
         icon: AppIcons.backspaceOutlined,
         onTap: _onBackspace,

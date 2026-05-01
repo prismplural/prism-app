@@ -11,6 +11,7 @@ import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/core/constants/app_constants.dart';
 import 'package:prism_plurality/core/crypto/bip39_validate.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
+import 'package:prism_plurality/core/security/pin_buffer.dart';
 import 'package:prism_plurality/core/sync/pairing_ceremony_api.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/core/sync/sync_event_loop.dart';
@@ -738,20 +739,29 @@ class _InitiatorPinView extends StatefulWidget {
 }
 
 class _InitiatorPinViewState extends State<_InitiatorPinView> {
-  String _pin = '';
   static const _pinLength = 6;
+  late final PinBuffer _pin = PinBuffer(length: _pinLength);
+
+  @override
+  void dispose() {
+    _pin.clear();
+    super.dispose();
+  }
 
   void _onDigit(String digit) {
-    if (_pin.length >= _pinLength) return;
-    setState(() => _pin += digit);
-    if (_pin.length == _pinLength) {
-      widget.onPinEntered(_pin);
+    if (!_pin.appendDigit(digit)) return;
+    if (_pin.isFull) {
+      final pin = _pin.consumeStringAndClear();
+      setState(() {});
+      widget.onPinEntered(pin);
+      return;
     }
+    setState(() {});
   }
 
   void _onBackspace() {
     if (_pin.isEmpty) return;
-    setState(() => _pin = _pin.substring(0, _pin.length - 1));
+    setState(_pin.removeLast);
   }
 
   @override
