@@ -38,12 +38,15 @@ class _FakePairingCeremonyApi extends PairingCeremonyApi {
   _FakePairingCeremonyApi({
     this.startJoinerCeremonyHandler,
     this.getJoinerSasHandler,
+    this.cancelPairingCeremonyHandler,
   });
 
   Future<String> Function({required ffi.PrismSyncHandle handle})?
   startJoinerCeremonyHandler;
   Future<String> Function({required ffi.PrismSyncHandle handle})?
   getJoinerSasHandler;
+  Future<void> Function({required ffi.PrismSyncHandle handle})?
+  cancelPairingCeremonyHandler;
 
   @override
   Future<String> startJoinerCeremony({required ffi.PrismSyncHandle handle}) {
@@ -58,12 +61,17 @@ class _FakePairingCeremonyApi extends PairingCeremonyApi {
   }
 
   @override
+  Future<void> cancelPairingCeremony({required ffi.PrismSyncHandle handle}) {
+    return cancelPairingCeremonyHandler?.call(handle: handle) ?? Future.value();
+  }
+
+  @override
   Future<String> getJoinerSas({required ffi.PrismSyncHandle handle}) {
     return getJoinerSasHandler?.call(handle: handle) ??
         Future.value(
           jsonEncode({
-            'sas_words': 'apple banana cherry',
-            'sas_decimal': '123456',
+            'sas_version': 2,
+            'sas_words': ['apple', 'banana', 'cherry', 'delta', 'echo'],
           }),
         );
   }
@@ -229,11 +237,12 @@ void main() {
       // state copyWith + confirmSas guard instead.
       const state = PairingState(
         step: PairingStep.showingSas,
-        sasWords: 'apple banana cherry',
-        sasDecimal: '1234',
+        sasWords: ['apple', 'banana', 'cherry', 'delta', 'echo'],
       );
-      expect(state.sasWords, equals('apple banana cherry'));
-      expect(state.sasDecimal, equals('1234'));
+      expect(
+        state.sasWords,
+        equals(['apple', 'banana', 'cherry', 'delta', 'echo']),
+      );
     });
   });
 
@@ -283,16 +292,15 @@ void main() {
 
         sasCompleter.complete(
           jsonEncode({
-            'sas_words': 'delta echo foxtrot',
-            'sas_decimal': '654321',
+            'sas_version': 2,
+            'sas_words': ['delta', 'echo', 'foxtrot', 'golf', 'hotel'],
           }),
         );
         await pumpEventQueue();
 
         state = container.read(devicePairingProvider);
         expect(state.step, PairingStep.showingSas);
-        expect(state.sasWords, 'delta echo foxtrot');
-        expect(state.sasDecimal, '654321');
+        expect(state.sasWords, ['delta', 'echo', 'foxtrot', 'golf', 'hotel']);
 
         notifier.confirmSas();
         expect(
@@ -309,8 +317,8 @@ void main() {
         getJoinerSasHandler: ({required handle}) async {
           expect(handle, same(fakeHandle));
           return jsonEncode({
-            'sas_words': 'delta echo foxtrot',
-            'sas_decimal': '654321',
+            'sas_version': 2,
+            'sas_words': 'delta-echo-foxtrot-golf-hotel',
           });
         },
       );
@@ -332,6 +340,88 @@ void main() {
       await pumpEventQueue();
 
       expect(fakeHandleNotifier.lastRelayUrl, 'https://custom.example.com');
+    });
+
+    test('reset cancels an active joiner ceremony', () async {
+      const fakeHandle = _FakePrismSyncHandle();
+      final fakeHandleNotifier = _FakePrismSyncHandleNotifier(fakeHandle);
+      final sasCompleter = Completer<String>();
+      var cancelCalls = 0;
+      final fakeApi = _FakePairingCeremonyApi(
+        getJoinerSasHandler: ({required handle}) {
+          expect(handle, same(fakeHandle));
+          return sasCompleter.future;
+        },
+        cancelPairingCeremonyHandler: ({required handle}) async {
+          expect(handle, same(fakeHandle));
+          cancelCalls++;
+        },
+      );
+
+      final container = ProviderContainer(
+        overrides: [
+          pairingCeremonyApiProvider.overrideWith((ref) => fakeApi),
+          relayUrlProvider.overrideWith(
+            (ref) async => 'https://relay.example.com',
+          ),
+          prismSyncHandleProvider.overrideWith(() => fakeHandleNotifier),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final notifier = container.read(devicePairingProvider.notifier);
+      await notifier.generateRequest();
+      await pumpEventQueue();
+
+      expect(
+        container.read(devicePairingProvider).step,
+        PairingStep.showingRequest,
+      );
+
+      notifier.reset();
+      await pumpEventQueue();
+
+      expect(cancelCalls, 1);
+      expect(container.read(devicePairingProvider).step, PairingStep.enterUrl);
+    });
+
+    test('invalid SAS payload fails closed and cancels the ceremony', () async {
+      const fakeHandle = _FakePrismSyncHandle();
+      final fakeHandleNotifier = _FakePrismSyncHandleNotifier(fakeHandle);
+      var cancelCalls = 0;
+      final fakeApi = _FakePairingCeremonyApi(
+        getJoinerSasHandler: ({required handle}) async {
+          expect(handle, same(fakeHandle));
+          return jsonEncode({
+            'sas_version': 1,
+            'sas_words': ['delta', 'echo', 'foxtrot'],
+            'sas_decimal': '654321',
+          });
+        },
+        cancelPairingCeremonyHandler: ({required handle}) async {
+          expect(handle, same(fakeHandle));
+          cancelCalls++;
+        },
+      );
+
+      final container = ProviderContainer(
+        overrides: [
+          pairingCeremonyApiProvider.overrideWith((ref) => fakeApi),
+          relayUrlProvider.overrideWith(
+            (ref) async => 'https://relay.example.com',
+          ),
+          prismSyncHandleProvider.overrideWith(() => fakeHandleNotifier),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(devicePairingProvider.notifier).generateRequest();
+      await pumpEventQueue();
+
+      final state = container.read(devicePairingProvider);
+      expect(state.step, PairingStep.error);
+      expect(state.sasWords, isNull);
+      expect(cancelCalls, 1);
     });
   });
 
@@ -1097,6 +1187,69 @@ void main() {
       expect(keychain['prism_sync.device_id'], isNotNull);
       expect(keychain['prism_sync.session_token'], isNotNull);
     });
+
+    test(
+      'post-bootstrap catch-up runs explicit sync and drains state',
+      () async {
+        final controller = StreamController<SyncEvent>.broadcast();
+        final container = ProviderContainer(
+          overrides: [
+            syncEventStreamProvider.overrideWith((ref) {
+              ref.onDispose(controller.close);
+              return controller.stream;
+            }),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        final notifier = container.read(devicePairingProvider.notifier);
+        var syncCalled = false;
+        var drainCalled = false;
+
+        await notifier.runPostBootstrapCatchUpForTest(
+          handle: const _FakePrismSyncHandle(),
+          syncNow: ({required handle}) async {
+            syncCalled = true;
+            controller
+              ..add(
+                SyncEvent('RemoteChanges', {
+                  'type': 'RemoteChanges',
+                  'changes': <Map<String, dynamic>>[],
+                }),
+              )
+              ..add(
+                SyncEvent('SyncCompleted', {
+                  'type': 'SyncCompleted',
+                  'result': {
+                    'pulled': 1,
+                    'merged': 1,
+                    'pushed': 0,
+                    'pruned': 0,
+                    'duration_ms': 1,
+                    'error': null,
+                  },
+                }),
+              );
+            return jsonEncode({
+              'pulled': 1,
+              'merged': 1,
+              'pushed': 0,
+              'pruned': 0,
+              'duration_ms': 1,
+              'error': null,
+            });
+          },
+          drain: (handle) async {
+            expect(syncCalled, isTrue);
+            drainCalled = true;
+          },
+          eventTimeout: const Duration(seconds: 1),
+        );
+
+        expect(syncCalled, isTrue);
+        expect(drainCalled, isTrue);
+      },
+    );
 
     test('cancelAndRemoveDevice after successful drain reads keychain '
         'and attempts deregisterDevice', () async {

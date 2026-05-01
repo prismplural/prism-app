@@ -21,13 +21,18 @@ class _FakePrismSyncHandle implements ffi.PrismSyncHandle {
 }
 
 class _FakePairingCeremonyApi extends PairingCeremonyApi {
-  _FakePairingCeremonyApi({this.startInitiatorCeremonyHandler});
+  _FakePairingCeremonyApi({
+    this.startInitiatorCeremonyHandler,
+    this.cancelPairingCeremonyHandler,
+  });
 
   Future<String> Function({
     required ffi.PrismSyncHandle handle,
     required Uint8List tokenBytes,
   })?
   startInitiatorCeremonyHandler;
+  Future<void> Function({required ffi.PrismSyncHandle handle})?
+  cancelPairingCeremonyHandler;
 
   @override
   Future<String> startJoinerCeremony({required ffi.PrismSyncHandle handle}) =>
@@ -36,6 +41,11 @@ class _FakePairingCeremonyApi extends PairingCeremonyApi {
   @override
   Future<String> getJoinerSas({required ffi.PrismSyncHandle handle}) =>
       throw UnimplementedError();
+
+  @override
+  Future<void> cancelPairingCeremony({required ffi.PrismSyncHandle handle}) {
+    return cancelPairingCeremonyHandler?.call(handle: handle) ?? Future.value();
+  }
 
   @override
   Future<String> completeJoinerCeremony({
@@ -54,8 +64,8 @@ class _FakePairingCeremonyApi extends PairingCeremonyApi {
         ) ??
         Future.value(
           jsonEncode({
-            'sas_words': 'alpha bravo charlie',
-            'sas_decimal': '112233',
+            'sas_version': 2,
+            'sas_words': ['alpha', 'bravo', 'charlie', 'delta', 'echo'],
           }),
         );
   }
@@ -124,8 +134,8 @@ void main() {
             expect(handle, same(fakeHandle));
             expect(tokenBytes, Uint8List.fromList([1, 2, 3, 4]));
             final payload = {
-              'sas_words': 'alpha bravo charlie',
-              'sas_decimal': '112233',
+              'sas_version': 2,
+              'sas_words': ['alpha', 'bravo', 'charlie', 'delta', 'echo'],
               // New: joiner device_id flows through for forDeviceId threading.
               'joiner_device_id': 'joiner-dev-xyz',
             };
@@ -168,7 +178,8 @@ void main() {
     await tester.pumpAndSettle();
 
     // Advance past the mnemonic entry step (fake API validates anything).
-    const phrase = 'abandon abandon abandon abandon abandon abandon '
+    const phrase =
+        'abandon abandon abandon abandon abandon abandon '
         'abandon abandon abandon abandon abandon about';
     final words = phrase.split(' ');
     for (var i = 0; i < 12; i++) {
@@ -193,7 +204,8 @@ void main() {
     expect(find.text('alpha'), findsOneWidget);
     expect(find.text('bravo'), findsOneWidget);
     expect(find.text('charlie'), findsOneWidget);
-    expect(find.text('112233'), findsOneWidget);
+    expect(find.text('delta'), findsOneWidget);
+    expect(find.text('echo'), findsOneWidget);
 
     await tester.tap(find.text('They Match'));
     await tester.pumpAndSettle();
@@ -206,6 +218,87 @@ void main() {
     // in private state; asserting via the captured payload keeps the test
     // decoupled from internals.
     expect(capturedCeremonyResult?['joiner_device_id'], 'joiner-dev-xyz');
+  });
+
+  testWidgets('rejecting SAS cancels initiator ceremony', (tester) async {
+    const fakeHandle = _FakePrismSyncHandle();
+    var cancelCalls = 0;
+    final fakeApi = _FakePairingCeremonyApi(
+      startInitiatorCeremonyHandler:
+          ({required handle, required tokenBytes}) async {
+            expect(handle, same(fakeHandle));
+            return jsonEncode({
+              'sas_version': 2,
+              'sas_words': ['alpha', 'bravo', 'charlie', 'delta', 'echo'],
+              'joiner_device_id': 'joiner-dev-xyz',
+            });
+          },
+      cancelPairingCeremonyHandler: ({required handle}) async {
+        expect(handle, same(fakeHandle));
+        cancelCalls++;
+      },
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          pairingCeremonyApiProvider.overrideWith((ref) => fakeApi),
+          prismSyncHandleProvider.overrideWithBuild(
+            (ref, notifier) => fakeHandle,
+          ),
+          relayUrlProvider.overrideWithValue(
+            const AsyncValue<String?>.data('https://relay.example.com'),
+          ),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Builder(
+            builder: (context) => Consumer(
+              builder: (context, ref, _) => Scaffold(
+                body: Center(
+                  child: ElevatedButton(
+                    onPressed: () => SetupDeviceSheet.show(context, ref),
+                    child: const Text('Open'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    const phrase =
+        'abandon abandon abandon abandon abandon abandon '
+        'abandon abandon abandon abandon abandon about';
+    final words = phrase.split(' ');
+    for (var i = 0; i < 12; i++) {
+      await tester.enterText(find.byType(TextField).at(i), words[i]);
+      await tester.pump();
+    }
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text("Scan Joiner's QR"));
+    await tester.pumpAndSettle();
+
+    final scanner = tester.widget<MobileScanner>(find.byType(MobileScanner));
+    scanner.onDetect!(
+      const BarcodeCapture(barcodes: [Barcode(rawValue: 'AQIDBA==')]),
+    );
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text("They Don't Match"));
+    await tester.pumpAndSettle();
+
+    expect(cancelCalls, 1);
+    expect(find.textContaining('recovery phrase'), findsWidgets);
   });
 
   testWidgets(

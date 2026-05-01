@@ -85,7 +85,6 @@ class _SyncDeviceStepState extends ConsumerState<SyncDeviceStep> {
         child = _SasVerificationView(
           key: const ValueKey('sas-verify'),
           sasWords: pairingState.sasWords!,
-          sasDecimal: pairingState.sasDecimal!,
           onConfirm: () =>
               ref.read(devicePairingProvider.notifier).confirmSas(),
           onReject: () => ref.read(devicePairingProvider.notifier).reset(),
@@ -506,20 +505,17 @@ class _SasVerificationView extends StatelessWidget {
   const _SasVerificationView({
     super.key,
     required this.sasWords,
-    required this.sasDecimal,
     required this.onConfirm,
     required this.onReject,
   });
 
-  final String sasWords;
-  final String sasDecimal;
+  final List<String> sasWords;
   final VoidCallback onConfirm;
   final VoidCallback onReject;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final words = sasWords.split(' ');
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -562,7 +558,7 @@ class _SasVerificationView extends StatelessWidget {
                   spacing: 12,
                   runSpacing: 8,
                   alignment: WrapAlignment.center,
-                  children: words
+                  children: sasWords
                       .map(
                         (word) => Text(
                           word,
@@ -570,20 +566,11 @@ class _SasVerificationView extends StatelessWidget {
                             color: AppColors.warmWhite,
                             fontSize: 24,
                             fontWeight: FontWeight.w600,
-                            letterSpacing: 0.5,
+                            letterSpacing: 0,
                           ),
                         ),
                       )
                       .toList(),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  sasDecimal,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: AppColors.warmWhite.withValues(alpha: 0.5),
-                    fontFamily: 'monospace',
-                    letterSpacing: 2,
-                  ),
                 ),
               ],
             ),
