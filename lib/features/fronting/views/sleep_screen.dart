@@ -11,6 +11,7 @@ import 'package:prism_plurality/features/fronting/views/start_sleep_sheet.dart';
 import 'package:prism_plurality/features/fronting/widgets/sleep_mode_card.dart';
 import 'package:prism_plurality/features/fronting/widgets/sleep_session_row.dart';
 import 'package:prism_plurality/features/fronting/widgets/sleep_stat_cards.dart';
+import 'package:prism_plurality/features/settings/views/sleep_feature_settings_screen.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
@@ -76,7 +77,10 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
   }
 
   void _openSettings() {
-    context.push(AppRoutePaths.settingsFeaturesSleep);
+    context.push(
+      AppRoutePaths.settingsFeaturesSleep,
+      extra: const SleepFeatureSettingsArgs(fromSleepView: true),
+    );
   }
 
   Future<void> _openEditSheet(FrontingSession session) async {
