@@ -671,6 +671,14 @@ final routerProvider = Provider<GoRouter>((ref) {
                 },
                 builder: (context, state) =>
                     const SleepScreen(showBackButton: false),
+                routes: [
+                  GoRoute(
+                    path: 'session/:id',
+                    builder: (context, state) => SessionDetailScreen(
+                      sessionId: state.pathParameters['id']!,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

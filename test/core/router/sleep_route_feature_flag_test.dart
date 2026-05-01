@@ -6,6 +6,10 @@ void main() {
     test('constant is /sleep', () {
       expect(AppRoutePaths.sleep, '/sleep');
     });
+
+    test('session helper stays under the sleep branch', () {
+      expect(AppRoutePaths.sleepSession('sleep-1'), '/sleep/session/sleep-1');
+    });
   });
 
   group('AppShellTabId.sleep enum name', () {
