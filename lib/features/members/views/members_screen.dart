@@ -659,13 +659,11 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
         onSelected: () => _showManageGroupsSheet(member),
       ),
       _MemberContextAction(
-        label: member.isActive
-            ? context.l10n.deactivate
-            : context.l10n.activate,
+        label: member.isActive ? 'Archive' : 'Unarchive',
         icon: member.isActive
             ? AppIcons.archiveOutlined
             : AppIcons.unarchiveOutlined,
-        onSelected: () => _toggleMemberActive(member),
+        onSelected: () => _handleArchiveAction(member),
       ),
       _MemberContextAction(
         label: context.l10n.delete,
@@ -674,6 +672,26 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
         onSelected: () => _confirmDeleteMember(context, member.id, member.name),
       ),
     ];
+  }
+
+  Future<void> _handleArchiveAction(Member member) async {
+    if (!member.isActive) {
+      _toggleMemberActive(member);
+      return;
+    }
+
+    final terms = readTerminology(context, ref);
+    final confirmed = await PrismDialog.confirm(
+      context: context,
+      title: 'Archive ${terms.singularLower}?',
+      message:
+          '${member.name} will be moved to inactive ${terms.pluralLower}. '
+          'You can show inactive ${terms.pluralLower} and unarchive them later.',
+      confirmLabel: 'Archive',
+    );
+    if (confirmed && mounted) {
+      _toggleMemberActive(member);
+    }
   }
 
   Future<void> _startFronting(Member member) async {

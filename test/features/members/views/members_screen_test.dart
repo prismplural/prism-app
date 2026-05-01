@@ -207,7 +207,7 @@ void main() {
 
     expect(find.text('Set as fronter'), findsOneWidget);
     expect(find.text('Add to group'), findsOneWidget);
-    expect(find.text('Deactivate'), findsOneWidget);
+    expect(find.text('Archive'), findsOneWidget);
     expect(find.text('Delete'), findsOneWidget);
 
     await tester.tap(find.text('Add to group'));
@@ -215,5 +215,27 @@ void main() {
 
     expect(find.text('Groups'), findsOneWidget);
     expect(find.text('No groups yet'), findsOneWidget);
+  });
+
+  testWidgets('archive action confirms before changing member state', (
+    tester,
+  ) async {
+    final members = [_member('alice')];
+
+    await tester.pumpWidget(
+      _buildSubject(members: members, groups: const [], entries: const []),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.longPress(find.text('Member alice'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Archive'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Archive headmate?'), findsOneWidget);
+    expect(
+      find.textContaining('Member alice will be moved to inactive headmates.'),
+      findsOneWidget,
+    );
   });
 }
