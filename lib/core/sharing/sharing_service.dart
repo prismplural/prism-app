@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:typed_data' as typed_data;
+
 import 'package:drift/drift.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 
@@ -61,15 +63,13 @@ class SharingService {
   }
 
   Future<int> changePassword({
-    required String oldPassword,
-    required String newPassword,
+    required typed_data.Uint8List newPassword,
     required List<int> secretKey,
     required AppDatabase db,
   }) async {
     final identity = await _currentIdentity();
     final nextGeneration = await _sharingApi.changePassword(
       handle: _handle,
-      oldPassword: oldPassword,
       newPassword: newPassword,
       secretKey: secretKey,
       sharingId: identity.sharingId,

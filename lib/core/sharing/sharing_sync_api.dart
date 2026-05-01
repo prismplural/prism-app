@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
@@ -5,9 +7,7 @@ import 'package:prism_sync/generated/api.dart' as ffi;
 /// Narrow app-side wrapper around sharing FFI entrypoints.
 ///
 /// The app threads `identityGeneration` through this boundary now so the
-/// lifecycle is explicit at call sites. The generated Dart bindings may lag
-/// behind the latest Rust signature changes for a short period, so the default
-/// implementation only forwards the arguments currently exposed by the binding.
+/// lifecycle is explicit at call sites.
 abstract class SharingSyncApi {
   const SharingSyncApi();
 
@@ -47,8 +47,7 @@ abstract class SharingSyncApi {
 
   Future<int> changePassword({
     required ffi.PrismSyncHandle handle,
-    required String oldPassword,
-    required String newPassword,
+    required Uint8List newPassword,
     required List<int> secretKey,
     String? sharingId,
     required int currentIdentityGeneration,
@@ -128,21 +127,23 @@ class PrismSyncSharingApi extends SharingSyncApi {
   @override
   Future<int> changePassword({
     required ffi.PrismSyncHandle handle,
-    required String oldPassword,
-    required String newPassword,
+    required Uint8List newPassword,
     required List<int> secretKey,
     String? sharingId,
     required int currentIdentityGeneration,
   }) async {
-    final nextGeneration = await ffi.changePassword(
-      handle: handle,
-      oldPassword: oldPassword,
-      newPassword: newPassword,
-      secretKey: secretKey,
-      sharingId: sharingId,
-      currentIdentityGeneration: currentIdentityGeneration,
-    );
-    return nextGeneration;
+    try {
+      final nextGeneration = await ffi.changePassword(
+        handle: handle,
+        newPassword: newPassword,
+        secretKey: secretKey,
+        sharingId: sharingId,
+        currentIdentityGeneration: currentIdentityGeneration,
+      );
+      return nextGeneration;
+    } finally {
+      newPassword.fillRange(0, newPassword.length, 0);
+    }
   }
 
   @override

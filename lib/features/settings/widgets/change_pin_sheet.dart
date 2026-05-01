@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data' as typed_data;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -110,8 +113,7 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
   // ── Step 1: mnemonic entry ────────────────────────────────────────────────
 
   Future<void> _submitMnemonic() async {
-    final normalized =
-        PrismMnemonicField.normalize(_mnemonicController.text);
+    final normalized = PrismMnemonicField.normalize(_mnemonicController.text);
     if (normalized.isEmpty) {
       setState(() => _mnemonicError = context.l10n.changePinMnemonicRequired);
       return;
@@ -147,15 +149,17 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
           .difference(DateTime.now())
           .inSeconds
           .clamp(0, 9999);
-      setState(() =>
-          _currentError = 'Too many attempts. Try again in ${secs}s.');
+      setState(
+        () => _currentError = 'Too many attempts. Try again in ${secs}s.',
+      );
       return;
     }
 
     final pin = _currentController.text;
     if (pin.isEmpty) {
       setState(
-          () => _currentError = context.l10n.settingsChangePinCurrentRequired);
+        () => _currentError = context.l10n.settingsChangePinCurrentRequired,
+      );
       return;
     }
 
@@ -204,8 +208,9 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
         if (!mounted) return;
         _failedVerifyAttempts++;
         if (_failedVerifyAttempts >= _maxVerifyAttempts) {
-          _verifyLockedUntil = DateTime.now()
-              .add(const Duration(seconds: _verifyLockoutSeconds));
+          _verifyLockedUntil = DateTime.now().add(
+            const Duration(seconds: _verifyLockoutSeconds),
+          );
         }
         setState(() {
           _isLoading = false;
@@ -230,7 +235,9 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _currentError = context.l10n.settingsChangePinGenericError(e.toString());
+        _currentError = context.l10n.settingsChangePinGenericError(
+          e.toString(),
+        );
       });
     }
   }
@@ -281,6 +288,7 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
       _submitError = null;
     });
 
+    typed_data.Uint8List? newPasswordBytes;
     try {
       final service = ref.read(sharingServiceProvider);
       if (service == null) {
@@ -292,14 +300,14 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
         return;
       }
 
-      // Pass the secretKey directly — flutter_rust_bridge copies into Rust.
-      // We zero _secretKeyBytes in the finally block regardless of outcome.
+      newPasswordBytes = typed_data.Uint8List.fromList(utf8.encode(newPin));
       await service.changePassword(
-        oldPassword: _verifiedCurrentPin!,
-        newPassword: newPin,
+        newPassword: newPasswordBytes,
         secretKey: _secretKeyBytes!,
         db: ref.read(databaseProvider),
       );
+      newPasswordBytes.fillRange(0, newPasswordBytes.length, 0);
+      newPasswordBytes = null;
 
       // Also update the local app-lock PIN hash so that the unlock PIN
       // stays in sync with the sync encryption PIN.
@@ -324,6 +332,7 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
         _submitError = errorText;
       });
     } finally {
+      newPasswordBytes?.fillRange(0, newPasswordBytes.length, 0);
       _zeroSecretKey();
       _mnemonic = null;
     }
@@ -539,11 +548,7 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const SizedBox(height: 32),
-        Icon(
-          AppIcons.checkCircleOutline,
-          size: 56,
-          color: Colors.green,
-        ),
+        Icon(AppIcons.checkCircleOutline, size: 56, color: Colors.green),
         const SizedBox(height: 16),
         Text(
           context.l10n.settingsChangePinSuccessTitle,
