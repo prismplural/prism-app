@@ -3824,6 +3824,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'A personal journal and writing space for your system';
 
   @override
+  String get onboardingFeaturesBoards => 'Message Boards';
+
+  @override
+  String get onboardingFeaturesBoardsDescription =>
+      'Short messages between headmates — public timeline plus private inbox.';
+
+  @override
   String get onboardingFeaturesReminders => 'Reminders';
 
   @override

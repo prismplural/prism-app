@@ -3896,6 +3896,13 @@ class AppLocalizationsEs extends AppLocalizations {
       'Un diario personal y espacio de escritura para tu sistema';
 
   @override
+  String get onboardingFeaturesBoards => 'Tableros de Mensajes';
+
+  @override
+  String get onboardingFeaturesBoardsDescription =>
+      'Mensajes cortos entre compañeros del sistema — línea de tiempo pública más bandeja de entrada privada.';
+
+  @override
   String get onboardingFeaturesReminders => 'Recordatorios';
 
   @override

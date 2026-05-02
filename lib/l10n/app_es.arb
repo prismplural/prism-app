@@ -1069,6 +1069,8 @@
   "onboardingFeaturesSleepTrackingDescription": "Monitorea patrones y calidad del sueño",
   "onboardingFeaturesNotes": "Notas",
   "onboardingFeaturesNotesDescription": "Un diario personal y espacio de escritura para tu sistema",
+  "onboardingFeaturesBoards": "Tableros de Mensajes",
+  "onboardingFeaturesBoardsDescription": "Mensajes cortos entre compañeros del sistema — línea de tiempo pública más bandeja de entrada privada.",
   "onboardingFeaturesReminders": "Recordatorios",
   "onboardingFeaturesRemindersDescription": "Configura recordatorios para ti o {termPluralLower} del sistema",
   "onboardingCompleteTrackFrontingTitle": "Registra quién está al frente",

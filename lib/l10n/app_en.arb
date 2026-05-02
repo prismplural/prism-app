@@ -5248,6 +5248,14 @@
   "@onboardingFeaturesNotesDescription": {
     "description": "Feature toggle description for notes in features step"
   },
+  "onboardingFeaturesBoards": "Message Boards",
+  "@onboardingFeaturesBoards": {
+    "description": "Feature toggle label for message boards in features step"
+  },
+  "onboardingFeaturesBoardsDescription": "Short messages between headmates — public timeline plus private inbox.",
+  "@onboardingFeaturesBoardsDescription": {
+    "description": "Feature toggle description for message boards in features step"
+  },
   "onboardingFeaturesReminders": "Reminders",
   "@onboardingFeaturesReminders": {
     "description": "Feature toggle label for reminders in features step"

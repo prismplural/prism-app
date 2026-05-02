@@ -117,6 +117,7 @@ class OnboardingState {
   final bool habitsEnabled;
   final bool sleepTrackingEnabled;
   final bool notesEnabled;
+  final bool boardsEnabled;
   final bool remindersEnabled;
   final String? selectedFronterId;
   final bool wasImportedFromPluralKit;
@@ -152,6 +153,7 @@ class OnboardingState {
     this.habitsEnabled = true,
     this.sleepTrackingEnabled = true,
     this.notesEnabled = true,
+    this.boardsEnabled = false,
     this.remindersEnabled = true,
     this.selectedFronterId,
     this.wasImportedFromPluralKit = false,
@@ -181,6 +183,7 @@ class OnboardingState {
     bool? habitsEnabled,
     bool? sleepTrackingEnabled,
     bool? notesEnabled,
+    bool? boardsEnabled,
     bool? remindersEnabled,
     String? selectedFronterId,
     bool? wasImportedFromPluralKit,
@@ -208,6 +211,7 @@ class OnboardingState {
       habitsEnabled: habitsEnabled ?? this.habitsEnabled,
       sleepTrackingEnabled: sleepTrackingEnabled ?? this.sleepTrackingEnabled,
       notesEnabled: notesEnabled ?? this.notesEnabled,
+      boardsEnabled: boardsEnabled ?? this.boardsEnabled,
       remindersEnabled: remindersEnabled ?? this.remindersEnabled,
       selectedFronterId: clearFronterId
           ? null
@@ -617,6 +621,7 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
     bool? habitsEnabled,
     bool? sleepTrackingEnabled,
     bool? notesEnabled,
+    bool? boardsEnabled,
     bool? remindersEnabled,
   }) {
     state = state.copyWith(
@@ -625,6 +630,7 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
       habitsEnabled: habitsEnabled,
       sleepTrackingEnabled: sleepTrackingEnabled,
       notesEnabled: notesEnabled,
+      boardsEnabled: boardsEnabled,
       remindersEnabled: remindersEnabled,
     );
   }
