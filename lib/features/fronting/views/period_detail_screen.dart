@@ -246,11 +246,12 @@ class _Header extends ConsumerWidget {
         matchedPeriod?.isOpenEnded ?? hint?.isOpenEnded ?? false;
 
     final theme = Theme.of(context);
-    final names = _namesString(activeMembers);
+    final names = _namesString(context, activeMembers);
 
     final locale = context.dateLocale;
     final startStr = start.toTimeString(locale);
-    final endStr = isOpenEnded ? 'ongoing' : end.toTimeString(locale);
+    final endStr =
+        isOpenEnded ? context.l10n.frontingPeriodOngoing : end.toTimeString(locale);
     final timeRange = '$startStr – $endStr';
 
     final duration = end.difference(start);
@@ -258,8 +259,12 @@ class _Header extends ConsumerWidget {
     return PrismSectionCard(
       margin: const EdgeInsets.symmetric(vertical: 4),
       child: Semantics(
-        label:
-            'Period: $names, fronting from $startStr to $endStr, duration ${duration.toRoundedString()}',
+        label: context.l10n.frontingPeriodHeaderSemantic(
+          names,
+          startStr,
+          endStr,
+          duration.toRoundedString(),
+        ),
         container: true,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -335,13 +340,16 @@ class _Header extends ConsumerWidget {
   }
 
   // Same logic as _PeriodTile._namesString, but UNTRUNCATED — show every name.
-  String _namesString(List<Member> members) {
+  // Context-aware so the conjunction respects the active locale.
+  String _namesString(BuildContext context, List<Member> members) {
     final names = members.map((m) => m.name).toList();
-    if (names.isEmpty) return 'Unknown';
+    if (names.isEmpty) return context.l10n.frontingPeriodMemberUnknown;
     if (names.length == 1) return names[0];
-    if (names.length == 2) return '${names[0]} & ${names[1]}';
+    if (names.length == 2) {
+      return context.l10n.memberListJoinPair(names[0], names[1]);
+    }
     final allButLast = names.sublist(0, names.length - 1).join(', ');
-    return '$allButLast & ${names.last}';
+    return context.l10n.memberListJoinAnd(allButLast, names.last);
   }
 }
 
@@ -392,7 +400,7 @@ class _CoFrontersSection extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: Text(
-              'Co-fronters',
+              context.l10n.frontingPeriodCoFrontersTitle,
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontWeight: FontWeight.w600,
@@ -531,13 +539,14 @@ class _CoFronterRow extends ConsumerWidget {
 
     final locale = context.dateLocale;
     final startStr = session.startTime.toTimeString(locale);
-    final endStr =
-        session.endTime == null ? 'ongoing' : session.endTime!.toTimeString(locale);
+    final endStr = session.endTime == null
+        ? context.l10n.frontingPeriodOngoing
+        : session.endTime!.toTimeString(locale);
     final timeRange = '$startStr – $endStr';
     final duration = session.endTime == null
         ? DateTime.now().difference(session.startTime)
         : session.endTime!.difference(session.startTime);
-    final name = member?.name ?? 'Unknown';
+    final name = member?.name ?? context.l10n.frontingPeriodMemberUnknown;
 
     const dimAlpha = 0.6;
 
@@ -605,8 +614,13 @@ class _CoFronterRow extends ConsumerWidget {
           );
 
     final semanticLabel = session.isActive
-        ? '$name, fronting since $startStr, currently fronting. Double tap to view details.'
-        : '$name, fronting from $startStr to $endStr, duration ${duration.toRoundedString()}. Double tap to view details.';
+        ? context.l10n.frontingPeriodCoFronterSemanticActive(name, startStr)
+        : context.l10n.frontingPeriodCoFronterSemanticClosed(
+            name,
+            startStr,
+            endStr,
+            duration.toRoundedString(),
+          );
 
     final tileContent = Semantics(
       label: semanticLabel,
@@ -735,7 +749,7 @@ class _BrieflyJoinedSection extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: Text(
-              'Briefly joined',
+              context.l10n.frontingPeriodBrieflyJoinedTitle,
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontWeight: FontWeight.w600,
@@ -781,7 +795,7 @@ class _BriefVisitorRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final name = member?.name ?? 'Unknown';
+    final name = member?.name ?? context.l10n.frontingPeriodMemberUnknown;
     final isUnknown = member == null;
 
     const dimAlpha = 0.6;
@@ -811,11 +825,16 @@ class _BriefVisitorRow extends StatelessWidget {
 
     final duration = visit.end.difference(visit.start);
     final startStr = visit.start.toTimeString(locale);
-    final subtitle =
-        'joined for ${duration.toRoundedString()} at $startStr';
+    final subtitle = context.l10n.frontingPeriodBriefVisitSubtitle(
+      duration.toRoundedString(),
+      startStr,
+    );
 
-    final semanticLabel =
-        '$name, briefly joined for ${duration.toRoundedString()} at $startStr. Double tap to view details.';
+    final semanticLabel = context.l10n.frontingPeriodBriefVisitorSemantic(
+      name,
+      duration.toRoundedString(),
+      startStr,
+    );
 
     return Semantics(
       label: semanticLabel,
@@ -913,7 +932,7 @@ class _AlwaysPresentSection extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: Text(
-              'Always present',
+              context.l10n.frontingPeriodAlwaysPresentTitle,
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontWeight: FontWeight.w600,
@@ -956,7 +975,7 @@ class _AlwaysPresentRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final name = member?.name ?? 'Unknown';
+    final name = member?.name ?? context.l10n.frontingPeriodMemberUnknown;
     final isUnknown = member == null;
 
     const dimAlpha = 0.6;
@@ -985,7 +1004,7 @@ class _AlwaysPresentRow extends StatelessWidget {
           );
 
     final semanticLabel = member != null
-        ? '$name, always present. Double tap to view profile.'
+        ? context.l10n.frontingPeriodAlwaysPresentSemantic(name)
         : null;
 
     return Semantics(
