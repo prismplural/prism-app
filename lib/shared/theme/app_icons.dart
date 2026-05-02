@@ -34,6 +34,11 @@ abstract final class AppIcons {
   static final navTimelineActive = PhosphorIcons.columns(PhosphorIconsStyle.fill);
   static final navSleep = PhosphorIcons.moonStars();
   static final navSleepActive = PhosphorIcons.moonStars(PhosphorIconsStyle.fill);
+  // Boards nav tab — PhosphorIcons.chats() (multiple chat bubbles) represents
+  // a message board surface. No dedicated board/forum/feed duotone icon exists
+  // in the current icon set; chats() is semantically correct for this surface.
+  static final navBoards = PhosphorIcons.chats();
+  static final navBoardsActive = PhosphorIcons.chats(PhosphorIconsStyle.fill);
 
   // ── Actions / structural (regular) ────────────────────────────────────
 

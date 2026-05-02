@@ -11764,6 +11764,12 @@ abstract class AppLocalizations {
   /// **'Sleep'**
   String get navSleep;
 
+  /// Bottom navigation tab label for the Boards (message boards) tab
+  ///
+  /// In en, this message translates to:
+  /// **'Boards'**
+  String get navBoards;
+
   /// Title shown in the top bar of the Sleep screen
   ///
   /// In en, this message translates to:

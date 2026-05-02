@@ -115,6 +115,10 @@ _SystemSettings _$SystemSettingsFromJson(
         json['quickFrontDefaultBehavior'],
       ) ??
       FrontStartBehavior.additive,
+  boardsEnabled: json['boardsEnabled'] as bool? ?? false,
+  spBoardsBackfilledAt: json['spBoardsBackfilledAt'] == null
+      ? null
+      : DateTime.parse(json['spBoardsBackfilledAt'] as String),
 );
 
 Map<String, dynamic> _$SystemSettingsToJson(
@@ -180,6 +184,8 @@ Map<String, dynamic> _$SystemSettingsToJson(
       _$FrontStartBehaviorEnumMap[instance.addFrontDefaultBehavior]!,
   'quickFrontDefaultBehavior':
       _$FrontStartBehaviorEnumMap[instance.quickFrontDefaultBehavior]!,
+  'boardsEnabled': instance.boardsEnabled,
+  'spBoardsBackfilledAt': instance.spBoardsBackfilledAt?.toIso8601String(),
 };
 
 const _$SystemTerminologyEnumMap = {

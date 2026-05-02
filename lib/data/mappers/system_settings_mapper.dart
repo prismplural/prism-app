@@ -85,6 +85,8 @@ class SystemSettingsMapper {
         domain.FrontStartBehavior.values,
         domain.FrontStartBehavior.additive,
       ),
+      boardsEnabled: row.boardsEnabled,
+      spBoardsBackfilledAt: row.spBoardsBackfilledAt,
     );
   }
 
@@ -150,6 +152,8 @@ class SystemSettingsMapper {
       frontingListViewMode: Value(model.frontingListViewMode.index),
       addFrontDefaultBehavior: Value(model.addFrontDefaultBehavior.index),
       quickFrontDefaultBehavior: Value(model.quickFrontDefaultBehavior.index),
+      boardsEnabled: Value(model.boardsEnabled),
+      spBoardsBackfilledAt: Value(model.spBoardsBackfilledAt),
     );
   }
 

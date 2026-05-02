@@ -39,6 +39,7 @@ void main() {
         sleep: true,
         notes: true,
         reminders: true,
+        boards: true,
       );
       final tab = appShellTabs.firstWhere((t) => t.id == AppShellTabId.sleep);
       expect(tab.isEnabled(flags), isTrue);
@@ -52,6 +53,7 @@ void main() {
         sleep: false,
         notes: true,
         reminders: true,
+        boards: true,
       );
       final tab = appShellTabs.firstWhere((t) => t.id == AppShellTabId.sleep);
       expect(tab.isEnabled(flags), isFalse);
@@ -67,13 +69,13 @@ void main() {
   });
 
   group('appShellTabs with sleep', () {
-    test('has 11 entries', () {
-      expect(appShellTabs, hasLength(11));
+    test('has 12 entries', () {
+      expect(appShellTabs, hasLength(12));
     });
 
-    test('branch indices are consecutive 0..10', () {
+    test('branch indices are consecutive 0..11', () {
       final indices = appShellTabs.map((t) => t.branchIndex).toList()..sort();
-      expect(indices, List.generate(11, (i) => i));
+      expect(indices, List.generate(12, (i) => i));
     });
 
     test('no duplicate branch indices', () {
