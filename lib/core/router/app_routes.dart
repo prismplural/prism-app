@@ -79,6 +79,16 @@ abstract final class AppRoutePaths {
   static String settingsFriend(String id) => '/settings/sharing/$id';
   static String memberBoard(String id) => '/boards/member/$id';
   static String boardPost(String id) => '/boards/post/$id';
+  static String period(List<String> sessionIds) {
+    final sorted = [...sessionIds]..sort();
+    final qs = sorted.map((id) => 'id=${Uri.encodeQueryComponent(id)}').join('&');
+    return '/period?$qs';
+  }
+}
+
+List<String> parsePeriodIds(Uri uri) {
+  final ids = uri.queryParametersAll['id'] ?? const <String>[];
+  return [...ids]..sort();
 }
 
 abstract final class AppRouteNames {
