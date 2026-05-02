@@ -8885,5 +8885,41 @@
   "navMenuToastBoardsAdded": "Message Boards added to your nav menu — drag it where you want.",
   "@navMenuToastBoardsAdded": {
     "description": "One-time toast shown when Message Boards is first enabled via the settings toggle."
+  },
+  "boardsTileEdited": "edited",
+  "@boardsTileEdited": {
+    "description": "Suffix shown after the timestamp on a board post tile when the post has been edited."
+  },
+  "boardsTileToEveryone": "to everyone",
+  "@boardsTileToEveryone": {
+    "description": "Recipient chip text shown on a public post with no specific target member."
+  },
+  "boardsTileRemovedMember": "Removed member",
+  "@boardsTileRemovedMember": {
+    "description": "Fallback name shown when the author or target member of a board post no longer exists."
+  },
+  "boardsDetailEdit": "Edit",
+  "@boardsDetailEdit": {
+    "description": "Edit action label in the board post detail sheet and context menu."
+  },
+  "boardsDetailDelete": "Delete",
+  "@boardsDetailDelete": {
+    "description": "Delete action label in the board post detail sheet and context menu."
+  },
+  "boardsDeleteConfirmTitle": "Delete this post?",
+  "@boardsDeleteConfirmTitle": {
+    "description": "Title of the confirmation dialog shown before deleting a board post."
+  },
+  "boardsDeleteConfirmBody": "This can't be undone.",
+  "@boardsDeleteConfirmBody": {
+    "description": "Body text of the confirmation dialog shown before deleting a board post."
+  },
+  "memberBoardScreenTitle": "Board Messages",
+  "@memberBoardScreenTitle": {
+    "description": "Title of the per-member board messages screen and section."
+  },
+  "memberBoardEmpty": "No posts here yet.",
+  "@memberBoardEmpty": {
+    "description": "Empty state subtitle shown when a member's board has no posts."
   }
 }

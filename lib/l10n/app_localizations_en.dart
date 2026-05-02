@@ -8366,4 +8366,31 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get navMenuToastBoardsAdded =>
       'Message Boards added to your nav menu — drag it where you want.';
+
+  @override
+  String get boardsTileEdited => 'edited';
+
+  @override
+  String get boardsTileToEveryone => 'to everyone';
+
+  @override
+  String get boardsTileRemovedMember => 'Removed member';
+
+  @override
+  String get boardsDetailEdit => 'Edit';
+
+  @override
+  String get boardsDetailDelete => 'Delete';
+
+  @override
+  String get boardsDeleteConfirmTitle => 'Delete this post?';
+
+  @override
+  String get boardsDeleteConfirmBody => 'This can\'t be undone.';
+
+  @override
+  String get memberBoardScreenTitle => 'Board Messages';
+
+  @override
+  String get memberBoardEmpty => 'No posts here yet.';
 }

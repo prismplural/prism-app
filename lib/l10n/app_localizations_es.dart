@@ -8520,4 +8520,31 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get navMenuToastBoardsAdded =>
       'Tableros de Mensajes añadido a tu menú de navegación — arrástralo donde quieras.';
+
+  @override
+  String get boardsTileEdited => 'editado';
+
+  @override
+  String get boardsTileToEveryone => 'para todos';
+
+  @override
+  String get boardsTileRemovedMember => 'Integrante eliminado';
+
+  @override
+  String get boardsDetailEdit => 'Editar';
+
+  @override
+  String get boardsDetailDelete => 'Eliminar';
+
+  @override
+  String get boardsDeleteConfirmTitle => '¿Eliminar esta publicación?';
+
+  @override
+  String get boardsDeleteConfirmBody => 'Esto no se puede deshacer.';
+
+  @override
+  String get memberBoardScreenTitle => 'Mensajes del tablero';
+
+  @override
+  String get memberBoardEmpty => 'Aún no hay publicaciones aquí.';
 }
