@@ -3,9 +3,13 @@ import 'package:prism_plurality/core/sync/pairing_sas_display.dart';
 
 void main() {
   group('PairingSasDisplay', () {
+    test('current version is SAS v3', () {
+      expect(PairingSasDisplay.currentVersion, 3);
+    });
+
     test('parses versioned five-word array', () {
       final sas = PairingSasDisplay.fromJson({
-        'sas_version': 2,
+        'sas_version': PairingSasDisplay.currentVersion,
         'sas_words': ['alpha', 'bravo', 'charlie', 'delta', 'echo'],
       });
 
@@ -14,7 +18,7 @@ void main() {
 
     test('accepts hyphen-delimited words from JSON strings', () {
       final sas = PairingSasDisplay.fromJson({
-        'sas_version': '2',
+        'sas_version': '${PairingSasDisplay.currentVersion}',
         'sas_words': 'alpha-bravo-charlie-delta-echo',
       });
 
@@ -23,7 +27,7 @@ void main() {
 
     test('prefers production word list over display phrase', () {
       final sas = PairingSasDisplay.fromJson({
-        'sas_version': 2,
+        'sas_version': PairingSasDisplay.currentVersion,
         'sas_words': 'wrong wrong wrong wrong wrong',
         'sas_word_list': ['alpha', 'bravo', 'charlie', 'delta', 'echo'],
       });
@@ -44,7 +48,7 @@ void main() {
     test('rejects unsupported SAS version', () {
       expect(
         () => PairingSasDisplay.fromJson({
-          'sas_version': 1,
+          'sas_version': 2,
           'sas_words': ['alpha', 'bravo', 'charlie', 'delta', 'echo'],
         }),
         throwsFormatException,
@@ -54,7 +58,7 @@ void main() {
     test('rejects the wrong number of words', () {
       expect(
         () => PairingSasDisplay.fromJson({
-          'sas_version': 2,
+          'sas_version': PairingSasDisplay.currentVersion,
           'sas_words': ['alpha', 'bravo', 'charlie', 'delta'],
         }),
         throwsFormatException,
@@ -64,7 +68,7 @@ void main() {
     test('rejects non-string word list entries', () {
       expect(
         () => PairingSasDisplay.fromJson({
-          'sas_version': 2,
+          'sas_version': PairingSasDisplay.currentVersion,
           'sas_words': ['alpha', 'bravo', 'charlie', 'delta', 42],
         }),
         throwsFormatException,
