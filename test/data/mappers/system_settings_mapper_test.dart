@@ -76,6 +76,7 @@ void main() {
       frontingListViewMode: frontingListViewMode,
       addFrontDefaultBehavior: addFrontDefaultBehavior,
       quickFrontDefaultBehavior: quickFrontDefaultBehavior,
+      boardsEnabled: false,
     );
   }
 

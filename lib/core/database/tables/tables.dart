@@ -27,3 +27,4 @@ export 'media_attachments_table.dart';
 export 'sp_sync_state_table.dart';
 export 'sp_id_map_table.dart';
 export 'pk_mapping_state_table.dart';
+export 'member_board_posts_table.dart';

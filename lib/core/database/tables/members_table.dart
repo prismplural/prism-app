@@ -77,6 +77,15 @@ class Members extends Table {
   BoolColumn get isAlwaysFronting =>
       boolean().withDefault(const Constant(false))();
 
+  // -- Member Boards (docs/plans/member-message-boards.md Batch A) --
+  //
+  // High-water-mark for inbox read state. Null means the member has never
+  // opened the Inbox while fronting (all private posts count as unread).
+  // LWW semantics: two devices bumping the same member's timestamp converge
+  // to the later value — correct regardless of ordering. Synced via the
+  // existing CRDT path on the members table.
+  DateTimeColumn get boardLastReadAt => dateTime().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }

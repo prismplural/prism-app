@@ -448,6 +448,18 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _boardLastReadAtMeta = const VerificationMeta(
+    'boardLastReadAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> boardLastReadAt =
+      GeneratedColumn<DateTime>(
+        'board_last_read_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -487,6 +499,7 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
     deleteIntentEpoch,
     deletePushStartedAt,
     isAlwaysFronting,
+    boardLastReadAt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -803,6 +816,15 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
         ),
       );
     }
+    if (data.containsKey('board_last_read_at')) {
+      context.handle(
+        _boardLastReadAtMeta,
+        boardLastReadAt.isAcceptableOrUnknown(
+          data['board_last_read_at']!,
+          _boardLastReadAtMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -960,6 +982,10 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
         DriftSqlType.bool,
         data['${effectivePrefix}is_always_fronting'],
       )!,
+      boardLastReadAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}board_last_read_at'],
+      ),
     );
   }
 
@@ -1007,6 +1033,7 @@ class Member extends DataClass implements Insertable<Member> {
   final int? deleteIntentEpoch;
   final int? deletePushStartedAt;
   final bool isAlwaysFronting;
+  final DateTime? boardLastReadAt;
   const Member({
     required this.id,
     required this.name,
@@ -1045,6 +1072,7 @@ class Member extends DataClass implements Insertable<Member> {
     this.deleteIntentEpoch,
     this.deletePushStartedAt,
     required this.isAlwaysFronting,
+    this.boardLastReadAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1124,6 +1152,9 @@ class Member extends DataClass implements Insertable<Member> {
       map['delete_push_started_at'] = Variable<int>(deletePushStartedAt);
     }
     map['is_always_fronting'] = Variable<bool>(isAlwaysFronting);
+    if (!nullToAbsent || boardLastReadAt != null) {
+      map['board_last_read_at'] = Variable<DateTime>(boardLastReadAt);
+    }
     return map;
   }
 
@@ -1198,6 +1229,9 @@ class Member extends DataClass implements Insertable<Member> {
           ? const Value.absent()
           : Value(deletePushStartedAt),
       isAlwaysFronting: Value(isAlwaysFronting),
+      boardLastReadAt: boardLastReadAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(boardLastReadAt),
     );
   }
 
@@ -1262,6 +1296,7 @@ class Member extends DataClass implements Insertable<Member> {
         json['deletePushStartedAt'],
       ),
       isAlwaysFronting: serializer.fromJson<bool>(json['isAlwaysFronting']),
+      boardLastReadAt: serializer.fromJson<DateTime?>(json['boardLastReadAt']),
     );
   }
   @override
@@ -1307,6 +1342,7 @@ class Member extends DataClass implements Insertable<Member> {
       'deleteIntentEpoch': serializer.toJson<int?>(deleteIntentEpoch),
       'deletePushStartedAt': serializer.toJson<int?>(deletePushStartedAt),
       'isAlwaysFronting': serializer.toJson<bool>(isAlwaysFronting),
+      'boardLastReadAt': serializer.toJson<DateTime?>(boardLastReadAt),
     };
   }
 
@@ -1348,6 +1384,7 @@ class Member extends DataClass implements Insertable<Member> {
     Value<int?> deleteIntentEpoch = const Value.absent(),
     Value<int?> deletePushStartedAt = const Value.absent(),
     bool? isAlwaysFronting,
+    Value<DateTime?> boardLastReadAt = const Value.absent(),
   }) => Member(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -1408,6 +1445,9 @@ class Member extends DataClass implements Insertable<Member> {
         ? deletePushStartedAt.value
         : this.deletePushStartedAt,
     isAlwaysFronting: isAlwaysFronting ?? this.isAlwaysFronting,
+    boardLastReadAt: boardLastReadAt.present
+        ? boardLastReadAt.value
+        : this.boardLastReadAt,
   );
   Member copyWithCompanion(MembersCompanion data) {
     return Member(
@@ -1500,6 +1540,9 @@ class Member extends DataClass implements Insertable<Member> {
       isAlwaysFronting: data.isAlwaysFronting.present
           ? data.isAlwaysFronting.value
           : this.isAlwaysFronting,
+      boardLastReadAt: data.boardLastReadAt.present
+          ? data.boardLastReadAt.value
+          : this.boardLastReadAt,
     );
   }
 
@@ -1542,7 +1585,8 @@ class Member extends DataClass implements Insertable<Member> {
           ..write('isDeleted: $isDeleted, ')
           ..write('deleteIntentEpoch: $deleteIntentEpoch, ')
           ..write('deletePushStartedAt: $deletePushStartedAt, ')
-          ..write('isAlwaysFronting: $isAlwaysFronting')
+          ..write('isAlwaysFronting: $isAlwaysFronting, ')
+          ..write('boardLastReadAt: $boardLastReadAt')
           ..write(')'))
         .toString();
   }
@@ -1586,6 +1630,7 @@ class Member extends DataClass implements Insertable<Member> {
     deleteIntentEpoch,
     deletePushStartedAt,
     isAlwaysFronting,
+    boardLastReadAt,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -1636,7 +1681,8 @@ class Member extends DataClass implements Insertable<Member> {
           other.isDeleted == this.isDeleted &&
           other.deleteIntentEpoch == this.deleteIntentEpoch &&
           other.deletePushStartedAt == this.deletePushStartedAt &&
-          other.isAlwaysFronting == this.isAlwaysFronting);
+          other.isAlwaysFronting == this.isAlwaysFronting &&
+          other.boardLastReadAt == this.boardLastReadAt);
 }
 
 class MembersCompanion extends UpdateCompanion<Member> {
@@ -1677,6 +1723,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
   final Value<int?> deleteIntentEpoch;
   final Value<int?> deletePushStartedAt;
   final Value<bool> isAlwaysFronting;
+  final Value<DateTime?> boardLastReadAt;
   final Value<int> rowid;
   const MembersCompanion({
     this.id = const Value.absent(),
@@ -1716,6 +1763,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
     this.deleteIntentEpoch = const Value.absent(),
     this.deletePushStartedAt = const Value.absent(),
     this.isAlwaysFronting = const Value.absent(),
+    this.boardLastReadAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   MembersCompanion.insert({
@@ -1756,6 +1804,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
     this.deleteIntentEpoch = const Value.absent(),
     this.deletePushStartedAt = const Value.absent(),
     this.isAlwaysFronting = const Value.absent(),
+    this.boardLastReadAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        name = Value(name),
@@ -1798,6 +1847,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
     Expression<int>? deleteIntentEpoch,
     Expression<int>? deletePushStartedAt,
     Expression<bool>? isAlwaysFronting,
+    Expression<DateTime>? boardLastReadAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1846,6 +1896,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
       if (deletePushStartedAt != null)
         'delete_push_started_at': deletePushStartedAt,
       if (isAlwaysFronting != null) 'is_always_fronting': isAlwaysFronting,
+      if (boardLastReadAt != null) 'board_last_read_at': boardLastReadAt,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1888,6 +1939,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
     Value<int?>? deleteIntentEpoch,
     Value<int?>? deletePushStartedAt,
     Value<bool>? isAlwaysFronting,
+    Value<DateTime?>? boardLastReadAt,
     Value<int>? rowid,
   }) {
     return MembersCompanion(
@@ -1929,6 +1981,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
       deleteIntentEpoch: deleteIntentEpoch ?? this.deleteIntentEpoch,
       deletePushStartedAt: deletePushStartedAt ?? this.deletePushStartedAt,
       isAlwaysFronting: isAlwaysFronting ?? this.isAlwaysFronting,
+      boardLastReadAt: boardLastReadAt ?? this.boardLastReadAt,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2055,6 +2108,9 @@ class MembersCompanion extends UpdateCompanion<Member> {
     if (isAlwaysFronting.present) {
       map['is_always_fronting'] = Variable<bool>(isAlwaysFronting.value);
     }
+    if (boardLastReadAt.present) {
+      map['board_last_read_at'] = Variable<DateTime>(boardLastReadAt.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -2101,6 +2157,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
           ..write('deleteIntentEpoch: $deleteIntentEpoch, ')
           ..write('deletePushStartedAt: $deletePushStartedAt, ')
           ..write('isAlwaysFronting: $isAlwaysFronting, ')
+          ..write('boardLastReadAt: $boardLastReadAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -5535,6 +5592,32 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         requiredDuringInsert: false,
         defaultValue: const Constant(''),
       );
+  static const VerificationMeta _boardsEnabledMeta = const VerificationMeta(
+    'boardsEnabled',
+  );
+  @override
+  late final GeneratedColumn<bool> boardsEnabled = GeneratedColumn<bool>(
+    'boards_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("boards_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _spBoardsBackfilledAtMeta =
+      const VerificationMeta('spBoardsBackfilledAt');
+  @override
+  late final GeneratedColumn<DateTime> spBoardsBackfilledAt =
+      GeneratedColumn<DateTime>(
+        'sp_boards_backfilled_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -5598,6 +5681,8 @@ class $SystemSettingsTableTable extends SystemSettingsTable
     addFrontDefaultBehavior,
     quickFrontDefaultBehavior,
     pendingFrontingMigrationCleanupSubstate,
+    boardsEnabled,
+    spBoardsBackfilledAt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -6127,6 +6212,24 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         ),
       );
     }
+    if (data.containsKey('boards_enabled')) {
+      context.handle(
+        _boardsEnabledMeta,
+        boardsEnabled.isAcceptableOrUnknown(
+          data['boards_enabled']!,
+          _boardsEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('sp_boards_backfilled_at')) {
+      context.handle(
+        _spBoardsBackfilledAtMeta,
+        spBoardsBackfilledAt.isAcceptableOrUnknown(
+          data['sp_boards_backfilled_at']!,
+          _spBoardsBackfilledAtMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -6380,6 +6483,14 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         DriftSqlType.string,
         data['${effectivePrefix}pending_fronting_migration_cleanup_substate'],
       )!,
+      boardsEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}boards_enabled'],
+      )!,
+      spBoardsBackfilledAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}sp_boards_backfilled_at'],
+      ),
     );
   }
 
@@ -6461,6 +6572,8 @@ class SystemSettingsData extends DataClass
   /// 0 = additive (default), 1 = replace.
   final int quickFrontDefaultBehavior;
   final String pendingFrontingMigrationCleanupSubstate;
+  final bool boardsEnabled;
+  final DateTime? spBoardsBackfilledAt;
   const SystemSettingsData({
     required this.id,
     this.systemName,
@@ -6523,6 +6636,8 @@ class SystemSettingsData extends DataClass
     required this.addFrontDefaultBehavior,
     required this.quickFrontDefaultBehavior,
     required this.pendingFrontingMigrationCleanupSubstate,
+    required this.boardsEnabled,
+    this.spBoardsBackfilledAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -6624,6 +6739,10 @@ class SystemSettingsData extends DataClass
     map['pending_fronting_migration_cleanup_substate'] = Variable<String>(
       pendingFrontingMigrationCleanupSubstate,
     );
+    map['boards_enabled'] = Variable<bool>(boardsEnabled);
+    if (!nullToAbsent || spBoardsBackfilledAt != null) {
+      map['sp_boards_backfilled_at'] = Variable<DateTime>(spBoardsBackfilledAt);
+    }
     return map;
   }
 
@@ -6712,6 +6831,10 @@ class SystemSettingsData extends DataClass
       pendingFrontingMigrationCleanupSubstate: Value(
         pendingFrontingMigrationCleanupSubstate,
       ),
+      boardsEnabled: Value(boardsEnabled),
+      spBoardsBackfilledAt: spBoardsBackfilledAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(spBoardsBackfilledAt),
     );
   }
 
@@ -6842,6 +6965,10 @@ class SystemSettingsData extends DataClass
       pendingFrontingMigrationCleanupSubstate: serializer.fromJson<String>(
         json['pendingFrontingMigrationCleanupSubstate'],
       ),
+      boardsEnabled: serializer.fromJson<bool>(json['boardsEnabled']),
+      spBoardsBackfilledAt: serializer.fromJson<DateTime?>(
+        json['spBoardsBackfilledAt'],
+      ),
     );
   }
   @override
@@ -6929,6 +7056,10 @@ class SystemSettingsData extends DataClass
       'pendingFrontingMigrationCleanupSubstate': serializer.toJson<String>(
         pendingFrontingMigrationCleanupSubstate,
       ),
+      'boardsEnabled': serializer.toJson<bool>(boardsEnabled),
+      'spBoardsBackfilledAt': serializer.toJson<DateTime?>(
+        spBoardsBackfilledAt,
+      ),
     };
   }
 
@@ -6994,6 +7125,8 @@ class SystemSettingsData extends DataClass
     int? addFrontDefaultBehavior,
     int? quickFrontDefaultBehavior,
     String? pendingFrontingMigrationCleanupSubstate,
+    bool? boardsEnabled,
+    Value<DateTime?> spBoardsBackfilledAt = const Value.absent(),
   }) => SystemSettingsData(
     id: id ?? this.id,
     systemName: systemName.present ? systemName.value : this.systemName,
@@ -7080,6 +7213,10 @@ class SystemSettingsData extends DataClass
     pendingFrontingMigrationCleanupSubstate:
         pendingFrontingMigrationCleanupSubstate ??
         this.pendingFrontingMigrationCleanupSubstate,
+    boardsEnabled: boardsEnabled ?? this.boardsEnabled,
+    spBoardsBackfilledAt: spBoardsBackfilledAt.present
+        ? spBoardsBackfilledAt.value
+        : this.spBoardsBackfilledAt,
   );
   SystemSettingsData copyWithCompanion(SystemSettingsTableCompanion data) {
     return SystemSettingsData(
@@ -7256,6 +7393,12 @@ class SystemSettingsData extends DataClass
           data.pendingFrontingMigrationCleanupSubstate.present
           ? data.pendingFrontingMigrationCleanupSubstate.value
           : this.pendingFrontingMigrationCleanupSubstate,
+      boardsEnabled: data.boardsEnabled.present
+          ? data.boardsEnabled.value
+          : this.boardsEnabled,
+      spBoardsBackfilledAt: data.spBoardsBackfilledAt.present
+          ? data.spBoardsBackfilledAt.value
+          : this.spBoardsBackfilledAt,
     );
   }
 
@@ -7327,8 +7470,10 @@ class SystemSettingsData extends DataClass
           ..write('addFrontDefaultBehavior: $addFrontDefaultBehavior, ')
           ..write('quickFrontDefaultBehavior: $quickFrontDefaultBehavior, ')
           ..write(
-            'pendingFrontingMigrationCleanupSubstate: $pendingFrontingMigrationCleanupSubstate',
+            'pendingFrontingMigrationCleanupSubstate: $pendingFrontingMigrationCleanupSubstate, ',
           )
+          ..write('boardsEnabled: $boardsEnabled, ')
+          ..write('spBoardsBackfilledAt: $spBoardsBackfilledAt')
           ..write(')'))
         .toString();
   }
@@ -7396,6 +7541,8 @@ class SystemSettingsData extends DataClass
     addFrontDefaultBehavior,
     quickFrontDefaultBehavior,
     pendingFrontingMigrationCleanupSubstate,
+    boardsEnabled,
+    spBoardsBackfilledAt,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -7468,7 +7615,9 @@ class SystemSettingsData extends DataClass
           other.addFrontDefaultBehavior == this.addFrontDefaultBehavior &&
           other.quickFrontDefaultBehavior == this.quickFrontDefaultBehavior &&
           other.pendingFrontingMigrationCleanupSubstate ==
-              this.pendingFrontingMigrationCleanupSubstate);
+              this.pendingFrontingMigrationCleanupSubstate &&
+          other.boardsEnabled == this.boardsEnabled &&
+          other.spBoardsBackfilledAt == this.spBoardsBackfilledAt);
 }
 
 class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
@@ -7533,6 +7682,8 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
   final Value<int> addFrontDefaultBehavior;
   final Value<int> quickFrontDefaultBehavior;
   final Value<String> pendingFrontingMigrationCleanupSubstate;
+  final Value<bool> boardsEnabled;
+  final Value<DateTime?> spBoardsBackfilledAt;
   final Value<int> rowid;
   const SystemSettingsTableCompanion({
     this.id = const Value.absent(),
@@ -7596,6 +7747,8 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.addFrontDefaultBehavior = const Value.absent(),
     this.quickFrontDefaultBehavior = const Value.absent(),
     this.pendingFrontingMigrationCleanupSubstate = const Value.absent(),
+    this.boardsEnabled = const Value.absent(),
+    this.spBoardsBackfilledAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   SystemSettingsTableCompanion.insert({
@@ -7660,6 +7813,8 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.addFrontDefaultBehavior = const Value.absent(),
     this.quickFrontDefaultBehavior = const Value.absent(),
     this.pendingFrontingMigrationCleanupSubstate = const Value.absent(),
+    this.boardsEnabled = const Value.absent(),
+    this.spBoardsBackfilledAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   static Insertable<SystemSettingsData> custom({
@@ -7724,6 +7879,8 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Expression<int>? addFrontDefaultBehavior,
     Expression<int>? quickFrontDefaultBehavior,
     Expression<String>? pendingFrontingMigrationCleanupSubstate,
+    Expression<bool>? boardsEnabled,
+    Expression<DateTime>? spBoardsBackfilledAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -7817,6 +7974,9 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
       if (pendingFrontingMigrationCleanupSubstate != null)
         'pending_fronting_migration_cleanup_substate':
             pendingFrontingMigrationCleanupSubstate,
+      if (boardsEnabled != null) 'boards_enabled': boardsEnabled,
+      if (spBoardsBackfilledAt != null)
+        'sp_boards_backfilled_at': spBoardsBackfilledAt,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -7883,6 +8043,8 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Value<int>? addFrontDefaultBehavior,
     Value<int>? quickFrontDefaultBehavior,
     Value<String>? pendingFrontingMigrationCleanupSubstate,
+    Value<bool>? boardsEnabled,
+    Value<DateTime?>? spBoardsBackfilledAt,
     Value<int>? rowid,
   }) {
     return SystemSettingsTableCompanion(
@@ -7966,6 +8128,8 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
       pendingFrontingMigrationCleanupSubstate:
           pendingFrontingMigrationCleanupSubstate ??
           this.pendingFrontingMigrationCleanupSubstate,
+      boardsEnabled: boardsEnabled ?? this.boardsEnabled,
+      spBoardsBackfilledAt: spBoardsBackfilledAt ?? this.spBoardsBackfilledAt,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -8208,6 +8372,14 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
         pendingFrontingMigrationCleanupSubstate.value,
       );
     }
+    if (boardsEnabled.present) {
+      map['boards_enabled'] = Variable<bool>(boardsEnabled.value);
+    }
+    if (spBoardsBackfilledAt.present) {
+      map['sp_boards_backfilled_at'] = Variable<DateTime>(
+        spBoardsBackfilledAt.value,
+      );
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -8284,6 +8456,8 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
           ..write(
             'pendingFrontingMigrationCleanupSubstate: $pendingFrontingMigrationCleanupSubstate, ',
           )
+          ..write('boardsEnabled: $boardsEnabled, ')
+          ..write('spBoardsBackfilledAt: $spBoardsBackfilledAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -17235,6 +17409,647 @@ class NotesCompanion extends UpdateCompanion<NoteRow> {
   }
 }
 
+class $MemberBoardPostsTable extends MemberBoardPosts
+    with TableInfo<$MemberBoardPostsTable, MemberBoardPostRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $MemberBoardPostsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _targetMemberIdMeta = const VerificationMeta(
+    'targetMemberId',
+  );
+  @override
+  late final GeneratedColumn<String> targetMemberId = GeneratedColumn<String>(
+    'target_member_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _authorIdMeta = const VerificationMeta(
+    'authorId',
+  );
+  @override
+  late final GeneratedColumn<String> authorId = GeneratedColumn<String>(
+    'author_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _audienceMeta = const VerificationMeta(
+    'audience',
+  );
+  @override
+  late final GeneratedColumn<String> audience = GeneratedColumn<String>(
+    'audience',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+    'title',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _bodyMeta = const VerificationMeta('body');
+  @override
+  late final GeneratedColumn<String> body = GeneratedColumn<String>(
+    'body',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _writtenAtMeta = const VerificationMeta(
+    'writtenAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> writtenAt = GeneratedColumn<DateTime>(
+    'written_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _editedAtMeta = const VerificationMeta(
+    'editedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> editedAt = GeneratedColumn<DateTime>(
+    'edited_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    targetMemberId,
+    authorId,
+    audience,
+    title,
+    body,
+    createdAt,
+    writtenAt,
+    editedAt,
+    isDeleted,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'member_board_posts';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<MemberBoardPostRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('target_member_id')) {
+      context.handle(
+        _targetMemberIdMeta,
+        targetMemberId.isAcceptableOrUnknown(
+          data['target_member_id']!,
+          _targetMemberIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('author_id')) {
+      context.handle(
+        _authorIdMeta,
+        authorId.isAcceptableOrUnknown(data['author_id']!, _authorIdMeta),
+      );
+    }
+    if (data.containsKey('audience')) {
+      context.handle(
+        _audienceMeta,
+        audience.isAcceptableOrUnknown(data['audience']!, _audienceMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_audienceMeta);
+    }
+    if (data.containsKey('title')) {
+      context.handle(
+        _titleMeta,
+        title.isAcceptableOrUnknown(data['title']!, _titleMeta),
+      );
+    }
+    if (data.containsKey('body')) {
+      context.handle(
+        _bodyMeta,
+        body.isAcceptableOrUnknown(data['body']!, _bodyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_bodyMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('written_at')) {
+      context.handle(
+        _writtenAtMeta,
+        writtenAt.isAcceptableOrUnknown(data['written_at']!, _writtenAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_writtenAtMeta);
+    }
+    if (data.containsKey('edited_at')) {
+      context.handle(
+        _editedAtMeta,
+        editedAt.isAcceptableOrUnknown(data['edited_at']!, _editedAtMeta),
+      );
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  MemberBoardPostRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return MemberBoardPostRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      targetMemberId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}target_member_id'],
+      ),
+      authorId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}author_id'],
+      ),
+      audience: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}audience'],
+      )!,
+      title: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title'],
+      ),
+      body: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}body'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      writtenAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}written_at'],
+      )!,
+      editedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}edited_at'],
+      ),
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+    );
+  }
+
+  @override
+  $MemberBoardPostsTable createAlias(String alias) {
+    return $MemberBoardPostsTable(attachedDatabase, alias);
+  }
+}
+
+class MemberBoardPostRow extends DataClass
+    implements Insertable<MemberBoardPostRow> {
+  /// UUID primary key, generated by the creating device.
+  final String id;
+
+  /// Recipient member; null for system-wide public posts
+  /// (`audience = 'public'`, `target_member_id = null`).
+  final String? targetMemberId;
+
+  /// Writer; null only for legacy SP imports where SP `writtenBy` was unknown.
+  final String? authorId;
+
+  /// Audience enum — exactly `'public'` or `'private'`.
+  /// Forward-compat default: any unrecognised value from a future-version
+  /// peer is treated as `'public'` in the sync adapter (documented there).
+  final String audience;
+
+  /// Optional post title.
+  final String? title;
+
+  /// Post body — required, non-empty (validated at the repository layer).
+  final String body;
+
+  /// Immutable creation timestamp, set locally at insert.
+  final DateTime createdAt;
+
+  /// User-facing post timestamp. Equals `created_at` for native posts;
+  /// equals SP `writtenAt` for SP imports.
+  final DateTime writtenAt;
+
+  /// Last-edited timestamp; null if the post has never been edited.
+  final DateTime? editedAt;
+
+  /// Soft-delete tombstone. Never hard-delete; this field is always emitted
+  /// in `_postFields` so the CRDT engine propagates tombstones correctly.
+  final bool isDeleted;
+  const MemberBoardPostRow({
+    required this.id,
+    this.targetMemberId,
+    this.authorId,
+    required this.audience,
+    this.title,
+    required this.body,
+    required this.createdAt,
+    required this.writtenAt,
+    this.editedAt,
+    required this.isDeleted,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    if (!nullToAbsent || targetMemberId != null) {
+      map['target_member_id'] = Variable<String>(targetMemberId);
+    }
+    if (!nullToAbsent || authorId != null) {
+      map['author_id'] = Variable<String>(authorId);
+    }
+    map['audience'] = Variable<String>(audience);
+    if (!nullToAbsent || title != null) {
+      map['title'] = Variable<String>(title);
+    }
+    map['body'] = Variable<String>(body);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['written_at'] = Variable<DateTime>(writtenAt);
+    if (!nullToAbsent || editedAt != null) {
+      map['edited_at'] = Variable<DateTime>(editedAt);
+    }
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    return map;
+  }
+
+  MemberBoardPostsCompanion toCompanion(bool nullToAbsent) {
+    return MemberBoardPostsCompanion(
+      id: Value(id),
+      targetMemberId: targetMemberId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(targetMemberId),
+      authorId: authorId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(authorId),
+      audience: Value(audience),
+      title: title == null && nullToAbsent
+          ? const Value.absent()
+          : Value(title),
+      body: Value(body),
+      createdAt: Value(createdAt),
+      writtenAt: Value(writtenAt),
+      editedAt: editedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(editedAt),
+      isDeleted: Value(isDeleted),
+    );
+  }
+
+  factory MemberBoardPostRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return MemberBoardPostRow(
+      id: serializer.fromJson<String>(json['id']),
+      targetMemberId: serializer.fromJson<String?>(json['targetMemberId']),
+      authorId: serializer.fromJson<String?>(json['authorId']),
+      audience: serializer.fromJson<String>(json['audience']),
+      title: serializer.fromJson<String?>(json['title']),
+      body: serializer.fromJson<String>(json['body']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      writtenAt: serializer.fromJson<DateTime>(json['writtenAt']),
+      editedAt: serializer.fromJson<DateTime?>(json['editedAt']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'targetMemberId': serializer.toJson<String?>(targetMemberId),
+      'authorId': serializer.toJson<String?>(authorId),
+      'audience': serializer.toJson<String>(audience),
+      'title': serializer.toJson<String?>(title),
+      'body': serializer.toJson<String>(body),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'writtenAt': serializer.toJson<DateTime>(writtenAt),
+      'editedAt': serializer.toJson<DateTime?>(editedAt),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+    };
+  }
+
+  MemberBoardPostRow copyWith({
+    String? id,
+    Value<String?> targetMemberId = const Value.absent(),
+    Value<String?> authorId = const Value.absent(),
+    String? audience,
+    Value<String?> title = const Value.absent(),
+    String? body,
+    DateTime? createdAt,
+    DateTime? writtenAt,
+    Value<DateTime?> editedAt = const Value.absent(),
+    bool? isDeleted,
+  }) => MemberBoardPostRow(
+    id: id ?? this.id,
+    targetMemberId: targetMemberId.present
+        ? targetMemberId.value
+        : this.targetMemberId,
+    authorId: authorId.present ? authorId.value : this.authorId,
+    audience: audience ?? this.audience,
+    title: title.present ? title.value : this.title,
+    body: body ?? this.body,
+    createdAt: createdAt ?? this.createdAt,
+    writtenAt: writtenAt ?? this.writtenAt,
+    editedAt: editedAt.present ? editedAt.value : this.editedAt,
+    isDeleted: isDeleted ?? this.isDeleted,
+  );
+  MemberBoardPostRow copyWithCompanion(MemberBoardPostsCompanion data) {
+    return MemberBoardPostRow(
+      id: data.id.present ? data.id.value : this.id,
+      targetMemberId: data.targetMemberId.present
+          ? data.targetMemberId.value
+          : this.targetMemberId,
+      authorId: data.authorId.present ? data.authorId.value : this.authorId,
+      audience: data.audience.present ? data.audience.value : this.audience,
+      title: data.title.present ? data.title.value : this.title,
+      body: data.body.present ? data.body.value : this.body,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      writtenAt: data.writtenAt.present ? data.writtenAt.value : this.writtenAt,
+      editedAt: data.editedAt.present ? data.editedAt.value : this.editedAt,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MemberBoardPostRow(')
+          ..write('id: $id, ')
+          ..write('targetMemberId: $targetMemberId, ')
+          ..write('authorId: $authorId, ')
+          ..write('audience: $audience, ')
+          ..write('title: $title, ')
+          ..write('body: $body, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('writtenAt: $writtenAt, ')
+          ..write('editedAt: $editedAt, ')
+          ..write('isDeleted: $isDeleted')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    targetMemberId,
+    authorId,
+    audience,
+    title,
+    body,
+    createdAt,
+    writtenAt,
+    editedAt,
+    isDeleted,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is MemberBoardPostRow &&
+          other.id == this.id &&
+          other.targetMemberId == this.targetMemberId &&
+          other.authorId == this.authorId &&
+          other.audience == this.audience &&
+          other.title == this.title &&
+          other.body == this.body &&
+          other.createdAt == this.createdAt &&
+          other.writtenAt == this.writtenAt &&
+          other.editedAt == this.editedAt &&
+          other.isDeleted == this.isDeleted);
+}
+
+class MemberBoardPostsCompanion extends UpdateCompanion<MemberBoardPostRow> {
+  final Value<String> id;
+  final Value<String?> targetMemberId;
+  final Value<String?> authorId;
+  final Value<String> audience;
+  final Value<String?> title;
+  final Value<String> body;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> writtenAt;
+  final Value<DateTime?> editedAt;
+  final Value<bool> isDeleted;
+  final Value<int> rowid;
+  const MemberBoardPostsCompanion({
+    this.id = const Value.absent(),
+    this.targetMemberId = const Value.absent(),
+    this.authorId = const Value.absent(),
+    this.audience = const Value.absent(),
+    this.title = const Value.absent(),
+    this.body = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.writtenAt = const Value.absent(),
+    this.editedAt = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  MemberBoardPostsCompanion.insert({
+    required String id,
+    this.targetMemberId = const Value.absent(),
+    this.authorId = const Value.absent(),
+    required String audience,
+    this.title = const Value.absent(),
+    required String body,
+    required DateTime createdAt,
+    required DateTime writtenAt,
+    this.editedAt = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       audience = Value(audience),
+       body = Value(body),
+       createdAt = Value(createdAt),
+       writtenAt = Value(writtenAt);
+  static Insertable<MemberBoardPostRow> custom({
+    Expression<String>? id,
+    Expression<String>? targetMemberId,
+    Expression<String>? authorId,
+    Expression<String>? audience,
+    Expression<String>? title,
+    Expression<String>? body,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? writtenAt,
+    Expression<DateTime>? editedAt,
+    Expression<bool>? isDeleted,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (targetMemberId != null) 'target_member_id': targetMemberId,
+      if (authorId != null) 'author_id': authorId,
+      if (audience != null) 'audience': audience,
+      if (title != null) 'title': title,
+      if (body != null) 'body': body,
+      if (createdAt != null) 'created_at': createdAt,
+      if (writtenAt != null) 'written_at': writtenAt,
+      if (editedAt != null) 'edited_at': editedAt,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  MemberBoardPostsCompanion copyWith({
+    Value<String>? id,
+    Value<String?>? targetMemberId,
+    Value<String?>? authorId,
+    Value<String>? audience,
+    Value<String?>? title,
+    Value<String>? body,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? writtenAt,
+    Value<DateTime?>? editedAt,
+    Value<bool>? isDeleted,
+    Value<int>? rowid,
+  }) {
+    return MemberBoardPostsCompanion(
+      id: id ?? this.id,
+      targetMemberId: targetMemberId ?? this.targetMemberId,
+      authorId: authorId ?? this.authorId,
+      audience: audience ?? this.audience,
+      title: title ?? this.title,
+      body: body ?? this.body,
+      createdAt: createdAt ?? this.createdAt,
+      writtenAt: writtenAt ?? this.writtenAt,
+      editedAt: editedAt ?? this.editedAt,
+      isDeleted: isDeleted ?? this.isDeleted,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (targetMemberId.present) {
+      map['target_member_id'] = Variable<String>(targetMemberId.value);
+    }
+    if (authorId.present) {
+      map['author_id'] = Variable<String>(authorId.value);
+    }
+    if (audience.present) {
+      map['audience'] = Variable<String>(audience.value);
+    }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
+    if (body.present) {
+      map['body'] = Variable<String>(body.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (writtenAt.present) {
+      map['written_at'] = Variable<DateTime>(writtenAt.value);
+    }
+    if (editedAt.present) {
+      map['edited_at'] = Variable<DateTime>(editedAt.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MemberBoardPostsCompanion(')
+          ..write('id: $id, ')
+          ..write('targetMemberId: $targetMemberId, ')
+          ..write('authorId: $authorId, ')
+          ..write('audience: $audience, ')
+          ..write('title: $title, ')
+          ..write('body: $body, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('writtenAt: $writtenAt, ')
+          ..write('editedAt: $editedAt, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $FrontSessionCommentsTable extends FrontSessionComments
     with TableInfo<$FrontSessionCommentsTable, FrontSessionCommentRow> {
   @override
@@ -22863,6 +23678,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $CustomFieldValuesTable customFieldValues =
       $CustomFieldValuesTable(this);
   late final $NotesTable notes = $NotesTable(this);
+  late final $MemberBoardPostsTable memberBoardPosts = $MemberBoardPostsTable(
+    this,
+  );
   late final $FrontSessionCommentsTable frontSessionComments =
       $FrontSessionCommentsTable(this);
   late final $ConversationCategoriesTable conversationCategories =
@@ -22916,6 +23734,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     this as AppDatabase,
   );
   late final NotesDao notesDao = NotesDao(this as AppDatabase);
+  late final MemberBoardPostsDao memberBoardPostsDao = MemberBoardPostsDao(
+    this as AppDatabase,
+  );
   late final FrontSessionCommentsDao frontSessionCommentsDao =
       FrontSessionCommentsDao(this as AppDatabase);
   late final ConversationCategoriesDao conversationCategoriesDao =
@@ -22957,6 +23778,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     customFields,
     customFieldValues,
     notes,
+    memberBoardPosts,
     frontSessionComments,
     conversationCategories,
     reminders,
@@ -23008,6 +23830,7 @@ typedef $$MembersTableCreateCompanionBuilder =
       Value<int?> deleteIntentEpoch,
       Value<int?> deletePushStartedAt,
       Value<bool> isAlwaysFronting,
+      Value<DateTime?> boardLastReadAt,
       Value<int> rowid,
     });
 typedef $$MembersTableUpdateCompanionBuilder =
@@ -23049,6 +23872,7 @@ typedef $$MembersTableUpdateCompanionBuilder =
       Value<int?> deleteIntentEpoch,
       Value<int?> deletePushStartedAt,
       Value<bool> isAlwaysFronting,
+      Value<DateTime?> boardLastReadAt,
       Value<int> rowid,
     });
 
@@ -23243,6 +24067,11 @@ class $$MembersTableFilterComposer
 
   ColumnFilters<bool> get isAlwaysFronting => $composableBuilder(
     column: $table.isAlwaysFronting,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get boardLastReadAt => $composableBuilder(
+    column: $table.boardLastReadAt,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -23440,6 +24269,11 @@ class $$MembersTableOrderingComposer
     column: $table.isAlwaysFronting,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<DateTime> get boardLastReadAt => $composableBuilder(
+    column: $table.boardLastReadAt,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$MembersTableAnnotationComposer
@@ -23613,6 +24447,11 @@ class $$MembersTableAnnotationComposer
     column: $table.isAlwaysFronting,
     builder: (column) => column,
   );
+
+  GeneratedColumn<DateTime> get boardLastReadAt => $composableBuilder(
+    column: $table.boardLastReadAt,
+    builder: (column) => column,
+  );
 }
 
 class $$MembersTableTableManager
@@ -23680,6 +24519,7 @@ class $$MembersTableTableManager
                 Value<int?> deleteIntentEpoch = const Value.absent(),
                 Value<int?> deletePushStartedAt = const Value.absent(),
                 Value<bool> isAlwaysFronting = const Value.absent(),
+                Value<DateTime?> boardLastReadAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => MembersCompanion(
                 id: id,
@@ -23719,6 +24559,7 @@ class $$MembersTableTableManager
                 deleteIntentEpoch: deleteIntentEpoch,
                 deletePushStartedAt: deletePushStartedAt,
                 isAlwaysFronting: isAlwaysFronting,
+                boardLastReadAt: boardLastReadAt,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -23760,6 +24601,7 @@ class $$MembersTableTableManager
                 Value<int?> deleteIntentEpoch = const Value.absent(),
                 Value<int?> deletePushStartedAt = const Value.absent(),
                 Value<bool> isAlwaysFronting = const Value.absent(),
+                Value<DateTime?> boardLastReadAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => MembersCompanion.insert(
                 id: id,
@@ -23799,6 +24641,7 @@ class $$MembersTableTableManager
                 deleteIntentEpoch: deleteIntentEpoch,
                 deletePushStartedAt: deletePushStartedAt,
                 isAlwaysFronting: isAlwaysFronting,
+                boardLastReadAt: boardLastReadAt,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -25089,6 +25932,8 @@ typedef $$SystemSettingsTableTableCreateCompanionBuilder =
       Value<int> addFrontDefaultBehavior,
       Value<int> quickFrontDefaultBehavior,
       Value<String> pendingFrontingMigrationCleanupSubstate,
+      Value<bool> boardsEnabled,
+      Value<DateTime?> spBoardsBackfilledAt,
       Value<int> rowid,
     });
 typedef $$SystemSettingsTableTableUpdateCompanionBuilder =
@@ -25154,6 +25999,8 @@ typedef $$SystemSettingsTableTableUpdateCompanionBuilder =
       Value<int> addFrontDefaultBehavior,
       Value<int> quickFrontDefaultBehavior,
       Value<String> pendingFrontingMigrationCleanupSubstate,
+      Value<bool> boardsEnabled,
+      Value<DateTime?> spBoardsBackfilledAt,
       Value<int> rowid,
     });
 
@@ -25471,6 +26318,16 @@ class $$SystemSettingsTableTableFilterComposer
         column: $table.pendingFrontingMigrationCleanupSubstate,
         builder: (column) => ColumnFilters(column),
       );
+
+  ColumnFilters<bool> get boardsEnabled => $composableBuilder(
+    column: $table.boardsEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get spBoardsBackfilledAt => $composableBuilder(
+    column: $table.spBoardsBackfilledAt,
+    builder: (column) => ColumnFilters(column),
+  );
 }
 
 class $$SystemSettingsTableTableOrderingComposer
@@ -25789,6 +26646,16 @@ class $$SystemSettingsTableTableOrderingComposer
         column: $table.pendingFrontingMigrationCleanupSubstate,
         builder: (column) => ColumnOrderings(column),
       );
+
+  ColumnOrderings<bool> get boardsEnabled => $composableBuilder(
+    column: $table.boardsEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get spBoardsBackfilledAt => $composableBuilder(
+    column: $table.spBoardsBackfilledAt,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$SystemSettingsTableTableAnnotationComposer
@@ -26095,6 +26962,16 @@ class $$SystemSettingsTableTableAnnotationComposer
         column: $table.pendingFrontingMigrationCleanupSubstate,
         builder: (column) => column,
       );
+
+  GeneratedColumn<bool> get boardsEnabled => $composableBuilder(
+    column: $table.boardsEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get spBoardsBackfilledAt => $composableBuilder(
+    column: $table.spBoardsBackfilledAt,
+    builder: (column) => column,
+  );
 }
 
 class $$SystemSettingsTableTableTableManager
@@ -26204,6 +27081,8 @@ class $$SystemSettingsTableTableTableManager
                 Value<int> quickFrontDefaultBehavior = const Value.absent(),
                 Value<String> pendingFrontingMigrationCleanupSubstate =
                     const Value.absent(),
+                Value<bool> boardsEnabled = const Value.absent(),
+                Value<DateTime?> spBoardsBackfilledAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SystemSettingsTableCompanion(
                 id: id,
@@ -26269,6 +27148,8 @@ class $$SystemSettingsTableTableTableManager
                 quickFrontDefaultBehavior: quickFrontDefaultBehavior,
                 pendingFrontingMigrationCleanupSubstate:
                     pendingFrontingMigrationCleanupSubstate,
+                boardsEnabled: boardsEnabled,
+                spBoardsBackfilledAt: spBoardsBackfilledAt,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -26337,6 +27218,8 @@ class $$SystemSettingsTableTableTableManager
                 Value<int> quickFrontDefaultBehavior = const Value.absent(),
                 Value<String> pendingFrontingMigrationCleanupSubstate =
                     const Value.absent(),
+                Value<bool> boardsEnabled = const Value.absent(),
+                Value<DateTime?> spBoardsBackfilledAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SystemSettingsTableCompanion.insert(
                 id: id,
@@ -26402,6 +27285,8 @@ class $$SystemSettingsTableTableTableManager
                 quickFrontDefaultBehavior: quickFrontDefaultBehavior,
                 pendingFrontingMigrationCleanupSubstate:
                     pendingFrontingMigrationCleanupSubstate,
+                boardsEnabled: boardsEnabled,
+                spBoardsBackfilledAt: spBoardsBackfilledAt,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -30819,6 +31704,313 @@ typedef $$NotesTableProcessedTableManager =
       NoteRow,
       PrefetchHooks Function()
     >;
+typedef $$MemberBoardPostsTableCreateCompanionBuilder =
+    MemberBoardPostsCompanion Function({
+      required String id,
+      Value<String?> targetMemberId,
+      Value<String?> authorId,
+      required String audience,
+      Value<String?> title,
+      required String body,
+      required DateTime createdAt,
+      required DateTime writtenAt,
+      Value<DateTime?> editedAt,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+typedef $$MemberBoardPostsTableUpdateCompanionBuilder =
+    MemberBoardPostsCompanion Function({
+      Value<String> id,
+      Value<String?> targetMemberId,
+      Value<String?> authorId,
+      Value<String> audience,
+      Value<String?> title,
+      Value<String> body,
+      Value<DateTime> createdAt,
+      Value<DateTime> writtenAt,
+      Value<DateTime?> editedAt,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+
+class $$MemberBoardPostsTableFilterComposer
+    extends Composer<_$AppDatabase, $MemberBoardPostsTable> {
+  $$MemberBoardPostsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get targetMemberId => $composableBuilder(
+    column: $table.targetMemberId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get authorId => $composableBuilder(
+    column: $table.authorId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get audience => $composableBuilder(
+    column: $table.audience,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get body => $composableBuilder(
+    column: $table.body,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get writtenAt => $composableBuilder(
+    column: $table.writtenAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get editedAt => $composableBuilder(
+    column: $table.editedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$MemberBoardPostsTableOrderingComposer
+    extends Composer<_$AppDatabase, $MemberBoardPostsTable> {
+  $$MemberBoardPostsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get targetMemberId => $composableBuilder(
+    column: $table.targetMemberId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get authorId => $composableBuilder(
+    column: $table.authorId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get audience => $composableBuilder(
+    column: $table.audience,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get body => $composableBuilder(
+    column: $table.body,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get writtenAt => $composableBuilder(
+    column: $table.writtenAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get editedAt => $composableBuilder(
+    column: $table.editedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$MemberBoardPostsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $MemberBoardPostsTable> {
+  $$MemberBoardPostsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get targetMemberId => $composableBuilder(
+    column: $table.targetMemberId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get authorId =>
+      $composableBuilder(column: $table.authorId, builder: (column) => column);
+
+  GeneratedColumn<String> get audience =>
+      $composableBuilder(column: $table.audience, builder: (column) => column);
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumn<String> get body =>
+      $composableBuilder(column: $table.body, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get writtenAt =>
+      $composableBuilder(column: $table.writtenAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get editedAt =>
+      $composableBuilder(column: $table.editedAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+}
+
+class $$MemberBoardPostsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $MemberBoardPostsTable,
+          MemberBoardPostRow,
+          $$MemberBoardPostsTableFilterComposer,
+          $$MemberBoardPostsTableOrderingComposer,
+          $$MemberBoardPostsTableAnnotationComposer,
+          $$MemberBoardPostsTableCreateCompanionBuilder,
+          $$MemberBoardPostsTableUpdateCompanionBuilder,
+          (
+            MemberBoardPostRow,
+            BaseReferences<
+              _$AppDatabase,
+              $MemberBoardPostsTable,
+              MemberBoardPostRow
+            >,
+          ),
+          MemberBoardPostRow,
+          PrefetchHooks Function()
+        > {
+  $$MemberBoardPostsTableTableManager(
+    _$AppDatabase db,
+    $MemberBoardPostsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$MemberBoardPostsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$MemberBoardPostsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$MemberBoardPostsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String?> targetMemberId = const Value.absent(),
+                Value<String?> authorId = const Value.absent(),
+                Value<String> audience = const Value.absent(),
+                Value<String?> title = const Value.absent(),
+                Value<String> body = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> writtenAt = const Value.absent(),
+                Value<DateTime?> editedAt = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => MemberBoardPostsCompanion(
+                id: id,
+                targetMemberId: targetMemberId,
+                authorId: authorId,
+                audience: audience,
+                title: title,
+                body: body,
+                createdAt: createdAt,
+                writtenAt: writtenAt,
+                editedAt: editedAt,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                Value<String?> targetMemberId = const Value.absent(),
+                Value<String?> authorId = const Value.absent(),
+                required String audience,
+                Value<String?> title = const Value.absent(),
+                required String body,
+                required DateTime createdAt,
+                required DateTime writtenAt,
+                Value<DateTime?> editedAt = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => MemberBoardPostsCompanion.insert(
+                id: id,
+                targetMemberId: targetMemberId,
+                authorId: authorId,
+                audience: audience,
+                title: title,
+                body: body,
+                createdAt: createdAt,
+                writtenAt: writtenAt,
+                editedAt: editedAt,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$MemberBoardPostsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $MemberBoardPostsTable,
+      MemberBoardPostRow,
+      $$MemberBoardPostsTableFilterComposer,
+      $$MemberBoardPostsTableOrderingComposer,
+      $$MemberBoardPostsTableAnnotationComposer,
+      $$MemberBoardPostsTableCreateCompanionBuilder,
+      $$MemberBoardPostsTableUpdateCompanionBuilder,
+      (
+        MemberBoardPostRow,
+        BaseReferences<
+          _$AppDatabase,
+          $MemberBoardPostsTable,
+          MemberBoardPostRow
+        >,
+      ),
+      MemberBoardPostRow,
+      PrefetchHooks Function()
+    >;
 typedef $$FrontSessionCommentsTableCreateCompanionBuilder =
     FrontSessionCommentsCompanion Function({
       required String id,
@@ -33629,6 +34821,8 @@ class $AppDatabaseManager {
       $$CustomFieldValuesTableTableManager(_db, _db.customFieldValues);
   $$NotesTableTableManager get notes =>
       $$NotesTableTableManager(_db, _db.notes);
+  $$MemberBoardPostsTableTableManager get memberBoardPosts =>
+      $$MemberBoardPostsTableTableManager(_db, _db.memberBoardPosts);
   $$FrontSessionCommentsTableTableManager get frontSessionComments =>
       $$FrontSessionCommentsTableTableManager(_db, _db.frontSessionComments);
   $$ConversationCategoriesTableTableManager get conversationCategories =>
