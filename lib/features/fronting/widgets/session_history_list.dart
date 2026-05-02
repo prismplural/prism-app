@@ -722,6 +722,11 @@ class _PeriodTile extends ConsumerWidget {
   }
 
   List<_TileContextAction> _contextActions(BuildContext context, WidgetRef ref) {
+    // Edit hidden on multi-contributor periods: there's no period-level edit
+    // UI today, so an Edit action would silently route to sessionIds.first —
+    // the same first-of-N silent-drop bug Delete was fixed for. Long-press
+    // a single contributor on the new period detail screen to edit one.
+    final isMultiContributor = period.sessionIds.length >= 2;
     return [
       if (slice.isLiveOpenEnded)
         _TileContextAction(
@@ -729,11 +734,12 @@ class _PeriodTile extends ConsumerWidget {
           icon: AppIcons.stopRounded,
           onSelected: () => _endFronting(context, ref),
         ),
-      _TileContextAction(
-        label: context.l10n.edit,
-        icon: AppIcons.editOutlined,
-        onSelected: () => _editSession(context),
-      ),
+      if (!isMultiContributor)
+        _TileContextAction(
+          label: context.l10n.edit,
+          icon: AppIcons.editOutlined,
+          onSelected: () => _editSession(context),
+        ),
       _TileContextAction(
         label: context.l10n.delete,
         icon: AppIcons.deleteOutline,
