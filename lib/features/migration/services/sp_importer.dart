@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart';
 
 import 'package:prism_plurality/core/database/app_database.dart'
-    show AppDatabase, SpIdMapTableCompanion, SpSyncStateTableCompanion;
+    show AppDatabase, MembersCompanion, SpIdMapTableCompanion, SpSyncStateTableCompanion;
 import 'package:prism_plurality/core/database/daos/sp_import_dao.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
@@ -20,6 +20,7 @@ import 'package:prism_plurality/domain/repositories/member_groups_repository.dar
 import 'package:prism_plurality/domain/repositories/reminders_repository.dart';
 import 'package:prism_plurality/domain/repositories/conversation_categories_repository.dart';
 import 'package:prism_plurality/domain/repositories/system_settings_repository.dart';
+import 'package:prism_plurality/domain/repositories/member_board_posts_repository.dart';
 import 'package:prism_plurality/features/migration/services/sp_parser.dart';
 import 'package:prism_plurality/features/migration/services/sp_mapper.dart';
 import 'package:prism_plurality/features/migration/services/sp_custom_front_disposition.dart';
@@ -54,6 +55,7 @@ class ImportResult {
   final int customFieldsImported;
   final int groupsImported;
   final int remindersImported;
+  final int boardPostsImported;
   final int avatarsDownloaded;
   final bool systemAvatarDownloaded;
   final List<String> warnings;
@@ -70,6 +72,7 @@ class ImportResult {
     this.customFieldsImported = 0,
     this.groupsImported = 0,
     this.remindersImported = 0,
+    this.boardPostsImported = 0,
     required this.avatarsDownloaded,
     this.systemAvatarDownloaded = false,
     required this.warnings,
@@ -86,7 +89,8 @@ class ImportResult {
       commentsImported +
       customFieldsImported +
       groupsImported +
-      remindersImported;
+      remindersImported +
+      boardPostsImported;
 }
 
 /// Handles the full SP import workflow.
@@ -136,6 +140,7 @@ class SpImporter {
     RemindersRepository? remindersRepo,
     ConversationCategoriesRepository? categoriesRepo,
     SystemSettingsRepository? settingsRepo,
+    MemberBoardPostsRepository? boardPostsRepo,
     SpImportDao? spImportDao,
     bool downloadAvatars = true,
     bool clearExistingData = false,
@@ -172,7 +177,8 @@ class SpImporter {
         mapped.customFieldValues.length +
         mapped.groups.length +
         mapped.groupMemberships.length +
-        mapped.reminders.length;
+        mapped.reminders.length +
+        mapped.boardPosts.length;
     var currentItem = 0;
 
     // Import all entity data atomically. If any insert fails the entire
@@ -346,7 +352,38 @@ class SpImporter {
         }
       }
 
-      // 11. Update system settings from SP profile.
+      // 11. Import board posts (SP boardMessages as first-class MemberBoardPost rows).
+      if (boardPostsRepo != null) {
+        for (final post in mapped.boardPosts) {
+          onProgress?.call(currentItem, totalItems, 'Importing board posts...');
+          await boardPostsRepo.createPost(post);
+          currentItem++;
+        }
+        // Propagate SP read state: set boardLastReadAt for recipients of
+        // already-read messages, so the Prism inbox starts in a matching state.
+        if (mapped.boardLastReadAtUpdates.isNotEmpty) {
+          final membersDao = db.membersDao;
+          for (final entry in mapped.boardLastReadAtUpdates.entries) {
+            final memberId = entry.key;
+            final readAt = entry.value.toUtc();
+            // Only update if the new timestamp is later than any existing value.
+            final existing = await membersDao.getMemberById(memberId);
+            if (existing != null) {
+              final currentReadAt = existing.boardLastReadAt;
+              if (currentReadAt == null || readAt.isAfter(currentReadAt)) {
+                await membersDao.updateMember(
+                  MembersCompanion(
+                    id: Value(memberId),
+                    boardLastReadAt: Value(readAt),
+                  ),
+                );
+              }
+            }
+          }
+        }
+      }
+
+      // 12. Update system settings from SP profile.
       if (settingsRepo != null) {
         if (mapped.systemName != null && mapped.systemName!.isNotEmpty) {
           await settingsRepo.updateSystemName(mapped.systemName);
@@ -371,6 +408,9 @@ class SpImporter {
         ('group', mapper.groupIdMap),
         ('field', mapper.fieldIdMap),
         ('category', mapper.categoryIdMap),
+        // board_message entries enable idempotent re-import: same SP _id
+        // always maps to the same deterministic UUID v5.
+        ('board_message', mapped.boardMessageIdMap),
       ]) {
         for (final entry in idMap.entries) {
           mappingRows.add(SpIdMapTableCompanion(
@@ -432,6 +472,36 @@ class SpImporter {
       }
     }
 
+    // After import: if board posts were imported and we have a settings repo,
+    // auto-enable boardsEnabled and append 'boards' to the nav overflow so the
+    // user can immediately navigate to their imported posts.
+    final boardPostsImported = mapped.boardPosts.length;
+    if (boardPostsImported > 0 && settingsRepo != null) {
+      final currentSettings = await settingsRepo.getSettings();
+      final wasEnabled = currentSettings.boardsEnabled;
+      if (!wasEnabled) {
+        await settingsRepo.updateBoardsEnabled(true);
+      }
+      // Idempotently append 'boards' to the nav overflow if not already present
+      // in either the primary nav or the overflow list.
+      final refreshed = await settingsRepo.getSettings();
+      final primaryIds = refreshed.navBarItems;
+      final overflowIds = refreshed.navBarOverflowItems;
+      final alreadyPresent =
+          primaryIds.contains('boards') || overflowIds.contains('boards');
+      if (!alreadyPresent) {
+        await settingsRepo.updateNavBarOverflowItems([...overflowIds, 'boards']);
+      }
+      // Surface a disclosure in the import result. The l10n key
+      // importDisclosureBoardsEnabled is added in this batch (Batch F).
+      // The migration_screen renders this as part of the warnings section;
+      // a future UI pass (H) can detect the sentinel and use the l10n key.
+      warnings.add(
+        'importDisclosureBoardsEnabled: '
+        'Message Boards enabled — your imported posts are in the Inbox.',
+      );
+    }
+
     stopwatch.stop();
 
     return ImportResult(
@@ -446,6 +516,7 @@ class SpImporter {
           mapped.customFields.length + mapped.customFieldValues.length,
       groupsImported: mapped.groups.length,
       remindersImported: mapped.reminders.length,
+      boardPostsImported: boardPostsImported,
       avatarsDownloaded: avatarsDownloaded,
       systemAvatarDownloaded: systemAvatarDownloaded,
       warnings: warnings,

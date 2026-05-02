@@ -143,6 +143,10 @@ class SystemSettingsDao extends DatabaseAccessor<AppDatabase>
   Future<void> updateBoardsEnabled(bool value) =>
       _updateField(SystemSettingsTableCompanion(boardsEnabled: Value(value)));
 
+  Future<void> updateSpBoardsBackfilledAt(DateTime? value) => _updateField(
+    SystemSettingsTableCompanion(spBoardsBackfilledAt: Value(value)),
+  );
+
   Future<void> updateRemindersEnabled(bool value) => _updateField(
     SystemSettingsTableCompanion(remindersEnabled: Value(value)),
   );

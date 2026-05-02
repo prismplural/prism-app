@@ -9051,5 +9051,9 @@
         "type": "String"
       }
     }
+  },
+  "importDisclosureBoardsEnabled": "Message Boards enabled — your imported posts are in the Inbox.",
+  "@importDisclosureBoardsEnabled": {
+    "description": "Disclosure shown after an SP import that contained board messages, informing the user that Message Boards have been auto-enabled."
   }
 }
