@@ -8547,4 +8547,95 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get memberBoardEmpty => 'Aún no hay publicaciones aquí.';
+
+  @override
+  String get boardsScreenTitle => 'Tableros';
+
+  @override
+  String get boardsTabPublic => 'Público';
+
+  @override
+  String get boardsTabInbox => 'Bandeja de entrada';
+
+  @override
+  String get boardsViewFilterAll => 'Todos los que están al frente';
+
+  @override
+  String boardsViewFilterMember(String name) {
+    return '$name';
+  }
+
+  @override
+  String get boardsEmptyPublic =>
+      'Todavía no hay nada en la línea de tiempo pública.';
+
+  @override
+  String get boardsEmptyInbox => 'No hay mensajes privados en este momento.';
+
+  @override
+  String get boardsComposeNoFronterHint =>
+      'Nadie está al frente ahora mismo — inicia una sesión para publicar.';
+
+  @override
+  String boardsToastFronterDeFronted(String name) {
+    return '$name dejó el frente — mostrando todos';
+  }
+
+  @override
+  String get boardsComposeRecipientPublicEveryone => 'Todos (público)';
+
+  @override
+  String boardsComposeRecipientPublicMember(String name) {
+    return '$name (público)';
+  }
+
+  @override
+  String boardsComposeRecipientPrivateMember(String name) {
+    return '$name (privado)';
+  }
+
+  @override
+  String get boardsComposeAddTitle => '+ Agregar título';
+
+  @override
+  String get boardsComposeTitlePlaceholder => 'Título (opcional)';
+
+  @override
+  String get boardsComposeBodyPlaceholder => 'Escribe algo...';
+
+  @override
+  String boardsComposeConsequencePrivate(String name) {
+    return 'Solo $name verá esto en su Inbox.';
+  }
+
+  @override
+  String boardsComposeConsequencePublicMember(String name) {
+    return 'El perfil de $name y el feed público mostrarán esto.';
+  }
+
+  @override
+  String get boardsComposeConsequencePublicEveryone =>
+      'Todos en tu sistema verán esto en el feed público.';
+
+  @override
+  String get boardsComposeSave => 'Publicar';
+
+  @override
+  String get boardsComposeCancel => 'Cancelar';
+
+  @override
+  String get boardsComposeEditing => 'Editar publicación';
+
+  @override
+  String get memberSectionBoardMessages => 'Mensajes del tablero';
+
+  @override
+  String memberBoardSeeAll(int count) {
+    return 'Ver las $count publicaciones';
+  }
+
+  @override
+  String memberBoardAddPost(String name) {
+    return 'Publicar para $name';
+  }
 }
