@@ -137,7 +137,11 @@ final timelineRowsProvider =
   final limit = ref.watch(timelineSessionLimitProvider);
   final sessionsAsync = ref.watch(frontingHistoryProvider(limit));
   final sleepSessionsAsync = ref.watch(recentSleepSessionsPaginatedProvider(20));
-  final membersAsync = ref.watch(activeMembersProvider);
+  // History view: include inactive (but not hard-deleted) members so their
+  // past sessions still render. `activeMembersProvider` would silently drop
+  // any session whose member has since been set inactive, leaving phantom
+  // gaps in the historical timeline.
+  final membersAsync = ref.watch(allMembersProvider);
 
   return sessionsAsync.when(
     loading: () => const AsyncValue.loading(),
