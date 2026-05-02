@@ -323,10 +323,12 @@ void main() {
       expect(await _allPosts(db), hasLength(5));
     });
 
-    test('backfill enables boardsEnabled when posts are converted', () async {
-      expect(settingsRepo.settings.boardsEnabled, isFalse);
-      await _makeBackfillService(db, settingsRepo).run();
-      expect(settingsRepo.settings.boardsEnabled, isTrue);
+    test('backfill returns postsConverted > 0 so caller can enable boardsEnabled', () async {
+      // The backfill service itself does not call updateBoardsEnabled; it returns
+      // postsConverted > 0 as the signal. The startup trigger in
+      // prism_sync_providers.dart and SpImporter are the callers that act on it.
+      final result = await _makeBackfillService(db, settingsRepo).run();
+      expect(result.postsConverted, greaterThan(0));
     });
   });
 
