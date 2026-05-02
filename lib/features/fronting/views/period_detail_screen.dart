@@ -229,9 +229,12 @@ class _PeriodDetailScreenState extends ConsumerState<PeriodDetailScreen> {
           _BrieflyJoinedSection(sessionIds: widget.sessionIds),
           _AlwaysPresentSection(sessionIds: widget.sessionIds),
           if (commentRange != null)
-            CommentsForRangeSection(
-              range: commentRange,
-              defaultTargetTime: commentRange.start,
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: CommentsForRangeSection(
+                range: commentRange,
+                defaultTargetTime: commentRange.start,
+              ),
             )
           else
             const SizedBox.shrink(),
@@ -281,7 +284,7 @@ class _Header extends ConsumerWidget {
     if (hint == null && matchedPeriod == null) {
       // No hint AND no derived period yet: short loading shimmer.
       return const PrismSectionCard(
-        margin: EdgeInsets.symmetric(vertical: 4),
+        margin: EdgeInsets.symmetric(vertical: 8),
         child: SizedBox(
           height: 80,
           child: Center(
@@ -312,7 +315,7 @@ class _Header extends ConsumerWidget {
     final duration = end.difference(start);
 
     return PrismSectionCard(
-      margin: const EdgeInsets.symmetric(vertical: 4),
+      margin: const EdgeInsets.symmetric(vertical: 8),
       child: Semantics(
         label: context.l10n.frontingPeriodHeaderSemantic(
           names,
@@ -447,7 +450,7 @@ class _CoFrontersSection extends ConsumerWidget {
         const <String, Member>{};
 
     return PrismSectionCard(
-      margin: const EdgeInsets.symmetric(vertical: 4),
+      margin: const EdgeInsets.symmetric(vertical: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -568,7 +571,7 @@ class _CoFronterRow extends ConsumerWidget {
       _ContextAction(
         label: context.l10n.edit,
         icon: AppIcons.editOutlined,
-        onSelected: () => context.go(AppRoutePaths.sessionEdit(session.id)),
+        onSelected: () => context.push(AppRoutePaths.sessionEdit(session.id)),
       ),
       _ContextAction(
         label: context.l10n.delete,
@@ -682,7 +685,7 @@ class _CoFronterRow extends ConsumerWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () => context.go(AppRoutePaths.session(session.id)),
+          onTap: () => context.push(AppRoutePaths.session(session.id)),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
@@ -796,7 +799,7 @@ class _BrieflyJoinedSection extends ConsumerWidget {
     final locale = context.dateLocale;
 
     return PrismSectionCard(
-      margin: const EdgeInsets.symmetric(vertical: 4),
+      margin: const EdgeInsets.symmetric(vertical: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -896,7 +899,7 @@ class _BriefVisitorRow extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () => GoRouter.of(context).go(AppRoutePaths.session(visit.sessionId)),
+          onTap: () => GoRouter.of(context).push(AppRoutePaths.session(visit.sessionId)),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
@@ -979,7 +982,7 @@ class _AlwaysPresentSection extends ConsumerWidget {
         const <String, Member>{};
 
     return PrismSectionCard(
-      margin: const EdgeInsets.symmetric(vertical: 4),
+      margin: const EdgeInsets.symmetric(vertical: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1068,7 +1071,7 @@ class _AlwaysPresentRow extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: member != null
-              ? () => GoRouter.of(context).go(AppRoutePaths.member(memberId))
+              ? () => GoRouter.of(context).push(AppRoutePaths.member(memberId))
               : null,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
