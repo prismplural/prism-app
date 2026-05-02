@@ -82,4 +82,33 @@ void main() {
     expect(comments.map((c) => c.id), ['at-start', 'inside']);
     expect(count, 2);
   });
+
+  test('range query returns rows sorted by target_time ascending', () async {
+    final start = DateTime.utc(2026, 4, 30, 14);
+    final end = DateTime.utc(2026, 4, 30, 15);
+
+    // Insert deliberately out of order so insertion order ≠ targetTime order.
+    // The SQL ORDER BY targetTime ASC is what guarantees the result set comes
+    // back sorted; without it the period detail screen would render comments
+    // in whatever order the storage layer happened to return.
+    await repo.createComment(comment(
+      id: 'middle',
+      timestamp: start.add(const Duration(minutes: 30)),
+      targetTime: start.add(const Duration(minutes: 30)),
+    ));
+    await repo.createComment(comment(
+      id: 'last',
+      timestamp: start.add(const Duration(minutes: 50)),
+      targetTime: start.add(const Duration(minutes: 50)),
+    ));
+    await repo.createComment(comment(
+      id: 'first',
+      timestamp: start.add(const Duration(minutes: 5)),
+      targetTime: start.add(const Duration(minutes: 5)),
+    ));
+
+    final range = TimeRange(start: start, end: end);
+    final comments = await repo.watchCommentsForRange(range).first;
+    expect(comments.map((c) => c.id), ['first', 'middle', 'last']);
+  });
 }
