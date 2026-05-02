@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:prism_plurality/domain/models/front_session_comment.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
@@ -33,6 +34,28 @@ class _TestObserver extends NavigatorObserver {
     popped.add(route);
   }
 }
+
+// ── Mutable periods holder for in-place transition tests ─────────────────────
+
+/// A [Notifier] that holds a mutable list of [FrontingPeriod]s.
+///
+/// Used to drive [derivedPeriodsProvider] from within a single [ProviderScope]
+/// so tests can flip open → closed without remounting the widget tree.
+class _PeriodsNotifier extends Notifier<AsyncValue<List<FrontingPeriod>>> {
+  @override
+  AsyncValue<List<FrontingPeriod>> build() => const AsyncValue.data([]);
+
+  void set(List<FrontingPeriod> periods) {
+    state = AsyncValue.data(periods);
+  }
+}
+
+final _periodsProvider =
+    NotifierProvider<_PeriodsNotifier, AsyncValue<List<FrontingPeriod>>>(
+  _PeriodsNotifier.new,
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 Member _member(String id, String name) =>
     Member(id: id, name: name, createdAt: DateTime(2026, 1, 1));
@@ -1381,6 +1404,204 @@ void main() {
         // Period-level subsections hidden — set-equality miss, no matchedPeriod.
         expect(find.text('Briefly joined'), findsNothing);
         expect(find.text('Always present'), findsNothing);
+      },
+    );
+
+    // ── T15: Comment ordering ───────────────────────────────────────────────
+
+    testWidgets(
+      'comments render in targetTime order regardless of stream order',
+      (tester) async {
+        // Three comments at interleaved targetTimes within the period range.
+        // Stream them in NON-sorted order (c1 middle, c2 first, c3 last) to
+        // verify the rendered list comes out sorted by targetTime ascending.
+        // If CommentsForRangeSection (or the underlying provider) does NOT
+        // sort, the widget will render them in stream order and the Y-position
+        // assertions below will fail — revealing the real bug.
+        final periodStart = DateTime(2026, 5, 2, 14, 0);
+        final periodEnd = DateTime(2026, 5, 2, 15, 0);
+
+        final c1 = FrontSessionComment(
+          id: 'c1',
+          body: 'middle',
+          timestamp: periodStart.add(const Duration(minutes: 30)),
+          createdAt: DateTime(2026, 5, 2, 16, 0),
+          targetTime: periodStart.add(const Duration(minutes: 30)),
+        );
+        final c2 = FrontSessionComment(
+          id: 'c2',
+          body: 'first',
+          timestamp: periodStart.add(const Duration(minutes: 5)),
+          createdAt: DateTime(2026, 5, 2, 16, 0),
+          targetTime: periodStart.add(const Duration(minutes: 5)),
+        );
+        final c3 = FrontSessionComment(
+          id: 'c3',
+          body: 'last',
+          timestamp: periodStart.add(const Duration(minutes: 50)),
+          createdAt: DateTime(2026, 5, 2, 16, 0),
+          targetTime: periodStart.add(const Duration(minutes: 50)),
+        );
+
+        // Comments passed in non-sorted order: c1 (middle), c2 (first), c3 (last).
+        // If sorted by targetTime ascending the rendered order must be c2 → c1 → c3.
+        final unsorted = [c1, c2, c3];
+
+        final commentRange = DateTimeRange(start: periodStart, end: periodEnd);
+        final hint = _hint(start: periodStart, end: periodEnd);
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              derivedPeriodsProvider.overrideWith(
+                (ref) => const AsyncValue.data([]),
+              ),
+              systemSettingsProvider.overrideWith(
+                (ref) => Stream.value(const SystemSettings()),
+              ),
+              sessionByIdProvider('s1').overrideWith(
+                (ref) => Stream.value(_session('s1', 's1')),
+              ),
+              sessionByIdProvider('s2').overrideWith(
+                (ref) => Stream.value(_session('s2', 's2')),
+              ),
+              membersByIdsProvider(memberIdsKey(['s1', 's2'])).overrideWith(
+                (ref) => Stream.value(const {}),
+              ),
+              // Stream the comments in non-sorted order — the sort must happen
+              // inside CommentsForRangeSection or the SQL layer, not here.
+              commentsForRangeProvider(commentRange).overrideWith(
+                (ref) => Stream.value(unsorted),
+              ),
+            ],
+            child: MaterialApp(
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: const [Locale('en')],
+              home: PeriodDetailScreen(
+                sessionIds: const ['s1', 's2'],
+                hint: hint,
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        // All three comment bodies must be visible.
+        expect(find.text('first'), findsOneWidget);
+        expect(find.text('middle'), findsOneWidget);
+        expect(find.text('last'), findsOneWidget);
+
+        // Rendered order must be c2 (first) → c1 (middle) → c3 (last) by
+        // targetTime ascending.  Compare widget Y positions: lower dy = higher
+        // in the scroll view = rendered earlier.
+        final firstY = tester.getTopLeft(find.text('first')).dy;
+        final middleY = tester.getTopLeft(find.text('middle')).dy;
+        final lastY = tester.getTopLeft(find.text('last')).dy;
+        expect(firstY, lessThan(middleY),
+            reason: 'first (targetTime +5m) must appear above middle (+30m)');
+        expect(middleY, lessThan(lastY),
+            reason: 'middle (targetTime +30m) must appear above last (+50m)');
+      },
+    );
+
+    // ── T16: In-place live→closed transition ────────────────────────────────
+
+    testWidgets(
+      'live timer disappears in place when period closes mid-mount (no remount)',
+      (tester) async {
+        // Unlike the existing "live timer disappears" test which remounts the
+        // entire ProviderScope via KeyedSubtree (testing fresh-mount with closed
+        // period), this test mutates derivedPeriodsProvider IN PLACE via a
+        // StateProvider wrapper so the transition happens on the same scope.
+        // That exercises the real reactive path: _Header.build re-runs, reads
+        // matchedPeriod?.isOpenEnded → false, and stops rendering FrontingDurationText.
+        final start = DateTime(2026, 5, 2, 14, 0);
+        final openEnd = DateTime(2026, 5, 2, 15, 0);
+        final closedEnd = DateTime(2026, 5, 2, 15, 0);
+
+        final openPeriod = FrontingPeriod(
+          start: start,
+          end: openEnd,
+          activeMembers: const ['a', 'b'],
+          briefVisitors: const [],
+          sessionIds: const ['s1', 's2'],
+          alwaysPresentMembers: const [],
+          isOpenEnded: true,
+        );
+        final closedPeriod = FrontingPeriod(
+          start: start,
+          end: closedEnd,
+          activeMembers: const ['a', 'b'],
+          briefVisitors: const [],
+          sessionIds: const ['s1', 's2'],
+          alwaysPresentMembers: const [],
+          isOpenEnded: false,
+        );
+
+        final commentRange = DateTimeRange(start: start, end: closedEnd);
+        final hint = _hint(
+          isOpenEnded: true,
+          start: start,
+          end: openEnd,
+        );
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              // Override _periodsProvider to start with openPeriod. The
+              // derivedPeriodsProvider override watches _periodsProvider so
+              // a single mutation propagates all the way to _Header without
+              // remounting the ProviderScope.
+              _periodsProvider.overrideWith(_PeriodsNotifier.new),
+              derivedPeriodsProvider.overrideWith((ref) {
+                return ref.watch(_periodsProvider);
+              }),
+              systemSettingsProvider.overrideWith(
+                (ref) => Stream.value(const SystemSettings()),
+              ),
+              sessionByIdProvider('s1').overrideWith(
+                (ref) => Stream.value(_session('s1', 's1')),
+              ),
+              sessionByIdProvider('s2').overrideWith(
+                (ref) => Stream.value(_session('s2', 's2')),
+              ),
+              membersByIdsProvider(memberIdsKey(['s1', 's2'])).overrideWith(
+                (ref) => Stream.value(const {}),
+              ),
+              commentsForRangeProvider(commentRange).overrideWith(
+                (ref) => Stream.value(const []),
+              ),
+            ],
+            child: MaterialApp(
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: const [Locale('en')],
+              home: PeriodDetailScreen(
+                sessionIds: const ['s1', 's2'],
+                hint: hint,
+              ),
+            ),
+          ),
+        );
+
+        // Seed the notifier with openPeriod before first pump.
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(MaterialApp)),
+        );
+        container.read(_periodsProvider.notifier).set([openPeriod]);
+        await tester.pump();
+
+        // Open state: derivedPeriodsProvider returns openPeriod (isOpenEnded=true),
+        // _Header reads matchedPeriod?.isOpenEnded → true → FrontingDurationText visible.
+        expect(find.byType(FrontingDurationText), findsOneWidget);
+
+        // Flip to closed in place — same ProviderScope, same widget tree.
+        // _periodsProvider mutation propagates to derivedPeriodsProvider override
+        // which propagates to _Header → isOpenEnded = false.
+        container.read(_periodsProvider.notifier).set([closedPeriod]);
+        await tester.pump();
+
+        // Closed state: FrontingDurationText must be gone.
+        expect(find.byType(FrontingDurationText), findsNothing);
       },
     );
   });
