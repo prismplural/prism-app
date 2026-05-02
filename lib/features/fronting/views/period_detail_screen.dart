@@ -46,7 +46,13 @@ import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 /// from `derivedPeriodsProvider` once it resolves — when an open-ended
 /// session closes mid-mount, the live timer disappears via the provider
 /// subscription (no cached `isLive`).
-class PeriodDetailScreen extends ConsumerWidget {
+///
+/// Stale-session handling: if every [sessionIds] entry resolves to null
+/// (all contributing sessions were deleted between list render and tap),
+/// the screen shows a brief loading state, fires a [PrismToast.error], and
+/// pops the route. Partial staleness (some null, some live) renders the
+/// surviving rows silently without any error treatment.
+class PeriodDetailScreen extends ConsumerStatefulWidget {
   const PeriodDetailScreen({
     super.key,
     required this.sessionIds,
@@ -57,12 +63,50 @@ class PeriodDetailScreen extends ConsumerWidget {
   final PeriodDetailArgs? hint;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PeriodDetailScreen> createState() => _PeriodDetailScreenState();
+}
+
+class _PeriodDetailScreenState extends ConsumerState<PeriodDetailScreen> {
+  /// Guards against re-firing the toast + pop on subsequent rebuilds.
+  bool _staleHandled = false;
+
+  @override
+  Widget build(BuildContext context) {
+    // Watch each sessionByIdProvider at the screen level to detect the
+    // all-null case. These watches are additive — _CoFrontersSection also
+    // watches them, but Riverpod's family cache means no duplicate work.
+    final asyncs = [
+      for (final id in widget.sessionIds) ref.watch(sessionByIdProvider(id)),
+    ];
+    final allLoaded = asyncs.every((a) => !a.isLoading);
+    final allNull = allLoaded &&
+        asyncs.every((a) => a.whenOrNull(data: (v) => v) == null);
+
+    if (allNull && !_staleHandled) {
+      _staleHandled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        PrismToast.error(
+          context,
+          message: context.l10n.frontingSessionNotFound,
+        );
+        final nav = Navigator.of(context);
+        if (nav.canPop()) {
+          nav.pop();
+        }
+      });
+      // Keep showing a loading shell so the screen doesn't flash empty
+      // content for the one frame before the post-frame callback fires.
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     // Resolve the matched period once at the screen level so all child
     // sections can use the same result without repeating the O(n) lookup.
     final periodsAsync = ref.watch(derivedPeriodsProvider);
     final matchedPeriod = periodsAsync.whenOrNull(
-      data: (periods) => findPeriodBySessionIds(periods, sessionIds),
+      data: (periods) => findPeriodBySessionIds(periods, widget.sessionIds),
     );
 
     // Build the DateTimeRange for CommentsForRangeSection.
@@ -74,8 +118,8 @@ class PeriodDetailScreen extends ConsumerWidget {
           end: matchedPeriod.end,
         );
       }
-      if (hint != null) {
-        return DateTimeRange(start: hint!.start, end: hint!.end);
+      if (widget.hint != null) {
+        return DateTimeRange(start: widget.hint!.start, end: widget.hint!.end);
       }
       return null;
     }();
@@ -92,8 +136,8 @@ class PeriodDetailScreen extends ConsumerWidget {
               final didDelete = await confirmAndDeletePeriod(
                 context,
                 ref,
-                sessionIds: sessionIds,
-                contributors: hint?.activeMembers ?? <Member>[],
+                sessionIds: widget.sessionIds,
+                contributors: widget.hint?.activeMembers ?? <Member>[],
               );
               if (didDelete && context.mounted) {
                 context.pop();
@@ -106,10 +150,10 @@ class PeriodDetailScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         children: [
-          _Header(sessionIds: sessionIds, hint: hint),
-          _CoFrontersSection(sessionIds: sessionIds),
-          _BrieflyJoinedSection(sessionIds: sessionIds),
-          _AlwaysPresentSection(sessionIds: sessionIds),
+          _Header(sessionIds: widget.sessionIds, hint: widget.hint),
+          _CoFrontersSection(sessionIds: widget.sessionIds),
+          _BrieflyJoinedSection(sessionIds: widget.sessionIds),
+          _AlwaysPresentSection(sessionIds: widget.sessionIds),
           if (commentRange != null)
             CommentsForRangeSection(
               range: commentRange,
