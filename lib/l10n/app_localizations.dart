@@ -2210,17 +2210,29 @@ abstract class AppLocalizations {
   /// **'PluralKit appears after this member has a linked or cached banner.'**
   String get memberProfileHeaderPluralKitUnavailable;
 
-  /// Button label to choose a Prism-owned profile header image
+  /// Button label to add a Prism-owned profile header image when none is set
   ///
   /// In en, this message translates to:
-  /// **'Change image'**
+  /// **'Add photo'**
+  String get memberProfileHeaderAddImage;
+
+  /// Button label to replace a Prism-owned profile header image
+  ///
+  /// In en, this message translates to:
+  /// **'Change photo'**
   String get memberProfileHeaderChangeImage;
 
   /// Button label to remove a Prism-owned profile header image
   ///
   /// In en, this message translates to:
-  /// **'Remove image'**
+  /// **'Remove'**
   String get memberProfileHeaderRemoveImage;
+
+  /// Switch label for hiding the profile header banner
+  ///
+  /// In en, this message translates to:
+  /// **'Hide profile header'**
+  String get memberProfileHeaderHideTitle;
 
   /// Label for the member profile header layout selector
   ///
@@ -5019,6 +5031,12 @@ abstract class AppLocalizations {
   /// **'A short description...'**
   String get memberBioHint;
 
+  /// Tooltip for the button that opens the full-screen bio editor
+  ///
+  /// In en, this message translates to:
+  /// **'Edit bio'**
+  String get memberBioEditorTooltip;
+
   /// Label for the member display-name (alias) text field
   ///
   /// In en, this message translates to:
@@ -5091,6 +5109,12 @@ abstract class AppLocalizations {
   /// **'Admins can manage system settings'**
   String get memberAdminSubtitle;
 
+  /// Section heading for the member accent color controls
+  ///
+  /// In en, this message translates to:
+  /// **'Accent color'**
+  String get memberAccentColorSectionTitle;
+
   /// Switch label: custom color
   ///
   /// In en, this message translates to:
@@ -5138,6 +5162,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Save {termSingularLower}'**
   String memberSaveTooltip(String termSingularLower);
+
+  /// Tab label for the data/identity editing tab in the member edit sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get memberEditTabEdit;
+
+  /// Tab label for the appearance/style editing tab in the member edit sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Style'**
+  String get memberEditTabStyle;
+
+  /// Section header in the Edit tab for profile fields (pronouns, age, birthday, bio)
+  ///
+  /// In en, this message translates to:
+  /// **'About'**
+  String get memberEditSectionAbout;
+
+  /// Section header in the Edit tab for behavior toggles (markdown, admin)
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get memberEditSectionSettings;
 
   /// Bulk action button: activate selected members
   ///

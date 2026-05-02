@@ -1601,13 +1601,21 @@
   "@memberProfileHeaderPluralKitUnavailable": {
     "description": "Explanation shown when PluralKit cannot be selected as a profile header source"
   },
-  "memberProfileHeaderChangeImage": "Change image",
-  "@memberProfileHeaderChangeImage": {
-    "description": "Button label to choose a Prism-owned profile header image"
+  "memberProfileHeaderAddImage": "Add photo",
+  "@memberProfileHeaderAddImage": {
+    "description": "Button label to add a Prism-owned profile header image when none is set"
   },
-  "memberProfileHeaderRemoveImage": "Remove image",
+  "memberProfileHeaderChangeImage": "Change photo",
+  "@memberProfileHeaderChangeImage": {
+    "description": "Button label to replace a Prism-owned profile header image"
+  },
+  "memberProfileHeaderRemoveImage": "Remove",
   "@memberProfileHeaderRemoveImage": {
     "description": "Button label to remove a Prism-owned profile header image"
+  },
+  "memberProfileHeaderHideTitle": "Hide profile header",
+  "@memberProfileHeaderHideTitle": {
+    "description": "Switch label for hiding the profile header banner"
   },
   "memberProfileHeaderLayoutLabel": "Layout",
   "@memberProfileHeaderLayoutLabel": {
@@ -3882,6 +3890,10 @@
   "@memberBioHint": {
     "description": "Hint text for the member bio field"
   },
+  "memberBioEditorTooltip": "Edit bio",
+  "@memberBioEditorTooltip": {
+    "description": "Tooltip for the button that opens the full-screen bio editor"
+  },
   "memberDisplayNameLabel": "Display name",
   "@memberDisplayNameLabel": {
     "description": "Label for the member display-name (alias) text field"
@@ -3929,6 +3941,10 @@
   "memberAdminSubtitle": "Admins can manage system settings",
   "@memberAdminSubtitle": {
     "description": "Switch subtitle: admin status"
+  },
+  "memberAccentColorSectionTitle": "Accent color",
+  "@memberAccentColorSectionTitle": {
+    "description": "Section heading for the member accent color controls"
   },
   "memberCustomColorTitle": "Custom color",
   "@memberCustomColorTitle": {
@@ -3994,6 +4010,22 @@
         "type": "String"
       }
     }
+  },
+  "memberEditTabEdit": "Edit",
+  "@memberEditTabEdit": {
+    "description": "Tab label for the data/identity editing tab in the member edit sheet"
+  },
+  "memberEditTabStyle": "Style",
+  "@memberEditTabStyle": {
+    "description": "Tab label for the appearance/style editing tab in the member edit sheet"
+  },
+  "memberEditSectionAbout": "About",
+  "@memberEditSectionAbout": {
+    "description": "Section header in the Edit tab for profile fields (pronouns, age, birthday, bio)"
+  },
+  "memberEditSectionSettings": "Settings",
+  "@memberEditSectionSettings": {
+    "description": "Section header in the Edit tab for behavior toggles (markdown, admin)"
   },
   "memberBulkActivate": "Activate",
   "@memberBulkActivate": {

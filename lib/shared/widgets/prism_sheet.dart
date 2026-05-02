@@ -293,13 +293,26 @@ class _SheetChrome extends StatelessWidget {
 /// an optional trailing widget (typically a [PrismGlassIconButton]).
 ///
 /// Matches [PrismTopBar] sizing: 44pt action slots, titleLarge at 22/w700.
+///
+/// When [titleWidget] is provided it replaces the text title in the center
+/// area, automatically inset by [PrismTokens.topBarActionSize] on each side.
 class PrismSheetTopBar extends StatelessWidget {
-  const PrismSheetTopBar({super.key, required this.title, this.trailing});
+  const PrismSheetTopBar({
+    super.key,
+    required this.title,
+    this.trailing,
+    this.titleWidget,
+  });
 
   final String title;
 
   /// Optional trailing widget (e.g. a done/confirm button).
   final Widget? trailing;
+
+  /// When set, replaces the text title. Automatically inset by
+  /// [PrismTokens.topBarActionSize] on each side so it never overlaps the
+  /// leading/trailing action buttons.
+  final Widget? titleWidget;
 
   @override
   Widget build(BuildContext context) {
@@ -312,13 +325,21 @@ class PrismSheetTopBar extends StatelessWidget {
         child: Stack(
           alignment: Alignment.center,
           children: [
-            Text(
-              title,
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontSize: 22,
-                fontWeight: FontWeight.w700,
+            if (titleWidget != null)
+              Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 180),
+                  child: titleWidget,
+                ),
+              )
+            else
+              Text(
+                title,
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-            ),
             Align(
               alignment: Alignment.centerLeft,
               child: PrismGlassIconButton(
