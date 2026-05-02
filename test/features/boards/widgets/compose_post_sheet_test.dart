@@ -334,6 +334,7 @@ void main() {
       await tester.pumpWidget(
         _buildSubject(
           members: [_alice],
+          speakingAs: 'alice',
           defaultTargetMemberId: 'alice',
           defaultAudience: 'private',
           defaultBody: 'Hello',
@@ -413,6 +414,7 @@ void main() {
       await tester.pumpWidget(
         _buildSubject(
           members: [_alice],
+          speakingAs: 'alice',
           editingPostId: 'edit-3',
           repoPost: existingPost,
           notifier: notifier,
@@ -454,6 +456,7 @@ void main() {
       await tester.pumpWidget(
         _buildSubject(
           members: [_alice],
+          speakingAs: 'alice',
           editingPostId: 'edit-4',
           repoPost: existingPost,
           notifier: notifier,
