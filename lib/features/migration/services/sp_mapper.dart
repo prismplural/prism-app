@@ -847,7 +847,10 @@ class SpMapper {
           lastActivityAt: ch.createdAt ?? DateTime.now(),
           title: ch.name,
           description: ch.desc,
-          isDirectMessage: participantIds.length <= 2,
+          // SP `channels` are group chats by SP's data model regardless of how
+          // many members they list. Only SP `boardMessages` (mapped separately)
+          // produce DMs.
+          isDirectMessage: false,
           participantIds: participantIds,
           categoryId: catInfo?.categoryId,
           displayOrder: catInfo?.displayOrder ?? 0,
