@@ -170,11 +170,13 @@ class SpeakingAsNotifier extends Notifier<String?> {
 
   @override
   String? build() {
-    // Watch active session so we update when fronter changes.
-    final activeSession = ref.watch(activeSessionProvider);
-    final fronterId = activeSession.value?.memberId;
+    // Only default to the fronter when exactly one person is fronting.
+    // With zero or multiple fronters the caller must make an explicit choice.
+    final activeSessions = ref.watch(activeSessionsProvider);
+    final sessions = activeSessions.value ?? [];
+    final fronterId =
+        sessions.length == 1 ? sessions.first.memberId : null;
 
-    // If user explicitly picked someone, use that. Otherwise use fronter.
     return _explicitSelection ?? fronterId;
   }
 

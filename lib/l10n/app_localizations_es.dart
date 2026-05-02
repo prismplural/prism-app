@@ -8639,6 +8639,12 @@ class AppLocalizationsEs extends AppLocalizations {
   String get boardsComposeToNoHeadmate => 'No headmate';
 
   @override
+  String get boardsComposeFromLabel => 'From';
+
+  @override
+  String get boardsComposeToLabel => 'To';
+
+  @override
   String get memberSectionBoardMessages => 'Mensajes del tablero';
 
   @override

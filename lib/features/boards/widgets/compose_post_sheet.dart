@@ -313,6 +313,9 @@ class _ComposePostSheetBodyState
     final isEditing = widget.editingPostId != null;
 
     _bodyController.updateTheme(context);
+    // Watch so the save button reacts when the user picks a "from" member.
+    final speakingAs = ref.watch(speakingAsProvider);
+    final canPost = _canSave && speakingAs != null;
 
     return ListenableBuilder(
       listenable: Listenable.merge([_titleController, _bodyController]),
@@ -331,8 +334,8 @@ class _ComposePostSheetBodyState
                   : l10n.boardsComposeNewPost,
               trailing: PrismGlassIconButton(
                 icon: AppIcons.check,
-                onPressed: _canSave ? _save : null,
-                enabled: _canSave,
+                onPressed: canPost ? _save : null,
+                enabled: canPost,
                 isLoading: _isSaving,
                 tooltip: l10n.boardsComposeSave,
                 size: PrismTokens.topBarActionSize,
@@ -351,8 +354,6 @@ class _ComposePostSheetBodyState
                     vertical: 16,
                   ),
                   children: [
-                    const SpeakingAsPicker(),
-                    const SizedBox(height: 12),
                     PrismTextField(
                       controller: _titleController,
                       hintText: l10n.boardsComposeTitlePlaceholder,
@@ -430,6 +431,12 @@ class _BottomToolbar extends ConsumerWidget {
         ? ref.watch(memberByIdProvider(memberId!)).value
         : null;
 
+    final labelStyle = theme.textTheme.labelSmall?.copyWith(
+      color: mutedColor.withValues(alpha: 0.6),
+    );
+    // Fixed width keeps "From" and "To" labels visually aligned.
+    const double kLabelWidth = 36;
+
     return Container(
       padding: EdgeInsets.only(
         left: PrismTokens.pageHorizontalPadding + 8,
@@ -444,46 +451,80 @@ class _BottomToolbar extends ConsumerWidget {
           ),
         ),
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          _ToolbarChip(
-            icon: AppIcons.personOutline,
-            label: member?.name ?? l10n.boardsComposeToNoHeadmate,
-            color: mutedColor,
-            onTap: onPickMember,
-            leading: member != null
-                ? MemberAvatar(
-                    avatarImageData: member.avatarImageData,
-                    memberName: member.name,
-                    emoji: member.emoji,
-                    customColorEnabled: member.customColorEnabled,
-                    customColorHex: member.customColorHex,
-                    size: 20,
-                  )
-                : null,
-            semanticLabel: member?.name ?? l10n.boardsComposeToNoHeadmate,
-          ),
-          const SizedBox(width: 12),
-          SegmentedButton<String>(
-            segments: [
-              ButtonSegment(
-                value: 'public',
-                label: Text(l10n.boardsComposeAudienceEveryone),
+          // ── From row ───────────────────────────────────────────────────────
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              SizedBox(
+                width: kLabelWidth,
+                child: Text(
+                  l10n.boardsComposeFromLabel,
+                  style: labelStyle,
+                  textAlign: TextAlign.right,
+                ),
               ),
-              ButtonSegment(
-                value: 'private',
-                label: Text(l10n.boardsComposeAudiencePrivate),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: SpeakingAsPicker(autoSelectFirst: false),
               ),
             ],
-            selected: {audience},
-            onSelectionChanged: memberId != null
-                ? (v) => onAudienceChanged(v.first)
-                : null,
-            style: SegmentedButton.styleFrom(
-              visualDensity: VisualDensity.compact,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              textStyle: theme.textTheme.labelMedium,
-            ),
+          ),
+          const SizedBox(height: 4),
+          // ── To row ─────────────────────────────────────────────────────────
+          Row(
+            children: [
+              SizedBox(
+                width: kLabelWidth,
+                child: Text(
+                  l10n.boardsComposeToLabel,
+                  style: labelStyle,
+                  textAlign: TextAlign.right,
+                ),
+              ),
+              const SizedBox(width: 8),
+              _ToolbarChip(
+                icon: AppIcons.personOutline,
+                label: member?.name ?? l10n.boardsComposeToNoHeadmate,
+                color: mutedColor,
+                onTap: onPickMember,
+                leading: member != null
+                    ? MemberAvatar(
+                        avatarImageData: member.avatarImageData,
+                        memberName: member.name,
+                        emoji: member.emoji,
+                        customColorEnabled: member.customColorEnabled,
+                        customColorHex: member.customColorHex,
+                        size: 20,
+                      )
+                    : null,
+                semanticLabel: member?.name ?? l10n.boardsComposeToNoHeadmate,
+              ),
+              const SizedBox(width: 8),
+              SegmentedButton<String>(
+                segments: [
+                  ButtonSegment(
+                    value: 'public',
+                    label: Text(l10n.boardsComposeAudienceEveryone),
+                  ),
+                  ButtonSegment(
+                    value: 'private',
+                    label: Text(l10n.boardsComposeAudiencePrivate),
+                  ),
+                ],
+                selected: {audience},
+                onSelectionChanged: memberId != null
+                    ? (v) => onAudienceChanged(v.first)
+                    : null,
+                style: SegmentedButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  textStyle: theme.textTheme.labelMedium,
+                ),
+              ),
+            ],
           ),
         ],
       ),

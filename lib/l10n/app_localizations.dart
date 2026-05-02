@@ -13704,6 +13704,18 @@ abstract class AppLocalizations {
   /// **'No headmate'**
   String get boardsComposeToNoHeadmate;
 
+  /// Toolbar label for the 'posting as' headmate picker in the compose sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'From'**
+  String get boardsComposeFromLabel;
+
+  /// Toolbar label for the recipient headmate picker in the compose sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'To'**
+  String get boardsComposeToLabel;
+
   /// Section heading for the Board Messages section on a member's profile.
   ///
   /// In en, this message translates to:

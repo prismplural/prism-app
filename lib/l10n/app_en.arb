@@ -9046,6 +9046,14 @@
   "@boardsComposeToNoHeadmate": {
     "description": "Placeholder label for the member chip when no headmate is addressed."
   },
+  "boardsComposeFromLabel": "From",
+  "@boardsComposeFromLabel": {
+    "description": "Toolbar label for the 'posting as' headmate picker in the compose sheet."
+  },
+  "boardsComposeToLabel": "To",
+  "@boardsComposeToLabel": {
+    "description": "Toolbar label for the recipient headmate picker in the compose sheet."
+  },
   "memberSectionBoardMessages": "Board Messages",
   "@memberSectionBoardMessages": {
     "description": "Section heading for the Board Messages section on a member's profile."

@@ -440,7 +440,9 @@ class _PostHeaderParticipants extends StatelessWidget {
       fontSize: 12,
     );
     final authorStyle = theme.textTheme.labelLarge?.copyWith(
-      color: authorColor,
+      // 0.8 sits between the receiver (0.55) and body (1.0) — sender is
+      // emphasised over context, but doesn't compete with the post body.
+      color: authorColor.withValues(alpha: 0.8),
       fontWeight: FontWeight.w700,
       fontSize: 13,
     );
