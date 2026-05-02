@@ -17,6 +17,8 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
+import 'package:prism_plurality/shared/widgets/group_member_avatar.dart';
+import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
@@ -120,7 +122,10 @@ class _BoardsScreenState extends ConsumerState<BoardsScreen> {
 
     return PrismPageScaffold(
       bodyPadding: EdgeInsets.zero,
-      topBar: _BoardsTopBar(onComposeTap: _openCompose),
+      topBar: _BoardsTopBar(
+        activeTab: _activeTab,
+        onComposeTap: _openCompose,
+      ),
       body: Column(
         children: [
           // Segmented control row
@@ -165,8 +170,12 @@ class _BoardsScreenState extends ConsumerState<BoardsScreen> {
 // ---------------------------------------------------------------------------
 
 class _BoardsTopBar extends StatelessWidget implements PreferredSizeWidget {
-  const _BoardsTopBar({required this.onComposeTap});
+  const _BoardsTopBar({
+    required this.activeTab,
+    required this.onComposeTap,
+  });
 
+  final _BoardsSubTab activeTab;
   final VoidCallback onComposeTap;
 
   @override
@@ -176,6 +185,9 @@ class _BoardsTopBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     return PrismTopBar(
       title: context.l10n.boardsScreenTitle,
+      leading: activeTab == _BoardsSubTab.inbox
+          ? const _InboxFronterFilterButton()
+          : null,
       trailing: PrismTopBarAction(
         icon: AppIcons.add,
         tooltip: context.l10n.add,
@@ -615,65 +627,40 @@ class _InboxPageState extends ConsumerState<_InboxPage> {
       },
     );
 
-    return Column(
-      children: [
-        // View-filter dropdown
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-          child: _InboxFilterBar(
-            activeMembers: fronterMembers,
-            filterId: filterId,
-            onChanged: (id) =>
-                ref.read(inboxViewFilterProvider.notifier).setFilter(id),
-          ),
-        ),
-
-        // Posts list
-        Expanded(
-          child: postsAsync.when(
-            loading: () => Center(
-        child: Builder(
-          builder: (context) => PrismSpinner(
-            color: Theme.of(context).colorScheme.primary,
-          ),
-        ),
+    return postsAsync.when(
+      loading: () => Center(
+        child: PrismSpinner(color: Theme.of(context).colorScheme.primary),
       ),
-            error: (e, _) => Center(child: Text('Error: $e')),
-            data: (_) {
-              final posts = filteredPosts ?? const [];
-              if (posts.isEmpty) {
-                return Center(
-                  child: fronterMembers.isEmpty
-                      ? EmptyState(
-                          icon: Icon(AppIcons.forum),
-                          title: l10n.boardsTabInbox,
-                          subtitle: l10n.boardsComposeNoFronterHint,
-                        )
-                      : EmptyState(
-                          icon: Icon(AppIcons.forum),
-                          title: l10n.boardsTabInbox,
-                          subtitle: l10n.boardsEmptyInbox,
-                        ),
-                );
-              }
-              return ListView.builder(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 4,
-                ),
-                itemCount: posts.length,
-                itemBuilder: (context, index) {
-                  return PostTile(
-                    post: posts[index],
-                    viewerMember: viewerMember,
-                    showAudiencePill: false,
-                  );
-                },
-              );
-            },
-          ),
-        ),
-      ],
+      error: (e, _) => Center(child: Text('Error: $e')),
+      data: (_) {
+        final posts = filteredPosts ?? const [];
+        if (posts.isEmpty) {
+          return Center(
+            child: fronterMembers.isEmpty
+                ? EmptyState(
+                    icon: Icon(AppIcons.forum),
+                    title: l10n.boardsTabInbox,
+                    subtitle: l10n.boardsComposeNoFronterHint,
+                  )
+                : EmptyState(
+                    icon: Icon(AppIcons.forum),
+                    title: l10n.boardsTabInbox,
+                    subtitle: l10n.boardsEmptyInbox,
+                  ),
+          );
+        }
+        return ListView.builder(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          itemCount: posts.length,
+          itemBuilder: (context, index) {
+            return PostTile(
+              post: posts[index],
+              viewerMember: viewerMember,
+              showAudiencePill: false,
+            );
+          },
+        );
+      },
     );
   }
 }
@@ -682,79 +669,104 @@ class _InboxPageState extends ConsumerState<_InboxPage> {
 // Inbox filter bar
 // ---------------------------------------------------------------------------
 
-/// A compact [BlurPopupAnchor]-driven dropdown for filtering the inbox.
+/// Top-bar leading button that drives the inbox filter.
 ///
-/// Displays the currently-active filter (or "All fronters" when null) as a
-/// tappable chip. The popup lists all active fronters plus an "All" option.
-class _InboxFilterBar extends StatelessWidget {
-  const _InboxFilterBar({
-    required this.activeMembers,
-    required this.filterId,
-    required this.onChanged,
-  });
-
-  final List<Member> activeMembers;
-  final String? filterId;
-  final ValueChanged<String?> onChanged;
+/// Displays:
+///   - filter null (All): a [GroupMemberAvatar] composed of every current
+///     fronter (1–4 visible, like fronting session rows)
+///   - filter == memberId: that member's [MemberAvatar]
+///
+/// Tap opens a [BlurPopupAnchor] dropdown with one row per fronter plus
+/// an "All fronters" entry. Mirrors the avatar-trigger style of the chat
+/// member selector.
+class _InboxFronterFilterButton extends ConsumerWidget {
+  const _InboxFronterFilterButton();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final theme = Theme.of(context);
+    final fronters = ref.watch(currentFronterMembersProvider);
+    final filterId = ref.watch(inboxViewFilterProvider);
 
-    // Determine label for the current filter.
+    if (fronters.isEmpty) return const SizedBox.shrink();
+
     final currentMember = filterId != null
-        ? activeMembers.where((m) => m.id == filterId).firstOrNull
+        ? fronters.where((m) => m.id == filterId).firstOrNull
         : null;
+
+    const triggerSize = 32.0;
+    final trigger = SizedBox(
+      width: triggerSize + 14,
+      height: triggerSize,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (currentMember != null)
+            MemberAvatar(
+              avatarImageData: currentMember.avatarImageData,
+              memberName: currentMember.name,
+              emoji: currentMember.emoji,
+              customColorEnabled: currentMember.customColorEnabled,
+              customColorHex: currentMember.customColorHex,
+              size: triggerSize,
+            )
+          else
+            GroupMemberAvatar(
+              size: triggerSize,
+              members: [
+                for (final m in fronters)
+                  GroupAvatarMember(
+                    avatarImageData: m.avatarImageData,
+                    emoji: m.emoji,
+                    customColorEnabled: m.customColorEnabled,
+                    customColorHex: m.customColorHex,
+                  ),
+              ],
+            ),
+          Icon(
+            Icons.arrow_drop_down,
+            size: 18,
+            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+          ),
+        ],
+      ),
+    );
+
+    final itemCount = 1 + fronters.length;
     final filterLabel = currentMember != null
         ? l10n.boardsViewFilterMember(currentMember.name)
         : l10n.boardsViewFilterAll;
 
-    // Items: "All fronters" + one entry per active member.
-    final itemCount = 1 + activeMembers.length;
-
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Semantics(
-        label: '${l10n.boardsViewFilterAll}, $filterLabel',
-        child: BlurPopupAnchor(
-          width: 240,
-          itemCount: itemCount,
-          semanticLabel: l10n.boardsViewFilterAll,
-          itemBuilder: (ctx, index, close) {
-            if (index == 0) {
-              return PrismListRow(
-                leading: Icon(
-                  AppIcons.navBoards,
-                  color: filterId == null
-                      ? theme.colorScheme.primary
-                      : null,
-                ),
-                title: Text(
-                  l10n.boardsViewFilterAll,
-                  style: filterId == null
-                      ? TextStyle(
-                          color: theme.colorScheme.primary,
-                          fontWeight: FontWeight.w600,
-                        )
-                      : null,
-                ),
-                onTap: () {
-                  close();
-                  onChanged(null);
-                },
-              );
-            }
-            final member = activeMembers[index - 1];
-            final isSelected = filterId == member.id;
+    return Semantics(
+      label: '${l10n.boardsViewFilterAll}, $filterLabel',
+      button: true,
+      child: BlurPopupAnchor(
+        width: 260,
+        itemCount: itemCount,
+        semanticLabel: l10n.boardsViewFilterAll,
+        itemBuilder: (ctx, index, close) {
+          if (index == 0) {
+            final isSelected = filterId == null;
             return PrismListRow(
-              leading: Icon(
-                isSelected ? Icons.check_circle : Icons.circle_outlined,
-                color: isSelected ? theme.colorScheme.primary : null,
-                size: 20,
+              leading: SizedBox(
+                width: 32,
+                height: 32,
+                child: GroupMemberAvatar(
+                  size: 32,
+                  members: [
+                    for (final m in fronters)
+                      GroupAvatarMember(
+                        avatarImageData: m.avatarImageData,
+                        emoji: m.emoji,
+                        customColorEnabled: m.customColorEnabled,
+                        customColorHex: m.customColorHex,
+                      ),
+                  ],
+                ),
               ),
               title: Text(
-                l10n.boardsViewFilterMember(member.name),
+                l10n.boardsViewFilterAll,
                 style: isSelected
                     ? TextStyle(
                         color: theme.colorScheme.primary,
@@ -762,56 +774,52 @@ class _InboxFilterBar extends StatelessWidget {
                       )
                     : null,
               ),
+              trailing: isSelected
+                  ? Icon(Icons.check, color: theme.colorScheme.primary)
+                  : null,
               onTap: () {
                 close();
-                onChanged(member.id);
+                ref.read(inboxViewFilterProvider.notifier).setFilter(null);
               },
             );
-          },
-          child: _FilterChip(label: filterLabel, theme: theme),
-        ),
-      ),
-    );
-  }
-}
-
-/// Tappable chip showing the active filter label with a down-arrow indicator.
-class _FilterChip extends StatelessWidget {
-  const _FilterChip({required this.label, required this.theme});
-
-  final String label;
-  final ThemeData theme;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.onSurface.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(
-          PrismShapes.of(context).radius(999),
-        ),
-        border: Border.all(
-          color: theme.colorScheme.onSurface.withValues(alpha: 0.12),
-          width: 0.5,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            style: theme.textTheme.labelMedium?.copyWith(
-              fontWeight: FontWeight.w500,
+          }
+          final member = fronters[index - 1];
+          final isSelected = filterId == member.id;
+          final memberColor =
+              (member.customColorEnabled && member.customColorHex != null)
+              ? AppColors.fromHex(member.customColorHex!)
+              : null;
+          return PrismListRow(
+            leading: MemberAvatar(
+              avatarImageData: member.avatarImageData,
+              memberName: member.name,
+              emoji: member.emoji,
+              customColorEnabled: member.customColorEnabled,
+              customColorHex: member.customColorHex,
+              size: 32,
             ),
-          ),
-          const SizedBox(width: 4),
-          Icon(
-            Icons.arrow_drop_down,
-            size: 16,
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ],
+            title: Text(
+              member.name,
+              style: isSelected
+                  ? TextStyle(
+                      color: memberColor ?? theme.colorScheme.primary,
+                      fontWeight: FontWeight.w600,
+                    )
+                  : null,
+            ),
+            trailing: isSelected
+                ? Icon(
+                    Icons.check,
+                    color: memberColor ?? theme.colorScheme.primary,
+                  )
+                : null,
+            onTap: () {
+              close();
+              ref.read(inboxViewFilterProvider.notifier).setFilter(member.id);
+            },
+          );
+        },
+        child: trigger,
       ),
     );
   }
