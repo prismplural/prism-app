@@ -162,11 +162,9 @@ class SpBoardsBackfillService {
         for (final msg in messages) {
           final rawContent = msg.read<String>('content');
           final authorId = msg.readNullable<String>('author_id');
-          final timestampMs = msg.read<int>('timestamp');
-          final writtenAt = DateTime.fromMillisecondsSinceEpoch(
-            timestampMs,
-            isUtc: true,
-          );
+          // Drift stores DateTimeColumn as Unix SECONDS by default; reading via
+          // `read<DateTime>` lets the typeMapping do the conversion correctly.
+          final writtenAt = msg.read<DateTime>('timestamp');
 
           // Determine targetMemberId: the participant who is NOT the author.
           // Fall back to the first participant when author is unknown or

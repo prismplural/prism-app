@@ -12,6 +12,7 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
+import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
@@ -134,7 +135,13 @@ class _MemberBoardBody extends ConsumerWidget {
     final postsAsync = ref.watch(memberBoardPostsProvider(firstPage));
 
     return postsAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => Center(
+        child: Builder(
+          builder: (context) => PrismSpinner(
+            color: Theme.of(context).colorScheme.primary,
+          ),
+        ),
+      ),
       error: (e, _) => Center(child: Text('Error: $e')),
       data: (posts) {
         if (posts.isEmpty) {

@@ -13,6 +13,7 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 
@@ -557,13 +558,8 @@ class _RecipientPickerRow extends StatelessWidget {
   }
 
   Future<void> _showPicker(BuildContext context) async {
-    final theme = Theme.of(context);
-    await showModalBottomSheet<void>(
+    await PrismSheet.show(
       context: context,
-      useRootNavigator: true,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: theme.bottomSheetTheme.backgroundColor,
       builder: (sheetCtx) => _RecipientPickerSheet(
         options: options,
         selected: selected,
@@ -595,68 +591,44 @@ class _RecipientPickerSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SizedBox(height: 8),
-          ExcludeSemantics(
-            child: Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.25),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Flexible(
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: options.length,
-              itemBuilder: (ctx, index) {
-                final opt = options[index];
-                final isSelected = opt == selected;
-                final isPrivate = opt.audience == 'private';
-                final accentColor = isPrivate
-                    ? theme.colorScheme.secondary
-                    : theme.colorScheme.primary;
+    return ListView.builder(
+      shrinkWrap: true,
+      itemCount: options.length,
+      itemBuilder: (ctx, index) {
+        final opt = options[index];
+        final isSelected = opt == selected;
+        final isPrivate = opt.audience == 'private';
+        final accentColor = isPrivate
+            ? theme.colorScheme.secondary
+            : theme.colorScheme.primary;
 
-                return ListTile(
-                  leading: opt.member != null
-                      ? MemberAvatar(
-                          avatarImageData: opt.member!.avatarImageData,
-                          memberName: opt.member!.name,
-                          emoji: opt.member!.emoji,
-                          customColorEnabled: opt.member!.customColorEnabled,
-                          customColorHex: opt.member!.customColorHex,
-                          size: 32,
-                        )
-                      : Icon(
-                          Icons.public,
-                          color: theme.colorScheme.primary,
-                        ),
-                  title: Text(
-                    opt.label,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: isSelected ? accentColor : null,
-                      fontWeight:
-                          isSelected ? FontWeight.w600 : FontWeight.normal,
-                    ),
-                  ),
-                  trailing: isSelected
-                      ? Icon(Icons.check, color: accentColor, size: 18)
-                      : null,
-                  onTap: () => onSelected(opt),
-                );
-              },
+        return PrismListRow(
+          leading: opt.member != null
+              ? MemberAvatar(
+                  avatarImageData: opt.member!.avatarImageData,
+                  memberName: opt.member!.name,
+                  emoji: opt.member!.emoji,
+                  customColorEnabled: opt.member!.customColorEnabled,
+                  customColorHex: opt.member!.customColorHex,
+                  size: 32,
+                )
+              : Icon(
+                  Icons.public,
+                  color: theme.colorScheme.primary,
+                ),
+          title: Text(
+            opt.label,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: isSelected ? accentColor : null,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
             ),
           ),
-        ],
-      ),
+          trailing: isSelected
+              ? Icon(Icons.check, color: accentColor, size: 18)
+              : null,
+          onTap: () => onSelected(opt),
+        );
+      },
     );
   }
 }

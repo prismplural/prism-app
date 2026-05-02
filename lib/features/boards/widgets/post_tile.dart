@@ -18,7 +18,9 @@ import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/markdown_text.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
+import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
+import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
 // ---------------------------------------------------------------------------
 // Inline markdown stripper — for accessibility labels only.
@@ -198,9 +200,7 @@ class _PostTileContent extends ConsumerWidget {
             closePopup();
             // TODO(E2): Replace with ComposePostSheet.show(context, editingPostId: post.id)
             // once E2 lands.
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Edit coming soon')),
-            );
+            PrismToast.show(context, message: 'Edit coming soon');
           },
         ),
       );
@@ -225,25 +225,12 @@ class _PostTileContent extends ConsumerWidget {
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
     final l10n = context.l10n;
-    final confirmed = await showDialog<bool>(
+    final confirmed = await PrismDialog.confirm(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(l10n.boardsDeleteConfirmTitle),
-        content: Text(l10n.boardsDeleteConfirmBody),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(l10n.cancel),
-          ),
-          TextButton(
-            style: TextButton.styleFrom(
-              foregroundColor: Theme.of(dialogContext).colorScheme.error,
-            ),
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(l10n.delete),
-          ),
-        ],
-      ),
+      title: l10n.boardsDeleteConfirmTitle,
+      message: l10n.boardsDeleteConfirmBody,
+      cancelLabel: l10n.cancel,
+      confirmLabel: l10n.delete,
     );
     if (confirmed == true) {
       unawaited(

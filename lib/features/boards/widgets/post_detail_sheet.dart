@@ -16,7 +16,11 @@ import 'package:prism_plurality/shared/extensions/datetime_extensions.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/widgets/markdown_text.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
+import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
+import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
+import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
 // ---------------------------------------------------------------------------
 // PostDetailSheet
@@ -65,9 +69,13 @@ class _PostDetailSheetBody extends ConsumerWidget {
     final postAsync = ref.watch(_postByIdStreamProvider(postId));
 
     return postAsync.when(
-      loading: () => const Padding(
-        padding: EdgeInsets.all(32),
-        child: Center(child: CircularProgressIndicator()),
+      loading: () => Padding(
+        padding: const EdgeInsets.all(32),
+        child: Center(
+          child: PrismSpinner(
+            color: Theme.of(context).colorScheme.primary,
+          ),
+        ),
       ),
       error: (e, _) => Padding(
         padding: const EdgeInsets.all(24),
@@ -122,25 +130,12 @@ class _PostDetailContent extends ConsumerWidget {
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
     final l10n = context.l10n;
-    final confirmed = await showDialog<bool>(
+    final confirmed = await PrismDialog.confirm(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(l10n.boardsDeleteConfirmTitle),
-        content: Text(l10n.boardsDeleteConfirmBody),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(l10n.cancel),
-          ),
-          TextButton(
-            style: TextButton.styleFrom(
-              foregroundColor: Theme.of(dialogContext).colorScheme.error,
-            ),
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(l10n.delete),
-          ),
-        ],
-      ),
+      title: l10n.boardsDeleteConfirmTitle,
+      message: l10n.boardsDeleteConfirmBody,
+      cancelLabel: l10n.cancel,
+      confirmLabel: l10n.delete,
     );
     if (confirmed == true) {
       unawaited(
@@ -287,31 +282,24 @@ class _PostDetailContent extends ConsumerWidget {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 if (perms.canEdit) ...[
-                  TextButton.icon(
-                    icon: const Icon(Icons.edit_outlined),
-                    label: Text(l10n.boardsDetailEdit),
+                  PrismButton(
+                    icon: Icons.edit_outlined,
+                    label: l10n.boardsDetailEdit,
                     onPressed: () {
                       // TODO(E2): Replace with
                       // ComposePostSheet.show(context, editingPostId: post.id)
                       // once E2 lands.
                       Navigator.of(context).pop();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Edit coming soon')),
-                      );
+                      PrismToast.show(context, message: 'Edit coming soon');
                     },
                   ),
                   if (perms.canDelete) const SizedBox(width: 8),
                 ],
                 if (perms.canDelete)
-                  TextButton.icon(
-                    icon: Icon(
-                      Icons.delete_outline,
-                      color: theme.colorScheme.error,
-                    ),
-                    label: Text(
-                      l10n.boardsDetailDelete,
-                      style: TextStyle(color: theme.colorScheme.error),
-                    ),
+                  PrismButton(
+                    icon: Icons.delete_outline,
+                    label: l10n.boardsDetailDelete,
+                    tone: PrismButtonTone.destructive,
                     onPressed: () => _confirmDelete(context, ref),
                   ),
               ],
