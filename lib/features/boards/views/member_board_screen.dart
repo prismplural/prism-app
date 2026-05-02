@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/boards/providers/board_posts_providers.dart';
+import 'package:prism_plurality/features/boards/widgets/compose_post_sheet.dart';
 import 'package:prism_plurality/features/boards/widgets/post_tile.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart'
     show speakingAsProvider;
@@ -13,24 +14,13 @@ import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
-import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 
-// ---------------------------------------------------------------------------
-// MemberBoardScreen
-//
-// LOCKED API:
-//   MemberBoardScreen({required String memberId})
-// ---------------------------------------------------------------------------
-
 /// Full paginated list of public board posts by or about a given member.
 ///
-/// Navigated to via `/boards/member/:memberId` (registered in C3').
-///
-/// Shows a [PrismTopBar] with the member's name as title and avatar as leading,
-/// a [SliverList.builder] over [memberBoardPostsProvider], and a `+` app-bar
-/// button that opens the compose sheet when E2 lands.
+/// Reached via `/boards/member/:memberId`. The `+` action opens the compose
+/// sheet pre-targeted at this member.
 class MemberBoardScreen extends ConsumerWidget {
   const MemberBoardScreen({super.key, required this.memberId});
 
@@ -60,9 +50,7 @@ class MemberBoardScreen extends ConsumerWidget {
   }
 
   void _openCompose(BuildContext context) {
-    // TODO(E2): Replace with ComposePostSheet.show(context, defaultTargetMemberId: memberId)
-    // once E2 lands.
-    PrismToast.show(context, message: 'Compose coming soon');
+    ComposePostSheet.show(context, defaultTargetMemberId: memberId);
   }
 }
 
