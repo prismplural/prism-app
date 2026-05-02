@@ -77,6 +77,7 @@ class PostDetailScreen extends ConsumerWidget {
         actions: actions,
       ),
       bodyPadding: EdgeInsets.zero,
+      safeAreaBottom: false,
       body: postAsync.when(
         loading: () => Center(
           child: PrismSpinner(color: Theme.of(context).colorScheme.primary),
@@ -202,7 +203,12 @@ class _PostDetailBody extends ConsumerWidget {
 
           // ── Body content
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+            padding: EdgeInsets.fromLTRB(
+              20,
+              24,
+              20,
+              32 + MediaQuery.viewPaddingOf(context).bottom,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

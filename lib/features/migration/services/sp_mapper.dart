@@ -1270,8 +1270,15 @@ class SpMapper {
       // IDs and CRDT entity-id merge deduplicates naturally.
       // Namespace constant is shared with the backfill service (same formula).
       // The name embeds a SHA-256 hex of the body for collision resistance.
+      //
+      // Timestamps are rounded to second precision here so that the ID formula
+      // matches the backfill service. Drift stores DateTimeColumn as Unix seconds,
+      // so round-tripping a timestamp through the DB discards sub-second ms. If
+      // the mapper used raw ms, the mapper and backfill would produce different IDs
+      // for any SP timestamp with a non-zero millisecond component.
       final bodyHex = sha256.convert(utf8.encode(body)).toString();
-      final writtenAtMs = bm.writtenAt.millisecondsSinceEpoch;
+      final writtenAtMs =
+          (bm.writtenAt.millisecondsSinceEpoch ~/ 1000) * 1000;
       final deterministicId = _uuid.v5(
         boardsBackfillNamespace,
         '$forId|${byId ?? ''}|$writtenAtMs|$bodyHex',
