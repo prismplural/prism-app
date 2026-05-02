@@ -561,57 +561,65 @@ class _CoFronterRow extends ConsumerWidget {
             ),
           );
 
-    final tileContent = Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => context.go(AppRoutePaths.session(session.id)),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            children: [
-              leadingWidget,
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      name,
-                      style: isUnknown
-                          ? theme.textTheme.bodyLarge?.copyWith(
-                              fontStyle: FontStyle.italic,
-                              fontWeight: FontWeight.w300,
-                              color: theme.colorScheme.onSurface
-                                  .withValues(alpha: dimAlpha),
-                            )
-                          : theme.textTheme.bodyLarge?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                    ),
-                    const SizedBox(height: 2),
-                    DefaultTextStyle(
-                      style:
-                          (theme.textTheme.bodySmall ?? const TextStyle())
-                              .copyWith(
-                        color: isUnknown
-                            ? theme.colorScheme.onSurface
-                                .withValues(alpha: dimAlpha)
-                            : null,
+    final semanticLabel = session.isActive
+        ? '$name, fronting since $startStr, currently fronting. Double tap to view details.'
+        : '$name, fronting from $startStr to $endStr, duration ${duration.toRoundedString()}. Double tap to view details.';
+
+    final tileContent = Semantics(
+      label: semanticLabel,
+      button: true,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => context.go(AppRoutePaths.session(session.id)),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                leadingWidget,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        style: isUnknown
+                            ? theme.textTheme.bodyLarge?.copyWith(
+                                fontStyle: FontStyle.italic,
+                                fontWeight: FontWeight.w300,
+                                color: theme.colorScheme.onSurface
+                                    .withValues(alpha: dimAlpha),
+                              )
+                            : theme.textTheme.bodyLarge?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
                       ),
-                      child: subtitleWidget,
-                    ),
-                  ],
+                      const SizedBox(height: 2),
+                      DefaultTextStyle(
+                        style:
+                            (theme.textTheme.bodySmall ?? const TextStyle())
+                                .copyWith(
+                          color: isUnknown
+                              ? theme.colorScheme.onSurface
+                                  .withValues(alpha: dimAlpha)
+                              : null,
+                        ),
+                        child: subtitleWidget,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Icon(
-                AppIcons.chevronRightRounded,
-                size: 20,
-                color: theme.colorScheme.onSurfaceVariant.withValues(
-                  alpha: isUnknown ? 0.4 * dimAlpha : 0.4,
+                const SizedBox(width: 8),
+                Icon(
+                  AppIcons.chevronRightRounded,
+                  size: 20,
+                  color: theme.colorScheme.onSurfaceVariant.withValues(
+                    alpha: isUnknown ? 0.4 * dimAlpha : 0.4,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -763,55 +771,62 @@ class _BriefVisitorRow extends StatelessWidget {
     final subtitle =
         'joined for ${duration.toRoundedString()} at $startStr';
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => GoRouter.of(context).go(AppRoutePaths.session(visit.sessionId)),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            children: [
-              leadingWidget,
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      name,
-                      style: isUnknown
-                          ? theme.textTheme.bodyLarge?.copyWith(
-                              fontStyle: FontStyle.italic,
-                              fontWeight: FontWeight.w300,
-                              color: theme.colorScheme.onSurface
-                                  .withValues(alpha: dimAlpha),
-                            )
-                          : theme.textTheme.bodyLarge?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: isUnknown
-                            ? theme.colorScheme.onSurface
-                                .withValues(alpha: dimAlpha)
-                            : theme.colorScheme.onSurfaceVariant,
+    final semanticLabel =
+        '$name, briefly joined for ${duration.toRoundedString()} at $startStr. Double tap to view details.';
+
+    return Semantics(
+      label: semanticLabel,
+      button: true,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => GoRouter.of(context).go(AppRoutePaths.session(visit.sessionId)),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                leadingWidget,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        style: isUnknown
+                            ? theme.textTheme.bodyLarge?.copyWith(
+                                fontStyle: FontStyle.italic,
+                                fontWeight: FontWeight.w300,
+                                color: theme.colorScheme.onSurface
+                                    .withValues(alpha: dimAlpha),
+                              )
+                            : theme.textTheme.bodyLarge?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: isUnknown
+                              ? theme.colorScheme.onSurface
+                                  .withValues(alpha: dimAlpha)
+                              : theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Icon(
-                AppIcons.chevronRightRounded,
-                size: 20,
-                color: theme.colorScheme.onSurfaceVariant.withValues(
-                  alpha: isUnknown ? 0.4 * dimAlpha : 0.4,
+                const SizedBox(width: 8),
+                Icon(
+                  AppIcons.chevronRightRounded,
+                  size: 20,
+                  color: theme.colorScheme.onSurfaceVariant.withValues(
+                    alpha: isUnknown ? 0.4 * dimAlpha : 0.4,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -926,43 +941,51 @@ class _AlwaysPresentRow extends StatelessWidget {
             size: 40,
           );
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: member != null
-            ? () => GoRouter.of(context).go(AppRoutePaths.member(memberId))
-            : null,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            children: [
-              leadingWidget,
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  name,
-                  style: isUnknown
-                      ? theme.textTheme.bodyLarge?.copyWith(
-                          fontStyle: FontStyle.italic,
-                          fontWeight: FontWeight.w300,
-                          color: theme.colorScheme.onSurface
-                              .withValues(alpha: dimAlpha),
-                        )
-                      : theme.textTheme.bodyLarge?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+    final semanticLabel = member != null
+        ? '$name, always present. Double tap to view profile.'
+        : null;
+
+    return Semantics(
+      label: semanticLabel,
+      button: member != null,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: member != null
+              ? () => GoRouter.of(context).go(AppRoutePaths.member(memberId))
+              : null,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                leadingWidget,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    name,
+                    style: isUnknown
+                        ? theme.textTheme.bodyLarge?.copyWith(
+                            fontStyle: FontStyle.italic,
+                            fontWeight: FontWeight.w300,
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: dimAlpha),
+                          )
+                        : theme.textTheme.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                  ),
                 ),
-              ),
-              if (member != null) ...[
-                const SizedBox(width: 8),
-                Icon(
-                  AppIcons.chevronRightRounded,
-                  size: 20,
-                  color: theme.colorScheme.onSurfaceVariant
-                      .withValues(alpha: 0.4),
-                ),
+                if (member != null) ...[
+                  const SizedBox(width: 8),
+                  Icon(
+                    AppIcons.chevronRightRounded,
+                    size: 20,
+                    color: theme.colorScheme.onSurfaceVariant
+                        .withValues(alpha: 0.4),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
