@@ -16,6 +16,7 @@ import 'package:prism_plurality/core/database/daos/habits_dao.dart';
 import 'package:prism_plurality/core/database/daos/member_groups_dao.dart';
 import 'package:prism_plurality/core/database/daos/custom_fields_dao.dart';
 import 'package:prism_plurality/core/database/daos/notes_dao.dart';
+import 'package:prism_plurality/core/database/daos/member_board_posts_dao.dart';
 import 'package:prism_plurality/core/database/daos/front_session_comments_dao.dart';
 import 'package:prism_plurality/core/database/daos/conversation_categories_dao.dart';
 import 'package:prism_plurality/core/database/daos/reminders_dao.dart';
@@ -50,6 +51,7 @@ part 'app_database.g.dart';
     CustomFields,
     CustomFieldValues,
     Notes,
+    MemberBoardPosts,
     FrontSessionComments,
     ConversationCategories,
     Reminders,
@@ -77,6 +79,7 @@ part 'app_database.g.dart';
     PkGroupEntryDeferredSyncOpsDao,
     CustomFieldsDao,
     NotesDao,
+    MemberBoardPostsDao,
     FrontSessionCommentsDao,
     ConversationCategoriesDao,
     RemindersDao,
@@ -91,7 +94,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 14;
+  int get schemaVersion => 15;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -471,6 +474,42 @@ class AppDatabase extends _$AppDatabase {
           await ensureFrontingMemberCheckConstraint();
         }
         current = 14;
+      }
+      if (current == 14 && to >= 15) {
+        // Member Boards (docs/plans/member-message-boards.md Batch A).
+        //
+        // 1. New entity table: member_board_posts.
+        // 2. New column on members: board_last_read_at (inbox HWM read state).
+        // 3. New columns on system_settings: boards_enabled + sp_boards_backfilled_at.
+        // 4–6. Three indexes covering the Inbox, Public, and author queries.
+        //
+        // Purely additive — no row-level data migration. All new columns have
+        // safe defaults (null / false). Do NOT wrap in an extra transaction:
+        // Drift's migration framework handles the outer transaction and the
+        // v13→v14 block's fragile CHECK logic is untouched.
+        await migrator.createTable(memberBoardPosts);
+        await migrator.addColumn(members, members.boardLastReadAt);
+        await migrator.addColumn(
+          systemSettingsTable,
+          systemSettingsTable.boardsEnabled,
+        );
+        await migrator.addColumn(
+          systemSettingsTable,
+          systemSettingsTable.spBoardsBackfilledAt,
+        );
+        await customStatement(
+          'CREATE INDEX IF NOT EXISTS idx_mbp_target_audience '
+          'ON member_board_posts(target_member_id, audience, written_at DESC, is_deleted)',
+        );
+        await customStatement(
+          'CREATE INDEX IF NOT EXISTS idx_mbp_audience '
+          'ON member_board_posts(audience, written_at DESC, is_deleted)',
+        );
+        await customStatement(
+          'CREATE INDEX IF NOT EXISTS idx_mbp_author '
+          'ON member_board_posts(author_id, written_at DESC, is_deleted)',
+        );
+        current = 15;
       }
       if (current != to) {
         throw UnsupportedError(
@@ -964,6 +1003,8 @@ class AppDatabase extends _$AppDatabase {
   CustomFieldsDao get customFieldsDao => CustomFieldsDao(this);
   @override
   NotesDao get notesDao => NotesDao(this);
+  @override
+  MemberBoardPostsDao get memberBoardPostsDao => MemberBoardPostsDao(this);
   @override
   FrontSessionCommentsDao get frontSessionCommentsDao =>
       FrontSessionCommentsDao(this);
