@@ -428,10 +428,10 @@ class _PostHeaderParticipants extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Sender carries the new info — most prominent. The receiver is
-    // predictable from context (we're in our inbox / on a profile) so it
-    // takes the same muted treatment as the connector word.
-    final mutedStyle = theme.textTheme.labelMedium?.copyWith(
+    // Sender carries the new info — full strength + bold. Receiver is
+    // predictable from context, so same size/family but lighter weight
+    // and reduced opacity. The "to" connector stays compact + muted.
+    final connectorStyle = theme.textTheme.labelMedium?.copyWith(
       color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
       fontSize: 12,
     );
@@ -440,7 +440,11 @@ class _PostHeaderParticipants extends StatelessWidget {
       fontWeight: FontWeight.w700,
       fontSize: 13,
     );
-    final receiverStyle = mutedStyle;
+    final receiverStyle = theme.textTheme.labelLarge?.copyWith(
+      color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
+      fontWeight: FontWeight.w500,
+      fontSize: 13,
+    );
 
     final showTargetAvatar = post.targetMemberId != null;
     final receiverName = post.targetMemberId != null
@@ -469,18 +473,18 @@ class _PostHeaderParticipants extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 8),
-        Text('to', style: mutedStyle),
+        Text('to', style: connectorStyle),
         const SizedBox(width: 8),
         if (showTargetAvatar) ...[
           Opacity(
-            opacity: 0.7,
+            opacity: 0.55,
             child: MemberAvatar(
               avatarImageData: target?.avatarImageData,
               memberName: target?.name,
               emoji: target?.emoji ?? '❔',
               customColorEnabled: target?.customColorEnabled ?? false,
               customColorHex: target?.customColorHex,
-              size: 18,
+              size: 22,
             ),
           ),
           const SizedBox(width: 6),
@@ -488,7 +492,7 @@ class _PostHeaderParticipants extends StatelessWidget {
         Flexible(
           child: Text(
             receiverName,
-            style: showTargetAvatar ? receiverStyle : mutedStyle,
+            style: showTargetAvatar ? receiverStyle : connectorStyle,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),

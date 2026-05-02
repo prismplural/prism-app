@@ -8627,6 +8627,18 @@ class AppLocalizationsEs extends AppLocalizations {
   String get boardsComposeEditing => 'Editar publicación';
 
   @override
+  String get boardsComposeNewPost => 'New post';
+
+  @override
+  String get boardsComposeAudienceEveryone => 'Everyone';
+
+  @override
+  String get boardsComposeAudiencePrivate => 'Private';
+
+  @override
+  String get boardsComposeToNoHeadmate => 'No headmate';
+
+  @override
   String get memberSectionBoardMessages => 'Mensajes del tablero';
 
   @override

@@ -259,10 +259,10 @@ class _DetailParticipantsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Sender carries the new info — most prominent. The receiver is
-    // predictable from context (we're in our inbox / on a profile) so it
-    // shares the muted style of the connector word.
-    final mutedStyle = theme.textTheme.titleSmall?.copyWith(
+    // Sender carries the new info — full strength + bold. Receiver is
+    // predictable from context, so same size/family but lighter weight
+    // and reduced opacity. The "to" connector stays compact + muted.
+    final connectorStyle = theme.textTheme.titleSmall?.copyWith(
       color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
       fontWeight: FontWeight.w500,
     );
@@ -270,7 +270,10 @@ class _DetailParticipantsRow extends StatelessWidget {
       color: authorColor,
       fontWeight: FontWeight.w700,
     );
-    final receiverStyle = mutedStyle;
+    final receiverStyle = theme.textTheme.titleMedium?.copyWith(
+      color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
+      fontWeight: FontWeight.w500,
+    );
 
     final showTargetAvatar = post.targetMemberId != null;
     final receiverName = post.targetMemberId != null
@@ -300,27 +303,27 @@ class _DetailParticipantsRow extends StatelessWidget {
             ),
           ],
         ),
-        Text('to', style: mutedStyle),
+        Text('to', style: connectorStyle),
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             if (showTargetAvatar) ...[
               Opacity(
-                opacity: 0.7,
+                opacity: 0.55,
                 child: MemberAvatar(
                   avatarImageData: target?.avatarImageData,
                   memberName: target?.name,
                   emoji: target?.emoji ?? '❔',
                   customColorEnabled: target?.customColorEnabled ?? false,
                   customColorHex: target?.customColorHex,
-                  size: 24,
+                  size: 32,
                 ),
               ),
               const SizedBox(width: 8),
             ],
             Text(
               receiverName,
-              style: showTargetAvatar ? receiverStyle : mutedStyle,
+              style: showTargetAvatar ? receiverStyle : connectorStyle,
             ),
           ],
         ),

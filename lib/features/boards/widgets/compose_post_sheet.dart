@@ -2,18 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/core/database/database_providers.dart';
-import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/member_board_post.dart';
 import 'package:prism_plurality/features/boards/providers/board_posts_providers.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart'
     show speakingAsProvider;
 import 'package:prism_plurality/features/chat/widgets/speaking_as_picker.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
-import 'package:prism_plurality/shared/theme/prism_shapes.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/theme/prism_tokens.dart';
+import 'package:prism_plurality/shared/widgets/markdown_editing_controller.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
-import 'package:prism_plurality/shared/widgets/prism_button.dart';
-import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
+import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
+import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
+import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 
@@ -33,24 +36,21 @@ import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 
 /// Sheet for composing a new board post or editing an existing one.
 ///
-/// Use [ComposePostSheet.show] to present this as a [PrismSheet] bottom sheet.
+/// Use [ComposePostSheet.show] to present as a full-screen [PrismSheet].
 ///
-/// On save, returns the created or updated [MemberBoardPost]. Returns `null`
-/// when the user cancels.
+/// Returns the created or updated [MemberBoardPost] on save, or `null` on
+/// cancel.
 class ComposePostSheet {
   // Utility class — not instantiable.
   ComposePostSheet._();
 
   /// Present the compose sheet.
   ///
-  /// - [defaultTargetMemberId]: pre-selects a recipient member.
-  /// - [defaultAudience]: initial audience value; must be `'public'` or
-  ///   `'private'`.
-  /// - [defaultTitle]: pre-fills the title field (also auto-shows the title
-  ///   input).
+  /// - [defaultTargetMemberId]: pre-selects a recipient headmate.
+  /// - [defaultAudience]: initial audience (`'public'` or `'private'`).
+  /// - [defaultTitle]: pre-fills the title field.
   /// - [defaultBody]: pre-fills the body field.
-  /// - [editingPostId]: when non-null, loads the post for editing; audience
-  ///   and recipient remain editable per spec (codex P1 #6).
+  /// - [editingPostId]: when non-null, loads the post for editing.
   ///
   /// Returns the saved [MemberBoardPost] on success, or `null` on cancel.
   static Future<MemberBoardPost?> show(
@@ -61,54 +61,22 @@ class ComposePostSheet {
     String? defaultBody,
     String? editingPostId,
   }) {
-    return PrismSheet.show<MemberBoardPost?>(
+    return PrismSheet.showFullScreen<MemberBoardPost?>(
       context: context,
-      maxHeightFactor: 0.95,
-      builder: (sheetCtx) => _ComposePostSheetBody(
+      builder: (sheetCtx, scrollController) => _ComposePostSheetBody(
         defaultTargetMemberId: defaultTargetMemberId,
         defaultAudience: defaultAudience,
         defaultTitle: defaultTitle,
         defaultBody: defaultBody,
         editingPostId: editingPostId,
+        scrollController: scrollController,
       ),
     );
   }
 }
 
 // ---------------------------------------------------------------------------
-// _RecipientOption — describes one choice in the recipient picker
-// ---------------------------------------------------------------------------
-
-/// A single option in the recipient picker.
-///
-/// [targetMemberId] is null for the "Everyone (public)" option.
-/// [audience] is `'public'` or `'private'`.
-class _RecipientOption {
-  const _RecipientOption({
-    required this.label,
-    required this.audience,
-    this.targetMemberId,
-    this.member,
-  });
-
-  final String label;
-  final String audience;
-  final String? targetMemberId;
-  final Member? member;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is _RecipientOption &&
-          targetMemberId == other.targetMemberId &&
-          audience == other.audience;
-
-  @override
-  int get hashCode => Object.hash(targetMemberId, audience);
-}
-
-// ---------------------------------------------------------------------------
-// Internal body widget
+// _ComposePostSheetBody
 // ---------------------------------------------------------------------------
 
 class _ComposePostSheetBody extends ConsumerStatefulWidget {
@@ -118,6 +86,7 @@ class _ComposePostSheetBody extends ConsumerStatefulWidget {
     required this.defaultTitle,
     required this.defaultBody,
     required this.editingPostId,
+    required this.scrollController,
   });
 
   final String? defaultTargetMemberId;
@@ -125,6 +94,7 @@ class _ComposePostSheetBody extends ConsumerStatefulWidget {
   final String? defaultTitle;
   final String? defaultBody;
   final String? editingPostId;
+  final ScrollController scrollController;
 
   @override
   ConsumerState<_ComposePostSheetBody> createState() =>
@@ -133,54 +103,71 @@ class _ComposePostSheetBody extends ConsumerStatefulWidget {
 
 class _ComposePostSheetBodyState
     extends ConsumerState<_ComposePostSheetBody> {
-  final _bodyController = TextEditingController();
-  final _titleController = TextEditingController();
-  final _bodyFocusNode = FocusNode();
+  late final TextEditingController _titleController;
+  late final MarkdownEditingController _bodyController;
+  late final FocusNode _bodyFocusNode;
 
-  // Recipient selection
   String _audience = 'public';
-  String? _targetMemberId; // null = "Everyone (public)"
+  String? _targetMemberId;
 
-  // UI state
-  bool _showTitle = false;
   bool _isSaving = false;
-  bool _loaded = false; // true once edit-mode fetch completes
+  bool _loaded = false;
+
+  // Baseline values for dirty detection in edit mode.
+  String _initialTitle = '';
+  String _initialBody = '';
+  String? _initialTargetMemberId;
+  String _initialAudience = 'public';
 
   @override
   void initState() {
     super.initState();
     _audience = widget.defaultAudience;
+    _initialAudience = widget.defaultAudience;
     _targetMemberId = widget.defaultTargetMemberId;
+    _initialTargetMemberId = widget.defaultTargetMemberId;
 
-    if (widget.defaultTitle != null) {
-      _titleController.text = widget.defaultTitle!;
-      _showTitle = true;
-    }
-    if (widget.defaultBody != null) {
-      _bodyController.text = widget.defaultBody!;
-    }
+    final title = widget.defaultTitle ?? '';
+    final body = widget.defaultBody ?? '';
+    _titleController = TextEditingController(text: title);
+    _bodyController = MarkdownEditingController(text: body);
+    _bodyFocusNode = FocusNode();
+    _initialTitle = title;
+    _initialBody = body;
 
-    // For new posts (no editingPostId), mark as loaded immediately.
-    if (widget.editingPostId == null) {
-      _loaded = true;
-    }
+    if (widget.editingPostId == null) _loaded = true;
 
-    _bodyController.addListener(_onBodyChanged);
+    _titleController.addListener(_onTextChanged);
+    _bodyController.addListener(_onTextChanged);
   }
 
   @override
   void dispose() {
-    _bodyController.removeListener(_onBodyChanged);
-    _bodyController.dispose();
+    _titleController.removeListener(_onTextChanged);
+    _bodyController.removeListener(_onTextChanged);
     _titleController.dispose();
+    _bodyController.dispose();
     _bodyFocusNode.dispose();
     super.dispose();
   }
 
-  void _onBodyChanged() => setState(() {});
+  void _onTextChanged() => setState(() {});
 
-  bool get _canSave =>
-      !_isSaving && _bodyController.text.trim().isNotEmpty;
+  bool get _isValid => _bodyController.text.trim().isNotEmpty;
+
+  bool get _canSave => !_isSaving && _isValid;
+
+  bool get _isDirty {
+    if (widget.editingPostId == null) {
+      // New post: dirty as soon as the user has typed anything.
+      return _bodyController.text.trim().isNotEmpty ||
+          _titleController.text.trim().isNotEmpty;
+    }
+    return _bodyController.text != _initialBody ||
+        _titleController.text != _initialTitle ||
+        _targetMemberId != _initialTargetMemberId ||
+        _audience != _initialAudience;
+  }
 
   // ---------------------------------------------------------------------------
   // Edit-mode prefill
@@ -192,17 +179,17 @@ class _ComposePostSheetBodyState
 
     final repo = ref.read(memberBoardPostsRepositoryProvider);
     final post = await repo.getPostById(postId);
-    if (!mounted) return;
-    if (post == null) return;
+    if (!mounted || post == null) return;
 
     setState(() {
       _audience = post.audience;
+      _initialAudience = post.audience;
       _targetMemberId = post.targetMemberId;
+      _initialTargetMemberId = post.targetMemberId;
       _bodyController.text = post.body;
-      if (post.title != null && post.title!.isNotEmpty) {
-        _titleController.text = post.title!;
-        _showTitle = true;
-      }
+      _initialBody = post.body;
+      _titleController.text = post.title ?? '';
+      _initialTitle = post.title ?? '';
       _loaded = true;
     });
   }
@@ -211,16 +198,13 @@ class _ComposePostSheetBodyState
   // Save
   // ---------------------------------------------------------------------------
 
-  Future<void> _save(BuildContext context) async {
+  Future<void> _save() async {
     if (!_canSave) return;
-
     setState(() => _isSaving = true);
 
     try {
-      final notifier =
-          ref.read(memberBoardPostNotifierProvider.notifier);
+      final notifier = ref.read(memberBoardPostNotifierProvider.notifier);
       final speakingAsId = ref.read(speakingAsProvider);
-
       MemberBoardPost? result;
 
       if (widget.editingPostId != null) {
@@ -233,7 +217,6 @@ class _ComposePostSheetBodyState
               : _titleController.text.trim(),
           body: _bodyController.text.trim(),
         );
-        // Re-fetch so we can return the updated post to the caller.
         final repo = ref.read(memberBoardPostsRepositoryProvider);
         result = await repo.getPostById(widget.editingPostId!);
       } else {
@@ -248,78 +231,69 @@ class _ComposePostSheetBodyState
         );
       }
 
-      if (context.mounted) {
-        Navigator.of(context).pop(result);
-      }
+      if (mounted) Navigator.of(context).pop(result);
     } catch (_) {
-      if (mounted) {
-        setState(() => _isSaving = false);
-      }
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
   // ---------------------------------------------------------------------------
-  // Build helpers
+  // Member picker
   // ---------------------------------------------------------------------------
 
-  List<_RecipientOption> _buildOptions(
-    List<Member> members,
-    AppLocalizations l10n,
-  ) {
-    final options = <_RecipientOption>[
-      _RecipientOption(
-        label: l10n.boardsComposeRecipientPublicEveryone,
-        audience: 'public',
-        targetMemberId: null,
-      ),
-    ];
+  Future<void> _pickMember() async {
+    final terminology = ref.read(terminologySettingProvider);
+    final terms = resolveTerminology(
+      context.l10n,
+      terminology.term,
+      customSingular: terminology.customSingular,
+      customPlural: terminology.customPlural,
+      useEnglish: terminology.useEnglish,
+    );
+    final members = ref.read(userVisibleMembersProvider).value ?? [];
 
-    for (final m in members) {
-      options.add(
-        _RecipientOption(
-          label: l10n.boardsComposeRecipientPublicMember(m.name),
-          audience: 'public',
-          targetMemberId: m.id,
-          member: m,
+    final result = await MemberSearchSheet.showSingle(
+      context,
+      members: members,
+      termPlural: terms.plural,
+      specialRows: [
+        MemberSearchSpecialRow(
+          rowKey: 'none',
+          title: context.l10n.boardsComposeToNoHeadmate,
+          leading: Icon(AppIcons.personOutline),
+          result: const MemberSearchResultCleared(),
         ),
-      );
-      options.add(
-        _RecipientOption(
-          label: l10n.boardsComposeRecipientPrivateMember(m.name),
-          audience: 'private',
-          targetMemberId: m.id,
-          member: m,
-        ),
-      );
+      ],
+    );
+
+    if (!mounted) return;
+    switch (result) {
+      case MemberSearchResultSelected(:final memberId):
+        setState(() => _targetMemberId = memberId);
+      case MemberSearchResultCleared():
+        setState(() {
+          _targetMemberId = null;
+          _audience = 'public';
+        });
+      case MemberSearchResultDismissed():
+      case MemberSearchResultUnknown():
+        break;
     }
-
-    return options;
   }
 
-  _RecipientOption _selectedOption(List<_RecipientOption> options) {
-    for (final opt in options) {
-      if (opt.targetMemberId == _targetMemberId &&
-          opt.audience == _audience) {
-        return opt;
-      }
-    }
-    // Fallback: "Everyone (public)".
-    return options.first;
-  }
+  // ---------------------------------------------------------------------------
+  // Discard confirmation
+  // ---------------------------------------------------------------------------
 
-  String _consequenceText(
-    _RecipientOption selected,
-    AppLocalizations l10n,
-  ) {
-    if (selected.targetMemberId == null) {
-      return l10n.boardsComposeConsequencePublicEveryone;
-    }
-    final name =
-        selected.member?.name ?? selected.targetMemberId ?? '';
-    if (selected.audience == 'private') {
-      return l10n.boardsComposeConsequencePrivate(name);
-    }
-    return l10n.boardsComposeConsequencePublicMember(name);
+  Future<bool> _confirmDiscard() async {
+    if (!_isDirty) return true;
+    return PrismDialog.confirm(
+      context: context,
+      title: context.l10n.memberNoteDiscardTitle,
+      message: context.l10n.memberNoteDiscardMessage,
+      confirmLabel: context.l10n.memberNoteDiscardConfirm,
+      destructive: true,
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -328,7 +302,6 @@ class _ComposePostSheetBodyState
 
   @override
   Widget build(BuildContext context) {
-    // Kick off the edit-mode fetch on first build.
     if (widget.editingPostId != null && !_loaded) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _loadExistingPost();
@@ -339,140 +312,177 @@ class _ComposePostSheetBodyState
     final theme = Theme.of(context);
     final isEditing = widget.editingPostId != null;
 
-    // Filter out the sentinel (unknown) member — same as SpeakingAsPicker does
-    // with userVisibleMembersProvider.
-    final visibleMembers =
-        ref.watch(userVisibleMembersProvider).value ?? const [];
+    _bodyController.updateTheme(context);
 
-    final options = _buildOptions(visibleMembers, l10n);
-    final selected = _selectedOption(options);
-
-    return SingleChildScrollView(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom + 8,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Sheet title
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
-            child: Text(
-              isEditing ? l10n.boardsComposeEditing : '',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
+    return ListenableBuilder(
+      listenable: Listenable.merge([_titleController, _bodyController]),
+      builder: (context, _) => PopScope(
+        canPop: !_isDirty,
+        onPopInvokedWithResult: (didPop, _) async {
+          if (didPop) return;
+          final shouldDiscard = await _confirmDiscard();
+          if (shouldDiscard && context.mounted) Navigator.of(context).pop();
+        },
+        child: Column(
+          children: [
+            PrismSheetTopBar(
+              title: isEditing
+                  ? l10n.boardsComposeEditing
+                  : l10n.boardsComposeNewPost,
+              trailing: PrismGlassIconButton(
+                icon: AppIcons.check,
+                onPressed: _canSave ? _save : null,
+                enabled: _canSave,
+                isLoading: _isSaving,
+                tooltip: l10n.boardsComposeSave,
+                size: PrismTokens.topBarActionSize,
+                tint: theme.colorScheme.primary,
+                accentIcon: true,
               ),
             ),
-          ),
-
-          const SizedBox(height: 8),
-
-          // ── Speaking-as header ──────────────────────────────────────────
-          const SpeakingAsPicker(),
-
-          const SizedBox(height: 12),
-
-          // ── Recipient picker ────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: _RecipientPickerRow(
-              options: options,
-              selected: selected,
-              onSelected: (opt) {
-                setState(() {
-                  _audience = opt.audience;
-                  _targetMemberId = opt.targetMemberId;
-                });
-              },
-            ),
-          ),
-
-          const SizedBox(height: 6),
-
-          // ── Consequence text ────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Semantics(
-              liveRegion: true,
-              child: Text(
-                _consequenceText(selected, l10n),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // ── Optional title ──────────────────────────────────────────────
-          if (_showTitle)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-              child: PrismTextField(
-                controller: _titleController,
-                hintText: l10n.boardsComposeTitlePlaceholder,
-                textCapitalization: TextCapitalization.sentences,
-                textInputAction: TextInputAction.next,
-                maxLines: 1,
-              ),
-            )
-          else
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+            Expanded(
               child: GestureDetector(
-                onTap: () {
-                  setState(() => _showTitle = true);
-                },
-                child: Text(
-                  l10n.boardsComposeAddTitle,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.primary,
-                    fontWeight: FontWeight.w500,
+                onTap: () => _bodyFocusNode.requestFocus(),
+                behavior: HitTestBehavior.translucent,
+                child: ListView(
+                  controller: widget.scrollController,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: PrismTokens.pageHorizontalPadding + 8,
+                    vertical: 16,
                   ),
+                  children: [
+                    const SpeakingAsPicker(),
+                    const SizedBox(height: 12),
+                    PrismTextField(
+                      controller: _titleController,
+                      hintText: l10n.boardsComposeTitlePlaceholder,
+                      fieldStyle: PrismTextFieldStyle.borderless,
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                      hintStyle: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: theme.colorScheme.onSurfaceVariant
+                            .withValues(alpha: 0.4),
+                      ),
+                      maxLines: null,
+                      textCapitalization: TextCapitalization.sentences,
+                      textInputAction: TextInputAction.next,
+                    ),
+                    const SizedBox(height: 8),
+                    PrismTextField(
+                      controller: _bodyController,
+                      focusNode: _bodyFocusNode,
+                      hintText: l10n.boardsComposeBodyPlaceholder,
+                      fieldStyle: PrismTextFieldStyle.borderless,
+                      style: theme.textTheme.bodyLarge,
+                      hintStyle: theme.textTheme.bodyLarge?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant
+                            .withValues(alpha: 0.4),
+                      ),
+                      minLines: 8,
+                      maxLines: null,
+                      textCapitalization: TextCapitalization.sentences,
+                      autofocus: !isEditing,
+                    ),
+                  ],
                 ),
               ),
             ),
-
-          // ── Body ────────────────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: PrismTextField(
-              controller: _bodyController,
-              focusNode: _bodyFocusNode,
-              autofocus: true,
-              hintText: l10n.boardsComposeBodyPlaceholder,
-              textCapitalization: TextCapitalization.sentences,
-              textInputAction: TextInputAction.newline,
-              keyboardType: TextInputType.multiline,
-              minLines: 3,
-              maxLines: null,
+            _BottomToolbar(
+              memberId: _targetMemberId,
+              audience: _audience,
+              onPickMember: _pickMember,
+              onAudienceChanged: (v) => setState(() => _audience = v),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// _BottomToolbar
+// ---------------------------------------------------------------------------
+
+class _BottomToolbar extends ConsumerWidget {
+  const _BottomToolbar({
+    required this.memberId,
+    required this.audience,
+    required this.onPickMember,
+    required this.onAudienceChanged,
+  });
+
+  final String? memberId;
+  final String audience;
+  final VoidCallback onPickMember;
+  final ValueChanged<String> onAudienceChanged;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final l10n = context.l10n;
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final mutedColor = theme.colorScheme.onSurfaceVariant;
+
+    final member = memberId != null
+        ? ref.watch(memberByIdProvider(memberId!)).value
+        : null;
+
+    return Container(
+      padding: EdgeInsets.only(
+        left: PrismTokens.pageHorizontalPadding + 8,
+        right: PrismTokens.pageHorizontalPadding + 8,
+        top: 8,
+        bottom: 8 + bottomInset,
+      ),
+      decoration: BoxDecoration(
+        border: Border(
+          top: BorderSide(
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
           ),
-
-          const SizedBox(height: 20),
-
-          // ── Action row ───────────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                PrismButton(
-                  label: l10n.boardsComposeCancel,
-                  tone: PrismButtonTone.subtle,
-                  onPressed: () => Navigator.of(context).pop(null),
-                ),
-                const SizedBox(width: 8),
-                PrismButton(
-                  label: l10n.boardsComposeSave,
-                  tone: PrismButtonTone.filled,
-                  enabled: _canSave,
-                  isLoading: _isSaving,
-                  onPressed: () => _save(context),
-                ),
-              ],
+        ),
+      ),
+      child: Row(
+        children: [
+          _ToolbarChip(
+            icon: AppIcons.personOutline,
+            label: member?.name ?? l10n.boardsComposeToNoHeadmate,
+            color: mutedColor,
+            onTap: onPickMember,
+            leading: member != null
+                ? MemberAvatar(
+                    avatarImageData: member.avatarImageData,
+                    memberName: member.name,
+                    emoji: member.emoji,
+                    customColorEnabled: member.customColorEnabled,
+                    customColorHex: member.customColorHex,
+                    size: 20,
+                  )
+                : null,
+            semanticLabel: member?.name ?? l10n.boardsComposeToNoHeadmate,
+          ),
+          const SizedBox(width: 12),
+          SegmentedButton<String>(
+            segments: [
+              ButtonSegment(
+                value: 'public',
+                label: Text(l10n.boardsComposeAudienceEveryone),
+              ),
+              ButtonSegment(
+                value: 'private',
+                label: Text(l10n.boardsComposeAudiencePrivate),
+              ),
+            ],
+            selected: {audience},
+            onSelectionChanged: memberId != null
+                ? (v) => onAudienceChanged(v.first)
+                : null,
+            style: SegmentedButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              textStyle: theme.textTheme.labelMedium,
             ),
           ),
         ],
@@ -482,153 +492,67 @@ class _ComposePostSheetBodyState
 }
 
 // ---------------------------------------------------------------------------
-// _RecipientPickerRow — chip-trigger that opens a popup picker
+// _ToolbarChip
 // ---------------------------------------------------------------------------
 
-class _RecipientPickerRow extends StatelessWidget {
-  const _RecipientPickerRow({
-    required this.options,
-    required this.selected,
-    required this.onSelected,
+class _ToolbarChip extends StatelessWidget {
+  const _ToolbarChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+    this.leading,
+    this.semanticLabel,
   });
 
-  final List<_RecipientOption> options;
-  final _RecipientOption selected;
-  final ValueChanged<_RecipientOption> onSelected;
+  final IconData? icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+  final Widget? leading;
+  final String? semanticLabel;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isPrivate = selected.audience == 'private';
-    final accentColor = isPrivate
-        ? theme.colorScheme.secondary
-        : theme.colorScheme.primary;
 
-    return InkWell(
-      borderRadius: BorderRadius.circular(
-        PrismShapes.of(context).radius(999),
-      ),
-      onTap: () => _showPicker(context),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: accentColor.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(
-            PrismShapes.of(context).radius(999),
-          ),
-          border: Border.all(
-            color: accentColor.withValues(alpha: 0.35),
-          ),
-        ),
-        child: Semantics(
-          button: true,
-          label: selected.label,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (selected.member != null) ...[
-                MemberAvatar(
-                  avatarImageData: selected.member!.avatarImageData,
-                  memberName: selected.member!.name,
-                  emoji: selected.member!.emoji,
-                  customColorEnabled: selected.member!.customColorEnabled,
-                  customColorHex: selected.member!.customColorHex,
-                  size: 20,
-                ),
-                const SizedBox(width: 6),
-              ],
-              Flexible(
-                child: Text(
-                  selected.label,
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: accentColor,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
+    return Semantics(
+      label: semanticLabel,
+      button: true,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(PrismTokens.radiusPill),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 36),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(PrismTokens.radiusPill),
+              border: Border.all(
+                color:
+                    theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
               ),
-              const SizedBox(width: 4),
-              Icon(Icons.arrow_drop_down, size: 18, color: accentColor),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _showPicker(BuildContext context) async {
-    await PrismSheet.show(
-      context: context,
-      builder: (sheetCtx) => _RecipientPickerSheet(
-        options: options,
-        selected: selected,
-        onSelected: (opt) {
-          Navigator.of(sheetCtx).pop();
-          onSelected(opt);
-        },
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// _RecipientPickerSheet — modal bottom sheet with the full option list
-// ---------------------------------------------------------------------------
-
-class _RecipientPickerSheet extends StatelessWidget {
-  const _RecipientPickerSheet({
-    required this.options,
-    required this.selected,
-    required this.onSelected,
-  });
-
-  final List<_RecipientOption> options;
-  final _RecipientOption selected;
-  final ValueChanged<_RecipientOption> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return ListView.builder(
-      shrinkWrap: true,
-      itemCount: options.length,
-      itemBuilder: (ctx, index) {
-        final opt = options[index];
-        final isSelected = opt == selected;
-        final isPrivate = opt.audience == 'private';
-        final accentColor = isPrivate
-            ? theme.colorScheme.secondary
-            : theme.colorScheme.primary;
-
-        return PrismListRow(
-          leading: opt.member != null
-              ? MemberAvatar(
-                  avatarImageData: opt.member!.avatarImageData,
-                  memberName: opt.member!.name,
-                  emoji: opt.member!.emoji,
-                  customColorEnabled: opt.member!.customColorEnabled,
-                  customColorHex: opt.member!.customColorHex,
-                  size: 32,
-                )
-              : Icon(
-                  Icons.public,
-                  color: theme.colorScheme.primary,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (leading != null) ...[
+                  leading!,
+                  const SizedBox(width: 6),
+                ] else if (icon != null) ...[
+                  Icon(icon, size: 16, color: color),
+                  const SizedBox(width: 6),
+                ],
+                Text(
+                  label,
+                  style: theme.textTheme.labelMedium?.copyWith(color: color),
                 ),
-          title: Text(
-            opt.label,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: isSelected ? accentColor : null,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+              ],
             ),
           ),
-          trailing: isSelected
-              ? Icon(Icons.check, color: accentColor, size: 18)
-              : null,
-          onTap: () => onSelected(opt),
-        );
-      },
+        ),
+      ),
     );
   }
 }
