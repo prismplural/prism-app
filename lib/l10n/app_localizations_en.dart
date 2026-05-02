@@ -1182,10 +1182,16 @@ class AppLocalizationsEn extends AppLocalizations {
       'PluralKit appears after this member has a linked or cached banner.';
 
   @override
-  String get memberProfileHeaderChangeImage => 'Change image';
+  String get memberProfileHeaderAddImage => 'Add photo';
 
   @override
-  String get memberProfileHeaderRemoveImage => 'Remove image';
+  String get memberProfileHeaderChangeImage => 'Change photo';
+
+  @override
+  String get memberProfileHeaderRemoveImage => 'Remove';
+
+  @override
+  String get memberProfileHeaderHideTitle => 'Hide profile header';
 
   @override
   String get memberProfileHeaderLayoutLabel => 'Layout';
@@ -2855,6 +2861,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memberBioHint => 'A short description...';
 
   @override
+  String get memberBioEditorTooltip => 'Edit bio';
+
+  @override
   String get memberDisplayNameLabel => 'Display name';
 
   @override
@@ -2890,6 +2899,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get memberAdminSubtitle => 'Admins can manage system settings';
+
+  @override
+  String get memberAccentColorSectionTitle => 'Accent color';
 
   @override
   String get memberCustomColorTitle => 'Custom color';
@@ -2932,6 +2944,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String memberSaveTooltip(String termSingularLower) {
     return 'Save $termSingularLower';
   }
+
+  @override
+  String get memberEditTabEdit => 'Edit';
+
+  @override
+  String get memberEditTabStyle => 'Style';
+
+  @override
+  String get memberEditSectionAbout => 'About';
+
+  @override
+  String get memberEditSectionSettings => 'Settings';
 
   @override
   String get memberBulkActivate => 'Activate';

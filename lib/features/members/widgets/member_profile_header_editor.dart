@@ -31,6 +31,7 @@ class MemberProfileHeaderEditor extends StatelessWidget {
     this.onAvatarTap,
     this.onAvatarRemove,
     this.onNameStyleTap,
+    this.showSectionWrapper = true,
     @visibleForTesting this.pickCroppedHeaderBytes,
   });
 
@@ -57,6 +58,10 @@ class MemberProfileHeaderEditor extends StatelessWidget {
 
   /// Opens the member name style controls from the preview header.
   final VoidCallback? onNameStyleTap;
+
+  /// When false, renders without the [PrismSection] title/description wrapper.
+  /// Use in dedicated-tab contexts where the tab itself provides the framing.
+  final bool showSectionWrapper;
 
   @visibleForTesting
   final Future<Uint8List?> Function(BuildContext context)?
@@ -103,13 +108,9 @@ class MemberProfileHeaderEditor extends StatelessWidget {
         prismHeaderImageData != null &&
         prismHeaderImageData!.isNotEmpty;
 
-    return PrismSection(
-      title: context.l10n.memberProfileHeaderSectionTitle,
-      description: context.l10n.memberProfileHeaderSectionDescription,
-      padding: const EdgeInsets.only(top: 24, bottom: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
           PrismSectionCard(
             padding: const EdgeInsets.all(12),
             child: MemberProfileHeader(
@@ -126,55 +127,67 @@ class MemberProfileHeaderEditor extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Row(
-            mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              PrismIconButton(
+              PrismButton(
                 icon: AppIcons.imageOutlined,
-                tooltip: context.l10n.memberProfileHeaderChangeImage,
+                label: prismHeaderImageData != null &&
+                        prismHeaderImageData!.isNotEmpty
+                    ? context.l10n.memberProfileHeaderChangeImage
+                    : context.l10n.memberProfileHeaderAddImage,
                 onPressed: () => _changePrismHeader(context),
+                density: PrismControlDensity.compact,
               ),
-              const SizedBox(width: 8),
-              PrismIconButton(
-                icon: AppIcons.deleteOutline,
-                tooltip: context.l10n.memberProfileHeaderRemoveImage,
-                color: theme.colorScheme.error,
-                enabled: canRemovePrismImage,
-                onPressed: () {
-                  onPrismHeaderImageChanged(null);
-                  onPrismHeaderImageRemoved?.call();
-                },
-              ),
+              if (canRemovePrismImage) ...[
+                const SizedBox(width: 8),
+                PrismButton(
+                  icon: AppIcons.deleteOutline,
+                  label: context.l10n.memberProfileHeaderRemoveImage,
+                  tone: PrismButtonTone.destructive,
+                  density: PrismControlDensity.compact,
+                  onPressed: () {
+                    onPrismHeaderImageChanged(null);
+                    onPrismHeaderImageRemoved?.call();
+                  },
+                ),
+              ],
             ],
           ),
-          const SizedBox(height: 16),
-          PrismSegmentedControl<MemberProfileHeaderSource>(
-            selected: previewSource,
-            onChanged: onSourceChanged,
-            segments: [
-              if (resolvedPluralKitEligible)
+          if (resolvedPluralKitEligible) ...[
+            const SizedBox(height: 16),
+            PrismSegmentedControl<MemberProfileHeaderSource>(
+              selected: previewSource,
+              onChanged: onSourceChanged,
+              segments: [
                 PrismSegment(
                   value: MemberProfileHeaderSource.pluralKit,
                   label: context.l10n.memberProfileHeaderSourcePluralKit,
                 ),
-              PrismSegment(
-                value: MemberProfileHeaderSource.prism,
-                label: context.l10n.memberProfileHeaderSourcePrism,
+                PrismSegment(
+                  value: MemberProfileHeaderSource.prism,
+                  label: context.l10n.memberProfileHeaderSourcePrism,
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              previewSource == MemberProfileHeaderSource.pluralKit
+                  ? context.l10n.memberProfileHeaderSourcePluralKitHelper
+                  : context.l10n.memberProfileHeaderSourcePrismHelper,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                height: 1.35,
               ),
-            ],
-          ),
-          const SizedBox(height: 6),
+            ),
+          ],
+          const SizedBox(height: 12),
           Text(
-            !resolvedPluralKitEligible
-                ? context.l10n.memberProfileHeaderPluralKitUnavailable
-                : previewSource == MemberProfileHeaderSource.pluralKit
-                ? context.l10n.memberProfileHeaderSourcePluralKitHelper
-                : context.l10n.memberProfileHeaderSourcePrismHelper,
+            context.l10n.memberProfileHeaderLayoutLabel,
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
-              height: 1.35,
+              fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 6),
           PrismSegmentedControl<MemberProfileHeaderLayout>(
             selected: layout,
             onChanged: onLayoutChanged,
@@ -191,14 +204,20 @@ class MemberProfileHeaderEditor extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           PrismSwitchRow(
-            title: context.l10n.memberProfileHeaderVisibleTitle,
+            title: context.l10n.memberProfileHeaderHideTitle,
             subtitle: context.l10n.memberProfileHeaderVisibleSubtitle,
-            value: visible,
-            onChanged: onVisibleChanged,
+            value: !visible,
+            onChanged: (v) => onVisibleChanged(!v),
             icon: AppIcons.imageOutlined,
           ),
         ],
-      ),
+      );
+    if (!showSectionWrapper) return content;
+    return PrismSection(
+      title: context.l10n.memberProfileHeaderSectionTitle,
+      description: context.l10n.memberProfileHeaderSectionDescription,
+      padding: const EdgeInsets.only(top: 24, bottom: 12),
+      child: content,
     );
   }
 }

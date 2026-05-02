@@ -1213,10 +1213,16 @@ class AppLocalizationsEs extends AppLocalizations {
       'PluralKit aparece cuando este miembro tiene un encabezado vinculado o guardado en cache.';
 
   @override
-  String get memberProfileHeaderChangeImage => 'Cambiar imagen';
+  String get memberProfileHeaderAddImage => 'Añadir foto';
 
   @override
-  String get memberProfileHeaderRemoveImage => 'Eliminar imagen';
+  String get memberProfileHeaderChangeImage => 'Cambiar foto';
+
+  @override
+  String get memberProfileHeaderRemoveImage => 'Eliminar';
+
+  @override
+  String get memberProfileHeaderHideTitle => 'Ocultar encabezado del perfil';
 
   @override
   String get memberProfileHeaderLayoutLabel => 'Diseño';
@@ -2918,6 +2924,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get memberBioHint => 'Una breve descripción...';
 
   @override
+  String get memberBioEditorTooltip => 'Editar bio';
+
+  @override
   String get memberDisplayNameLabel => 'Nombre mostrado';
 
   @override
@@ -2953,6 +2962,9 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get memberAdminSubtitle =>
       'Los admins pueden gestionar la configuración del sistema';
+
+  @override
+  String get memberAccentColorSectionTitle => 'Color de acento';
 
   @override
   String get memberCustomColorTitle => 'Color personalizado';
@@ -2995,6 +3007,18 @@ class AppLocalizationsEs extends AppLocalizations {
   String memberSaveTooltip(String termSingularLower) {
     return 'Guardar $termSingularLower';
   }
+
+  @override
+  String get memberEditTabEdit => 'Editar';
+
+  @override
+  String get memberEditTabStyle => 'Estilo';
+
+  @override
+  String get memberEditSectionAbout => 'Acerca de';
+
+  @override
+  String get memberEditSectionSettings => 'Ajustes';
 
   @override
   String get memberBulkActivate => 'Activar';
