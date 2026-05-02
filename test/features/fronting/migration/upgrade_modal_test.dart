@@ -6,13 +6,13 @@
 ///   - Solo (paired count = 0) with notStarted: skips role, lands on
 ///     mode picker on Continue.
 ///   - Paired (count > 0) with notStarted: shows role question first.
-///   - "Not now" writes 'deferred' via the runner and pops the modal.
+///   - The mandatory intro does not offer a deferral path.
 ///   - Password field validates empty / too-short / mismatch using the
 ///     same data-management l10n strings as the export sheet.
 ///   - Successful migration shows the success screen with re-pair copy
 ///     keyed off role (primary vs solo).
 ///   - Failed migration shows the error message and a Retry button.
-///   - Banner only renders when mode == 'deferred'.
+///   - Banner renders only for resume-cleanup nudges.
 library;
 
 import 'dart:async';
@@ -38,16 +38,9 @@ import 'package:prism_plurality/shared/widgets/prism_button.dart';
 /// Records every migration call so tests can assert the chosen
 /// mode/role and seed the result. Implements the split surface
 /// (`prepareBackup` + `runMigrationDestructive`) plus the legacy
-/// `runMigration` wrapper for the `notNow` deferral path.
+/// `runMigration` wrapper.
 class _FakeRunner implements FrontingMigrationService {
-  _FakeRunner({
-    this.result,
-    this.prepareBackupThrows = false,
-    this.notNowResult,
-    this.notNowThrows = false,
-  });
-
-  static const bool deferredOnNotNow = true;
+  _FakeRunner({this.result, this.prepareBackupThrows = false});
 
   /// What `runMigrationDestructive` returns. Defaults to a successful
   /// result; tests that exercise the failure branch override this.
@@ -57,23 +50,11 @@ class _FakeRunner implements FrontingMigrationService {
   /// transition into the `failure` step from `exporting`.
   bool prepareBackupThrows;
 
-  /// What `runMigration(mode: notNow, ...)` returns when overridden.
-  /// Defaults to the production-shaped `MigrationOutcome.deferred`.
-  /// Tests for the notNow failure path override with
-  /// `MigrationOutcome.failed` to assert the modal stays open and
-  /// surfaces the error.
-  MigrationResult? notNowResult;
-
-  /// When true, `runMigration(mode: notNow, ...)` throws instead of
-  /// returning a result. Exercises the catch branch of `_onNotNow`.
-  bool notNowThrows;
-
   final List<({MigrationMode mode, DeviceRole role, String password})> calls =
       [];
   final List<({MigrationMode mode, String password})> prepareCalls = [];
   final List<({MigrationMode mode, DeviceRole role, File file})>
   destructiveCalls = [];
-  String? lastDeferredWrite;
 
   @override
   Future<File> prepareBackup({
@@ -116,19 +97,6 @@ class _FakeRunner implements FrontingMigrationService {
     required Future<Uri?> Function(File file) shareFile,
     String password = '',
   }) async {
-    if (mode == MigrationMode.notNow && _FakeRunner.deferredOnNotNow) {
-      calls.add((mode: mode, role: role, password: password));
-      if (notNowThrows) {
-        throw StateError('Simulated notNow settings-write failure');
-      }
-      if (notNowResult != null) {
-        // Tests for the failure branch override the outcome; don't
-        // pretend the deferred marker was written.
-        return notNowResult!;
-      }
-      lastDeferredWrite = FrontingMigrationService.modeDeferred;
-      return const MigrationResult(outcome: MigrationOutcome.deferred);
-    }
     // Compose the split methods like production does, so any test
     // that still drives `runMigration` end-to-end exercises both.
     final file = await prepareBackup(mode: mode, password: password);
@@ -258,7 +226,7 @@ void main() {
 
       // Intro screen.
       expect(find.text('Continue'), findsOneWidget);
-      expect(find.text('Not now'), findsOneWidget);
+      expect(find.text('Not now'), findsNothing);
 
       await tester.tap(find.text('Continue'));
       await tester.pumpAndSettle();
@@ -375,84 +343,6 @@ void main() {
       },
     );
 
-    testWidgets('Not now invokes runner with notNow and dismisses the modal', (
-      tester,
-    ) async {
-      final runner = _FakeRunner();
-      await tester.pumpWidget(
-        _buildSheetSubject(runner: runner, pairedCount: 0),
-      );
-      await _openSheet(tester);
-
-      await tester.tap(find.text('Not now'));
-      await tester.pumpAndSettle();
-
-      expect(runner.calls, hasLength(1));
-      expect(runner.calls.single.mode, MigrationMode.notNow);
-      expect(runner.lastDeferredWrite, FrontingMigrationService.modeDeferred);
-      // Modal popped - only the original launcher button is visible.
-      expect(find.text('Continue'), findsNothing);
-      expect(find.text('open'), findsOneWidget);
-    });
-
-    // Pin the regression: previously `_onNotNow` discarded the
-    // `MigrationResult` from `runMigration` and popped the modal
-    // unconditionally. If the underlying settings DAO write failed
-    // (returning `MigrationOutcome.failed`), the user would dismiss the
-    // sheet thinking the deferral landed, then see the upgrade banner
-    // again on next launch with no error explanation.
-    testWidgets(
-      'Not now keeps modal open and shows failure when runner returns failed',
-      (tester) async {
-        final runner = _FakeRunner(
-          notNowResult: const MigrationResult(
-            outcome: MigrationOutcome.failed,
-            errorMessage: 'simulated settings write failure',
-          ),
-        );
-        await tester.pumpWidget(
-          _buildSheetSubject(runner: runner, pairedCount: 0),
-        );
-        await _openSheet(tester);
-
-        await tester.tap(find.text('Not now'));
-        await tester.pumpAndSettle();
-
-        // Modal must NOT have popped - the failure step is rendered
-        // with the runner-supplied error message. (The launcher button
-        // remains in the widget tree behind the fullscreen sheet, so
-        // we don't assert on it; the failure step's presence is the
-        // load-bearing signal that the sheet stayed open.)
-        expect(find.text('Migration failed'), findsOneWidget);
-        expect(find.text('simulated settings write failure'), findsOneWidget);
-        // Deferred marker was NOT recorded (failure branch).
-        expect(runner.lastDeferredWrite, isNull);
-      },
-    );
-
-    testWidgets(
-      'Not now keeps modal open and shows failure when runner throws',
-      (tester) async {
-        final runner = _FakeRunner(notNowThrows: true);
-        await tester.pumpWidget(
-          _buildSheetSubject(runner: runner, pairedCount: 0),
-        );
-        await _openSheet(tester);
-
-        await tester.tap(find.text('Not now'));
-        await tester.pumpAndSettle();
-
-        // Modal still open on the failure step (catch branch of
-        // `_onNotNow` synthesises a MigrationResult.failed and
-        // transitions to the failure step rather than popping).
-        expect(find.text('Migration failed'), findsOneWidget);
-        expect(
-          find.textContaining('Simulated notNow settings-write failure'),
-          findsOneWidget,
-        );
-      },
-    );
-
     group('password validation', () {
       Future<void> navigateToPassword(WidgetTester tester) async {
         await _openSheet(tester);
@@ -476,10 +366,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('Password cannot be empty'), findsOneWidget);
-        expect(
-          runner.calls.any((c) => c.mode != MigrationMode.notNow),
-          isFalse,
-        );
+        expect(runner.calls, isEmpty);
       });
 
       testWidgets(
@@ -847,13 +734,13 @@ void main() {
   });
 
   group('FrontingUpgradeBanner', () {
-    testWidgets('renders when mode is deferred', (tester) async {
+    testWidgets('hidden when mode is legacy deferred', (tester) async {
       await tester.pumpWidget(
         _buildBannerSubject(mode: FrontingMigrationService.modeDeferred),
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Fronting upgrade pending'), findsOneWidget);
+      expect(find.text('Fronting upgrade pending'), findsNothing);
     });
 
     testWidgets('hidden when mode is complete', (tester) async {
@@ -1384,7 +1271,7 @@ void main() {
       },
     );
 
-    test('notStarted / deferred resolve to needsModal', () async {
+    test('notStarted / legacy deferred resolve to needsModal', () async {
       for (final mode in [
         FrontingMigrationService.modeNotStarted,
         FrontingMigrationService.modeDeferred,
@@ -1403,7 +1290,7 @@ void main() {
 /// Variant of `_FakeRunner` that returns a real on-disk file from
 /// `prepareBackup` so the modal's retry-preserves-backup path can
 /// observe `_backupFile.existsSync() == true`. Other behaviors
-/// (notNow / runMigrationDestructive failure) match `_FakeRunner`.
+/// (runMigrationDestructive failure) match `_FakeRunner`.
 class _RealBackupFileFakeRunner implements FrontingMigrationService {
   _RealBackupFileFakeRunner(this._file);
   final File _file;

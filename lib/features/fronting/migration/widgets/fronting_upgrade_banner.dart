@@ -1,13 +1,12 @@
-/// Phase 5C — banner shown on the home screen when the user has
-/// deferred the per-member fronting upgrade.
+/// Phase 5C — banner shown on the home screen when the migration's
+/// post-transaction cleanup still needs to be resumed.
 ///
 /// Visibility is keyed on
-/// `system_settings.pending_fronting_migration_mode == 'deferred'` —
-/// renders nothing for `notStarted` (the modal is auto-presented by the
-/// app shell instead) and nothing for `complete` (no work left).
+/// `system_settings.pending_fronting_migration_mode == 'inProgress'`.
+/// `notStarted` and legacy `deferred` are mandatory modal states handled by
+/// the app shell; `complete` has no work left.
 ///
-/// Tapping the banner re-opens the upgrade modal in dismissible mode
-/// (the user already chose to defer once; we don't trap them again).
+/// Tapping the banner re-opens the mandatory upgrade modal.
 library;
 
 import 'package:flutter/material.dart';
@@ -31,13 +30,8 @@ class FrontingUpgradeBanner extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final mode = ref.watch(frontingMigrationModeProvider).value;
-    // Show the banner for both `deferred` (user opted out) and
-    // `inProgress` (post-tx cleanup partially failed and can be
-    // resumed). Either way the user re-enters via the modal, which
-    // adapts to whichever state is current.
-    final isVisible =
-        mode == FrontingMigrationService.modeDeferred ||
-        mode == FrontingMigrationService.modeInProgress;
+    // Show the banner when post-tx cleanup partially failed and can be resumed.
+    final isVisible = mode == FrontingMigrationService.modeInProgress;
     if (!isVisible) {
       return const SizedBox.shrink();
     }
@@ -52,7 +46,7 @@ class FrontingUpgradeBanner extends ConsumerWidget {
         message: context.l10n.frontingUpgradeBannerMessage,
         buttonText: context.l10n.frontingUpgradeContinue,
         onButtonPressed: () =>
-            showFrontingUpgradeSheet(context, isDismissible: true),
+            showFrontingUpgradeSheet(context, isDismissible: false),
       ),
     );
   }

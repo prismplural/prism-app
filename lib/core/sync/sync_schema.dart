@@ -4,12 +4,12 @@
 ///
 /// Transitional / deprecated fields:
 ///   - `fronting_sessions.pk_member_ids_json` — legacy per-switch PK member
-///     id list, kept on disk through v7 so that a v6 peer that has deferred
-///     ("Not now") on the per-member-fronting upgrade can still round-trip
-///     the value. v7+ does not write to it; the apply path uses
-///     `Value.absent()` when missing so we don't clobber whatever a legacy
-///     peer last sent. Removal target: 0.8.0 alongside the v8 cleanup
-///     `TableMigration` and `reset_sync_state` cutover.
+///     id list, kept on disk through v7 so legacy peers can still round-trip
+///     the value until the mandatory per-member-fronting upgrade completes.
+///     v7+ does not write to it; the apply path uses `Value.absent()` when
+///     missing so we don't clobber whatever a legacy peer last sent. Removal
+///     target: 0.8.0 alongside the v8 cleanup `TableMigration` and
+///     `reset_sync_state` cutover.
 const String prismSyncSchema = '''
 {
   "entities": {

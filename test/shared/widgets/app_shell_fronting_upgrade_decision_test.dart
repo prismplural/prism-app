@@ -68,13 +68,13 @@ void main() {
       expect(decision.isDismissible, isFalse);
     });
 
-    test('needsModal + deferred mode keeps the modal hidden — banner is '
-        'the surface', () {
+    test('needsModal + legacy deferred mode forces the mandatory modal', () {
       final decision = frontingUpgradeSheetDecision(
         gate: FrontingMigrationGateStatus.needsModal,
         rawMode: FrontingMigrationService.modeDeferred,
       );
-      expect(decision.shouldShow, isFalse);
+      expect(decision.shouldShow, isTrue);
+      expect(decision.isDismissible, isFalse);
     });
 
     test('needsModal + null raw mode (loading/error) still shows the '

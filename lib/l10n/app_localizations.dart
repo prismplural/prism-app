@@ -12837,12 +12837,6 @@ abstract class AppLocalizations {
   /// **'Continue'**
   String get frontingUpgradeContinue;
 
-  /// Secondary defer button on the intro screen
-  ///
-  /// In en, this message translates to:
-  /// **'Not now'**
-  String get frontingUpgradeNotNow;
-
   /// Role-selection screen headline
   ///
   /// In en, this message translates to:
@@ -13098,13 +13092,13 @@ abstract class AppLocalizations {
   /// **'Your backup file was saved. You can find it in your share sheet history if you need to recover.'**
   String get frontingUpgradeFailureBackupNote;
 
-  /// Home-screen banner title for deferred upgrade
+  /// Home-screen banner title when migration cleanup needs to be resumed
   ///
   /// In en, this message translates to:
   /// **'Fronting upgrade pending'**
   String get frontingUpgradeBannerTitle;
 
-  /// Home-screen banner message for deferred upgrade
+  /// Home-screen banner message when migration cleanup needs to be resumed
   ///
   /// In en, this message translates to:
   /// **'Tap to continue the upgrade.'**
