@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -27,11 +29,13 @@ import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/utils/animations.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
+import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/date_chip.dart';
 import 'package:prism_plurality/shared/widgets/group_member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_grouped_section_card.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
@@ -632,18 +636,18 @@ class _PeriodTile extends ConsumerWidget {
     return '${names[0]}, ${names[1]} +${names.length - 2}';
   }
 
-  Future<bool?> _confirmDelete(BuildContext context, WidgetRef ref) async {
-    // For a multi-session period, deleting from the swipe still uses the
-    // "delete the contributing sessions" semantics — we route the first
-    // session through the existing delete-strategy flow. Period-level
-    // delete UX is part of the period-detail screen (§3.1, not 1A).
+  Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
+    // For a multi-session period, deletion uses the "delete the contributing
+    // sessions" semantics — we route the first session through the existing
+    // delete-strategy flow. Period-level delete UX is part of the
+    // period-detail screen (§3.1, not 1A).
     final firstSessionId =
         period.sessionIds.isNotEmpty ? period.sessionIds.first : null;
-    if (firstSessionId == null) return false;
+    if (firstSessionId == null) return;
 
     final repo = ref.read(frontingSessionRepositoryProvider);
     final session = await repo.getSessionById(firstSessionId);
-    if (session == null || !context.mounted) return false;
+    if (session == null || !context.mounted) return;
     final allSessions = await repo.getAllSessions();
     final editGuard = ref.read(frontingEditGuardProvider);
     final resolutionService =
@@ -655,18 +659,18 @@ class _PeriodTile extends ConsumerWidget {
     final deleteCtx =
         editGuard.getDeleteContext(sessionSnapshot, allSnapshots);
 
-    if (!context.mounted) return false;
+    if (!context.mounted) return;
     final strategy = await showDeleteStrategyDialog(
       context,
       deleteContext: deleteCtx,
     );
-    if (strategy == null || !context.mounted) return false;
+    if (strategy == null || !context.mounted) return;
 
     Haptics.heavy();
     final changes = resolutionService.computeDeleteChanges(deleteCtx, strategy);
     final result = await changeExecutor.execute(changes);
-    return result.when(
-      success: (_) => true,
+    result.when(
+      success: (_) {},
       failure: (error) {
         if (context.mounted) {
           PrismToast.error(
@@ -674,9 +678,51 @@ class _PeriodTile extends ConsumerWidget {
             message: context.l10n.frontingErrorSavingSession(error),
           );
         }
-        return false;
       },
     );
+  }
+
+  Future<void> _endFronting(BuildContext context, WidgetRef ref) async {
+    if (period.activeMembers.isEmpty) return;
+    try {
+      await ref
+          .read(frontingNotifierProvider.notifier)
+          .endFronting(period.activeMembers.toList());
+    } catch (e) {
+      if (context.mounted) {
+        PrismToast.error(
+          context,
+          message: context.l10n.frontingErrorSavingSession(e.toString()),
+        );
+      }
+    }
+  }
+
+  void _editSession(BuildContext context) {
+    if (period.sessionIds.isEmpty) return;
+    context.go(AppRoutePaths.sessionEdit(period.sessionIds.first));
+  }
+
+  List<_TileContextAction> _contextActions(BuildContext context, WidgetRef ref) {
+    return [
+      if (slice.isLiveOpenEnded)
+        _TileContextAction(
+          label: context.l10n.frontingEndSessionButton,
+          icon: AppIcons.stopRounded,
+          onSelected: () => _endFronting(context, ref),
+        ),
+      _TileContextAction(
+        label: context.l10n.edit,
+        icon: AppIcons.editOutlined,
+        onSelected: () => _editSession(context),
+      ),
+      _TileContextAction(
+        label: context.l10n.delete,
+        icon: AppIcons.deleteOutline,
+        destructive: true,
+        onSelected: () => _confirmDelete(context, ref),
+      ),
+    ];
   }
 
   @override
@@ -875,31 +921,57 @@ class _PeriodTile extends ConsumerWidget {
         ? '${period.sessionIds.join("|")}-cont-${slice.displayStart.toDayKey()}'
         : period.sessionIds.join('|');
 
-    return Dismissible(
+    final actions = _contextActions(context, ref);
+    final wrappedContent = showLiveTimer
+        ? AnimatedSwitcher(
+            duration: Anim.lg,
+            switchInCurve: Anim.enter,
+            switchOutCurve: Anim.exit,
+            child: KeyedSubtree(
+              key: ValueKey('period-$sliceKey-active'),
+              child: tileContent,
+            ),
+          )
+        : tileContent;
+
+    return BlurPopupAnchor(
       key: ValueKey('period-$sliceKey'),
-      direction: DismissDirection.startToEnd,
-      background: Container(
-        alignment: Alignment.centerLeft,
-        padding: const EdgeInsets.only(left: 24),
-        decoration: BoxDecoration(
-          color: AppColors.error.withValues(alpha: 0.2),
-        ),
-        child: Icon(AppIcons.delete, color: AppColors.error),
-      ),
-      confirmDismiss: (_) => _confirmDelete(context, ref),
-      child: showLiveTimer
-          ? AnimatedSwitcher(
-              duration: Anim.lg,
-              switchInCurve: Anim.enter,
-              switchOutCurve: Anim.exit,
-              child: KeyedSubtree(
-                key: ValueKey('period-$sliceKey-active'),
-                child: tileContent,
-              ),
-            )
-          : tileContent,
+      trigger: BlurPopupTrigger.longPress,
+      width: 220,
+      maxHeight: 320,
+      semanticLabel: context.l10n.moreOptions,
+      itemCount: actions.length,
+      itemBuilder: (context, index, close) {
+        final action = actions[index];
+        return PrismListRow(
+          dense: true,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          leading: Icon(action.icon, size: 20),
+          title: Text(action.label),
+          destructive: action.destructive,
+          onTap: () {
+            close();
+            unawaited(Future<void>.sync(action.onSelected));
+          },
+        );
+      },
+      child: wrappedContent,
     );
   }
+}
+
+class _TileContextAction {
+  const _TileContextAction({
+    required this.label,
+    required this.icon,
+    required this.onSelected,
+    this.destructive = false,
+  });
+
+  final String label;
+  final IconData icon;
+  final FutureOr<void> Function() onSelected;
+  final bool destructive;
 }
 
 class _BriefVisitorChip extends StatelessWidget {
@@ -948,6 +1020,45 @@ class _InlineSleepTile extends ConsumerWidget {
     }
   }
 
+  Future<void> _wakeUp(BuildContext context, WidgetRef ref) async {
+    try {
+      await ref.read(sleepNotifierProvider.notifier).endSleep(session.id);
+    } catch (e) {
+      if (context.mounted) {
+        PrismToast.error(context, message: e.toString());
+      }
+    }
+  }
+
+  void _editSession(BuildContext context) {
+    context.go(AppRoutePaths.sessionEdit(session.id));
+  }
+
+  List<_TileContextAction> _contextActions(
+    BuildContext context,
+    WidgetRef ref,
+  ) {
+    return [
+      if (session.endTime == null)
+        _TileContextAction(
+          label: context.l10n.frontingWakeUp,
+          icon: AppIcons.wbSunnyRounded,
+          onSelected: () => _wakeUp(context, ref),
+        ),
+      _TileContextAction(
+        label: context.l10n.edit,
+        icon: AppIcons.editOutlined,
+        onSelected: () => _editSession(context),
+      ),
+      _TileContextAction(
+        label: context.l10n.delete,
+        icon: AppIcons.deleteOutline,
+        destructive: true,
+        onSelected: () => _showDeleteDialog(context, ref),
+      ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
@@ -969,17 +1080,15 @@ class _InlineSleepTile extends ConsumerWidget {
             color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
           );
 
-    return Semantics(
-      label: context.l10n.frontingSleepSessionSemantics(
-          displaySession.displayDuration.toRoundedString(), timeRange),
-      child: Container(
-        color: AppColors.sleep(theme.brightness).withValues(alpha: 0.12),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () => context.go(AppRoutePaths.session(session.id)),
-            onLongPress: () => _showDeleteDialog(context, ref),
-            child: Padding(
+    final actions = _contextActions(context, ref);
+
+    final tileContent = Container(
+      color: AppColors.sleep(theme.brightness).withValues(alpha: 0.12),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => context.go(AppRoutePaths.session(session.id)),
+          child: Padding(
               padding:
                   const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
@@ -1038,9 +1147,35 @@ class _InlineSleepTile extends ConsumerWidget {
                   trailing,
                 ],
               ),
-            ),
           ),
         ),
+      ),
+    );
+
+    return Semantics(
+      label: context.l10n.frontingSleepSessionSemantics(
+          displaySession.displayDuration.toRoundedString(), timeRange),
+      child: BlurPopupAnchor(
+        trigger: BlurPopupTrigger.longPress,
+        width: 220,
+        maxHeight: 320,
+        semanticLabel: context.l10n.moreOptions,
+        itemCount: actions.length,
+        itemBuilder: (context, index, close) {
+          final action = actions[index];
+          return PrismListRow(
+            dense: true,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            leading: Icon(action.icon, size: 20),
+            title: Text(action.label),
+            destructive: action.destructive,
+            onTap: () {
+              close();
+              unawaited(Future<void>.sync(action.onSelected));
+            },
+          );
+        },
+        child: tileContent,
       ),
     );
   }
