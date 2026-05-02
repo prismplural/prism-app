@@ -748,6 +748,30 @@ class FrontingMigrationService {
       );
     }
 
+    // Apply the v14 CHECK constraint on fronting_sessions. Runs after
+    // step 7 routed every orphan normal row to the Unknown sentinel,
+    // so the constraint can attach without rejecting any existing row.
+    // Idempotent — a no-op when the constraint is already in place
+    // (fresh installs at v14+ get it via `customConstraints` at
+    // `createAll()` time, and v13→v14 onUpgrade may have already
+    // applied it when mode was 'complete' before the modal ran).
+    //
+    // Same `_failPostTx` framing as the index install above: if this
+    // step fails, leave the user on `inProgress` so they can resume
+    // rather than stranding a 'completed' DB without the structural
+    // backstop.
+    try {
+      await db.ensureFrontingMemberCheckConstraint();
+    } catch (e) {
+      return _failPostTx(
+        exportFile: exportFile,
+        counters: counters,
+        errorMessage:
+            'Fronting CHECK constraint install failed: $e. Please reopen the '
+            'upgrade modal to finish migration.',
+      );
+    }
+
     // Step 10: mark complete. Reset the cleanup substate back to the
     // inert default so a subsequent (rare) re-run after `complete`
     // doesn't carry over stale state — though `resumeCleanup()` itself
@@ -841,10 +865,29 @@ class FrontingMigrationService {
     // migration didn't touch.
     final touchedMemberIds = <String>{};
 
+    // Orphan bucket — populated by both Step 3 (SP normals with null
+    // member_id, e.g., importer paths for `_IdKind.missing` / `cfNote`)
+    // and Step 4 (native normals with null member_id). Drained by
+    // Step 7 onto the Unknown sentinel. Sleep rows with null member_id
+    // are not orphans — sleep legitimately allows no fronter.
+    final orphans = <FrontingSessionRow>[];
+
     // Step 3: SP-imported rows.  Already 1:1 per-member; just emit a
     // v2 entity op so the new-shape sync schema picks them up.
+    //
+    // Exception: SP normal rows with NULL member_id cannot satisfy the
+    // planned CHECK(session_type != 0 OR member_id IS NOT NULL)
+    // constraint and must land on the Unknown sentinel instead. The SP
+    // importer emits these for `_IdKind.missing` and `cfNote`
+    // (`sp_mapper.dart:438, 457`), and legacy imports predating the
+    // unknown-sentinel resolution may also have them on disk.
     for (final c in classified) {
       if (c.kind != _SessionKind.spImported) continue;
+      if (c.row.memberId == null &&
+          c.row.sessionType != SessionType.sleep.index) {
+        orphans.add(c.row);
+        continue;
+      }
       await frontingSessionRepository.updateSession(_rowToDomain(c.row));
       counters.spRowsMigrated++;
       final mid = c.row.memberId;
@@ -855,7 +898,6 @@ class FrontingMigrationService {
     // member_id and migrates 1:1.  Normal single-member migrates 1:1.
     // Normal multi-member: primary keeps legacy id; co-fronters get
     // deterministic v5 ids from migrationFrontingNamespace.
-    final orphans = <FrontingSessionRow>[];
     for (final c in classified) {
       switch (c.kind) {
         case _SessionKind.pkImported:

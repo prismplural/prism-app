@@ -351,6 +351,9 @@ void main() {
           FrontingSessionsCompanion.insert(
             id: 'shared-id',
             startTime: DateTime(2026, 4, 1, 12),
+            // Satisfies the v14 CHECK
+            // (session_type != 0 OR member_id IS NOT NULL).
+            memberId: const drift.Value('local-member-id'),
             isDeleted: const drift.Value(true),
           ),
         );
@@ -379,6 +382,9 @@ void main() {
           id: 'shared-id',
           startTime: DateTime(2026, 4, 1, 12),
           sessionType: const drift.Value(0), // normal
+          // Satisfies the v14 CHECK
+          // (session_type != 0 OR member_id IS NOT NULL).
+          memberId: const drift.Value('local-member-id'),
           isDeleted: const drift.Value(true),
         ),
       );

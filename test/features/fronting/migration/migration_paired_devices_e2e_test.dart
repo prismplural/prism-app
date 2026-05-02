@@ -175,6 +175,14 @@ void main() {
         } catch (_) {}
       });
 
+      // Strip the v14 CHECK so the fixture can seed pre-migration
+      // orphan rows. The migration's success path re-applies the
+      // constraint via `ensureFrontingMemberCheckConstraint`.
+      for (final db in [dbA, dbB]) {
+        await db.customSelect('SELECT 1').get();
+        await db.disableFrontingMemberCheckConstraintForTesting();
+      }
+
       await _seedFixture(dbA);
       await _seedFixture(dbB);
 

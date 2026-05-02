@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:prism_plurality/core/database/daos/chat_messages_dao.dart';
 import 'package:prism_plurality/core/database/daos/conversations_dao.dart';
 import 'package:prism_plurality/core/database/daos/fronting_sessions_dao.dart';
@@ -90,7 +91,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 13;
+  int get schemaVersion => 14;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -432,6 +433,45 @@ class AppDatabase extends _$AppDatabase {
         await _createCommentsTargetTimeIndex();
         current = 13;
       }
+      if (current == 13 && to >= 14) {
+        // Per-member fronting CHECK constraint (docs/plans/
+        // fronting-per-member-sessions.md §2.1, §4.1). Adds
+        //   CHECK (session_type != 0 OR member_id IS NOT NULL)
+        // to fronting_sessions. Sleep rows (session_type = 1) keep
+        // their nullable member_id; normal rows MUST point at a real
+        // member from this migration forward.
+        //
+        // Application is gated on the per-member migration being
+        // complete, because users upgrading directly from a pre-v7
+        // schema have orphan normal rows (member_id IS NULL) sitting
+        // on disk that the modal-driven migration hasn't yet routed
+        // to the Unknown sentinel. Adding CHECK with violating rows
+        // present would fail and abort the whole DB upgrade.
+        //
+        // - mode == 'complete': step 7 of §4.1 has already routed
+        //   every orphan to the sentinel. Apply CHECK now via
+        //   TableMigration so subsequent writes are protected.
+        //
+        // - mode != 'complete': skip; the migration service's
+        //   success path calls `ensureFrontingMemberCheckConstraint`
+        //   after step 7, applying the constraint then. The
+        //   `customConstraints` declaration on the table class also
+        //   means fresh installs created at v14+ get CHECK via
+        //   `createAll()` without ever touching this branch.
+        final modeRows = await customSelect('''
+          SELECT pending_fronting_migration_mode FROM system_settings
+          WHERE id = 'singleton'
+        ''').get();
+        final mode = modeRows.isEmpty
+            ? null
+            : modeRows.first.read<String?>(
+                'pending_fronting_migration_mode',
+              );
+        if (mode == 'complete') {
+          await ensureFrontingMemberCheckConstraint();
+        }
+        current = 14;
+      }
       if (current != to) {
         throw UnsupportedError(
           'Schema baseline was reset to v1 for the private beta. '
@@ -557,6 +597,99 @@ class AppDatabase extends _$AppDatabase {
   /// Safe to call when state is already correct: every statement uses
   /// `IF NOT EXISTS` / `IF EXISTS`, so calling this on a normal-flow v7
   /// DB (where v7 onUpgrade already created the indexes) is a no-op.
+  /// Test-only escape hatch: strips the v14 CHECK constraint from
+  /// `fronting_sessions` so a test can seed orphan rows that simulate
+  /// a pre-v14 database. Mirrors the wire shape `ensureFrontingMember-
+  /// CheckConstraint` is the inverse of: after calling this, you can
+  /// insert `(session_type=0, member_id=NULL)` rows; calling the
+  /// ensure helper restores the constraint via TableMigration.
+  ///
+  /// Uses `PRAGMA writable_schema` to mutate `sqlite_master.sql`
+  /// directly. Production code MUST NOT call this — there's no
+  /// scenario where stripping a structural backstop is correct in
+  /// shipping code.
+  @visibleForTesting
+  Future<void> disableFrontingMemberCheckConstraintForTesting() async {
+    final res = await customSelect('''
+      SELECT sql FROM sqlite_master
+      WHERE type = 'table' AND name = 'fronting_sessions'
+    ''').get();
+    if (res.isEmpty) return;
+    final originalSql = res.first.read<String?>('sql') ?? '';
+    // Match only the per-member-fronting CHECK — Drift also emits
+    // `CHECK (is_health_kit_import IN (0, 1))` and similar for every
+    // BoolColumn, and stripping those would corrupt the schema.
+    final pattern = RegExp(_frontingMemberCheckClausePattern);
+    if (!pattern.hasMatch(originalSql)) return;
+    final newSql = originalSql.replaceAll(pattern, '');
+
+    // SQLite caches the parsed schema in memory and only invalidates
+    // it on connection reopen — so editing sqlite_master.sql via
+    // `writable_schema` won't actually relax the constraint for the
+    // running connection. Instead, drop and recreate the table from
+    // the modified CREATE statement. Tests call this in setUp before
+    // any rows exist, so there's no data to preserve.
+    final idxRows = await customSelect('''
+      SELECT sql FROM sqlite_master
+      WHERE type = 'index'
+        AND tbl_name = 'fronting_sessions'
+        AND sql IS NOT NULL
+    ''').get();
+    final indexSqls = [for (final r in idxRows) r.read<String>('sql')];
+
+    await transaction(() async {
+      await customStatement('PRAGMA foreign_keys = OFF');
+      await customStatement('DROP TABLE fronting_sessions');
+      await customStatement(newSql);
+      for (final sql in indexSqls) {
+        await customStatement(sql);
+      }
+      await customStatement('PRAGMA foreign_keys = ON');
+    });
+  }
+
+  /// Matches the per-member-fronting CHECK clause as Drift emits it
+  /// in the fronting_sessions CREATE TABLE statement. Used to detect
+  /// whether the constraint is currently applied (and to strip it in
+  /// tests). The leading `,\s*` swallows the comma + whitespace from
+  /// the surrounding constraint list so the resulting SQL stays
+  /// well-formed.
+  static const String _frontingMemberCheckClausePattern =
+      r',\s*CHECK\s*\(\s*session_type\s*!=\s*0\s+OR\s+member_id\s+IS\s+NOT\s+NULL\s*\)';
+
+  /// Idempotent ensure step for the v14 CHECK constraint on
+  /// fronting_sessions (`CHECK (session_type != 0 OR member_id IS NOT NULL)`).
+  ///
+  /// Sniffs the table's CREATE statement first — calling this on a
+  /// table that already carries the constraint is a no-op.
+  ///
+  /// Two call sites:
+  ///
+  /// 1. v13→v14 onUpgrade when the per-member fronting migration is
+  ///    already complete (typical upgrade path for users on v13).
+  /// 2. The migration service's success path, after step 7 of §4.1
+  ///    routes orphan normal rows to the Unknown sentinel — for users
+  ///    upgrading from a pre-v7 schema in one shot, where the v13→v14
+  ///    branch saw mode != 'complete' and deferred.
+  ///
+  /// Fresh installs at v14+ never need this — `customConstraints` on
+  /// the FrontingSessions table class makes `createAll()` emit the
+  /// constraint as part of the initial CREATE TABLE.
+  Future<void> ensureFrontingMemberCheckConstraint() async {
+    final res = await customSelect('''
+      SELECT sql FROM sqlite_master
+      WHERE type = 'table' AND name = 'fronting_sessions'
+    ''').get();
+    if (res.isEmpty) return;
+    final sql = res.first.read<String?>('sql') ?? '';
+    // Look for the specific per-member-fronting CHECK; ignore Drift's
+    // auto-emitted `CHECK (... IN (0, 1))` clauses on BoolColumns,
+    // which are present from the very first `createAll()`.
+    if (RegExp(_frontingMemberCheckClausePattern).hasMatch(sql)) return;
+    final migrator = Migrator(this);
+    await migrator.alterTable(TableMigration(frontingSessions));
+  }
+
   Future<void> ensurePkFrontingIndexes() async {
     // Drop the v2-era single-column uniqueness index if it survived an
     // earlier migration step (e.g., the v1→v2 leg of a step-through, or

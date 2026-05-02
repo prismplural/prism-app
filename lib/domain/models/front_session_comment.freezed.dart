@@ -15,14 +15,14 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$FrontSessionComment {
 
- String get id; String get body; DateTime get timestamp; DateTime get createdAt;// target_time: the moment this comment is about. Nullable until Phase 5
-// migration backfills existing rows; downstream code falls back to
-// timestamp when targetTime is null.
+ String get id; String get body; DateTime get timestamp; DateTime get createdAt;// target_time: the moment this comment is about. Nullable until the
+// app-layer migration backfills existing rows. Range queries exclude
+// null-targetTime rows by design; after backfill every row carries a
+// non-null value.
  DateTime? get targetTime;// Optional author — which member wrote this comment.
  String? get authorMemberId;// Legacy v6 FK to fronting_sessions.id. Kept on the model so migration
-// and import code can read the legacy column for backfill until the v8
-// cleanup migration drops the column. New code uses targetTime instead.
-// Removal target: 0.8.0 (drop with the v8 TableMigration rebuild).
+// and import code can read the legacy column for backfill until the
+// schema cleanup drops the column. New code uses targetTime instead.
  String? get sessionId;
 /// Create a copy of FrontSessionComment
 /// with the given fields replaced by the non-null parameter values.
@@ -230,16 +230,16 @@ class _FrontSessionComment implements FrontSessionComment {
 @override final  String body;
 @override final  DateTime timestamp;
 @override final  DateTime createdAt;
-// target_time: the moment this comment is about. Nullable until Phase 5
-// migration backfills existing rows; downstream code falls back to
-// timestamp when targetTime is null.
+// target_time: the moment this comment is about. Nullable until the
+// app-layer migration backfills existing rows. Range queries exclude
+// null-targetTime rows by design; after backfill every row carries a
+// non-null value.
 @override final  DateTime? targetTime;
 // Optional author — which member wrote this comment.
 @override final  String? authorMemberId;
 // Legacy v6 FK to fronting_sessions.id. Kept on the model so migration
-// and import code can read the legacy column for backfill until the v8
-// cleanup migration drops the column. New code uses targetTime instead.
-// Removal target: 0.8.0 (drop with the v8 TableMigration rebuild).
+// and import code can read the legacy column for backfill until the
+// schema cleanup drops the column. New code uses targetTime instead.
 @override final  String? sessionId;
 
 /// Create a copy of FrontSessionComment

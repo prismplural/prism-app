@@ -433,8 +433,16 @@ void main() {
       );
       final result = mapper.mapAll(data);
       expect(result.members.any((m) => m.name == 'Blurry'), isFalse);
+      // CF-as-note CF doesn't surface as a real member, but the v14 CHECK
+      // constraint (§4.1 step 7) means the session itself must point at
+      // the Unknown sentinel rather than null. The note text is preserved
+      // unchanged.
+      expect(
+        result.members.any((m) => m.id == unknownSentinelMemberId),
+        isTrue,
+      );
       expect(result.sessions, hasLength(1));
-      expect(result.sessions.first.memberId, isNull);
+      expect(result.sessions.first.memberId, unknownSentinelMemberId);
       expect(result.sessions.first.notes, contains('Blurry'));
     });
 
@@ -658,12 +666,20 @@ void main() {
         );
         final mapper = SpMapper();
         final result = mapper.mapAll(data);
-        // No member for the synthesized CF.
+        // No real member for the synthesized CF — but the sentinel was
+        // appended (synthesized CFs flow through the cfNote path, which
+        // post-v14 routes nulls to the Unknown sentinel for the CHECK
+        // constraint).
         expect(result.members.where((m) => m.name != 'Unknown'), isEmpty);
-        // Session emitted as sessionless note.
+        expect(
+          result.members.any((m) => m.id == unknownSentinelMemberId),
+          isTrue,
+        );
+        // Session emitted with the sentinel as its primary, note text
+        // preserved.
         expect(result.sessions, hasLength(1));
         final s = result.sessions.first;
-        expect(s.memberId, isNull);
+        expect(s.memberId, unknownSentinelMemberId);
         expect(s.notes, contains('deleted custom front'));
         expect(
           result.warnings.any(
@@ -879,9 +895,10 @@ void main() {
     });
 
     test(
-      'missing real-member id still emits sessionless session (not dropped)',
+      'missing real-member id still emits a session, routed to Unknown sentinel',
       () {
-        // Unresolved real-member id → warn + emit session with null primary.
+        // Unresolved real-member id → warn + emit session pointed at the
+        // Unknown sentinel (post-v14 CHECK constraint, §4.1 step 7).
         final data = _data(
           members: const [_alice],
           frontHistory: [
@@ -895,7 +912,11 @@ void main() {
         final mapper = SpMapper();
         final result = mapper.mapAll(data);
         expect(result.sessions, hasLength(1));
-        expect(result.sessions.first.memberId, isNull);
+        expect(result.sessions.first.memberId, unknownSentinelMemberId);
+        expect(
+          result.members.any((m) => m.id == unknownSentinelMemberId),
+          isTrue,
+        );
         expect(result.warnings.any((w) => w.contains('sp-ghost')), isTrue);
       },
     );

@@ -551,10 +551,18 @@ class SpMapper {
         continue;
       }
 
-      // All other sessionless paths (missing, cfNote with no co-fronters)
-      // emit a session with null primary so the timeline row + attached
-      // comments survive.  cfNote primary with no real-member co-fronters
-      // in the source is unusual but preserves the note text.
+      // CHECK-constraint backstop (§4.1 step 7): a normal session row must
+      // always have a member_id post-v14. The branches above can leave
+      // `primaryMemberId == null` for `_IdKind.missing`, `cfNote`, or
+      // `realMember/cfMember` with a failed member-id lookup. Fall back
+      // to the Unknown sentinel so the timeline row + its notes +
+      // attached comments survive without violating the constraint.
+      // Sleep rows continue to allow null member_id via the sleep path
+      // above; this guard never fires for them.
+      if (primaryMemberId == null) {
+        _unknownSentinelSeen = true;
+        primaryMemberId = unknownSentinelMemberId;
+      }
 
       // Deterministic ID: sp_id_map lookup first, then v5 derivation.
       final sessionId =

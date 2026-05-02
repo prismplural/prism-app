@@ -231,6 +231,7 @@ void main() {
             database.FrontingSessionsCompanion.insert(
               id: 'session-1',
               startTime: DateTime.utc(2026, 4, 29, 10),
+              memberId: const Value('m1'),
               pkMemberIdsJson: const Value('["pkmem-1","pkmem-2"]'),
             ),
           );
@@ -276,6 +277,7 @@ void main() {
       await sessions.applyFields('session-1', {
         'start_time': DateTime.utc(2026, 4, 29, 10).toIso8601String(),
         'session_type': 0,
+        'member_id': 'm1',
         'is_health_kit_import': false,
         'is_deleted': false,
         'pk_member_ids_json': '["pkmem-7"]',
@@ -304,7 +306,7 @@ void main() {
         id: 'session-2',
         startTime: DateTime.utc(2026, 4, 29, 10),
         endTime: null,
-        memberId: null,
+        memberId: 'm1',
         coFronterIds: '[]',
         sessionType: 0,
         quality: null,
@@ -1047,6 +1049,7 @@ void main() {
       await sessions.applyFields('session-clear', {
         'start_time': DateTime.utc(2026, 4, 29, 10).toIso8601String(),
         'session_type': 0,
+        'member_id': 'm1',
         'is_health_kit_import': false,
         'is_deleted': false,
       });

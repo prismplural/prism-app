@@ -66,6 +66,9 @@ void main() {
             FrontingSessionsCompanion.insert(
               id: 'native-session',
               startTime: DateTime.utc(2026, 4, 29, 12),
+              // Satisfies the v14 CHECK constraint
+              // (session_type != 0 OR member_id IS NOT NULL).
+              memberId: const Value('member-1'),
             ),
           );
 
@@ -110,7 +113,7 @@ void main() {
         final version = await upgraded
             .customSelect('PRAGMA user_version')
             .get();
-        expect(version.first.read<int>('user_version'), 13);
+        expect(version.first.read<int>('user_version'), 14);
       },
     );
   });

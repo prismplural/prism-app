@@ -342,8 +342,15 @@ void main() {
     late Directory cacheDir;
     late DataExportService exportService;
 
-    setUp(() {
+    setUp(() async {
       db = _makeDb();
+      // Trigger schema creation, then strip the v14 CHECK so the test
+      // can seed orphan rows that simulate a pre-migration database.
+      // The migration's success path calls
+      // `ensureFrontingMemberCheckConstraint` which re-applies the
+      // constraint after step 7 routes orphans to the Unknown sentinel.
+      await db.customSelect('SELECT 1').get();
+      await db.disableFrontingMemberCheckConstraintForTesting();
       cacheDir = _tempCacheDir();
       exportService = _makeExportService(db, cacheDir);
     });
@@ -578,6 +585,113 @@ void main() {
         expect(resetCalls, isEmpty);
         // Quarantine cleared.
         expect(await db.syncQuarantineDao.count(), 0);
+      },
+    );
+
+    // -------------------------------------------------------------------
+    // SP-mapped row with null member_id → Unknown sentinel
+    // -------------------------------------------------------------------
+    //
+    // Plan §2.6 + §4.1 step 7: SP `_IdKind.missing` and `cfNote` rows
+    // emit fronting_sessions rows with `memberId: null` and
+    // `sessionType: normal` (`sp_mapper.dart:438, 457`). Those land in
+    // `sp_id_map` so the migration classifier marks them `spImported`,
+    // not `nativeNormal` — so without explicit handling in Step 3 they
+    // would migrate 1:1 with null member_id and violate the planned
+    // CHECK(session_type != 0 OR member_id IS NOT NULL) constraint.
+    // This test pins the routing-to-orphan behavior. SP sleep rows
+    // (sessionType=1) legitimately allow null member_id and are not
+    // affected.
+    test(
+      'solo upgradeAndKeep: SP-mapped normal rows with null member_id are '
+      'reassigned to the Unknown sentinel and their sp_id_map entries are '
+      'preserved',
+      () async {
+        const realMemberId = 'sp-real';
+        await _seedMember(db, realMemberId);
+
+        // SP row with a real member — should migrate 1:1.
+        await _seedSession(
+          db,
+          id: 'sp-resolved',
+          startTime: DateTime(2026, 4, 1, 9).toUtc(),
+          endTime: DateTime(2026, 4, 1, 10).toUtc(),
+          memberId: realMemberId,
+        );
+        await _seedSpMapping(db, 'sp-resolved', spId: 'sp-source-resolved');
+
+        // SP row with NULL member_id, session_type = normal — must land
+        // on the Unknown sentinel.
+        await _seedSession(
+          db,
+          id: 'sp-orphan',
+          startTime: DateTime(2026, 4, 1, 11).toUtc(),
+          endTime: DateTime(2026, 4, 1, 12).toUtc(),
+          // memberId omitted → null
+        );
+        await _seedSpMapping(db, 'sp-orphan', spId: 'sp-source-orphan');
+
+        // SP sleep row with NULL member_id — sleep allows null, must
+        // migrate 1:1 (NOT routed to orphan handler).
+        await _seedSession(
+          db,
+          id: 'sp-sleep',
+          startTime: DateTime(2026, 4, 1, 13).toUtc(),
+          endTime: DateTime(2026, 4, 1, 14).toUtc(),
+          sessionType: 1,
+        );
+        await _seedSpMapping(db, 'sp-sleep', spId: 'sp-source-sleep');
+
+        final svc = _makeService(db, exportService);
+        final result = await svc.runMigration(
+          mode: MigrationMode.upgradeAndKeep,
+          role: DeviceRole.solo,
+          shareFile: _noopShare,
+        );
+
+        expect(result.outcome, MigrationOutcome.success);
+        // resolved + sleep migrate 1:1 via the SP path; orphan is
+        // routed to Step 7 and excluded from spRowsMigrated.
+        expect(result.spRowsMigrated, 2);
+        expect(result.orphanRowsAssignedToSentinel, 1);
+        expect(result.unknownSentinelCreated, isTrue);
+
+        const uuid = Uuid();
+        final sentinelId = uuid.v5(
+          spFrontingNamespace,
+          'unknown-member-sentinel',
+        );
+
+        final rows = await db.frontingSessionsDao.getAllSessions();
+        final byId = {for (final r in rows) r.id: r};
+
+        // Resolved SP row keeps its member; sleep row keeps its null
+        // member and sleep type; orphan SP row now points at the
+        // sentinel.
+        expect(byId['sp-resolved']!.memberId, realMemberId);
+        expect(byId['sp-sleep']!.memberId, isNull);
+        expect(byId['sp-sleep']!.sessionType, 1);
+        expect(byId['sp-orphan']!.memberId, sentinelId);
+        expect(byId['sp-orphan']!.sessionType, 0);
+
+        // Sentinel member exists.
+        final sentinel = await DriftMemberRepository(
+          db.membersDao,
+          null,
+        ).getMemberById(sentinelId);
+        expect(sentinel, isNotNull);
+        expect(sentinel!.name, 'Unknown');
+
+        // sp_id_map entries preserved per §4.1 step 9 — including the
+        // orphan's, so a future SP re-import resolves to the same row.
+        final mappings = await db.spImportDao.getAllMappings();
+        final spIds = mappings
+            .where((m) => m.entityType == 'session')
+            .map((m) => m.spId)
+            .toSet();
+        expect(spIds, contains('sp-source-resolved'));
+        expect(spIds, contains('sp-source-orphan'));
+        expect(spIds, contains('sp-source-sleep'));
       },
     );
 
