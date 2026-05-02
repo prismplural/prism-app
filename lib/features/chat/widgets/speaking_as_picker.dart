@@ -21,10 +21,22 @@ const int _kSpeakingAsPickerSearchThreshold = 15;
 /// Horizontal scrollable row of member avatars for selecting who is "speaking."
 ///
 /// For systems with fewer than [_kSpeakingAsPickerSearchThreshold] members the
-/// existing chip row is shown. For larger systems a compact trigger row launches
-/// the shared [MemberSearchSheet] so the user can search by name.
+/// existing chip row is shown; a leading search button always opens the full
+/// [MemberSearchSheet] for quick name lookup. For larger systems a compact
+/// trigger row launches the search sheet directly.
+///
+/// Set [autoSelectFirst] to `false` when an explicit selection is required (e.g.
+/// compose sheets where an anonymous post is not acceptable). With
+/// [autoSelectFirst] `true` (the default) the picker falls back to the first
+/// member when no one is selected, which suits always-needs-a-sender contexts
+/// like chat.
 class SpeakingAsPicker extends ConsumerWidget {
-  const SpeakingAsPicker({super.key});
+  const SpeakingAsPicker({super.key, this.autoSelectFirst = true});
+
+  /// When `false`, the picker will not auto-select the first member as a
+  /// fallback. Callers are responsible for blocking submission until a member
+  /// is chosen.
+  final bool autoSelectFirst;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -49,8 +61,8 @@ class SpeakingAsPicker extends ConsumerWidget {
           );
         }
 
-        // Auto-select first member if none selected (both paths).
-        if (speakingAs == null && members.isNotEmpty) {
+        // Auto-select first member when allowed and nothing is selected.
+        if (speakingAs == null && members.isNotEmpty && autoSelectFirst) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             ref.read(speakingAsProvider.notifier).setMember(members.first.id);
           });
@@ -75,10 +87,21 @@ class SpeakingAsPicker extends ConsumerWidget {
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 8),
-            itemCount: members.length,
+            // +1 for the leading search button.
+            itemCount: members.length + 1,
             separatorBuilder: (_, _) => const SizedBox(width: 8),
             itemBuilder: (context, index) {
-              final member = members[index];
+              if (index == 0) {
+                return _buildSearchButton(
+                  context,
+                  ref,
+                  theme,
+                  members,
+                  terms.plural,
+                  searchGroups,
+                );
+              }
+              final member = members[index - 1];
               return PrismChip(
                 label: member.name,
                 selected: member.id == speakingAs,
@@ -122,6 +145,41 @@ class SpeakingAsPicker extends ConsumerWidget {
     );
   }
 
+  Widget _buildSearchButton(
+    BuildContext context,
+    WidgetRef ref,
+    ThemeData theme,
+    List<Member> members,
+    String termPlural,
+    List<MemberSearchGroup> groups,
+  ) {
+    return Center(
+      child: Tooltip(
+        message: context.l10n.search,
+        child: InkWell(
+          key: const Key('speakingAsSearchChip'),
+          borderRadius: BorderRadius.circular(20),
+          onTap: () => _openSearchSheet(context, ref, members, termPlural, groups),
+          child: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+              ),
+            ),
+            child: Icon(
+              AppIcons.search,
+              size: 18,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildSearchTrigger(
     BuildContext context,
     WidgetRef ref,
@@ -131,12 +189,13 @@ class SpeakingAsPicker extends ConsumerWidget {
     String termPlural,
     List<MemberSearchGroup> groups,
   ) {
-    final displayMember = speakingAs != null
+    // When autoSelectFirst is false and nothing is chosen, show a placeholder.
+    final Member? displayMember = speakingAs != null
         ? members.firstWhere(
             (m) => m.id == speakingAs,
             orElse: () => members.first,
           )
-        : members.first;
+        : (autoSelectFirst ? members.first : null);
 
     return SizedBox(
       height: 48,
@@ -151,16 +210,34 @@ class SpeakingAsPicker extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Row(
               children: [
-                MemberAvatar(
-                  memberName: displayMember.name,
-                  emoji: displayMember.emoji,
-                  avatarImageData: displayMember.avatarImageData,
-                  customColorEnabled: displayMember.customColorEnabled,
-                  customColorHex: displayMember.customColorHex,
-                  size: 24,
-                ),
-                const SizedBox(width: 8),
-                Text(displayMember.name, style: theme.textTheme.bodyMedium),
+                if (displayMember != null) ...[
+                  MemberAvatar(
+                    memberName: displayMember.name,
+                    emoji: displayMember.emoji,
+                    avatarImageData: displayMember.avatarImageData,
+                    customColorEnabled: displayMember.customColorEnabled,
+                    customColorHex: displayMember.customColorHex,
+                    size: 24,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    displayMember.name,
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                ] else ...[
+                  Icon(
+                    AppIcons.personOutline,
+                    size: 20,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    context.l10n.boardsComposeToNoHeadmate,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
                 const Spacer(),
                 Icon(
                   AppIcons.expandMore,

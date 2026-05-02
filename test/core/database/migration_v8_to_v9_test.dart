@@ -40,6 +40,16 @@ Future<void> _seedV8Db(File dbFile) async {
     rawDb.execute('ALTER TABLE members DROP COLUMN profile_header_image_data');
     rawDb.execute('ALTER TABLE members DROP COLUMN pk_banner_image_data');
     rawDb.execute('ALTER TABLE members DROP COLUMN pk_banner_cached_url');
+    // v15 (Member Boards) — drop columns added by v14→v15 to simulate older state.
+    rawDb.execute('ALTER TABLE members DROP COLUMN board_last_read_at');
+    rawDb.execute(
+      'ALTER TABLE system_settings DROP COLUMN boards_enabled',
+    );
+    rawDb.execute(
+      'ALTER TABLE system_settings DROP COLUMN sp_boards_backfilled_at',
+    );
+    rawDb.execute('DROP TABLE IF EXISTS member_board_posts');
+
     rawDb.execute('PRAGMA user_version = 8;');
   } finally {
     rawDb.close();
@@ -113,7 +123,7 @@ void main() {
         final version = await upgraded
             .customSelect('PRAGMA user_version')
             .get();
-        expect(version.first.read<int>('user_version'), 14);
+        expect(version.first.read<int>('user_version'), 15);
       },
     );
   });

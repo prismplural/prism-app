@@ -2,7 +2,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 
 /// Helper to create a feature flags record with all features enabled.
-({bool chat, bool polls, bool habits, bool sleep, bool notes, bool reminders})
+({
+  bool chat,
+  bool polls,
+  bool habits,
+  bool sleep,
+  bool notes,
+  bool reminders,
+  bool boards,
+})
 _allEnabled() => (
   chat: true,
   polls: true,
@@ -10,10 +18,19 @@ _allEnabled() => (
   sleep: true,
   notes: true,
   reminders: true,
+  boards: true,
 );
 
 /// Helper to create a feature flags record with one feature disabled.
-({bool chat, bool polls, bool habits, bool sleep, bool notes, bool reminders})
+({
+  bool chat,
+  bool polls,
+  bool habits,
+  bool sleep,
+  bool notes,
+  bool reminders,
+  bool boards,
+})
 _withDisabled({
   bool chat = true,
   bool polls = true,
@@ -21,6 +38,7 @@ _withDisabled({
   bool sleep = true,
   bool notes = true,
   bool reminders = true,
+  bool boards = true,
 }) => (
   chat: chat,
   polls: polls,
@@ -28,6 +46,7 @@ _withDisabled({
   sleep: sleep,
   notes: notes,
   reminders: reminders,
+  boards: boards,
 );
 
 void main() {
@@ -44,6 +63,7 @@ void main() {
       expect(AppShellTabId.statistics.name, 'statistics');
       expect(AppShellTabId.timeline.name, 'timeline');
       expect(AppShellTabId.sleep.name, 'sleep');
+      expect(AppShellTabId.boards.name, 'boards');
     });
   });
 
@@ -72,6 +92,7 @@ void main() {
         AppShellTabId.statistics,
         AppShellTabId.timeline,
         AppShellTabId.sleep,
+        AppShellTabId.boards,
       ];
       for (final id in unlockedIds) {
         final tab = appShellTabs.firstWhere((t) => t.id == id);
@@ -152,6 +173,7 @@ void main() {
         AppShellTabId.reminders,
         AppShellTabId.notes,
         AppShellTabId.sleep,
+        AppShellTabId.boards,
       ];
       for (final id in gatedIds) {
         final tab = appShellTabs.firstWhere((t) => t.id == id);
@@ -165,13 +187,13 @@ void main() {
   });
 
   group('appShellTabs', () {
-    test('has 11 entries', () {
-      expect(appShellTabs, hasLength(11));
+    test('has 12 entries', () {
+      expect(appShellTabs, hasLength(12));
     });
 
-    test('branch indices are 0 through 10', () {
+    test('branch indices are 0 through 11', () {
       final indices = appShellTabs.map((t) => t.branchIndex).toList();
-      expect(indices, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+      expect(indices, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
     });
 
     test('no duplicate branch indices', () {
@@ -212,8 +234,8 @@ void main() {
     });
 
     test('timeline tab isEnabled regardless of feature flags', () {
-      const allOff = (chat: false, polls: false, habits: false, sleep: false, notes: false, reminders: false);
-      const allOn  = (chat: true,  polls: true,  habits: true,  sleep: true,  notes: true,  reminders: true);
+      const allOff = (chat: false, polls: false, habits: false, sleep: false, notes: false, reminders: false, boards: false);
+      const allOn  = (chat: true,  polls: true,  habits: true,  sleep: true,  notes: true,  reminders: true,  boards: true);
       final tab = appShellTabs.firstWhere((t) => t.id == AppShellTabId.timeline);
       expect(tab.isEnabled(allOff), isTrue);
       expect(tab.isEnabled(allOn),  isTrue);

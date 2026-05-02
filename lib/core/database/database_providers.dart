@@ -31,6 +31,7 @@ import 'package:prism_plurality/data/repositories/drift_member_groups_repository
 import 'package:prism_plurality/domain/repositories/member_groups_repository.dart';
 import 'package:prism_plurality/core/database/daos/custom_fields_dao.dart';
 import 'package:prism_plurality/core/database/daos/notes_dao.dart';
+import 'package:prism_plurality/core/database/daos/member_board_posts_dao.dart';
 import 'package:prism_plurality/core/database/daos/front_session_comments_dao.dart';
 import 'package:prism_plurality/core/database/daos/conversation_categories_dao.dart';
 import 'package:prism_plurality/core/database/daos/reminders_dao.dart';
@@ -38,12 +39,14 @@ import 'package:prism_plurality/core/database/daos/friends_dao.dart';
 import 'package:prism_plurality/core/database/daos/sharing_requests_dao.dart';
 import 'package:prism_plurality/data/repositories/drift_custom_fields_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_notes_repository.dart';
+import 'package:prism_plurality/data/repositories/drift_member_board_posts_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_front_session_comments_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_conversation_categories_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_reminders_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_friends_repository.dart';
 import 'package:prism_plurality/domain/repositories/custom_fields_repository.dart';
 import 'package:prism_plurality/domain/repositories/notes_repository.dart';
+import 'package:prism_plurality/domain/repositories/member_board_posts_repository.dart';
 import 'package:prism_plurality/domain/repositories/front_session_comments_repository.dart';
 import 'package:prism_plurality/domain/repositories/conversation_categories_repository.dart';
 import 'package:prism_plurality/domain/repositories/reminders_repository.dart';
@@ -182,6 +185,18 @@ final notesDaoProvider = Provider<NotesDao>(
 final notesRepositoryProvider = Provider<NotesRepository>(
   (ref) => DriftNotesRepository(
     ref.watch(notesDaoProvider),
+    _resolveSyncHandle(ref),
+  ),
+);
+
+final memberBoardPostsDaoProvider = Provider<MemberBoardPostsDao>(
+  (ref) => ref.watch(databaseProvider).memberBoardPostsDao,
+);
+
+final memberBoardPostsRepositoryProvider = Provider<MemberBoardPostsRepository>(
+  (ref) => DriftMemberBoardPostsRepository(
+    ref.watch(memberBoardPostsDaoProvider),
+    ref.watch(membersDaoProvider),
     _resolveSyncHandle(ref),
   ),
 );

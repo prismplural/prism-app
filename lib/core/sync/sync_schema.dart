@@ -49,7 +49,8 @@ const String prismSyncSchema = '''
         "pk_banner_cached_url": "String",
         "pluralkit_sync_ignored": "Bool",
         "delete_push_started_at": "Int",
-        "is_deleted": "Bool"
+        "is_deleted": "Bool",
+        "board_last_read_at": "DateTime"
       }
     },
     "fronting_sessions": {
@@ -152,7 +153,9 @@ const String prismSyncSchema = '''
         "fronting_list_view_mode": "Int",
         "add_front_default_behavior": "Int",
         "quick_front_default_behavior": "Int",
-        "is_deleted": "Bool"
+        "is_deleted": "Bool",
+        "boards_enabled": "Bool",
+        "sp_boards_backfilled_at": "DateTime"
       }
     },
     "polls": {
@@ -351,6 +354,19 @@ const String prismSyncSchema = '''
         "thumbnail_media_id": "String",
         "source_url": "String",
         "preview_url": "String",
+        "is_deleted": "Bool"
+      }
+    },
+    "member_board_posts": {
+      "fields": {
+        "target_member_id": "String",
+        "author_id": "String",
+        "audience": "String",
+        "title": "String",
+        "body": "String",
+        "created_at": "DateTime",
+        "written_at": "DateTime",
+        "edited_at": "DateTime",
         "is_deleted": "Bool"
       }
     }

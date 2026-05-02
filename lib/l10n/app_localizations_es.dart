@@ -3896,6 +3896,13 @@ class AppLocalizationsEs extends AppLocalizations {
       'Un diario personal y espacio de escritura para tu sistema';
 
   @override
+  String get onboardingFeaturesBoards => 'Tableros de Mensajes';
+
+  @override
+  String get onboardingFeaturesBoardsDescription =>
+      'Mensajes cortos entre compañeros del sistema — línea de tiempo pública más bandeja de entrada privada.';
+
+  @override
   String get onboardingFeaturesReminders => 'Recordatorios';
 
   @override
@@ -7244,6 +7251,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get navSleep => 'Sueño';
 
   @override
+  String get navBoards => 'Tableros';
+
+  @override
   String get sleepScreenTitle => 'Sueño';
 
   @override
@@ -8492,4 +8502,170 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get settingsQuickFrontDefaultBehaviorReplace =>
       'Reemplazar quienes están al frente';
+
+  @override
+  String get featureBoardsTitle => 'Tableros de Mensajes';
+
+  @override
+  String get featureBoardsDescription =>
+      'Mensajes cortos entre los integrantes del sistema — línea de tiempo pública e inbox privado.';
+
+  @override
+  String get featureBoardsEnable => 'Activar Tableros de Mensajes';
+
+  @override
+  String get featureBoardsEnableSubtitle =>
+      'Añade la pestaña Tableros a tu navegación.';
+
+  @override
+  String get navMenuToastBoardsAdded =>
+      'Tableros de Mensajes añadido a tu menú de navegación — arrástralo donde quieras.';
+
+  @override
+  String get boardsTileEdited => 'editado';
+
+  @override
+  String get boardsTileToEveryone => 'para todos';
+
+  @override
+  String get boardsTileRemovedMember => 'Integrante eliminado';
+
+  @override
+  String get boardsDetailEdit => 'Editar';
+
+  @override
+  String get boardsDetailDelete => 'Eliminar';
+
+  @override
+  String get boardsDeleteConfirmTitle => '¿Eliminar esta publicación?';
+
+  @override
+  String get boardsDeleteConfirmBody => 'Esto no se puede deshacer.';
+
+  @override
+  String get memberBoardScreenTitle => 'Publicaciones públicas';
+
+  @override
+  String get memberBoardEmpty => 'Aún no hay publicaciones públicas aquí.';
+
+  @override
+  String get boardsScreenTitle => 'Tableros';
+
+  @override
+  String get boardsTabPublic => 'Público';
+
+  @override
+  String get boardsTabInbox => 'Bandeja de entrada';
+
+  @override
+  String get boardsViewFilterAll => 'Todos los que están al frente';
+
+  @override
+  String boardsViewFilterMember(String name) {
+    return '$name';
+  }
+
+  @override
+  String get boardsEmptyPublic =>
+      'Todavía no hay nada en la línea de tiempo pública.';
+
+  @override
+  String get boardsEmptyInbox =>
+      'No hay publicaciones privadas en este momento.';
+
+  @override
+  String get boardsComposeNoFronterHint =>
+      'Nadie está al frente ahora mismo — inicia una sesión para publicar.';
+
+  @override
+  String boardsToastFronterDeFronted(String name) {
+    return '$name dejó el frente — mostrando todos';
+  }
+
+  @override
+  String get boardsComposeRecipientPublicEveryone => 'Todos (público)';
+
+  @override
+  String boardsComposeRecipientPublicMember(String name) {
+    return '$name (público)';
+  }
+
+  @override
+  String boardsComposeRecipientPrivateMember(String name) {
+    return '$name (privado)';
+  }
+
+  @override
+  String get boardsComposeAddTitle => '+ Agregar título';
+
+  @override
+  String get boardsComposeTitlePlaceholder => 'Título (opcional)';
+
+  @override
+  String get boardsComposeBodyPlaceholder => 'Escribe algo...';
+
+  @override
+  String boardsComposeConsequencePrivate(String name) {
+    return 'Solo $name verá esto en su Inbox.';
+  }
+
+  @override
+  String boardsComposeConsequencePublicMember(String name) {
+    return 'El perfil de $name y el feed público mostrarán esto.';
+  }
+
+  @override
+  String get boardsComposeConsequencePublicEveryone =>
+      'Todos en tu sistema verán esto en el feed público.';
+
+  @override
+  String get boardsComposeSave => 'Publicar';
+
+  @override
+  String get boardsComposeCancel => 'Cancelar';
+
+  @override
+  String get boardsComposeEditing => 'Editar publicación';
+
+  @override
+  String get boardsComposeNewPost => 'New post';
+
+  @override
+  String get boardsComposeAudienceEveryone => 'Everyone';
+
+  @override
+  String get boardsComposeAudiencePrivate => 'Private';
+
+  @override
+  String get boardsComposeToNoHeadmate => 'No recipient';
+
+  @override
+  String get boardsComposeWhoIsPosting => 'Who is posting?';
+
+  @override
+  String get boardsComposeSelectAuthor => 'Select author';
+
+  @override
+  String get memberSectionBoardMessages => 'Publicaciones públicas';
+
+  @override
+  String memberBoardSeeAll(int count) {
+    return 'Ver las $count publicaciones públicas';
+  }
+
+  @override
+  String memberBoardAddPost(String name) {
+    return 'Publicar para $name';
+  }
+
+  @override
+  String get importDisclosureBoardsEnabled =>
+      'Tableros de mensajes activados — tus mensajes importados están en el Buzón.';
+
+  @override
+  String get boardsPostDetailTitle => 'Publicación';
+
+  @override
+  String get boardsPostDetailNotFound =>
+      'Esta publicación ya no está disponible.';
 }

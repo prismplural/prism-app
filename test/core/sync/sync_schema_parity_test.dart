@@ -450,6 +450,11 @@ const _repositoryFieldSources = <_RepoFieldSource>[
     file: 'lib/data/repositories/drift_system_settings_repository.dart',
     helperName: '_settingsFields',
   ),
+  _RepoFieldSource(
+    tableName: 'member_board_posts',
+    file: 'lib/data/repositories/drift_member_board_posts_repository.dart',
+    helperName: '_postFields',
+  ),
 ];
 
 /// Schema fields that a repository legitimately does not write through its
@@ -457,7 +462,11 @@ const _repositoryFieldSources = <_RepoFieldSource>[
 const _writeOmittedFields = <String, Set<String>>{
   // `delete_push_started_at` is stamped via DriftMemberRepository
   //   .stampDeletePushStartedAt(), not the create/update field map.
-  'members': {'delete_push_started_at'},
+  // `board_last_read_at` is written by DriftMemberBoardPostsRepository
+  //   .markInboxOpenedFor(...) via a targeted syncRecordUpdate, not through
+  //   the member create/update field map. The domain Member model does not
+  //   carry this field (it lives on the Drift row and is updated in isolation).
+  'members': {'delete_push_started_at', 'board_last_read_at'},
   // `delete_push_started_at` — stamped through a separate code path on
   // session deletion; not part of the regular create/update field map.
   // `pluralkit_uuid` is set in _sessionFields, but for SP-only sessions
@@ -466,6 +475,14 @@ const _writeOmittedFields = <String, Set<String>>{
   //   v7+ does not write to it from the repository, but the adapter must
   //   still round-trip the column for legacy peers. Removal target: 0.8.0.
   'fronting_sessions': {'delete_push_started_at', 'pk_member_ids_json'},
+  // `boards_enabled` and `sp_boards_backfilled_at` are written via dedicated
+  //   update paths (Batch C1' settings toggle and Batch F backfill service)
+  //   that emit targeted syncRecordUpdate calls, not through _settingsFields.
+  //   Intentionally omitted from the general-purpose _settingsFields helper;
+  //   the domain SystemSettings model carries these fields (added in Batch C-pre)
+  //   but the emit path for each is a discrete syncRecordUpdate, not the bulk
+  //   helper.
+  'system_settings': {'boards_enabled', 'sp_boards_backfilled_at'},
 };
 
 /// Extracts the set of string keys (e.g. `'created_at':`) from the body of a
@@ -784,6 +801,18 @@ Future<void> _seedDummyRows(AppDatabase db) async {
   await db
       .into(db.mediaAttachments)
       .insert(MediaAttachmentsCompanion.insert(id: 'ma1'));
+
+  await db
+      .into(db.memberBoardPosts)
+      .insert(
+        MemberBoardPostsCompanion.insert(
+          id: 'mbp1',
+          audience: 'public',
+          body: 'hello',
+          createdAt: now,
+          writtenAt: now,
+        ),
+      );
 }
 
 Future<dynamic> _readDummyRow(AppDatabase db, String tableName) async {
@@ -828,6 +857,8 @@ Future<dynamic> _readDummyRow(AppDatabase db, String tableName) async {
       return (db.select(db.friends)..limit(1)).getSingle();
     case 'media_attachments':
       return (db.select(db.mediaAttachments)..limit(1)).getSingle();
+    case 'member_board_posts':
+      return (db.select(db.memberBoardPosts)..limit(1)).getSingle();
     default:
       return null;
   }

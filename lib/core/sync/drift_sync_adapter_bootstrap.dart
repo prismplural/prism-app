@@ -116,6 +116,10 @@ Map<String, BootstrapFetcher> bootstrapFetchersFor(
       'media_attachments',
       () => db.select(db.mediaAttachments).get(),
     ),
+    'member_board_posts': build(
+      'member_board_posts',
+      () => db.select(db.memberBoardPosts).get(),
+    ),
   };
 }
 

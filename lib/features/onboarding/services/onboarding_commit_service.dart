@@ -52,6 +52,24 @@ class OnboardingCommitService {
   final ConversationRepository _conversationRepository;
   final FrontingSessionRepository _frontingRepository;
 
+  /// Idempotently ensures 'boards' appears in the overflow nav list.
+  ///
+  /// Returns [overflow] unchanged if 'boards' is already in either [primary]
+  /// or [overflow]. Otherwise returns a copy of [overflow] with 'boards'
+  /// appended. This is inlined here rather than extracted to a shared
+  /// NavBarMutator utility because the call site is a single location;
+  /// C1' (settings toggle) may use a similar inline pattern or extract later
+  /// during H integration.
+  List<String> _ensureBoardsInOverflow(
+    List<String> primary,
+    List<String> overflow,
+  ) {
+    if (primary.contains('boards') || overflow.contains('boards')) {
+      return overflow;
+    }
+    return [...overflow, 'boards'];
+  }
+
   Future<void> completeImportedBootstrap() async {
     final currentSettings = await _settingsRepository.getSettings();
     if (currentSettings.hasCompletedOnboarding) return;
@@ -75,8 +93,19 @@ class OnboardingCommitService {
           habitsEnabled: onboarding.habitsEnabled,
           sleepTrackingEnabled: onboarding.sleepTrackingEnabled,
           notesEnabled: onboarding.notesEnabled,
+          boardsEnabled: onboarding.boardsEnabled,
           remindersEnabled: onboarding.remindersEnabled,
           hasCompletedOnboarding: true,
+          // Idempotently append 'boards' to overflow nav if the user
+          // enabled the feature during onboarding. Only appended if
+          // 'boards' is not already in either nav list. Toast fires only
+          // when the user later toggles on via Settings (C1' owns that).
+          navBarOverflowItems: onboarding.boardsEnabled
+              ? _ensureBoardsInOverflow(
+                  currentSettings.navBarItems,
+                  currentSettings.navBarOverflowItems,
+                )
+              : currentSettings.navBarOverflowItems,
         ),
       );
 

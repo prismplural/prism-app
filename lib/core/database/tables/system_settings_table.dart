@@ -197,6 +197,19 @@ class SystemSettingsTable extends Table {
   TextColumn get pendingFrontingMigrationCleanupSubstate =>
       text().withDefault(const Constant(''))();
 
+  // -- Member Boards (docs/plans/member-message-boards.md Batch A) --
+  //
+  // Synced feature toggle. Default false (opt-in). When false, the Boards tab
+  // is filtered from the nav and the profile section is hidden; posts are
+  // retained in the DB. Synced via CRDT so all devices see the same toggle.
+  BoolColumn get boardsEnabled => boolean().withDefault(const Constant(false))();
+
+  // Coordination sentinel for the SP boards backfill. The first device to
+  // start the backfill writes a timestamp here; other devices observe it and
+  // skip. Overwritten with the actual completion time on success. Synced via
+  // CRDT LWW so the sentinel propagates to peers.
+  DateTimeColumn get spBoardsBackfilledAt => dateTime().nullable()();
+
   @override
   String get tableName => 'system_settings';
 

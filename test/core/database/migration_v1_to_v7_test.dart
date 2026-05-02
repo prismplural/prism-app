@@ -913,7 +913,7 @@ void main() {
 
       // user_version must match the current schema.
       final uv = await db.customSelect('PRAGMA user_version').getSingle();
-      expect(uv.read<int>('user_version'), 14);
+      expect(uv.read<int>('user_version'), 15);
 
       // mode = 'blocked'
       final settings = await db.systemSettingsDao.getSettings();
@@ -1018,7 +1018,7 @@ void main() {
 
       // user_version must match the current schema.
       final uv = await db.customSelect('PRAGMA user_version').getSingle();
-      expect(uv.read<int>('user_version'), 14);
+      expect(uv.read<int>('user_version'), 15);
 
       // mode = 'blocked'
       final settings = await db.systemSettingsDao.getSettings();

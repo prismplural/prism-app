@@ -29,6 +29,7 @@ import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/features/members/widgets/member_groups_section.dart';
 import 'package:prism_plurality/features/members/widgets/proxy_tags_section.dart';
 import 'package:prism_plurality/features/members/widgets/custom_fields_display.dart';
+import 'package:prism_plurality/features/boards/widgets/board_message_section.dart';
 import 'package:prism_plurality/features/members/widgets/notes_section.dart';
 import 'package:prism_plurality/features/members/widgets/member_profile_header.dart';
 import 'package:prism_plurality/shared/widgets/markdown_text.dart';
@@ -164,6 +165,7 @@ class _MemberDetailBody extends ConsumerWidget {
         _RecentSessionsSection(memberId: member.id),
         const SizedBox(height: 8),
         _ConversationsSection(memberId: member.id),
+        BoardMessageSection(memberId: member.id),
         const SizedBox(height: 32),
       ],
     );

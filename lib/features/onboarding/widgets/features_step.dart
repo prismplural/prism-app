@@ -89,6 +89,18 @@ class FeaturesStep extends ConsumerWidget {
                 ),
                 const SizedBox(height: 12),
                 _FeatureToggle(
+                  icon: AppIcons.navBoards,
+                  isDark: isDark,
+                  primary: primary,
+                  title: context.l10n.onboardingFeaturesBoards,
+                  description:
+                      context.l10n.onboardingFeaturesBoardsDescription,
+                  value: onboarding.boardsEnabled,
+                  onChanged: (v) =>
+                      notifier.setFeatureToggle(boardsEnabled: v),
+                ),
+                const SizedBox(height: 12),
+                _FeatureToggle(
                   icon: AppIcons.duotoneReminders,
                   isDark: isDark,
                   primary: primary,
