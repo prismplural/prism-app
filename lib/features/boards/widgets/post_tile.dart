@@ -428,6 +428,9 @@ class _PostHeaderParticipants extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Sender carries the new info — most prominent. The receiver is
+    // predictable from context (we're in our inbox / on a profile) so it
+    // takes the same muted treatment as the connector word.
     final mutedStyle = theme.textTheme.labelMedium?.copyWith(
       color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
       fontSize: 12,
@@ -437,11 +440,7 @@ class _PostHeaderParticipants extends StatelessWidget {
       fontWeight: FontWeight.w700,
       fontSize: 13,
     );
-    final receiverStyle = theme.textTheme.labelLarge?.copyWith(
-      color: theme.colorScheme.onSurface.withValues(alpha: 0.85),
-      fontWeight: FontWeight.w600,
-      fontSize: 13,
-    );
+    final receiverStyle = mutedStyle;
 
     final showTargetAvatar = post.targetMemberId != null;
     final receiverName = post.targetMemberId != null
@@ -473,13 +472,16 @@ class _PostHeaderParticipants extends StatelessWidget {
         Text('to', style: mutedStyle),
         const SizedBox(width: 8),
         if (showTargetAvatar) ...[
-          MemberAvatar(
-            avatarImageData: target?.avatarImageData,
-            memberName: target?.name,
-            emoji: target?.emoji ?? '❔',
-            customColorEnabled: target?.customColorEnabled ?? false,
-            customColorHex: target?.customColorHex,
-            size: 22,
+          Opacity(
+            opacity: 0.7,
+            child: MemberAvatar(
+              avatarImageData: target?.avatarImageData,
+              memberName: target?.name,
+              emoji: target?.emoji ?? '❔',
+              customColorEnabled: target?.customColorEnabled ?? false,
+              customColorHex: target?.customColorHex,
+              size: 18,
+            ),
           ),
           const SizedBox(width: 6),
         ],
