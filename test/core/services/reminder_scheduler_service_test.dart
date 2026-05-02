@@ -33,6 +33,7 @@ class _FakeLocalNotificationService extends LocalNotificationService {
     required String body,
     required TimeOfDay time,
     required NotificationDetails details,
+    DateTime? notBefore,
   }) async {
     methodCalls.add('scheduleExactDaily');
     scheduleExactDailyCalls.add((id, time));
@@ -46,6 +47,7 @@ class _FakeLocalNotificationService extends LocalNotificationService {
     required TimeOfDay time,
     required int weekday,
     required NotificationDetails details,
+    DateTime? notBefore,
   }) async {
     methodCalls.add('scheduleExactWeekly');
     scheduleExactWeeklyCalls.add((id, weekday, time));
@@ -60,6 +62,7 @@ class _FakeLocalNotificationService extends LocalNotificationService {
     required int intervalDays,
     required NotificationDetails details,
     int? maxOccurrences,
+    DateTime? notBefore,
   }) async {
     methodCalls.add('scheduleExactInterval');
     scheduleExactIntervalCalls

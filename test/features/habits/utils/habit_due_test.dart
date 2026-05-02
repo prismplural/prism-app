@@ -92,4 +92,108 @@ void main() {
       );
     });
   });
+
+  group('isHabitCompletedForCurrentPeriod', () {
+    final now = DateTime(2026, 5, 1, 14, 0); // Friday
+
+    Habit buildHabit({
+      required HabitFrequency frequency,
+      List<int>? weeklyDays,
+      int? intervalDays,
+    }) =>
+        Habit(
+          id: 'h',
+          name: 'h',
+          createdAt: now.subtract(const Duration(days: 30)),
+          modifiedAt: now,
+          frequency: frequency,
+          weeklyDays: weeklyDays,
+          intervalDays: intervalDays,
+        );
+
+    HabitCompletion completionAt(DateTime when) => HabitCompletion(
+          id: 'c-${when.millisecondsSinceEpoch}',
+          habitId: 'h',
+          completedAt: when,
+          createdAt: when,
+          modifiedAt: when,
+        );
+
+    test('daily — completed today returns true', () {
+      final result = isHabitCompletedForCurrentPeriod(
+        habit: buildHabit(frequency: HabitFrequency.daily),
+        todayCompletions: [completionAt(now.subtract(const Duration(hours: 2)))],
+        allCompletions: const [],
+        now: now,
+      );
+      expect(result, isTrue);
+    });
+
+    test('daily — no completion today returns false', () {
+      final result = isHabitCompletedForCurrentPeriod(
+        habit: buildHabit(frequency: HabitFrequency.daily),
+        todayCompletions: const [],
+        allCompletions: const [],
+        now: now,
+      );
+      expect(result, isFalse);
+    });
+
+    test('weekly — completed today on a target weekday returns true', () {
+      // Friday is weekday index 5 (Dart 5 % 7 = 5).
+      final result = isHabitCompletedForCurrentPeriod(
+        habit: buildHabit(
+          frequency: HabitFrequency.weekly,
+          weeklyDays: [1, 3, 5],
+        ),
+        todayCompletions: [completionAt(now)],
+        allCompletions: const [],
+        now: now,
+      );
+      expect(result, isTrue);
+    });
+
+    test('weekly — completed today on a non-target weekday returns false', () {
+      final result = isHabitCompletedForCurrentPeriod(
+        habit: buildHabit(
+          frequency: HabitFrequency.weekly,
+          weeklyDays: [1, 3], // Mon, Wed only — Friday isn't a target
+        ),
+        todayCompletions: [completionAt(now)],
+        allCompletions: const [],
+        now: now,
+      );
+      expect(result, isFalse);
+    });
+
+    test('interval — completion within window returns true', () {
+      final result = isHabitCompletedForCurrentPeriod(
+        habit: buildHabit(frequency: HabitFrequency.interval, intervalDays: 3),
+        todayCompletions: const [],
+        allCompletions: [completionAt(now.subtract(const Duration(days: 1)))],
+        now: now,
+      );
+      expect(result, isTrue);
+    });
+
+    test('interval — completion outside window returns false', () {
+      final result = isHabitCompletedForCurrentPeriod(
+        habit: buildHabit(frequency: HabitFrequency.interval, intervalDays: 3),
+        todayCompletions: const [],
+        allCompletions: [completionAt(now.subtract(const Duration(days: 5)))],
+        now: now,
+      );
+      expect(result, isFalse);
+    });
+
+    test('interval — no completions returns false', () {
+      final result = isHabitCompletedForCurrentPeriod(
+        habit: buildHabit(frequency: HabitFrequency.interval, intervalDays: 3),
+        todayCompletions: const [],
+        allCompletions: const [],
+        now: now,
+      );
+      expect(result, isFalse);
+    });
+  });
 }
