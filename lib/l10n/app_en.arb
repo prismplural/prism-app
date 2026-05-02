@@ -2571,6 +2571,22 @@
       }
     }
   },
+  "frontingDeletePeriodTitle": "Delete period?",
+  "@frontingDeletePeriodTitle": {
+    "description": "Title of the confirm dialog when deleting a multi-contributor period."
+  },
+  "frontingDeletePeriodMessage": "This will remove {count, plural, =1{1 session} other{{count} sessions}} for {names}.",
+  "@frontingDeletePeriodMessage": {
+    "description": "Message in the confirm dialog when deleting a multi-contributor period.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "names": {
+        "type": "String"
+      }
+    }
+  },
   "frontingDeleteSleepTitle": "Delete Sleep Session",
   "@frontingDeleteSleepTitle": {
     "description": "Confirmation dialog title for deleting a sleep session"

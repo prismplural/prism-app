@@ -554,6 +554,8 @@
   "frontingErrorSwitchingFronter": "Error al cambiar de frente: {error}",
   "frontingNoSessionHistory": "Sin historial de sesiones aún",
   "frontingErrorLoadingHistory": "Error al cargar el historial: {error}",
+  "frontingDeletePeriodTitle": "¿Eliminar período?",
+  "frontingDeletePeriodMessage": "Se eliminarán {count, plural, =1{1 sesión} other{{count} sesiones}} de {names}.",
   "frontingDeleteSleepTitle": "Eliminar sesión de sueño",
   "frontingDeleteSleepMessage": "¿Estás segure de que quieres eliminar esta sesión de sueño?",
   "frontingSleeping": "Sueño",
@@ -731,7 +733,7 @@
   "memberSessionActive": "Activo",
   "memberSessionTodayAt": "Hoy a las {time}",
   "memberFrontingChip": "Al frente",
-  "memberAdminChip": "Admin",
+  "memberAdminChip": "Administrador",
   "memberInactiveChip": "Inactivo",
   "memberSetAsFronter": "Poner al frente",
   "memberNoteTitle": "Nota",
@@ -805,7 +807,7 @@
   "memberPronounsHint": "p. ej. ella, elle, él",
   "memberAgeLabel": "Edad",
   "memberAgeHint": "Opcional",
-  "memberBioLabel": "Bio",
+  "memberBioLabel": "Biografía",
   "memberBioHint": "Una breve descripción...",
   "memberBioEditorTooltip": "Editar bio",
   "memberDisplayNameLabel": "Nombre mostrado",
@@ -818,7 +820,7 @@
   "memberSectionBirthday": "Cumpleaños",
   "memberMarkdownTitle": "Formatear bio en markdown",
   "memberMarkdownSubtitle": "Mostrar el texto con formato markdown",
-  "memberAdminTitle": "Admin",
+  "memberAdminTitle": "Administrador",
   "memberAdminSubtitle": "Los admins pueden gestionar la configuración del sistema",
   "memberAccentColorSectionTitle": "Color de acento",
   "memberCustomColorTitle": "Color personalizado",
@@ -894,13 +896,13 @@
   "chatReplyQuoteSemantics": "Respondiendo a {authorName}: {content}. Toca dos veces para ir al mensaje.",
   "chatReplyQuoteDeletedSemantics": "Mensaje original eliminado",
   "chatMessageEdited": "editado",
-  "chatInfoTitle": "Info",
+  "chatInfoTitle": "Información",
   "chatInfoConversationTitle": "Título de la conversación",
   "chatInfoCreatedAt": "Creado el {date}",
   "chatInfoParticipants": "Participantes ({count})",
   "chatInfoAddMembers": "Agregar {termPluralLower}",
   "chatInfoOwner": "Propietario",
-  "chatInfoAdmin": "Admin",
+  "chatInfoAdmin": "Administrador",
   "chatInfoUnknownMember": "{termSingular} desconocido",
   "chatInfoErrorLoadingMember": "Error al cargar {termSingularLower}",
   "chatInfoCategory": "Categoría",
@@ -1467,15 +1469,15 @@
   "migrationVerifyToken": "Verificar token",
   "migrationVerifyingToken": "Verificando token…",
   "migrationWarnings": "{count, plural, =1{1 advertencia} other{{count} advertencias}}",
-  "migrationNotImportedTitle": "What didn't come over",
-  "migrationNotImportedFriendsTitle": "Friends",
-  "migrationNotImportedFriendsDetail": "SP friends are separate accounts on another system. Prism doesn't have a cross-system friends concept yet.",
-  "migrationNotImportedBoardMetaTitle": "Board message metadata",
-  "migrationNotImportedBoardMetaDetail": "Message categories and bucket assignments aren't part of the export format.",
-  "migrationNotImportedNotifTitle": "Notification preferences",
-  "migrationNotImportedNotifDetail": "These are stored on your device in SP and aren't included in the export.",
-  "migrationNotImportedFrontRulesTitle": "Custom front display rules",
-  "migrationNotImportedFrontRulesDetail": "Display rules and front conditions don't map to Prism's system.",
+  "migrationNotImportedTitle": "Lo que no se importó",
+  "migrationNotImportedFriendsTitle": "Amigos",
+  "migrationNotImportedFriendsDetail": "Los amigos en SP son cuentas separadas en otro sistema. Prism aún no tiene un concepto de amigos entre sistemas.",
+  "migrationNotImportedBoardMetaTitle": "Metadatos de mensajes del tablero",
+  "migrationNotImportedBoardMetaDetail": "Las categorías de mensajes y las asignaciones de grupos no forman parte del formato de exportación.",
+  "migrationNotImportedNotifTitle": "Preferencias de notificaciones",
+  "migrationNotImportedNotifDetail": "Se guardan en tu dispositivo en SP y no se incluyen en la exportación.",
+  "migrationNotImportedFrontRulesTitle": "Reglas personalizadas de visualización del frente",
+  "migrationNotImportedFrontRulesDetail": "Las reglas de visualización y las condiciones del frente no se traducen al sistema de Prism.",
   "migrationWhereDoIFindThis": "¿Dónde encuentro esto?",
   "pluralkitAccount": "Cuenta de PluralKit",
   "pluralkitBoth": "Ambos",
@@ -2588,6 +2590,30 @@
   "boardsComposeEditing": "Editar publicación",
   "@boardsComposeEditing": {
     "description": "Sheet title when editing an existing board post."
+  },
+  "boardsComposeNewPost": "Nueva publicación",
+  "@boardsComposeNewPost": {
+    "description": "Sheet title when composing a new board post."
+  },
+  "boardsComposeAudienceEveryone": "Todos",
+  "@boardsComposeAudienceEveryone": {
+    "description": "Audience segment label: post visible to everyone in the system."
+  },
+  "boardsComposeAudiencePrivate": "Privado",
+  "@boardsComposeAudiencePrivate": {
+    "description": "Audience segment label: post visible only to the addressed headmate."
+  },
+  "boardsComposeToNoHeadmate": "Sin destinatario",
+  "@boardsComposeToNoHeadmate": {
+    "description": "Label shown in the recipient row when no headmate has been addressed."
+  },
+  "boardsComposeWhoIsPosting": "¿Quién está publicando?",
+  "@boardsComposeWhoIsPosting": {
+    "description": "Dialog title asking which co-fronter is authoring the board post."
+  },
+  "boardsComposeSelectAuthor": "Seleccionar autor",
+  "@boardsComposeSelectAuthor": {
+    "description": "Semantic label for the author avatar tap target in the compose toolbar when no author is selected."
   },
   "memberSectionBoardMessages": "Publicaciones públicas",
   "@memberSectionBoardMessages": {

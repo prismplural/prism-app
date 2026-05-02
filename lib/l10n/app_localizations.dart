@@ -3452,6 +3452,18 @@ abstract class AppLocalizations {
   /// **'Error loading history: {error}'**
   String frontingErrorLoadingHistory(Object error);
 
+  /// Title of the confirm dialog when deleting a multi-contributor period.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete period?'**
+  String get frontingDeletePeriodTitle;
+
+  /// Message in the confirm dialog when deleting a multi-contributor period.
+  ///
+  /// In en, this message translates to:
+  /// **'This will remove {count, plural, =1{1 session} other{{count} sessions}} for {names}.'**
+  String frontingDeletePeriodMessage(int count, String names);
+
   /// Confirmation dialog title for deleting a sleep session
   ///
   /// In en, this message translates to:
