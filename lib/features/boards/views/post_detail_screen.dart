@@ -4,10 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/member_board_post.dart';
 import 'package:prism_plurality/features/boards/models/member_board_post_permissions.dart';
-import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/features/boards/providers/board_posts_providers.dart';
 import 'package:prism_plurality/features/boards/widgets/compose_post_sheet.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart'
@@ -19,16 +19,17 @@ import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/markdown_text.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
-import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
+import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 
 /// Full-screen detail view for a single [MemberBoardPost].
 ///
 /// Reached via push to `/boards/post/:postId`. Shows the complete body
-/// (no clamping), title, author, timestamp, and edit/delete affordances.
+/// (no clamping), title, author, timestamp, and edit/delete affordances
+/// in the app bar (when the viewer has permission).
 class PostDetailScreen extends ConsumerWidget {
   const PostDetailScreen({super.key, required this.postId});
 
@@ -39,10 +40,42 @@ class PostDetailScreen extends ConsumerWidget {
     final l10n = context.l10n;
     final postAsync = ref.watch(_postByIdStreamProvider(postId));
 
+    final speakingAsId = ref.watch(speakingAsProvider);
+    final viewerAsync = speakingAsId != null
+        ? ref.watch(memberByIdProvider(speakingAsId))
+        : const AsyncValue<Member?>.data(null);
+    final viewerMember = viewerAsync.value;
+
+    final post = postAsync.value;
+    final perms = post == null
+        ? null
+        : MemberBoardPostPermissions(
+            post: post,
+            speakingAsMember: viewerMember,
+          );
+
+    final actions = <Widget>[
+      if (perms?.canEdit ?? false)
+        PrismTopBarAction(
+          icon: Icons.edit_outlined,
+          tooltip: l10n.boardsDetailEdit,
+          onPressed: () =>
+              ComposePostSheet.show(context, editingPostId: postId),
+        ),
+      if (perms?.canDelete ?? false)
+        PrismTopBarAction(
+          icon: Icons.delete_outline,
+          tooltip: l10n.boardsDetailDelete,
+          tint: Theme.of(context).colorScheme.error,
+          onPressed: () => _confirmDelete(context, ref, postId),
+        ),
+    ];
+
     return PrismPageScaffold(
       topBar: PrismTopBar(
         title: l10n.boardsPostDetailTitle,
         showBackButton: true,
+        actions: actions,
       ),
       bodyPadding: EdgeInsets.zero,
       body: postAsync.when(
@@ -60,17 +93,31 @@ class PostDetailScreen extends ConsumerWidget {
               child: Center(child: Text(l10n.boardsPostDetailNotFound)),
             );
           }
-
-          final speakingAsId = ref.watch(speakingAsProvider);
-          final viewerAsync = speakingAsId != null
-              ? ref.watch(memberByIdProvider(speakingAsId))
-              : const AsyncValue<Member?>.data(null);
-          final viewerMember = viewerAsync.value;
-
-          return _PostDetailBody(post: post, viewerMember: viewerMember);
+          return _PostDetailBody(post: post);
         },
       ),
     );
+  }
+}
+
+Future<void> _confirmDelete(
+  BuildContext context,
+  WidgetRef ref,
+  String postId,
+) async {
+  final l10n = context.l10n;
+  final confirmed = await PrismDialog.confirm(
+    context: context,
+    title: l10n.boardsDeleteConfirmTitle,
+    message: l10n.boardsDeleteConfirmBody,
+    cancelLabel: l10n.cancel,
+    confirmLabel: l10n.delete,
+  );
+  if (confirmed == true) {
+    unawaited(
+      ref.read(memberBoardPostNotifierProvider.notifier).deletePost(postId),
+    );
+    if (context.mounted) context.pop();
   }
 }
 
@@ -81,39 +128,34 @@ final _postByIdStreamProvider =
 });
 
 class _PostDetailBody extends ConsumerWidget {
-  const _PostDetailBody({required this.post, required this.viewerMember});
+  const _PostDetailBody({required this.post});
 
   final MemberBoardPost post;
-  final Member? viewerMember;
 
-  Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
-    final l10n = context.l10n;
-    final confirmed = await PrismDialog.confirm(
-      context: context,
-      title: l10n.boardsDeleteConfirmTitle,
-      message: l10n.boardsDeleteConfirmBody,
-      cancelLabel: l10n.cancel,
-      confirmLabel: l10n.delete,
-    );
-    if (confirmed == true) {
-      unawaited(
-        ref
-            .read(memberBoardPostNotifierProvider.notifier)
-            .deletePost(post.id),
-      );
-      if (context.mounted) context.pop();
+  /// Subtitle line under the author name: "to {recipient} · {full datetime}".
+  /// Includes "(edited)" suffix when applicable.
+  String _composeDetailSubtitle(
+    BuildContext context,
+    AppLocalizations l10n,
+    Member? target,
+  ) {
+    final parts = <String>[];
+    if (post.targetMemberId != null) {
+      parts.add('to ${target?.name ?? l10n.boardsTileRemovedMember}');
+    } else if (post.audience == 'public') {
+      parts.add(l10n.boardsTileToEveryone);
     }
+    parts.add(post.writtenAt.toDateTimeString(context.dateLocale));
+    if (post.editedAt != null) {
+      parts.add('(${l10n.boardsTileEdited})');
+    }
+    return parts.join(' · ');
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final l10n = context.l10n;
-
-    final perms = MemberBoardPostPermissions(
-      post: post,
-      speakingAsMember: viewerMember,
-    );
 
     final authorAsync = post.authorId != null
         ? ref.watch(memberByIdProvider(post.authorId!))
@@ -164,47 +206,11 @@ class _PostDetailBody extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 2),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 2,
-                      children: [
-                        if (post.targetMemberId != null)
-                          Text(
-                            '→ ${target?.name ?? l10n.boardsTileRemovedMember}',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          )
-                        else if (post.audience == 'public')
-                          Text(
-                            l10n.boardsTileToEveryone,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        Text(
-                          '·',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant
-                                .withValues(alpha: 0.6),
-                          ),
-                        ),
-                        Text(
-                          post.writtenAt.toDateTimeString(context.dateLocale),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        if (post.editedAt != null)
-                          Text(
-                            '(${l10n.boardsTileEdited})',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant
-                                  .withValues(alpha: 0.7),
-                              fontStyle: FontStyle.italic,
-                            ),
-                          ),
-                      ],
+                    Text(
+                      _composeDetailSubtitle(context, l10n, target),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ),
@@ -234,32 +240,6 @@ class _PostDetailBody extends ConsumerWidget {
               height: 1.5,
             ),
           ),
-
-          const SizedBox(height: 32),
-
-          // ── Edit / delete actions
-          if (perms.canEdit || perms.canDelete)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                if (perms.canEdit) ...[
-                  PrismButton(
-                    icon: Icons.edit_outlined,
-                    label: l10n.boardsDetailEdit,
-                    onPressed: () =>
-                        ComposePostSheet.show(context, editingPostId: post.id),
-                  ),
-                  if (perms.canDelete) const SizedBox(width: 8),
-                ],
-                if (perms.canDelete)
-                  PrismButton(
-                    icon: Icons.delete_outline,
-                    label: l10n.boardsDetailDelete,
-                    tone: PrismButtonTone.destructive,
-                    onPressed: () => _confirmDelete(context, ref),
-                  ),
-              ],
-            ),
 
           const SizedBox(height: 16),
         ],

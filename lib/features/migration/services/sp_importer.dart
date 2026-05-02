@@ -215,6 +215,7 @@ class SpImporter {
         await db.customStatement('DELETE FROM member_groups');
         await db.customStatement('DELETE FROM notes');
         await db.customStatement('DELETE FROM reminders');
+        await db.customStatement('DELETE FROM member_board_posts');
         await db.customStatement('DELETE FROM members');
         // customStatement bypasses Drift's typed-write notification.
         // The SP import is followed by an app reload, so live UI never
@@ -238,6 +239,7 @@ class SpImporter {
           const TableUpdate('member_groups'),
           const TableUpdate('notes'),
           const TableUpdate('reminders'),
+          const TableUpdate('member_board_posts'),
           const TableUpdate('members'),
         });
       }

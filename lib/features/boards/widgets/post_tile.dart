@@ -259,35 +259,59 @@ class _PostTileContent extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Header: avatar + author name (+ optional audience pill on right)
+          // ── Header: avatar + (author name / "to {target} · time") + audience pill
           Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              MemberAvatar(
-                avatarImageData: author?.avatarImageData,
-                memberName: author?.name,
-                emoji: author?.emoji ?? '❔',
-                customColorEnabled: author?.customColorEnabled ?? false,
-                customColorHex: author?.customColorHex,
-                size: 32,
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: MemberAvatar(
+                  avatarImageData: author?.avatarImageData,
+                  memberName: author?.name,
+                  emoji: author?.emoji ?? '❔',
+                  customColorEnabled: author?.customColorEnabled ?? false,
+                  customColorHex: author?.customColorHex,
+                  size: 36,
+                ),
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  author?.name ??
-                      post.authorId ??
-                      l10n.boardsTileRemovedMember,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    color: authorColor,
-                    fontWeight: FontWeight.w700,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      author?.name ??
+                          post.authorId ??
+                          l10n.boardsTileRemovedMember,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: authorColor,
+                        fontWeight: FontWeight.w700,
+                        height: 1.2,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _composeSubtitle(context, l10n),
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant
+                            .withValues(alpha: 0.75),
+                        fontSize: 11,
+                        height: 1.2,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ),
               ),
               if (showAudiencePill) ...[
                 const SizedBox(width: 8),
-                _AudiencePill(audience: post.audience, theme: theme),
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: _AudiencePill(audience: post.audience, theme: theme),
+                ),
               ],
             ],
           ),
@@ -313,58 +337,35 @@ class _PostTileContent extends ConsumerWidget {
               height: 1.4,
             ),
           ),
-          const SizedBox(height: 12),
 
-          // ── Footer: recipient · timestamp · edited        …
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Wrap(
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: 6,
-                  runSpacing: 2,
-                  children: [
-                    _RecipientChip(
-                      post: post,
-                      target: target,
-                      theme: theme,
-                      l10n: l10n,
-                    ),
-                    if (post.targetMemberId != null ||
-                        post.audience == 'public')
-                      _FooterDot(theme: theme),
-                    Text(
-                      _formatTimestamp(post.writtenAt, context),
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant
-                            .withValues(alpha: 0.75),
-                        fontSize: 11,
-                      ),
-                    ),
-                    if (post.editedAt != null) ...[
-                      _FooterDot(theme: theme),
-                      Text(
-                        l10n.boardsTileEdited,
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant
-                              .withValues(alpha: 0.6),
-                          fontStyle: FontStyle.italic,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ],
-                  ],
+          // ── Footer: edited marker · …      (only when there's something to show)
+          if (post.editedAt != null || (hasActions && isDesktopOrWeb)) ...[
+            const SizedBox(height: 8),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: post.editedAt != null
+                      ? Text(
+                          l10n.boardsTileEdited,
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant
+                                .withValues(alpha: 0.6),
+                            fontStyle: FontStyle.italic,
+                            fontSize: 11,
+                          ),
+                        )
+                      : const SizedBox.shrink(),
                 ),
-              ),
-              if (hasActions && isDesktopOrWeb)
-                _InlineMenuButton(
-                  post: post,
-                  viewerMember: viewerMember,
-                  buildActions: _buildActions,
-                ),
-            ],
-          ),
+                if (hasActions && isDesktopOrWeb)
+                  _InlineMenuButton(
+                    post: post,
+                    viewerMember: viewerMember,
+                    buildActions: _buildActions,
+                  ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -399,6 +400,33 @@ class _PostTileContent extends ConsumerWidget {
     return card;
   }
 
+  /// Compose the subtitle line under the author name in the header.
+  ///
+  /// Format: `to {recipient} · {time}`. Recipient is one of:
+  ///   - target member name (`to Ash`)
+  ///   - "to everyone" (public, no specific target)
+  ///   - omitted (private with no target — shouldn't happen in practice;
+  ///     audience pill carries the signal)
+  String _composeSubtitle(BuildContext context, AppLocalizations l10n) {
+    final time = _formatTimestamp(post.writtenAt, context);
+    final recipient = _resolveRecipientText(l10n);
+    if (recipient == null) return time;
+    return '$recipient · $time';
+  }
+
+  /// Returns the "to {recipient}" text for the header subtitle, or null
+  /// when there's no meaningful recipient to display.
+  String? _resolveRecipientText(AppLocalizations l10n) {
+    if (post.targetMemberId != null) {
+      final name = target?.name ?? l10n.boardsTileRemovedMember;
+      return 'to $name';
+    }
+    if (post.audience == 'public') {
+      return l10n.boardsTileToEveryone;
+    }
+    return null;
+  }
+
   String _formatTimestamp(DateTime dt, BuildContext context) {
     final diff = DateTime.now().difference(dt);
     if (diff.inSeconds < 60) return 'just now';
@@ -406,72 +434,6 @@ class _PostTileContent extends ConsumerWidget {
     if (diff.inHours < 24) return '${diff.inHours}h ago';
     if (diff.inDays < 7) return '${diff.inDays}d ago';
     return DateFormat.MMMd(context.dateLocale).format(dt);
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Footer separator dot
-// ---------------------------------------------------------------------------
-
-class _FooterDot extends StatelessWidget {
-  const _FooterDot({required this.theme});
-  final ThemeData theme;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      '·',
-      style: theme.textTheme.labelMedium?.copyWith(
-        color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-        fontSize: 11,
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Recipient chip
-// ---------------------------------------------------------------------------
-
-class _RecipientChip extends StatelessWidget {
-  const _RecipientChip({
-    required this.post,
-    required this.target,
-    required this.theme,
-    required this.l10n,
-  });
-
-  final MemberBoardPost post;
-  final Member? target;
-  final ThemeData theme;
-  final AppLocalizations l10n;
-
-  @override
-  Widget build(BuildContext context) {
-    final isPublic = post.audience == 'public';
-
-    if (post.targetMemberId == null && isPublic) {
-      return Text(
-        l10n.boardsTileToEveryone,
-        style: theme.textTheme.labelMedium?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.75),
-          fontSize: 11,
-        ),
-      );
-    }
-
-    if (post.targetMemberId != null) {
-      final name = target?.name ?? l10n.boardsTileRemovedMember;
-      return Text(
-        '→ $name',
-        style: theme.textTheme.labelMedium?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.75),
-          fontSize: 11,
-        ),
-      );
-    }
-
-    return const SizedBox.shrink();
   }
 }
 
