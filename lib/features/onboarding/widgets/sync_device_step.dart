@@ -801,6 +801,7 @@ class _ErrorView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Column(
@@ -810,7 +811,7 @@ class _ErrorView extends StatelessWidget {
           Icon(AppIcons.errorOutline, color: Colors.redAccent, size: 56),
           const SizedBox(height: 16),
           Text(
-            'Pairing failed',
+            l10n.onboardingPairingFailed,
             style: theme.textTheme.headlineSmall?.copyWith(
               color: AppColors.warmWhite,
               fontWeight: FontWeight.w700,
@@ -827,7 +828,7 @@ class _ErrorView extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           _ActionButton(
-            label: 'Try Again',
+            label: l10n.tryAgain,
             color: Colors.redAccent,
             tone: PrismButtonTone.destructive,
             onPressed: onTryAgain,
@@ -860,6 +861,7 @@ class _SnapshotFailureView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Column(
@@ -869,7 +871,7 @@ class _SnapshotFailureView extends StatelessWidget {
           Icon(AppIcons.errorOutline, color: Colors.amber, size: 56),
           const SizedBox(height: 16),
           Text(
-            'Pairing incomplete',
+            l10n.onboardingPairingIncomplete,
             style: theme.textTheme.headlineSmall?.copyWith(
               color: AppColors.warmWhite,
               fontWeight: FontWeight.w700,
@@ -886,13 +888,13 @@ class _SnapshotFailureView extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           _ActionButton(
-            label: 'Retry',
+            label: l10n.onboardingPairingRetry,
             color: theme.colorScheme.primary,
             onPressed: onRetry,
           ),
           const SizedBox(height: 12),
           _ActionButton(
-            label: 'Cancel and remove this device',
+            label: l10n.onboardingPairingCancelAndRemove,
             color: Colors.redAccent,
             tone: PrismButtonTone.destructive,
             onPressed: onCancel,

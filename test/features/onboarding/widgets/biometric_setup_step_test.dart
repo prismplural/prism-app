@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/services/biometric_service.dart';
 import 'package:prism_plurality/core/services/biometric_service_provider.dart';
 import 'package:prism_plurality/features/onboarding/widgets/biometric_setup_step.dart';
+import 'package:prism_plurality/l10n/app_localizations.dart';
 
 // ---------------------------------------------------------------------------
 // Fake BiometricService
@@ -50,6 +51,8 @@ Widget _buildStep({
       biometricServiceProvider.overrideWithValue(fakeService),
     ],
     child: MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: const [Locale('en')],
       home: Scaffold(
         body: BiometricSetupStep(
           dekBytes: dek,

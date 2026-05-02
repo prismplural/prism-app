@@ -3,6 +3,7 @@ import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/utils/sensitive_clipboard.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
@@ -45,6 +46,7 @@ class _SecretKeyRevealContentState extends State<SecretKeyRevealContent> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     final words = widget.mnemonic.split(' ');
 
     return SecureScope(
@@ -66,10 +68,7 @@ class _SecretKeyRevealContentState extends State<SecretKeyRevealContent> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'Write these words down somewhere safe — a password manager, '
-                    'or paper kept offline. You\'ll need them to add new devices, '
-                    'change your PIN, or set up sync. There\'s no way to recover '
-                    'them if lost.',
+                    l10n.secretKeyWriteDownInfo,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onSecondaryContainer,
                     ),
@@ -115,7 +114,7 @@ class _SecretKeyRevealContentState extends State<SecretKeyRevealContent> {
                 child: PrismButton(
                   onPressed: _copyToClipboard,
                   icon: AppIcons.copy,
-                  label: 'Copy',
+                  label: l10n.secretKeyCopyButton,
                   tone: PrismButtonTone.subtle,
                 ),
               ),
@@ -124,7 +123,7 @@ class _SecretKeyRevealContentState extends State<SecretKeyRevealContent> {
                 child: PrismButton(
                   onPressed: _shareBackup,
                   icon: AppIcons.share,
-                  label: 'Save Backup',
+                  label: l10n.secretKeySaveBackupButton,
                   tone: PrismButtonTone.subtle,
                 ),
               ),
@@ -137,7 +136,7 @@ class _SecretKeyRevealContentState extends State<SecretKeyRevealContent> {
               if (_showQr && !_hasInteracted) _hasInteracted = true;
             }),
             icon: _showQr ? AppIcons.visibilityOff : AppIcons.qrCode,
-            label: _showQr ? 'Hide QR Code' : 'Show QR Code',
+            label: _showQr ? l10n.secretKeyHideQrButton : l10n.secretKeyShowQrButton,
             tone: PrismButtonTone.subtle,
           ),
           if (_showQr) ...[
@@ -158,7 +157,7 @@ class _SecretKeyRevealContentState extends State<SecretKeyRevealContent> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Scan from another device to transfer your Secret Key',
+              l10n.secretKeyQrInstructions,
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall,
             ),
@@ -170,7 +169,7 @@ class _SecretKeyRevealContentState extends State<SecretKeyRevealContent> {
               value: widget.hasSaved,
               onChanged: widget.onHasSavedChanged,
               enabled: !(widget.requireInteraction && !_hasInteracted),
-              title: const Text('I have saved my Secret Key'),
+              title: Text(l10n.secretKeyHaveSavedCheckbox),
               padding: EdgeInsets.zero,
             ),
           ],
@@ -185,23 +184,19 @@ class _SecretKeyRevealContentState extends State<SecretKeyRevealContent> {
     if (mounted) {
       PrismToast.show(
         context,
-        message: 'Copied — clipboard will be cleared in 15 seconds',
+        message: context.l10n.secretKeyCopiedToast,
       );
     }
   }
 
   Future<void> _shareBackup() async {
+    final l10n = context.l10n;
     // Require explicit confirmation before exposing the key via the share sheet.
     final confirmed = await PrismDialog.confirm(
       context: context,
-      title: 'Share Secret Key?',
-      message:
-          'You are about to share your 12-word Secret Key using the system share sheet.\n\n'
-          'Anyone who receives this text \u2014 including cloud storage apps, messaging '
-          'apps, or clipboard sync services \u2014 can use it to access your data.\n\n'
-          'Only share to a secure, private destination you control, such as a '
-          'password manager or an encrypted notes app.',
-      confirmLabel: 'Share Anyway',
+      title: l10n.secretKeyShareDialogTitle,
+      message: l10n.secretKeyShareDialogMessage,
+      confirmLabel: l10n.secretKeyShareConfirm,
       destructive: true,
     );
 
@@ -213,23 +208,12 @@ class _SecretKeyRevealContentState extends State<SecretKeyRevealContent> {
         .entries
         .map((e) => '${e.key + 1}. ${e.value}')
         .join('\n');
-    final backupText =
-        '''Prism Secret Key Backup
-========================
-
-Your Secret Key (12-word recovery phrase):
-
-$numberedWords
-
-IMPORTANT:
-- Store this in a safe place — you will need it to set up new devices.
-- Anyone with this phrase AND your password can access your data.
-- Prism cannot recover this key if lost.
-
-Generated: ${DateTime.now().toIso8601String().split('T').first}
-''';
+    final backupText = l10n.secretKeyBackupFileText(
+      numberedWords,
+      DateTime.now().toIso8601String().split('T').first,
+    );
     await SharePlus.instance.share(
-      ShareParams(text: backupText, subject: 'Prism Secret Key Backup'),
+      ShareParams(text: backupText, subject: l10n.secretKeyBackupSubject),
     );
     if (!_hasInteracted) setState(() => _hasInteracted = true);
     widget.onHasSavedChanged(true);

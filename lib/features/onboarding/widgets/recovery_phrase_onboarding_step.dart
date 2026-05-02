@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/features/settings/widgets/secret_key_reveal_content.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 
 /// Onboarding step that displays the 12-word BIP39 recovery phrase using
@@ -54,7 +55,7 @@ class _RecoveryPhraseOnboardingStepState
           ),
           const SizedBox(height: 16),
           PrismButton(
-            label: 'Continue',
+            label: context.l10n.onboardingContinue,
             onPressed: widget.onContinue,
             enabled: _hasSaved,
             tone: PrismButtonTone.filled,

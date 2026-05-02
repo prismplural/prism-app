@@ -5,6 +5,7 @@ import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pk_mapping_controller.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_mapping_applier.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
@@ -29,10 +30,10 @@ class PkMappingScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(pkMappingControllerProvider);
     final theme = Theme.of(context);
+    final l10n = context.l10n;
 
     return PrismPageScaffold(
-      // TODO(l10n): localize "Link members".
-      topBar: const PrismTopBar(title: 'Link members', showBackButton: true),
+      topBar: PrismTopBar(title: l10n.pkMappingTitle, showBackButton: true),
       bodyPadding: EdgeInsets.zero,
       body: async.when(
         loading: () => const PrismLoadingState(),
@@ -43,8 +44,7 @@ class PkMappingScreen extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  // TODO(l10n)
-                  'Failed to load PluralKit members:\n$e',
+                  l10n.pkMappingLoadError(e.toString()),
                   style: theme.textTheme.bodyMedium,
                   textAlign: TextAlign.center,
                 ),
@@ -53,8 +53,7 @@ class PkMappingScreen extends ConsumerWidget {
                   onPressed: () =>
                       ref.read(pkMappingControllerProvider.notifier).retry(),
                   icon: AppIcons.sync,
-                  // TODO(l10n)
-                  label: 'Retry',
+                  label: l10n.pkMappingRetry,
                   tone: PrismButtonTone.filled,
                 ),
               ],
@@ -91,14 +90,13 @@ class _MappingBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
 
     if (state.pkMembers.isEmpty && state.localMembers.isEmpty) {
       return EmptyState(
         icon: Icon(AppIcons.people),
-        // TODO(l10n)
-        title: 'Nothing to map',
-        subtitle:
-            'Your PluralKit system has no members and there are no local members to push.',
+        title: l10n.pkMappingEmptyTitle,
+        subtitle: l10n.pkMappingEmptySubtitle,
       );
     }
 
@@ -111,10 +109,7 @@ class _MappingBody extends ConsumerWidget {
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: Text(
-            // TODO(l10n)
-            'For each PluralKit member, link to an existing Prism member, '
-            'import as new, or skip. Unlinked Prism members can be pushed '
-            'to PluralKit below.',
+            l10n.pkMappingIntro,
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -124,7 +119,7 @@ class _MappingBody extends ConsumerWidget {
 
         // -- Section 1: PK members --
         if (state.pkMembers.isNotEmpty) ...[
-          const _SectionHeader(title: 'PluralKit members'), // TODO(l10n)
+          _SectionHeader(title: l10n.pkMappingSectionPkMembers),
           const SizedBox(height: 8),
           PrismSectionCard(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
@@ -141,7 +136,7 @@ class _MappingBody extends ConsumerWidget {
         // -- Section 2: Locals to push --
         if (unlinkedLocals.isNotEmpty) ...[
           const SizedBox(height: 24),
-          const _SectionHeader(title: 'Local members to push'), // TODO(l10n)
+          _SectionHeader(title: l10n.pkMappingSectionLocalToPush),
           const SizedBox(height: 8),
           PrismSectionCard(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
@@ -173,8 +168,7 @@ class _MappingBody extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            // TODO(l10n)
-            'Applying… ${(state.applyProgress * 100).toInt()}%',
+            l10n.pkMappingApplyProgress((state.applyProgress * 100).toInt()),
             style: theme.textTheme.bodySmall,
           ),
         ],
@@ -184,7 +178,7 @@ class _MappingBody extends ConsumerWidget {
         PrismButton(
           onPressed: () => _apply(context, ref),
           icon: AppIcons.checkCircle,
-          label: 'Apply', // TODO(l10n)
+          label: l10n.pkMappingApply,
           tone: PrismButtonTone.filled,
           expanded: true,
           enabled: !state.isApplying,
@@ -193,7 +187,7 @@ class _MappingBody extends ConsumerWidget {
         const SizedBox(height: 8),
         PrismButton(
           onPressed: () => _dismiss(context, ref),
-          label: "I'll do this later", // TODO(l10n)
+          label: l10n.pkMappingDoLater,
           tone: PrismButtonTone.subtle,
           expanded: true,
           enabled: !state.isApplying,
@@ -229,6 +223,7 @@ class _PkMemberRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     final decision = state.decisionsByPkUuid[pkMember.uuid];
 
     // Build the current selection value for PrismSelect.
@@ -252,12 +247,12 @@ class _PkMemberRow extends ConsumerWidget {
     final items = <PrismSelectItem<String>>[
       PrismSelectItem(
         value: kPkRowImportSentinel,
-        label: 'Import as new', // TODO(l10n)
+        label: l10n.pkMappingOptionImportNew,
         leading: Icon(AppIcons.cloudDownload),
       ),
       PrismSelectItem(
         value: kPkRowSkipSentinel,
-        label: 'Skip', // TODO(l10n)
+        label: l10n.pkMappingOptionSkip,
         leading: Icon(AppIcons.linkOff),
       ),
       for (final local in state.localMembers.where(
@@ -265,7 +260,7 @@ class _PkMemberRow extends ConsumerWidget {
       ))
         PrismSelectItem(
           value: local.id,
-          label: 'Link → ${local.name}', // TODO(l10n)
+          label: l10n.pkMappingOptionLink(local.name),
           leading: MemberAvatar(
             memberName: local.name,
             emoji: local.emoji,
@@ -279,7 +274,7 @@ class _PkMemberRow extends ConsumerWidget {
     ];
 
     return Semantics(
-      label: 'PluralKit member ${pkMember.name}',
+      label: l10n.pkMappingPkMemberSemantics(pkMember.name),
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 48),
         child: Padding(
@@ -354,11 +349,12 @@ class _LocalMemberRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     final decision = state.decisionsByLocalId[localMember.id];
     final isPush = decision is PkPushNewDecision;
 
     return Semantics(
-      label: 'Local member ${localMember.name}',
+      label: l10n.pkMappingLocalMemberSemantics(localMember.name),
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 48),
         child: Padding(
@@ -382,14 +378,14 @@ class _LocalMemberRow extends ConsumerWidget {
                 width: 180,
                 child: PrismSelect<String>(
                   value: isPush ? 'push' : 'skip',
-                  items: const [
+                  items: [
                     PrismSelectItem(
                       value: 'push',
-                      label: 'Push to PK', // TODO(l10n)
+                      label: l10n.pkMappingOptionPush,
                     ),
                     PrismSelectItem(
                       value: 'skip',
-                      label: "Don't push", // TODO(l10n)
+                      label: l10n.pkMappingOptionDontPush,
                     ),
                   ],
                   onChanged: (value) {
@@ -426,6 +422,7 @@ class _ResultsSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
 
     int linked = 0;
     int imported = 0;
@@ -458,15 +455,19 @@ class _ResultsSummary extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            // TODO(l10n)
-            '$linked linked, $imported imported, $pushed pushed, '
-            '$skipped skipped, $failed failed',
+            l10n.pkMappingResultsSummary(
+              linked,
+              imported,
+              pushed,
+              skipped,
+              failed,
+            ),
             style: theme.textTheme.bodyMedium,
           ),
           if (failures.isNotEmpty) ...[
             const SizedBox(height: 12),
             Text(
-              'Errors', // TODO(l10n)
+              l10n.pkMappingErrorsHeader,
               style: theme.textTheme.titleSmall?.copyWith(
                 color: theme.colorScheme.error,
               ),
@@ -476,7 +477,7 @@ class _ResultsSummary extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
-                  '• ${_describeDecision(f.decision)}: ${f.error ?? 'unknown error'}',
+                  '• ${_describeDecision(l10n, f.decision)}: ${f.error ?? l10n.pkMappingUnknownError}',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.error,
                   ),
@@ -488,16 +489,16 @@ class _ResultsSummary extends StatelessWidget {
     );
   }
 
-  String _describeDecision(PkMappingDecision d) {
+  String _describeDecision(AppLocalizations l10n, PkMappingDecision d) {
     switch (d) {
       case PkLinkDecision():
-        return 'Link ${d.pkMember.name}';
+        return l10n.pkMappingDescribeLink(d.pkMember.name);
       case PkImportDecision():
-        return 'Import ${d.pkMember.name}';
+        return l10n.pkMappingDescribeImport(d.pkMember.name);
       case PkPushNewDecision():
-        return 'Push local ${d.localMemberId}';
+        return l10n.pkMappingDescribePush(d.localMemberId);
       case PkSkipDecision():
-        return 'Skip';
+        return l10n.pkMappingDescribeSkip;
     }
   }
 }
