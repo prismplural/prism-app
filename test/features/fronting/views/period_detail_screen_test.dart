@@ -7,10 +7,12 @@ import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/fronting/providers/derived_periods_provider.dart';
+import 'package:prism_plurality/features/fronting/providers/front_comments_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/fronting/services/derive_periods.dart';
 import 'package:prism_plurality/features/fronting/views/period_detail_args.dart';
 import 'package:prism_plurality/features/fronting/views/period_detail_screen.dart';
+import 'package:prism_plurality/features/fronting/widgets/comments_for_range_section.dart';
 import 'package:prism_plurality/features/fronting/widgets/fronting_duration_text.dart';
 import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
@@ -55,6 +57,29 @@ Widget _wrap({
   PeriodDetailArgs? hint,
   List<FrontingPeriod> periods = const [],
 }) {
+  // CommentsForRangeSection watches commentsForRangeProvider(range), where range
+  // comes from the matched period or the hint. Stub the expected range so Drift
+  // is never touched and no pending timers fire on teardown.
+  //
+  // The helper's hint defaults to _t0.._t1, and _wrap passes no matching period
+  // by default (periods=[]), so the range is derived from the hint.
+  final hintStart = hint?.start ?? _t0;
+  final hintEnd = hint?.end ?? _t1;
+  final matchedPeriod = periods.isNotEmpty
+      ? periods.where((p) {
+          final target = sessionIds.toSet();
+          final candidate = p.sessionIds.toSet();
+          return candidate.length == target.length &&
+              candidate.containsAll(target);
+        }).firstOrNull
+      : null;
+  final commentRangeStart = matchedPeriod?.start ?? hintStart;
+  final commentRangeEnd = matchedPeriod?.end ?? hintEnd;
+  final commentRange = DateTimeRange(
+    start: commentRangeStart,
+    end: commentRangeEnd,
+  );
+
   return ProviderScope(
     overrides: [
       derivedPeriodsProvider.overrideWith(
@@ -72,6 +97,11 @@ Widget _wrap({
         sessionByIdProvider(id).overrideWith(
           (ref) => Stream.value(null),
         ),
+      // Stub commentsForRangeProvider — CommentsForRangeSection watches this.
+      // Without a stub it hits Drift and leaves a pending cleanup timer.
+      commentsForRangeProvider(commentRange).overrideWith(
+        (ref) => Stream.value(const []),
+      ),
     ],
     child: MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -182,6 +212,11 @@ void main() {
               sessionByIdProvider('s2').overrideWith(
                 (ref) => Stream.value(null),
               ),
+              // Stub commentsForRangeProvider — matched period is closedPeriod
+              // with start/end derived from closedPeriod.start/end.
+              commentsForRangeProvider(
+                DateTimeRange(start: closedPeriod.start, end: closedPeriod.end),
+              ).overrideWith((ref) => Stream.value(const [])),
             ],
             child: MaterialApp(
               localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -277,6 +312,9 @@ void main() {
             membersByIdsProvider(memberIdsKey(['ma', 'mb'])).overrideWith(
               (ref) => Stream.value({'ma': memberA, 'mb': memberB}),
             ),
+            commentsForRangeProvider(
+              DateTimeRange(start: _t0, end: _t1),
+            ).overrideWith((ref) => Stream.value(const [])),
           ],
           child: MaterialApp(
             localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -324,6 +362,9 @@ void main() {
             membersByIdsProvider(memberIdsKey(['ma'])).overrideWith(
               (ref) => Stream.value({'ma': memberA}),
             ),
+            commentsForRangeProvider(
+              DateTimeRange(start: _t0, end: _t1),
+            ).overrideWith((ref) => Stream.value(const [])),
           ],
           child: MaterialApp(
             localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -393,6 +434,9 @@ void main() {
             membersByIdsProvider(memberIdsKey(['ma'])).overrideWith(
               (ref) => Stream.value({'ma': memberA}),
             ),
+            commentsForRangeProvider(
+              DateTimeRange(start: _t0, end: _t1),
+            ).overrideWith((ref) => Stream.value(const [])),
           ],
           child: MaterialApp.router(
             localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -437,6 +481,9 @@ void main() {
               membersByIdsProvider(
                 memberIdsKey(['missing-member-id']),
               ).overrideWith((ref) => Stream.value({})),
+              commentsForRangeProvider(
+                DateTimeRange(start: _t0, end: _t1),
+              ).overrideWith((ref) => Stream.value(const [])),
             ],
             child: MaterialApp(
               localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -459,5 +506,337 @@ void main() {
         expect(unknownText.style?.fontStyle, FontStyle.italic);
       },
     );
+
+    // ── T8: Briefly joined section ──────────────────────────────────────────
+
+    testWidgets('briefly joined section renders when briefVisitors non-empty', (
+      tester,
+    ) async {
+      final visitStart = DateTime(2026, 4, 1, 10, 5);
+      final visitEnd = DateTime(2026, 4, 1, 10, 15);
+      final visit = EphemeralVisit(
+        memberId: 'm1',
+        start: visitStart,
+        end: visitEnd,
+        sessionId: 'v1',
+      );
+      final period = FrontingPeriod(
+        start: _t0,
+        end: _t1,
+        activeMembers: const ['a', 'b'],
+        briefVisitors: [visit],
+        sessionIds: const ['s1', 's2'],
+        alwaysPresentMembers: const [],
+        isOpenEnded: false,
+      );
+      final memberM1 = _member('m1', 'Jules');
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            derivedPeriodsProvider.overrideWith(
+              (ref) => AsyncValue.data([period]),
+            ),
+            systemSettingsProvider.overrideWith(
+              (ref) => Stream.value(const SystemSettings()),
+            ),
+            for (final id in ['s1', 's2'])
+              sessionByIdProvider(id).overrideWith(
+                (ref) => Stream.value(null),
+              ),
+            membersByIdsProvider(memberIdsKey(['m1'])).overrideWith(
+              (ref) => Stream.value({'m1': memberM1}),
+            ),
+            commentsForRangeProvider(
+              DateTimeRange(start: _t0, end: _t1),
+            ).overrideWith((ref) => Stream.value(const [])),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: const [Locale('en')],
+            home: PeriodDetailScreen(
+              sessionIds: const ['s1', 's2'],
+              hint: _hint(),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('Briefly joined'), findsOneWidget);
+      expect(find.text('Jules'), findsOneWidget);
+    });
+
+    testWidgets('briefly joined section is hidden when briefVisitors is empty', (
+      tester,
+    ) async {
+      final period = FrontingPeriod(
+        start: _t0,
+        end: _t1,
+        activeMembers: const ['a', 'b'],
+        briefVisitors: const [],
+        sessionIds: const ['s1', 's2'],
+        alwaysPresentMembers: const [],
+        isOpenEnded: false,
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          sessionIds: const ['s1', 's2'],
+          hint: _hint(),
+          periods: [period],
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Briefly joined'), findsNothing);
+    });
+
+    testWidgets(
+      'tapping a brief visitor row navigates to that visit session detail',
+      (tester) async {
+        final visitStart = DateTime(2026, 4, 1, 10, 5);
+        final visitEnd = DateTime(2026, 4, 1, 10, 15);
+        final visit = EphemeralVisit(
+          memberId: 'm1',
+          start: visitStart,
+          end: visitEnd,
+          sessionId: 'v1',
+        );
+        final period = FrontingPeriod(
+          start: _t0,
+          end: _t1,
+          activeMembers: const ['a', 'b'],
+          briefVisitors: [visit],
+          sessionIds: const ['s1', 's2'],
+          alwaysPresentMembers: const [],
+          isOpenEnded: false,
+        );
+        final memberM1 = _member('m1', 'Jules');
+
+        final router = GoRouter(
+          routes: [
+            GoRoute(
+              path: '/',
+              builder: (_, _) => PeriodDetailScreen(
+                sessionIds: const ['s1', 's2'],
+                hint: _hint(),
+              ),
+            ),
+            GoRoute(
+              path: '/session/:id',
+              builder: (_, state) => Scaffold(
+                body: Text('session-${state.pathParameters['id']}'),
+              ),
+            ),
+            GoRoute(
+              path: '/session/:id/edit',
+              builder: (_, state) => Scaffold(
+                body: Text('edit-${state.pathParameters['id']}'),
+              ),
+            ),
+          ],
+        );
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              derivedPeriodsProvider.overrideWith(
+                (ref) => AsyncValue.data([period]),
+              ),
+              systemSettingsProvider.overrideWith(
+                (ref) => Stream.value(const SystemSettings()),
+              ),
+              for (final id in ['s1', 's2'])
+                sessionByIdProvider(id).overrideWith(
+                  (ref) => Stream.value(null),
+                ),
+              membersByIdsProvider(memberIdsKey(['m1'])).overrideWith(
+                (ref) => Stream.value({'m1': memberM1}),
+              ),
+              commentsForRangeProvider(
+                DateTimeRange(start: _t0, end: _t1),
+              ).overrideWith((ref) => Stream.value(const [])),
+            ],
+            child: MaterialApp.router(
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: const [Locale('en')],
+              routerConfig: router,
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pump();
+
+        expect(find.text('Jules'), findsOneWidget);
+
+        await tester.tap(find.text('Jules'));
+        await tester.pumpAndSettle();
+
+        // Visit's sessionId is 'v1', so navigation should go to /session/v1.
+        expect(find.text('session-v1'), findsOneWidget);
+      },
+    );
+
+    // ── T8: Always present section ──────────────────────────────────────────
+
+    testWidgets(
+      'always present section renders when alwaysPresentMembers non-empty',
+      (tester) async {
+        final period = FrontingPeriod(
+          start: _t0,
+          end: _t1,
+          activeMembers: const ['a', 'b'],
+          briefVisitors: const [],
+          sessionIds: const ['s1', 's2'],
+          alwaysPresentMembers: const ['ap1'],
+          isOpenEnded: false,
+        );
+        final memberAp1 = _member('ap1', 'Aria');
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              derivedPeriodsProvider.overrideWith(
+                (ref) => AsyncValue.data([period]),
+              ),
+              systemSettingsProvider.overrideWith(
+                (ref) => Stream.value(const SystemSettings()),
+              ),
+              for (final id in ['s1', 's2'])
+                sessionByIdProvider(id).overrideWith(
+                  (ref) => Stream.value(null),
+                ),
+              membersByIdsProvider(memberIdsKey(['ap1'])).overrideWith(
+                (ref) => Stream.value({'ap1': memberAp1}),
+              ),
+              commentsForRangeProvider(
+                DateTimeRange(start: _t0, end: _t1),
+              ).overrideWith((ref) => Stream.value(const [])),
+            ],
+            child: MaterialApp(
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: const [Locale('en')],
+              home: PeriodDetailScreen(
+                sessionIds: const ['s1', 's2'],
+                hint: _hint(),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pump();
+
+        expect(find.text('Always present'), findsOneWidget);
+        expect(find.text('Aria'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'always present section is hidden when alwaysPresentMembers is empty',
+      (tester) async {
+        final period = FrontingPeriod(
+          start: _t0,
+          end: _t1,
+          activeMembers: const ['a', 'b'],
+          briefVisitors: const [],
+          sessionIds: const ['s1', 's2'],
+          alwaysPresentMembers: const [],
+          isOpenEnded: false,
+        );
+
+        await tester.pumpWidget(
+          _wrap(
+            sessionIds: const ['s1', 's2'],
+            hint: _hint(),
+            periods: [period],
+          ),
+        );
+        await tester.pump();
+
+        expect(find.text('Always present'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'briefly joined and always present hidden when no matching period',
+      (tester) async {
+        // derivedPeriodsProvider returns a period that does NOT match the
+        // screen's sessionIds — simulates period boundaries shifted mid-flight.
+        final nonMatchingPeriod = FrontingPeriod(
+          start: _t0,
+          end: _t1,
+          activeMembers: const ['x'],
+          briefVisitors: [
+            EphemeralVisit(
+              memberId: 'v',
+              start: _t0,
+              end: _t1,
+              sessionId: 'different-session',
+            ),
+          ],
+          sessionIds: const ['different-session'],
+          alwaysPresentMembers: const ['ap1'],
+          isOpenEnded: false,
+        );
+
+        await tester.pumpWidget(
+          _wrap(
+            sessionIds: const ['s1', 's2'],
+            hint: _hint(),
+            periods: [nonMatchingPeriod],
+          ),
+        );
+        await tester.pump();
+
+        expect(find.text('Briefly joined'), findsNothing);
+        expect(find.text('Always present'), findsNothing);
+      },
+    );
+
+    // ── T9: Comments section ────────────────────────────────────────────────
+
+    testWidgets('comments section renders with matched period range', (
+      tester,
+    ) async {
+      final period = FrontingPeriod(
+        start: _t0,
+        end: _t1,
+        activeMembers: const ['a', 'b'],
+        briefVisitors: const [],
+        sessionIds: const ['s1', 's2'],
+        alwaysPresentMembers: const [],
+        isOpenEnded: false,
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          sessionIds: const ['s1', 's2'],
+          hint: _hint(),
+          periods: [period],
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byType(CommentsForRangeSection), findsOneWidget);
+    });
+
+    testWidgets('comments section renders with hint range when no matching period', (
+      tester,
+    ) async {
+      // Provide a hint but no matching period — CommentsForRangeSection should
+      // still render, deriving range from hint.start/hint.end.
+      await tester.pumpWidget(
+        _wrap(
+          sessionIds: const ['s1', 's2'],
+          hint: _hint(start: _t0, end: _t1),
+          periods: const [],
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byType(CommentsForRangeSection), findsOneWidget);
+    });
   });
 }

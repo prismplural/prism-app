@@ -12,9 +12,11 @@ import 'package:prism_plurality/features/fronting/providers/derived_periods_prov
 import 'package:prism_plurality/features/fronting/providers/fronting_editing_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/fronting/services/derive_periods.dart';
+import 'package:prism_plurality/features/fronting/services/period_lookup.dart';
 import 'package:prism_plurality/features/fronting/ui/delete_strategy_dialog.dart';
 import 'package:prism_plurality/features/fronting/validation/fronting_validation_models.dart';
 import 'package:prism_plurality/features/fronting/views/period_detail_args.dart';
+import 'package:prism_plurality/features/fronting/widgets/comments_for_range_section.dart';
 import 'package:prism_plurality/features/fronting/widgets/fronting_duration_text.dart';
 import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -55,6 +57,28 @@ class PeriodDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Resolve the matched period once at the screen level so all child
+    // sections can use the same result without repeating the O(n) lookup.
+    final periodsAsync = ref.watch(derivedPeriodsProvider);
+    final matchedPeriod = periodsAsync.whenOrNull(
+      data: (periods) => findPeriodBySessionIds(periods, sessionIds),
+    );
+
+    // Build the DateTimeRange for CommentsForRangeSection.
+    // Prefer matched period bounds → hint → null (no comments rendered).
+    final DateTimeRange? commentRange = () {
+      if (matchedPeriod != null) {
+        return DateTimeRange(
+          start: matchedPeriod.start,
+          end: matchedPeriod.end,
+        );
+      }
+      if (hint != null) {
+        return DateTimeRange(start: hint!.start, end: hint!.end);
+      }
+      return null;
+    }();
+
     return PrismPageScaffold(
       topBar: PrismTopBar(
         title: '',
@@ -74,8 +98,15 @@ class PeriodDetailScreen extends ConsumerWidget {
         children: [
           _Header(sessionIds: sessionIds, hint: hint),
           _CoFrontersSection(sessionIds: sessionIds),
-          // Future tasks fill in: brief/always-present (T8),
-          // comments (T9), stale handling (T13).
+          _BrieflyJoinedSection(sessionIds: sessionIds),
+          _AlwaysPresentSection(sessionIds: sessionIds),
+          if (commentRange != null)
+            CommentsForRangeSection(
+              range: commentRange,
+              defaultTargetTime: commentRange.start,
+            )
+          else
+            const SizedBox.shrink(),
         ],
       ),
     );
@@ -91,12 +122,10 @@ class _Header extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // Reactive isOpenEnded: prefer the matched FrontingPeriod from
-    // derivedPeriodsProvider; fall back to hint for first paint. Task 7
-    // will replace the inline set-equality lookup below with the shared
-    // findPeriodBySessionIds helper.
+    // derivedPeriodsProvider; fall back to hint for first paint.
     final periodsAsync = ref.watch(derivedPeriodsProvider);
     final matchedPeriod = periodsAsync.whenOrNull(
-      data: (periods) => _findPeriodBySessionIds(periods, sessionIds),
+      data: (periods) => findPeriodBySessionIds(periods, sessionIds),
     );
     final isOpenEnded =
         matchedPeriod?.isOpenEnded ?? hint?.isOpenEnded ?? false;
@@ -206,23 +235,6 @@ class _Header extends ConsumerWidget {
         ),
       ),
     );
-  }
-
-  /// Finds the period whose sessionIds set matches [ids] by set equality.
-  /// Task 7 will extract this into lib/features/fronting/services/period_lookup.dart.
-  FrontingPeriod? _findPeriodBySessionIds(
-    List<FrontingPeriod> periods,
-    List<String> ids,
-  ) {
-    if (ids.isEmpty) return null;
-    final target = ids.toSet();
-    for (final p in periods) {
-      final candidate = p.sessionIds.toSet();
-      if (candidate.length == target.length && candidate.containsAll(target)) {
-        return p;
-      }
-    }
-    return null;
   }
 
   // Same logic as _PeriodTile._namesString, but UNTRUNCATED — show every name.
@@ -575,6 +587,331 @@ class _CoFronterRow extends ConsumerWidget {
         );
       },
       child: tileContent,
+    );
+  }
+}
+
+/// Shows brief visitors (EphemeralVisit) for the matched FrontingPeriod.
+///
+/// Renders a "Briefly joined" section card when the matched period has
+/// non-empty [FrontingPeriod.briefVisitors]. Each row taps to the visit's
+/// individual session detail. Hidden when no matching period is found
+/// (graceful degrade for shifted period boundaries).
+class _BrieflyJoinedSection extends ConsumerWidget {
+  const _BrieflyJoinedSection({required this.sessionIds});
+
+  final List<String> sessionIds;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final periodsAsync = ref.watch(derivedPeriodsProvider);
+    final matchedPeriod = periodsAsync.whenOrNull(
+      data: (periods) => findPeriodBySessionIds(periods, sessionIds),
+    );
+
+    if (matchedPeriod == null || matchedPeriod.briefVisitors.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final visitors = matchedPeriod.briefVisitors;
+    final memberIds = visitors.map((v) => v.memberId).toList();
+    final membersKey = memberIdsKey(memberIds);
+    final membersMap =
+        ref.watch(membersByIdsProvider(membersKey)).whenOrNull(data: (d) => d) ??
+        const <String, Member>{};
+
+    final locale = context.dateLocale;
+
+    return PrismSectionCard(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: Text(
+              'Briefly joined',
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+          ),
+          for (var i = 0; i < visitors.length; i++) ...[
+            if (i > 0)
+              Divider(
+                height: 1,
+                indent: 64,
+                endIndent: 12,
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurface
+                    .withValues(alpha: 0.08),
+              ),
+            _BriefVisitorRow(
+              visit: visitors[i],
+              member: membersMap[visitors[i].memberId],
+              locale: locale,
+            ),
+          ],
+          const SizedBox(height: 4),
+        ],
+      ),
+    );
+  }
+}
+
+/// One row in [_BrieflyJoinedSection].
+class _BriefVisitorRow extends StatelessWidget {
+  const _BriefVisitorRow({
+    required this.visit,
+    required this.member,
+    required this.locale,
+  });
+
+  final EphemeralVisit visit;
+  final Member? member;
+  final String? locale;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final name = member?.name ?? 'Unknown';
+    final isUnknown = member == null;
+
+    const dimAlpha = 0.6;
+
+    final leadingWidget = isUnknown
+        ? Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: theme.colorScheme.surfaceContainerHighest,
+            ),
+            child: Icon(
+              AppIcons.helpOutline,
+              size: 20,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          )
+        : MemberAvatar(
+            avatarImageData: member!.avatarImageData,
+            memberName: member!.name,
+            emoji: member!.emoji,
+            customColorEnabled: member!.customColorEnabled,
+            customColorHex: member!.customColorHex,
+            size: 40,
+          );
+
+    final duration = visit.end.difference(visit.start);
+    final startStr = visit.start.toTimeString(locale);
+    final subtitle =
+        'joined for ${duration.toRoundedString()} at $startStr';
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => GoRouter.of(context).go(AppRoutePaths.session(visit.sessionId)),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              leadingWidget,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      style: isUnknown
+                          ? theme.textTheme.bodyLarge?.copyWith(
+                              fontStyle: FontStyle.italic,
+                              fontWeight: FontWeight.w300,
+                              color: theme.colorScheme.onSurface
+                                  .withValues(alpha: dimAlpha),
+                            )
+                          : theme.textTheme.bodyLarge?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: isUnknown
+                            ? theme.colorScheme.onSurface
+                                .withValues(alpha: dimAlpha)
+                            : theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                AppIcons.chevronRightRounded,
+                size: 20,
+                color: theme.colorScheme.onSurfaceVariant.withValues(
+                  alpha: isUnknown ? 0.4 * dimAlpha : 0.4,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Shows always-present members for the matched FrontingPeriod.
+///
+/// Renders an "Always present" section card when the matched period has
+/// non-empty [FrontingPeriod.alwaysPresentMembers]. Each row taps to the
+/// member's profile. Hidden when no matching period is found (graceful
+/// degrade for shifted period boundaries).
+class _AlwaysPresentSection extends ConsumerWidget {
+  const _AlwaysPresentSection({required this.sessionIds});
+
+  final List<String> sessionIds;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final periodsAsync = ref.watch(derivedPeriodsProvider);
+    final matchedPeriod = periodsAsync.whenOrNull(
+      data: (periods) => findPeriodBySessionIds(periods, sessionIds),
+    );
+
+    if (matchedPeriod == null || matchedPeriod.alwaysPresentMembers.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final memberIds = matchedPeriod.alwaysPresentMembers;
+    final membersKey = memberIdsKey(memberIds);
+    final membersMap =
+        ref.watch(membersByIdsProvider(membersKey)).whenOrNull(data: (d) => d) ??
+        const <String, Member>{};
+
+    return PrismSectionCard(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: Text(
+              'Always present',
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+          ),
+          for (var i = 0; i < memberIds.length; i++) ...[
+            if (i > 0)
+              Divider(
+                height: 1,
+                indent: 64,
+                endIndent: 12,
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurface
+                    .withValues(alpha: 0.08),
+              ),
+            _AlwaysPresentRow(
+              memberId: memberIds[i],
+              member: membersMap[memberIds[i]],
+            ),
+          ],
+          const SizedBox(height: 4),
+        ],
+      ),
+    );
+  }
+}
+
+/// One row in [_AlwaysPresentSection].
+class _AlwaysPresentRow extends StatelessWidget {
+  const _AlwaysPresentRow({
+    required this.memberId,
+    required this.member,
+  });
+
+  final String memberId;
+  final Member? member;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final name = member?.name ?? 'Unknown';
+    final isUnknown = member == null;
+
+    const dimAlpha = 0.6;
+
+    final leadingWidget = isUnknown
+        ? Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: theme.colorScheme.surfaceContainerHighest,
+            ),
+            child: Icon(
+              AppIcons.helpOutline,
+              size: 20,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          )
+        : MemberAvatar(
+            avatarImageData: member!.avatarImageData,
+            memberName: member!.name,
+            emoji: member!.emoji,
+            customColorEnabled: member!.customColorEnabled,
+            customColorHex: member!.customColorHex,
+            size: 40,
+          );
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: member != null
+            ? () => GoRouter.of(context).go(AppRoutePaths.member(memberId))
+            : null,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              leadingWidget,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  name,
+                  style: isUnknown
+                      ? theme.textTheme.bodyLarge?.copyWith(
+                          fontStyle: FontStyle.italic,
+                          fontWeight: FontWeight.w300,
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: dimAlpha),
+                        )
+                      : theme.textTheme.bodyLarge?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                ),
+              ),
+              if (member != null) ...[
+                const SizedBox(width: 8),
+                Icon(
+                  AppIcons.chevronRightRounded,
+                  size: 20,
+                  color: theme.colorScheme.onSurfaceVariant
+                      .withValues(alpha: 0.4),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
