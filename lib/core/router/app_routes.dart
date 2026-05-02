@@ -14,6 +14,7 @@ abstract final class AppRoutePaths {
   static const notes = '/notes';
   static const statistics = '/statistics';
   static const sleep = '/sleep';
+  static const boards = '/boards';
 
   // Settings sub-routes
   static const settingsMembers = '/settings/members';
@@ -76,6 +77,7 @@ abstract final class AppRoutePaths {
   static String settingsMember(String id) => '/settings/members/$id';
   static String settingsHabit(String id) => '/settings/habits/$id';
   static String settingsFriend(String id) => '/settings/sharing/$id';
+  static String memberBoard(String id) => '/boards/member/$id';
 }
 
 abstract final class AppRouteNames {
@@ -93,6 +95,8 @@ abstract final class AppRouteNames {
   static const secretKeySetup = 'secret-key-setup';
   static const syncSetup = 'sync-setup';
   static const timeline = 'timeline';
+  static const boards = 'boards';
+  static const memberBoard = 'member-board';
 }
 
 enum AppShellTabId {
@@ -287,7 +291,7 @@ final appShellTabs = [
     icon: AppIcons.navBoards,
     activeIcon: AppIcons.navBoardsActive,
     branchIndex: 11,
-    rootLocation: '/boards',
+    rootLocation: AppRoutePaths.boards,
   ),
 ];
 

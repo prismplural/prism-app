@@ -24,6 +24,8 @@ import '../../features/settings/views/sleep_feature_settings_screen.dart';
 import '../../features/settings/views/polls_feature_settings_screen.dart';
 import '../../features/settings/views/notes_feature_settings_screen.dart';
 import '../../features/settings/views/boards_feature_settings_screen.dart';
+import '../../features/boards/views/boards_screen.dart';
+import '../../features/boards/views/member_board_screen.dart';
 import '../../features/settings/views/reminders_feature_settings_screen.dart';
 import '../../features/settings/views/sync_settings_screen.dart';
 import '../../features/settings/views/notification_settings_screen.dart';
@@ -83,6 +85,7 @@ final _statisticsNavigatorKey = GlobalKey<NavigatorState>(
 );
 final _timelineNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'timeline');
 final _sleepNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'sleep');
+final _boardsNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'boards');
 
 /// Notifier that triggers GoRouter redirect re-evaluation when onboarding
 /// status changes.
@@ -690,6 +693,30 @@ final routerProvider = Provider<GoRouter>((ref) {
                     path: 'session/:id',
                     builder: (context, state) => SessionDetailScreen(
                       sessionId: state.pathParameters['id']!,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          // Branch 11: Boards (opt-in tab; feature-flagged)
+          StatefulShellBranch(
+            navigatorKey: _boardsNavigatorKey,
+            routes: [
+              GoRoute(
+                name: AppRouteNames.boards,
+                path: AppRoutePaths.boards,
+                redirect: (context, state) {
+                  final flags = ref.read(featureFlagsProvider);
+                  return flags.boards ? null : AppRoutePaths.home;
+                },
+                builder: (context, state) => const BoardsScreen(),
+                routes: [
+                  GoRoute(
+                    name: AppRouteNames.memberBoard,
+                    path: 'member/:memberId',
+                    builder: (context, state) => MemberBoardScreen(
+                      memberId: state.pathParameters['memberId']!,
                     ),
                   ),
                 ],
