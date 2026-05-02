@@ -369,12 +369,12 @@ void main() {
     );
 
     testWidgets(
-      'tapping a co-front middle period navigates to a contributing session',
+      'tapping a co-front middle period routes to /period (not a single session)',
       (tester) async {
         // Regression: in `A → A+B → A`, the middle period's
-        // sessionIds must include both contributors so a tap routes
-        // to a real co-front session, not to a "boundary event"
-        // session that doesn't span the middle.
+        // sessionIds must include both contributors. Now that multi-contributor
+        // periods route to /period (Task 10), tapping the co-front row must
+        // land on the /period screen — not silently drop to one session's detail.
         final t0 = DateTime(2026, 4, 1, 10);
         final t1 = DateTime(2026, 4, 1, 11);
         final t2 = DateTime(2026, 4, 1, 12);
@@ -427,6 +427,10 @@ void main() {
               builder: (_, state) =>
                   Scaffold(body: Text('session-${state.pathParameters['id']}')),
             ),
+            GoRoute(
+              path: '/period',
+              builder: (_, _) => const Scaffold(body: Text('period-screen')),
+            ),
           ],
         );
 
@@ -446,19 +450,16 @@ void main() {
         await tester.tap(find.text('Alice & Bob'));
         await tester.pumpAndSettle();
 
-        // The route opens on a session ID drawn from the middle period's
-        // sessionIds. The widget routes to the first id (current 1A
-        // behavior). What matters: it's one of the period's real
-        // contributors, NOT a stray ID.
-        final routedToA = find.text('session-session-a').evaluate().isNotEmpty;
-        final routedToB = find.text('session-session-b').evaluate().isNotEmpty;
+        // Multi-contributor periods now route to /period, not a single session.
         expect(
-          routedToA || routedToB,
-          isTrue,
+          find.text('period-screen'),
+          findsOneWidget,
           reason:
-              'tap on middle co-front period must route to a '
-              'contributing session',
+              'tap on middle co-front period must route to the period '
+              'detail screen, not silently drop to one session\'s detail',
         );
+        // Must NOT have landed on either individual session route.
+        expect(find.textContaining('session-session-'), findsNothing);
       },
     );
 
@@ -516,15 +517,15 @@ void main() {
     });
 
     testWidgets(
-      'tap routing through actual provider chain (real Drift) lands on '
-      'a contributing session for a co-front period',
+      'tap routing through actual provider chain (real Drift) routes '
+      'co-front period to /period screen',
       (tester) async {
-        // Regression: instead of overriding `derivedPeriodsProvider`
+        // Regression / contract test: instead of overriding `derivedPeriodsProvider`
         // with hand-built periods, drive the render through the real
         // `unifiedHistoryOverlapProvider` → `derivedPeriodsProvider`
         // chain backed by an in-memory Drift DB. Tap a co-front middle
-        // period and assert the route opens a real contributing
-        // session id.
+        // period and assert it routes to the /period screen (Task 10 behavior),
+        // not to a single session's detail.
         final db = AppDatabase(NativeDatabase.memory());
         addTearDown(db.close);
 
@@ -573,6 +574,10 @@ void main() {
               path: '/session/:id',
               builder: (_, state) =>
                   Scaffold(body: Text('routed-${state.pathParameters['id']}')),
+            ),
+            GoRoute(
+              path: '/period',
+              builder: (_, _) => const Scaffold(body: Text('period-screen')),
             ),
           ],
         );
@@ -628,7 +633,7 @@ void main() {
 
         // Tap the co-front row. The middle period's sessionIds must
         // include both contributors (the algorithm guarantees this);
-        // the route opens on whichever id the widget surfaces first.
+        // the route now goes to /period for any 2+ contributor period.
         final cofront = find.text('Alice & Bob');
         expect(
           cofront,
@@ -639,15 +644,14 @@ void main() {
         await tester.tap(cofront);
         await tester.pumpAndSettle();
 
-        final routedToA = find.text('routed-session-a').evaluate().isNotEmpty;
-        final routedToB = find.text('routed-session-b').evaluate().isNotEmpty;
         expect(
-          routedToA || routedToB,
-          isTrue,
+          find.text('period-screen'),
+          findsOneWidget,
           reason:
-              'tap on co-front period must route to a real contributing '
-              'session id (not a boundary event)',
+              'tap on co-front period must route to the period detail screen',
         );
+        // Must NOT have navigated to an individual session route.
+        expect(find.textContaining('routed-'), findsNothing);
       },
     );
   });

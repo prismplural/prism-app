@@ -37,6 +37,7 @@ import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_grouped_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
+import 'package:prism_plurality/features/fronting/views/period_detail_args.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
 /// A day-grouped list of fronting history rendered per the user's
@@ -857,11 +858,31 @@ class _PeriodTile extends ConsumerWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: () {
-          // Period-detail UX is §3.1 (not in 1A's scope). For 1A we route
-          // to the first contributing session — preserves the existing
-          // navigation pattern.
+          // Period-detail routing:
+          //   1 contributor  → existing single-session detail (unchanged behavior)
+          //   2+ contributors → new /period screen with the full session set
+          //
+          // PeriodDetailArgs carries the FULL period bounds (period.start /
+          // period.end), not the slice bounds, so a midnight-crossing period
+          // shows its complete extent on the detail view.
           if (period.sessionIds.isEmpty) return;
-          context.go(AppRoutePaths.session(period.sessionIds.first));
+          if (period.sessionIds.length == 1) {
+            context.go(AppRoutePaths.session(period.sessionIds.first));
+            return;
+          }
+          context.go(
+            AppRoutePaths.period(period.sessionIds),
+            extra: PeriodDetailArgs(
+              activeMembers: activeMemberObjs,
+              start: period.start,
+              end: period.end,
+              isOpenEnded: period.isOpenEnded,
+              alwaysPresentMembers: period.alwaysPresentMembers
+                  .map((id) => membersMap[id])
+                  .whereType<Member>()
+                  .toList(),
+            ),
+          );
         },
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
