@@ -76,6 +76,10 @@ post_install do |installer|
       ccache_clangpp = File.expand_path('../.ccache-clang++', __FILE__)
       config.build_settings['CC'] = ccache_clang
       config.build_settings['CXX'] = ccache_clangpp
+      # Xcode 16 enables explicit modules by default and refuses any compiler
+      # binary it doesn't recognize — including our ccache wrappers. Tell it
+      # the wrappers are launchers around a real clang so it trusts them.
+      config.build_settings['CLANG_ENABLE_EXPLICIT_MODULES_WITH_COMPILER_LAUNCHER'] = 'YES'
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = ios_deployment_target
       # Enable only the permissions the app actually uses.
       # permission_handler requires explicit opt-in at compile time — without this
