@@ -55,11 +55,6 @@ enum MigrationMode {
   /// full local state first).  Skips per-row migration; relies on PK
   /// API + SP re-imports to rebuild the timeline post-migration.
   startFresh,
-
-  /// Defer the migration.  Writes `'deferred'` to settings; no other
-  /// side effects.  The upgrade modal will surface a banner reminding
-  /// the user; sync stays degraded until they pick a real mode.
-  notNow,
 }
 
 /// Device's role in the sync group, chosen by the upgrade modal (5C).
@@ -69,7 +64,7 @@ enum MigrationMode {
 /// to resync fronting data in the new shape (see spec §4.2).
 enum DeviceRole { solo, primary, secondary }
 
-enum MigrationOutcome { success, failed, deferred }
+enum MigrationOutcome { success, failed }
 
 /// Result returned from [FrontingMigrationService.runMigration].
 @immutable
@@ -190,7 +185,7 @@ class FrontingMigrationService {
     required this.syncHandle,
     Future<void> Function(ffi.PrismSyncHandle handle)? resetSyncState,
     Future<void> Function(ffi.PrismSyncHandle handle, String syncId)?
-        clearSyncState,
+    clearSyncState,
     Future<String?> Function()? readSyncId,
     Future<void> Function()? wipeSyncKeychain,
     Future<Directory> Function()? backupDirectoryProvider,
@@ -198,22 +193,23 @@ class FrontingMigrationService {
     Future<void> Function()? postTransactionFailpoint,
     DateTime Function()? clock,
     Random? nonceRandom,
-  })  : _resetSyncState = resetSyncState ??
-            ((handle) => ffi.resetSyncState(handle: handle)),
-        _clearSyncState = clearSyncState ??
-            ((handle, syncId) => ffi.clearSyncState(
-                  handle: handle,
-                  syncId: syncId,
-                  forceActive: false,
-                )),
-        _readSyncId = readSyncId ?? (() async => null),
-        _wipeSyncKeychain = wipeSyncKeychain ?? (() async {}),
-        _backupDirectoryProvider =
-            backupDirectoryProvider ?? getApplicationDocumentsDirectory,
-        _midTransactionFailpoint = midTransactionFailpoint,
-        _postTransactionFailpoint = postTransactionFailpoint,
-        _clock = clock ?? DateTime.now,
-        _nonceRandom = nonceRandom ?? Random.secure();
+  }) : _resetSyncState =
+           resetSyncState ?? ((handle) => ffi.resetSyncState(handle: handle)),
+       _clearSyncState =
+           clearSyncState ??
+           ((handle, syncId) => ffi.clearSyncState(
+             handle: handle,
+             syncId: syncId,
+             forceActive: false,
+           )),
+       _readSyncId = readSyncId ?? (() async => null),
+       _wipeSyncKeychain = wipeSyncKeychain ?? (() async {}),
+       _backupDirectoryProvider =
+           backupDirectoryProvider ?? getApplicationDocumentsDirectory,
+       _midTransactionFailpoint = midTransactionFailpoint,
+       _postTransactionFailpoint = postTransactionFailpoint,
+       _clock = clock ?? DateTime.now,
+       _nonceRandom = nonceRandom ?? Random.secure();
 
   final AppDatabase db;
   final MemberRepository memberRepository;
@@ -250,7 +246,7 @@ class FrontingMigrationService {
   /// Defaults to the generated `ffi.clearSyncState(...)`. The sync_id
   /// is sourced from [_readSyncId].
   final Future<void> Function(ffi.PrismSyncHandle handle, String syncId)
-      _clearSyncState;
+  _clearSyncState;
 
   /// Reads the persisted sync_id from the platform keychain.
   ///
@@ -305,6 +301,10 @@ class FrontingMigrationService {
 
   /// Sentinel string written to `system_settings.pending_fronting_migration_mode`.
   static const String modeNotStarted = 'notStarted';
+
+  /// Legacy sentinel from earlier beta builds where users could defer the
+  /// migration. New code no longer writes this state; startup treats it as a
+  /// mandatory modal state so users complete the sync-reset cutover.
   static const String modeDeferred = 'deferred';
   static const String modeUpgradeAndKeep = 'upgradeAndKeep';
   static const String modeStartFresh = 'startFresh';
@@ -361,12 +361,6 @@ class FrontingMigrationService {
     required MigrationMode mode,
     required String password,
   }) async {
-    if (mode == MigrationMode.notNow) {
-      throw StateError(
-        'prepareBackup is not valid for MigrationMode.notNow — call '
-        'runMigration directly for the deferred path.',
-      );
-    }
     final dir = await _backupDirectoryProvider();
     final fileName = _buildBackupFileName();
     final target = File('${dir.path}/$fileName');
@@ -396,10 +390,11 @@ class FrontingMigrationService {
 
   String _generateNonceHex(int hexChars) {
     final byteCount = (hexChars + 1) ~/ 2;
-    final bytes = List<int>.generate(byteCount, (_) => _nonceRandom.nextInt(256));
-    final hex = bytes
-        .map((b) => b.toRadixString(16).padLeft(2, '0'))
-        .join();
+    final bytes = List<int>.generate(
+      byteCount,
+      (_) => _nonceRandom.nextInt(256),
+    );
+    final hex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
     return hex.substring(0, hexChars);
   }
 
@@ -449,8 +444,9 @@ class FrontingMigrationService {
           // block uses the active transactional connection (Drift
           // propagates the transaction via zones); no separate
           // connection is opened.
-          await db.systemSettingsDao
-              .writePendingFrontingMigrationMode(modeInProgress);
+          await db.systemSettingsDao.writePendingFrontingMigrationMode(
+            modeInProgress,
+          );
 
           // Test-only failpoint: throwing here exercises the rollback
           // path — both the marker and any subsequent destructive work
@@ -509,16 +505,12 @@ class FrontingMigrationService {
     );
   }
 
-  /// Compatibility wrapper used by the `notNow` deferral path and
-  /// covering tests that don't exercise the durable-backup gate.
+  /// Compatibility wrapper for tests and callers that don't exercise the
+  /// durable-backup gate.
   ///
-  /// For [MigrationMode.notNow] this writes the `'deferred'` marker and
-  /// returns immediately — the only path that should hit
-  /// `runMigration` in production. For other modes it composes
-  /// [prepareBackup] + [runMigrationDestructive] in sequence; the
-  /// upgrade modal calls those two methods directly with the
-  /// backup-ready acknowledgment step in between, so production never
-  /// reaches this fallback path.
+  /// Production uses [prepareBackup] + [runMigrationDestructive] directly with
+  /// the backup-ready acknowledgment step in between. This fallback composes
+  /// those methods in sequence.
   ///
   /// [shareFile]'s return value gates the destructive phase: a `null`
   /// return is treated as user cancellation (e.g. Share dialog
@@ -532,13 +524,6 @@ class FrontingMigrationService {
     required Future<Uri?> Function(File file) shareFile,
     String password = '',
   }) async {
-    if (mode == MigrationMode.notNow) {
-      // No destructive work — just write the deferred marker.
-      await db.systemSettingsDao
-          .writePendingFrontingMigrationMode(modeDeferred);
-      return const MigrationResult(outcome: MigrationOutcome.deferred);
-    }
-
     File exportFile;
     try {
       exportFile = await prepareBackup(mode: mode, password: password);
@@ -568,7 +553,8 @@ class FrontingMigrationService {
       return MigrationResult(
         outcome: MigrationOutcome.failed,
         exportFile: exportFile,
-        errorMessage: 'Backup share/save was cancelled before destructive '
+        errorMessage:
+            'Backup share/save was cancelled before destructive '
             'migration. The PRISM1 file is still on disk; retry to continue.',
       );
     }
@@ -599,8 +585,8 @@ class FrontingMigrationService {
   /// This sidesteps the configure-briefly path that had a
   /// relay-reconnect bug.
   Future<MigrationResult> resumeCleanup() async {
-    final currentMode =
-        await db.systemSettingsDao.readPendingFrontingMigrationMode();
+    final currentMode = await db.systemSettingsDao
+        .readPendingFrontingMigrationMode();
     if (currentMode != modeInProgress) {
       return MigrationResult(
         outcome: MigrationOutcome.failed,
@@ -697,8 +683,9 @@ class FrontingMigrationService {
         // persistent state is already cleared — otherwise resume would
         // call clear_sync_state against an empty/missing sync_id and
         // possibly mis-classify state.
-        await db.systemSettingsDao
-            .writePendingFrontingMigrationCleanupSubstate(substateResetDone);
+        await db.systemSettingsDao.writePendingFrontingMigrationCleanupSubstate(
+          substateResetDone,
+        );
       }
     }
 
@@ -765,10 +752,10 @@ class FrontingMigrationService {
     // inert default so a subsequent (rare) re-run after `complete`
     // doesn't carry over stale state — though `resumeCleanup()` itself
     // refuses to run unless mode is `inProgress`.
-    await db.systemSettingsDao
-        .writePendingFrontingMigrationMode(modeComplete);
-    await db.systemSettingsDao
-        .writePendingFrontingMigrationCleanupSubstate(substateInert);
+    await db.systemSettingsDao.writePendingFrontingMigrationMode(modeComplete);
+    await db.systemSettingsDao.writePendingFrontingMigrationCleanupSubstate(
+      substateInert,
+    );
 
     return MigrationResult(
       outcome: MigrationOutcome.success,
@@ -858,8 +845,7 @@ class FrontingMigrationService {
     // v2 entity op so the new-shape sync schema picks them up.
     for (final c in classified) {
       if (c.kind != _SessionKind.spImported) continue;
-      await frontingSessionRepository
-          .updateSession(_rowToDomain(c.row));
+      await frontingSessionRepository.updateSession(_rowToDomain(c.row));
       counters.spRowsMigrated++;
       final mid = c.row.memberId;
       if (mid != null) touchedMemberIds.add(mid);
@@ -876,8 +862,7 @@ class FrontingMigrationService {
         case _SessionKind.spImported:
           continue;
         case _SessionKind.nativeSleep:
-          await frontingSessionRepository
-              .updateSession(_rowToDomain(c.row));
+          await frontingSessionRepository.updateSession(_rowToDomain(c.row));
           counters.nativeRowsMigrated++;
           continue;
         case _SessionKind.nativeNormal:
@@ -1114,13 +1099,15 @@ class FrontingMigrationService {
         )
         .get();
     return rows
-        .map((r) => _LegacyComment(
-              id: r.read<String>('id'),
-              sessionId: r.read<String?>('session_id') ?? '',
-              body: r.read<String>('body'),
-              timestamp: r.read<DateTime>('timestamp'),
-              createdAt: r.read<DateTime>('created_at'),
-            ))
+        .map(
+          (r) => _LegacyComment(
+            id: r.read<String>('id'),
+            sessionId: r.read<String?>('session_id') ?? '',
+            body: r.read<String>('body'),
+            timestamp: r.read<DateTime>('timestamp'),
+            createdAt: r.read<DateTime>('created_at'),
+          ),
+        )
         .toList();
   }
 
@@ -1139,17 +1126,11 @@ class FrontingMigrationService {
   ) {
     return [
       for (final r in rows)
-        _ClassifiedSession(
-          r,
-          _classifyOne(r, spSessionIds),
-        ),
+        _ClassifiedSession(r, _classifyOne(r, spSessionIds)),
     ];
   }
 
-  _SessionKind _classifyOne(
-    FrontingSessionRow r,
-    Set<String> spSessionIds,
-  ) {
+  _SessionKind _classifyOne(FrontingSessionRow r, Set<String> spSessionIds) {
     if (r.pluralkitUuid != null && r.pluralkitUuid!.isNotEmpty) {
       return _SessionKind.pkImported;
     }
@@ -1172,7 +1153,8 @@ class FrontingMigrationService {
       sessionType: r.sessionType == SessionType.sleep.index
           ? SessionType.sleep
           : SessionType.normal,
-      quality: r.quality != null &&
+      quality:
+          r.quality != null &&
               r.quality! >= 0 &&
               r.quality! < SleepQuality.values.length
           ? SleepQuality.values[r.quality!]
@@ -1205,9 +1187,7 @@ class _LegacyComment {
 }
 
 class _MigrationCounters {
-  _MigrationCounters({
-    this.pkRowsDeleted = 0,
-  });
+  _MigrationCounters({this.pkRowsDeleted = 0});
 
   int spRowsMigrated = 0;
   int nativeRowsMigrated = 0;

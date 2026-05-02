@@ -7903,9 +7903,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get frontingUpgradeContinue => 'Continue';
 
   @override
-  String get frontingUpgradeNotNow => 'Not now';
-
-  @override
   String get frontingUpgradeRoleHeadline => 'Is this your main device?';
 
   @override

@@ -1,5 +1,5 @@
 /// Phase 5C — Riverpod providers driving the per-member fronting upgrade
-/// modal and the deferred-state banner.
+/// modal and resume-cleanup banner.
 ///
 /// Spec: `docs/plans/fronting-per-member-sessions.md` §2.2 (selective
 /// migration UX), §4.1 ("App startup, post-v7 schema"), §4.2 (paired
@@ -8,7 +8,7 @@
 /// Three providers ship from this file:
 ///   - [frontingMigrationModeProvider]: stream of the
 ///     `system_settings.pending_fronting_migration_mode` sentinel that
-///     drives modal/banner visibility.
+///     drives modal/resume-banner visibility.
 ///   - [pairedDeviceCountProvider]: count of devices in the sync group
 ///     (excluding self) so the modal can skip the "main device?"
 ///     question for solo users.
@@ -31,7 +31,7 @@ import 'package:prism_plurality/features/settings/providers/device_management_pr
 ///
 /// Possible values (from [FrontingMigrationService]):
 ///   - `'notStarted'` — v6→v7 upgrade ran; user hasn't seen the modal.
-///   - `'deferred'` — user picked "Not now"; banner reminds them.
+///   - `'deferred'` — legacy beta sentinel; treated like `'notStarted'`.
 ///   - `'upgradeAndKeep'` / `'startFresh'` — mid-transaction sentinel
 ///     written before destructive work.  Surfaces as "in progress" in
 ///     the UI; on next launch we treat it as `notStarted` for retry.
@@ -39,9 +39,8 @@ import 'package:prism_plurality/features/settings/providers/device_management_pr
 ///     member_id)` rows and refused to create the composite index.
 ///   - `'complete'` — migration done; modal/banner stay hidden.
 ///
-/// Streams via the system_settings DAO so any write — from the
-/// migration service or the modal's "Not now" handler — propagates to
-/// every watcher without manual invalidation.
+/// Streams via the system_settings DAO so migration-service writes propagate
+/// to every watcher without manual invalidation.
 final frontingMigrationModeProvider = StreamProvider<String>((ref) {
   // The SystemSettings domain model doesn't expose
   // pendingFrontingMigrationMode (it's lifecycle infrastructure, not a
@@ -136,7 +135,7 @@ enum FrontingMigrationGateStatus {
   /// Migration finished successfully. All new-shape paths are safe.
   complete,
 
-  /// Migration has not started or is deferred. The upgrade modal will
+  /// Migration has not started, or is in a legacy deferred state. The upgrade modal will
   /// surface to the user; runtime new-shape paths must stay read-only
   /// until the user picks a mode.
   needsModal,
@@ -188,8 +187,8 @@ final frontingMigrationGateProvider = Provider<FrontingMigrationGateStatus>((
           return FrontingMigrationGateStatus.blocked;
         case FrontingMigrationService.modeInProgress:
           return FrontingMigrationGateStatus.inProgress;
-        // notStarted / deferred / upgradeAndKeep / startFresh all surface
-        // as "modal pending" — the modal is the user's recovery path.
+        // notStarted / legacy deferred / upgradeAndKeep / startFresh all
+        // surface as "modal pending" — the modal is the user's recovery path.
         default:
           return FrontingMigrationGateStatus.needsModal;
       }

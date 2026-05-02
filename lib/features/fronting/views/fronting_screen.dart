@@ -699,8 +699,8 @@ class FrontingBannerStack extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Fronting per-member upgrade banner — only renders when the
-        // user has deferred the upgrade (Phase 5C).  Auto-hidden after
+        // Fronting per-member upgrade banner — only renders when
+        // migration cleanup needs to be resumed. Auto-hidden after
         // migration completes via Riverpod state.
         const FrontingUpgradeBanner(
           padding: EdgeInsets.fromLTRB(16, 8, 16, 0),

@@ -219,9 +219,9 @@ class SystemSettingsDao extends DatabaseAccessor<AppDatabase>
   /// Reads `system_settings.pending_fronting_migration_mode`.  Defaults to
   /// `'complete'` for fresh installs (handled by the table default + the
   /// onCreate path); the v6→v7 onUpgrade overwrites it to `'notStarted'`
-  /// for any database that existed before v7.  Phase 5B's migration
-  /// service writes one of `'deferred'` / `'upgradeAndKeep'` /
-  /// `'startFresh'` / `'complete'` here.
+  /// for any database that existed before v7. The migration service treats
+  /// legacy `'deferred'` as mandatory and writes one of `'upgradeAndKeep'` /
+  /// `'startFresh'` / `'inProgress'` / `'complete'` here.
   Future<String> readPendingFrontingMigrationMode() async {
     final row = await getSettings();
     return row.pendingFrontingMigrationMode;

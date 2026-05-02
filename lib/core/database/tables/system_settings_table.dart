@@ -134,10 +134,9 @@ class SystemSettingsTable extends Table {
   //
   // Allowed values:
   //   'notStarted'      — v7 schema installed but user hasn't seen the modal yet
-  //   'deferred'        — user tapped "Not now"; modal re-shown on next launch
+  //   'deferred'        — legacy beta sentinel; treated like notStarted
   //   'upgradeAndKeep'  — user chose selective migration (in progress or complete)
   //   'startFresh'      — user chose wipe-everything path (in progress or complete)
-  //   'notNow'          — alias for deferred, written by the "Not now" path
   //   'complete'        — migration finished (or fresh install — no data to migrate)
   //   'blocked'         — v7 migration detected unresolvable duplicate rows;
   //                       Phase 5 startup will surface this to the user

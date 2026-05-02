@@ -2171,10 +2171,6 @@
   "@frontingUpgradeContinue": {
     "description": "Primary continue button on the intro screen"
   },
-  "frontingUpgradeNotNow": "Ahora no",
-  "@frontingUpgradeNotNow": {
-    "description": "Secondary defer button on the intro screen"
-  },
   "frontingUpgradeRoleHeadline": "¿Este es tu dispositivo principal?",
   "@frontingUpgradeRoleHeadline": {
     "description": "Role-selection screen headline"
@@ -2376,11 +2372,11 @@
   },
   "frontingUpgradeBannerTitle": "Actualización del frente pendiente",
   "@frontingUpgradeBannerTitle": {
-    "description": "Home-screen banner title for deferred upgrade"
+    "description": "Home-screen banner title when migration cleanup needs to be resumed"
   },
   "frontingUpgradeBannerMessage": "Toca para continuar con la actualización.",
   "@frontingUpgradeBannerMessage": {
-    "description": "Home-screen banner message for deferred upgrade"
+    "description": "Home-screen banner message when migration cleanup needs to be resumed"
   },
 
   "frontingUpgradeResumeCleanupHeadline": "Terminar la migración",

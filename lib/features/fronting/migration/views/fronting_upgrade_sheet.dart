@@ -92,10 +92,8 @@ typedef BackupHandoffCallback = Future<bool> Function(File file);
 
 /// Show the upgrade modal.
 ///
-/// [isDismissible] — `false` for the `'notStarted'` first-time prompt
-/// (user must pick something; "Not now" is the dismissal that writes
-/// `'deferred'`).  `true` for the deferred-banner re-entry, where the
-/// user already chose to defer once.
+/// [isDismissible] should be `false` for the mandatory migration surface. The
+/// user must complete the migration before fronting/sync-sensitive work resumes.
 Future<void> showFrontingUpgradeSheet(
   BuildContext context, {
   required bool isDismissible,
@@ -120,7 +118,7 @@ class FrontingUpgradeSheet extends ConsumerStatefulWidget {
   const FrontingUpgradeSheet({
     super.key,
     this.scrollController,
-    this.isDismissible = true,
+    this.isDismissible = false,
     this.shareBackup,
     this.saveBackup,
     this.autoRunPluralKitImport = true,
@@ -255,53 +253,13 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
     setState(() => _step = FrontingUpgradeStep.role);
   }
 
-  Future<void> _onNotNow() async {
-    final runner = ref.read(frontingMigrationRunnerProvider);
-    // The service writes 'deferred' to settings and returns without
-    // any destructive work for `MigrationMode.notNow`. The settings
-    // write can still fail (e.g. DAO storage error); inspect the
-    // result so a silent failure doesn't pop the modal as if the
-    // deferral landed — the user would just see the upgrade banner
-    // again on next launch with no explanation.
-    MigrationResult result;
-    try {
-      result = await runner.runMigration(
-        mode: MigrationMode.notNow,
-        role: DeviceRole.solo, // role is irrelevant for notNow
-        shareFile: (_) async => null,
-      );
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _result = MigrationResult(
-          outcome: MigrationOutcome.failed,
-          errorMessage: e.toString(),
-        );
-        _step = FrontingUpgradeStep.failure;
-      });
-      return;
-    }
-    if (!mounted) return;
-    if (result.outcome == MigrationOutcome.failed) {
-      // Keep the modal open on the failure step so the user can see
-      // what went wrong and retry. Mirrors the destructive-path
-      // failure handling in `_runDestructive`.
-      setState(() {
-        _result = result;
-        _step = FrontingUpgradeStep.failure;
-      });
-      return;
-    }
-    Navigator.of(context).pop();
-  }
-
   void _onRoleChosen(DeviceRole role) {
     setState(() {
       _role = role;
       // Secondaries skip the mode picker — they always wipe local
       // tables and rely on re-pairing per §4.1 secondary path.  We
       // pass `upgradeAndKeep` to the service since secondary paths
-      // ignore the mode value but require a non-notNow mode.
+      // ignore the mode value.
       if (role == DeviceRole.secondary) {
         _mode = MigrationMode.upgradeAndKeep;
         _step = FrontingUpgradeStep.password;
@@ -752,13 +710,6 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
           onPressed: _onContinueFromIntro,
           label: context.l10n.frontingUpgradeContinue,
           tone: PrismButtonTone.filled,
-          expanded: true,
-        ),
-        const SizedBox(height: 8),
-        PrismButton(
-          onPressed: _onNotNow,
-          label: context.l10n.frontingUpgradeNotNow,
-          tone: PrismButtonTone.subtle,
           expanded: true,
         ),
       ],

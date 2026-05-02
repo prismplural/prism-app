@@ -8484,8 +8484,6 @@
   },
   "frontingUpgradeContinue": "Continue",
   "@frontingUpgradeContinue": { "description": "Primary continue button on the intro screen" },
-  "frontingUpgradeNotNow": "Not now",
-  "@frontingUpgradeNotNow": { "description": "Secondary defer button on the intro screen" },
 
   "frontingUpgradeRoleHeadline": "Is this your main device?",
   "@frontingUpgradeRoleHeadline": { "description": "Role-selection screen headline" },
@@ -8622,9 +8620,9 @@
   "@frontingUpgradeFailureBackupNote": { "description": "Reassurance shown on the failure screen when a backup exists" },
 
   "frontingUpgradeBannerTitle": "Fronting upgrade pending",
-  "@frontingUpgradeBannerTitle": { "description": "Home-screen banner title for deferred upgrade" },
+  "@frontingUpgradeBannerTitle": { "description": "Home-screen banner title when migration cleanup needs to be resumed" },
   "frontingUpgradeBannerMessage": "Tap to continue the upgrade.",
-  "@frontingUpgradeBannerMessage": { "description": "Home-screen banner message for deferred upgrade" },
+  "@frontingUpgradeBannerMessage": { "description": "Home-screen banner message when migration cleanup needs to be resumed" },
 
   "frontingUpgradeResumeCleanupHeadline": "Finish migration",
   "@frontingUpgradeResumeCleanupHeadline": { "description": "Headline shown when a previous migration attempt left the device mid-cleanup and the modal is offering to finish the remaining sync-credential reset." },

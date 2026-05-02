@@ -8039,9 +8039,6 @@ class AppLocalizationsEs extends AppLocalizations {
   String get frontingUpgradeContinue => 'Continuar';
 
   @override
-  String get frontingUpgradeNotNow => 'Ahora no';
-
-  @override
   String get frontingUpgradeRoleHeadline =>
       '¿Este es tu dispositivo principal?';
 

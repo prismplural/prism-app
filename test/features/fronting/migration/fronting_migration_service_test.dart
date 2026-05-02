@@ -9,7 +9,6 @@
 ///     anchored at the LEGACY `timestamp` (not createdAt).
 ///   - Corrupt co_fronter_ids JSON falls back to single-member migration.
 ///   - Secondary mode skips per-row work and truncates fronting tables.
-///   - notNow mode writes the `'deferred'` flag and returns immediately.
 ///   - Failure mid-transaction rolls back; settings stays at notStarted;
 ///     PRISM1 file from step 2 survives on disk.
 ///   - Native multi-member fan-out: deterministic v5 ids match the
@@ -461,51 +460,6 @@ void main() {
         await backupDir.delete(recursive: true);
       } catch (_) {}
     });
-
-    test('prepareBackup rejects MigrationMode.notNow', () async {
-      final svc = _makeService(db, exportService);
-      await expectLater(
-        svc.prepareBackup(
-          mode: MigrationMode.notNow,
-          password: 'irrelevant-12345',
-        ),
-        throwsStateError,
-      );
-    });
-
-    // -------------------------------------------------------------------
-    // notNow mode
-    // -------------------------------------------------------------------
-    test(
-      'notNow mode writes deferred to settings, no other side effects',
-      () async {
-        // Seed a row that would be destroyed if migration ran.
-        await _seedMember(db, 'm1');
-        await _seedSession(
-          db,
-          id: 's1',
-          startTime: DateTime(2026, 4, 1).toUtc(),
-          memberId: 'm1',
-        );
-
-        final svc = _makeService(db, exportService);
-        final result = await svc.runMigration(
-          mode: MigrationMode.notNow,
-          role: DeviceRole.solo,
-          shareFile: _noopShare,
-        );
-
-        expect(result.outcome, MigrationOutcome.deferred);
-        expect(result.exportFile, isNull);
-        expect(
-          await db.systemSettingsDao.readPendingFrontingMigrationMode(),
-          'deferred',
-        );
-        // Session still on disk - no destructive work ran.
-        final rows = await db.frontingSessionsDao.getAllSessions();
-        expect(rows, hasLength(1));
-      },
-    );
 
     // -------------------------------------------------------------------
     // Solo upgradeAndKeep - mixed data

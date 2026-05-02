@@ -12,7 +12,6 @@ import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
-import 'package:prism_plurality/features/fronting/migration/fronting_migration_service.dart';
 import 'package:prism_plurality/features/fronting/migration/providers/fronting_migration_providers.dart';
 import 'package:prism_plurality/features/fronting/migration/views/fronting_upgrade_sheet.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
@@ -74,18 +73,13 @@ double floatingNavBarExpandedHeight(
 /// - [gate]: resolved [FrontingMigrationGateStatus] from
 ///   [frontingMigrationGateProvider].
 /// - [rawMode]: the underlying `pending_fronting_migration_mode`
-///   string. Needed to disambiguate `needsModal` between "user has
-///   never seen the modal" (auto-present, non-dismissible) and "user
-///   already chose to defer" (banner-only, modal not auto-shown).
+///   string. Kept for diagnostic context and future mode-specific policy.
 ///
 /// Returns:
-/// - `shouldShow == false`: gate is `complete`, or it's `needsModal`
-///   with the underlying mode being `deferred` (the home banner is the
-///   surface in that case).
+/// - `shouldShow == false`: gate is `complete`.
 /// - `shouldShow == true, isDismissible == false`: any state where the
 ///   user must pick a recovery path before runtime new-shape work
-///   resumes — `blocked`, `inProgress`, or `needsModal` with mode
-///   `notStarted` / `upgradeAndKeep` / `startFresh`.
+///   resumes — `blocked`, `inProgress`, or `needsModal`.
 @visibleForTesting
 FrontingUpgradeSheetDecision frontingUpgradeSheetDecision({
   required FrontingMigrationGateStatus gate,
@@ -99,15 +93,8 @@ FrontingUpgradeSheetDecision frontingUpgradeSheetDecision({
       // Hard read-only states — modal is the only recovery surface.
       return const FrontingUpgradeSheetDecision.show(isDismissible: false);
     case FrontingMigrationGateStatus.needsModal:
-      // `deferred` already means the user picked "Not now" once;
-      // banner re-entry handles re-prompting them, so don't auto-pop
-      // the modal on every shell rebuild.
-      if (rawMode == FrontingMigrationService.modeDeferred) {
-        return const FrontingUpgradeSheetDecision.hidden();
-      }
-      // First-time prompt or crashed-retry sentinels
-      // (`notStarted` / `upgradeAndKeep` / `startFresh`) — present
-      // non-dismissible until the user picks something.
+      // First-time prompt, legacy deferred sentinel, or crashed-retry
+      // sentinels. Present non-dismissible until the user picks a path.
       return const FrontingUpgradeSheetDecision.show(isDismissible: false);
   }
 }
@@ -723,11 +710,7 @@ class _AppShellState extends ConsumerState<AppShell>
     //
     // Behavior per status:
     // - [FrontingMigrationGateStatus.complete]: hidden.
-    // - [FrontingMigrationGateStatus.needsModal]: present non-dismissible
-    //   only when the underlying mode is `notStarted` /
-    //   `upgradeAndKeep` / `startFresh`. The deferred case is part of
-    //   the same enum value but the home banner is its surface — see
-    //   the resolver below.
+    // - [FrontingMigrationGateStatus.needsModal]: present non-dismissible.
     // - [FrontingMigrationGateStatus.inProgress]: present non-dismissible.
     //   The modal opens straight to a "Finish migration" screen that
     //   calls `resumeCleanup()` (the Drift transaction committed but a
@@ -988,8 +971,7 @@ class _AppShellState extends ConsumerState<AppShell>
 
   /// Tracks whether the upgrade modal is already showing so listener
   /// re-fires (each settings stream emit) don't stack duplicate
-  /// sheets.  Reset in `whenComplete` so a dismissed-then-redeferred
-  /// modal can re-open via the banner.
+  /// sheets. Reset in `whenComplete` so a failed/retried modal can re-open.
   bool _frontingUpgradeSheetShowing = false;
 
   void _showFrontingUpgradeSheetIfNeeded(
