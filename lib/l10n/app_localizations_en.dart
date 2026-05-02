@@ -1910,6 +1910,20 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get frontingDeletePeriodTitle => 'Delete period?';
+
+  @override
+  String frontingDeletePeriodMessage(int count, String names) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count sessions',
+      one: '1 session',
+    );
+    return 'This will remove $_temp0 for $names.';
+  }
+
+  @override
   String get frontingDeleteSleepTitle => 'Delete Sleep Session';
 
   @override

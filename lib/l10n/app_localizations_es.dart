@@ -1961,6 +1961,20 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String get frontingDeletePeriodTitle => '¿Eliminar período?';
+
+  @override
+  String frontingDeletePeriodMessage(int count, String names) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count sesiones',
+      one: '1 sesión',
+    );
+    return 'Se eliminarán $_temp0 de $names.';
+  }
+
+  @override
   String get frontingDeleteSleepTitle => 'Eliminar sesión de sueño';
 
   @override
@@ -2644,7 +2658,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get memberFrontingChip => 'Al frente';
 
   @override
-  String get memberAdminChip => 'Admin';
+  String get memberAdminChip => 'Administrador';
 
   @override
   String get memberInactiveChip => 'Inactivo';
@@ -2918,7 +2932,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get memberAgeHint => 'Opcional';
 
   @override
-  String get memberBioLabel => 'Bio';
+  String get memberBioLabel => 'Biografía';
 
   @override
   String get memberBioHint => 'Una breve descripción...';
@@ -2957,7 +2971,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get memberMarkdownSubtitle => 'Mostrar el texto con formato markdown';
 
   @override
-  String get memberAdminTitle => 'Admin';
+  String get memberAdminTitle => 'Administrador';
 
   @override
   String get memberAdminSubtitle =>
@@ -3225,7 +3239,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get chatMessageEdited => 'editado';
 
   @override
-  String get chatInfoTitle => 'Info';
+  String get chatInfoTitle => 'Información';
 
   @override
   String get chatInfoConversationTitle => 'Título de la conversación';
@@ -3249,7 +3263,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get chatInfoOwner => 'Propietario';
 
   @override
-  String get chatInfoAdmin => 'Admin';
+  String get chatInfoAdmin => 'Administrador';
 
   @override
   String chatInfoUnknownMember(String termSingular) {
@@ -5053,36 +5067,37 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get migrationNotImportedTitle => 'What didn\'t come over';
+  String get migrationNotImportedTitle => 'Lo que no se importó';
 
   @override
-  String get migrationNotImportedFriendsTitle => 'Friends';
+  String get migrationNotImportedFriendsTitle => 'Amigos';
 
   @override
   String get migrationNotImportedFriendsDetail =>
-      'SP friends are separate accounts on another system. Prism doesn\'t have a cross-system friends concept yet.';
+      'Los amigos en SP son cuentas separadas en otro sistema. Prism aún no tiene un concepto de amigos entre sistemas.';
 
   @override
-  String get migrationNotImportedBoardMetaTitle => 'Board message metadata';
+  String get migrationNotImportedBoardMetaTitle =>
+      'Metadatos de mensajes del tablero';
 
   @override
   String get migrationNotImportedBoardMetaDetail =>
-      'Message categories and bucket assignments aren\'t part of the export format.';
+      'Las categorías de mensajes y las asignaciones de grupos no forman parte del formato de exportación.';
 
   @override
-  String get migrationNotImportedNotifTitle => 'Notification preferences';
+  String get migrationNotImportedNotifTitle => 'Preferencias de notificaciones';
 
   @override
   String get migrationNotImportedNotifDetail =>
-      'These are stored on your device in SP and aren\'t included in the export.';
+      'Se guardan en tu dispositivo en SP y no se incluyen en la exportación.';
 
   @override
   String get migrationNotImportedFrontRulesTitle =>
-      'Custom front display rules';
+      'Reglas personalizadas de visualización del frente';
 
   @override
   String get migrationNotImportedFrontRulesDetail =>
-      'Display rules and front conditions don\'t map to Prism\'s system.';
+      'Las reglas de visualización y las condiciones del frente no se traducen al sistema de Prism.';
 
   @override
   String get migrationImportFailed => 'Fallo en la importación';
@@ -8628,22 +8643,22 @@ class AppLocalizationsEs extends AppLocalizations {
   String get boardsComposeEditing => 'Editar publicación';
 
   @override
-  String get boardsComposeNewPost => 'New post';
+  String get boardsComposeNewPost => 'Nueva publicación';
 
   @override
-  String get boardsComposeAudienceEveryone => 'Everyone';
+  String get boardsComposeAudienceEveryone => 'Todos';
 
   @override
-  String get boardsComposeAudiencePrivate => 'Private';
+  String get boardsComposeAudiencePrivate => 'Privado';
 
   @override
-  String get boardsComposeToNoHeadmate => 'No recipient';
+  String get boardsComposeToNoHeadmate => 'Sin destinatario';
 
   @override
-  String get boardsComposeWhoIsPosting => 'Who is posting?';
+  String get boardsComposeWhoIsPosting => '¿Quién está publicando?';
 
   @override
-  String get boardsComposeSelectAuthor => 'Select author';
+  String get boardsComposeSelectAuthor => 'Seleccionar autor';
 
   @override
   String get memberSectionBoardMessages => 'Publicaciones públicas';
