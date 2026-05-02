@@ -16,6 +16,7 @@ import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/utils/avatar_image_picker.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
+import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_emoji_picker.dart';
 import 'package:prism_plurality/shared/widgets/prism_field_icon_button.dart';
@@ -26,10 +27,12 @@ import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/members/widgets/custom_fields_editor.dart';
-import 'package:prism_plurality/features/members/widgets/member_name_style_dialog.dart';
 import 'package:prism_plurality/features/members/widgets/member_profile_header_editor.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/widgets/markdown_editing_controller.dart';
 import 'package:uuid/uuid.dart';
+
+enum _MemberEditTab { edit, style }
 
 /// A modal sheet for creating or editing a system member.
 class AddEditMemberSheet extends ConsumerStatefulWidget {
@@ -58,6 +61,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
   late final TextEditingController _emojiController;
   late final TextEditingController _ageController;
   late final TextEditingController _colorHexController;
+  late final TextEditingController _nameStyleColorHexController;
   late final TextEditingController _displayNameController;
   final List<_ProxyTagDraft> _proxyTagDrafts = [];
 
@@ -76,6 +80,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
   Uint8List? _profileHeaderImageData;
   bool _saving = false;
   bool _saved = false;
+  _MemberEditTab _tab = _MemberEditTab.edit;
 
   /// Parsed birthday (null when unset). When [_birthdayHideYear] is true the
   /// year is irrelevant for display; the wire format will substitute the PK
@@ -97,6 +102,9 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
     );
     _colorHexController = TextEditingController(
       text: _normalizeColorHexForField(m?.customColorHex),
+    );
+    _nameStyleColorHexController = TextEditingController(
+      text: _normalizeColorHexForField(m?.nameStyleColorHex),
     );
     _displayNameController = TextEditingController(text: m?.displayName ?? '');
     _proxyTagDrafts
@@ -136,6 +144,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
     _emojiController.dispose();
     _ageController.dispose();
     _colorHexController.dispose();
+    _nameStyleColorHexController.dispose();
     _displayNameController.dispose();
     for (final draft in _proxyTagDrafts) {
       draft.dispose();
@@ -302,21 +311,70 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
     }
   }
 
-  Future<void> _openNameStyleDialog() {
-    return MemberNameStyleDialog.show(
+  Color? _previewNameStyleColor() {
+    if (_nameStyleColorMode != MemberNameColorMode.custom) return null;
+    final hex = _nameStyleColorHexController.text.trim();
+    if (hex.isEmpty) return null;
+    try {
+      return AppColors.fromHex(hex);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _openNameStyleColorPicker() async {
+    var pickerColor =
+        _previewNameStyleColor() ?? const Color(0xFFB498C2);
+
+    await PrismDialog.show<void>(
       context: context,
-      member: _previewMember(),
-      onSaved: (member) => setState(() {
-        _nameStyleFont = member.nameStyleFont;
-        _nameStyleBold = member.nameStyleBold;
-        _nameStyleItalic = member.nameStyleItalic;
-        _nameStyleColorMode = member.nameStyleColorMode;
-        _nameStyleColorHex =
-            member.nameStyleColorMode == MemberNameColorMode.custom
-            ? member.nameStyleColorHex
-            : null;
-      }),
+      title: context.l10n.memberNameStyleColorLabel,
+      builder: (_) {
+        return SingleChildScrollView(
+          child: ColorPicker(
+            pickerColor: pickerColor,
+            onColorChanged: (color) {
+              pickerColor = color;
+            },
+            enableAlpha: false,
+            hexInputBar: true,
+            labelTypes: const [],
+            pickerAreaHeightPercent: 0.7,
+          ),
+        );
+      },
+      actions: [
+        PrismButton(
+          onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
+          label: context.l10n.cancel,
+        ),
+        PrismButton(
+          onPressed: () {
+            Navigator.of(context, rootNavigator: true).pop();
+            final hex = _colorToFieldHex(pickerColor);
+            setState(() {
+              _nameStyleColorHexController.text = hex;
+              _nameStyleColorHex = hex;
+            });
+          },
+          label: context.l10n.settingsAccentColorSelect,
+          tone: PrismButtonTone.filled,
+        ),
+      ],
     );
+  }
+
+  Future<void> _openBioEditor() async {
+    final result = await PrismSheet.showFullScreen<String>(
+      context: context,
+      builder: (context, scrollController) => _BioEditorSheet(
+        initialBio: _bioController.text,
+        scrollController: scrollController,
+      ),
+    );
+    if (result != null && mounted) {
+      setState(() => _bioController.text = result);
+    }
   }
 
   Future<void> _save() async {
@@ -333,6 +391,11 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
     final colorHex = _customColorEnabled
         ? _colorHexController.text.trim().isNotEmpty
               ? _colorHexController.text.trim()
+              : null
+        : null;
+    final nameStyleColorHex = _nameStyleColorMode == MemberNameColorMode.custom
+        ? _nameStyleColorHexController.text.trim().isNotEmpty
+              ? _nameStyleColorHexController.text.trim()
               : null
         : null;
     final displayName = _displayNameController.text.trim();
@@ -368,9 +431,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
           nameStyleBold: _nameStyleBold,
           nameStyleItalic: _nameStyleItalic,
           nameStyleColorMode: _nameStyleColorMode,
-          nameStyleColorHex: _nameStyleColorMode == MemberNameColorMode.custom
-              ? _nameStyleColorHex
-              : null,
+          nameStyleColorHex: nameStyleColorHex,
           profileHeaderImageData: _profileHeaderImageData,
         );
         await notifier.updateMember(updated);
@@ -395,9 +456,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
           nameStyleBold: _nameStyleBold,
           nameStyleItalic: _nameStyleItalic,
           nameStyleColorMode: _nameStyleColorMode,
-          nameStyleColorHex: _nameStyleColorMode == MemberNameColorMode.custom
-              ? _nameStyleColorHex
-              : null,
+          nameStyleColorHex: nameStyleColorHex,
           profileHeaderImageData: _profileHeaderImageData,
         );
       }
@@ -437,6 +496,20 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
             title: widget.isEditing
                 ? context.l10n.terminologyEditItem(terms.singular)
                 : context.l10n.terminologyNewItem(terms.singular),
+            titleWidget: PrismSegmentedControl<_MemberEditTab>(
+              selected: _tab,
+              onChanged: (t) => setState(() => _tab = t),
+              segments: [
+                PrismSegment(
+                  value: _MemberEditTab.edit,
+                  label: l10n.memberEditTabEdit,
+                ),
+                PrismSegment(
+                  value: _MemberEditTab.style,
+                  label: l10n.memberEditTabStyle,
+                ),
+              ],
+            ),
             trailing: PrismGlassIconButton(
               icon: AppIcons.check,
               size: PrismTokens.topBarActionSize,
@@ -459,29 +532,300 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
                   bottom: MediaQuery.of(context).viewInsets.bottom + 16,
                 ),
                 children: [
-                  MemberProfileHeaderEditor(
-                    member: _previewMember(),
-                    source: _profileHeaderSource,
-                    layout: _profileHeaderLayout,
-                    visible: _profileHeaderVisible,
-                    prismHeaderImageData: _profileHeaderImageData,
-                    pluralKitHeaderImageData: widget.member?.pkBannerImageData,
-                    onSourceChanged: (source) =>
-                        setState(() => _profileHeaderSource = source),
-                    onLayoutChanged: (layout) =>
-                        setState(() => _profileHeaderLayout = layout),
-                    onVisibleChanged: (visible) =>
-                        setState(() => _profileHeaderVisible = visible),
-                    onPrismHeaderImageChanged: (bytes) =>
-                        setState(() => _profileHeaderImageData = bytes),
-                    onAvatarTap: _pickAvatar,
-                    onAvatarRemove: _avatarImageData != null
-                        ? () => setState(() => _avatarImageData = null)
-                        : null,
-                    onNameStyleTap: _openNameStyleDialog,
-                  ),
-                  const SizedBox(height: 24),
-
+                  if (_tab == _MemberEditTab.style) ...[
+                    const SizedBox(height: 16),
+                    MemberProfileHeaderEditor(
+                      member: _previewMember(),
+                      source: _profileHeaderSource,
+                      layout: _profileHeaderLayout,
+                      visible: _profileHeaderVisible,
+                      prismHeaderImageData: _profileHeaderImageData,
+                      pluralKitHeaderImageData:
+                          widget.member?.pkBannerImageData,
+                      onSourceChanged: (source) =>
+                          setState(() => _profileHeaderSource = source),
+                      onLayoutChanged: (layout) =>
+                          setState(() => _profileHeaderLayout = layout),
+                      onVisibleChanged: (visible) =>
+                          setState(() => _profileHeaderVisible = visible),
+                      onPrismHeaderImageChanged: (bytes) =>
+                          setState(() => _profileHeaderImageData = bytes),
+                      onAvatarTap: _pickAvatar,
+                      onAvatarRemove: _avatarImageData != null
+                          ? () => setState(() => _avatarImageData = null)
+                          : null,
+                      showSectionWrapper: false,
+                    ),
+                    const SizedBox(height: 32),
+                    Text(
+                      l10n.memberNameStyleDialogTitle,
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                        fontFamily: theme.textTheme.headlineLarge?.fontFamily,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing:
+                            theme.textTheme.headlineLarge?.letterSpacing ?? 0,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      l10n.memberNameStyleFontLabel,
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    PrismSegmentedControl<MemberNameFont>(
+                      selected: _nameStyleFont,
+                      onChanged: (font) =>
+                          setState(() => _nameStyleFont = font),
+                      segments: [
+                        PrismSegment(
+                          value: MemberNameFont.standard,
+                          label: l10n.memberNameStyleFontDefault,
+                        ),
+                        PrismSegment(
+                          value: MemberNameFont.display,
+                          label: l10n.memberNameStyleFontDisplay,
+                        ),
+                        PrismSegment(
+                          value: MemberNameFont.serif,
+                          label: l10n.memberNameStyleFontSerif,
+                        ),
+                        PrismSegment(
+                          value: MemberNameFont.mono,
+                          label: l10n.memberNameStyleFontMono,
+                        ),
+                        PrismSegment(
+                          value: MemberNameFont.rounded,
+                          label: l10n.memberNameStyleFontRounded,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      l10n.memberNameStyleStyleLabel,
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        PrismButton(
+                          label: l10n.memberNameStyleBold,
+                          icon: AppIcons.textBold,
+                          tone: _nameStyleBold
+                              ? PrismButtonTone.filled
+                              : PrismButtonTone.subtle,
+                          density: PrismControlDensity.compact,
+                          onPressed: () => setState(
+                            () => _nameStyleBold = !_nameStyleBold,
+                          ),
+                        ),
+                        PrismButton(
+                          label: l10n.memberNameStyleItalic,
+                          icon: AppIcons.textItalic,
+                          tone: _nameStyleItalic
+                              ? PrismButtonTone.filled
+                              : PrismButtonTone.subtle,
+                          density: PrismControlDensity.compact,
+                          onPressed: () => setState(
+                            () => _nameStyleItalic = !_nameStyleItalic,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      l10n.memberNameStyleColorLabel,
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    PrismSegmentedControl<MemberNameColorMode>(
+                      selected: _nameStyleColorMode,
+                      onChanged: (mode) => setState(() {
+                        _nameStyleColorMode = mode;
+                        if (mode == MemberNameColorMode.custom &&
+                            _nameStyleColorHex == null) {
+                          final seeded = _colorToFieldHex(
+                            Theme.of(context).colorScheme.primary,
+                          );
+                          _nameStyleColorHex = seeded;
+                          _nameStyleColorHexController.text = seeded;
+                        }
+                      }),
+                      segments: [
+                        PrismSegment(
+                          value: MemberNameColorMode.standard,
+                          label: l10n.memberNameStyleColorDefault,
+                        ),
+                        PrismSegment(
+                          value: MemberNameColorMode.accent,
+                          label: l10n.memberNameStyleColorAccent,
+                        ),
+                        PrismSegment(
+                          value: MemberNameColorMode.custom,
+                          label: l10n.memberNameStyleColorCustom,
+                        ),
+                      ],
+                    ),
+                    if (_nameStyleColorMode == MemberNameColorMode.custom) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        l10n.memberColorHexLabel,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      IntrinsicHeight(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Expanded(
+                              child: PrismTextField(
+                                controller: _nameStyleColorHexController,
+                                hintText: '#B498C2',
+                                prefixText: '#',
+                                onChanged: (v) => setState(
+                                  () => _nameStyleColorHex =
+                                      v.trim().isNotEmpty ? v.trim() : null,
+                                ),
+                                suffix: PrismFieldIconButton(
+                                  icon: AppIcons.colorize,
+                                  tooltip: l10n.memberNameStyleColorLabel,
+                                  onPressed: _openNameStyleColorPicker,
+                                ),
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.allow(
+                                    RegExp(r'[0-9a-fA-F]'),
+                                  ),
+                                  LengthLimitingTextInputFormatter(6),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            AspectRatio(
+                              aspectRatio: 1,
+                              child: Tooltip(
+                                message: l10n.memberNameStyleColorLabel,
+                                child: Semantics(
+                                  button: true,
+                                  label: l10n.memberNameStyleColorLabel,
+                                  child: GestureDetector(
+                                    onTap: _openNameStyleColorPicker,
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: _previewNameStyleColor() ??
+                                            theme.colorScheme
+                                                .surfaceContainerHighest,
+                                        border: Border.all(
+                                          color: theme.colorScheme.outline,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 32),
+                    Text(
+                      l10n.memberAccentColorSectionTitle,
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                        fontFamily: theme.textTheme.headlineLarge?.fontFamily,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing:
+                            theme.textTheme.headlineLarge?.letterSpacing ?? 0,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    PrismSwitchRow(
+                      title: l10n.memberCustomColorTitle,
+                      subtitle: l10n.memberCustomColorSubtitle(
+                        terms.singularLower,
+                      ),
+                      value: _customColorEnabled,
+                      onChanged: (v) =>
+                          setState(() => _customColorEnabled = v),
+                    ),
+                    if (_customColorEnabled) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        l10n.memberColorHexLabel,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      IntrinsicHeight(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Expanded(
+                              child: PrismTextField(
+                                controller: _colorHexController,
+                                hintText: '#AF8EE9',
+                                prefixText: '#',
+                                onChanged: (_) => setState(() {}),
+                                suffix: PrismFieldIconButton(
+                                  icon: AppIcons.colorize,
+                                  tooltip: l10n.settingsAccentColorPickerTitle,
+                                  onPressed: _openCustomColorPicker,
+                                ),
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.allow(
+                                    RegExp(r'[0-9a-fA-F]'),
+                                  ),
+                                  LengthLimitingTextInputFormatter(6),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            AspectRatio(
+                              aspectRatio: 1,
+                              child: Tooltip(
+                                message: l10n.settingsAccentColorPickerTitle,
+                                child: Semantics(
+                                  button: true,
+                                  label: l10n.settingsAccentColorPickerTitle,
+                                  child: GestureDetector(
+                                    onTap: _openCustomColorPicker,
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: _previewColor() ??
+                                            theme.colorScheme
+                                                .surfaceContainerHighest,
+                                        border: Border.all(
+                                          color: theme.colorScheme.outline,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 32),
+                  ],
+                  if (_tab == _MemberEditTab.edit) ...[
                   PrismPickerTextFieldRow(
                     pickerLabel: context.l10n.onboardingAddMemberFieldEmoji,
                     picker: PrismEmojiPicker(
@@ -518,15 +862,18 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
                     textCapitalization: TextCapitalization.words,
                     onChanged: (_) => setState(() {}),
                   ),
-                  const SizedBox(height: 16),
-
-                  _ProxyTagsEditor(
-                    drafts: _proxyTagDrafts,
-                    onAdd: _addProxyTag,
-                    onRemove: _removeProxyTag,
-                    onChanged: () => setState(() {}),
+                  const SizedBox(height: 24),
+                  Text(
+                    l10n.memberEditSectionAbout,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                      fontFamily: theme.textTheme.headlineLarge?.fontFamily,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing:
+                          theme.textTheme.headlineLarge?.letterSpacing ?? 0,
+                    ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
 
                   PrismTextField(
                     controller: _pronounsController,
@@ -535,34 +882,82 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
                   ),
                   const SizedBox(height: 16),
 
-                  PrismTextField(
-                    controller: _ageController,
-                    labelText: l10n.memberAgeLabel,
-                    hintText: l10n.memberAgeHint,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: PrismTextField(
+                          controller: _ageController,
+                          labelText: l10n.memberAgeLabel,
+                          hintText: l10n.memberAgeHint,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 2,
+                        child: _BirthdayField(
+                          date: _birthday,
+                          hideYear: _birthdayHideYear,
+                          onPick: _pickBirthday,
+                          onClear: () => setState(() => _birthday = null),
+                          onToggleHideYear: (v) =>
+                              setState(() => _birthdayHideYear = v),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 16),
 
-                  _BirthdayField(
-                    date: _birthday,
-                    hideYear: _birthdayHideYear,
-                    onPick: _pickBirthday,
-                    onClear: () => setState(() => _birthday = null),
-                    onToggleHideYear: (v) =>
-                        setState(() => _birthdayHideYear = v),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          l10n.memberBioLabel,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                      PrismIconButton(
+                        icon: AppIcons.edit,
+                        tooltip: l10n.memberBioEditorTooltip,
+                        onPressed: _openBioEditor,
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 16),
-
+                  const SizedBox(height: 4),
                   PrismTextField(
                     controller: _bioController,
-                    labelText: l10n.memberBioLabel,
                     hintText: l10n.memberBioHint,
-                    maxLines: 4,
-                    minLines: 2,
+                    maxLines: 6,
+                    minLines: 3,
                     textCapitalization: TextCapitalization.sentences,
                   ),
-                  const SizedBox(height: 8),
+
+                  const SizedBox(height: 24),
+                  _ProxyTagsEditor(
+                    drafts: _proxyTagDrafts,
+                    onAdd: _addProxyTag,
+                    onRemove: _removeProxyTag,
+                    onChanged: () => setState(() {}),
+                  ),
+
+                  const SizedBox(height: 24),
+                  Text(
+                    l10n.memberEditSectionSettings,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                      fontFamily: theme.textTheme.headlineLarge?.fontFamily,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing:
+                          theme.textTheme.headlineLarge?.letterSpacing ?? 0,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
 
                   PrismSwitchRow(
                     title: l10n.memberMarkdownTitle,
@@ -570,7 +965,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
                     value: _markdownEnabled,
                     onChanged: (v) => setState(() => _markdownEnabled = v),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 8),
 
                   PrismSwitchRow(
                     title: l10n.memberAdminTitle,
@@ -578,70 +973,10 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
                     value: _isAdmin,
                     onChanged: (v) => setState(() => _isAdmin = v),
                   ),
-                  const SizedBox(height: 8),
-
-                  PrismSwitchRow(
-                    title: l10n.memberCustomColorTitle,
-                    subtitle: l10n.memberCustomColorSubtitle(
-                      terms.singularLower,
-                    ),
-                    value: _customColorEnabled,
-                    onChanged: (v) => setState(() => _customColorEnabled = v),
-                  ),
-                  if (_customColorEnabled) ...[
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Tooltip(
-                          message: l10n.settingsAccentColorPickerTitle,
-                          child: Semantics(
-                            button: true,
-                            label: l10n.settingsAccentColorPickerTitle,
-                            child: GestureDetector(
-                              onTap: _openCustomColorPicker,
-                              child: Container(
-                                width: 40,
-                                height: 40,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color:
-                                      _previewColor() ??
-                                      theme.colorScheme.surfaceContainerHighest,
-                                  border: Border.all(
-                                    color: theme.colorScheme.outline,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: PrismTextField(
-                            controller: _colorHexController,
-                            labelText: l10n.memberColorHexLabel,
-                            hintText: '#AF8EE9',
-                            prefixText: '#',
-                            onChanged: (_) => setState(() {}),
-                            suffix: PrismFieldIconButton(
-                              icon: AppIcons.colorize,
-                              tooltip: l10n.settingsAccentColorPickerTitle,
-                              onPressed: _openCustomColorPicker,
-                            ),
-                            inputFormatters: [
-                              FilteringTextInputFormatter.allow(
-                                RegExp(r'[0-9a-fA-F]'),
-                              ),
-                              LengthLimitingTextInputFormatter(6),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
 
                   CustomFieldsEditor(memberId: _memberId),
                   const SizedBox(height: 32),
+                  ],
                 ],
               ),
             ),
@@ -925,6 +1260,126 @@ class _BirthdayField extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+/// Full-screen markdown editor for the member bio field.
+///
+/// Returns the trimmed bio text when saved, or null if cancelled without saving.
+class _BioEditorSheet extends StatefulWidget {
+  const _BioEditorSheet({
+    required this.initialBio,
+    required this.scrollController,
+  });
+
+  final String initialBio;
+  final ScrollController scrollController;
+
+  @override
+  State<_BioEditorSheet> createState() => _BioEditorSheetState();
+}
+
+class _BioEditorSheetState extends State<_BioEditorSheet> {
+  late final MarkdownEditingController _controller;
+  late final FocusNode _focusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = MarkdownEditingController(text: widget.initialBio);
+    _focusNode = FocusNode();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  bool get _isDirty => _controller.text != widget.initialBio;
+
+  Future<void> _save() async {
+    Navigator.of(context).pop(_controller.text.trim());
+  }
+
+  Future<void> _maybeDiscard() async {
+    if (!_isDirty) {
+      Navigator.of(context).pop(null);
+      return;
+    }
+    final confirm = await PrismDialog.confirm(
+      context: context,
+      title: context.l10n.memberNoteDiscardTitle,
+      message: context.l10n.memberNoteDiscardMessage,
+      confirmLabel: context.l10n.memberNoteDiscardConfirm,
+      destructive: true,
+    );
+    if (confirm && mounted) Navigator.of(context).pop(null);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = context.l10n;
+    _controller.updateTheme(context);
+
+    return ListenableBuilder(
+      listenable: _controller,
+      builder: (context, _) => PopScope(
+        canPop: !_isDirty,
+        onPopInvokedWithResult: (didPop, _) async {
+          if (didPop) return;
+          await _maybeDiscard();
+        },
+        child: Column(
+          children: [
+            PrismSheetTopBar(
+              title: l10n.memberBioLabel,
+              trailing: PrismGlassIconButton(
+                icon: AppIcons.check,
+                onPressed: _save,
+                tooltip: l10n.save,
+                size: PrismTokens.topBarActionSize,
+                tint: theme.colorScheme.primary,
+                accentIcon: true,
+              ),
+            ),
+            Expanded(
+              child: GestureDetector(
+                onTap: () => _focusNode.requestFocus(),
+                behavior: HitTestBehavior.translucent,
+                child: ListView(
+                  controller: widget.scrollController,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: PrismTokens.pageHorizontalPadding + 8,
+                    vertical: 16,
+                  ),
+                  children: [
+                    PrismTextField(
+                      controller: _controller,
+                      focusNode: _focusNode,
+                      hintText: l10n.memberBioHint,
+                      fieldStyle: PrismTextFieldStyle.borderless,
+                      style: theme.textTheme.bodyLarge,
+                      hintStyle: theme.textTheme.bodyLarge?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant.withValues(
+                          alpha: 0.4,
+                        ),
+                      ),
+                      minLines: 12,
+                      maxLines: null,
+                      textCapitalization: TextCapitalization.sentences,
+                      autofocus: true,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
