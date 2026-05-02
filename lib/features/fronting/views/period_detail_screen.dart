@@ -12,6 +12,7 @@ import 'package:prism_plurality/features/fronting/providers/derived_periods_prov
 import 'package:prism_plurality/features/fronting/providers/fronting_editing_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/fronting/services/derive_periods.dart';
+import 'package:prism_plurality/features/fronting/services/period_delete.dart';
 import 'package:prism_plurality/features/fronting/services/period_lookup.dart';
 import 'package:prism_plurality/features/fronting/ui/delete_strategy_dialog.dart';
 import 'package:prism_plurality/features/fronting/validation/fronting_validation_models.dart';
@@ -87,8 +88,17 @@ class PeriodDetailScreen extends ConsumerWidget {
           PrismTopBarAction(
             icon: AppIcons.deleteOutline,
             tooltip: context.l10n.frontingSessionDetailDeleteTooltip,
-            // Wired in Task 11.
-            onPressed: () {},
+            onPressed: () async {
+              final didDelete = await confirmAndDeletePeriod(
+                context,
+                ref,
+                sessionIds: sessionIds,
+                contributors: hint?.activeMembers ?? <Member>[],
+              );
+              if (didDelete && context.mounted) {
+                context.pop();
+              }
+            },
           ),
         ],
       ),
