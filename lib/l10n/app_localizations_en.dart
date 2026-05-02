@@ -8393,4 +8393,94 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get memberBoardEmpty => 'No posts here yet.';
+
+  @override
+  String get boardsScreenTitle => 'Boards';
+
+  @override
+  String get boardsTabPublic => 'Public';
+
+  @override
+  String get boardsTabInbox => 'Inbox';
+
+  @override
+  String get boardsViewFilterAll => 'All fronters';
+
+  @override
+  String boardsViewFilterMember(String name) {
+    return '$name';
+  }
+
+  @override
+  String get boardsEmptyPublic => 'Nothing on the public timeline yet.';
+
+  @override
+  String get boardsEmptyInbox => 'No private messages right now.';
+
+  @override
+  String get boardsComposeNoFronterHint =>
+      'No one\'s fronting right now — start a session to post.';
+
+  @override
+  String boardsToastFronterDeFronted(String name) {
+    return '$name de-fronted — showing all';
+  }
+
+  @override
+  String get boardsComposeRecipientPublicEveryone => 'Everyone (public)';
+
+  @override
+  String boardsComposeRecipientPublicMember(String name) {
+    return '$name (public)';
+  }
+
+  @override
+  String boardsComposeRecipientPrivateMember(String name) {
+    return '$name (private)';
+  }
+
+  @override
+  String get boardsComposeAddTitle => '+ Add title';
+
+  @override
+  String get boardsComposeTitlePlaceholder => 'Title (optional)';
+
+  @override
+  String get boardsComposeBodyPlaceholder => 'Write something...';
+
+  @override
+  String boardsComposeConsequencePrivate(String name) {
+    return 'Only $name will see this in their Inbox.';
+  }
+
+  @override
+  String boardsComposeConsequencePublicMember(String name) {
+    return '$name\'s profile and the Public feed will show this.';
+  }
+
+  @override
+  String get boardsComposeConsequencePublicEveryone =>
+      'Everyone in your system will see this in the Public feed.';
+
+  @override
+  String get boardsComposeSave => 'Post';
+
+  @override
+  String get boardsComposeCancel => 'Cancel';
+
+  @override
+  String get boardsComposeEditing => 'Edit post';
+
+  @override
+  String get memberSectionBoardMessages => 'Board Messages';
+
+  @override
+  String memberBoardSeeAll(int count) {
+    return 'See all $count posts';
+  }
+
+  @override
+  String memberBoardAddPost(String name) {
+    return 'Post to $name';
+  }
 }

@@ -13553,6 +13553,150 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No posts here yet.'**
   String get memberBoardEmpty;
+
+  /// Title shown in the top bar of the main Boards screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Boards'**
+  String get boardsScreenTitle;
+
+  /// Label for the Public sub-tab on the Boards screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Public'**
+  String get boardsTabPublic;
+
+  /// Label for the Inbox sub-tab on the Boards screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Inbox'**
+  String get boardsTabInbox;
+
+  /// Inbox view-filter option: show posts for all currently-fronting members.
+  ///
+  /// In en, this message translates to:
+  /// **'All fronters'**
+  String get boardsViewFilterAll;
+
+  /// Inbox view-filter option showing a specific member's name.
+  ///
+  /// In en, this message translates to:
+  /// **'{name}'**
+  String boardsViewFilterMember(String name);
+
+  /// Empty state subtitle for the Public sub-tab when no posts exist.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing on the public timeline yet.'**
+  String get boardsEmptyPublic;
+
+  /// Empty state subtitle for the Inbox sub-tab when there are no private posts.
+  ///
+  /// In en, this message translates to:
+  /// **'No private messages right now.'**
+  String get boardsEmptyInbox;
+
+  /// Hint shown in the Inbox empty state when no members are currently fronting.
+  ///
+  /// In en, this message translates to:
+  /// **'No one\'s fronting right now — start a session to post.'**
+  String get boardsComposeNoFronterHint;
+
+  /// Toast shown when the inbox view-filter member stops fronting, resetting the filter.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} de-fronted — showing all'**
+  String boardsToastFronterDeFronted(String name);
+
+  /// Recipient picker option: post is public and addressed to all system members.
+  ///
+  /// In en, this message translates to:
+  /// **'Everyone (public)'**
+  String get boardsComposeRecipientPublicEveryone;
+
+  /// Recipient picker option: post is public and addressed to a specific member.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} (public)'**
+  String boardsComposeRecipientPublicMember(String name);
+
+  /// Recipient picker option: post is private and addressed to a specific member.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} (private)'**
+  String boardsComposeRecipientPrivateMember(String name);
+
+  /// Affordance label to reveal the optional title field in the compose sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'+ Add title'**
+  String get boardsComposeAddTitle;
+
+  /// Placeholder text for the optional title field in the compose sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Title (optional)'**
+  String get boardsComposeTitlePlaceholder;
+
+  /// Placeholder text for the required body field in the compose sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Write something...'**
+  String get boardsComposeBodyPlaceholder;
+
+  /// Consequence text shown when composing a private post to a named member.
+  ///
+  /// In en, this message translates to:
+  /// **'Only {name} will see this in their Inbox.'**
+  String boardsComposeConsequencePrivate(String name);
+
+  /// Consequence text shown when composing a public post directed at a named member.
+  ///
+  /// In en, this message translates to:
+  /// **'{name}\'s profile and the Public feed will show this.'**
+  String boardsComposeConsequencePublicMember(String name);
+
+  /// Consequence text shown when composing a public post addressed to no specific member.
+  ///
+  /// In en, this message translates to:
+  /// **'Everyone in your system will see this in the Public feed.'**
+  String get boardsComposeConsequencePublicEveryone;
+
+  /// Save/submit button label in the compose post sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Post'**
+  String get boardsComposeSave;
+
+  /// Cancel button label in the compose post sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get boardsComposeCancel;
+
+  /// Sheet title when editing an existing board post.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit post'**
+  String get boardsComposeEditing;
+
+  /// Section heading for the Board Messages section on a member's profile.
+  ///
+  /// In en, this message translates to:
+  /// **'Board Messages'**
+  String get memberSectionBoardMessages;
+
+  /// Link shown below the board preview when there are 4 or more public posts.
+  ///
+  /// In en, this message translates to:
+  /// **'See all {count} posts'**
+  String memberBoardSeeAll(int count);
+
+  /// Tooltip for the + button in the Board Messages section header.
+  ///
+  /// In en, this message translates to:
+  /// **'Post to {name}'**
+  String memberBoardAddPost(String name);
 }
 
 class _AppLocalizationsDelegate

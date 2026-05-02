@@ -2519,5 +2519,96 @@
   "boardsDeleteConfirmTitle": "¿Eliminar esta publicación?",
   "boardsDeleteConfirmBody": "Esto no se puede deshacer.",
   "memberBoardScreenTitle": "Mensajes del tablero",
-  "memberBoardEmpty": "Aún no hay publicaciones aquí."
+  "memberBoardEmpty": "Aún no hay publicaciones aquí.",
+  "boardsScreenTitle": "Tableros",
+  "boardsTabPublic": "Público",
+  "boardsTabInbox": "Bandeja de entrada",
+  "boardsViewFilterAll": "Todos los que están al frente",
+  "boardsViewFilterMember": "{name}",
+  "boardsEmptyPublic": "Todavía no hay nada en la línea de tiempo pública.",
+  "boardsEmptyInbox": "No hay mensajes privados en este momento.",
+  "boardsComposeNoFronterHint": "Nadie está al frente ahora mismo — inicia una sesión para publicar.",
+  "boardsToastFronterDeFronted": "{name} dejó el frente — mostrando todos",
+  "boardsComposeRecipientPublicEveryone": "Todos (público)",
+  "@boardsComposeRecipientPublicEveryone": {
+    "description": "Recipient picker option: post is public and addressed to all system members."
+  },
+  "boardsComposeRecipientPublicMember": "{name} (público)",
+  "@boardsComposeRecipientPublicMember": {
+    "description": "Recipient picker option: post is public and addressed to a specific member.",
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "boardsComposeRecipientPrivateMember": "{name} (privado)",
+  "@boardsComposeRecipientPrivateMember": {
+    "description": "Recipient picker option: post is private and addressed to a specific member.",
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "boardsComposeAddTitle": "+ Agregar título",
+  "@boardsComposeAddTitle": {
+    "description": "Affordance label to reveal the optional title field in the compose sheet."
+  },
+  "boardsComposeTitlePlaceholder": "Título (opcional)",
+  "@boardsComposeTitlePlaceholder": {
+    "description": "Placeholder text for the optional title field in the compose sheet."
+  },
+  "boardsComposeBodyPlaceholder": "Escribe algo...",
+  "@boardsComposeBodyPlaceholder": {
+    "description": "Placeholder text for the required body field in the compose sheet."
+  },
+  "boardsComposeConsequencePrivate": "Solo {name} verá esto en su Inbox.",
+  "@boardsComposeConsequencePrivate": {
+    "description": "Consequence text shown when composing a private post to a named member.",
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "boardsComposeConsequencePublicMember": "El perfil de {name} y el feed público mostrarán esto.",
+  "@boardsComposeConsequencePublicMember": {
+    "description": "Consequence text shown when composing a public post directed at a named member.",
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "boardsComposeConsequencePublicEveryone": "Todos en tu sistema verán esto en el feed público.",
+  "@boardsComposeConsequencePublicEveryone": {
+    "description": "Consequence text shown when composing a public post addressed to no specific member."
+  },
+  "boardsComposeSave": "Publicar",
+  "@boardsComposeSave": {
+    "description": "Save/submit button label in the compose post sheet."
+  },
+  "boardsComposeCancel": "Cancelar",
+  "@boardsComposeCancel": {
+    "description": "Cancel button label in the compose post sheet."
+  },
+  "boardsComposeEditing": "Editar publicación",
+  "@boardsComposeEditing": {
+    "description": "Sheet title when editing an existing board post."
+  },
+  "memberSectionBoardMessages": "Mensajes del tablero",
+  "@memberSectionBoardMessages": {
+    "description": "Section heading for the Board Messages section on a member's profile."
+  },
+  "memberBoardSeeAll": "Ver las {count} publicaciones",
+  "@memberBoardSeeAll": {
+    "description": "Link shown below the board preview when there are 4 or more public posts.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "memberBoardAddPost": "Publicar para {name}",
+  "@memberBoardAddPost": {
+    "description": "Tooltip for the + button in the Board Messages section header.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  }
 }

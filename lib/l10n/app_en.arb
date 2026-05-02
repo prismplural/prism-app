@@ -8921,5 +8921,135 @@
   "memberBoardEmpty": "No posts here yet.",
   "@memberBoardEmpty": {
     "description": "Empty state subtitle shown when a member's board has no posts."
+  },
+  "boardsScreenTitle": "Boards",
+  "@boardsScreenTitle": {
+    "description": "Title shown in the top bar of the main Boards screen."
+  },
+  "boardsTabPublic": "Public",
+  "@boardsTabPublic": {
+    "description": "Label for the Public sub-tab on the Boards screen."
+  },
+  "boardsTabInbox": "Inbox",
+  "@boardsTabInbox": {
+    "description": "Label for the Inbox sub-tab on the Boards screen."
+  },
+  "boardsViewFilterAll": "All fronters",
+  "@boardsViewFilterAll": {
+    "description": "Inbox view-filter option: show posts for all currently-fronting members."
+  },
+  "boardsViewFilterMember": "{name}",
+  "@boardsViewFilterMember": {
+    "description": "Inbox view-filter option showing a specific member's name.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "Forest"
+      }
+    }
+  },
+  "boardsEmptyPublic": "Nothing on the public timeline yet.",
+  "@boardsEmptyPublic": {
+    "description": "Empty state subtitle for the Public sub-tab when no posts exist."
+  },
+  "boardsEmptyInbox": "No private messages right now.",
+  "@boardsEmptyInbox": {
+    "description": "Empty state subtitle for the Inbox sub-tab when there are no private posts."
+  },
+  "boardsComposeNoFronterHint": "No one's fronting right now — start a session to post.",
+  "@boardsComposeNoFronterHint": {
+    "description": "Hint shown in the Inbox empty state when no members are currently fronting."
+  },
+  "boardsToastFronterDeFronted": "{name} de-fronted — showing all",
+  "@boardsToastFronterDeFronted": {
+    "description": "Toast shown when the inbox view-filter member stops fronting, resetting the filter.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "Forest"
+      }
+    }
+  },
+  "boardsComposeRecipientPublicEveryone": "Everyone (public)",
+  "@boardsComposeRecipientPublicEveryone": {
+    "description": "Recipient picker option: post is public and addressed to all system members."
+  },
+  "boardsComposeRecipientPublicMember": "{name} (public)",
+  "@boardsComposeRecipientPublicMember": {
+    "description": "Recipient picker option: post is public and addressed to a specific member.",
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "boardsComposeRecipientPrivateMember": "{name} (private)",
+  "@boardsComposeRecipientPrivateMember": {
+    "description": "Recipient picker option: post is private and addressed to a specific member.",
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "boardsComposeAddTitle": "+ Add title",
+  "@boardsComposeAddTitle": {
+    "description": "Affordance label to reveal the optional title field in the compose sheet."
+  },
+  "boardsComposeTitlePlaceholder": "Title (optional)",
+  "@boardsComposeTitlePlaceholder": {
+    "description": "Placeholder text for the optional title field in the compose sheet."
+  },
+  "boardsComposeBodyPlaceholder": "Write something...",
+  "@boardsComposeBodyPlaceholder": {
+    "description": "Placeholder text for the required body field in the compose sheet."
+  },
+  "boardsComposeConsequencePrivate": "Only {name} will see this in their Inbox.",
+  "@boardsComposeConsequencePrivate": {
+    "description": "Consequence text shown when composing a private post to a named member.",
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "boardsComposeConsequencePublicMember": "{name}'s profile and the Public feed will show this.",
+  "@boardsComposeConsequencePublicMember": {
+    "description": "Consequence text shown when composing a public post directed at a named member.",
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "boardsComposeConsequencePublicEveryone": "Everyone in your system will see this in the Public feed.",
+  "@boardsComposeConsequencePublicEveryone": {
+    "description": "Consequence text shown when composing a public post addressed to no specific member."
+  },
+  "boardsComposeSave": "Post",
+  "@boardsComposeSave": {
+    "description": "Save/submit button label in the compose post sheet."
+  },
+  "boardsComposeCancel": "Cancel",
+  "@boardsComposeCancel": {
+    "description": "Cancel button label in the compose post sheet."
+  },
+  "boardsComposeEditing": "Edit post",
+  "@boardsComposeEditing": {
+    "description": "Sheet title when editing an existing board post."
+  },
+  "memberSectionBoardMessages": "Board Messages",
+  "@memberSectionBoardMessages": {
+    "description": "Section heading for the Board Messages section on a member's profile."
+  },
+  "memberBoardSeeAll": "See all {count} posts",
+  "@memberBoardSeeAll": {
+    "description": "Link shown below the board preview when there are 4 or more public posts.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "memberBoardAddPost": "Post to {name}",
+  "@memberBoardAddPost": {
+    "description": "Tooltip for the + button in the Board Messages section header.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   }
 }
