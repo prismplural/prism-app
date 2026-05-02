@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
@@ -18,6 +21,9 @@ import 'package:prism_plurality/domain/models/member_group.dart' as domain;
 import 'package:prism_plurality/domain/models/conversation_category.dart'
     as domain;
 import 'package:prism_plurality/domain/models/reminder.dart' as domain;
+import 'package:prism_plurality/domain/models/member_board_post.dart';
+import 'package:prism_plurality/features/migration/services/sp_boards_backfill_service.dart'
+    show boardsBackfillNamespace;
 import 'package:prism_plurality/features/migration/services/sp_parser.dart';
 import 'package:prism_plurality/features/migration/services/sp_custom_front_disposition.dart';
 
@@ -37,6 +43,27 @@ class MappedData {
   final List<domain.ConversationCategory> conversationCategories;
   final List<domain.Reminder> reminders;
   final List<String> warnings;
+
+  /// Board posts converted from SP boardMessages.
+  ///
+  /// These are first-class [MemberBoardPost] rows (audience: 'private') —
+  /// the old synthetic DM conversations are no longer created.
+  final List<MemberBoardPost> boardPosts;
+
+  /// SP board message IDs → deterministic Prism post IDs (for sp_id_map).
+  ///
+  /// Keyed on SP `_id`; used by the importer to persist idempotent mappings
+  /// so re-imports reuse the same deterministic UUID v5 without re-computing.
+  final Map<String, String> boardMessageIdMap;
+
+  /// Per-member high-water-mark read timestamps derived from SP `read: true`
+  /// board messages.
+  ///
+  /// Keys are Prism member IDs (the recipient); values are the latest
+  /// [MemberBoardPost.writtenAt] across all messages that were already read
+  /// in SP. The importer should write these to `members.boardLastReadAt` so
+  /// the Prism inbox starts in a matching read state.
+  final Map<String, DateTime> boardLastReadAtUpdates;
 
   /// Map of SP member ID to avatar URL (for download later).
   final Map<String, String> avatarUrls;
@@ -67,6 +94,9 @@ class MappedData {
     this.systemColor,
     this.systemDescription,
     this.systemAvatarUrl,
+    this.boardPosts = const [],
+    this.boardMessageIdMap = const {},
+    this.boardLastReadAtUpdates = const {},
   });
 }
 
@@ -244,10 +274,10 @@ class SpMapper {
     final groups = _mapGroups(data.groups);
     final groupMemberships = _mapGroupMemberships(data.groups, warnings);
 
-    // 11. Map board messages as DM conversations + messages.
+    // 11. Map board messages to first-class MemberBoardPost rows.
+    //     Supersedes the old synthetic-DM approach — no new conversations or
+    //     chat messages are created for board messages.
     final boardResult = _mapBoardMessages(data.boardMessages, warnings);
-    conversations.addAll(boardResult.conversations);
-    messages.addAll(boardResult.messages);
 
     // 12. Map timers to reminders.
     final reminders = _mapTimers(
@@ -278,6 +308,9 @@ class SpMapper {
       systemColor: data.systemColor,
       systemDescription: data.systemDescription,
       systemAvatarUrl: data.systemAvatarUrl,
+      boardPosts: boardResult.boardPosts,
+      boardMessageIdMap: boardResult.boardMessageIdMap,
+      boardLastReadAtUpdates: boardResult.boardLastReadAtUpdates,
     );
   }
 
@@ -1171,79 +1204,110 @@ class SpMapper {
     return memberships;
   }
 
-  /// Map SP board messages to DM conversations + chat messages.
-  ({List<domain.Conversation> conversations, List<domain.ChatMessage> messages})
+  /// Map SP board messages to first-class [MemberBoardPost] rows.
+  ///
+  /// Each board message becomes a private post (audience: 'private') with
+  /// `targetMemberId = writtenFor` and `authorId = writtenBy`. No synthetic
+  /// DM conversations or chat_messages rows are created here.
+  ///
+  /// The SP `read` field propagates to [MemberBoardPost] so the importer can
+  /// update `members.boardLastReadAt` for the recipient if the message was
+  /// already read in SP.
+  ///
+  /// Board messages with a null `writtenFor` produce an import warning and are
+  /// skipped — they are not silently re-targeted.
+  ///
+  /// Returns a record with:
+  /// - [boardPosts]: the converted [MemberBoardPost] list
+  /// - [boardMessageIdMap]: SP `_id` → deterministic Prism post ID (for sp_id_map)
+  /// - [boardLastReadAtUpdates]: per-member high-water-mark from SP `read: true` messages
+  ({
+    List<MemberBoardPost> boardPosts,
+    Map<String, String> boardMessageIdMap,
+    Map<String, DateTime> boardLastReadAtUpdates,
+  })
   _mapBoardMessages(List<SpBoardMessage> boardMsgs, List<String> warnings) {
     if (boardMsgs.isEmpty) {
       return (
-        conversations: <domain.Conversation>[],
-        messages: <domain.ChatMessage>[],
+        boardPosts: <MemberBoardPost>[],
+        boardMessageIdMap: <String, String>{},
+        boardLastReadAtUpdates: <String, DateTime>{},
       );
     }
 
-    // Group by (writtenBy, writtenFor) pair → DM conversation.
-    final dmConvMap = <String, String>{}; // pairKey → conversationId
-    final conversations = <domain.Conversation>[];
-    final messages = <domain.ChatMessage>[];
+    final boardPosts = <MemberBoardPost>[];
+    final boardMessageIdMap = <String, String>{}; // spId → prismId
+    // Per-recipient high-water-mark: max(writtenAt) across read=true messages.
+    final boardLastReadAtUpdates = <String, DateTime>{};
 
     for (final bm in boardMsgs) {
       if (bm.message.isEmpty) continue;
 
-      final byId = bm.writtenBy != null ? _memberIdMap[bm.writtenBy!] : null;
-      final forId = bm.writtenFor != null ? _memberIdMap[bm.writtenFor!] : null;
-
-      if (byId == null && forId == null) {
+      // writtenFor = null → cannot determine recipient. Surface as a warning.
+      if (bm.writtenFor == null) {
         warnings.add(
-          'Board message ${bm.id}: both writtenBy and writtenFor unknown, '
-          'message skipped.',
+          'Board message ${bm.id}: writtenFor is null — '
+          'cannot determine recipient, message skipped.',
         );
         continue;
       }
 
-      // Create a stable key for the DM pair (order-independent).
-      final ids = [byId ?? '', forId ?? '']..sort();
-      final pairKey = ids.join('_');
-
-      if (!dmConvMap.containsKey(pairKey)) {
-        final convId = _uuid.v4();
-        dmConvMap[pairKey] = convId;
-
-        final participantIds = <String>[
-          ?byId,
-          if (forId != null && forId != byId) forId,
-        ];
-
-        conversations.add(
-          domain.Conversation(
-            id: convId,
-            createdAt: bm.writtenAt,
-            lastActivityAt: bm.writtenAt,
-            title: bm.title,
-            emoji: '\u{1F4DD}',
-            isDirectMessage: true,
-            participantIds: participantIds,
-          ),
+      final forId = _memberIdMap[bm.writtenFor!];
+      if (forId == null) {
+        warnings.add(
+          'Board message ${bm.id}: writtenFor "${bm.writtenFor}" not found '
+          'in member map, message skipped.',
         );
+        continue;
       }
 
-      final convId = dmConvMap[pairKey]!;
+      final byId = bm.writtenBy != null ? _memberIdMap[bm.writtenBy!] : null;
+      // writtenBy may be null (anonymous posts) — allowed; authorId will be null.
 
-      final content = bm.title != null && bm.title!.isNotEmpty
-          ? '**${bm.title}**\n${bm.message}'
-          : bm.message;
+      final body = bm.message;
 
-      messages.add(
-        domain.ChatMessage(
-          id: _uuid.v4(),
-          content: content,
-          timestamp: bm.writtenAt,
+      // Compute deterministic UUID v5 so two-device imports produce identical
+      // IDs and CRDT entity-id merge deduplicates naturally.
+      // Namespace constant is shared with the backfill service (same formula).
+      // The name embeds a SHA-256 hex of the body for collision resistance.
+      final bodyHex = sha256.convert(utf8.encode(body)).toString();
+      final writtenAtMs = bm.writtenAt.millisecondsSinceEpoch;
+      final deterministicId = _uuid.v5(
+        boardsBackfillNamespace,
+        '$forId|${byId ?? ''}|$writtenAtMs|$bodyHex',
+      );
+
+      boardMessageIdMap[bm.id] = deterministicId;
+
+      boardPosts.add(
+        MemberBoardPost(
+          id: deterministicId,
+          targetMemberId: forId,
           authorId: byId,
-          conversationId: convId,
+          audience: 'private',
+          title: (bm.title?.isEmpty ?? true) ? null : bm.title,
+          body: body,
+          createdAt: bm.writtenAt,
+          writtenAt: bm.writtenAt,
+          isDeleted: false,
         ),
       );
+
+      // If already read in SP, track the high-water-mark for this recipient
+      // so the importer can set members.boardLastReadAt accordingly.
+      if (bm.read) {
+        final current = boardLastReadAtUpdates[forId];
+        if (current == null || bm.writtenAt.isAfter(current)) {
+          boardLastReadAtUpdates[forId] = bm.writtenAt;
+        }
+      }
     }
 
-    return (conversations: conversations, messages: messages);
+    return (
+      boardPosts: boardPosts,
+      boardMessageIdMap: boardMessageIdMap,
+      boardLastReadAtUpdates: boardLastReadAtUpdates,
+    );
   }
 
   /// Map SP automated and repeated timers to Prism reminders.

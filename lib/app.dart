@@ -83,6 +83,10 @@ class _PrismAppState extends ConsumerState<PrismApp> {
     // Keep PK repair bootstrap alive so local legacy repair can run once sync
     // is ready, without coupling it to the sync engine internals.
     ref.listen(pkGroupRepairBootstrapProvider, (_, _) {});
+    // Trigger the SP boards backfill once on first launch after v15 upgrade.
+    // The provider is gated on spBoardsBackfilledAt == null and is a no-op on
+    // all subsequent launches. Fire-and-forget — errors are non-fatal.
+    ref.listen(spBoardsBackfillProvider, (_, _) {});
 
     final router = ref.watch(routerProvider);
     final brightness = ref.watch(themeBrightnessProvider);

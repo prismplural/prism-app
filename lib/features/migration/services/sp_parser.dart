@@ -594,6 +594,13 @@ class SpBoardMessage {
   final String message;
   final DateTime writtenAt;
 
+  /// Whether the recipient has read this message in Simply Plural.
+  ///
+  /// When true, the importer sets `members.boardLastReadAt` to at least
+  /// [writtenAt] for the recipient, so the Prism inbox starts in a
+  /// read state matching what the user saw in SP.
+  final bool read;
+
   const SpBoardMessage({
     required this.id,
     this.writtenBy,
@@ -601,6 +608,7 @@ class SpBoardMessage {
     this.title,
     required this.message,
     required this.writtenAt,
+    this.read = false,
   });
 
   factory SpBoardMessage.fromJson(Map<String, dynamic> json) {
@@ -625,6 +633,7 @@ class SpBoardMessage {
       title: json['title'] as String?,
       message: (json['message'] ?? '').toString(),
       writtenAt: parseTime(json['writtenAt'] ?? json['createdAt']),
+      read: json['read'] == true,
     );
   }
 }

@@ -8483,4 +8483,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String memberBoardAddPost(String name) {
     return 'Post to $name';
   }
+
+  @override
+  String get importDisclosureBoardsEnabled =>
+      'Message Boards enabled — your imported posts are in the Inbox.';
 }

@@ -8,7 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path/path.dart' as p;
 import 'package:prism_sync/generated/api.dart' as ffi;
-import 'package:drift/drift.dart' show TableUpdate;
+import 'package:drift/drift.dart' show TableUpdate, Variable;
 import 'package:prism_sync_drift/prism_sync_drift.dart';
 
 import 'package:prism_plurality/core/constants/app_constants.dart';
@@ -34,6 +34,9 @@ import 'package:prism_plurality/core/services/backup_exclusion.dart';
 import 'package:prism_plurality/core/sync/sync_runtime_state.dart';
 import 'package:prism_plurality/core/sync/sync_schema.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_group_sync_v2_catchup_service.dart';
+import 'package:prism_plurality/features/migration/services/sp_boards_backfill_service.dart';
+import 'package:prism_plurality/data/repositories/drift_member_board_posts_repository.dart';
+import 'package:prism_plurality/data/repositories/drift_system_settings_repository.dart';
 
 // Dart-side sync integration — manages the Rust FFI handle lifecycle, keychain
 // persistence (seed/drain), health state machine, and sync event routing.
@@ -2916,3 +2919,105 @@ Future<void> triggerSync(ffi.PrismSyncHandle handle) async {
     );
   }
 }
+
+// ---------------------------------------------------------------------------
+// SP boards backfill startup trigger
+// ---------------------------------------------------------------------------
+
+/// Runs the SP boards backfill once after a v14→v15 schema upgrade.
+///
+/// Gated on `system_settings.spBoardsBackfilledAt == null` so it is a
+/// no-op on subsequent launches. Runs in the background so it does not block
+/// app startup. Two-device safety: the service writes a sentinel before
+/// touching any rows; if a peer already ran the backfill, the sentinel check
+/// aborts the local run without inserting duplicates.
+///
+/// This provider is intentionally NOT read from an init hook inside
+/// `prism_sync_providers.dart` to avoid the circular-import chain:
+///   database_providers → prism_sync_providers → database_providers.
+///
+/// Instead, callers (e.g. `app.dart` or `database_providers.dart`) should
+/// read this provider after app startup to trigger the backfill.
+final spBoardsBackfillProvider = FutureProvider<SpBoardsBackfillResult?>((
+  ref,
+) async {
+  // Construct repos directly from the database to avoid importing
+  // database_providers.dart (which imports this file, causing a cycle).
+  final db = ref.read(databaseProvider);
+  final settingsDao = db.systemSettingsDao;
+  // syncHandle is null — the backfill run is local-only; no sync ops emitted.
+  // The sentinel write goes through the CRDT system on next sync.
+  final settingsRepo = DriftSystemSettingsRepository(settingsDao, null);
+
+  final settings = await settingsRepo.getSettings();
+
+  // Already backfilled (or sentinel set by a peer) — skip.
+  if (settings.spBoardsBackfilledAt != null) return null;
+
+  // Quick candidate check: any board-emoji DM conversations?
+  final candidates = await db.customSelect(
+    '''
+    SELECT COUNT(*) AS c
+    FROM conversations
+    WHERE is_direct_message = 1
+      AND emoji = ?
+      AND json_array_length(participant_ids) <= 2
+      AND is_deleted = 0
+    LIMIT 1
+    ''',
+    variables: [Variable.withString('\u{1F4DD}')],
+  ).get();
+
+  final count = candidates.firstOrNull?.read<int>('c') ?? 0;
+  if (count == 0) {
+    // No candidates — mark as done without running the full service.
+    debugPrint('[BOARDS_BACKFILL] No candidate DMs found; marking done.');
+    await settingsRepo.updateSpBoardsBackfilledAt(DateTime.now().toUtc());
+    return const SpBoardsBackfillResult(postsConverted: 0, abortedByPeer: false);
+  }
+
+  final boardPostsDao = db.memberBoardPostsDao;
+  final membersDao = db.membersDao;
+  final boardPostsRepo = DriftMemberBoardPostsRepository(
+    boardPostsDao,
+    membersDao,
+    null, // syncHandle: null — sync ops skipped during backfill (local only)
+  );
+
+  final service = SpBoardsBackfillService(
+    db: db,
+    boardPostsRepo: boardPostsRepo,
+    boardPostsDao: boardPostsDao,
+    settingsRepo: settingsRepo,
+  );
+
+  try {
+    final result = await service.run();
+    debugPrint(
+      '[BOARDS_BACKFILL] Done: ${result.postsConverted} posts converted, '
+      'abortedByPeer=${result.abortedByPeer}.',
+    );
+    // If the backfill produced posts, also ensure boardsEnabled is on.
+    if (result.postsConverted > 0) {
+      final refreshed = await settingsRepo.getSettings();
+      if (!refreshed.boardsEnabled) {
+        await settingsRepo.updateBoardsEnabled(true);
+      }
+      // Idempotently append 'boards' to nav overflow.
+      final re2 = await settingsRepo.getSettings();
+      final primaryIds = re2.navBarItems;
+      final overflowIds = re2.navBarOverflowItems;
+      if (!primaryIds.contains('boards') && !overflowIds.contains('boards')) {
+        await settingsRepo.updateNavBarOverflowItems([...overflowIds, 'boards']);
+      }
+    }
+    return result;
+  } catch (e, st) {
+    ErrorReportingService.instance.report(
+      'SP boards backfill failed (non-fatal): $e',
+      severity: ErrorSeverity.warning,
+      stackTrace: st,
+    );
+    return null;
+  }
+});

@@ -8638,4 +8638,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String memberBoardAddPost(String name) {
     return 'Publicar para $name';
   }
+
+  @override
+  String get importDisclosureBoardsEnabled =>
+      'Tableros de mensajes activados — tus mensajes importados están en el Buzón.';
 }
