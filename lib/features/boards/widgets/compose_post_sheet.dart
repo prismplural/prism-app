@@ -401,6 +401,11 @@ class _ComposePostSheetBodyState
     final speakingAs = ref.watch(speakingAsProvider);
     final canPost = _canSave && (isEditing || speakingAs != null);
 
+    final targetMember = _targetMemberId != null
+        ? ref.watch(memberByIdProvider(_targetMemberId!)).value
+        : null;
+    final mutedColor = theme.colorScheme.onSurfaceVariant;
+
     return ListenableBuilder(
       listenable: Listenable.merge([_titleController, _bodyController]),
       builder: (context, _) => PopScope(
@@ -438,6 +443,58 @@ class _ComposePostSheetBodyState
                     vertical: 16,
                   ),
                   children: [
+                    // ── Recipient picker ─────────────────────────────────────
+                    Semantics(
+                      label: targetMember?.name ??
+                          l10n.boardsComposeToNoHeadmate,
+                      button: true,
+                      child: InkWell(
+                        onTap: _pickMember,
+                        borderRadius: BorderRadius.circular(8),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          child: Row(
+                            children: [
+                              if (targetMember != null)
+                                MemberAvatar(
+                                  avatarImageData: targetMember.avatarImageData,
+                                  memberName: targetMember.name,
+                                  emoji: targetMember.emoji,
+                                  customColorEnabled:
+                                      targetMember.customColorEnabled,
+                                  customColorHex: targetMember.customColorHex,
+                                  size: 20,
+                                )
+                              else
+                                Icon(
+                                  AppIcons.personOutline,
+                                  size: 20,
+                                  color: mutedColor,
+                                ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  targetMember?.name ??
+                                      l10n.boardsComposeToNoHeadmate,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: targetMember != null
+                                        ? null
+                                        : mutedColor,
+                                  ),
+                                ),
+                              ),
+                              Icon(
+                                AppIcons.expandMore,
+                                size: 16,
+                                color: mutedColor,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const Divider(height: 1),
+                    const SizedBox(height: 12),
                     PrismTextField(
                       controller: _titleController,
                       hintText: l10n.boardsComposeTitlePlaceholder,
@@ -478,7 +535,6 @@ class _ComposePostSheetBodyState
               memberId: _targetMemberId,
               audience: _audience,
               isEditing: isEditing,
-              onPickMember: _pickMember,
               onPickAuthor: _pickAuthor,
               onAudienceChanged: (v) => setState(() => _audience = v),
             ),
@@ -498,7 +554,6 @@ class _BottomToolbar extends ConsumerWidget {
     required this.memberId,
     required this.audience,
     required this.isEditing,
-    required this.onPickMember,
     required this.onPickAuthor,
     required this.onAudienceChanged,
   });
@@ -506,7 +561,6 @@ class _BottomToolbar extends ConsumerWidget {
   final String? memberId;
   final String audience;
   final bool isEditing;
-  final VoidCallback onPickMember;
   final VoidCallback onPickAuthor;
   final ValueChanged<String> onAudienceChanged;
 
@@ -516,10 +570,6 @@ class _BottomToolbar extends ConsumerWidget {
     final l10n = context.l10n;
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     final mutedColor = theme.colorScheme.onSurfaceVariant;
-
-    final targetMember = memberId != null
-        ? ref.watch(memberByIdProvider(memberId!)).value
-        : null;
 
     // Author avatar — only shown for new posts.
     final speakingAsId = isEditing ? null : ref.watch(speakingAsProvider);
@@ -581,27 +631,9 @@ class _BottomToolbar extends ConsumerWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 4),
+            const SizedBox(width: 8),
           ],
-          _ToolbarChip(
-            icon: AppIcons.personOutline,
-            label: targetMember?.name ?? l10n.boardsComposeToNoHeadmate,
-            color: mutedColor,
-            onTap: onPickMember,
-            leading: targetMember != null
-                ? MemberAvatar(
-                    avatarImageData: targetMember.avatarImageData,
-                    memberName: targetMember.name,
-                    emoji: targetMember.emoji,
-                    customColorEnabled: targetMember.customColorEnabled,
-                    customColorHex: targetMember.customColorHex,
-                    size: 20,
-                  )
-                : null,
-            semanticLabel:
-                targetMember?.name ?? l10n.boardsComposeToNoHeadmate,
-          ),
-          const SizedBox(width: 8),
+          const Spacer(),
           SegmentedButton<String>(
             segments: [
               ButtonSegment(
@@ -624,72 +656,6 @@ class _BottomToolbar extends ConsumerWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// _ToolbarChip
-// ---------------------------------------------------------------------------
-
-class _ToolbarChip extends StatelessWidget {
-  const _ToolbarChip({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.onTap,
-    this.leading,
-    this.semanticLabel,
-  });
-
-  final IconData? icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-  final Widget? leading;
-  final String? semanticLabel;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Semantics(
-      label: semanticLabel,
-      button: true,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(PrismTokens.radiusPill),
-          child: Container(
-            constraints: const BoxConstraints(minHeight: 36),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(PrismTokens.radiusPill),
-              border: Border.all(
-                color:
-                    theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (leading != null) ...[
-                  leading!,
-                  const SizedBox(width: 6),
-                ] else if (icon != null) ...[
-                  Icon(icon, size: 16, color: color),
-                  const SizedBox(width: 6),
-                ],
-                Text(
-                  label,
-                  style: theme.textTheme.labelMedium?.copyWith(color: color),
-                ),
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }

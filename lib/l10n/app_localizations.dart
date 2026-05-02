@@ -13542,16 +13542,16 @@ abstract class AppLocalizations {
   /// **'This can\'t be undone.'**
   String get boardsDeleteConfirmBody;
 
-  /// Title of the per-member board messages screen and section.
+  /// Title of the per-member board messages screen and section. The screen only shows public posts.
   ///
   /// In en, this message translates to:
-  /// **'Board Messages'**
+  /// **'Public Posts'**
   String get memberBoardScreenTitle;
 
   /// Empty state subtitle shown when a member's board has no posts.
   ///
   /// In en, this message translates to:
-  /// **'No posts here yet.'**
+  /// **'No public posts here yet.'**
   String get memberBoardEmpty;
 
   /// Title shown in the top bar of the main Boards screen.
@@ -13593,7 +13593,7 @@ abstract class AppLocalizations {
   /// Empty state subtitle for the Inbox sub-tab when there are no private posts.
   ///
   /// In en, this message translates to:
-  /// **'No private messages right now.'**
+  /// **'No private posts right now.'**
   String get boardsEmptyInbox;
 
   /// Hint shown in the Inbox empty state when no members are currently fronting.
@@ -13698,10 +13698,10 @@ abstract class AppLocalizations {
   /// **'Private'**
   String get boardsComposeAudiencePrivate;
 
-  /// Placeholder label for the member chip when no headmate is addressed.
+  /// Label shown in the recipient row when no headmate has been addressed.
   ///
   /// In en, this message translates to:
-  /// **'No headmate'**
+  /// **'No recipient'**
   String get boardsComposeToNoHeadmate;
 
   /// Dialog title asking which co-fronter is authoring the board post.
@@ -13716,16 +13716,16 @@ abstract class AppLocalizations {
   /// **'Select author'**
   String get boardsComposeSelectAuthor;
 
-  /// Section heading for the Board Messages section on a member's profile.
+  /// Section heading on a member's profile. The section only shows public posts (private posts addressed to the member live in the Inbox).
   ///
   /// In en, this message translates to:
-  /// **'Board Messages'**
+  /// **'Public Posts'**
   String get memberSectionBoardMessages;
 
   /// Link shown below the board preview when there are 4 or more public posts.
   ///
   /// In en, this message translates to:
-  /// **'See all {count} posts'**
+  /// **'See all {count} public posts'**
   String memberBoardSeeAll(int count);
 
   /// Tooltip for the + button in the Board Messages section header.

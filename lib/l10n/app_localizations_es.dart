@@ -8543,10 +8543,10 @@ class AppLocalizationsEs extends AppLocalizations {
   String get boardsDeleteConfirmBody => 'Esto no se puede deshacer.';
 
   @override
-  String get memberBoardScreenTitle => 'Mensajes del tablero';
+  String get memberBoardScreenTitle => 'Publicaciones públicas';
 
   @override
-  String get memberBoardEmpty => 'Aún no hay publicaciones aquí.';
+  String get memberBoardEmpty => 'Aún no hay publicaciones públicas aquí.';
 
   @override
   String get boardsScreenTitle => 'Tableros';
@@ -8570,7 +8570,8 @@ class AppLocalizationsEs extends AppLocalizations {
       'Todavía no hay nada en la línea de tiempo pública.';
 
   @override
-  String get boardsEmptyInbox => 'No hay mensajes privados en este momento.';
+  String get boardsEmptyInbox =>
+      'No hay publicaciones privadas en este momento.';
 
   @override
   String get boardsComposeNoFronterHint =>
@@ -8636,7 +8637,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get boardsComposeAudiencePrivate => 'Private';
 
   @override
-  String get boardsComposeToNoHeadmate => 'No headmate';
+  String get boardsComposeToNoHeadmate => 'No recipient';
 
   @override
   String get boardsComposeWhoIsPosting => 'Who is posting?';
@@ -8645,11 +8646,11 @@ class AppLocalizationsEs extends AppLocalizations {
   String get boardsComposeSelectAuthor => 'Select author';
 
   @override
-  String get memberSectionBoardMessages => 'Mensajes del tablero';
+  String get memberSectionBoardMessages => 'Publicaciones públicas';
 
   @override
   String memberBoardSeeAll(int count) {
-    return 'Ver las $count publicaciones';
+    return 'Ver las $count publicaciones públicas';
   }
 
   @override

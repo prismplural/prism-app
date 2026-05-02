@@ -8389,10 +8389,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get boardsDeleteConfirmBody => 'This can\'t be undone.';
 
   @override
-  String get memberBoardScreenTitle => 'Board Messages';
+  String get memberBoardScreenTitle => 'Public Posts';
 
   @override
-  String get memberBoardEmpty => 'No posts here yet.';
+  String get memberBoardEmpty => 'No public posts here yet.';
 
   @override
   String get boardsScreenTitle => 'Boards';
@@ -8415,7 +8415,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get boardsEmptyPublic => 'Nothing on the public timeline yet.';
 
   @override
-  String get boardsEmptyInbox => 'No private messages right now.';
+  String get boardsEmptyInbox => 'No private posts right now.';
 
   @override
   String get boardsComposeNoFronterHint =>
@@ -8481,7 +8481,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get boardsComposeAudiencePrivate => 'Private';
 
   @override
-  String get boardsComposeToNoHeadmate => 'No headmate';
+  String get boardsComposeToNoHeadmate => 'No recipient';
 
   @override
   String get boardsComposeWhoIsPosting => 'Who is posting?';
@@ -8490,11 +8490,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get boardsComposeSelectAuthor => 'Select author';
 
   @override
-  String get memberSectionBoardMessages => 'Board Messages';
+  String get memberSectionBoardMessages => 'Public Posts';
 
   @override
   String memberBoardSeeAll(int count) {
-    return 'See all $count posts';
+    return 'See all $count public posts';
   }
 
   @override
