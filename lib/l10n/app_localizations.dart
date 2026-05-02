@@ -13680,6 +13680,30 @@ abstract class AppLocalizations {
   /// **'Edit post'**
   String get boardsComposeEditing;
 
+  /// Sheet title when composing a new board post.
+  ///
+  /// In en, this message translates to:
+  /// **'New post'**
+  String get boardsComposeNewPost;
+
+  /// Audience segment label: post visible to everyone in the system.
+  ///
+  /// In en, this message translates to:
+  /// **'Everyone'**
+  String get boardsComposeAudienceEveryone;
+
+  /// Audience segment label: post visible only to the addressed headmate.
+  ///
+  /// In en, this message translates to:
+  /// **'Private'**
+  String get boardsComposeAudiencePrivate;
+
+  /// Placeholder label for the member chip when no headmate is addressed.
+  ///
+  /// In en, this message translates to:
+  /// **'No headmate'**
+  String get boardsComposeToNoHeadmate;
+
   /// Section heading for the Board Messages section on a member's profile.
   ///
   /// In en, this message translates to:

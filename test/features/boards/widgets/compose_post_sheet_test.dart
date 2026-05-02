@@ -19,6 +19,7 @@ import 'package:prism_plurality/features/members/providers/member_groups_provide
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 
 // ---------------------------------------------------------------------------
 // Fake providers
@@ -193,6 +194,8 @@ Widget _buildSubject({
       allGroupEntriesProvider.overrideWith(
         (ref) => Stream.value(const <MemberGroupEntry>[]),
       ),
+      for (final m in members)
+        memberByIdProvider(m.id).overrideWith((ref) => Stream.value(m)),
       memberBoardPostsRepositoryProvider.overrideWithValue(fakeRepo),
       memberBoardPostNotifierProvider.overrideWith(() => fakeNotifier),
     ],
@@ -236,12 +239,41 @@ void main() {
       expect(find.text('Write something...'), findsOneWidget);
     });
 
-    testWidgets('save button is disabled when body is empty', (tester) async {
+    testWidgets('sheet shows "New post" title', (tester) async {
       await tester.pumpWidget(_buildSubject(members: [_alice]));
       await _openSheet(tester);
 
-      // Post button present — its enabled state gated by body content.
-      expect(find.text('Post'), findsOneWidget);
+      expect(find.text('New post'), findsOneWidget);
+    });
+
+    testWidgets('title field placeholder is always visible', (tester) async {
+      await tester.pumpWidget(_buildSubject(members: [_alice]));
+      await _openSheet(tester);
+
+      expect(find.text('Title (optional)'), findsOneWidget);
+    });
+
+    testWidgets('no-headmate chip shown by default', (tester) async {
+      await tester.pumpWidget(_buildSubject(members: [_alice, _bob]));
+      await _openSheet(tester);
+
+      expect(find.text('No headmate'), findsOneWidget);
+    });
+
+    testWidgets('audience segmented button present', (tester) async {
+      await tester.pumpWidget(_buildSubject(members: [_alice]));
+      await _openSheet(tester);
+
+      expect(find.text('Everyone'), findsOneWidget);
+      expect(find.text('Private'), findsOneWidget);
+    });
+
+    testWidgets('post button is present when body is empty', (tester) async {
+      await tester.pumpWidget(_buildSubject(members: [_alice]));
+      await _openSheet(tester);
+
+      // Post button present — enabled state gated by body content.
+      expect(find.widgetWithIcon(PrismGlassIconButton, Icons.check), findsOneWidget);
     });
 
     testWidgets('save becomes tappable after typing body text', (tester) async {
@@ -255,7 +287,7 @@ void main() {
       await tester.pump();
 
       expect(find.text('Hello headmates!'), findsOneWidget);
-      expect(find.text('Post'), findsOneWidget);
+      expect(find.text('Post'), findsWidgets);
     });
 
     testWidgets('whitespace-only body does not enable save', (tester) async {
@@ -265,107 +297,25 @@ void main() {
       await tester.enterText(find.byType(TextField).last, '   ');
       await tester.pump();
 
-      // The Post button is rendered (we verify no crash; enabled-state is
-      // verified by the notifier not being called on tap).
-      expect(find.text('Post'), findsOneWidget);
+      // Post button is rendered (verify no crash; enabled-state verified
+      // via notifier not being called on tap).
+      expect(find.text('Post'), findsWidgets);
     });
 
-    testWidgets('Cancel dismisses the sheet', (tester) async {
+    testWidgets('close button dismisses the sheet', (tester) async {
       await tester.pumpWidget(_buildSubject(members: [_alice]));
       await _openSheet(tester);
 
-      await tester.tap(find.text('Cancel'));
+      // Tap the leading close button in PrismSheetTopBar.
+      await tester.tap(find.byType(PrismGlassIconButton).first);
       await tester.pumpAndSettle();
 
       expect(find.text('Write something...'), findsNothing);
     });
 
-    // ── Recipient picker: 3 audience+recipient combinations ─────────────────
+    // ── Member chip pre-fill ─────────────────────────────────────────────────
 
-    testWidgets(
-        'recipient picker shows Everyone (public) option by default',
-        (tester) async {
-      await tester.pumpWidget(_buildSubject(members: [_alice, _bob]));
-      await _openSheet(tester);
-
-      expect(find.text('Everyone (public)'), findsOneWidget);
-    });
-
-    testWidgets(
-        'recipient picker lists all 3 option-types: everyone-public, member-public, member-private',
-        (tester) async {
-      await tester.pumpWidget(_buildSubject(members: [_alice]));
-      await _openSheet(tester);
-
-      // Tap the chip to open the picker sheet.
-      await tester.tap(find.text('Everyone (public)'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Everyone (public)'), findsWidgets);
-      expect(find.text('Alice (public)'), findsOneWidget);
-      expect(find.text('Alice (private)'), findsOneWidget);
-    });
-
-    // ── Consequence text updates ─────────────────────────────────────────────
-
-    testWidgets(
-        'consequence text shows "everyone" copy by default',
-        (tester) async {
-      await tester.pumpWidget(_buildSubject(members: [_alice]));
-      await _openSheet(tester);
-
-      expect(
-        find.textContaining('Everyone in your system will see this'),
-        findsOneWidget,
-      );
-    });
-
-    testWidgets(
-        'consequence text updates to private copy when private option selected',
-        (tester) async {
-      await tester.pumpWidget(_buildSubject(members: [_alice]));
-      await _openSheet(tester);
-
-      await tester.tap(find.text('Everyone (public)'));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('Alice (private)'));
-      await tester.pumpAndSettle();
-
-      expect(find.textContaining('Only Alice will see this'), findsOneWidget);
-    });
-
-    testWidgets(
-        'consequence text updates to member-public copy when member-public selected',
-        (tester) async {
-      await tester.pumpWidget(_buildSubject(members: [_alice]));
-      await _openSheet(tester);
-
-      await tester.tap(find.text('Everyone (public)'));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('Alice (public)'));
-      await tester.pumpAndSettle();
-
-      expect(find.textContaining("Alice's profile"), findsOneWidget);
-    });
-
-    // ── Title field ──────────────────────────────────────────────────────────
-
-    testWidgets('+ Add title expands title field', (tester) async {
-      await tester.pumpWidget(_buildSubject(members: [_alice]));
-      await _openSheet(tester);
-
-      expect(find.text('+ Add title'), findsOneWidget);
-      await tester.tap(find.text('+ Add title'));
-      await tester.pump();
-
-      expect(find.text('Title (optional)'), findsOneWidget);
-    });
-
-    // ── Default pre-fill ─────────────────────────────────────────────────────
-
-    testWidgets('pre-fills audience and recipient from defaults', (tester) async {
+    testWidgets('member chip shows headmate name when pre-filled', (tester) async {
       await tester.pumpWidget(
         _buildSubject(
           members: [_alice],
@@ -375,8 +325,27 @@ void main() {
       );
       await _openSheet(tester);
 
-      // Consequence text immediately shows private mode for Alice.
-      expect(find.textContaining('Only Alice will see this'), findsOneWidget);
+      expect(find.text('Alice'), findsWidgets);
+    });
+
+    testWidgets('audience is private when defaultAudience is private', (tester) async {
+      final notifier = _FakeBoardPostNotifier();
+      await tester.pumpWidget(
+        _buildSubject(
+          members: [_alice],
+          defaultTargetMemberId: 'alice',
+          defaultAudience: 'private',
+          defaultBody: 'Hello',
+          notifier: notifier,
+        ),
+      );
+      await _openSheet(tester);
+
+      await tester.tap(find.text('Post'));
+      await tester.pumpAndSettle();
+
+      expect(notifier.createdAudience, 'private');
+      expect(notifier.createdTargetMemberId, 'alice');
     });
   });
 
@@ -466,12 +435,14 @@ void main() {
     });
 
     testWidgets(
-        'edit mode: can change audience from public to private (passes through)',
+        'edit mode: can change audience from public to private',
         (tester) async {
       final notifier = _FakeBoardPostNotifier();
+      // Post has a target member so the audience segmented button is enabled.
       final existingPost = MemberBoardPost(
         id: 'edit-4',
         authorId: 'alice',
+        targetMemberId: 'alice',
         audience: 'public',
         body: 'Hello',
         createdAt: _now,
@@ -488,18 +459,11 @@ void main() {
       );
       await _openSheet(tester);
       await tester.pump();
+      await tester.pump(); // Ensure post is loaded.
+
+      // Tap the "Private" segment.
+      await tester.tap(find.text('Private'));
       await tester.pump();
-
-      // The chip shows "Everyone (public)" initially (public, no target).
-      // Tap to open picker and change to Alice (private).
-      await tester.tap(find.text('Everyone (public)'));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('Alice (private)'));
-      await tester.pumpAndSettle();
-
-      // Confirm the private consequence text is shown.
-      expect(find.textContaining('Only Alice will see this'), findsOneWidget);
 
       // Save.
       await tester.tap(find.text('Post'));
