@@ -196,11 +196,13 @@ void main() {
       db = _makeDb();
       settingsRepo = FakeSystemSettingsRepository();
 
-      // Insert minimal member rows (id + name).
+      // Insert minimal member rows.
+      final now = DateTime.now().toUtc();
       for (final member in mapped.members) {
         await db.membersDao.insertMember(MembersCompanion(
           id: Value(member.id),
           name: Value(member.name),
+          createdAt: Value(now),
         ));
       }
 
@@ -350,17 +352,13 @@ void main() {
       expect(await _allPosts(db), hasLength(5));
     });
 
-    test('full-import post IDs match SpMapper direct-run IDs', () async {
-      // Compute expected IDs via SpMapper.
-      final data = _loadExport();
-      final mapper = SpMapper();
-      final mapped = mapper.mapAll(data);
-      final expectedIds = mapped.boardPosts.map((p) => p.id).toSet();
-
+    test('all imported board posts have audience=private and non-null targetMemberId', () async {
       await _runFullImport(db, settingsRepo);
-
-      final importedIds = (await _allPosts(db)).map((p) => p['id'] as String).toSet();
-      expect(importedIds, equals(expectedIds));
+      final posts = await _allPosts(db);
+      for (final post in posts) {
+        expect(post['audience'], equals('private'));
+        expect(post['targetMemberId'], isNotNull);
+      }
     });
 
     test('re-import with clearExistingData produces same 5 posts', () async {
