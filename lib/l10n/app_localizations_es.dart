@@ -8639,10 +8639,10 @@ class AppLocalizationsEs extends AppLocalizations {
   String get boardsComposeToNoHeadmate => 'No headmate';
 
   @override
-  String get boardsComposeFromLabel => 'From';
+  String get boardsComposeWhoIsPosting => 'Who is posting?';
 
   @override
-  String get boardsComposeToLabel => 'To';
+  String get boardsComposeSelectAuthor => 'Select author';
 
   @override
   String get memberSectionBoardMessages => 'Mensajes del tablero';

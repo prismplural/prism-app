@@ -13704,17 +13704,17 @@ abstract class AppLocalizations {
   /// **'No headmate'**
   String get boardsComposeToNoHeadmate;
 
-  /// Toolbar label for the 'posting as' headmate picker in the compose sheet.
+  /// Dialog title asking which co-fronter is authoring the board post.
   ///
   /// In en, this message translates to:
-  /// **'From'**
-  String get boardsComposeFromLabel;
+  /// **'Who is posting?'**
+  String get boardsComposeWhoIsPosting;
 
-  /// Toolbar label for the recipient headmate picker in the compose sheet.
+  /// Semantic label for the author avatar tap target in the compose toolbar when no author is selected.
   ///
   /// In en, this message translates to:
-  /// **'To'**
-  String get boardsComposeToLabel;
+  /// **'Select author'**
+  String get boardsComposeSelectAuthor;
 
   /// Section heading for the Board Messages section on a member's profile.
   ///

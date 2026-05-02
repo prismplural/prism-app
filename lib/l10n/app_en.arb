@@ -9046,13 +9046,13 @@
   "@boardsComposeToNoHeadmate": {
     "description": "Placeholder label for the member chip when no headmate is addressed."
   },
-  "boardsComposeFromLabel": "From",
-  "@boardsComposeFromLabel": {
-    "description": "Toolbar label for the 'posting as' headmate picker in the compose sheet."
+  "boardsComposeWhoIsPosting": "Who is posting?",
+  "@boardsComposeWhoIsPosting": {
+    "description": "Dialog title asking which co-fronter is authoring the board post."
   },
-  "boardsComposeToLabel": "To",
-  "@boardsComposeToLabel": {
-    "description": "Toolbar label for the recipient headmate picker in the compose sheet."
+  "boardsComposeSelectAuthor": "Select author",
+  "@boardsComposeSelectAuthor": {
+    "description": "Semantic label for the author avatar tap target in the compose toolbar when no author is selected."
   },
   "memberSectionBoardMessages": "Board Messages",
   "@memberSectionBoardMessages": {
