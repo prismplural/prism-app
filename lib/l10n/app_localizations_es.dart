@@ -8495,4 +8495,22 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get settingsQuickFrontDefaultBehaviorReplace =>
       'Reemplazar quienes están al frente';
+
+  @override
+  String get featureBoardsTitle => 'Tableros de Mensajes';
+
+  @override
+  String get featureBoardsDescription =>
+      'Mensajes cortos entre los integrantes del sistema — línea de tiempo pública e inbox privado.';
+
+  @override
+  String get featureBoardsEnable => 'Activar Tableros de Mensajes';
+
+  @override
+  String get featureBoardsEnableSubtitle =>
+      'Añade la pestaña Tableros a tu navegación.';
+
+  @override
+  String get navMenuToastBoardsAdded =>
+      'Tableros de Mensajes añadido a tu menú de navegación — arrástralo donde quieras.';
 }

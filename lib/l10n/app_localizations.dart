@@ -13457,6 +13457,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Replace current fronters'**
   String get settingsQuickFrontDefaultBehaviorReplace;
+
+  /// Title of the Message Boards feature settings screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Message Boards'**
+  String get featureBoardsTitle;
+
+  /// Description shown at the top of the Message Boards feature settings screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Short messages between headmates — public timeline plus private inbox.'**
+  String get featureBoardsDescription;
+
+  /// Toggle row title for enabling the Message Boards feature.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable Message Boards'**
+  String get featureBoardsEnable;
+
+  /// Toggle row subtitle explaining what enabling Message Boards does.
+  ///
+  /// In en, this message translates to:
+  /// **'Adds the Boards tab to your nav.'**
+  String get featureBoardsEnableSubtitle;
+
+  /// One-time toast shown when Message Boards is first enabled via the settings toggle.
+  ///
+  /// In en, this message translates to:
+  /// **'Message Boards added to your nav menu — drag it where you want.'**
+  String get navMenuToastBoardsAdded;
 }
 
 class _AppLocalizationsDelegate

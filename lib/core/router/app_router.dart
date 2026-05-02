@@ -23,6 +23,7 @@ import '../../features/settings/views/settings_screen.dart';
 import '../../features/settings/views/sleep_feature_settings_screen.dart';
 import '../../features/settings/views/polls_feature_settings_screen.dart';
 import '../../features/settings/views/notes_feature_settings_screen.dart';
+import '../../features/settings/views/boards_feature_settings_screen.dart';
 import '../../features/settings/views/reminders_feature_settings_screen.dart';
 import '../../features/settings/views/sync_settings_screen.dart';
 import '../../features/settings/views/notification_settings_screen.dart';
@@ -534,6 +535,11 @@ final routerProvider = Provider<GoRouter>((ref) {
                         path: 'notes',
                         builder: (context, state) =>
                             const NotesFeatureSettingsScreen(),
+                      ),
+                      GoRoute(
+                        path: 'boards',
+                        builder: (context, state) =>
+                            const BoardsFeatureSettingsScreen(),
                       ),
                       GoRoute(
                         path: 'reminders',
