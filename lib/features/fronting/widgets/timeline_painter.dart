@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/providers/timeline_providers.dart';
@@ -275,9 +276,12 @@ class TimelineTimeGutterPainter extends CustomPainter {
     required this.textColor,
     required this.gridColor,
     required this.viewportHeight,
+    required this.locale,
     this.scrollOffsetNotifier,
     Listenable? repaintListenable,
-  }) : super(repaint: repaintListenable);
+  })  : _shortWeekdayFmt = DateFormat.E(locale),
+        _hourFmt = DateFormat.j(locale),
+        super(repaint: repaintListenable);
 
   final double pixelsPerHour;
   final DateTime viewStart;
@@ -285,7 +289,10 @@ class TimelineTimeGutterPainter extends CustomPainter {
   final Color textColor;
   final Color gridColor;
   final double viewportHeight;
+  final String locale;
   final ValueNotifier<double>? scrollOffsetNotifier;
+  final DateFormat _shortWeekdayFmt;
+  final DateFormat _hourFmt;
 
   static const double _bleed = 20.0; // extra margin for text labels
   double get _scrollOffset => scrollOffsetNotifier?.value ?? 0.0;
@@ -361,8 +368,8 @@ class TimelineTimeGutterPainter extends CustomPainter {
 
       // Label: show date at midnight, time at other hours
       final label = isMidnight
-          ? '${_shortWeekday(hour.weekday)} ${hour.month}/${hour.day}'
-          : _formatHour(hour);
+          ? '${_shortWeekdayFmt.format(hour)} ${hour.month}/${hour.day}'
+          : _hourFmt.format(hour);
       final textPainter = TextPainter(
         text: TextSpan(
           text: label,
@@ -387,23 +394,12 @@ class TimelineTimeGutterPainter extends CustomPainter {
     }
   }
 
-  static const _weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
-  String _shortWeekday(int weekday) => _weekdays[weekday - 1];
-
-  String _formatHour(DateTime time) {
-    final h = time.hour;
-    if (h == 0) return '12 AM';
-    if (h == 12) return '12 PM';
-    if (h < 12) return '$h AM';
-    return '${h - 12} PM';
-  }
-
   @override
   bool shouldRepaint(covariant TimelineTimeGutterPainter oldDelegate) {
     return oldDelegate.pixelsPerHour != pixelsPerHour ||
         oldDelegate.viewStart != viewStart ||
         oldDelegate.viewEnd != viewEnd ||
-        oldDelegate.viewportHeight != viewportHeight;
+        oldDelegate.viewportHeight != viewportHeight ||
+        oldDelegate.locale != locale;
   }
 }

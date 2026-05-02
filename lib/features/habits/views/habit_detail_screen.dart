@@ -2,6 +2,7 @@ import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import 'package:prism_plurality/domain/models/habit.dart';
 import 'package:prism_plurality/domain/models/habit_completion.dart';
@@ -520,20 +521,20 @@ class _CompletionTile extends StatelessWidget {
 
   String _formatDate(BuildContext context, DateTime date) {
     final dateDay = DateTime(date.year, date.month, date.day);
+    final locale = context.dateLocale;
 
     if (dateDay == today) {
-      return context.l10n.habitsCompletionTileToday(_timeString(date));
+      return context.l10n.habitsCompletionTileToday(_timeString(locale, date));
     } else if (dateDay == today.subtract(const Duration(days: 1))) {
-      return context.l10n.habitsCompletionTileYesterday(_timeString(date));
+      return context.l10n.habitsCompletionTileYesterday(
+        _timeString(locale, date),
+      );
     }
-    return '${date.month}/${date.day}/${date.year} ${_timeString(date)}';
+    return DateFormat.yMd(locale).add_jm().format(date);
   }
 
-  String _timeString(DateTime date) {
-    final hour = date.hour > 12 ? date.hour - 12 : date.hour;
-    final period = date.hour >= 12 ? 'PM' : 'AM';
-    return '${hour == 0 ? 12 : hour}:${date.minute.toString().padLeft(2, '0')} $period';
-  }
+  String _timeString(String locale, DateTime date) =>
+      DateFormat.jm(locale).format(date);
 }
 
 // ─────────────────────────────────────────────────────────────

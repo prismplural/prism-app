@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import 'package:prism_plurality/features/polls/providers/poll_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
@@ -293,7 +294,7 @@ class _CreatePollSheetState extends ConsumerState<CreatePollSheet> {
                   builder: (anchorContext) => PrismSwitchRow(
                     title: context.l10n.pollsSetExpiration,
                     subtitle: _hasExpiration && _expiresAt != null
-                        ? _formatDateTime(_expiresAt!)
+                        ? _formatDateTime(context, _expiresAt!)
                         : context.l10n.pollsNoExpiration,
                     value: _hasExpiration,
                     onChanged: (v) {
@@ -309,7 +310,7 @@ class _CreatePollSheetState extends ConsumerState<CreatePollSheet> {
                       builder: (anchorContext) => PrismButton(
                         label: _expiresAt != null
                             ? context.l10n.pollsChangeDateTime(
-                                _formatDateTime(_expiresAt!),
+                                _formatDateTime(context, _expiresAt!),
                               )
                             : context.l10n.pollsPickDateTime,
                         onPressed: () => _pickExpiration(anchorContext),
@@ -328,25 +329,8 @@ class _CreatePollSheetState extends ConsumerState<CreatePollSheet> {
     );
   }
 
-  String _formatDateTime(DateTime dt) {
-    final months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    final hour = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
-    final amPm = dt.hour >= 12 ? 'PM' : 'AM';
-    final minute = dt.minute.toString().padLeft(2, '0');
-    return '${months[dt.month - 1]} ${dt.day}, ${dt.year} at $hour:$minute $amPm';
+  String _formatDateTime(BuildContext context, DateTime dt) {
+    return DateFormat.yMMMd(context.dateLocale).add_jm().format(dt);
   }
 }
 
