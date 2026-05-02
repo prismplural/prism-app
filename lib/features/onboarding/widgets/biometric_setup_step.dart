@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/core/services/biometric_service_provider.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 
@@ -86,6 +87,7 @@ class _BiometricSetupStepState extends ConsumerState<BiometricSetupStep> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     final isDark = theme.brightness == Brightness.dark;
     final primary = theme.colorScheme.primary;
 
@@ -111,7 +113,7 @@ class _BiometricSetupStepState extends ConsumerState<BiometricSetupStep> {
           const SizedBox(height: 24),
 
           Text(
-            'Use biometrics to unlock Prism',
+            l10n.onboardingBiometricTitle,
             textAlign: TextAlign.center,
             style: theme.textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.w600,
@@ -122,8 +124,7 @@ class _BiometricSetupStepState extends ConsumerState<BiometricSetupStep> {
           const SizedBox(height: 8),
 
           Text(
-            'Your encryption key will be protected by Face ID or Touch ID so '
-            'only you can unlock Prism.',
+            l10n.onboardingBiometricDescription,
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: isDark ? AppColors.mutedTextDark : AppColors.mutedTextLight,
@@ -135,7 +136,7 @@ class _BiometricSetupStepState extends ConsumerState<BiometricSetupStep> {
           SizedBox(
             width: double.infinity,
             child: PrismButton(
-              label: 'Enable biometrics',
+              label: l10n.onboardingBiometricEnable,
               onPressed: _enroll,
               tone: PrismButtonTone.filled,
               isLoading: _isLoading,
@@ -148,7 +149,7 @@ class _BiometricSetupStepState extends ConsumerState<BiometricSetupStep> {
           SizedBox(
             width: double.infinity,
             child: PrismButton(
-              label: 'Not now',
+              label: l10n.onboardingBiometricNotNow,
               onPressed: widget.onSkipped,
               tone: PrismButtonTone.subtle,
               expanded: true,

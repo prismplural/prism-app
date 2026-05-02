@@ -8525,4 +8525,193 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get boardsPostDetailNotFound => 'This post is no longer available.';
+
+  @override
+  String get pkMappingTitle => 'Link members';
+
+  @override
+  String pkMappingLoadError(String error) {
+    return 'Failed to load PluralKit members:\n$error';
+  }
+
+  @override
+  String get pkMappingRetry => 'Retry';
+
+  @override
+  String get pkMappingEmptyTitle => 'Nothing to map';
+
+  @override
+  String get pkMappingEmptySubtitle =>
+      'Your PluralKit system has no members and there are no local members to push.';
+
+  @override
+  String get pkMappingIntro =>
+      'For each PluralKit member, link to an existing Prism member, import as new, or skip. Unlinked Prism members can be pushed to PluralKit below.';
+
+  @override
+  String get pkMappingSectionPkMembers => 'PluralKit members';
+
+  @override
+  String get pkMappingSectionLocalToPush => 'Local members to push';
+
+  @override
+  String pkMappingApplyProgress(int percent) {
+    return 'Applying… $percent%';
+  }
+
+  @override
+  String get pkMappingApply => 'Apply';
+
+  @override
+  String get pkMappingDoLater => 'I\'ll do this later';
+
+  @override
+  String get pkMappingOptionImportNew => 'Import as new';
+
+  @override
+  String get pkMappingOptionSkip => 'Skip';
+
+  @override
+  String pkMappingOptionLink(String name) {
+    return 'Link → $name';
+  }
+
+  @override
+  String get pkMappingOptionPush => 'Push to PK';
+
+  @override
+  String get pkMappingOptionDontPush => 'Don\'t push';
+
+  @override
+  String pkMappingResultsSummary(
+    int linked,
+    int imported,
+    int pushed,
+    int skipped,
+    int failed,
+  ) {
+    return '$linked linked, $imported imported, $pushed pushed, $skipped skipped, $failed failed';
+  }
+
+  @override
+  String get pkMappingErrorsHeader => 'Errors';
+
+  @override
+  String pkMappingPkMemberSemantics(String name) {
+    return 'PluralKit member $name';
+  }
+
+  @override
+  String pkMappingLocalMemberSemantics(String name) {
+    return 'Local member $name';
+  }
+
+  @override
+  String pkMappingDescribeLink(String name) {
+    return 'Link $name';
+  }
+
+  @override
+  String pkMappingDescribeImport(String name) {
+    return 'Import $name';
+  }
+
+  @override
+  String pkMappingDescribePush(String id) {
+    return 'Push local $id';
+  }
+
+  @override
+  String get pkMappingDescribeSkip => 'Skip';
+
+  @override
+  String get pkMappingUnknownError => 'unknown error';
+
+  @override
+  String get secretKeyTitle => 'Your Secret Key';
+
+  @override
+  String get secretKeyUnavailableTitle => 'Secret Key Unavailable';
+
+  @override
+  String get secretKeyUnavailableMessage =>
+      'This Secret Key is no longer available.';
+
+  @override
+  String get secretKeyUnavailableHint =>
+      'Return to Sync settings and generate a new key if you still need to save it.';
+
+  @override
+  String get secretKeyBackToSync => 'Back to Sync';
+
+  @override
+  String get secretKeyWriteDownInfo =>
+      'Write these words down somewhere safe — a password manager, or paper kept offline. You\'ll need them to add new devices, change your PIN, or set up sync. There\'s no way to recover them if lost.';
+
+  @override
+  String get secretKeyCopyButton => 'Copy';
+
+  @override
+  String get secretKeySaveBackupButton => 'Save Backup';
+
+  @override
+  String get secretKeyShowQrButton => 'Show QR Code';
+
+  @override
+  String get secretKeyHideQrButton => 'Hide QR Code';
+
+  @override
+  String get secretKeyQrInstructions =>
+      'Scan from another device to transfer your Secret Key';
+
+  @override
+  String get secretKeyHaveSavedCheckbox => 'I have saved my Secret Key';
+
+  @override
+  String get secretKeyCopiedToast =>
+      'Copied — clipboard will be cleared in 15 seconds';
+
+  @override
+  String get secretKeyShareDialogTitle => 'Share Secret Key?';
+
+  @override
+  String get secretKeyShareDialogMessage =>
+      'You are about to share your 12-word Secret Key using the system share sheet.\n\nAnyone who receives this text — including cloud storage apps, messaging apps, or clipboard sync services — can use it to access your data.\n\nOnly share to a secure, private destination you control, such as a password manager or an encrypted notes app.';
+
+  @override
+  String get secretKeyShareConfirm => 'Share Anyway';
+
+  @override
+  String get secretKeyBackupSubject => 'Prism Secret Key Backup';
+
+  @override
+  String secretKeyBackupFileText(String numberedWords, String date) {
+    return 'Prism Secret Key Backup\n========================\n\nYour Secret Key (12-word recovery phrase):\n\n$numberedWords\n\nIMPORTANT:\n- Store this in a safe place — you will need it to set up new devices.\n- Anyone with this phrase AND your password can access your data.\n- Prism cannot recover this key if lost.\n\nGenerated: $date\n';
+  }
+
+  @override
+  String get onboardingBiometricTitle => 'Use biometrics to unlock Prism';
+
+  @override
+  String get onboardingBiometricDescription =>
+      'Your encryption key will be protected by Face ID or Touch ID so only you can unlock Prism.';
+
+  @override
+  String get onboardingBiometricEnable => 'Enable biometrics';
+
+  @override
+  String get onboardingBiometricNotNow => 'Not now';
+
+  @override
+  String get onboardingPairingFailed => 'Pairing failed';
+
+  @override
+  String get onboardingPairingIncomplete => 'Pairing incomplete';
+
+  @override
+  String get onboardingPairingRetry => 'Retry';
+
+  @override
+  String get onboardingPairingCancelAndRemove =>
+      'Cancel and remove this device';
 }

@@ -13763,6 +13763,318 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'This post is no longer available.'**
   String get boardsPostDetailNotFound;
+
+  /// Top bar title on the PluralKit member mapping screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Link members'**
+  String get pkMappingTitle;
+
+  /// Error shown when the PK mapping screen fails to load PluralKit members.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to load PluralKit members:\n{error}'**
+  String pkMappingLoadError(String error);
+
+  /// Retry button on the PK mapping load-error state.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get pkMappingRetry;
+
+  /// Empty state title when neither side has members to map.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing to map'**
+  String get pkMappingEmptyTitle;
+
+  /// Empty state subtitle on the PK mapping screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Your PluralKit system has no members and there are no local members to push.'**
+  String get pkMappingEmptySubtitle;
+
+  /// Intro paragraph at the top of the PK mapping screen explaining the per-row decisions.
+  ///
+  /// In en, this message translates to:
+  /// **'For each PluralKit member, link to an existing Prism member, import as new, or skip. Unlinked Prism members can be pushed to PluralKit below.'**
+  String get pkMappingIntro;
+
+  /// Section heading for the list of PluralKit members on the mapping screen.
+  ///
+  /// In en, this message translates to:
+  /// **'PluralKit members'**
+  String get pkMappingSectionPkMembers;
+
+  /// Section heading for unlinked local members that can be pushed to PluralKit.
+  ///
+  /// In en, this message translates to:
+  /// **'Local members to push'**
+  String get pkMappingSectionLocalToPush;
+
+  /// Progress label while the PK mapping is being applied.
+  ///
+  /// In en, this message translates to:
+  /// **'Applying… {percent}%'**
+  String pkMappingApplyProgress(int percent);
+
+  /// Footer button that applies the chosen PK mapping decisions.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply'**
+  String get pkMappingApply;
+
+  /// Footer button that dismisses the PK mapping screen without applying.
+  ///
+  /// In en, this message translates to:
+  /// **'I\'ll do this later'**
+  String get pkMappingDoLater;
+
+  /// Per-row option: import the PluralKit member as a brand-new local member.
+  ///
+  /// In en, this message translates to:
+  /// **'Import as new'**
+  String get pkMappingOptionImportNew;
+
+  /// Per-row option: skip this PluralKit member (don't link, don't import).
+  ///
+  /// In en, this message translates to:
+  /// **'Skip'**
+  String get pkMappingOptionSkip;
+
+  /// Per-row option: link this PK member to an existing local member.
+  ///
+  /// In en, this message translates to:
+  /// **'Link → {name}'**
+  String pkMappingOptionLink(String name);
+
+  /// Local-row option: push this local member up to PluralKit as a new PK member.
+  ///
+  /// In en, this message translates to:
+  /// **'Push to PK'**
+  String get pkMappingOptionPush;
+
+  /// Local-row option: leave this local member unpushed.
+  ///
+  /// In en, this message translates to:
+  /// **'Don\'t push'**
+  String get pkMappingOptionDontPush;
+
+  /// Summary line shown after applying PK mapping decisions.
+  ///
+  /// In en, this message translates to:
+  /// **'{linked} linked, {imported} imported, {pushed} pushed, {skipped} skipped, {failed} failed'**
+  String pkMappingResultsSummary(
+    int linked,
+    int imported,
+    int pushed,
+    int skipped,
+    int failed,
+  );
+
+  /// Header above the per-row failure list in the PK mapping results card.
+  ///
+  /// In en, this message translates to:
+  /// **'Errors'**
+  String get pkMappingErrorsHeader;
+
+  /// Semantics label for a PluralKit member row in the mapping list.
+  ///
+  /// In en, this message translates to:
+  /// **'PluralKit member {name}'**
+  String pkMappingPkMemberSemantics(String name);
+
+  /// Semantics label for a local member row in the mapping list.
+  ///
+  /// In en, this message translates to:
+  /// **'Local member {name}'**
+  String pkMappingLocalMemberSemantics(String name);
+
+  /// Failure-list verb describing a 'link' decision for the named PK member.
+  ///
+  /// In en, this message translates to:
+  /// **'Link {name}'**
+  String pkMappingDescribeLink(String name);
+
+  /// Failure-list verb describing an 'import' decision for the named PK member.
+  ///
+  /// In en, this message translates to:
+  /// **'Import {name}'**
+  String pkMappingDescribeImport(String name);
+
+  /// Failure-list verb describing a 'push to PK' decision for the local member id.
+  ///
+  /// In en, this message translates to:
+  /// **'Push local {id}'**
+  String pkMappingDescribePush(String id);
+
+  /// Failure-list verb describing a 'skip' decision.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip'**
+  String get pkMappingDescribeSkip;
+
+  /// Lowercase fallback when a PK mapping failure has no error message.
+  ///
+  /// In en, this message translates to:
+  /// **'unknown error'**
+  String get pkMappingUnknownError;
+
+  /// Top bar title on the Secret Key reveal screen during setup.
+  ///
+  /// In en, this message translates to:
+  /// **'Your Secret Key'**
+  String get secretKeyTitle;
+
+  /// Top bar title shown when the Secret Key reveal screen is opened but the mnemonic has already been consumed/dismissed.
+  ///
+  /// In en, this message translates to:
+  /// **'Secret Key Unavailable'**
+  String get secretKeyUnavailableTitle;
+
+  /// Headline body text on the Secret Key Unavailable screen.
+  ///
+  /// In en, this message translates to:
+  /// **'This Secret Key is no longer available.'**
+  String get secretKeyUnavailableMessage;
+
+  /// Subtitle directing the user back to Sync settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Return to Sync settings and generate a new key if you still need to save it.'**
+  String get secretKeyUnavailableHint;
+
+  /// Button on the Secret Key Unavailable screen that returns to the Sync settings screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to Sync'**
+  String get secretKeyBackToSync;
+
+  /// Info banner above the Secret Key word list explaining where to store it.
+  ///
+  /// In en, this message translates to:
+  /// **'Write these words down somewhere safe — a password manager, or paper kept offline. You\'ll need them to add new devices, change your PIN, or set up sync. There\'s no way to recover them if lost.'**
+  String get secretKeyWriteDownInfo;
+
+  /// Button that copies the Secret Key mnemonic to the clipboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy'**
+  String get secretKeyCopyButton;
+
+  /// Button that opens the share sheet with a formatted Secret Key backup file.
+  ///
+  /// In en, this message translates to:
+  /// **'Save Backup'**
+  String get secretKeySaveBackupButton;
+
+  /// Button that reveals the Secret Key QR code for cross-device transfer.
+  ///
+  /// In en, this message translates to:
+  /// **'Show QR Code'**
+  String get secretKeyShowQrButton;
+
+  /// Button that hides the Secret Key QR code.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide QR Code'**
+  String get secretKeyHideQrButton;
+
+  /// Caption under the Secret Key QR code explaining how to use it.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan from another device to transfer your Secret Key'**
+  String get secretKeyQrInstructions;
+
+  /// Checkbox the user must tick to acknowledge they've saved their Secret Key before continuing.
+  ///
+  /// In en, this message translates to:
+  /// **'I have saved my Secret Key'**
+  String get secretKeyHaveSavedCheckbox;
+
+  /// Toast shown after the Secret Key is copied to the clipboard, noting the auto-clear timer.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied — clipboard will be cleared in 15 seconds'**
+  String get secretKeyCopiedToast;
+
+  /// Title of the warning dialog shown before sharing the Secret Key via the system share sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Share Secret Key?'**
+  String get secretKeyShareDialogTitle;
+
+  /// Body of the Share Secret Key warning dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'You are about to share your 12-word Secret Key using the system share sheet.\n\nAnyone who receives this text — including cloud storage apps, messaging apps, or clipboard sync services — can use it to access your data.\n\nOnly share to a secure, private destination you control, such as a password manager or an encrypted notes app.'**
+  String get secretKeyShareDialogMessage;
+
+  /// Confirm button on the Share Secret Key warning dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Share Anyway'**
+  String get secretKeyShareConfirm;
+
+  /// Email/share subject line on the exported Secret Key backup file.
+  ///
+  /// In en, this message translates to:
+  /// **'Prism Secret Key Backup'**
+  String get secretKeyBackupSubject;
+
+  /// Body of the exported Secret Key backup text file shared via the system share sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Prism Secret Key Backup\n========================\n\nYour Secret Key (12-word recovery phrase):\n\n{numberedWords}\n\nIMPORTANT:\n- Store this in a safe place — you will need it to set up new devices.\n- Anyone with this phrase AND your password can access your data.\n- Prism cannot recover this key if lost.\n\nGenerated: {date}\n'**
+  String secretKeyBackupFileText(String numberedWords, String date);
+
+  /// Title of the onboarding step that offers optional biometric enrollment.
+  ///
+  /// In en, this message translates to:
+  /// **'Use biometrics to unlock Prism'**
+  String get onboardingBiometricTitle;
+
+  /// Body text on the onboarding biometric setup step.
+  ///
+  /// In en, this message translates to:
+  /// **'Your encryption key will be protected by Face ID or Touch ID so only you can unlock Prism.'**
+  String get onboardingBiometricDescription;
+
+  /// Primary button on the onboarding biometric setup step.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable biometrics'**
+  String get onboardingBiometricEnable;
+
+  /// Secondary button that dismisses the biometric setup step.
+  ///
+  /// In en, this message translates to:
+  /// **'Not now'**
+  String get onboardingBiometricNotNow;
+
+  /// Heading on the device-pairing fatal error view in onboarding.
+  ///
+  /// In en, this message translates to:
+  /// **'Pairing failed'**
+  String get onboardingPairingFailed;
+
+  /// Heading on the device-pairing snapshot-failure view in onboarding (pairing succeeded but snapshot bootstrap failed).
+  ///
+  /// In en, this message translates to:
+  /// **'Pairing incomplete'**
+  String get onboardingPairingIncomplete;
+
+  /// Retry button on the device-pairing snapshot-failure view.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get onboardingPairingRetry;
+
+  /// Destructive button that deregisters this device and aborts the pairing flow.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel and remove this device'**
+  String get onboardingPairingCancelAndRemove;
 }
 
 class _AppLocalizationsDelegate

@@ -8683,4 +8683,193 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get boardsPostDetailNotFound =>
       'Esta publicación ya no está disponible.';
+
+  @override
+  String get pkMappingTitle => 'Vincular miembros';
+
+  @override
+  String pkMappingLoadError(String error) {
+    return 'No se pudieron cargar los miembros de PluralKit:\n$error';
+  }
+
+  @override
+  String get pkMappingRetry => 'Reintentar';
+
+  @override
+  String get pkMappingEmptyTitle => 'Nada que vincular';
+
+  @override
+  String get pkMappingEmptySubtitle =>
+      'Tu sistema en PluralKit no tiene miembros y no hay miembros locales para enviar.';
+
+  @override
+  String get pkMappingIntro =>
+      'Por cada miembro de PluralKit, vincúlalo con un miembro existente de Prism, impórtalo como nuevo o sáltalo. Los miembros de Prism sin vincular pueden enviarse a PluralKit más abajo.';
+
+  @override
+  String get pkMappingSectionPkMembers => 'Miembros de PluralKit';
+
+  @override
+  String get pkMappingSectionLocalToPush => 'Miembros locales para enviar';
+
+  @override
+  String pkMappingApplyProgress(int percent) {
+    return 'Aplicando… $percent%';
+  }
+
+  @override
+  String get pkMappingApply => 'Aplicar';
+
+  @override
+  String get pkMappingDoLater => 'Lo haré más tarde';
+
+  @override
+  String get pkMappingOptionImportNew => 'Importar como nuevo';
+
+  @override
+  String get pkMappingOptionSkip => 'Saltar';
+
+  @override
+  String pkMappingOptionLink(String name) {
+    return 'Vincular → $name';
+  }
+
+  @override
+  String get pkMappingOptionPush => 'Enviar a PK';
+
+  @override
+  String get pkMappingOptionDontPush => 'No enviar';
+
+  @override
+  String pkMappingResultsSummary(
+    int linked,
+    int imported,
+    int pushed,
+    int skipped,
+    int failed,
+  ) {
+    return '$linked vinculados, $imported importados, $pushed enviados, $skipped omitidos, $failed fallidos';
+  }
+
+  @override
+  String get pkMappingErrorsHeader => 'Errores';
+
+  @override
+  String pkMappingPkMemberSemantics(String name) {
+    return 'Miembro de PluralKit $name';
+  }
+
+  @override
+  String pkMappingLocalMemberSemantics(String name) {
+    return 'Miembro local $name';
+  }
+
+  @override
+  String pkMappingDescribeLink(String name) {
+    return 'Vincular $name';
+  }
+
+  @override
+  String pkMappingDescribeImport(String name) {
+    return 'Importar $name';
+  }
+
+  @override
+  String pkMappingDescribePush(String id) {
+    return 'Enviar local $id';
+  }
+
+  @override
+  String get pkMappingDescribeSkip => 'Omitir';
+
+  @override
+  String get pkMappingUnknownError => 'error desconocido';
+
+  @override
+  String get secretKeyTitle => 'Tu clave secreta';
+
+  @override
+  String get secretKeyUnavailableTitle => 'Clave secreta no disponible';
+
+  @override
+  String get secretKeyUnavailableMessage =>
+      'Esta clave secreta ya no está disponible.';
+
+  @override
+  String get secretKeyUnavailableHint =>
+      'Vuelve a los ajustes de Sincronización y genera una clave nueva si aún necesitas guardarla.';
+
+  @override
+  String get secretKeyBackToSync => 'Volver a Sincronización';
+
+  @override
+  String get secretKeyWriteDownInfo =>
+      'Anota estas palabras en un lugar seguro — un gestor de contraseñas, o papel guardado sin conexión. Las necesitarás para agregar dispositivos, cambiar tu PIN o configurar la sincronización. No hay forma de recuperarlas si se pierden.';
+
+  @override
+  String get secretKeyCopyButton => 'Copiar';
+
+  @override
+  String get secretKeySaveBackupButton => 'Guardar respaldo';
+
+  @override
+  String get secretKeyShowQrButton => 'Mostrar código QR';
+
+  @override
+  String get secretKeyHideQrButton => 'Ocultar código QR';
+
+  @override
+  String get secretKeyQrInstructions =>
+      'Escanea desde otro dispositivo para transferir tu clave secreta';
+
+  @override
+  String get secretKeyHaveSavedCheckbox => 'He guardado mi clave secreta';
+
+  @override
+  String get secretKeyCopiedToast =>
+      'Copiado — el portapapeles se borrará en 15 segundos';
+
+  @override
+  String get secretKeyShareDialogTitle => '¿Compartir clave secreta?';
+
+  @override
+  String get secretKeyShareDialogMessage =>
+      'Estás a punto de compartir tu clave secreta de 12 palabras usando el compartidor del sistema.\n\nCualquiera que reciba este texto — incluidas las apps de almacenamiento en la nube, mensajería o sincronización de portapapeles — puede usarlo para acceder a tus datos.\n\nCompártela solo con un destino seguro y privado que controles tú, como un gestor de contraseñas o una app de notas cifradas.';
+
+  @override
+  String get secretKeyShareConfirm => 'Compartir de todos modos';
+
+  @override
+  String get secretKeyBackupSubject => 'Respaldo de clave secreta de Prism';
+
+  @override
+  String secretKeyBackupFileText(String numberedWords, String date) {
+    return 'Respaldo de clave secreta de Prism\n==================================\n\nTu clave secreta (frase de recuperación de 12 palabras):\n\n$numberedWords\n\nIMPORTANTE:\n- Guarda esto en un lugar seguro — lo necesitarás para configurar nuevos dispositivos.\n- Cualquiera con esta frase Y tu contraseña puede acceder a tus datos.\n- Prism no puede recuperar esta clave si se pierde.\n\nGenerado: $date\n';
+  }
+
+  @override
+  String get onboardingBiometricTitle => 'Usa biometría para desbloquear Prism';
+
+  @override
+  String get onboardingBiometricDescription =>
+      'Tu clave de cifrado quedará protegida por Face ID o Touch ID para que solo tú puedas desbloquear Prism.';
+
+  @override
+  String get onboardingBiometricEnable => 'Activar biometría';
+
+  @override
+  String get onboardingBiometricNotNow => 'Ahora no';
+
+  @override
+  String get onboardingPairingFailed => 'Vinculación fallida';
+
+  @override
+  String get onboardingPairingIncomplete => 'Vinculación incompleta';
+
+  @override
+  String get onboardingPairingRetry => 'Reintentar';
+
+  @override
+  String get onboardingPairingCancelAndRemove =>
+      'Cancelar y eliminar este dispositivo';
 }

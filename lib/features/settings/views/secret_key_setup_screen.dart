@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/widgets/secret_key_reveal_content.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
@@ -29,10 +30,11 @@ class _SecretKeySetupScreenState extends ConsumerState<SecretKeySetupScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     final mnemonic = (widget.mnemonic ?? ref.read(pendingMnemonicProvider))?.trim();
     if (mnemonic == null || mnemonic.isEmpty) {
       return PrismPageScaffold(
-        topBar: const PrismTopBar(title: 'Secret Key Unavailable'),
+        topBar: PrismTopBar(title: l10n.secretKeyUnavailableTitle),
         bodyPadding: EdgeInsets.zero,
         body: SafeArea(
           top: false,
@@ -49,20 +51,20 @@ class _SecretKeySetupScreenState extends ConsumerState<SecretKeySetupScreen> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'This Secret Key is no longer available.',
+                  l10n.secretKeyUnavailableMessage,
                   textAlign: TextAlign.center,
                   style: theme.textTheme.titleLarge,
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Return to Sync settings and generate a new key if you still need to save it.',
+                  l10n.secretKeyUnavailableHint,
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodyMedium,
                 ),
                 const SizedBox(height: 24),
                 PrismButton(
                   onPressed: widget.onComplete,
-                  label: 'Back to Sync',
+                  label: l10n.secretKeyBackToSync,
                   tone: PrismButtonTone.filled,
                 ),
               ],
@@ -73,7 +75,7 @@ class _SecretKeySetupScreenState extends ConsumerState<SecretKeySetupScreen> {
     }
 
     return PrismPageScaffold(
-      topBar: const PrismTopBar(title: 'Your Secret Key'),
+      topBar: PrismTopBar(title: l10n.secretKeyTitle),
       bodyPadding: EdgeInsets.zero,
       body: SafeArea(
         top: false,
@@ -89,7 +91,7 @@ class _SecretKeySetupScreenState extends ConsumerState<SecretKeySetupScreen> {
             PrismButton(
               onPressed: widget.onComplete,
               enabled: _hasSaved,
-              label: 'Continue',
+              label: l10n.continueLabel,
               tone: PrismButtonTone.filled,
             ),
           ],

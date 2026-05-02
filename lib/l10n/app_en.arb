@@ -9103,5 +9103,244 @@
   "boardsPostDetailNotFound": "This post is no longer available.",
   "@boardsPostDetailNotFound": {
     "description": "Shown on the post detail screen when the post id no longer resolves (deleted, never synced)."
+  },
+  "pkMappingTitle": "Link members",
+  "@pkMappingTitle": {
+    "description": "Top bar title on the PluralKit member mapping screen."
+  },
+  "pkMappingLoadError": "Failed to load PluralKit members:\n{error}",
+  "@pkMappingLoadError": {
+    "description": "Error shown when the PK mapping screen fails to load PluralKit members.",
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "pkMappingRetry": "Retry",
+  "@pkMappingRetry": {
+    "description": "Retry button on the PK mapping load-error state."
+  },
+  "pkMappingEmptyTitle": "Nothing to map",
+  "@pkMappingEmptyTitle": {
+    "description": "Empty state title when neither side has members to map."
+  },
+  "pkMappingEmptySubtitle": "Your PluralKit system has no members and there are no local members to push.",
+  "@pkMappingEmptySubtitle": {
+    "description": "Empty state subtitle on the PK mapping screen."
+  },
+  "pkMappingIntro": "For each PluralKit member, link to an existing Prism member, import as new, or skip. Unlinked Prism members can be pushed to PluralKit below.",
+  "@pkMappingIntro": {
+    "description": "Intro paragraph at the top of the PK mapping screen explaining the per-row decisions."
+  },
+  "pkMappingSectionPkMembers": "PluralKit members",
+  "@pkMappingSectionPkMembers": {
+    "description": "Section heading for the list of PluralKit members on the mapping screen."
+  },
+  "pkMappingSectionLocalToPush": "Local members to push",
+  "@pkMappingSectionLocalToPush": {
+    "description": "Section heading for unlinked local members that can be pushed to PluralKit."
+  },
+  "pkMappingApplyProgress": "Applying… {percent}%",
+  "@pkMappingApplyProgress": {
+    "description": "Progress label while the PK mapping is being applied.",
+    "placeholders": {
+      "percent": { "type": "int" }
+    }
+  },
+  "pkMappingApply": "Apply",
+  "@pkMappingApply": {
+    "description": "Footer button that applies the chosen PK mapping decisions."
+  },
+  "pkMappingDoLater": "I'll do this later",
+  "@pkMappingDoLater": {
+    "description": "Footer button that dismisses the PK mapping screen without applying."
+  },
+  "pkMappingOptionImportNew": "Import as new",
+  "@pkMappingOptionImportNew": {
+    "description": "Per-row option: import the PluralKit member as a brand-new local member."
+  },
+  "pkMappingOptionSkip": "Skip",
+  "@pkMappingOptionSkip": {
+    "description": "Per-row option: skip this PluralKit member (don't link, don't import)."
+  },
+  "pkMappingOptionLink": "Link → {name}",
+  "@pkMappingOptionLink": {
+    "description": "Per-row option: link this PK member to an existing local member.",
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "pkMappingOptionPush": "Push to PK",
+  "@pkMappingOptionPush": {
+    "description": "Local-row option: push this local member up to PluralKit as a new PK member."
+  },
+  "pkMappingOptionDontPush": "Don't push",
+  "@pkMappingOptionDontPush": {
+    "description": "Local-row option: leave this local member unpushed."
+  },
+  "pkMappingResultsSummary": "{linked} linked, {imported} imported, {pushed} pushed, {skipped} skipped, {failed} failed",
+  "@pkMappingResultsSummary": {
+    "description": "Summary line shown after applying PK mapping decisions.",
+    "placeholders": {
+      "linked": { "type": "int" },
+      "imported": { "type": "int" },
+      "pushed": { "type": "int" },
+      "skipped": { "type": "int" },
+      "failed": { "type": "int" }
+    }
+  },
+  "pkMappingErrorsHeader": "Errors",
+  "@pkMappingErrorsHeader": {
+    "description": "Header above the per-row failure list in the PK mapping results card."
+  },
+  "pkMappingPkMemberSemantics": "PluralKit member {name}",
+  "@pkMappingPkMemberSemantics": {
+    "description": "Semantics label for a PluralKit member row in the mapping list.",
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "pkMappingLocalMemberSemantics": "Local member {name}",
+  "@pkMappingLocalMemberSemantics": {
+    "description": "Semantics label for a local member row in the mapping list.",
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "pkMappingDescribeLink": "Link {name}",
+  "@pkMappingDescribeLink": {
+    "description": "Failure-list verb describing a 'link' decision for the named PK member.",
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "pkMappingDescribeImport": "Import {name}",
+  "@pkMappingDescribeImport": {
+    "description": "Failure-list verb describing an 'import' decision for the named PK member.",
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "pkMappingDescribePush": "Push local {id}",
+  "@pkMappingDescribePush": {
+    "description": "Failure-list verb describing a 'push to PK' decision for the local member id.",
+    "placeholders": {
+      "id": { "type": "String" }
+    }
+  },
+  "pkMappingDescribeSkip": "Skip",
+  "@pkMappingDescribeSkip": {
+    "description": "Failure-list verb describing a 'skip' decision."
+  },
+  "pkMappingUnknownError": "unknown error",
+  "@pkMappingUnknownError": {
+    "description": "Lowercase fallback when a PK mapping failure has no error message."
+  },
+  "secretKeyTitle": "Your Secret Key",
+  "@secretKeyTitle": {
+    "description": "Top bar title on the Secret Key reveal screen during setup."
+  },
+  "secretKeyUnavailableTitle": "Secret Key Unavailable",
+  "@secretKeyUnavailableTitle": {
+    "description": "Top bar title shown when the Secret Key reveal screen is opened but the mnemonic has already been consumed/dismissed."
+  },
+  "secretKeyUnavailableMessage": "This Secret Key is no longer available.",
+  "@secretKeyUnavailableMessage": {
+    "description": "Headline body text on the Secret Key Unavailable screen."
+  },
+  "secretKeyUnavailableHint": "Return to Sync settings and generate a new key if you still need to save it.",
+  "@secretKeyUnavailableHint": {
+    "description": "Subtitle directing the user back to Sync settings."
+  },
+  "secretKeyBackToSync": "Back to Sync",
+  "@secretKeyBackToSync": {
+    "description": "Button on the Secret Key Unavailable screen that returns to the Sync settings screen."
+  },
+  "secretKeyWriteDownInfo": "Write these words down somewhere safe — a password manager, or paper kept offline. You'll need them to add new devices, change your PIN, or set up sync. There's no way to recover them if lost.",
+  "@secretKeyWriteDownInfo": {
+    "description": "Info banner above the Secret Key word list explaining where to store it."
+  },
+  "secretKeyCopyButton": "Copy",
+  "@secretKeyCopyButton": {
+    "description": "Button that copies the Secret Key mnemonic to the clipboard."
+  },
+  "secretKeySaveBackupButton": "Save Backup",
+  "@secretKeySaveBackupButton": {
+    "description": "Button that opens the share sheet with a formatted Secret Key backup file."
+  },
+  "secretKeyShowQrButton": "Show QR Code",
+  "@secretKeyShowQrButton": {
+    "description": "Button that reveals the Secret Key QR code for cross-device transfer."
+  },
+  "secretKeyHideQrButton": "Hide QR Code",
+  "@secretKeyHideQrButton": {
+    "description": "Button that hides the Secret Key QR code."
+  },
+  "secretKeyQrInstructions": "Scan from another device to transfer your Secret Key",
+  "@secretKeyQrInstructions": {
+    "description": "Caption under the Secret Key QR code explaining how to use it."
+  },
+  "secretKeyHaveSavedCheckbox": "I have saved my Secret Key",
+  "@secretKeyHaveSavedCheckbox": {
+    "description": "Checkbox the user must tick to acknowledge they've saved their Secret Key before continuing."
+  },
+  "secretKeyCopiedToast": "Copied — clipboard will be cleared in 15 seconds",
+  "@secretKeyCopiedToast": {
+    "description": "Toast shown after the Secret Key is copied to the clipboard, noting the auto-clear timer."
+  },
+  "secretKeyShareDialogTitle": "Share Secret Key?",
+  "@secretKeyShareDialogTitle": {
+    "description": "Title of the warning dialog shown before sharing the Secret Key via the system share sheet."
+  },
+  "secretKeyShareDialogMessage": "You are about to share your 12-word Secret Key using the system share sheet.\n\nAnyone who receives this text — including cloud storage apps, messaging apps, or clipboard sync services — can use it to access your data.\n\nOnly share to a secure, private destination you control, such as a password manager or an encrypted notes app.",
+  "@secretKeyShareDialogMessage": {
+    "description": "Body of the Share Secret Key warning dialog."
+  },
+  "secretKeyShareConfirm": "Share Anyway",
+  "@secretKeyShareConfirm": {
+    "description": "Confirm button on the Share Secret Key warning dialog."
+  },
+  "secretKeyBackupSubject": "Prism Secret Key Backup",
+  "@secretKeyBackupSubject": {
+    "description": "Email/share subject line on the exported Secret Key backup file."
+  },
+  "secretKeyBackupFileText": "Prism Secret Key Backup\n========================\n\nYour Secret Key (12-word recovery phrase):\n\n{numberedWords}\n\nIMPORTANT:\n- Store this in a safe place — you will need it to set up new devices.\n- Anyone with this phrase AND your password can access your data.\n- Prism cannot recover this key if lost.\n\nGenerated: {date}\n",
+  "@secretKeyBackupFileText": {
+    "description": "Body of the exported Secret Key backup text file shared via the system share sheet.",
+    "placeholders": {
+      "numberedWords": { "type": "String" },
+      "date": { "type": "String" }
+    }
+  },
+  "onboardingBiometricTitle": "Use biometrics to unlock Prism",
+  "@onboardingBiometricTitle": {
+    "description": "Title of the onboarding step that offers optional biometric enrollment."
+  },
+  "onboardingBiometricDescription": "Your encryption key will be protected by Face ID or Touch ID so only you can unlock Prism.",
+  "@onboardingBiometricDescription": {
+    "description": "Body text on the onboarding biometric setup step."
+  },
+  "onboardingBiometricEnable": "Enable biometrics",
+  "@onboardingBiometricEnable": {
+    "description": "Primary button on the onboarding biometric setup step."
+  },
+  "onboardingBiometricNotNow": "Not now",
+  "@onboardingBiometricNotNow": {
+    "description": "Secondary button that dismisses the biometric setup step."
+  },
+  "onboardingPairingFailed": "Pairing failed",
+  "@onboardingPairingFailed": {
+    "description": "Heading on the device-pairing fatal error view in onboarding."
+  },
+  "onboardingPairingIncomplete": "Pairing incomplete",
+  "@onboardingPairingIncomplete": {
+    "description": "Heading on the device-pairing snapshot-failure view in onboarding (pairing succeeded but snapshot bootstrap failed)."
+  },
+  "onboardingPairingRetry": "Retry",
+  "@onboardingPairingRetry": {
+    "description": "Retry button on the device-pairing snapshot-failure view."
+  },
+  "onboardingPairingCancelAndRemove": "Cancel and remove this device",
+  "@onboardingPairingCancelAndRemove": {
+    "description": "Destructive button that deregisters this device and aborts the pairing flow."
   }
 }
