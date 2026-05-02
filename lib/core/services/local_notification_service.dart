@@ -250,14 +250,16 @@ class LocalNotificationService {
           IOSFlutterLocalNotificationsPlugin
         >();
     if (ios != null) {
-      return (await ios.requestPermissions()) ?? false;
+      final permissions = await ios.checkPermissions();
+      return permissions?.isEnabled ?? false;
     }
     final mac = _plugin
         .resolvePlatformSpecificImplementation<
           MacOSFlutterLocalNotificationsPlugin
         >();
     if (mac != null) {
-      return (await mac.requestPermissions()) ?? false;
+      final permissions = await mac.checkPermissions();
+      return permissions?.isEnabled ?? false;
     }
     final android = _plugin
         .resolvePlatformSpecificImplementation<
