@@ -6616,6 +6616,18 @@ abstract class AppLocalizations {
   /// **'A personal journal and writing space for your system'**
   String get onboardingFeaturesNotesDescription;
 
+  /// Feature toggle label for message boards in features step
+  ///
+  /// In en, this message translates to:
+  /// **'Message Boards'**
+  String get onboardingFeaturesBoards;
+
+  /// Feature toggle description for message boards in features step
+  ///
+  /// In en, this message translates to:
+  /// **'Short messages between headmates — public timeline plus private inbox.'**
+  String get onboardingFeaturesBoardsDescription;
+
   /// Feature toggle label for reminders in features step
   ///
   /// In en, this message translates to:
