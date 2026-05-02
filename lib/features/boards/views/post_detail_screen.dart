@@ -165,7 +165,7 @@ class _PostDetailBody extends ConsumerWidget {
 
     return SingleChildScrollView(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // ── Header banner (full width, tinted, divider at bottom)
           DecoratedBox(
