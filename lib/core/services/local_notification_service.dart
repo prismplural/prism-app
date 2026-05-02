@@ -58,16 +58,20 @@ class LocalNotificationService {
   ///
   /// Uses [DateTimeComponents.time] so the OS fires it every day at
   /// that clock time without requiring the app to reschedule.
+  ///
+  /// [notBefore] floors the first occurrence — pass tomorrow's date to skip
+  /// today's fire (matchDateTimeComponents continues the daily repeat after).
   Future<void> scheduleExactDaily({
     required int id,
     required String title,
     required String body,
     required TimeOfDay time,
     required NotificationDetails details,
+    DateTime? notBefore,
   }) async {
     if (kIsWeb) return;
     await _ensureInitialized();
-    final scheduled = _nextOccurrence(time);
+    final scheduled = _nextOccurrence(time, notBefore: notBefore);
     await _plugin.zonedSchedule(
       id: id,
       title: title,
@@ -83,6 +87,9 @@ class LocalNotificationService {
   ///
   /// [weekday] uses [DateTime] weekday constants (Monday=1, Sunday=7).
   /// Uses [DateTimeComponents.dayOfWeekAndTime] for OS-managed repeating.
+  ///
+  /// [notBefore] floors the first occurrence — pass tomorrow's date to skip
+  /// this week's fire when the user just completed today's instance.
   Future<void> scheduleExactWeekly({
     required int id,
     required String title,
@@ -90,10 +97,11 @@ class LocalNotificationService {
     required TimeOfDay time,
     required int weekday,
     required NotificationDetails details,
+    DateTime? notBefore,
   }) async {
     if (kIsWeb) return;
     await _ensureInitialized();
-    final scheduled = _nextWeekdayOccurrence(time, weekday);
+    final scheduled = _nextWeekdayOccurrence(time, weekday, notBefore: notBefore);
     await _plugin.zonedSchedule(
       id: id,
       title: title,
@@ -113,6 +121,9 @@ class LocalNotificationService {
   /// Note: do NOT call this with intervalDays == 1; use [scheduleExactDaily].
   /// Callers are responsible for cancelling stale IDs with [cancelRange]
   /// before calling this.
+  ///
+  /// [notBefore] floors the first occurrence — pass `today + intervalDays` to
+  /// skip the current period after a completion.
   Future<void> scheduleExactInterval({
     required int idBase,
     required String title,
@@ -121,13 +132,14 @@ class LocalNotificationService {
     required int intervalDays,
     required NotificationDetails details,
     int? maxOccurrences,
+    DateTime? notBefore,
   }) async {
     if (kIsWeb) return;
     await _ensureInitialized();
     final n =
         maxOccurrences ??
         (30 / intervalDays).ceil().clamp(2, maxIntervalOccurrences);
-    var next = _nextOccurrence(time);
+    var next = _nextOccurrence(time, notBefore: notBefore);
     for (var i = 0; i < n; i++) {
       await _plugin.zonedSchedule(
         id: idBase + i,
@@ -279,26 +291,40 @@ class LocalNotificationService {
   }
 
   /// Returns the next [TZDateTime] at [time] in the local timezone.
-  /// If today's occurrence has already passed, returns tomorrow's.
-  tz.TZDateTime _nextOccurrence(TimeOfDay time) {
+  /// If today's occurrence has already passed (or is before [notBefore]),
+  /// the search advances forward day by day.
+  tz.TZDateTime _nextOccurrence(TimeOfDay time, {DateTime? notBefore}) {
     final now = tz.TZDateTime.now(tz.local);
+    final floor = notBefore == null
+        ? now
+        : (() {
+            final tzNotBefore = tz.TZDateTime.from(notBefore, tz.local);
+            return tzNotBefore.isAfter(now) ? tzNotBefore : now;
+          })();
     var scheduled = tz.TZDateTime(
       tz.local,
-      now.year,
-      now.month,
-      now.day,
+      floor.year,
+      floor.month,
+      floor.day,
       time.hour,
       time.minute,
     );
-    if (scheduled.isBefore(now)) {
+    if (scheduled.isBefore(floor)) {
       scheduled = scheduled.add(const Duration(days: 1));
     }
     return scheduled;
   }
 
   /// Returns the next [TZDateTime] for [weekday] at [time].
-  tz.TZDateTime _nextWeekdayOccurrence(TimeOfDay time, int weekday) =>
-      nextWeekdayOccurrenceFrom(_nextOccurrence(time), weekday);
+  tz.TZDateTime _nextWeekdayOccurrence(
+    TimeOfDay time,
+    int weekday, {
+    DateTime? notBefore,
+  }) =>
+      nextWeekdayOccurrenceFrom(
+        _nextOccurrence(time, notBefore: notBefore),
+        weekday,
+      );
 }
 
 /// Walks forward from [from] until landing on [weekday] (the app's picker

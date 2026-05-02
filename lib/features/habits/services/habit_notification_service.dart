@@ -34,7 +34,18 @@ class HabitNotificationService {
 
   /// Schedule notifications for a habit based on its frequency and reminder
   /// time.
-  Future<void> scheduleForHabit(Habit habit) async {
+  ///
+  /// When [skipCurrentPeriod] is true, the next fire is pushed past the
+  /// current period — used right after a completion so the user doesn't get
+  /// reminded about something they already did.
+  /// - daily / custom → first fire shifts to tomorrow
+  /// - weekly → only the slot whose weekday matches today shifts to next week
+  /// - interval (>1 day) → run starts at `today + intervalDays`
+  Future<void> scheduleForHabit(
+    Habit habit, {
+    bool skipCurrentPeriod = false,
+    DateTime? now,
+  }) async {
     // Guard: inactive or notifications disabled → cancel and return
     if (!habit.isActive || !habit.notificationsEnabled) {
       await cancelForHabit(habit.id);
@@ -65,6 +76,10 @@ class HabitNotificationService {
     // Cancel all existing IDs for this habit before rescheduling
     await cancelForHabit(habit.id);
 
+    final clock = now ?? DateTime.now();
+    final today = DateTime(clock.year, clock.month, clock.day);
+    final tomorrow = today.add(const Duration(days: 1));
+
     switch (habit.frequency) {
       case HabitFrequency.daily:
       case HabitFrequency.custom:
@@ -74,6 +89,7 @@ class HabitNotificationService {
           body: body,
           time: time,
           details: details,
+          notBefore: skipCurrentPeriod ? tomorrow : null,
         );
 
       case HabitFrequency.weekly:
@@ -86,7 +102,10 @@ class HabitNotificationService {
             .toList()
           ..sort();
         if (days.isEmpty) return;
+        // 0=Sun..6=Sat per the app's weekly weekday convention.
+        final todayIdx = clock.weekday % 7;
         for (var i = 0; i < days.length; i++) {
+          final isTodaySlot = skipCurrentPeriod && days[i] == todayIdx;
           await _localService.scheduleExactWeekly(
             id: _baseId(habit.id) + i,
             title: title,
@@ -94,6 +113,7 @@ class HabitNotificationService {
             time: time,
             weekday: days[i],
             details: details,
+            notBefore: isTodaySlot ? tomorrow : null,
           );
         }
 
@@ -106,6 +126,7 @@ class HabitNotificationService {
             body: body,
             time: time,
             details: details,
+            notBefore: skipCurrentPeriod ? tomorrow : null,
           );
         } else {
           await _localService.scheduleExactInterval(
@@ -115,6 +136,9 @@ class HabitNotificationService {
             time: time,
             intervalDays: intervalDays,
             details: details,
+            notBefore: skipCurrentPeriod
+                ? today.add(Duration(days: intervalDays))
+                : null,
           );
         }
     }
@@ -129,9 +153,16 @@ class HabitNotificationService {
   }
 
   /// Reschedule notifications for all habits.
-  Future<void> rescheduleAll(List<Habit> habits) async {
+  ///
+  /// [skipCurrentPeriodFor] is consulted per-habit to suppress same-period
+  /// reminders for habits whose current period is already completed.
+  Future<void> rescheduleAll(
+    List<Habit> habits, {
+    bool Function(Habit habit)? skipCurrentPeriodFor,
+  }) async {
     for (final habit in habits) {
-      await scheduleForHabit(habit);
+      final skip = skipCurrentPeriodFor?.call(habit) ?? false;
+      await scheduleForHabit(habit, skipCurrentPeriod: skip);
     }
   }
 
