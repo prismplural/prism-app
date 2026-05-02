@@ -245,6 +245,7 @@ enum PlatformAttestationError: Error, LocalizedError {
   private var firstDeviceAdmissionChannel: FlutterMethodChannel?
   private var secureDisplayChannel: FlutterMethodChannel?
   private var runtimeDekWrapChannel: FlutterMethodChannel?
+  private var appClipboardChannel: FlutterMethodChannel?
   private var secureTextField: UITextField?
   private let appAttestKeychainService = "com.prism.prism_plurality.app_attest"
   private let appAttestKeychainAccount = "key_id"
@@ -387,6 +388,24 @@ enum PlatformAttestationError: Error, LocalizedError {
         ))
       }
     }
+    appClipboardChannel = FlutterMethodChannel(
+      name: "com.prism.prism_plurality/app_clipboard",
+      binaryMessenger: registrar.messenger()
+    )
+    appClipboardChannel?.setMethodCallHandler { [weak self] call, result in
+      switch call.method {
+      case "readImage":
+        guard self?.isDefaultClipboard(call.arguments) == true else {
+          result(nil)
+          return
+        }
+        result(self?.readClipboardImageData().map { FlutterStandardTypedData(bytes: $0) })
+      case "readImageUri":
+        result(nil)
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
     let fileUtilsChannel = FlutterMethodChannel(
       name: "com.prism.prism_plurality/file_utils",
       binaryMessenger: registrar.messenger()
@@ -429,6 +448,25 @@ enum PlatformAttestationError: Error, LocalizedError {
         result(FlutterError(code: "FAILED", message: error.localizedDescription, details: nil))
       }
     }
+  }
+
+  private func readClipboardImageData() -> Data? {
+    let pasteboard = UIPasteboard.general
+    if let pngData = pasteboard.data(forPasteboardType: "public.png") {
+      return pngData
+    }
+    if let jpegData = pasteboard.data(forPasteboardType: "public.jpeg") {
+      return jpegData
+    }
+    if let image = pasteboard.image {
+      return image.pngData()
+    }
+    return nil
+  }
+
+  private func isDefaultClipboard(_ arguments: Any?) -> Bool {
+    let args = arguments as? [String: Any]
+    return (args?["pasteboard"] as? String ?? "clipboard") == "clipboard"
   }
 
   private func wrapRuntimeDek(_ dek: Data, aad: Data) throws -> [String: Any] {

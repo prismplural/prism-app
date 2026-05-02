@@ -2,6 +2,8 @@ package com.prismplural.prism
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.content.ClipDescription
+import android.content.Context
 import android.content.pm.PackageManager
 import android.database.ContentObserver
 import android.net.Uri
@@ -42,6 +44,8 @@ class MainActivity : FlutterActivity() {
             "com.prism.prism_plurality/first_device_admission"
         private const val RUNTIME_DEK_WRAP_CHANNEL =
             "com.prism.prism_plurality/runtime_dek_wrap"
+        private const val APP_CLIPBOARD_CHANNEL =
+            "com.prism.prism_plurality/app_clipboard"
         private const val ANDROID_ATTESTATION_CONTEXT = "PRISM_SYNC_ANDROID_ATTEST_V2\u0000"
         private const val RUNTIME_DEK_KEY_ALIAS = "prism_runtime_dek_wrap_v1"
     }
@@ -142,6 +146,69 @@ class MainActivity : FlutterActivity() {
                 result.error("runtime_dek_wrap_failed", t.message, null)
             }
         }
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            APP_CLIPBOARD_CHANNEL,
+        ).setMethodCallHandler { call, result ->
+            try {
+                when (call.method) {
+                    "readImage" -> {
+                        val pasteboard = call.argument<String>("pasteboard") ?: "clipboard"
+                        result.success(
+                            if (pasteboard == "clipboard") readClipboardImageBytes() else null
+                        )
+                    }
+                    "readImageUri" -> {
+                        val uri = call.argument<String>("uri")
+                        if (uri.isNullOrEmpty()) {
+                            result.success(null)
+                        } else {
+                            result.success(readImageUriBytes(Uri.parse(uri)))
+                        }
+                    }
+                    else -> result.notImplemented()
+                }
+            } catch (t: Throwable) {
+                Log.w(TAG, "Unable to read clipboard image", t)
+                result.success(null)
+            }
+        }
+    }
+
+    private fun readClipboardImageBytes(): ByteArray? {
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+            ?: return null
+        val clip = clipboard.primaryClip ?: return null
+        if (clip.itemCount == 0) return null
+
+        val description = clip.description
+        for (index in 0 until clip.itemCount) {
+            val item = clip.getItemAt(index)
+            val uri = item.uri ?: item.intent?.data ?: continue
+            val mimeType = contentResolver.getType(uri)
+            val looksLikeImage =
+                mimeType?.startsWith("image/") == true ||
+                    (mimeType == null && clip.itemCount == 1 && hasImageMimeType(description))
+            if (looksLikeImage) {
+                return readImageUriBytes(uri)
+            }
+        }
+
+        return null
+    }
+
+    private fun readImageUriBytes(uri: Uri): ByteArray? {
+        return contentResolver.openInputStream(uri)?.use { it.readBytes() }
+    }
+
+    private fun hasImageMimeType(description: ClipDescription?): Boolean {
+        if (description == null) return false
+        for (index in 0 until description.mimeTypeCount) {
+            if (description.getMimeType(index).startsWith("image/")) {
+                return true
+            }
+        }
+        return false
     }
 
     private fun wrapRuntimeDek(dek: ByteArray, aad: String): Map<String, Any> {

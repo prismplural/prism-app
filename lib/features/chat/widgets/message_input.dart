@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart'
@@ -9,6 +10,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/core/clipboard/app_clipboard.dart';
 import 'package:prism_plurality/core/services/media/media_providers.dart';
 import 'package:prism_plurality/domain/models/media_attachment.dart' as media;
 import 'package:prism_plurality/domain/models/models.dart';
@@ -236,10 +238,38 @@ class _MessageInputState extends ConsumerState<MessageInput> {
     final picked = await picker.pickImage(source: source, imageQuality: 90);
     if (picked != null) {
       final bytes = await picked.readAsBytes();
-      if (mounted) {
-        setState(() => _stagedImageBytes = bytes);
-      }
+      _stageImageBytes(bytes);
     }
+  }
+
+  bool _stageImageBytes(Uint8List bytes) {
+    if (!mounted || bytes.isEmpty || !_canWriteToConversation) return false;
+    setState(() => _stagedImageBytes = bytes);
+    _focusNode.requestFocus();
+    return true;
+  }
+
+  Future<void> _handleInsertedContent(KeyboardInsertedContent content) async {
+    if (!content.mimeType.toLowerCase().startsWith('image/')) return;
+
+    final data = content.data;
+    if (data != null && data.isNotEmpty) {
+      _stageImageBytes(data);
+      return;
+    }
+
+    final image = await ref
+        .read(appClipboardReaderProvider)
+        .readImageUri(content.uri);
+    if (image != null) {
+      _stageImageBytes(image.bytes);
+    }
+  }
+
+  Future<bool> _pasteImageFromClipboard() async {
+    final image = await ref.read(appClipboardReaderProvider).readImage();
+    if (image == null) return false;
+    return _stageImageBytes(image.bytes);
   }
 
   Future<void> _showGifPicker() async {
@@ -740,6 +770,8 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                               minHeight: inputHeight,
                               onChanged: (_) => setState(() {}),
                               onSend: _sendMessage,
+                              onContentInserted: _handleInsertedContent,
+                              onPasteImage: _pasteImageFromClipboard,
                               onKeyEvent: _mentionOverlay != null
                                   ? (event) {
                                       final consumed =
@@ -896,6 +928,8 @@ class _GlassTextField extends StatelessWidget {
     required this.minHeight,
     required this.onChanged,
     required this.onSend,
+    required this.onContentInserted,
+    required this.onPasteImage,
     this.onKeyEvent,
   });
 
@@ -904,6 +938,8 @@ class _GlassTextField extends StatelessWidget {
   final double minHeight;
   final ValueChanged<String> onChanged;
   final VoidCallback onSend;
+  final ValueChanged<KeyboardInsertedContent> onContentInserted;
+  final Future<bool> Function() onPasteImage;
 
   /// Optional key event handler for mention overlay navigation.
   /// Returns true if the event was consumed.
@@ -929,6 +965,94 @@ class _GlassTextField extends StatelessWidget {
     controller.value = TextEditingValue(
       text: '$before\n$after',
       selection: TextSelection.collapsed(offset: sel.baseOffset + 1),
+    );
+  }
+
+  void _insertTextAtSelection(String insertedText) {
+    if (insertedText.isEmpty) return;
+
+    final value = controller.value;
+    final selection = value.selection;
+    final start = selection.isValid ? selection.start : value.text.length;
+    final end = selection.isValid ? selection.end : value.text.length;
+    final nextText = value.text.replaceRange(start, end, insertedText);
+
+    controller.value = value.copyWith(
+      text: nextText,
+      selection: TextSelection.collapsed(offset: start + insertedText.length),
+      composing: TextRange.empty,
+    );
+  }
+
+  Future<void> _pasteTextFromClipboard() async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    final text = data?.text;
+    if (text == null || text.isEmpty) return;
+    _insertTextAtSelection(text);
+  }
+
+  Future<void> _handlePaste({VoidCallback? fallback}) async {
+    final handledImage = await onPasteImage();
+    if (handledImage) {
+      ContextMenuController.removeAny();
+      return;
+    }
+
+    if (fallback != null) {
+      fallback();
+    } else {
+      await _pasteTextFromClipboard();
+      ContextMenuController.removeAny();
+    }
+  }
+
+  bool _isPasteShortcut(KeyEvent event) {
+    if (event is! KeyDownEvent || event.logicalKey != LogicalKeyboardKey.keyV) {
+      return false;
+    }
+
+    return switch (defaultTargetPlatform) {
+      TargetPlatform.macOS => HardwareKeyboard.instance.isMetaPressed,
+      TargetPlatform.linux ||
+      TargetPlatform.windows => HardwareKeyboard.instance.isControlPressed,
+      _ => false,
+    };
+  }
+
+  Widget _buildContextMenu(
+    BuildContext context,
+    EditableTextState editableTextState,
+  ) {
+    var hasPaste = false;
+    final items = <ContextMenuButtonItem>[
+      for (final item in editableTextState.contextMenuButtonItems)
+        if (item.type == ContextMenuButtonType.paste) ...[
+          item.copyWith(
+            onPressed: () => unawaited(_handlePaste(fallback: item.onPressed)),
+          ),
+        ] else
+          item,
+    ];
+
+    for (final item in items) {
+      if (item.type == ContextMenuButtonType.paste) {
+        hasPaste = true;
+        break;
+      }
+    }
+
+    if (!hasPaste) {
+      items.add(
+        ContextMenuButtonItem(
+          type: ContextMenuButtonType.paste,
+          onPressed: () => unawaited(_handlePaste()),
+        ),
+      );
+    }
+
+    return AdaptiveTextSelectionToolbar.buttonItems(
+      anchors: editableTextState.contextMenuAnchors,
+      buttonItems: items,
     );
   }
 
@@ -960,39 +1084,48 @@ class _GlassTextField extends StatelessWidget {
 
     final useHardwareShortcuts = _isHardwareKeyboardPlatform;
 
-    final textField = TextField(
-      controller: controller,
-      focusNode: focusNode,
-      textCapitalization: TextCapitalization.sentences,
-      minLines: 1,
-      maxLines: 6,
-      // On phones, show the send action on the soft keyboard
-      textInputAction: useHardwareShortcuts
-          ? TextInputAction.newline
-          : TextInputAction.send,
-      cursorColor: theme.colorScheme.primary,
-      textAlignVertical: TextAlignVertical.top,
-      style: theme.textTheme.bodyLarge?.copyWith(fontSize: 15.5, height: 1.2),
-      decoration: InputDecoration(
-        hintText: context.l10n.chatMessagePlaceholder,
-        hintStyle: theme.textTheme.bodyLarge?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.72),
-          fontSize: 15.5,
+    final textField = Actions(
+      actions: <Type, Action<Intent>>{
+        PasteTextIntent: _ImageFirstPasteAction(handlePaste: _handlePaste),
+      },
+      child: TextField(
+        controller: controller,
+        focusNode: focusNode,
+        textCapitalization: TextCapitalization.sentences,
+        minLines: 1,
+        maxLines: 6,
+        // On phones, show the send action on the soft keyboard
+        textInputAction: useHardwareShortcuts
+            ? TextInputAction.newline
+            : TextInputAction.send,
+        cursorColor: theme.colorScheme.primary,
+        textAlignVertical: TextAlignVertical.top,
+        contentInsertionConfiguration: ContentInsertionConfiguration(
+          onContentInserted: onContentInserted,
         ),
-        filled: true,
-        fillColor: fillColor,
-        border: roundedBorder,
-        enabledBorder: roundedBorder,
-        focusedBorder: roundedBorder,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 10,
+        contextMenuBuilder: _buildContextMenu,
+        style: theme.textTheme.bodyLarge?.copyWith(fontSize: 15.5, height: 1.2),
+        decoration: InputDecoration(
+          hintText: context.l10n.chatMessagePlaceholder,
+          hintStyle: theme.textTheme.bodyLarge?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.72),
+            fontSize: 15.5,
+          ),
+          filled: true,
+          fillColor: fillColor,
+          border: roundedBorder,
+          enabledBorder: roundedBorder,
+          focusedBorder: roundedBorder,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 10,
+          ),
+          isDense: true,
         ),
-        isDense: true,
+        onChanged: onChanged,
+        // On phones, the soft keyboard send button triggers onSubmitted
+        onSubmitted: useHardwareShortcuts ? null : (_) => onSend(),
       ),
-      onChanged: onChanged,
-      // On phones, the soft keyboard send button triggers onSubmitted
-      onSubmitted: useHardwareShortcuts ? null : (_) => onSend(),
     );
 
     if (!useHardwareShortcuts) {
@@ -1015,6 +1148,11 @@ class _GlassTextField extends StatelessWidget {
           }
 
           if (event is! KeyDownEvent) return KeyEventResult.ignored;
+          if (_isPasteShortcut(event)) {
+            unawaited(_handlePaste());
+            return KeyEventResult.handled;
+          }
+
           if (event.logicalKey != LogicalKeyboardKey.enter &&
               event.logicalKey != LogicalKeyboardKey.numpadEnter) {
             return KeyEventResult.ignored;
@@ -1035,6 +1173,33 @@ class _GlassTextField extends StatelessWidget {
         child: textField,
       ),
     );
+  }
+}
+
+class _ImageFirstPasteAction extends Action<PasteTextIntent> {
+  _ImageFirstPasteAction({required this.handlePaste});
+
+  final Future<void> Function({VoidCallback? fallback}) handlePaste;
+
+  @override
+  Object? invoke(PasteTextIntent intent) {
+    final defaultPasteAction = callingAction;
+    unawaited(
+      handlePaste(
+        fallback: defaultPasteAction == null
+            ? null
+            : () => defaultPasteAction.invoke(intent),
+      ),
+    );
+    return null;
+  }
+
+  @override
+  bool get isActionEnabled => callingAction?.isActionEnabled ?? true;
+
+  @override
+  bool consumesKey(PasteTextIntent intent) {
+    return callingAction?.consumesKey(intent) ?? true;
   }
 }
 
