@@ -2510,5 +2510,14 @@
   "featureBoardsDescription": "Mensajes cortos entre los integrantes del sistema — línea de tiempo pública e inbox privado.",
   "featureBoardsEnable": "Activar Tableros de Mensajes",
   "featureBoardsEnableSubtitle": "Añade la pestaña Tableros a tu navegación.",
-  "navMenuToastBoardsAdded": "Tableros de Mensajes añadido a tu menú de navegación — arrástralo donde quieras."
+  "navMenuToastBoardsAdded": "Tableros de Mensajes añadido a tu menú de navegación — arrástralo donde quieras.",
+  "boardsTileEdited": "editado",
+  "boardsTileToEveryone": "para todos",
+  "boardsTileRemovedMember": "Integrante eliminado",
+  "boardsDetailEdit": "Editar",
+  "boardsDetailDelete": "Eliminar",
+  "boardsDeleteConfirmTitle": "¿Eliminar esta publicación?",
+  "boardsDeleteConfirmBody": "Esto no se puede deshacer.",
+  "memberBoardScreenTitle": "Mensajes del tablero",
+  "memberBoardEmpty": "Aún no hay publicaciones aquí."
 }

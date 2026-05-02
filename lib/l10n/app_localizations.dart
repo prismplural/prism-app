@@ -13499,6 +13499,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Message Boards added to your nav menu — drag it where you want.'**
   String get navMenuToastBoardsAdded;
+
+  /// Suffix shown after the timestamp on a board post tile when the post has been edited.
+  ///
+  /// In en, this message translates to:
+  /// **'edited'**
+  String get boardsTileEdited;
+
+  /// Recipient chip text shown on a public post with no specific target member.
+  ///
+  /// In en, this message translates to:
+  /// **'to everyone'**
+  String get boardsTileToEveryone;
+
+  /// Fallback name shown when the author or target member of a board post no longer exists.
+  ///
+  /// In en, this message translates to:
+  /// **'Removed member'**
+  String get boardsTileRemovedMember;
+
+  /// Edit action label in the board post detail sheet and context menu.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get boardsDetailEdit;
+
+  /// Delete action label in the board post detail sheet and context menu.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get boardsDetailDelete;
+
+  /// Title of the confirmation dialog shown before deleting a board post.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this post?'**
+  String get boardsDeleteConfirmTitle;
+
+  /// Body text of the confirmation dialog shown before deleting a board post.
+  ///
+  /// In en, this message translates to:
+  /// **'This can\'t be undone.'**
+  String get boardsDeleteConfirmBody;
+
+  /// Title of the per-member board messages screen and section.
+  ///
+  /// In en, this message translates to:
+  /// **'Board Messages'**
+  String get memberBoardScreenTitle;
+
+  /// Empty state subtitle shown when a member's board has no posts.
+  ///
+  /// In en, this message translates to:
+  /// **'No posts here yet.'**
+  String get memberBoardEmpty;
 }
 
 class _AppLocalizationsDelegate
