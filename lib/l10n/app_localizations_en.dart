@@ -8487,4 +8487,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get importDisclosureBoardsEnabled =>
       'Message Boards enabled — your imported posts are in the Inbox.';
+
+  @override
+  String get boardsPostDetailTitle => 'Post';
+
+  @override
+  String get boardsPostDetailNotFound => 'This post is no longer available.';
 }

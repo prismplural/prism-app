@@ -15,7 +15,6 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
-import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
@@ -474,11 +473,9 @@ class _PublicPageState extends ConsumerState<_PublicPage> {
             // Invalidate the provider to force a refresh.
             ref.invalidate(publicBoardPostsProvider);
           },
-          child: ListView.separated(
-            padding: PrismTokens.pagePadding,
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             itemCount: posts.length,
-            separatorBuilder: (_, idx) =>
-                const Divider(height: 1, indent: 64),
             itemBuilder: (context, index) {
               return PostTile(
                 post: posts[index],
@@ -539,12 +536,11 @@ class _InboxPageState extends ConsumerState<_InboxPage> {
 
   void _markInboxOpened() {
     if (!mounted) return;
-    final activeMembers = ref.read(activeMembersProvider).value ?? const [];
-    final ids = activeMembers.map((m) => m.id).toList();
+    final fronterIds = ref.read(currentFronterMemberIdsProvider);
     unawaited(
       ref
           .read(memberBoardPostNotifierProvider.notifier)
-          .markInboxOpenedFor(ids),
+          .markInboxOpenedFor(fronterIds),
     );
   }
 
@@ -590,14 +586,11 @@ class _InboxPageState extends ConsumerState<_InboxPage> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final activeMembersAsync = ref.watch(activeMembersProvider);
-    final activeMembers = activeMembersAsync.value ?? const [];
+    final fronterMembers = ref.watch(currentFronterMembersProvider);
     final filterId = ref.watch(inboxViewFilterProvider);
 
     // Detect de-front and reset filter.
-    if (activeMembersAsync.hasValue) {
-      _checkFilterStillValid(activeMembers, filterId, context);
-    }
+    _checkFilterStillValid(fronterMembers, filterId, context);
 
     final speakingAsId = ref.watch(speakingAsProvider);
     final viewerAsync = speakingAsId != null
@@ -628,7 +621,7 @@ class _InboxPageState extends ConsumerState<_InboxPage> {
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
           child: _InboxFilterBar(
-            activeMembers: activeMembers,
+            activeMembers: fronterMembers,
             filterId: filterId,
             onChanged: (id) =>
                 ref.read(inboxViewFilterProvider.notifier).setFilter(id),
@@ -650,7 +643,7 @@ class _InboxPageState extends ConsumerState<_InboxPage> {
               final posts = filteredPosts ?? const [];
               if (posts.isEmpty) {
                 return Center(
-                  child: activeMembers.isEmpty
+                  child: fronterMembers.isEmpty
                       ? EmptyState(
                           icon: Icon(AppIcons.forum),
                           title: l10n.boardsTabInbox,
@@ -663,11 +656,12 @@ class _InboxPageState extends ConsumerState<_InboxPage> {
                         ),
                 );
               }
-              return ListView.separated(
-                padding: PrismTokens.pagePadding,
+              return ListView.builder(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
                 itemCount: posts.length,
-                separatorBuilder: (_, idx) =>
-                    const Divider(height: 1, indent: 64),
                 itemBuilder: (context, index) {
                   return PostTile(
                     post: posts[index],

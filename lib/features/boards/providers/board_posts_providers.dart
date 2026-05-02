@@ -3,7 +3,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/member_board_post.dart';
+import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 // boardsEnabledProvider is imported from settings_providers.dart in UI files
 // that consume it; not needed here.
@@ -118,18 +120,45 @@ final publicBoardPostsProvider = StreamProvider.autoDispose
 // Inbox feed
 // ---------------------------------------------------------------------------
 
-/// Inbox sub-tab feed — private posts addressed to the currently-active
-/// fronters, keyset-paginated.
+/// Member IDs that are *currently fronting* (i.e. have an open
+/// fronting_session). Distinct from `activeMembersProvider`, which lists
+/// every non-archived member in the system. Inbox visibility hangs on
+/// this — only posts addressed to a current fronter should appear.
+final currentFronterMemberIdsProvider = Provider<List<String>>((ref) {
+  final sessions = ref.watch(activeSessionsProvider).value ?? const [];
+  final ids = <String>{};
+  for (final s in sessions) {
+    final id = s.memberId;
+    if (id != null) ids.add(id);
+  }
+  return ids.toList(growable: false);
+});
+
+/// Member objects that are *currently fronting*. Resolved by intersecting
+/// [currentFronterMemberIdsProvider] with the system roster — preserves
+/// fronter order from sessions. Used by the Inbox view-filter dropdown.
+final currentFronterMembersProvider = Provider<List<Member>>((ref) {
+  final fronterIds = ref.watch(currentFronterMemberIdsProvider);
+  if (fronterIds.isEmpty) return const [];
+  final allMembers = ref.watch(activeMembersProvider).value ?? const [];
+  final byId = {for (final m in allMembers) m.id: m};
+  return [
+    for (final id in fronterIds)
+      if (byId[id] != null) byId[id]!,
+  ];
+});
+
+/// Inbox sub-tab feed — private posts addressed to the currently-fronting
+/// members, keyset-paginated.
 ///
-/// Watches [activeMembersProvider] so the feed updates when co-fronters
-/// change. Pass `BoardPagingCursor()` for the first page.
+/// Watches [currentFronterMemberIdsProvider] so the feed updates when
+/// co-fronters change. Pass `BoardPagingCursor()` for the first page.
 final inboxBoardPostsProvider = StreamProvider.autoDispose
     .family<List<MemberBoardPost>, BoardPagingCursor>((ref, cursor) {
-  final activeMembers = ref.watch(activeMembersProvider).value ?? const [];
-  final activeIds = activeMembers.map((m) => m.id).toList();
+  final fronterIds = ref.watch(currentFronterMemberIdsProvider);
   final repo = ref.watch(memberBoardPostsRepositoryProvider);
   return repo.watchInboxPaginated(
-    activeIds,
+    fronterIds,
     afterWrittenAt: cursor.afterWrittenAt,
     afterId: cursor.afterId,
     limit: cursor.limit,
@@ -289,24 +318,21 @@ final boardsTabBadgeProvider = Provider<int>((ref) {
 /// Internal async computation backing [boardsTabBadgeProvider].
 /// Private to this file; callers use [boardsTabBadgeProvider].
 final _boardsBadgeCountProvider = FutureProvider.autoDispose<int>((ref) async {
-  // Watch active members so the badge rebuilds when co-fronters change.
-  final activeMembersAsync = ref.watch(activeMembersProvider);
-  final activeMembers = activeMembersAsync.value;
-  if (activeMembers == null || activeMembers.isEmpty) return 0;
+  // Watch the current fronters so the badge rebuilds when co-fronters change.
+  final fronterIds = ref.watch(currentFronterMemberIdsProvider);
+  if (fronterIds.isEmpty) return 0;
 
-  final activeIds = activeMembers.map((m) => m.id).toList();
-
-  // Fetch boardLastReadAt for each active member directly from the DB row,
+  // Fetch boardLastReadAt for each fronter directly from the DB row,
   // since the domain Member model does not carry this field.
   final membersDao = ref.watch(membersDaoProvider);
   final lastReadByMember = <String, DateTime?>{};
-  for (final memberId in activeIds) {
+  for (final memberId in fronterIds) {
     final row = await membersDao.getMemberById(memberId);
     lastReadByMember[memberId] = row?.boardLastReadAt;
   }
 
   final dao = ref.watch(memberBoardPostsDaoProvider);
-  return dao.countUnreadForMembers(activeIds, lastReadByMember);
+  return dao.countUnreadForMembers(fronterIds, lastReadByMember);
 });
 
 // ---------------------------------------------------------------------------

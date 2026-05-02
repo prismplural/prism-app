@@ -78,6 +78,7 @@ abstract final class AppRoutePaths {
   static String settingsHabit(String id) => '/settings/habits/$id';
   static String settingsFriend(String id) => '/settings/sharing/$id';
   static String memberBoard(String id) => '/boards/member/$id';
+  static String boardPost(String id) => '/boards/post/$id';
 }
 
 abstract final class AppRouteNames {
@@ -97,6 +98,7 @@ abstract final class AppRouteNames {
   static const timeline = 'timeline';
   static const boards = 'boards';
   static const memberBoard = 'member-board';
+  static const boardPost = 'board-post';
 }
 
 enum AppShellTabId {

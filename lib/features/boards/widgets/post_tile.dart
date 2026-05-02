@@ -3,30 +3,30 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/member_board_post.dart';
 import 'package:prism_plurality/features/boards/models/member_board_post_permissions.dart';
 import 'package:prism_plurality/features/boards/providers/board_posts_providers.dart';
-import 'package:prism_plurality/features/boards/widgets/post_detail_sheet.dart';
+import 'package:prism_plurality/features/boards/widgets/compose_post_sheet.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/extensions/datetime_extensions.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
+import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/markdown_text.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
-import 'package:prism_plurality/shared/widgets/prism_toast.dart';
+import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 
 // ---------------------------------------------------------------------------
 // Inline markdown stripper — for accessibility labels only.
-//
-// Strips bold/italic/strikethrough/code, inline links (→ link text), and HTML
-// tags so raw markdown syntax never appears in a screen-reader announcement.
 // ---------------------------------------------------------------------------
 
 /// Strips common Markdown syntax characters from [text] for use in
@@ -34,37 +34,22 @@ import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 /// plain-text summaries passed to [Semantics.label].
 String stripMarkdownForA11y(String text) {
   var result = text;
-
-  // Inline links: [text](url) → text
   result = result.replaceAllMapped(
     RegExp(r'\[([^\]]*)\]\([^)]*\)'),
     (m) => m.group(1) ?? '',
   );
-
-  // Bold (** and __)
   result = result.replaceAll(RegExp(r'\*\*|__'), '');
-
-  // Italic (* and _) — single-character delimiters
   result = result.replaceAll(RegExp(r'(?<!\*)\*(?!\*)'), '');
   result = result.replaceAll(RegExp(r'(?<!_)_(?!_)'), '');
-
-  // Strikethrough (~~)
   result = result.replaceAll('~~', '');
-
-  // Inline code (single backtick)
   result = result.replaceAll('`', '');
-
-  // HTML tags
   result = result.replaceAll(RegExp(r'<[^>]*>'), '');
-
-  // Collapse multiple whitespace / newlines
   result = result.replaceAll(RegExp(r'\s+'), ' ').trim();
-
   return result;
 }
 
 // ---------------------------------------------------------------------------
-// PostTile
+// PostTile — social-post style card
 //
 // LOCKED API (E4 owns this file; E1/E3 import from here):
 //
@@ -74,18 +59,19 @@ String stripMarkdownForA11y(String text) {
 //     bool showAudiencePill = false,
 //     VoidCallback? onTap,
 //   })
+//
+// Layout:
+//   ┌────────────────────────────────────────────┐
+//   │  [avatar]  Author name           · pill    │   ← header
+//   │                                             │
+//   │   Optional Title (bold)                     │
+//   │   Body text here, larger weight,            │   ← body
+//   │   prominent middle area...                  │
+//   │                                             │
+//   │  → recipient · 2h ago · edited       …      │   ← footer
+//   └────────────────────────────────────────────┘
 // ---------------------------------------------------------------------------
 
-/// A list tile for a [MemberBoardPost].
-///
-/// Renders author avatar + name + recipient chip + timestamp + optional title
-/// (bold) + body preview (MarkdownText, max 4 lines). Long-press or the inline
-/// `…` button opens a [BlurPopupAnchor] context menu with edit/delete actions
-/// gated by [MemberBoardPostPermissions].
-///
-/// Tap → opens [PostDetailSheet] unless [onTap] is provided.
-///
-/// **This file is the sole owner of `PostTile`. E1/E3 import from here.**
 class PostTile extends ConsumerWidget {
   const PostTile({
     super.key,
@@ -100,15 +86,14 @@ class PostTile extends ConsumerWidget {
   /// The member currently viewing — used for permission checks.
   final Member? viewerMember;
 
-  /// When true, shows a small "public" / "private" pill badge.
+  /// When true, shows a small "public" / "private" pill badge in the header.
   final bool showAudiencePill;
 
-  /// Optional tap override. When null, tapping opens [PostDetailSheet].
+  /// Optional tap override. When null, tapping pushes the post detail route.
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Load the author and optional target member asynchronously.
     final authorAsync = post.authorId != null
         ? ref.watch(memberByIdProvider(post.authorId!))
         : const AsyncValue<Member?>.data(null);
@@ -127,10 +112,6 @@ class PostTile extends ConsumerWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Internal tile content widget
-// ---------------------------------------------------------------------------
-
 class _PostTileContent extends ConsumerWidget {
   const _PostTileContent({
     required this.post,
@@ -148,7 +129,6 @@ class _PostTileContent extends ConsumerWidget {
   final bool showAudiencePill;
   final VoidCallback? onTap;
 
-  /// Plain-text Semantics label composed per spec.
   String _buildA11yLabel(BuildContext context) {
     final l10n = context.l10n;
     final authorName =
@@ -198,9 +178,7 @@ class _PostTileContent extends ConsumerWidget {
           isDestructive: false,
           onTap: () {
             closePopup();
-            // TODO(E2): Replace with ComposePostSheet.show(context, editingPostId: post.id)
-            // once E2 lands.
-            PrismToast.show(context, message: 'Edit coming soon');
+            ComposePostSheet.show(context, editingPostId: post.id);
           },
         ),
       );
@@ -259,28 +237,31 @@ class _PostTileContent extends ConsumerWidget {
         ? AppColors.fromHex(author!.customColorHex!)
         : theme.colorScheme.primary;
 
-    // Show inline … always on desktop/web for parity with mouse-only UX.
     final isDesktopOrWeb =
         defaultTargetPlatform == TargetPlatform.macOS ||
         defaultTargetPlatform == TargetPlatform.windows ||
         defaultTargetPlatform == TargetPlatform.linux ||
         kIsWeb;
 
-    Widget tileBody = Semantics(
-      button: true,
-      label: _buildA11yLabel(context),
-      child: InkWell(
-        onTap: () {
-          if (onTap != null) {
-            onTap!();
-          } else {
-            PostDetailSheet.show(context, postId: post.id);
-          }
-        },
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    final card = PrismSurface(
+      tone: PrismSurfaceTone.subtle,
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      borderRadius: PrismTokens.radiusMedium,
+      onTap: () {
+        if (onTap != null) {
+          onTap!();
+        } else {
+          context.push(AppRoutePaths.boardPost(post.id));
+        }
+      },
+      semanticLabel: _buildA11yLabel(context),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Header: avatar + author name (+ optional audience pill on right)
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               MemberAvatar(
                 avatarImageData: author?.avatarImageData,
@@ -288,89 +269,94 @@ class _PostTileContent extends ConsumerWidget {
                 emoji: author?.emoji ?? '❔',
                 customColorEnabled: author?.customColorEnabled ?? false,
                 customColorHex: author?.customColorHex,
-                size: 36,
+                size: 32,
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Text(
+                  author?.name ??
+                      post.authorId ??
+                      l10n.boardsTileRemovedMember,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: authorColor,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (showAudiencePill) ...[
+                const SizedBox(width: 8),
+                _AudiencePill(audience: post.audience, theme: theme),
+              ],
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // ── Body: optional title + body text (the prominent middle area)
+          if (post.title != null && post.title!.isNotEmpty) ...[
+            Text(
+              post.title!,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+                height: 1.25,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 6),
+          ],
+          MarkdownText(
+            data: post.body,
+            baseStyle: theme.textTheme.bodyLarge?.copyWith(
+              color: theme.colorScheme.onSurface,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // ── Footer: recipient · timestamp · edited        …
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 6,
+                  runSpacing: 2,
                   children: [
-                    // Header row: name, recipient chip, timestamp, edited suffix
-                    Wrap(
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      spacing: 4,
-                      runSpacing: 2,
-                      children: [
-                        Text(
-                          author?.name ??
-                              post.authorId ??
-                              l10n.boardsTileRemovedMember,
-                          style: theme.textTheme.bodyLarge?.copyWith(
-                            color: authorColor,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 15,
-                            height: 1.05,
-                          ),
-                        ),
-                        _RecipientChip(
-                          post: post,
-                          target: target,
-                          theme: theme,
-                          l10n: l10n,
-                        ),
-                        Text(
-                          _formatTimestamp(post.writtenAt, context),
-                          style: theme.textTheme.labelMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant
-                                .withValues(alpha: 0.8),
-                            fontSize: 11,
-                            height: 1.0,
-                          ),
-                        ),
-                        if (post.editedAt != null)
-                          Text(
-                            l10n.boardsTileEdited,
-                            style: theme.textTheme.labelMedium?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant
-                                  .withValues(alpha: 0.6),
-                              fontStyle: FontStyle.italic,
-                              fontSize: 11,
-                              height: 1.0,
-                            ),
-                          ),
-                        if (showAudiencePill)
-                          _AudiencePill(
-                            audience: post.audience,
-                            theme: theme,
-                          ),
-                      ],
+                    _RecipientChip(
+                      post: post,
+                      target: target,
+                      theme: theme,
+                      l10n: l10n,
                     ),
-                    const SizedBox(height: 4),
-                    // Optional bold title
-                    if (post.title != null && post.title!.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 2),
-                        child: Text(
-                          post.title!,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    // Body — MarkdownText (4-line clamp via paragraph style)
-                    MarkdownText(
-                      data: post.body,
-                      baseStyle: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurface,
-                        height: 1.3,
+                    if (post.targetMemberId != null ||
+                        post.audience == 'public')
+                      _FooterDot(theme: theme),
+                    Text(
+                      _formatTimestamp(post.writtenAt, context),
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant
+                            .withValues(alpha: 0.75),
+                        fontSize: 11,
                       ),
                     ),
+                    if (post.editedAt != null) ...[
+                      _FooterDot(theme: theme),
+                      Text(
+                        l10n.boardsTileEdited,
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant
+                              .withValues(alpha: 0.6),
+                          fontStyle: FontStyle.italic,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
-              // Inline … always visible on desktop/web.
               if (hasActions && isDesktopOrWeb)
                 _InlineMenuButton(
                   post: post,
@@ -379,13 +365,12 @@ class _PostTileContent extends ConsumerWidget {
                 ),
             ],
           ),
-        ),
+        ],
       ),
     );
 
-    // Wrap in BlurPopupAnchor for long-press on all platforms.
     if (hasActions) {
-      tileBody = BlurPopupAnchor(
+      return BlurPopupAnchor(
         trigger: BlurPopupTrigger.longPress,
         width: 240,
         itemCount: _buildActions(context, ref, () {}).length,
@@ -407,11 +392,11 @@ class _PostTileContent extends ConsumerWidget {
             onTap: action.onTap,
           );
         },
-        child: tileBody,
+        child: card,
       );
     }
 
-    return tileBody;
+    return card;
   }
 
   String _formatTimestamp(DateTime dt, BuildContext context) {
@@ -421,6 +406,26 @@ class _PostTileContent extends ConsumerWidget {
     if (diff.inHours < 24) return '${diff.inHours}h ago';
     if (diff.inDays < 7) return '${diff.inDays}d ago';
     return DateFormat.MMMd(context.dateLocale).format(dt);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Footer separator dot
+// ---------------------------------------------------------------------------
+
+class _FooterDot extends StatelessWidget {
+  const _FooterDot({required this.theme});
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      '·',
+      style: theme.textTheme.labelMedium?.copyWith(
+        color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+        fontSize: 11,
+      ),
+    );
   }
 }
 
@@ -447,9 +452,9 @@ class _RecipientChip extends StatelessWidget {
 
     if (post.targetMemberId == null && isPublic) {
       return Text(
-        '· ${l10n.boardsTileToEveryone}',
+        l10n.boardsTileToEveryone,
         style: theme.textTheme.labelMedium?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+          color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.75),
           fontSize: 11,
         ),
       );
@@ -460,7 +465,7 @@ class _RecipientChip extends StatelessWidget {
       return Text(
         '→ $name',
         style: theme.textTheme.labelMedium?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+          color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.75),
           fontSize: 11,
         ),
       );
@@ -486,7 +491,7 @@ class _AudiencePill extends StatelessWidget {
     final color =
         isPublic ? theme.colorScheme.primary : theme.colorScheme.secondary;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(
