@@ -476,7 +476,7 @@ class AppDatabase extends _$AppDatabase {
         current = 14;
       }
       if (current == 14 && to >= 15) {
-        // Member Boards (docs/plans/member-message-boards.md Batch A).
+        // Member Boards schema introduction.
         //
         // 1. New entity table: member_board_posts.
         // 2. New column on members: board_last_read_at (inbox HWM read state).

@@ -22,20 +22,6 @@ import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 
-// ---------------------------------------------------------------------------
-// ComposePostSheet
-//
-// LOCKED API:
-//   static Future<MemberBoardPost?> show(
-//     BuildContext context, {
-//     String? defaultTargetMemberId,
-//     String defaultAudience = 'public',
-//     String? defaultTitle,
-//     String? defaultBody,
-//     String? editingPostId,
-//   })
-// ---------------------------------------------------------------------------
-
 /// Sheet for composing a new board post or editing an existing one.
 ///
 /// Use [ComposePostSheet.show] to present as a full-screen [PrismSheet].

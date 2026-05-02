@@ -77,7 +77,7 @@ class Members extends Table {
   BoolColumn get isAlwaysFronting =>
       boolean().withDefault(const Constant(false))();
 
-  // -- Member Boards (docs/plans/member-message-boards.md Batch A) --
+  // -- Member Boards --
   //
   // High-water-mark for inbox read state. Null means the member has never
   // opened the Inbox while fronting (all private posts count as unread).

@@ -494,10 +494,10 @@ class SpImporter {
       if (!alreadyPresent) {
         await settingsRepo.updateNavBarOverflowItems([...overflowIds, 'boards']);
       }
-      // Surface a disclosure in the import result. The l10n key
-      // importDisclosureBoardsEnabled is added in this batch (Batch F).
-      // The migration_screen renders this as part of the warnings section;
-      // a future UI pass (H) can detect the sentinel and use the l10n key.
+      // Surface a disclosure in the import result. The migration screen
+      // renders this in the warnings section; a future UI pass can detect
+      // the sentinel prefix and substitute the localized
+      // `importDisclosureBoardsEnabled` string.
       warnings.add(
         'importDisclosureBoardsEnabled: '
         'Message Boards enabled — your imported posts are in the Inbox.',

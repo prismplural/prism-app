@@ -200,9 +200,9 @@ abstract class SystemSettings with _$SystemSettings {
     FrontStartBehavior addFrontDefaultBehavior,
     @Default(FrontStartBehavior.additive)
     FrontStartBehavior quickFrontDefaultBehavior,
-    // Message Boards feature flag (Batch A — system_settings.boards_enabled).
+    // Message Boards feature flag.
     @Default(false) bool boardsEnabled,
-    // Timestamp written by Batch F backfill service when SP boards migration
+    // Timestamp written by [SpBoardsBackfillService] when SP boards migration
     // completes. Null means the backfill has not yet run.
     DateTime? spBoardsBackfilledAt,
   }) = _SystemSettings;

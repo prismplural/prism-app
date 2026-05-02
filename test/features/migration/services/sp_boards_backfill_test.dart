@@ -482,7 +482,6 @@ void main() {
         );
         expect(await _postCount(db), 2); // now 2 (one dedup, one alt)
 
-        // Reset sentinel.
         settingsRepo.settings = settingsRepo.settings.copyWith(
           spBoardsBackfilledAt: null,
         );

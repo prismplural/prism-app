@@ -48,30 +48,20 @@ String stripMarkdownForA11y(String text) {
   return result;
 }
 
-// ---------------------------------------------------------------------------
-// PostTile — social-post style card
-//
-// LOCKED API (E4 owns this file; E1/E3 import from here):
-//
-//   PostTile({
-//     required MemberBoardPost post,
-//     required Member? viewerMember,
-//     bool showAudiencePill = false,
-//     VoidCallback? onTap,
-//   })
-//
-// Layout:
-//   ┌────────────────────────────────────────────┐
-//   │  [avatar]  Author name           · pill    │   ← header
-//   │                                             │
-//   │   Optional Title (bold)                     │
-//   │   Body text here, larger weight,            │   ← body
-//   │   prominent middle area...                  │
-//   │                                             │
-//   │  → recipient · 2h ago · edited       …      │   ← footer
-//   └────────────────────────────────────────────┘
-// ---------------------------------------------------------------------------
-
+/// Social-post style card for a single [MemberBoardPost].
+///
+/// Layout:
+/// ```
+/// ┌────────────────────────────────────────────┐
+/// │  [avatar]  Author name           · pill    │   ← header
+/// │                                             │
+/// │   Optional Title (bold)                     │
+/// │   Body text here, larger weight,            │   ← body
+/// │   prominent middle area...                  │
+/// │                                             │
+/// │  → recipient · 2h ago · edited       …      │   ← footer
+/// └────────────────────────────────────────────┘
+/// ```
 class PostTile extends ConsumerWidget {
   const PostTile({
     super.key,

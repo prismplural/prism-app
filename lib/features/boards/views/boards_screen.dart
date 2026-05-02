@@ -129,7 +129,6 @@ class _BoardsScreenState extends ConsumerState<BoardsScreen> {
       ),
       body: Column(
         children: [
-          // Segmented control row
           Padding(
             padding: const EdgeInsets.symmetric(
               horizontal: 16,
@@ -142,8 +141,6 @@ class _BoardsScreenState extends ConsumerState<BoardsScreen> {
               onTabSelected: _selectTab,
             ),
           ),
-
-          // Page view — fills remaining vertical space
           Expanded(
             child: Visibility(
               // Keep both pages alive so they don't lose scroll position.
@@ -246,7 +243,6 @@ class _BoardsSegmentedControl extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Public segment
           Expanded(
             child: _SegmentButton(
               label: l10n.boardsTabPublic,
@@ -263,8 +259,6 @@ class _BoardsSegmentedControl extends StatelessWidget {
                   : l10n.boardsTabPublic,
             ),
           ),
-
-          // Inbox segment
           Expanded(
             child: _SegmentButton(
               label: l10n.boardsTabInbox,
@@ -457,7 +451,6 @@ class _PublicPageState extends ConsumerState<_PublicPage> {
         : const AsyncValue<Member?>.data(null);
     final viewerMember = viewerAsync.value;
 
-    // First page cursor.
     const firstCursor = BoardPagingCursor();
     final postsAsync = ref.watch(publicBoardPostsProvider(firstCursor));
 
@@ -483,7 +476,6 @@ class _PublicPageState extends ConsumerState<_PublicPage> {
 
         return RefreshIndicator(
           onRefresh: () async {
-            // Invalidate the provider to force a refresh.
             ref.invalidate(publicBoardPostsProvider);
           },
           child: ListView.builder(
@@ -579,10 +571,8 @@ class _InboxPageState extends ConsumerState<_InboxPage> {
                 ?.name ??
             filterId;
 
-        // Reset filter.
         ref.read(inboxViewFilterProvider.notifier).setFilter(null);
 
-        // Show toast.
         if (ctx.mounted) {
           PrismToast.show(
             ctx,
@@ -602,7 +592,6 @@ class _InboxPageState extends ConsumerState<_InboxPage> {
     final fronterMembers = ref.watch(currentFronterMembersProvider);
     final filterId = ref.watch(inboxViewFilterProvider);
 
-    // Detect de-front and reset filter.
     _checkFilterStillValid(fronterMembers, filterId, context);
 
     final speakingAsId = ref.watch(speakingAsProvider);
@@ -614,7 +603,6 @@ class _InboxPageState extends ConsumerState<_InboxPage> {
     const firstCursor = BoardPagingCursor();
     final postsAsync = ref.watch(inboxBoardPostsProvider(firstCursor));
 
-    // Filtered posts (if filter is active, only show matching posts).
     final filteredPosts = postsAsync.whenOrNull(
       data: (posts) {
         if (filterId == null) return posts;

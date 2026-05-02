@@ -37,7 +37,7 @@ class SpBoardsBackfillResult {
 /// DM conversations (created by the old SP importer) into first-class
 /// [MemberBoardPost] rows.
 ///
-/// **Backfill algorithm (LOCKED — Subplan F)**
+/// **Backfill algorithm**
 ///
 /// 1. Write a sentinel `spBoardsBackfilledAt = now()`. Re-read to confirm;
 ///    if a peer already wrote an earlier timestamp via HLC arbitration, abort.
