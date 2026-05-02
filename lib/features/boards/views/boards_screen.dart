@@ -23,7 +23,6 @@ import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
-import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
@@ -697,45 +696,44 @@ class _InboxFronterFilterButton extends ConsumerWidget {
         ? fronters.where((m) => m.id == filterId).firstOrNull
         : null;
 
-    const buttonSize = PrismTokens.topBarActionSize; // 44 — matches +
-    const avatarSize = 28.0;
-    final trigger = TintedGlassSurface(
-      width: buttonSize,
-      height: buttonSize,
-      borderRadius: BorderRadius.circular(
-        PrismShapes.of(context).radius(buttonSize / 2),
-      ),
+    // Trigger: 44pt hit-area (matching topBarActionSize) hosting a
+    // 36pt avatar with a small down-chevron pip at the bottom-right.
+    const hitSize = PrismTokens.topBarActionSize; // 44
+    const avatarSize = 36.0;
+    final trigger = SizedBox(
+      width: hitSize,
+      height: hitSize,
       child: Stack(
         clipBehavior: Clip.none,
+        alignment: Alignment.center,
         children: [
-          Center(
-            child: currentMember != null
-                ? MemberAvatar(
-                    avatarImageData: currentMember.avatarImageData,
-                    memberName: currentMember.name,
-                    emoji: currentMember.emoji,
-                    customColorEnabled: currentMember.customColorEnabled,
-                    customColorHex: currentMember.customColorHex,
-                    size: avatarSize,
-                  )
-                : GroupMemberAvatar(
-                    size: avatarSize,
-                    members: [
-                      for (final m in fronters)
-                        GroupAvatarMember(
-                          avatarImageData: m.avatarImageData,
-                          emoji: m.emoji,
-                          customColorEnabled: m.customColorEnabled,
-                          customColorHex: m.customColorHex,
-                        ),
-                    ],
+          if (currentMember != null)
+            MemberAvatar(
+              avatarImageData: currentMember.avatarImageData,
+              memberName: currentMember.name,
+              emoji: currentMember.emoji,
+              customColorEnabled: currentMember.customColorEnabled,
+              customColorHex: currentMember.customColorHex,
+              size: avatarSize,
+            )
+          else
+            GroupMemberAvatar(
+              size: avatarSize,
+              members: [
+                for (final m in fronters)
+                  GroupAvatarMember(
+                    avatarImageData: m.avatarImageData,
+                    emoji: m.emoji,
+                    customColorEnabled: m.customColorEnabled,
+                    customColorHex: m.customColorHex,
                   ),
-          ),
-          // Small down-chevron indicator at bottom-right corner so the
-          // dropdown affordance is discoverable without crowding the avatar.
+              ],
+            ),
+          // Down-chevron pip at the bottom-right, signaling the dropdown
+          // affordance without crowding the avatar.
           Positioned(
-            right: 2,
-            bottom: 2,
+            right: 0,
+            bottom: 0,
             child: Container(
               width: 14,
               height: 14,
