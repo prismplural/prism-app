@@ -197,7 +197,7 @@ class SystemSettingsTable extends Table {
   TextColumn get pendingFrontingMigrationCleanupSubstate =>
       text().withDefault(const Constant(''))();
 
-  // -- Member Boards (docs/plans/member-message-boards.md Batch A) --
+  // -- Member Boards --
   //
   // Synced feature toggle. Default false (opt-in). When false, the Boards tab
   // is filtered from the nav and the profile section is hidden; posts are

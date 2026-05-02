@@ -92,7 +92,6 @@ void main() {
         expect(find.text('Delete period?'), findsOneWidget);
         expect(find.text('Delete'), findsOneWidget);
 
-        // Tap the confirm button.
         await tester.tap(find.text('Delete'));
         await tester.pumpAndSettle();
 

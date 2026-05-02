@@ -27,8 +27,8 @@ mixin _$SystemSettings {
  Map<String, String> get chatBadgePreferences;// Default sleep quality for new sleep sessions (device-local).
 // Null means no default (user is prompted each time).
  SleepQuality? get defaultSleepQuality;// Phase 1B: fronting preferences (synced).
- FrontingListViewMode get frontingListViewMode; FrontStartBehavior get addFrontDefaultBehavior; FrontStartBehavior get quickFrontDefaultBehavior;// Message Boards feature flag (Batch A — system_settings.boards_enabled).
- bool get boardsEnabled;// Timestamp written by Batch F backfill service when SP boards migration
+ FrontingListViewMode get frontingListViewMode; FrontStartBehavior get addFrontDefaultBehavior; FrontStartBehavior get quickFrontDefaultBehavior;// Message Boards feature flag.
+ bool get boardsEnabled;// Timestamp written by [SpBoardsBackfillService] when SP boards migration
 // completes. Null means the backfill has not yet run.
  DateTime? get spBoardsBackfilledAt;
 /// Create a copy of SystemSettings
@@ -374,9 +374,9 @@ class _SystemSettings implements SystemSettings {
 @override@JsonKey() final  FrontingListViewMode frontingListViewMode;
 @override@JsonKey() final  FrontStartBehavior addFrontDefaultBehavior;
 @override@JsonKey() final  FrontStartBehavior quickFrontDefaultBehavior;
-// Message Boards feature flag (Batch A — system_settings.boards_enabled).
+// Message Boards feature flag.
 @override@JsonKey() final  bool boardsEnabled;
-// Timestamp written by Batch F backfill service when SP boards migration
+// Timestamp written by [SpBoardsBackfillService] when SP boards migration
 // completes. Null means the backfill has not yet run.
 @override final  DateTime? spBoardsBackfilledAt;
 

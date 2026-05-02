@@ -211,7 +211,7 @@ class MemberBoardPostsDao extends DatabaseAccessor<AppDatabase>
   // ---------------------------------------------------------------------------
 
   /// Returns an existing post matching the dedup tuple used by the SP backfill
-  /// service. Used by Batch F to skip already-imported posts.
+  /// service. Lets the backfill skip already-imported posts on re-runs.
   ///
   /// Matches on `(target_member_id, author_id, written_at)` — the body is not
   /// stored as a hash column, so callers that need hash-based dedup should
