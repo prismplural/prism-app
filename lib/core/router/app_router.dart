@@ -26,6 +26,7 @@ import '../../features/settings/views/notes_feature_settings_screen.dart';
 import '../../features/settings/views/boards_feature_settings_screen.dart';
 import '../../features/boards/views/boards_screen.dart';
 import '../../features/boards/views/member_board_screen.dart';
+import '../../features/boards/views/post_detail_screen.dart';
 import '../../features/settings/views/reminders_feature_settings_screen.dart';
 import '../../features/settings/views/sync_settings_screen.dart';
 import '../../features/settings/views/notification_settings_screen.dart';
@@ -717,6 +718,13 @@ final routerProvider = Provider<GoRouter>((ref) {
                     path: 'member/:memberId',
                     builder: (context, state) => MemberBoardScreen(
                       memberId: state.pathParameters['memberId']!,
+                    ),
+                  ),
+                  GoRoute(
+                    name: AppRouteNames.boardPost,
+                    path: 'post/:postId',
+                    builder: (context, state) => PostDetailScreen(
+                      postId: state.pathParameters['postId']!,
                     ),
                   ),
                 ],

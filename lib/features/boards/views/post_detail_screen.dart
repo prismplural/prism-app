@@ -2,112 +2,77 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/member_board_post.dart';
 import 'package:prism_plurality/features/boards/models/member_board_post_permissions.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/features/boards/providers/board_posts_providers.dart';
+import 'package:prism_plurality/features/boards/widgets/compose_post_sheet.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart'
     show speakingAsProvider;
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/extensions/datetime_extensions.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/markdown_text.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
-import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
+import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
-import 'package:prism_plurality/shared/widgets/prism_toast.dart';
+import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 
-// ---------------------------------------------------------------------------
-// PostDetailSheet
-//
-// LOCKED API:
-//   static Future<void> show(BuildContext context, {required String postId})
-// ---------------------------------------------------------------------------
-
-/// Full-detail view for a [MemberBoardPost].
+/// Full-screen detail view for a single [MemberBoardPost].
 ///
-/// Shows the complete body (no line-count clamp), title, author, timestamp,
-/// and edit/delete affordances per [MemberBoardPostPermissions].
-///
-/// Use [PostDetailSheet.show] to present this as a [PrismSheet] bottom sheet.
-class PostDetailSheet {
-  // Utility class — not instantiable.
-  PostDetailSheet._();
-
-  /// Present the detail sheet via [PrismSheet].
-  ///
-  /// Reads the post by [postId] from the repository and resolves the
-  /// viewer's identity from [speakingAsProvider].
-  static Future<void> show(
-    BuildContext context, {
-    required String postId,
-  }) {
-    return PrismSheet.show(
-      context: context,
-      maxHeightFactor: 0.9,
-      builder: (sheetCtx) => _PostDetailSheetBody(postId: postId),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Internal: loading/error gate
-// ---------------------------------------------------------------------------
-
-class _PostDetailSheetBody extends ConsumerWidget {
-  const _PostDetailSheetBody({required this.postId});
+/// Reached via push to `/boards/post/:postId`. Shows the complete body
+/// (no clamping), title, author, timestamp, and edit/delete affordances.
+class PostDetailScreen extends ConsumerWidget {
+  const PostDetailScreen({super.key, required this.postId});
 
   final String postId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
     final postAsync = ref.watch(_postByIdStreamProvider(postId));
 
-    return postAsync.when(
-      loading: () => Padding(
-        padding: const EdgeInsets.all(32),
-        child: Center(
-          child: PrismSpinner(
-            color: Theme.of(context).colorScheme.primary,
-          ),
+    return PrismPageScaffold(
+      topBar: PrismTopBar(
+        title: l10n.boardsPostDetailTitle,
+        showBackButton: true,
+      ),
+      bodyPadding: EdgeInsets.zero,
+      body: postAsync.when(
+        loading: () => Center(
+          child: PrismSpinner(color: Theme.of(context).colorScheme.primary),
         ),
-      ),
-      error: (e, _) => Padding(
-        padding: const EdgeInsets.all(24),
-        child: Text('Error loading post: $e'),
-      ),
-      data: (post) {
-        if (post == null) {
-          return const Padding(
-            padding: EdgeInsets.all(24),
-            child: Center(child: Text('Post not found')),
-          );
-        }
+        error: (e, _) => Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text('Error loading post: $e'),
+        ),
+        data: (post) {
+          if (post == null) {
+            return Padding(
+              padding: const EdgeInsets.all(32),
+              child: Center(child: Text(l10n.boardsPostDetailNotFound)),
+            );
+          }
 
-        // Resolve viewer for permission checks.
-        final speakingAsId = ref.watch(speakingAsProvider);
-        final viewerAsync = speakingAsId != null
-            ? ref.watch(memberByIdProvider(speakingAsId))
-            : const AsyncValue<Member?>.data(null);
-        final viewerMember = viewerAsync.value;
+          final speakingAsId = ref.watch(speakingAsProvider);
+          final viewerAsync = speakingAsId != null
+              ? ref.watch(memberByIdProvider(speakingAsId))
+              : const AsyncValue<Member?>.data(null);
+          final viewerMember = viewerAsync.value;
 
-        return _PostDetailContent(
-          post: post,
-          viewerMember: viewerMember,
-        );
-      },
+          return _PostDetailBody(post: post, viewerMember: viewerMember);
+        },
+      ),
     );
   }
 }
-
-// ---------------------------------------------------------------------------
-// Internal: provider — post-by-ID stream
-// ---------------------------------------------------------------------------
 
 final _postByIdStreamProvider =
     StreamProvider.autoDispose.family<MemberBoardPost?, String>((ref, id) {
@@ -115,15 +80,8 @@ final _postByIdStreamProvider =
   return repo.watchPostById(id);
 });
 
-// ---------------------------------------------------------------------------
-// Internal: detail content
-// ---------------------------------------------------------------------------
-
-class _PostDetailContent extends ConsumerWidget {
-  const _PostDetailContent({
-    required this.post,
-    required this.viewerMember,
-  });
+class _PostDetailBody extends ConsumerWidget {
+  const _PostDetailBody({required this.post, required this.viewerMember});
 
   final MemberBoardPost post;
   final Member? viewerMember;
@@ -143,7 +101,7 @@ class _PostDetailContent extends ConsumerWidget {
             .read(memberBoardPostNotifierProvider.notifier)
             .deletePost(post.id),
       );
-      if (context.mounted) Navigator.of(context).pop();
+      if (context.mounted) context.pop();
     }
   }
 
@@ -175,11 +133,11 @@ class _PostDetailContent extends ConsumerWidget {
         : theme.colorScheme.primary;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      padding: PrismTokens.pagePadding,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Author header row
+          // ── Author header
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -189,7 +147,7 @@ class _PostDetailContent extends ConsumerWidget {
                 emoji: author?.emoji ?? '❔',
                 customColorEnabled: author?.customColorEnabled ?? false,
                 customColorHex: author?.customColorHex,
-                size: 40,
+                size: 44,
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -200,16 +158,16 @@ class _PostDetailContent extends ConsumerWidget {
                       author?.name ??
                           post.authorId ??
                           l10n.boardsTileRemovedMember,
-                      style: theme.textTheme.bodyLarge?.copyWith(
+                      style: theme.textTheme.titleMedium?.copyWith(
                         color: authorColor,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
+                    const SizedBox(height: 2),
                     Wrap(
-                      spacing: 4,
+                      spacing: 6,
                       runSpacing: 2,
                       children: [
-                        // Recipient chip
                         if (post.targetMemberId != null)
                           Text(
                             '→ ${target?.name ?? l10n.boardsTileRemovedMember}',
@@ -219,28 +177,30 @@ class _PostDetailContent extends ConsumerWidget {
                           )
                         else if (post.audience == 'public')
                           Text(
-                            '· ${l10n.boardsTileToEveryone}',
+                            l10n.boardsTileToEveryone,
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
                           ),
-                        // Full timestamp
                         Text(
-                          post.writtenAt.toDateTimeString(
-                            context.dateLocale,
-                          ),
+                          '·',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant
-                                .withValues(alpha: 0.75),
+                                .withValues(alpha: 0.6),
                           ),
                         ),
-                        // Edited marker
+                        Text(
+                          post.writtenAt.toDateTimeString(context.dateLocale),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
                         if (post.editedAt != null)
                           Text(
                             '(${l10n.boardsTileEdited})',
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant
-                                  .withValues(alpha: 0.6),
+                                  .withValues(alpha: 0.7),
                               fontStyle: FontStyle.italic,
                             ),
                           ),
@@ -252,31 +212,32 @@ class _PostDetailContent extends ConsumerWidget {
             ],
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
 
-          // Optional title
+          // ── Optional title
           if (post.title != null && post.title!.isNotEmpty) ...[
             Text(
               post.title!,
-              style: theme.textTheme.titleMedium?.copyWith(
+              style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.w700,
+                height: 1.25,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
           ],
 
-          // Full body — no line-count clamp
+          // ── Body — no line clamp
           MarkdownText(
             data: post.body,
-            baseStyle: theme.textTheme.bodyMedium?.copyWith(
+            baseStyle: theme.textTheme.bodyLarge?.copyWith(
               color: theme.colorScheme.onSurface,
-              height: 1.4,
+              height: 1.5,
             ),
           ),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: 32),
 
-          // Edit / delete action row
+          // ── Edit / delete actions
           if (perms.canEdit || perms.canDelete)
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
@@ -285,13 +246,8 @@ class _PostDetailContent extends ConsumerWidget {
                   PrismButton(
                     icon: Icons.edit_outlined,
                     label: l10n.boardsDetailEdit,
-                    onPressed: () {
-                      // TODO(E2): Replace with
-                      // ComposePostSheet.show(context, editingPostId: post.id)
-                      // once E2 lands.
-                      Navigator.of(context).pop();
-                      PrismToast.show(context, message: 'Edit coming soon');
-                    },
+                    onPressed: () =>
+                        ComposePostSheet.show(context, editingPostId: post.id),
                   ),
                   if (perms.canDelete) const SizedBox(width: 8),
                 ],
@@ -305,7 +261,7 @@ class _PostDetailContent extends ConsumerWidget {
               ],
             ),
 
-          const SizedBox(height: 8),
+          const SizedBox(height: 16),
         ],
       ),
     );

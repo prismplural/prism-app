@@ -9055,5 +9055,13 @@
   "importDisclosureBoardsEnabled": "Message Boards enabled — your imported posts are in the Inbox.",
   "@importDisclosureBoardsEnabled": {
     "description": "Disclosure shown after an SP import that contained board messages, informing the user that Message Boards have been auto-enabled."
+  },
+  "boardsPostDetailTitle": "Post",
+  "@boardsPostDetailTitle": {
+    "description": "Top bar title on the full-screen board post detail view."
+  },
+  "boardsPostDetailNotFound": "This post is no longer available.",
+  "@boardsPostDetailNotFound": {
+    "description": "Shown on the post detail screen when the post id no longer resolves (deleted, never synced)."
   }
 }

@@ -8642,4 +8642,11 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get importDisclosureBoardsEnabled =>
       'Tableros de mensajes activados — tus mensajes importados están en el Buzón.';
+
+  @override
+  String get boardsPostDetailTitle => 'Publicación';
+
+  @override
+  String get boardsPostDetailNotFound =>
+      'Esta publicación ya no está disponible.';
 }

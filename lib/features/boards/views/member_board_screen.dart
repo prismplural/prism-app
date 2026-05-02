@@ -154,23 +154,18 @@ class _MemberBoardBody extends ConsumerWidget {
 
         return CustomScrollView(
           slivers: [
-            SliverList.builder(
-              itemCount: posts.length,
-              itemBuilder: (context, index) {
-                final post = posts[index];
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    PostTile(
-                      post: post,
-                      viewerMember: viewerMember,
-                      showAudiencePill: false,
-                    ),
-                    if (index < posts.length - 1)
-                      const Divider(height: 1, indent: 64),
-                  ],
-                );
-              },
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              sliver: SliverList.builder(
+                itemCount: posts.length,
+                itemBuilder: (context, index) {
+                  return PostTile(
+                    post: posts[index],
+                    viewerMember: viewerMember,
+                    showAudiencePill: false,
+                  );
+                },
+              ),
             ),
           ],
         );

@@ -13703,6 +13703,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Message Boards enabled — your imported posts are in the Inbox.'**
   String get importDisclosureBoardsEnabled;
+
+  /// Top bar title on the full-screen board post detail view.
+  ///
+  /// In en, this message translates to:
+  /// **'Post'**
+  String get boardsPostDetailTitle;
+
+  /// Shown on the post detail screen when the post id no longer resolves (deleted, never synced).
+  ///
+  /// In en, this message translates to:
+  /// **'This post is no longer available.'**
+  String get boardsPostDetailNotFound;
 }
 
 class _AppLocalizationsDelegate
