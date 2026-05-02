@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/boards/providers/board_posts_providers.dart';
+import 'package:prism_plurality/features/boards/widgets/compose_post_sheet.dart';
 import 'package:prism_plurality/features/boards/widgets/post_tile.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart'
     show speakingAsProvider;
@@ -14,7 +15,6 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_grouped_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
-import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
 /// Board Messages section shown on the member detail screen.
 ///
@@ -147,10 +147,10 @@ class BoardMessageSection extends ConsumerWidget {
   }
 
   void _openCompose(BuildContext context) {
-    // TODO(E2): Replace with:
-    //   ComposePostSheet.show(context,
-    //     defaultTargetMemberId: memberId, defaultAudience: 'public')
-    // once E2 lands.
-    PrismToast.show(context, message: 'Compose coming soon');
+    ComposePostSheet.show(
+      context,
+      defaultTargetMemberId: memberId,
+      defaultAudience: 'private',
+    );
   }
 }
