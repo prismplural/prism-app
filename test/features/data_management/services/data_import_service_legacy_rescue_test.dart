@@ -162,8 +162,14 @@ void main() {
     late DataImportService importService;
     late DriftMemberRepository memberRepo;
 
-    setUp(() {
+    setUp(() async {
       db = _makeDb();
+      // Strip the v14 CHECK so the seed db can hold orphan native rows
+      // (member_id NULL on session_type 0). The rescue importer reroutes
+      // them to the Unknown sentinel on import into freshDb, which still
+      // has the constraint active.
+      await db.customSelect('SELECT 1').get();
+      await db.disableFrontingMemberCheckConstraintForTesting();
       importService = _makeImport(db);
       memberRepo = DriftMemberRepository(db.membersDao, null);
     });
@@ -1533,8 +1539,14 @@ void main() {
     late DataImportService importService;
     late DriftMemberRepository memberRepo;
 
-    setUp(() {
+    setUp(() async {
       db = _makeDb();
+      // Strip the v14 CHECK so the seed db can hold orphan native rows
+      // (member_id NULL on session_type 0). The rescue importer reroutes
+      // them to the Unknown sentinel on import into freshDb, which still
+      // has the constraint active.
+      await db.customSelect('SELECT 1').get();
+      await db.disableFrontingMemberCheckConstraintForTesting();
       importService = _makeImport(db);
       memberRepo = DriftMemberRepository(db.membersDao, null);
     });

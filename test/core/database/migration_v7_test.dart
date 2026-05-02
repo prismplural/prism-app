@@ -95,11 +95,30 @@ Future<void> _seedV6Db(
       'CREATE UNIQUE INDEX IF NOT EXISTS idx_fronting_sessions_pluralkit_uuid '
       'ON fronting_sessions(pluralkit_uuid) WHERE pluralkit_uuid IS NOT NULL',
     );
-    for (final stmt in extraStatements) {
-      rawDb.execute(stmt);
-    }
+    // Strip the v14 CHECK from fronting_sessions so this v6 fixture can
+    // hold orphan rows (member_id IS NULL on session_type = 0) for the
+    // detect-and-refuse / blocked-mode-recovery paths. The schema cache
+    // is per-connection, so we reopen below to pick up the modified
+    // constraint set before running extraStatements.
+    rawDb.execute('PRAGMA writable_schema = ON');
+    rawDb.execute(
+      "UPDATE sqlite_master "
+      "SET sql = REPLACE(sql, ', CHECK (session_type != 0 OR member_id IS NOT NULL)', '') "
+      "WHERE type = 'table' AND name = 'fronting_sessions'",
+    );
+    rawDb.execute('PRAGMA writable_schema = OFF');
   } finally {
     rawDb.close();
+  }
+
+  if (extraStatements.isEmpty) return;
+  final rawDb2 = raw.sqlite3.open(dbFile.path);
+  try {
+    for (final stmt in extraStatements) {
+      rawDb2.execute(stmt);
+    }
+  } finally {
+    rawDb2.close();
   }
 }
 
@@ -688,6 +707,11 @@ void main() {
         final db = AppDatabase(NativeDatabase.memory());
         addTearDown(db.close);
         await db.customSelect('SELECT 1').get();
+        // The v14 CHECK prevents seeding the (member_id IS NULL,
+        // session_type = 0) shape this test relies on. Strip it so we
+        // can pin the v7 orphan unique-index behavior; production code
+        // never reaches that shape after v14.
+        await db.disableFrontingMemberCheckConstraintForTesting();
 
         final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
 

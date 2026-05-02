@@ -27,6 +27,18 @@ class FrontingSessions extends Table {
   IntColumn get deleteIntentEpoch => integer().nullable()();
   IntColumn get deletePushStartedAt => integer().nullable()();
 
+  // Per-member fronting refactor (docs/plans/fronting-per-member-sessions.md
+  // §2.1, §4.1): a normal session row (session_type = 0) MUST point at a
+  // real member_id. Sleep rows (session_type = 1) legitimately have no
+  // fronter and continue to allow null. Fresh installs at v14+ get this
+  // constraint at `createAll()` time; existing databases pick it up via
+  // `ensureFrontingMemberCheckConstraint()` once the per-member migration
+  // marks itself complete.
+  @override
+  List<String> get customConstraints => const [
+    'CHECK (session_type != 0 OR member_id IS NOT NULL)',
+  ];
+
   @override
   Set<Column> get primaryKey => {id};
 }

@@ -591,7 +591,15 @@ Future<void> _seedDummyRows(AppDatabase db) async {
 
   await db
       .into(db.frontingSessions)
-      .insert(FrontingSessionsCompanion.insert(id: 's1', startTime: now));
+      .insert(
+        FrontingSessionsCompanion.insert(
+          id: 's1',
+          startTime: now,
+          // Satisfies the v14 CHECK
+          // (session_type != 0 OR member_id IS NOT NULL).
+          memberId: const Value('m1'),
+        ),
+      );
 
   await db
       .into(db.conversations)
