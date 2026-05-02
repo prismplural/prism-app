@@ -273,6 +273,61 @@ void main() {
     );
   });
 
+  group('ConversationPermissions — unscoped DM (empty participantIds)', () {
+    Conversation makeUnscopedDm() => Conversation(
+      id: 'unscoped-dm',
+      createdAt: now,
+      lastActivityAt: now,
+      isDirectMessage: true,
+      participantIds: const [],
+    );
+
+    test('non-participant non-admin can view', () {
+      final perms = ConversationPermissions(
+        conversation: makeUnscopedDm(),
+        speakingAsMemberId: 'someone',
+        speakingAsMember: makeMember(id: 'someone'),
+      );
+      expect(perms.canView, isTrue);
+    });
+
+    test('null speakingAs can view', () {
+      final perms = ConversationPermissions(
+        conversation: makeUnscopedDm(),
+        speakingAsMemberId: null,
+        speakingAsMember: null,
+      );
+      expect(perms.canView, isTrue);
+      expect(perms.canWrite, isTrue);
+    });
+
+    test('non-participant can write (consistent with view)', () {
+      final perms = ConversationPermissions(
+        conversation: makeUnscopedDm(),
+        speakingAsMemberId: 'someone',
+        speakingAsMember: makeMember(id: 'someone'),
+      );
+      expect(perms.canWrite, isTrue);
+    });
+
+    test('scoped DM still gates non-participant view', () {
+      final conv = Conversation(
+        id: 'scoped-dm',
+        createdAt: now,
+        lastActivityAt: now,
+        isDirectMessage: true,
+        participantIds: const ['member1', 'member2'],
+      );
+      final perms = ConversationPermissions(
+        conversation: conv,
+        speakingAsMemberId: 'outsider',
+        speakingAsMember: makeMember(id: 'outsider'),
+      );
+      expect(perms.canView, isFalse);
+      expect(perms.canWrite, isFalse);
+    });
+  });
+
   group('ConversationPermissions — legacy DM shape', () {
     test('untitled two-person conversation is treated as DM', () {
       final conv = Conversation(

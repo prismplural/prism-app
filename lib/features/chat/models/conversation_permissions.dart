@@ -36,8 +36,15 @@ class ConversationPermissions {
   bool get isCreator =>
       speakingAsMemberId != null && speakingAsMemberId == _effectiveCreatorId;
   bool get isAdmin => speakingAsMember?.isAdmin ?? false;
-  bool get canView => !isDirectMessage || isParticipant || isAdmin;
-  bool get canWrite => !isDirectMessage || isParticipant;
+  // A DM with no participants has nothing to gate on — gating visibility/write
+  // on a participant list that doesn't exist locks everyone out forever. SP
+  // imports produced this shape for channels that had no `members` field.
+  bool get _isUnscopedDirectMessage =>
+      isDirectMessage && conversation.participantIds.isEmpty;
+  bool get canView =>
+      !isDirectMessage || _isUnscopedDirectMessage || isParticipant || isAdmin;
+  bool get canWrite =>
+      !isDirectMessage || _isUnscopedDirectMessage || isParticipant;
   bool get canManage => canWrite && (isCreator || isAdmin);
 
   bool get canEditTitleEmoji => isDirectMessage ? isParticipant : canManage;
