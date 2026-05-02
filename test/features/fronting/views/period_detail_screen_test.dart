@@ -1105,6 +1105,234 @@ void main() {
       },
     );
 
+    // ── T14: Accessibility / Semantics labels ──────────────────────────────
+
+    testWidgets('header semantic label lists all 4 active member names', (
+      tester,
+    ) async {
+      final members = [
+        _member('a', 'Sky'),
+        _member('b', 'Fern'),
+        _member('c', 'Aimee'),
+        _member('d', 'Hex'),
+      ];
+      final hint = _hint(
+        members: members,
+        start: DateTime(2026, 4, 1, 10, 0),
+        end: DateTime(2026, 4, 1, 11, 0),
+      );
+      await tester.pumpWidget(
+        _wrap(sessionIds: const ['s1', 's2', 's3', 's4'], hint: hint),
+      );
+      await tester.pump();
+
+      // The Semantics label on the header must contain every member name.
+      // _namesString produces "Sky, Fern, Aimee & Hex" for 4 members.
+      expect(
+        find.bySemanticsLabel(RegExp(r'Sky')),
+        findsAtLeastNWidgets(1),
+      );
+      expect(
+        find.bySemanticsLabel(RegExp(r'Fern')),
+        findsAtLeastNWidgets(1),
+      );
+      expect(
+        find.bySemanticsLabel(RegExp(r'Aimee')),
+        findsAtLeastNWidgets(1),
+      );
+      expect(
+        find.bySemanticsLabel(RegExp(r'Hex')),
+        findsAtLeastNWidgets(1),
+      );
+      // Confirm a single label node contains ALL four names.
+      expect(
+        find.bySemanticsLabel(RegExp(r'Sky.*Fern.*Aimee.*Hex')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('co-fronter row has descriptive semantic label', (
+      tester,
+    ) async {
+      final memberA = _member('ma', 'Fern');
+      final sessionS1 = _session('s1', 'ma');
+      // _session creates endTime = _t1 (closed session).
+      // start = _t0 = 10:00 AM, end = _t1 = 11:00 AM, duration = 1h.
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            derivedPeriodsProvider.overrideWith(
+              (ref) => const AsyncValue.data([]),
+            ),
+            systemSettingsProvider.overrideWith(
+              (ref) => Stream.value(const SystemSettings()),
+            ),
+            sessionByIdProvider('s1').overrideWith(
+              (ref) => Stream.value(sessionS1),
+            ),
+            membersByIdsProvider(memberIdsKey(['ma'])).overrideWith(
+              (ref) => Stream.value({'ma': memberA}),
+            ),
+            commentsForRangeProvider(
+              DateTimeRange(start: _t0, end: _t1),
+            ).overrideWith((ref) => Stream.value(const [])),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: const [Locale('en')],
+            home: PeriodDetailScreen(
+              sessionIds: const ['s1'],
+              hint: _hint(members: [memberA]),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      // Co-fronter row label: "Fern, fronting from 10:00 AM to 11:00 AM, duration 1h.
+      // Double tap to view details."
+      // The header label starts with "Period:" — use a negative lookahead-style approach
+      // by anchoring the match to NOT start with "Period".
+      expect(
+        find.bySemanticsLabel(
+          RegExp(r'^Fern, fronting from 10:00 AM to 11:00 AM, duration 1h\. Double tap'),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('briefly-joined row has descriptive semantic label', (
+      tester,
+    ) async {
+      final visitStart = DateTime(2026, 4, 1, 10, 5);
+      final visitEnd = DateTime(2026, 4, 1, 10, 15);
+      final visit = EphemeralVisit(
+        memberId: 'm1',
+        start: visitStart,
+        end: visitEnd,
+        sessionId: 'v1',
+      );
+      final period = FrontingPeriod(
+        start: _t0,
+        end: _t1,
+        activeMembers: const ['a', 'b'],
+        briefVisitors: [visit],
+        sessionIds: const ['s1', 's2'],
+        alwaysPresentMembers: const [],
+        isOpenEnded: false,
+      );
+      final memberM1 = _member('m1', 'Jules');
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            derivedPeriodsProvider.overrideWith(
+              (ref) => AsyncValue.data([period]),
+            ),
+            systemSettingsProvider.overrideWith(
+              (ref) => Stream.value(const SystemSettings()),
+            ),
+            sessionByIdProvider('s1').overrideWith(
+              (ref) => Stream.value(_session('s1', 's1')),
+            ),
+            sessionByIdProvider('s2').overrideWith(
+              (ref) => Stream.value(null),
+            ),
+            membersByIdsProvider(memberIdsKey(['s1'])).overrideWith(
+              (ref) => Stream.value(const {}),
+            ),
+            membersByIdsProvider(memberIdsKey(['m1'])).overrideWith(
+              (ref) => Stream.value({'m1': memberM1}),
+            ),
+            commentsForRangeProvider(
+              DateTimeRange(start: _t0, end: _t1),
+            ).overrideWith((ref) => Stream.value(const [])),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: const [Locale('en')],
+            home: PeriodDetailScreen(
+              sessionIds: const ['s1', 's2'],
+              hint: _hint(),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      // "Jules, briefly joined for 10m at 10:05 AM. Double tap to view details."
+      expect(
+        find.bySemanticsLabel(
+          RegExp(r'Jules.*briefly joined.*10m.*10:05 AM'),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('always-present row has descriptive semantic label', (
+      tester,
+    ) async {
+      final period = FrontingPeriod(
+        start: _t0,
+        end: _t1,
+        activeMembers: const ['a', 'b'],
+        briefVisitors: const [],
+        sessionIds: const ['s1', 's2'],
+        alwaysPresentMembers: const ['ap1'],
+        isOpenEnded: false,
+      );
+      final memberAp1 = _member('ap1', 'Aria');
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            derivedPeriodsProvider.overrideWith(
+              (ref) => AsyncValue.data([period]),
+            ),
+            systemSettingsProvider.overrideWith(
+              (ref) => Stream.value(const SystemSettings()),
+            ),
+            sessionByIdProvider('s1').overrideWith(
+              (ref) => Stream.value(_session('s1', 's1')),
+            ),
+            sessionByIdProvider('s2').overrideWith(
+              (ref) => Stream.value(null),
+            ),
+            membersByIdsProvider(memberIdsKey(['s1'])).overrideWith(
+              (ref) => Stream.value(const {}),
+            ),
+            membersByIdsProvider(memberIdsKey(['ap1'])).overrideWith(
+              (ref) => Stream.value({'ap1': memberAp1}),
+            ),
+            commentsForRangeProvider(
+              DateTimeRange(start: _t0, end: _t1),
+            ).overrideWith((ref) => Stream.value(const [])),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: const [Locale('en')],
+            home: PeriodDetailScreen(
+              sessionIds: const ['s1', 's2'],
+              hint: _hint(),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      // "Aria, always present. Double tap to view profile."
+      expect(
+        find.bySemanticsLabel(
+          RegExp(r'Aria.*always present.*Double tap to view profile'),
+        ),
+        findsOneWidget,
+      );
+    });
+
     testWidgets(
       'dropped ID from original set: header renders from hint, '
       'period-level subsections hide (set-equality miss)',
