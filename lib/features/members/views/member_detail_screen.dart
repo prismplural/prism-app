@@ -16,7 +16,6 @@ import 'package:prism_plurality/features/members/views/add_edit_member_sheet.dar
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
-import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
@@ -25,14 +24,13 @@ import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
-import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/features/members/widgets/member_groups_section.dart';
-import 'package:prism_plurality/features/members/utils/birthday.dart';
 import 'package:prism_plurality/features/members/widgets/proxy_tags_section.dart';
 import 'package:prism_plurality/features/members/widgets/custom_fields_display.dart';
 import 'package:prism_plurality/features/members/widgets/notes_section.dart';
+import 'package:prism_plurality/features/members/widgets/member_profile_header.dart';
 import 'package:prism_plurality/shared/widgets/markdown_text.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -56,27 +54,26 @@ class MemberDetailScreen extends ConsumerWidget {
       error: (e, _) => PrismPageScaffold(
         topBar: const PrismTopBar(title: '', showBackButton: true),
         body: Center(
-            child: Text('Error loading ${readTerminology(context, ref).singularLower}: $e')),
+          child: Text(
+            'Error loading ${readTerminology(context, ref).singularLower}: $e',
+          ),
+        ),
       ),
       data: (member) {
         if (member == null) {
           return PrismPageScaffold(
             topBar: const PrismTopBar(title: '', showBackButton: true),
             body: Center(
-                child: Text(
-                    '${readTerminology(context, ref).singular} not found')),
+              child: Text(
+                '${readTerminology(context, ref).singular} not found',
+              ),
+            ),
           );
         }
         return _MemberDetailBody(member: member);
       },
     );
   }
-}
-
-String? _birthdayDisplay(BuildContext context, Member member) {
-  final parsed = parseBirthday(member.birthday);
-  if (parsed == null) return null;
-  return formatBirthdayDisplay(parsed, Localizations.localeOf(context).toString());
 }
 
 class _MemberDetailBody extends ConsumerWidget {
@@ -92,11 +89,31 @@ class _MemberDetailBody extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final l10n = context.l10n;
+    final terms = watchTerminology(context, ref);
     final activeSessionsAsync = ref.watch(activeSessionsProvider);
-    final isFronting = activeSessionsAsync.whenOrNull(
-          data: _isFronting,
-        ) ??
-        false;
+    final isFronting =
+        activeSessionsAsync.whenOrNull(data: _isFronting) ?? false;
+
+    final memberAccent =
+        (member.customColorEnabled &&
+            member.customColorHex != null &&
+            member.customColorHex!.isNotEmpty)
+        ? AppColors.fromHex(member.customColorHex!)
+        : null;
+
+    Widget body = SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(24, 0, 24, NavBarInset.of(context)),
+      child: _buildBodyColumn(context, theme, isFronting),
+    );
+
+    if (memberAccent != null) {
+      body = Theme(
+        data: theme.copyWith(
+          colorScheme: theme.colorScheme.copyWith(primary: memberAccent),
+        ),
+        child: body,
+      );
+    }
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
@@ -105,7 +122,7 @@ class _MemberDetailBody extends ConsumerWidget {
         actions: [
           PrismTopBarAction(
             icon: AppIcons.editOutlined,
-            tooltip: l10n.memberEditTooltip,
+            tooltip: l10n.memberEditTooltip(terms.singularLower),
             onPressed: () => _openEditSheet(context),
           ),
           _MoreMenuButton(
@@ -115,160 +132,40 @@ class _MemberDetailBody extends ConsumerWidget {
         ],
       ),
       bodyPadding: EdgeInsets.zero,
-      body: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(24, 0, 24, NavBarInset.of(context)),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 16),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                MemberAvatar(
-                  avatarImageData: member.avatarImageData,
-                  memberName: member.name,
-                  emoji: member.emoji,
-                  customColorEnabled: member.customColorEnabled,
-                  customColorHex: member.customColorHex,
-                  size: 80,
-                  showBorder: true,
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        member.name,
-                        style: theme.textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      if (member.displayName != null &&
-                          member.displayName!.trim().isNotEmpty) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          member.displayName!.trim(),
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
-                      ],
-                      if (member.pronouns != null &&
-                          member.pronouns!.isNotEmpty) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          member.pronouns!,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                      if (member.age != null) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          l10n.memberAgeDisplay(member.age!),
-                          style: theme.textTheme.bodyLarge?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                      if (_birthdayDisplay(context, member) != null) ...[
-                        const SizedBox(height: 2),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              AppIcons.calendarTodayOutlined,
-                              size: 16,
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                            const SizedBox(width: 6),
-                            Flexible(
-                              child: Text(
-                                _birthdayDisplay(context, member)!,
-                                style: theme.textTheme.bodyLarge?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: [
-                          if (isFronting)
-                            _Chip(
-                              icon: AppIcons.flashOn,
-                              label: l10n.memberFrontingChip,
-                              backgroundColor:
-                                  AppColors.fronting(theme.brightness).withValues(alpha: 0.15),
-                              foregroundColor: AppColors.fronting(theme.brightness),
-                            ),
-                          if (member.isAdmin)
-                            _Chip(
-                              icon: AppIcons.shieldOutlined,
-                              label: l10n.memberAdminChip,
-                              backgroundColor:
-                                  theme.colorScheme.tertiaryContainer,
-                              foregroundColor:
-                                  theme.colorScheme.onTertiaryContainer,
-                            ),
-                          if (!member.isActive)
-                            _Chip(
-                              icon: AppIcons.visibilityOffOutlined,
-                              label: l10n.memberInactiveChip,
-                              backgroundColor:
-                                  theme.colorScheme.surfaceContainerHighest,
-                              foregroundColor:
-                                  theme.colorScheme.onSurfaceVariant,
-                            ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+      body: body,
+    );
+  }
 
-            const SizedBox(height: 24),
-
-            // Bio
-            if (member.bio != null && member.bio!.isNotEmpty)
-              _DetailSection(
-                icon: AppIcons.notesOutlined,
-                title: l10n.memberSectionBio,
-                child: MarkdownText(
-                  data: member.bio!,
-                  enabled: member.markdownEnabled,
-                  baseStyle: theme.textTheme.bodyLarge,
-                ),
-              ),
-
-            ProxyTagsSection(member: member),
-
-            MemberGroupsSection(memberId: member.id, memberName: member.name),
-
-            CustomFieldsDisplay(memberId: member.id),
-            NotesSection(memberId: member.id),
-            _FrontingStatsSection(memberId: member.id),
-
-            const SizedBox(height: 8),
-
-            _RecentSessionsSection(memberId: member.id),
-
-            const SizedBox(height: 8),
-
-            _ConversationsSection(memberId: member.id),
-
-            const SizedBox(height: 32),
-          ],
-        ),
-      ),
+  Widget _buildBodyColumn(
+    BuildContext context,
+    ThemeData theme,
+    bool isFronting,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 16),
+        MemberProfileHeader(member: member, isFronting: isFronting),
+        if (member.bio != null && member.bio!.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          MarkdownText(
+            data: member.bio!,
+            enabled: member.markdownEnabled,
+            baseStyle: theme.textTheme.bodyLarge,
+          ),
+        ],
+        const SizedBox(height: 24),
+        CustomFieldsDisplay(memberId: member.id),
+        NotesSection(memberId: member.id),
+        MemberGroupsSection(memberId: member.id, memberName: member.name),
+        ProxyTagsSection(member: member),
+        _FrontingStatsSection(memberId: member.id),
+        const SizedBox(height: 8),
+        _RecentSessionsSection(memberId: member.id),
+        const SizedBox(height: 8),
+        _ConversationsSection(memberId: member.id),
+        const SizedBox(height: 32),
+      ],
     );
   }
 
@@ -290,19 +187,27 @@ class _MemberDetailBody extends ConsumerWidget {
     switch (action) {
       case _MenuAction.setFronter:
         try {
-          await ref.read(frontingNotifierProvider.notifier).startFronting(member.id);
+          await ref.read(frontingNotifierProvider.notifier).startFronting([
+            member.id,
+          ]);
           if (context.mounted) {
-            PrismToast.show(context, message: context.l10n.memberIsFronting(member.name));
+            PrismToast.show(
+              context,
+              message: context.l10n.memberIsFronting(member.name),
+            );
           }
         } catch (e) {
           if (context.mounted) {
-            PrismToast.error(context, message: context.l10n.frontingErrorWakingUp(e));
+            PrismToast.error(
+              context,
+              message: context.l10n.frontingErrorWakingUp(e),
+            );
           }
         }
       case _MenuAction.toggleActive:
-        await ref.read(membersNotifierProvider.notifier).updateMember(
-              member.copyWith(isActive: !member.isActive),
-            );
+        await ref
+            .read(membersNotifierProvider.notifier)
+            .updateMember(member.copyWith(isActive: !member.isActive));
       case _MenuAction.delete:
         await _confirmDelete(context, ref);
     }
@@ -313,13 +218,16 @@ class _MemberDetailBody extends ConsumerWidget {
     final confirmed = await PrismDialog.confirm(
       context: context,
       title: 'Delete ${terms.singularLower}?',
-      message: 'Are you sure you want to delete ${member.name}? '
+      message:
+          'Are you sure you want to delete ${member.name}? '
           'This action cannot be undone.',
       confirmLabel: context.l10n.delete,
       destructive: true,
     );
     if (confirmed) {
-      unawaited(ref.read(membersNotifierProvider.notifier).deleteMember(member.id));
+      unawaited(
+        ref.read(membersNotifierProvider.notifier).deleteMember(member.id),
+      );
       if (context.mounted) Navigator.of(context).pop();
     }
   }
@@ -388,7 +296,9 @@ class _FrontingStatsSection extends ConsumerWidget {
     if (diff.inDays == 0) return l10n.memberStatsToday as String;
     if (diff.inDays == 1) return l10n.memberStatsYesterday as String;
     if (diff.inDays < 7) return l10n.memberStatsDaysAgo(diff.inDays) as String;
-    if (diff.inDays < 30) return l10n.memberStatsWeeksAgo(diff.inDays ~/ 7) as String;
+    if (diff.inDays < 30) {
+      return l10n.memberStatsWeeksAgo(diff.inDays ~/ 7) as String;
+    }
     return '${dt.month}/${dt.day}/${dt.year}';
   }
 }
@@ -456,20 +366,16 @@ class _SessionTile extends StatelessWidget {
                   : theme.colorScheme.onSurfaceVariant,
             ),
             const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                startDate,
-                style: theme.textTheme.bodyMedium,
-              ),
-            ),
+            Expanded(child: Text(startDate, style: theme.textTheme.bodyMedium)),
             Text(
               session.isActive ? l10n.memberSessionActive : duration,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: session.isActive
                     ? AppColors.fronting(theme.brightness)
                     : theme.colorScheme.onSurfaceVariant,
-                fontWeight:
-                    session.isActive ? FontWeight.w600 : FontWeight.normal,
+                fontWeight: session.isActive
+                    ? FontWeight.w600
+                    : FontWeight.normal,
               ),
             ),
             const SizedBox(width: 4),
@@ -525,7 +431,10 @@ class _ConversationsSection extends ConsumerWidget {
             children: [
               for (var i = 0; i < conversations.length; i++) ...[
                 if (i > 0) const Divider(height: 1),
-                _ConversationTile(conversation: conversations[i], memberId: memberId),
+                _ConversationTile(
+                  conversation: conversations[i],
+                  memberId: memberId,
+                ),
               ],
             ],
           ),
@@ -545,14 +454,19 @@ class _ConversationTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final title =
-        conversation.title ?? conversation.emoji ?? context.l10n.memberConversationFallback;
+        conversation.title ??
+        conversation.emoji ??
+        context.l10n.memberConversationFallback;
 
     final allMembersAsync = ref.watch(allMembersProvider);
     final subtitle = allMembersAsync.whenOrNull(
       data: (members) {
         final others = members
-            .where((m) =>
-                m.id != memberId && conversation.participantIds.contains(m.id))
+            .where(
+              (m) =>
+                  m.id != memberId &&
+                  conversation.participantIds.contains(m.id),
+            )
             .toList();
         if (others.isEmpty) return '';
         if (others.length == 1) return others[0].name;
@@ -570,10 +484,7 @@ class _ConversationTile extends ConsumerWidget {
         child: Row(
           children: [
             if (conversation.emoji != null) ...[
-              Text(
-                conversation.emoji!,
-                style: const TextStyle(fontSize: 20),
-              ),
+              Text(conversation.emoji!, style: const TextStyle(fontSize: 20)),
               const SizedBox(width: 12),
             ] else ...[
               Icon(
@@ -658,9 +569,7 @@ class _SectionCard extends StatelessWidget {
           const SizedBox(height: 8),
           SizedBox(
             width: double.infinity,
-            child: PrismSectionCard(
-              child: child,
-            ),
+            child: PrismSectionCard(child: child),
           ),
         ],
       ),
@@ -699,109 +608,8 @@ class _StatRow extends StatelessWidget {
   }
 }
 
-class _Chip extends StatelessWidget {
-  const _Chip({
-    required this.label,
-    this.icon,
-    this.backgroundColor,
-    this.foregroundColor,
-  });
-
-  final String label;
-  final IconData? icon;
-  final Color? backgroundColor;
-  final Color? foregroundColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final bg =
-        backgroundColor ?? theme.colorScheme.surfaceContainerHighest;
-    final fg = foregroundColor ?? theme.colorScheme.onSurfaceVariant;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(20)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (icon != null) ...[
-            Icon(icon, size: 16, color: fg),
-            const SizedBox(width: 6),
-          ],
-          Text(
-            label,
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: fg,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DetailSection extends StatelessWidget {
-  const _DetailSection({
-    required this.icon,
-    required this.title,
-    this.content,
-    this.child,
-  }) : assert(content != null || child != null);
-
-  final IconData icon;
-  final String title;
-  final String? content;
-  final Widget? child;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: 18, color: theme.colorScheme.primary),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: theme.colorScheme.primary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity,
-            child: PrismSurface(
-              padding: const EdgeInsets.all(16),
-              child: child ??
-                  Text(
-                    content!,
-                    style: theme.textTheme.bodyLarge,
-                  ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _MoreMenuButton extends StatelessWidget {
-  const _MoreMenuButton({
-    required this.member,
-    required this.onAction,
-  });
+  const _MoreMenuButton({required this.member, required this.onAction});
 
   final Member member;
   final ValueChanged<_MenuAction> onAction;
@@ -839,14 +647,13 @@ class _MoreMenuButton extends StatelessWidget {
       itemBuilder: (context, index, close) {
         final item = items[index];
         final theme = Theme.of(context);
-        final color = item.destructive ? theme.colorScheme.error : theme.colorScheme.onSurface;
+        final color = item.destructive
+            ? theme.colorScheme.error
+            : theme.colorScheme.onSurface;
         return PrismListRow(
           dense: true,
           leading: Icon(item.icon, size: 20, color: color),
-          title: Text(
-            item.label,
-            style: TextStyle(fontSize: 14, color: color),
-          ),
+          title: Text(item.label, style: TextStyle(fontSize: 14, color: color)),
           onTap: () {
             close();
             onAction(item.action);

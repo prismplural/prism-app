@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pk_group_repair_provider.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_group_repair_service.dart';
 import 'package:prism_plurality/features/pluralkit/widgets/pk_group_repair_card.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 
 void main() {
@@ -11,11 +14,28 @@ void main() {
     required Widget child,
     Locale locale = const Locale('en'),
   }) {
-    return MaterialApp(
-      locale: locale,
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      home: Scaffold(body: SingleChildScrollView(child: child)),
+    // `_ReviewItemCard` is a ConsumerWidget that resolves terminology via
+    // `watchTerminology`, so the widget tree needs a `ProviderScope`.
+    //
+    // Lock the terminology to `members` (overriding the `headmates`
+    // default) so the test strings stay stable: "1 shared PK member" /
+    // "1 integrante PK compartido". Otherwise the rendered copy would
+    // shift with whatever the default terminology happens to be.
+    return ProviderScope(
+      overrides: [
+        terminologySettingProvider.overrideWith((ref) => (
+              term: SystemTerminology.members,
+              customSingular: null,
+              customPlural: null,
+              useEnglish: false,
+            )),
+      ],
+      child: MaterialApp(
+        locale: locale,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(body: SingleChildScrollView(child: child)),
+      ),
     );
   }
 

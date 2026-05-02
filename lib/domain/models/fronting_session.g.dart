@@ -14,23 +14,19 @@ _FrontingSession _$FrontingSessionFromJson(Map<String, dynamic> json) =>
           ? null
           : DateTime.parse(json['endTime'] as String),
       memberId: json['memberId'] as String?,
-      coFronterIds:
-          (json['coFronterIds'] as List<dynamic>?)
-              ?.map((e) => e as String)
-              .toList() ??
-          const [],
       notes: json['notes'] as String?,
       confidence: $enumDecodeNullable(
         _$FrontConfidenceEnumMap,
         json['confidence'],
       ),
       pluralkitUuid: json['pluralkitUuid'] as String?,
+      pkImportSource: json['pkImportSource'] as String?,
+      pkFileSwitchId: json['pkFileSwitchId'] as String?,
       sessionType:
           $enumDecodeNullable(_$SessionTypeEnumMap, json['sessionType']) ??
           SessionType.normal,
       quality: $enumDecodeNullable(_$SleepQualityEnumMap, json['quality']),
       isHealthKitImport: json['isHealthKitImport'] as bool? ?? false,
-      pkMemberIdsJson: json['pkMemberIdsJson'] as String?,
       isDeleted: json['isDeleted'] as bool? ?? false,
       deleteIntentEpoch: (json['deleteIntentEpoch'] as num?)?.toInt(),
       deletePushStartedAt: (json['deletePushStartedAt'] as num?)?.toInt(),
@@ -42,14 +38,14 @@ Map<String, dynamic> _$FrontingSessionToJson(_FrontingSession instance) =>
       'startTime': instance.startTime.toIso8601String(),
       'endTime': instance.endTime?.toIso8601String(),
       'memberId': instance.memberId,
-      'coFronterIds': instance.coFronterIds,
       'notes': instance.notes,
       'confidence': _$FrontConfidenceEnumMap[instance.confidence],
       'pluralkitUuid': instance.pluralkitUuid,
+      'pkImportSource': instance.pkImportSource,
+      'pkFileSwitchId': instance.pkFileSwitchId,
       'sessionType': _$SessionTypeEnumMap[instance.sessionType]!,
       'quality': _$SleepQualityEnumMap[instance.quality],
       'isHealthKitImport': instance.isHealthKitImport,
-      'pkMemberIdsJson': instance.pkMemberIdsJson,
       'isDeleted': instance.isDeleted,
       'deleteIntentEpoch': instance.deleteIntentEpoch,
       'deletePushStartedAt': instance.deletePushStartedAt,

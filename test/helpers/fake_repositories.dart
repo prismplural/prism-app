@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/domain/models/conversation.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/member.dart';
@@ -98,6 +99,24 @@ class FakeMemberRepository implements MemberRepository {
 
   @override
   Future<void> stampDeletePushStartedAt(String id, int timestampMs) async {}
+
+  @override
+  Future<({Member member, bool wasCreated})>
+      ensureUnknownSentinelMember() async {
+    final existing = await getMemberById(unknownSentinelMemberId);
+    if (existing != null) {
+      return (member: existing, wasCreated: false);
+    }
+    final sentinel = Member(
+      id: unknownSentinelMemberId,
+      name: 'Unknown',
+      emoji: '❔',
+      isActive: true,
+      createdAt: DateTime.now().toUtc(),
+    );
+    await createMember(sentinel);
+    return (member: sentinel, wasCreated: true);
+  }
 }
 
 // =============================================================================
@@ -200,6 +219,17 @@ class FakeSystemSettingsRepository implements SystemSettingsRepository {
   @override
   Future<void> updateTimingMode(FrontingTimingMode value) async =>
       updateSettings(settings.copyWith(timingMode: value));
+  @override
+  Future<void> updateFrontingListViewMode(FrontingListViewMode value) async =>
+      updateSettings(settings.copyWith(frontingListViewMode: value));
+  @override
+  Future<void> updateAddFrontDefaultBehavior(FrontStartBehavior value) async =>
+      updateSettings(settings.copyWith(addFrontDefaultBehavior: value));
+  @override
+  Future<void> updateQuickFrontDefaultBehavior(
+    FrontStartBehavior value,
+  ) async =>
+      updateSettings(settings.copyWith(quickFrontDefaultBehavior: value));
   @override
   Future<void> updateFrontingReminderIntervalMinutes(int value) async =>
       updateSettings(settings.copyWith(frontingReminderIntervalMinutes: value));
@@ -623,6 +653,20 @@ class FakeFrontingSessionRepository implements FrontingSessionRepository {
       Stream.value(sessions.take(limit).toList());
 
   @override
+  Stream<List<FrontingSession>> watchSessionsOverlappingRange(
+    DateTime start,
+    DateTime end,
+  ) {
+    final overlapping = sessions.where((s) {
+      if (!s.startTime.isBefore(end)) return false;
+      final endTime = s.endTime;
+      if (endTime == null) return true;
+      return endTime.isAfter(start);
+    }).toList();
+    return Stream.value(overlapping);
+  }
+
+  @override
   Stream<FrontingSession?> watchSessionById(String id) => Stream.value(null);
 
   @override
@@ -644,4 +688,15 @@ class FakeFrontingSessionRepository implements FrontingSessionRepository {
 
   @override
   Future<void> stampDeletePushStartedAt(String id, int timestampMs) async {}
+
+  @override
+  Future<({int count, Duration? avgDuration})> getSleepStats({
+    required DateTime since,
+    DateTime? until,
+  }) async => (count: 0, avgDuration: null);
+
+  @override
+  Stream<List<FrontingSession>> watchRecentSleepSessions({
+    required int limit,
+  }) => Stream.value(const []);
 }

@@ -14,6 +14,7 @@ import 'package:prism_plurality/features/data_management/services/export_crypto.
 import 'package:prism_plurality/features/onboarding/models/onboarding_data_counts.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pk_file_import_provider.dart';
+import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_file_parser.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
 import 'package:prism_plurality/features/migration/providers/migration_providers.dart';
@@ -331,10 +332,12 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
           };
           break;
         case PkFileImportStep.previewing:
-          pending = _runFileImport;
+          pending = fileState.export?.switches.isNotEmpty == true
+              ? _runFileFrontingRecovery
+              : _runFileImport;
           break;
         case PkFileImportStep.complete:
-          pending = _isAttachingToken ? () async {} : _handlePostFileToken;
+          pending = () async => _advance();
           break;
         case PkFileImportStep.error:
           pending = () async {
@@ -415,10 +418,11 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
         _SourceCard(
           icon: AppIcons.sync,
           color: theme.colorScheme.primary,
-          title: 'Connect with a token',
+          title: 'Import with a token',
           description:
-              'Recommended. Paste a PluralKit token and Prism will keep '
-              'pulling new switches and push your Prism fronts back to PK.',
+              'Recommended. Paste a PluralKit token and Prism will import '
+              'members, groups, and switch history without enabling ongoing '
+              'sync.',
           onTap: () => _pickMode(_PkMode.token),
         ),
         const SizedBox(height: 12),
@@ -427,8 +431,8 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
           color: theme.colorScheme.primary,
           title: 'Import from pk;export file',
           description:
-              'Faster for large systems (thousands of members or switches). '
-              'You can add a token afterwards for ongoing sync.',
+              'Use your export plus a token to recover fronting history. '
+              'Members and groups can still be imported from the file only.',
           onTap: () => _pickMode(_PkMode.file),
         ),
       ],
@@ -626,7 +630,13 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
               : 'Importing…',
         );
       case PkFileImportStep.complete:
-        return _buildFileComplete(context, fileState.result!);
+        return _buildFileComplete(
+          context,
+          fileState.result!,
+          fileState.completionMode,
+          fileState.export?.switches.length ?? 0,
+          fileState.frontingResult,
+        );
       case PkFileImportStep.error:
         return _buildFileError(context, fileState.error ?? 'Import failed.');
     }
@@ -675,8 +685,9 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
               const _InstructionRow(
                 number: '3',
                 text:
-                    'Tap Select file below and pick the JSON. Large systems '
-                    '(thousands of members/switches) import faster this way.',
+                    'Tap Select file below and pick the JSON. File import can '
+                    'import members and groups on its own; fronting history '
+                    'also needs your token.',
               ),
             ],
           ),
@@ -723,6 +734,8 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final primary = theme.colorScheme.primary;
+    final textColor = isDark ? AppColors.warmWhite : AppColors.warmBlack;
+    final hasSwitches = export.switches.isNotEmpty;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -759,18 +772,107 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
                   count: export.groups.length,
                 ),
               _PreviewRow(
-                label: context.l10n.onboardingImportPreviewFrontingSessions,
+                label: hasSwitches
+                    ? 'Switches ready to match'
+                    : 'Switches found',
                 count: export.switches.length,
               ),
+              if (hasSwitches) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'The file gives Prism your historical switches. The token '
+                  'lets Prism match them to PluralKit switch IDs before '
+                  'importing fronts.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: isDark
+                        ? AppColors.mutedTextDark
+                        : AppColors.mutedTextLight,
+                  ),
+                ),
+              ],
             ],
           ),
         ),
+        if (hasSwitches) ...[
+          const SizedBox(height: 16),
+          Container(
+            decoration: BoxDecoration(
+              color: isDark
+                  ? AppColors.warmWhite.withValues(alpha: 0.1)
+                  : AppColors.parchmentElevated,
+              borderRadius: BorderRadius.circular(
+                PrismShapes.of(context).radius(12),
+              ),
+            ),
+            child: PrismTextField(
+              controller: _postFileTokenController,
+              obscureText: _obscurePostFileToken,
+              style: TextStyle(color: textColor),
+              hintText: context.l10n.onboardingPluralKitTokenHint,
+              hintStyle: TextStyle(
+                color: isDark
+                    ? AppColors.warmWhite.withValues(alpha: 0.35)
+                    : AppColors.warmBlack.withValues(alpha: 0.35),
+              ),
+              fieldStyle: PrismTextFieldStyle.borderless,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 12,
+              ),
+              suffix: PrismFieldIconButton(
+                icon: _obscurePostFileToken
+                    ? AppIcons.visibilityOff
+                    : AppIcons.visibility,
+                color: isDark
+                    ? AppColors.warmWhite.withValues(alpha: 0.75)
+                    : AppColors.warmBlack.withValues(alpha: 0.75),
+                tooltip: _obscurePostFileToken
+                    ? context.l10n.showToken
+                    : context.l10n.hideToken,
+                onPressed: () => setState(
+                  () => _obscurePostFileToken = !_obscurePostFileToken,
+                ),
+              ),
+              onSubmitted: (_) => _runFileFrontingRecovery(),
+            ),
+          ),
+          if (_postFileTokenError != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              _postFileTokenError!,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.error,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ],
         const SizedBox(height: 16),
         _ActionButton(
-          label: 'Import',
+          label: hasSwitches
+              ? 'Match & import fronting history'
+              : 'Import members/groups',
           color: primary,
-          onPressed: _runFileImport,
+          isLoading: _isAttachingToken,
+          onPressed: hasSwitches ? _runFileFrontingRecovery : _runFileImport,
         ),
+        if (hasSwitches) ...[
+          const SizedBox(height: 8),
+          Center(
+            child: GestureDetector(
+              onTap: _isAttachingToken ? null : _runFileImport,
+              child: Text(
+                'Import members/groups only',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: isDark
+                      ? AppColors.mutedTextDark
+                      : AppColors.mutedTextLight,
+                  decoration: TextDecoration.underline,
+                ),
+              ),
+            ),
+          ),
+        ],
         const SizedBox(height: 8),
         Center(
           child: GestureDetector(
@@ -790,10 +892,19 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
     );
   }
 
-  Widget _buildFileComplete(BuildContext context, PkFileImportResult result) {
+  Widget _buildFileComplete(
+    BuildContext context,
+    PkFileImportResult result,
+    PkFileImportCompletionMode mode,
+    int switchesFound,
+    PkFileTokenFrontingImportResult? frontingResult,
+  ) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final primary = theme.colorScheme.primary;
+    final recoveredFronting =
+        mode == PkFileImportCompletionMode.fileAndToken &&
+        frontingResult?.frontingImported == true;
+    final newerSwitches = frontingResult?.apiOnlyOutsideRangeCount ?? 0;
 
     // Runs once per successful import — seeds system name + flag before
     // showing the optional-token recommendation.
@@ -827,8 +938,11 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'Imported ${result.membersImported} members and '
-                  '${result.switchesCreated} switches.',
+                  result.groupsImported > 0
+                      ? 'Imported ${result.membersImported} members and '
+                            '${result.groupsImported} groups from the file.'
+                      : 'Imported ${result.membersImported} members from the '
+                            'file.',
                   style: TextStyle(
                     color: textColor,
                     fontWeight: FontWeight.w600,
@@ -853,7 +967,9 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Keep it in sync (optional)',
+                recoveredFronting
+                    ? 'Fronting history recovered'
+                    : 'Fronting history not imported',
                 style: theme.textTheme.labelLarge?.copyWith(
                   fontWeight: FontWeight.w600,
                   color: textColor,
@@ -861,78 +977,26 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Paste a PluralKit token and Prism will keep pulling new '
-                'switches and pushing your Prism fronts back to PK. You can '
-                'do this later in Settings too.',
+                recoveredFronting
+                    ? 'Prism used your token-backed PluralKit path to import '
+                          '${frontingResult?.exactImportedCount ?? switchesFound} '
+                          'switches with canonical IDs.'
+                          '${newerSwitches > 0 ? ' It also imported $newerSwitches newer switches from PluralKit that were not in the export.' : ''}'
+                    : 'Members and groups were imported from the file. To '
+                          'recover fronting history later, open PluralKit '
+                          'settings and use the pk;export file plus token.',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: isDark
                       ? AppColors.mutedTextDark
                       : AppColors.mutedTextLight,
                 ),
               ),
-              const SizedBox(height: 12),
-              Container(
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? AppColors.warmWhite.withValues(alpha: 0.06)
-                      : AppColors.parchment,
-                  borderRadius: BorderRadius.circular(
-                    PrismShapes.of(context).radius(10),
-                  ),
-                ),
-                child: PrismTextField(
-                  controller: _postFileTokenController,
-                  obscureText: _obscurePostFileToken,
-                  style: TextStyle(color: textColor),
-                  hintText: context.l10n.onboardingPluralKitTokenHint,
-                  hintStyle: TextStyle(
-                    color: isDark
-                        ? AppColors.warmWhite.withValues(alpha: 0.35)
-                        : AppColors.warmBlack.withValues(alpha: 0.35),
-                  ),
-                  fieldStyle: PrismTextFieldStyle.borderless,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 12,
-                  ),
-                  suffix: PrismFieldIconButton(
-                    icon: _obscurePostFileToken
-                        ? AppIcons.visibilityOff
-                        : AppIcons.visibility,
-                    color: isDark
-                        ? AppColors.warmWhite.withValues(alpha: 0.75)
-                        : AppColors.warmBlack.withValues(alpha: 0.75),
-                    tooltip: _obscurePostFileToken
-                        ? context.l10n.showToken
-                        : context.l10n.hideToken,
-                    onPressed: () => setState(
-                      () => _obscurePostFileToken = !_obscurePostFileToken,
-                    ),
-                  ),
-                ),
-              ),
-              if (_postFileTokenError != null) ...[
-                const SizedBox(height: 8),
-                Text(
-                  _postFileTokenError!,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.error,
-                  ),
-                ),
-              ],
-              const SizedBox(height: 12),
-              _ActionButton(
-                label: 'Connect token & continue',
-                color: primary,
-                isLoading: _isAttachingToken,
-                onPressed: _handlePostFileToken,
-              ),
               const SizedBox(height: 8),
               Center(
                 child: GestureDetector(
-                  onTap: _isAttachingToken ? null : _skipPostFileToken,
+                  onTap: _advance,
                   child: Text(
-                    'Skip for now',
+                    'Continue',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: isDark
                           ? AppColors.mutedTextDark
@@ -988,14 +1052,17 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
   }
 
   Future<void> _runFileImport() async {
+    setState(() => _postFileTokenError = null);
     await ref.read(pkFileImportProvider.notifier).runImport();
   }
 
-  Future<void> _handlePostFileToken() async {
+  Future<void> _runFileFrontingRecovery() async {
     if (_isAttachingToken) return;
     final token = _postFileTokenController.text.trim();
     if (token.isEmpty) {
-      _skipPostFileToken();
+      setState(() {
+        _postFileTokenError = context.l10n.onboardingPluralKitErrorEnterToken;
+      });
       return;
     }
     setState(() {
@@ -1003,36 +1070,18 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
       _postFileTokenError = null;
     });
     try {
-      final pkNotifier = ref.read(pluralKitSyncProvider.notifier);
-      await pkNotifier.setToken(token);
-      final connected = await pkNotifier.testConnection();
-      if (!connected) {
-        await pkNotifier.clearToken();
-        if (!mounted) return;
-        setState(() {
-          _isAttachingToken = false;
-          _postFileTokenError =
-              context.l10n.onboardingPluralKitErrorCouldNotConnect;
-        });
-        return;
-      }
-      // Already imported members via the file; mapping is a no-op here.
-      await pkNotifier.acknowledgeMapping();
-      if (!mounted) return;
-      setState(() => _isAttachingToken = false);
-      _advance();
+      await ref
+          .read(pkFileImportProvider.notifier)
+          .runImport(frontingToken: token);
     } catch (e, st) {
-      debugPrint('[PK_ONBOARDING] post-file token attach failed: $e\n$st');
+      debugPrint('[PK_ONBOARDING] file + token import failed: $e\n$st');
       if (!mounted) return;
       setState(() {
-        _isAttachingToken = false;
         _postFileTokenError = context.l10n.onboardingImportError(e);
       });
+    } finally {
+      if (mounted) setState(() => _isAttachingToken = false);
     }
-  }
-
-  void _skipPostFileToken() {
-    _advance();
   }
 
   void _advance() {
@@ -1063,45 +1112,21 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
     try {
       final pkNotifier = ref.read(pluralKitSyncProvider.notifier);
 
-      debugPrint('[PK_ONBOARDING] calling setToken...');
-      await pkNotifier.setToken(token);
-      final stateAfterSet = ref.read(pluralKitSyncProvider);
-      debugPrint(
-        '[PK_ONBOARDING] after setToken: '
-        'isConnected=${stateAfterSet.isConnected} '
-        'needsMapping=${stateAfterSet.needsMapping} '
-        'syncError=${stateAfterSet.syncError}',
-      );
-
-      debugPrint('[PK_ONBOARDING] calling testConnection...');
-      final connected = await pkNotifier.testConnection();
-      debugPrint('[PK_ONBOARDING] testConnection result: $connected');
-      if (!connected) {
-        debugPrint('[PK_ONBOARDING] testConnection failed — clearing token');
-        // Clear the invalid token so it doesn't persist
-        await pkNotifier.clearToken();
-        setState(() {
-          _isImporting = false;
-          _errorMessage = context.l10n.onboardingPluralKitErrorCouldNotConnect;
-        });
-        return;
-      }
-
       if (mounted) {
         setState(() => _importPhase = _PkTokenPhase.importingMembers);
       }
-      debugPrint('[PK_ONBOARDING] calling importMembersOnly...');
-      // importMembersOnly() already creates/updates members in the DB via the
-      // sync service's _importMembers helper (which deduplicates by PK UUID).
-      // We intentionally do NOT create members again here — the previous code
-      // duplicated every PK member on each import because createMember() does
-      // not set pluralkitUuid, so the service's dedup couldn't catch them.
-      final (systemName, importedMembers) = await pkNotifier
-          .importMembersOnly();
+      debugPrint('[PK_ONBOARDING] calling performOneTimeFullImport...');
+      // The onboarding token path is an import, not a connection setup.
+      // performOneTimeFullImport() uses the token ephemerally and never
+      // stores it or flips PluralKit into connected/canAutoSync state.
+      final result = await pkNotifier.performOneTimeFullImport(token: token);
+      final systemName = result.system.name;
+      final importedMembers = result.members;
       debugPrint(
-        '[PK_ONBOARDING] importMembersOnly returned: '
+        '[PK_ONBOARDING] performOneTimeFullImport returned: '
         'systemName=$systemName '
-        'importedMembers.length=${importedMembers.length}',
+        'importedMembers.length=${importedMembers.length} '
+        'switchesImported=${result.switchesImported}',
       );
 
       // Confirm the writes actually landed in the local DB by reading back.
@@ -1120,23 +1145,6 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
       }
       ref.read(onboardingProvider.notifier).setWasImportedFromPluralKit(true);
 
-      // Fresh-install onboarding has no existing data to "map to", so
-      // acknowledge the mapping and run a full import so switches (front
-      // history) and groups come along too — not just members.
-      try {
-        if (mounted) {
-          setState(() => _importPhase = _PkTokenPhase.importingHistory);
-        }
-        debugPrint('[PK_ONBOARDING] acknowledgeMapping + performFullImport...');
-        await pkNotifier.acknowledgeMapping();
-        await pkNotifier.performFullImport();
-        debugPrint('[PK_ONBOARDING] full import done');
-      } catch (e, st) {
-        // Non-fatal: members already imported. Log and continue so the user
-        // doesn't get blocked at onboarding if switch history fails.
-        debugPrint('[PK_ONBOARDING] full import failed (non-fatal): $e\n$st');
-      }
-
       if (!mounted) return;
       setState(() {
         _isImporting = false;
@@ -1149,6 +1157,12 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
       // system name is shown prefilled without requiring a second tap.
       ref.read(onboardingPendingImportActionProvider.notifier).set(null);
       ref.read(onboardingProvider.notifier).next();
+    } on PluralKitAuthError catch (e, st) {
+      debugPrint('[PK_ONBOARDING] token auth failed: $e\n$st');
+      setState(() {
+        _isImporting = false;
+        _errorMessage = context.l10n.onboardingPluralKitErrorCouldNotConnect;
+      });
     } catch (e, st) {
       debugPrint('[PK_ONBOARDING] _handleImport CAUGHT exception: $e\n$st');
       setState(() {

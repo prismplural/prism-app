@@ -29,6 +29,17 @@ db.Member makeDbMember({
   String? pluralkitUuid,
   String? pluralkitId,
   bool markdownEnabled = false,
+  int profileHeaderSource = 1,
+  int profileHeaderLayout = 0,
+  bool profileHeaderVisible = true,
+  int nameStyleFont = 0,
+  bool nameStyleBold = true,
+  bool nameStyleItalic = false,
+  int nameStyleColorMode = 0,
+  String? nameStyleColorHex,
+  Uint8List? profileHeaderImageData,
+  Uint8List? pkBannerImageData,
+  String? pkBannerCachedUrl,
 }) {
   return db.Member(
     id: id,
@@ -48,8 +59,20 @@ db.Member makeDbMember({
     pluralkitUuid: pluralkitUuid,
     pluralkitId: pluralkitId,
     markdownEnabled: markdownEnabled,
+    profileHeaderSource: profileHeaderSource,
+    profileHeaderLayout: profileHeaderLayout,
+    profileHeaderVisible: profileHeaderVisible,
+    nameStyleFont: nameStyleFont,
+    nameStyleBold: nameStyleBold,
+    nameStyleItalic: nameStyleItalic,
+    nameStyleColorMode: nameStyleColorMode,
+    nameStyleColorHex: nameStyleColorHex,
+    profileHeaderImageData: profileHeaderImageData,
+    pkBannerImageData: pkBannerImageData,
+    pkBannerCachedUrl: pkBannerCachedUrl,
     pluralkitSyncIgnored: false,
     isDeleted: false,
+    isAlwaysFronting: false,
   );
 }
 
@@ -61,25 +84,31 @@ db.FrontingSession makeDbFrontingSession({
   DateTime? startTime,
   DateTime? endTime,
   String? memberId = 'member-1',
-  String coFronterIds = '[]',
   String? notes,
   int? confidence,
   int? quality,
   bool isHealthKitImport = false,
   String? pluralkitUuid,
+  String? pkImportSource,
+  String? pkFileSwitchId,
 }) {
+  // The `coFronterIds` and `pkMemberIdsJson` columns survive on the Drift table
+  // for now (the mapper no longer reads or writes them after the per-member-
+  // sessions refactor). Pass empty defaults so the row constructor is satisfied.
   return db.FrontingSession(
     id: id,
     sessionType: sessionType,
     startTime: startTime ?? DateTime(2025, 3, 1, 10, 0),
     endTime: endTime,
     memberId: memberId,
-    coFronterIds: coFronterIds,
+    coFronterIds: '[]',
     notes: notes,
     confidence: confidence,
     quality: quality,
     isHealthKitImport: isHealthKitImport,
     pluralkitUuid: pluralkitUuid,
+    pkImportSource: pkImportSource,
+    pkFileSwitchId: pkFileSwitchId,
     isDeleted: false,
   );
 }
@@ -208,5 +237,7 @@ db.FrontSessionCommentRow makeDbFrontSessionComment({
     timestamp: timestamp ?? DateTime(2026, 3, 20, 10, 45),
     createdAt: createdAt ?? DateTime(2026, 3, 20, 12, 0),
     isDeleted: false,
+    targetTime: null,
+    authorMemberId: null,
   );
 }

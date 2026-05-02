@@ -111,7 +111,9 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Add member'));
+      // Default terminology is `headmates`; the button reads
+      // "Add {termSingularLower}" → "Add headmate".
+      await tester.tap(find.text('Add headmate'));
       await tester.pumpAndSettle();
 
       expect(find.byType(MemberSearchSheet), findsOneWidget);

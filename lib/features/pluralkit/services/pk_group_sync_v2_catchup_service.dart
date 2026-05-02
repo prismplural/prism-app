@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:prism_plurality/core/database/app_database.dart';
+import 'package:prism_plurality/data/utils/sync_datetime.dart';
 
 typedef PkGroupCatchupRecordCallback =
     Future<void> Function({
@@ -178,6 +179,13 @@ class PkGroupSyncV2CatchupService {
     return digest.toString().substring(0, 16);
   }
 
+  /// Visible-for-testing: builds the group field map this service emits to the
+  /// Rust sync engine. Exposed so a regression test can pin every emitted
+  /// DateTime as Z-suffixed UTC.
+  @visibleForTesting
+  static Map<String, dynamic> debugGroupFields(MemberGroupRow row) =>
+      _groupFields(row);
+
   static Map<String, dynamic> _groupFields(MemberGroupRow row) {
     return {
       'name': row.name,
@@ -188,10 +196,10 @@ class PkGroupSyncV2CatchupService {
       'parent_group_id': row.parentGroupId,
       'group_type': row.groupType,
       'filter_rules': row.filterRules,
-      'created_at': row.createdAt.toIso8601String(),
+      'created_at': toSyncUtc(row.createdAt),
       'pluralkit_id': row.pluralkitId,
       'pluralkit_uuid': row.pluralkitUuid,
-      'last_seen_from_pk_at': row.lastSeenFromPkAt?.toIso8601String(),
+      'last_seen_from_pk_at': toSyncUtcOrNull(row.lastSeenFromPkAt),
       'is_deleted': row.isDeleted,
     };
   }

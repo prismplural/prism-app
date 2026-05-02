@@ -5,6 +5,7 @@ import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_chip.dart';
@@ -19,8 +20,19 @@ class AddMembersStep extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final membersAsync = ref.watch(allMembersProvider);
+    // Member-management surface: hide the Unknown sentinel from the
+    // onboarding members list (it shouldn't exist this early anyway, but
+    // belt-and-suspenders).
+    final membersAsync = ref.watch(userVisibleAllMembersProvider);
     final members = membersAsync.value ?? [];
+    final onboarding = ref.watch(onboardingProvider);
+    final terms = resolveTerminology(
+      context.l10n,
+      onboarding.selectedTerminology,
+      customSingular: onboarding.customTermSingular,
+      customPlural: onboarding.customTermPlural,
+      useEnglish: onboarding.terminologyUseEnglish,
+    );
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -31,7 +43,11 @@ class AddMembersStep extends ConsumerWidget {
             child: members.isEmpty
                 ? Center(
                     child: Text(
-                      context.l10n.onboardingAddMembersNoMembers,
+                      context.l10n.onboardingAddMembersNoMembers(
+                        terms.pluralLower,
+                        terms.singular,
+                        terms.singularLower,
+                      ),
                       style: theme.textTheme.labelLarge?.copyWith(
                         color: isDark
                             ? AppColors.mutedTextDark
@@ -132,9 +148,10 @@ class AddMembersStep extends ConsumerWidget {
                                         alpha: 0.7,
                                       ),
                                 iconSize: 20,
-                                tooltip: context
-                                    .l10n
-                                    .onboardingAddMembersRemoveMember,
+                                tooltip: context.l10n
+                                    .onboardingAddMembersRemoveMember(
+                                      terms.singularLower,
+                                    ),
                                 onPressed: () async {
                                   try {
                                     await ref
@@ -144,7 +161,8 @@ class AddMembersStep extends ConsumerWidget {
                                     if (!context.mounted) return;
                                     PrismToast.error(
                                       context,
-                                      message: 'Could not remove member: $e',
+                                      message:
+                                          'Could not remove ${terms.singularLower}: $e',
                                     );
                                   }
                                 },
@@ -186,7 +204,10 @@ class AddMembersStep extends ConsumerWidget {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    context.l10n.onboardingAddMembersAddMember,
+                    context.l10n.onboardingAddMembersAddMember(
+                      terms.singular,
+                      terms.singularLower,
+                    ),
                     style: theme.textTheme.titleSmall?.copyWith(
                       color: isDark ? AppColors.warmWhite : AppColors.warmBlack,
                       fontWeight: FontWeight.w600,
@@ -243,9 +264,22 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final primary = theme.colorScheme.primary;
+    final onboarding = ref.watch(onboardingProvider);
+    final terms = resolveTerminology(
+      context.l10n,
+      onboarding.selectedTerminology,
+      customSingular: onboarding.customTermSingular,
+      customPlural: onboarding.customTermPlural,
+      useEnglish: onboarding.terminologyUseEnglish,
+    );
     return Column(
       children: [
-        PrismSheetTopBar(title: context.l10n.onboardingAddMemberSheetTitle),
+        PrismSheetTopBar(
+          title: context.l10n.onboardingAddMemberSheetTitle(
+            terms.singular,
+            terms.singularLower,
+          ),
+        ),
         Expanded(
           child: SingleChildScrollView(
             controller: widget.scrollController,
@@ -433,9 +467,17 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
       Navigator.of(context).pop();
     } catch (e) {
       if (!mounted) return;
+      final onboarding = ref.read(onboardingProvider);
+      final terms = resolveTerminology(
+        context.l10n,
+        onboarding.selectedTerminology,
+        customSingular: onboarding.customTermSingular,
+        customPlural: onboarding.customTermPlural,
+        useEnglish: onboarding.terminologyUseEnglish,
+      );
       setState(() {
         _isSaving = false;
-        _errorMessage = 'Could not save member: $e';
+        _errorMessage = 'Could not save ${terms.singularLower}: $e';
       });
     }
   }

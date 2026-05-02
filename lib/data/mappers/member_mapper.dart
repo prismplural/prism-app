@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
+import 'package:prism_plurality/data/utils/enum_decoder.dart';
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 
 class MemberMapper {
@@ -13,8 +14,9 @@ class MemberMapper {
       emoji: row.emoji,
       age: row.age,
       bio: row.bio,
-      avatarImageData:
-          row.avatarImageData != null ? Uint8List.fromList(row.avatarImageData!) : null,
+      avatarImageData: row.avatarImageData != null
+          ? Uint8List.fromList(row.avatarImageData!)
+          : null,
       isActive: row.isActive,
       createdAt: row.createdAt,
       displayOrder: row.displayOrder,
@@ -29,10 +31,42 @@ class MemberMapper {
       birthday: row.birthday,
       proxyTagsJson: row.proxyTagsJson,
       pkBannerUrl: row.pkBannerUrl,
+      profileHeaderSource: enumByIndex(
+        row.profileHeaderSource,
+        domain.MemberProfileHeaderSource.values,
+        domain.MemberProfileHeaderSource.prism,
+      ),
+      profileHeaderLayout: enumByIndex(
+        row.profileHeaderLayout,
+        domain.MemberProfileHeaderLayout.values,
+        domain.MemberProfileHeaderLayout.compactBackground,
+      ),
+      profileHeaderVisible: row.profileHeaderVisible,
+      nameStyleFont: enumByIndex(
+        row.nameStyleFont,
+        domain.MemberNameFont.values,
+        domain.MemberNameFont.standard,
+      ),
+      nameStyleBold: row.nameStyleBold,
+      nameStyleItalic: row.nameStyleItalic,
+      nameStyleColorMode: enumByIndex(
+        row.nameStyleColorMode,
+        domain.MemberNameColorMode.values,
+        domain.MemberNameColorMode.standard,
+      ),
+      nameStyleColorHex: row.nameStyleColorHex,
+      profileHeaderImageData: row.profileHeaderImageData != null
+          ? Uint8List.fromList(row.profileHeaderImageData!)
+          : null,
+      pkBannerImageData: row.pkBannerImageData != null
+          ? Uint8List.fromList(row.pkBannerImageData!)
+          : null,
+      pkBannerCachedUrl: row.pkBannerCachedUrl,
       pluralkitSyncIgnored: row.pluralkitSyncIgnored,
       isDeleted: row.isDeleted,
       deleteIntentEpoch: row.deleteIntentEpoch,
       deletePushStartedAt: row.deletePushStartedAt,
+      isAlwaysFronting: row.isAlwaysFronting,
     );
   }
 
@@ -59,10 +93,22 @@ class MemberMapper {
       birthday: Value(model.birthday),
       proxyTagsJson: Value(model.proxyTagsJson),
       pkBannerUrl: Value(model.pkBannerUrl),
+      profileHeaderSource: Value(model.profileHeaderSource.index),
+      profileHeaderLayout: Value(model.profileHeaderLayout.index),
+      profileHeaderVisible: Value(model.profileHeaderVisible),
+      nameStyleFont: Value(model.nameStyleFont.index),
+      nameStyleBold: Value(model.nameStyleBold),
+      nameStyleItalic: Value(model.nameStyleItalic),
+      nameStyleColorMode: Value(model.nameStyleColorMode.index),
+      nameStyleColorHex: Value(model.nameStyleColorHex),
+      profileHeaderImageData: Value(model.profileHeaderImageData),
+      pkBannerImageData: Value(model.pkBannerImageData),
+      pkBannerCachedUrl: Value(model.pkBannerCachedUrl),
       pluralkitSyncIgnored: Value(model.pluralkitSyncIgnored),
       isDeleted: Value(model.isDeleted),
       deleteIntentEpoch: Value(model.deleteIntentEpoch),
       deletePushStartedAt: Value(model.deletePushStartedAt),
+      isAlwaysFronting: Value(model.isAlwaysFronting),
     );
   }
 }

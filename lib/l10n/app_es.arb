@@ -174,6 +174,10 @@
   "pinLockBiometricTitle": "Desbloqueo biométrico",
   "pinLockBiometricSubtitle": "Usa Face ID o huella digital para desbloquear",
   "pinLockBiometricDisabledSubtitle": "Activa el bloqueo por PIN para usar el desbloqueo biométrico",
+  "pinLockUnlockOptionsSection": "Opciones de desbloqueo",
+  "pinLockHardSyncLockTitle": "Requerir recuperación para sincronizar",
+  "pinLockHardSyncLockSubtitle": "Cuando la app se bloquee, olvida la clave de desbloqueo rápido de sincronización. La sincronización en segundo plano se pausa hasta que ingreses tu PIN y frase de recuperación.",
+  "pinLockHardSyncLockDisabledSubtitle": "Activa el bloqueo por PIN para requerir recuperación después del bloqueo de la app.",
   "pinLockAutoLockSection": "Bloqueo automático",
   "pinLockAfterLeaving": "Bloquear al salir de la app",
   "pinLockManageSection": "Administrar",
@@ -219,7 +223,7 @@
   "resetDataCategoriesDescription": "Restablece categorías específicas de datos en este dispositivo. El restablecimiento del sistema de sincronización elimina la configuración de sincronización sin borrar los datos de la app.",
   "resetDataDangerZone": "Zona de peligro",
   "resetDataConfirmTitle": "¿Restablecer {category}?",
-  "resetDataConfirmAll": "Esto eliminará permanentemente todos tus datos, incluidos integrantes, sesiones de frente, mensajes, encuestas, hábitos, datos de sueño y configuración. Esta acción no se puede deshacer.",
+  "resetDataConfirmAll": "Esto eliminará permanentemente todos tus datos, incluidos {termPluralLower}, sesiones de frente, mensajes, encuestas, hábitos, datos de sueño y configuración. Esta acción no se puede deshacer.",
   "resetDataConfirmSync": "Esto conserva los datos locales de la app, pero elimina las claves de sincronización, la configuración del relay, la identidad del dispositivo y el historial de sincronización de este dispositivo. Deberás configurar la sincronización de nuevo.",
   "resetDataConfirmCategory": "Esto eliminará permanentemente todos los datos de {category} en este dispositivo. Esta acción no se puede deshacer.",
   "resetDataConfirmEverything": "Restablecer todo",
@@ -268,7 +272,12 @@
   "statisticsDurationMedian": "Mediana",
   "statisticsDurationShortest": "Más corta",
   "statisticsDurationLongest": "Más larga",
-  "statisticsFrontingTimeByMember": "Tiempo al frente por integrante",
+  "statisticsFrontingTimeByMember": "Minutos por {term}",
+  "statisticsMemberMinutesAxisHint": "% de los minutos por {term} del sistema",
+  "statisticsMedianSessionLabel": "Sesión mediana",
+  "statisticsGapTimeLabel": "Tiempo sin frente",
+  "statisticsSwitchesPerDayLabel": "Cambios/día",
+  "statisticsUniqueFrontersLabel": "{termPlural} únicos",
   "statisticsActiveMembersBreakdown": "{active} activos, {inactive} inactivos",
   "timeOfDayMorning": "Mañana",
   "timeOfDayAfternoon": "Tarde",
@@ -300,8 +309,6 @@
   "debugBuilt": "Compilado",
   "debugPackage": "Paquete",
   "debugTools": "Herramientas",
-  "debugTimelineSanitization": "Limpieza de cronología",
-  "debugTimelineSanitizationSubtitle": "Buscar y corregir problemas de cronología",
   "debugDevice": "Dispositivo",
   "debugNodeId": "ID de nodo",
   "debugNodeIdUnavailable": "No disponible — aún no emparejado",
@@ -310,7 +317,7 @@
   "debugResetDatabaseConfirm1Title": "Restablecer base de datos",
   "debugResetDatabaseConfirm1Message": "¿Estás seguro de que quieres eliminar todos los datos? Esta acción no se puede deshacer.",
   "debugResetDatabaseConfirm2Title": "¿Realmente eliminar todos los datos?",
-  "debugResetDatabaseConfirm2Message": "Esto borrará permanentemente todos los integrantes, sesiones, conversaciones, mensajes y encuestas. No hay forma de deshacer.",
+  "debugResetDatabaseConfirm2Message": "Esto borrará permanentemente {termPluralLower}, sesiones, conversaciones, mensajes y encuestas. No hay forma de deshacer.",
   "debugDeleteEverything": "Eliminar todo",
   "debugDatabaseResetSuccess": "Base de datos restablecida correctamente",
   "debugFailedToReset": "Error al restablecer: {error}",
@@ -332,10 +339,42 @@
   "errorHistoryCopied": "Detalles del error copiados",
   "systemInfoTitle": "Información del sistema",
   "systemInfoChangeAvatar": "Cambiar avatar",
-  "memberChangeAvatar": "Cambiar avatar de integrante",
+  "memberChangeAvatar": "Cambiar avatar de {termSingularLower}",
   "avatarCropTitle": "Recortar avatar",
   "systemInfoRemoveAvatar": "Eliminar avatar",
   "memberRemoveAvatar": "Eliminar foto",
+  "memberProfileHeaderSectionTitle": "Encabezado del perfil",
+  "memberProfileHeaderSectionDescription": "Elige el origen de la imagen y el diseño de este perfil.",
+  "memberProfileHeaderVisibleTitle": "Mostrar encabezado del perfil",
+  "memberProfileHeaderVisibleSubtitle": "Conserva la imagen y el origen guardados mientras oculta el encabezado.",
+  "memberProfileHeaderSourcePluralKit": "PluralKit",
+  "memberProfileHeaderSourcePrism": "Prism",
+  "memberProfileHeaderSourcePluralKitHelper": "Se actualiza desde PluralKit cuando Prism sincroniza.",
+  "memberProfileHeaderSourcePrismHelper": "Privado para Prism. No actualiza PluralKit.",
+  "memberProfileHeaderPluralKitUnavailable": "PluralKit aparece cuando este miembro tiene un encabezado vinculado o guardado en cache.",
+  "memberProfileHeaderChangeImage": "Cambiar imagen",
+  "memberProfileHeaderRemoveImage": "Eliminar imagen",
+  "memberProfileHeaderLayoutLabel": "Diseño",
+  "memberProfileHeaderLayoutCompact": "Compacto",
+  "memberProfileHeaderLayoutClassic": "Clásico",
+  "memberProfileHeaderCropTitle": "Recortar encabezado del perfil",
+  "memberProfileHeaderProcessingError": "No se pudo procesar esa imagen.",
+  "memberNameStyleTooltip": "Editar estilo del nombre",
+  "memberNameStyleDialogTitle": "Estilo del nombre",
+  "memberNameStyleFontLabel": "Fuente",
+  "memberNameStyleFontDefault": "Predeterminada",
+  "memberNameStyleFontDisplay": "Display",
+  "memberNameStyleFontSerif": "Serif",
+  "memberNameStyleFontMono": "Mono",
+  "memberNameStyleFontRounded": "Redondeada",
+  "memberNameStyleStyleLabel": "Estilo",
+  "memberNameStyleBold": "Negrita",
+  "memberNameStyleItalic": "Cursiva",
+  "memberNameStyleColorLabel": "Color",
+  "memberNameStyleColorDefault": "Predeterminado",
+  "memberNameStyleColorAccent": "Acento",
+  "memberNameStyleColorCustom": "Personalizado",
+  "memberNameStyleReset": "Restablecer",
   "systemInfoNameLabel": "Nombre",
   "systemInfoSystemNameHint": "Nombre del sistema",
   "systemInfoSaveSystemName": "Guardar nombre del sistema",
@@ -437,7 +476,7 @@
   "featureChatLogFront": "Registrar Frente al Cambiar",
   "featureChatLogFrontSubtitle": "Cambiar quién habla en el chat también registra un frente",
   "featureChatProxyTagAuthoring": "Usar etiquetas de proxy para firmar mensajes",
-  "featureChatProxyTagAuthoringSubtitle": "Escribe una etiqueta de proxy de PluralKit (p. ej. A:) para firmar un solo mensaje como ese integrante. Distingue mayúsculas y minúsculas.",
+  "featureChatProxyTagAuthoringSubtitle": "Escribe una etiqueta de proxy (p. ej. A:) para firmar un solo mensaje como {termSingularLower}. Distingue mayúsculas y minúsculas.",
   "chatPostingAsProxy": "Publicando como {name}",
   "chatPostingAsProxyDismiss": "No publicar como proxy",
   "featureChatGifSearch": "Búsqueda de GIF",
@@ -460,7 +499,7 @@
   "featureFrontingQuickSwitchTitle": "Ventana de Cambio Rápido",
   "featureFrontingQuickSwitchMessage": "Si cambias de frente dentro de esta ventana, corrige la sesión actual en lugar de crear una nueva.",
   "featureFrontingShowQuickFront": "Front Rápido",
-  "featureFrontingShowQuickFrontSubtitle": "Muestra los miembros que frentan frecuentemente como accesos rápidos de mantener pulsado",
+  "featureFrontingShowQuickFrontSubtitle": "Muestra {termPluralLower} que frentan frecuentemente como accesos rápidos de mantener pulsado",
   "featureHabitsDescription": "Realiza un seguimiento de tareas recurrentes y construye rachas con los {term} del sistema.",
   "featureHabitsGeneral": "General",
   "featureHabitsEnable": "Activar Hábitos",
@@ -500,9 +539,6 @@
   "frontingTimelineView": "Vista de cronología",
   "frontingAddEntry": "Agregar registro de frente",
   "frontingLoadingOlderSessions": "Cargando sesiones anteriores",
-  "frontingTimelineIssuesFound": "Problemas de cronología encontrados",
-  "frontingTimelineIssuesBannerMessage": "{count, plural, =1{1 problema de cronología encontrado. Toca para revisar.} other{{count} problemas de cronología encontrados. Toca para revisar.}}",
-  "frontingTimelineIssuesReview": "Revisar",
   "frontingMenuWakeUpAs": "Despertar como...",
   "frontingMenuLogFront": "Registrar frente",
   "frontingMenuNewPoll": "Nueva encuesta",
@@ -614,37 +650,6 @@
   "frontingTimelineZoomIn": "Acercar",
   "frontingTimelineNoHistory": "Sin historial de frente",
   "frontingTimelineNoHistorySubtitle": "Inicia una sesión de frente para verla en la cronología.",
-  "frontingSanitizationTitle": "Limpieza de cronología",
-  "frontingSanitizationScanning": "Escaneando cronología…",
-  "frontingSanitizationIntroTitle": "Limpieza de cronología",
-  "frontingSanitizationIntroBody": "Escanea tu historial de frente en busca de sesiones superpuestas, duplicadas o inválidas, y aplica correcciones automáticas.",
-  "frontingSanitizationScanButton": "Escanear cronología",
-  "frontingSanitizationCleanTitle": "¡La cronología está limpia!",
-  "frontingSanitizationCleanSubtitle": "No se encontraron superposiciones, duplicados ni sesiones inválidas.",
-  "frontingSanitizationScanAgain": "Escanear de nuevo",
-  "frontingSanitizationIssuesFound": "{count, plural, =1{Se encontró 1 problema en tu cronología.} other{Se encontraron {count} problemas en tu cronología.}}",
-  "frontingSanitizationFixesApplied": "{count, plural, =1{1 corrección aplicada correctamente.} other{{count} correcciones aplicadas correctamente.}}",
-  "frontingSanitizationScanFailed": "Error al escanear: {error}",
-  "frontingSanitizationFixFailed": "Error al aplicar la corrección: {error}",
-  "frontingSanitizationLoadFixFailed": "No se pudieron cargar las opciones de corrección: {error}",
-  "frontingSanitizationFixOptionsTitle": "Opciones de corrección",
-  "frontingSanitizationNoAutoFix": "No hay correcciones automáticas disponibles para este problema.\nRevisa y resuélvelo manualmente.",
-  "frontingSanitizationPreview": "Vista previa",
-  "frontingSanitizationHidePreview": "Ocultar vista previa",
-  "frontingSanitizationApply": "Aplicar",
-  "frontingIssueTypeOverlap": "Superposición",
-  "frontingIssueTypeGap": "Brecha",
-  "frontingIssueTypeDuplicate": "Duplicado",
-  "frontingIssueTypeMergeable": "Fusionable",
-  "frontingIssueTypeInvalidRange": "Rango inválido",
-  "frontingIssueTypeFutureSession": "Sesión futura",
-  "frontingIssueSectionOverlap": "Sesiones superpuestas",
-  "frontingIssueSectionGap": "Brechas",
-  "frontingIssueSectionDuplicate": "Duplicados",
-  "frontingIssueSectionMergeable": "Adyacentes fusionables",
-  "frontingIssueSectionInvalidRange": "Rangos inválidos",
-  "frontingIssueSectionFutureSession": "Sesiones futuras",
-  "frontingIssueSessionCount": "{count, plural, =1{1 sesión} other{{count} sesiones}}",
   "frontingDeleteStrategyTitle": "¿Qué debe pasar con este tiempo?",
   "frontingDeleteStrategyRecommended": "Recomendado",
   "frontingGapDetectedTitle": "{count, plural, =1{Brecha detectada} other{Brechas detectadas}}",
@@ -671,12 +676,20 @@
   "memberSectionRecentSessions": "Sesiones recientes",
   "memberSectionConversations": "Conversaciones",
   "memberSectionNotes": "Notas",
-  "memberSectionBio": "Notas",
+  "memberSectionBio": "Biografía",
   "memberSectionProxyTags": "Etiquetas de proxy",
   "memberProxyTagsManagedOnPk": "Las etiquetas de proxy se gestionan en PluralKit.",
   "memberProxyTagsEditOnPk": "Editar en PluralKit",
+  "memberProxyTagsLocalDescription": "Se guardan en Prism para firmar mensajes de chat con etiquetas de proxy. Los miembros vinculados se sincronizan con PluralKit cuando la sincronización de subida está activada.",
+  "memberProxyTagsEditInPrism": "Editar etiquetas de proxy",
+  "memberProxyTagsAdd": "Agregar etiqueta de proxy",
+  "memberProxyTagsRemove": "Quitar etiqueta de proxy",
+  "memberProxyTagPrefixLabel": "Prefijo",
+  "memberProxyTagPrefixHint": "A:",
+  "memberProxyTagSuffixLabel": "Sufijo",
+  "memberProxyTagSuffixHint": "-a",
   "memberProxyTagsEmpty": "No hay etiquetas de proxy.",
-  "memberEditTooltip": "Editar integrante",
+  "memberEditTooltip": "Editar {termSingularLower}",
   "memberMoreOptionsTooltip": "Más opciones",
   "memberAddNoteTooltip": "Agregar nota",
   "memberSaveNoteTooltip": "Guardar nota",
@@ -732,24 +745,24 @@
   "memberNoteDiscardTitle": "¿Descartar cambios?",
   "memberNoteDiscardMessage": "Tienes cambios sin guardar. ¿Seguro que quieres descartarlos?",
   "memberNoteDiscardConfirm": "Descartar",
-  "memberNoteChooseHeadmate": "Elegir integrante",
+  "memberNoteChooseHeadmate": "Elegir {termSingular}",
   "memberSelectNone": "Ninguno",
   "memberNoteDateSemantics": "Fecha de la nota, {date}. Toca para cambiar",
-  "memberNoteMemberSemantics": "Integrante: {name}. Toca para cambiar",
+  "memberNoteMemberSemantics": "{termSingular}: {name}. Toca para cambiar",
   "memberNoteNoHeadmateSemantics": "No hay {termLower} seleccionado. Toca para elegir",
   "memberGroupsTitle": "Grupos",
   "memberGroupErrorLoading": "Error al cargar grupos: {error}",
   "memberGroupErrorLoadingDetail": "Error al cargar el grupo: {error}",
   "memberGroupNotFound": "Grupo no encontrado",
   "memberGroupSubGroupsLabel": "Sub-grupos",
-  "memberGroupSectionMembers": "Integrantes",
+  "memberGroupSectionMembers": "{termPlural}",
   "memberGroupStartChat": "Iniciar chat",
-  "memberGroupAddMember": "Agregar integrante",
+  "memberGroupAddMember": "Agregar {termSingularLower}",
   "memberGroupAddSubGroup": "Agregar subgrupo",
   "memberGroupAddToGroup": "Añadir a grupo",
   "memberGroupAddToGroupSemantics": "Añadir {name} a un grupo",
   "memberGroupDeleteTitle": "Eliminar grupo",
-  "memberGroupDeleteMessage": "¿Seguro que quieres eliminar \"{name}\"? Los integrantes no serán eliminados.",
+  "memberGroupDeleteMessage": "¿Seguro que quieres eliminar \"{name}\"? {termPlural} no serán eliminados.",
   "memberGroupDeleteConfirm": "Eliminar",
   "memberGroupDeleteCascadeSubtitle": "Este grupo tiene subgrupos. ¿Qué debería pasar con ellos?",
   "memberGroupDeletePromote": "Mover subgrupos al nivel superior",
@@ -757,7 +770,7 @@
   "memberGroupDeleteAll": "Eliminar todo",
   "memberGroupDeleteAllSubtitle": "También se eliminarán todos los subgrupos",
   "memberGroupDeleteAllConfirmTitle": "¿Eliminar subgrupos también?",
-  "memberGroupDeleteAllConfirmMessage": "Esto eliminará permanentemente \"{name}\" y todos sus subgrupos. Los integrantes no serán eliminados.",
+  "memberGroupDeleteAllConfirmMessage": "Esto eliminará permanentemente \"{name}\" y todos sus subgrupos. {termPlural} no serán eliminados.",
   "memberGroupPromoted": "Subgrupos movidos al nivel superior",
   "memberGroupEditTitle": "Editar Grupo",
   "memberGroupNewTitle": "Nuevo Grupo",
@@ -773,13 +786,13 @@
   "memberGroupFilterAll": "Todos",
   "memberGroupFilterBarLabel": "Filtrar por grupo",
   "memberGroupFilterUngrouped": "Sin grupo",
-  "memberGroupFrontAllAlreadyFronting": "Todos los integrantes ya están al frente",
-  "memberGroupFrontAllInactive": "Todos los integrantes de {name} están inactivos. ¿Frente de todos modos?",
+  "memberGroupFrontAllAlreadyFronting": "{termPlural} ya están al frente",
+  "memberGroupFrontAllInactive": "{termPluralLower} de {name} están inactivos. ¿Frente de todos modos?",
   "memberGroupFrontGroup": "Frente como grupo",
   "memberGroupFrontGroupConfirmTitle": "¿Frente como {name}?",
-  "memberGroupFrontGroupConfirmMessage": "Se iniciará una sesión de co-frente con los {count} integrantes.",
-  "memberGroupFrontGroupSemantics": "Frente a todos los integrantes de {name}",
-  "memberGroupFrontSomeAlreadyFronting": "{count} integrantes ya al frente. ¿Añadir les {remaining} restantes?",
+  "memberGroupFrontGroupConfirmMessage": "Se iniciará una sesión de co-frente con {count} {termForCount}.",
+  "memberGroupFrontGroupSemantics": "Frente a {termPluralLower} de {name}",
+  "memberGroupFrontSomeAlreadyFronting": "{count} {termForCount} ya al frente. ¿Añadir les {remaining} restantes?",
   "memberGroupManageNoGroups": "Aún no hay grupos",
   "memberGroupManageNoGroupsAction": "Crear un grupo",
   "memberGroupManageTitle": "Grupos",
@@ -805,13 +818,13 @@
   "memberAdminTitle": "Admin",
   "memberAdminSubtitle": "Los admins pueden gestionar la configuración del sistema",
   "memberCustomColorTitle": "Color personalizado",
-  "memberCustomColorSubtitle": "Usar un color personal para este integrante",
+  "memberCustomColorSubtitle": "Usar un color personal para {termSingularLower}",
   "memberColorHexLabel": "Color hex",
   "memberErrorSaving": "Error al guardar {term}: {error}",
   "memberAgeDisplay": "Edad {age}",
   "memberSelectedCount": "{count, plural, =1{1 seleccionado} other{{count} seleccionados}}",
-  "memberSearchConfirmSelectionTooltip": "Confirmar integrantes seleccionados",
-  "memberSaveTooltip": "Guardar integrante",
+  "memberSearchConfirmSelectionTooltip": "Confirmar {termPluralLower} seleccionados",
+  "memberSaveTooltip": "Guardar {termSingularLower}",
   "memberBulkActivate": "Activar",
   "memberBulkDeactivate": "Desactivar",
   "memberNoInactive": "Sin {terms} inactivos",
@@ -855,7 +868,7 @@
   "chatSendMessageDisabled": "Enviar mensaje, desactivado",
   "chatRecordVoiceNote": "Grabar nota de voz",
   "chatSpeakingAs": "Hablando como {name}. Toca dos veces para cambiar.",
-  "chatChooseSpeakingMember": "Elegir integrante",
+  "chatChooseSpeakingMember": "Elegir {termSingularLower} hablante",
   "chatCancelReply": "Cancelar respuesta",
   "chatAddAttachment": "Agregar archivo adjunto",
   "chatCamera": "Cámara",
@@ -877,11 +890,11 @@
   "chatInfoConversationTitle": "Título de la conversación",
   "chatInfoCreatedAt": "Creado el {date}",
   "chatInfoParticipants": "Participantes ({count})",
-  "chatInfoAddMembers": "Agregar integrantes",
+  "chatInfoAddMembers": "Agregar {termPluralLower}",
   "chatInfoOwner": "Propietario",
   "chatInfoAdmin": "Admin",
-  "chatInfoUnknownMember": "Integrante desconocido",
-  "chatInfoErrorLoadingMember": "Error al cargar integrante",
+  "chatInfoUnknownMember": "{termSingular} desconocido",
+  "chatInfoErrorLoadingMember": "Error al cargar {termSingularLower}",
   "chatInfoCategory": "Categoría",
   "chatInfoCategoryNone": "Ninguna",
   "chatInfoCategorySemantics": "Categoría: {name}",
@@ -900,9 +913,9 @@
   "chatLeaveConversationMessage": "¿Salir de esta conversación? Tus mensajes anteriores permanecerán.",
   "chatLeaveConversationConfirm": "Salir",
   "chatSelectNewOwner": "Selecciona el nuevo propietario de la conversación",
-  "chatAddMembersTitle": "Agregar integrantes",
-  "chatAddMembersAllAdded": "Todos los integrantes activos ya están en esta conversación.",
-  "chatAddMembersFailed": "Error al agregar integrantes: {error}",
+  "chatAddMembersTitle": "Agregar {termPlural}",
+  "chatAddMembersAllAdded": "{termPlural} activos ya están en esta conversación.",
+  "chatAddMembersFailed": "Error al agregar {termPluralLower}: {error}",
   "chatCreateTitle": "Nueva conversación",
   "chatCreateConversationTooltip": "Crear conversación",
   "chatCreateGroupTab": "Grupo",
@@ -913,7 +926,7 @@
   "chatCreateMessageAs": "Mensaje como {name} con:",
   "chatCreateSelectAll": "Seleccionar todo",
   "chatCreateDeselectAll": "Deseleccionar todo",
-  "chatCreateNoMembers": "No hay integrantes disponibles. Crea integrantes primero.",
+  "chatCreateNoMembers": "No hay {termPluralLower} disponibles. Crea {termPluralLower} primero.",
   "chatCreateFronting": "Al frente",
   "chatCreateFronterDeselectedWarning": "{name} está al frente actualmente pero no está en este chat. No podrás ver ni enviar mensajes.",
   "chatCreateFailed": "Error al crear la conversación: {error}",
@@ -927,8 +940,8 @@
   "chatCategoriesCreateFailed": "Error al crear la categoría: {error}",
   "chatCategoriesRenameFailed": "Error al renombrar la categoría: {error}",
   "chatCategoriesDeleteFailed": "Error al eliminar la categoría: {error}",
-  "chatNoMembersAvailable": "No hay integrantes disponibles",
-  "chatErrorLoadingMembersShort": "Error al cargar integrantes",
+  "chatNoMembersAvailable": "No hay {termPluralLower} disponibles",
+  "chatErrorLoadingMembersShort": "Error al cargar {termPluralLower}",
   "chatGifsTitle": "GIFs",
   "chatGifsSearchHint": "Buscar GIFs",
   "chatGifsPoweredBy": "Funciona con KLIPY",
@@ -1002,8 +1015,8 @@
   "syncSetupPairingReadyTitle": "Emparejamiento listo",
   "syncSetupPairingReadyWaiting": "Esperando a que el otro dispositivo termine la configuración.",
   "memberAvatarSemantics": "Avatar de {name}",
-  "memberAvatarSemanticsUnnamed": "Avatar del integrante",
-  "groupMemberAvatarSemantics": "Avatar de integrante del grupo",
+  "memberAvatarSemanticsUnnamed": "Avatar de {termSingularLower}",
+  "groupMemberAvatarSemantics": "Avatar de {termSingularLower} del grupo",
   "habitsReminderNotificationTitle": "Recordatorio de hábito",
   "habitsReminderNotificationBody": "Hora de completar: {habitName}",
   "chatTileNoMessages": "Aún no hay mensajes",
@@ -1025,10 +1038,10 @@
   "onboardingWelcomeSyncDescription": "Cifrado de extremo a extremo. El servidor solo ve ruido.",
   "onboardingWelcomeBuiltForYouTitle": "Hecho para ti",
   "onboardingWelcomeBuiltForYouDescription": "Tus palabras, tus colores, tus funciones. Prism se adapta a cómo funciona tu sistema.",
-  "onboardingAddMembersNoMembers": "Aún no hay integrantes.\nToca «Agregar integrante» para empezar.",
-  "onboardingAddMembersRemoveMember": "Eliminar integrante",
-  "onboardingAddMembersAddMember": "Agregar integrante",
-  "onboardingAddMemberSheetTitle": "Agregar integrante",
+  "onboardingAddMembersNoMembers": "Aún no hay {termPluralLower}.\nToca «Agregar {termSingularLower}» para empezar.",
+  "onboardingAddMembersRemoveMember": "Eliminar {termSingularLower}",
+  "onboardingAddMembersAddMember": "Agregar {termSingularLower}",
+  "onboardingAddMemberSheetTitle": "Agregar {termSingularLower}",
   "onboardingAddMemberFieldEmoji": "Emoji",
   "onboardingAddMemberFieldName": "Nombre *",
   "onboardingAddMemberPronounSheHer": "Ella/La",
@@ -1039,7 +1052,7 @@
   "onboardingAddMemberFieldBio": "Bio (opcional)",
   "onboardingAddMemberSaveButton": "Agregar",
   "onboardingFeaturesChat": "Chat",
-  "onboardingFeaturesChatDescription": "Mensajería interna entre integrantes del sistema",
+  "onboardingFeaturesChatDescription": "Mensajería interna entre {termPluralLower} del sistema",
   "onboardingFeaturesPolls": "Encuestas",
   "onboardingFeaturesPollsDescription": "Crea encuestas para decisiones del sistema",
   "onboardingFeaturesHabits": "Hábitos",
@@ -1049,7 +1062,7 @@
   "onboardingFeaturesNotes": "Notas",
   "onboardingFeaturesNotesDescription": "Un diario personal y espacio de escritura para tu sistema",
   "onboardingFeaturesReminders": "Recordatorios",
-  "onboardingFeaturesRemindersDescription": "Configura recordatorios para ti o los miembros del sistema",
+  "onboardingFeaturesRemindersDescription": "Configura recordatorios para ti o {termPluralLower} del sistema",
   "onboardingCompleteTrackFrontingTitle": "Registra quién está al frente",
   "onboardingCompleteTrackFrontingDescription": "Anota quién está presente y revisa patrones con el tiempo.",
   "onboardingCompleteChatTitle": "Habla entre ustedes",
@@ -1134,11 +1147,11 @@
   "onboardingSystemNameHelperText": "Así se identificará tu sistema en la app.",
   "onboardingSystemNameHelperTextImported": "Lo sacamos de tu importación — edítalo si prefieres algo distinto.",
   "onboardingWhosFrontingSelectHint": "Toca para seleccionar quién está al frente ahora",
-  "onboardingWhosFrontingNoMembers": "Aún no hay integrantes.\nVuelve atrás para agregar integrantes primero.",
+  "onboardingWhosFrontingNoMembers": "Aún no hay {termPluralLower}.\nVuelve atrás para agregar {termPluralLower} primero.",
   "onboardingChatSuggestedChannels": "Canales sugeridos",
   "onboardingChatCustomChannel": "Canal personalizado",
   "onboardingChatChannelNameHint": "Nombre del canal",
-  "onboardingChatChannelAllMembers": "Todos los miembros",
+  "onboardingChatChannelAllMembers": "Todos {termPluralLower}",
   "onboardingChatChannelVenting": "Desahogo",
   "onboardingChatChannelPlanning": "Planificación",
   "onboardingChatChannelJournal": "Diario",
@@ -1149,8 +1162,8 @@
   "onboardingPreferencesSingularHint": "Singular (p. ej. Alter)",
   "onboardingPreferencesPluralHint": "Plural (p. ej. Alters)",
   "onboardingPreferencesAccentColor": "Color de acento",
-  "onboardingPreferencesPerMemberColors": "Colores por integrante",
-  "onboardingPreferencesPerMemberColorsSubtitle": "Permite que cada integrante tenga su propio color de acento",
+  "onboardingPreferencesPerMemberColors": "Colores por {termSingularLower}",
+  "onboardingPreferencesPerMemberColorsSubtitle": "Permite que cada {termSingularLower} tenga su propio color de acento",
   "onboardingSyncJoinYourGroup": "Únete a tu grupo de sincronización",
   "onboardingSyncJoinDescription": "Crea una solicitud de emparejamiento en este dispositivo y pide a un dispositivo existente que la apruebe.",
   "onboardingSyncRequestToJoin": "Solicitar unirse",
@@ -1190,10 +1203,10 @@
   "habitsReminderSetFor": "Recordatorio establecido para {time}",
   "habitsCustomMessageField": "Mensaje personalizado (opcional)",
   "habitsSectionAssignment": "ASIGNACIÓN",
-  "habitsAssignedMember": "Integrante asignado",
+  "habitsAssignedMember": "{termSingular} asignado",
   "habitsAssignedMemberAnyone": "Cualquiera",
   "habitsOnlyNotifyWhenFronting": "Notificar solo cuando esté al frente",
-  "habitsOnlyFrontingCaveat": "Los recordatorios se enviarán aunque este integrante no esté al frente — la entrega consciente del frente requiere acceso en segundo plano.",
+  "habitsOnlyFrontingCaveat": "Los recordatorios se enviarán aunque {termSingularLower} no esté al frente — la entrega consciente del frente requiere acceso en segundo plano.",
   "habitsPrivate": "Privado",
   "habitsPrivateSubtitle": "Ocultar en vistas compartidas",
   "habitsCompleteHabit": "Completar hábito",
@@ -1289,7 +1302,7 @@
   "pollsDetailResultsLabel": "Resultados",
   "pollsDetailOptionsLabel": "Opciones",
   "pollsDetailVoteAs": "Votar como",
-  "pollsDetailNoMembers": "No hay integrantes disponibles",
+  "pollsDetailNoMembers": "No hay {termPluralLower} disponibles",
   "pollsDetailSubmitVote": "Enviar voto",
   "pollsDetailVoteSubmitted": "Voto enviado",
   "pollsDetailVoteError": "Error al votar: {error}",
@@ -1313,7 +1326,7 @@
   "dataManagementEncryptedFileDescription": "Este archivo de exportación está cifrado. Introduce la contraseña que se usó al crear la exportación.",
   "dataManagementExportButton": "Exportar datos",
   "dataManagementExportComplete": "Exportación completa",
-  "dataManagementExportDescription": "Crea una copia de seguridad protegida por contraseña de todos tus datos, incluyendo integrantes, sesiones al frente, mensajes, encuestas y ajustes.",
+  "dataManagementExportDescription": "Crea una copia de seguridad protegida por contraseña de todos tus datos, incluyendo {termPluralLower}, sesiones al frente, mensajes, encuestas y ajustes.",
   "dataManagementExportFailed": "Fallo en la exportación",
   "dataManagementExportRowSubtitle": "Crea una copia de seguridad protegida por contraseña",
   "dataManagementExportRowTitle": "Exportar datos",
@@ -1349,12 +1362,12 @@
   "dataManagementPasswordLabel": "Contraseña",
   "dataManagementPasswordMismatch": "Las contraseñas no coinciden",
   "dataManagementPasswordTooShort": "La contraseña debe tener al menos 12 caracteres",
-  "dataManagementPluralKitRowSubtitle": "Importa integrantes y sesiones al frente mediante token de API",
+  "dataManagementPluralKitRowSubtitle": "Importa {termPluralLower} y sesiones al frente mediante token de API",
   "dataManagementPreviewConversations": "Conversaciones",
   "dataManagementPreviewFrontSessions": "Sesiones al frente",
   "dataManagementPreviewHabitCompletions": "Completaciones de hábitos",
   "dataManagementPreviewHabits": "Hábitos",
-  "dataManagementPreviewMembers": "Integrantes",
+  "dataManagementPreviewMembers": "{termPlural}",
   "dataManagementPreviewMessages": "Mensajes",
   "dataManagementPreviewPollOptions": "Opciones de encuesta",
   "dataManagementPreviewPolls": "Encuestas",
@@ -1407,7 +1420,7 @@
   "migrationRecommended": "Recomendado",
   "migrationRemindersApiNote": "Los recordatorios no están disponibles vía API. Para importar recordatorios, usa una exportación de archivo.",
   "migrationReplaceAll": "Reemplazar todo",
-  "migrationReplaceAllMessage": "Esto eliminará todos los integrantes, historial al frente, conversaciones y otros datos existentes antes de importar. Esta acción no se puede deshacer.\n\nSi tienes la sincronización configurada, los otros dispositivos emparejados también deberían reiniciarse para evitar conflictos.",
+  "migrationReplaceAllMessage": "Esto eliminará {termPluralLower}, historial al frente, conversaciones y otros datos existentes antes de importar. Esta acción no se puede deshacer.\n\nSi tienes la sincronización configurada, los otros dispositivos emparejados también deberían reiniciarse para evitar conflictos.",
   "migrationReplaceAllTitle": "¿Reemplazar todos los datos?",
   "migrationResultAvatarsDownloaded": "Avatares descargados",
   "migrationResultComments": "Comentarios",
@@ -1415,7 +1428,7 @@
   "migrationResultCustomFields": "Campos personalizados",
   "migrationResultFrontSessions": "Sesiones al frente",
   "migrationResultGroups": "Grupos",
-  "migrationResultMembers": "Integrantes",
+  "migrationResultMembers": "{termPlural}",
   "migrationResultMessages": "Mensajes",
   "migrationResultNotes": "Notas",
   "migrationResultPolls": "Encuestas",
@@ -1432,9 +1445,9 @@
   "migrationSupportedDataTypes": "Tipos de datos compatibles",
   "migrationSupportedFrontingHistory": "Historial al frente",
   "migrationSupportedGroups": "Grupos",
-  "migrationSupportedMemberColors": "Colores de integrantes",
-  "migrationSupportedMemberDescriptions": "Descripciones de integrantes",
-  "migrationSupportedMembers": "Integrantes",
+  "migrationSupportedMemberColors": "Colores de {termSingular}",
+  "migrationSupportedMemberDescriptions": "Descripciones de {termSingular}",
+  "migrationSupportedMembers": "{termPlural}",
   "migrationSupportedNotes": "Notas",
   "migrationSupportedPolls": "Encuestas",
   "migrationSupportedReminders": "Recordatorios",
@@ -1465,8 +1478,8 @@
   "pluralkitHoursAgo": "hace {hours}h",
   "pluralkitHowItWorks": "Cómo funciona",
   "pluralkitImportButton": "Importar desde PluralKit",
-  "pluralkitInfoMembers": "Después de conectar, vincula tus integrantes de PluralKit con los de Prism — o impórtalos como nuevos — para evitar duplicados.",
-  "pluralkitInfoSwitches": "Los cambios se importan como sesiones al frente. Los cambios duplicados se omiten automáticamente.",
+  "pluralkitInfoMembers": "Después de conectar, vincula tus miembros de PluralKit con {termPluralLower} de Prism — o impórtalos como nuevos — para evitar duplicados.",
+  "pluralkitInfoSwitches": "La recuperación del historial de fronts usa un archivo pk;export más un token para que Prism pueda vincular los cambios del archivo con los ID de cambios de PluralKit.",
   "pluralkitInfoSync": "Compatible con sincronización en modo entrada, salida o bidireccional. Elige tu dirección preferida arriba.",
   "pluralkitInfoToken": "Tu token se almacena de forma segura en el llavero del dispositivo y nunca sale de él.",
   "pluralkitJustNow": "Ahora mismo",
@@ -1474,15 +1487,15 @@
   "pluralkitRepairPkGroup": "Grupo PK",
   "pluralkitRepairPluralKitGroup": "Grupo de PluralKit",
   "pluralkitRepairReconnectForComparison": "Reconecta PluralKit para ver los detalles de comparación",
-  "pluralkitRepairSharedPkMembers": "{count, plural, =1{1 integrante PK compartido} other{{count} integrantes PK compartidos}}",
-  "pluralkitRepairLocalOnlyMembers": "{count, plural, =1{1 integrante solo local} other{{count} integrantes solo locales}}",
+  "pluralkitRepairSharedPkMembers": "{count, plural, =1{1 {termSingularLower} PK compartido} other{{count} {termPluralLower} PK compartidos}}",
+  "pluralkitRepairLocalOnlyMembers": "{count, plural, =1{1 {termSingularLower} solo local} other{{count} {termPluralLower} solo locales}}",
   "pluralkitRepairOnlyInPkMembers": "{count, plural, =1{1 solo en PK} other{{count} solo en PK}}",
   "pluralkitRepairSuspectedPkUuid": "UUID PK sospechado: {uuid}",
   "pluralkitRepairMergeActionPreview": "Usar esta coincidencia va a {summary}.",
   "pluralkitRepairPreviewLinkLocalGroup": "vincular este grupo local con el grupo PK sospechado",
   "pluralkitRepairPreviewPreserveShared": "conservar {count, plural, =1{1 membresía PK compartida} other{{count} membresías PK compartidas}}",
   "pluralkitRepairPreviewKeepLocalOnly": "mantener {count, plural, =1{1 membresía solo local} other{{count} membresías solo locales}}",
-  "pluralkitRepairPreviewLeavePkOnly": "dejar {count, plural, =1{1 integrante solo en PK} other{{count} integrantes solo en PK}} sin vincular",
+  "pluralkitRepairPreviewLeavePkOnly": "dejar {count, plural, =1{1 {termSingularLower} solo en PK} other{{count} {termPluralLower} solo en PK}} sin vincular",
   "pluralkitRepairUsePluralKitMatch": "Usar esta coincidencia de PluralKit",
   "pluralkitRepairKeepMyPrismGroup": "Mantener mi grupo de Prism",
   "pluralkitRepairDismissFalsePositive": "Descartar falso positivo",
@@ -1621,9 +1634,9 @@
   "pluralkitLastManualSync": "Última sincronización manual: {when}",
   "pluralkitLastSync": "Última sincronización: {when}",
   "pluralkitLastSyncSummary": "Resumen de última sincronización",
-  "pluralkitMembersPulled": "{count, plural, =1{1 integrante descargado} other{{count} integrantes descargados}}",
-  "pluralkitMembersPushed": "{count, plural, =1{1 integrante subido} other{{count} integrantes subidos}}",
-  "pluralkitMembersUnchanged": "{count, plural, =1{1 integrante sin cambios} other{{count} integrantes sin cambios}}",
+  "pluralkitMembersPulled": "Descargados: {count} {termForCount}",
+  "pluralkitMembersPushed": "Subidos: {count} {termForCount}",
+  "pluralkitMembersUnchanged": "Sin cambios: {count} {termForCount}",
   "pluralkitMinutesAgo": "hace {minutes}m",
   "pluralkitPasteTokenHint": "Pega tu token aquí",
   "pluralkitPull": "Descargar",
@@ -1637,6 +1650,7 @@
   "pluralkitSyncRecentCooldown": "Sincronizar cambios recientes ({seconds}s)",
   "pluralkitTitle": "PluralKit",
   "pluralkitTokenHelp": "Para obtener tu token, envía un mensaje directo al bot de PluralKit en Discord con \"pk;token\" y pega el resultado aquí.",
+  "pluralkitFileImportHelp": "Recupera el historial anterior de fronts de PluralKit con un archivo pk;export y un token. El archivo aporta el historial de cambios; el token permite que Prism lo vincule de forma segura.",
   "pluralkitTokenLabel": "Token de PluralKit",
   "pluralkitUpToDate": "Todo está actualizado.",
   "sharingAccept": "Aceptar",
@@ -1762,10 +1776,15 @@
   "settingsAboutAppName": "Prism",
   "settingsAboutTagline": "Gestión de sistemas plurales",
   "settingsAboutVersion": "Versión {version}",
-  "settingsAboutDescription": "Una app centrada en la privacidad para gestionar sistemas plurales. Registra el frente, comunícate entre integrantes del sistema y mantén tu sistema organizado.",
+  "settingsAboutDescription": "Una app centrada en la privacidad para gestionar sistemas plurales. Registra el frente, comunícate entre {termPluralLower} y mantén tu sistema organizado.",
+  "settingsAboutWebsite": "Sitio web",
   "settingsAboutGitHub": "GitHub",
+  "settingsAboutDiscord": "Discord",
+  "settingsAboutBluesky": "Bluesky",
+  "settingsAboutTumblr": "Tumblr",
   "settingsAboutPrivacy": "Privacidad",
   "settingsAboutFeedback": "Sugerencias",
+  "settingsAboutLinkOpenFailed": "No se pudo abrir ese enlace",
   "settingsAboutGitHubComingSoon": "Enlace de GitHub próximamente",
   "settingsAboutSecurity": "Seguridad",
   "settingsAboutFeedbackComingSoon": "Formulario de sugerencias próximamente",
@@ -1773,7 +1792,7 @@
   "settingsCustomFieldsAddTooltip": "Agregar campo",
   "settingsCustomFieldsError": "Error: {error}",
   "settingsCustomFieldsEmptyTitle": "Sin campos personalizados",
-  "settingsCustomFieldsEmptySubtitle": "Agrega campos para registrar atributos personalizados de cada integrante",
+  "settingsCustomFieldsEmptySubtitle": "Agrega campos para registrar atributos personalizados de cada {termSingularLower}",
   "settingsCustomFieldsAddAction": "Agregar campo",
   "settingsCustomFieldsDeleteTitle": "Eliminar campo",
   "settingsCustomFieldsDeleteConfirm": "¿Estás segure de que quieres eliminar \"{name}\"? Se eliminará el campo y todos sus valores.",
@@ -1837,13 +1856,13 @@
   "settingsCreateEditFieldSaveError": "Error al guardar el campo: {error}",
   "settingsDataBrowserTitle": "Visor de datos",
   "settingsDataBrowserReloadTooltip": "Recargar datos",
-  "settingsDataBrowserTabMembers": "Integrantes",
+  "settingsDataBrowserTabMembers": "{termPlural}",
   "settingsDataBrowserTabSessions": "Sesiones",
   "settingsDataBrowserTabChats": "Chats",
   "settingsDataBrowserTabMessages": "Msgs",
   "settingsDataBrowserTabPolls": "Encuestas",
   "settingsDataBrowserError": "Error: {error}",
-  "settingsDataBrowserNoMembers": "Sin integrantes",
+  "settingsDataBrowserNoMembers": "Sin {termPluralLower}",
   "settingsDataBrowserNoSessions": "Sin sesiones",
   "settingsDataBrowserNoConversations": "Sin conversaciones",
   "settingsDataBrowserNoMessages": "Sin mensajes",
@@ -1897,6 +1916,22 @@
   "navNotes": "Notas",
   "navStatistics": "Estadísticas",
   "navTimeline": "Cronología",
+  "navSleep": "Sueño",
+  "sleepScreenTitle": "Sueño",
+  "sleepScreenAddTooltip": "Registrar sueño",
+  "sleepScreenSettingsTooltip": "Ajustes de sueño",
+  "sleepEmptyTitle": "Aún no hay sesiones de sueño",
+  "sleepEmptyBody": "Toca + para registrar la primera",
+  "sleepLastNightLabel": "Anoche",
+  "sleepSevenDayAvgLabel": "Prom. 7 días",
+  "sleepRecentSectionHeader": "Reciente",
+  "sleepStatUnavailable": "—",
+  "sleepViewAllHistory": "Ver historial de sueño",
+  "sleepTrendVsPriorWeek": "vs. semana anterior: {delta}",
+  "sleepDateLooksOff": "La fecha parece incorrecta",
+  "sleepOverlapsExistingWarning": "Se solapa con una sesión de sueño existente",
+  "logPastSleep": "Registrar sueño pasado",
+  "cancelHistoricalSleep": "Cancelar",
 
   "onboardingWelcomeTitle": "Bienvenide a Prism",
   "onboardingWelcomeSubtitle": "Tu sistema, a tu manera.",
@@ -1922,9 +1957,9 @@
   "onboardingPermissionsTitle": "Una cosa más",
   "onboardingPermissionsSubtitle": "Permisos opcionales para la mejor experiencia.",
   "onboardingPermissionsNotificationTitle": "Notificaciones",
-  "onboardingPermissionsNotificationRationale": "Te avisaremos cuando un compañero registre un cambio o sea hora de un recordatorio",
+  "onboardingPermissionsNotificationRationale": "Te avisaremos cuando {termPluralLower} registren un cambio o sea hora de un recordatorio",
   "onboardingPermissionsMicrophoneTitle": "Micrófono",
-  "onboardingPermissionsMicrophoneRationale": "Para que puedas grabar mensajes de voz para tus compañeros",
+  "onboardingPermissionsMicrophoneRationale": "Para que puedas grabar mensajes de voz para tus {termPluralLower}",
   "onboardingPermissionsAllowed": "Permitido",
   "onboardingPermissionsAllow": "Permitir",
   "onboardingPermissionsOpenSettings": "Cambiar en Ajustes",
@@ -1987,10 +2022,10 @@
   "pluralkitAutoSyncIntervalLabel": "Consultar cada",
   "pluralkitAutoSyncLoadFailed": "No se pudieron cargar los ajustes de auto-sincronización.",
   "pluralkitRerunMemberMapping": "Volver a vincular integrantes",
-  "pluralkitImportFromFile": "Importar desde archivo pk;export",
-  "pluralkitMappingBannerTitle": "Un paso más: vincula a tus integrantes",
-  "pluralkitMappingBannerBody": "Estás conectado. Antes de activar la sincronización, empareja cada integrante de PluralKit con un integrante de Prism — o impórtalos como nuevos. Esto evita duplicados y mantiene el historial de fronts ligado a la persona correcta.",
-  "pluralkitMappingBannerButton": "Vincular integrantes",
+  "pluralkitImportFromFile": "Recuperar historial desde pk;export",
+  "pluralkitMappingBannerTitle": "Un paso más: vincula a tus {termPluralLower}",
+  "pluralkitMappingBannerBody": "Estás conectado. Antes de activar la sincronización, empareja cada miembro de PluralKit con {termSingularLower} de Prism — o impórtalos como nuevos. Esto evita duplicados y mantiene el historial de fronts ligado a la persona correcta.",
+  "pluralkitMappingBannerButton": "Vincular {termPluralLower}",
   "sleepWakeUpMorning": "¡Buenos días!",
   "sleepWakeUpAfternoon": "¡Buenas tardes!",
   "sleepWakeUpEvening": "¡Buenas noches!",
@@ -2045,12 +2080,12 @@
   "migrationCfBack": "Atrás",
   "migrationCfContinue": "Continuar",
 
-  "migrationCfOptionMember": "Importar como integrante",
+  "migrationCfOptionMember": "Importar como {termSingularLower}",
   "migrationCfOptionNote": "Fusionar en notas",
   "migrationCfOptionSleep": "Convertir en sueño",
   "migrationCfOptionSkip": "Omitir",
 
-  "migrationCfOptionMemberDesc": "Crea un integrante con este nombre. Las entradas del historial al frente se guardan como sesiones del integrante.",
+  "migrationCfOptionMemberDesc": "Crea {termSingularLower} con este nombre. Las entradas del historial al frente se guardan como sesiones de {termSingularLower}.",
   "migrationCfOptionNoteDesc": "No se crea ningún integrante. El nombre del frente personalizado se añade a las notas de las sesiones que lo mencionan.",
   "migrationCfOptionSleepDesc": "Las entradas del historial al frente en las que éste es el fronter principal se convierten en sesiones de sueño.",
   "migrationCfOptionSkipDesc": "Sin integrante y sin nota. Las sesiones sin otro fronter se descartan.",
@@ -2119,5 +2154,345 @@
   "migrationWarnCfSleepDedup": "{count, plural, =1{1 entrada de sueño duplicada de SP se combinó.} other{{count} entradas de sueño duplicadas de SP se combinaron.}}",
   "@migrationWarnCfSleepDedup": {
     "placeholders": { "count": { "type": "int" } }
-  }
+  },
+  "frontingUpgradeTitle": "Actualización del frente",
+  "@frontingUpgradeTitle": {
+    "description": "Title bar of the per-member fronting upgrade modal"
+  },
+  "frontingUpgradeIntroHeadline": "Estamos actualizando cómo se guarda el frente",
+  "@frontingUpgradeIntroHeadline": {
+    "description": "Intro screen headline"
+  },
+  "frontingUpgradeIntroBody": "El co-frente ahora usa un registro por {termSingularLower} en lugar de un único registro compartido. Esto hace que los solapamientos, las ediciones y las estadísticas funcionen correctamente. Primero guardaremos una copia de seguridad de tus datos actuales y luego haremos la actualización.",
+  "@frontingUpgradeIntroBody": {
+    "description": "Intro screen body explaining the upgrade"
+  },
+  "frontingUpgradeContinue": "Continuar",
+  "@frontingUpgradeContinue": {
+    "description": "Primary continue button on the intro screen"
+  },
+  "frontingUpgradeRoleHeadline": "¿Este es tu dispositivo principal?",
+  "@frontingUpgradeRoleHeadline": {
+    "description": "Role-selection screen headline"
+  },
+  "frontingUpgradeRoleBody": "Tu dispositivo principal conserva todo tu historial de frente. Los otros dispositivos tendrán que vincularse de nuevo después y descargar el historial migrado desde el dispositivo principal.",
+  "@frontingUpgradeRoleBody": {
+    "description": "Role-selection screen body"
+  },
+  "frontingUpgradeRolePrimary": "Sí, este es mi dispositivo principal",
+  "@frontingUpgradeRolePrimary": {
+    "description": "Primary-role button"
+  },
+  "frontingUpgradeRoleSecondary": "No, este es un dispositivo secundario",
+  "@frontingUpgradeRoleSecondary": {
+    "description": "Secondary-role button"
+  },
+  "frontingUpgradeModeHeadline": "¿Cómo deberíamos hacer la actualización?",
+  "@frontingUpgradeModeHeadline": {
+    "description": "Mode-picker screen headline"
+  },
+  "frontingUpgradeModeKeepTitle": "Conservar mis datos",
+  "@frontingUpgradeModeKeepTitle": {
+    "description": "Mode card: upgradeAndKeep title"
+  },
+  "frontingUpgradeModeKeepBody": "Tus frentes existentes se conservan. Los frentes importados desde PluralKit se volverán a importar con la nueva estructura en la próxima sincronización con PluralKit.",
+  "@frontingUpgradeModeKeepBody": {
+    "description": "Mode card: upgradeAndKeep body"
+  },
+  "frontingUpgradeModeFreshTitle": "Empezar desde cero",
+  "@frontingUpgradeModeFreshTitle": {
+    "description": "Mode card: startFresh title"
+  },
+  "frontingUpgradeModeFreshBody": "Se borran todos los frentes. Útil si tu historial de frente está desordenado y quieres partir de cero. De todas formas se crea un archivo de copia de seguridad.",
+  "@frontingUpgradeModeFreshBody": {
+    "description": "Mode card: startFresh body"
+  },
+  "frontingUpgradeRecommended": "Recomendado",
+  "@frontingUpgradeRecommended": {
+    "description": "Recommended badge on the keep-data mode card"
+  },
+  "frontingUpgradePasswordHeadline": "Protege tu copia de seguridad",
+  "@frontingUpgradePasswordHeadline": {
+    "description": "Password screen headline"
+  },
+  "frontingUpgradePasswordBody": "Estamos a punto de hacer una copia de seguridad de tus datos de frente actuales y luego actualizarlos.",
+  "@frontingUpgradePasswordBody": {
+    "description": "Password screen body"
+  },
+  "frontingUpgradePasswordNote": "Esta contraseña protege tu archivo de copia de seguridad. Guárdala en un lugar seguro — sin ella, el archivo no se puede recuperar.",
+  "@frontingUpgradePasswordNote": {
+    "description": "Password screen note above the input"
+  },
+  "frontingUpgradePasswordSubmit": "Hacer copia de seguridad y actualizar",
+  "@frontingUpgradePasswordSubmit": {
+    "description": "Submit button on the password screen"
+  },
+  "frontingUpgradeRunning": "Migrando tu historial de frente…",
+  "@frontingUpgradeRunning": {
+    "description": "Title shown while the migration is running"
+  },
+  "frontingUpgradeRunningSubtitle": "Esto puede tardar un momento. No cierres la app.",
+  "@frontingUpgradeRunningSubtitle": {
+    "description": "Subtitle shown while the migration is running"
+  },
+  "frontingUpgradeExporting": "Preparando tu copia de seguridad…",
+  "@frontingUpgradeExporting": {
+    "description": "Title shown while the PRISM1 backup is being exported"
+  },
+  "frontingUpgradeExportingSubtitle": "Cifrando tus datos de frente para que puedas conservar una copia.",
+  "@frontingUpgradeExportingSubtitle": {
+    "description": "Subtitle shown while the PRISM1 backup is being exported"
+  },
+  "frontingUpgradeBackupReadyHeadline": "Copia de seguridad lista",
+  "@frontingUpgradeBackupReadyHeadline": {
+    "description": "Headline of the durable-save gate that runs before the destructive migration step"
+  },
+  "frontingUpgradeBackupReadyBody": "Guarda esta copia de seguridad en un lugar donde puedas encontrarla más tarde — fuera de la app. Sin ella, no podrás recuperar tus datos antiguos si algo sale mal.",
+  "@frontingUpgradeBackupReadyBody": {
+    "description": "Body text on the durable-save gate explaining why saving the file is important"
+  },
+  "frontingUpgradeBackupSaveAs": "Guardar copia de seguridad…",
+  "@frontingUpgradeBackupSaveAs": {
+    "description": "Primary action on the backup-ready step — opens a file picker to save the file to a user-chosen destination"
+  },
+  "frontingUpgradeBackupShare": "Compartir…",
+  "@frontingUpgradeBackupShare": {
+    "description": "Secondary action on the backup-ready step — opens the system share sheet"
+  },
+  "frontingUpgradeBackupAcknowledge": "He guardado esta copia de seguridad en un lugar donde podré encontrarla más tarde",
+  "@frontingUpgradeBackupAcknowledge": {
+    "description": "Manual checkbox on the backup-ready step — auto-ticks on a successful save or share"
+  },
+  "frontingUpgradeBackupContinue": "Continuar",
+  "@frontingUpgradeBackupContinue": {
+    "description": "Continue button on the backup-ready step; disabled until the acknowledgment checkbox is ticked"
+  },
+  "frontingUpgradeSuccessHeadline": "¡Migración completa!",
+  "@frontingUpgradeSuccessHeadline": {
+    "description": "Success screen headline"
+  },
+  "frontingUpgradeCountSpMigrated": "{count, plural, =1{Se migró 1 sesión de Simply Plural.} other{Se migraron {count} sesiones de Simply Plural.}}",
+  "@frontingUpgradeCountSpMigrated": {
+    "description": "Success counter: SP rows migrated",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "frontingUpgradeCountNativeMigrated": "{count, plural, =1{Se migró 1 sesión de frente.} other{Se migraron {count} sesiones de frente.}}",
+  "@frontingUpgradeCountNativeMigrated": {
+    "description": "Success counter: native rows migrated",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "frontingUpgradeCountNativeExpanded": "{count, plural, =1{Se expandió 1 periodo de co-frente en registros por {termSingularLower}.} other{Se expandieron {count} periodos de co-frente en registros por {termSingularLower}.}}",
+  "@frontingUpgradeCountNativeExpanded": {
+    "description": "Success counter: native rows fanned out",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "frontingUpgradeCountPkDeleted": "{count, plural, =1{Se borró el historial de PluralKit del formato anterior (1 sesión). Vuelve a importarlo desde un token de PluralKit o un archivo pk;export.} other{Se borró el historial de PluralKit del formato anterior ({count} sesiones). Vuelve a importarlo desde un token de PluralKit o un archivo pk;export.}}",
+  "@frontingUpgradeCountPkDeleted": {
+    "description": "Success counter and follow-up guidance when old-format PluralKit fronting history was cleared",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "frontingUpgradeCountCommentsMigrated": "{count, plural, =1{Se migró 1 comentario.} other{Se migraron {count} comentarios.}}",
+  "@frontingUpgradeCountCommentsMigrated": {
+    "description": "Success counter: comments migrated",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "frontingUpgradeCountOrphansAssigned": "{count, plural, =1{Se asignó 1 sesión sin atribución a {termSingularLower} desconocido.} other{Se asignaron {count} sesiones sin atribución a {termSingularLower} desconocido.}}",
+  "@frontingUpgradeCountOrphansAssigned": {
+    "description": "Success counter: orphan rows assigned to sentinel",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "frontingUpgradeCountSentinelCreated": "Se creó {termSingularLower} desconocido para guardar las sesiones sin un frente claro.",
+  "@frontingUpgradeCountSentinelCreated": {
+    "description": "Success counter: sentinel was created"
+  },
+  "frontingUpgradeCountCorruptCoFronters": "{count, plural, =1{1 sesión tenía datos de co-frente ilegibles y se migró como de {termSingularLower} único.} other{{count} sesiones tenían datos de co-frente ilegibles y se migraron como de {termSingularLower} único.}}",
+  "@frontingUpgradeCountCorruptCoFronters": {
+    "description": "Success counter: rows whose co_fronter_ids JSON failed to parse and were migrated as single-member fallback",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "frontingUpgradeIntroPendingSyncWarning": "Si tienes cambios sin sincronizar por uso sin conexión, asegúrate de que tu dispositivo esté en línea y sincronizado antes de continuar. Las cargas pendientes tendrás que volver a hacerlas después de la actualización.",
+  "@frontingUpgradeIntroPendingSyncWarning": {
+    "description": "Warning shown on the upgrade modal's intro screen — the sync state wipe clears pending_ops, so any local writes that haven't been pushed yet will only exist on this device after the upgrade."
+  },
+  "frontingUpgradeAnalyticsNote": "Las estadísticas ahora se muestran como minutos por {term} — si dos de ustedes están en co-frente durante una hora, eso son dos horas-{term}. La misma cuenta de antes, con una etiqueta más clara.",
+  "@frontingUpgradeAnalyticsNote": {
+    "description": "One-line FYI shown on the upgrade success screen explaining the analytics relabel from 'fronting time' to 'member-minutes'."
+  },
+  "frontingUpgradeRepairPrimary": "Tus otros dispositivos tienen que vincularse de nuevo para recibir el historial migrado. Abre Configuración → Sincronización en tus otros dispositivos y sigue el flujo de vinculación.",
+  "@frontingUpgradeRepairPrimary": {
+    "description": "Re-pair guidance for primary devices"
+  },
+  "frontingUpgradeRepairSecondary": "Vincula este dispositivo de nuevo con tu dispositivo principal para recibir el historial migrado.",
+  "@frontingUpgradeRepairSecondary": {
+    "description": "Re-pair guidance for secondary devices"
+  },
+  "frontingUpgradeRepairSolo": "Todo listo. Tus datos de frente ya están en el nuevo formato.",
+  "@frontingUpgradeRepairSolo": {
+    "description": "Final note for solo devices, no re-pair needed"
+  },
+  "frontingUpgradeOpenPluralKitImport": "Abrir importación de PluralKit",
+  "@frontingUpgradeOpenPluralKitImport": {
+    "description": "Button label on the fronting migration success screen that opens PluralKit import options"
+  },
+  "frontingUpgradeFailureHeadline": "La migración falló",
+  "@frontingUpgradeFailureHeadline": {
+    "description": "Failure screen headline"
+  },
+  "frontingUpgradeFailureBackupNote": "Tu archivo de copia de seguridad se guardó. Puedes encontrarlo en el historial de tu menú de compartir si necesitas recuperar los datos.",
+  "@frontingUpgradeFailureBackupNote": {
+    "description": "Reassurance shown on the failure screen when a backup exists"
+  },
+  "frontingUpgradeBannerTitle": "Actualización del frente pendiente",
+  "@frontingUpgradeBannerTitle": {
+    "description": "Home-screen banner title when migration cleanup needs to be resumed"
+  },
+  "frontingUpgradeBannerMessage": "Toca para continuar con la actualización.",
+  "@frontingUpgradeBannerMessage": {
+    "description": "Home-screen banner message when migration cleanup needs to be resumed"
+  },
+
+  "frontingUpgradeResumeCleanupHeadline": "Terminar la migración",
+  "frontingUpgradeResumeCleanupBody": "Un intento anterior terminó la migración de datos pero no pudo completar el restablecimiento de sincronización. Toca abajo para terminar — solo se actualizan las credenciales de sincronización, no se tocan tus datos.",
+  "frontingUpgradeResumeCleanupButton": "Terminar la migración",
+
+  "frontingUpgradePkTokenDialogTitle": "Token de PluralKit",
+  "frontingUpgradePkTokenDialogMessage": "Importa el historial de fronts de PluralKit ahora. El token se usa una sola vez y no activa la sincronización con PluralKit.",
+  "frontingUpgradePkTokenLabel": "Token de PluralKit",
+  "frontingUpgradePkTokenHint": "Pega tu token de PluralKit",
+  "frontingUpgradePkTokenImport": "Importar",
+
+  "frontingUpgradePkImportButton": "Importar con token de PluralKit",
+  "frontingUpgradePkImportIdle": "El historial de PluralKit se puede reimportar aquí con un token temporal. El token se usa una sola vez y la sincronización con PluralKit permanece desactivada.",
+  "frontingUpgradePkImportRunning": "Reimportando el historial de PluralKit...",
+  "frontingUpgradePkImportImported": "Se reimportó el historial de PluralKit.",
+  "frontingUpgradePkImportTombstoneLine": "{count, plural, =1{Se conservó 1 registro eliminado para respetar la eliminación local.} other{Se conservaron {count} registros eliminados para respetar la eliminación local.}}",
+  "@frontingUpgradePkImportTombstoneLine": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "frontingUpgradePkImportZeroLengthLine": "{count, plural, =1{Se omitió 1 cierre de duración cero (PluralKit registró una entrada y una salida en el mismo instante).} other{Se omitieron {count} cierres de duración cero (PluralKit registró entradas y salidas en el mismo instante).}}",
+  "@frontingUpgradePkImportZeroLengthLine": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "frontingUpgradePkImportNeedsToken": "No se encontró un token de PluralKit guardado. Puedes importar con un token temporal sin activar la sincronización con PluralKit.",
+  "frontingUpgradePkImportFailed": "La reimportación de PluralKit falló: {error}",
+  "@frontingUpgradePkImportFailed": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+
+  "pkFileImportMembersLabel": "{termPlural}",
+  "pkFileImportGroupsLabel": "Grupos",
+  "pkFileImportFrontingSessionsLabel": "Cambios encontrados (no importados)",
+  "pkFileImportSwitchesFoundLabel": "Cambios encontrados (no importados)",
+  "pkFileImportPreviewNote": "Los/las {termPlural} existentes con el mismo ID de PluralKit se actualizarán. Para importar el historial de fronts, agrega un token de PluralKit para que Prism pueda vincular los cambios antes de importarlos.",
+  "pkFileImportImportButton": "Importar",
+  "pkFileImportSwitchesMatchedLabel": "Cambios vinculados con el token",
+  "pkFileImportNewerSwitchesLabel": "Cambios nuevos desde PluralKit",
+  "pkFileImportFrontingImportedNote": "El historial de fronts se importó por la ruta de PluralKit con token, así Prism puede seguir usando los IDs canónicos de los cambios.",
+  "pkFileImportFrontingImportedNoteWithNewer": "El historial de fronts se importó por la ruta de PluralKit con token, así Prism puede seguir usando los IDs canónicos de los cambios. Prism también importó {count} cambios nuevos desde PluralKit que no estaban en la exportación.",
+  "@pkFileImportFrontingImportedNoteWithNewer": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "pkFileImportFrontingNotImportedNote": "El historial de fronts no se importó porque la exportación y la API de PluralKit no coincidieron de forma segura.",
+  "pkFileImportDoneButton": "Listo",
+  "pkFileImportFailedHeadline": "La importación falló",
+  "pkFileImportTryAgainButton": "Intentar de nuevo",
+  "pkFileImportPickDifferentButton": "Elegir otro archivo",
+  "pkFileImportCompleteHeading": "Importación completa",
+  "pkFileImportSwitchesCreatedLabel": "Cambios creados",
+  "pkFileImportSwitchesSkippedLabel": "Cambios encontrados (no importados)",
+
+  "frontingAlwaysPresentLabel": "Siempre presente · {duration}",
+  "@frontingAlwaysPresentLabel": {
+    "placeholders": {
+      "duration": { "type": "String" }
+    }
+  },
+  "frontingAlwaysPresentSemantics": "Siempre al frente: {names}, {duration}",
+  "@frontingAlwaysPresentSemantics": {
+    "placeholders": {
+      "names": { "type": "String" },
+      "duration": { "type": "String" }
+    }
+  },
+  "frontingAlwaysPresentDurationWeeks": "{weeks, plural, =1{1 semana} other{{weeks} semanas}}",
+  "@frontingAlwaysPresentDurationWeeks": {
+    "placeholders": {
+      "weeks": { "type": "int" }
+    }
+  },
+  "frontingAlwaysPresentDurationDays": "{days, plural, =1{1 día} other{{days} días}}",
+  "@frontingAlwaysPresentDurationDays": {
+    "placeholders": {
+      "days": { "type": "int" }
+    }
+  },
+  "frontingAlwaysPresentDurationHours": "{hours, plural, =1{1 hora} other{{hours} horas}}",
+  "@frontingAlwaysPresentDurationHours": {
+    "placeholders": {
+      "hours": { "type": "int" }
+    }
+  },
+
+  "frontingAddFrontModeAdditive": "Agregar al co-frente",
+  "frontingAddFrontModeReplace": "Reemplazar actual",
+
+  "settingsFrontingSessionDisplaySectionTitle": "Visualización de sesiones y comportamiento del frente",
+  "settingsFrontingListViewModeLabel": "Vista de la lista de sesiones",
+  "settingsFrontingListViewModeCombinedPeriods": "Períodos combinados",
+  "settingsFrontingListViewModeCombinedPeriodsDescription": "Pilas de avatares para cada grupo único al frente",
+  "settingsFrontingListViewModePerMemberRows": "Filas por {term}",
+  "settingsFrontingListViewModePerMemberRowsDescription": "Una fila por sesión al frente, lado a lado",
+  "settingsFrontingListViewModeTimeline": "Cronología",
+  "settingsFrontingListViewModeTimelineDescription": "Vista de gráfico de barras del frente a lo largo del tiempo",
+  "settingsAddFrontDefaultBehaviorLabel": "Al agregar un nuevo frente",
+  "settingsAddFrontDefaultBehaviorAdditive": "Agregar al co-frente",
+  "settingsAddFrontDefaultBehaviorAdditiveDescription": "Los nuevos frentes se suman a los existentes",
+  "settingsAddFrontDefaultBehaviorReplace": "Reemplazar quienes están al frente",
+  "settingsAddFrontDefaultBehaviorReplaceDescription": "Termina todos los frentes actuales antes de iniciar uno nuevo",
+  "settingsQuickFrontDefaultBehaviorLabel": "Al usar frente rápido",
+  "settingsQuickFrontDefaultBehaviorAdditive": "Agregar al co-frente",
+  "settingsQuickFrontDefaultBehaviorReplace": "Reemplazar quienes están al frente",
+  "frontingEndSessionButton": "Terminar sesión",
+  "frontingEndSessionEndedToast": "Sesión de {member} terminada",
+  "frontingNextFronterTitle": "¿Quién está al frente ahora?",
+  "frontingNextFronterBody": "Después de esto no habrá nadie al frente.",
+  "frontingNextFronterPick": "Elegir quién al frente",
+  "frontingNextFronterUnknown": "Desconocido",
+  "frontingNextFronterEnd": "Terminar sin nadie al frente"
 }

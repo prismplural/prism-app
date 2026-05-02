@@ -2,12 +2,14 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/daos/member_groups_dao.dart';
 import 'package:prism_plurality/data/mappers/member_group_mapper.dart';
 import 'package:prism_plurality/data/mappers/member_group_entry_mapper.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
+import 'package:prism_plurality/data/utils/sync_datetime.dart';
 import 'package:prism_plurality/domain/models/member.dart' as member_domain;
 import 'package:prism_plurality/domain/models/member_group.dart' as domain;
 import 'package:prism_plurality/domain/models/member_group_entry.dart'
@@ -480,6 +482,13 @@ class DriftMemberGroupsRepository
     return _entryEntityIdFromStoredEntry(entry, group: group, member: member);
   }
 
+  /// Visible-for-testing: builds the group field map this repository hands to
+  /// the Rust sync engine for create/update. Exposed so a regression test can
+  /// pin every emitted DateTime as Z-suffixed UTC.
+  @visibleForTesting
+  Map<String, dynamic> debugGroupFields(MemberGroupRow row) =>
+      _groupFields(row);
+
   Map<String, dynamic> _groupFields(MemberGroupRow row) {
     return {
       'name': row.name,
@@ -490,10 +499,10 @@ class DriftMemberGroupsRepository
       'parent_group_id': row.parentGroupId,
       'group_type': row.groupType,
       'filter_rules': row.filterRules,
-      'created_at': row.createdAt.toIso8601String(),
+      'created_at': toSyncUtc(row.createdAt),
       'pluralkit_id': row.pluralkitId,
       'pluralkit_uuid': row.pluralkitUuid,
-      'last_seen_from_pk_at': row.lastSeenFromPkAt?.toIso8601String(),
+      'last_seen_from_pk_at': toSyncUtcOrNull(row.lastSeenFromPkAt),
       'is_deleted': row.isDeleted,
     };
   }
@@ -564,4 +573,10 @@ class _NoopMemberRepository implements MemberRepository {
   @override
   Stream<List<member_domain.Member>> watchMembersByIds(List<String> ids) =>
       const Stream.empty();
+
+  @override
+  Future<({member_domain.Member member, bool wasCreated})>
+  ensureUnknownSentinelMember() => throw UnsupportedError(
+    '_NoopMemberRepository does not support ensureUnknownSentinelMember',
+  );
 }

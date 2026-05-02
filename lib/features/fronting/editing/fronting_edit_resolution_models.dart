@@ -3,7 +3,9 @@ import 'package:prism_plurality/domain/models/fronting_session.dart'
 import 'package:prism_plurality/features/fronting/validation/fronting_validation_models.dart';
 
 /// How to resolve an overlap during editing.
-enum OverlapResolution { trim, makeCoFronting, cancel }
+/// In the per-member model, cross-member overlaps are valid and never prompted.
+/// Only same-member self-overlaps reach resolution — the user can trim or cancel.
+enum OverlapResolution { trim, cancel }
 
 /// Strategy for handling the gap left when deleting a session.
 enum FrontingDeleteStrategy {
@@ -89,18 +91,11 @@ class FrontingEditValidationResult {
   final List<GapInfo> gapsCreated;
   final List<FrontingSessionSnapshot> duplicates;
 
-  /// Whether the user should be offered the "make co-fronting" resolution.
-  /// Co-fronting only makes sense when both the edited session and every
-  /// overlap are [SessionType.normal] — mixing sleep into a co-front segment
-  /// has no coherent meaning.
-  final bool canCoFront;
-
   const FrontingEditValidationResult({
     required this.canSaveDirectly,
     this.issues = const [],
     this.overlappingSessions = const [],
     this.gapsCreated = const [],
     this.duplicates = const [],
-    this.canCoFront = true,
   });
 }

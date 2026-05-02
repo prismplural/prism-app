@@ -194,6 +194,57 @@ class AppTheme {
     );
   }
 
+  static TextStyle _textStyleWithoutDisplayFont(TextStyle style) {
+    return TextStyle(
+      inherit: style.inherit,
+      color: style.color,
+      backgroundColor: style.backgroundColor,
+      fontSize: style.fontSize,
+      fontWeight: style.fontWeight,
+      fontStyle: style.fontStyle,
+      letterSpacing: 0,
+      wordSpacing: style.wordSpacing,
+      textBaseline: style.textBaseline,
+      height: style.height,
+      leadingDistribution: style.leadingDistribution,
+      locale: style.locale,
+      foreground: style.foreground,
+      background: style.background,
+      shadows: style.shadows,
+      fontFeatures: style.fontFeatures,
+      fontVariations: style.fontVariations,
+      decoration: style.decoration,
+      decorationColor: style.decorationColor,
+      decorationStyle: style.decorationStyle,
+      decorationThickness: style.decorationThickness,
+      debugLabel: style.debugLabel,
+      fontFamilyFallback: style.fontFamilyFallback,
+      overflow: style.overflow,
+    );
+  }
+
+  /// Remove Unbounded from display/headline roles so disabled display type uses
+  /// the platform font instead of the bundled display font.
+  static ThemeData withoutDisplayFont(ThemeData theme) {
+    final textTheme = theme.textTheme;
+    return theme.copyWith(
+      textTheme: textTheme.copyWith(
+        displayLarge: textTheme.displayLarge == null
+            ? null
+            : _textStyleWithoutDisplayFont(textTheme.displayLarge!),
+        displayMedium: textTheme.displayMedium == null
+            ? null
+            : _textStyleWithoutDisplayFont(textTheme.displayMedium!),
+        displaySmall: textTheme.displaySmall == null
+            ? null
+            : _textStyleWithoutDisplayFont(textTheme.displaySmall!),
+        headlineLarge: textTheme.headlineLarge == null
+            ? null
+            : _textStyleWithoutDisplayFont(textTheme.headlineLarge!),
+      ),
+    );
+  }
+
   /// Minimal switch theme shared across all variants.
   static SwitchThemeData _switchTheme({
     required bool isDark,

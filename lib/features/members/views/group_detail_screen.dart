@@ -130,7 +130,10 @@ class _GroupDetailBody extends ConsumerWidget {
                               tone: PrismButtonTone.outlined,
                               expanded: true,
                               semanticLabel: l10n
-                                  .memberGroupFrontGroupSemantics(group.name),
+                                  .memberGroupFrontGroupSemantics(
+                                    group.name,
+                                    terms.pluralLower,
+                                  ),
                               onPressed: () =>
                                   _onFrontGroup(context, ref, group, entries),
                             ),
@@ -163,7 +166,7 @@ class _GroupDetailBody extends ConsumerWidget {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  l10n.memberGroupSectionMembers,
+                  l10n.memberGroupSectionMembers(terms.plural),
                   style: theme.textTheme.labelLarge?.copyWith(
                     color: theme.colorScheme.primary,
                     fontWeight: FontWeight.w600,
@@ -209,7 +212,7 @@ class _GroupDetailBody extends ConsumerWidget {
                 children: [
                   Expanded(
                     child: PrismButton(
-                      label: l10n.memberGroupAddMember,
+                      label: l10n.memberGroupAddMember(terms.singularLower),
                       onPressed: () => _addMember(context, ref),
                       icon: AppIcons.personAddOutlined,
                       tone: PrismButtonTone.subtle,
@@ -231,7 +234,7 @@ class _GroupDetailBody extends ConsumerWidget {
             else
               Center(
                 child: PrismButton(
-                  label: l10n.memberGroupAddMember,
+                  label: l10n.memberGroupAddMember(terms.singularLower),
                   onPressed: () => _addMember(context, ref),
                   icon: AppIcons.personAddOutlined,
                   tone: PrismButtonTone.subtle,
@@ -269,10 +272,11 @@ class _GroupDetailBody extends ConsumerWidget {
     }
 
     final l10n = context.l10n;
+    final terms = readTerminology(context, ref);
     final confirmed = await PrismDialog.confirm(
       context: context,
       title: l10n.memberGroupDeleteTitle,
-      message: l10n.memberGroupDeleteMessage(group.name),
+      message: l10n.memberGroupDeleteMessage(group.name, terms.plural),
       confirmLabel: l10n.memberGroupDeleteConfirm,
       destructive: true,
     );
@@ -294,8 +298,10 @@ class _GroupDetailBody extends ConsumerWidget {
         ref.read(groupEntriesProvider(group.id)).whenOrNull(data: (e) => e) ??
         [];
     final existingMemberIds = entries.map((e) => e.memberId).toSet();
+    // Non-fronting picker: hide the Unknown sentinel — you don't add the
+    // placeholder member to a group.
     final availableMembers =
-        (ref.read(activeMembersProvider).value ?? const <Member>[])
+        (ref.read(userVisibleMembersProvider).value ?? const <Member>[])
             .where((member) => !existingMemberIds.contains(member.id))
             .toList();
 
@@ -337,6 +343,7 @@ class _GroupDetailBody extends ConsumerWidget {
     List<MemberGroupEntry> entries,
   ) async {
     final l10n = context.l10n;
+    final terms = readTerminology(context, ref);
     final memberIds = entries.map((e) => e.memberId).toList();
     if (memberIds.isEmpty) return;
 
@@ -345,8 +352,9 @@ class _GroupDetailBody extends ConsumerWidget {
     final activeSessionsAsync = ref.read(activeSessionsProvider);
     if (!activeSessionsAsync.hasValue) return;
     final activeSessions = activeSessionsAsync.value!;
+    // Each session is one member's continuous presence; co-fronting is emergent.
     final alreadyFronting = activeSessions
-        .expand((s) => [s.memberId, ...s.coFronterIds])
+        .map((s) => s.memberId)
         .whereType<String>()
         .toSet();
     final toAdd = memberIds
@@ -358,7 +366,10 @@ class _GroupDetailBody extends ConsumerWidget {
       if (!context.mounted) return;
       PrismToast.show(
         context,
-        message: l10n.memberGroupFrontAllAlreadyFronting,
+        message: l10n.memberGroupFrontAllAlreadyFronting(
+          terms.pluralLower,
+          terms.plural,
+        ),
       );
       return;
     }
@@ -372,10 +383,12 @@ class _GroupDetailBody extends ConsumerWidget {
         context: context,
         title: l10n.memberGroupFrontSomeAlreadyFronting(
           alreadyInGroup.length,
+          alreadyInGroup.length == 1 ? terms.singularLower : terms.pluralLower,
           toAdd.length,
         ),
       );
       if (!confirmed || !context.mounted) return;
+      // addCoFronter is still per-member; equivalent to startFronting([id]).
       for (final id in toAdd) {
         await ref.read(frontingNotifierProvider.notifier).addCoFronter(id);
       }
@@ -395,7 +408,7 @@ class _GroupDetailBody extends ConsumerWidget {
     if (allInactive) {
       final confirmed = await PrismDialog.confirm(
         context: context,
-        title: l10n.memberGroupFrontAllInactive(group.name),
+        title: l10n.memberGroupFrontAllInactive(group.name, terms.pluralLower),
       );
       if (!confirmed || !context.mounted) return;
     } else {
@@ -403,18 +416,18 @@ class _GroupDetailBody extends ConsumerWidget {
         context: context,
         title: l10n.memberGroupFrontGroupConfirmTitle(group.name),
         message: toAdd.length > 1
-            ? l10n.memberGroupFrontGroupConfirmMessage(toAdd.length)
+            ? l10n.memberGroupFrontGroupConfirmMessage(
+                toAdd.length,
+                toAdd.length == 1 ? terms.singularLower : terms.pluralLower,
+              )
             : null,
       );
       if (!confirmed || !context.mounted) return;
     }
 
-    await ref
-        .read(frontingNotifierProvider.notifier)
-        .startFrontingWithDetails(
-          memberId: toAdd.first,
-          coFronterIds: toAdd.length > 1 ? toAdd.skip(1).toList() : [],
-        );
+    // Start a per-member session for each group member not already fronting.
+    // Each id in `toAdd` gets its own session row sharing the same start_time.
+    await ref.read(frontingNotifierProvider.notifier).startFronting(toAdd);
   }
 
   void _onStartChat(BuildContext context, List<MemberGroupEntry> entries) {

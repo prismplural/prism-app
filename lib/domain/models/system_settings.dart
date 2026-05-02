@@ -111,6 +111,19 @@ enum GifConsentState { unknown, enabled, declined }
 
 enum SystemTerminology { members, headmates, alters, parts, facets, custom }
 
+/// Fronting Preferences 1B — default state of the home-screen session list.
+///
+/// `combinedPeriods` is the post-1A default: derived periods with avatar
+/// stacks. `perMemberRows` shows one row per raw session.  `timeline`
+/// renders the existing TimelineView in place of the list.
+enum FrontingListViewMode { combinedPeriods, perMemberRows, timeline }
+
+/// Fronting Preferences 1B — semantics of "start a front" on the
+/// add-front sheet AND the quick-front tile.  `additive` joins the
+/// member as a co-fronter; `replace` ends all currently-active fronts
+/// before starting the new one (single atomic transaction).
+enum FrontStartBehavior { additive, replace }
+
 @freezed
 abstract class SystemSettings with _$SystemSettings {
   const factory SystemSettings({
@@ -180,6 +193,13 @@ abstract class SystemSettings with _$SystemSettings {
     // Default sleep quality for new sleep sessions (device-local).
     // Null means no default (user is prompted each time).
     SleepQuality? defaultSleepQuality,
+    // Phase 1B: fronting preferences (synced).
+    @Default(FrontingListViewMode.combinedPeriods)
+    FrontingListViewMode frontingListViewMode,
+    @Default(FrontStartBehavior.additive)
+    FrontStartBehavior addFrontDefaultBehavior,
+    @Default(FrontStartBehavior.additive)
+    FrontStartBehavior quickFrontDefaultBehavior,
   }) = _SystemSettings;
 
   factory SystemSettings.fromJson(Map<String, dynamic> json) =>

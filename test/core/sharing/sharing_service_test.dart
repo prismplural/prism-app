@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -104,15 +105,13 @@ class _FakeSharingSyncApi extends SharingSyncApi {
   @override
   Future<int> changePassword({
     required ffi.PrismSyncHandle handle,
-    required String oldPassword,
-    required String newPassword,
+    required Uint8List newPassword,
     required List<int> secretKey,
     String? sharingId,
     required int currentIdentityGeneration,
   }) async {
     changePasswordCall = _ChangePasswordCall(
-      oldPassword: oldPassword,
-      newPassword: newPassword,
+      newPassword: List<int>.from(newPassword),
       secretKey: List<int>.from(secretKey),
       sharingId: sharingId,
       currentIdentityGeneration: currentIdentityGeneration,
@@ -162,15 +161,13 @@ class _EnsurePrekeyCall {
 
 class _ChangePasswordCall {
   const _ChangePasswordCall({
-    required this.oldPassword,
     required this.newPassword,
     required this.secretKey,
     required this.sharingId,
     required this.currentIdentityGeneration,
   });
 
-  final String oldPassword;
-  final String newPassword;
+  final List<int> newPassword;
   final List<int> secretKey;
   final String? sharingId;
   final int currentIdentityGeneration;
@@ -259,29 +256,56 @@ void main() {
     },
   );
 
-  test('changePassword advances identity generation and preserves sharing id', () async {
-    settingsRepository.settings = const SystemSettings(
-      sharingId: 'sharing-123',
-      identityGeneration: 4,
-    );
-    sharingApi.nextIdentityGeneration = 5;
+  test(
+    'changePassword advances identity generation and preserves sharing id',
+    () async {
+      settingsRepository.settings = const SystemSettings(
+        sharingId: 'sharing-123',
+        identityGeneration: 4,
+      );
+      sharingApi.nextIdentityGeneration = 5;
 
-    final nextGeneration = await service.changePassword(
-      oldPassword: 'old-password',
-      newPassword: 'new-password',
-      secretKey: const [1, 2, 3, 4],
-      db: db,
-    );
+      final nextGeneration = await service.changePassword(
+        newPassword: Uint8List.fromList([
+          110,
+          101,
+          119,
+          45,
+          112,
+          97,
+          115,
+          115,
+          119,
+          111,
+          114,
+          100,
+        ]),
+        secretKey: const [1, 2, 3, 4],
+        db: db,
+      );
 
-    expect(nextGeneration, 5);
-    expect(sharingApi.changePasswordCall, isNotNull);
-    expect(sharingApi.changePasswordCall?.oldPassword, 'old-password');
-    expect(sharingApi.changePasswordCall?.newPassword, 'new-password');
-    expect(sharingApi.changePasswordCall?.secretKey, const [1, 2, 3, 4]);
-    expect(sharingApi.changePasswordCall?.sharingId, 'sharing-123');
-    expect(sharingApi.changePasswordCall?.currentIdentityGeneration, 4);
-    expect(settingsRepository.settings.identityGeneration, 5);
-    expect(settingsRepository.settings.sharingId, 'sharing-123');
-    expect(sharingApi.persistPasswordChangeCallCount, 1);
-  });
+      expect(nextGeneration, 5);
+      expect(sharingApi.changePasswordCall, isNotNull);
+      expect(sharingApi.changePasswordCall?.newPassword, const [
+        110,
+        101,
+        119,
+        45,
+        112,
+        97,
+        115,
+        115,
+        119,
+        111,
+        114,
+        100,
+      ]);
+      expect(sharingApi.changePasswordCall?.secretKey, const [1, 2, 3, 4]);
+      expect(sharingApi.changePasswordCall?.sharingId, 'sharing-123');
+      expect(sharingApi.changePasswordCall?.currentIdentityGeneration, 4);
+      expect(settingsRepository.settings.identityGeneration, 5);
+      expect(settingsRepository.settings.sharingId, 'sharing-123');
+      expect(sharingApi.persistPasswordChangeCallCount, 1);
+    },
+  );
 }

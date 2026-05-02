@@ -45,7 +45,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     if (_seeded || conversations.isNotEmpty) return;
     _seeded = true;
 
-    final members = ref.read(activeMembersProvider).value;
+    // Don't seed the default conversation creator as the Unknown sentinel —
+    // pick from real, user-visible members only.
+    final members = ref.read(userVisibleMembersProvider).value;
     if (members == null || members.isEmpty) return;
 
     final terms = readTerminology(context, ref);

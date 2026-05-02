@@ -4,10 +4,13 @@ import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/app_database.dart'
     show AppDatabase, MediaAttachmentsCompanion, PluralKitSyncStateCompanion;
 import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
 import 'package:prism_plurality/core/database/sqlite_constraint.dart';
+import 'package:prism_plurality/data/repositories/drift_fronting_session_repository.dart';
+import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/domain/repositories/chat_message_repository.dart';
 import 'package:prism_plurality/domain/repositories/conversation_repository.dart';
@@ -25,6 +28,7 @@ import 'package:prism_plurality/domain/repositories/reminders_repository.dart';
 import 'package:prism_plurality/domain/repositories/friends_repository.dart';
 import 'package:prism_plurality/features/data_management/models/export_models.dart';
 import 'package:prism_plurality/features/data_management/services/export_crypto.dart';
+import 'package:prism_plurality/features/fronting/services/merge_adjacent_same_member_rows.dart';
 
 /// Preview of what an import file contains, without actually importing.
 class ImportPreview {
@@ -122,6 +126,11 @@ class ImportResult {
     this.remindersCreated = 0,
     this.friendsCreated = 0,
     this.mediaAttachmentsCreated = 0,
+    this.legacyPkShortIdsSkipped = 0,
+    this.legacyCorruptCoFronterRows = const [],
+    this.unknownSentinelCreated = false,
+    this.legacyClampedCommentsCount = 0,
+    this.legacySpIdPreservedCount = 0,
   });
 
   final int membersCreated;
@@ -144,6 +153,36 @@ class ImportResult {
   final int remindersCreated;
   final int friendsCreated;
   final int mediaAttachmentsCreated;
+
+  // -- PRISM1 rescue-importer diagnostics (Phase 5D, spec §4.7) ---------
+  //
+  // Number of (PK switch, PK short id) rescue-row fan-outs that couldn't
+  // resolve to a local member. Surfaced in the import-result UI so users
+  // can spot under-imported PK histories (typically because the matching
+  // local member was deleted or never imported).
+  final int legacyPkShortIdsSkipped;
+  // Legacy native session ids whose `co_fronter_ids` JSON failed to
+  // parse. Per §6 edge cases the importer falls back to single-member
+  // migration (primary only) and surfaces these for user review.
+  final List<String> legacyCorruptCoFronterRows;
+  // Whether the rescue importer created the Unknown sentinel member to
+  // hold orphan native rows (`member_id IS NULL`, `session_type = 0`).
+  // Surfaced so the upgrade flow can remind the user the sentinel is
+  // non-deletable and can be renamed.
+  final bool unknownSentinelCreated;
+  // Number of legacy comments whose `target_time` was clamped to a
+  // parent session boundary because their original timestamp fell
+  // outside [parent.startTime, parent.endTime]. Surfaced so the
+  // import-result UI can tell users how many comments were anchored
+  // at a session edge rather than at their authored timestamp.
+  // Review finding #41.
+  final int legacyClampedCommentsCount;
+  // Number of SP rescue rows whose id we preserved verbatim (legacy v4)
+  // because no `sp_id_map` reverse entry existed and no SP entityId was
+  // available on the row — tier 3 of the SP id-derivation policy
+  // (review finding #43). Surfaced so duplicates produced by a future
+  // SP re-import doing tier-1 deterministic derivation can be diagnosed.
+  final int legacySpIdPreservedCount;
 
   int get totalRecordsCreated =>
       membersCreated +
@@ -211,6 +250,32 @@ class DataImportService {
   static final _uuidRegex = RegExp(
     r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
   );
+
+  static MemberProfileHeaderSource _profileHeaderSourceFromExport(
+    V1Headmate headmate,
+  ) {
+    final raw = headmate.profileHeaderSource;
+    const values = MemberProfileHeaderSource.values;
+    if (raw != null && raw >= 0 && raw < values.length) {
+      return values[raw];
+    }
+    final pkBannerUrl = headmate.pkBannerUrl;
+    if (pkBannerUrl != null && pkBannerUrl.trim().isNotEmpty) {
+      return MemberProfileHeaderSource.pluralKit;
+    }
+    return MemberProfileHeaderSource.prism;
+  }
+
+  static MemberProfileHeaderLayout _profileHeaderLayoutFromExport(
+    V1Headmate headmate,
+  ) {
+    final raw = headmate.profileHeaderLayout;
+    const values = MemberProfileHeaderLayout.values;
+    if (raw != null && raw >= 0 && raw < values.length) {
+      return values[raw];
+    }
+    return MemberProfileHeaderLayout.compactBackground;
+  }
 
   /// Resolve raw file bytes to a JSON string and optional media blobs.
   ///
@@ -353,801 +418,1471 @@ class DataImportService {
       await _writeMediaToTemp(mediaBlobs, mediaDir);
     }
 
+    // Hoisted out of the transaction so the post-commit pass can iterate
+    // it after the closure returns. Populated by `writeSession` inside
+    // the rescue/import loop (review finding #9 + remediation plan WS4
+    // step 1).
+    final rescueTouchedSessionIds = <String>{};
+
     final ImportResult result;
     try {
       result = await db.transaction(() async {
-      // 1. Import members (first pass: create)
-      //
-      // Dedup against ALL local members, including soft-deleted tombstones.
-      // The partial unique indexes idx_members_pluralkit_uuid /
-      // idx_members_pluralkit_id cover tombstones (no `is_deleted = 0` clause
-      // in the index \u2014 tombstones still hold `pluralkit_uuid` / `pluralkit_id`
-      // until the corresponding delete-push completes), so an import row whose
-      // PK link matches a tombstoned local row would otherwise hit the unique
-      // index and roll back the entire import transaction. See
-      // docs/plans/data-import-tombstone-collision.md.
-      var membersCreated = 0;
-      final allMemberRows = await db.membersDao.getAllMembersIncludingDeleted();
-      final existingMemberIds = {for (final m in allMemberRows) m.id};
-      final existingMemberPkUuids = {
-        for (final m in allMemberRows)
-          if (m.pluralkitUuid != null && m.pluralkitUuid!.isNotEmpty)
-            m.pluralkitUuid!,
-      };
-      final existingMemberPkIds = {
-        for (final m in allMemberRows)
-          if (m.pluralkitId != null && m.pluralkitId!.isNotEmpty)
-            m.pluralkitId!,
-      };
-      // Members eligible for the second-pass parentSystemId update \u2014 only
-      // active rows we either already had or just created. Tombstones are
-      // excluded so the second pass can't accidentally revive a deletion.
-      final activeMemberIdsAfterImport = <String>{
-        for (final m in allMemberRows) if (!m.isDeleted) m.id,
-      };
+        // 1. Import members (first pass: create)
+        //
+        // Dedup against ALL local members, including soft-deleted tombstones.
+        // The partial unique indexes idx_members_pluralkit_uuid /
+        // idx_members_pluralkit_id cover tombstones (no `is_deleted = 0` clause
+        // in the index \u2014 tombstones still hold `pluralkit_uuid` / `pluralkit_id`
+        // until the corresponding delete-push completes), so an import row whose
+        // PK link matches a tombstoned local row would otherwise hit the unique
+        // index and roll back the entire import transaction. See
+        // docs/plans/data-import-tombstone-collision.md.
+        var membersCreated = 0;
+        final allMemberRows = await db.membersDao
+            .getAllMembersIncludingDeleted();
+        final existingMemberIds = {for (final m in allMemberRows) m.id};
+        final existingMemberPkUuids = {
+          for (final m in allMemberRows)
+            if (m.pluralkitUuid != null && m.pluralkitUuid!.isNotEmpty)
+              m.pluralkitUuid!,
+        };
+        final existingMemberPkIds = {
+          for (final m in allMemberRows)
+            if (m.pluralkitId != null && m.pluralkitId!.isNotEmpty)
+              m.pluralkitId!,
+        };
+        // Members eligible for the second-pass parentSystemId update \u2014 only
+        // active rows we either already had or just created. Tombstones are
+        // excluded so the second pass can't accidentally revive a deletion.
+        final activeMemberIdsAfterImport = <String>{
+          for (final m in allMemberRows)
+            if (!m.isDeleted) m.id,
+        };
 
-      for (final h in export.headmates) {
-        if (existingMemberIds.contains(h.id)) continue;
-        // Tombstone PK-link collision: skip rather than throw on the unique
-        // index. The user's local intent is "deleted"; we preserve that.
-        if (h.pluralkitUuid != null &&
-            h.pluralkitUuid!.isNotEmpty &&
-            existingMemberPkUuids.contains(h.pluralkitUuid)) {
-          debugPrint(
-            '[Import] Skipped member ${h.id}: pluralkitUuid='
-            '${h.pluralkitUuid} collides with an existing local member.',
-          );
-          continue;
+        for (final h in export.headmates) {
+          if (existingMemberIds.contains(h.id)) continue;
+          // Tombstone PK-link collision: skip rather than throw on the unique
+          // index. The user's local intent is "deleted"; we preserve that.
+          if (h.pluralkitUuid != null &&
+              h.pluralkitUuid!.isNotEmpty &&
+              existingMemberPkUuids.contains(h.pluralkitUuid)) {
+            debugPrint(
+              '[Import] Skipped member ${h.id}: pluralkitUuid='
+              '${h.pluralkitUuid} collides with an existing local member.',
+            );
+            continue;
+          }
+          if (h.pluralkitId != null &&
+              h.pluralkitId!.isNotEmpty &&
+              existingMemberPkIds.contains(h.pluralkitId)) {
+            debugPrint(
+              '[Import] Skipped member ${h.id}: pluralkitId=${h.pluralkitId} '
+              'collides with an existing local member.',
+            );
+            continue;
+          }
+          try {
+            await memberRepository.createMember(
+              Member(
+                id: h.id,
+                name: h.name,
+                pronouns: h.pronouns,
+                emoji: h.emoji ?? '\u2754',
+                age: h.age,
+                bio: h.notes,
+                avatarImageData: h.avatarImageData,
+                isActive: h.isActive,
+                createdAt: DateTime.parse(h.createdAt),
+                displayOrder: h.displayOrder,
+                isAdmin: h.isAdmin,
+                customColorEnabled: h.customColorEnabled,
+                customColorHex: h.customColorHex,
+                pluralkitUuid: h.pluralkitUuid,
+                pluralkitId: h.pluralkitId,
+                markdownEnabled: h.markdownEnabled,
+                displayName: h.displayName,
+                birthday: h.birthday,
+                proxyTagsJson: h.proxyTagsJson,
+                pkBannerUrl: h.pkBannerUrl,
+                profileHeaderSource: _profileHeaderSourceFromExport(h),
+                profileHeaderLayout: _profileHeaderLayoutFromExport(h),
+                profileHeaderVisible: h.profileHeaderVisible ?? true,
+                profileHeaderImageData: h.profileHeaderImageBytes,
+                pkBannerImageData: h.pkBannerImageBytes,
+                pkBannerCachedUrl: h.pkBannerCachedUrl,
+                pluralkitSyncIgnored: h.pluralkitSyncIgnored,
+              ),
+            );
+          } catch (e) {
+            // Belt-and-braces: if a future code path introduces a hole the
+            // dedup above missed, swallow the unique-constraint and skip
+            // rather than abort the entire import transaction. The dedup
+            // is the primary defense; this is the safety net.
+            if (isUniqueConstraintViolation(e)) {
+              debugPrint(
+                '[Import] Member ${h.id} insert hit a unique-constraint '
+                'collision past dedup; skipping.',
+              );
+              continue;
+            }
+            rethrow;
+          }
+          membersCreated++;
+          existingMemberIds.add(h.id);
+          activeMemberIdsAfterImport.add(h.id);
+          if (h.pluralkitUuid != null && h.pluralkitUuid!.isNotEmpty) {
+            existingMemberPkUuids.add(h.pluralkitUuid!);
+          }
+          if (h.pluralkitId != null && h.pluralkitId!.isNotEmpty) {
+            existingMemberPkIds.add(h.pluralkitId!);
+          }
         }
-        if (h.pluralkitId != null &&
-            h.pluralkitId!.isNotEmpty &&
-            existingMemberPkIds.contains(h.pluralkitId)) {
-          debugPrint(
-            '[Import] Skipped member ${h.id}: pluralkitId=${h.pluralkitId} '
-            'collides with an existing local member.',
-          );
-          continue;
+
+        // Second pass: set parentSystemId for members.
+        //
+        // Gate by the active-id set so we never call updateMember on a
+        // tombstone \u2014 `getMemberById` does NOT filter `is_deleted`, and
+        // `updateMember` would emit a sync op with `is_deleted: false`,
+        // effectively reviving the row and undoing the user's local delete.
+        for (final h in export.headmates) {
+          if (h.parentSystemId == null) continue;
+          if (!activeMemberIdsAfterImport.contains(h.id)) continue;
+          final member = await memberRepository.getMemberById(h.id);
+          if (member != null &&
+              !member.isDeleted &&
+              member.parentSystemId != h.parentSystemId) {
+            await memberRepository.updateMember(
+              member.copyWith(parentSystemId: h.parentSystemId),
+            );
+          }
         }
-        try {
-          await memberRepository.createMember(
-            Member(
+
+        // 2. Import fronting sessions
+        //
+        // Same shape as members: dedup against all sessions including
+        // tombstones, because idx_fronting_sessions_pluralkit_uuid covers
+        // tombstones too. existingSessionIds is also reused for the sleep
+        // loop below since both session types share the same primary key
+        // namespace in `fronting_sessions`.
+        //
+        // Rows tagged `isLegacyShape == true` (any pre-0.7.0 export marker:
+        // `coFronterIds`, `pkMemberIdsJson`, `headmateId` without `memberId`
+        // / `sessionType`) are routed through the PRISM1 rescue importer
+        // (§4.7) to fan out PK + native multi-member rows into the new
+        // per-member shape with deterministic v5 ids. New-shape rows go
+        // straight through the standard write.
+        //
+        // Per-row sniff is intentional: a single file can mix shapes if a
+        // user partially re-exports between versions, and the rescue path
+        // must never run on already-migrated rows (would double-fan-out).
+        var frontSessionsCreated = 0;
+        var legacyPkShortIdsSkipped = 0;
+        final legacyCorruptCoFronterRows = <String>[];
+        var unknownSentinelCreated = false;
+        // Counter for legacy comments whose timestamp fell outside their
+        // parent session's [startTime, endTime] window. The clamp policy
+        // (review finding #41 + remediation plan WS4 step 5): comments
+        // before parent.startTime → target_time = parent.startTime;
+        // comments after parent.endTime → target_time = parent.endTime;
+        // comments inside bounds keep their own timestamp. Surface the
+        // count so the import-result UI can tell users how many comments
+        // were anchored at a session boundary.
+        var legacyClampedCommentsCount = 0;
+        // Counter for SP rescue rows whose id we couldn't derive
+        // deterministically (no `sp_id_map` entry, no SP entityId on the
+        // row) — fell back to preserving the legacy v4 id (tier 3 of
+        // the three-tier policy, review finding #43). Surfaced so a
+        // future SP re-import doing tier-1 derivation can be diagnosed
+        // when duplicates appear.
+        var legacySpIdPreservedCount = 0;
+        // Map from legacy session id → (memberId, startTime) used by the
+        // legacy comments branch to derive `target_time` / `author_member_id`
+        // when joining a comment back to its parent session row.
+        final legacySessionParents = <String, _LegacyParentInfo>{};
+        // Member ids touched by the legacy-shape rescue branches (PK
+        // fan-out, SP 1:1, native primary, native co-fronter, orphan
+        // sentinel). Fed to the post-fan-out adjacent-merge pass so the
+        // rescue file produces the same shape as a fresh migration —
+        // continuously-fronting members don't end up fragmented across
+        // the old-shape session boundaries.
+        final legacyTouchedMemberIds = <String>{};
+        // Cached lookup: PK short id → local member full UUID, populated
+        // lazily so we only scan the members table when a legacy PK rescue
+        // row actually arrives.
+        Map<String, String>? pkShortIdToLocalUuid;
+        Future<Map<String, String>> resolvePkShortIdMap() async {
+          if (pkShortIdToLocalUuid != null) return pkShortIdToLocalUuid!;
+          final allMembers = await memberRepository.getAllMembers();
+          pkShortIdToLocalUuid = {
+            for (final m in allMembers)
+              if (m.pluralkitId != null &&
+                  m.pluralkitId!.isNotEmpty &&
+                  m.pluralkitUuid != null &&
+                  m.pluralkitUuid!.isNotEmpty)
+                m.pluralkitId!: m.pluralkitUuid!,
+          };
+          return pkShortIdToLocalUuid!;
+        }
+
+        // Cached: SP id-map session-entity rows. The rescue importer
+        // treats SP-imported rows as already-1:1 (§2.2); any legacy
+        // session whose id appears here is migrated 1:1 with the
+        // existing `headmateId` as `member_id`.
+        //
+        // Two views are exposed:
+        //   - `spSessionPrismIds` — set of Prism ids known to be SP
+        //     imports; used to detect whether a row is the SP branch.
+        //   - `spPrismToEntityId` — reverse map (prism id → SP entity
+        //     id) used by the three-tier id derivation in the SP
+        //     rescue branch (review finding #43). Tier 1 derives the
+        //     row id via `deriveSpSessionId(entityId)` so a future SP
+        //     re-import collides on the deterministic id; tier 3
+        //     (legacy v4 with no map entry) preserves `s.id` and
+        //     increments `legacySpIdPreservedCount` so the import
+        //     result UI can surface the count.
+        Set<String>? spSessionPrismIds;
+        Map<String, String>? spPrismToEntityId;
+        Future<void> ensureSpMappingsLoaded() async {
+          if (spSessionPrismIds != null && spPrismToEntityId != null) return;
+          final all = await db.spImportDao.getAllMappings();
+          spSessionPrismIds = {
+            for (final r in all)
+              if (r.entityType == 'session') r.prismId,
+          };
+          spPrismToEntityId = {
+            for (final r in all)
+              if (r.entityType == 'session') r.prismId: r.spId,
+          };
+        }
+
+        Future<Set<String>> resolveSpSessionPrismIds() async {
+          await ensureSpMappingsLoaded();
+          return spSessionPrismIds!;
+        }
+
+        Future<Map<String, String>> resolveSpPrismToEntityId() async {
+          await ensureSpMappingsLoaded();
+          return spPrismToEntityId!;
+        }
+
+        // Lazy creation of the Unknown sentinel for orphan native rows
+        // (member_id IS NULL, session_type = 0). Delegates to the shared
+        // helper on MemberRepository so the id matches what 5B migration
+        // and the SP importer use; concurrent migrations on paired devices
+        // converge on the same sentinel row.
+        String? unknownSentinelId;
+        Future<String> ensureUnknownSentinel() async {
+          if (unknownSentinelId != null) return unknownSentinelId!;
+          final ensured = await memberRepository.ensureUnknownSentinelMember();
+          if (ensured.wasCreated) {
+            unknownSentinelCreated = true;
+          }
+          unknownSentinelId = ensured.member.id;
+          return unknownSentinelId!;
+        }
+
+        final allSessionRows = await db.frontingSessionsDao
+            .getAllSessionsIncludingDeleted();
+        final existingSessionIds = {for (final s in allSessionRows) s.id};
+        // Composite (pluralkit_uuid, member_id) tracking per §3.7. The
+        // post-Phase-5 unique index is composite, not single-column on
+        // pluralkit_uuid alone — fanned-out PK rescue rows MUST be allowed
+        // to share a switch UUID across different members.
+        //
+        // Uses [PkSessionMemberKey] rather than `'$uuid|$memberId'` to
+        // avoid delimiter-collision in member ids that contain `'|'`
+        // (review finding #44) and to keep the null-`memberId` case
+        // unambiguously distinct from a literal-empty-string `memberId`.
+        final existingPkPairs = <PkSessionMemberKey>{
+          for (final s in allSessionRows)
+            if (s.pluralkitUuid != null && s.pluralkitUuid!.isNotEmpty)
+              PkSessionMemberKey(
+                pluralkitUuid: s.pluralkitUuid!,
+                localMemberId: s.memberId,
+              ),
+        };
+
+        // `rescueTouchedSessionIds` (declared outside the transaction)
+        // captures every session id that `writeSession` actually wrote
+        // during the suppressed fronting-session import + merge pass.
+        // The post-commit pass walks these ids, looks up whatever row
+        // survived (after any merge-driven soft-deletes), and emits a
+        // single `syncRecordCreate` per survivor — matching the
+        // deterministic ids the original device's emissions would
+        // produce. Convergence relies on the ids in
+        // `fronting_namespaces.dart` being stable across paired
+        // devices (review finding #9 + remediation plan WS4 step 1).
+        Future<bool> writeSession({
+          required String id,
+          required DateTime startTime,
+          DateTime? endTime,
+          String? memberId,
+          String? notes,
+          FrontConfidence? confidence,
+          String? pluralkitUuid,
+          String? pkImportSource,
+          String? pkFileSwitchId,
+          SessionType sessionType = SessionType.normal,
+          SleepQuality? quality,
+          bool isHealthKitImport = false,
+        }) async {
+          if (existingSessionIds.contains(id)) return false;
+          if (pluralkitUuid != null && pluralkitUuid.isNotEmpty) {
+            final key = PkSessionMemberKey(
+              pluralkitUuid: pluralkitUuid,
+              localMemberId: memberId,
+            );
+            if (existingPkPairs.contains(key)) {
+              // Pre-existing local row already covers this (switch_uuid,
+              // member_id) pair (e.g., a prior API import wrote a row with
+              // the same composite key). Skip rather than collide. CRDT
+              // field-LWW handles the boundary correction on later API
+              // sync.
+              debugPrint(
+                '[Import][rescue] Skipped fronting session $id: '
+                '(pluralkitUuid=$pluralkitUuid, memberId=$memberId) already '
+                'present locally.',
+              );
+              return false;
+            }
+          }
+          try {
+            await frontingSessionRepository.createSession(
+              FrontingSession(
+                id: id,
+                startTime: startTime,
+                endTime: endTime,
+                memberId: memberId,
+                notes: notes,
+                sessionType: sessionType,
+                confidence: confidence,
+                pluralkitUuid: pluralkitUuid,
+                pkImportSource: pkImportSource,
+                pkFileSwitchId: pkFileSwitchId,
+                quality: quality,
+                isHealthKitImport: isHealthKitImport,
+              ),
+            );
+          } catch (e) {
+            if (isUniqueConstraintViolation(e)) {
+              debugPrint(
+                '[Import] Fronting session $id insert hit a unique-'
+                'constraint collision past dedup; skipping.',
+              );
+              return false;
+            }
+            rethrow;
+          }
+          existingSessionIds.add(id);
+          rescueTouchedSessionIds.add(id);
+          if (pluralkitUuid != null && pluralkitUuid.isNotEmpty) {
+            existingPkPairs.add(
+              PkSessionMemberKey(
+                pluralkitUuid: pluralkitUuid,
+                localMemberId: memberId,
+              ),
+            );
+          }
+          return true;
+        }
+
+        // Suppress sync emission across the entire fronting-session
+        // import + adjacent-merge pass (review finding #9, remediation
+        // plan WS4 step 1). The migration's destructive transaction
+        // already runs under the same `SyncRecordMixin.suppress`, but
+        // the rescue importer didn't — so legacy-rescue rows that the
+        // merge then deleted as duplicates emitted phantom create ops
+        // (no compensating delete because the merge was the source of
+        // intermediate writes). After the transaction commits, the
+        // post-commit sweep below walks `rescueTouchedSessionIds` and
+        // emits exactly one `syncRecordCreate` per surviving row,
+        // producing the same final-state ops a fresh write would have
+        // produced — minus the transient mid-merge churn. Deterministic
+        // ids (`derivePkSessionId`, `deriveMigrationFanoutSessionId`,
+        // `deriveSpSessionId`) make these emissions convergent with the
+        // original device's emissions: a paired peer that already has
+        // these ids merges via field-LWW rather than duplicating.
+        await SyncRecordMixin.suppress(() async {
+        for (final s in export.frontSessions) {
+          final start = DateTime.parse(s.startTime);
+          final end = s.endTime != null ? DateTime.parse(s.endTime!) : null;
+          final conf =
+              s.confidence != null &&
+                  s.confidence! >= 0 &&
+                  s.confidence! < FrontConfidence.values.length
+              ? FrontConfidence.values[s.confidence!]
+              : null;
+
+          if (!s.isLegacyShape) {
+            // -------- New-shape import path --------
+            //
+            // Post-0.7.0 exports already carry per-member rows with
+            // `memberId` + `sessionType`. The new-shape path doesn't fan
+            // out, doesn't derive ids, and doesn't touch `coFronterIds` /
+            // `pkMemberIdsJson` (those columns are dropped in v8 and
+            // unread in v7). HealthKit + sleep rows arrive in this same
+            // array with `sessionType = 1`.
+            final st = (s.sessionType ?? 0) == 1
+                ? SessionType.sleep
+                : SessionType.normal;
+            final q =
+                s.quality != null &&
+                    s.quality! >= 0 &&
+                    s.quality! < SleepQuality.values.length
+                ? SleepQuality.values[s.quality!]
+                : (st == SessionType.sleep ? SleepQuality.unknown : null);
+            final created = await writeSession(
+              id: s.id,
+              startTime: start,
+              endTime: end,
+              memberId: s.headmateId,
+              notes: s.notes,
+              confidence: conf,
+              pluralkitUuid: s.pluralkitUuid,
+              pkImportSource: s.pkImportSource,
+              pkFileSwitchId: s.pkFileSwitchId,
+              sessionType: st,
+              quality: q,
+              isHealthKitImport: s.isHealthKitImport ?? false,
+            );
+            if (created) frontSessionsCreated++;
+            // Track for the legacy-comment join even if a parallel new-shape
+            // write happens — the join only fires for legacy comments.
+            legacySessionParents[s.id] = _LegacyParentInfo(
+              memberId: s.headmateId,
+              startTime: start,
+              endTime: end,
+            );
+            continue;
+          }
+
+          // -------- PRISM1 rescue path (§4.7) --------
+          //
+          // Legacy-shape rows split four ways:
+          //   1. PK-imported (pluralkitUuid != null) — fan out per
+          //      pkMemberIdsJson short id, derive deterministic v5 ids,
+          //      preserve lossy boundaries (one row per old switch).
+          //   2. SP-imported (sp_id_map carries an entry for this id) —
+          //      migrate 1:1, preserve id, headmateId already 1:1.
+          //   3. Native multi-member (coFronterIds non-empty) — primary
+          //      keeps the legacy id, additional co-fronters get
+          //      derived ids from `migrationFrontingNamespace`.
+          //   4. Native single-member / orphan / HealthKit — keep id,
+          //      assign Unknown sentinel for the orphan case.
+          //
+          // The four branches DO NOT preserve `coFronterIds` /
+          // `pkMemberIdsJson` on the new row — those columns are
+          // intentionally dropped in v8 and unread from 0.7.0 onward.
+          // Re-importing from the PK API later collides on the
+          // deterministic id and CRDT field-LWW takes the API's
+          // correctly-bounded row.
+
+          final isPk = s.pluralkitUuid != null && s.pluralkitUuid!.isNotEmpty;
+          if (isPk) {
+            // PK fan-out. The `pk_member_ids_json` column on each old row
+            // carries the short ids (e.g., "abcde") of the members that
+            // were fronting at the entry switch. Resolve each to the
+            // local Prism member's full UUID via the pluralkit_id ->
+            // pluralkit_uuid lookup, then derive the deterministic id
+            // per §2.6: `v5(_pkFrontingNamespace, "${switch}:${uuid}")`.
+            //
+            // Boundaries are intentionally lossy here (one row per old
+            // switch with the same start/end). A later API re-import
+            // produces correctly-bounded rows; the rescue row's id
+            // collides on (switch, member) and the API row's fresher
+            // HLC wins via field-LWW. We MUST go through `createSession`
+            // (which calls `syncRecordCreate` → fresh HLCs at write
+            // time) rather than `insertOnConflictUpdate` so the rescue
+            // row's HLCs don't accidentally outlive the API import's.
+            final pkShortIdsRaw = s.pkMemberIdsJson;
+            final shortIds = <String>[];
+            if (pkShortIdsRaw != null && pkShortIdsRaw.isNotEmpty) {
+              try {
+                final parsed = jsonDecode(pkShortIdsRaw);
+                if (parsed is List) {
+                  for (final e in parsed) {
+                    if (e is String) shortIds.add(e);
+                  }
+                }
+              } catch (_) {
+                // Treat as no fan-out targets; loop below produces zero
+                // rows and counts as skipped via the empty-list path.
+              }
+            }
+            if (shortIds.isEmpty) {
+              // Pre-v7 PK exports may carry `pluralkit_uuid` without the
+              // `pk_member_ids_json` column (the column was added in
+              // Phase 2). Fall back to the legacy `headmateId` as the
+              // single fronter so the row still imports — same lossy
+              // boundary deal as the fan-out path. A later API
+              // re-import collides on the (switch, member) deterministic
+              // id and field-LWW takes the API's correct rows.
+              //
+              // If even `headmateId` is absent (truly empty PK row),
+              // log and skip; the API re-import is the recovery path.
+              if (s.headmateId == null) {
+                debugPrint(
+                  '[Import][rescue] PK row ${s.id} has neither '
+                  'pkMemberIdsJson nor headmateId; skipping.',
+                );
+                legacySessionParents[s.id] = _LegacyParentInfo(
+                  memberId: null,
+                  startTime: start,
+                  endTime: end,
+                );
+                continue;
+              }
+              // Derive the SAME deterministic id the live PK API importer
+              // would derive — `derivePkSessionId(switch_uuid,
+              // member_pk_uuid)`. Reusing the legacy v4 `s.id` here would
+              // create two distinct rows for the same (switch, member)
+              // pair on a future API re-import, hitting the composite
+              // unique index and the diff-sweep's collision-handler path.
+              // Skip rows whose local member has no `pluralkit_uuid` —
+              // we can't derive a stable id without it; counted as
+              // skipped per the existing PK short-id-without-mapping
+              // pattern.
+              final memberPkUuid = await _pkUuidForLocalMemberId(s.headmateId!);
+              if (memberPkUuid == null) {
+                debugPrint(
+                  '[Import][rescue] PK row ${s.id} headmateId '
+                  '"${s.headmateId}" has no pluralkit_uuid (member may '
+                  'be soft-deleted with no pluralkit link, or PK link '
+                  'never set); skipping.',
+                );
+                legacyPkShortIdsSkipped++;
+                legacySessionParents[s.id] = _LegacyParentInfo(
+                  memberId: s.headmateId,
+                  startTime: start,
+                  endTime: end,
+                );
+                continue;
+              }
+              final derivedId = derivePkSessionId(
+                s.pluralkitUuid!,
+                memberPkUuid,
+              );
+              final created = await writeSession(
+                id: derivedId,
+                startTime: start,
+                endTime: end,
+                memberId: s.headmateId,
+                notes: s.notes,
+                confidence: conf,
+                pluralkitUuid: s.pluralkitUuid,
+                sessionType: SessionType.normal,
+              );
+              if (created) frontSessionsCreated++;
+              if (s.headmateId != null) {
+                legacyTouchedMemberIds.add(s.headmateId!);
+              }
+              legacySessionParents[s.id] = _LegacyParentInfo(
+                memberId: s.headmateId,
+                startTime: start,
+                endTime: end,
+              );
+              continue;
+            }
+            final shortToUuid = await resolvePkShortIdMap();
+            final resolvedMemberUuids = <String>[];
+            for (final shortId in shortIds) {
+              final localUuid = shortToUuid[shortId];
+              if (localUuid == null) {
+                legacyPkShortIdsSkipped++;
+                continue;
+              }
+              resolvedMemberUuids.add(localUuid);
+            }
+            // Use the first resolved member UUID for the comment author
+            // fallback if a comment joins to this PK switch (per spec).
+            final firstResolvedLocalId = await _localMemberIdForPkUuid(
+              resolvedMemberUuids.isNotEmpty ? resolvedMemberUuids.first : null,
+            );
+            legacySessionParents[s.id] = _LegacyParentInfo(
+              memberId: firstResolvedLocalId,
+              startTime: start,
+              endTime: end,
+            );
+            for (final memberPkUuid in resolvedMemberUuids) {
+              final derivedId = derivePkSessionId(
+                s.pluralkitUuid!,
+                memberPkUuid,
+              );
+              final localMemberId = await _localMemberIdForPkUuid(memberPkUuid);
+              if (localMemberId == null) {
+                // Defensive: shouldn't happen since we just resolved
+                // memberPkUuid from a local member, but fall through
+                // safely.
+                legacyPkShortIdsSkipped++;
+                continue;
+              }
+              final created = await writeSession(
+                id: derivedId,
+                startTime: start,
+                endTime: end,
+                memberId: localMemberId,
+                notes: s.notes,
+                confidence: conf,
+                pluralkitUuid: s.pluralkitUuid,
+                sessionType: SessionType.normal,
+              );
+              if (created) frontSessionsCreated++;
+              legacyTouchedMemberIds.add(localMemberId);
+            }
+            continue;
+          }
+
+          final spIds = await resolveSpSessionPrismIds();
+          final isSp = spIds.contains(s.id);
+          if (isSp) {
+            // SP rescue — already 1:1 per-member by SP source semantics
+            // (§2.2). The id derivation follows the three-tier policy
+            // (review finding #43, remediation plan WS4 step 6):
+            //
+            //   Tier 1: `sp_id_map` has a reverse entry for this Prism
+            //           id. Derive the row id via
+            //           `deriveSpSessionId(entityId)` so a future SP
+            //           re-import (which now uses the same deterministic
+            //           derivation) collides on the id and field-LWW
+            //           reconciles boundaries instead of duplicating.
+            //   Tier 2: No map entry, but the rescue row carries the SP
+            //           `entityId` directly. Derive deterministically
+            //           from that. (Today no V1FrontSession field carries
+            //           a raw SP entityId so this tier is unreachable;
+            //           it's listed here so a future export-format
+            //           extension that adds the field can opt in without
+            //           a code change to the rescue branch.)
+            //   Tier 3: No map entry and no entityId — legacy v4 random
+            //           id from a pre-deterministic-derivation rescue
+            //           file. Preserve `s.id` and increment
+            //           `legacySpIdPreservedCount` so duplicates produced
+            //           by a future SP re-import (which would derive a
+            //           different id) can be diagnosed.
+            final spPrismToEntity = await resolveSpPrismToEntityId();
+            final entityId = spPrismToEntity[s.id];
+            final String spRowId;
+            if (entityId != null && entityId.isNotEmpty) {
+              spRowId = deriveSpSessionId(entityId);
+            } else {
+              spRowId = s.id;
+              legacySpIdPreservedCount++;
+            }
+            final created = await writeSession(
+              id: spRowId,
+              startTime: start,
+              endTime: end,
+              memberId: s.headmateId,
+              notes: s.notes,
+              confidence: conf,
+              sessionType: SessionType.normal,
+            );
+            if (created) frontSessionsCreated++;
+            if (s.headmateId != null) {
+              legacyTouchedMemberIds.add(s.headmateId!);
+            }
+            // Use the original legacy session id as the parent-info key
+            // so legacy comments anchored to `s.id` still resolve, even
+            // when the new row was written under the deterministic
+            // derived id.
+            legacySessionParents[s.id] = _LegacyParentInfo(
+              memberId: s.headmateId,
+              startTime: start,
+              endTime: end,
+            );
+            continue;
+          }
+
+          // Native rescue.
+          //
+          // HealthKit/sleep rows aren't represented in V1FrontSession in
+          // legacy exports (they live in V1SleepSession), so anything
+          // landing here is a `session_type = 0` native row. The corrupt
+          // co_fronter_ids fallback per §6 collapses to single-member.
+          final hasCorrupt =
+              s.coFronterIds.isEmpty &&
+              s.coFronterIdsRawJson != null &&
+              s.coFronterIdsRawJson!.isNotEmpty &&
+              s.coFronterIdsRawJson != '[]';
+          if (hasCorrupt) {
+            legacyCorruptCoFronterRows.add(s.id);
+          }
+          final coFronters = hasCorrupt ? const <String>[] : s.coFronterIds;
+
+          if (s.headmateId == null && coFronters.isEmpty) {
+            // Orphan: assign Unknown sentinel.
+            final sentinelId = await ensureUnknownSentinel();
+            final created = await writeSession(
+              id: s.id,
+              startTime: start,
+              endTime: end,
+              memberId: sentinelId,
+              notes: s.notes,
+              confidence: conf,
+              sessionType: SessionType.normal,
+            );
+            if (created) frontSessionsCreated++;
+            legacyTouchedMemberIds.add(sentinelId);
+            legacySessionParents[s.id] = _LegacyParentInfo(
+              memberId: sentinelId,
+              startTime: start,
+              endTime: end,
+            );
+            continue;
+          }
+
+          // Native single-member or multi-member. Primary keeps the legacy
+          // id; additional co-fronters get deterministic v5 ids derived
+          // from `(legacy_session_id, member_id)` so paired devices
+          // migrating concurrently converge on the same per-member rows.
+          final primaryCreated = await writeSession(
+            id: s.id,
+            startTime: start,
+            endTime: end,
+            memberId: s.headmateId,
+            notes: s.notes,
+            confidence: conf,
+            sessionType: SessionType.normal,
+          );
+          if (primaryCreated) frontSessionsCreated++;
+          if (s.headmateId != null) {
+            legacyTouchedMemberIds.add(s.headmateId!);
+          }
+          legacySessionParents[s.id] = _LegacyParentInfo(
+            memberId: s.headmateId,
+            startTime: start,
+            endTime: end,
+          );
+          for (final coId in coFronters) {
+            if (coId == s.headmateId) continue; // sanity guard
+            final derivedId = deriveMigrationFanoutSessionId(s.id, coId);
+            final created = await writeSession(
+              id: derivedId,
+              startTime: start,
+              endTime: end,
+              memberId: coId,
+              notes: s.notes,
+              confidence: conf,
+              sessionType: SessionType.normal,
+            );
+            if (created) frontSessionsCreated++;
+            legacyTouchedMemberIds.add(coId);
+          }
+        }
+
+        // Adjacent-merge pass for legacy-shape rescue rows (spec §2.1).
+        // Mirrors the migration's post-fan-out merge: under the
+        // per-member abstraction, old-shape session boundaries that
+        // existed only because a co-fronter joined or left are
+        // arbitrary cosmetic artifacts — collapse adjacent same-member
+        // rows whose end_time exactly matches the next row's start_time
+        // so the rescue file produces the same shape as a fresh
+        // migration. Skipped for new-shape rows (already correctly
+        // bounded). Sleep rows are excluded by the helper's query.
+        //
+        // The Unknown sentinel is excluded from the merge (review
+        // finding #42): orphan rescue rows assigned to the sentinel
+        // are distinct source events that happened to lose their
+        // member binding before export — collapsing them into one
+        // giant sentinel session would erase per-row identity (notes,
+        // confidence, individual time windows). Native rows still
+        // merge normally; only the sentinel is special-cased.
+        if (legacyTouchedMemberIds.isNotEmpty) {
+          await mergeAdjacentSameMemberRows(
+            frontingSessionRepository,
+            memberIds: legacyTouchedMemberIds,
+            excludeMemberIds: {unknownSentinelMemberId},
+          );
+        }
+        }); // end SyncRecordMixin.suppress for fronting-session import
+
+        // 3. Import sleep sessions
+        //
+        // Sleep and normal sessions share the same `fronting_sessions` table
+        // and primary-key namespace, so dedup against the table-wide
+        // existingSessionIds (already populated above and including
+        // tombstones). Sleep rows don't carry a `pluralkit_uuid` so the
+        // PK-link sets aren't relevant here.
+        var sleepSessionsCreated = 0;
+
+        for (final s in export.sleepSessions) {
+          if (existingSessionIds.contains(s.id)) continue;
+          try {
+            await frontingSessionRepository.createSession(
+              FrontingSession(
+                id: s.id,
+                startTime: DateTime.parse(s.startTime),
+                endTime: s.endTime != null ? DateTime.parse(s.endTime!) : null,
+                sessionType: SessionType.sleep,
+                quality:
+                    s.quality >= 0 && s.quality < SleepQuality.values.length
+                    ? SleepQuality.values[s.quality]
+                    : SleepQuality.unknown,
+                notes: s.notes,
+                isHealthKitImport: s.isHealthKitImport,
+              ),
+            );
+          } catch (e) {
+            if (isUniqueConstraintViolation(e)) {
+              debugPrint(
+                '[Import] Sleep session ${s.id} insert hit a unique-'
+                'constraint collision past dedup; skipping.',
+              );
+              continue;
+            }
+            rethrow;
+          }
+          sleepSessionsCreated++;
+          existingSessionIds.add(s.id);
+        }
+
+        // 4. Import conversations
+        var conversationsCreated = 0;
+        final existingConvs = await conversationRepository
+            .getAllConversations();
+        final existingConvIds = existingConvs.map((c) => c.id).toSet();
+
+        for (final c in export.conversations) {
+          if (existingConvIds.contains(c.id)) continue;
+          // Rebuild lastReadTimestamps from String:String map
+          final timestamps = c.lastReadTimestamps.map(
+            (k, v) => MapEntry(k, DateTime.parse(v)),
+          );
+
+          await conversationRepository.createConversation(
+            Conversation(
+              id: c.id,
+              createdAt: DateTime.parse(c.createdAt),
+              lastActivityAt: DateTime.parse(c.lastActivityAt),
+              title: c.title,
+              emoji: c.emoji,
+              isDirectMessage: c.isDirectMessage,
+              creatorId: c.creatorId,
+              participantIds: c.participantIds,
+              archivedByMemberIds: c.archivedByMemberIds != null
+                  ? (jsonDecode(c.archivedByMemberIds!) as List).cast<String>()
+                  : [],
+              mutedByMemberIds: c.mutedByMemberIds != null
+                  ? (jsonDecode(c.mutedByMemberIds!) as List).cast<String>()
+                  : [],
+              lastReadTimestamps: timestamps,
+              description: c.description,
+              categoryId: c.categoryId,
+              displayOrder: c.displayOrder,
+            ),
+          );
+          conversationsCreated++;
+        }
+
+        // 5. Import messages
+        var messagesCreated = 0;
+        // Preload existing message IDs to avoid per-record queries
+        final allExistingMsgs = await chatMessageRepository.getAllMessages();
+        final existingMessageIds = allExistingMsgs.map((m) => m.id).toSet();
+        for (final m in export.messages) {
+          if (existingMessageIds.contains(m.id)) continue;
+
+          await chatMessageRepository.createMessage(
+            ChatMessage(
+              id: m.id,
+              content: m.content,
+              timestamp: DateTime.parse(m.timestamp),
+              isSystemMessage: m.isSystemMessage,
+              editedAt: m.editedAt != null ? DateTime.parse(m.editedAt!) : null,
+              authorId: m.authorId,
+              conversationId: m.conversationId,
+              reactions: m.reactions
+                  .map(
+                    (r) => MessageReaction(
+                      id: r.id,
+                      emoji: r.emoji,
+                      memberId: r.memberId,
+                      timestamp: DateTime.parse(r.timestamp),
+                    ),
+                  )
+                  .toList(),
+              replyToId: m.replyToId,
+              replyToAuthorId: m.replyToAuthorId,
+              replyToContent: m.replyToContent,
+            ),
+          );
+          messagesCreated++;
+        }
+
+        // 6. Import polls + options + votes
+        var pollsCreated = 0;
+        var pollOptionsCreated = 0;
+        final existingPolls = await pollRepository.getAllPolls();
+        final existingPollIds = existingPolls.map((p) => p.id).toSet();
+
+        for (final p in export.polls) {
+          if (existingPollIds.contains(p.id)) continue;
+          await pollRepository.createPoll(
+            Poll(
+              id: p.id,
+              question: p.question,
+              description: p.description,
+              isAnonymous: p.isAnonymous,
+              allowsMultipleVotes: p.allowsMultipleVotes,
+              isClosed: p.isClosed,
+              expiresAt: p.expiresAt != null
+                  ? DateTime.parse(p.expiresAt!)
+                  : null,
+              createdAt: DateTime.parse(p.createdAt),
+            ),
+          );
+          pollsCreated++;
+        }
+
+        // Batch-load all existing poll option IDs in one query.
+        final allOptions = await pollRepository.getAllOptions();
+        final existingOptionIds = <String>{
+          for (final opt in allOptions) opt.id,
+        };
+        for (final o in export.pollOptions) {
+          if (existingOptionIds.contains(o.id)) continue;
+
+          await pollRepository.createOption(
+            PollOption(
+              id: o.id,
+              text: o.text,
+              sortOrder: o.sortOrder,
+              isOtherOption: o.isOtherOption,
+              colorHex: o.colorHex,
+            ),
+            o.pollId,
+          );
+          pollOptionsCreated++;
+
+          // Import votes for this option
+          for (final v in o.votes) {
+            await pollRepository.castVote(
+              PollVote(
+                id: v.id,
+                memberId: v.memberId,
+                votedAt: DateTime.parse(v.votedAt),
+                responseText: v.responseText,
+              ),
+              o.id,
+            );
+          }
+        }
+
+        // 7. Import system settings
+        var settingsUpdated = false;
+        if (export.systemSettings.isNotEmpty) {
+          final s = export.systemSettings.first;
+          await systemSettingsRepository.updateSettings(
+            SystemSettings(
+              systemName: s.systemName,
+              sharingId: s.sharingId,
+              showQuickFront: s.showQuickFront,
+              accentColorHex: s.accentColorHex,
+              perMemberAccentColors: s.perMemberAccentColors,
+              terminology:
+                  s.terminology >= 0 &&
+                      s.terminology < SystemTerminology.values.length
+                  ? SystemTerminology.values[s.terminology]
+                  : SystemTerminology.headmates,
+              customTerminology: s.customTerminology,
+              customPluralTerminology: s.customPluralTerminology,
+              terminologyUseEnglish: s.terminologyUseEnglish,
+              frontingRemindersEnabled: s.frontingRemindersEnabled,
+              frontingReminderIntervalMinutes:
+                  s.frontingReminderIntervalMinutes,
+              themeMode:
+                  s.themeMode >= 0 && s.themeMode < AppThemeMode.values.length
+                  ? AppThemeMode.values[s.themeMode]
+                  : AppThemeMode.system,
+              themeBrightness:
+                  s.themeBrightness >= 0 &&
+                      s.themeBrightness < ThemeBrightness.values.length
+                  ? ThemeBrightness.values[s.themeBrightness]
+                  : ThemeBrightness.system,
+              themeStyle:
+                  s.themeStyle >= 0 && s.themeStyle < ThemeStyle.values.length
+                  ? ThemeStyle.values[s.themeStyle]
+                  : ThemeStyle.standard,
+              chatEnabled: s.chatEnabled,
+              pollsEnabled: s.pollsEnabled,
+              habitsEnabled: s.habitsEnabled,
+              sleepTrackingEnabled: s.sleepTrackingEnabled,
+              quickSwitchThresholdSeconds: s.quickSwitchThresholdSeconds,
+              identityGeneration: s.identityGeneration,
+              chatLogsFront: s.chatLogsFront,
+              hasCompletedOnboarding: preserveImportedOnboardingState
+                  ? s.hasCompletedOnboarding
+                  : false,
+              syncThemeEnabled: s.syncThemeEnabled,
+              timingMode:
+                  (s.timingMode ?? 0) >= 0 &&
+                      (s.timingMode ?? 0) < FrontingTimingMode.values.length
+                  ? FrontingTimingMode.values[s.timingMode ?? 0]
+                  : FrontingTimingMode.flexible,
+              habitsBadgeEnabled: s.habitsBadgeEnabled,
+              notesEnabled: s.notesEnabled,
+              previousAccentColorHex: s.previousAccentColorHex,
+              systemDescription: s.systemDescription,
+              systemAvatarData: s.systemAvatarData != null
+                  ? base64Decode(s.systemAvatarData!)
+                  : null,
+              remindersEnabled: s.remindersEnabled,
+              fontScale: s.fontScale,
+              fontFamily:
+                  s.fontFamily >= 0 && s.fontFamily < FontFamily.values.length
+                  ? FontFamily.values[s.fontFamily]
+                  : FontFamily.system,
+              // Force device-local security settings to false on import —
+              // PIN/biometric lock must be configured through the settings UI
+              // where the user actually sets a PIN on this device.
+              pinLockEnabled: false,
+              biometricLockEnabled: false,
+              autoLockDelaySeconds: s.autoLockDelaySeconds,
+              navBarItems: s.navBarItems,
+              navBarOverflowItems: s.navBarOverflowItems,
+              syncNavigationEnabled: s.syncNavigationEnabled,
+              chatBadgePreferences: s.chatBadgePreferences,
+            ),
+          );
+          settingsUpdated = true;
+        }
+
+        // 8. Import habits
+        var habitsCreated = 0;
+        final existingHabits = await habitRepository.getAllHabits();
+        final existingHabitIds = existingHabits.map((h) => h.id).toSet();
+
+        for (final h in export.habits) {
+          if (existingHabitIds.contains(h.id)) continue;
+          await habitRepository.createHabit(
+            Habit(
               id: h.id,
               name: h.name,
-              pronouns: h.pronouns,
-              emoji: h.emoji ?? '\u2754',
-              age: h.age,
-              bio: h.notes,
-              avatarImageData: h.avatarImageData,
+              description: h.description,
+              icon: h.icon,
+              colorHex: h.colorHex,
               isActive: h.isActive,
               createdAt: DateTime.parse(h.createdAt),
-              displayOrder: h.displayOrder,
-              isAdmin: h.isAdmin,
-              customColorEnabled: h.customColorEnabled,
-              customColorHex: h.customColorHex,
-              pluralkitUuid: h.pluralkitUuid,
-              pluralkitId: h.pluralkitId,
-              markdownEnabled: h.markdownEnabled,
-              displayName: h.displayName,
-              birthday: h.birthday,
-              proxyTagsJson: h.proxyTagsJson,
-              pluralkitSyncIgnored: h.pluralkitSyncIgnored,
-            ),
-          );
-        } catch (e) {
-          // Belt-and-braces: if a future code path introduces a hole the
-          // dedup above missed, swallow the unique-constraint and skip
-          // rather than abort the entire import transaction. The dedup
-          // is the primary defense; this is the safety net.
-          if (isUniqueConstraintViolation(e)) {
-            debugPrint(
-              '[Import] Member ${h.id} insert hit a unique-constraint '
-              'collision past dedup; skipping.',
-            );
-            continue;
-          }
-          rethrow;
-        }
-        membersCreated++;
-        existingMemberIds.add(h.id);
-        activeMemberIdsAfterImport.add(h.id);
-        if (h.pluralkitUuid != null && h.pluralkitUuid!.isNotEmpty) {
-          existingMemberPkUuids.add(h.pluralkitUuid!);
-        }
-        if (h.pluralkitId != null && h.pluralkitId!.isNotEmpty) {
-          existingMemberPkIds.add(h.pluralkitId!);
-        }
-      }
-
-      // Second pass: set parentSystemId for members.
-      //
-      // Gate by the active-id set so we never call updateMember on a
-      // tombstone \u2014 `getMemberById` does NOT filter `is_deleted`, and
-      // `updateMember` would emit a sync op with `is_deleted: false`,
-      // effectively reviving the row and undoing the user's local delete.
-      for (final h in export.headmates) {
-        if (h.parentSystemId == null) continue;
-        if (!activeMemberIdsAfterImport.contains(h.id)) continue;
-        final member = await memberRepository.getMemberById(h.id);
-        if (member != null &&
-            !member.isDeleted &&
-            member.parentSystemId != h.parentSystemId) {
-          await memberRepository.updateMember(
-            member.copyWith(parentSystemId: h.parentSystemId),
-          );
-        }
-      }
-
-      // 2. Import fronting sessions
-      //
-      // Same shape as members: dedup against all sessions including
-      // tombstones, because idx_fronting_sessions_pluralkit_uuid covers
-      // tombstones too. existingSessionIds is also reused for the sleep
-      // loop below since both session types share the same primary key
-      // namespace in `fronting_sessions`.
-      var frontSessionsCreated = 0;
-      final allSessionRows = await db.frontingSessionsDao
-          .getAllSessionsIncludingDeleted();
-      final existingSessionIds = {for (final s in allSessionRows) s.id};
-      final existingSessionPkUuids = {
-        for (final s in allSessionRows)
-          if (s.pluralkitUuid != null && s.pluralkitUuid!.isNotEmpty)
-            s.pluralkitUuid!,
-      };
-
-      for (final s in export.frontSessions) {
-        if (existingSessionIds.contains(s.id)) continue;
-        if (s.pluralkitUuid != null &&
-            s.pluralkitUuid!.isNotEmpty &&
-            existingSessionPkUuids.contains(s.pluralkitUuid)) {
-          debugPrint(
-            '[Import] Skipped fronting session ${s.id}: pluralkitUuid='
-            '${s.pluralkitUuid} collides with an existing local session.',
-          );
-          continue;
-        }
-        try {
-          await frontingSessionRepository.createSession(
-            FrontingSession(
-              id: s.id,
-              startTime: DateTime.parse(s.startTime),
-              endTime: s.endTime != null ? DateTime.parse(s.endTime!) : null,
-              memberId: s.headmateId,
-              coFronterIds: s.coFronterIds,
-              notes: s.notes,
-              sessionType: SessionType.normal,
-              confidence:
-                  s.confidence != null &&
-                      s.confidence! >= 0 &&
-                      s.confidence! < FrontConfidence.values.length
-                  ? FrontConfidence.values[s.confidence!]
+              modifiedAt: DateTime.parse(h.modifiedAt),
+              frequency: HabitFrequency.values.firstWhere(
+                (f) => f.name == h.frequency,
+                orElse: () => HabitFrequency.daily,
+              ),
+              weeklyDays: h.weeklyDays != null
+                  ? (jsonDecode(h.weeklyDays!) as List).cast<int>()
                   : null,
-              pluralkitUuid: s.pluralkitUuid,
-              pkMemberIdsJson: s.pkMemberIdsJson,
+              intervalDays: h.intervalDays,
+              reminderTime: h.reminderTime,
+              notificationsEnabled: h.notificationsEnabled,
+              notificationMessage: h.notificationMessage,
+              assignedMemberId: h.assignedMemberId,
+              onlyNotifyWhenFronting: h.onlyNotifyWhenFronting,
+              isPrivate: h.isPrivate,
+              currentStreak: h.currentStreak,
+              bestStreak: h.bestStreak,
+              totalCompletions: h.totalCompletions,
             ),
           );
-        } catch (e) {
-          if (isUniqueConstraintViolation(e)) {
-            debugPrint(
-              '[Import] Fronting session ${s.id} insert hit a unique-'
-              'constraint collision past dedup; skipping.',
-            );
-            continue;
-          }
-          rethrow;
+          habitsCreated++;
         }
-        frontSessionsCreated++;
-        existingSessionIds.add(s.id);
-        if (s.pluralkitUuid != null && s.pluralkitUuid!.isNotEmpty) {
-          existingSessionPkUuids.add(s.pluralkitUuid!);
-        }
-      }
 
-      // 3. Import sleep sessions
-      //
-      // Sleep and normal sessions share the same `fronting_sessions` table
-      // and primary-key namespace, so dedup against the table-wide
-      // existingSessionIds (already populated above and including
-      // tombstones). Sleep rows don't carry a `pluralkit_uuid` so the
-      // PK-link sets aren't relevant here.
-      var sleepSessionsCreated = 0;
+        // 9. Import habit completions
+        var habitCompletionsCreated = 0;
+        // Batch-load all existing completion IDs in one query.
+        final allCompletions = await habitRepository.getAllCompletions();
+        final existingCompletionIds = <String>{
+          for (final c in allCompletions) c.id,
+        };
+        for (final c in export.habitCompletions) {
+          if (existingCompletionIds.contains(c.id)) continue;
 
-      for (final s in export.sleepSessions) {
-        if (existingSessionIds.contains(s.id)) continue;
-        try {
-          await frontingSessionRepository.createSession(
-            FrontingSession(
-              id: s.id,
-              startTime: DateTime.parse(s.startTime),
-              endTime: s.endTime != null ? DateTime.parse(s.endTime!) : null,
-              sessionType: SessionType.sleep,
-              quality: s.quality >= 0 && s.quality < SleepQuality.values.length
-                  ? SleepQuality.values[s.quality]
-                  : SleepQuality.unknown,
-              notes: s.notes,
-              isHealthKitImport: s.isHealthKitImport,
+          await habitRepository.createCompletion(
+            HabitCompletion(
+              id: c.id,
+              habitId: c.habitId,
+              completedAt: DateTime.parse(c.completedAt),
+              completedByMemberId: c.completedByMemberId,
+              notes: c.notes,
+              wasFronting: c.wasFronting,
+              rating: c.rating,
+              createdAt: DateTime.parse(c.createdAt),
+              modifiedAt: DateTime.parse(c.modifiedAt),
             ),
           );
-        } catch (e) {
-          if (isUniqueConstraintViolation(e)) {
+          habitCompletionsCreated++;
+        }
+
+        // 10. Import PluralKit sync state
+        if (export.pluralKitSyncState != null) {
+          final pk = export.pluralKitSyncState!;
+          final current = await pluralKitSyncDao.getSyncState();
+          final existingId = current.systemId;
+          if (existingId != null &&
+              pk.systemId != null &&
+              existingId != pk.systemId) {
+            // Backup is from a different PluralKit system — skip to avoid overwriting
+            // the current system's connection state with a foreign system ID.
             debugPrint(
-              '[Import] Sleep session ${s.id} insert hit a unique-'
-              'constraint collision past dedup; skipping.',
+              '[Import] Skipped PluralKit sync state: '
+              'backup systemId (${pk.systemId}) != current ($existingId)',
             );
+          } else {
+            await pluralKitSyncDao.upsertSyncState(
+              PluralKitSyncStateCompanion(
+                id: const Value('pk_config'),
+                systemId: Value(pk.systemId),
+                isConnected: Value(pk.isConnected),
+                lastSyncDate: Value(
+                  pk.lastSyncDate != null
+                      ? DateTime.parse(pk.lastSyncDate!)
+                      : null,
+                ),
+                lastManualSyncDate: Value(
+                  pk.lastManualSyncDate != null
+                      ? DateTime.parse(pk.lastManualSyncDate!)
+                      : null,
+                ),
+              ),
+            );
+          }
+        }
+
+        // 11. Import member groups
+        var memberGroupsCreated = 0;
+        final existingGroups = await memberGroupsRepository
+            .watchAllGroups()
+            .first;
+        final existingGroupIds = existingGroups.map((g) => g.id).toSet();
+
+        for (final g in export.memberGroups) {
+          if (existingGroupIds.contains(g.id)) continue;
+          await memberGroupsRepository.createGroup(
+            MemberGroup(
+              id: g.id,
+              name: g.name,
+              description: g.description,
+              colorHex: g.colorHex,
+              emoji: g.emoji,
+              displayOrder: g.displayOrder,
+              parentGroupId: g.parentGroupId,
+              createdAt: DateTime.parse(g.createdAt),
+            ),
+          );
+          memberGroupsCreated++;
+        }
+
+        // 12. Import member group entries
+        var memberGroupEntriesCreated = 0;
+        final existingEntries = await memberGroupsRepository
+            .getAllGroupEntries();
+        final existingEntryIds = existingEntries.map((e) => e.id).toSet();
+        for (final e in export.memberGroupEntries) {
+          if (existingEntryIds.contains(e.id)) continue;
+          await memberGroupsRepository.addMemberToGroup(
+            e.groupId,
+            e.memberId,
+            e.id,
+          );
+          memberGroupEntriesCreated++;
+        }
+
+        // 13. Import custom fields
+        var customFieldsCreated = 0;
+        final existingFields = await customFieldsRepository
+            .watchAllFields()
+            .first;
+        final existingFieldIds = existingFields.map((f) => f.id).toSet();
+
+        for (final f in export.customFields) {
+          if (existingFieldIds.contains(f.id)) continue;
+          await customFieldsRepository.createField(
+            CustomField(
+              id: f.id,
+              name: f.name,
+              fieldType:
+                  f.fieldType >= 0 &&
+                      f.fieldType < CustomFieldType.values.length
+                  ? CustomFieldType.values[f.fieldType]
+                  : CustomFieldType.text,
+              datePrecision:
+                  f.datePrecision != null &&
+                      f.datePrecision! >= 0 &&
+                      f.datePrecision! < DatePrecision.values.length
+                  ? DatePrecision.values[f.datePrecision!]
+                  : null,
+              displayOrder: f.displayOrder,
+              createdAt: DateTime.parse(f.createdAt),
+            ),
+          );
+          customFieldsCreated++;
+        }
+
+        // 14. Import custom field values
+        var customFieldValuesCreated = 0;
+        final existingValues = await customFieldsRepository.getAllValues();
+        final existingValueKeys = existingValues
+            .map((v) => '${v.customFieldId}:${v.memberId}')
+            .toSet();
+        for (final v in export.customFieldValues) {
+          if (existingValueKeys.contains('${v.customFieldId}:${v.memberId}')) {
             continue;
           }
-          rethrow;
-        }
-        sleepSessionsCreated++;
-        existingSessionIds.add(s.id);
-      }
-
-      // 4. Import conversations
-      var conversationsCreated = 0;
-      final existingConvs = await conversationRepository.getAllConversations();
-      final existingConvIds = existingConvs.map((c) => c.id).toSet();
-
-      for (final c in export.conversations) {
-        if (existingConvIds.contains(c.id)) continue;
-        // Rebuild lastReadTimestamps from String:String map
-        final timestamps = c.lastReadTimestamps.map(
-          (k, v) => MapEntry(k, DateTime.parse(v)),
-        );
-
-        await conversationRepository.createConversation(
-          Conversation(
-            id: c.id,
-            createdAt: DateTime.parse(c.createdAt),
-            lastActivityAt: DateTime.parse(c.lastActivityAt),
-            title: c.title,
-            emoji: c.emoji,
-            isDirectMessage: c.isDirectMessage,
-            creatorId: c.creatorId,
-            participantIds: c.participantIds,
-            archivedByMemberIds: c.archivedByMemberIds != null
-                ? (jsonDecode(c.archivedByMemberIds!) as List).cast<String>()
-                : [],
-            mutedByMemberIds: c.mutedByMemberIds != null
-                ? (jsonDecode(c.mutedByMemberIds!) as List).cast<String>()
-                : [],
-            lastReadTimestamps: timestamps,
-            description: c.description,
-            categoryId: c.categoryId,
-            displayOrder: c.displayOrder,
-          ),
-        );
-        conversationsCreated++;
-      }
-
-      // 5. Import messages
-      var messagesCreated = 0;
-      // Preload existing message IDs to avoid per-record queries
-      final allExistingMsgs = await chatMessageRepository.getAllMessages();
-      final existingMessageIds = allExistingMsgs.map((m) => m.id).toSet();
-      for (final m in export.messages) {
-        if (existingMessageIds.contains(m.id)) continue;
-
-        await chatMessageRepository.createMessage(
-          ChatMessage(
-            id: m.id,
-            content: m.content,
-            timestamp: DateTime.parse(m.timestamp),
-            isSystemMessage: m.isSystemMessage,
-            editedAt: m.editedAt != null ? DateTime.parse(m.editedAt!) : null,
-            authorId: m.authorId,
-            conversationId: m.conversationId,
-            reactions: m.reactions
-                .map(
-                  (r) => MessageReaction(
-                    id: r.id,
-                    emoji: r.emoji,
-                    memberId: r.memberId,
-                    timestamp: DateTime.parse(r.timestamp),
-                  ),
-                )
-                .toList(),
-            replyToId: m.replyToId,
-            replyToAuthorId: m.replyToAuthorId,
-            replyToContent: m.replyToContent,
-          ),
-        );
-        messagesCreated++;
-      }
-
-      // 6. Import polls + options + votes
-      var pollsCreated = 0;
-      var pollOptionsCreated = 0;
-      final existingPolls = await pollRepository.getAllPolls();
-      final existingPollIds = existingPolls.map((p) => p.id).toSet();
-
-      for (final p in export.polls) {
-        if (existingPollIds.contains(p.id)) continue;
-        await pollRepository.createPoll(
-          Poll(
-            id: p.id,
-            question: p.question,
-            description: p.description,
-            isAnonymous: p.isAnonymous,
-            allowsMultipleVotes: p.allowsMultipleVotes,
-            isClosed: p.isClosed,
-            expiresAt: p.expiresAt != null
-                ? DateTime.parse(p.expiresAt!)
-                : null,
-            createdAt: DateTime.parse(p.createdAt),
-          ),
-        );
-        pollsCreated++;
-      }
-
-      // Batch-load all existing poll option IDs in one query.
-      final allOptions = await pollRepository.getAllOptions();
-      final existingOptionIds = <String>{
-        for (final opt in allOptions) opt.id,
-      };
-      for (final o in export.pollOptions) {
-        if (existingOptionIds.contains(o.id)) continue;
-
-        await pollRepository.createOption(
-          PollOption(
-            id: o.id,
-            text: o.text,
-            sortOrder: o.sortOrder,
-            isOtherOption: o.isOtherOption,
-            colorHex: o.colorHex,
-          ),
-          o.pollId,
-        );
-        pollOptionsCreated++;
-
-        // Import votes for this option
-        for (final v in o.votes) {
-          await pollRepository.castVote(
-            PollVote(
+          await customFieldsRepository.upsertValue(
+            CustomFieldValue(
               id: v.id,
+              customFieldId: v.customFieldId,
               memberId: v.memberId,
-              votedAt: DateTime.parse(v.votedAt),
-              responseText: v.responseText,
-            ),
-            o.id,
-          );
-        }
-      }
-
-      // 7. Import system settings
-      var settingsUpdated = false;
-      if (export.systemSettings.isNotEmpty) {
-        final s = export.systemSettings.first;
-        await systemSettingsRepository.updateSettings(
-          SystemSettings(
-            systemName: s.systemName,
-            sharingId: s.sharingId,
-            showQuickFront: s.showQuickFront,
-            accentColorHex: s.accentColorHex,
-            perMemberAccentColors: s.perMemberAccentColors,
-            terminology:
-                s.terminology >= 0 &&
-                    s.terminology < SystemTerminology.values.length
-                ? SystemTerminology.values[s.terminology]
-                : SystemTerminology.headmates,
-            customTerminology: s.customTerminology,
-            customPluralTerminology: s.customPluralTerminology,
-            terminologyUseEnglish: s.terminologyUseEnglish,
-            frontingRemindersEnabled: s.frontingRemindersEnabled,
-            frontingReminderIntervalMinutes: s.frontingReminderIntervalMinutes,
-            themeMode:
-                s.themeMode >= 0 && s.themeMode < AppThemeMode.values.length
-                ? AppThemeMode.values[s.themeMode]
-                : AppThemeMode.system,
-            themeBrightness:
-                s.themeBrightness >= 0 &&
-                    s.themeBrightness < ThemeBrightness.values.length
-                ? ThemeBrightness.values[s.themeBrightness]
-                : ThemeBrightness.system,
-            themeStyle:
-                s.themeStyle >= 0 && s.themeStyle < ThemeStyle.values.length
-                ? ThemeStyle.values[s.themeStyle]
-                : ThemeStyle.standard,
-            chatEnabled: s.chatEnabled,
-            pollsEnabled: s.pollsEnabled,
-            habitsEnabled: s.habitsEnabled,
-            sleepTrackingEnabled: s.sleepTrackingEnabled,
-            quickSwitchThresholdSeconds: s.quickSwitchThresholdSeconds,
-            identityGeneration: s.identityGeneration,
-            chatLogsFront: s.chatLogsFront,
-            hasCompletedOnboarding: preserveImportedOnboardingState
-                ? s.hasCompletedOnboarding
-                : false,
-            syncThemeEnabled: s.syncThemeEnabled,
-            timingMode:
-                (s.timingMode ?? 0) >= 0 &&
-                    (s.timingMode ?? 0) < FrontingTimingMode.values.length
-                ? FrontingTimingMode.values[s.timingMode ?? 0]
-                : FrontingTimingMode.flexible,
-            habitsBadgeEnabled: s.habitsBadgeEnabled,
-            notesEnabled: s.notesEnabled,
-            previousAccentColorHex: s.previousAccentColorHex,
-            systemDescription: s.systemDescription,
-            systemAvatarData: s.systemAvatarData != null
-                ? base64Decode(s.systemAvatarData!)
-                : null,
-            remindersEnabled: s.remindersEnabled,
-            fontScale: s.fontScale,
-            fontFamily:
-                s.fontFamily >= 0 && s.fontFamily < FontFamily.values.length
-                ? FontFamily.values[s.fontFamily]
-                : FontFamily.system,
-            // Force device-local security settings to false on import —
-            // PIN/biometric lock must be configured through the settings UI
-            // where the user actually sets a PIN on this device.
-            pinLockEnabled: false,
-            biometricLockEnabled: false,
-            autoLockDelaySeconds: s.autoLockDelaySeconds,
-            navBarItems: s.navBarItems,
-            navBarOverflowItems: s.navBarOverflowItems,
-            syncNavigationEnabled: s.syncNavigationEnabled,
-            chatBadgePreferences: s.chatBadgePreferences,
-          ),
-        );
-        settingsUpdated = true;
-      }
-
-      // 8. Import habits
-      var habitsCreated = 0;
-      final existingHabits = await habitRepository.getAllHabits();
-      final existingHabitIds = existingHabits.map((h) => h.id).toSet();
-
-      for (final h in export.habits) {
-        if (existingHabitIds.contains(h.id)) continue;
-        await habitRepository.createHabit(
-          Habit(
-            id: h.id,
-            name: h.name,
-            description: h.description,
-            icon: h.icon,
-            colorHex: h.colorHex,
-            isActive: h.isActive,
-            createdAt: DateTime.parse(h.createdAt),
-            modifiedAt: DateTime.parse(h.modifiedAt),
-            frequency: HabitFrequency.values.firstWhere(
-              (f) => f.name == h.frequency,
-              orElse: () => HabitFrequency.daily,
-            ),
-            weeklyDays: h.weeklyDays != null
-                ? (jsonDecode(h.weeklyDays!) as List).cast<int>()
-                : null,
-            intervalDays: h.intervalDays,
-            reminderTime: h.reminderTime,
-            notificationsEnabled: h.notificationsEnabled,
-            notificationMessage: h.notificationMessage,
-            assignedMemberId: h.assignedMemberId,
-            onlyNotifyWhenFronting: h.onlyNotifyWhenFronting,
-            isPrivate: h.isPrivate,
-            currentStreak: h.currentStreak,
-            bestStreak: h.bestStreak,
-            totalCompletions: h.totalCompletions,
-          ),
-        );
-        habitsCreated++;
-      }
-
-      // 9. Import habit completions
-      var habitCompletionsCreated = 0;
-      // Batch-load all existing completion IDs in one query.
-      final allCompletions = await habitRepository.getAllCompletions();
-      final existingCompletionIds = <String>{
-        for (final c in allCompletions) c.id,
-      };
-      for (final c in export.habitCompletions) {
-        if (existingCompletionIds.contains(c.id)) continue;
-
-        await habitRepository.createCompletion(
-          HabitCompletion(
-            id: c.id,
-            habitId: c.habitId,
-            completedAt: DateTime.parse(c.completedAt),
-            completedByMemberId: c.completedByMemberId,
-            notes: c.notes,
-            wasFronting: c.wasFronting,
-            rating: c.rating,
-            createdAt: DateTime.parse(c.createdAt),
-            modifiedAt: DateTime.parse(c.modifiedAt),
-          ),
-        );
-        habitCompletionsCreated++;
-      }
-
-      // 10. Import PluralKit sync state
-      if (export.pluralKitSyncState != null) {
-        final pk = export.pluralKitSyncState!;
-        final current = await pluralKitSyncDao.getSyncState();
-        final existingId = current.systemId;
-        if (existingId != null && pk.systemId != null && existingId != pk.systemId) {
-          // Backup is from a different PluralKit system — skip to avoid overwriting
-          // the current system's connection state with a foreign system ID.
-          debugPrint(
-            '[Import] Skipped PluralKit sync state: '
-            'backup systemId (${pk.systemId}) != current ($existingId)',
-          );
-        } else {
-          await pluralKitSyncDao.upsertSyncState(
-            PluralKitSyncStateCompanion(
-              id: const Value('pk_config'),
-              systemId: Value(pk.systemId),
-              isConnected: Value(pk.isConnected),
-              lastSyncDate: Value(
-                pk.lastSyncDate != null ? DateTime.parse(pk.lastSyncDate!) : null,
-              ),
-              lastManualSyncDate: Value(
-                pk.lastManualSyncDate != null
-                    ? DateTime.parse(pk.lastManualSyncDate!)
-                    : null,
-              ),
+              value: v.value,
             ),
           );
+          customFieldValuesCreated++;
         }
-      }
 
-      // 11. Import member groups
-      var memberGroupsCreated = 0;
-      final existingGroups = await memberGroupsRepository
-          .watchAllGroups()
-          .first;
-      final existingGroupIds = existingGroups.map((g) => g.id).toSet();
+        // 15. Import notes
+        var notesCreated = 0;
+        final existingNotes = await notesRepository.watchAllNotes().first;
+        final existingNoteIds = existingNotes.map((n) => n.id).toSet();
 
-      for (final g in export.memberGroups) {
-        if (existingGroupIds.contains(g.id)) continue;
-        await memberGroupsRepository.createGroup(
-          MemberGroup(
-            id: g.id,
-            name: g.name,
-            description: g.description,
-            colorHex: g.colorHex,
-            emoji: g.emoji,
-            displayOrder: g.displayOrder,
-            parentGroupId: g.parentGroupId,
-            createdAt: DateTime.parse(g.createdAt),
-          ),
-        );
-        memberGroupsCreated++;
-      }
-
-      // 12. Import member group entries
-      var memberGroupEntriesCreated = 0;
-      final existingEntries = await memberGroupsRepository.getAllGroupEntries();
-      final existingEntryIds = existingEntries.map((e) => e.id).toSet();
-      for (final e in export.memberGroupEntries) {
-        if (existingEntryIds.contains(e.id)) continue;
-        await memberGroupsRepository.addMemberToGroup(
-          e.groupId,
-          e.memberId,
-          e.id,
-        );
-        memberGroupEntriesCreated++;
-      }
-
-      // 13. Import custom fields
-      var customFieldsCreated = 0;
-      final existingFields = await customFieldsRepository
-          .watchAllFields()
-          .first;
-      final existingFieldIds = existingFields.map((f) => f.id).toSet();
-
-      for (final f in export.customFields) {
-        if (existingFieldIds.contains(f.id)) continue;
-        await customFieldsRepository.createField(
-          CustomField(
-            id: f.id,
-            name: f.name,
-            fieldType:
-                f.fieldType >= 0 && f.fieldType < CustomFieldType.values.length
-                ? CustomFieldType.values[f.fieldType]
-                : CustomFieldType.text,
-            datePrecision:
-                f.datePrecision != null &&
-                    f.datePrecision! >= 0 &&
-                    f.datePrecision! < DatePrecision.values.length
-                ? DatePrecision.values[f.datePrecision!]
-                : null,
-            displayOrder: f.displayOrder,
-            createdAt: DateTime.parse(f.createdAt),
-          ),
-        );
-        customFieldsCreated++;
-      }
-
-      // 14. Import custom field values
-      var customFieldValuesCreated = 0;
-      final existingValues = await customFieldsRepository.getAllValues();
-      final existingValueKeys =
-          existingValues.map((v) => '${v.customFieldId}:${v.memberId}').toSet();
-      for (final v in export.customFieldValues) {
-        if (existingValueKeys.contains('${v.customFieldId}:${v.memberId}')) {
-          continue;
+        for (final n in export.notes) {
+          if (existingNoteIds.contains(n.id)) continue;
+          await notesRepository.createNote(
+            Note(
+              id: n.id,
+              title: n.title,
+              body: n.body,
+              colorHex: n.colorHex,
+              memberId: n.memberId,
+              date: DateTime.parse(n.date),
+              createdAt: DateTime.parse(n.createdAt),
+              modifiedAt: DateTime.parse(n.modifiedAt),
+            ),
+          );
+          notesCreated++;
         }
-        await customFieldsRepository.upsertValue(
-          CustomFieldValue(
-            id: v.id,
-            customFieldId: v.customFieldId,
-            memberId: v.memberId,
-            value: v.value,
+
+        // 16. Import front session comments
+        //
+        // Per spec §3.5, comments anchor to `target_time` + optional
+        // `author_member_id` rather than a session FK. New-shape exports
+        // already carry those fields directly; legacy-shape exports carry
+        // only `sessionId` + `timestamp`, and we synthesize the new-shape
+        // fields by joining `sessionId` against the just-imported parent
+        // row map (`legacySessionParents`, populated above by the
+        // fronting-session loop).
+        //
+        // Per spec §4.1 step 5: `target_time` MUST come from the comment's
+        // own `timestamp` field, NOT from `created_at`. Anchoring to
+        // `created_at` would shift backfilled or edited comments to the
+        // wrong period.
+        //
+        // PK rescue rows fan out to multiple per-member rows; the spec
+        // says: "Choose author_member_id from the first resolved PK
+        // member of the parent switch." We stored that on
+        // `legacySessionParents[s.id].memberId` above.
+        var frontSessionCommentsCreated = 0;
+        final existingComments = await frontSessionCommentsRepository
+            .getAllComments();
+        final existingCommentIds = existingComments.map((c) => c.id).toSet();
+        for (final c in export.frontSessionComments) {
+          if (existingCommentIds.contains(c.id)) continue;
+          final timestamp = DateTime.parse(c.timestamp);
+          final createdAt = DateTime.parse(c.createdAt);
+          DateTime? targetTime;
+          String? authorMemberId;
+          if (c.isLegacyShape) {
+            final parent = c.sessionId == null
+                ? null
+                : legacySessionParents[c.sessionId];
+            if (parent == null) {
+              // Orphaned legacy comment (parent session wasn't in the
+              // file, or was already deleted before the PRISM1 export
+              // ran). Fall back to the comment's own timestamp; leave
+              // author null. Better than dropping the row — the user
+              // can still see what was written.
+              targetTime = timestamp;
+              authorMemberId = null;
+            } else {
+              // §4.1 step 5: target_time = comment's own timestamp;
+              // author = parent session's member_id. With clamping
+              // (review finding #41 + remediation plan WS4 step 5):
+              // if the comment's timestamp falls outside the parent
+              // session's [startTime, endTime] window, anchor it at
+              // the nearest bound so the period-detail view's range
+              // join still surfaces the comment. Comments authored
+              // moments after a session's `endTime` are very common
+              // in practice (users review their front and add a note
+              // shortly after) and would otherwise become invisible.
+              final parentEnd = parent.endTime;
+              if (parentEnd != null && timestamp.isAfter(parentEnd)) {
+                targetTime = parentEnd;
+                legacyClampedCommentsCount++;
+              } else if (timestamp.isBefore(parent.startTime)) {
+                targetTime = parent.startTime;
+                legacyClampedCommentsCount++;
+              } else {
+                targetTime = timestamp;
+              }
+              authorMemberId = parent.memberId;
+            }
+          } else {
+            // New-shape comment — fields already carried on the row.
+            targetTime = c.targetTime != null
+                ? DateTime.parse(c.targetTime!)
+                : timestamp;
+            authorMemberId = c.authorMemberId;
+          }
+          await frontSessionCommentsRepository.createComment(
+            FrontSessionComment(
+              id: c.id,
+              body: c.body,
+              timestamp: timestamp,
+              createdAt: createdAt,
+              targetTime: targetTime,
+              authorMemberId: authorMemberId,
+            ),
+          );
+          frontSessionCommentsCreated++;
+        }
+
+        // 17. Import conversation categories
+        var conversationCategoriesCreated = 0;
+        final existingCategories = await conversationCategoriesRepository
+            .watchAll()
+            .first;
+        final existingCategoryIds = existingCategories.map((c) => c.id).toSet();
+
+        for (final c in export.conversationCategories) {
+          if (existingCategoryIds.contains(c.id)) continue;
+          await conversationCategoriesRepository.create(
+            ConversationCategory(
+              id: c.id,
+              name: c.name,
+              displayOrder: c.displayOrder,
+              createdAt: DateTime.parse(c.createdAt),
+              modifiedAt: DateTime.parse(c.modifiedAt),
+            ),
+          );
+          conversationCategoriesCreated++;
+        }
+
+        // 18. Import reminders
+        var remindersCreated = 0;
+        final existingReminders = await remindersRepository.watchAll().first;
+        final existingReminderIds = existingReminders.map((r) => r.id).toSet();
+
+        for (final r in export.reminders) {
+          if (existingReminderIds.contains(r.id)) continue;
+          await remindersRepository.create(
+            Reminder(
+              id: r.id,
+              name: r.name,
+              message: r.message,
+              trigger:
+                  r.trigger >= 0 && r.trigger < ReminderTrigger.values.length
+                  ? ReminderTrigger.values[r.trigger]
+                  : ReminderTrigger.scheduled,
+              intervalDays: r.intervalDays,
+              timeOfDay: r.timeOfDay,
+              delayHours: r.delayHours,
+              isActive: r.isActive,
+              createdAt: DateTime.parse(r.createdAt),
+              modifiedAt: DateTime.parse(r.modifiedAt),
+            ),
+          );
+          remindersCreated++;
+        }
+
+        // 19. Import friends
+        var friendsCreated = 0;
+        final existingFriends = await friendsRepository.watchAll().first;
+        final existingFriendIds = existingFriends.map((f) => f.id).toSet();
+
+        for (final f in export.friends) {
+          if (existingFriendIds.contains(f.id)) continue;
+          await friendsRepository.createFriend(
+            FriendRecord(
+              id: f.id,
+              displayName: f.displayName,
+              peerSharingId: f.peerSharingId,
+              offeredScopes: f.offeredScopes,
+              publicKeyHex: f.publicKeyHex,
+              // Export intentionally omits sharedSecretHex to avoid plaintext
+              // secrets in backups. Re-pairing is required after restore.
+              sharedSecretHex: null,
+              grantedScopes: f.grantedScopes,
+              isVerified: f.isVerified,
+              initId: f.initId,
+              createdAt: DateTime.parse(f.createdAt),
+              establishedAt: f.establishedAt != null
+                  ? DateTime.parse(f.establishedAt!)
+                  : null,
+              lastSyncAt: f.lastSyncAt != null
+                  ? DateTime.parse(f.lastSyncAt!)
+                  : null,
+            ),
+          );
+          friendsCreated++;
+        }
+
+        // 20. Import media attachment metadata
+        var mediaAttachmentsCreated = 0;
+        final existingMediaIds = (await db.mediaAttachmentsDao.getAll())
+            .map((a) => a.id)
+            .toSet();
+
+        for (final a in export.mediaAttachments) {
+          if (existingMediaIds.contains(a.id)) continue;
+          await db.mediaAttachmentsDao.insertAttachment(
+            MediaAttachmentsCompanion.insert(
+              id: a.id,
+              messageId: Value(a.messageId),
+              mediaId: Value(a.mediaId),
+              mediaType: Value(a.mediaType),
+              encryptionKeyB64: Value(a.encryptionKeyB64),
+              contentHash: Value(a.contentHash),
+              plaintextHash: Value(a.plaintextHash),
+              mimeType: Value(a.mimeType),
+              sizeBytes: Value(a.sizeBytes),
+              width: Value(a.width),
+              height: Value(a.height),
+              durationMs: Value(a.durationMs),
+              blurhash: Value(a.blurhash),
+              waveformB64: Value(a.waveformB64),
+              thumbnailMediaId: Value(a.thumbnailMediaId),
+              isDeleted: Value(a.isDeleted),
+            ),
+          );
+          mediaAttachmentsCreated++;
+        }
+
+        return ImportResult(
+          membersCreated: membersCreated,
+          frontSessionsCreated: frontSessionsCreated,
+          sleepSessionsCreated: sleepSessionsCreated,
+          conversationsCreated: conversationsCreated,
+          messagesCreated: messagesCreated,
+          pollsCreated: pollsCreated,
+          pollOptionsCreated: pollOptionsCreated,
+          settingsUpdated: settingsUpdated,
+          habitsCreated: habitsCreated,
+          habitCompletionsCreated: habitCompletionsCreated,
+          memberGroupsCreated: memberGroupsCreated,
+          memberGroupEntriesCreated: memberGroupEntriesCreated,
+          customFieldsCreated: customFieldsCreated,
+          customFieldValuesCreated: customFieldValuesCreated,
+          notesCreated: notesCreated,
+          frontSessionCommentsCreated: frontSessionCommentsCreated,
+          conversationCategoriesCreated: conversationCategoriesCreated,
+          remindersCreated: remindersCreated,
+          friendsCreated: friendsCreated,
+          mediaAttachmentsCreated: mediaAttachmentsCreated,
+          legacyPkShortIdsSkipped: legacyPkShortIdsSkipped,
+          legacyCorruptCoFronterRows: List.unmodifiable(
+            legacyCorruptCoFronterRows,
           ),
+          unknownSentinelCreated: unknownSentinelCreated,
+          legacyClampedCommentsCount: legacyClampedCommentsCount,
+          legacySpIdPreservedCount: legacySpIdPreservedCount,
         );
-        customFieldValuesCreated++;
-      }
-
-      // 15. Import notes
-      var notesCreated = 0;
-      final existingNotes = await notesRepository.watchAllNotes().first;
-      final existingNoteIds = existingNotes.map((n) => n.id).toSet();
-
-      for (final n in export.notes) {
-        if (existingNoteIds.contains(n.id)) continue;
-        await notesRepository.createNote(
-          Note(
-            id: n.id,
-            title: n.title,
-            body: n.body,
-            colorHex: n.colorHex,
-            memberId: n.memberId,
-            date: DateTime.parse(n.date),
-            createdAt: DateTime.parse(n.createdAt),
-            modifiedAt: DateTime.parse(n.modifiedAt),
-          ),
-        );
-        notesCreated++;
-      }
-
-      // 16. Import front session comments
-      var frontSessionCommentsCreated = 0;
-      final existingComments =
-          await frontSessionCommentsRepository.getAllComments();
-      final existingCommentIds =
-          existingComments.map((c) => c.id).toSet();
-      for (final c in export.frontSessionComments) {
-        if (existingCommentIds.contains(c.id)) continue;
-        await frontSessionCommentsRepository.createComment(
-          FrontSessionComment(
-            id: c.id,
-            sessionId: c.sessionId,
-            body: c.body,
-            timestamp: DateTime.parse(c.timestamp),
-            createdAt: DateTime.parse(c.createdAt),
-          ),
-        );
-        frontSessionCommentsCreated++;
-      }
-
-      // 17. Import conversation categories
-      var conversationCategoriesCreated = 0;
-      final existingCategories = await conversationCategoriesRepository
-          .watchAll()
-          .first;
-      final existingCategoryIds = existingCategories.map((c) => c.id).toSet();
-
-      for (final c in export.conversationCategories) {
-        if (existingCategoryIds.contains(c.id)) continue;
-        await conversationCategoriesRepository.create(
-          ConversationCategory(
-            id: c.id,
-            name: c.name,
-            displayOrder: c.displayOrder,
-            createdAt: DateTime.parse(c.createdAt),
-            modifiedAt: DateTime.parse(c.modifiedAt),
-          ),
-        );
-        conversationCategoriesCreated++;
-      }
-
-      // 18. Import reminders
-      var remindersCreated = 0;
-      final existingReminders = await remindersRepository.watchAll().first;
-      final existingReminderIds = existingReminders.map((r) => r.id).toSet();
-
-      for (final r in export.reminders) {
-        if (existingReminderIds.contains(r.id)) continue;
-        await remindersRepository.create(
-          Reminder(
-            id: r.id,
-            name: r.name,
-            message: r.message,
-            trigger: r.trigger >= 0 && r.trigger < ReminderTrigger.values.length
-                ? ReminderTrigger.values[r.trigger]
-                : ReminderTrigger.scheduled,
-            intervalDays: r.intervalDays,
-            timeOfDay: r.timeOfDay,
-            delayHours: r.delayHours,
-            isActive: r.isActive,
-            createdAt: DateTime.parse(r.createdAt),
-            modifiedAt: DateTime.parse(r.modifiedAt),
-          ),
-        );
-        remindersCreated++;
-      }
-
-      // 19. Import friends
-      var friendsCreated = 0;
-      final existingFriends = await friendsRepository.watchAll().first;
-      final existingFriendIds = existingFriends.map((f) => f.id).toSet();
-
-      for (final f in export.friends) {
-        if (existingFriendIds.contains(f.id)) continue;
-        await friendsRepository.createFriend(
-          FriendRecord(
-            id: f.id,
-            displayName: f.displayName,
-            peerSharingId: f.peerSharingId,
-            offeredScopes: f.offeredScopes,
-            publicKeyHex: f.publicKeyHex,
-            // Export intentionally omits sharedSecretHex to avoid plaintext
-            // secrets in backups. Re-pairing is required after restore.
-            sharedSecretHex: null,
-            grantedScopes: f.grantedScopes,
-            isVerified: f.isVerified,
-            initId: f.initId,
-            createdAt: DateTime.parse(f.createdAt),
-            establishedAt: f.establishedAt != null
-                ? DateTime.parse(f.establishedAt!)
-                : null,
-            lastSyncAt: f.lastSyncAt != null
-                ? DateTime.parse(f.lastSyncAt!)
-                : null,
-          ),
-        );
-        friendsCreated++;
-      }
-
-      // 20. Import media attachment metadata
-      var mediaAttachmentsCreated = 0;
-      final existingMediaIds = (await db.mediaAttachmentsDao.getAll())
-          .map((a) => a.id)
-          .toSet();
-
-      for (final a in export.mediaAttachments) {
-        if (existingMediaIds.contains(a.id)) continue;
-        await db.mediaAttachmentsDao.insertAttachment(
-          MediaAttachmentsCompanion.insert(
-            id: a.id,
-            messageId: Value(a.messageId),
-            mediaId: Value(a.mediaId),
-            mediaType: Value(a.mediaType),
-            encryptionKeyB64: Value(a.encryptionKeyB64),
-            contentHash: Value(a.contentHash),
-            plaintextHash: Value(a.plaintextHash),
-            mimeType: Value(a.mimeType),
-            sizeBytes: Value(a.sizeBytes),
-            width: Value(a.width),
-            height: Value(a.height),
-            durationMs: Value(a.durationMs),
-            blurhash: Value(a.blurhash),
-            waveformB64: Value(a.waveformB64),
-            thumbnailMediaId: Value(a.thumbnailMediaId),
-            isDeleted: Value(a.isDeleted),
-          ),
-        );
-        mediaAttachmentsCreated++;
-      }
-
-      return ImportResult(
-        membersCreated: membersCreated,
-        frontSessionsCreated: frontSessionsCreated,
-        sleepSessionsCreated: sleepSessionsCreated,
-        conversationsCreated: conversationsCreated,
-        messagesCreated: messagesCreated,
-        pollsCreated: pollsCreated,
-        pollOptionsCreated: pollOptionsCreated,
-        settingsUpdated: settingsUpdated,
-        habitsCreated: habitsCreated,
-        habitCompletionsCreated: habitCompletionsCreated,
-        memberGroupsCreated: memberGroupsCreated,
-        memberGroupEntriesCreated: memberGroupEntriesCreated,
-        customFieldsCreated: customFieldsCreated,
-        customFieldValuesCreated: customFieldValuesCreated,
-        notesCreated: notesCreated,
-        frontSessionCommentsCreated: frontSessionCommentsCreated,
-        conversationCategoriesCreated: conversationCategoriesCreated,
-        remindersCreated: remindersCreated,
-        friendsCreated: friendsCreated,
-        mediaAttachmentsCreated: mediaAttachmentsCreated,
-      );
       });
     } catch (e) {
       // Transaction failed — delete temp media files to avoid orphans
@@ -1157,6 +1892,41 @@ class DataImportService {
 
     // Atomically rename temp media files to final paths after DB commit
     if (mediaDir != null) await _finalizeMedia(mediaBlobs, mediaDir);
+
+    // Final-state sync emission for the rescue/import path.
+    //
+    // The fronting-session import + adjacent-merge pass ran under
+    // `SyncRecordMixin.suppress`, so no Rust pending_ops were emitted
+    // during the transaction body for the touched ids. Now that the
+    // transaction has committed and Drift has the final shape, walk
+    // each id once and emit a single `syncRecordCreate` per surviving
+    // row. Merge-deleted (soft-deleted) rows are intentionally
+    // skipped: the merge collapsed them into an earlier row whose
+    // create op above already carries the merged data.
+    //
+    // We re-fetch through the repository's DAO (rather than caching
+    // domain models in the transaction closure) so the emitted field
+    // map reflects the post-merge state — `endTime` for the survivor
+    // row may have been updated by the merge to absorb the deleted
+    // row's end. The deterministic ids from
+    // `fronting_namespaces.dart` make these emissions convergent
+    // across paired devices: peers that already imported the same
+    // file independently produce identical (id, fields) pairs and
+    // CRDT field-LWW reconciles boundaries via HLC ordering.
+    if (rescueTouchedSessionIds.isNotEmpty) {
+      // The repository concrete type owns the field-map encoding, so
+      // route through it rather than reaching into the DAO directly.
+      // `frontingSessionRepository` is always the Drift-backed
+      // implementation in production wiring (see
+      // `migration_providers.dart`); test seams that pass a fake should
+      // also pass a `DriftFrontingSessionRepository` since the rescue
+      // path requires the DAO + sync handle.
+      final concrete =
+          frontingSessionRepository as DriftFrontingSessionRepository;
+      for (final id in rescueTouchedSessionIds) {
+        await concrete.emitFinalStateCreateIfSurviving(id);
+      }
+    }
 
     return result;
   }
@@ -1202,4 +1972,117 @@ class DataImportService {
       } catch (_) {}
     }
   }
+
+  /// Resolve a PK member full UUID to the local Prism member id by
+  /// scanning the members table. Used by the PRISM1 rescue importer
+  /// (§4.7) to derive `author_member_id` for legacy comments anchored
+  /// to PK switches and to populate `member_id` on the per-member
+  /// fan-out rows.
+  ///
+  /// Includes soft-deleted tombstones: the rescue file's intent is
+  /// "re-create everything that existed," so a row whose `headmateId`
+  /// points at a member the user has since deleted should still resolve
+  /// to that member's pluralkit uuid (the API will produce the same
+  /// (switch, member) id, and field-LWW honors the user's tombstone).
+  /// Filtering tombstones here would silently lose PK history (review
+  /// finding #10).
+  ///
+  /// Returns null when no local member matches — the rescue path
+  /// counts that as a skip rather than crashing.
+  Future<String?> _localMemberIdForPkUuid(String? pkUuid) async {
+    if (pkUuid == null || pkUuid.isEmpty) return null;
+    final allMembers = await db.membersDao.getAllMembersIncludingDeleted();
+    for (final m in allMembers) {
+      if (m.pluralkitUuid == pkUuid) return m.id;
+    }
+    return null;
+  }
+
+  /// Reverse of [_localMemberIdForPkUuid] — returns the local member's
+  /// `pluralkit_uuid` (the FULL UUID, not the 5-char `pluralkit_id`
+  /// short id) given its local Prism member id. Used by the rescue
+  /// importer's empty-`pkMemberIdsJson` fallback (§4.7) to derive the
+  /// canonical (switch, member) id that the live PK API importer would
+  /// produce — without it, the rescue and API legs land on different
+  /// ids and lose the field-LWW boundary correction.
+  ///
+  /// Includes soft-deleted tombstones (review finding #10): see
+  /// [_localMemberIdForPkUuid] for the rationale. The two helpers must
+  /// share a tombstone policy so the same headmate id resolves the same
+  /// way through both directions.
+  Future<String?> _pkUuidForLocalMemberId(String localId) async {
+    if (localId.isEmpty) return null;
+    final allMembers = await db.membersDao.getAllMembersIncludingDeleted();
+    for (final m in allMembers) {
+      if (m.id == localId) {
+        final uuid = m.pluralkitUuid;
+        return (uuid == null || uuid.isEmpty) ? null : uuid;
+      }
+    }
+    return null;
+  }
+}
+
+/// Legacy-shape parent-session info captured during the fronting-session
+/// rescue pass and consumed by the comments rescue pass to derive
+/// `target_time` / `author_member_id` per spec §4.1 step 5.
+///
+/// Populated for every legacy session row regardless of its rescue
+/// disposition (PK fan-out, SP 1:1, native primary, native co-fronter,
+/// orphan sentinel) so the comment join always finds a parent. For PK
+/// rescue rows, `memberId` is the local id of the **first resolved PK
+/// member** of the parent switch — the spec's chosen author proxy when
+/// the original switch had multiple fronters.
+///
+/// `endTime` carries the parent session's end (or null for an
+/// open-ended row) so the comment-rescue pass can clamp comment
+/// timestamps that fall outside the parent's bounds (review finding
+/// #41). Without this, comments authored seconds-to-minutes after a
+/// session's `endTime` (very common in practice — users review their
+/// front and add a note moments later) anchor outside any session and
+/// become invisible to the period-detail view's range filter.
+class _LegacyParentInfo {
+  const _LegacyParentInfo({
+    this.memberId,
+    required this.startTime,
+    this.endTime,
+  });
+  final String? memberId;
+  final DateTime startTime;
+  final DateTime? endTime;
+}
+
+/// Structured dedup key for the (PK switch UUID, local member id) pair
+/// used by the rescue importer's `existingPkPairs` set.
+///
+/// Replaces the previous `'$pluralkitUuid|$memberId'` string-concat
+/// scheme which was vulnerable to delimiter-collision in member ids
+/// containing `'|'` (review finding #44 — the dedup key is also used
+/// for cross-row collision detection, where a false collision skips
+/// a legitimate rescue write). A real value type with explicit
+/// equality also makes the null-`memberId` case unambiguous: a missing
+/// local member id is not the same as the literal string `''`.
+@immutable
+class PkSessionMemberKey {
+  const PkSessionMemberKey({
+    required this.pluralkitUuid,
+    required this.localMemberId,
+  });
+
+  final String pluralkitUuid;
+  final String? localMemberId;
+
+  @override
+  bool operator ==(Object other) =>
+      other is PkSessionMemberKey &&
+      other.pluralkitUuid == pluralkitUuid &&
+      other.localMemberId == localMemberId;
+
+  @override
+  int get hashCode => Object.hash(pluralkitUuid, localMemberId);
+
+  @override
+  String toString() =>
+      'PkSessionMemberKey(pluralkitUuid: $pluralkitUuid, '
+      'localMemberId: $localMemberId)';
 }

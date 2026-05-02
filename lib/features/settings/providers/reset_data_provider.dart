@@ -3,17 +3,18 @@ import 'dart:io';
 
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:prism_sync/generated/api.dart' as ffi;
 
 import 'package:prism_plurality/core/constants/app_constants.dart';
 import 'package:prism_plurality/core/database/database_encryption.dart';
+import 'package:prism_plurality/core/services/app_data_dir.dart';
 import 'package:prism_plurality/core/services/biometric_service_provider.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/services/media/media_providers.dart';
+import 'package:prism_plurality/core/services/runtime_dek_store.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/domain/models/models.dart';
@@ -64,7 +65,7 @@ final resetSecureStoreProvider = Provider<ResetSecureStore>((ref) {
 });
 
 final resetDocumentsDirectoryProvider = FutureProvider<Directory>((ref) async {
-  return getApplicationDocumentsDirectory();
+  return getAppDataDir();
 });
 
 final resetSyncHandleProvider = Provider<ffi.PrismSyncHandle?>((ref) {
@@ -292,10 +293,12 @@ class ResetDataNotifier extends AsyncNotifier<void> {
     final db = ref.read(databaseProvider);
     _log('Resetting members');
     await db.transaction(() async {
-      // Set fronting sessions to unknown (null member) instead of deleting
-      await db.customStatement(
-        'UPDATE fronting_sessions SET member_id = NULL, co_fronter_ids = \'[]\'',
-      );
+      // Set fronting sessions to unknown (null member) instead of deleting.
+      // Per-member shape (Phase 5): each row already represents a single
+      // member, so nulling member_id orphans the row to "unknown" without
+      // any co-fronter list to reset.  The v7 `co_fronter_ids` column is
+      // legacy/unread storage and is not touched here.
+      await db.customStatement('UPDATE fronting_sessions SET member_id = NULL');
       // Delete child data that references members
       await db.customStatement('DELETE FROM custom_field_values');
       await db.customStatement('DELETE FROM member_group_entries');
@@ -403,10 +406,20 @@ class ResetDataNotifier extends AsyncNotifier<void> {
     final handle = ref.read(resetSyncHandleProvider);
     final syncFfi = ref.read(resetSyncFfiProvider);
 
-    // 0. Disable auto-sync FIRST — silences the debounce timer, the
-    //    notification handler, and the WebSocket reconnect loop so they
-    //    don't race the rest of the teardown (Phase 2A). Non-fatal: if
-    //    setAutoSync throws (handle already torn down, FFI panic), keep
+    // Stop any queued event-driven keychain drain before deleting credentials.
+    // Otherwise a SyncCompleted drain that was scheduled just before reset
+    // could write old Rust MemorySecureStore entries back after this path
+    // clears the platform keychain.
+    try {
+      ref.read(syncStatusProvider.notifier).prepareForCredentialReset();
+    } catch (e) {
+      _log('Failed to prepare sync-status reset barrier (non-fatal): $e');
+    }
+
+    // 0. Disable auto-sync as the first FFI call — silences the debounce
+    //    timer, the notification handler, and the WebSocket reconnect loop
+    //    so they don't race the rest of the teardown (Phase 2A). Non-fatal:
+    //    if setAutoSync throws (handle already torn down, FFI panic), keep
     //    going — the dispose() in step 4 will stop everything anyway.
     if (handle != null) {
       try {
@@ -527,10 +540,18 @@ class ResetDataNotifier extends AsyncNotifier<void> {
     //    the `database_key*` slots survive a sync-only reset.
     final storage = ref.read(resetSecureStoreProvider);
     try {
-      final all = await storage.readAll();
-      for (final fullKey in all.keys) {
-        if (!fullKey.startsWith(prefix)) continue;
-        if (kProtectedFromReset.contains(fullKey)) continue;
+      Set<String> keysToDelete;
+      try {
+        keysToDelete = computeKeysToClearOnReset(
+          await storage.readAll(),
+        ).toSet();
+      } catch (e) {
+        _log('Keychain readAll failed during reset; using fallback list: $e');
+        keysToDelete = {
+          for (final key in frontingMigrationWipeStaticKeys()) '$prefix$key',
+        }..removeAll(kProtectedFromReset);
+      }
+      for (final fullKey in keysToDelete) {
         try {
           await storage.delete(fullKey);
         } catch (e) {
@@ -539,6 +560,11 @@ class ResetDataNotifier extends AsyncNotifier<void> {
       }
     } catch (e) {
       _log('Keychain wipe-by-prefix failed (non-fatal): $e');
+    }
+    try {
+      await const DeviceBoundRuntimeDekStore().deleteWrappingKey();
+    } catch (e) {
+      _log('Runtime DEK wrapping-key delete failed (non-fatal): $e');
     }
 
     // 6. Clear the biometric-gated DEK copy. This is stored under a separate
@@ -563,8 +589,9 @@ class ResetDataNotifier extends AsyncNotifier<void> {
     ref.invalidate(prismSyncHandleProvider);
     ref.invalidate(relayUrlProvider);
     ref.invalidate(syncIdProvider);
-    ref.invalidate(syncStatusProvider);
-    ref.read(syncHealthProvider.notifier).setState(SyncHealthState.healthy);
+    ref.invalidate(syncEventStreamProvider);
+    ref.invalidate(websocketConnectedProvider);
+    ref.read(syncHealthProvider.notifier).setState(SyncHealthState.unpaired);
   }
 
   Future<void> _resetAll() async {

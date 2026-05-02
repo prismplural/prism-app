@@ -26,10 +26,15 @@ class PkFileExport {
 /// A switch entry as it appears in a `pk;export` file — just timestamp +
 /// fronter member short IDs.
 class PkFileSwitch {
+  final String? id;
   final DateTime timestamp;
   final List<String> memberIds;
 
-  const PkFileSwitch({required this.timestamp, required this.memberIds});
+  const PkFileSwitch({
+    this.id,
+    required this.timestamp,
+    required this.memberIds,
+  });
 }
 
 /// Summary returned from [PluralKitSyncService.importFromFile].
@@ -46,6 +51,43 @@ class PkFileImportResult {
     required this.groupsImported,
     required this.switchesCreated,
     required this.switchesSkipped,
+  });
+}
+
+/// Summary returned from the hybrid `pk;export` + token fronting import.
+class PkFileTokenFrontingImportResult {
+  final String? systemName;
+  final int membersImported;
+  final int groupsImported;
+  final bool canonicalizationSafe;
+  final bool frontingImported;
+  final int exactImportedCount;
+  final int staleFileCount;
+  final int ambiguousCount;
+  final List<String> ambiguousKeys;
+  final int fileOnlyCount;
+  final int apiOnlyInRangeCount;
+  final int apiOnlyOutsideRangeCount;
+  final int apiSwitchesFetched;
+  final int unmappedMemberReferences;
+  final Map<int, String> apiSwitchIdsByFileIndex;
+
+  const PkFileTokenFrontingImportResult({
+    required this.systemName,
+    required this.membersImported,
+    required this.groupsImported,
+    required this.canonicalizationSafe,
+    required this.frontingImported,
+    required this.exactImportedCount,
+    required this.staleFileCount,
+    required this.ambiguousCount,
+    required this.ambiguousKeys,
+    required this.fileOnlyCount,
+    required this.apiOnlyInRangeCount,
+    required this.apiOnlyOutsideRangeCount,
+    required this.apiSwitchesFetched,
+    required this.unmappedMemberReferences,
+    required this.apiSwitchIdsByFileIndex,
   });
 }
 
@@ -142,7 +184,14 @@ PkFileExport _parseSync(String raw) {
           if (id is String) ids.add(id);
         }
       }
-      switches.add(PkFileSwitch(timestamp: parsed, memberIds: ids));
+      final rawId = entry['id'];
+      switches.add(
+        PkFileSwitch(
+          id: rawId is String && rawId.trim().isNotEmpty ? rawId.trim() : null,
+          timestamp: parsed,
+          memberIds: ids,
+        ),
+      );
     }
   }
 

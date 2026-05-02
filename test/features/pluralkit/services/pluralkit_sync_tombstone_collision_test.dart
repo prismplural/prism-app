@@ -1,19 +1,24 @@
-/// Integration test: regression coverage for the PluralKit sync unique-
-/// constraint catch-site (Layer 1 — synchronous in-process DB).
+/// Integration test: PluralKit corrective re-import tombstone semantics.
 ///
-/// GIVEN: an in-memory AppDatabase with a soft-deleted fronting_session whose
-///        `pluralkit_uuid = 'X'` and `is_deleted = 1`. This represents the
-///        "PK link still attached, mid delete-push" tombstone state — the
-///        partial unique index on `pluralkit_uuid` does NOT exclude tombstones,
-///        so any future INSERT carrying the same UUID will collide.
-/// WHEN:  `performFullImport` is called with a fake PK client serving a single
-///        switch whose `id = 'X'`.
-/// THEN:  the call returns without throwing, no new (`is_deleted = 0`) row is
-///        created with the same `pluralkit_uuid`, and the tombstone is left
-///        unchanged.
+/// PR E2 (WS3 step 4 / review #3) changes how the corrective re-import
+/// path treats a tombstoned row whose deterministic id collides with an
+/// API entrant. The old behavior unconditionally resurrected the row and
+/// cleared `isDeleted`, `deleteIntentEpoch`, and `deletePushStartedAt` —
+/// which silently undid any user-initiated delete that hadn't yet pushed
+/// to PluralKit. The new behavior:
+/// - If `deleteIntentEpoch != null` (user explicitly deleted, push queued):
+///   leave the tombstone intact, increment `tombstonePreservedCount`, and
+///   surface in the import-result UI.
+/// - If `deleteIntentEpoch == null` (rescue/migration tombstone): keep the
+///   resurrection behavior — that path explicitly relies on corrective
+///   re-import to undelete with API truth.
 ///
-/// Layer 2 (DriftRemoteException isolate-wrapping) is covered by the helper
-/// unit tests in `test/core/database/sqlite_constraint_test.dart`.
+/// The composite partial unique index on `(pluralkit_uuid, member_id)`
+/// from schema v7 still protects against duplicate live rows when member
+/// resolution succeeds (non-null `member_id`); SQLite treats NULL != NULL
+/// in unique indexes, so unresolvable-member tombstones bypass the
+/// DB-level guard. The application-layer `getDeletedLinkedSessions` check
+/// remains the primary guard for that case.
 library;
 
 import 'package:drift/drift.dart' hide isNull, isNotNull;
@@ -95,7 +100,10 @@ class _FakePluralKitClient implements PluralKitClient {
   Future<List<PKGroup>> getGroups({bool withMembers = true}) async => const [];
 
   @override
-  Future<List<PKSwitch>> getSwitches({DateTime? before, int limit = 100}) async {
+  Future<List<PKSwitch>> getSwitches({
+    DateTime? before,
+    int limit = 100,
+  }) async {
     // Single page — return the switches once, then empty so the paging
     // loop terminates.
     if (before != null) return const [];
@@ -159,104 +167,210 @@ void main() {
   setUp(storageStub.setup);
   tearDown(storageStub.teardown);
 
-  test(
-    'performFullImport tolerates a tombstoned PK-linked session colliding '
-    'on the partial unique index',
-    () async {
-      final db = AppDatabase(NativeDatabase.memory());
-      addTearDown(db.close);
+  test('corrective re-import on a row with deleteIntentEpoch != null '
+      'preserves the user tombstone (WS3 step 4 / review #3)', () async {
+    // PR E2 changed the corrective entrant-collision path: a tombstone whose
+    // `deleteIntentEpoch` is non-null is treated as an explicit user delete
+    // (queued to push to PluralKit). We must NOT silently resurrect it on
+    // re-import — the user's intent wins, and the import-result UI surfaces
+    // the count via `tombstonePreservedCount`. This test was previously the
+    // resurrection-behavior regression guard; PR E2 inverts the assertion.
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
 
-      // -- Seed a tombstone row carrying pluralkit_uuid='X' ---------------
-      // We bypass the repository sync hooks here — this models a row that
-      // already exists in the local DB after a soft-delete that hasn't yet
-      // pushed up to the relay (and thus hasn't had its PK link cleared).
-      // Drift stores DateTimes as Unix seconds and round-trips through local
-      // time, so use a local DateTime for round-trip equality.
-      final tombstoneStart = DateTime(2026, 4, 1, 12);
-      await db.frontingSessionsDao.insertSession(
-        FrontingSessionsCompanion.insert(
-          id: 'tombstone-id',
-          startTime: tombstoneStart,
-          memberId: const Value('local-member-id'),
-          pluralkitUuid: const Value('X'),
-          isDeleted: const Value(true),
-          deleteIntentEpoch: const Value(0),
+    // -- Seed the local member that the PK switch refers to ---------------
+    await db.membersDao.upsertMember(
+      MembersCompanion.insert(
+        id: 'local-member-id',
+        name: 'Test Member',
+        createdAt: DateTime(2026, 1, 1),
+        pluralkitId: const Value('pk-short-id'),
+        pluralkitUuid: const Value('pk-member-uuid'),
+      ),
+    );
+
+    // -- Seed a tombstone row carrying pluralkit_uuid='X' with explicit
+    // delete-intent metadata (deleteIntentEpoch + deletePushStartedAt) so
+    // the corrective path can recognize this as a user-initiated delete.
+    final tombstoneStart = DateTime(2026, 4, 1, 12);
+    final originalDeleteStartedAt = DateTime.utc(2026, 4, 1, 13)
+        .millisecondsSinceEpoch;
+    await db.frontingSessionsDao.insertSession(
+      FrontingSessionsCompanion.insert(
+        id: 'tombstone-id',
+        startTime: tombstoneStart,
+        memberId: const Value('local-member-id'),
+        pluralkitUuid: const Value('X'),
+        isDeleted: const Value(true),
+        deleteIntentEpoch: const Value(0),
+        deletePushStartedAt: Value(originalDeleteStartedAt),
+      ),
+    );
+
+    final activeBefore = await db.frontingSessionsDao.getAllSessions();
+    expect(activeBefore, isEmpty);
+
+    // -- Build the service with real Drift repos (sync handle = null) ---
+    final memberRepo = DriftMemberRepository(db.membersDao, null);
+    final sessionRepo = DriftFrontingSessionRepository(
+      db.frontingSessionsDao,
+      null,
+    );
+
+    final fakeClient = _FakePluralKitClient(
+      switchesToReturn: [
+        PKSwitch(
+          id: 'X',
+          timestamp: DateTime.utc(2026, 4, 2, 9),
+          members: const ['pk-short-id'],
         ),
-      );
+      ],
+    );
 
-      // Sanity: getAllSessions filters tombstones, so the precompute set
-      // inside `performFullImport` will MISS this row — that's the whole
-      // reason the catch-site has to handle the unique-constraint throw.
-      final activeBefore = await db.frontingSessionsDao.getAllSessions();
-      expect(activeBefore, isEmpty);
+    final service = PluralKitSyncService(
+      memberRepository: memberRepo,
+      frontingSessionRepository: sessionRepo,
+      syncDao: db.pluralKitSyncDao,
+      secureStorage: const FlutterSecureStorage(),
+      tokenOverride: 'test-token',
+      clientFactory: (_) => fakeClient,
+    );
 
-      // -- Build the service with real Drift repos (sync handle = null) ---
-      final memberRepo = DriftMemberRepository(db.membersDao, null);
-      final sessionRepo = DriftFrontingSessionRepository(
-        db.frontingSessionsDao,
-        null,
-      );
+    // -- The act --------------------------------------------------------
+    // Use the one-time-import path so we get the result struct back; the
+    // corrective entrant collision branch is identical to performFullImport.
+    final result = await service.performOneTimeFullImport(token: 'test-token');
 
-      final fakeClient = _FakePluralKitClient(
-        switchesToReturn: [
-          PKSwitch(
-            id: 'X',
-            timestamp: DateTime.utc(2026, 4, 2, 9),
-            members: const ['pk-short-id'],
-          ),
-        ],
-      );
+    // -- Assertions -----------------------------------------------------
+    expect(
+      service.state.syncError,
+      isNull,
+      reason: 'preserving a tombstone is not an error condition',
+    );
 
-      final service = PluralKitSyncService(
-        memberRepository: memberRepo,
-        frontingSessionRepository: sessionRepo,
-        syncDao: db.pluralKitSyncDao,
-        secureStorage: const FlutterSecureStorage(),
-        tokenOverride: 'test-token',
-        clientFactory: (_) => fakeClient,
-      );
+    // PR E2: the tombstone was preserved, not resurrected.
+    final allRows = await (db.select(
+      db.frontingSessions,
+    )..where((s) => s.id.equals('tombstone-id'))).get();
+    expect(allRows, hasLength(1));
+    final preserved = allRows.single;
+    expect(
+      preserved.isDeleted,
+      isTrue,
+      reason: 'corrective import must NOT clear is_deleted on a row whose '
+          'deleteIntentEpoch is non-null (user explicitly deleted this row)',
+    );
+    expect(
+      preserved.deleteIntentEpoch,
+      0,
+      reason: 'deleteIntentEpoch must remain populated so the queued '
+          'PluralKit DELETE still pushes',
+    );
+    expect(
+      preserved.deletePushStartedAt,
+      originalDeleteStartedAt,
+      reason: 'deletePushStartedAt is left intact (R6 lease unchanged)',
+    );
+    expect(
+      preserved.pluralkitUuid,
+      'X',
+      reason: 'PK link is left intact for the eventual DELETE push',
+    );
 
-      // -- The act --------------------------------------------------------
-      // Without the fix this throws SqliteException(2067) when _importSwitch
-      // tries to INSERT a session with pluralkit_uuid='X' and the partial
-      // unique index fires against the tombstone.
-      await service.performFullImport();
-
-      // -- Assertions -----------------------------------------------------
-      expect(
-        service.state.syncError,
-        isNull,
-        reason:
-            'Tombstone collision must be absorbed by the unique-constraint '
-            'helper, not surface as a sync error',
-      );
-
-      // The original tombstone is unchanged.
-      final allRows = await (db.select(
-        db.frontingSessions,
-      )..where((s) => s.id.equals('tombstone-id'))).get();
-      expect(allRows, hasLength(1));
-      final tombstone = allRows.single;
-      expect(tombstone.isDeleted, isTrue);
-      expect(tombstone.pluralkitUuid, 'X');
-      expect(tombstone.startTime, tombstoneStart);
-
-      // No new live row was created with the same pluralkit_uuid. (The
-      // catch site treats a unique-constraint violation as a duplicate, so
-      // the import should noop on this switch rather than insert.)
-      final liveRowsWithSamePkUuid = await (db.select(db.frontingSessions)
-            ..where(
-              (s) =>
-                  s.pluralkitUuid.equals('X') & s.isDeleted.equals(false),
+    // No live row was created — corrective path skipped the resurrection.
+    final liveRowsWithSamePkUuid =
+        await (db.select(db.frontingSessions)..where(
+              (s) => s.pluralkitUuid.equals('X') & s.isDeleted.equals(false),
             ))
-          .get();
-      expect(
-        liveRowsWithSamePkUuid,
-        isEmpty,
-        reason:
-            'The catch site should swallow the 2067, not let a new live row '
-            'land alongside the tombstone',
-      );
-    },
-  );
+            .get();
+    expect(
+      liveRowsWithSamePkUuid,
+      isEmpty,
+      reason:
+          'No live row should exist — the user tombstone was preserved, '
+          'not resurrected, and no parallel row was inserted',
+    );
+
+    // The result struct surfaces the count for the import-result UI.
+    expect(
+      result.tombstonePreservedCount,
+      1,
+      reason: 'tombstonePreservedCount must report the preserved tombstone',
+    );
+    expect(result.switchesImported, 1);
+    expect(result.unmappedMemberReferences, 0);
+    expect(result.zeroLengthCloseSkipped, 0);
+  });
+
+  test('corrective re-import without explicit delete intent still '
+      'resurrects (rescue/migration tombstone path)', () async {
+    // Companion to the test above. A tombstone with `deleteIntentEpoch ==
+    // null` is *not* a user-initiated delete — it's a soft-delete left
+    // behind by the rescue/migration path that explicitly relies on
+    // corrective re-import to undelete with API truth. PR E2 must keep
+    // that path working.
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+
+    await db.membersDao.upsertMember(
+      MembersCompanion.insert(
+        id: 'local-member-id',
+        name: 'Test Member',
+        createdAt: DateTime(2026, 1, 1),
+        pluralkitId: const Value('pk-short-id'),
+        pluralkitUuid: const Value('pk-member-uuid'),
+      ),
+    );
+
+    await db.frontingSessionsDao.insertSession(
+      FrontingSessionsCompanion.insert(
+        id: 'tombstone-id',
+        startTime: DateTime(2026, 4, 1, 12),
+        memberId: const Value('local-member-id'),
+        pluralkitUuid: const Value('X'),
+        isDeleted: const Value(true),
+        // No deleteIntentEpoch / deletePushStartedAt: this is a
+        // migration-style tombstone, not a user delete.
+      ),
+    );
+
+    final memberRepo = DriftMemberRepository(db.membersDao, null);
+    final sessionRepo = DriftFrontingSessionRepository(
+      db.frontingSessionsDao,
+      null,
+    );
+    final fakeClient = _FakePluralKitClient(
+      switchesToReturn: [
+        PKSwitch(
+          id: 'X',
+          timestamp: DateTime.utc(2026, 4, 2, 9),
+          members: const ['pk-short-id'],
+        ),
+      ],
+    );
+    final service = PluralKitSyncService(
+      memberRepository: memberRepo,
+      frontingSessionRepository: sessionRepo,
+      syncDao: db.pluralKitSyncDao,
+      secureStorage: const FlutterSecureStorage(),
+      tokenOverride: 'test-token',
+      clientFactory: (_) => fakeClient,
+    );
+
+    final result = await service.performOneTimeFullImport(token: 'test-token');
+
+    // No user intent → corrective path resurrects (existing behavior).
+    final row = await db.frontingSessionsDao.getSessionById('tombstone-id');
+    expect(row, isNotNull);
+    expect(row!.isDeleted, isFalse);
+    expect(
+      row.startTime.millisecondsSinceEpoch,
+      DateTime.utc(2026, 4, 2, 9).millisecondsSinceEpoch,
+    );
+    expect(
+      result.tombstonePreservedCount,
+      0,
+      reason: 'no preserved tombstone — this row had no user-delete intent',
+    );
+  });
 }

@@ -87,7 +87,8 @@ String _exportJson({
     'version': '3.0',
     'appName': 'Prism Plurality',
     'exportDate': now,
-    'totalRecords': headmates.length + frontSessions.length + sleepSessions.length,
+    'totalRecords':
+        headmates.length + frontSessions.length + sleepSessions.length,
     'headmates': headmates,
     'frontSessions': frontSessions,
     'sleepSessions': sleepSessions,
@@ -117,9 +118,9 @@ Map<String, dynamic> _headmateJson({
     'displayOrder': 0,
     'isAdmin': false,
     'customColorEnabled': false,
-    if (pluralkitUuid != null) 'pluralkitUuid': pluralkitUuid,
-    if (pluralkitId != null) 'pluralkitId': pluralkitId,
-    if (parentSystemId != null) 'parentSystemId': parentSystemId,
+    'pluralkitUuid': ?pluralkitUuid,
+    'pluralkitId': ?pluralkitId,
+    'parentSystemId': ?parentSystemId,
   };
 }
 
@@ -132,19 +133,14 @@ Map<String, dynamic> _frontJson({
   return {
     'id': id,
     'startTime': now,
-    if (headmateId != null) 'headmateId': headmateId,
-    if (pluralkitUuid != null) 'pluralkitUuid': pluralkitUuid,
+    'headmateId': ?headmateId,
+    'pluralkitUuid': ?pluralkitUuid,
   };
 }
 
 Map<String, dynamic> _sleepJson({required String id}) {
   final now = DateTime(2026, 4, 25, 23, 0, 0).toUtc().toIso8601String();
-  return {
-    'id': id,
-    'startTime': now,
-    'quality': 0,
-    'isHealthKitImport': false,
-  };
+  return {'id': id, 'startTime': now, 'quality': 0, 'isHealthKitImport': false};
 }
 
 void main() {
@@ -161,149 +157,155 @@ void main() {
       await db.close();
     });
 
-    test(
-      'fronting session import skips a row whose pluralkit_uuid collides '
-      'with a soft-deleted local tombstone',
-      () async {
-        // Seed a tombstone carrying pluralkit_uuid='X'. The partial unique
-        // index covers tombstones, so a future INSERT with the same UUID
-        // would throw SQLITE_CONSTRAINT_UNIQUE without the fix.
-        await db.frontingSessionsDao.insertSession(
-          FrontingSessionsCompanion.insert(
-            id: 'tombstone-id',
-            startTime: DateTime(2026, 4, 1, 12),
-            memberId: const drift.Value('local-member-id'),
-            pluralkitUuid: const drift.Value('X'),
-            isDeleted: const drift.Value(true),
-            deleteIntentEpoch: const drift.Value(0),
+    test('fronting session import skips a row whose pluralkit_uuid collides '
+        'with a soft-deleted local tombstone', () async {
+      // Seed a tombstone carrying pluralkit_uuid='X'. The partial unique
+      // index covers tombstones, so a future INSERT with the same UUID
+      // would throw SQLITE_CONSTRAINT_UNIQUE without the fix.
+      await db.frontingSessionsDao.insertSession(
+        FrontingSessionsCompanion.insert(
+          id: 'tombstone-id',
+          startTime: DateTime(2026, 4, 1, 12),
+          memberId: const drift.Value('local-member-id'),
+          pluralkitUuid: const drift.Value('X'),
+          isDeleted: const drift.Value(true),
+          deleteIntentEpoch: const drift.Value(0),
+        ),
+      );
+
+      // Sanity: getAllSessions filters tombstones. The bug is that the
+      // importer used to dedup off this active-only set.
+      final activeBefore = await db.frontingSessionsDao.getAllSessions();
+      expect(activeBefore, isEmpty);
+
+      final json = _exportJson(
+        frontSessions: [
+          _frontJson(
+            id: 'imported-id',
+            headmateId: 'local-member-id',
+            pluralkitUuid: 'X',
           ),
-        );
+        ],
+      );
 
-        // Sanity: getAllSessions filters tombstones. The bug is that the
-        // importer used to dedup off this active-only set.
-        final activeBefore = await db.frontingSessionsDao.getAllSessions();
-        expect(activeBefore, isEmpty);
+      final result = await importService.importData(json);
 
-        final json = _exportJson(
-          frontSessions: [
-            _frontJson(
-              id: 'imported-id',
-              headmateId: 'local-member-id',
-              pluralkitUuid: 'X',
-            ),
-          ],
-        );
+      // The collision was caught at the dedup layer — no insert attempted,
+      // counter reflects 0 created, the import transaction committed
+      // (rather than rolled back), and the tombstone is unchanged.
+      expect(result.frontSessionsCreated, 0);
 
-        final result = await importService.importData(json);
-
-        // The collision was caught at the dedup layer — no insert attempted,
-        // counter reflects 0 created, the import transaction committed
-        // (rather than rolled back), and the tombstone is unchanged.
-        expect(result.frontSessionsCreated, 0);
-
-        final liveWithSamePkUuid = await (db.select(db.frontingSessions)
-              ..where(
-                (s) =>
-                    s.pluralkitUuid.equals('X') & s.isDeleted.equals(false),
+      final liveWithSamePkUuid =
+          await (db.select(db.frontingSessions)..where(
+                (s) => s.pluralkitUuid.equals('X') & s.isDeleted.equals(false),
               ))
-            .get();
-        expect(liveWithSamePkUuid, isEmpty);
+              .get();
+      expect(liveWithSamePkUuid, isEmpty);
 
-        final tombstone = await (db.select(
-          db.frontingSessions,
-        )..where((s) => s.id.equals('tombstone-id'))).getSingle();
-        expect(tombstone.isDeleted, isTrue);
-        expect(tombstone.pluralkitUuid, 'X');
-      },
-    );
+      final tombstone = await (db.select(
+        db.frontingSessions,
+      )..where((s) => s.id.equals('tombstone-id'))).getSingle();
+      expect(tombstone.isDeleted, isTrue);
+      expect(tombstone.pluralkitUuid, 'X');
+    });
 
-    test(
-      'member import skips a row whose pluralkitUuid collides with a '
-      'soft-deleted local tombstone',
-      () async {
-        // Seed a tombstoned member carrying pluralkit_uuid='m1'.
-        await db.into(db.members).insert(
-          MembersCompanion.insert(
-            id: 'tombstoned-member',
-            name: 'Old Name',
-            emoji: const drift.Value('🔴'),
-            createdAt: DateTime(2026, 1, 1),
-            pluralkitUuid: const drift.Value('m1'),
-            isDeleted: const drift.Value(true),
-          ),
-        );
-
-        final json = _exportJson(
-          headmates: [
-            _headmateJson(
-              id: 'imported-member',
-              name: 'New Name',
-              pluralkitUuid: 'm1',
+    test('member import skips a row whose pluralkitUuid collides with a '
+        'soft-deleted local tombstone', () async {
+      // Seed a tombstoned member carrying pluralkit_uuid='m1'.
+      await db
+          .into(db.members)
+          .insert(
+            MembersCompanion.insert(
+              id: 'tombstoned-member',
+              name: 'Old Name',
+              emoji: const drift.Value('🔴'),
+              createdAt: DateTime(2026, 1, 1),
+              pluralkitUuid: const drift.Value('m1'),
+              isDeleted: const drift.Value(true),
             ),
-          ],
-        );
+          );
 
-        final result = await importService.importData(json);
+      final json = _exportJson(
+        headmates: [
+          _headmateJson(
+            id: 'imported-member',
+            name: 'New Name',
+            pluralkitUuid: 'm1',
+          ),
+        ],
+      );
 
-        expect(result.membersCreated, 0);
+      final result = await importService.importData(json);
 
-        final liveWithSamePkUuid = await (db.select(db.members)
-              ..where(
+      expect(result.membersCreated, 0);
+
+      final liveWithSamePkUuid =
+          await (db.select(db.members)..where(
                 (m) => m.pluralkitUuid.equals('m1') & m.isDeleted.equals(false),
               ))
-            .get();
-        expect(liveWithSamePkUuid, isEmpty);
+              .get();
+      expect(liveWithSamePkUuid, isEmpty);
 
-        final tombstone = await (db.select(
-          db.members,
-        )..where((m) => m.id.equals('tombstoned-member'))).getSingle();
-        expect(tombstone.isDeleted, isTrue);
-        expect(tombstone.pluralkitUuid, 'm1');
-      },
-    );
+      final tombstone = await (db.select(
+        db.members,
+      )..where((m) => m.id.equals('tombstoned-member'))).getSingle();
+      expect(tombstone.isDeleted, isTrue);
+      expect(tombstone.pluralkitUuid, 'm1');
+    });
 
-    test(
-      'member import skips a row whose pluralkitId collides with a '
-      'soft-deleted local tombstone',
-      () async {
-        await db.into(db.members).insert(
-          MembersCompanion.insert(
-            id: 'tombstoned-member',
-            name: 'Old Name',
-            emoji: const drift.Value('🔴'),
-            createdAt: DateTime(2026, 1, 1),
-            pluralkitId: const drift.Value('abcde'),
-            isDeleted: const drift.Value(true),
-          ),
-        );
-
-        final json = _exportJson(
-          headmates: [
-            _headmateJson(
-              id: 'imported-member',
-              pluralkitId: 'abcde',
+    test('member import skips a row whose pluralkitId collides with a '
+        'soft-deleted local tombstone', () async {
+      await db
+          .into(db.members)
+          .insert(
+            MembersCompanion.insert(
+              id: 'tombstoned-member',
+              name: 'Old Name',
+              emoji: const drift.Value('🔴'),
+              createdAt: DateTime(2026, 1, 1),
+              pluralkitId: const drift.Value('abcde'),
+              isDeleted: const drift.Value(true),
             ),
-          ],
-        );
+          );
 
-        final result = await importService.importData(json);
+      final json = _exportJson(
+        headmates: [_headmateJson(id: 'imported-member', pluralkitId: 'abcde')],
+      );
 
-        expect(result.membersCreated, 0);
+      final result = await importService.importData(json);
 
-        final liveWithSamePkId = await (db.select(db.members)
-              ..where(
-                (m) => m.pluralkitId.equals('abcde') & m.isDeleted.equals(false),
+      expect(result.membersCreated, 0);
+
+      final liveWithSamePkId =
+          await (db.select(db.members)..where(
+                (m) =>
+                    m.pluralkitId.equals('abcde') & m.isDeleted.equals(false),
               ))
-            .get();
-        expect(liveWithSamePkId, isEmpty);
-      },
-    );
+              .get();
+      expect(liveWithSamePkId, isEmpty);
+    });
 
     test(
       'fronting session import succeeds when no tombstone collision exists',
       () async {
         // Tombstone with pluralkit_uuid='X', import row with 'Y' — no
         // collision, the import row should land normally.
+        //
+        // Seed the local member with a pluralkit_uuid so the rescue
+        // importer's empty-pkMemberIdsJson fallback can derive the
+        // canonical (switch, member) deterministic id.
+        // Without a local pluralkit_uuid the rescue row is correctly
+        // skipped — that's covered by other tests.
+        await db
+            .into(db.members)
+            .insert(
+              MembersCompanion.insert(
+                id: 'local-member-id',
+                name: 'Local',
+                createdAt: DateTime(2026, 1, 1),
+                pluralkitUuid: const drift.Value('member-pk-uuid'),
+              ),
+            );
         await db.frontingSessionsDao.insertSession(
           FrontingSessionsCompanion.insert(
             id: 'tombstone-id',
@@ -328,12 +330,16 @@ void main() {
 
         expect(result.frontSessionsCreated, 1);
 
-        final live = await (db.select(db.frontingSessions)
-              ..where((s) => s.isDeleted.equals(false)))
-            .get();
+        final live = await (db.select(
+          db.frontingSessions,
+        )..where((s) => s.isDeleted.equals(false))).get();
         expect(live, hasLength(1));
-        expect(live.single.id, 'imported-id');
+        // Row id is now the deterministic v5(switchUuid, memberPkUuid)
+        // — see derivePkSessionId — not the legacy `imported-id`. The
+        // legacy id would have produced two rows on a future API
+        // re-import, defeating the field-LWW correction contract.
         expect(live.single.pluralkitUuid, 'Y');
+        expect(live.single.memberId, 'local-member-id');
       },
     );
 
@@ -345,13 +351,14 @@ void main() {
           FrontingSessionsCompanion.insert(
             id: 'shared-id',
             startTime: DateTime(2026, 4, 1, 12),
+            // Satisfies the v14 CHECK
+            // (session_type != 0 OR member_id IS NOT NULL).
+            memberId: const drift.Value('local-member-id'),
             isDeleted: const drift.Value(true),
           ),
         );
 
-        final json = _exportJson(
-          frontSessions: [_frontJson(id: 'shared-id')],
-        );
+        final json = _exportJson(frontSessions: [_frontJson(id: 'shared-id')]);
 
         final result = await importService.importData(json);
 
@@ -364,39 +371,37 @@ void main() {
       },
     );
 
-    test(
-      'sleep session import skips a row whose id collides with a deleted '
-      'normal-session tombstone (table-wide id dedup)',
-      () async {
-        // Sleep and normal share the same primary-key namespace in
-        // `fronting_sessions`. A deleted normal-session tombstone with the
-        // same id as an imported sleep row used to slip past the
-        // sleep-only dedup and hit the row-level primary key.
-        await db.frontingSessionsDao.insertSession(
-          FrontingSessionsCompanion.insert(
-            id: 'shared-id',
-            startTime: DateTime(2026, 4, 1, 12),
-            sessionType: const drift.Value(0), // normal
-            isDeleted: const drift.Value(true),
-          ),
-        );
+    test('sleep session import skips a row whose id collides with a deleted '
+        'normal-session tombstone (table-wide id dedup)', () async {
+      // Sleep and normal share the same primary-key namespace in
+      // `fronting_sessions`. A deleted normal-session tombstone with the
+      // same id as an imported sleep row used to slip past the
+      // sleep-only dedup and hit the row-level primary key.
+      await db.frontingSessionsDao.insertSession(
+        FrontingSessionsCompanion.insert(
+          id: 'shared-id',
+          startTime: DateTime(2026, 4, 1, 12),
+          sessionType: const drift.Value(0), // normal
+          // Satisfies the v14 CHECK
+          // (session_type != 0 OR member_id IS NOT NULL).
+          memberId: const drift.Value('local-member-id'),
+          isDeleted: const drift.Value(true),
+        ),
+      );
 
-        final json = _exportJson(
-          sleepSessions: [_sleepJson(id: 'shared-id')],
-        );
+      final json = _exportJson(sleepSessions: [_sleepJson(id: 'shared-id')]);
 
-        final result = await importService.importData(json);
+      final result = await importService.importData(json);
 
-        expect(result.sleepSessionsCreated, 0);
+      expect(result.sleepSessionsCreated, 0);
 
-        final allRows = await db.select(db.frontingSessions).get();
-        expect(allRows, hasLength(1));
-        // Tombstone is unchanged: still session_type=0 (normal) and
-        // is_deleted=true. The sleep import did not flip its type.
-        expect(allRows.single.sessionType, 0);
-        expect(allRows.single.isDeleted, isTrue);
-      },
-    );
+      final allRows = await db.select(db.frontingSessions).get();
+      expect(allRows, hasLength(1));
+      // Tombstone is unchanged: still session_type=0 (normal) and
+      // is_deleted=true. The sleep import did not flip its type.
+      expect(allRows.single.sessionType, 0);
+      expect(allRows.single.isDeleted, isTrue);
+    });
 
     test(
       'second-pass parentSystemId update does not revive a member tombstone',
@@ -406,23 +411,21 @@ void main() {
         // used to call updateMember on the tombstone (because
         // getMemberById doesn't filter is_deleted), which would emit a
         // sync op with is_deleted=false and effectively revive the row.
-        await db.into(db.members).insert(
-          MembersCompanion.insert(
-            id: 'M',
-            name: 'Deleted',
-            emoji: const drift.Value('🔴'),
-            createdAt: DateTime(2026, 1, 1),
-            isDeleted: const drift.Value(true),
-          ),
-        );
+        await db
+            .into(db.members)
+            .insert(
+              MembersCompanion.insert(
+                id: 'M',
+                name: 'Deleted',
+                emoji: const drift.Value('🔴'),
+                createdAt: DateTime(2026, 1, 1),
+                isDeleted: const drift.Value(true),
+              ),
+            );
 
         final json = _exportJson(
           headmates: [
-            _headmateJson(
-              id: 'M',
-              name: 'Imported',
-              parentSystemId: 'P',
-            ),
+            _headmateJson(id: 'M', name: 'Imported', parentSystemId: 'P'),
             _headmateJson(id: 'P', name: 'Parent System'),
           ],
         );

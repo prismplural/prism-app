@@ -783,6 +783,22 @@
   "@pinLockBiometricDisabledSubtitle": {
     "description": "Biometric unlock subtitle when PIN is not set"
   },
+  "pinLockUnlockOptionsSection": "Unlock Options",
+  "@pinLockUnlockOptionsSection": {
+    "description": "Unlock options section title in PIN lock settings"
+  },
+  "pinLockHardSyncLockTitle": "Require recovery for sync",
+  "@pinLockHardSyncLockTitle": {
+    "description": "Title for optional hard sync lock toggle"
+  },
+  "pinLockHardSyncLockSubtitle": "When the app locks, forget the sync quick-unlock key. Background sync pauses until you enter your PIN and recovery phrase.",
+  "@pinLockHardSyncLockSubtitle": {
+    "description": "Subtitle for optional hard sync lock toggle when PIN lock is set"
+  },
+  "pinLockHardSyncLockDisabledSubtitle": "Enable PIN Lock to require recovery after app lock.",
+  "@pinLockHardSyncLockDisabledSubtitle": {
+    "description": "Subtitle for optional hard sync lock toggle when PIN lock is not set"
+  },
   "pinLockAutoLockSection": "Auto-Lock",
   "@pinLockAutoLockSection": {
     "description": "Auto-lock section title"
@@ -978,9 +994,14 @@
       }
     }
   },
-  "resetDataConfirmAll": "This will permanently delete all your data including members, fronting sessions, messages, polls, habits, sleep data, and settings. This action cannot be undone.",
+  "resetDataConfirmAll": "This will permanently delete all your data including {termPluralLower}, fronting sessions, messages, polls, habits, sleep data, and settings. This action cannot be undone.",
   "@resetDataConfirmAll": {
-    "description": "Confirmation message when resetting all data"
+    "description": "Confirmation message when resetting all data",
+    "placeholders": {
+      "termPluralLower": {
+        "type": "String"
+      }
+    }
   },
   "resetDataConfirmSync": "This keeps your local app data, but removes sync keys, relay configuration, device identity, and sync history from this device. You will need to set up sync again afterward.",
   "@resetDataConfirmSync": {
@@ -1199,9 +1220,47 @@
   "@statisticsDurationLongest": {
     "description": "Label for longest session in the duration stats card"
   },
-  "statisticsFrontingTimeByMember": "Fronting Time by Member",
+  "statisticsFrontingTimeByMember": "Per-{term} minutes",
   "@statisticsFrontingTimeByMember": {
-    "description": "Title for the member comparison chart"
+    "description": "Title for the per-member ranking chart. {term}-minutes (e.g., 'member-minutes', 'headmate-minutes'): when two co-front for an hour, that's two {term}-hours — same math as wall-clock-per-fronter, more honest framing. Mirrors the existing 'Per-{term} Colors' convention in appearance settings.",
+    "placeholders": {
+      "term": {
+        "type": "String",
+        "description": "Singular lowercase form of the user's chosen terminology (e.g., 'member', 'headmate')."
+      }
+    }
+  },
+  "statisticsMemberMinutesAxisHint": "% of system {term}-minutes",
+  "@statisticsMemberMinutesAxisHint": {
+    "description": "Subtitle / accessibility hint clarifying that percentages are share of total {term}-minutes, not wall-clock fronting time.",
+    "placeholders": {
+      "term": {
+        "type": "String",
+        "description": "Singular lowercase form of the user's chosen terminology (e.g., 'member', 'headmate')."
+      }
+    }
+  },
+  "statisticsMedianSessionLabel": "Median Session",
+  "@statisticsMedianSessionLabel": {
+    "description": "Statistics overview stat label: median session duration"
+  },
+  "statisticsGapTimeLabel": "Gap Time",
+  "@statisticsGapTimeLabel": {
+    "description": "Statistics overview stat label: total gap time between fronting sessions"
+  },
+  "statisticsSwitchesPerDayLabel": "Switches/Day",
+  "@statisticsSwitchesPerDayLabel": {
+    "description": "Statistics overview stat label: average number of fronting switches per day"
+  },
+  "statisticsUniqueFrontersLabel": "Unique {termPlural}",
+  "@statisticsUniqueFrontersLabel": {
+    "description": "Statistics overview stat label: count of unique fronters in the period. Uses the user's terminology for members.",
+    "placeholders": {
+      "termPlural": {
+        "type": "String",
+        "description": "Capitalised plural form of the user's chosen terminology (e.g., 'Members', 'Headmates')."
+      }
+    }
   },
   "statisticsActiveMembersBreakdown": "{active} active, {inactive} inactive",
   "@statisticsActiveMembersBreakdown": {
@@ -1340,14 +1399,6 @@
   "@debugTools": {
     "description": "Debug: Tools section title"
   },
-  "debugTimelineSanitization": "Timeline Sanitization",
-  "@debugTimelineSanitization": {
-    "description": "Debug tools: timeline sanitization title"
-  },
-  "debugTimelineSanitizationSubtitle": "Scan for and fix timeline issues",
-  "@debugTimelineSanitizationSubtitle": {
-    "description": "Debug tools: timeline sanitization subtitle"
-  },
   "debugDevice": "Device",
   "@debugDevice": {
     "description": "Debug: Device section title"
@@ -1380,9 +1431,14 @@
   "@debugResetDatabaseConfirm2Title": {
     "description": "Second confirmation title for DB reset"
   },
-  "debugResetDatabaseConfirm2Message": "This will permanently erase all members, sessions, conversations, messages, and polls. There is no undo.",
+  "debugResetDatabaseConfirm2Message": "This will permanently erase all {termPluralLower}, sessions, conversations, messages, and polls. There is no undo.",
   "@debugResetDatabaseConfirm2Message": {
-    "description": "Second confirmation message for DB reset"
+    "description": "Second confirmation message for DB reset",
+    "placeholders": {
+      "termPluralLower": {
+        "type": "String"
+      }
+    }
   },
   "debugDeleteEverything": "Delete Everything",
   "@debugDeleteEverything": {
@@ -1488,9 +1544,14 @@
   "@systemInfoChangeAvatar": {
     "description": "Avatar action: change avatar"
   },
-  "memberChangeAvatar": "Change member avatar",
+  "memberChangeAvatar": "Change {termSingularLower} avatar",
   "@memberChangeAvatar": {
-    "description": "Semantic label for the member avatar change button"
+    "description": "Semantic label for the member avatar change button",
+    "placeholders": {
+      "termSingularLower": {
+        "type": "String"
+      }
+    }
   },
   "avatarCropTitle": "Crop avatar",
   "@avatarCropTitle": {
@@ -1503,6 +1564,134 @@
   "memberRemoveAvatar": "Remove photo",
   "@memberRemoveAvatar": {
     "description": "Button label to clear the saved member profile photo and revert to emoji"
+  },
+  "memberProfileHeaderSectionTitle": "Profile header",
+  "@memberProfileHeaderSectionTitle": {
+    "description": "Section title for member profile header settings"
+  },
+  "memberProfileHeaderSectionDescription": "Choose the image source and layout for this profile.",
+  "@memberProfileHeaderSectionDescription": {
+    "description": "Short description for member profile header settings"
+  },
+  "memberProfileHeaderVisibleTitle": "Show profile header",
+  "@memberProfileHeaderVisibleTitle": {
+    "description": "Toggle label controlling whether a member profile header banner is visible"
+  },
+  "memberProfileHeaderVisibleSubtitle": "Keeps the image and source saved while hiding the banner.",
+  "@memberProfileHeaderVisibleSubtitle": {
+    "description": "Helper text for the member profile header visibility toggle"
+  },
+  "memberProfileHeaderSourcePluralKit": "PluralKit",
+  "@memberProfileHeaderSourcePluralKit": {
+    "description": "Profile header source option label for PluralKit"
+  },
+  "memberProfileHeaderSourcePrism": "Prism",
+  "@memberProfileHeaderSourcePrism": {
+    "description": "Profile header source option label for Prism"
+  },
+  "memberProfileHeaderSourcePluralKitHelper": "Refreshed from PluralKit when Prism syncs.",
+  "@memberProfileHeaderSourcePluralKitHelper": {
+    "description": "Helper text shown when the PluralKit profile header source is selected"
+  },
+  "memberProfileHeaderSourcePrismHelper": "Private to Prism. Does not update PluralKit.",
+  "@memberProfileHeaderSourcePrismHelper": {
+    "description": "Helper text shown when the Prism profile header source is selected"
+  },
+  "memberProfileHeaderPluralKitUnavailable": "PluralKit appears after this member has a linked or cached banner.",
+  "@memberProfileHeaderPluralKitUnavailable": {
+    "description": "Explanation shown when PluralKit cannot be selected as a profile header source"
+  },
+  "memberProfileHeaderChangeImage": "Change image",
+  "@memberProfileHeaderChangeImage": {
+    "description": "Button label to choose a Prism-owned profile header image"
+  },
+  "memberProfileHeaderRemoveImage": "Remove image",
+  "@memberProfileHeaderRemoveImage": {
+    "description": "Button label to remove a Prism-owned profile header image"
+  },
+  "memberProfileHeaderLayoutLabel": "Layout",
+  "@memberProfileHeaderLayoutLabel": {
+    "description": "Label for the member profile header layout selector"
+  },
+  "memberProfileHeaderLayoutCompact": "Compact",
+  "@memberProfileHeaderLayoutCompact": {
+    "description": "Profile header layout option that preserves the compact member row"
+  },
+  "memberProfileHeaderLayoutClassic": "Classic",
+  "@memberProfileHeaderLayoutClassic": {
+    "description": "Profile header layout option with a wide banner and overlapping avatar"
+  },
+  "memberProfileHeaderCropTitle": "Crop profile header",
+  "@memberProfileHeaderCropTitle": {
+    "description": "Title for the native profile header cropper"
+  },
+  "memberProfileHeaderProcessingError": "Could not process that image.",
+  "@memberProfileHeaderProcessingError": {
+    "description": "Toast message shown when profile header image processing fails"
+  },
+  "memberNameStyleTooltip": "Edit name style",
+  "@memberNameStyleTooltip": {
+    "description": "Tooltip for the button that opens member name style controls"
+  },
+  "memberNameStyleDialogTitle": "Name style",
+  "@memberNameStyleDialogTitle": {
+    "description": "Title of the member name style dialog"
+  },
+  "memberNameStyleFontLabel": "Font",
+  "@memberNameStyleFontLabel": {
+    "description": "Label for the member name font selector"
+  },
+  "memberNameStyleFontDefault": "Default",
+  "@memberNameStyleFontDefault": {
+    "description": "Default member name font option"
+  },
+  "memberNameStyleFontDisplay": "Display",
+  "@memberNameStyleFontDisplay": {
+    "description": "Display member name font option"
+  },
+  "memberNameStyleFontSerif": "Serif",
+  "@memberNameStyleFontSerif": {
+    "description": "Serif member name font option"
+  },
+  "memberNameStyleFontMono": "Mono",
+  "@memberNameStyleFontMono": {
+    "description": "Monospace member name font option"
+  },
+  "memberNameStyleFontRounded": "Rounded",
+  "@memberNameStyleFontRounded": {
+    "description": "Rounded member name font option"
+  },
+  "memberNameStyleStyleLabel": "Style",
+  "@memberNameStyleStyleLabel": {
+    "description": "Label for member name bold and italic toggles"
+  },
+  "memberNameStyleBold": "Bold",
+  "@memberNameStyleBold": {
+    "description": "Bold toggle label for member name style"
+  },
+  "memberNameStyleItalic": "Italic",
+  "@memberNameStyleItalic": {
+    "description": "Italic toggle label for member name style"
+  },
+  "memberNameStyleColorLabel": "Color",
+  "@memberNameStyleColorLabel": {
+    "description": "Label for the member name color selector"
+  },
+  "memberNameStyleColorDefault": "Default",
+  "@memberNameStyleColorDefault": {
+    "description": "Default member name color option"
+  },
+  "memberNameStyleColorAccent": "Accent",
+  "@memberNameStyleColorAccent": {
+    "description": "Member accent color option for member name style"
+  },
+  "memberNameStyleColorCustom": "Custom",
+  "@memberNameStyleColorCustom": {
+    "description": "Custom color option for member name style"
+  },
+  "memberNameStyleReset": "Reset",
+  "@memberNameStyleReset": {
+    "description": "Button label to reset member name style to defaults"
   },
   "systemInfoNameLabel": "Name",
   "@systemInfoNameLabel": {
@@ -1973,11 +2162,16 @@
   },
   "featureChatProxyTagAuthoring": "Use proxy tags to author messages",
   "@featureChatProxyTagAuthoring": {
-    "description": "Toggle title: use PluralKit proxy tags to author single messages"
+    "description": "Toggle title: use proxy tags to author single messages"
   },
-  "featureChatProxyTagAuthoringSubtitle": "Type a PluralKit proxy tag (e.g. A:) to author as that alter for one message. Case-sensitive.",
+  "featureChatProxyTagAuthoringSubtitle": "Type a proxy tag (e.g. A:) to author as that {termSingularLower} for one message. Case-sensitive.",
   "@featureChatProxyTagAuthoringSubtitle": {
-    "description": "Toggle subtitle: explains proxy-tag authoring, mentions PluralKit and case sensitivity"
+    "description": "Toggle subtitle: explains proxy-tag authoring and case sensitivity",
+    "placeholders": {
+      "termSingularLower": {
+        "type": "String"
+      }
+    }
   },
   "chatPostingAsProxy": "Posting as {name}",
   "@chatPostingAsProxy": {
@@ -2082,9 +2276,14 @@
   "@featureFrontingShowQuickFront": {
     "description": "Label for the show/hide Quick Front toggle in fronting settings"
   },
-  "featureFrontingShowQuickFrontSubtitle": "Show frequently fronting members as tap-and-hold shortcuts",
+  "featureFrontingShowQuickFrontSubtitle": "Show frequently fronting {termPluralLower} as tap-and-hold shortcuts",
   "@featureFrontingShowQuickFrontSubtitle": {
-    "description": "Subtitle for the show/hide Quick Front toggle"
+    "description": "Subtitle for the show/hide Quick Front toggle",
+    "placeholders": {
+      "termPluralLower": {
+        "type": "String"
+      }
+    }
   },
   "featureHabitsDescription": "Track recurring tasks and build streaks with your system {term}.",
   "@featureHabitsDescription": {
@@ -2244,22 +2443,53 @@
   "@frontingLoadingOlderSessions": {
     "description": "Accessibility announcement when loading older sessions on scroll"
   },
-  "frontingTimelineIssuesFound": "Timeline issues found",
-  "@frontingTimelineIssuesFound": {
-    "description": "Info banner title when timeline validation issues are detected"
-  },
-  "frontingTimelineIssuesBannerMessage": "{count, plural, =1{1 timeline issue found. Tap to review.} other{{count} timeline issues found. Tap to review.}}",
-  "@frontingTimelineIssuesBannerMessage": {
-    "description": "Info banner message showing timeline issue count",
+  "frontingAlwaysPresentLabel": "Always present · {duration}",
+  "@frontingAlwaysPresentLabel": {
+    "description": "Subtitle on the pinned 'always-present' header at the top of the home screen. The duration placeholder is a pre-formatted localized string like '2 weeks' or '3 hours'.",
     "placeholders": {
-      "count": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "frontingAlwaysPresentSemantics": "Always-present fronters: {names}, {duration}",
+  "@frontingAlwaysPresentSemantics": {
+    "description": "Single combined screen-reader announcement for the always-present pinned header. Names is a comma+ampersand-joined member list; duration is the same pre-formatted string used in the visible subtitle.",
+    "placeholders": {
+      "names": {
+        "type": "String"
+      },
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "frontingAlwaysPresentDurationWeeks": "{weeks, plural, =1{1 week} other{{weeks} weeks}}",
+  "@frontingAlwaysPresentDurationWeeks": {
+    "description": "Duration formatted in whole weeks for the always-present header.",
+    "placeholders": {
+      "weeks": {
         "type": "int"
       }
     }
   },
-  "frontingTimelineIssuesReview": "Review",
-  "@frontingTimelineIssuesReview": {
-    "description": "Button label in timeline issues banner"
+  "frontingAlwaysPresentDurationDays": "{days, plural, =1{1 day} other{{days} days}}",
+  "@frontingAlwaysPresentDurationDays": {
+    "description": "Duration formatted in whole days for the always-present header (used when under one week).",
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "frontingAlwaysPresentDurationHours": "{hours, plural, =1{1 hour} other{{hours} hours}}",
+  "@frontingAlwaysPresentDurationHours": {
+    "description": "Duration formatted in whole hours for the always-present header (used when under one day, only reachable for explicit-always-fronting members whose session just started).",
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
   },
   "frontingMenuWakeUpAs": "Wake Up As...",
   "@frontingMenuWakeUpAs": {
@@ -2402,6 +2632,14 @@
   "frontingSelectFronter": "Select Fronter",
   "@frontingSelectFronter": {
     "description": "Section header when selecting the primary fronter"
+  },
+  "frontingAddFrontModeAdditive": "Add as co-fronter",
+  "@frontingAddFrontModeAdditive": {
+    "description": "Add-front sheet segmented control: additive mode (joins existing fronts)"
+  },
+  "frontingAddFrontModeReplace": "Replace current",
+  "@frontingAddFrontModeReplace": {
+    "description": "Add-front sheet segmented control: replace mode (ends existing fronts, starts new)"
   },
   "frontingSelectMember": "Select {term}",
   "@frontingSelectMember": {
@@ -2565,6 +2803,39 @@
         "type": "Object"
       }
     }
+  },
+  "frontingEndSessionButton": "End session",
+  "@frontingEndSessionButton": {
+    "description": "Floating button label on active session detail to end the session"
+  },
+  "frontingEndSessionEndedToast": "Ended {member}'s session",
+  "@frontingEndSessionEndedToast": {
+    "description": "Toast confirming a fronting session was ended",
+    "placeholders": {
+      "member": {
+        "type": "String"
+      }
+    }
+  },
+  "frontingNextFronterTitle": "Who's fronting next?",
+  "@frontingNextFronterTitle": {
+    "description": "Title of dialog shown when ending the only active session"
+  },
+  "frontingNextFronterBody": "No one will be fronting after this.",
+  "@frontingNextFronterBody": {
+    "description": "Body of next-fronter dialog"
+  },
+  "frontingNextFronterPick": "Pick a fronter",
+  "@frontingNextFronterPick": {
+    "description": "Dialog action: open the new-front sheet"
+  },
+  "frontingNextFronterUnknown": "Unknown",
+  "@frontingNextFronterUnknown": {
+    "description": "Dialog action: start an Unknown sentinel front"
+  },
+  "frontingNextFronterEnd": "End without fronting",
+  "@frontingNextFronterEnd": {
+    "description": "Dialog action: end the session, leave no one fronting"
   },
   "frontingSessionDetailEditTooltip": "Edit",
   "@frontingSessionDetailEditTooltip": {
@@ -2803,160 +3074,6 @@
   "@frontingTimelineNoHistorySubtitle": {
     "description": "Empty state subtitle in timeline view"
   },
-  "frontingSanitizationTitle": "Timeline Sanitization",
-  "@frontingSanitizationTitle": {
-    "description": "Screen title for the timeline sanitization screen"
-  },
-  "frontingSanitizationScanning": "Scanning timeline…",
-  "@frontingSanitizationScanning": {
-    "description": "Text shown while the sanitization scan is running"
-  },
-  "frontingSanitizationIntroTitle": "Timeline Sanitization",
-  "@frontingSanitizationIntroTitle": {
-    "description": "Title on the initial state of sanitization screen"
-  },
-  "frontingSanitizationIntroBody": "Scan your fronting history for overlapping, duplicate, or invalid sessions, then apply automatic fixes.",
-  "@frontingSanitizationIntroBody": {
-    "description": "Description on the initial state of sanitization screen"
-  },
-  "frontingSanitizationScanButton": "Scan Timeline",
-  "@frontingSanitizationScanButton": {
-    "description": "Button to start a sanitization scan"
-  },
-  "frontingSanitizationCleanTitle": "Timeline looks clean!",
-  "@frontingSanitizationCleanTitle": {
-    "description": "Empty state title when no issues are found"
-  },
-  "frontingSanitizationCleanSubtitle": "No overlaps, duplicates, or invalid sessions found.",
-  "@frontingSanitizationCleanSubtitle": {
-    "description": "Empty state subtitle when no issues are found"
-  },
-  "frontingSanitizationScanAgain": "Scan Again",
-  "@frontingSanitizationScanAgain": {
-    "description": "Button to run a new scan after viewing results"
-  },
-  "frontingSanitizationIssuesFound": "{count, plural, =1{Found 1 issue in your timeline.} other{Found {count} issues in your timeline.}}",
-  "@frontingSanitizationIssuesFound": {
-    "description": "Summary banner showing total issues found",
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
-  "frontingSanitizationFixesApplied": "{count, plural, =1{1 fix applied successfully.} other{{count} fixes applied successfully.}}",
-  "@frontingSanitizationFixesApplied": {
-    "description": "Banner showing number of fixes applied",
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
-  "frontingSanitizationScanFailed": "Scan failed: {error}",
-  "@frontingSanitizationScanFailed": {
-    "description": "Error toast when a scan fails",
-    "placeholders": {
-      "error": {
-        "type": "Object"
-      }
-    }
-  },
-  "frontingSanitizationFixFailed": "Fix failed: {error}",
-  "@frontingSanitizationFixFailed": {
-    "description": "Error toast when applying a fix fails",
-    "placeholders": {
-      "error": {
-        "type": "Object"
-      }
-    }
-  },
-  "frontingSanitizationLoadFixFailed": "Could not load fix options: {error}",
-  "@frontingSanitizationLoadFixFailed": {
-    "description": "Error toast when fix options cannot be loaded",
-    "placeholders": {
-      "error": {
-        "type": "Object"
-      }
-    }
-  },
-  "frontingSanitizationFixOptionsTitle": "Fix Options",
-  "@frontingSanitizationFixOptionsTitle": {
-    "description": "Sheet title for fix options"
-  },
-  "frontingSanitizationNoAutoFix": "No automated fixes available for this issue.\nPlease review and resolve it manually.",
-  "@frontingSanitizationNoAutoFix": {
-    "description": "Message shown when no automated fix plans are available"
-  },
-  "frontingSanitizationPreview": "Preview",
-  "@frontingSanitizationPreview": {
-    "description": "Button label to show fix preview"
-  },
-  "frontingSanitizationHidePreview": "Hide Preview",
-  "@frontingSanitizationHidePreview": {
-    "description": "Button label to hide fix preview"
-  },
-  "frontingSanitizationApply": "Apply",
-  "@frontingSanitizationApply": {
-    "description": "Button label to apply a fix plan"
-  },
-  "frontingIssueTypeOverlap": "Overlap",
-  "@frontingIssueTypeOverlap": {
-    "description": "Issue type chip label: overlap"
-  },
-  "frontingIssueTypeGap": "Gap",
-  "@frontingIssueTypeGap": {
-    "description": "Issue type chip label: gap"
-  },
-  "frontingIssueTypeDuplicate": "Duplicate",
-  "@frontingIssueTypeDuplicate": {
-    "description": "Issue type chip label: duplicate"
-  },
-  "frontingIssueTypeMergeable": "Mergeable",
-  "@frontingIssueTypeMergeable": {
-    "description": "Issue type chip label: mergeable adjacent"
-  },
-  "frontingIssueTypeInvalidRange": "Invalid Range",
-  "@frontingIssueTypeInvalidRange": {
-    "description": "Issue type chip label: invalid range"
-  },
-  "frontingIssueTypeFutureSession": "Future Session",
-  "@frontingIssueTypeFutureSession": {
-    "description": "Issue type chip label: future session"
-  },
-  "frontingIssueSectionOverlap": "Overlapping Sessions",
-  "@frontingIssueSectionOverlap": {
-    "description": "Section header for overlapping issues in sanitization results"
-  },
-  "frontingIssueSectionGap": "Gaps",
-  "@frontingIssueSectionGap": {
-    "description": "Section header for gap issues in sanitization results"
-  },
-  "frontingIssueSectionDuplicate": "Duplicates",
-  "@frontingIssueSectionDuplicate": {
-    "description": "Section header for duplicate issues in sanitization results"
-  },
-  "frontingIssueSectionMergeable": "Mergeable Adjacent",
-  "@frontingIssueSectionMergeable": {
-    "description": "Section header for mergeable adjacent issues in sanitization results"
-  },
-  "frontingIssueSectionInvalidRange": "Invalid Ranges",
-  "@frontingIssueSectionInvalidRange": {
-    "description": "Section header for invalid range issues in sanitization results"
-  },
-  "frontingIssueSectionFutureSession": "Future Sessions",
-  "@frontingIssueSectionFutureSession": {
-    "description": "Section header for future session issues in sanitization results"
-  },
-  "frontingIssueSessionCount": "{count, plural, =1{1 session} other{{count} sessions}}",
-  "@frontingIssueSessionCount": {
-    "description": "Session count shown on a validation issue tile",
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
   "frontingDeleteStrategyTitle": "What should happen to this time?",
   "@frontingDeleteStrategyTitle": {
     "description": "Dialog title when choosing a delete strategy for a session"
@@ -3079,13 +3196,13 @@
   "@memberSectionNotes": {
     "description": "Section header for notes on member detail screen"
   },
-  "memberSectionBio": "Notes",
+  "memberSectionBio": "Bio",
   "@memberSectionBio": {
-    "description": "Section header shown above member bio/notes field on detail screen"
+    "description": "Section header shown above member bio/about field on detail screen"
   },
   "memberSectionProxyTags": "Proxy Tags",
   "@memberSectionProxyTags": {
-    "description": "Section header for PluralKit proxy tags on member detail screen"
+    "description": "Section header for proxy tags on member surfaces"
   },
   "memberProxyTagsManagedOnPk": "Proxy tags are managed on PluralKit.",
   "@memberProxyTagsManagedOnPk": {
@@ -3095,13 +3212,50 @@
   "@memberProxyTagsEditOnPk": {
     "description": "Button label that opens the member's PluralKit dashboard page"
   },
+  "memberProxyTagsLocalDescription": "Saved in Prism for chat proxy-tag authoring. Linked members sync with PluralKit when push sync is enabled.",
+  "@memberProxyTagsLocalDescription": {
+    "description": "Help text for local proxy tag editing on the member edit sheet and detail screen"
+  },
+  "memberProxyTagsEditInPrism": "Edit proxy tags",
+  "@memberProxyTagsEditInPrism": {
+    "description": "Button label that opens Prism's local member editor for proxy tags"
+  },
+  "memberProxyTagsAdd": "Add proxy tag",
+  "@memberProxyTagsAdd": {
+    "description": "Button label for adding a proxy tag row"
+  },
+  "memberProxyTagsRemove": "Remove proxy tag",
+  "@memberProxyTagsRemove": {
+    "description": "Tooltip and semantic label for removing a proxy tag row"
+  },
+  "memberProxyTagPrefixLabel": "Prefix",
+  "@memberProxyTagPrefixLabel": {
+    "description": "Text field label for the proxy tag prefix"
+  },
+  "memberProxyTagPrefixHint": "A:",
+  "@memberProxyTagPrefixHint": {
+    "description": "Example proxy tag prefix hint"
+  },
+  "memberProxyTagSuffixLabel": "Suffix",
+  "@memberProxyTagSuffixLabel": {
+    "description": "Text field label for the proxy tag suffix"
+  },
+  "memberProxyTagSuffixHint": "-a",
+  "@memberProxyTagSuffixHint": {
+    "description": "Example proxy tag suffix hint"
+  },
   "memberProxyTagsEmpty": "No proxy tags set.",
   "@memberProxyTagsEmpty": {
-    "description": "Shown when a PK-linked member has no proxy tags"
+    "description": "Shown when a member has no proxy tags"
   },
-  "memberEditTooltip": "Edit member",
+  "memberEditTooltip": "Edit {termSingularLower}",
   "@memberEditTooltip": {
-    "description": "Tooltip for edit member button"
+    "description": "Tooltip for edit member button",
+    "placeholders": {
+      "termSingularLower": {
+        "type": "String"
+      }
+    }
   },
   "memberMoreOptionsTooltip": "More options",
   "@memberMoreOptionsTooltip": {
@@ -3406,9 +3560,14 @@
   "@memberNoteDiscardConfirm": {
     "description": "Confirm button label for discarding note changes"
   },
-  "memberNoteChooseHeadmate": "Choose Headmate",
+  "memberNoteChooseHeadmate": "Choose {termSingular}",
   "@memberNoteChooseHeadmate": {
-    "description": "Sheet title for headmate selection in note sheet"
+    "description": "Sheet title for headmate selection in note sheet",
+    "placeholders": {
+      "termSingular": {
+        "type": "String"
+      }
+    }
   },
   "memberNoteDateSemantics": "Note date, {date}. Tap to change",
   "@memberNoteDateSemantics": {
@@ -3419,10 +3578,13 @@
       }
     }
   },
-  "memberNoteMemberSemantics": "Headmate: {name}. Tap to change",
+  "memberNoteMemberSemantics": "{termSingular}: {name}. Tap to change",
   "@memberNoteMemberSemantics": {
     "description": "Semantics label for the selected headmate chip in note sheet",
     "placeholders": {
+      "termSingular": {
+        "type": "String"
+      },
       "name": {
         "type": "String"
       }
@@ -3471,17 +3633,27 @@
   "@memberGroupSubGroupsLabel": {
     "description": "Section label for sub-groups in group detail"
   },
-  "memberGroupSectionMembers": "Members",
+  "memberGroupSectionMembers": "{termPlural}",
   "@memberGroupSectionMembers": {
-    "description": "Section header for members inside a group detail screen"
+    "description": "Section header for members inside a group detail screen",
+    "placeholders": {
+      "termPlural": {
+        "type": "String"
+      }
+    }
   },
   "memberGroupStartChat": "Start chat",
   "@memberGroupStartChat": {
     "description": "Button label to start a chat with all members in a group"
   },
-  "memberGroupAddMember": "Add member",
+  "memberGroupAddMember": "Add {termSingularLower}",
   "@memberGroupAddMember": {
-    "description": "Button label to add a member to a group"
+    "description": "Button label to add a member to a group",
+    "placeholders": {
+      "termSingularLower": {
+        "type": "String"
+      }
+    }
   },
   "memberGroupAddSubGroup": "Add sub-group",
   "@memberGroupAddSubGroup": {
@@ -3501,11 +3673,14 @@
   "@memberGroupDeleteTitle": {
     "description": "Confirmation dialog title when deleting a group"
   },
-  "memberGroupDeleteMessage": "Are you sure you want to delete \"{name}\"? Members will not be deleted.",
+  "memberGroupDeleteMessage": "Are you sure you want to delete \"{name}\"? {termPlural} will not be deleted.",
   "@memberGroupDeleteMessage": {
     "description": "Confirmation dialog message when deleting a group",
     "placeholders": {
       "name": {
+        "type": "String"
+      },
+      "termPlural": {
         "type": "String"
       }
     }
@@ -3538,11 +3713,14 @@
   "@memberGroupDeleteAllConfirmTitle": {
     "description": "Confirmation dialog title for recursive group delete"
   },
-  "memberGroupDeleteAllConfirmMessage": "This will permanently delete \"{name}\" and all its sub-groups. Members will not be deleted.",
+  "memberGroupDeleteAllConfirmMessage": "This will permanently delete \"{name}\" and all its sub-groups. {termPlural} will not be deleted.",
   "@memberGroupDeleteAllConfirmMessage": {
     "description": "Confirmation dialog message for recursive group delete",
     "placeholders": {
       "name": {
+        "type": "String"
+      },
+      "termPlural": {
         "type": "String"
       }
     }
@@ -3606,14 +3784,20 @@
   "@memberGroupFilterUngrouped": {
     "description": "Filter chip label to show only members not in any group"
   },
-  "memberGroupFrontAllAlreadyFronting": "All members are already fronting",
+  "memberGroupFrontAllAlreadyFronting": "All {termPluralLower} are already fronting",
   "@memberGroupFrontAllAlreadyFronting": {
-    "description": "Toast shown when all group members are already fronting"
+    "description": "Toast shown when all group members are already fronting",
+    "placeholders": {
+      "termPluralLower": {
+        "type": "String"
+      }
+    }
   },
-  "memberGroupFrontAllInactive": "All members in {name} are inactive. Front anyway?",
+  "memberGroupFrontAllInactive": "All {termPluralLower} in {name} are inactive. Front anyway?",
   "@memberGroupFrontAllInactive": {
     "placeholders": {
-      "name": { "type": "String" }
+      "name": { "type": "String" },
+      "termPluralLower": { "type": "String" }
     }
   },
   "memberGroupFrontGroup": "Front as Group",
@@ -3627,23 +3811,26 @@
       "name": { "type": "String" }
     }
   },
-  "memberGroupFrontGroupConfirmMessage": "This will start a co-front session with all {count} members.",
+  "memberGroupFrontGroupConfirmMessage": "This will start a co-front session with {count} {termForCount}.",
   "@memberGroupFrontGroupConfirmMessage": {
     "description": "Confirmation dialog body when fronting multiple members in a group",
     "placeholders": {
-      "count": { "type": "int" }
+      "count": { "type": "int" },
+      "termForCount": { "type": "String" }
     }
   },
-  "memberGroupFrontGroupSemantics": "Front all members in {name}",
+  "memberGroupFrontGroupSemantics": "Front all {termPluralLower} in {name}",
   "@memberGroupFrontGroupSemantics": {
     "placeholders": {
-      "name": { "type": "String" }
+      "name": { "type": "String" },
+      "termPluralLower": { "type": "String" }
     }
   },
-  "memberGroupFrontSomeAlreadyFronting": "{count} members already fronting. Add the remaining {remaining}?",
+  "memberGroupFrontSomeAlreadyFronting": "{count} {termForCount} already fronting. Add the remaining {remaining}?",
   "@memberGroupFrontSomeAlreadyFronting": {
     "placeholders": {
       "count": { "type": "int" },
+      "termForCount": { "type": "String" },
       "remaining": { "type": "int" }
     }
   },
@@ -3747,9 +3934,14 @@
   "@memberCustomColorTitle": {
     "description": "Switch label: custom color"
   },
-  "memberCustomColorSubtitle": "Use a personal color for this member",
+  "memberCustomColorSubtitle": "Use a personal color for this {termSingularLower}",
   "@memberCustomColorSubtitle": {
-    "description": "Switch subtitle: custom color"
+    "description": "Switch subtitle: custom color",
+    "placeholders": {
+      "termSingularLower": {
+        "type": "String"
+      }
+    }
   },
   "memberColorHexLabel": "Color hex",
   "@memberColorHexLabel": {
@@ -3785,13 +3977,23 @@
       }
     }
   },
-  "memberSearchConfirmSelectionTooltip": "Confirm selected members",
+  "memberSearchConfirmSelectionTooltip": "Confirm selected {termPluralLower}",
   "@memberSearchConfirmSelectionTooltip": {
-    "description": "Tooltip and semantics label for confirming selected members in the member search sheet"
+    "description": "Tooltip and semantics label for confirming selected members in the member search sheet",
+    "placeholders": {
+      "termPluralLower": {
+        "type": "String"
+      }
+    }
   },
-  "memberSaveTooltip": "Save member",
+  "memberSaveTooltip": "Save {termSingularLower}",
   "@memberSaveTooltip": {
-    "description": "Tooltip and semantics label for saving a member from the add/edit member sheet"
+    "description": "Tooltip and semantics label for saving a member from the add/edit member sheet",
+    "placeholders": {
+      "termSingularLower": {
+        "type": "String"
+      }
+    }
   },
   "memberBulkActivate": "Activate",
   "@memberBulkActivate": {
@@ -4000,9 +4202,14 @@
       }
     }
   },
-  "chatChooseSpeakingMember": "Choose speaking member",
+  "chatChooseSpeakingMember": "Choose speaking {termSingularLower}",
   "@chatChooseSpeakingMember": {
-    "description": "Semantics label for the speaking-as button when no member is selected"
+    "description": "Semantics label for the speaking-as button when no member is selected",
+    "placeholders": {
+      "termSingularLower": {
+        "type": "String"
+      }
+    }
   },
   "chatCancelReply": "Cancel reply",
   "@chatCancelReply": {
@@ -4106,9 +4313,14 @@
       }
     }
   },
-  "chatInfoAddMembers": "Add members",
+  "chatInfoAddMembers": "Add {termPluralLower}",
   "@chatInfoAddMembers": {
-    "description": "Tooltip for add members button in conversation info"
+    "description": "Tooltip for add members button in conversation info",
+    "placeholders": {
+      "termPluralLower": {
+        "type": "String"
+      }
+    }
   },
   "chatInfoOwner": "Owner",
   "@chatInfoOwner": {
@@ -4118,13 +4330,23 @@
   "@chatInfoAdmin": {
     "description": "Role chip label for admin member"
   },
-  "chatInfoUnknownMember": "Unknown Member",
+  "chatInfoUnknownMember": "Unknown {termSingular}",
   "@chatInfoUnknownMember": {
-    "description": "Placeholder name for a member that could not be loaded"
+    "description": "Placeholder name for a member that could not be loaded",
+    "placeholders": {
+      "termSingular": {
+        "type": "String"
+      }
+    }
   },
-  "chatInfoErrorLoadingMember": "Error loading member",
+  "chatInfoErrorLoadingMember": "Error loading {termSingularLower}",
   "@chatInfoErrorLoadingMember": {
-    "description": "Error text when a participant member fails to load"
+    "description": "Error text when a participant member fails to load",
+    "placeholders": {
+      "termSingularLower": {
+        "type": "String"
+      }
+    }
   },
   "chatInfoCategory": "Category",
   "@chatInfoCategory": {
@@ -4218,18 +4440,31 @@
   "@chatSelectNewOwner": {
     "description": "Dialog title for selecting a new conversation owner before leaving"
   },
-  "chatAddMembersTitle": "Add Members",
+  "chatAddMembersTitle": "Add {termPlural}",
   "@chatAddMembersTitle": {
-    "description": "Sheet title for adding members to a conversation"
+    "description": "Sheet title for adding members to a conversation",
+    "placeholders": {
+      "termPlural": {
+        "type": "String"
+      }
+    }
   },
-  "chatAddMembersAllAdded": "All active members are already in this conversation.",
+  "chatAddMembersAllAdded": "All active {termPluralLower} are already in this conversation.",
   "@chatAddMembersAllAdded": {
-    "description": "Message when all members are already participants"
+    "description": "Message when all members are already participants",
+    "placeholders": {
+      "termPluralLower": {
+        "type": "String"
+      }
+    }
   },
-  "chatAddMembersFailed": "Failed to add members: {error}",
+  "chatAddMembersFailed": "Failed to add {termPluralLower}: {error}",
   "@chatAddMembersFailed": {
     "description": "Toast when adding members fails",
     "placeholders": {
+      "termPluralLower": {
+        "type": "String"
+      },
       "error": {
         "type": "Object"
       }
@@ -4280,9 +4515,14 @@
   "@chatCreateDeselectAll": {
     "description": "Button to deselect all members"
   },
-  "chatCreateNoMembers": "No members available. Create members first.",
+  "chatCreateNoMembers": "No {termPluralLower} available. Create {termPluralLower} first.",
   "@chatCreateNoMembers": {
-    "description": "Message shown when no members exist for participant selection"
+    "description": "Message shown when no members exist for participant selection",
+    "placeholders": {
+      "termPluralLower": {
+        "type": "String"
+      }
+    }
   },
   "chatCreateFronting": "Fronting",
   "@chatCreateFronting": {
@@ -4366,13 +4606,23 @@
       }
     }
   },
-  "chatNoMembersAvailable": "No members available",
+  "chatNoMembersAvailable": "No {termPluralLower} available",
   "@chatNoMembersAvailable": {
-    "description": "Text shown in speaking-as picker when no members exist"
+    "description": "Text shown in speaking-as picker when no members exist",
+    "placeholders": {
+      "termPluralLower": {
+        "type": "String"
+      }
+    }
   },
-  "chatErrorLoadingMembersShort": "Error loading members",
+  "chatErrorLoadingMembersShort": "Error loading {termPluralLower}",
   "@chatErrorLoadingMembersShort": {
-    "description": "Short error text in speaking-as picker"
+    "description": "Short error text in speaking-as picker",
+    "placeholders": {
+      "termPluralLower": {
+        "type": "String"
+      }
+    }
   },
   "chatGifsTitle": "GIFs",
   "@chatGifsTitle": {
@@ -4740,13 +4990,19 @@
       }
     }
   },
-  "memberAvatarSemanticsUnnamed": "Member avatar",
+  "memberAvatarSemanticsUnnamed": "{termSingular} avatar",
   "@memberAvatarSemanticsUnnamed": {
-    "description": "Fallback semantics label for a member avatar image"
+    "description": "Fallback semantics label for a member avatar image",
+    "placeholders": {
+      "termSingular": { "type": "String" }
+    }
   },
-  "groupMemberAvatarSemantics": "Group member avatar",
+  "groupMemberAvatarSemantics": "Group {termSingularLower} avatar",
   "@groupMemberAvatarSemantics": {
-    "description": "Semantics label for an image inside a grouped member avatar"
+    "description": "Semantics label for an image inside a grouped member avatar",
+    "placeholders": {
+      "termSingularLower": { "type": "String" }
+    }
   },
   "habitsReminderNotificationTitle": "Habit Reminder",
   "@habitsReminderNotificationTitle": {
@@ -4850,21 +5106,34 @@
   "@onboardingWelcomeBuiltForYouDescription": {
     "description": "Feature row description in welcome step"
   },
-  "onboardingAddMembersNoMembers": "No members yet.\nTap \"Add Member\" to get started.",
+  "onboardingAddMembersNoMembers": "No {termPluralLower} yet.\nTap \"Add {termSingular}\" to get started.",
   "@onboardingAddMembersNoMembers": {
-    "description": "Empty state text in add members step"
+    "description": "Empty state text in add members step",
+    "placeholders": {
+      "termPluralLower": { "type": "String" },
+      "termSingular": { "type": "String" }
+    }
   },
-  "onboardingAddMembersRemoveMember": "Remove member",
+  "onboardingAddMembersRemoveMember": "Remove {termSingularLower}",
   "@onboardingAddMembersRemoveMember": {
-    "description": "Tooltip for the remove member button in add members list"
+    "description": "Tooltip for the remove member button in add members list",
+    "placeholders": {
+      "termSingularLower": { "type": "String" }
+    }
   },
-  "onboardingAddMembersAddMember": "Add Member",
+  "onboardingAddMembersAddMember": "Add {termSingular}",
   "@onboardingAddMembersAddMember": {
-    "description": "Button label to open the add member sheet"
+    "description": "Button label to open the add member sheet",
+    "placeholders": {
+      "termSingular": { "type": "String" }
+    }
   },
-  "onboardingAddMemberSheetTitle": "Add Member",
+  "onboardingAddMemberSheetTitle": "Add {termSingular}",
   "@onboardingAddMemberSheetTitle": {
-    "description": "Title bar of the add member sheet"
+    "description": "Title bar of the add member sheet",
+    "placeholders": {
+      "termSingular": { "type": "String" }
+    }
   },
   "onboardingAddMemberFieldEmoji": "Emoji",
   "@onboardingAddMemberFieldEmoji": {
@@ -4906,9 +5175,14 @@
   "@onboardingFeaturesChat": {
     "description": "Feature toggle title for chat in features step"
   },
-  "onboardingFeaturesChatDescription": "Internal messaging between system members",
+  "onboardingFeaturesChatDescription": "Internal messaging between system {termPluralLower}",
   "@onboardingFeaturesChatDescription": {
-    "description": "Feature toggle description for chat in features step"
+    "description": "Feature toggle description for chat in features step",
+    "placeholders": {
+      "termPluralLower": {
+        "type": "String"
+      }
+    }
   },
   "onboardingFeaturesPolls": "Polls",
   "@onboardingFeaturesPolls": {
@@ -4946,9 +5220,14 @@
   "@onboardingFeaturesReminders": {
     "description": "Feature toggle label for reminders in features step"
   },
-  "onboardingFeaturesRemindersDescription": "Set reminders for yourself or system members",
+  "onboardingFeaturesRemindersDescription": "Set reminders for yourself or system {termPluralLower}",
   "@onboardingFeaturesRemindersDescription": {
-    "description": "Feature toggle description for reminders in features step"
+    "description": "Feature toggle description for reminders in features step",
+    "placeholders": {
+      "termPluralLower": {
+        "type": "String"
+      }
+    }
   },
   "onboardingCompleteTrackFrontingTitle": "Track fronting",
   "@onboardingCompleteTrackFrontingTitle": {
@@ -5304,9 +5583,14 @@
   "@onboardingWhosFrontingSelectHint": {
     "description": "Hint text above the fronter grid in whos fronting step"
   },
-  "onboardingWhosFrontingNoMembers": "No members added yet.\nGo back to add members first.",
+  "onboardingWhosFrontingNoMembers": "No {termPluralLower} added yet.\nGo back to add {termPluralLower} first.",
   "@onboardingWhosFrontingNoMembers": {
-    "description": "Empty state message in whos fronting step"
+    "description": "Empty state message in whos fronting step",
+    "placeholders": {
+      "termPluralLower": {
+        "type": "String"
+      }
+    }
   },
   "onboardingChatSuggestedChannels": "Suggested Channels",
   "@onboardingChatSuggestedChannels": {
@@ -5320,9 +5604,12 @@
   "@onboardingChatChannelNameHint": {
     "description": "Hint text for the custom channel name field"
   },
-  "onboardingChatChannelAllMembers": "All Members",
+  "onboardingChatChannelAllMembers": "All {termPlural}",
   "@onboardingChatChannelAllMembers": {
-    "description": "Default onboarding channel: group chat visible to all members (cannot be removed)"
+    "description": "Default onboarding channel: group chat visible to all members (cannot be removed)",
+    "placeholders": {
+      "termPlural": { "type": "String" }
+    }
   },
   "onboardingChatChannelVenting": "Venting",
   "@onboardingChatChannelVenting": {
@@ -5364,13 +5651,19 @@
   "@onboardingPreferencesAccentColor": {
     "description": "Section header for accent color in preferences step"
   },
-  "onboardingPreferencesPerMemberColors": "Per-Member Colors",
+  "onboardingPreferencesPerMemberColors": "Per-{termSingular} Colors",
   "@onboardingPreferencesPerMemberColors": {
-    "description": "Toggle title for per-member colors in preferences step"
+    "description": "Toggle title for per-member colors in preferences step",
+    "placeholders": {
+      "termSingular": { "type": "String" }
+    }
   },
-  "onboardingPreferencesPerMemberColorsSubtitle": "Let each member have their own accent color",
+  "onboardingPreferencesPerMemberColorsSubtitle": "Let each {termSingularLower} have their own accent color",
   "@onboardingPreferencesPerMemberColorsSubtitle": {
-    "description": "Toggle subtitle for per-member colors in preferences step"
+    "description": "Toggle subtitle for per-member colors in preferences step",
+    "placeholders": {
+      "termSingularLower": { "type": "String" }
+    }
   },
   "onboardingSyncJoinYourGroup": "Join your sync group",
   "@onboardingSyncJoinYourGroup": {
@@ -5533,9 +5826,14 @@
   "@habitsSectionAssignment": {
     "description": "Section header for assignment in add/edit habit sheet"
   },
-  "habitsAssignedMember": "Assigned Member",
+  "habitsAssignedMember": "Assigned {termSingular}",
   "@habitsAssignedMember": {
-    "description": "Label for assigned member select field"
+    "description": "Label for assigned member select field",
+    "placeholders": {
+      "termSingular": {
+        "type": "String"
+      }
+    }
   },
   "habitsAssignedMemberAnyone": "Anyone",
   "@habitsAssignedMemberAnyone": {
@@ -5545,9 +5843,14 @@
   "@habitsOnlyNotifyWhenFronting": {
     "description": "Switch title for fronting-only notification in assignment section"
   },
-  "habitsOnlyFrontingCaveat": "Reminders will fire even if this member isn't fronting — fronting-aware delivery requires background access.",
+  "habitsOnlyFrontingCaveat": "Reminders will fire even if this {termSingularLower} isn't fronting — fronting-aware delivery requires background access.",
   "@habitsOnlyFrontingCaveat": {
-    "description": "Helper text below the only-notify-when-fronting toggle"
+    "description": "Helper text below the only-notify-when-fronting toggle",
+    "placeholders": {
+      "termSingularLower": {
+        "type": "String"
+      }
+    }
   },
   "habitsPrivate": "Private",
   "@habitsPrivate": {
@@ -6053,9 +6356,14 @@
   "@pollsDetailVoteAs": {
     "description": "Label above the vote-as member picker"
   },
-  "pollsDetailNoMembers": "No members available",
+  "pollsDetailNoMembers": "No {termPluralLower} available",
   "@pollsDetailNoMembers": {
-    "description": "Message shown when no members are available for voting"
+    "description": "Message shown when no members are available for voting",
+    "placeholders": {
+      "termPluralLower": {
+        "type": "String"
+      }
+    }
   },
   "pollsDetailSubmitVote": "Submit Vote",
   "@pollsDetailSubmitVote": {
@@ -6144,8 +6452,11 @@
   "@migrationImportFromFileSubtitle": { "description": "Import method card subtitle for file import" },
   "migrationSupportedDataTypes": "Supported data types",
   "@migrationSupportedDataTypes": { "description": "Section heading for supported data types list" },
-  "migrationSupportedMembers": "Members",
-  "@migrationSupportedMembers": { "description": "Supported data type: members" },
+  "migrationSupportedMembers": "{termPlural}",
+  "@migrationSupportedMembers": {
+    "description": "Supported data type: members",
+    "placeholders": { "termPlural": { "type": "String" } }
+  },
   "migrationSupportedCustomFronts": "Custom fronts",
   "@migrationSupportedCustomFronts": { "description": "Supported data type: custom fronts" },
   "migrationSupportedFrontingHistory": "Fronting history",
@@ -6154,10 +6465,16 @@
   "@migrationSupportedChatChannels": { "description": "Supported data type: chat channels and messages" },
   "migrationSupportedPolls": "Polls",
   "@migrationSupportedPolls": { "description": "Supported data type: polls" },
-  "migrationSupportedMemberColors": "Member colors",
-  "@migrationSupportedMemberColors": { "description": "Supported data type: member colors" },
-  "migrationSupportedMemberDescriptions": "Member descriptions",
-  "@migrationSupportedMemberDescriptions": { "description": "Supported data type: member descriptions" },
+  "migrationSupportedMemberColors": "{termSingular} colors",
+  "@migrationSupportedMemberColors": {
+    "description": "Supported data type: member colors",
+    "placeholders": { "termSingular": { "type": "String" } }
+  },
+  "migrationSupportedMemberDescriptions": "{termSingular} descriptions",
+  "@migrationSupportedMemberDescriptions": {
+    "description": "Supported data type: member descriptions",
+    "placeholders": { "termSingular": { "type": "String" } }
+  },
   "migrationSupportedAvatarImages": "Avatar images",
   "@migrationSupportedAvatarImages": { "description": "Supported data type: avatar images" },
   "migrationSupportedNotes": "Notes",
@@ -6219,8 +6536,11 @@
   "@migrationImportAll": { "description": "Button label to import all data" },
   "migrationReplaceAllTitle": "Replace all data?",
   "@migrationReplaceAllTitle": { "description": "Confirmation dialog title for replacing all data" },
-  "migrationReplaceAllMessage": "This will delete all existing members, front history, conversations, and other data before importing. This action cannot be undone.\n\nIf you have sync set up, other paired devices should also be reset to avoid conflicts.",
-  "@migrationReplaceAllMessage": { "description": "Confirmation dialog body for replacing all data" },
+  "migrationReplaceAllMessage": "This will delete all existing {termPluralLower}, front history, conversations, and other data before importing. This action cannot be undone.\n\nIf you have sync set up, other paired devices should also be reset to avoid conflicts.",
+  "@migrationReplaceAllMessage": {
+    "description": "Confirmation dialog body for replacing all data",
+    "placeholders": { "termPluralLower": { "type": "String" } }
+  },
   "migrationReplaceAll": "Replace All",
   "@migrationReplaceAll": { "description": "Confirmation button to replace all data" },
   "migrationImporting": "Importing…",
@@ -6237,8 +6557,11 @@
   },
   "migrationSummary": "Summary",
   "@migrationSummary": { "description": "Section heading on the import complete view" },
-  "migrationResultMembers": "Members",
-  "@migrationResultMembers": { "description": "Import result row label for members" },
+  "migrationResultMembers": "{termPlural}",
+  "@migrationResultMembers": {
+    "description": "Import result row label for members",
+    "placeholders": { "termPlural": { "type": "String" } }
+  },
   "migrationResultFrontSessions": "Front sessions",
   "@migrationResultFrontSessions": { "description": "Import result row label for front sessions" },
   "migrationResultConversations": "Conversations",
@@ -6356,6 +6679,10 @@
   "@pluralkitConnect": { "description": "Button label to connect PluralKit" },
   "pluralkitTokenHelp": "To get your token, DM the PluralKit bot on Discord with \"pk;token\" and paste the result here.",
   "@pluralkitTokenHelp": { "description": "Help text for finding the PluralKit token" },
+  "pluralkitFileImportHelp": "Recover old PluralKit fronting history with a pk;export file and token. The file provides the switch history; the token lets Prism match it safely.",
+  "@pluralkitFileImportHelp": {
+    "description": "Help text for the PluralKit settings file import entry point"
+  },
   "pluralkitImportButton": "Import from PluralKit",
   "@pluralkitImportButton": { "description": "Button label to import all data from PluralKit" },
   "pluralkitSyncRecent": "Sync Recent Changes",
@@ -6379,18 +6706,20 @@
   "@pluralkitLastSyncSummary": { "description": "Card heading for the last PluralKit sync summary" },
   "pluralkitUpToDate": "Everything is up to date.",
   "@pluralkitUpToDate": { "description": "Message when there are no sync changes" },
-  "pluralkitMembersPulled": "{count, plural, =1{1 member pulled} other{{count} members pulled}}",
+  "pluralkitMembersPulled": "{count} {termForCount} pulled",
   "@pluralkitMembersPulled": {
     "description": "Sync summary row: members pulled from PluralKit",
     "placeholders": {
-      "count": { "type": "int" }
+      "count": { "type": "int" },
+      "termForCount": { "type": "String" }
     }
   },
-  "pluralkitMembersPushed": "{count, plural, =1{1 member pushed} other{{count} members pushed}}",
+  "pluralkitMembersPushed": "{count} {termForCount} pushed",
   "@pluralkitMembersPushed": {
     "description": "Sync summary row: members pushed to PluralKit",
     "placeholders": {
-      "count": { "type": "int" }
+      "count": { "type": "int" },
+      "termForCount": { "type": "String" }
     }
   },
   "pluralkitSwitchesPulled": "{count, plural, =1{1 switch pulled} other{{count} switches pulled}}",
@@ -6407,21 +6736,25 @@
       "count": { "type": "int" }
     }
   },
-  "pluralkitMembersUnchanged": "{count, plural, =1{1 member unchanged} other{{count} members unchanged}}",
+  "pluralkitMembersUnchanged": "{count} {termForCount} unchanged",
   "@pluralkitMembersUnchanged": {
     "description": "Sync summary row: members with no changes",
     "placeholders": {
-      "count": { "type": "int" }
+      "count": { "type": "int" },
+      "termForCount": { "type": "String" }
     }
   },
   "pluralkitInfoSync": "Supports pull, push, or bidirectional sync. Choose your preferred direction above.",
   "@pluralkitInfoSync": { "description": "How It Works info row about sync direction" },
   "pluralkitInfoToken": "Your token is stored securely in the device keychain and never leaves your device.",
   "@pluralkitInfoToken": { "description": "How It Works info row about token security" },
-  "pluralkitInfoMembers": "After connecting, link your PluralKit members to Prism members — or import them as new — so nothing gets duplicated.",
-  "@pluralkitInfoMembers": { "description": "How It Works info row about the link-members step" },
-  "pluralkitInfoSwitches": "Switches are imported as fronting sessions. Duplicate switches are automatically skipped.",
-  "@pluralkitInfoSwitches": { "description": "How It Works info row about switch import" },
+  "pluralkitInfoMembers": "After connecting, link your PluralKit members to Prism {termPluralLower} — or import them as new — so nothing gets duplicated.",
+  "@pluralkitInfoMembers": {
+    "description": "How It Works info row about the link-members step",
+    "placeholders": { "termPluralLower": { "type": "String" } }
+  },
+  "pluralkitInfoSwitches": "Fronting history recovery uses a pk;export file plus a token so Prism can match export switches to PluralKit switch IDs.",
+  "@pluralkitInfoSwitches": { "description": "How It Works info row about fronting history recovery from PluralKit" },
   "pluralkitJustNow": "Just now",
   "@pluralkitJustNow": { "description": "Relative time label when PluralKit sync was less than a minute ago" },
   "pluralkitRepairThisGroup": "This group",
@@ -6432,15 +6765,23 @@
   "@pluralkitRepairPluralKitGroup": { "description": "Review comparison heading when only a suspected PluralKit UUID is known" },
   "pluralkitRepairReconnectForComparison": "Reconnect PluralKit to see comparison details",
   "@pluralkitRepairReconnectForComparison": { "description": "Fallback chip shown when no live PK reference data is available" },
-  "pluralkitRepairSharedPkMembers": "{count, plural, =1{1 shared PK member} other{{count} shared PK members}}",
+  "pluralkitRepairSharedPkMembers": "{count, plural, =1{1 shared PK {termSingularLower}} other{{count} shared PK {termPluralLower}}}",
   "@pluralkitRepairSharedPkMembers": {
     "description": "Chip showing shared PK member count",
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": { "type": "int" },
+      "termSingularLower": { "type": "String" },
+      "termPluralLower": { "type": "String" }
+    }
   },
-  "pluralkitRepairLocalOnlyMembers": "{count, plural, =1{1 local-only member} other{{count} local-only members}}",
+  "pluralkitRepairLocalOnlyMembers": "{count, plural, =1{1 local-only {termSingularLower}} other{{count} local-only {termPluralLower}}}",
   "@pluralkitRepairLocalOnlyMembers": {
     "description": "Chip showing local-only member count",
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": { "type": "int" },
+      "termSingularLower": { "type": "String" },
+      "termPluralLower": { "type": "String" }
+    }
   },
   "pluralkitRepairOnlyInPkMembers": "{count, plural, =1{1 only in PK} other{{count} only in PK}}",
   "@pluralkitRepairOnlyInPkMembers": {
@@ -6469,10 +6810,14 @@
     "description": "Merge action preview fragment",
     "placeholders": { "count": { "type": "int" } }
   },
-  "pluralkitRepairPreviewLeavePkOnly": "leave {count, plural, =1{1 PK-only member} other{{count} PK-only members}} unmatched",
+  "pluralkitRepairPreviewLeavePkOnly": "leave {count, plural, =1{1 PK-only {termSingularLower}} other{{count} PK-only {termPluralLower}}} unmatched",
   "@pluralkitRepairPreviewLeavePkOnly": {
     "description": "Merge action preview fragment",
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": { "type": "int" },
+      "termSingularLower": { "type": "String" },
+      "termPluralLower": { "type": "String" }
+    }
   },
   "pluralkitRepairUsePluralKitMatch": "Use this PluralKit match",
   "@pluralkitRepairUsePluralKitMatch": { "description": "Button label for accepting the suggested PluralKit group match" },
@@ -6662,16 +7007,22 @@
   "@dataManagementImportRowTitle": { "description": "Settings row title for importing data" },
   "dataManagementImportRowSubtitle": "Restore data from a Prism export file (.json or .prism)",
   "@dataManagementImportRowSubtitle": { "description": "Settings row subtitle for importing data" },
-  "dataManagementPluralKitRowSubtitle": "Import members & fronting via API token",
-  "@dataManagementPluralKitRowSubtitle": { "description": "Settings row subtitle for PluralKit import" },
+  "dataManagementPluralKitRowSubtitle": "Import {termPluralLower} & fronting via API token",
+  "@dataManagementPluralKitRowSubtitle": {
+    "description": "Settings row subtitle for PluralKit import",
+    "placeholders": { "termPluralLower": { "type": "String" } }
+  },
   "dataManagementSimplyPluralRowTitle": "Simply Plural",
   "@dataManagementSimplyPluralRowTitle": { "description": "Settings row title for Simply Plural import" },
   "dataManagementSimplyPluralRowSubtitle": "Import from a Simply Plural export file",
   "@dataManagementSimplyPluralRowSubtitle": { "description": "Settings row subtitle for Simply Plural import" },
   "dataManagementExportYourData": "Export Your Data",
   "@dataManagementExportYourData": { "description": "Headline on the export idle state" },
-  "dataManagementExportDescription": "Create a password-protected backup of all your data including members, fronting sessions, messages, polls, and settings.",
-  "@dataManagementExportDescription": { "description": "Body text on the export idle state" },
+  "dataManagementExportDescription": "Create a password-protected backup of all your data including {termPluralLower}, fronting sessions, messages, polls, and settings.",
+  "@dataManagementExportDescription": {
+    "description": "Body text on the export idle state",
+    "placeholders": { "termPluralLower": { "type": "String" } }
+  },
   "dataManagementExportButton": "Export Data",
   "@dataManagementExportButton": { "description": "Button label to start the export flow" },
   "dataManagementEncryptExport": "Encrypt Export",
@@ -6735,8 +7086,11 @@
       "date": { "type": "String" }
     }
   },
-  "dataManagementPreviewMembers": "Members",
-  "@dataManagementPreviewMembers": { "description": "Import preview row label for members" },
+  "dataManagementPreviewMembers": "{termPlural}",
+  "@dataManagementPreviewMembers": {
+    "description": "Import preview row label for members",
+    "placeholders": { "termPlural": { "type": "String" } }
+  },
   "dataManagementPreviewFrontSessions": "Front Sessions",
   "@dataManagementPreviewFrontSessions": { "description": "Import preview row label for front sessions" },
   "dataManagementPreviewSleepSessions": "Sleep Sessions",
@@ -7107,7 +7461,7 @@
   "remindersTargetAny": "Any front change",
   "@remindersTargetAny": { "description": "Target picker option meaning the reminder fires on any front change (no specific member)" },
   "remindersTargetDisclosure": "Fires when Prism is running and sees the switch. External switches logged while Prism is closed may not trigger this reminder.",
-  "@remindersTargetDisclosure": { "description": "Honesty disclosure shown when a member-targeted front-change reminder is configured. Prism is zero-knowledge, so the relay cannot push notifications for a specific member switch." },
+  "@remindersTargetDisclosure": { "description": "Honesty disclosure shown when a member-targeted front-change reminder is configured. Prism is end-to-end encrypted, so the relay cannot push notifications for a specific member switch." },
   "remindersSubtitleTargetPrefix": "When {name} fronts",
   "@remindersSubtitleTargetPrefix": {
     "description": "Reminder list subtitle prefix shown when a front-change reminder targets a specific member",
@@ -7122,14 +7476,27 @@
     "description": "App version string in About section",
     "placeholders": { "version": { "type": "String" } }
   },
-  "settingsAboutDescription": "A privacy-focused app for managing plural systems. Track fronting, communicate between headmates, and keep your system organized.",
-  "@settingsAboutDescription": { "description": "Description paragraph in the About section" },
+  "settingsAboutDescription": "A privacy-focused app for managing plural systems. Track fronting, communicate between {termPluralLower}, and keep your system organized.",
+  "@settingsAboutDescription": {
+    "description": "Description paragraph in the About section",
+    "placeholders": { "termPluralLower": { "type": "String" } }
+  },
+  "settingsAboutWebsite": "Website",
+  "@settingsAboutWebsite": { "description": "Website chip label in About section" },
   "settingsAboutGitHub": "GitHub",
   "@settingsAboutGitHub": { "description": "GitHub chip label in About section" },
+  "settingsAboutDiscord": "Discord",
+  "@settingsAboutDiscord": { "description": "Discord chip label in About section" },
+  "settingsAboutBluesky": "Bluesky",
+  "@settingsAboutBluesky": { "description": "Bluesky chip label in About section" },
+  "settingsAboutTumblr": "Tumblr",
+  "@settingsAboutTumblr": { "description": "Tumblr chip label in About section" },
   "settingsAboutPrivacy": "Privacy",
   "@settingsAboutPrivacy": { "description": "Privacy chip label in About section" },
   "settingsAboutFeedback": "Feedback",
   "@settingsAboutFeedback": { "description": "Feedback chip label in About section" },
+  "settingsAboutLinkOpenFailed": "Could not open that link",
+  "@settingsAboutLinkOpenFailed": { "description": "Toast shown when an About section external link cannot be opened" },
   "settingsAboutGitHubComingSoon": "GitHub link coming soon",
   "@settingsAboutGitHubComingSoon": { "description": "Toast shown when GitHub chip is tapped" },
   "settingsAboutSecurity": "Security",
@@ -7147,8 +7514,11 @@
   },
   "settingsCustomFieldsEmptyTitle": "No custom fields",
   "@settingsCustomFieldsEmptyTitle": { "description": "Empty state title when no custom fields exist" },
-  "settingsCustomFieldsEmptySubtitle": "Add fields to track custom attributes for each member",
-  "@settingsCustomFieldsEmptySubtitle": { "description": "Empty state subtitle for custom fields screen" },
+  "settingsCustomFieldsEmptySubtitle": "Add fields to track custom attributes for each {termSingularLower}",
+  "@settingsCustomFieldsEmptySubtitle": {
+    "description": "Empty state subtitle for custom fields screen",
+    "placeholders": { "termSingularLower": { "type": "String" } }
+  },
   "settingsCustomFieldsAddAction": "Add Field",
   "@settingsCustomFieldsAddAction": { "description": "Empty state action button label for adding a custom field" },
   "settingsCustomFieldsDeleteTitle": "Delete Field",
@@ -7293,8 +7663,11 @@
   "@settingsDataBrowserTitle": { "description": "Title of the data browser debug screen" },
   "settingsDataBrowserReloadTooltip": "Reload data",
   "@settingsDataBrowserReloadTooltip": { "description": "Tooltip for the reload button in the data browser" },
-  "settingsDataBrowserTabMembers": "Members",
-  "@settingsDataBrowserTabMembers": { "description": "Tab label for the members table in the data browser" },
+  "settingsDataBrowserTabMembers": "{termPlural}",
+  "@settingsDataBrowserTabMembers": {
+    "description": "Tab label for the members table in the data browser",
+    "placeholders": { "termPlural": { "type": "String" } }
+  },
   "settingsDataBrowserTabSessions": "Sessions",
   "@settingsDataBrowserTabSessions": { "description": "Tab label for the sessions table in the data browser" },
   "settingsDataBrowserTabChats": "Chats",
@@ -7308,8 +7681,11 @@
     "description": "Error state text in the data browser",
     "placeholders": { "error": { "type": "String" } }
   },
-  "settingsDataBrowserNoMembers": "No members",
-  "@settingsDataBrowserNoMembers": { "description": "Empty state text when members table is empty" },
+  "settingsDataBrowserNoMembers": "No {termPluralLower}",
+  "@settingsDataBrowserNoMembers": {
+    "description": "Empty state text when members table is empty",
+    "placeholders": { "termPluralLower": { "type": "String" } }
+  },
   "settingsDataBrowserNoSessions": "No sessions",
   "@settingsDataBrowserNoSessions": { "description": "Empty state text when sessions table is empty" },
   "settingsDataBrowserNoConversations": "No conversations",
@@ -7425,6 +7801,43 @@
   "@navStatistics": { "description": "Bottom navigation tab label for the Statistics tab" },
   "navTimeline": "Timeline",
   "@navTimeline": { "description": "Bottom navigation tab label for the Timeline tab" },
+  "navSleep": "Sleep",
+  "@navSleep": { "description": "Bottom navigation tab label for the Sleep tab" },
+  "sleepScreenTitle": "Sleep",
+  "@sleepScreenTitle": { "description": "Title shown in the top bar of the Sleep screen" },
+  "sleepScreenAddTooltip": "Log sleep",
+  "@sleepScreenAddTooltip": { "description": "Tooltip for the + icon button on the Sleep screen top bar" },
+  "sleepScreenSettingsTooltip": "Sleep settings",
+  "@sleepScreenSettingsTooltip": { "description": "Tooltip for the settings gear icon button on the Sleep screen top bar" },
+  "sleepEmptyTitle": "No sleep sessions yet",
+  "@sleepEmptyTitle": { "description": "Empty state heading on the Sleep screen when no sessions exist" },
+  "sleepEmptyBody": "Tap + to log your first",
+  "@sleepEmptyBody": { "description": "Empty state body on the Sleep screen (em dash, no period per spec)" },
+  "sleepLastNightLabel": "Last night",
+  "@sleepLastNightLabel": { "description": "Label for the Last Night stat card on the Sleep screen" },
+  "sleepSevenDayAvgLabel": "7-day avg",
+  "@sleepSevenDayAvgLabel": { "description": "Label for the 7-day average stat card on the Sleep screen" },
+  "sleepRecentSectionHeader": "Recent",
+  "@sleepRecentSectionHeader": { "description": "Section header for the recent sleep sessions list on the Sleep screen" },
+  "sleepStatUnavailable": "—",
+  "@sleepStatUnavailable": { "description": "Placeholder shown in a stat card when no data is available (em dash)" },
+  "sleepViewAllHistory": "View sleep history",
+  "@sleepViewAllHistory": { "description": "Row label in Settings → Features → Sleep that navigates to the Sleep screen" },
+  "sleepTrendVsPriorWeek": "vs prior week: {delta}",
+  "@sleepTrendVsPriorWeek": {
+    "description": "Trend line on the 7-day average sleep stat card showing change vs prior 7 days",
+    "placeholders": {
+      "delta": { "type": "String", "example": "+18m" }
+    }
+  },
+  "sleepDateLooksOff": "Date looks off",
+  "@sleepDateLooksOff": { "description": "Inline warning chip on a sleep session row when the start date is in the future (clock skew)" },
+  "sleepOverlapsExistingWarning": "This overlaps an existing sleep session",
+  "@sleepOverlapsExistingWarning": { "description": "Soft warning shown in StartSleepSheet when a historical sleep entry overlaps an existing session" },
+  "logPastSleep": "Log past sleep",
+  "@logPastSleep": { "description": "Disclosure link in StartSleepSheet to switch into historical-logging mode with an end-time field" },
+  "cancelHistoricalSleep": "Cancel",
+  "@cancelHistoricalSleep": { "description": "Link in StartSleepSheet to cancel historical-logging mode and return to start-now defaults" },
 
   "onboardingWelcomeTitle": "Welcome to Prism",
   "@onboardingWelcomeTitle": { "description": "Header title for the onboarding welcome step" },
@@ -7478,17 +7891,27 @@
   "@onboardingPermissionsNotificationTitle": {
     "description": "Title for notification permission request in onboarding"
   },
-  "onboardingPermissionsNotificationRationale": "We'll let you know when headmates log a switch or a habit reminder is due",
+  "onboardingPermissionsNotificationRationale": "We'll let you know when {termPluralLower} log a switch or a habit reminder is due",
   "@onboardingPermissionsNotificationRationale": {
-    "description": "Rationale for requesting notification permission"
+    "description": "Rationale for requesting notification permission",
+    "placeholders": {
+      "termPluralLower": {
+        "type": "String"
+      }
+    }
   },
   "onboardingPermissionsMicrophoneTitle": "Microphone",
   "@onboardingPermissionsMicrophoneTitle": {
     "description": "Title for microphone permission request in onboarding"
   },
-  "onboardingPermissionsMicrophoneRationale": "So you can record voice messages for your headmates",
+  "onboardingPermissionsMicrophoneRationale": "So you can record voice messages for your {termPluralLower}",
   "@onboardingPermissionsMicrophoneRationale": {
-    "description": "Rationale for requesting microphone permission"
+    "description": "Rationale for requesting microphone permission",
+    "placeholders": {
+      "termPluralLower": {
+        "type": "String"
+      }
+    }
   },
   "onboardingPermissionsAllowed": "Allowed",
   "@onboardingPermissionsAllowed": {
@@ -7755,21 +8178,24 @@
   "@pluralkitRerunMemberMapping": {
     "description": "Button label to re-open the PK member mapping flow"
   },
-  "pluralkitImportFromFile": "Import from pk;export file",
+  "pluralkitImportFromFile": "Recover history from pk;export",
   "@pluralkitImportFromFile": {
     "description": "Button label to import a PluralKit pk;export JSON file"
   },
-  "pluralkitMappingBannerTitle": "One more step: link your members",
+  "pluralkitMappingBannerTitle": "One more step: link your {termPluralLower}",
   "@pluralkitMappingBannerTitle": {
-    "description": "Title for the post-connect mapping required banner"
+    "description": "Title for the post-connect mapping required banner",
+    "placeholders": { "termPluralLower": { "type": "String" } }
   },
-  "pluralkitMappingBannerBody": "You're connected. Before sync turns on, match each PluralKit member to a member in Prism — or import them as new. This prevents duplicates and keeps switch history attached to the right person.",
+  "pluralkitMappingBannerBody": "You're connected. Before sync turns on, match each PluralKit member to a {termSingularLower} in Prism — or import them as new. This prevents duplicates and keeps switch history attached to the right person.",
   "@pluralkitMappingBannerBody": {
-    "description": "Body for the post-connect mapping required banner"
+    "description": "Body for the post-connect mapping required banner",
+    "placeholders": { "termSingularLower": { "type": "String" } }
   },
-  "pluralkitMappingBannerButton": "Link members",
+  "pluralkitMappingBannerButton": "Link {termPluralLower}",
   "@pluralkitMappingBannerButton": {
-    "description": "Button label inside the mapping banner that opens the mapping flow"
+    "description": "Button label inside the mapping banner that opens the mapping flow",
+    "placeholders": { "termPluralLower": { "type": "String" } }
   },
   "sleepWakeUpMorning": "Good morning!",
   "@sleepWakeUpMorning": {
@@ -7940,8 +8366,11 @@
   "migrationCfContinue": "Continue",
   "@migrationCfContinue": { "description": "Continue button on the custom-fronts disposition step" },
 
-  "migrationCfOptionMember": "Import as member",
-  "@migrationCfOptionMember": { "description": "Disposition option: create a tagged member for the custom front" },
+  "migrationCfOptionMember": "Import as {termSingularLower}",
+  "@migrationCfOptionMember": {
+    "description": "Disposition option: create a tagged member for the custom front",
+    "placeholders": { "termSingularLower": { "type": "String" } }
+  },
   "migrationCfOptionNote": "Merge into notes",
   "@migrationCfOptionNote": { "description": "Disposition option: append the CF name to affected session notes" },
   "migrationCfOptionSleep": "Convert to sleep",
@@ -7949,8 +8378,11 @@
   "migrationCfOptionSkip": "Skip",
   "@migrationCfOptionSkip": { "description": "Disposition option: drop the CF entirely" },
 
-  "migrationCfOptionMemberDesc": "Creates a member with this name. Front history entries for it are kept as member sessions.",
-  "@migrationCfOptionMemberDesc": { "description": "Longer description of the import-as-member disposition" },
+  "migrationCfOptionMemberDesc": "Creates a {termSingularLower} with this name. Front history entries for it are kept as {termSingularLower} sessions.",
+  "@migrationCfOptionMemberDesc": {
+    "description": "Longer description of the import-as-member disposition",
+    "placeholders": { "termSingularLower": { "type": "String" } }
+  },
   "migrationCfOptionNoteDesc": "No member is created. The custom front's name is appended to the notes of sessions it touches.",
   "@migrationCfOptionNoteDesc": { "description": "Longer description of the merge-as-note disposition" },
   "migrationCfOptionSleepDesc": "Front history entries where this is the primary fronter become sleep sessions instead.",
@@ -8039,5 +8471,357 @@
   "@migrationWarnCfSleepDedup": {
     "description": "Warning: same-start SP sleep entries were deduped",
     "placeholders": { "count": { "type": "int" } }
+  },
+
+  "frontingUpgradeTitle": "Fronting upgrade",
+  "@frontingUpgradeTitle": { "description": "Title bar of the per-member fronting upgrade modal" },
+  "frontingUpgradeIntroHeadline": "We're upgrading how fronting is stored",
+  "@frontingUpgradeIntroHeadline": { "description": "Intro screen headline" },
+  "frontingUpgradeIntroBody": "Co-fronting now uses one record per {termSingularLower} instead of one shared record. This makes overlaps, edits, and analytics work correctly. We'll save a backup of your current data first, then run the upgrade.",
+  "@frontingUpgradeIntroBody": {
+    "description": "Intro screen body explaining the upgrade",
+    "placeholders": { "termSingularLower": { "type": "String" } }
+  },
+  "frontingUpgradeContinue": "Continue",
+  "@frontingUpgradeContinue": { "description": "Primary continue button on the intro screen" },
+
+  "frontingUpgradeRoleHeadline": "Is this your main device?",
+  "@frontingUpgradeRoleHeadline": { "description": "Role-selection screen headline" },
+  "frontingUpgradeRoleBody": "Your main device keeps all your fronting history. Other devices will need to pair again afterward and pull the migrated history from the main device.",
+  "@frontingUpgradeRoleBody": { "description": "Role-selection screen body" },
+  "frontingUpgradeRolePrimary": "Yes, this is my main device",
+  "@frontingUpgradeRolePrimary": { "description": "Primary-role button" },
+  "frontingUpgradeRoleSecondary": "No, this is a secondary",
+  "@frontingUpgradeRoleSecondary": { "description": "Secondary-role button" },
+
+  "frontingUpgradeModeHeadline": "How should we upgrade?",
+  "@frontingUpgradeModeHeadline": { "description": "Mode-picker screen headline" },
+  "frontingUpgradeModeKeepTitle": "Keep my data",
+  "@frontingUpgradeModeKeepTitle": { "description": "Mode card: upgradeAndKeep title" },
+  "frontingUpgradeModeKeepBody": "Your existing fronts stay. PluralKit-imported fronts get re-imported with the new shape on next PluralKit sync.",
+  "@frontingUpgradeModeKeepBody": { "description": "Mode card: upgradeAndKeep body" },
+  "frontingUpgradeModeFreshTitle": "Start fresh",
+  "@frontingUpgradeModeFreshTitle": { "description": "Mode card: startFresh title" },
+  "frontingUpgradeModeFreshBody": "All fronts are wiped. Useful if your fronting history is messy and you want a clean slate. A backup file is still created.",
+  "@frontingUpgradeModeFreshBody": { "description": "Mode card: startFresh body" },
+  "frontingUpgradeRecommended": "Recommended",
+  "@frontingUpgradeRecommended": { "description": "Recommended badge on the keep-data mode card" },
+
+  "frontingUpgradePasswordHeadline": "Protect your backup",
+  "@frontingUpgradePasswordHeadline": { "description": "Password screen headline" },
+  "frontingUpgradePasswordBody": "We're about to back up your current fronting data and then upgrade it.",
+  "@frontingUpgradePasswordBody": { "description": "Password screen body" },
+  "frontingUpgradePasswordNote": "This password protects your backup file. Save it somewhere safe — without it, the file can't be recovered.",
+  "@frontingUpgradePasswordNote": { "description": "Password screen note above the input" },
+  "frontingUpgradePasswordSubmit": "Back up and upgrade",
+  "@frontingUpgradePasswordSubmit": { "description": "Submit button on the password screen" },
+
+  "frontingUpgradeRunning": "Migrating your fronting history…",
+  "@frontingUpgradeRunning": { "description": "Title shown while the migration is running" },
+  "frontingUpgradeRunningSubtitle": "This may take a moment. Don't close the app.",
+  "@frontingUpgradeRunningSubtitle": { "description": "Subtitle shown while the migration is running" },
+
+  "frontingUpgradeExporting": "Building your backup…",
+  "@frontingUpgradeExporting": { "description": "Title shown while the PRISM1 backup is being exported" },
+  "frontingUpgradeExportingSubtitle": "Encrypting your fronting data so you can keep a copy.",
+  "@frontingUpgradeExportingSubtitle": { "description": "Subtitle shown while the PRISM1 backup is being exported" },
+
+  "frontingUpgradeBackupReadyHeadline": "Backup ready",
+  "@frontingUpgradeBackupReadyHeadline": { "description": "Headline of the durable-save gate that runs before the destructive migration step" },
+  "frontingUpgradeBackupReadyBody": "Save this backup somewhere you'll be able to find it later — outside the app. Without it, you can't recover your old data if anything goes wrong.",
+  "@frontingUpgradeBackupReadyBody": { "description": "Body text on the durable-save gate explaining why saving the file is important" },
+  "frontingUpgradeBackupSaveAs": "Save backup…",
+  "@frontingUpgradeBackupSaveAs": { "description": "Primary action on the backup-ready step — opens a file picker to save the file to a user-chosen destination" },
+  "frontingUpgradeBackupShare": "Share…",
+  "@frontingUpgradeBackupShare": { "description": "Secondary action on the backup-ready step — opens the system share sheet" },
+  "frontingUpgradeBackupAcknowledge": "I have saved this backup somewhere I can find later",
+  "@frontingUpgradeBackupAcknowledge": { "description": "Manual checkbox on the backup-ready step — auto-ticks on a successful save or share" },
+  "frontingUpgradeBackupContinue": "Continue",
+  "@frontingUpgradeBackupContinue": { "description": "Continue button on the backup-ready step; disabled until the acknowledgment checkbox is ticked" },
+
+  "frontingUpgradeSuccessHeadline": "Migration complete!",
+  "@frontingUpgradeSuccessHeadline": { "description": "Success screen headline" },
+  "frontingUpgradeCountSpMigrated": "{count, plural, =1{Migrated 1 Simply Plural session.} other{Migrated {count} Simply Plural sessions.}}",
+  "@frontingUpgradeCountSpMigrated": {
+    "description": "Success counter: SP rows migrated",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "frontingUpgradeCountNativeMigrated": "{count, plural, =1{Migrated 1 fronting session.} other{Migrated {count} fronting sessions.}}",
+  "@frontingUpgradeCountNativeMigrated": {
+    "description": "Success counter: native rows migrated",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "frontingUpgradeCountNativeExpanded": "{count, plural, =1{Expanded 1 co-fronting period into per-{termSingularLower} records.} other{Expanded {count} co-fronting periods into per-{termSingularLower} records.}}",
+  "@frontingUpgradeCountNativeExpanded": {
+    "description": "Success counter: native rows fanned out",
+    "placeholders": {
+      "count": { "type": "int" },
+      "termSingularLower": { "type": "String" }
+    }
+  },
+  "frontingUpgradeCountPkDeleted": "{count, plural, =1{Old-format PluralKit history was cleared (1 session). Re-import it from a PluralKit token or a pk;export file.} other{Old-format PluralKit history was cleared ({count} sessions). Re-import it from a PluralKit token or a pk;export file.}}",
+  "@frontingUpgradeCountPkDeleted": {
+    "description": "Success counter and follow-up guidance when old-format PluralKit fronting history was cleared",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "frontingUpgradeCountCommentsMigrated": "{count, plural, =1{Migrated 1 comment.} other{Migrated {count} comments.}}",
+  "@frontingUpgradeCountCommentsMigrated": {
+    "description": "Success counter: comments migrated",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "frontingUpgradeCountOrphansAssigned": "{count, plural, =1{Assigned 1 unattributed session to the Unknown {termSingularLower}.} other{Assigned {count} unattributed sessions to the Unknown {termSingularLower}.}}",
+  "@frontingUpgradeCountOrphansAssigned": {
+    "description": "Success counter: orphan rows assigned to sentinel",
+    "placeholders": {
+      "count": { "type": "int" },
+      "termSingularLower": { "type": "String" }
+    }
+  },
+  "frontingUpgradeCountSentinelCreated": "Created an Unknown {termSingularLower} to hold sessions with no clear fronter.",
+  "@frontingUpgradeCountSentinelCreated": {
+    "description": "Success counter: sentinel was created",
+    "placeholders": { "termSingularLower": { "type": "String" } }
+  },
+  "frontingUpgradeCountCorruptCoFronters": "{count, plural, =1{1 session had unreadable co-fronter data and was migrated as single-{termSingularLower}.} other{{count} sessions had unreadable co-fronter data and were migrated as single-{termSingularLower}.}}",
+  "@frontingUpgradeCountCorruptCoFronters": {
+    "description": "Success counter: rows whose co_fronter_ids JSON failed to parse and were migrated as single-member fallback",
+    "placeholders": {
+      "count": { "type": "int" },
+      "termSingularLower": { "type": "String" }
+    }
+  },
+  "frontingUpgradeIntroPendingSyncWarning": "If you have unsynced changes from offline use, make sure your device is online and synced before you continue. Pending uploads will need to be redone after the upgrade.",
+  "@frontingUpgradeIntroPendingSyncWarning": { "description": "Warning shown on the upgrade modal's intro screen — the sync state wipe clears pending_ops, so any local writes that haven't been pushed yet will only exist on this device after the upgrade." },
+
+  "frontingUpgradeAnalyticsNote": "Analytics are now framed as {term}-minutes — when two of you co-front for an hour, that's two {term}-hours. Same math as before, clearer label.",
+  "@frontingUpgradeAnalyticsNote": {
+    "description": "One-line FYI shown on the upgrade success screen explaining the analytics relabel from 'fronting time' to '{term}-minutes' (e.g., 'member-minutes', 'headmate-minutes').",
+    "placeholders": {
+      "term": {
+        "type": "String",
+        "description": "Singular lowercase form of the user's chosen terminology (e.g., 'member', 'headmate')."
+      }
+    }
+  },
+  "frontingUpgradeRepairPrimary": "Your other devices need to pair again to receive the migrated history. Open Settings → Sync on your other devices and follow the pairing flow.",
+  "@frontingUpgradeRepairPrimary": { "description": "Re-pair guidance for primary devices" },
+  "frontingUpgradeRepairSecondary": "Pair this device with your main device again to receive the migrated history.",
+  "@frontingUpgradeRepairSecondary": { "description": "Re-pair guidance for secondary devices" },
+  "frontingUpgradeRepairSolo": "All set. Your fronting data is on the new format.",
+  "@frontingUpgradeRepairSolo": { "description": "Final note for solo devices, no re-pair needed" },
+  "frontingUpgradeOpenPluralKitImport": "Open PluralKit import",
+  "@frontingUpgradeOpenPluralKitImport": {
+    "description": "Button label on the fronting migration success screen that opens PluralKit import options"
+  },
+
+  "frontingUpgradeFailureHeadline": "Migration failed",
+  "@frontingUpgradeFailureHeadline": { "description": "Failure screen headline" },
+  "frontingUpgradeFailureBackupNote": "Your backup file was saved. You can find it in your share sheet history if you need to recover.",
+  "@frontingUpgradeFailureBackupNote": { "description": "Reassurance shown on the failure screen when a backup exists" },
+
+  "frontingUpgradeBannerTitle": "Fronting upgrade pending",
+  "@frontingUpgradeBannerTitle": { "description": "Home-screen banner title when migration cleanup needs to be resumed" },
+  "frontingUpgradeBannerMessage": "Tap to continue the upgrade.",
+  "@frontingUpgradeBannerMessage": { "description": "Home-screen banner message when migration cleanup needs to be resumed" },
+
+  "frontingUpgradeResumeCleanupHeadline": "Finish migration",
+  "@frontingUpgradeResumeCleanupHeadline": { "description": "Headline shown when a previous migration attempt left the device mid-cleanup and the modal is offering to finish the remaining sync-credential reset." },
+  "frontingUpgradeResumeCleanupBody": "A previous upgrade attempt finished the data migration but couldn't complete the sync reset. Tap below to finish — no data will be touched, only the sync credentials.",
+  "@frontingUpgradeResumeCleanupBody": { "description": "Body text on the resume-cleanup step explaining what the remaining work touches." },
+  "frontingUpgradeResumeCleanupButton": "Finish migration",
+  "@frontingUpgradeResumeCleanupButton": { "description": "Primary button on the resume-cleanup step." },
+
+  "frontingUpgradePkTokenDialogTitle": "PluralKit token",
+  "@frontingUpgradePkTokenDialogTitle": { "description": "Title of the dialog that asks for a PluralKit token after the migration finishes, used to re-import PK fronting history." },
+  "frontingUpgradePkTokenDialogMessage": "Import PluralKit fronting history now. This uses the token once and does not turn on PluralKit sync.",
+  "@frontingUpgradePkTokenDialogMessage": { "description": "Body of the post-migration PluralKit token dialog." },
+  "frontingUpgradePkTokenLabel": "PluralKit token",
+  "@frontingUpgradePkTokenLabel": { "description": "Field label inside the post-migration PluralKit token dialog." },
+  "frontingUpgradePkTokenHint": "Paste your PluralKit token",
+  "@frontingUpgradePkTokenHint": { "description": "Field placeholder inside the post-migration PluralKit token dialog." },
+  "frontingUpgradePkTokenImport": "Import",
+  "@frontingUpgradePkTokenImport": { "description": "Confirm button on the post-migration PluralKit token dialog." },
+
+  "frontingUpgradePkImportButton": "Import with PluralKit token",
+  "@frontingUpgradePkImportButton": { "description": "Button on the post-migration success screen that opens the PK token dialog." },
+  "frontingUpgradePkImportIdle": "PluralKit history can be re-imported here with a temporary token. The token is used once and PluralKit sync stays off.",
+  "@frontingUpgradePkImportIdle": { "description": "Idle hint shown on the post-migration success screen before the user opts into a one-shot PK re-import." },
+  "frontingUpgradePkImportRunning": "Re-importing PluralKit history...",
+  "@frontingUpgradePkImportRunning": { "description": "Status line shown while the post-migration PluralKit re-import is running." },
+  "frontingUpgradePkImportImported": "PluralKit history was re-imported.",
+  "@frontingUpgradePkImportImported": { "description": "Confirmation line shown after a successful post-migration PluralKit re-import." },
+  "frontingUpgradePkImportTombstoneLine": "{count, plural, =1{1 deleted row was left as-is to honor the local delete.} other{{count} deleted rows were left as-is to honor the local delete.}}",
+  "@frontingUpgradePkImportTombstoneLine": {
+    "description": "Optional follow-on line on the post-migration success screen reporting tombstoned rows the corrective re-import declined to resurrect.",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "frontingUpgradePkImportZeroLengthLine": "{count, plural, =1{1 zero-length close was skipped (PluralKit listed an enter and a leave at the same instant).} other{{count} zero-length closes were skipped (PluralKit listed an enter and a leave at the same instant).}}",
+  "@frontingUpgradePkImportZeroLengthLine": {
+    "description": "Optional follow-on line reporting zero-length presence skips during the post-migration PluralKit re-import.",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "frontingUpgradePkImportNeedsToken": "No stored PluralKit token was found. You can import with a temporary token here without turning on PluralKit sync.",
+  "@frontingUpgradePkImportNeedsToken": { "description": "Status line shown when the post-migration PluralKit re-import needs a token from the user." },
+  "frontingUpgradePkImportFailed": "PluralKit re-import failed: {error}",
+  "@frontingUpgradePkImportFailed": {
+    "description": "Status line shown when the post-migration PluralKit re-import errors out.",
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+
+  "pkFileImportMembersLabel": "{termPlural}",
+  "@pkFileImportMembersLabel": {
+    "description": "PluralKit file import preview/result row label for the count of members. Uses the user's terminology.",
+    "placeholders": {
+      "termPlural": {
+        "type": "String",
+        "description": "Capitalised plural form of the user's chosen terminology (e.g., 'Members', 'Headmates')."
+      }
+    }
+  },
+  "pkFileImportGroupsLabel": "Groups",
+  "@pkFileImportGroupsLabel": {
+    "description": "PluralKit file import preview/result row label for the count of groups. Kept generic — PluralKit's own 'group' concept."
+  },
+  "pkFileImportFrontingSessionsLabel": "Switches found (not imported)",
+  "@pkFileImportFrontingSessionsLabel": {
+    "description": "PluralKit file import preview row label for switches found in the export but not imported from file."
+  },
+  "pkFileImportSwitchesFoundLabel": "Switches found (not imported)",
+  "@pkFileImportSwitchesFoundLabel": {
+    "description": "PluralKit file import preview/result row label for switches found in the export but not imported from file."
+  },
+  "pkFileImportPreviewNote": "Existing {termPlural} with the same PluralKit ID will be updated. To import fronting history, add a PluralKit token so Prism can match export switches before importing fronts.",
+  "@pkFileImportPreviewNote": {
+    "description": "Informational note shown on the PluralKit file import preview screen before file plus token fronting import.",
+    "placeholders": {
+      "termPlural": {
+        "type": "String",
+        "description": "Lowercase plural form of the user's chosen terminology (e.g., 'members', 'headmates') — appears mid-sentence."
+      }
+    }
+  },
+  "pkFileImportImportButton": "Import",
+  "@pkFileImportImportButton": {
+    "description": "PluralKit file import: primary action button on the preview screen"
+  },
+  "pkFileImportSwitchesMatchedLabel": "Switches matched with token",
+  "@pkFileImportSwitchesMatchedLabel": {
+    "description": "PluralKit file import result row label for switches reconciled against the API by the token-backed import path."
+  },
+  "pkFileImportNewerSwitchesLabel": "Newer switches from PluralKit",
+  "@pkFileImportNewerSwitchesLabel": {
+    "description": "PluralKit file import result row label for API-only switches outside the export's range."
+  },
+  "pkFileImportFrontingImportedNote": "Fronting history was imported through the token-backed PluralKit path so Prism can keep using canonical switch IDs.",
+  "@pkFileImportFrontingImportedNote": {
+    "description": "Note shown on the import-complete screen when fronting history was imported via the token path."
+  },
+  "pkFileImportFrontingImportedNoteWithNewer": "Fronting history was imported through the token-backed PluralKit path so Prism can keep using canonical switch IDs. Prism also imported {count} newer switches from PluralKit that were not in the export.",
+  "@pkFileImportFrontingImportedNoteWithNewer": {
+    "description": "Variant of the imported note that also reports the count of newer API-only switches.",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "pkFileImportFrontingNotImportedNote": "Fronting history was not imported because the export and PluralKit API did not match safely.",
+  "@pkFileImportFrontingNotImportedNote": {
+    "description": "Note shown on the import-complete screen when fronting history was not imported."
+  },
+  "pkFileImportDoneButton": "Done",
+  "@pkFileImportDoneButton": { "description": "Primary button on the PluralKit file import complete screen." },
+  "pkFileImportFailedHeadline": "Import failed",
+  "@pkFileImportFailedHeadline": { "description": "Headline on the PluralKit file import error screen." },
+  "pkFileImportTryAgainButton": "Try again",
+  "@pkFileImportTryAgainButton": { "description": "Button on the PluralKit file import error screen that resets the flow." },
+  "pkFileImportPickDifferentButton": "Pick a different file",
+  "@pkFileImportPickDifferentButton": {
+    "description": "PluralKit file import: secondary action button on the preview screen to choose a different file"
+  },
+  "pkFileImportCompleteHeading": "Import complete",
+  "@pkFileImportCompleteHeading": {
+    "description": "PluralKit file import: heading on the success screen"
+  },
+  "pkFileImportSwitchesCreatedLabel": "Switches created",
+  "@pkFileImportSwitchesCreatedLabel": {
+    "description": "PluralKit file import result row: count of switches that were newly created. 'Switches' is PluralKit-internal vocabulary and is intentionally not localised through the terminology system."
+  },
+  "pkFileImportSwitchesSkippedLabel": "Switches found (not imported)",
+  "@pkFileImportSwitchesSkippedLabel": {
+    "description": "PluralKit file import result row: count of switches found in the export but not imported from file. 'Switches' is PluralKit-internal vocabulary."
+  },
+  "settingsFrontingSessionDisplaySectionTitle": "Session display & front behavior",
+  "@settingsFrontingSessionDisplaySectionTitle": {
+    "description": "Section header on the fronting feature settings screen, grouping the list view-mode preference and the add-front / quick-front default behavior preferences."
+  },
+  "settingsFrontingListViewModeLabel": "Session list view",
+  "@settingsFrontingListViewModeLabel": {
+    "description": "Row title for the home-screen session list view-mode preference (combined periods / per-member rows / timeline)."
+  },
+  "settingsFrontingListViewModeCombinedPeriods": "Combined periods",
+  "@settingsFrontingListViewModeCombinedPeriods": {
+    "description": "Option label: render the home-screen session list as combined periods (avatar stacks per unique fronter group)."
+  },
+  "settingsFrontingListViewModeCombinedPeriodsDescription": "Avatar stacks for each unique fronter group",
+  "@settingsFrontingListViewModeCombinedPeriodsDescription": {
+    "description": "Option subtitle for the combined-periods session list view mode."
+  },
+  "settingsFrontingListViewModePerMemberRows": "Per-{term} rows",
+  "@settingsFrontingListViewModePerMemberRows": {
+    "description": "Option label: render the home-screen session list as one row per fronter session, side-by-side. {term} is the user's chosen singular member terminology (lowercase).",
+    "placeholders": {
+      "term": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsFrontingListViewModePerMemberRowsDescription": "One row per fronter session, side-by-side",
+  "@settingsFrontingListViewModePerMemberRowsDescription": {
+    "description": "Option subtitle for the per-member-rows session list view mode."
+  },
+  "settingsFrontingListViewModeTimeline": "Timeline",
+  "@settingsFrontingListViewModeTimeline": {
+    "description": "Option label: render the home-screen session list as a timeline / bar chart over time."
+  },
+  "settingsFrontingListViewModeTimelineDescription": "Bar chart view of fronting over time",
+  "@settingsFrontingListViewModeTimelineDescription": {
+    "description": "Option subtitle for the timeline session list view mode."
+  },
+  "settingsAddFrontDefaultBehaviorLabel": "When adding a new front",
+  "@settingsAddFrontDefaultBehaviorLabel": {
+    "description": "Row title for the default behavior preference when starting a new front from the add-front sheet."
+  },
+  "settingsAddFrontDefaultBehaviorAdditive": "Add as co-fronter",
+  "@settingsAddFrontDefaultBehaviorAdditive": {
+    "description": "Option label: starting a new front leaves any existing fronts in place; the new member joins as a co-fronter."
+  },
+  "settingsAddFrontDefaultBehaviorAdditiveDescription": "New fronts join existing ones",
+  "@settingsAddFrontDefaultBehaviorAdditiveDescription": {
+    "description": "Option subtitle for the additive add-front default behavior."
+  },
+  "settingsAddFrontDefaultBehaviorReplace": "Replace current fronters",
+  "@settingsAddFrontDefaultBehaviorReplace": {
+    "description": "Option label: starting a new front ends all existing fronts before the new member begins."
+  },
+  "settingsAddFrontDefaultBehaviorReplaceDescription": "End all current fronts before starting new ones",
+  "@settingsAddFrontDefaultBehaviorReplaceDescription": {
+    "description": "Option subtitle for the replace add-front default behavior."
+  },
+  "settingsQuickFrontDefaultBehaviorLabel": "When using quick front",
+  "@settingsQuickFrontDefaultBehaviorLabel": {
+    "description": "Row title for the default behavior preference when triggering quick front (the per-member quick-action shortcut)."
+  },
+  "settingsQuickFrontDefaultBehaviorAdditive": "Add as co-fronter",
+  "@settingsQuickFrontDefaultBehaviorAdditive": {
+    "description": "Option label: quick front leaves existing fronts in place; the tapped member joins as a co-fronter."
+  },
+  "settingsQuickFrontDefaultBehaviorReplace": "Replace current fronters",
+  "@settingsQuickFrontDefaultBehaviorReplace": {
+    "description": "Option label: quick front ends all existing fronts before the tapped member begins."
   }
 }

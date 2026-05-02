@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:drift/drift.dart' show Value;
+import 'package:drift/drift.dart' show TableUpdate, Value;
 import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart';
 
@@ -210,6 +210,30 @@ class SpImporter {
         await db.customStatement('DELETE FROM notes');
         await db.customStatement('DELETE FROM reminders');
         await db.customStatement('DELETE FROM members');
+        // customStatement bypasses Drift's typed-write notification.
+        // The SP import is followed by an app reload, so live UI never
+        // observes the intermediate truncated state — but we notify
+        // defensively in case a future caller skips the reload, so the
+        // frontingTableTickerProvider and any active streams refresh.
+        db.notifyUpdates({
+          const TableUpdate('habit_completions'),
+          const TableUpdate('habits'),
+          const TableUpdate('poll_votes'),
+          const TableUpdate('poll_options'),
+          const TableUpdate('polls'),
+          const TableUpdate('chat_messages'),
+          const TableUpdate('conversation_categories'),
+          const TableUpdate('conversations'),
+          const TableUpdate('front_session_comments'),
+          const TableUpdate('fronting_sessions'),
+          const TableUpdate('custom_field_values'),
+          const TableUpdate('custom_fields'),
+          const TableUpdate('member_group_entries'),
+          const TableUpdate('member_groups'),
+          const TableUpdate('notes'),
+          const TableUpdate('reminders'),
+          const TableUpdate('members'),
+        });
       }
 
       // 1. Import members.

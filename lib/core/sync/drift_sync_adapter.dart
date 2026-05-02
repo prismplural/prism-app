@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer' as developer;
 
 import 'package:crypto/crypto.dart';
 import 'package:drift/drift.dart';
 import 'package:prism_sync_drift/prism_sync_drift.dart';
 
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/sync/sync_quarantine.dart';
 
@@ -67,15 +69,73 @@ class SyncAdapterWithCompletion {
   }
 }
 
+/// Reasons the adapter may refuse to apply a remote payload to a local
+/// row. Callers can match on these values at logging or telemetry sites
+/// without inspecting magic strings.
+enum DriftSyncApplyRefusal {
+  /// Per-member fronting migration is blocked or in-progress; the
+  /// fronting tables are in a transitional shape and apply for
+  /// `fronting_sessions` / `front_session_comments` is hard read-only.
+  frontingMigrationGate,
+}
+
+/// Predicate used by per-table apply paths to gate writes. Returning
+/// `null` means "apply normally"; returning a non-null reason short-
+/// circuits the apply call and causes the engine to leave the local
+/// row untouched.
+///
+/// The predicate is synchronous because it's read on every apply call;
+/// today the only consumer is the fronting migration gate, which
+/// resolves a Riverpod-backed boolean stamped at startup and updated by
+/// the Drift settings stream. Make this async only if a future gate
+/// truly needs an awaited check.
+typedef DriftSyncApplyGate = DriftSyncApplyRefusal? Function(
+    String tableName);
+
+/// Records a "this remote payload was deferred because the per-member
+/// fronting migration is blocked/inProgress" entry in the quarantine
+/// table. The user can see deferred apply attempts in sync diagnostics
+/// rather than the data silently disappearing.
+///
+/// Returns immediately when [quarantine] is null (most production code
+/// paths supply one; some tests don't).
+void _trackMigrationGatedQuarantine({
+  required SyncQuarantineService? quarantine,
+  required void Function(Future<void> write) trackQuarantineWrite,
+  required String tableName,
+  required String entityId,
+  required DriftSyncApplyRefusal refusal,
+}) {
+  final q = quarantine;
+  if (q == null) return;
+  final write = q.quarantineField(
+    entityType: tableName,
+    entityId: entityId,
+    fieldName: null,
+    expectedType: 'apply',
+    receivedType: 'deferred',
+    errorMessage: 'fronting migration gate (${refusal.name}): apply deferred '
+        'until the per-member fronting migration completes',
+  );
+  trackQuarantineWrite(write);
+}
+
 SyncAdapterWithCompletion buildSyncAdapterWithCompletion(
   AppDatabase db, {
   SyncQuarantineService? quarantine,
+  DriftSyncApplyGate? applyGate,
 }) {
   final pendingQuarantineWrites = <Future<void>>[];
+  final gate = applyGate ?? ((_) => null);
   final adapter = DriftSyncAdapter(
     entities: [
       _membersEntity(db, quarantine, pendingQuarantineWrites.add),
-      _frontingSessionsEntity(db, quarantine, pendingQuarantineWrites.add),
+      _frontingSessionsEntity(
+        db,
+        quarantine,
+        pendingQuarantineWrites.add,
+        gate,
+      ),
       _conversationsEntity(db, quarantine, pendingQuarantineWrites.add),
       _chatMessagesEntity(db, quarantine, pendingQuarantineWrites.add),
       _systemSettingsEntity(db, quarantine, pendingQuarantineWrites.add),
@@ -95,7 +155,12 @@ SyncAdapterWithCompletion buildSyncAdapterWithCompletion(
       _customFieldsEntity(db, quarantine, pendingQuarantineWrites.add),
       _customFieldValuesEntity(db, quarantine, pendingQuarantineWrites.add),
       _notesEntity(db, quarantine, pendingQuarantineWrites.add),
-      _frontSessionCommentsEntity(db, quarantine, pendingQuarantineWrites.add),
+      _frontSessionCommentsEntity(
+        db,
+        quarantine,
+        pendingQuarantineWrites.add,
+        gate,
+      ),
       _friendsEntity(db, quarantine, pendingQuarantineWrites.add),
       _mediaAttachmentsEntity(db, quarantine, pendingQuarantineWrites.add),
     ],
@@ -142,6 +207,24 @@ DateTime? _asDateTime(dynamic value) {
   if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
   return null;
 }
+
+/// Serializes a [DateTime] for inclusion in a sync field map.
+///
+/// Drift reads `DateTime` columns with `isUtc=false` (local time). Calling
+/// `toIso8601String()` on a local DateTime emits a string with no offset and
+/// no `Z` suffix, e.g. `"2024-01-01T12:00:00.000"`. A peer in a different
+/// timezone parses that as their own local time, so the absolute moment
+/// shifts by the timezone delta on every cross-device sync.
+///
+/// Funnel every DateTime emission to the sync layer through this helper so
+/// the wire format is unambiguously UTC (`Z`-suffixed) and round-trips
+/// across timezones cleanly. Reviewers grepping for `.toIso8601String()` in
+/// `drift_sync_adapter.dart` should find only this helper.
+String _dateTimeToSyncString(DateTime dt) => dt.toUtc().toIso8601String();
+
+/// Nullable variant of [_dateTimeToSyncString].
+String? _dateTimeToSyncStringOrNull(DateTime? dt) =>
+    dt?.toUtc().toIso8601String();
 
 /// Nullable blob from base64 string.
 Uint8List? _blob(dynamic v) {
@@ -271,6 +354,21 @@ Future<bool> _tableHasColumn(
   String tableName,
   String columnName,
 ) async => (await _tableColumns(db, tableName)).contains(columnName);
+
+Future<void> _insertOrUpdateById<T extends Table, D>(
+  AppDatabase db,
+  TableInfo<T, D> table,
+  Insertable<D> companion,
+  Expression<bool> Function(T table) matchesId,
+) async {
+  final existing = await (db.select(table)..where(matchesId)).getSingleOrNull();
+  if (existing == null) {
+    await db.into(table).insertOnConflictUpdate(companion);
+    return;
+  }
+
+  await (db.update(table)..where(matchesId)).write(companion);
+}
 
 Future<MemberGroupRow?> _memberGroupRowById(AppDatabase db, String id) {
   return (db.select(
@@ -675,6 +773,9 @@ Future<bool> _applyMemberGroupEntryFields(
   required bool allowDeferral,
   bool throwOnUnresolved = true,
 }) async {
+  final existingRow = await (db.select(
+    db.memberGroupEntries,
+  )..where((t) => t.id.equals(id))).getSingleOrNull();
   final f = _FieldContext(
     entityType: 'member_group_entries',
     entityId: id,
@@ -682,10 +783,18 @@ Future<bool> _applyMemberGroupEntryFields(
     quarantine: quarantine,
     trackQuarantineWrite: trackQuarantineWrite,
   );
-  final pkGroupUuid = _asString(fields['pk_group_uuid']);
-  final pkMemberUuid = _asString(fields['pk_member_uuid']);
-  final legacyGroupId = _asString(fields['group_id']);
-  final legacyMemberId = _asString(fields['member_id']);
+  final pkGroupUuid = fields.containsKey('pk_group_uuid')
+      ? _asString(fields['pk_group_uuid'])
+      : existingRow?.pkGroupUuid;
+  final pkMemberUuid = fields.containsKey('pk_member_uuid')
+      ? _asString(fields['pk_member_uuid'])
+      : existingRow?.pkMemberUuid;
+  final legacyGroupId = fields.containsKey('group_id')
+      ? _asString(fields['group_id'])
+      : existingRow?.groupId;
+  final legacyMemberId = fields.containsKey('member_id')
+      ? _asString(fields['member_id'])
+      : existingRow?.memberId;
 
   // When a PK UUID field is present on the payload, sender-local
   // `group_id` / `member_id` become compatibility hints only.
@@ -747,7 +856,12 @@ Future<bool> _applyMemberGroupEntryFields(
     memberId: Value(resolvedMemberId),
     isDeleted: f.boolField('is_deleted'),
   );
-  await db.into(db.memberGroupEntries).insertOnConflictUpdate(companion);
+  await _insertOrUpdateById(
+    db,
+    db.memberGroupEntries,
+    companion,
+    (t) => t.id.equals(id),
+  );
   await _writeMemberGroupEntryPkFields(
     db,
     id: id,
@@ -1093,7 +1207,7 @@ DriftSyncEntity _membersEntity(
             ? base64Encode(r.avatarImageData!)
             : null,
         'is_active': r.isActive,
-        'created_at': r.createdAt.toIso8601String(),
+        'created_at': _dateTimeToSyncString(r.createdAt),
         'display_order': r.displayOrder,
         'is_admin': r.isAdmin,
         'custom_color_enabled': r.customColorEnabled,
@@ -1106,8 +1220,24 @@ DriftSyncEntity _membersEntity(
         'birthday': r.birthday,
         'proxy_tags_json': r.proxyTagsJson,
         'pk_banner_url': r.pkBannerUrl,
+        'profile_header_source': r.profileHeaderSource,
+        'profile_header_layout': r.profileHeaderLayout,
+        'profile_header_visible': r.profileHeaderVisible,
+        'name_style_font': r.nameStyleFont,
+        'name_style_bold': r.nameStyleBold,
+        'name_style_italic': r.nameStyleItalic,
+        'name_style_color_mode': r.nameStyleColorMode,
+        'name_style_color_hex': r.nameStyleColorHex,
+        'profile_header_image_data': r.profileHeaderImageData != null
+            ? base64Encode(r.profileHeaderImageData!)
+            : null,
+        'pk_banner_image_data': r.pkBannerImageData != null
+            ? base64Encode(r.pkBannerImageData!)
+            : null,
+        'pk_banner_cached_url': r.pkBannerCachedUrl,
         'pluralkit_sync_ignored': r.pluralkitSyncIgnored,
         'delete_push_started_at': r.deletePushStartedAt,
+        'is_always_fronting': r.isAlwaysFronting,
         'is_deleted': r.isDeleted,
       };
     },
@@ -1150,11 +1280,30 @@ DriftSyncEntity _membersEntity(
         birthday: f.stringFieldNullable('birthday'),
         proxyTagsJson: f.stringFieldNullable('proxy_tags_json'),
         pkBannerUrl: f.stringFieldNullable('pk_banner_url'),
+        profileHeaderSource: f.intField('profile_header_source'),
+        profileHeaderLayout: f.intField('profile_header_layout'),
+        profileHeaderVisible: f.boolField('profile_header_visible'),
+        nameStyleFont: f.intField('name_style_font'),
+        nameStyleBold: f.boolField('name_style_bold'),
+        nameStyleItalic: f.boolField('name_style_italic'),
+        nameStyleColorMode: f.intField('name_style_color_mode'),
+        nameStyleColorHex: f.stringFieldNullable('name_style_color_hex'),
+        profileHeaderImageData: f.blobFieldNullable(
+          'profile_header_image_data',
+        ),
+        pkBannerImageData: f.blobFieldNullable('pk_banner_image_data'),
+        pkBannerCachedUrl: f.stringFieldNullable('pk_banner_cached_url'),
         pluralkitSyncIgnored: f.boolField('pluralkit_sync_ignored'),
         deletePushStartedAt: f.intFieldNullable('delete_push_started_at'),
+        isAlwaysFronting: f.boolField('is_always_fronting'),
         isDeleted: f.boolField('is_deleted'),
       );
-      await db.into(db.members).insertOnConflictUpdate(companion);
+      await _insertOrUpdateById(
+        db,
+        db.members,
+        companion,
+        (t) => t.id.equals(id),
+      );
       if (shouldCheckPkUuidChange && priorPkUuid != nextPkUuid) {
         await _retryDeferredPkBackedMemberGroupEntryOps(
           db,
@@ -1164,6 +1313,21 @@ DriftSyncEntity _membersEntity(
       }
     },
     hardDelete: (String id) async {
+      // Refuse remote deletes of the Unknown sentinel — it backs orphan-
+      // classified fronting rows ("Front as Unknown" + importer/migration
+      // fallbacks). The repository-level deleteMember guard covers local
+      // deletes; this branch covers the sync apply path where an op from
+      // an older or buggy peer could otherwise remove the sentinel locally
+      // and break attributed fronting rows. Skip silently (don't throw —
+      // throwing here would break the sync loop) and log so a future
+      // debugger can see what happened.
+      if (id == unknownSentinelMemberId) {
+        developer.log(
+          'refusing remote delete of Unknown sentinel ($id)',
+          name: 'sync',
+        );
+        return;
+      }
       await (db.delete(db.members)..where((t) => t.id.equals(id))).go();
     },
     readRow: (String id) async {
@@ -1181,7 +1345,7 @@ DriftSyncEntity _membersEntity(
             ? base64Encode(row.avatarImageData!)
             : null,
         'is_active': row.isActive,
-        'created_at': row.createdAt.toIso8601String(),
+        'created_at': _dateTimeToSyncString(row.createdAt),
         'display_order': row.displayOrder,
         'is_admin': row.isAdmin,
         'custom_color_enabled': row.customColorEnabled,
@@ -1194,8 +1358,24 @@ DriftSyncEntity _membersEntity(
         'birthday': row.birthday,
         'proxy_tags_json': row.proxyTagsJson,
         'pk_banner_url': row.pkBannerUrl,
+        'profile_header_source': row.profileHeaderSource,
+        'profile_header_layout': row.profileHeaderLayout,
+        'profile_header_visible': row.profileHeaderVisible,
+        'name_style_font': row.nameStyleFont,
+        'name_style_bold': row.nameStyleBold,
+        'name_style_italic': row.nameStyleItalic,
+        'name_style_color_mode': row.nameStyleColorMode,
+        'name_style_color_hex': row.nameStyleColorHex,
+        'profile_header_image_data': row.profileHeaderImageData != null
+            ? base64Encode(row.profileHeaderImageData!)
+            : null,
+        'pk_banner_image_data': row.pkBannerImageData != null
+            ? base64Encode(row.pkBannerImageData!)
+            : null,
+        'pk_banner_cached_url': row.pkBannerCachedUrl,
         'pluralkit_sync_ignored': row.pluralkitSyncIgnored,
         'delete_push_started_at': row.deletePushStartedAt,
+        'is_always_fronting': row.isAlwaysFronting,
         'is_deleted': row.isDeleted,
       };
     },
@@ -1216,28 +1396,53 @@ DriftSyncEntity _frontingSessionsEntity(
   AppDatabase db,
   SyncQuarantineService? quarantine,
   void Function(Future<void> write) trackQuarantineWrite,
+  DriftSyncApplyGate gate,
 ) {
   return DriftSyncEntity(
     tableName: 'fronting_sessions',
     toSyncFields: (dynamic row) {
       final r = row as FrontingSession;
       return {
-        'start_time': r.startTime.toIso8601String(),
-        'end_time': r.endTime?.toIso8601String(),
+        'start_time': _dateTimeToSyncString(r.startTime),
+        'end_time': _dateTimeToSyncStringOrNull(r.endTime),
         'member_id': r.memberId,
-        'co_fronter_ids': r.coFronterIds,
         'notes': r.notes,
         'confidence': r.confidence,
         'session_type': r.sessionType,
         'quality': r.quality,
         'is_health_kit_import': r.isHealthKitImport,
         'pluralkit_uuid': r.pluralkitUuid,
+        'pk_import_source': r.pkImportSource,
+        'pk_file_switch_id': r.pkFileSwitchId,
+        // Transitional. Removed in 0.8.0 with v8 cleanup. See sync_schema.dart.
         'pk_member_ids_json': r.pkMemberIdsJson,
         'delete_push_started_at': r.deletePushStartedAt,
         'is_deleted': r.isDeleted,
       };
     },
     applyFields: (String id, Map<String, dynamic> fields) async {
+      // Migration gate (WS1 step 4 + 5): if the per-member fronting
+      // migration is `blocked` or `inProgress`, the local schema is in
+      // a transitional shape (single-column unique index still in
+      // place, or new-shape rows pending the post-tx sync state cutover)
+      // and applying remote new-shape rows would race with the
+      // in-flight migration. Surface the deferred apply through the
+      // quarantine channel so the user can see what was held back —
+      // silently skipping would make the deferral invisible. The
+      // post-cleanup re-pair flow snapshots the converged state from
+      // the migrated primary, so the deferred row reaches us through
+      // bootstrap rather than the apply path.
+      final refusal = gate('fronting_sessions');
+      if (refusal != null) {
+        _trackMigrationGatedQuarantine(
+          quarantine: quarantine,
+          trackQuarantineWrite: trackQuarantineWrite,
+          tableName: 'fronting_sessions',
+          entityId: id,
+          refusal: refusal,
+        );
+        return;
+      }
       final f = _FieldContext(
         entityType: 'fronting_sessions',
         entityId: id,
@@ -1250,18 +1455,27 @@ DriftSyncEntity _frontingSessionsEntity(
         startTime: f.dateTimeField('start_time'),
         endTime: f.dateTimeFieldNullable('end_time'),
         memberId: f.stringFieldNullable('member_id'),
-        coFronterIds: f.stringField('co_fronter_ids'),
         notes: f.stringFieldNullable('notes'),
         confidence: f.intFieldNullable('confidence'),
         sessionType: f.intField('session_type'),
         quality: f.intFieldNullable('quality'),
         isHealthKitImport: f.boolField('is_health_kit_import'),
         pluralkitUuid: f.stringFieldNullable('pluralkit_uuid'),
+        pkImportSource: f.stringFieldNullable('pk_import_source'),
+        pkFileSwitchId: f.stringFieldNullable('pk_file_switch_id'),
+        // Transitional. `stringFieldNullable` returns `Value.absent()` when
+        // the payload omits the key, so a v7 peer's apply does not clobber a
+        // legacy peer's value, and a legacy peer's apply still writes through.
         pkMemberIdsJson: f.stringFieldNullable('pk_member_ids_json'),
         deletePushStartedAt: f.intFieldNullable('delete_push_started_at'),
         isDeleted: f.boolField('is_deleted'),
       );
-      await db.into(db.frontingSessions).insertOnConflictUpdate(companion);
+      await _insertOrUpdateById(
+        db,
+        db.frontingSessions,
+        companion,
+        (t) => t.id.equals(id),
+      );
     },
     hardDelete: (String id) async {
       await (db.delete(
@@ -1274,16 +1488,18 @@ DriftSyncEntity _frontingSessionsEntity(
       )..where((t) => t.id.equals(id))).getSingleOrNull();
       if (row == null) return null;
       return {
-        'start_time': row.startTime.toIso8601String(),
-        'end_time': row.endTime?.toIso8601String(),
+        'start_time': _dateTimeToSyncString(row.startTime),
+        'end_time': _dateTimeToSyncStringOrNull(row.endTime),
         'member_id': row.memberId,
-        'co_fronter_ids': row.coFronterIds,
         'notes': row.notes,
         'confidence': row.confidence,
         'session_type': row.sessionType,
         'quality': row.quality,
         'is_health_kit_import': row.isHealthKitImport,
         'pluralkit_uuid': row.pluralkitUuid,
+        'pk_import_source': row.pkImportSource,
+        'pk_file_switch_id': row.pkFileSwitchId,
+        // Transitional. Removed in 0.8.0 with v8 cleanup.
         'pk_member_ids_json': row.pkMemberIdsJson,
         'delete_push_started_at': row.deletePushStartedAt,
         'is_deleted': row.isDeleted,
@@ -1312,14 +1528,15 @@ DriftSyncEntity _conversationsEntity(
     toSyncFields: (dynamic row) {
       final r = row as Conversation;
       return {
-        'created_at': r.createdAt.toIso8601String(),
-        'last_activity_at': r.lastActivityAt.toIso8601String(),
+        'created_at': _dateTimeToSyncString(r.createdAt),
+        'last_activity_at': _dateTimeToSyncString(r.lastActivityAt),
         'title': r.title,
         'emoji': r.emoji,
         'is_direct_message': r.isDirectMessage,
         'creator_id': r.creatorId,
         'participant_ids': r.participantIds,
         'archived_by_member_ids': r.archivedByMemberIds,
+        'muted_by_member_ids': r.mutedByMemberIds,
         'last_read_timestamps': r.lastReadTimestamps,
         'description': r.description,
         'category_id': r.categoryId,
@@ -1345,13 +1562,19 @@ DriftSyncEntity _conversationsEntity(
         creatorId: f.stringFieldNullable('creator_id'),
         participantIds: f.stringField('participant_ids'),
         archivedByMemberIds: f.stringField('archived_by_member_ids'),
+        mutedByMemberIds: f.stringField('muted_by_member_ids'),
         lastReadTimestamps: f.stringField('last_read_timestamps'),
         description: f.stringFieldNullable('description'),
         categoryId: f.stringFieldNullable('category_id'),
         displayOrder: f.intField('display_order'),
         isDeleted: f.boolField('is_deleted'),
       );
-      await db.into(db.conversations).insertOnConflictUpdate(companion);
+      await _insertOrUpdateById(
+        db,
+        db.conversations,
+        companion,
+        (t) => t.id.equals(id),
+      );
     },
     hardDelete: (String id) async {
       await (db.delete(db.conversations)..where((t) => t.id.equals(id))).go();
@@ -1362,14 +1585,15 @@ DriftSyncEntity _conversationsEntity(
       )..where((t) => t.id.equals(id))).getSingleOrNull();
       if (row == null) return null;
       return {
-        'created_at': row.createdAt.toIso8601String(),
-        'last_activity_at': row.lastActivityAt.toIso8601String(),
+        'created_at': _dateTimeToSyncString(row.createdAt),
+        'last_activity_at': _dateTimeToSyncString(row.lastActivityAt),
         'title': row.title,
         'emoji': row.emoji,
         'is_direct_message': row.isDirectMessage,
         'creator_id': row.creatorId,
         'participant_ids': row.participantIds,
         'archived_by_member_ids': row.archivedByMemberIds,
+        'muted_by_member_ids': row.mutedByMemberIds,
         'last_read_timestamps': row.lastReadTimestamps,
         'description': row.description,
         'category_id': row.categoryId,
@@ -1401,9 +1625,9 @@ DriftSyncEntity _chatMessagesEntity(
       final r = row as ChatMessage;
       return {
         'content': r.content,
-        'timestamp': r.timestamp.toIso8601String(),
+        'timestamp': _dateTimeToSyncString(r.timestamp),
         'is_system_message': r.isSystemMessage,
-        'edited_at': r.editedAt?.toIso8601String(),
+        'edited_at': _dateTimeToSyncStringOrNull(r.editedAt),
         'author_id': r.authorId,
         'conversation_id': r.conversationId,
         'reactions': r.reactions,
@@ -1435,7 +1659,12 @@ DriftSyncEntity _chatMessagesEntity(
         replyToContent: f.stringFieldNullable('reply_to_content'),
         isDeleted: f.boolField('is_deleted'),
       );
-      await db.into(db.chatMessages).insertOnConflictUpdate(companion);
+      await _insertOrUpdateById(
+        db,
+        db.chatMessages,
+        companion,
+        (t) => t.id.equals(id),
+      );
     },
     hardDelete: (String id) async {
       await (db.delete(db.chatMessages)..where((t) => t.id.equals(id))).go();
@@ -1447,9 +1676,9 @@ DriftSyncEntity _chatMessagesEntity(
       if (row == null) return null;
       return {
         'content': row.content,
-        'timestamp': row.timestamp.toIso8601String(),
+        'timestamp': _dateTimeToSyncString(row.timestamp),
         'is_system_message': row.isSystemMessage,
-        'edited_at': row.editedAt?.toIso8601String(),
+        'edited_at': _dateTimeToSyncStringOrNull(row.editedAt),
         'author_id': row.authorId,
         'conversation_id': row.conversationId,
         'reactions': row.reactions,
@@ -1529,6 +1758,9 @@ DriftSyncEntity _systemSettingsEntity(
         'nav_bar_overflow_items': r.navBarOverflowItems,
         'chat_badge_preferences': r.chatBadgePreferences,
         'habits_badge_enabled': r.habitsBadgeEnabled,
+        'fronting_list_view_mode': r.frontingListViewMode,
+        'add_front_default_behavior': r.addFrontDefaultBehavior,
+        'quick_front_default_behavior': r.quickFrontDefaultBehavior,
         'is_deleted': r.isDeleted,
       };
     },
@@ -1595,11 +1827,19 @@ DriftSyncEntity _systemSettingsEntity(
         navBarOverflowItems: f.stringField('nav_bar_overflow_items'),
         chatBadgePreferences: f.stringField('chat_badge_preferences'),
         habitsBadgeEnabled: f.boolField('habits_badge_enabled'),
+        frontingListViewMode: f.intField('fronting_list_view_mode'),
+        addFrontDefaultBehavior: f.intField('add_front_default_behavior'),
+        quickFrontDefaultBehavior: f.intField('quick_front_default_behavior'),
         // Device-local fields (font*, pin*, biometric*, autoLock*) are
         // intentionally excluded from sync.
         isDeleted: f.boolField('is_deleted'),
       );
-      await db.into(db.systemSettingsTable).insertOnConflictUpdate(companion);
+      await _insertOrUpdateById(
+        db,
+        db.systemSettingsTable,
+        companion,
+        (t) => t.id.equals(id),
+      );
     },
     hardDelete: (String id) async {
       await (db.delete(
@@ -1660,6 +1900,9 @@ DriftSyncEntity _systemSettingsEntity(
         'nav_bar_overflow_items': row.navBarOverflowItems,
         'chat_badge_preferences': row.chatBadgePreferences,
         'habits_badge_enabled': row.habitsBadgeEnabled,
+        'fronting_list_view_mode': row.frontingListViewMode,
+        'add_front_default_behavior': row.addFrontDefaultBehavior,
+        'quick_front_default_behavior': row.quickFrontDefaultBehavior,
         'is_deleted': row.isDeleted,
       };
     },
@@ -1691,8 +1934,8 @@ DriftSyncEntity _pollsEntity(
         'is_anonymous': r.isAnonymous,
         'allows_multiple_votes': r.allowsMultipleVotes,
         'is_closed': r.isClosed,
-        'expires_at': r.expiresAt?.toIso8601String(),
-        'created_at': r.createdAt.toIso8601String(),
+        'expires_at': _dateTimeToSyncStringOrNull(r.expiresAt),
+        'created_at': _dateTimeToSyncString(r.createdAt),
         'is_deleted': r.isDeleted,
       };
     },
@@ -1715,7 +1958,12 @@ DriftSyncEntity _pollsEntity(
         createdAt: f.dateTimeField('created_at'),
         isDeleted: f.boolField('is_deleted'),
       );
-      await db.into(db.polls).insertOnConflictUpdate(companion);
+      await _insertOrUpdateById(
+        db,
+        db.polls,
+        companion,
+        (t) => t.id.equals(id),
+      );
     },
     hardDelete: (String id) async {
       await (db.delete(db.polls)..where((t) => t.id.equals(id))).go();
@@ -1731,8 +1979,8 @@ DriftSyncEntity _pollsEntity(
         'is_anonymous': row.isAnonymous,
         'allows_multiple_votes': row.allowsMultipleVotes,
         'is_closed': row.isClosed,
-        'expires_at': row.expiresAt?.toIso8601String(),
-        'created_at': row.createdAt.toIso8601String(),
+        'expires_at': _dateTimeToSyncStringOrNull(row.expiresAt),
+        'created_at': _dateTimeToSyncString(row.createdAt),
         'is_deleted': row.isDeleted,
       };
     },
@@ -1784,7 +2032,12 @@ DriftSyncEntity _pollOptionsEntity(
         colorHex: f.stringFieldNullable('color_hex'),
         isDeleted: f.boolField('is_deleted'),
       );
-      await db.into(db.pollOptions).insertOnConflictUpdate(companion);
+      await _insertOrUpdateById(
+        db,
+        db.pollOptions,
+        companion,
+        (t) => t.id.equals(id),
+      );
     },
     hardDelete: (String id) async {
       await (db.delete(db.pollOptions)..where((t) => t.id.equals(id))).go();
@@ -1828,7 +2081,7 @@ DriftSyncEntity _pollVotesEntity(
       return {
         'poll_option_id': r.pollOptionId,
         'member_id': r.memberId,
-        'voted_at': r.votedAt.toIso8601String(),
+        'voted_at': _dateTimeToSyncString(r.votedAt),
         'response_text': r.responseText,
         'is_deleted': r.isDeleted,
       };
@@ -1849,7 +2102,12 @@ DriftSyncEntity _pollVotesEntity(
         responseText: f.stringFieldNullable('response_text'),
         isDeleted: f.boolField('is_deleted'),
       );
-      await db.into(db.pollVotes).insertOnConflictUpdate(companion);
+      await _insertOrUpdateById(
+        db,
+        db.pollVotes,
+        companion,
+        (t) => t.id.equals(id),
+      );
     },
     hardDelete: (String id) async {
       await (db.delete(db.pollVotes)..where((t) => t.id.equals(id))).go();
@@ -1862,7 +2120,7 @@ DriftSyncEntity _pollVotesEntity(
       return {
         'poll_option_id': row.pollOptionId,
         'member_id': row.memberId,
-        'voted_at': row.votedAt.toIso8601String(),
+        'voted_at': _dateTimeToSyncString(row.votedAt),
         'response_text': row.responseText,
         'is_deleted': row.isDeleted,
       };
@@ -1895,8 +2153,8 @@ DriftSyncEntity _habitsEntity(
         'icon': r.icon,
         'color_hex': r.colorHex,
         'is_active': r.isActive,
-        'created_at': r.createdAt.toIso8601String(),
-        'modified_at': r.modifiedAt.toIso8601String(),
+        'created_at': _dateTimeToSyncString(r.createdAt),
+        'modified_at': _dateTimeToSyncString(r.modifiedAt),
         'frequency': r.frequency,
         'weekly_days': r.weeklyDays,
         'interval_days': r.intervalDays,
@@ -1943,7 +2201,12 @@ DriftSyncEntity _habitsEntity(
         totalCompletions: f.intField('total_completions'),
         isDeleted: f.boolField('is_deleted'),
       );
-      await db.into(db.habits).insertOnConflictUpdate(companion);
+      await _insertOrUpdateById(
+        db,
+        db.habits,
+        companion,
+        (t) => t.id.equals(id),
+      );
     },
     hardDelete: (String id) async {
       await (db.delete(db.habits)..where((t) => t.id.equals(id))).go();
@@ -1959,8 +2222,8 @@ DriftSyncEntity _habitsEntity(
         'icon': row.icon,
         'color_hex': row.colorHex,
         'is_active': row.isActive,
-        'created_at': row.createdAt.toIso8601String(),
-        'modified_at': row.modifiedAt.toIso8601String(),
+        'created_at': _dateTimeToSyncString(row.createdAt),
+        'modified_at': _dateTimeToSyncString(row.modifiedAt),
         'frequency': row.frequency,
         'weekly_days': row.weeklyDays,
         'interval_days': row.intervalDays,
@@ -2000,13 +2263,13 @@ DriftSyncEntity _habitCompletionsEntity(
       final r = row as HabitCompletion;
       return {
         'habit_id': r.habitId,
-        'completed_at': r.completedAt.toIso8601String(),
+        'completed_at': _dateTimeToSyncString(r.completedAt),
         'completed_by_member_id': r.completedByMemberId,
         'notes': r.notes,
         'was_fronting': r.wasFronting,
         'rating': r.rating,
-        'created_at': r.createdAt.toIso8601String(),
-        'modified_at': r.modifiedAt.toIso8601String(),
+        'created_at': _dateTimeToSyncString(r.createdAt),
+        'modified_at': _dateTimeToSyncString(r.modifiedAt),
         'is_deleted': r.isDeleted,
       };
     },
@@ -2030,7 +2293,12 @@ DriftSyncEntity _habitCompletionsEntity(
         modifiedAt: f.dateTimeField('modified_at'),
         isDeleted: f.boolField('is_deleted'),
       );
-      await db.into(db.habitCompletions).insertOnConflictUpdate(companion);
+      await _insertOrUpdateById(
+        db,
+        db.habitCompletions,
+        companion,
+        (t) => t.id.equals(id),
+      );
     },
     hardDelete: (String id) async {
       await (db.delete(
@@ -2044,13 +2312,13 @@ DriftSyncEntity _habitCompletionsEntity(
       if (row == null) return null;
       return {
         'habit_id': row.habitId,
-        'completed_at': row.completedAt.toIso8601String(),
+        'completed_at': _dateTimeToSyncString(row.completedAt),
         'completed_by_member_id': row.completedByMemberId,
         'notes': row.notes,
         'was_fronting': row.wasFronting,
         'rating': row.rating,
-        'created_at': row.createdAt.toIso8601String(),
-        'modified_at': row.modifiedAt.toIso8601String(),
+        'created_at': _dateTimeToSyncString(row.createdAt),
+        'modified_at': _dateTimeToSyncString(row.modifiedAt),
         'is_deleted': row.isDeleted,
       };
     },
@@ -2079,8 +2347,8 @@ DriftSyncEntity _conversationCategoriesEntity(
       return {
         'name': r.name,
         'display_order': r.displayOrder,
-        'created_at': r.createdAt.toIso8601String(),
-        'modified_at': r.modifiedAt.toIso8601String(),
+        'created_at': _dateTimeToSyncString(r.createdAt),
+        'modified_at': _dateTimeToSyncString(r.modifiedAt),
         'is_deleted': r.isDeleted,
       };
     },
@@ -2100,9 +2368,12 @@ DriftSyncEntity _conversationCategoriesEntity(
         modifiedAt: f.dateTimeField('modified_at'),
         isDeleted: f.boolField('is_deleted'),
       );
-      await db
-          .into(db.conversationCategories)
-          .insertOnConflictUpdate(companion);
+      await _insertOrUpdateById(
+        db,
+        db.conversationCategories,
+        companion,
+        (t) => t.id.equals(id),
+      );
     },
     hardDelete: (String id) async {
       await (db.delete(
@@ -2117,8 +2388,8 @@ DriftSyncEntity _conversationCategoriesEntity(
       return {
         'name': row.name,
         'display_order': row.displayOrder,
-        'created_at': row.createdAt.toIso8601String(),
-        'modified_at': row.modifiedAt.toIso8601String(),
+        'created_at': _dateTimeToSyncString(row.createdAt),
+        'modified_at': _dateTimeToSyncString(row.modifiedAt),
         'is_deleted': row.isDeleted,
       };
     },
@@ -2155,8 +2426,8 @@ DriftSyncEntity _remindersEntity(
         'delay_hours': r.delayHours,
         'target_member_id': r.targetMemberId,
         'is_active': r.isActive,
-        'created_at': r.createdAt.toIso8601String(),
-        'modified_at': r.modifiedAt.toIso8601String(),
+        'created_at': _dateTimeToSyncString(r.createdAt),
+        'modified_at': _dateTimeToSyncString(r.modifiedAt),
         'is_deleted': r.isDeleted,
       };
     },
@@ -2184,7 +2455,12 @@ DriftSyncEntity _remindersEntity(
         modifiedAt: f.dateTimeField('modified_at'),
         isDeleted: f.boolField('is_deleted'),
       );
-      await db.into(db.reminders).insertOnConflictUpdate(companion);
+      await _insertOrUpdateById(
+        db,
+        db.reminders,
+        companion,
+        (t) => t.id.equals(id),
+      );
     },
     hardDelete: (String id) async {
       await (db.delete(db.reminders)..where((t) => t.id.equals(id))).go();
@@ -2205,8 +2481,8 @@ DriftSyncEntity _remindersEntity(
         'delay_hours': row.delayHours,
         'target_member_id': row.targetMemberId,
         'is_active': row.isActive,
-        'created_at': row.createdAt.toIso8601String(),
-        'modified_at': row.modifiedAt.toIso8601String(),
+        'created_at': _dateTimeToSyncString(row.createdAt),
+        'modified_at': _dateTimeToSyncString(row.modifiedAt),
         'is_deleted': row.isDeleted,
       };
     },
@@ -2249,10 +2525,10 @@ DriftSyncEntity _memberGroupsEntity(
         'parent_group_id': r.parentGroupId,
         'group_type': r.groupType,
         'filter_rules': r.filterRules,
-        'created_at': r.createdAt.toIso8601String(),
+        'created_at': _dateTimeToSyncString(r.createdAt),
         'pluralkit_id': r.pluralkitId,
         'pluralkit_uuid': r.pluralkitUuid,
-        'last_seen_from_pk_at': r.lastSeenFromPkAt?.toIso8601String(),
+        'last_seen_from_pk_at': _dateTimeToSyncStringOrNull(r.lastSeenFromPkAt),
         'is_deleted': r.isDeleted,
       };
     },
@@ -2294,7 +2570,12 @@ DriftSyncEntity _memberGroupsEntity(
         lastSeenFromPkAt: f.dateTimeFieldNullable('last_seen_from_pk_at'),
         isDeleted: f.boolField('is_deleted'),
       );
-      await db.into(db.memberGroups).insertOnConflictUpdate(companion);
+      await _insertOrUpdateById(
+        db,
+        db.memberGroups,
+        companion,
+        (t) => t.id.equals(localRowId),
+      );
       if (resolvedPkGroupUuid != null && resolvedPkGroupUuid.isNotEmpty) {
         // C1: only record an alias for the *incoming* entity id when it
         // is a genuinely-legacy id (the helper filters out canonical).
@@ -2333,10 +2614,12 @@ DriftSyncEntity _memberGroupsEntity(
         'parent_group_id': row.parentGroupId,
         'group_type': row.groupType,
         'filter_rules': row.filterRules,
-        'created_at': row.createdAt.toIso8601String(),
+        'created_at': _dateTimeToSyncString(row.createdAt),
         'pluralkit_id': row.pluralkitId,
         'pluralkit_uuid': row.pluralkitUuid,
-        'last_seen_from_pk_at': row.lastSeenFromPkAt?.toIso8601String(),
+        'last_seen_from_pk_at': _dateTimeToSyncStringOrNull(
+          row.lastSeenFromPkAt,
+        ),
         'is_deleted': row.isDeleted,
       };
     },
@@ -2463,7 +2746,7 @@ DriftSyncEntity _customFieldsEntity(
         'field_type': r.fieldType,
         'date_precision': r.datePrecision,
         'display_order': r.displayOrder,
-        'created_at': r.createdAt.toIso8601String(),
+        'created_at': _dateTimeToSyncString(r.createdAt),
         'is_deleted': r.isDeleted,
       };
     },
@@ -2484,7 +2767,12 @@ DriftSyncEntity _customFieldsEntity(
         createdAt: f.dateTimeField('created_at'),
         isDeleted: f.boolField('is_deleted'),
       );
-      await db.into(db.customFields).insertOnConflictUpdate(companion);
+      await _insertOrUpdateById(
+        db,
+        db.customFields,
+        companion,
+        (t) => t.id.equals(id),
+      );
     },
     hardDelete: (String id) async {
       await (db.delete(db.customFields)..where((t) => t.id.equals(id))).go();
@@ -2499,7 +2787,7 @@ DriftSyncEntity _customFieldsEntity(
         'field_type': row.fieldType,
         'date_precision': row.datePrecision,
         'display_order': row.displayOrder,
-        'created_at': row.createdAt.toIso8601String(),
+        'created_at': _dateTimeToSyncString(row.createdAt),
         'is_deleted': row.isDeleted,
       };
     },
@@ -2547,7 +2835,12 @@ DriftSyncEntity _customFieldValuesEntity(
         value: f.stringField('value'),
         isDeleted: f.boolField('is_deleted'),
       );
-      await db.into(db.customFieldValues).insertOnConflictUpdate(companion);
+      await _insertOrUpdateById(
+        db,
+        db.customFieldValues,
+        companion,
+        (t) => t.id.equals(id),
+      );
     },
     hardDelete: (String id) async {
       await (db.delete(
@@ -2593,9 +2886,9 @@ DriftSyncEntity _notesEntity(
         'body': r.body,
         'color_hex': r.colorHex,
         'member_id': r.memberId,
-        'date': r.date.toIso8601String(),
-        'created_at': r.createdAt.toIso8601String(),
-        'modified_at': r.modifiedAt.toIso8601String(),
+        'date': _dateTimeToSyncString(r.date),
+        'created_at': _dateTimeToSyncString(r.createdAt),
+        'modified_at': _dateTimeToSyncString(r.modifiedAt),
         'is_deleted': r.isDeleted,
       };
     },
@@ -2618,7 +2911,12 @@ DriftSyncEntity _notesEntity(
         modifiedAt: f.dateTimeField('modified_at'),
         isDeleted: f.boolField('is_deleted'),
       );
-      await db.into(db.notes).insertOnConflictUpdate(companion);
+      await _insertOrUpdateById(
+        db,
+        db.notes,
+        companion,
+        (t) => t.id.equals(id),
+      );
     },
     hardDelete: (String id) async {
       await (db.delete(db.notes)..where((t) => t.id.equals(id))).go();
@@ -2633,9 +2931,9 @@ DriftSyncEntity _notesEntity(
         'body': row.body,
         'color_hex': row.colorHex,
         'member_id': row.memberId,
-        'date': row.date.toIso8601String(),
-        'created_at': row.createdAt.toIso8601String(),
-        'modified_at': row.modifiedAt.toIso8601String(),
+        'date': _dateTimeToSyncString(row.date),
+        'created_at': _dateTimeToSyncString(row.createdAt),
+        'modified_at': _dateTimeToSyncString(row.modifiedAt),
         'is_deleted': row.isDeleted,
       };
     },
@@ -2656,20 +2954,38 @@ DriftSyncEntity _frontSessionCommentsEntity(
   AppDatabase db,
   SyncQuarantineService? quarantine,
   void Function(Future<void> write) trackQuarantineWrite,
+  DriftSyncApplyGate gate,
 ) {
   return DriftSyncEntity(
     tableName: 'front_session_comments',
     toSyncFields: (dynamic row) {
       final r = row as FrontSessionCommentRow;
       return {
-        'session_id': r.sessionId,
+        'target_time': _dateTimeToSyncStringOrNull(r.targetTime),
+        'author_member_id': r.authorMemberId,
         'body': r.body,
-        'timestamp': r.timestamp.toIso8601String(),
-        'created_at': r.createdAt.toIso8601String(),
+        'timestamp': _dateTimeToSyncString(r.timestamp),
+        'created_at': _dateTimeToSyncString(r.createdAt),
         'is_deleted': r.isDeleted,
       };
     },
     applyFields: (String id, Map<String, dynamic> fields) async {
+      // Migration gate — same rationale as fronting_sessions above.
+      // Comments live on the same migration boundary; new-shape comment
+      // rows depend on the new fronting_sessions shape being in place.
+      // Surface deferred applies through quarantine instead of silent
+      // skip so the user can audit what was held back.
+      final refusal = gate('front_session_comments');
+      if (refusal != null) {
+        _trackMigrationGatedQuarantine(
+          quarantine: quarantine,
+          trackQuarantineWrite: trackQuarantineWrite,
+          tableName: 'front_session_comments',
+          entityId: id,
+          refusal: refusal,
+        );
+        return;
+      }
       final f = _FieldContext(
         entityType: 'front_session_comments',
         entityId: id,
@@ -2677,15 +2993,32 @@ DriftSyncEntity _frontSessionCommentsEntity(
         quarantine: quarantine,
         trackQuarantineWrite: trackQuarantineWrite,
       );
+      // `session_id` is a NOT NULL legacy column that still exists on disk
+      // until the v8 cleanup rebuild removes it. Remote sync payloads only
+      // carry the new timestamp-based shape, so inserts on a newly paired
+      // device must write the same inert sentinel the local mapper uses.
+      // On UPDATE we must NOT touch the column — a v6 row imported with a
+      // real session_id has to keep it for the v8 cleanup migration to
+      // backfill from. Issue #4 (review-2026-04-30).
+      final existing = await (db.select(
+        db.frontSessionComments,
+      )..where((t) => t.id.equals(id))).getSingleOrNull();
       final companion = FrontSessionCommentsCompanion(
         id: Value(id),
-        sessionId: f.stringField('session_id'),
+        sessionId: existing == null ? const Value('') : const Value.absent(),
+        targetTime: f.dateTimeFieldNullable('target_time'),
+        authorMemberId: f.stringFieldNullable('author_member_id'),
         body: f.stringField('body'),
         timestamp: f.dateTimeField('timestamp'),
         createdAt: f.dateTimeField('created_at'),
         isDeleted: f.boolField('is_deleted'),
       );
-      await db.into(db.frontSessionComments).insertOnConflictUpdate(companion);
+      await _insertOrUpdateById(
+        db,
+        db.frontSessionComments,
+        companion,
+        (t) => t.id.equals(id),
+      );
     },
     hardDelete: (String id) async {
       await (db.delete(
@@ -2698,10 +3031,11 @@ DriftSyncEntity _frontSessionCommentsEntity(
       )..where((t) => t.id.equals(id))).getSingleOrNull();
       if (row == null) return null;
       return {
-        'session_id': row.sessionId,
+        'target_time': _dateTimeToSyncStringOrNull(row.targetTime),
+        'author_member_id': row.authorMemberId,
         'body': row.body,
-        'timestamp': row.timestamp.toIso8601String(),
-        'created_at': row.createdAt.toIso8601String(),
+        'timestamp': _dateTimeToSyncString(row.timestamp),
+        'created_at': _dateTimeToSyncString(row.createdAt),
         'is_deleted': row.isDeleted,
       };
     },
@@ -2742,9 +3076,9 @@ DriftSyncEntity _friendsEntity(
         'granted_scopes': r.grantedScopes,
         'is_verified': r.isVerified,
         'init_id': r.initId,
-        'created_at': r.createdAt.toIso8601String(),
-        'established_at': r.establishedAt?.toIso8601String(),
-        'last_sync_at': r.lastSyncAt?.toIso8601String(),
+        'created_at': _dateTimeToSyncString(r.createdAt),
+        'established_at': _dateTimeToSyncStringOrNull(r.establishedAt),
+        'last_sync_at': _dateTimeToSyncStringOrNull(r.lastSyncAt),
         'is_deleted': r.isDeleted,
       };
     },
@@ -2773,7 +3107,12 @@ DriftSyncEntity _friendsEntity(
         lastSyncAt: f.dateTimeFieldNullable('last_sync_at'),
         isDeleted: f.boolField('is_deleted'),
       );
-      await db.into(db.friends).insertOnConflictUpdate(companion);
+      await _insertOrUpdateById(
+        db,
+        db.friends,
+        companion,
+        (t) => t.id.equals(id),
+      );
     },
     hardDelete: (String id) async {
       await (db.delete(db.friends)..where((t) => t.id.equals(id))).go();
@@ -2798,9 +3137,9 @@ DriftSyncEntity _friendsEntity(
         'granted_scopes': row.grantedScopes,
         'is_verified': row.isVerified,
         'init_id': row.initId,
-        'created_at': row.createdAt.toIso8601String(),
-        'established_at': row.establishedAt?.toIso8601String(),
-        'last_sync_at': row.lastSyncAt?.toIso8601String(),
+        'created_at': _dateTimeToSyncString(row.createdAt),
+        'established_at': _dateTimeToSyncStringOrNull(row.establishedAt),
+        'last_sync_at': _dateTimeToSyncStringOrNull(row.lastSyncAt),
         'is_deleted': row.isDeleted,
       };
     },
@@ -2874,7 +3213,12 @@ DriftSyncEntity _mediaAttachmentsEntity(
         previewUrl: f.stringField('preview_url'),
         isDeleted: f.boolField('is_deleted'),
       );
-      await db.into(db.mediaAttachments).insertOnConflictUpdate(companion);
+      await _insertOrUpdateById(
+        db,
+        db.mediaAttachments,
+        companion,
+        (t) => t.id.equals(id),
+      );
     },
     hardDelete: (String id) async {
       await (db.delete(

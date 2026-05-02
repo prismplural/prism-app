@@ -1,8 +1,10 @@
 import 'package:uuid/uuid.dart';
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/mutations/mutation_runner.dart';
 import 'package:prism_plurality/core/mutations/mutation_result.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
+import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/features/fronting/editing/fronting_session_change.dart';
 
 /// Bridges typed [FrontingSessionChange] descriptors to the repository and
@@ -12,11 +14,18 @@ class FrontingChangeExecutor {
   FrontingChangeExecutor({
     required FrontingSessionRepository repository,
     required MutationRunner mutationRunner,
+    MemberRepository? memberRepository,
   }) : _repository = repository,
-       _mutationRunner = mutationRunner;
+       _mutationRunner = mutationRunner,
+       _memberRepository = memberRepository;
 
   final FrontingSessionRepository _repository;
   final MutationRunner _mutationRunner;
+  // Optional so unit tests that don't exercise the Unknown sentinel
+  // path can omit it.  Required at runtime whenever a change in the
+  // batch references [unknownSentinelMemberId] — see
+  // [_ensureSentinelIfNeeded].
+  final MemberRepository? _memberRepository;
 
   /// Executes a list of [FrontingSessionChange]s atomically.
   ///
@@ -28,11 +37,48 @@ class FrontingChangeExecutor {
     return _mutationRunner.run<void>(
       actionLabel: _buildLabel(changes),
       action: () async {
+        // Lazily create the Unknown sentinel member inside the same
+        // mutation transaction so the freshly-emitted row's foreign
+        // key is resolvable.  Mirrors the pattern in
+        // FrontingMutationService._ensureSentinelIfNeeded.
+        await _ensureSentinelIfNeeded(changes);
         for (final change in changes) {
           await _applyChange(change);
         }
       },
     );
+  }
+
+  /// If any change in [changes] writes [unknownSentinelMemberId], make
+  /// sure the sentinel member entity exists locally before applying the
+  /// session writes.  No-op (no read) when the sentinel isn't
+  /// referenced.
+  ///
+  /// Throws [StateError] if the sentinel id appears but no
+  /// MemberRepository was wired — that's a provider misconfig, not user
+  /// input we can recover from.
+  Future<void> _ensureSentinelIfNeeded(
+    List<FrontingSessionChange> changes,
+  ) async {
+    final referencesSentinel = changes.any((change) {
+      switch (change) {
+        case CreateSessionChange(:final session):
+          return session.memberId == unknownSentinelMemberId;
+        case UpdateSessionChange(:final patch):
+          return patch.memberId == unknownSentinelMemberId;
+        case DeleteSessionChange():
+          return false;
+      }
+    });
+    if (!referencesSentinel) return;
+    final repo = _memberRepository;
+    if (repo == null) {
+      throw StateError(
+        'FrontingChangeExecutor received the Unknown sentinel id but no '
+        'MemberRepository was wired.  Provide one in the constructor.',
+      );
+    }
+    await repo.ensureUnknownSentinelMember();
   }
 
   Future<void> _applyChange(FrontingSessionChange change) async {
@@ -43,7 +89,6 @@ class FrontingChangeExecutor {
           startTime: session.start,
           endTime: session.end,
           memberId: session.memberId,
-          coFronterIds: session.coFronterIds,
           notes: session.notes,
           sessionType: session.sessionType,
           quality: session.quality,
@@ -87,7 +132,6 @@ class FrontingChangeExecutor {
         memberId: patch.clearMemberId
             ? null
             : (patch.memberId ?? session.memberId),
-        coFronterIds: patch.coFronterIds ?? session.coFronterIds,
         notes: patch.notes ?? session.notes,
         confidence: patch.confidenceIndex != null
             ? FrontConfidence.values[patch.confidenceIndex!]
@@ -103,7 +147,6 @@ class FrontingChangeExecutor {
       startTime: patch.start ?? session.startTime,
       endTime: patch.end ?? session.endTime,
       memberId: patch.memberId ?? session.memberId,
-      coFronterIds: patch.coFronterIds ?? session.coFronterIds,
       notes: patch.notes ?? session.notes,
       confidence: patch.confidenceIndex != null
           ? FrontConfidence.values[patch.confidenceIndex!]

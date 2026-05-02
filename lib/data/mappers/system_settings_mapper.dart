@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
+import 'package:prism_plurality/data/utils/enum_decoder.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart'
     show SleepQuality;
 import 'package:prism_plurality/domain/models/system_settings.dart' as domain;
@@ -69,6 +70,21 @@ class SystemSettingsMapper {
       defaultSleepQuality: row.defaultSleepQuality != null
           ? SleepQuality.values.byName(row.defaultSleepQuality!)
           : null,
+      frontingListViewMode: enumByIndex(
+        row.frontingListViewMode,
+        domain.FrontingListViewMode.values,
+        domain.FrontingListViewMode.combinedPeriods,
+      ),
+      addFrontDefaultBehavior: enumByIndex(
+        row.addFrontDefaultBehavior,
+        domain.FrontStartBehavior.values,
+        domain.FrontStartBehavior.additive,
+      ),
+      quickFrontDefaultBehavior: enumByIndex(
+        row.quickFrontDefaultBehavior,
+        domain.FrontStartBehavior.values,
+        domain.FrontStartBehavior.additive,
+      ),
     );
   }
 
@@ -131,6 +147,9 @@ class SystemSettingsMapper {
       syncNavigationEnabled: Value(model.syncNavigationEnabled),
       chatBadgePreferences: Value(encodeBadgePrefs(model.chatBadgePreferences)),
       defaultSleepQuality: Value(model.defaultSleepQuality?.name),
+      frontingListViewMode: Value(model.frontingListViewMode.index),
+      addFrontDefaultBehavior: Value(model.addFrontDefaultBehavior.index),
+      quickFrontDefaultBehavior: Value(model.quickFrontDefaultBehavior.index),
     );
   }
 

@@ -1,29 +1,115 @@
-import 'dart:convert';
-
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:uuid/uuid.dart';
 
-import 'package:prism_plurality/core/services/secure_storage.dart'
-    as storage_config;
 import 'package:prism_plurality/core/database/app_database.dart';
-import 'package:prism_plurality/core/database/sqlite_constraint.dart';
 import 'package:prism_plurality/core/database/daos/pk_mapping_state_dao.dart';
 import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
+import 'package:prism_plurality/core/database/sqlite_constraint.dart';
+import 'package:prism_plurality/data/mappers/fronting_session_mapper.dart';
+import 'package:prism_plurality/core/services/secure_storage.dart'
+    as storage_config;
 import 'package:prism_plurality/domain/models/fronting_session.dart' as domain;
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/domain/repositories/system_settings_repository.dart';
+import 'package:prism_plurality/features/pluralkit/models/pk_import_source.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_bidirectional_service.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_banner_cache_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_file_parser.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_fronting_switch_matcher.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_groups_importer.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_push_service.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_session_id.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_switch_cursor.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 import 'package:prism_plurality/shared/utils/avatar_fetcher.dart';
+
+final RegExp _pluralKitSwitchUuidPattern = RegExp(
+  r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+);
+
+@visibleForTesting
+bool isPluralKitSwitchUuid(String? value) {
+  final trimmed = value?.trim();
+  return trimmed != null &&
+      trimmed.isNotEmpty &&
+      _pluralKitSwitchUuidPattern.hasMatch(trimmed);
+}
+
+/// Snapshot of one local member's currently-active PluralKit presence
+/// during a diff sweep (WS3 step 3).
+///
+/// Replaces the previous `Map<String, String> openRowIds` representation,
+/// which only carried the row id and silently lost track of presences
+/// whose row writes were skipped (e.g. tombstoned-row collisions). The
+/// struct keeps every active local member as a peg in the active map so
+/// later leaver events have something to match against, while
+/// distinguishing presences that own a real fronting-session row from
+/// those that don't.
+///
+/// Fields:
+/// - [pkMemberUuid]: the member's PluralKit UUID at sweep start. Carried
+///   so PR E2 can re-derive ids without re-scanning the reverse map.
+///   Nullable because a DB-rebuilt presence may belong to a local member
+///   whose PK mapping was dropped between writes.
+/// - [startedAt]: when the presence began (the entrant switch's timestamp,
+///   or the open row's start_time when reconstituted from the DB).
+/// - [rowId]: the fronting-session row id, or `null` if no row was written
+///   for this presence (tombstoned-row collision; the diff sweep correctly
+///   skips both the entrant write and the future leaver close).
+/// - [isTombstonedCollision]: `true` when the entrant write was skipped
+///   because the deterministic row id collided with a soft-deleted row
+///   during incremental sync. PR E1 only records the flag — PR E2 will
+///   use it to fix findings #7 and #33.
+///
+/// Equality is value-based so tests and assertions can compare snapshots
+/// without caring about identity.
+@immutable
+class _PkActivePresence {
+  const _PkActivePresence({
+    required this.localMemberId,
+    required this.pkMemberUuid,
+    required this.startedAt,
+    this.rowId,
+    this.isTombstonedCollision = false,
+  });
+
+  final String localMemberId;
+  final String? pkMemberUuid;
+  final DateTime startedAt;
+  final String? rowId;
+  final bool isTombstonedCollision;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is _PkActivePresence &&
+          localMemberId == other.localMemberId &&
+          pkMemberUuid == other.pkMemberUuid &&
+          startedAt == other.startedAt &&
+          rowId == other.rowId &&
+          isTombstonedCollision == other.isTombstonedCollision;
+
+  @override
+  int get hashCode => Object.hash(
+    localMemberId,
+    pkMemberUuid,
+    startedAt,
+    rowId,
+    isTombstonedCollision,
+  );
+
+  @override
+  String toString() =>
+      '_PkActivePresence(localMemberId: $localMemberId, '
+      'pkMemberUuid: $pkMemberUuid, startedAt: $startedAt, '
+      'rowId: $rowId, isTombstonedCollision: $isTombstonedCollision)';
+}
 
 // ---------------------------------------------------------------------------
 // Sync state
@@ -104,6 +190,49 @@ class PluralKitSyncState {
 
 const _pkTokenKey = 'prism_pluralkit_token';
 
+/// Cutoff for treating a fronting session with `pkImportSource == null` as
+/// push-eligible.
+///
+/// Background (#38 / WS3 step 10): before per-member fronting landed, file and
+/// file-API import paths didn't always tag rows with a `pkImportSource`. Those
+/// legacy null-source rows are not safely classifiable as "user-created
+/// locally" vs "imported from PK," so pushing them is the wrong default — it
+/// risks creating duplicate PK switches for sessions that originally came from
+/// PK.
+///
+/// Conservative gate: a null-source row is pushable only when its `startTime`
+/// is at or after this cutoff. We use `startTime` as a proxy for row creation
+/// time because `FrontingSession` has no dedicated `createdAt` column. This
+/// has a known false-negative: a user logging a backdated session today won't
+/// push it. That's an acceptable trade for not duplicating real data; the user
+/// can re-push from the PK mapping screen.
+///
+/// The cutoff is set to the merge date of the per-member-fronting branch
+/// (2026-04-30). A future PR can replace this with a one-time backfill that
+/// classifies legacy null-source rows by inspecting `pluralkitUuid`/`pkFileSwitchId`,
+/// at which point this gate can be relaxed.
+final DateTime pkPushSourceAdoptionCutoff = DateTime.utc(2026, 4, 30);
+
+/// Result of [PluralKitSyncService.pushPendingSwitches].
+///
+/// `pushed` is the count of local sessions that were successfully pushed to
+/// PluralKit as switches.
+///
+/// `legacyNullSourceSkipped` is the count of sessions that were held back by
+/// the [pkPushSourceAdoptionCutoff] gate — null `pkImportSource` rows whose
+/// `startTime` predates the cutoff. Surfaced so callers / UI can show how
+/// many rows were not pushed for source-classification reasons (distinct from
+/// the much larger "not push-eligible at all" pool).
+class PkPushSwitchesResult {
+  final int pushed;
+  final int legacyNullSourceSkipped;
+
+  const PkPushSwitchesResult({
+    this.pushed = 0,
+    this.legacyNullSourceSkipped = 0,
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Sync service / notifier
 // ---------------------------------------------------------------------------
@@ -130,11 +259,120 @@ class PkRepairReferenceData {
   });
 }
 
+/// Result for a full PluralKit import run.
+///
+/// Used both for token-backed one-shot imports (where the token is used only
+/// for the import and not persisted) and for full re-imports under an
+/// already-connected PluralKit configuration. The connection state is set
+/// by the caller before invoking the import; this DTO only reports what
+/// happened during the run.
+class PkTokenImportResult {
+  final PKSystem system;
+  final List<PKMember> members;
+  final int switchesImported;
+  final int unmappedMemberReferences;
+
+  /// Number of pre-existing tombstoned PK rows whose `deleteIntentEpoch`
+  /// was non-null at the moment a corrective re-import would otherwise
+  /// have resurrected them. These rows are *kept* tombstoned — the user
+  /// explicitly deleted them locally and the corrective path now honours
+  /// that intent rather than silently undoing it. Surfaced in the
+  /// post-import UI summary so the user understands why expected history
+  /// did not reappear.
+  final int tombstonePreservedCount;
+
+  /// Number of leaver closes that were skipped because the leaver
+  /// timestamp was equal to the row's start timestamp (zero-length
+  /// presence). The row is left open, not closed; the next non-zero-length
+  /// leaver in the same sweep will close it.
+  final int zeroLengthCloseSkipped;
+
+  /// Wall-clock timestamp when this import finished and persisted its
+  /// cursor / last-sync state. Null when the caller asked the import to
+  /// skip persistence (token-only one-shot path that doesn't update the
+  /// stored sync state).
+  final DateTime? completedAt;
+
+  const PkTokenImportResult({
+    required this.system,
+    required this.members,
+    required this.switchesImported,
+    required this.unmappedMemberReferences,
+    this.tombstonePreservedCount = 0,
+    this.zeroLengthCloseSkipped = 0,
+    this.completedAt,
+  });
+}
+
+/// Outcome of [PluralKitSyncService._upsertEntrantSession].
+///
+/// Replaces the previous nullable-string return so the entrant call site
+/// can distinguish three end states without overloading "null":
+///
+/// - [row]: a fronting-session row was written (or re-used) and its id is
+///   in [rowId]. The diff sweep records this presence with a real row id
+///   so the matching leaver can close it.
+/// - [tombstoneCollision]: the entrant id pointed at a soft-deleted row
+///   during *incremental* sync. We deliberately do not resurrect it (a
+///   user-initiated delete during routine sync must stick); the diff
+///   sweep still records the member as fronting via the `_PkActivePresence`
+///   `isTombstonedCollision` flag so leavers don't get out of sync.
+/// - [tombstonePreserved]: WS3 step 4 / review #3 — the entrant id pointed
+///   at a tombstoned row in *corrective* mode whose `deleteIntentEpoch`
+///   was non-null (user explicitly deleted it and the delete is queued to
+///   push). We honour the user intent and skip the resurrection. The
+///   diff sweep increments `tombstonePreservedCount` so the UI surfaces it.
+class _PkUpsertOutcome {
+  const _PkUpsertOutcome._(this.kind, this.rowId);
+
+  const _PkUpsertOutcome.row(String id) : this._(_PkUpsertOutcomeKind.row, id);
+  const _PkUpsertOutcome.tombstoneCollision()
+    : this._(_PkUpsertOutcomeKind.tombstoneCollision, null);
+  const _PkUpsertOutcome.tombstonePreserved()
+    : this._(_PkUpsertOutcomeKind.tombstonePreserved, null);
+
+  final _PkUpsertOutcomeKind kind;
+  final String? rowId;
+}
+
+enum _PkUpsertOutcomeKind { row, tombstoneCollision, tombstonePreserved }
+
+/// Aggregate counters returned by [_runDiffSweep] (WS3 PR E2).
+///
+/// Replaces the previous bare `int unmappedCount` return so the corrective
+/// import paths can also surface `tombstonePreservedCount` (review #3) and
+/// `zeroLengthCloseSkipped` (review #30) without callers having to plumb
+/// out-parameters or scrape debug logs.
+class _PkDiffSweepResult {
+  const _PkDiffSweepResult({
+    required this.unmappedCount,
+    required this.tombstonePreservedCount,
+    required this.zeroLengthCloseSkipped,
+  });
+
+  final int unmappedCount;
+  final int tombstonePreservedCount;
+  final int zeroLengthCloseSkipped;
+}
+
 /// Core PluralKit synchronization logic.
 ///
 /// Designed to be driven by a Riverpod notifier that passes a
 /// [SyncStateCallback] so the notifier can update its state.
 class PluralKitSyncService {
+  /// Hard cap on incremental sweep pagination: 1000 pages × 100 switches/page
+  /// = 100,000 switches, well above any realistic system. Hitting it means
+  /// either the API is stuck or the cursor is so stale a full re-import is
+  /// the appropriate path; we surface [PkImportTooLargeError] instead of
+  /// looping. See WS3 step 2.
+  static const int _maxIncrementalPages = 1000;
+
+  /// Test-only accessor for [_maxIncrementalPages]. Exposed so the
+  /// page-cap guard test can build a fixture sized to the cap without
+  /// hard-coding the constant in two places.
+  @visibleForTesting
+  static int get maxIncrementalPagesForTesting => _maxIncrementalPages;
+
   final MemberRepository _memberRepository;
   final FrontingSessionRepository _frontingSessionRepository;
   final PluralKitSyncDao _syncDao;
@@ -144,6 +382,7 @@ class PluralKitSyncService {
   final PluralKitClient Function(String token)? _clientFactory;
   final String? _tokenOverride;
   final PkGroupsImporter? _groupsImporter;
+  final PkBannerCacheService _bannerCacheService;
 
   PluralKitSyncState _state = const PluralKitSyncState();
   SyncStateCallback? onStateChanged;
@@ -157,6 +396,7 @@ class PluralKitSyncService {
     PluralKitClient Function(String token)? clientFactory,
     String? tokenOverride,
     PkGroupsImporter? groupsImporter,
+    PkBannerCacheService? bannerCacheService,
   }) : _memberRepository = memberRepository,
        _frontingSessionRepository = frontingSessionRepository,
        _syncDao = syncDao,
@@ -165,7 +405,8 @@ class PluralKitSyncService {
        _uuid = const Uuid(),
        _clientFactory = clientFactory,
        _tokenOverride = tokenOverride,
-       _groupsImporter = groupsImporter;
+       _groupsImporter = groupsImporter,
+       _bannerCacheService = bannerCacheService ?? PkBannerCacheService();
 
   PluralKitSyncState get state => _state;
 
@@ -198,6 +439,9 @@ class PluralKitSyncService {
 
   Future<PluralKitClient?> _buildClient() async =>
       _buildClientFromToken(await _getToken());
+
+  static bool _hasText(String? value) =>
+      value != null && value.trim().isNotEmpty;
 
   Future<String?> _getRepairToken({String? token}) async {
     if (token != null) return _normalizeToken(token);
@@ -397,6 +641,8 @@ class PluralKitSyncService {
         lastSyncDate: Value(null),
         lastManualSyncDate: Value(null),
         linkedAt: Value(null),
+        switchCursorTimestamp: Value(null),
+        switchCursorId: Value(null),
       ),
     );
     // Plan 02 R1: bump on disconnect so tombstones made while linked become
@@ -512,14 +758,59 @@ class PluralKitSyncService {
     }
   }
 
-  /// Full import: members + switches history.
+  /// Corrective full re-import: members + groups + complete PK switch history.
+  ///
+  /// This is the explicit "Re-import all from PluralKit" user action. It
+  /// differs from [syncRecentData] in setup:
+  ///   1. Reseeds prevActive from currently-open PK-linked DB rows inside
+  ///      [_runDiffSweep] (WS3 step 5 / review #29) — same construction the
+  ///      incremental path uses, so existing-but-no-longer-fronting rows
+  ///      get closed by the leaver path instead of stranded open. The
+  ///      previous behavior pre-closed every open PK-linked row before
+  ///      the sweep; that churned end_times and lost the API-truth close.
+  ///   2. Resets the diff-sweep cursor so the sweep runs from the beginning
+  ///      of PK history.
+  ///   3. Canonicalizes: tombstones API-linked rows whose deterministic id
+  ///      isn't in the API entrant set (rescue-import fan-out artifacts).
+  ///      The whole detect+tombstone loop runs in one Drift transaction so
+  ///      a mid-loop crash leaves the canonicalization atomically un-done
+  ///      rather than half-applied (WS3 step 8 / review #34).
+  ///   4. Runs the diff sweep from oldest switch to newest.
+  ///
+  /// User tombstones (`deleteIntentEpoch != null`) are *preserved* on the
+  /// corrective path: a row the user explicitly deleted will not be
+  /// resurrected by re-import (WS3 step 4 / review #3). The count of
+  /// preserved tombstones is reported in the import result UI.
+  ///
+  /// Deterministic IDs: rows created by a previous import keep the same id
+  /// when the sweep re-derives them (v5 UUIDs from entry-switch + member uuid).
+  /// CRDT field-LWW handles boundary correction on collision.
   Future<void> performFullImport() async {
-    if (_state.needsMapping) {
+    if (_state.isSyncing) return;
+    await _performFullImport();
+  }
+
+  /// One-time full import using a stored or caller-provided token without
+  /// changing PluralKit connection state.
+  ///
+  /// This is for migration recovery flows: it imports members, groups, and
+  /// switch history from PK, but does not call [setToken], does not persist a
+  /// provided token, and does not mark ongoing PK sync as connected.
+  Future<PkTokenImportResult> performOneTimeFullImport({String? token}) =>
+      _performFullImport(useRepairToken: true, token: token);
+
+  Future<PkTokenImportResult> _performFullImport({
+    bool useRepairToken = false,
+    String? token,
+  }) async {
+    if (!useRepairToken && _state.needsMapping) {
       throw StateError(
         'Mapping pending — complete the mapping flow before auto-syncing.',
       );
     }
-    if (_state.isSyncing) return;
+    if (_state.isSyncing) {
+      throw StateError('PluralKit import is already running');
+    }
     _emit(
       _state.copyWith(
         isSyncing: true,
@@ -529,148 +820,40 @@ class PluralKitSyncService {
       ),
     );
 
-    final client = await _buildClient();
+    final client = useRepairToken
+        ? await _buildRepairClient(token: token)
+        : await _buildClient();
     if (client == null) {
       _emit(_state.copyWith(isSyncing: false));
-      throw StateError('Not connected');
+      throw StateError(
+        useRepairToken
+            ? 'PluralKit token is required for one-time import'
+            : 'Not connected',
+      );
     }
 
     try {
-
-      // -- Members (0-10%) --
-      await client.getSystem();
-      _emit(
-        _state.copyWith(syncProgress: 0.02, syncStatus: 'Fetching members...'),
-      );
-
-      final pkMembers = await client.getMembers();
-      _emit(
-        _state.copyWith(
-          syncProgress: 0.05,
-          syncStatus: 'Importing ${pkMembers.length} members...',
-        ),
-      );
-      await _importMembers(client, pkMembers);
-      _emit(_state.copyWith(syncProgress: 0.10));
-
-      // Build PK ID -> local member ID map
-      final allMembers = await _memberRepository.getAllMembers();
-      final pkIdToLocalId = <String, String>{};
-      for (final m in allMembers) {
-        if (m.pluralkitId != null) {
-          pkIdToLocalId[m.pluralkitId!] = m.id;
-        }
-      }
-
-      // -- Groups (10-15%) --
-      _emit(
-        _state.copyWith(syncProgress: 0.10, syncStatus: 'Importing groups...'),
-      );
-      await _importGroups(client, overwriteMetadata: true);
-      _emit(_state.copyWith(syncProgress: 0.15));
-
-      // -- Switches (15-95%) --
-      _emit(
-        _state.copyWith(syncProgress: 0.10, syncStatus: 'Fetching switches...'),
-      );
-
-      int totalSwitches = 0;
-      int consecutiveDuplicates = 0;
-      DateTime? pageBefore;
-      final allSwitches = <PKSwitch>[];
-
-      // Fetch all switch pages
-      while (true) {
-        final page = await client.getSwitches(before: pageBefore);
-        if (page.isEmpty) break;
-
-        allSwitches.addAll(page);
-        totalSwitches += page.length;
-        pageBefore = page.last.timestamp;
-
-        _emit(
-          _state.copyWith(syncStatus: 'Fetched $totalSwitches switches...'),
-        );
-
-        if (page.length < 100) break; // last page
-      }
-
-      // Process switches into fronting sessions
-      _emit(
-        _state.copyWith(
-          syncProgress: 0.50,
-          syncStatus: 'Processing $totalSwitches switches...',
-        ),
-      );
-
-      // Switches come newest-first; sort oldest-first for processing
-      allSwitches.sort((a, b) => a.timestamp.compareTo(b.timestamp));
-
-      // Precompute existing PK UUIDs (O(N²) → O(N)).
-      final existingSessions = await _frontingSessionRepository
-          .getAllSessions();
-      final existingPkUuids = <String>{
-        for (final s in existingSessions)
-          if (s.pluralkitUuid != null) s.pluralkitUuid!,
-      };
-
-      consecutiveDuplicates = 0;
-      final switchOutTimestamps = <DateTime>[];
-      for (var i = 0; i < allSwitches.length; i++) {
-        final sw = allSwitches[i];
-        final endTime = i + 1 < allSwitches.length
-            ? allSwitches[i + 1].timestamp
-            : null;
-        if (sw.members.isEmpty) switchOutTimestamps.add(sw.timestamp);
-
-        final progress = 0.50 + (0.45 * (i / allSwitches.length));
-        if (i % 50 == 0) {
-          _emit(
-            _state.copyWith(
-              syncProgress: progress,
-              syncStatus: 'Processing switch ${i + 1}/$totalSwitches...',
-            ),
-          );
-        }
-
-        final isDuplicate = await _importSwitch(
-          sw,
-          endTime: endTime,
-          pkIdToLocalId: pkIdToLocalId,
-          existingPkUuids: existingPkUuids,
-        );
-        if (!isDuplicate) existingPkUuids.add(sw.id);
-
-        if (isDuplicate) {
-          consecutiveDuplicates++;
-          if (consecutiveDuplicates >= 100) {
-            break; // early termination
-          }
-        } else {
-          consecutiveDuplicates = 0;
-        }
-      }
-
-      await _closePkSessionChainGaps(extraBoundaries: switchOutTimestamps);
-
-      // -- Complete (95-100%) --
-      final now = DateTime.now();
-      await _syncDao.upsertSyncState(
-        PluralKitSyncStateCompanion(
-          id: const Value('pk_config'),
-          lastSyncDate: Value(now),
-        ),
-      );
+      final run = await _runFullImportWithClient(client, updateSyncState: true);
+      final statusParts = [
+        'Imported ${run.members.length} members and '
+            '${run.switchesImported} switches.',
+        if (run.unmappedMemberReferences > 0)
+          '${run.unmappedMemberReferences} switches had unmapped members.',
+        if (run.tombstonePreservedCount > 0)
+          '${run.tombstonePreservedCount} deleted rows were left tombstoned.',
+        if (run.zeroLengthCloseSkipped > 0)
+          '${run.zeroLengthCloseSkipped} zero-length closes skipped.',
+      ];
 
       _emit(
         _state.copyWith(
           isSyncing: false,
           syncProgress: 1.0,
-          syncStatus:
-              'Imported ${pkMembers.length} members and $totalSwitches switches.',
-          lastSyncDate: now,
+          syncStatus: statusParts.join(' '),
+          lastSyncDate: run.completedAt,
         ),
       );
+      return run;
     } catch (e) {
       _emit(
         _state.copyWith(isSyncing: false, syncError: 'Full import failed: $e'),
@@ -681,14 +864,14 @@ class PluralKitSyncService {
     }
   }
 
-  /// Import a parsed `pk;export` file. Creates/updates members, groups, and
-  /// fronting sessions without hitting the PK API — the file is the complete
-  /// source of truth for the snapshot.
+  /// Import a parsed `pk;export` file.
   ///
-  /// Switch sessions created this way carry `pluralkitUuid = null` because
-  /// the export format doesn't include switch IDs. If the user later connects
-  /// a token, [syncRecentData] will adopt the API's UUIDs onto these rows by
-  /// matching on timestamp + PK member IDs.
+  /// Members and groups are imported from the file. The fronting/switches
+  /// portion of file imports is DROPPED per §2.1 of the per-member fronting
+  /// spec — fronting history requires API linking to use the diff-sweep
+  /// algorithm correctly. Any switches in the file are silently skipped; the
+  /// returned [PkFileImportResult] reports `switchesCreated = 0` and
+  /// `switchesSkipped` = the count of switches in the file.
   Future<PkFileImportResult> importFromFile(
     PkFileExport export, {
     void Function(double progress, String status)? onProgress,
@@ -723,88 +906,22 @@ class PluralKitSyncService {
         }
       }
 
-      progress(0.60, 'Importing ${export.switches.length} switches…');
-      final allMembers = await _memberRepository.getAllMembers();
-      final pkIdToLocalId = <String, String>{};
-      for (final m in allMembers) {
-        if (m.pluralkitId != null) {
-          pkIdToLocalId[m.pluralkitId!] = m.id;
-        }
+      // Fronting history from files is not imported — see §2.1. Requires API
+      // linking to use the diff-sweep algorithm. Switches are counted and
+      // reported so the UI can explain what happened.
+      final switchCount = export.switches.length;
+      if (switchCount > 0) {
+        debugPrint(
+          '[PK_FILE] Skipping $switchCount file switches — '
+          'fronting history import requires API linking (§2.1).',
+        );
       }
 
-      // Dedup against existing rows keyed by (timestamp epoch, sorted member IDs).
-      final existingSessions = await _frontingSessionRepository
-          .getAllSessions();
-      final existingKeys = <String>{
-        for (final s in existingSessions)
-          _fileSwitchKey(s.startTime, _pkIdsOf(s)),
-      };
-
-      // Process oldest-first so sequential `endTime` assignment is correct.
-      final sorted = List<PkFileSwitch>.from(export.switches)
-        ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
-
-      int created = 0;
-      int skipped = 0;
-      final switchOutTimestamps = <DateTime>[];
-      for (var i = 0; i < sorted.length; i++) {
-        final sw = sorted[i];
-        if (sw.memberIds.isEmpty) {
-          // Switch-out — no local representation.
-          switchOutTimestamps.add(sw.timestamp);
-          skipped++;
-          continue;
-        }
-        final key = _fileSwitchKey(sw.timestamp, sw.memberIds);
-        if (existingKeys.contains(key)) {
-          skipped++;
-          continue;
-        }
-
-        final (primaryMemberId, coFronterLocalIds) = _resolvePkMembers(
-          sw.memberIds,
-          pkIdToLocalId,
-        );
-        final endTime = i + 1 < sorted.length ? sorted[i + 1].timestamp : null;
-
-        await _frontingSessionRepository.createSession(
-          domain.FrontingSession(
-            id: _uuid.v4(),
-            startTime: sw.timestamp,
-            endTime: endTime,
-            memberId: primaryMemberId,
-            coFronterIds: coFronterLocalIds,
-            pluralkitUuid: null,
-            pkMemberIdsJson: jsonEncode(sw.memberIds),
-          ),
-        );
-        existingKeys.add(key);
-        created++;
-
-        if (i % 50 == 0) {
-          final frac = 0.60 + (0.35 * (i / sorted.length));
-          progress(frac, 'Imported $created switches…');
-        }
-      }
-
-      await _closePkSessionChainGaps(extraBoundaries: switchOutTimestamps);
-
-      // Stamp lastSyncDate so subsequent token syncs only pull deltas.
-      final now = DateTime.now();
-      await _syncDao.upsertSyncState(
-        PluralKitSyncStateCompanion(
-          id: const Value('pk_config'),
-          lastSyncDate: Value(now),
-        ),
-      );
       _emit(
         _state.copyWith(
           isSyncing: false,
           syncProgress: 1.0,
-          syncStatus:
-              'Imported ${export.members.length} members, '
-              '$created switches.',
-          lastSyncDate: now,
+          syncStatus: 'Imported ${export.members.length} members.',
         ),
       );
 
@@ -812,8 +929,8 @@ class PluralKitSyncService {
         systemName: export.system.name,
         membersImported: export.members.length,
         groupsImported: export.groups.length,
-        switchesCreated: created,
-        switchesSkipped: skipped,
+        switchesCreated: 0,
+        switchesSkipped: switchCount,
       );
     } catch (e) {
       _emit(
@@ -823,60 +940,170 @@ class PluralKitSyncService {
     }
   }
 
-  /// Canonical key for file-switch dedup: ISO UTC timestamp + sorted member
-  /// short IDs. Deterministic across parses of the same export.
-  static String _fileSwitchKey(DateTime ts, List<String> memberIds) {
-    final ids = List<String>.from(memberIds)..sort();
-    return '${ts.toUtc().toIso8601String()}|${ids.join(',')}';
-  }
-
-  /// Build a lookup of file-imported sessions (those with no pluralkitUuid
-  /// but with stored PK short IDs) keyed by [_fileSwitchKey]. Used to adopt
-  /// API switch UUIDs onto sessions that came in via `pk;export` file import.
-  static Map<String, domain.FrontingSession> _buildFileImportIndex(
-    List<domain.FrontingSession> sessions,
-  ) {
-    final out = <String, domain.FrontingSession>{};
-    for (final s in sessions) {
-      if (s.pluralkitUuid != null) continue;
-      final ids = _pkIdsOf(s);
-      if (ids.isEmpty) continue;
-      out[_fileSwitchKey(s.startTime, ids)] = s;
+  /// Import a `pk;export` file while using a token only to canonicalize
+  /// fronting history against PluralKit API switch IDs.
+  ///
+  /// Members/groups still come from the file import path. Fronting rows are
+  /// written only when the file/API switch matcher says canonicalization is
+  /// safe; otherwise this returns a mismatch summary without persisting any
+  /// fronting rows.
+  Future<PkFileTokenFrontingImportResult> importFromFileWithToken(
+    PkFileExport export, {
+    String? token,
+    void Function(double progress, String status)? onProgress,
+  }) async {
+    void progress(double p, String s) {
+      onProgress?.call(p, s);
+      _emit(_state.copyWith(syncProgress: p, syncStatus: s));
     }
-    return out;
-  }
 
-  /// If [sw] matches a file-imported session, stamp the API UUID onto it and
-  /// return true. The caller should skip [_importSwitch] in that case so we
-  /// don't create a second row for the same switch.
-  Future<bool> _adoptFileImportedSwitch(
-    PKSwitch sw,
-    Map<String, domain.FrontingSession> fileIndex,
-    Set<String> existingPkUuids,
-  ) async {
-    final key = _fileSwitchKey(sw.timestamp, sw.members);
-    final match = fileIndex.remove(key);
-    if (match == null) return false;
-    await _frontingSessionRepository.updateSession(
-      match.copyWith(pluralkitUuid: sw.id),
+    if (_state.isSyncing) {
+      return PkFileTokenFrontingImportResult(
+        systemName: export.system.name,
+        membersImported: 0,
+        groupsImported: 0,
+        canonicalizationSafe: false,
+        frontingImported: false,
+        exactImportedCount: 0,
+        staleFileCount: 0,
+        ambiguousCount: 0,
+        ambiguousKeys: const [],
+        fileOnlyCount: export.switches.length,
+        apiOnlyInRangeCount: 0,
+        apiOnlyOutsideRangeCount: 0,
+        apiSwitchesFetched: 0,
+        unmappedMemberReferences: 0,
+        apiSwitchIdsByFileIndex: const {},
+      );
+    }
+
+    _emit(
+      _state.copyWith(
+        isSyncing: true,
+        syncProgress: 0.0,
+        syncStatus: 'Importing from file and PluralKit...',
+        clearError: true,
+      ),
     );
-    existingPkUuids.add(sw.id);
-    return true;
-  }
 
-  static List<String> _pkIdsOf(domain.FrontingSession s) {
-    final raw = s.pkMemberIdsJson;
-    if (raw == null || raw.isEmpty) return const [];
+    final client = await _buildRepairClient(token: token);
+    if (client == null) {
+      _emit(_state.copyWith(isSyncing: false));
+      throw StateError('PluralKit token is required for file + token import');
+    }
+
     try {
-      final decoded = jsonDecode(raw);
-      if (decoded is List) {
-        return [
-          for (final e in decoded)
-            if (e is String) e,
-        ];
+      progress(0.03, 'Checking PluralKit token...');
+      await client.getSystem();
+
+      progress(0.05, 'Importing ${export.members.length} members...');
+      await _importMembers(null, export.members);
+
+      if (export.groups.isNotEmpty && _groupsImporter != null) {
+        progress(0.25, 'Importing ${export.groups.length} groups...');
+        try {
+          await _groupsImporter.importGroups(
+            export.groups,
+            overwriteMetadata: true,
+          );
+        } catch (e) {
+          debugPrint('[PK_FILE_TOKEN] group import failed (non-fatal): $e');
+        }
       }
-    } catch (_) {}
-    return const [];
+
+      progress(0.40, 'Fetching PluralKit switches...');
+      final apiSwitches = await _fetchSwitchesForFileRange(
+        client,
+        export.switches,
+      );
+
+      progress(0.55, 'Matching file switches to PluralKit...');
+      final match = const PkFrontingSwitchMatcher().compare(
+        fileSwitches: export.switches,
+        apiSwitches: apiSwitches,
+      );
+
+      var frontingImported = false;
+      var unmappedMemberReferences = 0;
+      if (match.canonicalizationSafe) {
+        final fileSwitchIdsByApiSwitchId = <String, String>{
+          for (final exactMatch in match.exactMatches)
+            exactMatch.apiSwitchId: _pkFileSwitchSourceId(
+              exactMatch.fileSwitch,
+            ),
+        };
+        final pkImportSourcesByApiSwitchId = <String, String>{
+          for (final exactMatch in match.exactMatches)
+            exactMatch.apiSwitchId: pkImportSourceFileApi,
+        };
+
+        progress(0.70, 'Importing canonical fronting history...');
+        final shortIdToUuid = await _buildShortIdToUuidMap();
+        if (shortIdToUuid.isEmpty && apiSwitches.isNotEmpty) {
+          throw StateError(
+            'No PluralKit members resolved to local members. '
+            'Ensure members are imported before importing fronting history.',
+          );
+        }
+
+        final sweepResult = await _runDiffSweep(
+          switches: apiSwitches,
+          shortIdToUuid: shortIdToUuid,
+          corrective: true,
+          pkImportSourceByApiSwitchId: pkImportSourcesByApiSwitchId,
+          pkFileSwitchIdsByApiSwitchId: fileSwitchIdsByApiSwitchId,
+        );
+        unmappedMemberReferences = sweepResult.unmappedCount;
+        frontingImported = true;
+      } else {
+        debugPrint(
+          '[PK_FILE_TOKEN] switch canonicalization blocked: '
+          'fileOnly=${match.fileOnlyCount}, '
+          'apiOnlyInRange=${match.apiOnlyInsideFileRangeCount}, '
+          'ambiguous=${match.ambiguousCount}',
+        );
+      }
+
+      _emit(
+        _state.copyWith(
+          isSyncing: false,
+          syncProgress: 1.0,
+          syncStatus: frontingImported
+              ? 'Imported canonical PluralKit fronting history.'
+              : 'Imported file data; fronting history needs review.',
+        ),
+      );
+
+      return PkFileTokenFrontingImportResult(
+        systemName: export.system.name,
+        membersImported: export.members.length,
+        groupsImported: export.groups.length,
+        canonicalizationSafe: match.canonicalizationSafe,
+        frontingImported: frontingImported,
+        exactImportedCount: frontingImported ? match.exactMatchCount : 0,
+        staleFileCount: match.apiOnlyOutsideFileRangeCount,
+        ambiguousCount: match.ambiguousCount,
+        ambiguousKeys: List.unmodifiable(
+          match.ambiguousKeys.map((entry) => entry.key.toString()),
+        ),
+        fileOnlyCount: match.fileOnlyCount,
+        apiOnlyInRangeCount: match.apiOnlyInsideFileRangeCount,
+        apiOnlyOutsideRangeCount: match.apiOnlyOutsideFileRangeCount,
+        apiSwitchesFetched: apiSwitches.length,
+        unmappedMemberReferences: unmappedMemberReferences,
+        apiSwitchIdsByFileIndex: match.apiSwitchIdsByFileIndex,
+      );
+    } catch (e) {
+      _emit(
+        _state.copyWith(
+          isSyncing: false,
+          syncError: 'File + token import failed: $e',
+        ),
+      );
+      rethrow;
+    } finally {
+      client.dispose();
+    }
   }
 
   /// Sync recent changes since last sync.
@@ -929,15 +1156,8 @@ class PluralKitSyncService {
     }
 
     try {
-
-      // Build PK ID -> local member ID map
-      final allMembers = await _memberRepository.getAllMembers();
-      final pkIdToLocalId = <String, String>{};
-      for (final m in allMembers) {
-        if (m.pluralkitId != null) {
-          pkIdToLocalId[m.pluralkitId!] = m.id;
-        }
-      }
+      // Build member resolution map for the diff sweep.
+      final shortIdToUuid = await _buildShortIdToUuidMap();
 
       // Accumulates messages for PK-side 404s we detected during this run.
       // Surfaced via `syncError` at the end so the user sees that a linked
@@ -958,16 +1178,18 @@ class PluralKitSyncService {
         final row = await _syncDao.getSyncState();
         final fieldConfigs = parseFieldSyncConfig(row.fieldSyncConfig);
 
+        final allMembers = await _memberRepository.getAllMembers();
+
         // Snapshot linked-member names before the bidirectional run so we can
-        // detect stale-link clears (pk_bidirectional_service clears
-        // `pluralkitId` / `pluralkitUuid` on 404 but doesn't surface anything
-        // to the user).
+        // detect stale-link clears.
         final linkedBefore = <String, String>{
           for (final m in allMembers)
             if (m.pluralkitId != null || m.pluralkitUuid != null) m.id: m.name,
         };
 
-        final biService = PkBidirectionalService();
+        final biService = PkBidirectionalService(
+          bannerCacheService: _bannerCacheService,
+        );
         summary = await biService.syncMembers(
           localMembers: allMembers,
           pkMembers: pkMembers,
@@ -978,9 +1200,7 @@ class PluralKitSyncService {
           client: client,
         );
 
-        // Detect stale-link clears: any previously-linked local member that
-        // no longer has `pluralkitId` AND no longer has `pluralkitUuid` was
-        // unlinked by the bidirectional service's 404 branch.
+        // Detect stale-link clears.
         final afterMembers = await _memberRepository.getAllMembers();
         final afterById = {for (final m in afterMembers) m.id: m};
         for (final entry in linkedBefore.entries) {
@@ -1006,133 +1226,138 @@ class PluralKitSyncService {
       // -- Groups (membership reconcile only, see R5) --
       await _importGroups(client, overwriteMetadata: false);
 
-      // -- Pull recent switches --
+      // -- Pull recent switches via incremental diff sweep --
       //
-      // We used to short-circuit on `sw.timestamp.isBefore(lastSyncDate)`, but
-      // that permanently strands any switch missed by a prior buggy sync: once
-      // lastSyncDate advances past a missed switch's timestamp, it's
-      // unreachable forever. Instead we mirror [performFullImport]'s approach:
-      // page newest-first and stop after a full page of already-imported
-      // switches (100 consecutive duplicates). `existingPkUuids` dedup is O(1),
-      // so on a 10k-switch system the steady-state cost is the same as a
-      // 100-switch system — 1-2 pages per sync.
+      // Resume cursor: read (switchCursorTimestamp, switchCursorId) from DB
+      // as a `PkSwitchCursor`. PK paginates newest-first via the `before`
+      // query param (max 100 switches/page). We fetch newest first, walk
+      // backwards by `before = page.last.timestamp`, and accept every switch
+      // strictly newer than the cursor — i.e. `(sw.ts, sw.id) > cursor`
+      // lexicographically. Switches at the same timestamp as the cursor with
+      // a different id are *not* skipped, because they were never processed
+      // on the prior sweep (regression fix: WS3 step 2 / review finding #6).
+      //
+      // Pagination is bounded by [_maxIncrementalPages] and aborts on a
+      // no-progress page (where `before = page.last.timestamp` doesn't
+      // advance), surfacing typed errors instead of spinning forever.
       int totalNew = 0;
+      int totalUnmapped = 0;
       if (direction.pullEnabled) {
-        debugPrint(
-          '[PK_PULL] start lastSyncDate=${_state.lastSyncDate?.toIso8601String()} '
-          'linkedMembers=${pkIdToLocalId.length}',
-        );
-        final existingSessions = await _frontingSessionRepository
-            .getAllSessions();
-        final existingPkUuids = <String>{
-          for (final s in existingSessions)
-            if (s.pluralkitUuid != null) s.pluralkitUuid!,
-        };
-        final fileIndex = _buildFileImportIndex(existingSessions);
-        // Collect PK switch-out timestamps seen during this pull so the
-        // post-pass can close prior fronters at the correct boundary (PK
-        // switch-outs don't create local rows).
-        final switchOutTimestamps = <DateTime>[];
-        DateTime? pageBefore;
-        int pageNum = 0;
-        int consecutiveDuplicates = 0;
-        const int earlyStopAfterDups = 100;
+        final cursorRow = await _syncDao.getSyncState();
+        final PkSwitchCursor? cursor =
+            (cursorRow.switchCursorTimestamp != null &&
+                cursorRow.switchCursorId != null)
+            ? PkSwitchCursor(
+                timestamp: cursorRow.switchCursorTimestamp!,
+                switchId: cursorRow.switchCursorId!,
+              )
+            : null;
 
-        outer:
+        debugPrint(
+          '[PK_PULL] incremental sweep cursor='
+          '${cursor?.toString() ?? 'null'}',
+        );
+
+        // `prevActive` is now seeded inside [_runDiffSweep] from open
+        // PK-linked DB rows (WS3 step 5 / review #29) — both the
+        // incremental and corrective paths use the same reconstitution.
+
+        final newSwitches = <PKSwitch>[];
+        int pageNum = 0;
+        bool reachedCursor = (cursor == null); // no cursor → fetch all
+        DateTime? previousPageBefore;
+
         while (true) {
-          final page = await client.getSwitches(before: pageBefore, limit: 100);
-          pageNum++;
-          debugPrint(
-            '[PK_PULL] page=$pageNum fetched=${page.length} '
-            'newest=${page.isEmpty ? "-" : page.first.timestamp.toIso8601String()} '
-            'oldest=${page.isEmpty ? "-" : page.last.timestamp.toIso8601String()}',
+          // First page: no `before`, fetch newest. Subsequent pages: page
+          // backwards from the previous page's oldest timestamp. Note that
+          // we use the *page's* last timestamp, not `newSwitches.last`, so
+          // that even if the cursor break trims the page partway through we
+          // continue paging from the actual API boundary.
+          final DateTime? fetchBefore = previousPageBefore;
+          final page = await client.getSwitches(
+            before: fetchBefore,
+            limit: 100,
           );
+          pageNum++;
+          debugPrint('[PK_PULL] page=$pageNum fetched=${page.length}');
           if (page.isEmpty) break;
 
-          // Sort oldest-first within this page so sequential `endTime`
-          // assignment (next switch's start) is correct.
-          final sorted = List<PKSwitch>.from(page)
-            ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+          // No-progress guard: a non-empty page that doesn't advance the
+          // paging boundary would loop forever under naive `before =
+          // page.last.timestamp`. Bail with a typed error so the caller
+          // sees a real failure rather than a hung sweep.
+          final pageOldest = page.last.timestamp;
+          if (previousPageBefore != null && pageOldest == previousPageBefore) {
+            throw PkPaginationNoProgressError(
+              lastBefore: pageOldest,
+              pagesFetched: pageNum,
+            );
+          }
+          previousPageBefore = pageOldest;
 
-          for (var i = 0; i < sorted.length; i++) {
-            final sw = sorted[i];
-            final endTime = i + 1 < sorted.length
-                ? sorted[i + 1].timestamp
-                : null;
-            if (sw.members.isEmpty) {
-              switchOutTimestamps.add(sw.timestamp);
-            }
-            if (fileIndex.isNotEmpty &&
-                await _adoptFileImportedSwitch(
-                  sw,
-                  fileIndex,
-                  existingPkUuids,
-                )) {
-              // Adopted onto an existing file-imported row — treat as dup so
-              // the early-stop heuristic behaves correctly.
-              consecutiveDuplicates++;
-              if (consecutiveDuplicates >= earlyStopAfterDups) {
-                debugPrint(
-                  '[PK_PULL] early stop — $earlyStopAfterDups consecutive duplicates',
-                );
-                break outer;
-              }
+          for (final sw in page) {
+            // Skip any switch at or before the cursor lexicographically.
+            // Crucially, switches at the same timestamp as the cursor but a
+            // different id are NOT covered and must be processed.
+            if (cursor != null && cursor.covers(sw.timestamp, sw.id)) {
+              reachedCursor = true;
               continue;
             }
-            final isDuplicate = await _importSwitch(
-              sw,
-              endTime: endTime,
-              pkIdToLocalId: pkIdToLocalId,
-              existingPkUuids: existingPkUuids,
-            );
-            if (isDuplicate) {
-              consecutiveDuplicates++;
-              if (consecutiveDuplicates >= earlyStopAfterDups) {
-                debugPrint(
-                  '[PK_PULL] early stop — $earlyStopAfterDups consecutive duplicates',
-                );
-                break outer;
-              }
-            } else {
-              consecutiveDuplicates = 0;
-              totalNew++;
-              existingPkUuids.add(sw.id);
-              debugPrint(
-                '[PK_PULL] imported id=${sw.id} ts=${sw.timestamp.toIso8601String()} '
-                'members=${sw.members.length}',
-              );
-            }
+            newSwitches.add(sw);
           }
 
-          if (page.length < 100) break;
-          pageBefore = page.last.timestamp;
+          if (reachedCursor) break;
+          if (page.length < 100) break; // last page
+          if (pageNum >= _maxIncrementalPages) {
+            throw PkImportTooLargeError(
+              pagesFetched: pageNum,
+              cap: _maxIncrementalPages,
+            );
+          }
         }
-        debugPrint('[PK_PULL] done totalNew=$totalNew pages=$pageNum');
-        // Repair any prior "ongoing" sessions whose chains broke because
-        // the newer switch lived in a different sync cycle (or different
-        // page, or was a switch-out).
-        await _closePkSessionChainGaps(extraBoundaries: switchOutTimestamps);
+
+        // Sort oldest-first for chronological diff sweep.
+        newSwitches.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+
+        debugPrint('[PK_PULL] ${newSwitches.length} new switches to process');
+
+        if (newSwitches.isNotEmpty) {
+          // Re-build shortIdToUuid in case member sync updated mappings.
+          final resolvedShortIdToUuid = shortIdToUuid.isEmpty
+              ? await _buildShortIdToUuidMap()
+              : shortIdToUuid;
+
+          final sweepResult = await _runDiffSweep(
+            switches: newSwitches,
+            shortIdToUuid: resolvedShortIdToUuid,
+            onProgress: (i) {
+              if (i % 50 == 0) {
+                final total = newSwitches.length;
+                _emit(
+                  _state.copyWith(
+                    syncProgress: 0.5 + 0.4 * (total == 0 ? 1.0 : i / total),
+                    syncStatus: 'Processing switch ${i + 1}/$total...',
+                  ),
+                );
+              }
+            },
+          );
+          totalNew = newSwitches.length;
+          totalUnmapped = sweepResult.unmappedCount;
+        }
       } else {
         debugPrint(
           '[PK_PULL] skipped — pullEnabled=false direction=$direction',
         );
       }
 
-      // Phase 4: run a pure-local re-attribution pass after any member sync
-      // so newly-linked PK IDs promote headless switches in-place. Cheap
-      // when nothing changed (idempotent skip).
-      await reattributeSwitches();
-
-      // Phase 4 scoped push: emit pending local sessions (post-linkedAt,
-      // unpushed, with a linked primary) to PK. Replaces the old
-      // auto-push-current-front block which silently created duplicates on
-      // every sync (it never persisted the returned PK switch ID).
-      final int switchesPushed = direction.pushEnabled
+      // Phase 4: scoped push.
+      final pushResult = direction.pushEnabled
           ? await pushPendingSwitches(onStaleLink: staleLinkMessages.add)
-          : 0;
+          : const PkPushSwitchesResult();
+      final int switchesPushed = pushResult.pushed;
 
-      // Push deletions with switches first so PK's cascade doesn't 404 every
-      // switch-delete we queued after a member-delete succeeds.
+      // Push deletions with switches first.
       int switchesDeletedOnPk = 0;
       int membersDeletedOnPk = 0;
       if (direction.pushEnabled) {
@@ -1174,6 +1399,9 @@ class PluralKitSyncService {
       if (totalNew > 0) {
         statusParts.add('Pulled $totalNew switches');
       }
+      if (totalUnmapped > 0) {
+        statusParts.add('$totalUnmapped switches had unmapped members');
+      }
       if (finalSummary.switchesDeletedOnPk > 0) {
         statusParts.add(
           'Deleted ${finalSummary.switchesDeletedOnPk} switches on PK',
@@ -1192,9 +1420,6 @@ class PluralKitSyncService {
           syncStatus: statusParts.isNotEmpty
               ? '${statusParts.join('. ')}.'
               : 'Everything is up to date.',
-          // Surface stale-link events so the UI can render them. Uses
-          // `syncError` (there's no dedicated warnings channel) — callers
-          // read `state.syncError` to show a banner/toast.
           syncError: staleLinkMessages.isEmpty
               ? null
               : staleLinkMessages.join('\n'),
@@ -1365,10 +1590,6 @@ class PluralKitSyncService {
     var updated = 0;
     var failures = 0;
     for (final pk in pkMembers) {
-      // PK serves avatars from a public CDN (not the API host) and requires
-      // no auth header, so the shared helper's short-lived http.Client is
-      // fine here. Failures (timeout, non-image, oversize) yield null and
-      // leave the existing avatar untouched.
       Uint8List? avatarData;
       if (pk.avatarUrl != null && pk.avatarUrl!.isNotEmpty) {
         avatarData = await fetchAvatarBytes(pk.avatarUrl!);
@@ -1376,6 +1597,15 @@ class PluralKitSyncService {
 
       try {
         final localMember = byPkUuid[pk.uuid];
+        final bannerCache = await _bannerCacheService.resolve(
+          PkBannerCacheInput(
+            currentPkBannerUrl: localMember?.pkBannerUrl,
+            currentPkBannerImageData: localMember?.pkBannerImageData,
+            currentPkBannerCachedUrl: localMember?.pkBannerCachedUrl,
+            hasIncomingBannerField: pk.hasBannerField,
+            incomingBannerUrl: pk.bannerUrl,
+          ),
+        );
         if (localMember != null) {
           await _memberRepository.updateMember(
             localMember.copyWith(
@@ -1387,7 +1617,16 @@ class PluralKitSyncService {
               customColorHex: pk.color,
               customColorEnabled: pk.color != null && pk.color!.isNotEmpty,
               proxyTagsJson: pk.proxyTagsJson ?? localMember.proxyTagsJson,
-              pkBannerUrl: pk.bannerUrl ?? localMember.pkBannerUrl,
+              pkBannerUrl: bannerCache.pkBannerUrl,
+              pkBannerImageData: bannerCache.pkBannerImageData,
+              pkBannerCachedUrl: bannerCache.pkBannerCachedUrl,
+              profileHeaderSource:
+                  localMember.profileHeaderSource ==
+                          domain.MemberProfileHeaderSource.prism &&
+                      localMember.profileHeaderImageData == null &&
+                      _hasText(bannerCache.pkBannerUrl)
+                  ? domain.MemberProfileHeaderSource.pluralKit
+                  : localMember.profileHeaderSource,
               pluralkitUuid: pk.uuid,
               pluralkitId: pk.id,
               avatarImageData: avatarData ?? localMember.avatarImageData,
@@ -1409,7 +1648,12 @@ class PluralKitSyncService {
               customColorHex: pk.color,
               customColorEnabled: pk.color != null && pk.color!.isNotEmpty,
               proxyTagsJson: pk.proxyTagsJson,
-              pkBannerUrl: pk.bannerUrl,
+              pkBannerUrl: bannerCache.pkBannerUrl,
+              profileHeaderSource: _hasText(bannerCache.pkBannerUrl)
+                  ? domain.MemberProfileHeaderSource.pluralKit
+                  : domain.MemberProfileHeaderSource.prism,
+              pkBannerImageData: bannerCache.pkBannerImageData,
+              pkBannerCachedUrl: bannerCache.pkBannerCachedUrl,
               pluralkitUuid: pk.uuid,
               pluralkitId: pk.id,
               avatarImageData: avatarData,
@@ -1431,145 +1675,795 @@ class PluralKitSyncService {
     );
   }
 
-  /// Import a single switch. Returns true if it was a duplicate.
+  // -- Phase 4B: diff sweep -------------------------------------------------
+
+  /// Build a map from PK short ID (5-char) → PK full UUID for all locally
+  /// stored members. Used by [_runDiffSweep] to resolve switch member lists.
   ///
-  /// Phase 4 semantics:
-  /// - Iterate the PK members list; pick the FIRST locally-mapped PK ID as
-  ///   `memberId`, the rest as `coFronterIds`. This fixes the old "drop the
-  ///   whole switch if the first PK member is unmapped" bug.
-  /// - ALWAYS persist `pkMemberIdsJson` (the raw list of PK short IDs from
-  ///   PK). That lets [reattributeSwitches] re-resolve memberId / coFronters
-  ///   pure-locally once more members get linked, without re-fetching from PK.
-  /// - Headless sessions (no member currently maps) are still persisted — the
-  ///   Drift column `fronting_sessions.memberId` is nullable, so we can store
-  ///   the PK switch with `memberId = null` and reattribute later. Empty
-  ///   switches (PK "no one fronting") have `sw.members == []`; we skip them
-  ///   because there is nothing to attribute and the tombstone has no useful
-  ///   local representation in Prism's model.
-  Future<bool> _importSwitch(
-    PKSwitch sw, {
-    DateTime? endTime,
-    required Map<String, String> pkIdToLocalId,
-    Set<String>? existingPkUuids,
-  }) async {
-    // Check for existing session with same PK UUID
-    // (We use the PK switch ID as the pluralkitUuid on fronting sessions).
-    // Callers that import many switches in a loop should pass a precomputed
-    // [existingPkUuids] set to avoid the O(N²) per-switch scan.
-    final bool isDuplicate;
-    if (existingPkUuids != null) {
-      isDuplicate = existingPkUuids.contains(sw.id);
-    } else {
-      final existing = await _frontingSessionRepository.getAllSessions();
-      isDuplicate = existing.any((s) => s.pluralkitUuid == sw.id);
+  /// The canonical key for deterministic ID derivation is the full PK UUID
+  /// (pluralkitUuid on the member row), not the short 5-char ID. PK switch
+  /// payloads list short IDs; we resolve through this map.
+  Future<Map<String, String>> _buildShortIdToUuidMap() async {
+    final members = await _memberRepository.getAllMembers();
+    final map = <String, String>{};
+    for (final m in members) {
+      if (m.pluralkitId != null && m.pluralkitUuid != null) {
+        map[m.pluralkitId!] = m.pluralkitUuid!;
+      }
     }
-    if (isDuplicate) return true;
+    return map;
+  }
 
-    // PK "switch-out" (empty members list) has no local representation.
-    if (sw.members.isEmpty) return false;
+  /// Build a map from PK full UUID → local Prism member ID.
+  Future<Map<String, String>> _buildUuidToLocalIdMap() async {
+    final members = await _memberRepository.getAllMembers();
+    final map = <String, String>{};
+    for (final m in members) {
+      if (m.pluralkitUuid != null) {
+        map[m.pluralkitUuid!] = m.id;
+      }
+    }
+    return map;
+  }
 
-    final (primaryMemberId, coFronterLocalIds) = _resolvePkMembers(
-      sw.members,
-      pkIdToLocalId,
+  /// Paginate the full PK switch history and return all switches sorted
+  /// oldest-first. Used by [performFullImport].
+  Future<List<PKSwitch>> _fetchAllSwitches(PluralKitClient client) async {
+    final allSwitches = <PKSwitch>[];
+    DateTime? pageBefore;
+    while (true) {
+      final page = await client.getSwitches(before: pageBefore, limit: 100);
+      if (page.isEmpty) break;
+      allSwitches.addAll(page);
+      pageBefore = page.last.timestamp;
+      if (page.length < 100) break;
+    }
+    // PK returns newest-first; sort oldest-first for the diff sweep.
+    allSwitches.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    return allSwitches;
+  }
+
+  Future<PkTokenImportResult> _runFullImportWithClient(
+    PluralKitClient client, {
+    required bool updateSyncState,
+  }) async {
+    // -- Members (0-10%) --
+    final system = await client.getSystem();
+    _emit(
+      _state.copyWith(syncProgress: 0.02, syncStatus: 'Fetching members...'),
     );
 
-    try {
-      await _frontingSessionRepository.createSession(
-        domain.FrontingSession(
-          id: _uuid.v4(),
-          startTime: sw.timestamp,
-          endTime: endTime,
-          memberId: primaryMemberId,
-          coFronterIds: coFronterLocalIds,
-          pluralkitUuid: sw.id,
-          pkMemberIdsJson: jsonEncode(sw.members),
+    final pkMembers = await client.getMembers();
+    _emit(
+      _state.copyWith(
+        syncProgress: 0.05,
+        syncStatus: 'Importing ${pkMembers.length} members...',
+      ),
+    );
+    await _importMembers(client, pkMembers);
+    _emit(_state.copyWith(syncProgress: 0.10));
+
+    // -- Groups (10-15%) --
+    _emit(
+      _state.copyWith(syncProgress: 0.10, syncStatus: 'Importing groups...'),
+    );
+    await _importGroups(client, overwriteMetadata: true);
+    _emit(_state.copyWith(syncProgress: 0.15));
+
+    // -- Build member resolution maps (precomputed once for both the
+    // canonicalization pass and the diff sweep — WS3 step 8 / review #35).
+    final shortIdToUuid = await _buildShortIdToUuidMap();
+    if (shortIdToUuid.isEmpty && pkMembers.isNotEmpty) {
+      throw StateError(
+        'No PluralKit members resolved to local members. '
+        'Ensure members are imported before importing fronting history.',
+      );
+    }
+    final uuidToLocalId = await _buildUuidToLocalIdMap();
+    final pkUuidByLocalId = <String, String>{
+      for (final entry in uuidToLocalId.entries) entry.value: entry.key,
+    };
+
+    // -- Reset the sweep cursor so we fetch from the beginning of history.
+    if (updateSyncState) {
+      await _syncDao.upsertSyncState(
+        const PluralKitSyncStateCompanion(
+          id: Value('pk_config'),
+          switchCursorTimestamp: Value(null),
+          switchCursorId: Value(null),
         ),
       );
-    } catch (e) {
-      // SQLITE_CONSTRAINT_UNIQUE (2067): a concurrent sync already inserted
-      // this switch between our snapshot read and this INSERT. Treat as dup.
-      if (isUniqueConstraintViolation(e)) return true;
-      rethrow;
     }
 
-    return false;
-  }
+    // -- Switches (15-95%): fetch all pages first so we know the canonical
+    // PK row set the API agrees on.
+    _emit(
+      _state.copyWith(syncProgress: 0.15, syncStatus: 'Fetching switches...'),
+    );
 
-  /// Close any PK-sourced fronting sessions whose `endTime` is null but
-  /// which have a later session (by `startTime`) that should have closed
-  /// them. Fixes chain breaks caused by:
-  ///   * incremental pulls where the previously-newest session in the DB
-  ///     never gets its endTime updated when a newer switch arrives,
-  ///   * switch-outs imported after a fronter session (switch-outs don't
-  ///     create local rows, so pass their timestamps via [extraBoundaries]),
-  ///   * cross-page boundaries in paginated pulls.
-  ///
-  /// Idempotent — closed sessions are left alone. "PK-sourced" = has a
-  /// `pluralkitUuid` (API-imported) or `pkMemberIdsJson` (file-imported).
-  Future<int> _closePkSessionChainGaps({
-    Iterable<DateTime> extraBoundaries = const [],
-  }) async {
-    final pk =
-        (await _frontingSessionRepository.getAllSessions())
-            .where((s) => s.pluralkitUuid != null || s.pkMemberIdsJson != null)
-            .toList()
-          ..sort((a, b) => a.startTime.compareTo(b.startTime));
-    if (pk.isEmpty) return 0;
+    final allSwitches = await _fetchAllSwitches(client);
+    final totalSwitches = allSwitches.length;
 
-    final boundaries = <DateTime>[
-      for (final s in pk) s.startTime,
-      ...extraBoundaries,
-    ]..sort();
-
-    int fixed = 0;
-    for (final s in pk) {
-      if (s.endTime != null) continue;
-      DateTime? closeAt;
-      for (final b in boundaries) {
-        if (b.isAfter(s.startTime)) {
-          closeAt = b;
-          break;
+    // -- Canonicalize: tombstone PK-linked rescue rows the API
+    // wouldn't create. The PRISM1 rescue importer fans out every
+    // legacy PK switch/member row (one row per (switch, member) pair
+    // in the file), but the diff sweep only writes ENTRANT rows
+    // (one per "this member became active at this switch"). For a
+    // history A -> A+B -> A the rescue creates 4 rows but the diff
+    // sweep would only create 2: A entering at sw-1 stays open
+    // across A+B and back to A; B enters at sw-2 and leaves at sw-3.
+    // The 2 stale A rows at det(sw-2, A) and det(sw-3, A) are
+    // rescue artifacts the diff sweep never touches.
+    //
+    // On the corrective re-import the API is authoritative for API-backed
+    // switch rows: any API-linked local row whose id isn't an entrant
+    // (sw, member) pair is a stale rescue artifact and must be tombstoned
+    // so paired devices converge. Synthetic/file-origin IDs are not API
+    // switch refs and must not be canonicalized here.
+    //
+    // WS3 step 8 / review #34: the entire detect+tombstone loop runs in
+    // a single Drift transaction. The previous shape called
+    // `deleteSession` per duplicate without a tx, so a crash mid-loop
+    // left the CRDT half-canonicalized: some stale rows tombstoned,
+    // others still live, and paired devices receiving the partial set
+    // would converge on an inconsistent timeline. Wrapping in `tx`
+    // means either every stale tombstone commits or none of them do.
+    _emit(
+      _state.copyWith(
+        syncProgress: 0.40,
+        syncStatus: 'Canonicalizing PK history...',
+      ),
+    );
+    // Resolve canonical entrant ids in (switchId, localMemberId) space —
+    // exactly what the diff sweep writes — via the shared
+    // [deriveCanonicalPkSessionId] helper. Routing both call sites through
+    // one helper guarantees the canonicalization pass and the live diff
+    // sweep agree byte-for-byte on the row id, so we can never tombstone
+    // a row the sweep just wrote (WS3 step 9 / review finding #8). We
+    // reuse the precomputed `uuidToLocalId` / `pkUuidByLocalId` from the
+    // top of this method — no second member-table scan.
+    final canonicalIds = <String>{};
+    final canonPrev = <String>{};
+    for (final sw in allSwitches) {
+      final newActive = <String>{};
+      for (final shortId in sw.members) {
+        final pkUuid = shortIdToUuid[shortId];
+        if (pkUuid == null) continue;
+        final localId = uuidToLocalId[pkUuid];
+        if (localId == null) continue;
+        newActive.add(localId);
+      }
+      for (final entrantLocalId in newActive.difference(canonPrev)) {
+        canonicalIds.add(
+          deriveCanonicalPkSessionId(
+            switchId: sw.id,
+            localMemberId: entrantLocalId,
+            pkUuidByLocalId: pkUuidByLocalId,
+          ),
+        );
+      }
+      canonPrev
+        ..clear()
+        ..addAll(newActive);
+    }
+    var tombstonedStale = 0;
+    await _syncDao.attachedDatabase.transaction(() async {
+      final allSessions = await _frontingSessionRepository.getAllSessions();
+      for (final s in allSessions) {
+        if (isPluralKitSwitchUuid(s.pluralkitUuid) &&
+            !s.isDeleted &&
+            !canonicalIds.contains(s.id)) {
+          await _frontingSessionRepository.deleteSession(s.id);
+          tombstonedStale++;
         }
       }
-      if (closeAt == null) continue; // truly the latest — stays ongoing
-      await _frontingSessionRepository.endSession(s.id, closeAt);
-      fixed++;
+    });
+    if (tombstonedStale > 0) {
+      debugPrint(
+        '[PK_FULL_IMPORT] tombstoned $tombstonedStale stale PK-linked '
+        'rows not in canonical API set (rescue fan-out artifacts).',
+      );
     }
-    if (fixed > 0) {
-      debugPrint('[PK_PULL] closed $fixed stale ongoing session(s)');
+
+    _emit(
+      _state.copyWith(
+        syncProgress: 0.50,
+        syncStatus: 'Processing $totalSwitches switches...',
+      ),
+    );
+
+    // Diff sweep in corrective mode. `prevActive` is reconstituted from
+    // open PK-linked DB rows inside [_runDiffSweep] (WS3 step 5 / review
+    // #29); the previous behavior of starting blind made existing-but-no-
+    // longer-fronting rows uncloseable. Tombstones with a non-null
+    // `deleteIntentEpoch` are preserved (WS3 step 4 / review #3) and
+    // surfaced via `tombstonePreservedCount`. Reuse the precomputed
+    // member maps so we don't re-scan the members table.
+    final sweepResult = await _runDiffSweep(
+      switches: allSwitches,
+      shortIdToUuid: shortIdToUuid,
+      uuidToLocalIdOverride: uuidToLocalId,
+      pkUuidByLocalIdOverride: pkUuidByLocalId,
+      corrective: true,
+      advanceCursor: updateSyncState,
+      onProgress: (i) {
+        if (i % 50 == 0) {
+          final progress =
+              0.50 + 0.45 * (totalSwitches == 0 ? 1.0 : i / totalSwitches);
+          _emit(
+            _state.copyWith(
+              syncProgress: progress,
+              syncStatus: 'Processing switch ${i + 1}/$totalSwitches...',
+            ),
+          );
+        }
+      },
+    );
+
+    DateTime? complete;
+    if (updateSyncState) {
+      // -- Complete (95-100%) --
+      complete = DateTime.now();
+      await _syncDao.upsertSyncState(
+        PluralKitSyncStateCompanion(
+          id: const Value('pk_config'),
+          lastSyncDate: Value(complete),
+        ),
+      );
     }
-    return fixed;
+
+    return PkTokenImportResult(
+      system: system,
+      members: pkMembers,
+      switchesImported: totalSwitches,
+      unmappedMemberReferences: sweepResult.unmappedCount,
+      tombstonePreservedCount: sweepResult.tombstonePreservedCount,
+      zeroLengthCloseSkipped: sweepResult.zeroLengthCloseSkipped,
+      completedAt: complete,
+    );
   }
 
-  /// Resolve a list of PK short IDs to (primary local memberId, cofronter
-  /// local IDs), picking the first mapped PK ID as primary. Returns
-  /// `(null, [])` when no PK IDs map locally.
-  static (String?, List<String>) _resolvePkMembers(
-    List<String> pkMemberIds,
-    Map<String, String> pkIdToLocalId,
-  ) {
-    String? primary;
-    final coFronters = <String>[];
-    for (final pkId in pkMemberIds) {
-      final localId = pkIdToLocalId[pkId];
-      if (localId == null) continue;
-      if (primary == null) {
-        primary = localId;
-      } else {
-        coFronters.add(localId);
+  /// Fetch enough API switch pages to cover the export's timestamp range,
+  /// plus any newer API switches that indicate the file is stale.
+  Future<List<PKSwitch>> _fetchSwitchesForFileRange(
+    PluralKitClient client,
+    List<PkFileSwitch> fileSwitches,
+  ) async {
+    if (fileSwitches.isEmpty) return const <PKSwitch>[];
+
+    final minFileTimestampMicros = fileSwitches
+        .map((entry) => entry.timestamp.toUtc().microsecondsSinceEpoch)
+        .reduce((left, right) => left < right ? left : right);
+
+    final switches = <PKSwitch>[];
+    DateTime? pageBefore;
+    while (true) {
+      final page = await client.getSwitches(before: pageBefore, limit: 100);
+      if (page.isEmpty) break;
+
+      var pageReachedBeforeFileRange = false;
+      for (final switchEntry in page) {
+        final timestampMicros = switchEntry.timestamp
+            .toUtc()
+            .microsecondsSinceEpoch;
+        if (timestampMicros >= minFileTimestampMicros) {
+          switches.add(switchEntry);
+        } else {
+          pageReachedBeforeFileRange = true;
+        }
+      }
+
+      if (pageReachedBeforeFileRange || page.length < 100) break;
+      pageBefore = page.last.timestamp;
+    }
+
+    switches.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    return switches;
+  }
+
+  String _pkFileSwitchSourceId(PkFileSwitch switchEntry) {
+    final explicitId = switchEntry.id?.trim();
+    if (explicitId != null && explicitId.isNotEmpty) return explicitId;
+
+    final timestamp = DateTime.fromMicrosecondsSinceEpoch(
+      switchEntry.timestamp.toUtc().microsecondsSinceEpoch,
+      isUtc: true,
+    ).toIso8601String();
+    final memberIds = switchEntry.memberIds.toSet().toList()..sort();
+    return 'pkfile:v1:$timestamp|${memberIds.join(',')}';
+  }
+
+  /// Core diff-sweep algorithm. Processes [switches] in chronological order,
+  /// computing per-member presence intervals from the snapshot stream.
+  ///
+  /// Algorithm (spec §2.6):
+  ///   prevActive = {local member IDs currently active in open PK rows}
+  ///   for each switch in chronological order:
+  ///     newActive = {local member IDs in switch.members}
+  ///     for each entrant in newActive - prevActive:
+  ///       open a new per-member row (id derived from entry-switch + member UUID)
+  ///     for each leaver in prevActive - newActive:
+  ///       close the open row at switch.timestamp
+  ///     prevActive = newActive
+  ///   advance resume cursor once at end of the batch to (newest.ts, newest.id)
+  ///
+  /// `prevActive` is *always* seeded from open PK-linked DB rows at the
+  /// start of the sweep (WS3 step 5 / review #29). The previous behavior
+  /// gated the seed behind a non-empty caller-provided `prevActive` set,
+  /// which meant the corrective full-import path skipped the seed entirely
+  /// and treated every switch as a fresh entrant — leaving open-but-no-
+  /// longer-fronting rows uncloseable. Both paths now use the same seed.
+  ///
+  /// Each switch's row writes commit in a single Drift transaction (atomic).
+  /// The resume cursor advances ONCE after the batch loop succeeds (WS3 step 7),
+  /// not per switch — so a partial-batch crash leaves the cursor at the prior
+  /// boundary and the sweep re-processes from there. Re-processing is safe
+  /// because row ids are deterministic and the upsert is idempotent.
+  ///
+  /// Returns a [_PkDiffSweepResult] with three counters:
+  /// - `unmappedCount`: switch member references that couldn't be resolved
+  ///   to a local member (PK short ID has no matching local member). Also
+  ///   incremented when a leaver fires on a tombstoned-collision presence
+  ///   that has no row to close (review #33).
+  /// - `tombstonePreservedCount`: corrective re-import found a tombstoned
+  ///   row whose `deleteIntentEpoch` was non-null and refused to resurrect
+  ///   it (WS3 step 4 / review #3). Surfaced in the import-result UI.
+  /// - `zeroLengthCloseSkipped`: leavers whose timestamp matched the row's
+  ///   start exactly (zero-duration presence). Skipped to avoid writing a
+  ///   junk close (WS3 step 6 / review #30). Throws [PkSwitchOrderingError]
+  ///   if a leaver's timestamp predates the row's start (corrupt input).
+  ///
+  /// [corrective] selects the end_time policy on entrant collisions:
+  /// - `false` (incremental): conservative — preserve any pre-existing
+  ///   non-null `end_time`, since it may be a deliberate user close on a
+  ///   rescue row. Used by the routine diff sweep + post-mapping pull.
+  /// - `true` (corrective full re-import): API is authoritative — clear
+  ///   `end_time` to `null` on entrant collisions so currently-active API
+  ///   rows actually surface as open after the rescue→re-import recovery
+  ///   flow. The user has explicitly asked to rebuild PK history from API,
+  ///   so clobber is the point. Tombstones with a non-null
+  ///   `deleteIntentEpoch` are preserved either way.
+  Future<_PkDiffSweepResult> _runDiffSweep({
+    required List<PKSwitch> switches,
+    required Map<String, String> shortIdToUuid,
+    void Function(int index)? onProgress,
+    bool corrective = false,
+    bool advanceCursor = true,
+    String? pkImportSource,
+    Map<String, String> pkImportSourceByApiSwitchId = const <String, String>{},
+    Map<String, String> pkFileSwitchIdsByApiSwitchId = const <String, String>{},
+    Map<String, String>? uuidToLocalIdOverride,
+    Map<String, String>? pkUuidByLocalIdOverride,
+  }) async {
+    // Reuse the caller's precomputed maps when provided so the corrective
+    // full-import path (which already built them for the canonicalization
+    // pass) doesn't pay for a second member-table scan (WS3 step 8 / #35).
+    final uuidToLocalId =
+        uuidToLocalIdOverride ?? await _buildUuidToLocalIdMap();
+    // Forward map: local member id → PK UUID. Built once and passed to the
+    // unified [deriveCanonicalPkSessionId] helper. Rebuilding mid-sweep
+    // would defeat the determinism contract guarded by the assert below.
+    // Replaces the previous per-entrant `_localIdToPkUuid` reverse scan.
+    final pkUuidByLocalId =
+        pkUuidByLocalIdOverride ??
+        <String, String>{
+          for (final entry in uuidToLocalId.entries) entry.value: entry.key,
+        };
+
+    // Track active PluralKit presence by local member ID. Each entry is a
+    // [_PkActivePresence] snapshot — see the class docstring for why we
+    // moved off the previous `Map<String, String> openRowIds`.
+    //
+    // The keys of this map ARE the running prev-active set; we recompute
+    // entrants/leavers off `active.keys` each switch. The DB-rebuild
+    // pre-loop below populates one entry per currently-open PK row, and
+    // the entrant/leaver paths below add and remove entries.
+    final active = <String, _PkActivePresence>{};
+
+    // Populate `active` from the database. WS3 step 5 / review #29: this
+    // runs unconditionally now (not only when [prevActive] is non-empty),
+    // so the corrective full-import path also seeds from open DB rows
+    // instead of starting blind. The previous behavior (full import passed
+    // `prevActive: {}` and the DB-rebuild was skipped) meant that any
+    // existing-but-no-longer-fronting member was never closed by the
+    // sweep — the sweep saw an empty active set and treated every switch
+    // as a fresh entrant. Seeding from DB rows matches the incremental
+    // path's invariant: "active before the first switch == whatever PK
+    // rows are currently open".
+    final currentSessions = await _frontingSessionRepository.getAllSessions();
+    for (final s in currentSessions) {
+      if (s.endTime == null &&
+          isPluralKitSwitchUuid(s.pluralkitUuid) &&
+          !s.isDeleted &&
+          s.memberId != null) {
+        final localId = s.memberId!;
+        active[localId] = _PkActivePresence(
+          localMemberId: localId,
+          // Reverse-map at rebuild time. May be null if the member's PK
+          // mapping was dropped between writes — that's fine; only the
+          // re-derive paths care, and they tolerate a null pkMemberUuid.
+          pkMemberUuid: pkUuidByLocalId[localId],
+          startedAt: s.startTime,
+          rowId: s.id,
+        );
+      }
+      // Rows with `memberId == null` cannot be reconstituted: we have no
+      // way to recover the local member id from the row alone (the
+      // pluralkit_uuid column is the *switch* id, not the member uuid),
+      // so they cannot key into `active`. This matches the previous
+      // behavior — review #7 acknowledges this is no regression. If the
+      // PK mapping is later restored, the member will reappear as an
+      // entrant on the next switch and an open row will be re-derived.
+    }
+
+    int unmappedCount = 0;
+    int tombstonePreservedCount = 0;
+    int zeroLengthCloseSkipped = 0;
+
+    // Track newest successfully-processed switch in memory; advance the resume
+    // cursor once after the loop succeeds (WS3 step 7). Per-switch cursor
+    // writes were unnecessary (deterministic ids make replay safe) and made
+    // every switch a separate `pluralkit_sync_state` upsert.
+    DateTime? batchNewestTs;
+    String? batchNewestId;
+
+    for (var i = 0; i < switches.length; i++) {
+      final sw = switches[i];
+      onProgress?.call(i);
+
+      // Resolve this switch's member list to local member IDs.
+      // Also track which short IDs couldn't be resolved for reporting.
+      final newActive = <String>{};
+      int switchUnmapped = 0;
+      for (final shortId in sw.members) {
+        final pkUuid = shortIdToUuid[shortId];
+        if (pkUuid == null) {
+          switchUnmapped++;
+          continue;
+        }
+        final localId = uuidToLocalId[pkUuid];
+        if (localId == null) {
+          switchUnmapped++;
+          continue;
+        }
+        newActive.add(localId);
+      }
+      unmappedCount += switchUnmapped;
+
+      // `active` carries the running prev-active set as its key space. The
+      // first iteration's keys come from the DB-rebuild block above (or
+      // are empty for full re-import); subsequent iterations see whatever
+      // the previous iteration's entrant/leaver block left behind.
+      final prevActiveKeys = active.keys.toSet();
+      final entrants = newActive.difference(prevActiveKeys);
+      final leavers = prevActiveKeys.difference(newActive);
+
+      // Atomic transaction: opens + closes for this switch.
+      await _syncDao.attachedDatabase.transaction(() async {
+        // Open rows for entrants.
+        //
+        // We branch on existing-row presence rather than catching a
+        // unique-constraint violation because the existing row may be
+        // a PRISM1 rescue import with lossy boundaries (one row per
+        // old switch covering its full duration). We MUST overwrite
+        // start_time + member_id + pluralkit_uuid with the API truth
+        // so a future sync's field-LWW carries the corrected boundary
+        // to paired devices. The previous `createSession`-then-catch
+        // pattern recorded the row id but never wrote the API values,
+        // leaving rescue-derived boundaries on disk forever.
+        for (final localId in entrants) {
+          // Derive the row id via the shared helper so this site and the
+          // canonicalization pass agree on the id (WS3 step 9 / #8).
+          final rowId = deriveCanonicalPkSessionId(
+            switchId: sw.id,
+            localMemberId: localId,
+            pkUuidByLocalId: pkUuidByLocalId,
+          );
+          // Debug-only invariant: the derived id is stable for a given
+          // (switchId, localMemberId) regardless of map state, so long as
+          // pkUuidByLocalId either contains the same mapping or is missing
+          // the local id. Re-deriving against an empty map must equal
+          // re-deriving against the full map IFF the local id is absent
+          // from the full map; otherwise the two derivations differ on
+          // purpose (the fallback only applies to unmapped ids). We assert
+          // the more useful invariant: re-derivation against the SAME map
+          // is idempotent.
+          assert(
+            deriveCanonicalPkSessionId(
+                  switchId: sw.id,
+                  localMemberId: localId,
+                  pkUuidByLocalId: pkUuidByLocalId,
+                ) ==
+                rowId,
+            'deriveCanonicalPkSessionId is non-deterministic for '
+            '(${sw.id}, $localId) — id derivation contract broken.',
+          );
+          final switchImportSource =
+              pkImportSourceByApiSwitchId[sw.id] ?? pkImportSource;
+          final pkFileSwitchId = pkFileSwitchIdsByApiSwitchId[sw.id];
+          final outcome = await _upsertEntrantSession(
+            rowId: rowId,
+            switchEntry: sw,
+            localId: localId,
+            corrective: corrective,
+            switchImportSource: switchImportSource,
+            pkFileSwitchId: pkFileSwitchId,
+          );
+          switch (outcome.kind) {
+            case _PkUpsertOutcomeKind.row:
+              active[localId] = _PkActivePresence(
+                localMemberId: localId,
+                pkMemberUuid: pkUuidByLocalId[localId],
+                startedAt: sw.timestamp,
+                rowId: outcome.rowId,
+              );
+            case _PkUpsertOutcomeKind.tombstoneCollision:
+              // Incremental sync: entrant id pointed at a soft-deleted row.
+              // We deliberately did not resurrect it (a user-initiated
+              // delete during routine sync must stick). Record the
+              // presence with `rowId == null` and `isTombstonedCollision`
+              // so a future leaver event has a peg to match against and
+              // so the prev-active key set stays in sync with the loop's
+              // view of who is fronting (review #33). The leaver path
+              // below skips the no-op close.
+              active[localId] = _PkActivePresence(
+                localMemberId: localId,
+                pkMemberUuid: pkUuidByLocalId[localId],
+                startedAt: sw.timestamp,
+                isTombstonedCollision: true,
+              );
+            case _PkUpsertOutcomeKind.tombstonePreserved:
+              // WS3 step 4 / review #3: corrective re-import did NOT
+              // resurrect a row whose deleteIntentEpoch was non-null
+              // (user explicitly deleted it; the delete is queued to push
+              // to PluralKit). Track the count for the import-result UI
+              // and DO NOT add the member to `active` — we want the next
+              // leaver to be a no-op (the row is gone from the user's
+              // perspective). The cost: the diff sweep won't auto-close
+              // anything, but corrective imports always start by re-deriving
+              // boundaries from API truth so this is fine.
+              tombstonePreservedCount++;
+          }
+        }
+
+        // Close rows for leavers.
+        for (final localId in leavers) {
+          final presence = active[localId];
+          final rowId = presence?.rowId;
+          if (rowId != null) {
+            // WS3 step 6 / review #30: guard the close on the row's start
+            // timestamp before invoking endSession. Three cases:
+            //
+            // 1. `end > start` (the common case): close normally.
+            // 2. `end == start`: zero-length presence — the API listed an
+            //    entrant and a leave at the same moment. Skip the close;
+            //    the row stays open with start_time set, which is harmless
+            //    and matches "no time spent fronting at this exact tick".
+            //    Bump `zeroLengthCloseSkipped` for the import-result UI.
+            // 3. `end < start`: input data is corrupt (a leave whose
+            //    timestamp predates the entrant's start). Bail with a
+            //    typed error so the UI surfaces this rather than silently
+            //    writing a negative-duration row that re-exports as
+            //    garbage.
+            if (sw.timestamp.isBefore(presence!.startedAt)) {
+              throw PkSwitchOrderingError(
+                rowId: rowId,
+                startTime: presence.startedAt,
+                endTime: sw.timestamp,
+                switchId: sw.id,
+              );
+            }
+            if (sw.timestamp.isAtSameMomentAs(presence.startedAt)) {
+              zeroLengthCloseSkipped++;
+              debugPrint(
+                '[PK_SWEEP] zero-length close skipped on row $rowId '
+                '(start == end == ${sw.timestamp.toIso8601String()}); '
+                'leaving open until a non-zero-length leaver arrives.',
+              );
+            } else {
+              await _frontingSessionRepository.endSession(rowId, sw.timestamp);
+            }
+          } else if (presence != null && presence.isTombstonedCollision) {
+            // Step 6 + review #33: a tombstoned-collision presence was
+            // skipped at entrant time (no row written). The leaver has
+            // nothing to close. Surface the member in
+            // `unmappedMemberReferences` so the UI flags the gap rather
+            // than silently dropping the member from the timeline.
+            unmappedCount++;
+            debugPrint(
+              '[PK_SWEEP] leaver on tombstoned-collision presence for '
+              'member $localId at ${sw.timestamp.toIso8601String()}: no '
+              'row to close (review #33).',
+            );
+          }
+          // Always drop the presence: with no rowId there's nothing to
+          // close, but the member is no longer active either way. This
+          // matches the prior behavior where leavers were unconditionally
+          // removed from `prevActive` via `prevActive = newActive`.
+          active.remove(localId);
+        }
+      });
+
+      // Track newest (timestamp, id) we've seen for the batch-end cursor
+      // write. Switches are sorted oldest-first, so the last one wins —
+      // but we compare lexicographically anyway in case a caller hands us
+      // an unsorted list.
+      if (batchNewestTs == null ||
+          sw.timestamp.isAfter(batchNewestTs) ||
+          (sw.timestamp == batchNewestTs &&
+              (batchNewestId == null || sw.id.compareTo(batchNewestId) > 0))) {
+        batchNewestTs = sw.timestamp;
+        batchNewestId = sw.id;
+      }
+
+      // `active` already reflects newActive after the entrant + leaver
+      // blocks above — the previous `prevActive = newActive` reassignment
+      // is no longer needed now that `active.keys` is the single source
+      // of truth for "who is fronting going into the next switch".
+    }
+
+    if (advanceCursor && batchNewestTs != null && batchNewestId != null) {
+      // One cursor write per batch (WS3 step 7).
+      await _syncDao.upsertSyncState(
+        PluralKitSyncStateCompanion(
+          id: const Value('pk_config'),
+          switchCursorTimestamp: Value(batchNewestTs),
+          switchCursorId: Value(batchNewestId),
+        ),
+      );
+    }
+
+    debugPrint(
+      '[PK_SWEEP] done: ${switches.length} switches processed, '
+      '$unmappedCount unmapped, '
+      '$tombstonePreservedCount tombstones preserved, '
+      '$zeroLengthCloseSkipped zero-length closes skipped',
+    );
+    return _PkDiffSweepResult(
+      unmappedCount: unmappedCount,
+      tombstonePreservedCount: tombstonePreservedCount,
+      zeroLengthCloseSkipped: zeroLengthCloseSkipped,
+    );
+  }
+
+  /// Outcome of attempting to upsert (or honour) a per-member entrant row
+  /// for one switch-entrant event in the diff sweep.
+  ///
+  /// Replaces the previous `Future<String?>` return so the entrant path can
+  /// distinguish three end states without overloading "null":
+  /// 1. row written: [_PkUpsertOutcome.row]
+  /// 2. tombstoned-row collision (incremental): [_PkUpsertOutcome.tombstoneCollision]
+  /// 3. user tombstone preserved (corrective, step 4 / #3): [_PkUpsertOutcome.tombstonePreserved]
+  Future<_PkUpsertOutcome> _upsertEntrantSession({
+    required String rowId,
+    required PKSwitch switchEntry,
+    required String localId,
+    required bool corrective,
+    required String? switchImportSource,
+    required String? pkFileSwitchId,
+  }) async {
+    var existing =
+        await _frontingSessionRepository.getSessionById(rowId) ??
+        await _findSessionByPkSwitchAndMember(
+          switchId: switchEntry.id,
+          localId: localId,
+        );
+
+    if (existing == null) {
+      try {
+        await _frontingSessionRepository.createSession(
+          domain.FrontingSession(
+            id: rowId,
+            startTime: switchEntry.timestamp,
+            memberId: localId,
+            pluralkitUuid: switchEntry.id,
+            pkImportSource: switchImportSource,
+            pkFileSwitchId: pkFileSwitchId,
+          ),
+        );
+        return _PkUpsertOutcome.row(rowId);
+      } catch (error) {
+        if (!isUniqueOrPrimaryKeyConstraintViolation(error)) rethrow;
+        existing =
+            await _frontingSessionRepository.getSessionById(rowId) ??
+            await _findSessionByPkSwitchAndMember(
+              switchId: switchEntry.id,
+              localId: localId,
+            );
+        if (existing == null) rethrow;
       }
     }
-    return (primary, coFronters);
+
+    // Collision — usually a PRISM1 rescue row. It may have the new
+    // deterministic id, or it may be an older PK-imported row whose id
+    // predates the per-member derivation. Correct by the DB uniqueness key
+    // `(pluralkit_uuid, member_id)` so re-import is idempotent in both cases.
+    if (existing.isDeleted && !corrective) {
+      debugPrint(
+        '[PK_SWEEP] entrant collision on deleted row ${existing.id}: '
+        'preserved tombstone during incremental sync.',
+      );
+      return const _PkUpsertOutcome.tombstoneCollision();
+    }
+
+    // WS3 step 4 / review #3: preserve user tombstones on the corrective
+    // path. A non-null `deleteIntentEpoch` means the user explicitly deleted
+    // this PK row locally and the deletion is queued to push to PluralKit.
+    // The previous implementation unconditionally cleared `isDeleted`,
+    // `deleteIntentEpoch`, and `deletePushStartedAt` in corrective mode,
+    // silently undoing the user's intent and re-creating the row on every
+    // device. We now leave the tombstone alone and report the count up to
+    // the import-result UI so the user can see why a row they expected to
+    // be deleted is still gone (rather than wondering whether the import
+    // resurrected it). No "explicit revive" affordance is added in this
+    // pass — that's tracked separately if needed.
+    if (corrective &&
+        existing.isDeleted &&
+        existing.deleteIntentEpoch != null) {
+      debugPrint(
+        '[PK_SWEEP] corrective entrant on tombstoned row ${existing.id} '
+        'with deleteIntentEpoch=${existing.deleteIntentEpoch}: preserving '
+        'user tombstone (review #3).',
+      );
+      return const _PkUpsertOutcome.tombstonePreserved();
+    }
+
+    if (!corrective && existing.endTime != null) {
+      debugPrint(
+        '[PK_SWEEP] entrant collision on ${existing.id}: existing '
+        'end_time ${existing.endTime} preserved (API says fronting; user '
+        'may have closed the rescue row).',
+      );
+    }
+
+    // end_time policy depends on [corrective]:
+    // - incremental (default): preserve a non-null existing end_time.
+    // - corrective: API is authoritative. Clear end_time so active API rows
+    //   surface as open; a later leaver in the same sweep will close it.
+    //
+    // Corrective import also clears delete-push bookkeeping because a
+    // resurrected PK row is no longer a pending local deletion.
+    await _frontingSessionRepository.updateSession(
+      existing.copyWith(
+        isDeleted: corrective ? false : existing.isDeleted,
+        startTime: switchEntry.timestamp,
+        memberId: localId,
+        pluralkitUuid: switchEntry.id,
+        pkImportSource: switchImportSource ?? existing.pkImportSource,
+        pkFileSwitchId: switchImportSource == null
+            ? existing.pkFileSwitchId
+            : pkFileSwitchId,
+        endTime: corrective ? null : existing.endTime,
+        deleteIntentEpoch: corrective ? null : existing.deleteIntentEpoch,
+        deletePushStartedAt: corrective ? null : existing.deletePushStartedAt,
+      ),
+    );
+    return _PkUpsertOutcome.row(existing.id);
   }
 
-  // -- Phase 4 public API ---------------------------------------------------
+  Future<domain.FrontingSession?> _findSessionByPkSwitchAndMember({
+    required String switchId,
+    required String localId,
+  }) async {
+    final db = _syncDao.attachedDatabase;
+    final row =
+        await (db.select(db.frontingSessions)
+              ..where(
+                (s) =>
+                    s.pluralkitUuid.equals(switchId) &
+                    s.memberId.equals(localId),
+              )
+              ..limit(1))
+            .getSingleOrNull();
+    return row == null ? null : FrontingSessionMapper.toDomain(row);
+  }
 
-  /// Walk PK switch history after a mapping Apply and import every switch,
-  /// writing `pkMemberIdsJson` on every row so [reattributeSwitches] can do
-  /// pure-local re-attribution when more members get linked later.
+  /// Walk PK switch history after a mapping Apply and import every switch.
   ///
-  /// Idempotent: switches already imported (matched by `pluralkitUuid`) are
-  /// skipped. Safe to re-run.
+  /// This is the entry point used after the user completes the mapping flow
+  /// (see [importSwitchesAfterLink]). It uses the incremental diff sweep
+  /// starting from the current resume cursor, so it's safe to call multiple
+  /// times (idempotent via deterministic IDs and atomic cursor advance).
   Future<void> importSwitchesAfterLink() async {
     if (!_state.isConnected) {
       throw StateError('Not connected — cannot import switch history');
@@ -1591,81 +2485,42 @@ class PluralKitSyncService {
     }
 
     try {
+      final shortIdToUuid = await _buildShortIdToUuidMap();
 
-      final allMembers = await _memberRepository.getAllMembers();
-      final pkIdToLocalId = <String, String>{};
-      for (final m in allMembers) {
-        if (m.pluralkitId != null) pkIdToLocalId[m.pluralkitId!] = m.id;
-      }
+      // Fetch all switches from the beginning (this is the post-mapping full
+      // history pull). Use the corrective full-sweep path: no pre-close needed
+      // since the DB was empty (or will have no PK rows yet after mapping).
+      final allSwitches = await _fetchAllSwitches(client);
 
-      // Paginate `/switches`. PK doesn't guarantee unique timestamps, so two
-      // switches at the same instant across a page boundary could duplicate
-      // or skip. We defend against both by keeping a seen-ID set across
-      // pages and stopping when a whole page is re-seen.
-      final allSwitches = <PKSwitch>[];
-      final seenIds = <String>{};
-      DateTime? pageBefore;
-      int fetched = 0;
-      while (true) {
-        final page = await client.getSwitches(before: pageBefore, limit: 100);
-        if (page.isEmpty) break;
-        final fresh = page.where((sw) => seenIds.add(sw.id)).toList();
-        if (fresh.isEmpty) break; // every switch already seen → loop cut-off
-        allSwitches.addAll(fresh);
-        fetched += fresh.length;
-        pageBefore = page.last.timestamp;
-        _emit(_state.copyWith(syncStatus: 'Fetched $fetched switches...'));
-        if (page.length < 100) break;
-      }
+      _emit(
+        _state.copyWith(
+          syncProgress: 0.5,
+          syncStatus: 'Processing ${allSwitches.length} switches...',
+        ),
+      );
 
-      // Sort oldest-first so we can chain endTime from next switch's startTime.
-      allSwitches.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+      // `prevActive` is reconstituted from open PK-linked DB rows inside
+      // [_runDiffSweep] (WS3 step 5 / review #29).
+      await _runDiffSweep(
+        switches: allSwitches,
+        shortIdToUuid: shortIdToUuid,
+        onProgress: (i) {
+          if (i % 50 == 0) {
+            final frac = allSwitches.isEmpty
+                ? 1.0
+                : 0.5 + 0.4 * (i / allSwitches.length);
+            _emit(
+              _state.copyWith(
+                syncProgress: frac,
+                syncStatus:
+                    'Importing switch ${i + 1}/${allSwitches.length}...',
+              ),
+            );
+          }
+        },
+      );
 
-      // Precompute existing PK switch UUIDs so _importSwitch doesn't rescan
-      // the full session list for every switch (O(N²) → O(N)).
-      final existingSessions = await _frontingSessionRepository
-          .getAllSessions();
-      final existingPkUuids = <String>{
-        for (final s in existingSessions)
-          if (s.pluralkitUuid != null) s.pluralkitUuid!,
-      };
-      // File-imported sessions lack UUIDs; match by timestamp+member IDs and
-      // adopt the API's UUID so we don't create a duplicate row here.
-      final fileIndex = _buildFileImportIndex(existingSessions);
-
-      final switchOutTimestamps = <DateTime>[];
-      for (var i = 0; i < allSwitches.length; i++) {
-        final sw = allSwitches[i];
-        final endTime = i + 1 < allSwitches.length
-            ? allSwitches[i + 1].timestamp
-            : null;
-        if (sw.members.isEmpty) switchOutTimestamps.add(sw.timestamp);
-        if (i % 50 == 0) {
-          _emit(
-            _state.copyWith(
-              syncProgress: allSwitches.isEmpty ? 1.0 : i / allSwitches.length,
-              syncStatus: 'Importing switch ${i + 1}/${allSwitches.length}...',
-            ),
-          );
-        }
-        if (fileIndex.isNotEmpty &&
-            await _adoptFileImportedSwitch(sw, fileIndex, existingPkUuids)) {
-          continue;
-        }
-        final wasDup = await _importSwitch(
-          sw,
-          endTime: endTime,
-          pkIdToLocalId: pkIdToLocalId,
-          existingPkUuids: existingPkUuids,
-        );
-        if (!wasDup) existingPkUuids.add(sw.id);
-      }
-
-      await _closePkSessionChainGaps(extraBoundaries: switchOutTimestamps);
-
-      // Phase 1 R3 — insert-only re-attribution pass for PK groups. After
-      // the mapping flow applies new member links, any group memberships
-      // that were deferred on first pull can now be inserted.
+      // Phase 1 R3 — insert-only re-attribution pass for PK groups.
       final importer = _groupsImporter;
       if (importer != null) {
         try {
@@ -1695,62 +2550,6 @@ class PluralKitSyncService {
     }
   }
 
-  /// Pure-local pass: re-resolve every fronting session's `memberId` and
-  /// `coFronterIds` against the current `members.pluralkitId` mapping, using
-  /// the stored `pkMemberIdsJson`. Idempotent — sessions whose attribution
-  /// hasn't changed are not re-written.
-  ///
-  /// Runs after mapping Apply and after any member sync that could have
-  /// linked new PK IDs. Returns the number of sessions updated.
-  Future<int> reattributeSwitches() async {
-    final sessions = await _frontingSessionRepository.getAllSessions();
-    final members = await _memberRepository.getAllMembers();
-
-    final pkIdToLocalId = <String, String>{};
-    for (final m in members) {
-      if (m.pluralkitId != null) pkIdToLocalId[m.pluralkitId!] = m.id;
-    }
-
-    // Collect dirty rows first, then flush in a single Drift transaction so a
-    // bulk re-attribution isn't N separate auto-commits.
-    final pending = <domain.FrontingSession>[];
-    for (final session in sessions) {
-      final raw = session.pkMemberIdsJson;
-      if (raw == null || raw.isEmpty) continue;
-
-      final List<String> pkIds;
-      try {
-        final decoded = jsonDecode(raw);
-        if (decoded is! List) continue;
-        pkIds = decoded.whereType<String>().toList(growable: false);
-      } catch (_) {
-        continue;
-      }
-
-      final (primary, coFronters) = _resolvePkMembers(pkIds, pkIdToLocalId);
-
-      // Skip write if nothing changed. Comparing lists: same length AND
-      // element-by-element equal (order matters — first is primary).
-      final sameCofronters =
-          session.coFronterIds.length == coFronters.length &&
-          _listEquals(session.coFronterIds, coFronters);
-      if (session.memberId == primary && sameCofronters) continue;
-
-      pending.add(
-        session.copyWith(memberId: primary, coFronterIds: coFronters),
-      );
-    }
-
-    if (pending.isEmpty) return 0;
-
-    await _syncDao.attachedDatabase.transaction(() async {
-      for (final s in pending) {
-        await _frontingSessionRepository.updateSession(s);
-      }
-    });
-    return pending.length;
-  }
-
   // -- Plan 02: PK deletion push --------------------------------------------
 
   /// Threshold for the R6 multi-device coordination stamp. If another device
@@ -1773,8 +2572,7 @@ class PluralKitSyncService {
     int deleted = 0;
 
     for (final session in candidates) {
-      // R6: cross-device coordination stamp. If another device started
-      // pushing this within the takeover window, let them finish.
+      // R6: cross-device coordination stamp.
       final startedAtMs = session.deletePushStartedAt;
       final nowMs = DateTime.now().millisecondsSinceEpoch;
       if (startedAtMs != null) {
@@ -1786,9 +2584,7 @@ class PluralKitSyncService {
           );
           continue;
         }
-        // else: stale lease, take over.
       } else {
-        // Claim the lease via the synced update so peers see it.
         await _frontingSessionRepository.stampDeletePushStartedAt(
           session.id,
           nowMs,
@@ -1813,8 +2609,7 @@ class PluralKitSyncService {
         );
         continue;
       }
-      // R1: epoch gate. deleteIntentEpoch is local and not synced.
-      // getDeletedLinkedSessions returns rows where it's non-null.
+      // R1: epoch gate.
       final intentEpoch = session.deleteIntentEpoch;
       if (intentEpoch != currentEpoch) {
         debugPrint(
@@ -1825,8 +2620,16 @@ class PluralKitSyncService {
       }
 
       final pkUuid = fresh.pluralkitUuid!;
+      if (!isPluralKitSwitchUuid(pkUuid)) {
+        debugPrint(
+          '[PK] Session ${session.id} has non-API pluralkit_uuid=$pkUuid; '
+          'clearing local link without DELETE.',
+        );
+        await _frontingSessionRepository.clearPluralKitLink(session.id);
+        continue;
+      }
       try {
-        await push.pushSwitchDeletion(session.id, pkUuid, client);
+        await push.pushSwitchDeletion(session.id, pkUuid.trim(), client);
         await _frontingSessionRepository.clearPluralKitLink(session.id);
         deleted++;
       } on PkDeletionForbiddenException catch (e) {
@@ -1859,8 +2662,8 @@ class PluralKitSyncService {
     final liveSessions = await _frontingSessionRepository.getAllSessions();
     final membersWithLiveLinkedSessions = <String>{};
     for (final s in liveSessions) {
-      if (s.isDeleted) continue; // getAllSessions already filters, defensive
-      if (s.pluralkitUuid == null) continue;
+      if (s.isDeleted) continue;
+      if (!isPluralKitSwitchUuid(s.pluralkitUuid)) continue;
       final mid = s.memberId;
       if (mid != null) membersWithLiveLinkedSessions.add(mid);
     }
@@ -1944,14 +2747,6 @@ class PluralKitSyncService {
     return deleted;
   }
 
-  static bool _listEquals(List<String> a, List<String> b) {
-    if (a.length != b.length) return false;
-    for (var i = 0; i < a.length; i++) {
-      if (a[i] != b[i]) return false;
-    }
-    return true;
-  }
-
   /// Phase 4 scoped switch push.
   ///
   /// Pushes local fronting sessions to PK that:
@@ -1964,14 +2759,10 @@ class PluralKitSyncService {
   /// convention for "no one is fronting." The returned PK switch UUID is
   /// stored on the local session so subsequent syncs don't duplicate it.
   ///
-  /// Returns the number of local sessions that were pushed.
-  ///
-  /// When [onStaleLink] is provided, it is called once per session whose
-  /// push failed with a 404 (`PkStaleLinkException`). The caller can use
-  /// this to surface a user-facing message. The callback receives a short
-  /// human-readable description; the session is still counted as "not
-  /// pushed" and left retriable, same as before.
-  Future<int> pushPendingSwitches({
+  /// Returns a [PkPushSwitchesResult] with the number of switches pushed and
+  /// the number of legacy null-`pkImportSource` rows held back by the
+  /// adoption cutoff (see [pkPushSourceAdoptionCutoff]).
+  Future<PkPushSwitchesResult> pushPendingSwitches({
     PkPushService? pushService,
     void Function(String message)? onStaleLink,
   }) async {
@@ -1980,9 +2771,7 @@ class PluralKitSyncService {
     }
     final linkedAt = _state.linkedAt;
     if (linkedAt == null) {
-      // No linkedAt means we don't have a safe cutoff — don't push anything
-      // to avoid flooding PK with historical sessions.
-      return 0;
+      return const PkPushSwitchesResult();
     }
 
     final client = await _buildClient();
@@ -2001,7 +2790,23 @@ class PluralKitSyncService {
 
       final sessions = await _frontingSessionRepository.getAllSessions();
       int pushed = 0;
+      int legacyNullSourceSkipped = 0;
       for (final session in sessions) {
+        // Source-aware push gate (WS3 step 10 / #38):
+        // - Explicit `pkImportSourceFile` rows: never push (came from a
+        //   token-less file import, would duplicate when the user later
+        //   connects with a token).
+        // - Null source rows: only push if `startTime` is at or after the
+        //   adoption cutoff. Older null-source rows are pre-source-tracking
+        //   and can't be safely classified as locally-authored.
+        // - Explicit `pkImportSourceFileApi` (or any other future explicit
+        //   non-file source): push as normal.
+        if (session.pkImportSource == pkImportSourceFile) continue;
+        if (session.pkImportSource == null &&
+            session.startTime.isBefore(pkPushSourceAdoptionCutoff)) {
+          legacyNullSourceSkipped++;
+          continue;
+        }
         if (session.pluralkitUuid != null) continue;
         if (!session.startTime.isAfter(linkedAt)) continue;
         final memberId = session.memberId;
@@ -2009,12 +2814,8 @@ class PluralKitSyncService {
         final pkPrimary = localIdToPkId[memberId];
         if (pkPrimary == null) continue; // fronter isn't linked
 
-        // Cofronters: include only the ones that are linked.
+        // Per-member sessions: push as single-member switch.
         final pkMemberIds = <String>[pkPrimary];
-        for (final coId in session.coFronterIds) {
-          final pkCo = localIdToPkId[coId];
-          if (pkCo != null) pkMemberIds.add(pkCo);
-        }
 
         String? createdUuid;
         try {
@@ -2025,29 +2826,15 @@ class PluralKitSyncService {
           );
           createdUuid = created.id;
 
-          // Explicit switch-out for completed sessions. Keeping this in the
-          // same try/catch means (a) a stale-link on the switch-out only
-          // skips this session, and (b) if the switch-out fails after the
-          // start already succeeded we can roll the start back below so
-          // the session stays retriable.
           if (session.endTime != null) {
             await push.pushSwitch(const [], client, timestamp: session.endTime);
           }
 
-          // Only persist the PK UUID once BOTH pushes succeed — otherwise a
-          // crash between them would leave an "open" PK switch and a local
-          // session tagged as pushed, which we'd never retry.
           await _frontingSessionRepository.updateSession(
             session.copyWith(pluralkitUuid: createdUuid),
           );
           pushed++;
         } on PkStaleLinkException catch (e) {
-          // A 404 on switch push is the switch/members resource going stale
-          // on PK. We don't know which member to clear (the create call
-          // doesn't name one), and the switch itself wasn't persisted
-          // locally yet. Skip this session; a future retry may re-attempt.
-          // Do NOT clear member pluralkitId here — member-side stale-link
-          // handling is pushMember's job.
           if (createdUuid != null) {
             try {
               await client.deleteSwitch(createdUuid);
@@ -2068,12 +2855,6 @@ class PluralKitSyncService {
             'skipped pushing one local session. (pkId=${e.pkId})',
           );
         } catch (e) {
-          // Non-stale failure mid-two-push. If the start already succeeded,
-          // roll it back so the session remains pending and won't leak an
-          // open switch on PK. If rollback fails, we leave pluralkitUuid
-          // unset so the session stays retriable — trade-off: a future
-          // retry may create a duplicate PK switch, but that's preferable
-          // to silently dropping the session forever.
           if (createdUuid != null) {
             try {
               await client.deleteSwitch(createdUuid);
@@ -2091,7 +2872,10 @@ class PluralKitSyncService {
           );
         }
       }
-      return pushed;
+      return PkPushSwitchesResult(
+        pushed: pushed,
+        legacyNullSourceSkipped: legacyNullSourceSkipped,
+      );
     } finally {
       client.dispose();
     }
@@ -2121,8 +2905,6 @@ class PluralKitSyncService {
       await push.pushMember(member, client);
       return true;
     } on PkStaleLinkException {
-      // PK deleted the linked member. Clear the local link; a future manual
-      // sync or re-mapping will reconcile.
       try {
         await _memberRepository.updateMember(
           member.copyWith(pluralkitId: null, pluralkitUuid: null),
@@ -2160,10 +2942,6 @@ class PluralKitSyncService {
       final seen = sessions.any((s) => s.pluralkitUuid == current.id);
       if (seen) return false;
 
-      // Fall through to the full reconcile — it already handles dedup,
-      // UUID adoption, and the open-switch close-out. Pull-only direction
-      // keeps this tick polite; the user's configured direction still
-      // governs pushes elsewhere.
       await syncRecentData(
         isManual: false,
         direction: PkSyncDirection.pullOnly,

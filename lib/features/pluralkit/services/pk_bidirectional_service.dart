@@ -1,7 +1,10 @@
+import 'dart:convert';
+
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_banner_cache_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_push_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 
@@ -12,9 +15,13 @@ import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dar
 /// or pushes (Prism -> PK, via `PkPushService`).
 class PkBidirectionalService {
   final PkPushService _pushService;
+  final PkBannerCacheService _bannerCacheService;
 
-  PkBidirectionalService({PkPushService? pushService})
-    : _pushService = pushService ?? const PkPushService();
+  PkBidirectionalService({
+    PkPushService? pushService,
+    PkBannerCacheService? bannerCacheService,
+  }) : _pushService = pushService ?? const PkPushService(),
+       _bannerCacheService = bannerCacheService ?? PkBannerCacheService();
 
   /// Sync members bidirectionally.
   ///
@@ -185,6 +192,13 @@ class PkBidirectionalService {
         }
       }
     }
+    if (_pushField(config.proxyTags, direction)) {
+      final localTags = _normalizeProxyTags(local.proxyTagsJson);
+      final pkTags = _normalizeProxyTags(pk.proxyTagsJson);
+      // Null means "no local opinion" so first-link push paths don't clear
+      // existing PK tags. An explicit [] is a local clear and may be pushed.
+      if (localTags != null && localTags != pkTags) return true;
+    }
     return false;
   }
 
@@ -200,9 +214,6 @@ class PkBidirectionalService {
   /// when any pull-direction field differs. Returns whether anything was
   /// applied (so the caller can bump the "pulled" counter).
   ///
-  /// Note: `proxyTags` is always pull-only — there is no push path. It is
-  /// applied here regardless of direction config (guarded by overall
-  /// `direction.pullEnabled`, which the caller already checks).
   Future<bool> _applyPkChanges(
     domain.Member local,
     PKMember pk,
@@ -275,10 +286,32 @@ class PkBidirectionalService {
       }
     }
 
-    // proxy_tags is pull-only — Prism has no editor UI for proxy tags, so
-    // PK is authoritative.
-    if (pk.proxyTagsJson != null && local.proxyTagsJson != pk.proxyTagsJson) {
-      updated = updated.copyWith(proxyTagsJson: pk.proxyTagsJson);
+    if (_pullField(config.proxyTags, direction)) {
+      final localTags = _normalizeProxyTags(local.proxyTagsJson);
+      final pkTags = _normalizeProxyTags(pk.proxyTagsJson);
+      if (pkTags != null && localTags != pkTags) {
+        updated = updated.copyWith(proxyTagsJson: pk.proxyTagsJson);
+        changed = true;
+      }
+    }
+
+    final bannerCache = await _bannerCacheService.resolve(
+      PkBannerCacheInput(
+        currentPkBannerUrl: local.pkBannerUrl,
+        currentPkBannerImageData: local.pkBannerImageData,
+        currentPkBannerCachedUrl: local.pkBannerCachedUrl,
+        hasIncomingBannerField: pk.hasBannerField,
+        incomingBannerUrl: pk.bannerUrl,
+      ),
+    );
+    if (updated.pkBannerUrl != bannerCache.pkBannerUrl ||
+        updated.pkBannerImageData != bannerCache.pkBannerImageData ||
+        updated.pkBannerCachedUrl != bannerCache.pkBannerCachedUrl) {
+      updated = updated.copyWith(
+        pkBannerUrl: bannerCache.pkBannerUrl,
+        pkBannerImageData: bannerCache.pkBannerImageData,
+        pkBannerCachedUrl: bannerCache.pkBannerCachedUrl,
+      );
       changed = true;
     }
 
@@ -322,5 +355,59 @@ class PkBidirectionalService {
     if (value == null) return null;
     final trimmed = value.trim();
     return trimmed.isEmpty ? null : trimmed;
+  }
+
+  /// Normalize PK proxy tag JSON for comparison.
+  ///
+  /// Returns null when the field is absent or malformed. Returns `"[]"` for
+  /// an explicit empty tag list so the sync layer can distinguish "unknown"
+  /// from "clear all proxy tags."
+  ///
+  /// Equality must survive list reordering and per-tag map key reordering,
+  /// otherwise we'd push every sync just because the JSON keys came back in
+  /// a different order than we sent them. See [_canonicalProxyTagsList].
+  String? _normalizeProxyTags(String? value) {
+    if (value == null) return null;
+    try {
+      final decoded = jsonDecode(value);
+      if (decoded is! List) return null;
+      return _canonicalProxyTagsList(decoded);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Build a stable string for two proxy-tag JSON arrays so equality survives
+  /// reordering at both levels:
+  ///   1. Sort each tag's map keys alphabetically before encoding.
+  ///   2. Sort the outer list by `(prefix, suffix)` ascending.
+  ///
+  /// The result is intended only for `==` comparison — do NOT round-trip it
+  /// back into PK or persist it; it's a comparison-only canonical form.
+  String _canonicalProxyTagsList(List<dynamic> list) {
+    final canonical = <Map<String, dynamic>>[];
+    for (final entry in list) {
+      if (entry is Map) {
+        final sortedKeys = entry.keys.map((k) => k.toString()).toList()..sort();
+        final sorted = <String, dynamic>{
+          for (final k in sortedKeys) k: entry[k],
+        };
+        canonical.add(sorted);
+      } else {
+        // Non-map entry: preserve as-is under a synthetic wrapper so the
+        // outer sort still terminates without throwing.
+        canonical.add({'__raw__': entry});
+      }
+    }
+    canonical.sort((a, b) {
+      final aPrefix = (a['prefix'] ?? '').toString();
+      final bPrefix = (b['prefix'] ?? '').toString();
+      final byPrefix = aPrefix.compareTo(bPrefix);
+      if (byPrefix != 0) return byPrefix;
+      final aSuffix = (a['suffix'] ?? '').toString();
+      final bSuffix = (b['suffix'] ?? '').toString();
+      return aSuffix.compareTo(bSuffix);
+    });
+    return jsonEncode(canonical);
   }
 }

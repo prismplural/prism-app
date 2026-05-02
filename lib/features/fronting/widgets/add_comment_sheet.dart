@@ -14,15 +14,21 @@ import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
 import 'package:prism_plurality/shared/widgets/prism_time_picker.dart';
 
 /// Create or edit a front session comment.
+///
+/// Comments now attach to a [targetTime] (the moment the comment is about)
+/// rather than a session ID. The [targetTime] defaults to the session's start
+/// time and is editable in this sheet.
 class AddCommentSheet extends ConsumerStatefulWidget {
   const AddCommentSheet({
     super.key,
-    required this.sessionId,
+    required this.targetTime,
     this.comment,
     this.scrollController,
   });
 
-  final String sessionId;
+  /// The moment this comment is about. Pre-populated from the session start
+  /// time; user can adjust it to pinpoint the exact moment.
+  final DateTime targetTime;
   final FrontSessionComment? comment;
   final ScrollController? scrollController;
 
@@ -41,7 +47,11 @@ class _AddCommentSheetState extends ConsumerState<AddCommentSheet> {
     super.initState();
     _bodyController =
         TextEditingController(text: widget.comment?.body ?? '');
-    _timestamp = widget.comment?.timestamp ?? DateTime.now();
+    // Use existing comment's targetTime (or legacy timestamp) when editing;
+    // otherwise default to the targetTime passed by the caller.
+    _timestamp = widget.comment?.targetTime
+        ?? widget.comment?.timestamp
+        ?? widget.targetTime;
   }
 
   @override
@@ -60,13 +70,13 @@ class _AddCommentSheetState extends ConsumerState<AddCommentSheet> {
         widget.comment!.copyWith(
           body: _bodyController.text.trim(),
           timestamp: _timestamp,
+          targetTime: _timestamp,
         ),
       );
     } else {
       await notifier.createComment(
-        sessionId: widget.sessionId,
+        targetTime: _timestamp,
         body: _bodyController.text.trim(),
-        timestamp: _timestamp,
       );
     }
     if (mounted) Navigator.of(context).pop();

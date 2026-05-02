@@ -1,3 +1,5 @@
+// ignore_for_file: experimental_member_use
+
 import 'package:drift/remote.dart' show DriftRemoteException;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/sqlite3.dart' show SqliteException;
@@ -21,73 +23,103 @@ class _FakeDriftRemoteException implements DriftRemoteException {
 
 void main() {
   group('isUniqueConstraintViolation', () {
-    test(
-      'returns true for direct SqliteException with extended code 2067 '
-      '(SQLITE_CONSTRAINT_UNIQUE)',
-      () {
-        final error = SqliteException(
-          extendedResultCode: 2067,
-          message: 'UNIQUE constraint failed: fronting_sessions.pluralkit_uuid',
-        );
+    test('returns true for direct SqliteException with extended code 2067 '
+        '(SQLITE_CONSTRAINT_UNIQUE)', () {
+      final error = SqliteException(
+        extendedResultCode: 2067,
+        message: 'UNIQUE constraint failed: fronting_sessions.pluralkit_uuid',
+      );
 
-        expect(isUniqueConstraintViolation(error), isTrue);
-      },
-    );
+      expect(isUniqueConstraintViolation(error), isTrue);
+    });
 
-    test(
-      'returns false for direct SqliteException with base code 19 '
-      '(SQLITE_CONSTRAINT but not UNIQUE)',
-      () {
-        final error = SqliteException(
-          extendedResultCode: 19,
-          message: 'constraint failed',
-        );
+    test('returns false for direct SqliteException with base code 19 '
+        '(SQLITE_CONSTRAINT but not UNIQUE)', () {
+      final error = SqliteException(
+        extendedResultCode: 19,
+        message: 'constraint failed',
+      );
 
-        expect(isUniqueConstraintViolation(error), isFalse);
-      },
-    );
+      expect(isUniqueConstraintViolation(error), isFalse);
+    });
 
-    test(
-      'returns true for DriftRemoteException wrapping SqliteException '
-      '(extended code 2067) — the production isolate-wrapped case the '
-      'old fix never caught',
-      () {
-        final inner = SqliteException(
-          extendedResultCode: 2067,
-          message: 'UNIQUE constraint failed: fronting_sessions.pluralkit_uuid',
-        );
-        final wrapped = _FakeDriftRemoteException(inner);
+    test('returns true for DriftRemoteException wrapping SqliteException '
+        '(extended code 2067) — the production isolate-wrapped case the '
+        'old fix never caught', () {
+      final inner = SqliteException(
+        extendedResultCode: 2067,
+        message: 'UNIQUE constraint failed: fronting_sessions.pluralkit_uuid',
+      );
+      final wrapped = _FakeDriftRemoteException(inner);
 
-        expect(isUniqueConstraintViolation(wrapped), isTrue);
-      },
-    );
+      expect(isUniqueConstraintViolation(wrapped), isTrue);
+    });
 
-    test(
-      'returns false for DriftRemoteException wrapping SqliteException with '
-      'extended code 787 (SQLITE_CONSTRAINT_FOREIGNKEY)',
-      () {
-        final inner = SqliteException(
-          extendedResultCode: 787,
-          message: 'FOREIGN KEY constraint failed',
-        );
-        final wrapped = _FakeDriftRemoteException(inner);
+    test('returns false for DriftRemoteException wrapping SqliteException with '
+        'extended code 787 (SQLITE_CONSTRAINT_FOREIGNKEY)', () {
+      final inner = SqliteException(
+        extendedResultCode: 787,
+        message: 'FOREIGN KEY constraint failed',
+      );
+      final wrapped = _FakeDriftRemoteException(inner);
 
-        expect(isUniqueConstraintViolation(wrapped), isFalse);
-      },
-    );
+      expect(isUniqueConstraintViolation(wrapped), isFalse);
+    });
 
-    test(
-      'returns false for DriftRemoteException whose remoteCause is a '
-      'plain string (not a SqliteException)',
-      () {
-        final wrapped = _FakeDriftRemoteException('not an exception');
+    test('returns false for DriftRemoteException whose remoteCause is a '
+        'plain string (not a SqliteException)', () {
+      final wrapped = _FakeDriftRemoteException('not an exception');
 
-        expect(isUniqueConstraintViolation(wrapped), isFalse);
-      },
-    );
+      expect(isUniqueConstraintViolation(wrapped), isFalse);
+    });
 
     test('returns false for a plain Exception unrelated to SQLite', () {
       expect(isUniqueConstraintViolation(Exception('boom')), isFalse);
+    });
+  });
+
+  group('isUniqueOrPrimaryKeyConstraintViolation', () {
+    test('returns true for SQLITE_CONSTRAINT_UNIQUE (2067)', () {
+      final error = SqliteException(
+        extendedResultCode: 2067,
+        message: 'UNIQUE constraint failed: members.pluralkit_uuid',
+      );
+      expect(isUniqueOrPrimaryKeyConstraintViolation(error), isTrue);
+    });
+
+    test('returns true for SQLITE_CONSTRAINT_PRIMARYKEY (1555)', () {
+      final error = SqliteException(
+        extendedResultCode: 1555,
+        message: 'PRIMARY KEY constraint failed: members.id',
+      );
+      expect(isUniqueOrPrimaryKeyConstraintViolation(error), isTrue);
+    });
+
+    test(
+      'returns true for DriftRemoteException wrapping a PRIMARYKEY violation',
+      () {
+        final inner = SqliteException(
+          extendedResultCode: 1555,
+          message: 'PRIMARY KEY constraint failed: members.id',
+        );
+        final wrapped = _FakeDriftRemoteException(inner);
+        expect(isUniqueOrPrimaryKeyConstraintViolation(wrapped), isTrue);
+      },
+    );
+
+    test('returns false for FOREIGNKEY (787)', () {
+      final error = SqliteException(
+        extendedResultCode: 787,
+        message: 'FOREIGN KEY constraint failed',
+      );
+      expect(isUniqueOrPrimaryKeyConstraintViolation(error), isFalse);
+    });
+
+    test('returns false for unrelated exception', () {
+      expect(
+        isUniqueOrPrimaryKeyConstraintViolation(Exception('boom')),
+        isFalse,
+      );
     });
   });
 

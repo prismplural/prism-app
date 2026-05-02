@@ -36,12 +36,18 @@ class FakePluralKitClient implements PluralKitClient {
   @override
   Future<PKMember> updateMember(String id, Map<String, dynamic> data) async {
     calls.add(Call('updateMember', [id, data]));
-    return PKMember(id: id, uuid: 'uuid-$id', name: data['name'] as String? ?? '');
+    return PKMember(
+      id: id,
+      uuid: 'uuid-$id',
+      name: data['name'] as String? ?? '',
+    );
   }
 
   @override
-  Future<PKSwitch> createSwitch(List<String> memberIds,
-      {DateTime? timestamp}) async {
+  Future<PKSwitch> createSwitch(
+    List<String> memberIds, {
+    DateTime? timestamp,
+  }) async {
     calls.add(Call('createSwitch', [memberIds]));
     return PKSwitch(
       id: 'sw-1',
@@ -51,14 +57,16 @@ class FakePluralKitClient implements PluralKitClient {
   }
 
   @override
-  Future<PKSwitch> updateSwitch(String switchId,
-          {required DateTime timestamp}) =>
-      throw UnimplementedError();
+  Future<PKSwitch> updateSwitch(
+    String switchId, {
+    required DateTime timestamp,
+  }) => throw UnimplementedError();
 
   @override
   Future<PKSwitch> updateSwitchMembers(
-          String switchId, List<String> memberIds) =>
-      throw UnimplementedError();
+    String switchId,
+    List<String> memberIds,
+  ) => throw UnimplementedError();
 
   @override
   Future<void> deleteSwitch(String switchId) => throw UnimplementedError();
@@ -131,6 +139,10 @@ class FakeMemberRepository implements MemberRepository {
   Future<void> clearPluralKitLink(String id) async {}
   @override
   Future<void> stampDeletePushStartedAt(String id, int timestampMs) async {}
+
+  @override
+  Future<({domain.Member member, bool wasCreated})>
+  ensureUnknownSentinelMember() => throw UnimplementedError();
 }
 
 // ---------------------------------------------------------------------------
@@ -202,15 +214,15 @@ void main() {
   setUp(() {
     fakeClient = FakePluralKitClient();
     fakeRepo = FakeMemberRepository();
-    service = PkBidirectionalService(
-      pushService: const PkPushService(),
-    );
+    service = PkBidirectionalService(pushService: const PkPushService());
   });
 
   group('pullOnly direction', () {
     test('only counts pulls, does not push', () async {
       // A PK member with no local counterpart
-      final pkMembers = [_pkMember(id: 'pk001', uuid: 'uuid-pk001', name: 'Remote')];
+      final pkMembers = [
+        _pkMember(id: 'pk001', uuid: 'uuid-pk001', name: 'Remote'),
+      ];
 
       final summary = await service.syncMembers(
         localMembers: [],
@@ -249,7 +261,9 @@ void main() {
   group('pushOnly direction', () {
     test('only pushes, does not pull', () async {
       // A PK member with no local match — should be skipped (not pulled)
-      final pkMembers = [_pkMember(id: 'pk001', uuid: 'uuid-pk001', name: 'Remote')];
+      final pkMembers = [
+        _pkMember(id: 'pk001', uuid: 'uuid-pk001', name: 'Remote'),
+      ];
 
       final summary = await service.syncMembers(
         localMembers: [],
@@ -266,9 +280,7 @@ void main() {
     });
 
     test('new local member pushed and pkId stored', () async {
-      final localMembers = [
-        _localMember(id: 'local-1', name: 'NewMember'),
-      ];
+      final localMembers = [_localMember(id: 'local-1', name: 'NewMember')];
 
       final summary = await service.syncMembers(
         localMembers: localMembers,
@@ -282,17 +294,10 @@ void main() {
 
       expect(summary.membersPushed, 1);
       // Should have called createMember on the PK client
-      expect(
-        fakeClient.calls.any((c) => c.method == 'createMember'),
-        isTrue,
-      );
+      expect(fakeClient.calls.any((c) => c.method == 'createMember'), isTrue);
       // Should have stored the PK ID back via memberRepository.updateMember
-      expect(
-        fakeRepo.calls.any((c) => c.method == 'updateMember'),
-        isTrue,
-      );
-      final updatedMember =
-          (fakeRepo.calls.first.args[0] as domain.Member);
+      expect(fakeRepo.calls.any((c) => c.method == 'updateMember'), isTrue);
+      final updatedMember = (fakeRepo.calls.first.args[0] as domain.Member);
       expect(updatedMember.pluralkitId, isNotNull);
     });
   });
@@ -377,8 +382,9 @@ void main() {
 
       expect(summary.membersPulled, 1);
       expect(summary.membersSkipped, 0);
-      final calls =
-          fakeRepo.calls.where((c) => c.method == 'updateMember').toList();
+      final calls = fakeRepo.calls
+          .where((c) => c.method == 'updateMember')
+          .toList();
       expect(calls.length, 1);
       final written = calls.first.args[0] as domain.Member;
       expect(written.name, 'NewName');
@@ -402,17 +408,14 @@ void main() {
         client: fakeClient,
       );
 
-      final written = fakeRepo.calls
-          .firstWhere((c) => c.method == 'updateMember')
-          .args[0] as domain.Member;
+      final written =
+          fakeRepo.calls.firstWhere((c) => c.method == 'updateMember').args[0]
+              as domain.Member;
       expect(written.displayName, 'Ali');
     });
 
     test('pulls birthday', () async {
-      final local = _localMember(
-        id: 'local-1',
-        pluralkitId: 'pk001',
-      );
+      final local = _localMember(id: 'local-1', pluralkitId: 'pk001');
       final pk = _pkMember(id: 'pk001', birthday: '2020-01-15');
 
       await service.syncMembers(
@@ -425,17 +428,14 @@ void main() {
         client: fakeClient,
       );
 
-      final written = fakeRepo.calls
-          .firstWhere((c) => c.method == 'updateMember')
-          .args[0] as domain.Member;
+      final written =
+          fakeRepo.calls.firstWhere((c) => c.method == 'updateMember').args[0]
+              as domain.Member;
       expect(written.birthday, '2020-01-15');
     });
 
     test('pulls year-0004 birthday sentinel unchanged', () async {
-      final local = _localMember(
-        id: 'local-1',
-        pluralkitId: 'pk001',
-      );
+      final local = _localMember(id: 'local-1', pluralkitId: 'pk001');
       final pk = _pkMember(id: 'pk001', birthday: '0004-03-21');
 
       await service.syncMembers(
@@ -448,17 +448,14 @@ void main() {
         client: fakeClient,
       );
 
-      final written = fakeRepo.calls
-          .firstWhere((c) => c.method == 'updateMember')
-          .args[0] as domain.Member;
+      final written =
+          fakeRepo.calls.firstWhere((c) => c.method == 'updateMember').args[0]
+              as domain.Member;
       expect(written.birthday, '0004-03-21');
     });
 
-    test('pulls proxyTagsJson (pull-only, regardless of direction)', () async {
-      final local = _localMember(
-        id: 'local-1',
-        pluralkitId: 'pk001',
-      );
+    test('pulls proxyTagsJson in pull direction', () async {
+      final local = _localMember(id: 'local-1', pluralkitId: 'pk001');
       final pk = _pkMember(
         id: 'pk001',
         proxyTagsJson: '[{"prefix":"A:","suffix":null}]',
@@ -474,17 +471,13 @@ void main() {
         client: fakeClient,
       );
 
-      final written = fakeRepo.calls
-          .firstWhere((c) => c.method == 'updateMember')
-          .args[0] as domain.Member;
+      final written =
+          fakeRepo.calls.firstWhere((c) => c.method == 'updateMember').args[0]
+              as domain.Member;
       expect(written.proxyTagsJson, '[{"prefix":"A:","suffix":null}]');
     });
 
-    test('bidirectional: PK proxyTagsJson overwrites divergent local value',
-        () async {
-      // Proxy tags are pull-only by design. Even in bidirectional mode, a
-      // local edit to proxyTagsJson loses to PK on the next sync — this
-      // locks current behavior and protects against silent regressions.
+    test('bidirectional: local proxyTagsJson pushes divergent value', () async {
       final local = _localMember(
         id: 'local-1',
         pluralkitId: 'pk001',
@@ -505,43 +498,114 @@ void main() {
         client: fakeClient,
       );
 
-      final written = fakeRepo.calls
-          .firstWhere((c) => c.method == 'updateMember')
-          .args[0] as domain.Member;
-      expect(written.proxyTagsJson, '[{"prefix":"PK:","suffix":null}]');
-    });
-
-    test('push payload never includes proxy_tags', () async {
-      // A local displayName change forces a push. The request sent to
-      // PK must not carry a proxy_tags key, even if the local value
-      // differs from PK's.
-      final local = _localMember(
-        id: 'local-1',
-        pluralkitId: 'pk001',
-        displayName: 'NewDisplay',
-        proxyTagsJson: '[{"prefix":"LOCAL:","suffix":null}]',
+      final updateCall = fakeClient.calls.firstWhere(
+        (c) => c.method == 'updateMember',
       );
-      final pk = _pkMember(
-        id: 'pk001',
-        displayName: 'OldDisplay',
-        proxyTagsJson: '[{"prefix":"PK:","suffix":null}]',
-      );
-
-      await service.syncMembers(
-        localMembers: [local],
-        pkMembers: [pk],
-        fieldConfigs: {},
-        direction: PkSyncDirection.bidirectional,
-        lastSyncDate: null,
-        memberRepository: fakeRepo,
-        client: fakeClient,
-      );
-
-      final updateCall = fakeClient.calls
-          .firstWhere((c) => c.method == 'updateMember');
       final payload = updateCall.args[1] as Map<String, dynamic>;
-      expect(payload.containsKey('proxy_tags'), isFalse);
+      expect(payload['proxy_tags'], [
+        {'prefix': 'LOCAL:', 'suffix': null},
+      ]);
     });
+
+    test(
+      'push payload includes proxy_tags when pushing member changes',
+      () async {
+        // A local displayName change forces a push. The request sent to
+        // PK should carry the local proxy tags with the other pushed fields.
+        final local = _localMember(
+          id: 'local-1',
+          pluralkitId: 'pk001',
+          displayName: 'NewDisplay',
+          proxyTagsJson: '[{"prefix":"LOCAL:","suffix":null}]',
+        );
+        final pk = _pkMember(
+          id: 'pk001',
+          displayName: 'OldDisplay',
+          proxyTagsJson: '[{"prefix":"PK:","suffix":null}]',
+        );
+
+        await service.syncMembers(
+          localMembers: [local],
+          pkMembers: [pk],
+          fieldConfigs: {},
+          direction: PkSyncDirection.bidirectional,
+          lastSyncDate: null,
+          memberRepository: fakeRepo,
+          client: fakeClient,
+        );
+
+        final updateCall = fakeClient.calls.firstWhere(
+          (c) => c.method == 'updateMember',
+        );
+        final payload = updateCall.args[1] as Map<String, dynamic>;
+        expect(payload['proxy_tags'], [
+          {'prefix': 'LOCAL:', 'suffix': null},
+        ]);
+      },
+    );
+
+    test(
+      'pushOnly does not clear PK proxy tags when local value is null',
+      () async {
+        final local = _localMember(
+          id: 'local-1',
+          pluralkitId: 'pk001',
+          proxyTagsJson: null,
+        );
+        final pk = _pkMember(
+          id: 'pk001',
+          proxyTagsJson: '[{"prefix":"PK:","suffix":null}]',
+        );
+
+        final summary = await service.syncMembers(
+          localMembers: [local],
+          pkMembers: [pk],
+          fieldConfigs: {},
+          direction: PkSyncDirection.pushOnly,
+          lastSyncDate: null,
+          memberRepository: fakeRepo,
+          client: fakeClient,
+        );
+
+        expect(summary.membersPushed, 0);
+        expect(
+          fakeClient.calls.any((c) => c.method == 'updateMember'),
+          isFalse,
+        );
+      },
+    );
+
+    test(
+      'pushOnly clears PK proxy tags when local value is explicit empty list',
+      () async {
+        final local = _localMember(
+          id: 'local-1',
+          pluralkitId: 'pk001',
+          proxyTagsJson: '[]',
+        );
+        final pk = _pkMember(
+          id: 'pk001',
+          proxyTagsJson: '[{"prefix":"PK:","suffix":null}]',
+        );
+
+        final summary = await service.syncMembers(
+          localMembers: [local],
+          pkMembers: [pk],
+          fieldConfigs: {},
+          direction: PkSyncDirection.pushOnly,
+          lastSyncDate: null,
+          memberRepository: fakeRepo,
+          client: fakeClient,
+        );
+
+        expect(summary.membersPushed, 1);
+        final updateCall = fakeClient.calls.firstWhere(
+          (c) => c.method == 'updateMember',
+        );
+        final payload = updateCall.args[1] as Map<String, dynamic>;
+        expect(payload['proxy_tags'], isEmpty);
+      },
+    );
 
     test('no-op when nothing differs', () async {
       final local = _localMember(
@@ -596,14 +660,13 @@ void main() {
         client: fakeClient,
       );
 
-      final written = fakeRepo.calls
-          .firstWhere((c) => c.method == 'updateMember')
-          .args[0] as domain.Member;
+      final written =
+          fakeRepo.calls.firstWhere((c) => c.method == 'updateMember').args[0]
+              as domain.Member;
       expect(written.pronouns, isNull);
     });
 
-    test('respects per-field pull=disabled: does not pull that field',
-        () async {
+    test('respects per-field pull=disabled: does not pull that field', () async {
       final local = _localMember(
         id: 'local-1',
         pluralkitId: 'pk001',
@@ -632,8 +695,9 @@ void main() {
       // instead because local has a different value and push is enabled.
       // But that's fine — the point is memberRepository.updateMember was
       // NOT called with a changed displayName.
-      final updateMemberCalls =
-          fakeRepo.calls.where((c) => c.method == 'updateMember');
+      final updateMemberCalls = fakeRepo.calls.where(
+        (c) => c.method == 'updateMember',
+      );
       for (final c in updateMemberCalls) {
         final m = c.args[0] as domain.Member;
         expect(m.displayName, 'LocalOnly');
@@ -646,8 +710,7 @@ void main() {
   // -------------------------------------------------------------------------
 
   group('push null-clear safety (plan 08 first-link semantics)', () {
-    test('does NOT push when local pronouns null and PK has a value',
-        () async {
+    test('does NOT push when local pronouns null and PK has a value', () async {
       // Per plan 08 "Conflict semantics on link", an empty local value must
       // never null-clear PK — that would be a destructive first-link push.
       final local = _localMember(
@@ -718,8 +781,9 @@ void main() {
       );
 
       expect(summary.membersPushed, 1);
-      final updateCall = fakeClient.calls
-          .firstWhere((c) => c.method == 'updateMember');
+      final updateCall = fakeClient.calls.firstWhere(
+        (c) => c.method == 'updateMember',
+      );
       final payload = updateCall.args[1] as Map<String, dynamic>;
       expect(payload['pronouns'], 'they/them');
     });
@@ -763,78 +827,86 @@ void main() {
 
   group('displayName migration from legacy local.name', () {
     test(
-        'local.displayName null + local.name == pk.displayName → promote, do NOT rename',
-        () async {
-      // Pre-phase-3, local.name was set from pk.displayName (fallback).
-      // Phase 3 must promote that to displayName, not silently rename.
-      final local = _localMember(
-        id: 'local-1',
-        name: 'Alice ✨',
-        pluralkitId: 'pk001',
-        pluralkitUuid: 'uuid-pk001',
-        // displayName: null (legacy shape)
-      );
-      final pk = _pkMember(
-        id: 'pk001',
-        uuid: 'uuid-pk001',
-        name: 'alice',
-        displayName: 'Alice ✨',
-      );
+      'local.displayName null + local.name == pk.displayName → promote, do NOT rename',
+      () async {
+        // Pre-phase-3, local.name was set from pk.displayName (fallback).
+        // Phase 3 must promote that to displayName, not silently rename.
+        final local = _localMember(
+          id: 'local-1',
+          name: 'Alice ✨',
+          pluralkitId: 'pk001',
+          pluralkitUuid: 'uuid-pk001',
+          // displayName: null (legacy shape)
+        );
+        final pk = _pkMember(
+          id: 'pk001',
+          uuid: 'uuid-pk001',
+          name: 'alice',
+          displayName: 'Alice ✨',
+        );
 
-      await service.syncMembers(
-        localMembers: [local],
-        pkMembers: [pk],
-        fieldConfigs: {},
-        direction: PkSyncDirection.pullOnly,
-        lastSyncDate: null,
-        memberRepository: fakeRepo,
-        client: fakeClient,
-      );
+        await service.syncMembers(
+          localMembers: [local],
+          pkMembers: [pk],
+          fieldConfigs: {},
+          direction: PkSyncDirection.pullOnly,
+          lastSyncDate: null,
+          memberRepository: fakeRepo,
+          client: fakeClient,
+        );
 
-      final calls = fakeRepo.calls
-          .where((c) => c.method == 'updateMember')
-          .toList();
-      expect(calls, isNotEmpty);
-      final updated = calls.last.args[0] as domain.Member;
-      expect(updated.displayName, 'Alice ✨',
-          reason: 'Legacy local.name must migrate into displayName');
-      expect(updated.name, 'alice',
-          reason: 'local.name then follows pk.name');
-    });
+        final calls = fakeRepo.calls
+            .where((c) => c.method == 'updateMember')
+            .toList();
+        expect(calls, isNotEmpty);
+        final updated = calls.last.args[0] as domain.Member;
+        expect(
+          updated.displayName,
+          'Alice ✨',
+          reason: 'Legacy local.name must migrate into displayName',
+        );
+        expect(
+          updated.name,
+          'alice',
+          reason: 'local.name then follows pk.name',
+        );
+      },
+    );
 
-    test('non-legacy case: local.displayName already set → normal pull',
-        () async {
-      final local = _localMember(
-        id: 'local-1',
-        name: 'alice',
-        displayName: 'Alice ✨',
-        pluralkitId: 'pk001',
-        pluralkitUuid: 'uuid-pk001',
-      );
-      final pk = _pkMember(
-        id: 'pk001',
-        uuid: 'uuid-pk001',
-        name: 'alice',
-        displayName: 'Alice 🌟',
-      );
+    test(
+      'non-legacy case: local.displayName already set → normal pull',
+      () async {
+        final local = _localMember(
+          id: 'local-1',
+          name: 'alice',
+          displayName: 'Alice ✨',
+          pluralkitId: 'pk001',
+          pluralkitUuid: 'uuid-pk001',
+        );
+        final pk = _pkMember(
+          id: 'pk001',
+          uuid: 'uuid-pk001',
+          name: 'alice',
+          displayName: 'Alice 🌟',
+        );
 
-      await service.syncMembers(
-        localMembers: [local],
-        pkMembers: [pk],
-        fieldConfigs: {},
-        direction: PkSyncDirection.pullOnly,
-        lastSyncDate: null,
-        memberRepository: fakeRepo,
-        client: fakeClient,
-      );
+        await service.syncMembers(
+          localMembers: [local],
+          pkMembers: [pk],
+          fieldConfigs: {},
+          direction: PkSyncDirection.pullOnly,
+          lastSyncDate: null,
+          memberRepository: fakeRepo,
+          client: fakeClient,
+        );
 
-      final updated = fakeRepo.calls
-          .where((c) => c.method == 'updateMember')
-          .last
-          .args[0] as domain.Member;
-      expect(updated.name, 'alice');
-      expect(updated.displayName, 'Alice 🌟');
-    });
+        final updated =
+            fakeRepo.calls.where((c) => c.method == 'updateMember').last.args[0]
+                as domain.Member;
+        expect(updated.name, 'alice');
+        expect(updated.displayName, 'Alice 🌟');
+      },
+    );
   });
 
   // -------------------------------------------------------------------------
@@ -843,43 +915,159 @@ void main() {
 
   group('color sync respects customColorEnabled', () {
     test(
-        'customColorEnabled=false does not push color:null even with local hex set',
-        () async {
+      'customColorEnabled=false does not push color:null even with local hex set',
+      () async {
+        final local = _localMember(
+          id: 'local-1',
+          name: 'Alice',
+          pluralkitId: 'pk001',
+          pluralkitUuid: 'uuid-pk001',
+          customColorHex: '#ff0000',
+          customColorEnabled: false,
+          // Force a push with a different field so this member reaches the
+          // payload path.
+          pronouns: 'they/them',
+        );
+        final pk = _pkMember(
+          id: 'pk001',
+          uuid: 'uuid-pk001',
+          name: 'Alice',
+          pronouns: null,
+          color: '00ff00',
+        );
+
+        await service.syncMembers(
+          localMembers: [local],
+          pkMembers: [pk],
+          fieldConfigs: {},
+          direction: PkSyncDirection.pushOnly,
+          lastSyncDate: null,
+          memberRepository: fakeRepo,
+          client: fakeClient,
+        );
+
+        final updateCall = fakeClient.calls.firstWhere(
+          (c) => c.method == 'updateMember',
+        );
+        final payload = updateCall.args[1] as Map<String, dynamic>;
+        expect(
+          payload.containsKey('color'),
+          isFalse,
+          reason:
+              'customColorEnabled=false must OMIT color, never send null to clear PK',
+        );
+      },
+    );
+  });
+
+  // -------------------------------------------------------------------------
+  // Proxy tag canonicalization (#37 / WS3 step 11)
+  //
+  // Pre-fix: jsonEncode(localTags) != jsonEncode(pkTags) was a raw string
+  // compare that drifted on map key order or list element order. That made
+  // the bidirectional push-decision return "different" for two semantically
+  // equal tag lists → push every sync. These tests pin the canonical-form
+  // comparison so equality survives both reorderings.
+  // -------------------------------------------------------------------------
+
+  group('proxy tag canonicalization', () {
+    test(
+      'reordered per-tag map keys are treated as equal (no push)',
+      () async {
+        // Local tag is `{"prefix":"X:","suffix":null}`; PK tag is the same
+        // payload but with the keys serialized in the opposite order. The
+        // raw JSON strings differ but the canonical form must match.
+        final local = _localMember(
+          id: 'local-1',
+          pluralkitId: 'pk001',
+          proxyTagsJson: '[{"prefix":"X:","suffix":null}]',
+        );
+        final pk = _pkMember(
+          id: 'pk001',
+          proxyTagsJson: '[{"suffix":null,"prefix":"X:"}]',
+        );
+
+        final summary = await service.syncMembers(
+          localMembers: [local],
+          pkMembers: [pk],
+          fieldConfigs: {},
+          direction: PkSyncDirection.bidirectional,
+          lastSyncDate: null,
+          memberRepository: fakeRepo,
+          client: fakeClient,
+        );
+
+        expect(summary.membersPushed, 0);
+        expect(
+          fakeClient.calls.any((c) => c.method == 'updateMember'),
+          isFalse,
+          reason:
+              'Identical tags with reordered map keys must not trigger push',
+        );
+      },
+    );
+
+    test(
+      'reordered outer list elements are treated as equal (no push)',
+      () async {
+        final local = _localMember(
+          id: 'local-1',
+          pluralkitId: 'pk001',
+          proxyTagsJson:
+              '[{"prefix":"A:","suffix":null},{"prefix":"B:","suffix":null}]',
+        );
+        final pk = _pkMember(
+          id: 'pk001',
+          proxyTagsJson:
+              '[{"prefix":"B:","suffix":null},{"prefix":"A:","suffix":null}]',
+        );
+
+        final summary = await service.syncMembers(
+          localMembers: [local],
+          pkMembers: [pk],
+          fieldConfigs: {},
+          direction: PkSyncDirection.bidirectional,
+          lastSyncDate: null,
+          memberRepository: fakeRepo,
+          client: fakeClient,
+        );
+
+        expect(summary.membersPushed, 0);
+        expect(
+          fakeClient.calls.any((c) => c.method == 'updateMember'),
+          isFalse,
+          reason:
+              'Same tag set in different list order must not trigger push',
+        );
+      },
+    );
+
+    test('genuinely different tag content triggers push', () async {
       final local = _localMember(
         id: 'local-1',
-        name: 'Alice',
         pluralkitId: 'pk001',
-        pluralkitUuid: 'uuid-pk001',
-        customColorHex: '#ff0000',
-        customColorEnabled: false,
-        // Force a push with a different field so this member reaches the
-        // payload path.
-        pronouns: 'they/them',
+        proxyTagsJson: '[{"prefix":"LOCAL:","suffix":null}]',
       );
       final pk = _pkMember(
         id: 'pk001',
-        uuid: 'uuid-pk001',
-        name: 'Alice',
-        pronouns: null,
-        color: '00ff00',
+        proxyTagsJson: '[{"prefix":"PK:","suffix":null}]',
       );
 
-      await service.syncMembers(
+      final summary = await service.syncMembers(
         localMembers: [local],
         pkMembers: [pk],
         fieldConfigs: {},
-        direction: PkSyncDirection.pushOnly,
+        direction: PkSyncDirection.bidirectional,
         lastSyncDate: null,
         memberRepository: fakeRepo,
         client: fakeClient,
       );
 
-      final updateCall = fakeClient.calls
-          .firstWhere((c) => c.method == 'updateMember');
-      final payload = updateCall.args[1] as Map<String, dynamic>;
-      expect(payload.containsKey('color'), isFalse,
-          reason:
-              'customColorEnabled=false must OMIT color, never send null to clear PK');
+      expect(summary.membersPushed, 1);
+      expect(
+        fakeClient.calls.any((c) => c.method == 'updateMember'),
+        isTrue,
+      );
     });
   });
 }

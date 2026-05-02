@@ -138,9 +138,9 @@ class DriftChatMessageRepository
     );
     return {
       'content': m.content,
-      'timestamp': m.timestamp.toIso8601String(),
+      'timestamp': m.timestamp.toUtc().toIso8601String(),
       'is_system_message': m.isSystemMessage,
-      'edited_at': m.editedAt?.toIso8601String(),
+      'edited_at': m.editedAt?.toUtc().toIso8601String(),
       'author_id': m.authorId,
       'conversation_id': m.conversationId,
       'reactions': reactionsJson,

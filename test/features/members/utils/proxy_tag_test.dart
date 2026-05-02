@@ -57,14 +57,16 @@ void main() {
 
     test('skips non-object entries but keeps valid ones', () {
       final tags = parseProxyTags(
-          '["not-an-object",{"prefix":"A:","suffix":null},42]');
+        '["not-an-object",{"prefix":"A:","suffix":null},42]',
+      );
       expect(tags, hasLength(1));
       expect(tags.first.prefix, 'A:');
     });
 
     test('mixed valid + invalid entries preserved in order', () {
       final tags = parseProxyTags(
-          '[{"prefix":"A:"},{"prefix":""},{"suffix":"-b"}]');
+        '[{"prefix":"A:"},{"prefix":""},{"suffix":"-b"}]',
+      );
       expect(tags, hasLength(2));
       expect(tags[0].prefix, 'A:');
       expect(tags[1].suffix, '-b');
@@ -86,6 +88,28 @@ void main() {
 
     test('non-empty suffix is not empty', () {
       expect(const ProxyTag(suffix: '-a').isEmpty, isFalse);
+    });
+  });
+
+  group('encodeProxyTags', () {
+    test('returns null for no non-empty tags', () {
+      expect(encodeProxyTags(const []), isNull);
+      expect(encodeProxyTags(const [ProxyTag(prefix: '', suffix: '')]), isNull);
+    });
+
+    test('can preserve an explicit empty tag list', () {
+      expect(encodeProxyTags(const [], emptyAsJsonList: true), '[]');
+    });
+
+    test('encodes prefix and suffix fields in PK-compatible shape', () {
+      expect(
+        encodeProxyTags(const [
+          ProxyTag(prefix: 'A:'),
+          ProxyTag(suffix: '-a'),
+          ProxyTag(prefix: '[', suffix: ']'),
+        ]),
+        '[{"prefix":"A:","suffix":null},{"prefix":null,"suffix":"-a"},{"prefix":"[","suffix":"]"}]',
+      );
     });
   });
 }

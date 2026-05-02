@@ -378,8 +378,8 @@ class _PrismMnemonicFieldState extends State<PrismMnemonicField> {
     // Probe camera permission up front so we can show a clear explanation
     // instead of falling into the scanner's blank-preview / plugin-error state
     // when access is denied or restricted.
-    final checker = widget.cameraPermissionChecker ??
-        _defaultCameraPermissionChecker;
+    final checker =
+        widget.cameraPermissionChecker ?? _defaultCameraPermissionChecker;
     final outcome = await checker();
     if (!mounted) return;
 
@@ -389,8 +389,7 @@ class _PrismMnemonicFieldState extends State<PrismMnemonicField> {
         context: context,
         builder: (dialogContext) => _CameraPermissionDialog(
           outcome: outcome,
-          openSettings:
-              widget.openAppSettingsOverride ?? openAppSettings,
+          openSettings: widget.openAppSettingsOverride ?? openAppSettings,
         ),
       );
       return;
@@ -801,9 +800,7 @@ class _CameraPermissionDialog extends StatelessWidget {
                       if (!context.mounted) return;
                       Navigator.of(context).pop();
                     },
-                    child: Text(
-                      l10n.mnemonicFieldCameraPermissionOpenSettings,
-                    ),
+                    child: Text(l10n.mnemonicFieldCameraPermissionOpenSettings),
                   )
                 else
                   FilledButton(
@@ -904,6 +901,7 @@ class _WordSlotInput extends StatelessWidget {
             keyboardType: TextInputType.visiblePassword,
             autocorrect: false,
             enableSuggestions: false,
+            enableIMEPersonalizedLearning: false,
             textCapitalization: TextCapitalization.none,
             maxLines: 1,
             onChanged: onChanged,

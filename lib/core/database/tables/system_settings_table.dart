@@ -128,6 +128,75 @@ class SystemSettingsTable extends Table {
   // Default sleep quality for new sleep sessions (device-local)
   TextColumn get defaultSleepQuality => text().nullable()();
 
+  // -- Phase 1: per-member fronting refactor (docs/plans/fronting-per-member-sessions.md §4.1) --
+  //
+  // Drives the upgrade modal shown on first app launch after v7 schema upgrade.
+  //
+  // Allowed values:
+  //   'notStarted'      — v7 schema installed but user hasn't seen the modal yet
+  //   'deferred'        — legacy beta sentinel; treated like notStarted
+  //   'upgradeAndKeep'  — user chose selective migration (in progress or complete)
+  //   'startFresh'      — user chose wipe-everything path (in progress or complete)
+  //   'complete'        — migration finished (or fresh install — no data to migrate)
+  //   'blocked'         — v7 migration detected unresolvable duplicate rows;
+  //                       Phase 5 startup will surface this to the user
+  //
+  // Default is 'complete' so that fresh installs (onCreate path) skip the
+  // upgrade modal entirely — there is no legacy data to migrate.  The v6→v7
+  // onUpgrade block immediately overwrites the default with 'notStarted' for
+  // any database that existed before v7, so existing users still see the modal.
+  //
+  // Device-local: migration mode is per-device (solo vs primary vs secondary
+  // roles differ per §4.2); not synced across peers.
+  TextColumn get pendingFrontingMigrationMode =>
+      text().withDefault(const Constant('complete'))();
+
+  // -- Phase 1B: fronting preferences (docs/plans/fronting-preferences-1B.md) --
+  //
+  // Synced — system-level UX defaults. Stored as enum indices (int).
+
+  /// `FrontingListViewMode` index — default for the home-screen session list.
+  /// 0 = combinedPeriods (default), 1 = perMemberRows, 2 = timeline.
+  IntColumn get frontingListViewMode =>
+      integer().withDefault(const Constant(0))();
+
+  /// `FrontStartBehavior` index — default for the add-front sheet's submit.
+  /// 0 = additive (default), 1 = replace.
+  IntColumn get addFrontDefaultBehavior =>
+      integer().withDefault(const Constant(0))();
+
+  /// `FrontStartBehavior` index — default for quick-front (long-press / tap).
+  /// 0 = additive (default), 1 = replace.
+  IntColumn get quickFrontDefaultBehavior =>
+      integer().withDefault(const Constant(0))();
+
+  // Substate within the `'inProgress'` window of the per-member fronting
+  // migration.
+  //
+  // Allowed values:
+  //   ''           — initial / inert (no destructive post-tx step has run yet)
+  //   'resetDone'  — Rust `reset_sync_state()` returned success; remaining
+  //                  post-tx steps (keychain wipe + sync_quarantine clear +
+  //                  mark complete) still need to run
+  //
+  // Without this we cannot distinguish two failure modes from inside
+  // resumeCleanup():
+  //   (a) Rust reset never ran — we MUST run it now.
+  //   (b) Rust reset already succeeded; only the keychain/quarantine
+  //       follow-ups failed — re-running reset on an unconfigured handle
+  //       would return "sync_id not set" and we'd treat that as
+  //       "already reset" even when it wasn't.
+  //
+  // The previous implementation collapsed both cases via the "sync_id
+  // not set"-means-success heuristic, which silently marked migration
+  // complete when (a) had failed for unrelated reasons (e.g. the FFI
+  // call threw before clearing the persistent tables) and the next
+  // launch would re-attach to the OLD sync group.
+  //
+  // Device-local: same scope as `pending_fronting_migration_mode`.
+  TextColumn get pendingFrontingMigrationCleanupSubstate =>
+      text().withDefault(const Constant(''))();
+
   @override
   String get tableName => 'system_settings';
 

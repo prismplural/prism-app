@@ -57,6 +57,10 @@ class _FakeMemberRepository implements MemberRepository {
   Future<void> stampDeletePushStartedAt(String id, int timestampMs) async {}
 
   @override
+  Future<({member_domain.Member member, bool wasCreated})>
+      ensureUnknownSentinelMember() => throw UnimplementedError();
+
+  @override
   Future<void> updateMember(member_domain.Member member) async {}
 
   @override

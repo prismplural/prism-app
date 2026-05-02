@@ -104,6 +104,24 @@ void main() {
       expect(field.obscureText, isFalse);
     });
 
+    testWidgets('word fields disable keyboard learning and suggestions', (
+      tester,
+    ) async {
+      final controller = TextEditingController();
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrap(PrismMnemonicField(controller: controller)),
+      );
+
+      final field = tester.widget<TextField>(find.byType(TextField).first);
+      expect(field.keyboardType, TextInputType.visiblePassword);
+      expect(field.autocorrect, isFalse);
+      expect(field.enableSuggestions, isFalse);
+      expect(field.enableIMEPersonalizedLearning, isFalse);
+      expect(field.textCapitalization, TextCapitalization.none);
+    });
+
     testWidgets(
       'paste button appears and fills field when clipboard is valid',
       (tester) async {
@@ -397,30 +415,29 @@ void main() {
       },
     );
 
-    testWidgets(
-      'granted camera permission opens the mobile scanner',
-      (tester) async {
-        final controller = TextEditingController();
-        addTearDown(controller.dispose);
+    testWidgets('granted camera permission opens the mobile scanner', (
+      tester,
+    ) async {
+      final controller = TextEditingController();
+      addTearDown(controller.dispose);
 
-        await tester.pumpWidget(
-          _wrap(
-            PrismMnemonicField(
-              controller: controller,
-              cameraPermissionChecker: () async =>
-                  CameraPermissionOutcome.granted,
-            ),
+      await tester.pumpWidget(
+        _wrap(
+          PrismMnemonicField(
+            controller: controller,
+            cameraPermissionChecker: () async =>
+                CameraPermissionOutcome.granted,
           ),
-        );
-        await tester.pumpAndSettle();
+        ),
+      );
+      await tester.pumpAndSettle();
 
-        await tester.tap(find.byTooltip('Scan QR code'));
-        await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Scan QR code'));
+      await tester.pumpAndSettle();
 
-        expect(find.byType(MobileScanner), findsOneWidget);
-        expect(find.text('Camera permission needed'), findsNothing);
-      },
-    );
+      expect(find.byType(MobileScanner), findsOneWidget);
+      expect(find.text('Camera permission needed'), findsNothing);
+    });
   });
 
   group('PrismMnemonicField.normalize', () {

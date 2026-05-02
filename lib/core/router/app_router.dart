@@ -4,8 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/core/services/error_reporting_service.dart';
+import 'package:prism_plurality/core/services/secure_storage.dart';
+import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import '../../features/fronting/views/fronting_screen.dart';
 import '../../features/fronting/views/session_detail_screen.dart';
+import '../../features/fronting/views/sleep_screen.dart';
 import '../../features/fronting/views/timeline_screen.dart';
 import '../../features/fronting/views/edit_front_session_screen.dart';
 import '../../features/members/views/members_screen.dart';
@@ -44,7 +48,6 @@ import '../../features/sharing/views/friend_detail_screen.dart';
 import '../../features/habits/views/habits_list_screen.dart';
 import '../../features/habits/views/habit_detail_screen.dart';
 import '../../features/data_management/views/import_export_screen.dart';
-import '../../features/fronting/ui/fronting_sanitization_screen.dart';
 import '../../features/settings/views/features_settings_screen.dart';
 import '../../features/settings/views/chat_feature_settings_screen.dart';
 import '../../features/settings/views/habits_feature_settings_screen.dart';
@@ -78,6 +81,7 @@ final _statisticsNavigatorKey = GlobalKey<NavigatorState>(
   debugLabel: 'statistics',
 );
 final _timelineNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'timeline');
+final _sleepNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'sleep');
 
 /// Notifier that triggers GoRouter redirect re-evaluation when onboarding
 /// status changes.
@@ -112,6 +116,69 @@ class _OnboardingRedirectNotifier extends ChangeNotifier {
 // without a GoRouter lifecycle change. Acceptable for production; be aware
 // during development that a hot restart (not hot reload) resets this.
 final _onboardingRedirectNotifier = _OnboardingRedirectNotifier();
+
+const _syncWrappedDekKey = 'prism_sync.wrapped_dek';
+const _syncRuntimeDekKey = 'prism_sync.runtime_dek';
+const _syncRuntimeDekWrappedKey = 'prism_sync.runtime_dek_wrapped_v1';
+
+@visibleForTesting
+Future<bool> recoverCompletedOnboardingFromPairedState({
+  required Future<String?> Function(String key) readSecureValue,
+  required Future<int> Function() getMemberCount,
+  required Future<void> Function() markOnboardingComplete,
+}) async {
+  final syncId = await readSecureValue(kSyncIdKey);
+  final deviceId = await readSecureValue(kSyncDeviceIdKey);
+  if (syncId == null ||
+      syncId.isEmpty ||
+      deviceId == null ||
+      deviceId.isEmpty) {
+    return false;
+  }
+
+  final snapshotApplyMarker = await readSecureValue(kSnapshotApplyCompleteKey);
+  if (!snapshotApplyCompleteMarkerMatches(
+    marker: snapshotApplyMarker,
+    syncId: syncId,
+    deviceId: deviceId,
+  )) {
+    return false;
+  }
+
+  final wrappedDek = await readSecureValue(_syncWrappedDekKey);
+  final runtimeDek = await readSecureValue(_syncRuntimeDekKey);
+  final runtimeDekWrapped = await readSecureValue(_syncRuntimeDekWrappedKey);
+  if ((wrappedDek == null || wrappedDek.isEmpty) &&
+      (runtimeDek == null || runtimeDek.isEmpty) &&
+      (runtimeDekWrapped == null || runtimeDekWrapped.isEmpty)) {
+    return false;
+  }
+
+  final memberCount = await getMemberCount();
+  if (memberCount == 0) return false;
+
+  await markOnboardingComplete();
+  return true;
+}
+
+Future<bool> _recoverCompletedOnboardingFromPairedState(Ref ref) async {
+  try {
+    return await recoverCompletedOnboardingFromPairedState(
+      readSecureValue: (key) => secureStorage.read(key: key),
+      getMemberCount: ref.read(memberRepositoryProvider).getCount,
+      markOnboardingComplete: () => ref
+          .read(systemSettingsRepositoryProvider)
+          .updateHasCompletedOnboarding(true),
+    );
+  } catch (e, st) {
+    ErrorReportingService.instance.report(
+      'Recovered paired onboarding check failed: $e',
+      severity: ErrorSeverity.warning,
+      stackTrace: st,
+    );
+    return false;
+  }
+}
 
 final routerProvider = Provider<GoRouter>((ref) {
   // Update the redirect notifier reactively.
@@ -148,6 +215,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (hasCompleted == null) return null;
 
       final isOnboarding = state.matchedLocation == AppRoutePaths.onboarding;
+
+      if (!hasCompleted) {
+        final recovered = await _recoverCompletedOnboardingFromPairedState(ref);
+        if (recovered) {
+          return isOnboarding ? AppRoutePaths.home : null;
+        }
+      }
 
       if (!hasCompleted && !isOnboarding) {
         return AppRoutePaths.onboarding;
@@ -445,8 +519,11 @@ final routerProvider = Provider<GoRouter>((ref) {
                       ),
                       GoRoute(
                         path: 'sleep',
-                        builder: (context, state) =>
-                            const SleepFeatureSettingsScreen(),
+                        builder: (context, state) => SleepFeatureSettingsScreen(
+                          args: state.extra is SleepFeatureSettingsArgs
+                              ? state.extra as SleepFeatureSettingsArgs
+                              : null,
+                        ),
                       ),
                       GoRoute(
                         path: 'polls',
@@ -469,12 +546,6 @@ final routerProvider = Provider<GoRouter>((ref) {
                     path: 'reset',
                     builder: (context, state) => const ResetDataScreen(),
                   ),
-                  if (!kReleaseMode)
-                    GoRoute(
-                      path: 'timeline-sanitization',
-                      builder: (context, state) =>
-                          const FrontingSanitizationScreen(),
-                    ),
                   GoRoute(
                     path: 'custom-fields',
                     builder: (context, state) => const CustomFieldsScreen(),
@@ -593,6 +664,29 @@ final routerProvider = Provider<GoRouter>((ref) {
                 name: AppRouteNames.timeline,
                 path: AppRoutePaths.timeline,
                 builder: (context, state) => const TimelineScreen(),
+              ),
+            ],
+          ),
+          // Branch 10: Sleep (opt-in tab; feature-flagged)
+          StatefulShellBranch(
+            navigatorKey: _sleepNavigatorKey,
+            routes: [
+              GoRoute(
+                path: AppRoutePaths.sleep,
+                redirect: (context, state) {
+                  final flags = ref.read(featureFlagsProvider);
+                  return flags.sleep ? null : AppRoutePaths.home;
+                },
+                builder: (context, state) =>
+                    const SleepScreen(showBackButton: false),
+                routes: [
+                  GoRoute(
+                    path: 'session/:id',
+                    builder: (context, state) => SessionDetailScreen(
+                      sessionId: state.pathParameters['id']!,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

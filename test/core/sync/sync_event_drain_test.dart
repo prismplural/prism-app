@@ -129,6 +129,7 @@ void main() {
     debugDrainDebounceOverride = null;
     debugPostRevokeRecleanOverride = null;
     debugPostRevokeRecleanOverrideCallback = null;
+    debugQueryPendingOpsOverride = null;
   });
 
   SyncEvent completedEvent({String? errorKind, String? errorMessage}) {
@@ -290,6 +291,40 @@ void main() {
     }));
     await Future<void>.delayed(settleAfterDebounce);
     expect(ctx.drainCount(), 0);
+  });
+
+  test('terminal Error wins over delayed SyncStarted status refresh', () async {
+    final pendingOps = Completer<int>();
+    debugQueryPendingOpsOverride = () => pendingOps.future;
+    final ctx = bindContainer();
+    addTearDown(() async {
+      ctx.subscription.close();
+      ctx.eventSubscription.close();
+      ctx.container.dispose();
+      await ctx.controller.close();
+    });
+
+    ctx.controller.add(SyncEvent('SyncStarted', {'type': 'SyncStarted'}));
+    await Future<void>.delayed(Duration.zero);
+    expect(ctx.container.read(syncStatusProvider).isSyncing, isTrue);
+
+    ctx.controller.add(
+      SyncEvent('Error', {
+        'type': 'Error',
+        'kind': 'EpochRotation',
+        'message': 'epoch mismatch',
+      }),
+    );
+    await Future<void>.delayed(Duration.zero);
+    expect(ctx.container.read(syncStatusProvider).isSyncing, isFalse);
+
+    pendingOps.complete(7);
+    await Future<void>.delayed(Duration.zero);
+
+    final status = ctx.container.read(syncStatusProvider);
+    expect(status.isSyncing, isFalse);
+    expect(status.pendingOps, 0);
+    expect(status.lastError, 'epoch mismatch');
   });
 
   // ------------------------------------------------------------------

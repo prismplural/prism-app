@@ -174,8 +174,9 @@ void main() {
 
       expect(result.frontComments, hasLength(1));
       expect(result.frontComments.first.body, 'A comment on this session');
-      // sessionId should resolve to the Prism UUID for fh1
-      expect(result.frontComments.first.sessionId, result.sessions.first.id);
+      // Comments now anchor to targetTime (the SP comment's own timestamp)
+      // rather than a sessionId FK.  Verify the comment's targetTime was set.
+      expect(result.frontComments.first.targetTime, DateTime(2024, 1, 1, 12));
       expect(result.warnings, isEmpty);
     });
 
@@ -561,6 +562,47 @@ void main() {
           result.messages.where((m) => m.conversationId == convId).toList();
       expect(boardMsgs, hasLength(1));
       expect(boardMsgs.first.content, '**Important**\nRead this please');
+    });
+  });
+
+  group('Channel mapping — DM classification', () {
+    test('SP channel with no members is not a DM', () {
+      // Real SP exports often omit the `members` field entirely on channels
+      // (the channel is server-wide). Marking these as DMs combined with the
+      // DM-privacy filter would hide them from everyone.
+      final data = _makeExportData(
+        members: [_memberA, _memberB],
+        channels: const [SpChannel(id: 'ch-general', name: 'General')],
+      );
+
+      final mapper = SpMapper();
+      final result = mapper.mapAll(data);
+
+      expect(result.conversations, hasLength(1));
+      expect(result.conversations.first.isDirectMessage, isFalse);
+      expect(result.conversations.first.participantIds, isEmpty);
+    });
+
+    test('SP channel with two members is still not a DM', () {
+      // SP channels are group chats by SP's data model regardless of member
+      // count. A 2-member channel is still a channel, not a DM.
+      final data = _makeExportData(
+        members: [_memberA, _memberB],
+        channels: const [
+          SpChannel(
+            id: 'ch-pair',
+            name: 'Pair',
+            memberIds: ['sp-a', 'sp-b'],
+          ),
+        ],
+      );
+
+      final mapper = SpMapper();
+      final result = mapper.mapAll(data);
+
+      expect(result.conversations, hasLength(1));
+      expect(result.conversations.first.isDirectMessage, isFalse);
+      expect(result.conversations.first.participantIds, hasLength(2));
     });
   });
 }

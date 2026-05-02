@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/core/services/database_health_providers.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/features/settings/providers/database_diagnostics_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
@@ -27,6 +28,7 @@ class DatabaseDiagnosticsScreen extends ConsumerWidget {
     final nodeIdAsync = ref.watch(nodeIdProvider);
     final hlcAsync = ref.watch(crdtLatestHlcProvider);
     final dbPathAsync = ref.watch(dbPathProvider);
+    final terms = watchTerminology(context, ref);
 
     return PrismPageScaffold(
       topBar: const PrismTopBar(
@@ -51,7 +53,7 @@ class DatabaseDiagnosticsScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 12),
                 _CountRow(
-                  label: 'Members',
+                  label: terms.plural,
                   countAsync: ref.watch(memberCountProvider),
                 ),
                 const Divider(height: 16),
@@ -152,7 +154,8 @@ class DatabaseDiagnosticsScreen extends ConsumerWidget {
                   builder: (_) => const _HealthReportDialogContent(),
                   actions: [
                     PrismButton(
-                      onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
+                      onPressed: () =>
+                          Navigator.of(context, rootNavigator: true).pop(),
                       label: 'Close',
                     ),
                   ],
@@ -180,10 +183,8 @@ class _CountRow extends StatelessWidget {
       children: [
         Text(label, style: theme.textTheme.bodyMedium),
         countAsync.when(
-          loading: () => PrismSpinner(
-            color: theme.colorScheme.primary,
-            size: 16,
-          ),
+          loading: () =>
+              PrismSpinner(color: theme.colorScheme.primary, size: 16),
           error: (_, _) => Text(
             'Error',
             style: theme.textTheme.bodyMedium?.copyWith(
@@ -208,6 +209,7 @@ class _HealthReportDialogContent extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final reportAsync = ref.watch(healthReportProvider);
+    final terms = watchTerminology(context, ref);
 
     return SizedBox(
       width: double.maxFinite,
@@ -239,7 +241,7 @@ class _HealthReportDialogContent extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                'Records: ${_formatCounts(report.recordCounts)}',
+                'Records: ${_formatCounts(report.recordCounts, terms)}',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               if (report.issues.isNotEmpty) ...[
@@ -276,10 +278,10 @@ class _HealthReportDialogContent extends ConsumerWidget {
     );
   }
 
-  static String _formatCounts(Map<String, int> counts) {
+  static String _formatCounts(Map<String, int> counts, Terminology terms) {
     final main = <String>[];
     if (counts.containsKey('members')) {
-      main.add('${counts['members']} members');
+      main.add('${counts['members']} ${terms.pluralLower}');
     }
     if (counts.containsKey('sessions')) {
       main.add('${counts['sessions']} sessions');
@@ -319,10 +321,8 @@ class _InfoRow extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         valueAsync.when(
-          loading: () => PrismSpinner(
-            color: theme.colorScheme.primary,
-            size: 16,
-          ),
+          loading: () =>
+              PrismSpinner(color: theme.colorScheme.primary, size: 16),
           error: (e, _) => Text('Error: $e'),
           data: (value) => Row(
             children: [

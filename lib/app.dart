@@ -18,32 +18,6 @@ import 'shared/theme/app_colors.dart';
 import 'shared/theme/app_theme.dart';
 import 'shared/widgets/prism_toast.dart';
 
-/// Remove Unbounded from display/headline text theme roles so the system font
-/// is used instead when the user disables the display font setting.
-ThemeData _stripDisplayFont(ThemeData theme) {
-  final tt = theme.textTheme;
-  return theme.copyWith(
-    textTheme: tt.copyWith(
-      displayLarge: tt.displayLarge?.copyWith(
-        fontFamily: null,
-        letterSpacing: 0,
-      ),
-      displayMedium: tt.displayMedium?.copyWith(
-        fontFamily: null,
-        letterSpacing: 0,
-      ),
-      displaySmall: tt.displaySmall?.copyWith(
-        fontFamily: null,
-        letterSpacing: 0,
-      ),
-      headlineLarge: tt.headlineLarge?.copyWith(
-        fontFamily: null,
-        letterSpacing: 0,
-      ),
-    ),
-  );
-}
-
 class PrismApp extends ConsumerStatefulWidget {
   const PrismApp({super.key});
 
@@ -177,8 +151,8 @@ class _PrismAppState extends ConsumerState<PrismApp> {
 
         // Strip Unbounded from display/headline roles when the user opts out.
         if (!useDisplayFont) {
-          lightTheme = _stripDisplayFont(lightTheme);
-          darkTheme = _stripDisplayFont(darkTheme);
+          lightTheme = AppTheme.withoutDisplayFont(lightTheme);
+          darkTheme = AppTheme.withoutDisplayFont(darkTheme);
         }
 
         // Apply Open Dyslexic font family to all text styles if selected.

@@ -72,6 +72,7 @@ class V1Export {
     this.reminders = const [],
     this.friends = const [],
     this.mediaAttachments = const [],
+    this.rescueLegacyFields = false,
   });
 
   final String formatVersion;
@@ -100,6 +101,28 @@ class V1Export {
   final List<V1Reminder> reminders;
   final List<V1Friend> friends;
   final List<V1MediaAttachment> mediaAttachments;
+
+  /// Envelope-level marker for the PRISM1 rescue importer (§4.7).
+  ///
+  /// Set to `true` by `DataExportService.buildExport` when its
+  /// `includeLegacyFields == true` (i.e., the migration-time export that
+  /// is meant to be self-sufficient as a rescue input). When the flag is
+  /// present in a parsed envelope, `DataImportService` routes EVERY
+  /// session and comment row through the legacy/rescue path regardless
+  /// of the per-row legacy-key sniff.
+  ///
+  /// Why an envelope flag instead of relying on per-row keys: the real
+  /// exporter omits empty / null legacy keys (`coFronterIds: []`,
+  /// `pkMemberIdsJson: null`), so a backup row with nothing fronting
+  /// alongside it carried no per-row marker at all. Empty native
+  /// single-member rows and orphan rows (member_id null) both bypassed
+  /// the rescue path entirely; orphans then imported with `memberId =
+  /// null` instead of being assigned to the Unknown sentinel — and the
+  /// schema cleanup CHECK constraint rejects those rows.
+  ///
+  /// Per-row sniff stays as a fallback for genuinely-old PRISM1 files
+  /// that pre-date this marker.
+  final bool rescueLegacyFields;
 
   Map<String, dynamic> toJson() => {
     'formatVersion': formatVersion,
@@ -141,124 +164,182 @@ class V1Export {
     if (friends.isNotEmpty) 'friends': friends.map((e) => e.toJson()).toList(),
     if (mediaAttachments.isNotEmpty)
       'mediaAttachments': mediaAttachments.map((e) => e.toJson()).toList(),
+    // Envelope-level rescue marker (§4.7). Only emitted when true so
+    // post-migration exports stay byte-identical to pre-marker files.
+    if (rescueLegacyFields) 'rescueLegacyFields': true,
   };
 
-  factory V1Export.fromJson(Map<String, dynamic> json) => V1Export(
-    formatVersion: json['formatVersion'] as String? ?? '1.0',
-    version: json['version'] as String? ?? '1.0',
-    appName: json['appName'] as String? ?? 'Prism Plurality',
-    exportDate: json['exportDate'] as String? ?? '',
-    totalRecords: json['totalRecords'] as int? ?? 0,
-    headmates:
-        (json['headmates'] as List<dynamic>?)
-            ?.map((e) => V1Headmate.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [],
-    frontSessions:
-        (json['frontSessions'] as List<dynamic>?)
-            ?.map((e) => V1FrontSession.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [],
-    sleepSessions:
-        (json['sleepSessions'] as List<dynamic>?)
-            ?.map((e) => V1SleepSession.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [],
-    conversations:
-        (json['conversations'] as List<dynamic>?)
-            ?.map((e) => V1Conversation.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [],
-    messages:
-        (json['messages'] as List<dynamic>?)
-            ?.map((e) => V1Message.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [],
-    polls:
-        (json['polls'] as List<dynamic>?)
-            ?.map((e) => V1Poll.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [],
-    pollOptions:
-        (json['pollOptions'] as List<dynamic>?)
-            ?.map((e) => V1PollOption.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [],
-    systemSettings:
-        (json['systemSettings'] as List<dynamic>?)
-            ?.map((e) => V1SystemSettings.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [],
-    habits:
-        (json['habits'] as List<dynamic>?)
-            ?.map((e) => V1Habit.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [],
-    habitCompletions:
-        (json['habitCompletions'] as List<dynamic>?)
-            ?.map((e) => V1HabitCompletion.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [],
-    pluralKitSyncState: json['pluralKitSyncState'] != null
-        ? V1PluralKitSyncState.fromJson(
-            json['pluralKitSyncState'] as Map<String, dynamic>,
-          )
-        : null,
-    memberGroups:
-        (json['memberGroups'] as List<dynamic>?)
-            ?.map((e) => V1MemberGroup.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [],
-    memberGroupEntries:
-        (json['memberGroupEntries'] as List<dynamic>?)
-            ?.map((e) => V1MemberGroupEntry.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [],
-    customFields:
-        (json['customFields'] as List<dynamic>?)
-            ?.map((e) => V1CustomField.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [],
-    customFieldValues:
-        (json['customFieldValues'] as List<dynamic>?)
-            ?.map((e) => V1CustomFieldValue.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [],
-    notes:
-        (json['notes'] as List<dynamic>?)
-            ?.map((e) => V1Note.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [],
-    frontSessionComments:
-        (json['frontSessionComments'] as List<dynamic>?)
-            ?.map(
-              (e) => V1FrontSessionComment.fromJson(e as Map<String, dynamic>),
+  /// Format versions this codebase knows how to parse.
+  ///
+  /// Mirrors `DataImportService.supportedVersions` — the import service
+  /// also rejects unsupported versions before invoking parsing — but the
+  /// envelope-level reject here gives a tighter contract: any caller
+  /// touching `V1Export.fromJson` (preview parsers, tests, future
+  /// tools) gets the same gate. Review finding #39 + remediation plan
+  /// WS4 step 7 explicitly require envelope-level rejection so an
+  /// unknown future formatVersion can't accidentally route through the
+  /// per-row legacy sniff and produce mis-rescued rows.
+  static const _supportedFormatVersions = {'1.0', '2025.1'};
+
+  factory V1Export.fromJson(Map<String, dynamic> json) {
+    // Envelope `formatVersion` is the primary shape gate (review
+    // finding #39 + remediation plan WS4 step 7). Reject unknown
+    // versions explicitly before any per-row parsing runs so a future
+    // PRISM1 v3+ shape with renamed fields can't be silently
+    // misclassified as legacy and routed through the rescue path with
+    // every field null. Per-row shape inference stays as a fallback
+    // for legitimately-old files that pre-date the
+    // `rescueLegacyFields` envelope marker (introduced alongside the
+    // 0.7.0 migration-time exporter).
+    final rawFormatVersion = json['formatVersion'] as String?;
+    final formatVersion = rawFormatVersion ?? '1.0';
+    if (rawFormatVersion != null &&
+        !_supportedFormatVersions.contains(rawFormatVersion)) {
+      throw FormatException(
+        'Unsupported export formatVersion: $rawFormatVersion. '
+        'Supported versions: ${_supportedFormatVersions.join(', ')}',
+      );
+    }
+    // Read the envelope marker first so it can be threaded into the
+    // session / comment fromJson factories. When set, every session /
+    // comment row is forced through the legacy/rescue path regardless
+    // of the per-row sniff.
+    final rescueLegacy = json['rescueLegacyFields'] as bool? ?? false;
+    return V1Export(
+      formatVersion: formatVersion,
+      version: json['version'] as String? ?? '1.0',
+      appName: json['appName'] as String? ?? 'Prism Plurality',
+      exportDate: json['exportDate'] as String? ?? '',
+      totalRecords: json['totalRecords'] as int? ?? 0,
+      headmates:
+          (json['headmates'] as List<dynamic>?)
+              ?.map((e) => V1Headmate.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      frontSessions:
+          (json['frontSessions'] as List<dynamic>?)
+              ?.map(
+                (e) => V1FrontSession.fromJson(
+                  e as Map<String, dynamic>,
+                  forceLegacyShape: rescueLegacy,
+                ),
+              )
+              .toList() ??
+          [],
+      sleepSessions:
+          (json['sleepSessions'] as List<dynamic>?)
+              ?.map((e) => V1SleepSession.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      conversations:
+          (json['conversations'] as List<dynamic>?)
+              ?.map((e) => V1Conversation.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      messages:
+          (json['messages'] as List<dynamic>?)
+              ?.map((e) => V1Message.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      polls:
+          (json['polls'] as List<dynamic>?)
+              ?.map((e) => V1Poll.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      pollOptions:
+          (json['pollOptions'] as List<dynamic>?)
+              ?.map((e) => V1PollOption.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      systemSettings:
+          (json['systemSettings'] as List<dynamic>?)
+              ?.map((e) => V1SystemSettings.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      habits:
+          (json['habits'] as List<dynamic>?)
+              ?.map((e) => V1Habit.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      habitCompletions:
+          (json['habitCompletions'] as List<dynamic>?)
+              ?.map(
+                (e) => V1HabitCompletion.fromJson(e as Map<String, dynamic>),
+              )
+              .toList() ??
+          [],
+      pluralKitSyncState: json['pluralKitSyncState'] != null
+          ? V1PluralKitSyncState.fromJson(
+              json['pluralKitSyncState'] as Map<String, dynamic>,
             )
-            .toList() ??
-        [],
-    conversationCategories:
-        (json['conversationCategories'] as List<dynamic>?)
-            ?.map(
-              (e) => V1ConversationCategory.fromJson(e as Map<String, dynamic>),
-            )
-            .toList() ??
-        [],
-    reminders:
-        (json['reminders'] as List<dynamic>?)
-            ?.map((e) => V1Reminder.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [],
-    friends:
-        (json['friends'] as List<dynamic>?)
-            ?.map((e) => V1Friend.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [],
-    mediaAttachments:
-        (json['mediaAttachments'] as List<dynamic>?)
-            ?.map((e) => V1MediaAttachment.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [],
-  );
+          : null,
+      memberGroups:
+          (json['memberGroups'] as List<dynamic>?)
+              ?.map((e) => V1MemberGroup.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      memberGroupEntries:
+          (json['memberGroupEntries'] as List<dynamic>?)
+              ?.map(
+                (e) => V1MemberGroupEntry.fromJson(e as Map<String, dynamic>),
+              )
+              .toList() ??
+          [],
+      customFields:
+          (json['customFields'] as List<dynamic>?)
+              ?.map((e) => V1CustomField.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      customFieldValues:
+          (json['customFieldValues'] as List<dynamic>?)
+              ?.map(
+                (e) => V1CustomFieldValue.fromJson(e as Map<String, dynamic>),
+              )
+              .toList() ??
+          [],
+      notes:
+          (json['notes'] as List<dynamic>?)
+              ?.map((e) => V1Note.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      frontSessionComments:
+          (json['frontSessionComments'] as List<dynamic>?)
+              ?.map(
+                (e) => V1FrontSessionComment.fromJson(
+                  e as Map<String, dynamic>,
+                  forceLegacyShape: rescueLegacy,
+                ),
+              )
+              .toList() ??
+          [],
+      conversationCategories:
+          (json['conversationCategories'] as List<dynamic>?)
+              ?.map(
+                (e) =>
+                    V1ConversationCategory.fromJson(e as Map<String, dynamic>),
+              )
+              .toList() ??
+          [],
+      reminders:
+          (json['reminders'] as List<dynamic>?)
+              ?.map((e) => V1Reminder.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      friends:
+          (json['friends'] as List<dynamic>?)
+              ?.map((e) => V1Friend.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      mediaAttachments:
+          (json['mediaAttachments'] as List<dynamic>?)
+              ?.map(
+                (e) => V1MediaAttachment.fromJson(e as Map<String, dynamic>),
+              )
+              .toList() ??
+          [],
+      rescueLegacyFields: rescueLegacy,
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -287,6 +368,13 @@ class V1Headmate {
     this.displayName,
     this.birthday,
     this.proxyTagsJson,
+    this.pkBannerUrl,
+    this.profileHeaderSource,
+    this.profileHeaderLayout,
+    this.profileHeaderVisible,
+    this.profileHeaderImageData,
+    this.pkBannerImageData,
+    this.pkBannerCachedUrl,
     this.pluralkitSyncIgnored = false,
   });
 
@@ -311,6 +399,13 @@ class V1Headmate {
   final String? displayName;
   final String? birthday;
   final String? proxyTagsJson;
+  final String? pkBannerUrl;
+  final int? profileHeaderSource;
+  final int? profileHeaderLayout;
+  final bool? profileHeaderVisible;
+  final String? profileHeaderImageData; // base64
+  final String? pkBannerImageData; // base64
+  final String? pkBannerCachedUrl;
   final bool pluralkitSyncIgnored;
 
   Map<String, dynamic> toJson() => {
@@ -334,6 +429,15 @@ class V1Headmate {
     if (displayName != null) 'displayName': displayName,
     if (birthday != null) 'birthday': birthday,
     if (proxyTagsJson != null) 'proxyTagsJson': proxyTagsJson,
+    if (pkBannerUrl != null) 'pkBannerUrl': pkBannerUrl,
+    if (profileHeaderSource != null) 'profileHeaderSource': profileHeaderSource,
+    if (profileHeaderLayout != null) 'profileHeaderLayout': profileHeaderLayout,
+    if (profileHeaderVisible != null)
+      'profileHeaderVisible': profileHeaderVisible,
+    if (profileHeaderImageData != null)
+      'profileHeaderImageData': profileHeaderImageData,
+    if (pkBannerImageData != null) 'pkBannerImageData': pkBannerImageData,
+    if (pkBannerCachedUrl != null) 'pkBannerCachedUrl': pkBannerCachedUrl,
     'pluralkitSyncIgnored': pluralkitSyncIgnored,
   };
 
@@ -358,12 +462,28 @@ class V1Headmate {
     displayName: json['displayName'] as String?,
     birthday: json['birthday'] as String?,
     proxyTagsJson: json['proxyTagsJson'] as String?,
+    pkBannerUrl: json['pkBannerUrl'] as String?,
+    profileHeaderSource: json['profileHeaderSource'] as int?,
+    profileHeaderLayout: json['profileHeaderLayout'] as int?,
+    profileHeaderVisible: json['profileHeaderVisible'] as bool?,
+    profileHeaderImageData: json['profileHeaderImageData'] as String?,
+    pkBannerImageData: json['pkBannerImageData'] as String?,
+    pkBannerCachedUrl: json['pkBannerCachedUrl'] as String?,
     pluralkitSyncIgnored: json['pluralkitSyncIgnored'] as bool? ?? false,
   );
 
   /// Convert base64 profilePhotoData to Uint8List.
   Uint8List? get avatarImageData =>
       profilePhotoData != null ? base64Decode(profilePhotoData!) : null;
+
+  /// Convert base64 profileHeaderImageData to Uint8List.
+  Uint8List? get profileHeaderImageBytes => profileHeaderImageData != null
+      ? base64Decode(profileHeaderImageData!)
+      : null;
+
+  /// Convert base64 pkBannerImageData to Uint8List.
+  Uint8List? get pkBannerImageBytes =>
+      pkBannerImageData != null ? base64Decode(pkBannerImageData!) : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -380,20 +500,86 @@ class V1FrontSession {
     this.notes,
     this.confidence,
     this.pluralkitUuid,
+    this.pkImportSource,
+    this.pkFileSwitchId,
     this.pkMemberIdsJson,
+    this.sessionType,
+    this.quality,
+    this.isHealthKitImport,
+    this.coFronterIdsRawJson,
+    this.isLegacyShape = false,
   });
+
+  /// Process-wide counter for the per-row legacy-shape fallback.
+  ///
+  /// Incremented whenever `V1FrontSession.fromJson` flips a row to
+  /// legacy via row-shape sniff WITHOUT the envelope-level
+  /// `rescueLegacyFields` flag being set. The envelope flag is the
+  /// primary classifier (review finding #39 + remediation plan WS4
+  /// step 7); the per-row sniff is the back-compat fallback for
+  /// pre-marker (pre-0.7.0) files. A non-zero count after a successful
+  /// import indicates the fallback was actually exercised — surface it
+  /// in tests and (eventually) in import-result diagnostics so the
+  /// fallback's removal can be justified once it stops firing in the
+  /// wild. Tests should reset via [resetRowShapeLegacyFallbackCount]
+  /// in setUp/tearDown to avoid cross-test bleed.
+  static int _rowShapeLegacyFallbackCount = 0;
+  static int get rowShapeLegacyFallbackCount => _rowShapeLegacyFallbackCount;
+  static void resetRowShapeLegacyFallbackCount() {
+    _rowShapeLegacyFallbackCount = 0;
+  }
 
   final String id;
   final String startTime;
   final String? endTime;
+  // Legacy-shape primary fronter id. Equivalent to memberId in new-shape
+  // exports; preserved as `headmateId` in legacy exports for backward
+  // compatibility with PRISM1 v6/v7 files. New-shape exports populate this
+  // via the same field name (memberId) — both `memberId` and `headmateId`
+  // keys are accepted on read.
   final String? headmateId;
+  // Legacy-shape co-fronter list (always empty for SP/HealthKit/single-member
+  // native rows; populated for multi-member native rows). Retained on the
+  // model for the PRISM1 rescue importer (§4.7).
   final List<String> coFronterIds;
   final String? notes;
   final int? confidence;
   final String? pluralkitUuid;
-  // PluralKit Phase 2: JSON-encoded list of PK member UUIDs for this switch
-  // (additive; older exports default to null).
+  final String? pkImportSource;
+  final String? pkFileSwitchId;
+  // Legacy-shape: JSON-encoded list of PK member UUIDs for this switch.
+  // Retained in v7-era PRISM1 exports for the rescue importer (§4.7); the
+  // runtime column is unread from 0.7.0 onwards.
   final String? pkMemberIdsJson;
+
+  // -- New-shape fields (per-member fronting refactor §4.1) ------------
+  //
+  // `sessionType`: 0 = normal fronting, 1 = sleep / HealthKit. Only present
+  // in post-0.7.0 exports; legacy exports infer normal-vs-sleep from being
+  // in the `frontSessions` vs `sleepSessions` array.
+  final int? sessionType;
+  // `quality`: SleepQuality enum index for sleep rows. New-shape only;
+  // legacy sleep rows live in `sleepSessions` and use that schema.
+  final int? quality;
+  // `isHealthKitImport`: marker for HealthKit-imported sleep rows. New-shape
+  // only; legacy sleep rows use the same field on V1SleepSession.
+  final bool? isHealthKitImport;
+
+  // -- Rescue-importer support fields (not serialized) ----------------
+  //
+  // The raw JSON of `coFronterIds` as it appeared in the source file, kept
+  // verbatim so the rescue importer can detect corrupt JSON (per §6 edge
+  // cases). When the source value parses cleanly to a list of strings, this
+  // mirrors `coFronterIds`; when it's malformed the `coFronterIds` field
+  // falls back to empty and this carries the original raw value for logging.
+  final String? coFronterIdsRawJson;
+
+  // Per-row sniff result from `fromJson`: true when this row carries any
+  // legacy-shape marker (`coFronterIds`, `pkMemberIdsJson`, `headmateId`)
+  // and not the new-shape `memberId` / `sessionType` keys. The rescue
+  // importer routes legacy-shape rows through the §4.7 conversion logic;
+  // new-shape rows go through the standard import path.
+  final bool isLegacyShape;
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -404,21 +590,138 @@ class V1FrontSession {
     if (notes != null) 'notes': notes,
     if (confidence != null) 'confidence': confidence,
     if (pluralkitUuid != null) 'pluralkitUuid': pluralkitUuid,
+    if (pkImportSource != null) 'pkImportSource': pkImportSource,
+    if (pkFileSwitchId != null) 'pkFileSwitchId': pkFileSwitchId,
     if (pkMemberIdsJson != null) 'pkMemberIdsJson': pkMemberIdsJson,
+    if (sessionType != null) 'sessionType': sessionType,
+    if (quality != null) 'quality': quality,
+    if (isHealthKitImport != null) 'isHealthKitImport': isHealthKitImport,
   };
 
-  factory V1FrontSession.fromJson(Map<String, dynamic> json) => V1FrontSession(
-    id: json['id'] as String,
-    startTime: json['startTime'] as String,
-    endTime: json['endTime'] as String?,
-    headmateId: json['headmateId'] as String?,
-    coFronterIds:
-        (json['coFronterIds'] as List<dynamic>?)?.cast<String>() ?? [],
-    notes: json['notes'] as String?,
-    confidence: json['confidence'] as int?,
-    pluralkitUuid: json['pluralkitUuid'] as String?,
-    pkMemberIdsJson: json['pkMemberIdsJson'] as String?,
-  );
+  factory V1FrontSession.fromJson(
+    Map<String, dynamic> json, {
+    bool forceLegacyShape = false,
+  }) {
+    // Envelope-level marker takes precedence: when the parent V1Export
+    // carries `rescueLegacyFields: true` (set by the migration-time
+    // exporter), every row routes through the rescue path regardless
+    // of which legacy keys this particular row happens to carry. This
+    // is load-bearing: the real exporter omits empty / null legacy
+    // keys, so a backup row with `co_fronter_ids = []` and
+    // `pk_member_ids_json = NULL` (i.e., every native single-member
+    // row, plus orphan rows) carries no per-row marker at all and
+    // would otherwise bypass the rescue importer entirely.
+    //
+    // Per-row legacy-shape sniff: any legacy-only key present routes
+    // the row through the rescue path regardless of new-shape markers.
+    // The migration-time PRISM1 export emits BOTH legacy fields AND
+    // `sessionType` for the same row (it's a self-sufficient rescue
+    // bundle), so an AND-NOT detection would silently route those
+    // rows through the new-shape importer and drop the PK / native
+    // fan-out.
+    //
+    // The two unambiguously legacy-only keys are `coFronterIds` and
+    // `pkMemberIdsJson`. `headmateId` does NOT count: the new-shape
+    // exporter still emits it as the canonical member-id key in the
+    // V1 envelope (the freezed model field is named `headmateId` for
+    // historical reasons), and the new-shape importer accepts either
+    // `memberId` or `headmateId` as the local member id. Treating
+    // `headmateId` as a legacy marker would force every new-shape PK
+    // row through the rescue path on re-import.
+    //
+    // Real pre-0.7 PRISM1 exports omit empty / null legacy keys exactly
+    // like new-shape exports do, so the explicit-key sniff ALONE leaks
+    // two row shapes through to the new-shape path:
+    //   1. Solo PK rows (pluralkitUuid set, headmateId set, no
+    //      coFronterIds, no pkMemberIdsJson) — would skip the PK
+    //      deterministic-id derivation and land at the legacy random
+    //      v4 id, breaking the (switch, member) collision contract on
+    //      future API re-import.
+    //   2. Orphan native rows (no headmateId, no coFronterIds) —
+    //      would land with member_id NULL, which v8's CHECK constraint
+    //      rejects.
+    //
+    // Broaden detection so any row that could plausibly be from a
+    // pre-0.7 file routes to legacy. The new-shape carve-out is the
+    // presence of `sessionType` (or `memberId`): pre-0.7 exports never
+    // emit either key. Sleep rows in pre-0.7 files lived in
+    // `sleepSessions`, never in `frontSessions`, so the legacy
+    // importer's normal-only assumption is safe.
+    final hasLegacyKeys =
+        json.containsKey('coFronterIds') || json.containsKey('pkMemberIdsJson');
+    final hasNewShapeMarker =
+        json.containsKey('sessionType') || json.containsKey('memberId');
+    final hasHeadmateId = json.containsKey('headmateId');
+    final hasPluralkitUuid = json.containsKey('pluralkitUuid');
+    final rowShapeLegacy =
+        hasLegacyKeys ||
+        (hasPluralkitUuid && !hasNewShapeMarker) ||
+        (!hasHeadmateId &&
+            !json.containsKey('coFronterIds') &&
+            !hasNewShapeMarker);
+    final isLegacy = forceLegacyShape || rowShapeLegacy;
+    // Diagnostic counter for review finding #39 + remediation plan WS4
+    // step 7: log every time the per-row sniff (rather than the
+    // envelope `rescueLegacyFields` flag) is what flipped a row to
+    // legacy. Production migration-time exports always set the
+    // envelope flag, so a non-zero count here means we hit a real
+    // pre-marker file in the wild — useful evidence for keeping (or
+    // eventually removing) the row-shape fallback.
+    if (!forceLegacyShape && rowShapeLegacy) {
+      _rowShapeLegacyFallbackCount++;
+    }
+
+    // Tolerate a malformed `coFronterIds` value (per §6 edge cases — if
+    // expansion fails to parse, fall back to single-member migration).
+    // The raw value is preserved for logging by the rescue importer.
+    final rawCo = json['coFronterIds'];
+    String? rawCoJson;
+    List<String> coIds;
+    if (rawCo == null) {
+      coIds = const [];
+    } else if (rawCo is List) {
+      try {
+        coIds = rawCo.cast<String>();
+      } catch (_) {
+        coIds = const [];
+        rawCoJson = jsonEncode(rawCo);
+      }
+    } else if (rawCo is String) {
+      // Some exports may have stringified the array — try to parse, fall
+      // back to empty.
+      rawCoJson = rawCo;
+      try {
+        final parsed = jsonDecode(rawCo);
+        coIds = parsed is List ? parsed.cast<String>() : const <String>[];
+      } catch (_) {
+        coIds = const [];
+      }
+    } else {
+      coIds = const [];
+      rawCoJson = rawCo.toString();
+    }
+
+    return V1FrontSession(
+      id: json['id'] as String,
+      startTime: json['startTime'] as String,
+      endTime: json['endTime'] as String?,
+      // Accept either key — new-shape exports use `memberId`, legacy use
+      // `headmateId`. Stored on the same field.
+      headmateId: json['memberId'] as String? ?? json['headmateId'] as String?,
+      coFronterIds: coIds,
+      coFronterIdsRawJson: rawCoJson,
+      notes: json['notes'] as String?,
+      confidence: json['confidence'] as int?,
+      pluralkitUuid: json['pluralkitUuid'] as String?,
+      pkImportSource: json['pkImportSource'] as String?,
+      pkFileSwitchId: json['pkFileSwitchId'] as String?,
+      pkMemberIdsJson: json['pkMemberIdsJson'] as String?,
+      sessionType: json['sessionType'] as int?,
+      quality: json['quality'] as int?,
+      isHealthKitImport: json['isHealthKitImport'] as bool?,
+      isLegacyShape: isLegacy,
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1356,34 +1659,89 @@ class V1Note {
 class V1FrontSessionComment {
   V1FrontSessionComment({
     required this.id,
-    required this.sessionId,
+    this.sessionId,
     required this.body,
     required this.timestamp,
     required this.createdAt,
+    this.targetTime,
+    this.authorMemberId,
+    this.isLegacyShape = false,
   });
 
+  /// Process-wide counter for the per-row legacy-shape fallback.
+  /// Mirrors [V1FrontSession.rowShapeLegacyFallbackCount] for comments.
+  /// See review finding #39 + remediation plan WS4 step 7.
+  static int _rowShapeLegacyFallbackCount = 0;
+  static int get rowShapeLegacyFallbackCount => _rowShapeLegacyFallbackCount;
+  static void resetRowShapeLegacyFallbackCount() {
+    _rowShapeLegacyFallbackCount = 0;
+  }
+
   final String id;
-  final String sessionId;
+  // Legacy-shape FK to fronting_sessions. Required in pre-0.7.0 exports;
+  // omitted in new-shape exports (comments anchor to targetTime, not a
+  // session id). Kept on the model for the PRISM1 rescue importer (§4.7).
+  final String? sessionId;
   final String body;
   final String timestamp;
   final String createdAt;
 
+  // -- New-shape fields (per-member fronting refactor §3.5) -----------
+  //
+  // `targetTime`: the moment this comment is about. Replaces the
+  // session-id anchor in new-shape exports. Comment lookups for a period
+  // join on `targetTime IN [period.start, period.end)`.
+  final String? targetTime;
+  // `authorMemberId`: optional member who wrote the comment. New-shape
+  // only — legacy comments derive author from the parent session's
+  // member during the rescue conversion.
+  final String? authorMemberId;
+
+  // Per-row sniff result: true when the comment carries `sessionId` and
+  // none of the new-shape `targetTime` / `authorMemberId` keys. Routes
+  // through the §4.7 rescue conversion in the importer.
+  final bool isLegacyShape;
+
   Map<String, dynamic> toJson() => {
     'id': id,
-    'sessionId': sessionId,
+    if (sessionId != null) 'sessionId': sessionId,
     'body': body,
     'timestamp': timestamp,
     'createdAt': createdAt,
+    if (targetTime != null) 'targetTime': targetTime,
+    if (authorMemberId != null) 'authorMemberId': authorMemberId,
   };
 
-  factory V1FrontSessionComment.fromJson(Map<String, dynamic> json) =>
-      V1FrontSessionComment(
-        id: json['id'] as String,
-        sessionId: json['sessionId'] as String,
-        body: json['body'] as String,
-        timestamp: json['timestamp'] as String,
-        createdAt: json['createdAt'] as String,
-      );
+  factory V1FrontSessionComment.fromJson(
+    Map<String, dynamic> json, {
+    bool forceLegacyShape = false,
+  }) {
+    // Envelope-level marker takes precedence (see V1FrontSession.fromJson).
+    // When the parent V1Export carries `rescueLegacyFields: true`, route
+    // every comment through the legacy/rescue path even if it carries
+    // `targetTime` / `authorMemberId` (the migration-time export emits
+    // both shapes on the same row).
+    final hasSessionId =
+        json.containsKey('sessionId') &&
+        (json['sessionId'] as String?)?.isNotEmpty == true;
+    final hasNewShapeMarker =
+        json.containsKey('targetTime') || json.containsKey('authorMemberId');
+    final rowShapeLegacy = hasSessionId && !hasNewShapeMarker;
+    final isLegacy = forceLegacyShape || rowShapeLegacy;
+    if (!forceLegacyShape && rowShapeLegacy) {
+      _rowShapeLegacyFallbackCount++;
+    }
+    return V1FrontSessionComment(
+      id: json['id'] as String,
+      sessionId: json['sessionId'] as String?,
+      body: json['body'] as String,
+      timestamp: json['timestamp'] as String,
+      createdAt: json['createdAt'] as String,
+      targetTime: json['targetTime'] as String?,
+      authorMemberId: json['authorMemberId'] as String?,
+      isLegacyShape: isLegacy,
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------

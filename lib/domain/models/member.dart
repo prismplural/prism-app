@@ -12,6 +12,14 @@ Uint8List? _uint8ListFromJson(String? json) =>
 String? _uint8ListToJson(Uint8List? bytes) =>
     bytes == null ? null : base64Encode(bytes);
 
+enum MemberProfileHeaderSource { pluralKit, prism }
+
+enum MemberProfileHeaderLayout { compactBackground, classicOverlap }
+
+enum MemberNameFont { standard, display, serif, mono, rounded }
+
+enum MemberNameColorMode { standard, accent, custom }
+
 @freezed
 abstract class Member with _$Member {
   const factory Member({
@@ -37,6 +45,22 @@ abstract class Member with _$Member {
     String? birthday,
     String? proxyTagsJson,
     String? pkBannerUrl,
+    @Default(MemberProfileHeaderSource.prism)
+    MemberProfileHeaderSource profileHeaderSource,
+    @Default(MemberProfileHeaderLayout.compactBackground)
+    MemberProfileHeaderLayout profileHeaderLayout,
+    @Default(true) bool profileHeaderVisible,
+    @Default(MemberNameFont.standard) MemberNameFont nameStyleFont,
+    @Default(true) bool nameStyleBold,
+    @Default(false) bool nameStyleItalic,
+    @Default(MemberNameColorMode.standard)
+    MemberNameColorMode nameStyleColorMode,
+    String? nameStyleColorHex,
+    @JsonKey(fromJson: _uint8ListFromJson, toJson: _uint8ListToJson)
+    Uint8List? profileHeaderImageData,
+    @JsonKey(fromJson: _uint8ListFromJson, toJson: _uint8ListToJson)
+    Uint8List? pkBannerImageData,
+    String? pkBannerCachedUrl,
     @Default(false) bool pluralkitSyncIgnored,
     // Plan 02 (PK deletion push). Set by the repo when a PK-linked member is
     // soft-deleted; consumed only by the PK push path. `isDeleted` is mirrored
@@ -44,6 +68,11 @@ abstract class Member with _$Member {
     @Default(false) bool isDeleted,
     int? deleteIntentEpoch,
     int? deletePushStartedAt,
+    // Per-member fronting refactor (docs/plans/fronting-per-member-sessions.md
+    // §2.3): when true, this member's session is treated as "background" and
+    // omitted from avatar stacks, surfaced instead in the "Always-present"
+    // header on period detail screens. Default false; opt-in per member.
+    @Default(false) bool isAlwaysFronting,
   }) = _Member;
 
   factory Member.fromJson(Map<String, dynamic> json) => _$MemberFromJson(json);

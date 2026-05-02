@@ -124,13 +124,24 @@ class TimelineData {
 }
 
 /// Provides timeline rows: sessions grouped by member for display.
-/// Expands co-fronters so each member who participated gets their own row entry.
+///
+/// In the per-member model each fronting_sessions row already belongs to
+/// exactly one member — there are no `coFronterIds` to expand. The timeline
+/// view simply groups rows by `memberId`.
+///
+/// TODO(§4.6): Phase 3 will replace this with the derived-period algorithm
+/// from spec §4.6 so the timeline surfaces computed overlap periods.  For now
+/// the view receives raw per-member sessions and does its own grouping.
 final timelineRowsProvider =
     Provider.autoDispose<AsyncValue<TimelineData>>((ref) {
   final limit = ref.watch(timelineSessionLimitProvider);
   final sessionsAsync = ref.watch(frontingHistoryProvider(limit));
-  final sleepSessionsAsync = ref.watch(recentSleepSessionsProvider);
-  final membersAsync = ref.watch(activeMembersProvider);
+  final sleepSessionsAsync = ref.watch(recentSleepSessionsPaginatedProvider(20));
+  // History view: include inactive (but not hard-deleted) members so their
+  // past sessions still render. `activeMembersProvider` would silently drop
+  // any session whose member has since been set inactive, leaving phantom
+  // gaps in the historical timeline.
+  final membersAsync = ref.watch(allMembersProvider);
 
   return sessionsAsync.when(
     loading: () => const AsyncValue.loading(),
@@ -144,17 +155,14 @@ final timelineRowsProvider =
             loading: () => const AsyncValue.loading(),
             error: AsyncValue.error,
             data: (members) {
-              // Group fronting sessions by member, expanding co-fronters.
+              // Group per-member sessions by memberId.  No co-fronter
+              // expansion needed — each row is already scoped to one member.
               final rowMap = <String, List<FrontingSession>>{};
 
               for (final session in sessions) {
-                final primaryId = session.memberId;
-                if (primaryId != null) {
-                  rowMap.putIfAbsent(primaryId, () => []).add(session);
-                }
-
-                for (final coId in session.coFronterIds) {
-                  rowMap.putIfAbsent(coId, () => []).add(session);
+                final memberId = session.memberId;
+                if (memberId != null) {
+                  rowMap.putIfAbsent(memberId, () => []).add(session);
                 }
               }
 

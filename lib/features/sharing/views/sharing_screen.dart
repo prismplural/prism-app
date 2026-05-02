@@ -10,6 +10,7 @@ import 'package:prism_plurality/core/sharing/pending_sharing_request.dart';
 import 'package:prism_plurality/core/sharing/share_scope.dart';
 import 'package:prism_plurality/core/sharing/sharing_providers.dart';
 import 'package:prism_plurality/core/sharing/sharing_service.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
@@ -49,6 +50,7 @@ class _SharingScreenState extends ConsumerState<SharingScreen> {
     final friends = ref.watch(friendsProvider);
     final pendingAsync = ref.watch(pendingSharingRequestsProvider);
     final pending = pendingAsync.value ?? const <PendingSharingRequest>[];
+    final terms = watchTerminology(context, ref);
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
@@ -78,80 +80,82 @@ class _SharingScreenState extends ConsumerState<SharingScreen> {
       body: pendingAsync.isLoading && friends.isEmpty
           ? const PrismLoadingState()
           : friends.isEmpty && pending.isEmpty
-              ? RefreshIndicator(
-                  onRefresh: () => _refreshInbox(showNoopToast: false),
-                  child: CustomScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    slivers: [
-                      SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: _EmptyState(
-                          onCreateInvite: () => _showCreateInvite(context),
-                          onUseInvite: () => _showUseInvite(context),
+          ? RefreshIndicator(
+              onRefresh: () => _refreshInbox(showNoopToast: false),
+              child: CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: _EmptyState(
+                      onCreateInvite: () => _showCreateInvite(context),
+                      onUseInvite: () => _showUseInvite(context),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : RefreshIndicator(
+              onRefresh: () => _refreshInbox(showNoopToast: false),
+              child: ListView(
+                padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
+                children: [
+                  if (pending.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text(
+                        context.l10n.sharingPendingRequests,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          color: Theme.of(context).colorScheme.primary,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                    ],
-                  ),
-                )
-              : RefreshIndicator(
-                  onRefresh: () => _refreshInbox(showNoopToast: false),
-                  child: ListView(
-                    padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
-                    children: [
-                      if (pending.isNotEmpty) ...[
-                        const SizedBox(height: 12),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Text(
-                            context.l10n.sharingPendingRequests,
-                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              color: Theme.of(context).colorScheme.primary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
+                    ),
+                    const SizedBox(height: 8),
+                    ...pending.map(
+                      (request) => Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 6,
                         ),
-                        const SizedBox(height: 8),
-                        ...pending.map(
-                          (request) => Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 6,
-                            ),
-                            child: _PendingRequestCard(
-                              request: request,
-                              onAccept: request.canAccept
-                                  ? () => _acceptRequest(request)
-                                  : null,
-                              onDismiss: () => _dismissRequest(request),
-                            ),
-                          ),
+                        child: _PendingRequestCard(
+                          request: request,
+                          termPlural: terms.plural,
+                          onAccept: request.canAccept
+                              ? () => _acceptRequest(request)
+                              : null,
+                          onDismiss: () => _dismissRequest(request),
                         ),
-                        const SizedBox(height: 16),
-                      ],
-                      if (friends.isNotEmpty) ...[
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Text(
-                            context.l10n.sharingTrustedPeople,
-                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              color: Theme.of(context).colorScheme.primary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  if (friends.isNotEmpty) ...[
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text(
+                        context.l10n.sharingTrustedPeople,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          color: Theme.of(context).colorScheme.primary,
+                          fontWeight: FontWeight.w600,
                         ),
-                        const SizedBox(height: 8),
-                        ...friends.map(
-                          (friend) => _FriendTile(
-                            friend: friend,
-                            onTap: () =>
-                                context.go('/settings/sharing/${friend.id}'),
-                            onDelete: () => _confirmDelete(context, friend),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ...friends.map(
+                      (friend) => _FriendTile(
+                        friend: friend,
+                        termPlural: terms.plural,
+                        onTap: () =>
+                            context.go('/settings/sharing/${friend.id}'),
+                        onDelete: () => _confirmDelete(context, friend),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
     );
   }
 
@@ -169,10 +173,7 @@ class _SharingScreenState extends ConsumerState<SharingScreen> {
       builder: (context, _) => const AcceptInviteSheet(),
     );
     if (result == true && context.mounted) {
-      PrismToast.show(
-        context,
-        message: context.l10n.sharingRequestSent,
-      );
+      PrismToast.show(context, message: context.l10n.sharingRequestSent);
     }
   }
 
@@ -181,7 +182,10 @@ class _SharingScreenState extends ConsumerState<SharingScreen> {
     final sharingService = ref.read(sharingServiceProvider);
     if (sharingService == null) {
       if (mounted) {
-        PrismToast.error(context, message: context.l10n.sharingSyncNotConfigured);
+        PrismToast.error(
+          context,
+          message: context.l10n.sharingSyncNotConfigured,
+        );
       }
       return;
     }
@@ -266,11 +270,13 @@ class _SharingScreenState extends ConsumerState<SharingScreen> {
 class _PendingRequestCard extends StatelessWidget {
   const _PendingRequestCard({
     required this.request,
+    required this.termPlural,
     required this.onDismiss,
     this.onAccept,
   });
 
   final PendingSharingRequest request;
+  final String termPlural;
   final VoidCallback onDismiss;
   final VoidCallback? onAccept;
 
@@ -335,7 +341,7 @@ class _PendingRequestCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               request.offeredScopes
-                  .map((scope) => scope.displayName)
+                  .map((scope) => scope.displayNameFor(termPlural: termPlural))
                   .join(', '),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
@@ -347,7 +353,9 @@ class _PendingRequestCard extends StatelessWidget {
             children: [
               Expanded(
                 child: PrismButton(
-                  label: request.canAccept ? context.l10n.sharingIgnore : context.l10n.sharingDismiss,
+                  label: request.canAccept
+                      ? context.l10n.sharingIgnore
+                      : context.l10n.sharingDismiss,
                   onPressed: onDismiss,
                   tone: PrismButtonTone.subtle,
                 ),
@@ -374,11 +382,13 @@ class _PendingRequestCard extends StatelessWidget {
 class _FriendTile extends StatelessWidget {
   const _FriendTile({
     required this.friend,
+    required this.termPlural,
     required this.onTap,
     required this.onDelete,
   });
 
   final Friend friend;
+  final String termPlural;
   final VoidCallback onTap;
   final VoidCallback onDelete;
 
@@ -428,7 +438,8 @@ class _FriendTile extends StatelessWidget {
           ],
         ),
         subtitle: Text(
-          highestScope?.displayName ?? context.l10n.sharingNoScopesGranted,
+          highestScope?.displayNameFor(termPlural: termPlural) ??
+              context.l10n.sharingNoScopesGranted,
           style: theme.textTheme.bodySmall,
         ),
         trailing: friend.lastSyncAt != null
@@ -447,7 +458,9 @@ class _FriendTile extends StatelessWidget {
   String _formatRelativeTime(DateTime dt, BuildContext context) {
     final diff = DateTime.now().difference(dt);
     if (diff.inMinutes < 1) return context.l10n.sharingJustNow;
-    if (diff.inMinutes < 60) return context.l10n.sharingMinutesAgo(diff.inMinutes);
+    if (diff.inMinutes < 60) {
+      return context.l10n.sharingMinutesAgo(diff.inMinutes);
+    }
     if (diff.inHours < 24) return context.l10n.sharingHoursAgo(diff.inHours);
     return context.l10n.sharingDaysAgo(diff.inDays);
   }

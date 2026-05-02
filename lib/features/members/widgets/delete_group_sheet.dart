@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
@@ -48,7 +49,10 @@ class _DeleteGroupSheetState extends ConsumerState<DeleteGroupSheet> {
     final confirmed = await PrismDialog.confirm(
       context: context,
       title: l10n.memberGroupDeleteAllConfirmTitle,
-      message: l10n.memberGroupDeleteAllConfirmMessage(widget.group.name),
+      message: l10n.memberGroupDeleteAllConfirmMessage(
+        widget.group.name,
+        readTerminology(context, ref).plural,
+      ),
       confirmLabel: l10n.memberGroupDeleteAll,
       destructive: true,
     );

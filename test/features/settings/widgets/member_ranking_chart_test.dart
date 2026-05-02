@@ -4,7 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/domain/models/fronting_analytics.dart';
 import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/features/settings/widgets/member_ranking_chart.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 
@@ -38,6 +40,12 @@ Widget _wrap(
       membersByIdsProvider.overrideWith((ref, idsKey) {
         return Stream.value({for (final m in members) m.id: m});
       }),
+      terminologySettingProvider.overrideWith((ref) => (
+            term: SystemTerminology.headmates,
+            customSingular: null,
+            customPlural: null,
+            useEnglish: false,
+          )),
     ],
     child: MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -57,7 +65,7 @@ void main() {
       await tester
           .pumpWidget(_wrap(const MemberRankingChart(memberStats: []),
               members: const []));
-      expect(find.text('Fronting Time by Member'), findsNothing);
+      expect(find.text('Per-headmate minutes'), findsNothing);
     });
 
     testWidgets('renders one bar per member with name + total time',
@@ -77,7 +85,7 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      expect(find.text('Fronting Time by Member'), findsOneWidget);
+      expect(find.text('Per-headmate minutes'), findsOneWidget);
       expect(find.text('Alice'), findsOneWidget);
       expect(find.text('Bob'), findsOneWidget);
       expect(find.text('Cassie'), findsOneWidget);

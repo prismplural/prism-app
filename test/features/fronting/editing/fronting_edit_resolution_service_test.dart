@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/features/fronting/editing/fronting_edit_resolution_models.dart';
 import 'package:prism_plurality/features/fronting/editing/fronting_edit_resolution_service.dart';
 import 'package:prism_plurality/features/fronting/editing/fronting_session_change.dart';
@@ -11,7 +12,6 @@ FrontingSessionSnapshot _snap({
   String? memberId = 'alice',
   required DateTime start,
   DateTime? end,
-  List<String> coFronterIds = const [],
   String? notes,
   int? confidenceIndex,
 }) {
@@ -20,7 +20,6 @@ FrontingSessionSnapshot _snap({
     memberId: memberId,
     start: start,
     end: end,
-    coFronterIds: coFronterIds,
     notes: notes,
     confidenceIndex: confidenceIndex,
   );
@@ -108,15 +107,12 @@ void main() {
     });
 
     test('near-zero duration after trim: wouldDeleteConflicting=true', () {
-      // Edited: 10:00–12:00, Conflicting: 11:59–12:01 — after trim start moves to 12:00 = 1min
-      // Let's make it zero: Conflicting: 12:00–12:00 won't happen, use same start/end
-      // Instead: Conflicting 11:00–12:00 fully covered by edited 10:00–12:00
+      // Edited: 10:00–12:00, Conflicting: 11:00–12:00 — after trim start moves to 12:00 = zero duration
       final edited = _snap(
         id: 'edited',
         start: DateTime(2025, 1, 1, 10, 0),
         end: DateTime(2025, 1, 1, 12, 0),
       );
-      // Conflicting: 11:00–12:00 - after trim start would move to 12:00 = zero duration
       final conflicting = _snap(
         id: 'conflict',
         memberId: 'bob',
@@ -131,235 +127,6 @@ void main() {
         result.changes.whereType<DeleteSessionChange>().map((c) => c.sessionId),
         contains('conflict'),
       );
-    });
-  });
-
-  // ════════════════════════════════════════════════════════════════════════════
-  // computeCoFrontingChanges
-  // ════════════════════════════════════════════════════════════════════════════
-
-  group('computeCoFrontingChanges', () {
-    test('partial overlap produces 3 changes (update A, create co-front, update B)',
-        () {
-      // A (alice, 10:00–14:00) overlaps B (bob, 13:00–15:00)
-      final edited = _snap(
-        id: 'alice-session',
-        memberId: 'alice',
-        start: DateTime(2025, 1, 1, 10, 0),
-        end: DateTime(2025, 1, 1, 14, 0),
-      );
-      final conflicting = _snap(
-        id: 'bob-session',
-        memberId: 'bob',
-        start: DateTime(2025, 1, 1, 13, 0),
-        end: DateTime(2025, 1, 1, 15, 0),
-      );
-
-      final changes = service.computeCoFrontingChanges(edited, conflicting);
-
-      expect(changes, hasLength(3));
-      expect(changes.whereType<UpdateSessionChange>(), hasLength(2));
-      expect(changes.whereType<CreateSessionChange>(), hasLength(1));
-    });
-
-    test('co-front segment has edited member as memberId, conflicting as co-fronter',
-        () {
-      final edited = _snap(
-        id: 'alice-session',
-        memberId: 'alice',
-        start: DateTime(2025, 1, 1, 10, 0),
-        end: DateTime(2025, 1, 1, 14, 0),
-      );
-      final conflicting = _snap(
-        id: 'bob-session',
-        memberId: 'bob',
-        start: DateTime(2025, 1, 1, 13, 0),
-        end: DateTime(2025, 1, 1, 15, 0),
-      );
-
-      final changes = service.computeCoFrontingChanges(edited, conflicting);
-
-      final create = changes.whereType<CreateSessionChange>().first;
-      expect(create.session.memberId, 'alice');
-      expect(create.session.coFronterIds, contains('bob'));
-    });
-
-    test('existing co-fronters merge without duplicates', () {
-      final edited = _snap(
-        id: 'alice-session',
-        memberId: 'alice',
-        start: DateTime(2025, 1, 1, 10, 0),
-        end: DateTime(2025, 1, 1, 14, 0),
-        coFronterIds: ['charlie'], // alice already co-fronts with charlie
-      );
-      final conflicting = _snap(
-        id: 'bob-session',
-        memberId: 'bob',
-        start: DateTime(2025, 1, 1, 13, 0),
-        end: DateTime(2025, 1, 1, 15, 0),
-        coFronterIds: ['charlie'], // bob also co-fronts with charlie
-      );
-
-      final changes = service.computeCoFrontingChanges(edited, conflicting);
-
-      final create = changes.whereType<CreateSessionChange>().first;
-      // Should have bob and charlie, but charlie not duplicated
-      expect(create.session.coFronterIds, contains('bob'));
-      expect(create.session.coFronterIds, contains('charlie'));
-      expect(create.session.coFronterIds.where((id) => id == 'charlie').length, 1);
-      // alice is the memberId, should not be in coFronterIds
-      expect(create.session.coFronterIds, isNot(contains('alice')));
-    });
-
-    test('higher confidence used in co-front segment', () {
-      final edited = _snap(
-        id: 'alice-session',
-        memberId: 'alice',
-        start: DateTime(2025, 1, 1, 10, 0),
-        end: DateTime(2025, 1, 1, 14, 0),
-        confidenceIndex: 0, // unsure
-      );
-      final conflicting = _snap(
-        id: 'bob-session',
-        memberId: 'bob',
-        start: DateTime(2025, 1, 1, 13, 0),
-        end: DateTime(2025, 1, 1, 15, 0),
-        confidenceIndex: 2, // certain
-      );
-
-      final changes = service.computeCoFrontingChanges(edited, conflicting);
-
-      final create = changes.whereType<CreateSessionChange>().first;
-      expect(create.session.confidenceIndex, 2); // higher wins
-    });
-
-    test('notes joined with " | "', () {
-      final edited = _snap(
-        id: 'alice-session',
-        memberId: 'alice',
-        start: DateTime(2025, 1, 1, 10, 0),
-        end: DateTime(2025, 1, 1, 14, 0),
-        notes: 'Alice note',
-      );
-      final conflicting = _snap(
-        id: 'bob-session',
-        memberId: 'bob',
-        start: DateTime(2025, 1, 1, 13, 0),
-        end: DateTime(2025, 1, 1, 15, 0),
-        notes: 'Bob note',
-      );
-
-      final changes = service.computeCoFrontingChanges(edited, conflicting);
-
-      final create = changes.whereType<CreateSessionChange>().first;
-      expect(create.session.notes, 'Alice note | Bob note');
-    });
-
-    test('notes: only one note, no separator', () {
-      final edited = _snap(
-        id: 'alice-session',
-        memberId: 'alice',
-        start: DateTime(2025, 1, 1, 10, 0),
-        end: DateTime(2025, 1, 1, 14, 0),
-        notes: 'Alice note',
-      );
-      final conflicting = _snap(
-        id: 'bob-session',
-        memberId: 'bob',
-        start: DateTime(2025, 1, 1, 13, 0),
-        end: DateTime(2025, 1, 1, 15, 0),
-        notes: null,
-      );
-
-      final changes = service.computeCoFrontingChanges(edited, conflicting);
-
-      final create = changes.whereType<CreateSessionChange>().first;
-      expect(create.session.notes, 'Alice note');
-    });
-
-    test('full containment: 4 changes (update A end, create co-front, create solo A, delete B)',
-        () {
-      // Edited A: 10:00–16:00, Conflicting B: 12:00–14:00 (fully inside A)
-      final edited = _snap(
-        id: 'alice-session',
-        memberId: 'alice',
-        start: DateTime(2025, 1, 1, 10, 0),
-        end: DateTime(2025, 1, 1, 16, 0),
-      );
-      final conflicting = _snap(
-        id: 'bob-session',
-        memberId: 'bob',
-        start: DateTime(2025, 1, 1, 12, 0),
-        end: DateTime(2025, 1, 1, 14, 0),
-      );
-
-      final changes = service.computeCoFrontingChanges(edited, conflicting);
-
-      expect(changes, hasLength(4));
-      // update A (trim to overlapStart)
-      // create co-front (12:00–14:00)
-      // create solo A (14:00–16:00)
-      // delete B
-      expect(changes.whereType<UpdateSessionChange>(), hasLength(1));
-      expect(changes.whereType<CreateSessionChange>(), hasLength(2));
-      expect(changes.whereType<DeleteSessionChange>(), hasLength(1));
-
-      final del = changes.whereType<DeleteSessionChange>().first;
-      expect(del.sessionId, 'bob-session');
-    });
-
-    test('active session overlap: active co-front segment keeps null end', () {
-      // Edited A: 10:00–active, Conflicting B: 12:00–active
-      final edited = _snap(
-        id: 'alice-session',
-        memberId: 'alice',
-        start: DateTime(2025, 1, 1, 10, 0),
-        end: null, // active
-      );
-      final conflicting = _snap(
-        id: 'bob-session',
-        memberId: 'bob',
-        start: DateTime(2025, 1, 1, 12, 0),
-        end: null, // active
-      );
-
-      final changes = service.computeCoFrontingChanges(edited, conflicting);
-
-      final create = changes.whereType<CreateSessionChange>().first;
-      // co-front segment should be active (null end) since both were active
-      expect(create.session.end, isNull);
-    });
-
-    test('partial overlap where conflicting starts first: update conflicting end, create co-front, update edited start',
-        () {
-      // A (alice, 13:00–15:00) overlaps B (bob, 10:00–14:00), bob starts first
-      final edited = _snap(
-        id: 'alice-session',
-        memberId: 'alice',
-        start: DateTime(2025, 1, 1, 13, 0),
-        end: DateTime(2025, 1, 1, 15, 0),
-      );
-      final conflicting = _snap(
-        id: 'bob-session',
-        memberId: 'bob',
-        start: DateTime(2025, 1, 1, 10, 0),
-        end: DateTime(2025, 1, 1, 14, 0),
-      );
-
-      final changes = service.computeCoFrontingChanges(edited, conflicting);
-
-      expect(changes, hasLength(3));
-      // update B end to 13:00, create co-front 13:00–14:00, update A start to 14:00
-      final updates = changes.whereType<UpdateSessionChange>().toList();
-      final conflictingUpdate = updates.firstWhere((u) => u.sessionId == 'bob-session');
-      expect(conflictingUpdate.patch.end, DateTime(2025, 1, 1, 13, 0));
-
-      final editedUpdate = updates.firstWhere((u) => u.sessionId == 'alice-session');
-      expect(editedUpdate.patch.start, DateTime(2025, 1, 1, 14, 0));
-
-      final create = changes.whereType<CreateSessionChange>().first;
-      expect(create.session.start, DateTime(2025, 1, 1, 13, 0));
-      expect(create.session.end, DateTime(2025, 1, 1, 14, 0));
     });
   });
 
@@ -416,29 +183,9 @@ void main() {
       expect(update.patch.start, DateTime(2025, 1, 1, 14, 0));
     });
 
-    test('single overlap resolves correctly with makeCoFronting', () {
-      final edited = _snap(
-        id: 'edited',
-        memberId: 'alice',
-        start: DateTime(2025, 1, 1, 10, 0),
-        end: DateTime(2025, 1, 1, 14, 0),
-      );
-      final overlap = _snap(
-        id: 'overlap',
-        memberId: 'bob',
-        start: DateTime(2025, 1, 1, 12, 0),
-        end: DateTime(2025, 1, 1, 15, 0),
-      );
-
-      final changes = service.resolveAllOverlaps(
-        edited: edited,
-        overlaps: [overlap],
-        resolution: OverlapResolution.makeCoFronting,
-      );
-
-      expect(changes, isNotEmpty);
-      expect(changes.whereType<CreateSessionChange>(), isNotEmpty);
-    });
+    // makeCoFronting is removed — cross-member overlaps are valid by design
+    // and are never passed to resolveAllOverlaps. Only same-member self-overlaps
+    // or sleep↔front cross-type overlaps reach resolution.
 
     test('multiple overlaps: boundaries update after each resolution', () {
       // Edited: 10:00–16:00
@@ -612,13 +359,20 @@ void main() {
       expect(del.sessionId, 'to-delete');
     });
 
-    test('convertToUnknown: memberId cleared, coFronterIds cleared, not deleted', () {
+    test(
+        'convertToUnknown: memberId set to Unknown sentinel, '
+        'session not deleted',
+        () {
+      // In the per-member model, coFronterIds no longer exists.
+      // convertToUnknown writes the canonical Unknown sentinel id
+      // directly so analytics treats the row identically to rows from
+      // the "Front as Unknown" sheet — no clearMemberId / null-routing
+      // step required at read time.
       final session = _snap(
         id: 'to-convert',
         memberId: 'alice',
         start: DateTime(2025, 1, 1, 10, 0),
         end: DateTime(2025, 1, 1, 11, 0),
-        coFronterIds: ['bob'],
       );
       final context = FrontingDeleteContext(session: session);
 
@@ -628,8 +382,9 @@ void main() {
       expect(changes, hasLength(1));
       final update = changes.whereType<UpdateSessionChange>().first;
       expect(update.sessionId, 'to-convert');
-      expect(update.patch.clearMemberId, isTrue);
-      expect(update.patch.coFronterIds, isEmpty);
+      expect(update.patch.clearMemberId, isFalse,
+          reason: 'should write the sentinel id, not null');
+      expect(update.patch.memberId, unknownSentinelMemberId);
     });
 
     test('leaveGap: just deletes the session', () {
@@ -654,7 +409,9 @@ void main() {
   // ════════════════════════════════════════════════════════════════════════════
 
   group('computeGapFillChanges', () {
-    test('creates Unknown session with null memberId for each gap', () {
+    test(
+        'creates Unknown session with the sentinel memberId for each gap',
+        () {
       final gaps = [
         GapInfo(
           start: DateTime(2025, 1, 1, 11, 0),
@@ -671,7 +428,11 @@ void main() {
       expect(changes, hasLength(2));
       for (final change in changes) {
         final create = change as CreateSessionChange;
-        expect(create.session.memberId, isNull);
+        // The writer side now produces the canonical sentinel id rather
+        // than null — analytics no longer has to compensate, and the
+        // change executor lazily creates the sentinel member entity
+        // before the session row lands.
+        expect(create.session.memberId, unknownSentinelMemberId);
       }
       final creates = changes.cast<CreateSessionChange>().toList();
       expect(creates[0].session.start, DateTime(2025, 1, 1, 11, 0));
@@ -685,7 +446,7 @@ void main() {
       expect(changes, isEmpty);
     });
 
-    test('single gap creates one Unknown session', () {
+    test('single gap creates one Unknown sentinel session', () {
       final gaps = [
         GapInfo(
           start: DateTime(2025, 1, 1, 11, 0),
@@ -699,8 +460,7 @@ void main() {
 
       expect(changes, hasLength(1));
       final create = changes.first as CreateSessionChange;
-      expect(create.session.memberId, isNull);
-      expect(create.session.coFronterIds, isEmpty);
+      expect(create.session.memberId, unknownSentinelMemberId);
       expect(create.session.start, DateTime(2025, 1, 1, 11, 0));
       expect(create.session.end, DateTime(2025, 1, 1, 12, 0));
     });

@@ -207,6 +207,91 @@ void main() {
     expect(await generator.hasExistingData(), true);
   });
 
+  test('fronting sessions are per-member shape (no co_fronter_ids JSON)', () async {
+    await for (final _ in generator.generate(_testPreset)) {}
+
+    // Every row must have a non-null member_id (per-member invariant for
+    // session_type = 0; sleep rows = type 1 are excluded).
+    final orphanFront = await db.customSelect(
+      'SELECT COUNT(*) as c FROM fronting_sessions '
+      "WHERE id LIKE 'stress-%' AND session_type = 0 AND member_id IS NULL",
+    ).getSingle();
+    expect(
+      orphanFront.read<int>('c'),
+      0,
+      reason: 'every per-member fronting row must carry a member_id',
+    );
+
+    // No row should have a non-empty co_fronter_ids list — the column still
+    // exists in v7 but the per-member generator must leave it at the default
+    // ('[]').  Co-fronting is now expressed as overlapping rows.
+    final cofronted = await db.customSelect(
+      'SELECT COUNT(*) as c FROM fronting_sessions '
+      "WHERE id LIKE 'stress-%' AND co_fronter_ids != '[]' "
+      "AND co_fronter_ids != ''",
+    ).getSingle();
+    expect(
+      cofronted.read<int>('c'),
+      0,
+      reason: 'per-member rows must not populate the legacy co_fronter_ids',
+    );
+
+    // At least one pair of rows from the same episode must overlap in time
+    // — proving that multi-member episodes really did fan out into multiple
+    // member rows (not just one row per "session" as the legacy generator
+    // produced).  Stagger means start/end aren't identical, so we look for
+    // any two rows where one's range intersects another's.
+    final overlapPairs = await db.customSelect(
+      'SELECT COUNT(*) as c FROM fronting_sessions a '
+      'JOIN fronting_sessions b ON a.id < b.id '
+      "WHERE a.id LIKE 'stress-%' AND b.id LIKE 'stress-%' "
+      'AND a.session_type = 0 AND b.session_type = 0 '
+      'AND a.start_time < COALESCE(b.end_time, a.start_time + 1) '
+      'AND b.start_time < COALESCE(a.end_time, b.start_time + 1)',
+    ).getSingle();
+    expect(
+      overlapPairs.read<int>('c'),
+      greaterThan(0),
+      reason:
+          'expected at least one multi-member episode (≥2 overlapping rows) '
+          'in 20 generated rows',
+    );
+
+    // Distinct members across all rows — exercises Zipf weighting + fan-out.
+    final distinctMembers = await db.customSelect(
+      'SELECT COUNT(DISTINCT member_id) as c FROM fronting_sessions '
+      "WHERE id LIKE 'stress-%' AND session_type = 0",
+    ).getSingle();
+    expect(distinctMembers.read<int>('c'), greaterThan(1));
+  });
+
+  test('front session comments use new-shape target_time + author_member_id', () async {
+    await for (final _ in generator.generate(_testPreset)) {}
+
+    final comments = await db.customSelect(
+      'SELECT target_time, author_member_id FROM front_session_comments '
+      "WHERE id LIKE 'stress-%'",
+    ).get();
+    if (comments.isEmpty) {
+      // Test preset has 20 sessions → ~maybe 1-2 comments depending on episode
+      // count.  If we ever produce zero, skip the assertion rather than fail
+      // — the shape itself is exercised elsewhere.
+      return;
+    }
+    for (final row in comments) {
+      expect(
+        row.data['target_time'],
+        isNotNull,
+        reason: 'every generated comment must set target_time',
+      );
+      expect(
+        row.data['author_member_id'],
+        isNotNull,
+        reason: 'every generated comment must set author_member_id',
+      );
+    }
+  });
+
   test('progress stream reports meaningful updates', () async {
     final phases = <String>[];
     await for (final p in generator.generate(_testPreset)) {

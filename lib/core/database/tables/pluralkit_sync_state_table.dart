@@ -32,6 +32,24 @@ class PluralKitSyncState extends Table {
   /// the synced `delete_push_started_at` timestamp instead).
   IntColumn get linkEpoch => integer().withDefault(const Constant(0))();
 
+  // -- Phase 4B: diff-sweep resume cursor (§2.6 "Resume cursor shape") -------
+  //
+  // PK switches are ordered by timestamp, not by UUID. The cursor is a
+  // (timestamp, switch_id) tuple so a resume re-fetches from the correct
+  // boundary and the switch_id dedups the edge-case where two switches share
+  // the same millisecond timestamp. Both are nullable — null means "never
+  // processed any switch" (start from the beginning).
+
+  /// Timestamp of the last PK switch successfully processed by the diff sweep.
+  /// Used as the `before=` query parameter on resume: fetch
+  /// `before = switchCursorTimestamp + 1µs`.
+  DateTimeColumn get switchCursorTimestamp => dateTime().nullable()();
+
+  /// UUID of the last PK switch successfully processed by the diff sweep.
+  /// Deduplicates within the fetched page when the cursor timestamp falls
+  /// on a page boundary shared by multiple switches.
+  TextColumn get switchCursorId => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }

@@ -19,6 +19,7 @@ import 'package:prism_plurality/features/pluralkit/services/pk_group_repair_serv
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
 import 'package:prism_plurality/features/pluralkit/widgets/pk_group_repair_card.dart';
 import 'package:prism_plurality/features/settings/providers/reset_data_provider.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/features/settings/services/stress_data_generator.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
@@ -305,16 +306,6 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                ),
-                PrismListRow(
-                  leading: Icon(AppIcons.healing),
-                  title: Text(context.l10n.debugTimelineSanitization),
-                  subtitle: Text(
-                    context.l10n.debugTimelineSanitizationSubtitle,
-                  ),
-                  trailing: Icon(AppIcons.chevronRight),
-                  onTap: () =>
-                      context.push(AppRoutePaths.settingsTimelineSanitization),
                 ),
                 PrismListRow(
                   leading: Icon(AppIcons.group),
@@ -921,7 +912,9 @@ extension on _DebugScreenState {
     final second = await PrismDialog.confirm(
       context: context,
       title: context.l10n.debugResetDatabaseConfirm2Title,
-      message: context.l10n.debugResetDatabaseConfirm2Message,
+      message: context.l10n.debugResetDatabaseConfirm2Message(
+        readTerminology(context, ref).pluralLower,
+      ),
       confirmLabel: context.l10n.debugDeleteEverything,
       destructive: true,
     );

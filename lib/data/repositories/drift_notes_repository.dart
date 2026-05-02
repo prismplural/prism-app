@@ -1,13 +1,13 @@
+import 'package:flutter/foundation.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/core/database/daos/notes_dao.dart';
 import 'package:prism_plurality/data/mappers/note_mapper.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
+import 'package:prism_plurality/data/utils/sync_datetime.dart';
 import 'package:prism_plurality/domain/models/note.dart' as domain;
 import 'package:prism_plurality/domain/repositories/notes_repository.dart';
 
-class DriftNotesRepository
-    with SyncRecordMixin
-    implements NotesRepository {
+class DriftNotesRepository with SyncRecordMixin implements NotesRepository {
   final NotesDao _dao;
   final ffi.PrismSyncHandle? _syncHandle;
 
@@ -26,8 +26,10 @@ class DriftNotesRepository
   }
 
   @override
-  Stream<List<domain.Note>> watchRecentNotesForMember(String memberId,
-      {int limit = 5}) {
+  Stream<List<domain.Note>> watchRecentNotesForMember(
+    String memberId, {
+    int limit = 5,
+  }) {
     return _dao
         .watchRecentNotesForMember(memberId, limit: limit)
         .map((rows) => rows.map(NoteMapper.toDomain).toList());
@@ -35,9 +37,9 @@ class DriftNotesRepository
 
   @override
   Stream<List<domain.Note>> watchAllNotes() {
-    return _dao
-        .watchAllNotes()
-        .map((rows) => rows.map(NoteMapper.toDomain).toList());
+    return _dao.watchAllNotes().map(
+      (rows) => rows.map(NoteMapper.toDomain).toList(),
+    );
   }
 
   @override
@@ -73,15 +75,21 @@ class DriftNotesRepository
     await syncRecordDelete(_table, id);
   }
 
+  /// Visible-for-testing: builds the field map this repository hands to the
+  /// Rust sync engine for create/update. Exposed so a regression test can
+  /// pin every emitted DateTime as Z-suffixed UTC.
+  @visibleForTesting
+  Map<String, dynamic> debugNoteFields(domain.Note n) => _noteFields(n);
+
   Map<String, dynamic> _noteFields(domain.Note n) {
     return {
       'title': n.title,
       'body': n.body,
       'color_hex': n.colorHex,
       'member_id': n.memberId,
-      'date': n.date.toIso8601String(),
-      'created_at': n.createdAt.toIso8601String(),
-      'modified_at': n.modifiedAt.toIso8601String(),
+      'date': toSyncUtc(n.date),
+      'created_at': toSyncUtc(n.createdAt),
+      'modified_at': toSyncUtc(n.modifiedAt),
       'is_deleted': false,
     };
   }

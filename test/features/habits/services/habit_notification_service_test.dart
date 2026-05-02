@@ -18,9 +18,12 @@ import 'package:prism_plurality/features/habits/services/habit_notification_serv
 class _FakeLocalNotificationService extends LocalNotificationService {
   final List<String> methodCalls = [];
   final List<(int, int)> cancelRangeCalls = []; // (base, count)
-  final List<(int, TimeOfDay)> scheduleExactDailyCalls = []; // (id, time)
-  final List<(int, int, TimeOfDay)> scheduleExactWeeklyCalls = []; // (id, weekday, time)
-  final List<({int idBase, int intervalDays, int n})> scheduleExactIntervalCalls = [];
+  final List<({int id, TimeOfDay time, DateTime? notBefore})>
+      scheduleExactDailyCalls = [];
+  final List<({int id, int weekday, TimeOfDay time, DateTime? notBefore})>
+      scheduleExactWeeklyCalls = [];
+  final List<({int idBase, int intervalDays, int n, DateTime? notBefore})>
+      scheduleExactIntervalCalls = [];
 
   void reset() {
     methodCalls.clear();
@@ -37,9 +40,10 @@ class _FakeLocalNotificationService extends LocalNotificationService {
     required String body,
     required TimeOfDay time,
     required NotificationDetails details,
+    DateTime? notBefore,
   }) async {
     methodCalls.add('scheduleExactDaily');
-    scheduleExactDailyCalls.add((id, time));
+    scheduleExactDailyCalls.add((id: id, time: time, notBefore: notBefore));
   }
 
   @override
@@ -50,9 +54,11 @@ class _FakeLocalNotificationService extends LocalNotificationService {
     required TimeOfDay time,
     required int weekday,
     required NotificationDetails details,
+    DateTime? notBefore,
   }) async {
     methodCalls.add('scheduleExactWeekly');
-    scheduleExactWeeklyCalls.add((id, weekday, time));
+    scheduleExactWeeklyCalls
+        .add((id: id, weekday: weekday, time: time, notBefore: notBefore));
   }
 
   @override
@@ -64,13 +70,16 @@ class _FakeLocalNotificationService extends LocalNotificationService {
     required int intervalDays,
     required NotificationDetails details,
     int? maxOccurrences,
+    DateTime? notBefore,
   }) async {
     final n = maxOccurrences ??
         (30 / intervalDays)
             .ceil()
             .clamp(2, LocalNotificationService.maxIntervalOccurrences);
     methodCalls.add('scheduleExactInterval');
-    scheduleExactIntervalCalls.add((idBase: idBase, intervalDays: intervalDays, n: n));
+    scheduleExactIntervalCalls.add(
+      (idBase: idBase, intervalDays: intervalDays, n: n, notBefore: notBefore),
+    );
   }
 
   @override
@@ -141,9 +150,9 @@ void main() {
       await service.scheduleForHabit(habit);
 
       expect(fake.scheduleExactDailyCalls, hasLength(1));
-      final (_, time) = fake.scheduleExactDailyCalls.first;
-      expect(time.hour, 14);
-      expect(time.minute, 30);
+      final call = fake.scheduleExactDailyCalls.first;
+      expect(call.time.hour, 14);
+      expect(call.time.minute, 30);
     });
 
     test('defaults to 9:00 AM when reminderTime is null', () async {
@@ -154,9 +163,9 @@ void main() {
       await service.scheduleForHabit(habit);
 
       expect(fake.scheduleExactDailyCalls, hasLength(1));
-      final (_, time) = fake.scheduleExactDailyCalls.first;
-      expect(time.hour, 9);
-      expect(time.minute, 0);
+      final call = fake.scheduleExactDailyCalls.first;
+      expect(call.time.hour, 9);
+      expect(call.time.minute, 0);
     });
 
     test('cancelRange uses maxIntervalOccurrences as count', () async {
@@ -205,7 +214,7 @@ void main() {
 
       await service.scheduleForHabit(habit);
 
-      final weekdays = fake.scheduleExactWeeklyCalls.map((c) => c.$2).toList();
+      final weekdays = fake.scheduleExactWeeklyCalls.map((c) => c.weekday).toList();
       expect(weekdays, containsAll([2, 4]));
     });
 
@@ -237,7 +246,7 @@ void main() {
       await service.scheduleForHabit(habit);
 
       final base = _expectedBaseId('my-habit');
-      final ids = fake.scheduleExactWeeklyCalls.map((c) => c.$1).toList();
+      final ids = fake.scheduleExactWeeklyCalls.map((c) => c.id).toList();
       expect(ids, [base, base + 1, base + 2]);
     });
   });
@@ -440,16 +449,153 @@ void main() {
       expect(fakeLocal.cancelRangeCalls, isEmpty);
     });
   });
+
+  // ── skipCurrentPeriod ───────────────────────────────────────────────
+
+  group('scheduleForHabit — skipCurrentPeriod', () {
+    test('daily passes notBefore=tomorrow', () async {
+      final fake = _FakeLocalNotificationService();
+      final service = HabitNotificationService(fake);
+      final habit = _habit(frequency: HabitFrequency.daily, reminderTime: '09:00');
+      final now = DateTime(2026, 5, 1, 14, 0); // Friday
+
+      await service.scheduleForHabit(habit, skipCurrentPeriod: true, now: now);
+
+      expect(fake.scheduleExactDailyCalls, hasLength(1));
+      expect(fake.scheduleExactDailyCalls.first.notBefore, DateTime(2026, 5, 2));
+    });
+
+    test('daily without skip passes notBefore=null', () async {
+      final fake = _FakeLocalNotificationService();
+      final service = HabitNotificationService(fake);
+      final habit = _habit(frequency: HabitFrequency.daily);
+
+      await service.scheduleForHabit(habit, now: DateTime(2026, 5, 1));
+
+      expect(fake.scheduleExactDailyCalls.first.notBefore, isNull);
+    });
+
+    test('weekly only sets notBefore on the slot matching today', () async {
+      final fake = _FakeLocalNotificationService();
+      final service = HabitNotificationService(fake);
+      // 2026-05-01 is a Friday — Dart weekday 5, weekly index 5 (Fri).
+      // Habit configured Mon (1), Wed (3), Fri (5).
+      final habit = _habit(
+        frequency: HabitFrequency.weekly,
+        weeklyDays: [1, 3, 5],
+      );
+      final now = DateTime(2026, 5, 1, 8, 0);
+
+      await service.scheduleForHabit(habit, skipCurrentPeriod: true, now: now);
+
+      expect(fake.scheduleExactWeeklyCalls, hasLength(3));
+      final friCall = fake.scheduleExactWeeklyCalls.firstWhere((c) => c.weekday == 5);
+      final monCall = fake.scheduleExactWeeklyCalls.firstWhere((c) => c.weekday == 1);
+      final wedCall = fake.scheduleExactWeeklyCalls.firstWhere((c) => c.weekday == 3);
+      expect(friCall.notBefore, DateTime(2026, 5, 2));
+      expect(monCall.notBefore, isNull);
+      expect(wedCall.notBefore, isNull);
+    });
+
+    test('weekly when today is not a target → no slot gets notBefore', () async {
+      final fake = _FakeLocalNotificationService();
+      final service = HabitNotificationService(fake);
+      // Friday 2026-05-01, habit only Mon/Wed.
+      final habit = _habit(
+        frequency: HabitFrequency.weekly,
+        weeklyDays: [1, 3],
+      );
+      final now = DateTime(2026, 5, 1);
+
+      await service.scheduleForHabit(habit, skipCurrentPeriod: true, now: now);
+
+      expect(
+        fake.scheduleExactWeeklyCalls.every((c) => c.notBefore == null),
+        isTrue,
+      );
+    });
+
+    test('interval (>1 day) passes notBefore = today + intervalDays', () async {
+      final fake = _FakeLocalNotificationService();
+      final service = HabitNotificationService(fake);
+      final habit = _habit(
+        frequency: HabitFrequency.interval,
+        intervalDays: 3,
+      );
+      final now = DateTime(2026, 5, 1, 12, 0);
+
+      await service.scheduleForHabit(habit, skipCurrentPeriod: true, now: now);
+
+      expect(fake.scheduleExactIntervalCalls, hasLength(1));
+      expect(
+        fake.scheduleExactIntervalCalls.first.notBefore,
+        DateTime(2026, 5, 4),
+      );
+    });
+
+    test('interval=1 routes to daily with notBefore=tomorrow', () async {
+      final fake = _FakeLocalNotificationService();
+      final service = HabitNotificationService(fake);
+      final habit = _habit(
+        frequency: HabitFrequency.interval,
+        intervalDays: 1,
+      );
+      final now = DateTime(2026, 5, 1, 12, 0);
+
+      await service.scheduleForHabit(habit, skipCurrentPeriod: true, now: now);
+
+      expect(fake.scheduleExactDailyCalls, hasLength(1));
+      expect(fake.scheduleExactDailyCalls.first.notBefore, DateTime(2026, 5, 2));
+    });
+  });
+
+  // ── completeHabit cancels today's reminder ──────────────────────────
+
+  group('HabitNotifier.completeHabit', () {
+    test('reschedules with skipCurrentPeriod=true after writing completion',
+        () async {
+      const habitId = 'med';
+      final habit = _habit(
+        id: habitId,
+        frequency: HabitFrequency.daily,
+        reminderTime: '20:00',
+      );
+      final fakeLocal = _FakeLocalNotificationService();
+      final notifService = HabitNotificationService(fakeLocal);
+      final repo = _FakeHabitRepository(habits: [habit]);
+
+      final container = ProviderContainer(
+        overrides: [
+          habitRepositoryProvider.overrideWithValue(repo),
+          habitNotificationServiceProvider.overrideWithValue(notifService),
+          currentDateProvider.overrideWith((_) => DateTime(2026, 5, 1)),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(habitNotifierProvider.notifier).completeHabit(
+            habitId: habitId,
+            completedAt: DateTime(2026, 5, 1, 19, 0),
+          );
+
+      // Should have at least one daily schedule with a non-null notBefore
+      // (the post-completion reschedule).
+      final hasSkippedDaily = fakeLocal.scheduleExactDailyCalls
+          .any((c) => c.notBefore != null);
+      expect(hasSkippedDaily, isTrue);
+    });
+  });
 }
 
 // ── Fake repository ────────────────────────────────────────────────────────────
 
 class _FakeHabitRepository implements HabitRepository {
   _FakeHabitRepository({required List<Habit> habits})
-      : _habits = List.unmodifiable(habits);
+      : _habits = List.of(habits);
 
   final List<Habit> _habits;
-  final List<Habit> _updated = [];
+  final List<HabitCompletion> _completions = [];
+  final List<Habit> updated = [];
 
   @override
   Future<Habit?> getHabitById(String id) async {
@@ -460,7 +606,11 @@ class _FakeHabitRepository implements HabitRepository {
   }
 
   @override
-  Future<void> updateHabit(Habit habit) async => _updated.add(habit);
+  Future<void> updateHabit(Habit habit) async {
+    updated.add(habit);
+    final i = _habits.indexWhere((h) => h.id == habit.id);
+    if (i >= 0) _habits[i] = habit;
+  }
 
   @override
   Future<void> createHabit(Habit habit) async {}
@@ -472,19 +622,23 @@ class _FakeHabitRepository implements HabitRepository {
   Future<List<Habit>> getAllHabits() async => _habits;
 
   @override
-  Future<List<HabitCompletion>> getAllCompletions() async => [];
+  Future<List<HabitCompletion>> getAllCompletions() async => _completions;
 
   @override
   Future<List<HabitCompletion>> getCompletionsForHabit(
     String habitId, {
     DateTime? since,
-  }) async => [];
+  }) async => _completions.where((c) => c.habitId == habitId).toList();
 
   @override
-  Future<void> createCompletion(HabitCompletion completion) async {}
+  Future<void> createCompletion(HabitCompletion completion) async {
+    _completions.add(completion);
+  }
 
   @override
-  Future<void> deleteCompletion(String id) async {}
+  Future<void> deleteCompletion(String id) async {
+    _completions.removeWhere((c) => c.id == id);
+  }
 
   @override
   Stream<List<Habit>> watchActiveHabits() =>

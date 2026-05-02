@@ -99,7 +99,8 @@ class _SystemManagementScreenState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = context.l10n;
-    final membersAsync = ref.watch(allMembersProvider);
+    // System management is a user-facing list — hide the Unknown sentinel.
+    final membersAsync = ref.watch(userVisibleMembersProvider);
 
     return PrismPageScaffold(
       topBar: PrismTopBar(

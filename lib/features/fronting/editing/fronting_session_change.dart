@@ -5,7 +5,6 @@ class FrontingSessionDraft {
   final String? memberId; // null = Unknown fronter
   final DateTime start;
   final DateTime? end; // null = active session
-  final List<String> coFronterIds;
   final String? notes;
   final int? confidenceIndex;
   final SessionType sessionType;
@@ -16,7 +15,6 @@ class FrontingSessionDraft {
     required this.memberId,
     required this.start,
     this.end,
-    this.coFronterIds = const [],
     this.notes,
     this.confidenceIndex,
     this.sessionType = SessionType.normal,
@@ -33,7 +31,6 @@ class FrontingSessionPatch {
   final bool clearEnd; // explicitly set end to null (make active)
   final String? memberId;
   final bool clearMemberId; // explicitly set to null (make unknown)
-  final List<String>? coFronterIds;
   final String? notes;
   final int? confidenceIndex;
 
@@ -43,7 +40,6 @@ class FrontingSessionPatch {
     this.clearEnd = false,
     this.memberId,
     this.clearMemberId = false,
-    this.coFronterIds,
     this.notes,
     this.confidenceIndex,
   });
@@ -54,7 +50,6 @@ class FrontingSessionPatch {
       !clearEnd &&
       memberId == null &&
       !clearMemberId &&
-      coFronterIds == null &&
       notes == null &&
       confidenceIndex == null;
 }

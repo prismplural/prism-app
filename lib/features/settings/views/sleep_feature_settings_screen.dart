@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import 'package:prism_plurality/core/router/app_routes.dart';
 
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/features/fronting/utils/sleep_quality_l10n.dart';
@@ -17,9 +20,22 @@ import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
+/// Optional arguments passed via go_router `extra` when opening the Sleep
+/// feature settings screen.
+class SleepFeatureSettingsArgs {
+  const SleepFeatureSettingsArgs({this.fromSleepView = false});
+
+  /// Hides the redundant "View sleep history" deep link when the user reached
+  /// settings from the sleep view itself — otherwise tapping it pushes another
+  /// SleepScreen on top, creating a circular navigation loop.
+  final bool fromSleepView;
+}
+
 /// Settings subview for the Sleep feature.
 class SleepFeatureSettingsScreen extends ConsumerStatefulWidget {
-  const SleepFeatureSettingsScreen({super.key});
+  const SleepFeatureSettingsScreen({super.key, this.args});
+
+  final SleepFeatureSettingsArgs? args;
 
   @override
   ConsumerState<SleepFeatureSettingsScreen> createState() =>
@@ -160,22 +176,53 @@ class _SleepFeatureSettingsScreenState
               ),
             ),
           ),
-          PrismSection(
-            title: context.l10n.featureSleepGeneral,
-            child: PrismSectionCard(
-              padding: EdgeInsets.zero,
-              child: PrismSwitchRow(
-                icon: AppIcons.bedtimeOutlined,
-                iconColor: AppColors.sleep(theme.brightness),
-                title: context.l10n.featureSleepEnable,
-                subtitle: context.l10n.featureSleepEnableSubtitle,
-                value: sleepEnabled,
-                onChanged: (value) => ref
-                    .read(settingsNotifierProvider.notifier)
-                    .updateFeatureToggle(sleepTrackingEnabled: value),
+          if (sleepEnabled)
+            PrismSection(
+              title: context.l10n.featureSleepGeneral,
+              child: PrismSectionCard(
+                padding: EdgeInsets.zero,
+                child: Column(
+                  children: [
+                    if (!(widget.args?.fromSleepView ?? false)) ...[
+                      PrismSettingsRow(
+                        icon: AppIcons.bedtimeRounded,
+                        iconColor: AppColors.sleep(theme.brightness),
+                        title: context.l10n.sleepViewAllHistory,
+                        onTap: () => context.push(AppRoutePaths.sleep),
+                      ),
+                      const Divider(height: 1, indent: 56),
+                    ],
+                    PrismSwitchRow(
+                      icon: AppIcons.bedtimeOutlined,
+                      iconColor: AppColors.sleep(theme.brightness),
+                      title: context.l10n.featureSleepEnable,
+                      subtitle: context.l10n.featureSleepEnableSubtitle,
+                      value: sleepEnabled,
+                      onChanged: (value) => ref
+                          .read(settingsNotifierProvider.notifier)
+                          .updateFeatureToggle(sleepTrackingEnabled: value),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            PrismSection(
+              title: context.l10n.featureSleepGeneral,
+              child: PrismSectionCard(
+                padding: EdgeInsets.zero,
+                child: PrismSwitchRow(
+                  icon: AppIcons.bedtimeOutlined,
+                  iconColor: AppColors.sleep(theme.brightness),
+                  title: context.l10n.featureSleepEnable,
+                  subtitle: context.l10n.featureSleepEnableSubtitle,
+                  value: sleepEnabled,
+                  onChanged: (value) => ref
+                      .read(settingsNotifierProvider.notifier)
+                      .updateFeatureToggle(sleepTrackingEnabled: value),
+                ),
               ),
             ),
-          ),
           if (sleepEnabled)
             PrismSection(
               title: context.l10n.featureSleepOptions,

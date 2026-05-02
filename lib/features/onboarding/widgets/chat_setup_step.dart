@@ -4,6 +4,7 @@ import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
@@ -17,8 +18,12 @@ class ChatSetupStep extends ConsumerStatefulWidget {
 class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
   final _customChannelController = TextEditingController();
 
-  Map<String, String> _buildSuggestedChannels(AppLocalizations l10n) => {
-    l10n.onboardingChatChannelAllMembers: '\u{1F465}',
+  Map<String, String> _buildSuggestedChannels(
+    AppLocalizations l10n,
+    Terminology terms,
+  ) => {
+    l10n.onboardingChatChannelAllMembers(terms.plural, terms.pluralLower):
+        '\u{1F465}',
     l10n.onboardingChatChannelVenting: '\u{1F62E}\u200D\u{1F4A8}',
     l10n.onboardingChatChannelPlanning: '\u{1F4CB}',
     l10n.onboardingChatChannelJournal: '\u{1F4D3}',
@@ -32,12 +37,25 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
     // Seed localized default channels on first render. Uses a post-frame
     // callback to avoid calling the notifier during the build phase.
     final l10n = context.l10n;
+    final onboarding = ref.read(onboardingProvider);
+    final terms = resolveTerminology(
+      l10n,
+      onboarding.selectedTerminology,
+      customSingular: onboarding.customTermSingular,
+      customPlural: onboarding.customTermPlural,
+      useEnglish: onboarding.terminologyUseEnglish,
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      ref.read(onboardingProvider.notifier).seedDefaultChannels(
-        allMembersName: l10n.onboardingChatChannelAllMembers,
-        ventingName: l10n.onboardingChatChannelVenting,
-      );
+      ref
+          .read(onboardingProvider.notifier)
+          .seedDefaultChannels(
+            allMembersName: l10n.onboardingChatChannelAllMembers(
+              terms.plural,
+              terms.pluralLower,
+            ),
+            ventingName: l10n.onboardingChatChannelVenting,
+          );
     });
   }
 
@@ -54,7 +72,14 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
     final primary = theme.colorScheme.primary;
     final onboarding = ref.watch(onboardingProvider);
     final notifier = ref.read(onboardingProvider.notifier);
-    final suggestedChannels = _buildSuggestedChannels(context.l10n);
+    final terms = resolveTerminology(
+      context.l10n,
+      onboarding.selectedTerminology,
+      customSingular: onboarding.customTermSingular,
+      customPlural: onboarding.customTermPlural,
+      useEnglish: onboarding.terminologyUseEnglish,
+    );
+    final suggestedChannels = _buildSuggestedChannels(context.l10n, terms);
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
@@ -63,7 +88,9 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
           Text(
             context.l10n.onboardingChatSuggestedChannels,
             style: theme.textTheme.labelLarge?.copyWith(
-              color: isDark ? AppColors.warmWhite.withValues(alpha: 0.8) : AppColors.warmBlack.withValues(alpha: 0.8),
+              color: isDark
+                  ? AppColors.warmWhite.withValues(alpha: 0.8)
+                  : AppColors.warmBlack.withValues(alpha: 0.8),
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -71,8 +98,9 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
 
           // Suggested channels
           ...suggestedChannels.entries.map((entry) {
-            final isSelected =
-                onboarding.selectedChannels.containsKey(entry.key);
+            final isSelected = onboarding.selectedChannels.containsKey(
+              entry.key,
+            );
             final isAllMembers = entry.key == onboarding.allMembersChannelKey;
 
             return Padding(
@@ -82,13 +110,21 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
                     ? null
                     : () => notifier.toggleChannel(entry.key, entry.value),
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? (isDark ? AppColors.warmWhite.withValues(alpha: 0.15) : AppColors.parchmentElevated)
-                        : (isDark ? AppColors.warmWhite.withValues(alpha: 0.07) : AppColors.warmBlack.withValues(alpha: 0.04)),
-                    borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
+                        ? (isDark
+                              ? AppColors.warmWhite.withValues(alpha: 0.15)
+                              : AppColors.parchmentElevated)
+                        : (isDark
+                              ? AppColors.warmWhite.withValues(alpha: 0.07)
+                              : AppColors.warmBlack.withValues(alpha: 0.04)),
+                    borderRadius: BorderRadius.circular(
+                      PrismShapes.of(context).radius(12),
+                    ),
                   ),
                   child: Row(
                     children: [
@@ -98,7 +134,9 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
                         child: Text(
                           entry.key,
                           style: theme.textTheme.titleSmall?.copyWith(
-                            color: isDark ? AppColors.warmWhite : AppColors.warmBlack,
+                            color: isDark
+                                ? AppColors.warmWhite
+                                : AppColors.warmBlack,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -107,7 +145,9 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
                         Icon(
                           AppIcons.lock,
                           size: 16,
-                          color: isDark ? AppColors.warmWhite.withValues(alpha: 0.4) : AppColors.warmBlack.withValues(alpha: 0.4),
+                          color: isDark
+                              ? AppColors.warmWhite.withValues(alpha: 0.4)
+                              : AppColors.warmBlack.withValues(alpha: 0.4),
                         )
                       else
                         Icon(
@@ -116,7 +156,11 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
                               : AppIcons.circleOutlined,
                           color: isSelected
                               ? primary
-                              : (isDark ? AppColors.warmWhite.withValues(alpha: 0.3) : AppColors.warmBlack.withValues(alpha: 0.3)),
+                              : (isDark
+                                    ? AppColors.warmWhite.withValues(alpha: 0.3)
+                                    : AppColors.warmBlack.withValues(
+                                        alpha: 0.3,
+                                      )),
                           size: 22,
                         ),
                     ],
@@ -132,7 +176,9 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
           Text(
             context.l10n.onboardingChatCustomChannel,
             style: theme.textTheme.labelLarge?.copyWith(
-              color: isDark ? AppColors.warmWhite.withValues(alpha: 0.8) : AppColors.warmBlack.withValues(alpha: 0.8),
+              color: isDark
+                  ? AppColors.warmWhite.withValues(alpha: 0.8)
+                  : AppColors.warmBlack.withValues(alpha: 0.8),
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -142,15 +188,23 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
               Expanded(
                 child: Container(
                   decoration: BoxDecoration(
-                    color: isDark ? AppColors.warmWhite.withValues(alpha: 0.1) : AppColors.parchmentElevated,
-                    borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(10)),
+                    color: isDark
+                        ? AppColors.warmWhite.withValues(alpha: 0.1)
+                        : AppColors.parchmentElevated,
+                    borderRadius: BorderRadius.circular(
+                      PrismShapes.of(context).radius(10),
+                    ),
                   ),
                   child: PrismTextField(
                     controller: _customChannelController,
-                    style: TextStyle(color: isDark ? AppColors.warmWhite : AppColors.warmBlack),
+                    style: TextStyle(
+                      color: isDark ? AppColors.warmWhite : AppColors.warmBlack,
+                    ),
                     hintText: context.l10n.onboardingChatChannelNameHint,
                     hintStyle: TextStyle(
-                      color: isDark ? AppColors.warmWhite.withValues(alpha: 0.35) : AppColors.warmBlack.withValues(alpha: 0.35),
+                      color: isDark
+                          ? AppColors.warmWhite.withValues(alpha: 0.35)
+                          : AppColors.warmBlack.withValues(alpha: 0.35),
                     ),
                     fieldStyle: PrismTextFieldStyle.borderless,
                     contentPadding: const EdgeInsets.symmetric(
@@ -174,9 +228,15 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
                   height: 44,
                   decoration: BoxDecoration(
                     color: primary.withValues(alpha: 0.4),
-                    borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(10)),
+                    borderRadius: BorderRadius.circular(
+                      PrismShapes.of(context).radius(10),
+                    ),
                   ),
-                  child: Icon(AppIcons.add, color: isDark ? AppColors.warmWhite : AppColors.warmBlack, size: 22),
+                  child: Icon(
+                    AppIcons.add,
+                    color: isDark ? AppColors.warmWhite : AppColors.warmBlack,
+                    size: 22,
+                  ),
                 ),
               ),
             ],
@@ -189,41 +249,55 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
             const SizedBox(height: 12),
             ...onboarding.selectedChannels.entries
                 .where((e) => !suggestedChannels.containsKey(e.key))
-                .map((entry) => Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: isDark ? AppColors.warmWhite.withValues(alpha: 0.12) : AppColors.parchmentElevated,
-                          borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(10)),
-                        ),
-                        child: Row(
-                          children: [
-                            Text(entry.value,
-                                style: const TextStyle(fontSize: 18)),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                entry.key,
-                                style: theme.textTheme.labelLarge?.copyWith(
-                                  color: isDark ? AppColors.warmWhite : AppColors.warmBlack,
-                                ),
-                              ),
-                            ),
-                            GestureDetector(
-                              onTap: () => notifier.toggleChannel(
-                                  entry.key, entry.value),
-                              child: Icon(
-                                AppIcons.close,
-                                size: 18,
-                                color: isDark ? AppColors.warmWhite.withValues(alpha: 0.5) : AppColors.warmBlack.withValues(alpha: 0.5),
-                              ),
-                            ),
-                          ],
+                .map(
+                  (entry) => Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? AppColors.warmWhite.withValues(alpha: 0.12)
+                            : AppColors.parchmentElevated,
+                        borderRadius: BorderRadius.circular(
+                          PrismShapes.of(context).radius(10),
                         ),
                       ),
-                    )),
+                      child: Row(
+                        children: [
+                          Text(
+                            entry.value,
+                            style: const TextStyle(fontSize: 18),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              entry.key,
+                              style: theme.textTheme.labelLarge?.copyWith(
+                                color: isDark
+                                    ? AppColors.warmWhite
+                                    : AppColors.warmBlack,
+                              ),
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () =>
+                                notifier.toggleChannel(entry.key, entry.value),
+                            child: Icon(
+                              AppIcons.close,
+                              size: 18,
+                              color: isDark
+                                  ? AppColors.warmWhite.withValues(alpha: 0.5)
+                                  : AppColors.warmBlack.withValues(alpha: 0.5),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
           ],
         ],
       ),

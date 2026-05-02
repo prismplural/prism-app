@@ -1,3 +1,5 @@
+import 'package:prism_plurality/domain/models/fronting_session.dart';
+
 import 'fronting_validation_config.dart';
 import 'fronting_validation_models.dart';
 
@@ -28,20 +30,6 @@ List<FrontingSessionSnapshot> _activeSorted(
     return a.id.compareTo(b.id);
   });
   return filtered;
-}
-
-/// Returns true if two sessions have the same fronting configuration
-/// (same primary member AND same co-fronters).
-bool _sameFrontingConfig(
-    FrontingSessionSnapshot a, FrontingSessionSnapshot b) {
-  if (a.memberId != b.memberId) return false;
-  final aCoFronters = [...a.coFronterIds]..sort();
-  final bCoFronters = [...b.coFronterIds]..sort();
-  if (aCoFronters.length != bCoFronters.length) return false;
-  for (int i = 0; i < aCoFronters.length; i++) {
-    if (aCoFronters[i] != bCoFronters[i]) return false;
-  }
-  return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -76,60 +64,7 @@ List<FrontingValidationIssue> detectInvalidRanges(
 }
 
 // ---------------------------------------------------------------------------
-// 2. detectOverlaps
-// ---------------------------------------------------------------------------
-
-/// Detects sessions whose time ranges overlap.
-///
-/// Touching boundaries (A.end == B.start) are NOT considered overlaps.
-/// Active sessions use a far-future sentinel for their effective end time.
-List<FrontingValidationIssue> detectOverlaps(
-    List<FrontingSessionSnapshot> sessions) {
-  final sorted = _activeSorted(sessions);
-  final issues = <FrontingValidationIssue>[];
-
-  for (int i = 0; i < sorted.length; i++) {
-    final a = sorted[i];
-    final aEnd = a.end ?? _farFuture;
-
-    for (int j = i + 1; j < sorted.length; j++) {
-      final b = sorted[j];
-      // Because sessions are sorted by start, if B starts at or after A's end
-      // there can be no overlap with A or any later session for this i.
-      if (!b.start.isBefore(aEnd)) break;
-
-      final bEnd = b.end ?? _farFuture;
-
-      // Overlap: A.start < B.endEffective AND B.start < A.endEffective
-      // Touching (A.end == B.start) means !B.start.isBefore(aEnd) → already
-      // handled by the break above (equal also breaks). So here B.start < aEnd.
-      if (a.start.isBefore(bEnd)) {
-        final overlapStart =
-            a.start.isAfter(b.start) ? a.start : b.start;
-        final overlapEnd = aEnd.isBefore(bEnd) ? aEnd : bEnd;
-
-        issues.add(FrontingValidationIssue(
-          id: _buildIssueId(FrontingIssueType.overlap, [a.id, b.id]),
-          type: FrontingIssueType.overlap,
-          severity: FrontingIssueSeverity.error,
-          sessionIds: [a.id, b.id],
-          memberIds: [
-            if (a.memberId != null) a.memberId!,
-            if (b.memberId != null) b.memberId!,
-          ],
-          rangeStart: overlapStart,
-          rangeEnd: overlapEnd == _farFuture ? overlapStart : overlapEnd,
-          summary: 'Sessions overlap',
-        ));
-      }
-    }
-  }
-
-  return issues;
-}
-
-// ---------------------------------------------------------------------------
-// 3. detectDuplicates
+// 2. detectDuplicates
 // ---------------------------------------------------------------------------
 
 /// Detects probable duplicate sessions for the same member.
@@ -147,12 +82,18 @@ List<FrontingValidationIssue> detectDuplicates(
 
   for (int i = 0; i < sorted.length; i++) {
     final a = sorted[i];
+    // Skip sleep rows — they aren't compared as duplicates against fronting
+    // rows.  (Unknown-sentinel rows ARE checked: post-Fix-K, normal rows
+    // never carry memberId == null.)
+    if (a.sessionType == SessionType.sleep) continue;
     if (a.memberId == null) continue;
 
     for (int j = i + 1; j < sorted.length; j++) {
       final b = sorted[j];
+      if (b.sessionType == SessionType.sleep) continue;
       if (b.memberId == null) continue;
-      if (!_sameFrontingConfig(a, b)) continue;
+      // Only compare sessions for the same member — co-fronter concept is gone.
+      if (a.memberId != b.memberId) continue;
 
       // Sorted by start: if B starts more than tolerance after A, no more
       // duplicates possible for A (all later B will also exceed tolerance).
@@ -197,7 +138,7 @@ List<FrontingValidationIssue> detectDuplicates(
 }
 
 // ---------------------------------------------------------------------------
-// 4. detectMergeableAdjacent
+// 3. detectMergeableAdjacent
 // ---------------------------------------------------------------------------
 
 /// Detects consecutive sessions for the same member that could be merged.
@@ -213,14 +154,18 @@ List<FrontingValidationIssue> detectMergeableAdjacent(
 
   for (int i = 0; i < sorted.length; i++) {
     final a = sorted[i];
+    // Skip sleep rows — adjacent-merge is a fronting-only concept.
+    if (a.sessionType == SessionType.sleep) continue;
     if (a.memberId == null) continue;
     final aEnd = a.end;
     if (aEnd == null) continue; // active sessions have no defined end
 
     for (int j = i + 1; j < sorted.length; j++) {
       final b = sorted[j];
+      if (b.sessionType == SessionType.sleep) continue;
       if (b.memberId == null) continue;
-      if (!_sameFrontingConfig(a, b)) continue;
+      // Only compare sessions for the same member — co-fronter concept is gone.
+      if (a.memberId != b.memberId) continue;
 
       // If B starts strictly before A's end they overlap — skip (different issue).
       if (b.start.isBefore(aEnd)) continue;
@@ -250,65 +195,7 @@ List<FrontingValidationIssue> detectMergeableAdjacent(
 }
 
 // ---------------------------------------------------------------------------
-// 5. detectGaps
-// ---------------------------------------------------------------------------
-
-/// Detects gaps between consecutive sessions (any members) larger than the
-/// configured threshold.
-///
-/// Only sessions with a defined end time can produce a gap. The gap is
-/// measured from the end of one session to the start of the next session
-/// that begins after it.
-List<FrontingValidationIssue> detectGaps(
-    List<FrontingSessionSnapshot> sessions, FrontingValidationConfig config) {
-  final sorted = _activeSorted(sessions);
-  final threshold = config.reportableGapThreshold;
-  final issues = <FrontingValidationIssue>[];
-
-  // We sweep sessions left to right, tracking the furthest end seen so far
-  // among sessions that have a defined end.
-  DateTime? maxEnd;
-  FrontingSessionSnapshot? maxEndSession;
-
-  for (final s in sorted) {
-    if (maxEnd != null && maxEndSession != null) {
-      // Only measure gap if s starts after maxEnd (no overlap territory).
-      if (s.start.isAfter(maxEnd)) {
-        final gap = s.start.difference(maxEnd);
-        if (gap > threshold) {
-          issues.add(FrontingValidationIssue(
-            id: _buildIssueId(
-                FrontingIssueType.gap, [maxEndSession.id, s.id]),
-            type: FrontingIssueType.gap,
-            severity: FrontingIssueSeverity.warning,
-            sessionIds: [maxEndSession.id, s.id],
-            memberIds: [
-              if (maxEndSession.memberId != null) maxEndSession.memberId!,
-              if (s.memberId != null) s.memberId!,
-            ],
-            rangeStart: maxEnd,
-            rangeEnd: s.start,
-            summary: 'Gap in fronting coverage',
-            details: 'Gap duration: ${gap.inMinutes}m ${gap.inSeconds % 60}s',
-          ));
-        }
-      }
-    }
-
-    // Update maxEnd to track the furthest closed end seen so far.
-    if (s.end != null) {
-      if (maxEnd == null || s.end!.isAfter(maxEnd)) {
-        maxEnd = s.end;
-        maxEndSession = s;
-      }
-    }
-  }
-
-  return issues;
-}
-
-// ---------------------------------------------------------------------------
-// 6. detectFutureSessions
+// 4. detectFutureSessions
 // ---------------------------------------------------------------------------
 
 /// Detects sessions whose start or end time is in the future relative to [now].
@@ -359,6 +246,81 @@ List<FrontingValidationIssue> detectFutureSessions(
         summary: 'Session ends in the future',
         details: 'End: ${s.end}, now: $now',
       ));
+    }
+  }
+
+  return issues;
+}
+
+// ---------------------------------------------------------------------------
+// 5. detectSelfOverlap
+// ---------------------------------------------------------------------------
+
+/// Detects sessions where the same member has two overlapping sessions.
+///
+/// Severity rules:
+/// - **blocking** (hard-block): A new active session (no end_time) is being
+///   created/proposed while the same member already has an open active session.
+///   This is almost certainly a bug (double-tap or mis-tap).
+/// - **warning** (soft): Any other self-overlap (historical editing, DST edge
+///   cases, etc.). The user may dismiss and save anyway.
+///
+/// Cross-member overlaps are VALID by design and are NOT flagged here.
+List<FrontingValidationIssue> detectSelfOverlap(
+    List<FrontingSessionSnapshot> sessions) {
+  final sorted = _activeSorted(sessions);
+  final issues = <FrontingValidationIssue>[];
+
+  // Group sessions by memberId, skipping sleep rows (self-overlap is a
+  // fronting-only concept — sleep can legitimately overlap fronting).
+  // Unknown-sentinel rows are grouped like any other member: post-Fix-K,
+  // two open Unknown rows DO indicate a real bug worth flagging.
+  final byMember = <String, List<FrontingSessionSnapshot>>{};
+  for (final s in sorted) {
+    if (s.sessionType == SessionType.sleep) continue;
+    if (s.memberId == null) continue;
+    byMember.putIfAbsent(s.memberId!, () => []).add(s);
+  }
+
+  for (final memberSessions in byMember.values) {
+    for (int i = 0; i < memberSessions.length; i++) {
+      final a = memberSessions[i];
+      final aEnd = a.end ?? _farFuture;
+
+      for (int j = i + 1; j < memberSessions.length; j++) {
+        final b = memberSessions[j];
+
+        // Because sessions are sorted by start, if B starts at or after A's
+        // effective end there can be no overlap for this A.
+        if (!b.start.isBefore(aEnd)) break;
+
+        final bEnd = b.end ?? _farFuture;
+
+        // Overlap: A.start < B.endEffective AND B.start < A.endEffective
+        if (a.start.isBefore(bEnd)) {
+          // Hard-block only when both sessions are active (open-ended) — the
+          // narrow "new active while member already has open session" case.
+          final bothActive = a.end == null && b.end == null;
+          final severity = bothActive
+              ? FrontingIssueSeverity.error
+              : FrontingIssueSeverity.warning;
+
+          final overlapStart =
+              a.start.isAfter(b.start) ? a.start : b.start;
+          final overlapEnd = aEnd.isBefore(bEnd) ? aEnd : bEnd;
+
+          issues.add(FrontingValidationIssue(
+            id: _buildIssueId(FrontingIssueType.selfOverlap, [a.id, b.id]),
+            type: FrontingIssueType.selfOverlap,
+            severity: severity,
+            sessionIds: [a.id, b.id],
+            memberIds: [a.memberId!],
+            rangeStart: overlapStart,
+            rangeEnd: overlapEnd == _farFuture ? overlapStart : overlapEnd,
+            summary: 'Looks like this member has two overlapping sessions — probably a mis-tap?',
+          ));
+        }
+      }
     }
   }
 

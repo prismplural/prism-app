@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
@@ -181,7 +183,10 @@ class PkPushService {
       isPatch: isPatch,
     );
 
-    // proxy_tags intentionally omitted — Prism treats them as pull-only.
+    final proxyTags = _decodeProxyTags(member.proxyTagsJson);
+    if (proxyTags != null) {
+      data['proxy_tags'] = proxyTags;
+    }
 
     // Color — PK expects 6-char hex with no '#'. When local color is
     // disabled, skip color entirely. Toggling local color off must not
@@ -212,6 +217,16 @@ class PkPushService {
     }
     if (isPatch && remote != null) {
       data[key] = null;
+    }
+  }
+
+  List<dynamic>? _decodeProxyTags(String? proxyTagsJson) {
+    if (proxyTagsJson == null) return null;
+    try {
+      final decoded = jsonDecode(proxyTagsJson);
+      return decoded is List ? decoded : null;
+    } catch (_) {
+      return null;
     }
   }
 

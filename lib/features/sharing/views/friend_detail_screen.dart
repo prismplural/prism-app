@@ -8,6 +8,7 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 import 'package:prism_plurality/core/sharing/friend.dart';
 import 'package:prism_plurality/core/sharing/share_scope.dart';
 import 'package:prism_plurality/core/sharing/sharing_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
@@ -29,6 +30,7 @@ class FriendDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final friends = ref.watch(friendsProvider);
+    final terms = watchTerminology(context, ref);
     Friend? friend;
     for (final candidate in friends) {
       if (candidate.id == friendId) {
@@ -39,7 +41,10 @@ class FriendDetailScreen extends ConsumerWidget {
 
     if (friend == null) {
       return PrismPageScaffold(
-        topBar: PrismTopBar(title: context.l10n.sharingFriend, showBackButton: true),
+        topBar: PrismTopBar(
+          title: context.l10n.sharingFriend,
+          showBackButton: true,
+        ),
         body: Center(child: Text(context.l10n.sharingFriendNotFound)),
       );
     }
@@ -85,6 +90,8 @@ class FriendDetailScreen extends ConsumerWidget {
           ...ShareScope.values.map(
             (scope) => _ScopeToggle(
               scope: scope,
+              termSingular: terms.singular,
+              termPlural: terms.plural,
               isEnabled: resolvedFriend.grantedScopes.contains(scope),
               onChanged: (enabled) {
                 final scopes = List<ShareScope>.from(
@@ -124,7 +131,10 @@ class FriendDetailScreen extends ConsumerWidget {
                   Clipboard.setData(
                     ClipboardData(text: resolvedFriend.peerSharingId!),
                   );
-                  PrismToast.show(context, message: context.l10n.sharingSharingIdCopied);
+                  PrismToast.show(
+                    context,
+                    message: context.l10n.sharingSharingIdCopied,
+                  );
                 },
               ),
             ),
@@ -222,7 +232,9 @@ class _FriendHeader extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  friend.isVerified ? context.l10n.sharingVerified : context.l10n.sharingNotVerified,
+                  friend.isVerified
+                      ? context.l10n.sharingVerified
+                      : context.l10n.sharingNotVerified,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: friend.isVerified
                         ? theme.colorScheme.primary
@@ -230,7 +242,13 @@ class _FriendHeader extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  context.l10n.sharingAddedDate((friend.establishedAt ?? friend.addedAt).toLocal().toString().split(' ').first),
+                  context.l10n.sharingAddedDate(
+                    (friend.establishedAt ?? friend.addedAt)
+                        .toLocal()
+                        .toString()
+                        .split(' ')
+                        .first,
+                  ),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -305,53 +323,58 @@ class _VerifyCard extends ConsumerWidget {
       fingerprint = await sharingService.fingerprintForFriend(friend);
     } catch (_) {
       if (!context.mounted) return;
-      PrismToast.error(context, message: context.l10n.sharingUnableToComputeFingerprint);
+      PrismToast.error(
+        context,
+        message: context.l10n.sharingUnableToComputeFingerprint,
+      );
       return;
     }
 
     if (!context.mounted) return;
-    unawaited(PrismDialog.show(
-      context: context,
-      title: context.l10n.sharingSecurityFingerprintTitle,
-      builder: (_) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            context.l10n.sharingFingerprintCompareText(friend.displayName),
-          ),
-          const SizedBox(height: 24),
-          SelectableText(
-            fingerprint,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              fontFamily: 'monospace',
-              fontWeight: FontWeight.bold,
+    unawaited(
+      PrismDialog.show(
+        context: context,
+        title: context.l10n.sharingSecurityFingerprintTitle,
+        builder: (_) => Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              context.l10n.sharingFingerprintCompareText(friend.displayName),
             ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            context.l10n.sharingFingerprintWarning,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.error,
+            const SizedBox(height: 24),
+            SelectableText(
+              fingerprint,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                fontFamily: 'monospace',
+                fontWeight: FontWeight.bold,
+              ),
             ),
+            const SizedBox(height: 16),
+            Text(
+              context.l10n.sharingFingerprintWarning,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.error,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          PrismButton(
+            onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
+            label: context.l10n.cancel,
+            tone: PrismButtonTone.subtle,
+          ),
+          PrismButton(
+            onPressed: () {
+              onVerified();
+              Navigator.of(context, rootNavigator: true).pop();
+            },
+            label: context.l10n.sharingMarkVerified,
+            tone: PrismButtonTone.filled,
           ),
         ],
       ),
-      actions: [
-        PrismButton(
-          onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
-          label: context.l10n.cancel,
-          tone: PrismButtonTone.subtle,
-        ),
-        PrismButton(
-          onPressed: () {
-            onVerified();
-            Navigator.of(context, rootNavigator: true).pop();
-          },
-          label: context.l10n.sharingMarkVerified,
-          tone: PrismButtonTone.filled,
-        ),
-      ],
-    ));
+    );
   }
 }
 
@@ -394,7 +417,9 @@ class _FingerprintRowState extends ConsumerState<_FingerprintRow> {
     return FutureBuilder<String>(
       future: _fingerprintFuture,
       builder: (context, snapshot) {
-        final label = snapshot.hasData ? context.l10n.sharingFingerprint : context.l10n.sharingIdentity;
+        final label = snapshot.hasData
+            ? context.l10n.sharingFingerprint
+            : context.l10n.sharingIdentity;
         final value = snapshot.data ?? _truncate(fallback);
         return PrismListRow(
           leading: Icon(snapshot.hasData ? AppIcons.fingerprint : AppIcons.key),
@@ -410,7 +435,10 @@ class _FingerprintRowState extends ConsumerState<_FingerprintRow> {
             onPressed: () {
               final text = snapshot.data ?? fallback;
               Clipboard.setData(ClipboardData(text: text));
-              PrismToast.show(context, message: context.l10n.sharingFingerprintCopied(label));
+              PrismToast.show(
+                context,
+                message: context.l10n.sharingFingerprintCopied(label),
+              );
             },
           ),
         );
@@ -427,11 +455,15 @@ class _FingerprintRowState extends ConsumerState<_FingerprintRow> {
 class _ScopeToggle extends StatelessWidget {
   const _ScopeToggle({
     required this.scope,
+    required this.termSingular,
+    required this.termPlural,
     required this.isEnabled,
     required this.onChanged,
   });
 
   final ShareScope scope;
+  final String termSingular;
+  final String termPlural;
   final bool isEnabled;
   final ValueChanged<bool> onChanged;
 
@@ -439,8 +471,8 @@ class _ScopeToggle extends StatelessWidget {
   Widget build(BuildContext context) {
     return PrismSwitchRow(
       icon: scope.icon,
-      title: scope.displayName,
-      subtitle: scope.description,
+      title: scope.displayNameFor(termPlural: termPlural),
+      subtitle: scope.descriptionFor(termSingular: termSingular),
       value: isEnabled,
       onChanged: onChanged,
     );

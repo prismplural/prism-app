@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/domain/models/member_group_entry.dart';
@@ -525,6 +526,43 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(result, '');
+      },
+    );
+  });
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // Unknown sentinel filter
+  // ══════════════════════════════════════════════════════════════════════════
+  //
+  // The sheet is a non-fronting picker (note targets, generic member select).
+  // It must consume the user-visible members provider so the Unknown sentinel
+  // — a system-internal placeholder backing orphan-classified fronting rows —
+  // never appears in the list.
+
+  group('unknown sentinel filter', () {
+    testWidgets(
+      'Unknown sentinel is filtered out of the rendered member list',
+      (tester) async {
+        final members = [
+          _member(id: 'a', name: 'Alice'),
+          Member(
+            id: unknownSentinelMemberId,
+            name: 'Unknown',
+            createdAt: DateTime(2024),
+          ),
+          _member(id: 'b', name: 'Bob'),
+        ];
+
+        await tester.pumpWidget(
+          _buildTestWidget(membersValue: AsyncData(members)),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Alice'), findsOneWidget);
+        expect(find.text('Bob'), findsOneWidget);
+        // Sentinel must not appear in the list — even when present in the
+        // upstream activeMembersProvider stream.
+        expect(find.text('Unknown'), findsNothing);
       },
     );
   });

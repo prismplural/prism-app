@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:drift/drift.dart' as drift;
 import 'package:drift/native.dart';
@@ -37,6 +38,7 @@ import 'package:prism_plurality/features/data_management/services/data_import_se
 AppDatabase _makeDb() => AppDatabase(NativeDatabase.memory());
 
 DataExportService _makeExport(AppDatabase db) => DataExportService(
+  db: db,
   memberRepository: DriftMemberRepository(db.membersDao, null),
   frontingSessionRepository: DriftFrontingSessionRepository(
     db.frontingSessionsDao,
@@ -306,6 +308,139 @@ void main() {
       },
     );
 
+    test('member profile header fields survive export -> import', () async {
+      final createdAt = DateTime(2026, 4, 2, 9, 30).toUtc();
+      final prismHeader = Uint8List.fromList([10, 20, 30, 40]);
+      final pkBanner = Uint8List.fromList([50, 60, 70, 80]);
+
+      await DriftMemberRepository(sourceDb.membersDao, null).createMember(
+        Member(
+          id: 'member-header',
+          name: 'Header Member',
+          emoji: '*',
+          createdAt: createdAt,
+          pkBannerUrl: 'https://cdn.example.com/member/banner.png',
+          profileHeaderSource: MemberProfileHeaderSource.pluralKit,
+          profileHeaderLayout: MemberProfileHeaderLayout.classicOverlap,
+          profileHeaderVisible: false,
+          profileHeaderImageData: prismHeader,
+          pkBannerImageData: pkBanner,
+          pkBannerCachedUrl: 'https://cdn.example.com/member/banner.png',
+        ),
+      );
+
+      final export = await exportService.buildExport();
+      final exported = export.headmates.single;
+      expect(
+        exported.profileHeaderSource,
+        MemberProfileHeaderSource.pluralKit.index,
+      );
+      expect(
+        exported.profileHeaderLayout,
+        MemberProfileHeaderLayout.classicOverlap.index,
+      );
+      expect(exported.profileHeaderVisible, isFalse);
+      expect(exported.profileHeaderImageData, base64Encode(prismHeader));
+      expect(exported.pkBannerImageData, base64Encode(pkBanner));
+      expect(
+        exported.pkBannerCachedUrl,
+        'https://cdn.example.com/member/banner.png',
+      );
+      expect(exported.pkBannerUrl, 'https://cdn.example.com/member/banner.png');
+
+      final result = await importService.importData(
+        const JsonEncoder().convert(export.toJson()),
+      );
+      expect(result.membersCreated, 1);
+
+      final imported = (await targetDb.membersDao.getAllMembers()).single;
+      expect(
+        imported.profileHeaderSource,
+        MemberProfileHeaderSource.pluralKit.index,
+      );
+      expect(
+        imported.profileHeaderLayout,
+        MemberProfileHeaderLayout.classicOverlap.index,
+      );
+      expect(imported.profileHeaderVisible, isFalse);
+      expect(imported.profileHeaderImageData, prismHeader);
+      expect(imported.pkBannerImageData, pkBanner);
+      expect(
+        imported.pkBannerCachedUrl,
+        'https://cdn.example.com/member/banner.png',
+      );
+      expect(imported.pkBannerUrl, 'https://cdn.example.com/member/banner.png');
+    });
+
+    test(
+      'old member exports default profile header fields on import',
+      () async {
+        final oldExport = V1Export(
+          formatVersion: '1.0',
+          version: '1.0',
+          appName: 'Prism Plurality',
+          exportDate: DateTime(2026, 4, 3).toUtc().toIso8601String(),
+          totalRecords: 2,
+          headmates: [
+            V1Headmate(
+              id: 'old-with-banner',
+              name: 'Old PK',
+              createdAt: DateTime(2026, 4, 3).toUtc().toIso8601String(),
+              pkBannerUrl: 'https://cdn.example.com/old/banner.png',
+            ),
+            V1Headmate(
+              id: 'old-without-banner',
+              name: 'Old Prism',
+              createdAt: DateTime(2026, 4, 3).toUtc().toIso8601String(),
+            ),
+          ],
+          frontSessions: const [],
+          sleepSessions: const [],
+          conversations: const [],
+          messages: const [],
+          polls: const [],
+          pollOptions: const [],
+          systemSettings: const [],
+          habits: const [],
+          habitCompletions: const [],
+        );
+
+        final result = await importService.importData(
+          const JsonEncoder().convert(oldExport.toJson()),
+        );
+
+        expect(result.membersCreated, 2);
+        final imported = await targetDb.membersDao.getAllMembers();
+        final withBanner = imported.singleWhere(
+          (m) => m.id == 'old-with-banner',
+        );
+        final withoutBanner = imported.singleWhere(
+          (m) => m.id == 'old-without-banner',
+        );
+        expect(
+          withBanner.profileHeaderSource,
+          MemberProfileHeaderSource.pluralKit.index,
+        );
+        expect(
+          withBanner.profileHeaderLayout,
+          MemberProfileHeaderLayout.compactBackground.index,
+        );
+        expect(withBanner.profileHeaderVisible, isTrue);
+        expect(withBanner.profileHeaderImageData, isNull);
+        expect(withBanner.pkBannerImageData, isNull);
+        expect(withBanner.pkBannerCachedUrl, isNull);
+        expect(
+          withoutBanner.profileHeaderSource,
+          MemberProfileHeaderSource.prism.index,
+        );
+        expect(
+          withoutBanner.profileHeaderLayout,
+          MemberProfileHeaderLayout.compactBackground.index,
+        );
+        expect(withoutBanner.profileHeaderVisible, isTrue);
+      },
+    );
+
     test('V1SystemSettings JSON serialization includes all new fields', () {
       // Verify toJson/fromJson symmetry for the 5 new fields
       final original = V1SystemSettings(
@@ -480,7 +615,8 @@ void main() {
         await sourceCommentsRepo.createComment(
           FrontSessionComment(
             id: 'comment-1',
-            sessionId: 'session-rnd',
+            // Post-Phase-5 comments anchor to targetTime, not session id.
+            targetTime: now,
             body: 'Felt good today',
             timestamp: now,
             createdAt: now,
@@ -489,7 +625,7 @@ void main() {
         await sourceCommentsRepo.createComment(
           FrontSessionComment(
             id: 'comment-2',
-            sessionId: 'session-rnd',
+            targetTime: now.add(const Duration(minutes: 5)),
             body: 'Second comment',
             timestamp: now.add(const Duration(minutes: 5)),
             createdAt: now.add(const Duration(minutes: 5)),
@@ -548,7 +684,7 @@ void main() {
         expect(importedComments, hasLength(2));
         final c1 = importedComments.firstWhere((c) => c.id == 'comment-1');
         expect(c1.body, 'Felt good today');
-        expect(c1.sessionId, 'session-rnd');
+        expect(c1.targetTime?.toUtc(), now);
         final c2 = importedComments.firstWhere((c) => c.id == 'comment-2');
         expect(c2.body, 'Second comment');
       },
@@ -576,11 +712,7 @@ void main() {
           null,
         );
         await sourceGroupsRepo.createGroup(
-          MemberGroup(
-            id: 'group-idem',
-            name: 'Idem Group',
-            createdAt: now,
-          ),
+          MemberGroup(id: 'group-idem', name: 'Idem Group', createdAt: now),
         );
         await sourceGroupsRepo.addMemberToGroup(
           'group-idem',
@@ -630,7 +762,7 @@ void main() {
         await sourceCommentsRepo.createComment(
           FrontSessionComment(
             id: 'comment-idem',
-            sessionId: 'session-idem',
+            targetTime: now,
             body: 'Test comment',
             timestamp: now,
             createdAt: now,
@@ -655,51 +787,45 @@ void main() {
       },
     );
 
-    test(
-      'PluralKit Phase 2 member fields survive export → import',
-      () async {
-        // Arrange: create a member with all PK Phase 2 fields populated
-        final now = DateTime(2026, 4, 17, 12, 0, 0).toUtc();
-        await DriftMemberRepository(sourceDb.membersDao, null).createMember(
-          Member(
-            id: 'pk-member-1',
-            name: 'Alex',
-            pronouns: 'they/them',
-            emoji: '\u2728',
-            createdAt: now,
-            pluralkitUuid: '11111111-1111-1111-1111-111111111111',
-            pluralkitId: 'abcde',
-            displayName: 'Alex (fronting)',
-            birthday: '1995-06-15',
-            proxyTagsJson: '[{"prefix":"A:","suffix":null}]',
-            pluralkitSyncIgnored: true,
-          ),
-        );
+    test('PluralKit Phase 2 member fields survive export → import', () async {
+      // Arrange: create a member with all PK Phase 2 fields populated
+      final now = DateTime(2026, 4, 17, 12, 0, 0).toUtc();
+      await DriftMemberRepository(sourceDb.membersDao, null).createMember(
+        Member(
+          id: 'pk-member-1',
+          name: 'Alex',
+          pronouns: 'they/them',
+          emoji: '\u2728',
+          createdAt: now,
+          pluralkitUuid: '11111111-1111-1111-1111-111111111111',
+          pluralkitId: 'abcde',
+          displayName: 'Alex (fronting)',
+          birthday: '1995-06-15',
+          proxyTagsJson: '[{"prefix":"A:","suffix":null}]',
+          pluralkitSyncIgnored: true,
+        ),
+      );
 
-        // Act
-        final result = await _roundtrip(exportService, importService);
-        expect(result.membersCreated, 1);
+      // Act
+      final result = await _roundtrip(exportService, importService);
+      expect(result.membersCreated, 1);
 
-        // Assert: all PK fields round-tripped
-        final targetMemberRepo = DriftMemberRepository(
-          targetDb.membersDao,
-          null,
-        );
-        final imported = await targetMemberRepo.getAllMembers();
-        expect(imported, hasLength(1));
-        final m = imported.single;
-        expect(m.id, 'pk-member-1');
-        expect(m.pluralkitUuid, '11111111-1111-1111-1111-111111111111');
-        expect(m.pluralkitId, 'abcde');
-        expect(m.displayName, 'Alex (fronting)');
-        expect(m.birthday, '1995-06-15');
-        expect(m.proxyTagsJson, '[{"prefix":"A:","suffix":null}]');
-        expect(m.pluralkitSyncIgnored, true);
-      },
-    );
+      // Assert: all PK fields round-tripped
+      final targetMemberRepo = DriftMemberRepository(targetDb.membersDao, null);
+      final imported = await targetMemberRepo.getAllMembers();
+      expect(imported, hasLength(1));
+      final m = imported.single;
+      expect(m.id, 'pk-member-1');
+      expect(m.pluralkitUuid, '11111111-1111-1111-1111-111111111111');
+      expect(m.pluralkitId, 'abcde');
+      expect(m.displayName, 'Alex (fronting)');
+      expect(m.birthday, '1995-06-15');
+      expect(m.proxyTagsJson, '[{"prefix":"A:","suffix":null}]');
+      expect(m.pluralkitSyncIgnored, true);
+    });
 
     test(
-      'PluralKit Phase 2 fronting session pkMemberIdsJson survives roundtrip',
+      'PluralKit fronting session pluralkitUuid survives new-shape roundtrip',
       () async {
         final now = DateTime(2026, 4, 17, 14, 0, 0).toUtc();
 
@@ -722,9 +848,8 @@ void main() {
             endTime: now,
             memberId: 'pk-session-member',
             pluralkitUuid: '22222222-2222-2222-2222-222222222222',
-            pkMemberIdsJson:
-                '["aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",'
-                '"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"]',
+            pkImportSource: 'file',
+            pkFileSwitchId: 'switch-file-2222',
           ),
         );
 
@@ -740,11 +865,13 @@ void main() {
         final s = imported.single;
         expect(s.id, 'pk-session-1');
         expect(s.pluralkitUuid, '22222222-2222-2222-2222-222222222222');
-        expect(
-          s.pkMemberIdsJson,
-          '["aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",'
-          '"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"]',
-        );
+        expect(s.pkImportSource, 'file');
+        expect(s.pkFileSwitchId, 'switch-file-2222');
+        // Post-Phase-5 the FrontingSession model no longer carries
+        // `pkMemberIdsJson` — the field is read off the v7 Drift column
+        // only when the legacy-fields export branch runs (migration-time).
+        // The new-shape exporter omits it; per-member rows are derived via
+        // §2.6 deterministic v5 ids on import.
       },
     );
 
@@ -798,5 +925,157 @@ void main() {
       final result2 = await _roundtrip(exportService, importService);
       expect(result2.habitsCreated, 0);
     });
+  });
+
+  // -- PR G additions (review findings #9, #43): SP rescue tier round-trips
+  group('PR G — SP rescue tier round-trips', () {
+    late AppDatabase targetDb;
+    late DataImportService importService;
+
+    setUp(() {
+      targetDb = _makeDb();
+      importService = _makeImport(targetDb);
+    });
+
+    tearDown(() async {
+      await targetDb.close();
+    });
+
+    test(
+      'tier 1 (sp_id_map present): importing the same legacy file '
+      'twice produces zero new rows on the second pass',
+      () async {
+        const memberId = 'sp-tier1-member';
+        const sessionId = 'sp-tier1-session';
+        const spEntityId = 'sp-source-tier1';
+        // Seed the member + sp_id_map in target before import.
+        final memberRepo = DriftMemberRepository(targetDb.membersDao, null);
+        await memberRepo.createMember(Member(
+          id: memberId,
+          name: 'M',
+          emoji: 'M',
+          createdAt: DateTime(2026, 1, 1).toUtc(),
+        ));
+        await targetDb.spImportDao.upsertMapping(
+          SpIdMapTableCompanion.insert(
+            spId: spEntityId,
+            entityType: 'session',
+            prismId: sessionId,
+          ),
+        );
+
+        final start = DateTime.utc(2026, 4, 1, 9);
+        final end = DateTime.utc(2026, 4, 1, 11);
+        final json = const JsonEncoder().convert({
+          'formatVersion': '1.0',
+          'version': '1.0',
+          'appName': 'Prism Plurality',
+          'exportDate': DateTime(2026, 4, 25).toUtc().toIso8601String(),
+          'totalRecords': 1,
+          'headmates': [],
+          'frontSessions': [
+            {
+              'id': sessionId,
+              'startTime': start.toIso8601String(),
+              'endTime': end.toIso8601String(),
+              'headmateId': memberId,
+              'coFronterIds': <String>[],
+            },
+          ],
+          'sleepSessions': [],
+          'conversations': [],
+          'messages': [],
+          'polls': [],
+          'pollOptions': [],
+          'systemSettings': [],
+          'habits': [],
+          'habitCompletions': [],
+        });
+
+        // First import: tier 1 derives the row id.
+        final r1 = await importService.importData(json);
+        expect(r1.frontSessionsCreated, 1);
+        expect(r1.legacySpIdPreservedCount, 0);
+
+        // Second import: dedup hits on the deterministic id.
+        final r2 = await importService.importData(json);
+        expect(r2.frontSessionsCreated, 0);
+        expect(r2.legacySpIdPreservedCount, 0);
+
+        final rows = await targetDb.frontingSessionsDao.getAllSessions();
+        expect(rows, hasLength(1));
+      },
+    );
+
+    test(
+      'tier 3 (legacy v4 id, no map entry): importing the same legacy '
+      'file twice produces zero new rows on the second pass',
+      () async {
+        const memberId = 'sp-tier3-member';
+        const sessionId = 'sp-tier3-random-v4';
+        // Seed sp_id_map entry with empty spId so the row is
+        // classified SP-rescue but tier-1/2 derivation falls through
+        // to tier 3 (preserve s.id).
+        final memberRepo = DriftMemberRepository(targetDb.membersDao, null);
+        await memberRepo.createMember(Member(
+          id: memberId,
+          name: 'M',
+          emoji: 'M',
+          createdAt: DateTime(2026, 1, 1).toUtc(),
+        ));
+        await targetDb.spImportDao.upsertMapping(
+          SpIdMapTableCompanion.insert(
+            spId: '',
+            entityType: 'session',
+            prismId: sessionId,
+          ),
+        );
+
+        final start = DateTime.utc(2026, 4, 1, 9);
+        final end = DateTime.utc(2026, 4, 1, 11);
+        final json = const JsonEncoder().convert({
+          'formatVersion': '1.0',
+          'version': '1.0',
+          'appName': 'Prism Plurality',
+          'exportDate': DateTime(2026, 4, 25).toUtc().toIso8601String(),
+          'totalRecords': 1,
+          'headmates': [],
+          'frontSessions': [
+            {
+              'id': sessionId,
+              'startTime': start.toIso8601String(),
+              'endTime': end.toIso8601String(),
+              'headmateId': memberId,
+              'coFronterIds': <String>[],
+            },
+          ],
+          'sleepSessions': [],
+          'conversations': [],
+          'messages': [],
+          'polls': [],
+          'pollOptions': [],
+          'systemSettings': [],
+          'habits': [],
+          'habitCompletions': [],
+        });
+
+        // First import: tier 3 preserves the legacy v4 id.
+        final r1 = await importService.importData(json);
+        expect(r1.frontSessionsCreated, 1);
+        expect(r1.legacySpIdPreservedCount, 1);
+
+        // Second import: dedup hits on the preserved v4 id.
+        final r2 = await importService.importData(json);
+        expect(r2.frontSessionsCreated, 0);
+        // Counter ticks again because tier 3 ran again before the
+        // dedup short-circuit (writeSession returns false). The
+        // counter measures policy-tier hits, not row writes.
+        expect(r2.legacySpIdPreservedCount, 1);
+
+        final rows = await targetDb.frontingSessionsDao.getAllSessions();
+        expect(rows, hasLength(1));
+        expect(rows.single.id, sessionId);
+      },
+    );
   });
 }

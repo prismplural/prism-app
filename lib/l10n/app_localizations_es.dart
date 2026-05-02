@@ -606,6 +606,21 @@ class AppLocalizationsEs extends AppLocalizations {
       'Activa el bloqueo por PIN para usar el desbloqueo biométrico';
 
   @override
+  String get pinLockUnlockOptionsSection => 'Opciones de desbloqueo';
+
+  @override
+  String get pinLockHardSyncLockTitle =>
+      'Requerir recuperación para sincronizar';
+
+  @override
+  String get pinLockHardSyncLockSubtitle =>
+      'Cuando la app se bloquee, olvida la clave de desbloqueo rápido de sincronización. La sincronización en segundo plano se pausa hasta que ingreses tu PIN y frase de recuperación.';
+
+  @override
+  String get pinLockHardSyncLockDisabledSubtitle =>
+      'Activa el bloqueo por PIN para requerir recuperación después del bloqueo de la app.';
+
+  @override
   String get pinLockAutoLockSection => 'Bloqueo automático';
 
   @override
@@ -756,8 +771,9 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get resetDataConfirmAll =>
-      'Esto eliminará permanentemente todos tus datos, incluidos integrantes, sesiones de frente, mensajes, encuestas, hábitos, datos de sueño y configuración. Esta acción no se puede deshacer.';
+  String resetDataConfirmAll(String termPluralLower) {
+    return 'Esto eliminará permanentemente todos tus datos, incluidos $termPluralLower, sesiones de frente, mensajes, encuestas, hábitos, datos de sueño y configuración. Esta acción no se puede deshacer.';
+  }
 
   @override
   String get resetDataConfirmSync =>
@@ -923,8 +939,28 @@ class AppLocalizationsEs extends AppLocalizations {
   String get statisticsDurationLongest => 'Más larga';
 
   @override
-  String get statisticsFrontingTimeByMember =>
-      'Tiempo al frente por integrante';
+  String statisticsFrontingTimeByMember(String term) {
+    return 'Minutos por $term';
+  }
+
+  @override
+  String statisticsMemberMinutesAxisHint(String term) {
+    return '% de los minutos por $term del sistema';
+  }
+
+  @override
+  String get statisticsMedianSessionLabel => 'Sesión mediana';
+
+  @override
+  String get statisticsGapTimeLabel => 'Tiempo sin frente';
+
+  @override
+  String get statisticsSwitchesPerDayLabel => 'Cambios/día';
+
+  @override
+  String statisticsUniqueFrontersLabel(String termPlural) {
+    return '$termPlural únicos';
+  }
 
   @override
   String statisticsActiveMembersBreakdown(int active, int inactive) {
@@ -1025,13 +1061,6 @@ class AppLocalizationsEs extends AppLocalizations {
   String get debugTools => 'Herramientas';
 
   @override
-  String get debugTimelineSanitization => 'Limpieza de cronología';
-
-  @override
-  String get debugTimelineSanitizationSubtitle =>
-      'Buscar y corregir problemas de cronología';
-
-  @override
   String get debugDevice => 'Dispositivo';
 
   @override
@@ -1058,8 +1087,9 @@ class AppLocalizationsEs extends AppLocalizations {
       '¿Realmente eliminar todos los datos?';
 
   @override
-  String get debugResetDatabaseConfirm2Message =>
-      'Esto borrará permanentemente todos los integrantes, sesiones, conversaciones, mensajes y encuestas. No hay forma de deshacer.';
+  String debugResetDatabaseConfirm2Message(String termPluralLower) {
+    return 'Esto borrará permanentemente $termPluralLower, sesiones, conversaciones, mensajes y encuestas. No hay forma de deshacer.';
+  }
 
   @override
   String get debugDeleteEverything => 'Eliminar todo';
@@ -1137,7 +1167,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get systemInfoChangeAvatar => 'Cambiar avatar';
 
   @override
-  String get memberChangeAvatar => 'Cambiar avatar de integrante';
+  String memberChangeAvatar(String termSingularLower) {
+    return 'Cambiar avatar de $termSingularLower';
+  }
 
   @override
   String get avatarCropTitle => 'Recortar avatar';
@@ -1147,6 +1179,108 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get memberRemoveAvatar => 'Eliminar foto';
+
+  @override
+  String get memberProfileHeaderSectionTitle => 'Encabezado del perfil';
+
+  @override
+  String get memberProfileHeaderSectionDescription =>
+      'Elige el origen de la imagen y el diseño de este perfil.';
+
+  @override
+  String get memberProfileHeaderVisibleTitle => 'Mostrar encabezado del perfil';
+
+  @override
+  String get memberProfileHeaderVisibleSubtitle =>
+      'Conserva la imagen y el origen guardados mientras oculta el encabezado.';
+
+  @override
+  String get memberProfileHeaderSourcePluralKit => 'PluralKit';
+
+  @override
+  String get memberProfileHeaderSourcePrism => 'Prism';
+
+  @override
+  String get memberProfileHeaderSourcePluralKitHelper =>
+      'Se actualiza desde PluralKit cuando Prism sincroniza.';
+
+  @override
+  String get memberProfileHeaderSourcePrismHelper =>
+      'Privado para Prism. No actualiza PluralKit.';
+
+  @override
+  String get memberProfileHeaderPluralKitUnavailable =>
+      'PluralKit aparece cuando este miembro tiene un encabezado vinculado o guardado en cache.';
+
+  @override
+  String get memberProfileHeaderChangeImage => 'Cambiar imagen';
+
+  @override
+  String get memberProfileHeaderRemoveImage => 'Eliminar imagen';
+
+  @override
+  String get memberProfileHeaderLayoutLabel => 'Diseño';
+
+  @override
+  String get memberProfileHeaderLayoutCompact => 'Compacto';
+
+  @override
+  String get memberProfileHeaderLayoutClassic => 'Clásico';
+
+  @override
+  String get memberProfileHeaderCropTitle => 'Recortar encabezado del perfil';
+
+  @override
+  String get memberProfileHeaderProcessingError =>
+      'No se pudo procesar esa imagen.';
+
+  @override
+  String get memberNameStyleTooltip => 'Editar estilo del nombre';
+
+  @override
+  String get memberNameStyleDialogTitle => 'Estilo del nombre';
+
+  @override
+  String get memberNameStyleFontLabel => 'Fuente';
+
+  @override
+  String get memberNameStyleFontDefault => 'Predeterminada';
+
+  @override
+  String get memberNameStyleFontDisplay => 'Display';
+
+  @override
+  String get memberNameStyleFontSerif => 'Serif';
+
+  @override
+  String get memberNameStyleFontMono => 'Mono';
+
+  @override
+  String get memberNameStyleFontRounded => 'Redondeada';
+
+  @override
+  String get memberNameStyleStyleLabel => 'Estilo';
+
+  @override
+  String get memberNameStyleBold => 'Negrita';
+
+  @override
+  String get memberNameStyleItalic => 'Cursiva';
+
+  @override
+  String get memberNameStyleColorLabel => 'Color';
+
+  @override
+  String get memberNameStyleColorDefault => 'Predeterminado';
+
+  @override
+  String get memberNameStyleColorAccent => 'Acento';
+
+  @override
+  String get memberNameStyleColorCustom => 'Personalizado';
+
+  @override
+  String get memberNameStyleReset => 'Restablecer';
 
   @override
   String get systemInfoNameLabel => 'Nombre';
@@ -1503,8 +1637,9 @@ class AppLocalizationsEs extends AppLocalizations {
       'Usar etiquetas de proxy para firmar mensajes';
 
   @override
-  String get featureChatProxyTagAuthoringSubtitle =>
-      'Escribe una etiqueta de proxy de PluralKit (p. ej. A:) para firmar un solo mensaje como ese integrante. Distingue mayúsculas y minúsculas.';
+  String featureChatProxyTagAuthoringSubtitle(String termSingularLower) {
+    return 'Escribe una etiqueta de proxy (p. ej. A:) para firmar un solo mensaje como $termSingularLower. Distingue mayúsculas y minúsculas.';
+  }
 
   @override
   String chatPostingAsProxy(String name) {
@@ -1589,8 +1724,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get featureFrontingShowQuickFront => 'Front Rápido';
 
   @override
-  String get featureFrontingShowQuickFrontSubtitle =>
-      'Muestra los miembros que frentan frecuentemente como accesos rápidos de mantener pulsado';
+  String featureFrontingShowQuickFrontSubtitle(String termPluralLower) {
+    return 'Muestra $termPluralLower que frentan frecuentemente como accesos rápidos de mantener pulsado';
+  }
 
   @override
   String featureHabitsDescription(String term) {
@@ -1728,22 +1864,47 @@ class AppLocalizationsEs extends AppLocalizations {
   String get frontingLoadingOlderSessions => 'Cargando sesiones anteriores';
 
   @override
-  String get frontingTimelineIssuesFound =>
-      'Problemas de cronología encontrados';
+  String frontingAlwaysPresentLabel(String duration) {
+    return 'Siempre presente · $duration';
+  }
 
   @override
-  String frontingTimelineIssuesBannerMessage(int count) {
+  String frontingAlwaysPresentSemantics(String names, String duration) {
+    return 'Siempre al frente: $names, $duration';
+  }
+
+  @override
+  String frontingAlwaysPresentDurationWeeks(int weeks) {
     String _temp0 = intl.Intl.pluralLogic(
-      count,
+      weeks,
       locale: localeName,
-      other: '$count problemas de cronología encontrados. Toca para revisar.',
-      one: '1 problema de cronología encontrado. Toca para revisar.',
+      other: '$weeks semanas',
+      one: '1 semana',
     );
     return '$_temp0';
   }
 
   @override
-  String get frontingTimelineIssuesReview => 'Revisar';
+  String frontingAlwaysPresentDurationDays(int days) {
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      other: '$days días',
+      one: '1 día',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String frontingAlwaysPresentDurationHours(int hours) {
+    String _temp0 = intl.Intl.pluralLogic(
+      hours,
+      locale: localeName,
+      other: '$hours horas',
+      one: '1 hora',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get frontingMenuWakeUpAs => 'Despertar como...';
@@ -1839,6 +2000,12 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get frontingSelectFronter => 'Seleccionar quien está al frente';
+
+  @override
+  String get frontingAddFrontModeAdditive => 'Agregar al co-frente';
+
+  @override
+  String get frontingAddFrontModeReplace => 'Reemplazar actual';
 
   @override
   String frontingSelectMember(String term) {
@@ -1964,6 +2131,30 @@ class AppLocalizationsEs extends AppLocalizations {
   String frontingErrorSavingSession(Object error) {
     return 'Error al guardar la sesión: $error';
   }
+
+  @override
+  String get frontingEndSessionButton => 'Terminar sesión';
+
+  @override
+  String frontingEndSessionEndedToast(String member) {
+    return 'Sesión de $member terminada';
+  }
+
+  @override
+  String get frontingNextFronterTitle => '¿Quién está al frente ahora?';
+
+  @override
+  String get frontingNextFronterBody =>
+      'Después de esto no habrá nadie al frente.';
+
+  @override
+  String get frontingNextFronterPick => 'Elegir quién al frente';
+
+  @override
+  String get frontingNextFronterUnknown => 'Desconocido';
+
+  @override
+  String get frontingNextFronterEnd => 'Terminar sin nadie al frente';
 
   @override
   String get frontingSessionDetailEditTooltip => 'Editar';
@@ -2140,132 +2331,6 @@ class AppLocalizationsEs extends AppLocalizations {
       'Inicia una sesión de frente para verla en la cronología.';
 
   @override
-  String get frontingSanitizationTitle => 'Limpieza de cronología';
-
-  @override
-  String get frontingSanitizationScanning => 'Escaneando cronología…';
-
-  @override
-  String get frontingSanitizationIntroTitle => 'Limpieza de cronología';
-
-  @override
-  String get frontingSanitizationIntroBody =>
-      'Escanea tu historial de frente en busca de sesiones superpuestas, duplicadas o inválidas, y aplica correcciones automáticas.';
-
-  @override
-  String get frontingSanitizationScanButton => 'Escanear cronología';
-
-  @override
-  String get frontingSanitizationCleanTitle => '¡La cronología está limpia!';
-
-  @override
-  String get frontingSanitizationCleanSubtitle =>
-      'No se encontraron superposiciones, duplicados ni sesiones inválidas.';
-
-  @override
-  String get frontingSanitizationScanAgain => 'Escanear de nuevo';
-
-  @override
-  String frontingSanitizationIssuesFound(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: 'Se encontraron $count problemas en tu cronología.',
-      one: 'Se encontró 1 problema en tu cronología.',
-    );
-    return '$_temp0';
-  }
-
-  @override
-  String frontingSanitizationFixesApplied(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count correcciones aplicadas correctamente.',
-      one: '1 corrección aplicada correctamente.',
-    );
-    return '$_temp0';
-  }
-
-  @override
-  String frontingSanitizationScanFailed(Object error) {
-    return 'Error al escanear: $error';
-  }
-
-  @override
-  String frontingSanitizationFixFailed(Object error) {
-    return 'Error al aplicar la corrección: $error';
-  }
-
-  @override
-  String frontingSanitizationLoadFixFailed(Object error) {
-    return 'No se pudieron cargar las opciones de corrección: $error';
-  }
-
-  @override
-  String get frontingSanitizationFixOptionsTitle => 'Opciones de corrección';
-
-  @override
-  String get frontingSanitizationNoAutoFix =>
-      'No hay correcciones automáticas disponibles para este problema.\nRevisa y resuélvelo manualmente.';
-
-  @override
-  String get frontingSanitizationPreview => 'Vista previa';
-
-  @override
-  String get frontingSanitizationHidePreview => 'Ocultar vista previa';
-
-  @override
-  String get frontingSanitizationApply => 'Aplicar';
-
-  @override
-  String get frontingIssueTypeOverlap => 'Superposición';
-
-  @override
-  String get frontingIssueTypeGap => 'Brecha';
-
-  @override
-  String get frontingIssueTypeDuplicate => 'Duplicado';
-
-  @override
-  String get frontingIssueTypeMergeable => 'Fusionable';
-
-  @override
-  String get frontingIssueTypeInvalidRange => 'Rango inválido';
-
-  @override
-  String get frontingIssueTypeFutureSession => 'Sesión futura';
-
-  @override
-  String get frontingIssueSectionOverlap => 'Sesiones superpuestas';
-
-  @override
-  String get frontingIssueSectionGap => 'Brechas';
-
-  @override
-  String get frontingIssueSectionDuplicate => 'Duplicados';
-
-  @override
-  String get frontingIssueSectionMergeable => 'Adyacentes fusionables';
-
-  @override
-  String get frontingIssueSectionInvalidRange => 'Rangos inválidos';
-
-  @override
-  String get frontingIssueSectionFutureSession => 'Sesiones futuras';
-
-  @override
-  String frontingIssueSessionCount(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count sesiones',
-      one: '1 sesión',
-    );
-    return '$_temp0';
-  }
-
-  @override
   String get frontingDeleteStrategyTitle => '¿Qué debe pasar con este tiempo?';
 
   @override
@@ -2376,7 +2441,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get memberSectionNotes => 'Notas';
 
   @override
-  String get memberSectionBio => 'Notas';
+  String get memberSectionBio => 'Biografía';
 
   @override
   String get memberSectionProxyTags => 'Etiquetas de proxy';
@@ -2389,10 +2454,37 @@ class AppLocalizationsEs extends AppLocalizations {
   String get memberProxyTagsEditOnPk => 'Editar en PluralKit';
 
   @override
+  String get memberProxyTagsLocalDescription =>
+      'Se guardan en Prism para firmar mensajes de chat con etiquetas de proxy. Los miembros vinculados se sincronizan con PluralKit cuando la sincronización de subida está activada.';
+
+  @override
+  String get memberProxyTagsEditInPrism => 'Editar etiquetas de proxy';
+
+  @override
+  String get memberProxyTagsAdd => 'Agregar etiqueta de proxy';
+
+  @override
+  String get memberProxyTagsRemove => 'Quitar etiqueta de proxy';
+
+  @override
+  String get memberProxyTagPrefixLabel => 'Prefijo';
+
+  @override
+  String get memberProxyTagPrefixHint => 'A:';
+
+  @override
+  String get memberProxyTagSuffixLabel => 'Sufijo';
+
+  @override
+  String get memberProxyTagSuffixHint => '-a';
+
+  @override
   String get memberProxyTagsEmpty => 'No hay etiquetas de proxy.';
 
   @override
-  String get memberEditTooltip => 'Editar integrante';
+  String memberEditTooltip(String termSingularLower) {
+    return 'Editar $termSingularLower';
+  }
 
   @override
   String get memberMoreOptionsTooltip => 'Más opciones';
@@ -2600,7 +2692,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get memberNoteDiscardConfirm => 'Descartar';
 
   @override
-  String get memberNoteChooseHeadmate => 'Elegir integrante';
+  String memberNoteChooseHeadmate(String termSingular) {
+    return 'Elegir $termSingular';
+  }
 
   @override
   String memberNoteDateSemantics(String date) {
@@ -2608,8 +2702,8 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String memberNoteMemberSemantics(String name) {
-    return 'Integrante: $name. Toca para cambiar';
+  String memberNoteMemberSemantics(String termSingular, String name) {
+    return '$termSingular: $name. Toca para cambiar';
   }
 
   @override
@@ -2640,13 +2734,17 @@ class AppLocalizationsEs extends AppLocalizations {
   String get memberGroupSubGroupsLabel => 'Sub-grupos';
 
   @override
-  String get memberGroupSectionMembers => 'Integrantes';
+  String memberGroupSectionMembers(String termPlural) {
+    return '$termPlural';
+  }
 
   @override
   String get memberGroupStartChat => 'Iniciar chat';
 
   @override
-  String get memberGroupAddMember => 'Agregar integrante';
+  String memberGroupAddMember(String termSingularLower) {
+    return 'Agregar $termSingularLower';
+  }
 
   @override
   String get memberGroupAddSubGroup => 'Agregar subgrupo';
@@ -2663,8 +2761,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get memberGroupDeleteTitle => 'Eliminar grupo';
 
   @override
-  String memberGroupDeleteMessage(String name) {
-    return '¿Seguro que quieres eliminar \"$name\"? Los integrantes no serán eliminados.';
+  String memberGroupDeleteMessage(String name, String termPlural) {
+    return '¿Seguro que quieres eliminar \"$name\"? $termPlural no serán eliminados.';
   }
 
   @override
@@ -2692,8 +2790,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get memberGroupDeleteAllConfirmTitle => '¿Eliminar subgrupos también?';
 
   @override
-  String memberGroupDeleteAllConfirmMessage(String name) {
-    return 'Esto eliminará permanentemente \"$name\" y todos sus subgrupos. Los integrantes no serán eliminados.';
+  String memberGroupDeleteAllConfirmMessage(String name, String termPlural) {
+    return 'Esto eliminará permanentemente \"$name\" y todos sus subgrupos. $termPlural no serán eliminados.';
   }
 
   @override
@@ -2744,12 +2842,16 @@ class AppLocalizationsEs extends AppLocalizations {
   String get memberGroupFilterUngrouped => 'Sin grupo';
 
   @override
-  String get memberGroupFrontAllAlreadyFronting =>
-      'Todos los integrantes ya están al frente';
+  String memberGroupFrontAllAlreadyFronting(
+    String termPluralLower,
+    Object termPlural,
+  ) {
+    return '$termPlural ya están al frente';
+  }
 
   @override
-  String memberGroupFrontAllInactive(String name) {
-    return 'Todos los integrantes de $name están inactivos. ¿Frente de todos modos?';
+  String memberGroupFrontAllInactive(String name, String termPluralLower) {
+    return '$termPluralLower de $name están inactivos. ¿Frente de todos modos?';
   }
 
   @override
@@ -2761,18 +2863,22 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String memberGroupFrontGroupConfirmMessage(int count) {
-    return 'Se iniciará una sesión de co-frente con los $count integrantes.';
+  String memberGroupFrontGroupConfirmMessage(int count, String termForCount) {
+    return 'Se iniciará una sesión de co-frente con $count $termForCount.';
   }
 
   @override
-  String memberGroupFrontGroupSemantics(String name) {
-    return 'Frente a todos los integrantes de $name';
+  String memberGroupFrontGroupSemantics(String name, String termPluralLower) {
+    return 'Frente a $termPluralLower de $name';
   }
 
   @override
-  String memberGroupFrontSomeAlreadyFronting(int count, int remaining) {
-    return '$count integrantes ya al frente. ¿Añadir les $remaining restantes?';
+  String memberGroupFrontSomeAlreadyFronting(
+    int count,
+    String termForCount,
+    int remaining,
+  ) {
+    return '$count $termForCount ya al frente. ¿Añadir les $remaining restantes?';
   }
 
   @override
@@ -2852,8 +2958,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get memberCustomColorTitle => 'Color personalizado';
 
   @override
-  String get memberCustomColorSubtitle =>
-      'Usar un color personal para este integrante';
+  String memberCustomColorSubtitle(String termSingularLower) {
+    return 'Usar un color personal para $termSingularLower';
+  }
 
   @override
   String get memberColorHexLabel => 'Color hex';
@@ -2880,11 +2987,14 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get memberSearchConfirmSelectionTooltip =>
-      'Confirmar integrantes seleccionados';
+  String memberSearchConfirmSelectionTooltip(String termPluralLower) {
+    return 'Confirmar $termPluralLower seleccionados';
+  }
 
   @override
-  String get memberSaveTooltip => 'Guardar integrante';
+  String memberSaveTooltip(String termSingularLower) {
+    return 'Guardar $termSingularLower';
+  }
 
   @override
   String get memberBulkActivate => 'Activar';
@@ -3032,7 +3142,9 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get chatChooseSpeakingMember => 'Elegir integrante';
+  String chatChooseSpeakingMember(String termSingularLower) {
+    return 'Elegir $termSingularLower hablante';
+  }
 
   @override
   String get chatCancelReply => 'Cancelar respuesta';
@@ -3105,7 +3217,9 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get chatInfoAddMembers => 'Agregar integrantes';
+  String chatInfoAddMembers(String termPluralLower) {
+    return 'Agregar $termPluralLower';
+  }
 
   @override
   String get chatInfoOwner => 'Propietario';
@@ -3114,10 +3228,14 @@ class AppLocalizationsEs extends AppLocalizations {
   String get chatInfoAdmin => 'Admin';
 
   @override
-  String get chatInfoUnknownMember => 'Integrante desconocido';
+  String chatInfoUnknownMember(String termSingular) {
+    return '$termSingular desconocido';
+  }
 
   @override
-  String get chatInfoErrorLoadingMember => 'Error al cargar integrante';
+  String chatInfoErrorLoadingMember(String termSingularLower) {
+    return 'Error al cargar $termSingularLower';
+  }
 
   @override
   String get chatInfoCategory => 'Categoría';
@@ -3184,15 +3302,18 @@ class AppLocalizationsEs extends AppLocalizations {
       'Selecciona el nuevo propietario de la conversación';
 
   @override
-  String get chatAddMembersTitle => 'Agregar integrantes';
+  String chatAddMembersTitle(String termPlural) {
+    return 'Agregar $termPlural';
+  }
 
   @override
-  String get chatAddMembersAllAdded =>
-      'Todos los integrantes activos ya están en esta conversación.';
+  String chatAddMembersAllAdded(String termPluralLower, Object termPlural) {
+    return '$termPlural activos ya están en esta conversación.';
+  }
 
   @override
-  String chatAddMembersFailed(Object error) {
-    return 'Error al agregar integrantes: $error';
+  String chatAddMembersFailed(String termPluralLower, Object error) {
+    return 'Error al agregar $termPluralLower: $error';
   }
 
   @override
@@ -3228,8 +3349,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get chatCreateDeselectAll => 'Deseleccionar todo';
 
   @override
-  String get chatCreateNoMembers =>
-      'No hay integrantes disponibles. Crea integrantes primero.';
+  String chatCreateNoMembers(String termPluralLower) {
+    return 'No hay $termPluralLower disponibles. Crea $termPluralLower primero.';
+  }
 
   @override
   String get chatCreateFronting => 'Al frente';
@@ -3284,10 +3406,14 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get chatNoMembersAvailable => 'No hay integrantes disponibles';
+  String chatNoMembersAvailable(String termPluralLower) {
+    return 'No hay $termPluralLower disponibles';
+  }
 
   @override
-  String get chatErrorLoadingMembersShort => 'Error al cargar integrantes';
+  String chatErrorLoadingMembersShort(String termPluralLower) {
+    return 'Error al cargar $termPluralLower';
+  }
 
   @override
   String get chatGifsTitle => 'GIFs';
@@ -3566,10 +3692,17 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get memberAvatarSemanticsUnnamed => 'Avatar del integrante';
+  String memberAvatarSemanticsUnnamed(
+    String termSingular,
+    Object termSingularLower,
+  ) {
+    return 'Avatar de $termSingularLower';
+  }
 
   @override
-  String get groupMemberAvatarSemantics => 'Avatar de integrante del grupo';
+  String groupMemberAvatarSemantics(String termSingularLower) {
+    return 'Avatar de $termSingularLower del grupo';
+  }
 
   @override
   String get habitsReminderNotificationTitle => 'Recordatorio de hábito';
@@ -3645,17 +3778,34 @@ class AppLocalizationsEs extends AppLocalizations {
       'Tus palabras, tus colores, tus funciones. Prism se adapta a cómo funciona tu sistema.';
 
   @override
-  String get onboardingAddMembersNoMembers =>
-      'Aún no hay integrantes.\nToca «Agregar integrante» para empezar.';
+  String onboardingAddMembersNoMembers(
+    String termPluralLower,
+    String termSingular,
+    Object termSingularLower,
+  ) {
+    return 'Aún no hay $termPluralLower.\nToca «Agregar $termSingularLower» para empezar.';
+  }
 
   @override
-  String get onboardingAddMembersRemoveMember => 'Eliminar integrante';
+  String onboardingAddMembersRemoveMember(String termSingularLower) {
+    return 'Eliminar $termSingularLower';
+  }
 
   @override
-  String get onboardingAddMembersAddMember => 'Agregar integrante';
+  String onboardingAddMembersAddMember(
+    String termSingular,
+    Object termSingularLower,
+  ) {
+    return 'Agregar $termSingularLower';
+  }
 
   @override
-  String get onboardingAddMemberSheetTitle => 'Agregar integrante';
+  String onboardingAddMemberSheetTitle(
+    String termSingular,
+    Object termSingularLower,
+  ) {
+    return 'Agregar $termSingularLower';
+  }
 
   @override
   String get onboardingAddMemberFieldEmoji => 'Emoji';
@@ -3689,8 +3839,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get onboardingFeaturesChat => 'Chat';
 
   @override
-  String get onboardingFeaturesChatDescription =>
-      'Mensajería interna entre integrantes del sistema';
+  String onboardingFeaturesChatDescription(String termPluralLower) {
+    return 'Mensajería interna entre $termPluralLower del sistema';
+  }
 
   @override
   String get onboardingFeaturesPolls => 'Encuestas';
@@ -3724,8 +3875,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get onboardingFeaturesReminders => 'Recordatorios';
 
   @override
-  String get onboardingFeaturesRemindersDescription =>
-      'Configura recordatorios para ti o los miembros del sistema';
+  String onboardingFeaturesRemindersDescription(String termPluralLower) {
+    return 'Configura recordatorios para ti o $termPluralLower del sistema';
+  }
 
   @override
   String get onboardingCompleteTrackFrontingTitle =>
@@ -4024,8 +4176,9 @@ class AppLocalizationsEs extends AppLocalizations {
       'Toca para seleccionar quién está al frente ahora';
 
   @override
-  String get onboardingWhosFrontingNoMembers =>
-      'Aún no hay integrantes.\nVuelve atrás para agregar integrantes primero.';
+  String onboardingWhosFrontingNoMembers(String termPluralLower) {
+    return 'Aún no hay $termPluralLower.\nVuelve atrás para agregar $termPluralLower primero.';
+  }
 
   @override
   String get onboardingChatSuggestedChannels => 'Canales sugeridos';
@@ -4037,7 +4190,12 @@ class AppLocalizationsEs extends AppLocalizations {
   String get onboardingChatChannelNameHint => 'Nombre del canal';
 
   @override
-  String get onboardingChatChannelAllMembers => 'Todos los miembros';
+  String onboardingChatChannelAllMembers(
+    String termPlural,
+    Object termPluralLower,
+  ) {
+    return 'Todos $termPluralLower';
+  }
 
   @override
   String get onboardingChatChannelVenting => 'Desahogo';
@@ -4070,11 +4228,19 @@ class AppLocalizationsEs extends AppLocalizations {
   String get onboardingPreferencesAccentColor => 'Color de acento';
 
   @override
-  String get onboardingPreferencesPerMemberColors => 'Colores por integrante';
+  String onboardingPreferencesPerMemberColors(
+    String termSingular,
+    Object termSingularLower,
+  ) {
+    return 'Colores por $termSingularLower';
+  }
 
   @override
-  String get onboardingPreferencesPerMemberColorsSubtitle =>
-      'Permite que cada integrante tenga su propio color de acento';
+  String onboardingPreferencesPerMemberColorsSubtitle(
+    String termSingularLower,
+  ) {
+    return 'Permite que cada $termSingularLower tenga su propio color de acento';
+  }
 
   @override
   String get onboardingSyncJoinYourGroup =>
@@ -4210,7 +4376,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get habitsSectionAssignment => 'ASIGNACIÓN';
 
   @override
-  String get habitsAssignedMember => 'Integrante asignado';
+  String habitsAssignedMember(String termSingular) {
+    return '$termSingular asignado';
+  }
 
   @override
   String get habitsAssignedMemberAnyone => 'Cualquiera';
@@ -4220,8 +4388,9 @@ class AppLocalizationsEs extends AppLocalizations {
       'Notificar solo cuando esté al frente';
 
   @override
-  String get habitsOnlyFrontingCaveat =>
-      'Los recordatorios se enviarán aunque este integrante no esté al frente — la entrega consciente del frente requiere acceso en segundo plano.';
+  String habitsOnlyFrontingCaveat(String termSingularLower) {
+    return 'Los recordatorios se enviarán aunque $termSingularLower no esté al frente — la entrega consciente del frente requiere acceso en segundo plano.';
+  }
 
   @override
   String get habitsPrivate => 'Privado';
@@ -4574,7 +4743,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get pollsDetailVoteAs => 'Votar como';
 
   @override
-  String get pollsDetailNoMembers => 'No hay integrantes disponibles';
+  String pollsDetailNoMembers(String termPluralLower) {
+    return 'No hay $termPluralLower disponibles';
+  }
 
   @override
   String get pollsDetailSubmitVote => 'Enviar voto';
@@ -4663,7 +4834,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get migrationSupportedDataTypes => 'Tipos de datos compatibles';
 
   @override
-  String get migrationSupportedMembers => 'Integrantes';
+  String migrationSupportedMembers(String termPlural) {
+    return '$termPlural';
+  }
 
   @override
   String get migrationSupportedCustomFronts => 'Frentes personalizados';
@@ -4678,11 +4851,14 @@ class AppLocalizationsEs extends AppLocalizations {
   String get migrationSupportedPolls => 'Encuestas';
 
   @override
-  String get migrationSupportedMemberColors => 'Colores de integrantes';
+  String migrationSupportedMemberColors(String termSingular) {
+    return 'Colores de $termSingular';
+  }
 
   @override
-  String get migrationSupportedMemberDescriptions =>
-      'Descripciones de integrantes';
+  String migrationSupportedMemberDescriptions(String termSingular) {
+    return 'Descripciones de $termSingular';
+  }
 
   @override
   String get migrationSupportedAvatarImages => 'Imágenes de avatar';
@@ -4778,8 +4954,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get migrationReplaceAllTitle => '¿Reemplazar todos los datos?';
 
   @override
-  String get migrationReplaceAllMessage =>
-      'Esto eliminará todos los integrantes, historial al frente, conversaciones y otros datos existentes antes de importar. Esta acción no se puede deshacer.\n\nSi tienes la sincronización configurada, los otros dispositivos emparejados también deberían reiniciarse para evitar conflictos.';
+  String migrationReplaceAllMessage(String termPluralLower) {
+    return 'Esto eliminará $termPluralLower, historial al frente, conversaciones y otros datos existentes antes de importar. Esta acción no se puede deshacer.\n\nSi tienes la sincronización configurada, los otros dispositivos emparejados también deberían reiniciarse para evitar conflictos.';
+  }
 
   @override
   String get migrationReplaceAll => 'Reemplazar todo';
@@ -4799,7 +4976,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get migrationSummary => 'Resumen';
 
   @override
-  String get migrationResultMembers => 'Integrantes';
+  String migrationResultMembers(String termPlural) {
+    return '$termPlural';
+  }
 
   @override
   String get migrationResultFrontSessions => 'Sesiones al frente';
@@ -4968,6 +5147,10 @@ class AppLocalizationsEs extends AppLocalizations {
       'Para obtener tu token, envía un mensaje directo al bot de PluralKit en Discord con \"pk;token\" y pega el resultado aquí.';
 
   @override
+  String get pluralkitFileImportHelp =>
+      'Recupera el historial anterior de fronts de PluralKit con un archivo pk;export y un token. El archivo aporta el historial de cambios; el token permite que Prism lo vincule de forma segura.';
+
+  @override
   String get pluralkitImportButton => 'Importar desde PluralKit';
 
   @override
@@ -4998,25 +5181,13 @@ class AppLocalizationsEs extends AppLocalizations {
   String get pluralkitUpToDate => 'Todo está actualizado.';
 
   @override
-  String pluralkitMembersPulled(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count integrantes descargados',
-      one: '1 integrante descargado',
-    );
-    return '$_temp0';
+  String pluralkitMembersPulled(int count, String termForCount) {
+    return 'Descargados: $count $termForCount';
   }
 
   @override
-  String pluralkitMembersPushed(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count integrantes subidos',
-      one: '1 integrante subido',
-    );
-    return '$_temp0';
+  String pluralkitMembersPushed(int count, String termForCount) {
+    return 'Subidos: $count $termForCount';
   }
 
   @override
@@ -5042,14 +5213,8 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String pluralkitMembersUnchanged(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count integrantes sin cambios',
-      one: '1 integrante sin cambios',
-    );
-    return '$_temp0';
+  String pluralkitMembersUnchanged(int count, String termForCount) {
+    return 'Sin cambios: $count $termForCount';
   }
 
   @override
@@ -5061,12 +5226,13 @@ class AppLocalizationsEs extends AppLocalizations {
       'Tu token se almacena de forma segura en el llavero del dispositivo y nunca sale de él.';
 
   @override
-  String get pluralkitInfoMembers =>
-      'Después de conectar, vincula tus integrantes de PluralKit con los de Prism — o impórtalos como nuevos — para evitar duplicados.';
+  String pluralkitInfoMembers(String termPluralLower) {
+    return 'Después de conectar, vincula tus miembros de PluralKit con $termPluralLower de Prism — o impórtalos como nuevos — para evitar duplicados.';
+  }
 
   @override
   String get pluralkitInfoSwitches =>
-      'Los cambios se importan como sesiones al frente. Los cambios duplicados se omiten automáticamente.';
+      'La recuperación del historial de fronts usa un archivo pk;export más un token para que Prism pueda vincular los cambios del archivo con los ID de cambios de PluralKit.';
 
   @override
   String get pluralkitJustNow => 'Ahora mismo';
@@ -5085,23 +5251,31 @@ class AppLocalizationsEs extends AppLocalizations {
       'Reconecta PluralKit para ver los detalles de comparación';
 
   @override
-  String pluralkitRepairSharedPkMembers(int count) {
+  String pluralkitRepairSharedPkMembers(
+    int count,
+    String termSingularLower,
+    String termPluralLower,
+  ) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$count integrantes PK compartidos',
-      one: '1 integrante PK compartido',
+      other: '$count $termPluralLower PK compartidos',
+      one: '1 $termSingularLower PK compartido',
     );
     return '$_temp0';
   }
 
   @override
-  String pluralkitRepairLocalOnlyMembers(int count) {
+  String pluralkitRepairLocalOnlyMembers(
+    int count,
+    String termSingularLower,
+    String termPluralLower,
+  ) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$count integrantes solo locales',
-      one: '1 integrante solo local',
+      other: '$count $termPluralLower solo locales',
+      one: '1 $termSingularLower solo local',
     );
     return '$_temp0';
   }
@@ -5154,12 +5328,16 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String pluralkitRepairPreviewLeavePkOnly(int count) {
+  String pluralkitRepairPreviewLeavePkOnly(
+    int count,
+    String termSingularLower,
+    String termPluralLower,
+  ) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$count integrantes solo en PK',
-      one: '1 integrante solo en PK',
+      other: '$count $termPluralLower solo en PK',
+      one: '1 $termSingularLower solo en PK',
     );
     return 'dejar $_temp0 sin vincular';
   }
@@ -5913,8 +6091,9 @@ class AppLocalizationsEs extends AppLocalizations {
       'Restaura datos desde un archivo de exportación de Prism (.json o .prism)';
 
   @override
-  String get dataManagementPluralKitRowSubtitle =>
-      'Importa integrantes y sesiones al frente mediante token de API';
+  String dataManagementPluralKitRowSubtitle(String termPluralLower) {
+    return 'Importa $termPluralLower y sesiones al frente mediante token de API';
+  }
 
   @override
   String get dataManagementSimplyPluralRowTitle => 'Simply Plural';
@@ -5927,8 +6106,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get dataManagementExportYourData => 'Exportar tus datos';
 
   @override
-  String get dataManagementExportDescription =>
-      'Crea una copia de seguridad protegida por contraseña de todos tus datos, incluyendo integrantes, sesiones al frente, mensajes, encuestas y ajustes.';
+  String dataManagementExportDescription(String termPluralLower) {
+    return 'Crea una copia de seguridad protegida por contraseña de todos tus datos, incluyendo $termPluralLower, sesiones al frente, mensajes, encuestas y ajustes.';
+  }
 
   @override
   String get dataManagementExportButton => 'Exportar datos';
@@ -6029,7 +6209,9 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get dataManagementPreviewMembers => 'Integrantes';
+  String dataManagementPreviewMembers(String termPlural) {
+    return '$termPlural';
+  }
 
   @override
   String get dataManagementPreviewFrontSessions => 'Sesiones al frente';
@@ -6538,17 +6720,33 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get settingsAboutDescription =>
-      'Una app centrada en la privacidad para gestionar sistemas plurales. Registra el frente, comunícate entre integrantes del sistema y mantén tu sistema organizado.';
+  String settingsAboutDescription(String termPluralLower) {
+    return 'Una app centrada en la privacidad para gestionar sistemas plurales. Registra el frente, comunícate entre $termPluralLower y mantén tu sistema organizado.';
+  }
+
+  @override
+  String get settingsAboutWebsite => 'Sitio web';
 
   @override
   String get settingsAboutGitHub => 'GitHub';
+
+  @override
+  String get settingsAboutDiscord => 'Discord';
+
+  @override
+  String get settingsAboutBluesky => 'Bluesky';
+
+  @override
+  String get settingsAboutTumblr => 'Tumblr';
 
   @override
   String get settingsAboutPrivacy => 'Privacidad';
 
   @override
   String get settingsAboutFeedback => 'Sugerencias';
+
+  @override
+  String get settingsAboutLinkOpenFailed => 'No se pudo abrir ese enlace';
 
   @override
   String get settingsAboutGitHubComingSoon => 'Enlace de GitHub próximamente';
@@ -6575,8 +6773,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get settingsCustomFieldsEmptyTitle => 'Sin campos personalizados';
 
   @override
-  String get settingsCustomFieldsEmptySubtitle =>
-      'Agrega campos para registrar atributos personalizados de cada integrante';
+  String settingsCustomFieldsEmptySubtitle(String termSingularLower) {
+    return 'Agrega campos para registrar atributos personalizados de cada $termSingularLower';
+  }
 
   @override
   String get settingsCustomFieldsAddAction => 'Agregar campo';
@@ -6803,7 +7002,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get settingsDataBrowserReloadTooltip => 'Recargar datos';
 
   @override
-  String get settingsDataBrowserTabMembers => 'Integrantes';
+  String settingsDataBrowserTabMembers(String termPlural) {
+    return '$termPlural';
+  }
 
   @override
   String get settingsDataBrowserTabSessions => 'Sesiones';
@@ -6823,7 +7024,9 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get settingsDataBrowserNoMembers => 'Sin integrantes';
+  String settingsDataBrowserNoMembers(String termPluralLower) {
+    return 'Sin $termPluralLower';
+  }
 
   @override
   String get settingsDataBrowserNoSessions => 'Sin sesiones';
@@ -7014,6 +7217,57 @@ class AppLocalizationsEs extends AppLocalizations {
   String get navTimeline => 'Cronología';
 
   @override
+  String get navSleep => 'Sueño';
+
+  @override
+  String get sleepScreenTitle => 'Sueño';
+
+  @override
+  String get sleepScreenAddTooltip => 'Registrar sueño';
+
+  @override
+  String get sleepScreenSettingsTooltip => 'Ajustes de sueño';
+
+  @override
+  String get sleepEmptyTitle => 'Aún no hay sesiones de sueño';
+
+  @override
+  String get sleepEmptyBody => 'Toca + para registrar la primera';
+
+  @override
+  String get sleepLastNightLabel => 'Anoche';
+
+  @override
+  String get sleepSevenDayAvgLabel => 'Prom. 7 días';
+
+  @override
+  String get sleepRecentSectionHeader => 'Reciente';
+
+  @override
+  String get sleepStatUnavailable => '—';
+
+  @override
+  String get sleepViewAllHistory => 'Ver historial de sueño';
+
+  @override
+  String sleepTrendVsPriorWeek(String delta) {
+    return 'vs. semana anterior: $delta';
+  }
+
+  @override
+  String get sleepDateLooksOff => 'La fecha parece incorrecta';
+
+  @override
+  String get sleepOverlapsExistingWarning =>
+      'Se solapa con una sesión de sueño existente';
+
+  @override
+  String get logPastSleep => 'Registrar sueño pasado';
+
+  @override
+  String get cancelHistoricalSleep => 'Cancelar';
+
+  @override
   String get onboardingWelcomeTitle => 'Bienvenide a Prism';
 
   @override
@@ -7094,15 +7348,17 @@ class AppLocalizationsEs extends AppLocalizations {
   String get onboardingPermissionsNotificationTitle => 'Notificaciones';
 
   @override
-  String get onboardingPermissionsNotificationRationale =>
-      'Te avisaremos cuando un compañero registre un cambio o sea hora de un recordatorio';
+  String onboardingPermissionsNotificationRationale(String termPluralLower) {
+    return 'Te avisaremos cuando $termPluralLower registren un cambio o sea hora de un recordatorio';
+  }
 
   @override
   String get onboardingPermissionsMicrophoneTitle => 'Micrófono';
 
   @override
-  String get onboardingPermissionsMicrophoneRationale =>
-      'Para que puedas grabar mensajes de voz para tus compañeros';
+  String onboardingPermissionsMicrophoneRationale(String termPluralLower) {
+    return 'Para que puedas grabar mensajes de voz para tus $termPluralLower';
+  }
 
   @override
   String get onboardingPermissionsAllowed => 'Permitido';
@@ -7339,18 +7595,22 @@ class AppLocalizationsEs extends AppLocalizations {
   String get pluralkitRerunMemberMapping => 'Volver a vincular integrantes';
 
   @override
-  String get pluralkitImportFromFile => 'Importar desde archivo pk;export';
+  String get pluralkitImportFromFile => 'Recuperar historial desde pk;export';
 
   @override
-  String get pluralkitMappingBannerTitle =>
-      'Un paso más: vincula a tus integrantes';
+  String pluralkitMappingBannerTitle(String termPluralLower) {
+    return 'Un paso más: vincula a tus $termPluralLower';
+  }
 
   @override
-  String get pluralkitMappingBannerBody =>
-      'Estás conectado. Antes de activar la sincronización, empareja cada integrante de PluralKit con un integrante de Prism — o impórtalos como nuevos. Esto evita duplicados y mantiene el historial de fronts ligado a la persona correcta.';
+  String pluralkitMappingBannerBody(String termSingularLower) {
+    return 'Estás conectado. Antes de activar la sincronización, empareja cada miembro de PluralKit con $termSingularLower de Prism — o impórtalos como nuevos. Esto evita duplicados y mantiene el historial de fronts ligado a la persona correcta.';
+  }
 
   @override
-  String get pluralkitMappingBannerButton => 'Vincular integrantes';
+  String pluralkitMappingBannerButton(String termPluralLower) {
+    return 'Vincular $termPluralLower';
+  }
 
   @override
   String get sleepWakeUpMorning => '¡Buenos días!';
@@ -7529,7 +7789,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get migrationCfContinue => 'Continuar';
 
   @override
-  String get migrationCfOptionMember => 'Importar como integrante';
+  String migrationCfOptionMember(String termSingularLower) {
+    return 'Importar como $termSingularLower';
+  }
 
   @override
   String get migrationCfOptionNote => 'Fusionar en notas';
@@ -7541,8 +7803,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get migrationCfOptionSkip => 'Omitir';
 
   @override
-  String get migrationCfOptionMemberDesc =>
-      'Crea un integrante con este nombre. Las entradas del historial al frente se guardan como sesiones del integrante.';
+  String migrationCfOptionMemberDesc(String termSingularLower) {
+    return 'Crea $termSingularLower con este nombre. Las entradas del historial al frente se guardan como sesiones de $termSingularLower.';
+  }
 
   @override
   String get migrationCfOptionNoteDesc =>
@@ -7759,4 +8022,450 @@ class AppLocalizationsEs extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get frontingUpgradeTitle => 'Actualización del frente';
+
+  @override
+  String get frontingUpgradeIntroHeadline =>
+      'Estamos actualizando cómo se guarda el frente';
+
+  @override
+  String frontingUpgradeIntroBody(String termSingularLower) {
+    return 'El co-frente ahora usa un registro por $termSingularLower en lugar de un único registro compartido. Esto hace que los solapamientos, las ediciones y las estadísticas funcionen correctamente. Primero guardaremos una copia de seguridad de tus datos actuales y luego haremos la actualización.';
+  }
+
+  @override
+  String get frontingUpgradeContinue => 'Continuar';
+
+  @override
+  String get frontingUpgradeRoleHeadline =>
+      '¿Este es tu dispositivo principal?';
+
+  @override
+  String get frontingUpgradeRoleBody =>
+      'Tu dispositivo principal conserva todo tu historial de frente. Los otros dispositivos tendrán que vincularse de nuevo después y descargar el historial migrado desde el dispositivo principal.';
+
+  @override
+  String get frontingUpgradeRolePrimary =>
+      'Sí, este es mi dispositivo principal';
+
+  @override
+  String get frontingUpgradeRoleSecondary =>
+      'No, este es un dispositivo secundario';
+
+  @override
+  String get frontingUpgradeModeHeadline =>
+      '¿Cómo deberíamos hacer la actualización?';
+
+  @override
+  String get frontingUpgradeModeKeepTitle => 'Conservar mis datos';
+
+  @override
+  String get frontingUpgradeModeKeepBody =>
+      'Tus frentes existentes se conservan. Los frentes importados desde PluralKit se volverán a importar con la nueva estructura en la próxima sincronización con PluralKit.';
+
+  @override
+  String get frontingUpgradeModeFreshTitle => 'Empezar desde cero';
+
+  @override
+  String get frontingUpgradeModeFreshBody =>
+      'Se borran todos los frentes. Útil si tu historial de frente está desordenado y quieres partir de cero. De todas formas se crea un archivo de copia de seguridad.';
+
+  @override
+  String get frontingUpgradeRecommended => 'Recomendado';
+
+  @override
+  String get frontingUpgradePasswordHeadline => 'Protege tu copia de seguridad';
+
+  @override
+  String get frontingUpgradePasswordBody =>
+      'Estamos a punto de hacer una copia de seguridad de tus datos de frente actuales y luego actualizarlos.';
+
+  @override
+  String get frontingUpgradePasswordNote =>
+      'Esta contraseña protege tu archivo de copia de seguridad. Guárdala en un lugar seguro — sin ella, el archivo no se puede recuperar.';
+
+  @override
+  String get frontingUpgradePasswordSubmit =>
+      'Hacer copia de seguridad y actualizar';
+
+  @override
+  String get frontingUpgradeRunning => 'Migrando tu historial de frente…';
+
+  @override
+  String get frontingUpgradeRunningSubtitle =>
+      'Esto puede tardar un momento. No cierres la app.';
+
+  @override
+  String get frontingUpgradeExporting => 'Preparando tu copia de seguridad…';
+
+  @override
+  String get frontingUpgradeExportingSubtitle =>
+      'Cifrando tus datos de frente para que puedas conservar una copia.';
+
+  @override
+  String get frontingUpgradeBackupReadyHeadline => 'Copia de seguridad lista';
+
+  @override
+  String get frontingUpgradeBackupReadyBody =>
+      'Guarda esta copia de seguridad en un lugar donde puedas encontrarla más tarde — fuera de la app. Sin ella, no podrás recuperar tus datos antiguos si algo sale mal.';
+
+  @override
+  String get frontingUpgradeBackupSaveAs => 'Guardar copia de seguridad…';
+
+  @override
+  String get frontingUpgradeBackupShare => 'Compartir…';
+
+  @override
+  String get frontingUpgradeBackupAcknowledge =>
+      'He guardado esta copia de seguridad en un lugar donde podré encontrarla más tarde';
+
+  @override
+  String get frontingUpgradeBackupContinue => 'Continuar';
+
+  @override
+  String get frontingUpgradeSuccessHeadline => '¡Migración completa!';
+
+  @override
+  String frontingUpgradeCountSpMigrated(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Se migraron $count sesiones de Simply Plural.',
+      one: 'Se migró 1 sesión de Simply Plural.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String frontingUpgradeCountNativeMigrated(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Se migraron $count sesiones de frente.',
+      one: 'Se migró 1 sesión de frente.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String frontingUpgradeCountNativeExpanded(
+    int count,
+    String termSingularLower,
+  ) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'Se expandieron $count periodos de co-frente en registros por $termSingularLower.',
+      one:
+          'Se expandió 1 periodo de co-frente en registros por $termSingularLower.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String frontingUpgradeCountPkDeleted(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'Se borró el historial de PluralKit del formato anterior ($count sesiones). Vuelve a importarlo desde un token de PluralKit o un archivo pk;export.',
+      one:
+          'Se borró el historial de PluralKit del formato anterior (1 sesión). Vuelve a importarlo desde un token de PluralKit o un archivo pk;export.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String frontingUpgradeCountCommentsMigrated(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Se migraron $count comentarios.',
+      one: 'Se migró 1 comentario.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String frontingUpgradeCountOrphansAssigned(
+    int count,
+    String termSingularLower,
+  ) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'Se asignaron $count sesiones sin atribución a $termSingularLower desconocido.',
+      one:
+          'Se asignó 1 sesión sin atribución a $termSingularLower desconocido.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String frontingUpgradeCountSentinelCreated(String termSingularLower) {
+    return 'Se creó $termSingularLower desconocido para guardar las sesiones sin un frente claro.';
+  }
+
+  @override
+  String frontingUpgradeCountCorruptCoFronters(
+    int count,
+    String termSingularLower,
+  ) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          '$count sesiones tenían datos de co-frente ilegibles y se migraron como de $termSingularLower único.',
+      one:
+          '1 sesión tenía datos de co-frente ilegibles y se migró como de $termSingularLower único.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get frontingUpgradeIntroPendingSyncWarning =>
+      'Si tienes cambios sin sincronizar por uso sin conexión, asegúrate de que tu dispositivo esté en línea y sincronizado antes de continuar. Las cargas pendientes tendrás que volver a hacerlas después de la actualización.';
+
+  @override
+  String frontingUpgradeAnalyticsNote(String term) {
+    return 'Las estadísticas ahora se muestran como minutos por $term — si dos de ustedes están en co-frente durante una hora, eso son dos horas-$term. La misma cuenta de antes, con una etiqueta más clara.';
+  }
+
+  @override
+  String get frontingUpgradeRepairPrimary =>
+      'Tus otros dispositivos tienen que vincularse de nuevo para recibir el historial migrado. Abre Configuración → Sincronización en tus otros dispositivos y sigue el flujo de vinculación.';
+
+  @override
+  String get frontingUpgradeRepairSecondary =>
+      'Vincula este dispositivo de nuevo con tu dispositivo principal para recibir el historial migrado.';
+
+  @override
+  String get frontingUpgradeRepairSolo =>
+      'Todo listo. Tus datos de frente ya están en el nuevo formato.';
+
+  @override
+  String get frontingUpgradeOpenPluralKitImport =>
+      'Abrir importación de PluralKit';
+
+  @override
+  String get frontingUpgradeFailureHeadline => 'La migración falló';
+
+  @override
+  String get frontingUpgradeFailureBackupNote =>
+      'Tu archivo de copia de seguridad se guardó. Puedes encontrarlo en el historial de tu menú de compartir si necesitas recuperar los datos.';
+
+  @override
+  String get frontingUpgradeBannerTitle => 'Actualización del frente pendiente';
+
+  @override
+  String get frontingUpgradeBannerMessage =>
+      'Toca para continuar con la actualización.';
+
+  @override
+  String get frontingUpgradeResumeCleanupHeadline => 'Terminar la migración';
+
+  @override
+  String get frontingUpgradeResumeCleanupBody =>
+      'Un intento anterior terminó la migración de datos pero no pudo completar el restablecimiento de sincronización. Toca abajo para terminar — solo se actualizan las credenciales de sincronización, no se tocan tus datos.';
+
+  @override
+  String get frontingUpgradeResumeCleanupButton => 'Terminar la migración';
+
+  @override
+  String get frontingUpgradePkTokenDialogTitle => 'Token de PluralKit';
+
+  @override
+  String get frontingUpgradePkTokenDialogMessage =>
+      'Importa el historial de fronts de PluralKit ahora. El token se usa una sola vez y no activa la sincronización con PluralKit.';
+
+  @override
+  String get frontingUpgradePkTokenLabel => 'Token de PluralKit';
+
+  @override
+  String get frontingUpgradePkTokenHint => 'Pega tu token de PluralKit';
+
+  @override
+  String get frontingUpgradePkTokenImport => 'Importar';
+
+  @override
+  String get frontingUpgradePkImportButton => 'Importar con token de PluralKit';
+
+  @override
+  String get frontingUpgradePkImportIdle =>
+      'El historial de PluralKit se puede reimportar aquí con un token temporal. El token se usa una sola vez y la sincronización con PluralKit permanece desactivada.';
+
+  @override
+  String get frontingUpgradePkImportRunning =>
+      'Reimportando el historial de PluralKit...';
+
+  @override
+  String get frontingUpgradePkImportImported =>
+      'Se reimportó el historial de PluralKit.';
+
+  @override
+  String frontingUpgradePkImportTombstoneLine(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'Se conservaron $count registros eliminados para respetar la eliminación local.',
+      one:
+          'Se conservó 1 registro eliminado para respetar la eliminación local.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String frontingUpgradePkImportZeroLengthLine(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'Se omitieron $count cierres de duración cero (PluralKit registró entradas y salidas en el mismo instante).',
+      one:
+          'Se omitió 1 cierre de duración cero (PluralKit registró una entrada y una salida en el mismo instante).',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get frontingUpgradePkImportNeedsToken =>
+      'No se encontró un token de PluralKit guardado. Puedes importar con un token temporal sin activar la sincronización con PluralKit.';
+
+  @override
+  String frontingUpgradePkImportFailed(String error) {
+    return 'La reimportación de PluralKit falló: $error';
+  }
+
+  @override
+  String pkFileImportMembersLabel(String termPlural) {
+    return '$termPlural';
+  }
+
+  @override
+  String get pkFileImportGroupsLabel => 'Grupos';
+
+  @override
+  String get pkFileImportFrontingSessionsLabel =>
+      'Cambios encontrados (no importados)';
+
+  @override
+  String get pkFileImportSwitchesFoundLabel =>
+      'Cambios encontrados (no importados)';
+
+  @override
+  String pkFileImportPreviewNote(String termPlural) {
+    return 'Los/las $termPlural existentes con el mismo ID de PluralKit se actualizarán. Para importar el historial de fronts, agrega un token de PluralKit para que Prism pueda vincular los cambios antes de importarlos.';
+  }
+
+  @override
+  String get pkFileImportImportButton => 'Importar';
+
+  @override
+  String get pkFileImportSwitchesMatchedLabel =>
+      'Cambios vinculados con el token';
+
+  @override
+  String get pkFileImportNewerSwitchesLabel => 'Cambios nuevos desde PluralKit';
+
+  @override
+  String get pkFileImportFrontingImportedNote =>
+      'El historial de fronts se importó por la ruta de PluralKit con token, así Prism puede seguir usando los IDs canónicos de los cambios.';
+
+  @override
+  String pkFileImportFrontingImportedNoteWithNewer(int count) {
+    return 'El historial de fronts se importó por la ruta de PluralKit con token, así Prism puede seguir usando los IDs canónicos de los cambios. Prism también importó $count cambios nuevos desde PluralKit que no estaban en la exportación.';
+  }
+
+  @override
+  String get pkFileImportFrontingNotImportedNote =>
+      'El historial de fronts no se importó porque la exportación y la API de PluralKit no coincidieron de forma segura.';
+
+  @override
+  String get pkFileImportDoneButton => 'Listo';
+
+  @override
+  String get pkFileImportFailedHeadline => 'La importación falló';
+
+  @override
+  String get pkFileImportTryAgainButton => 'Intentar de nuevo';
+
+  @override
+  String get pkFileImportPickDifferentButton => 'Elegir otro archivo';
+
+  @override
+  String get pkFileImportCompleteHeading => 'Importación completa';
+
+  @override
+  String get pkFileImportSwitchesCreatedLabel => 'Cambios creados';
+
+  @override
+  String get pkFileImportSwitchesSkippedLabel =>
+      'Cambios encontrados (no importados)';
+
+  @override
+  String get settingsFrontingSessionDisplaySectionTitle =>
+      'Visualización de sesiones y comportamiento del frente';
+
+  @override
+  String get settingsFrontingListViewModeLabel =>
+      'Vista de la lista de sesiones';
+
+  @override
+  String get settingsFrontingListViewModeCombinedPeriods =>
+      'Períodos combinados';
+
+  @override
+  String get settingsFrontingListViewModeCombinedPeriodsDescription =>
+      'Pilas de avatares para cada grupo único al frente';
+
+  @override
+  String settingsFrontingListViewModePerMemberRows(String term) {
+    return 'Filas por $term';
+  }
+
+  @override
+  String get settingsFrontingListViewModePerMemberRowsDescription =>
+      'Una fila por sesión al frente, lado a lado';
+
+  @override
+  String get settingsFrontingListViewModeTimeline => 'Cronología';
+
+  @override
+  String get settingsFrontingListViewModeTimelineDescription =>
+      'Vista de gráfico de barras del frente a lo largo del tiempo';
+
+  @override
+  String get settingsAddFrontDefaultBehaviorLabel =>
+      'Al agregar un nuevo frente';
+
+  @override
+  String get settingsAddFrontDefaultBehaviorAdditive => 'Agregar al co-frente';
+
+  @override
+  String get settingsAddFrontDefaultBehaviorAdditiveDescription =>
+      'Los nuevos frentes se suman a los existentes';
+
+  @override
+  String get settingsAddFrontDefaultBehaviorReplace =>
+      'Reemplazar quienes están al frente';
+
+  @override
+  String get settingsAddFrontDefaultBehaviorReplaceDescription =>
+      'Termina todos los frentes actuales antes de iniciar uno nuevo';
+
+  @override
+  String get settingsQuickFrontDefaultBehaviorLabel => 'Al usar frente rápido';
+
+  @override
+  String get settingsQuickFrontDefaultBehaviorAdditive =>
+      'Agregar al co-frente';
+
+  @override
+  String get settingsQuickFrontDefaultBehaviorReplace =>
+      'Reemplazar quienes están al frente';
 }

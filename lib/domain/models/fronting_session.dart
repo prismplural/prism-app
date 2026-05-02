@@ -5,14 +5,7 @@ part 'fronting_session.g.dart';
 
 enum FrontConfidence { unsure, strong, certain }
 
-enum SleepQuality {
-  unknown,
-  veryPoor,
-  poor,
-  fair,
-  good,
-  excellent;
-}
+enum SleepQuality { unknown, veryPoor, poor, fair, good, excellent }
 
 enum SessionType { normal, sleep }
 
@@ -25,14 +18,14 @@ abstract class FrontingSession with _$FrontingSession {
     required DateTime startTime,
     DateTime? endTime,
     String? memberId,
-    @Default([]) List<String> coFronterIds,
     String? notes,
     FrontConfidence? confidence,
     String? pluralkitUuid,
+    String? pkImportSource,
+    String? pkFileSwitchId,
     @Default(SessionType.normal) SessionType sessionType,
     SleepQuality? quality,
     @Default(false) bool isHealthKitImport,
-    String? pkMemberIdsJson,
     // Plan 02 (PK deletion push). See Member for rationale.
     @Default(false) bool isDeleted,
     int? deleteIntentEpoch,
@@ -43,9 +36,16 @@ abstract class FrontingSession with _$FrontingSession {
 
   Duration get duration => (endTime ?? DateTime.now()).difference(startTime);
 
-  bool get isCoFronting => coFronterIds.isNotEmpty;
-
   bool get isSleep => sessionType == SessionType.sleep;
+
+  /// Deprecated: in the per-member shape, "is this row part of a co-front?"
+  /// is computed from overlapping sessions rather than carried on the row
+  /// itself. Use `sessionsCoFront` in
+  /// `features/fronting/services/co_front_detector.dart`.
+  @Deprecated(
+    'Use sessionsCoFront from features/fronting/services/co_front_detector.dart.',
+  )
+  bool get isCoFronting => false;
 
   factory FrontingSession.fromJson(Map<String, dynamic> json) =>
       _$FrontingSessionFromJson(json);

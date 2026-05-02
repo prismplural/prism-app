@@ -1,21 +1,22 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:prism_plurality/core/diagnostics/boot_timings.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/domain/models/models.dart';
+import 'package:prism_plurality/features/fronting/migration/widgets/fronting_upgrade_banner.dart';
+import 'package:prism_plurality/features/fronting/providers/always_present_members_provider.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart';
 import 'package:prism_plurality/features/fronting/views/add_front_session_sheet.dart';
 import 'package:prism_plurality/features/fronting/views/empty_system_view.dart';
 import 'package:prism_plurality/features/fronting/views/start_sleep_sheet.dart';
+import 'package:prism_plurality/features/fronting/widgets/always_present_header.dart';
 import 'package:prism_plurality/features/fronting/widgets/quick_front_section.dart';
 import 'package:prism_plurality/features/fronting/widgets/session_history_list.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
@@ -27,7 +28,6 @@ import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
-import 'package:prism_plurality/features/fronting/providers/fronting_sanitization_providers.dart';
 import 'package:prism_plurality/features/fronting/widgets/sleep_mode_card.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/info_banner.dart';
@@ -54,6 +54,14 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
   bool _graceElapsed = false;
   Timer? _graceTimer;
   bool _markedMembersFirstEmit = false;
+  // 1B: latches when we've seeded `timelineViewActiveProvider` from
+  // the user's `fronting_list_view_mode` preference for this screen
+  // instance. The home tab is in an `IndexedStack` keep-alive, so
+  // "first build" effectively means "first visit per app session."
+  // After the seed, the user's toggle wins until the next mount — a
+  // setting change via sync from another device while the user is
+  // mid-screen does NOT override their current toggle position.
+  bool _toggleInitialized = false;
 
   @override
   void initState() {
@@ -61,6 +69,30 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
     _scrollController.addListener(_onScroll);
     _graceTimer = Timer(const Duration(milliseconds: 400), () {
       if (mounted) setState(() => _graceElapsed = true);
+    });
+  }
+
+  /// Seeds `timelineViewActiveProvider` from the user's
+  /// `fronting_list_view_mode` preference. Idempotent within a single
+  /// `FrontingScreen` instance. Called from `build` because the
+  /// preference is a `StreamProvider<SystemSettings>` whose first emit
+  /// can land after `initState` runs.
+  void _maybeInitializeToggleFromPref() {
+    if (_toggleInitialized) return;
+    final mode = ref.read(systemSettingsProvider).whenOrNull(
+          data: (s) => s.frontingListViewMode,
+        );
+    if (mode == null) return;
+    _toggleInitialized = true;
+    final shouldShowTimeline = mode == FrontingListViewMode.timeline;
+    if (ref.read(timelineViewActiveProvider) == shouldShowTimeline) return;
+    // Setting notifier state synchronously inside build is illegal —
+    // defer to the next frame.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref
+          .read(timelineViewActiveProvider.notifier)
+          .setActive(shouldShowTimeline);
     });
   }
 
@@ -97,6 +129,15 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
       _markedMembersFirstEmit = true;
       BootTimings.mark('members first emit');
     }
+
+    // 1B: seed the list↔timeline toggle from the
+    // `fronting_list_view_mode` preference on first emit. Watching the
+    // provider here ensures the seed runs once the StreamProvider has
+    // data — typically the first or second build. Subsequent emits
+    // (e.g., a sync push from another device) won't re-seed because
+    // `_toggleInitialized` latches.
+    ref.watch(systemSettingsProvider);
+    _maybeInitializeToggleFromPref();
     // Scroll to top when the home tab is re-tapped.
     ref.listen(tabRetapProvider, (_, _) {
       if (_scrollController.hasClients) {
@@ -172,7 +213,14 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
       tooltip: isTimelineView
           ? context.l10n.frontingListView
           : context.l10n.frontingTimelineView,
-      onPressed: () => ref.read(timelineViewActiveProvider.notifier).toggle(),
+      onPressed: () {
+        // Latch before toggling: a user tap during the window before
+        // `systemSettingsProvider` first emits would otherwise be
+        // overwritten by `_maybeInitializeToggleFromPref` on the next
+        // build. The user's explicit choice wins from this point on.
+        _toggleInitialized = true;
+        ref.read(timelineViewActiveProvider.notifier).toggle();
+      },
     );
   }
 
@@ -183,6 +231,11 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
     FrontingSession? sleepSession,
   ) {
     final showQuickFront = ref.watch(showQuickFrontProvider);
+    // Watching here (rather than only inside the widget) lets the sliver's
+    // [AlwaysPresentSliverDelegate] collapse its extent to 0 when no
+    // member qualifies, so the home content does not keep an empty gap.
+    final alwaysPresentCount =
+        ref.watch(alwaysPresentMembersProvider).value?.length ?? 0;
     return CustomScrollView(
       controller: _scrollController,
       slivers: [
@@ -206,10 +259,17 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
             ),
           ),
 
-        // 2. Home banners share one placement under Quick Front.
+        // 2. Always-present fronters sit under Quick Front, then pin while
+        // the rest of the fronting feed scrolls.
+        SliverPersistentHeader(
+          pinned: true,
+          delegate: AlwaysPresentSliverDelegate(count: alwaysPresentCount),
+        ),
+
+        // 3. Home banners share one placement under the sticky chip.
         SliverToBoxAdapter(child: FrontingBannerStack(theme: theme)),
 
-        // 3. Active sleep session card
+        // 4. Active sleep session card
         if (isSleeping)
           const SliverToBoxAdapter(
             child: Padding(
@@ -218,10 +278,10 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
             ),
           ),
 
-        // 4. Sessions grouped by day (active session naturally at top)
+        // 5. Sessions grouped by day (active session naturally at top)
         const SessionHistoryList(),
 
-        // 5. Loading indicator for infinite scroll
+        // 6. Loading indicator for infinite scroll
         Consumer(
           builder: (context, ref, _) {
             final limit = ref.watch(sessionLimitProvider);
@@ -281,36 +341,6 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
           ),
         ),
       ],
-    );
-  }
-}
-
-/// Displays a warning banner when the post-edit (or future post-sync) rescan
-/// detects timeline validation issues. Hidden when the count is zero.
-class _TimelineIssueBanner extends ConsumerWidget {
-  const _TimelineIssueBanner({
-    required this.theme,
-    this.padding = const EdgeInsets.fromLTRB(16, 8, 16, 0),
-  });
-
-  final ThemeData theme;
-  final EdgeInsetsGeometry padding;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final issueCount = ref.watch(frontingIssueCountProvider);
-    if (issueCount <= 0) return const SizedBox.shrink();
-
-    return Padding(
-      padding: padding,
-      child: InfoBanner(
-        icon: AppIcons.warningAmberRounded,
-        iconColor: theme.colorScheme.error,
-        title: context.l10n.frontingTimelineIssuesFound,
-        message: context.l10n.frontingTimelineIssuesBannerMessage(issueCount),
-        buttonText: context.l10n.frontingTimelineIssuesReview,
-        onButtonPressed: () => context.push('/settings/timeline-sanitization'),
-      ),
     );
   }
 }
@@ -514,7 +544,7 @@ class _AddButtonState extends ConsumerState<_AddButton> {
       await ref.read(sleepNotifierProvider.notifier).endSleep(session.id);
       await ref
           .read(frontingNotifierProvider.notifier)
-          .startFronting(result.memberId);
+          .startFronting([result.memberId]); // single-member start post-sleep
     } catch (e) {
       if (context.mounted) {
         PrismToast.error(
@@ -669,11 +699,12 @@ class FrontingBannerStack extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (!kReleaseMode)
-          _TimelineIssueBanner(
-            theme: theme,
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-          ),
+        // Fronting per-member upgrade banner — only renders when
+        // migration cleanup needs to be resumed. Auto-hidden after
+        // migration completes via Riverpod state.
+        const FrontingUpgradeBanner(
+          padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
+        ),
         _BedtimeReminderBanner(
           theme: theme,
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),

@@ -13,6 +13,7 @@ import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/services/media/download_manager.dart';
 import 'package:prism_plurality/core/services/media/media_encryption_service.dart';
 import 'package:prism_plurality/core/services/media/media_providers.dart';
+import 'package:prism_plurality/core/sync/prism_sync_providers.dart' as sync;
 import 'package:prism_plurality/data/repositories/drift_system_settings_repository.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_group_repair_run_gate.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_group_sync_v2_catchup_service.dart';
@@ -128,17 +129,21 @@ void main() {
         expect(await _countRows(reopened, 'member_group_entries'), 0);
         expect(await _countRows(reopened, 'notes'), 0);
         expect(await _countRows(reopened, 'habit_completions'), 0);
-        // Sessions preserved but member nulled
-        expect(await _countRows(reopened, 'fronting_sessions'), 2);
+        // Sessions preserved but member nulled.  Per-member shape: a
+        // co-fronted seed expands to 2 normal rows + 1 sleep row = 3.
+        expect(await _countRows(reopened, 'fronting_sessions'), 3);
         expect(await _countRows(reopened, 'chat_messages'), 1);
         // Groups and custom fields definitions remain
         expect(await _countRows(reopened, 'member_groups'), 1);
         expect(await _countRows(reopened, 'custom_fields'), 1);
 
+        // Per-member shape (Phase 5): _resetMembers nulls member_id on the
+        // remaining session rows.  co_fronter_ids still physically exists in
+        // v7 (legacy/unread storage) but is no longer touched by the reset.
         final sessionRow = await reopened
             .customSelect(
               '''
-        SELECT member_id, co_fronter_ids
+        SELECT member_id
         FROM fronting_sessions
         WHERE id = ?
         ''',
@@ -146,7 +151,6 @@ void main() {
             )
             .getSingle();
         expect(sessionRow.data['member_id'], isNull);
-        expect(sessionRow.read<String>('co_fronter_ids'), '[]');
       },
     );
 
@@ -225,7 +229,8 @@ void main() {
       addTearDown(reopened.close);
 
       expect(await _countSleepRows(reopened), 0);
-      expect(await _countRows(reopened, 'fronting_sessions'), 1);
+      // Per-member shape: 2 normal rows (one per co-fronter) survive.
+      expect(await _countRows(reopened, 'fronting_sessions'), 2);
       expect(await _countRows(reopened, 'front_session_comments'), 1);
       expect(await _countRows(reopened, 'habits'), 1);
       expect(await _countRows(reopened, 'members'), 2);
@@ -275,6 +280,29 @@ void main() {
       expect(await harness.syncShmFile.exists(), isFalse);
     });
 
+    test('sync reset leaves sync state ready for fresh setup', () async {
+      final harness = await _ResetHarness.create();
+      addTearDown(harness.dispose);
+
+      harness.container
+          .read(sync.syncHealthProvider.notifier)
+          .setState(sync.SyncHealthState.disconnected);
+
+      await harness.seedAllData();
+      await harness.reset(ResetCategory.sync);
+
+      expect(
+        harness.container.read(sync.syncHealthProvider),
+        sync.SyncHealthState.unpaired,
+      );
+      final status = harness.container.read(sync.syncStatusProvider);
+      expect(status.isSyncing, isFalse);
+      expect(status.pendingOps, 0);
+      expect(status.lastError, isNull);
+      expect(status.hasQuarantinedItems, isFalse);
+      expect(harness.container.read(sync.websocketConnectedProvider), isFalse);
+    });
+
     test(
       'sync reset deletes dynamic epoch_key_* and runtime_keys_* entries',
       () async {
@@ -314,6 +342,42 @@ void main() {
       },
     );
 
+    test(
+      'sync reset falls back to known credential keys when readAll fails',
+      () async {
+        final harness = await _ResetHarness.create();
+        addTearDown(harness.dispose);
+
+        harness.secureStore
+          ..seedSyncValue(
+            'prism_sync.sync_id',
+            base64Encode(utf8.encode('sync-abc')),
+          )
+          ..seedSyncValue('prism_sync.registration_token', 'WIPE_REGISTRATION')
+          ..seedSyncValue('prism_sync.runtime_dek_wrapped_v1', 'WIPE_WRAPPED')
+          ..seedSyncValue('prism_sync.database_key', 'KEEP_DATABASE');
+        harness.secureStore.throwOnReadAll = true;
+
+        await harness.reset(ResetCategory.sync);
+
+        expect(harness.secureStore.readSyncValue('prism_sync.sync_id'), isNull);
+        expect(
+          harness.secureStore.readSyncValue('prism_sync.registration_token'),
+          isNull,
+        );
+        expect(
+          harness.secureStore.readSyncValue(
+            'prism_sync.runtime_dek_wrapped_v1',
+          ),
+          isNull,
+        );
+        expect(
+          harness.secureStore.readSyncValue('prism_sync.database_key'),
+          'KEEP_DATABASE',
+        );
+      },
+    );
+
     // ── Phase 1B / 2A / 2B-1 ────────────────────────────────────────
     // The reset hardening tests below cover:
     // sync-pairing-reset-hardening.md:
@@ -341,6 +405,8 @@ void main() {
         ..seedSyncValue('prism_sync.pending_sync_id', 'P1')
         ..seedSyncValue('prism_sync.registration_token', 'R1')
         ..seedSyncValue('prism_sync.runtime_dek', 'D1')
+        ..seedSyncValue('prism_sync.runtime_dek_wrapped_v1', 'W1')
+        ..seedSyncValue('prism_sync.snapshot_apply_complete_v1', 'S1')
         ..seedSyncValue('prism_sync.database_key', 'KEEP1')
         ..seedSyncValue('prism_sync.database_key_staging', 'KEEP2')
         ..seedSyncValue('prism_sync.sync_database_key', 'KEEP3')
@@ -395,6 +461,16 @@ void main() {
         harness.secureStore.readSyncValue('prism_sync.runtime_dek'),
         isNull,
       );
+      expect(
+        harness.secureStore.readSyncValue('prism_sync.runtime_dek_wrapped_v1'),
+        isNull,
+      );
+      expect(
+        harness.secureStore.readSyncValue(
+          'prism_sync.snapshot_apply_complete_v1',
+        ),
+        isNull,
+      );
     });
 
     test('reset_preserves_database_keys', () async {
@@ -417,7 +493,8 @@ void main() {
           base64Encode(utf8.encode('sync-abc')),
         )
         ..seedSyncValue('prism_sync.registration_token', 'WIPE_REGISTRATION')
-        ..seedSyncValue('prism_sync.runtime_dek', 'WIPE_RUNTIME');
+        ..seedSyncValue('prism_sync.runtime_dek', 'WIPE_RUNTIME')
+        ..seedSyncValue('prism_sync.runtime_dek_wrapped_v1', 'WIPE_WRAPPED');
 
       await harness.reset(ResetCategory.sync);
 
@@ -446,6 +523,10 @@ void main() {
       );
       expect(
         harness.secureStore.readSyncValue('prism_sync.runtime_dek'),
+        isNull,
+      );
+      expect(
+        harness.secureStore.readSyncValue('prism_sync.runtime_dek_wrapped_v1'),
         isNull,
       );
     });
@@ -894,7 +975,20 @@ class _ResetHarness {
             id: const Value('session-1'),
             startTime: Value(now.subtract(const Duration(hours: 1))),
             memberId: const Value('member-1'),
-            coFronterIds: const Value('["member-2"]'),
+            // Per-member shape (Phase 5): no coFronterIds — co-fronting is
+            // expressed as overlapping per-member rows.  The legacy column
+            // still exists physically in v7, defaults to '[]'.
+            sessionType: const Value(0),
+          ),
+        );
+    // Co-fronter expressed as a second per-member row over the same range.
+    await db
+        .into(db.frontingSessions)
+        .insert(
+          FrontingSessionsCompanion(
+            id: const Value('session-1-co'),
+            startTime: Value(now.subtract(const Duration(hours: 1))),
+            memberId: const Value('member-2'),
             sessionType: const Value(0),
           ),
         );
@@ -917,7 +1011,6 @@ class _ResetHarness {
             startTime: Value(now.subtract(const Duration(hours: 8))),
             endTime: Value(now.subtract(const Duration(hours: 1))),
             memberId: const Value(null),
-            coFronterIds: const Value('[]'),
             sessionType: const Value(1),
           ),
         );
@@ -1254,6 +1347,7 @@ class _ResetHarness {
       'prism_sync.runtime_dek',
       base64Encode(List<int>.generate(8, (index) => index)),
     );
+    secureStore.seedSyncValue('prism_sync.runtime_dek_wrapped_v1', 'wrapped');
     secureStore.seedSyncValue('prism_pluralkit_token', 'pk-secret-token');
   }
 
@@ -1285,6 +1379,7 @@ class _ResetHarness {
 
 class _FakeResetSecureStore implements ResetSecureStore {
   final Map<String, String> _values = <String, String>{};
+  bool throwOnReadAll = false;
 
   @override
   Future<String?> read(String key) async => _values[key];
@@ -1295,8 +1390,12 @@ class _FakeResetSecureStore implements ResetSecureStore {
   }
 
   @override
-  Future<Map<String, String>> readAll() async =>
-      Map<String, String>.from(_values);
+  Future<Map<String, String>> readAll() async {
+    if (throwOnReadAll) {
+      throw StateError('readAll failed');
+    }
+    return Map<String, String>.from(_values);
+  }
 
   @override
   Future<void> deleteAll() async => _values.clear();

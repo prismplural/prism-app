@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/models.dart';
+import 'package:prism_plurality/features/fronting/providers/fronting_table_ticker_provider.dart';
 
 /// Fronting statistics for a single member.
 class MemberFrontingStats {
@@ -18,8 +19,12 @@ class MemberFrontingStats {
 
 /// Provides fronting stats (total sessions, total duration, last fronted)
 /// for a given member ID.
+///
+/// Auto-rebuilds on `fronting_sessions` writes via
+/// [frontingTableTickerProvider] (debounced for bulk imports).
 final memberFrontingStatsProvider =
     FutureProvider.autoDispose.family<MemberFrontingStats, String>((ref, memberId) async {
+  ref.watch(frontingTableTickerProvider);
   final repo = ref.watch(frontingSessionRepositoryProvider);
   final sessions = await repo.getSessionsForMember(memberId);
 
@@ -48,8 +53,12 @@ final memberFrontingStatsProvider =
 });
 
 /// Provides the last 5 fronting sessions for a given member ID.
+///
+/// Auto-rebuilds on `fronting_sessions` writes via
+/// [frontingTableTickerProvider].
 final memberRecentSessionsProvider =
     FutureProvider.autoDispose.family<List<FrontingSession>, String>((ref, memberId) async {
+  ref.watch(frontingTableTickerProvider);
   final repo = ref.watch(frontingSessionRepositoryProvider);
   final sessions = await repo.getSessionsForMember(memberId);
 

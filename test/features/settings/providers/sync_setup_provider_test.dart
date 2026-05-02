@@ -126,6 +126,58 @@ void main() {
     );
   });
 
+  group('SyncSetupNotifier identity persistence', () {
+    test(
+      'writes relay_url and sync_id in the base64 format startup seeding expects',
+      () async {
+        final notifier = _FakePrismSyncHandleNotifier(
+          const _FakePrismSyncHandle(),
+        );
+        final container = makeContainer(handleNotifier: notifier);
+        final setup = container.read(syncSetupProvider.notifier);
+
+        await setup.persistSyncIdentityForTest(
+          relayUrl: 'https://relay.example.com',
+          syncId: 'sync-123',
+        );
+
+        expect(
+          keychain.values['prism_sync.relay_url'],
+          'aHR0cHM6Ly9yZWxheS5leGFtcGxlLmNvbQ==',
+        );
+        expect(keychain.values['prism_sync.sync_id'], 'c3luYy0xMjM=');
+      },
+    );
+
+    test(
+      'rewrites identity after a drain-style delete removed those slots',
+      () async {
+        keychain.values['prism_sync.relay_url'] = 'STALE_RELAY';
+        keychain.values['prism_sync.sync_id'] = 'STALE_SYNC';
+
+        final notifier = _FakePrismSyncHandleNotifier(
+          const _FakePrismSyncHandle(),
+        );
+        final container = makeContainer(handleNotifier: notifier);
+        final setup = container.read(syncSetupProvider.notifier);
+
+        keychain.values.remove('prism_sync.relay_url');
+        keychain.values.remove('prism_sync.sync_id');
+
+        await setup.persistSyncIdentityForTest(
+          relayUrl: 'https://sync.prismplural.com',
+          syncId: 'new-sync',
+        );
+
+        expect(
+          keychain.values['prism_sync.relay_url'],
+          'aHR0cHM6Ly9zeW5jLnByaXNtcGx1cmFsLmNvbQ==',
+        );
+        expect(keychain.values['prism_sync.sync_id'], 'bmV3LXN5bmM=');
+      },
+    );
+  });
+
   // ── Phase 1A — convention-based rollback test ──────────────────────────
   // Drives `_snapshotPrismSyncKeychain` + `_restoreKeychainSnapshot` via
   // their `@visibleForTesting` seams. The full `_complete` path is gated

@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path/path.dart' as p;
 import 'package:prism_sync/generated/api.dart' as ffi;
+import 'package:drift/drift.dart' show TableUpdate;
 import 'package:prism_sync_drift/prism_sync_drift.dart';
 
 import 'package:prism_plurality/core/constants/app_constants.dart';
@@ -15,11 +16,17 @@ import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/diagnostics/boot_timings.dart';
 import 'package:prism_plurality/core/database/database_encryption.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
+import 'package:prism_plurality/core/security/secret_bytes.dart'
+    show secretUtf8Bytes;
 import 'package:prism_plurality/core/services/app_data_dir.dart';
+import 'package:prism_plurality/core/services/biometric_service.dart';
+import 'package:prism_plurality/core/services/biometric_service_provider.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
+import 'package:prism_plurality/core/services/runtime_dek_store.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/core/database/daos/sync_quarantine_dao.dart';
 import 'package:prism_plurality/core/sync/drift_sync_adapter.dart';
+import 'package:prism_plurality/features/fronting/migration/providers/fronting_migration_providers.dart';
 import 'package:prism_plurality/core/sync/sync_event_loop.dart';
 import 'package:prism_plurality/core/sync/sync_quarantine.dart';
 import 'package:prism_plurality/core/services/media/media_providers.dart';
@@ -36,10 +43,10 @@ import 'package:prism_plurality/features/pluralkit/services/pk_group_sync_v2_cat
 // update the Rust SecureStore drain in prism-sync-ffi/src/api.rs and the key
 // table in app/CLAUDE.md.
 //
-// Signal model: the raw DEK is cached in runtime_dek after first Argon2id
-// unlock so subsequent launches can fast-restore without the password. See
-// _autoConfigureIfReady() for the state machine that decides healthy vs
-// needsPassword vs disconnected.
+// Signal model: a device-bound wrapped runtime DEK is cached after first
+// Argon2id unlock so subsequent launches can fast-restore without the
+// password. See _autoConfigureIfReady() for the state machine that decides
+// healthy vs needsPassword vs disconnected.
 
 const _prismSyncStructuredErrorPrefix = 'PRISM_SYNC_ERROR_JSON:';
 
@@ -235,8 +242,22 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
     );
     BootTimings.mark('createHandle:createPrismSync');
 
-    // Seed Rust's in-memory SecureStore from platform keychain
-    await _seedRustStore(handle);
+    // Treat the per-member fronting migration as a hard sync boundary. While
+    // any known non-complete migration mode is present, skip both
+    // `_seedRustStore` and `_autoConfigureIfReady` so this install cannot
+    // re-attach to the old sync group before the reset/re-pair cutover.
+    final pendingMigration = await _readPendingFrontingMigrationMode(ref);
+    final migrationGateHealth = startupHealthForMigrationMode(pendingMigration);
+    final migrationBlocksStartupSync = migrationGateHealth != null;
+    if (!migrationBlocksStartupSync) {
+      // Seed Rust's in-memory SecureStore from platform keychain.
+      await _seedRustStore(handle);
+    } else {
+      debugPrint(
+        '[SYNC] Skipping _seedRustStore — fronting migration is not complete; '
+        'awaiting migration reset/re-pair cutover.',
+      );
+    }
     BootTimings.mark('createHandle:_seedRustStore');
 
     // Mark startup auto-config as in-progress before publishing the handle so
@@ -256,10 +277,33 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
     // Auto-configure sync engine if credentials already exist (app restart).
     // Writes that land in this window can see `sync not configured` even
     // though the same handle will become writable a moment later.
-    late final SyncHealthState health;
+    //
+    // Skip while the migration has not completed. Report `unpaired` rather
+    // than `healthy` so the post-config block below (cacheRuntimeKeys /
+    // re-emit / drainRustStore / onResume) is skipped entirely. This keeps the
+    // old sync group detached until the user completes the migration reset and
+    // pairs again.
+    late SyncHealthState health;
     try {
-      health = await _autoConfigureIfReady(handle);
+      if (migrationGateHealth != null) {
+        // `unpaired` already means "engine isn't configured; skip the
+        // post-config drain / cacheRuntimeKeys / scheduled onResume
+        // calls" — exactly the semantics we need here. The modal will
+        // drive resumeCleanup() which then transitions away from
+        // `inProgress`.
+        health = migrationGateHealth;
+      } else {
+        health = await _autoConfigureIfReady(handle);
+      }
       BootTimings.mark('createHandle:_autoConfigureIfReady');
+      ref.read(syncHealthProvider.notifier).setState(health);
+    } catch (e, st) {
+      health = SyncHealthState.disconnected;
+      ErrorReportingService.instance.report(
+        'Auto-configure sync failed unexpectedly: $e',
+        severity: ErrorSeverity.error,
+        stackTrace: st,
+      );
       ref.read(syncHealthProvider.notifier).setState(health);
     } finally {
       syncAutoConfigureInProgress.value = false;
@@ -336,6 +380,31 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
 
     return handle;
   }
+
+  /// Re-run the startup credential restore + configure path for an existing
+  /// handle. Manual reconnect uses this when a handle was published but the
+  /// earlier auto-configure attempt failed before `configureEngine`.
+  Future<SyncHealthState> ensureConfigured(ffi.PrismSyncHandle handle) async {
+    syncAutoConfigureInProgress.value = true;
+    try {
+      final health = await _autoConfigureIfReady(handle);
+      ref.read(syncHealthProvider.notifier).setState(health);
+      if (health == SyncHealthState.healthy) {
+        try {
+          await drainRustStore(handle);
+        } catch (e, st) {
+          ErrorReportingService.instance.report(
+            'Post-manual-configure drain failed: $e',
+            severity: ErrorSeverity.warning,
+            stackTrace: st,
+          );
+        }
+      }
+      return health;
+    } finally {
+      syncAutoConfigureInProgress.value = false;
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -362,12 +431,33 @@ SyncHealthState? classifyHealthFromKeychain({
   return null;
 }
 
+/// Pure helper: decide whether fronting migration state blocks startup sync.
+///
+/// During the per-member fronting migration, old-shape sync state is retired
+/// rather than migrated. Any known non-complete mode must therefore skip the
+/// seed/configure path and look `unpaired` until reset/re-pair completes.
+/// Unknown/null values fail open so a DAO read issue does not strand a device.
+@visibleForTesting
+SyncHealthState? startupHealthForMigrationMode(String? mode) {
+  switch (mode) {
+    case 'notStarted':
+    case 'deferred':
+    case 'upgradeAndKeep':
+    case 'startFresh':
+    case 'blocked':
+    case 'inProgress':
+      return SyncHealthState.unpaired;
+    default:
+      return null;
+  }
+}
+
 /// Determine sync health and auto-configure if possible.
 ///
 /// Sync health state machine:
 ///   healthy       — sync configured and working
 ///   unpaired      — device has never been paired (sync_id/device_id absent)
-///   needsPassword — runtime_dek missing, wrapped_dek exists → password modal
+///   needsPassword — wrapped runtime cache missing, wrapped_dek exists → password modal
 ///                   (shown by AppShell listening to syncHealthProvider)
 ///   disconnected  — credentials gone → reconnect card in sync settings
 ///
@@ -393,19 +483,25 @@ Future<SyncHealthState> _autoConfigureIfReady(
     return keychainOnly;
   }
 
-  // Try the fast path: restore runtime keys from cached DEK
+  // Try the fast path: restore runtime keys from the device-bound wrapped DEK.
   final isUnlocked = await ffi.isUnlocked(handle: handle);
   if (!isUnlocked) {
-    final dekB64 = await _storage.read(key: kRuntimeDekKey);
+    final runtimeDekAad = buildRuntimeDekAad(
+      syncId: decodeStoredUtf8(syncId),
+      deviceId: decodeStoredUtf8(deviceId),
+    );
     final deviceSecretB64 = await _storage.read(
       key: '${_secureStorePrefix}device_secret',
     );
+    final dekBytes = runtimeDekAad == null
+        ? null
+        : await _readCachedRuntimeDekForRestore(aad: runtimeDekAad);
 
-    if (dekB64 != null && deviceSecretB64 != null) {
+    if (dekBytes != null && deviceSecretB64 != null) {
       try {
         await ffi.restoreRuntimeKeys(
           handle: handle,
-          dek: base64Decode(dekB64),
+          dek: dekBytes,
           deviceSecret: base64Decode(deviceSecretB64),
         );
       } catch (e, st) {
@@ -415,6 +511,8 @@ Future<SyncHealthState> _autoConfigureIfReady(
           stackTrace: st,
         );
         return SyncHealthState.disconnected;
+      } finally {
+        _zeroBytesBestEffort(dekBytes);
       }
     } else {
       // No cached DEK. Check if we can recover with a password.
@@ -513,17 +611,80 @@ const _secureStoreKeys = [
   'session_token',
   'epoch',
   'relay_url',
+  'registration_token',
   'setup_rollback_marker',
   'sharing_prekey_store',
   'sharing_id_cache',
   'min_signature_version_floor',
 ];
 
-/// Key for persisting the raw DEK in the platform keychain (Signal-style).
-/// Stored after first unlock so subsequent launches bypass Argon2id.
+/// Legacy raw runtime-DEK cache key. Kept only so startup can migrate/delete
+/// old plaintext/base64 caches; new writes must use [kRuntimeDekWrappedKey].
 const kRuntimeDekKey = '${_secureStorePrefix}runtime_dek';
 
+/// Device-bound wrapped runtime-DEK cache key. The value is JSON metadata plus
+/// AEAD ciphertext produced by [DeviceBoundRuntimeDekStore].
+const kRuntimeDekWrappedKey = '${_secureStorePrefix}runtime_dek_wrapped_v1';
+
+/// Device identity persisted by prism-sync.
+const kSyncDeviceIdKey = '${_secureStorePrefix}device_id';
+
+/// Durable marker written only after the joiner snapshot has applied locally.
+const kSnapshotApplyCompleteKey =
+    '${_secureStorePrefix}snapshot_apply_complete_v1';
+
 const _storage = secureStorage;
+const _runtimeDekStore = DeviceBoundRuntimeDekStore();
+
+@visibleForTesting
+String? decodeStoredUtf8(String? raw) {
+  if (raw == null || raw.isEmpty) return null;
+  try {
+    return utf8.decode(base64Decode(raw));
+  } catch (_) {
+    return raw;
+  }
+}
+
+String snapshotApplyCompleteMarkerValue({
+  required String syncId,
+  required String deviceId,
+}) {
+  return '$syncId\n$deviceId';
+}
+
+bool snapshotApplyCompleteMarkerMatches({
+  required String? marker,
+  required String syncId,
+  required String deviceId,
+}) {
+  return marker ==
+      snapshotApplyCompleteMarkerValue(syncId: syncId, deviceId: deviceId);
+}
+
+void _zeroBytesBestEffort(List<int>? bytes) {
+  if (bytes == null) return;
+  try {
+    bytes.fillRange(0, bytes.length, 0);
+  } on UnsupportedError {
+    // Some platform-channel byte views are immutable. The restore path copies
+    // secrets before use, but scrubbing must never mask the real sync result.
+  }
+}
+
+@visibleForTesting
+String? buildRuntimeDekAad({
+  required String? syncId,
+  required String? deviceId,
+}) {
+  if (syncId == null ||
+      syncId.isEmpty ||
+      deviceId == null ||
+      deviceId.isEmpty) {
+    return null;
+  }
+  return '$syncId|$deviceId|1';
+}
 
 /// Prefixes for dynamic secure-store entries that the Rust side may write
 /// at runtime (epoch rotation recovery, runtime key blobs). These are NOT
@@ -538,18 +699,27 @@ const _dynamicSecureStorePrefixes = ['epoch_key_', 'runtime_keys_'];
 /// End-to-end seed request builder.
 ///
 /// Takes the output of `FlutterSecureStorage.readAll()` and returns the
-/// JSON string that `_seedRustStore` passes into `ffi.seedSecureStore`,
-/// or `null` if there are no entries to seed. Equivalent to
-/// `jsonEncode(computeSeedEntries(all))` but returns `null` on empty
-/// so tests can assert "should not have been called at all".
+/// binary map that `_seedRustStore` passes into `ffi.seedSecureStore`,
+/// or `null` if there are no entries to seed. Platform keychain values
+/// stay base64 strings at rest, but the FFI boundary receives bytes.
 ///
 /// Used by `_seedRustStore` and by unit tests that want to verify the
-/// full read + filter + encode pipeline without a real FFI handle.
+/// full read + filter + decode pipeline without a real FFI handle.
 @visibleForTesting
-String? buildSeedRequestJson(Map<String, String> keychainContents) {
+Map<String, Uint8List>? buildSeedEntries(Map<String, String> keychainContents) {
   final entries = computeSeedEntries(keychainContents);
   if (entries.isEmpty) return null;
-  return jsonEncode(entries);
+  return decodeSeedEntries(entries);
+}
+
+@visibleForTesting
+Map<String, Uint8List> decodeSeedEntries(Map<String, String> entries) {
+  return entries.map((key, value) => MapEntry(key, base64Decode(value)));
+}
+
+@visibleForTesting
+Map<String, String> encodeDrainedEntries(Map<String, Uint8List> entries) {
+  return entries.map((key, value) => MapEntry(key, base64Encode(value)));
 }
 
 /// Compute the set of (un-prefixed) secure-store entries that should be
@@ -557,7 +727,7 @@ String? buildSeedRequestJson(Map<String, String> keychainContents) {
 ///
 /// Pure function — takes a `readAll()`-style map keyed by the full
 /// platform-keychain keys (with `prism_sync.` prefix) and returns the
-/// bare key -> base64 map that gets passed to `ffi.seedSecureStore`.
+/// bare key -> base64 map that [buildSeedEntries] decodes before FFI.
 /// Extracted so unit tests can exercise the "dynamic prefix scan"
 /// behavior without touching `FlutterSecureStorage`.
 @visibleForTesting
@@ -597,7 +767,6 @@ Map<String, String> computeSeedEntries(Map<String, String> all) {
 /// the static allow-list approach used to silently leak transient
 /// pairing keys (`bootstrap_joiner_bundle`, `pending_sync_id`,
 /// `registration_token`, etc.) that nobody remembered to add.
-@visibleForTesting
 List<String> computeKeysToClearOnReset(Map<String, String> all) {
   final out = <String>[];
   for (final fullKey in all.keys) {
@@ -636,18 +805,273 @@ Future<void> _seedRustStore(ffi.PrismSyncHandle handle) async {
     }
   }
 
-  final json = buildSeedRequestJson(all);
-  if (json != null) {
-    await ffi.seedSecureStore(handle: handle, entriesJson: json);
+  final entries = buildSeedEntries(all);
+  if (entries != null) {
+    await ffi.seedSecureStore(handle: handle, entries: entries);
   }
 }
 
-/// Export the raw DEK from Rust and cache it in the platform keychain.
+/// Read the current `pending_fronting_migration_mode` from the
+/// `system_settings` row, returning `null` if the DAO read throws (e.g.
+/// the database isn't open yet, or the column doesn't exist on this
+/// schema version). Defensive — startup only needs this to detect the
+/// `inProgress` state, and any failure here means we fall back to the
+/// normal seed/configure path.
+Future<String?> _readPendingFrontingMigrationMode(Ref ref) async {
+  try {
+    final db = ref.read(databaseProvider);
+    return await db.systemSettingsDao.readPendingFrontingMigrationMode();
+  } catch (_) {
+    return null;
+  }
+}
+
+/// Wipe every sync-related entry from the platform keychain.
+///
+/// Mirrors `SyncStatusNotifier._wipeSyncKeychainEntries` but exposed as a
+/// top-level function so the per-member fronting migration can call it
+/// from outside the notifier graph (the migration runs as a service, not
+/// a notifier, and shouldn't depend on the SyncStatus notifier's
+/// debounce/post-revoke state).
+///
+/// Without this, a backgrounded app between the migration's
+/// `reset_sync_state` and the next launch would re-seed Rust from the
+/// still-present `wrapped_dek` / `sync_id` / `device_secret` / etc. and
+/// silently re-attach to the OLD sync group. Idempotent — wiping
+/// already-wiped slots is a no-op.
+///
+/// Reads the persisted sync_id from the platform keychain for the
+/// [FrontingMigrationService.resumeCleanup] path.
+///
+/// Background: when app startup detects the migration's `inProgress`
+/// marker, it intentionally skips both `_seedRustStore` and
+/// `_autoConfigureIfReady` (so a backgrounded app between FFI reset
+/// and keychain wipe doesn't re-seed credentials about to be wiped).
+/// That leaves the published handle UNCONFIGURED — `reset_sync_state`
+/// against it would return `"sync_id not set"` because it queries the
+/// live engine for the sync_id.
+///
+/// The previous implementation worked around this by configuring the
+/// engine just-enough (seed secure store + restore runtime keys +
+/// configureEngine), then calling `reset_sync_state`. That path had
+/// a latent bug: `configure_engine` constructs the relay AND calls
+/// `connect_websocket` BEFORE the reset runs, which contradicts the
+/// "no relay round-trip" requirement of the cutover and could briefly
+/// reconnect to the still-paired old sync group, possibly leaving a
+/// background reconnect loop.
+///
+/// Fix: read the sync_id directly from the keychain (the wipe step is
+/// GATED on the reset succeeding first, so the keychain entries are
+/// intact when this runs) and pass it to `clear_sync_state(sync_id)`,
+/// which is a surgical storage-only wipe with no engine configuration
+/// and no relay touch.
+///
+/// Returns null when no sync_id is stored — the resume path treats
+/// that as "nothing left to clear" and advances substate so the
+/// remaining cleanup steps proceed.
+Future<String?> readFrontingMigrationSyncId() async {
+  final raw = await _storage.read(key: kSyncIdKey);
+  if (raw == null || raw.isEmpty) return null;
+  // Keychain values are base64-encoded by convention (see [syncIdProvider]),
+  // with a plaintext fallback for legacy installs.
+  try {
+    return utf8.decode(base64Decode(raw));
+  } catch (_) {
+    return raw;
+  }
+}
+
+/// Secure-store keys not tracked by `_secureStoreKeys` (the seed allow-list)
+/// that the wipe path still needs to clear. `mnemonic` is kept here as a
+/// defensive entry — the BIP39 mnemonic is normally never persisted (see
+/// the comment on `_secureStoreKeys`), but earlier builds may have left
+/// one behind. Runtime DEK cache slots are not seed material so they never
+/// appear in `_secureStoreKeys`, but both legacy raw and current wrapped slots
+/// must be wiped on reset.
+const _legacyWipeOnlyKeys = [
+  'mnemonic',
+  'runtime_dek',
+  'runtime_dek_wrapped_v1',
+  'snapshot_apply_complete_v1',
+];
+
+/// Returns the full set of unprefixed secure-store keys used when a platform
+/// keychain cannot provide a prefix scan. Tests pin this fallback contract so
+/// every static seed entry plus wipe-only legacy entry remains covered.
+Set<String> frontingMigrationWipeStaticKeys() {
+  return {..._secureStoreKeys, ..._legacyWipeOnlyKeys};
+}
+
+/// Returns the dynamic prefixes the wipe path scans for after the static
+/// pass. Exposed for tests.
+@visibleForTesting
+List<String> frontingMigrationWipeDynamicPrefixes() {
+  return List.unmodifiable(_dynamicSecureStorePrefixes);
+}
+
+Set<String> _staticSyncCredentialWipeFallbackKeys() {
+  return {
+    for (final key in frontingMigrationWipeStaticKeys())
+      '$_secureStorePrefix$key',
+  }..removeAll(kProtectedFromReset);
+}
+
+Future<void> _deleteSyncCredentialKeychainEntries({
+  required Future<Map<String, String>> Function() readAll,
+  required Future<void> Function(String key) deleteKey,
+}) async {
+  Set<String> keysToDelete;
+  try {
+    keysToDelete = computeKeysToClearOnReset(await readAll()).toSet();
+  } catch (_) {
+    // Best-effort fallback for platform keychains where readAll() fails or is
+    // unavailable: delete every known static sync credential/cache slot.
+    keysToDelete = _staticSyncCredentialWipeFallbackKeys();
+  }
+
+  for (final fullKey in keysToDelete) {
+    try {
+      await deleteKey(fullKey);
+    } catch (_) {
+      // Best effort — continue clearing remaining keys.
+    }
+  }
+}
+
+Future<void> _clearBiometricSyncDekBestEffort([Ref? ref]) async {
+  try {
+    if (ref != null) {
+      await ref.read(biometricServiceProvider).clear();
+    } else {
+      await BiometricService().clear();
+    }
+  } catch (_) {
+    // Best effort — the regular keychain wipe may already have removed the
+    // non-biometric copy, and reset/revoke cleanup must continue.
+  }
+}
+
+Future<void> wipeFrontingMigrationSyncKeychain() async {
+  await _deleteSyncCredentialKeychainEntries(
+    readAll: _storage.readAll,
+    deleteKey: (key) => _storage.delete(key: key),
+  );
+  try {
+    await _runtimeDekStore.deleteWrappingKey();
+  } catch (_) {
+    // Best effort — the wrapped blob was already deleted above.
+  }
+  await _clearBiometricSyncDekBestEffort();
+}
+
+@visibleForTesting
+Future<Uint8List?> readCachedRuntimeDekForRestoreCore({
+  required String aad,
+  required Future<String?> Function(String key) readKey,
+  required Future<void> Function(String key) deleteKey,
+  required Future<void> Function(String key, String value) writeKey,
+  required Future<Uint8List> Function(String blob, String aad) unwrapDek,
+  required Future<String> Function(Uint8List dekBytes, String aad) wrapDek,
+  void Function(String message, Object error, StackTrace stackTrace)?
+  reportWarning,
+}) async {
+  final wrapped = await readKey(kRuntimeDekWrappedKey);
+  if (wrapped != null && wrapped.isNotEmpty) {
+    try {
+      final dekBytes = Uint8List.fromList(await unwrapDek(wrapped, aad));
+      await deleteKey(kRuntimeDekKey);
+      return dekBytes;
+    } catch (e, st) {
+      await deleteKey(kRuntimeDekWrappedKey);
+      reportWarning?.call(
+        'Wrapped runtime DEK restore failed; cache deleted: $e',
+        e,
+        st,
+      );
+    }
+  }
+
+  final legacyRaw = await readKey(kRuntimeDekKey);
+  if (legacyRaw == null || legacyRaw.isEmpty) return null;
+
+  Uint8List dekBytes;
+  try {
+    dekBytes = Uint8List.fromList(base64Decode(legacyRaw));
+  } catch (e, st) {
+    await deleteKey(kRuntimeDekKey);
+    reportWarning?.call(
+      'Legacy runtime DEK cache was invalid; cache deleted: $e',
+      e,
+      st,
+    );
+    return null;
+  }
+
+  if (dekBytes.length != 32) {
+    _zeroBytesBestEffort(dekBytes);
+    await deleteKey(kRuntimeDekKey);
+    return null;
+  }
+
+  try {
+    final migrated = await wrapDek(dekBytes, aad);
+    await writeKey(kRuntimeDekWrappedKey, migrated);
+    await deleteKey(kRuntimeDekKey);
+    return dekBytes;
+  } catch (e, st) {
+    _zeroBytesBestEffort(dekBytes);
+    await deleteKey(kRuntimeDekKey);
+    reportWarning?.call(
+      'Legacy runtime DEK migration failed; raw cache deleted: $e',
+      e,
+      st,
+    );
+    return null;
+  }
+}
+
+Future<Uint8List?> _readCachedRuntimeDekForRestore({required String aad}) {
+  return readCachedRuntimeDekForRestoreCore(
+    aad: aad,
+    readKey: (key) => _storage.read(key: key),
+    deleteKey: (key) => _storage.delete(key: key),
+    writeKey: (key, value) => _storage.write(key: key, value: value),
+    unwrapDek: (blob, aad) => _runtimeDekStore.unwrap(blob, aad: aad),
+    wrapDek: (dekBytes, aad) => _runtimeDekStore.wrap(dekBytes, aad: aad),
+    reportWarning: (message, error, stackTrace) {
+      ErrorReportingService.instance.report(
+        message,
+        severity: ErrorSeverity.warning,
+        stackTrace: stackTrace,
+      );
+    },
+  );
+}
+
+Future<void> _deleteCachedRuntimeDek({bool deleteWrappingKey = false}) async {
+  await _storage.delete(key: kRuntimeDekWrappedKey);
+  await _storage.delete(key: kRuntimeDekKey);
+  if (deleteWrappingKey) {
+    try {
+      await _runtimeDekStore.deleteWrappingKey();
+    } catch (e, st) {
+      ErrorReportingService.instance.report(
+        'Runtime DEK wrapping-key delete failed (non-fatal): $e',
+        severity: ErrorSeverity.warning,
+        stackTrace: st,
+      );
+    }
+  }
+}
+
+/// Export the raw DEK from Rust and cache it as a device-bound wrapped blob.
 ///
 /// Call after `initialize()`, `unlock()`, or a completed pairing ceremony —
 /// any operation that leaves the key hierarchy unlocked. On subsequent app launches,
-/// `_autoConfigureIfReady` uses this cached DEK to restore the unlocked
+/// `_autoConfigureIfReady` unwraps this cached DEK to restore the unlocked
 /// state without re-deriving via Argon2id.
+/// If the device does not have a sync_id/device_id yet (pre-sync onboarding),
+/// the runtime cache is skipped; database-key rotation still runs.
 ///
 /// Also rotates both the Drift app DB and the Rust sync DB to the HKDF-derived
 /// local storage key (HKDF(DEK, DeviceSecret)) so the database is tied to
@@ -656,9 +1080,36 @@ Future<void> cacheRuntimeKeys(
   ffi.PrismSyncHandle handle,
   AppDatabase db,
 ) async {
-  final dekBytes = await ffi.exportDek(handle: handle);
-  final dekB64 = base64Encode(dekBytes);
-  await _storage.write(key: kRuntimeDekKey, value: dekB64);
+  final runtimeDekAad = buildRuntimeDekAad(
+    syncId: decodeStoredUtf8(
+      await _storage.read(key: '${_secureStorePrefix}sync_id'),
+    ),
+    deviceId: decodeStoredUtf8(
+      await _storage.read(key: '${_secureStorePrefix}device_id'),
+    ),
+  );
+  if (runtimeDekAad == null) {
+    await _deleteCachedRuntimeDek();
+    debugPrint(
+      '[SYNC] Skipping runtime DEK cache: sync_id/device_id unavailable',
+    );
+  } else {
+    final dekBytes = Uint8List.fromList(await ffi.exportDek(handle: handle));
+    try {
+      final wrapped = await _runtimeDekStore.wrap(dekBytes, aad: runtimeDekAad);
+      await _storage.write(key: kRuntimeDekWrappedKey, value: wrapped);
+      await _storage.delete(key: kRuntimeDekKey);
+    } catch (e, st) {
+      await _deleteCachedRuntimeDek();
+      ErrorReportingService.instance.report(
+        'Runtime DEK cache wrap failed; cache deleted: $e',
+        severity: ErrorSeverity.warning,
+        stackTrace: st,
+      );
+    } finally {
+      _zeroBytesBestEffort(dekBytes);
+    }
+  }
 
   // Rotate both DBs to the HKDF-derived local storage key.
   //
@@ -820,7 +1271,7 @@ Future<void> drainRustStore(
   ffi.PrismSyncHandle handle, {
   bool Function()? shouldAbort,
 }) async {
-  final json = await ffi.drainSecureStore(handle: handle);
+  final drained = await ffi.drainSecureStore(handle: handle);
 
   // Pre-write barrier: if revocation landed during the FFI call, log
   // and bail before touching the keychain.
@@ -829,7 +1280,7 @@ Future<void> drainRustStore(
     return;
   }
 
-  final entries = Map<String, String>.from(jsonDecode(json) as Map);
+  final entries = encodeDrainedEntries(drained);
   await applyDrainedEntries(
     entries: entries,
     deleteKey: (full) => _storage.delete(key: full),
@@ -939,7 +1390,25 @@ final quarantinedItemsProvider = FutureProvider<List<SyncQuarantineData>>((
 final driftSyncAdapterProvider = Provider<SyncAdapterWithCompletion>((ref) {
   final db = ref.watch(databaseProvider);
   final quarantine = ref.watch(syncQuarantineServiceProvider);
-  return buildSyncAdapterWithCompletion(db, quarantine: quarantine);
+  // Gate fronting_sessions / front_session_comments apply on the
+  // per-member fronting migration. While the migration is `blocked` or
+  // `inProgress` the local schema is in a transitional shape (see WS1
+  // step 4 + 5 in the remediation plan) and applying remote new-shape
+  // rows would race with the in-flight migration. We read from
+  // `frontingMigrationWritesBlockedProvider` lazily inside the closure
+  // so the adapter doesn't have to be rebuilt on every state change.
+  return buildSyncAdapterWithCompletion(
+    db,
+    quarantine: quarantine,
+    applyGate: (tableName) {
+      if (tableName != 'fronting_sessions' &&
+          tableName != 'front_session_comments') {
+        return null;
+      }
+      final blocked = ref.read(frontingMigrationWritesBlockedProvider);
+      return blocked ? DriftSyncApplyRefusal.frontingMigrationGate : null;
+    },
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -1330,7 +1799,8 @@ enum SyncHealthState {
   /// Sync is configured and working.
   healthy,
 
-  /// runtime_dek is missing but wrapped_dek exists — user must enter password.
+  /// Wrapped runtime cache is missing but wrapped_dek exists — user must
+  /// enter password.
   needsPassword,
 
   /// Credentials are gone or device was revoked — must re-pair.
@@ -1370,6 +1840,24 @@ class SyncHealthNotifier extends Notifier<SyncHealthState> {
 
   void setState(SyncHealthState value) => state = value;
 
+  /// Lock sync runtime keys in memory. With [hard] set, also removes the
+  /// device-bound runtime-DEK cache so the next start requires PIN+mnemonic.
+  Future<void> lock({bool hard = false}) async {
+    final handle = ref.read(prismSyncHandleProvider).value;
+    if (handle != null) {
+      await ffi.lock(handle: handle);
+    }
+    if (hard) {
+      await _deleteCachedRuntimeDek(deleteWrappingKey: true);
+      final wrappedDek = await _storage.read(
+        key: '${_secureStorePrefix}wrapped_dek',
+      );
+      state = wrappedDek != null
+          ? SyncHealthState.needsPassword
+          : SyncHealthState.disconnected;
+    }
+  }
+
   /// Attempt to unlock the key hierarchy with the user's PIN + mnemonic.
   ///
   /// The mnemonic is no longer stored in the keychain, so callers must
@@ -1385,27 +1873,39 @@ class SyncHealthNotifier extends Notifier<SyncHealthState> {
     if (handle == null) return false;
 
     final normalized = mnemonic.trim().toLowerCase();
+    Uint8List? mnemonicBytes;
+    Uint8List? pinBytes;
     List<int>? secretKeyBytes;
     try {
       try {
-        secretKeyBytes = await ffi.mnemonicToBytes(mnemonic: normalized);
+        mnemonicBytes = secretUtf8Bytes(normalized);
+        secretKeyBytes = await ffi.mnemonicToBytes(mnemonic: mnemonicBytes);
       } catch (_) {
         // Invalid mnemonic — treat as failed unlock without disclosing
         // which input was wrong.
         return false;
+      } finally {
+        _zeroBytesBestEffort(mnemonicBytes);
+        mnemonicBytes = null;
       }
 
       // Unlock the key hierarchy — throws on wrong PIN or mismatched mnemonic.
       try {
+        pinBytes = secretUtf8Bytes(pin);
         await ffi.unlock(
           handle: handle,
-          password: pin,
+          password: pinBytes,
           secretKey: secretKeyBytes,
         );
       } on Exception {
         // Wrong PIN or wrong mnemonic — don't change state; UI shows a
         // generic error and lets the user retry.
         return false;
+      } finally {
+        _zeroBytesBestEffort(pinBytes);
+        _zeroBytesBestEffort(secretKeyBytes);
+        pinBytes = null;
+        secretKeyBytes = null;
       }
 
       // Configure engine and auto-sync BEFORE caching keys.
@@ -1433,10 +1933,10 @@ class SyncHealthNotifier extends Notifier<SyncHealthState> {
       // Unexpected error (mnemonicToBytes, engine config, etc.)
       return false;
     } finally {
-      // Always zero any secret-key bytes that made it into Dart memory.
-      if (secretKeyBytes != null) {
-        secretKeyBytes.fillRange(0, secretKeyBytes.length, 0);
-      }
+      // Always zero any secret bytes that made it into Dart memory.
+      _zeroBytesBestEffort(mnemonicBytes);
+      _zeroBytesBestEffort(pinBytes);
+      _zeroBytesBestEffort(secretKeyBytes);
     }
   }
 }
@@ -1575,6 +2075,12 @@ Duration? debugPostRevokeRecleanOverride;
 @visibleForTesting
 Future<void> Function()? debugPostRevokeRecleanOverrideCallback;
 
+/// Test seam: when non-null, `SyncStatusNotifier._queryPendingOps` calls this
+/// instead of the Rust status FFI. Used to hold pending-op queries open while
+/// exercising sync event ordering races.
+@visibleForTesting
+Future<int> Function()? debugQueryPendingOpsOverride;
+
 @visibleForTesting
 SyncStatus syncStatusAfterCompleted({
   required SyncStatus previous,
@@ -1603,6 +2109,14 @@ final syncStatusProvider = NotifierProvider<SyncStatusNotifier, SyncStatus>(
 
 class SyncStatusNotifier extends Notifier<SyncStatus> {
   Timer? _drainDebounce;
+
+  /// Monotonic generation for async status refreshes spawned by sync events.
+  ///
+  /// SyncStarted and SyncCompleted both query extra state asynchronously. Fast
+  /// failure paths can emit SyncStarted followed by SyncCompleted/Error before
+  /// those futures resolve; this token keeps an older callback from overwriting
+  /// the terminal `isSyncing: false` state that re-enables the settings UI.
+  int _statusEventGeneration = 0;
 
   /// Timer for the belt-and-suspenders post-revoke re-cleanup pass.
   Timer? _postRevokeRecleanTimer;
@@ -1732,6 +2246,16 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
     _postRevokeRecleanTimer = null;
   }
 
+  /// Prepare for an explicit local reset/re-pair flow.
+  ///
+  /// This uses the same drain-suppression barrier as self-revoke cleanup so a
+  /// queued or already-running event-driven drain cannot write old credentials
+  /// back into the keychain after the reset path deletes them.
+  void prepareForCredentialReset() {
+    _abortPendingDrainForRevoke();
+    state = const SyncStatus();
+  }
+
   @override
   SyncStatus build() {
     ref.onDispose(() {
@@ -1772,6 +2296,7 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
     ref.listen(syncEventStreamProvider, (prev, next) {
       next.whenData((event) {
         if (event.isSyncCompleted) {
+          final generation = ++_statusEventGeneration;
           final rawResultError =
               (event.data['result'] as Map<String, dynamic>?)?['error']
                   as String?;
@@ -1789,12 +2314,22 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
           final structuredError = rawResultError == null
               ? null
               : PrismSyncStructuredError.tryParseMessage(rawResultError);
+          final completedError = structuredError?.userMessage ?? rawResultError;
           final previous = state;
+          state = state.copyWith(
+            isSyncing: false,
+            lastError: completedError != null && completedError.isNotEmpty
+                ? completedError
+                : null,
+          );
           // Re-query pending ops and quarantine state after sync completes.
           Future.wait([_queryPendingOps(), _queryQuarantine()]).then((results) {
+            if (generation != _statusEventGeneration) {
+              return;
+            }
             state = syncStatusAfterCompleted(
               previous: previous,
-              rawResultError: structuredError?.userMessage ?? rawResultError,
+              rawResultError: completedError,
               pendingOps: results[0] as int,
               hasQuarantinedItems: results[1] as bool,
               completedAt: DateTime.now(),
@@ -1829,12 +2364,18 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
           // next restart.
           _scheduleDrain();
         } else if (event.isSyncStarted) {
+          final generation = ++_statusEventGeneration;
+          state = state.copyWith(isSyncing: true);
           // Snapshot current pending ops count when sync begins so the UI
           // can show how many ops are waiting to be pushed.
           _queryPendingOps().then((count) {
+            if (generation != _statusEventGeneration) {
+              return;
+            }
             state = state.copyWith(isSyncing: true, pendingOps: count);
           });
         } else if (event.isError) {
+          _statusEventGeneration++;
           final structuredError =
               PrismSyncStructuredError.fromSyncEvent(event) ??
               PrismSyncStructuredError.tryParseMessage(
@@ -1854,6 +2395,8 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
             );
           }
         } else if (event.isDeviceRevoked) {
+          _statusEventGeneration++;
+          state = state.copyWith(isSyncing: false);
           _handleDeviceRevoked(event);
         }
       });
@@ -1924,6 +2467,10 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
 
   /// Query the Rust sync engine for the current number of unpushed pending ops.
   Future<int> _queryPendingOps() async {
+    final override = debugQueryPendingOpsOverride;
+    if (override != null) {
+      return await override();
+    }
     try {
       final handle = ref.read(prismSyncHandleProvider).value;
       if (handle == null) return 0;
@@ -2054,9 +2601,7 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
     // sibling-revoke and we leave THIS device's credentials alone.
     String? currentDeviceId;
     try {
-      final raw = await _storage.read(
-        key: '${_secureStorePrefix}device_id',
-      );
+      final raw = await _storage.read(key: '${_secureStorePrefix}device_id');
       if (raw != null && raw.isNotEmpty) {
         try {
           currentDeviceId = utf8.decode(base64Decode(raw));
@@ -2147,6 +2692,39 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
         await db.customStatement('DELETE FROM system_settings');
         await db.customStatement('DELETE FROM sync_quarantine');
       });
+      // customStatement bypasses Drift's typed-write notification.
+      // A remote-revoke wipe normally triggers a full app reload, but
+      // if the app stays live after revoke (rare but possible), the
+      // frontingTableTickerProvider and any active stream queries
+      // would otherwise still reflect the pre-wipe state. Notify
+      // explicitly across every table touched above so the live UI
+      // collapses to the empty state without needing the reload.
+      db.notifyUpdates({
+        const TableUpdate('habit_completions'),
+        const TableUpdate('habits'),
+        const TableUpdate('poll_votes'),
+        const TableUpdate('poll_options'),
+        const TableUpdate('polls'),
+        const TableUpdate('chat_messages'),
+        const TableUpdate('conversation_categories'),
+        const TableUpdate('conversations'),
+        const TableUpdate('front_session_comments'),
+        const TableUpdate('fronting_sessions'),
+        const TableUpdate('sleep_sessions'),
+        const TableUpdate('custom_field_values'),
+        const TableUpdate('custom_fields'),
+        const TableUpdate('member_group_entries'),
+        const TableUpdate('member_groups'),
+        const TableUpdate('notes'),
+        const TableUpdate('reminders'),
+        const TableUpdate('friends'),
+        const TableUpdate('sharing_requests'),
+        const TableUpdate('media_attachments'),
+        const TableUpdate('members'),
+        const TableUpdate('plural_kit_sync_state'),
+        const TableUpdate('system_settings'),
+        const TableUpdate('sync_quarantine'),
+      });
       debugPrint('[SYNC] App database content wiped');
     } catch (e) {
       debugPrint('[SYNC] Failed to wipe app DB content (non-fatal): $e');
@@ -2162,50 +2740,22 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
   }
 
   /// Narrow keychain-wipe helper — deletes every static allow-list
-  /// entry plus any dynamic `epoch_key_*` / `runtime_keys_*` entries.
+  /// entry plus any dynamic `prism_sync.*` entries present in the keychain.
   /// No state transitions, no provider invalidation, no UI side effects.
   /// Shared between `_clearSyncCredentials` (primary cleanup) and
   /// `_abortPendingDrainForRevoke`'s belt-and-suspenders post-revoke
   /// re-cleanup timer.
   Future<void> _wipeSyncKeychainEntries() async {
-    for (final key in const [
-      'wrapped_dek',
-      'dek_salt',
-      'device_secret',
-      'device_id',
-      'sync_id',
-      'session_token',
-      'epoch',
-      'relay_url',
-      'mnemonic',
-      'setup_rollback_marker',
-      'sharing_prekey_store',
-      'sharing_id_cache',
-      'min_signature_version_floor',
-      'runtime_dek',
-    ]) {
-      try {
-        await _storage.delete(key: '$_secureStorePrefix$key');
-      } catch (_) {
-        // Best effort — continue clearing remaining keys
-      }
-    }
-    // Dynamic-prefix scan — scan and delete any prefixed entries left
-    // over from a previous pairing.
+    await _deleteSyncCredentialKeychainEntries(
+      readAll: _storage.readAll,
+      deleteKey: (key) => _storage.delete(key: key),
+    );
     try {
-      final all = await _storage.readAll();
-      for (final entry in all.entries) {
-        if (!entry.key.startsWith(_secureStorePrefix)) continue;
-        final bare = entry.key.substring(_secureStorePrefix.length);
-        if (_dynamicSecureStorePrefixes.any(bare.startsWith)) {
-          try {
-            await _storage.delete(key: entry.key);
-          } catch (_) {}
-        }
-      }
+      await _runtimeDekStore.deleteWrappingKey();
     } catch (_) {
-      // Non-fatal — the next reset will pick them up.
+      // Best effort — the wrapped blob was already deleted above.
     }
+    await _clearBiometricSyncDekBestEffort(ref);
   }
 
   /// Clear all sync credentials from the platform keychain.

@@ -181,6 +181,102 @@ void main() {
   );
 
   test(
+    'repository _fields maps emit every prismSyncSchema field for the entity',
+    () {
+      // Adapter-level parity (toSyncFields, above) only catches drift between
+      // the Rust engine's view of the entity and the Drift table column
+      // mapping. It does NOT catch repositories that *write* a row but skip
+      // a field when emitting the sync op — that produces a row that silently
+      // never propagates the missing field across devices.
+      //
+      // This test scans every repository's `_fields`-style helper and checks
+      // that its emitted keys match the schema's declared fields. Allow-list
+      // entries below document schema fields that are intentionally written on
+      // a separate code path (e.g. `delete_push_started_at` is stamped via a
+      // dedicated mutator, not the create/update field map) or are read-only
+      // PK-mirror columns the prism repository never originates.
+      final schema = jsonDecode(prismSyncSchema) as Map<String, dynamic>;
+      final schemaEntities = schema['entities'] as Map<String, dynamic>;
+
+      final mismatches = <String, String>{};
+      for (final source in _repositoryFieldSources) {
+        final emitted = _extractFieldKeysFromFile(
+          source.file,
+          source.helperName,
+        );
+        final schemaFields =
+            ((schemaEntities[source.tableName]
+                        as Map<String, dynamic>)['fields']
+                    as Map<String, dynamic>)
+                .keys
+                .toSet();
+
+        final allowed = _writeOmittedFields[source.tableName] ?? const {};
+        final missing = schemaFields.difference(emitted).difference(allowed);
+        final extra = emitted.difference(schemaFields);
+        if (missing.isNotEmpty || extra.isNotEmpty) {
+          mismatches['${source.tableName} (${source.helperName})'] =
+              'schema fields missing from repository field map: $missing; '
+              'repository-only fields rejected by Rust schema: $extra';
+        }
+      }
+
+      expect(
+        mismatches,
+        isEmpty,
+        reason:
+            'Repository sync field maps are missing fields declared in '
+            'prismSyncSchema. These rows will create/update locally but the '
+            'missing fields will never reach other devices. Repository-only '
+            'fields are rejected by the Rust schema. If a field is '
+            'intentionally written on a different code path, add it to '
+            r'_writeOmittedFields with a comment.'
+            '\n$mismatches',
+      );
+    },
+  );
+
+  test('_repositoryFieldSources covers every prismSyncSchema entity', () {
+    // Defends against a silent regression in the parity scanner itself:
+    // the test above only checks fields for entities that are listed in
+    // `_repositoryFieldSources`. A future contributor adding a new synced
+    // entity (and a new `_<x>Fields` helper) but forgetting to register
+    // it in `_repositoryFieldSources` would cause the field-map parity
+    // test to silently skip the new entity — schema-vs-field-map drift
+    // would slip through.
+    //
+    // We assert one-to-one coverage: every entity declared in
+    // `prismSyncSchema` MUST have at least one `_repositoryFieldSources`
+    // entry. (The reverse — sources without a schema entry — would be
+    // caught by the existing field-map test, since the schema lookup
+    // would throw on a missing entity.)
+    //
+    // If a new entity is intentionally exempted (e.g. its writes go
+    // through a non-`_fields` code path), add it to `_coverageExempt`
+    // below with a comment explaining why.
+    final schema = jsonDecode(prismSyncSchema) as Map<String, dynamic>;
+    final entities = (schema['entities'] as Map<String, dynamic>).keys.toSet();
+
+    final covered = _repositoryFieldSources.map((s) => s.tableName).toSet();
+    const coverageExempt = <String>{};
+
+    final missing = entities.difference(covered).difference(coverageExempt);
+
+    expect(
+      missing,
+      isEmpty,
+      reason:
+          'prismSyncSchema entities have no entry in '
+          '_repositoryFieldSources — the field-map parity test will '
+          'silently skip them, letting schema-vs-field-map drift through. '
+          'Add a _RepoFieldSource entry for each, or add the entity to '
+          '_coverageExempt with a comment if it intentionally has no '
+          '_fields-style helper.\n'
+          'Missing: $missing',
+    );
+  });
+
+  test(
     'toSyncFields values are compatible with prismSyncSchema field types',
     () async {
       final schema = jsonDecode(prismSyncSchema) as Map<String, dynamic>;
@@ -238,6 +334,205 @@ void main() {
   );
 }
 
+/// Repository-level field-map sources. Each entry maps a sync entity (table)
+/// to the source file + helper name whose returned `Map<String, dynamic>` is
+/// passed to `syncRecordCreate / Update`. The parity test scans the helper
+/// body for `'<key>':` literals and compares them to the schema.
+class _RepoFieldSource {
+  const _RepoFieldSource({
+    required this.tableName,
+    required this.file,
+    required this.helperName,
+  });
+  final String tableName;
+  final String file;
+  final String helperName;
+}
+
+const _repositoryFieldSources = <_RepoFieldSource>[
+  _RepoFieldSource(
+    tableName: 'members',
+    file: 'lib/data/repositories/drift_member_repository.dart',
+    helperName: '_memberFields',
+  ),
+  _RepoFieldSource(
+    tableName: 'fronting_sessions',
+    file: 'lib/data/repositories/drift_fronting_session_repository.dart',
+    helperName: '_sessionFields',
+  ),
+  _RepoFieldSource(
+    tableName: 'conversations',
+    file: 'lib/data/repositories/drift_conversation_repository.dart',
+    helperName: '_conversationFields',
+  ),
+  _RepoFieldSource(
+    tableName: 'chat_messages',
+    file: 'lib/data/repositories/drift_chat_message_repository.dart',
+    helperName: '_messageFields',
+  ),
+  _RepoFieldSource(
+    tableName: 'polls',
+    file: 'lib/data/repositories/drift_poll_repository.dart',
+    helperName: '_pollFields',
+  ),
+  _RepoFieldSource(
+    tableName: 'poll_options',
+    file: 'lib/data/repositories/drift_poll_repository.dart',
+    helperName: '_pollOptionFields',
+  ),
+  _RepoFieldSource(
+    tableName: 'poll_votes',
+    file: 'lib/data/repositories/drift_poll_repository.dart',
+    helperName: '_pollVoteFields',
+  ),
+  _RepoFieldSource(
+    tableName: 'habits',
+    file: 'lib/data/repositories/drift_habit_repository.dart',
+    helperName: '_habitFields',
+  ),
+  _RepoFieldSource(
+    tableName: 'habit_completions',
+    file: 'lib/data/repositories/drift_habit_repository.dart',
+    helperName: '_completionFields',
+  ),
+  _RepoFieldSource(
+    tableName: 'member_groups',
+    file: 'lib/data/repositories/drift_member_groups_repository.dart',
+    helperName: '_groupFields',
+  ),
+  _RepoFieldSource(
+    tableName: 'member_group_entries',
+    file: 'lib/data/repositories/drift_member_groups_repository.dart',
+    helperName: '_entryFields',
+  ),
+  _RepoFieldSource(
+    tableName: 'custom_fields',
+    file: 'lib/data/repositories/drift_custom_fields_repository.dart',
+    helperName: '_fieldFields',
+  ),
+  _RepoFieldSource(
+    tableName: 'custom_field_values',
+    file: 'lib/data/repositories/drift_custom_fields_repository.dart',
+    helperName: '_valueFields',
+  ),
+  _RepoFieldSource(
+    tableName: 'notes',
+    file: 'lib/data/repositories/drift_notes_repository.dart',
+    helperName: '_noteFields',
+  ),
+  _RepoFieldSource(
+    tableName: 'front_session_comments',
+    file: 'lib/data/repositories/drift_front_session_comments_repository.dart',
+    helperName: '_commentFields',
+  ),
+  _RepoFieldSource(
+    tableName: 'conversation_categories',
+    file: 'lib/data/repositories/drift_conversation_categories_repository.dart',
+    helperName: '_fields',
+  ),
+  _RepoFieldSource(
+    tableName: 'reminders',
+    file: 'lib/data/repositories/drift_reminders_repository.dart',
+    helperName: '_fields',
+  ),
+  _RepoFieldSource(
+    tableName: 'friends',
+    file: 'lib/data/repositories/drift_friends_repository.dart',
+    helperName: '_friendFields',
+  ),
+  _RepoFieldSource(
+    tableName: 'media_attachments',
+    file: 'lib/data/repositories/drift_media_attachment_repository.dart',
+    helperName: '_attachmentFields',
+  ),
+  _RepoFieldSource(
+    tableName: 'system_settings',
+    file: 'lib/data/repositories/drift_system_settings_repository.dart',
+    helperName: '_settingsFields',
+  ),
+];
+
+/// Schema fields that a repository legitimately does not write through its
+/// primary `_fields` helper. Each entry must document why.
+const _writeOmittedFields = <String, Set<String>>{
+  // `delete_push_started_at` is stamped via DriftMemberRepository
+  //   .stampDeletePushStartedAt(), not the create/update field map.
+  'members': {'delete_push_started_at'},
+  // `delete_push_started_at` — stamped through a separate code path on
+  // session deletion; not part of the regular create/update field map.
+  // `pluralkit_uuid` is set in _sessionFields, but for SP-only sessions
+  //   may not be present; still it appears in the helper.
+  // `pk_member_ids_json` — transitional legacy field (see sync_schema.dart).
+  //   v7+ does not write to it from the repository, but the adapter must
+  //   still round-trip the column for legacy peers. Removal target: 0.8.0.
+  'fronting_sessions': {'delete_push_started_at', 'pk_member_ids_json'},
+};
+
+/// Extracts the set of string keys (e.g. `'created_at':`) from the body of a
+/// helper of the shape `Map<String, dynamic> <name>(...)`. Tolerates leading
+/// `static`, `@visibleForTesting`, generic decorators, and conditional `if`
+/// entries (`if (...) 'k': v`).
+Set<String> _extractFieldKeysFromFile(String relativePath, String helperName) {
+  final source = File(relativePath).readAsStringSync();
+  // Find the helper signature. Allow `static` prefix and arbitrary parameters.
+  final sigPattern = RegExp(
+    r'Map<String,\s*dynamic>\s+' +
+        RegExp.escape(helperName) +
+        r'\s*\([\s\S]*?\)\s*\{',
+  );
+  final match = sigPattern.firstMatch(source);
+  if (match == null) {
+    throw StateError(
+      'Could not locate `Map<String, dynamic> $helperName(...)` in $relativePath',
+    );
+  }
+  // Walk braces from the opening `{` to find the matching closing `}`.
+  final start = match.end - 1; // position of `{`
+  var depth = 0;
+  var i = start;
+  for (; i < source.length; i++) {
+    final c = source[i];
+    if (c == '{') depth++;
+    if (c == '}') {
+      depth--;
+      if (depth == 0) {
+        i++;
+        break;
+      }
+    }
+  }
+  final body = source.substring(start, i);
+
+  // Match the FIRST return literal `return { ... };` so we don't pick up
+  // unrelated map literals declared as locals (e.g. `lastReadJson`).
+  final returnPattern = RegExp(r'return\s*\{');
+  final returnMatch = returnPattern.firstMatch(body);
+  if (returnMatch == null) {
+    throw StateError(
+      '$helperName in $relativePath has no `return { ... }` literal',
+    );
+  }
+  final mapStart = returnMatch.end - 1;
+  depth = 0;
+  i = mapStart;
+  for (; i < body.length; i++) {
+    final c = body[i];
+    if (c == '{') depth++;
+    if (c == '}') {
+      depth--;
+      if (depth == 0) {
+        i++;
+        break;
+      }
+    }
+  }
+  final mapBody = body.substring(mapStart, i);
+
+  // Pull every `'key':` token. Single-quoted, no embedded escapes.
+  final keyPattern = RegExp(r"'([a-zA-Z_][a-zA-Z0-9_]*)'\s*:");
+  return keyPattern.allMatches(mapBody).map((m) => m.group(1)!).toSet();
+}
+
 String? _schemaTypeMismatch(String declaredType, Object value) {
   switch (declaredType) {
     case 'String':
@@ -284,12 +579,27 @@ Future<void> _seedDummyRows(AppDatabase db) async {
           name: 'Test Member',
           createdAt: now,
           avatarImageData: Value(Uint8List.fromList([1, 2, 3])),
+          pkBannerUrl: const Value('https://example.invalid/banner.png'),
+          profileHeaderSource: const Value(0),
+          profileHeaderLayout: const Value(1),
+          profileHeaderVisible: const Value(false),
+          profileHeaderImageData: Value(Uint8List.fromList([4, 5, 6])),
+          pkBannerImageData: Value(Uint8List.fromList([7, 8, 9])),
+          pkBannerCachedUrl: const Value('https://example.invalid/banner.png'),
         ),
       );
 
   await db
       .into(db.frontingSessions)
-      .insert(FrontingSessionsCompanion.insert(id: 's1', startTime: now));
+      .insert(
+        FrontingSessionsCompanion.insert(
+          id: 's1',
+          startTime: now,
+          // Satisfies the v14 CHECK
+          // (session_type != 0 OR member_id IS NOT NULL).
+          memberId: const Value('m1'),
+        ),
+      );
 
   await db
       .into(db.conversations)

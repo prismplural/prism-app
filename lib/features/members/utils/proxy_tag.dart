@@ -2,9 +2,10 @@ import 'dart:convert';
 
 /// PluralKit-style proxy tag (prefix and/or suffix wrapping a message).
 ///
-/// Pulled from PK on sync and stored verbatim on [Member.proxyTagsJson]; Prism
-/// does not push edits back. Either side may be null, but at least one must be
-/// non-empty — see [isEmpty].
+/// Stored on [Member.proxyTagsJson] and used by chat's proxy-tag authoring.
+/// Tags can come from PluralKit sync or be edited locally in Prism. Prism does
+/// not push local tag edits back to PluralKit. Either side may be null, but at
+/// least one must be non-empty — see [isEmpty].
 class ProxyTag {
   const ProxyTag({this.prefix, this.suffix});
 
@@ -45,4 +46,25 @@ List<ProxyTag> parseProxyTags(String? json) {
   } catch (_) {
     return const [];
   }
+}
+
+/// Encode proxy tags back to PK-compatible JSON.
+///
+/// Empty tags are filtered. Empty prefix/suffix fields are encoded as null so
+/// the stored shape matches PluralKit's `[{ "prefix": "...", "suffix": null }]`
+/// convention.
+String? encodeProxyTags(
+  Iterable<ProxyTag> tags, {
+  bool emptyAsJsonList = false,
+}) {
+  final normalized = <Map<String, String?>>[];
+  for (final tag in tags) {
+    final prefix = tag.prefix?.isEmpty ?? true ? null : tag.prefix;
+    final suffix = tag.suffix?.isEmpty ?? true ? null : tag.suffix;
+    final normalizedTag = ProxyTag(prefix: prefix, suffix: suffix);
+    if (normalizedTag.isEmpty) continue;
+    normalized.add({'prefix': prefix, 'suffix': suffix});
+  }
+  if (normalized.isEmpty) return emptyAsJsonList ? '[]' : null;
+  return jsonEncode(normalized);
 }

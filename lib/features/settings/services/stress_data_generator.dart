@@ -128,6 +128,23 @@ class StressProgress {
   double get fraction => total > 0 ? current / total : 0;
 }
 
+/// Internal bookkeeping for a multi-member front "episode" produced by the
+/// generator.  The fronting table no longer carries co-fronter lists, so
+/// downstream passes (e.g. comment attachment) need a way to recover which
+/// per-member rows belong to the same wall-clock event.
+class _StressEpisode {
+  const _StressEpisode({
+    required this.start,
+    required this.end,
+    required this.members,
+    required this.firstRowId,
+  });
+  final DateTime start;
+  final DateTime end;
+  final List<String> members;
+  final String firstRowId;
+}
+
 /// Generates large volumes of test data directly into the Drift database,
 /// bypassing the repository layer (no sync/CRDT recording).
 ///
@@ -334,58 +351,137 @@ class StressDataGenerator {
     sink.add(StressProgress('Custom Fields', preset.customFields, preset.customFields));
 
     // --- Fronting Sessions ---
+    //
+    // Per-member shape (Phase 5 refactor — see
+    // docs/plans/fronting-per-member-sessions.md §2.1):
+    // every row represents ONE member's continuous presence.  Co-fronting
+    // is emergent from overlapping rows, never `co_fronter_ids`.
+    //
+    // Each "front episode" the generator produces fans out into N rows
+    // (one per fronting member), exercising scenarios the new analytics
+    // and timeline code must handle:
+    //   - solo (1 member)
+    //   - duo / trio (2-3 members, fully overlapping)
+    //   - staggered start (member joins mid-front, shifted start_time)
+    //   - staggered end (member leaves mid-front, shifted end_time)
+    //   - active (end_time IS NULL on at least one member)
+    // Adjacent episodes are placed back-to-back so we sometimes get gaps
+    // between epochs and sometimes touching/near-overlapping epochs across
+    // the rng-picked time span.
     final now = DateTime.now();
     final timeSpan = Duration(days: preset.years * 365);
     final earliest = now.subtract(timeSpan);
 
     sink.add(StressProgress('Fronting Sessions', 0, preset.sessions));
-    for (var chunk = 0; chunk < preset.sessions; chunk += _chunkSize) {
-      final end = min(chunk + _chunkSize, preset.sessions);
+    var sessionRowsWritten = 0;
+    var episodeIdx = 0;
+    // Track per-episode metadata so we can layer new-shape comments on top.
+    // (Bounded — kept just for the comment-attachment pass below.)
+    final episodes = <_StressEpisode>[];
+    while (sessionRowsWritten < preset.sessions) {
+      // Build one batch worth of episodes.
+      final batchTargetEnd = min(sessionRowsWritten + _chunkSize, preset.sessions);
       await _db.batch((batch) {
-        for (var i = chunk; i < end; i++) {
-          final memberId = memberIds[_pickCumulative(rng, memberCumulative)];
+        while (sessionRowsWritten < batchTargetEnd) {
+          // Pick a "primary" presence and 0..2 co-fronters by Zipf weight.
+          // ~50% solo, ~35% duo, ~15% trio — typical heavy-co-front shape.
+          final coRoll = rng.nextDouble();
+          final memberCount = preset.members <= 1
+              ? 1
+              : coRoll < 0.5
+                  ? 1
+                  : coRoll < 0.85
+                      ? 2
+                      : 3;
+          final episodeMembers = <String>{};
+          while (episodeMembers.length < min(memberCount, preset.members)) {
+            episodeMembers.add(
+              memberIds[_pickCumulative(rng, memberCumulative)],
+            );
+          }
+
           final startOffset = Duration(
             seconds: rng.nextInt(timeSpan.inSeconds),
           );
-          final start = earliest.add(startOffset);
-          final durationMinutes = 30 + rng.nextInt(450); // 30min to 8hr
-          final endTime = start.add(Duration(minutes: durationMinutes));
+          final episodeStart = earliest.add(startOffset);
+          final episodeMinutes = 30 + rng.nextInt(450); // 30 min to 8 hr
+          final episodeEnd =
+              episodeStart.add(Duration(minutes: episodeMinutes));
 
-          // ~20% have co-fronters
-          String? coFronterJson;
-          if (rng.nextDouble() < 0.2 && preset.members > 1) {
-            final count = 1 + rng.nextInt(min(3, preset.members - 1));
-            final coFronters = <String>[];
-            for (var c = 0; c < count; c++) {
-              final cf = memberIds[rng.nextInt(preset.members)];
-              if (cf != memberId && !coFronters.contains(cf)) {
-                coFronters.add(cf);
+          // ~3% of episodes are still active (no end on at least one row).
+          final isActiveEpisode = rng.nextDouble() < 0.03;
+
+          final memberList = episodeMembers.toList();
+          final episodeFronters = <String>[];
+          for (var m = 0; m < memberList.length; m++) {
+            if (sessionRowsWritten >= preset.sessions) break;
+            final memberId = memberList[m];
+            // Stagger start/end for non-primary members so we exercise
+            // partial-overlap arithmetic.  The primary (m == 0) anchors the
+            // episode; co-fronters can join up to 25% late or leave up to
+            // 25% early.
+            final memberStart = m == 0
+                ? episodeStart
+                : episodeStart.add(Duration(
+                    minutes: rng.nextInt((episodeMinutes * 0.25).floor() + 1),
+                  ));
+            DateTime? memberEnd;
+            if (isActiveEpisode && m == 0) {
+              memberEnd = null; // primary still fronting
+            } else {
+              final earlyLeave = m == 0
+                  ? 0
+                  : rng.nextInt((episodeMinutes * 0.25).floor() + 1);
+              memberEnd = episodeEnd
+                  .subtract(Duration(minutes: earlyLeave));
+              // Guard: never end before start.
+              if (!memberEnd.isAfter(memberStart)) {
+                memberEnd = memberStart.add(const Duration(minutes: 1));
               }
             }
-            if (coFronters.isNotEmpty) {
-              coFronterJson = jsonEncode(coFronters);
-            }
+
+            batch.insert(
+              _db.frontingSessions,
+              FrontingSessionsCompanion.insert(
+                // Composite id keeps the `stress-` prefix (clearStressData
+                // relies on it) while remaining unique per (episode, member).
+                // Plain sequential — no v5 namespace; the namespaces in
+                // core/constants/fronting_namespaces.dart are reserved for
+                // SP/PK/migration/split derivation.
+                id: 'stress-session-$episodeIdx-$m',
+                startTime: memberStart,
+                endTime: memberEnd == null
+                    ? const Value.absent()
+                    : Value(memberEnd),
+                memberId: Value(memberId),
+                // co_fronter_ids intentionally NOT set — the column still
+                // exists in v7 for legacy/unread storage but new writes
+                // leave it at the default (`'[]'`).  Co-fronting under the
+                // new model is the overlap of the per-member rows above.
+                notes: sessionRowsWritten % 5 == 0
+                    ? Value(_generateText(rng, _noteWords, 10, 30))
+                    : const Value.absent(),
+                confidence: Value(rng.nextInt(5)),
+              ),
+            );
+            episodeFronters.add(memberId);
+            sessionRowsWritten++;
           }
 
-          batch.insert(
-            _db.frontingSessions,
-            FrontingSessionsCompanion.insert(
-              id: 'stress-session-$i',
-              startTime: start,
-              endTime: Value(endTime),
-              memberId: Value(memberId),
-              coFronterIds: coFronterJson != null
-                  ? Value(coFronterJson)
-                  : const Value.absent(),
-              notes: i % 5 == 0
-                  ? Value(_generateText(rng, _noteWords, 10, 30))
-                  : const Value.absent(),
-              confidence: Value(rng.nextInt(5)),
-            ),
-          );
+          if (episodeFronters.isNotEmpty) {
+            episodes.add(_StressEpisode(
+              start: episodeStart,
+              end: episodeEnd,
+              members: episodeFronters,
+              firstRowId: 'stress-session-$episodeIdx-0',
+            ));
+          }
+          episodeIdx++;
         }
       });
-      sink.add(StressProgress('Fronting Sessions', end, preset.sessions));
+      sink.add(
+        StressProgress('Fronting Sessions', sessionRowsWritten, preset.sessions),
+      );
     }
 
     // --- Sleep Sessions ---
@@ -739,24 +835,56 @@ class StressDataGenerator {
     sink.add(StressProgress('Polls', preset.polls, preset.polls));
 
     // --- Front Session Comments ---
-    // Add comments to ~10% of sessions.
-    final commentCount = preset.sessions ~/ 10;
+    //
+    // New-shape comments (Phase 5 — see plan §3.5): each comment carries a
+    // `target_time` (the moment it's *about*) and an optional
+    // `author_member_id`.  The legacy `session_id` column still exists in
+    // v7 (dropped in v8) and is required by the Drift insertable, so we
+    // populate it with the first per-member row of the targeted episode
+    // for legacy-reader compatibility — but no new code path should rely
+    // on that linkage.
+    //
+    // Add comments to ~10% of episodes (rather than ~10% of rows, so a
+    // multi-member episode doesn't get N times the comments).
+    final commentCount = episodes.isEmpty ? 0 : episodes.length ~/ 10;
     sink.add(StressProgress('Comments', 0, commentCount));
     if (commentCount > 0) {
       for (var chunk = 0; chunk < commentCount; chunk += _chunkSize) {
         final end = min(chunk + _chunkSize, commentCount);
         await _db.batch((batch) {
           for (var i = chunk; i < end; i++) {
-            final sessionIdx = rng.nextInt(preset.sessions);
-            final ts = now.subtract(Duration(days: rng.nextInt(365)));
+            final episode = episodes[rng.nextInt(episodes.length)];
+            // target_time falls inside the episode's wall-clock range so
+            // the comment is meaningfully attached to a moment when the
+            // chosen author was actually fronting.
+            final episodeSpan = episode.end.difference(episode.start);
+            final spanSeconds = episodeSpan.inSeconds <= 0
+                ? 1
+                : episodeSpan.inSeconds;
+            final targetTime = episode.start.add(
+              Duration(seconds: rng.nextInt(spanSeconds)),
+            );
+            final authorMemberId =
+                episode.members[rng.nextInt(episode.members.length)];
+            // createdAt can lag the moment it's about (users back-date
+            // notes); pick something between targetTime and now.
+            final maxLagSeconds =
+                now.difference(targetTime).inSeconds.clamp(1, 86400);
+            final createdAt =
+                targetTime.add(Duration(seconds: rng.nextInt(maxLagSeconds)));
             batch.insert(
               _db.frontSessionComments,
               FrontSessionCommentsCompanion.insert(
                 id: 'stress-comment-$i',
-                sessionId: 'stress-session-$sessionIdx',
+                // Legacy column — required-by-Drift; fall back to a real
+                // session row id from the same episode.  No new reader
+                // should consult this.
+                sessionId: episode.firstRowId,
                 body: _generateText(rng, _noteWords, 5, 20),
-                timestamp: ts,
-                createdAt: ts,
+                timestamp: targetTime,
+                createdAt: createdAt,
+                targetTime: Value(targetTime),
+                authorMemberId: Value(authorMemberId),
               ),
             );
           }

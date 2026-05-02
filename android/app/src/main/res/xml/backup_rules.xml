@@ -1,14 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   Android Auto Backup rules (API 23–30).
-  Excludes all app databases and exported backup files from Google Backup.
+  Excludes app-private data, databases, shared prefs, and exported files from Google Backup.
   https://developer.android.com/guide/topics/data/autobackup
 -->
 <full-backup-content>
+    <!-- Exclude app-private root, including Flutter's app_flutter documents dir -->
+    <exclude domain="root" path="." />
     <!-- Exclude all SQLite databases -->
     <exclude domain="database" path="." />
     <!-- Exclude shared prefs (may contain sensitive flags) -->
     <exclude domain="sharedpref" path="." />
+    <!-- Exclude app files and encrypted media caches -->
+    <exclude domain="file" path="." />
     <!-- Exclude exported .prism backup files in external storage -->
     <exclude domain="external" path="." />
 </full-backup-content>
