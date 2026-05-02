@@ -40,6 +40,12 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
   bool _hasAutoScrolled = false;
   DateTime? _viewStart;
   bool _isLoadingMore = false;
+  // Last successfully loaded data, kept so the timeline stays visible while
+  // load-more refetches with a higher limit. Without this, every limit bump
+  // creates a fresh `frontingHistoryProvider(N)` family instance whose initial
+  // AsyncLoading has no `previous` attached, and the view blanks out into a
+  // spinner — which is what the user saw past ~1–2 weeks of history.
+  TimelineData? _lastData;
   final ValueNotifier<DateTime> _nowNotifier =
       ValueNotifier<DateTime>(DateTime.now());
   final ValueNotifier<double> _scrollOffsetNotifier = ValueNotifier<double>(0.0);
@@ -112,55 +118,65 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
     });
 
     final bottomInset = NavBarInset.of(context);
-    return rowsAsync.when(
-      // Keep showing existing timeline while loading more sessions
-      // (avoids flicker when session limit increases on scroll).
-      skipLoadingOnReload: true,
-      loading: () => Padding(
-        padding: EdgeInsets.only(bottom: bottomInset),
-        child: const Center(child: PrismLoadingState()),
-      ),
-      error: (_, _) => Padding(
+    // Resolve which TimelineData to render. During load-more, the upstream
+    // provider emits a bare AsyncLoading with no previous-data attached, so
+    // we fall back to the last data we rendered. First load (no cache yet)
+    // still shows the spinner.
+    final TimelineData? data = rowsAsync.whenOrNull(
+      data: (d) {
+        _lastData = d;
+        return d;
+      },
+    ) ?? _lastData;
+
+    if (rowsAsync is AsyncError && _lastData == null) {
+      return Padding(
         padding: EdgeInsets.only(bottom: bottomInset),
         child: Center(child: Text(context.l10n.error)),
-      ),
-      data: (data) {
-        final rows = data.memberRows;
-        final sleepSessions = data.sleepSessions;
-        if (rows.isEmpty && sleepSessions.isEmpty) {
-          return Padding(
-            padding: EdgeInsets.only(bottom: bottomInset),
-            child: EmptyState(
-              icon: Icon(AppIcons.navTimeline),
-              title: context.l10n.frontingTimelineNoHistory,
-              subtitle: context.l10n.frontingTimelineNoHistorySubtitle,
-            ),
-          );
-        }
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            final availableWidth = constraints.maxWidth - _timeGutterWidth;
-            final idealColumnWidth = rows.isNotEmpty
-                ? (availableWidth / rows.length - _columnPadding).clamp(
-                    _minColumnWidth,
-                    _maxColumnWidth,
-                  )
-                : _maxColumnWidth;
-            // Viewport height for the scrollable area:
-            // total height minus header row and divider.
-            final scrollableHeight =
-                constraints.maxHeight - _headerRowHeight - 1;
-            return _buildTimeline(
-              context,
-              theme,
-              timelineState,
-              rows,
-              sleepSessions,
-              idealColumnWidth,
-              availableWidth,
-              scrollableHeight,
-            );
-          },
+      );
+    }
+
+    if (data == null) {
+      return Padding(
+        padding: EdgeInsets.only(bottom: bottomInset),
+        child: const Center(child: PrismLoadingState()),
+      );
+    }
+
+    final rows = data.memberRows;
+    final sleepSessions = data.sleepSessions;
+    if (rows.isEmpty && sleepSessions.isEmpty) {
+      return Padding(
+        padding: EdgeInsets.only(bottom: bottomInset),
+        child: EmptyState(
+          icon: Icon(AppIcons.navTimeline),
+          title: context.l10n.frontingTimelineNoHistory,
+          subtitle: context.l10n.frontingTimelineNoHistorySubtitle,
+        ),
+      );
+    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableWidth = constraints.maxWidth - _timeGutterWidth;
+        final idealColumnWidth = rows.isNotEmpty
+            ? (availableWidth / rows.length - _columnPadding).clamp(
+                _minColumnWidth,
+                _maxColumnWidth,
+              )
+            : _maxColumnWidth;
+        // Viewport height for the scrollable area:
+        // total height minus header row and divider.
+        final scrollableHeight =
+            constraints.maxHeight - _headerRowHeight - 1;
+        return _buildTimeline(
+          context,
+          theme,
+          timelineState,
+          rows,
+          sleepSessions,
+          idealColumnWidth,
+          availableWidth,
+          scrollableHeight,
         );
       },
     );
