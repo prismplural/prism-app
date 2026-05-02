@@ -1,7 +1,10 @@
 import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
@@ -15,7 +18,7 @@ enum MemberAvatarShape { circle, square }
 /// to their emoji in a colored container. The container color uses the member's
 /// custom color when enabled, or the theme primary color. Shape is controlled
 /// by [shape] — circle (default) or square.
-class MemberAvatar extends StatelessWidget {
+class MemberAvatar extends ConsumerWidget {
   const MemberAvatar({
     super.key,
     this.avatarImageData,
@@ -28,6 +31,7 @@ class MemberAvatar extends StatelessWidget {
     this.tintOverride,
     this.opacity = 1.0,
     this.shape,
+    this.flushImage = false,
   });
 
   final Uint8List? avatarImageData;
@@ -51,6 +55,12 @@ class MemberAvatar extends StatelessWidget {
   /// Shape override. When null, derives from the theme's [PrismShapes] corner style.
   final MemberAvatarShape? shape;
 
+  /// When true and an avatar image is set, the image fills the full circle
+  /// without the tinted glass surface behind it. The optional border still
+  /// renders. Used for profile-header avatars where the image is the
+  /// primary content.
+  final bool flushImage;
+
   Color _circleColor(BuildContext context) {
     if (tintOverride != null) return tintOverride!;
     if (customColorEnabled && customColorHex != null) {
@@ -60,8 +70,9 @@ class MemberAvatar extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final effectiveShape = shape ??
+  Widget build(BuildContext context, WidgetRef ref) {
+    final effectiveShape =
+        shape ??
         (PrismShapes.of(context).cornerStyle == CornerStyle.angular
             ? MemberAvatarShape.square
             : MemberAvatarShape.circle);
@@ -71,9 +82,17 @@ class MemberAvatar extends StatelessWidget {
 
     Widget child;
     if (avatarImageData != null && avatarImageData!.isNotEmpty) {
-      final imageInset = size * 0.1;
+      final terms = watchTerminology(context, ref);
+      // Larger avatars (profile headers) look strong with a near-flush image;
+      // small avatars (lists, chat rows) need more inset so the tinted ring
+      // remains legible. flushImage drops the inset entirely.
+      final double insetFactor = flushImage
+          ? 0.0
+          : (size >= 64 ? 0.04 : 0.1);
+      final imageInset = size * insetFactor;
       final imageSize = size - imageInset * 2;
-      final pixelSize = (imageSize * MediaQuery.devicePixelRatioOf(context)).ceil();
+      final pixelSize = (imageSize * MediaQuery.devicePixelRatioOf(context))
+          .ceil();
       final image = Image.memory(
         avatarImageData!,
         width: imageSize,
@@ -83,12 +102,23 @@ class MemberAvatar extends StatelessWidget {
         fit: BoxFit.cover,
         semanticLabel: memberName != null
             ? context.l10n.memberAvatarSemantics(memberName!)
-            : context.l10n.memberAvatarSemanticsUnnamed,
+            : context.l10n.memberAvatarSemanticsUnnamed(
+                terms.singular,
+                terms.singularLower,
+              ),
         color: dimmed ? Color.fromRGBO(255, 255, 255, opacity) : null,
         colorBlendMode: dimmed ? BlendMode.modulate : null,
         errorBuilder: (_, _, _) => _centeredEmoji(size),
       );
-      if (effectiveShape == MemberAvatarShape.square) {
+      if (flushImage) {
+        child = SizedBox(
+          width: size,
+          height: size,
+          child: effectiveShape == MemberAvatarShape.square
+              ? image
+              : ClipOval(child: image),
+        );
+      } else if (effectiveShape == MemberAvatarShape.square) {
         child = TintedGlassSurface(
           width: size,
           height: size,
@@ -118,16 +148,12 @@ class MemberAvatar extends StatelessWidget {
       return Container(
         decoration: BoxDecoration(
           shape: isSquare ? BoxShape.rectangle : shapes.avatarShape(),
-          borderRadius: isSquare ? BorderRadius.zero : shapes.avatarBorderRadius(),
-          border: Border.all(
-            color: color.withValues(alpha: 0.5),
-            width: 2,
-          ),
+          borderRadius: isSquare
+              ? BorderRadius.zero
+              : shapes.avatarBorderRadius(),
+          border: Border.all(color: color.withValues(alpha: 0.5), width: 2),
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(2),
-          child: child,
-        ),
+        child: Padding(padding: const EdgeInsets.all(2), child: child),
       );
     }
 
@@ -160,7 +186,8 @@ class MemberAvatar extends StatelessWidget {
   /// sizes and fades by ~23 pt; the vertical shift is small but consistent
   /// across all sizes on Apple.
   static Widget centeredEmoji(String emoji, {required double fontSize}) {
-    final isApple = defaultTargetPlatform == TargetPlatform.iOS ||
+    final isApple =
+        defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.macOS;
 
     Widget text = Text(
@@ -185,10 +212,7 @@ class MemberAvatar extends StatelessWidget {
       // Vertical: Apple Color Emoji glyphs sit slightly high in the text box
       // across all sizes due to CoreText ascent metrics. Nudge them down.
       final double dy = fontSize * 0.04;
-      text = Transform.translate(
-        offset: Offset(dx, dy),
-        child: text,
-      );
+      text = Transform.translate(offset: Offset(dx, dy), child: text);
     }
 
     return text;

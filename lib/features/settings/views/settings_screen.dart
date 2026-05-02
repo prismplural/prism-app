@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
@@ -35,7 +34,9 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final settingsAsync = ref.watch(systemSettingsProvider);
     final terms = watchTerminology(context, ref);
-    final membersAsync = ref.watch(activeMembersProvider);
+    // System card displays member count + avatar stack — exclude the Unknown
+    // sentinel so it doesn't inflate the count or appear in the stack.
+    final membersAsync = ref.watch(userVisibleMembersProvider);
     final syncStatus = ref.watch(syncStatusProvider);
     final theme = Theme.of(context);
     final topInset = MediaQuery.of(context).padding.top;
@@ -130,11 +131,6 @@ class SettingsScreen extends ConsumerWidget {
                       title: context.l10n.settingsNotifications,
                       onTap: () =>
                           context.push(AppRoutePaths.settingsNotifications),
-                    ),
-                    PrismListRow(
-                      title: Text(context.l10n.settingsLanguageTitle),
-                      subtitle: Text(context.l10n.settingsLanguageSubtitle),
-                      leading: Icon(PhosphorIcons.translate()),
                     ),
                   ],
                 ),

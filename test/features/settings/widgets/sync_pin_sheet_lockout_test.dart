@@ -10,6 +10,7 @@ import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/features/settings/widgets/sync_pin_sheet.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/secure_scope.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 
 // ---------------------------------------------------------------------------
@@ -52,9 +53,13 @@ class _AcceptMnemonicApi extends PairingCeremonyApi {
       throw UnimplementedError();
 
   @override
+  Future<void> cancelPairingCeremony({required ffi.PrismSyncHandle handle}) =>
+      Future.value();
+
+  @override
   Future<String> completeJoinerCeremony({
     required ffi.PrismSyncHandle handle,
-    required String password,
+    required List<int> password,
   }) => throw UnimplementedError();
 
   @override
@@ -66,8 +71,8 @@ class _AcceptMnemonicApi extends PairingCeremonyApi {
   @override
   Future<String> completeInitiatorCeremony({
     required ffi.PrismSyncHandle handle,
-    required String password,
-    required String mnemonic,
+    required List<int> password,
+    required List<int> mnemonic,
   }) => throw UnimplementedError();
 }
 
@@ -98,9 +103,8 @@ Widget _buildSheet({SyncHealthNotifier? healthNotifier}) {
       supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(
         body: Navigator(
-          onGenerateRoute: (_) => MaterialPageRoute(
-            builder: (_) => const SyncPinSheet(),
-          ),
+          onGenerateRoute: (_) =>
+              MaterialPageRoute(builder: (_) => const SyncPinSheet()),
         ),
       ),
     ),
@@ -163,28 +167,46 @@ void main() {
       expect(find.textContaining('Too many attempts'), findsNothing);
     });
 
-    // ── Pre-existing lockout loaded from prefs ──────────────────────────────
-
-    testWidgets(
-        'shows locked subtitle on step 2 when SharedPreferences has a future locked_until',
-        (tester) async {
+    testWidgets('wraps recovery phrase and PIN entry in SecureScope', (
+      tester,
+    ) async {
       _useTallViewport(tester);
-      final futureMs = DateTime.now()
-          .add(const Duration(seconds: 120))
-          .millisecondsSinceEpoch;
-
-      SharedPreferences.setMockInitialValues({
-        _prefsKeyAttempts: 5,
-        _prefsKeyLockedUntil: futureMs,
-      });
+      SharedPreferences.setMockInitialValues({});
 
       await tester.pumpWidget(_buildSheet());
       await tester.pumpAndSettle();
 
+      expect(find.byType(SecureScope), findsOneWidget);
+
       await _advancePastMnemonicStep(tester);
 
-      expect(find.textContaining('Too many attempts'), findsOneWidget);
+      expect(find.byType(SecureScope), findsOneWidget);
+      expect(find.text('Enter your PIN'), findsOneWidget);
     });
+
+    // ── Pre-existing lockout loaded from prefs ──────────────────────────────
+
+    testWidgets(
+      'shows locked subtitle on step 2 when SharedPreferences has a future locked_until',
+      (tester) async {
+        _useTallViewport(tester);
+        final futureMs = DateTime.now()
+            .add(const Duration(seconds: 120))
+            .millisecondsSinceEpoch;
+
+        SharedPreferences.setMockInitialValues({
+          _prefsKeyAttempts: 5,
+          _prefsKeyLockedUntil: futureMs,
+        });
+
+        await tester.pumpWidget(_buildSheet());
+        await tester.pumpAndSettle();
+
+        await _advancePastMnemonicStep(tester);
+
+        expect(find.textContaining('Too many attempts'), findsOneWidget);
+      },
+    );
 
     testWidgets('expired lockout from prefs shows no lockout subtitle', (
       tester,
@@ -211,29 +233,32 @@ void main() {
 
     // ── Failed attempts persist to prefs ───────────────────────────────────
 
-    testWidgets('failed attempt writes incremented count to SharedPreferences',
-        (tester) async {
-      _useTallViewport(tester);
-      SharedPreferences.setMockInitialValues({
-        _prefsKeyAttempts: 3, // prior failures already recorded
-      });
+    testWidgets(
+      'failed attempt writes incremented count to SharedPreferences',
+      (tester) async {
+        _useTallViewport(tester);
+        SharedPreferences.setMockInitialValues({
+          _prefsKeyAttempts: 3, // prior failures already recorded
+        });
 
-      await tester.pumpWidget(
-        _buildSheet(
-          healthNotifier:
-              _FakeSyncHealthNotifier(unlockResult: false), // wrong PIN
-        ),
-      );
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(
+          _buildSheet(
+            healthNotifier: _FakeSyncHealthNotifier(
+              unlockResult: false,
+            ), // wrong PIN
+          ),
+        );
+        await tester.pumpAndSettle();
 
-      await _advancePastMnemonicStep(tester);
+        await _advancePastMnemonicStep(tester);
 
-      await _tapPin(tester, '123456');
-      await tester.pumpAndSettle();
+        await _tapPin(tester, '123456');
+        await tester.pumpAndSettle();
 
-      final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getInt(_prefsKeyAttempts), equals(4)); // 3 → 4
-    });
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.getInt(_prefsKeyAttempts), equals(4)); // 3 → 4
+      },
+    );
 
     testWidgets('5th failed attempt writes a future locked_until to prefs', (
       tester,
@@ -268,14 +293,10 @@ void main() {
 
     testWidgets('successful unlock clears lockout prefs keys', (tester) async {
       _useTallViewport(tester);
-      SharedPreferences.setMockInitialValues({
-        _prefsKeyAttempts: 3,
-      });
+      SharedPreferences.setMockInitialValues({_prefsKeyAttempts: 3});
 
       final notifier = _FakeSyncHealthNotifier(unlockResult: true);
-      await tester.pumpWidget(
-        _buildSheet(healthNotifier: notifier),
-      );
+      await tester.pumpWidget(_buildSheet(healthNotifier: notifier));
       await tester.pumpAndSettle();
 
       await _advancePastMnemonicStep(tester);

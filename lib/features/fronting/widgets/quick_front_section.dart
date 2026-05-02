@@ -8,6 +8,7 @@ import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/fronting/utils/member_frequency_sort.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/utils/animations.dart';
@@ -27,23 +28,24 @@ class QuickFrontSection extends ConsumerWidget {
     final countsAsync = ref.watch(memberFrontingCountsProvider);
 
     return membersAsync.when(
-      loading: () => const SizedBox(
-        height: 100,
-        child: PrismLoadingState(),
-      ),
+      loading: () => const SizedBox(height: 100, child: PrismLoadingState()),
       error: (_, _) => Text(context.l10n.error),
       data: (members) {
         final activeSessions = sessionsAsync.value ?? [];
-        // Collect all member IDs with an open session
+        // Collect all member IDs with an open session — each session is one
+        // member's continuous presence; co-fronting is emergent overlap.
         final frontingIds = <String>{};
         for (final s in activeSessions) {
           if (s.memberId != null) frontingIds.add(s.memberId!);
-          frontingIds.addAll(s.coFronterIds);
         }
         final counts = countsAsync.value ?? <String, int>{};
 
-        final currentMemberId =
-            activeSessions.isNotEmpty ? activeSessions.first.memberId : null;
+        // Pin the most-recently-started fronter at the head of quick tiles.
+        final currentMemberId = activeSessions.isNotEmpty
+            ? activeSessions
+                  .reduce((a, b) => a.startTime.isAfter(b.startTime) ? a : b)
+                  .memberId
+            : null;
 
         final top = sortMembersByFrequency(
           members,
@@ -52,10 +54,7 @@ class QuickFrontSection extends ConsumerWidget {
           take: 4,
         );
 
-        return _AnimatedQuickFrontRow(
-          members: top,
-          frontingIds: frontingIds,
-        );
+        return _AnimatedQuickFrontRow(members: top, frontingIds: frontingIds);
       },
     );
   }
@@ -108,11 +107,14 @@ const _kRingSize = 76.0;
 const _kRingWidth = 3.5;
 const _kHoldDuration = Duration(milliseconds: 800);
 
+/// Quick-front tile for a single member.
+///
+/// A completed hold toggles this member's session: starts a new per-member
+/// session when not fronting, or ends the active session when fronting.
+/// Other members' sessions are affected only when the user's quick-front
+/// preference is `replace`.
 class _QuickFrontButton extends ConsumerStatefulWidget {
-  const _QuickFrontButton({
-    required this.member,
-    required this.isFronting,
-  });
+  const _QuickFrontButton({required this.member, required this.isFronting});
 
   final Member member;
   final bool isFronting;
@@ -125,15 +127,12 @@ class _QuickFrontButtonState extends ConsumerState<_QuickFrontButton>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   bool _isPressed = false;
-  bool _pendingSwitch = false;
+  bool _pendingToggle = false;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: _kHoldDuration,
-    );
+    _controller = AnimationController(vsync: this, duration: _kHoldDuration);
     _controller.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
         _onHoldComplete();
@@ -150,26 +149,15 @@ class _QuickFrontButtonState extends ConsumerState<_QuickFrontButton>
   void _onPressStart() {
     setState(() => _isPressed = true);
     Haptics.light();
+    _pendingToggle = false;
     _controller.forward(from: 0);
   }
 
-  void _onPressEnd() {
+  void _onPressEnd(FrontStartBehavior pref) {
     setState(() => _isPressed = false);
-    if (_pendingSwitch) {
-      _pendingSwitch = false;
-      unawaited(
-        ref
-            .read(frontingNotifierProvider.notifier)
-            .switchFronter(widget.member.id)
-            .catchError((Object e) {
-              if (mounted) {
-                PrismToast.error(
-                  context,
-                  message: context.l10n.frontingErrorSwitchingFronter(e),
-                );
-              }
-            }),
-      );
+    if (_pendingToggle) {
+      _pendingToggle = false;
+      unawaited(_toggleFronting(pref));
     }
     if (_controller.value != 0) {
       _controller.reset();
@@ -178,16 +166,57 @@ class _QuickFrontButtonState extends ConsumerState<_QuickFrontButton>
 
   void _onHoldComplete() {
     Haptics.success();
-    _pendingSwitch = true;
+    _pendingToggle = true;
+  }
+
+  Future<void> _toggleFronting(FrontStartBehavior pref) async {
+    try {
+      final notifier = ref.read(frontingNotifierProvider.notifier);
+      if (widget.isFronting) {
+        // An already-fronting member always ends, regardless of the
+        // `quick_front_default_behavior` preference. The preference only
+        // affects what happens when starting a non-fronting member.
+        await notifier.endFronting([widget.member.id]);
+      } else {
+        switch (pref) {
+          case FrontStartBehavior.additive:
+            // Single-member start — exactly one session row is created.
+            await notifier.startFronting([widget.member.id]);
+          case FrontStartBehavior.replace:
+            // Atomic: ends all current normal fronts AND starts this member
+            // in one transaction with a single captured `now`.
+            await notifier.replaceFronting([widget.member.id]);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        PrismToast.error(
+          context,
+          message: context.l10n.frontingErrorSwitchingFronter(e),
+        );
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final member = widget.member;
-    final accentColor = member.customColorEnabled && member.customColorHex != null
+    final accentColor =
+        member.customColorEnabled && member.customColorHex != null
         ? AppColors.fromHex(member.customColorHex!)
         : theme.colorScheme.primary;
+
+    // Watch the persisted default for the non-fronting hold path. Watching
+    // (rather than reading on tap) ensures the StreamProvider is subscribed
+    // before the user presses — otherwise the first hold may fire while the
+    // stream is still in `AsyncLoading`, silently falling back to additive
+    // even when the synced setting says replace.
+    final pref =
+        ref
+            .watch(systemSettingsProvider)
+            .whenOrNull(data: (s) => s.quickFrontDefaultBehavior) ??
+        FrontStartBehavior.additive;
 
     return Semantics(
       button: true,
@@ -195,83 +224,83 @@ class _QuickFrontButtonState extends ConsumerState<_QuickFrontButton>
       label: context.l10n.frontingQuickFrontLabel(member.name),
       onLongPressHint: context.l10n.frontingQuickFrontHoldHint,
       child: GestureDetector(
-      onLongPressStart: (_) => _onPressStart(),
-      onLongPressEnd: (_) => _onPressEnd(),
-      onLongPressCancel: _onPressEnd,
-      child: AnimatedScale(
-        scale: _isPressed ? 0.93 : 1.0,
-        duration: const Duration(milliseconds: 100),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              width: _kRingSize,
-              height: _kRingSize,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  // Static ring for active fronter
-                  if (widget.isFronting)
-                    Container(
-                      width: _kRingSize,
-                      height: _kRingSize,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(
-                          PrismShapes.of(context).radius(_kRingSize / 2),
-                        ),
-                        border: Border.all(
-                          color: accentColor,
-                          width: _kRingWidth,
+        onLongPressStart: (_) => _onPressStart(),
+        onLongPressEnd: (_) => _onPressEnd(pref),
+        onLongPressCancel: () => _onPressEnd(pref),
+        child: AnimatedScale(
+          scale: _isPressed ? 0.93 : 1.0,
+          duration: const Duration(milliseconds: 100),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: _kRingSize,
+                height: _kRingSize,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Static ring for active fronter
+                    if (widget.isFronting)
+                      Container(
+                        width: _kRingSize,
+                        height: _kRingSize,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(
+                            PrismShapes.of(context).radius(_kRingSize / 2),
+                          ),
+                          border: Border.all(
+                            color: accentColor,
+                            width: _kRingWidth,
+                          ),
                         ),
                       ),
+                    if (!widget.isFronting)
+                      AnimatedBuilder(
+                        animation: _controller,
+                        builder: (context, child) {
+                          if (_controller.value == 0) {
+                            return const SizedBox.shrink();
+                          }
+                          return CustomPaint(
+                            size: const Size(_kRingSize, _kRingSize),
+                            painter: _ProgressRingPainter(
+                              progress: _controller.value,
+                              color: accentColor,
+                              strokeWidth: _kRingWidth,
+                              cornerRadius: PrismShapes.of(
+                                context,
+                              ).radius(_kRingSize / 2),
+                            ),
+                          );
+                        },
+                      ),
+                    // Avatar
+                    MemberAvatar(
+                      avatarImageData: member.avatarImageData,
+                      memberName: member.name,
+                      emoji: member.emoji,
+                      customColorEnabled: member.customColorEnabled,
+                      customColorHex: member.customColorHex,
+                      size: _kAvatarSize,
                     ),
-
-                  // Animated progress ring (hold-to-front)
-                  if (!widget.isFronting)
-                    AnimatedBuilder(
-                      animation: _controller,
-                      builder: (context, child) {
-                        if (_controller.value == 0) {
-                          return const SizedBox.shrink();
-                        }
-                        return CustomPaint(
-                          size: const Size(_kRingSize, _kRingSize),
-                          painter: _ProgressRingPainter(
-                            progress: _controller.value,
-                            color: accentColor,
-                            strokeWidth: _kRingWidth,
-                            cornerRadius: PrismShapes.of(context).radius(_kRingSize / 2),
-                          ),
-                        );
-                      },
-                    ),
-
-                  // Avatar
-                  MemberAvatar(
-                    avatarImageData: member.avatarImageData,
-                    memberName: member.name,
-                    emoji: member.emoji,
-                    customColorEnabled: member.customColorEnabled,
-                    customColorHex: member.customColorHex,
-                    size: _kAvatarSize,
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              member.name,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight:
-                    widget.isFronting ? FontWeight.bold : FontWeight.normal,
+              const SizedBox(height: 6),
+              Text(
+                member.name,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: widget.isFronting
+                      ? FontWeight.bold
+                      : FontWeight.normal,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
@@ -295,16 +324,24 @@ class _ProgressRingPainter extends CustomPainter {
     if (progress == 0) return;
 
     final inset = strokeWidth / 2;
-    final rect = Rect.fromLTWH(inset, inset, size.width - strokeWidth, size.height - strokeWidth);
+    final rect = Rect.fromLTWH(
+      inset,
+      inset,
+      size.width - strokeWidth,
+      size.height - strokeWidth,
+    );
     final innerRadius = (cornerRadius - inset).clamp(0.0, double.infinity);
     final fullPath = innerRadius > 0
-        ? (Path()..addRRect(RRect.fromRectAndRadius(rect, Radius.circular(innerRadius))))
+        ? (Path()..addRRect(
+            RRect.fromRectAndRadius(rect, Radius.circular(innerRadius)),
+          ))
         : (Path()..addRect(rect));
     final metrics = fullPath.computeMetrics().first;
     final totalLength = metrics.length;
-    // Rect path starts at top-left; RRect path starts at top-center of the arc.
-    // Offset from path start to top-center of the ring:
-    final startOffset = ((size.width - strokeWidth) / 2 - innerRadius).clamp(0.0, double.infinity);
+    final startOffset = ((size.width - strokeWidth) / 2 - innerRadius).clamp(
+      0.0,
+      double.infinity,
+    );
     final sweepLength = totalLength * progress;
     final endOffset = startOffset + sweepLength;
 
@@ -323,6 +360,9 @@ class _ProgressRingPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_ProgressRingPainter old) =>
-      progress != old.progress || color != old.color || strokeWidth != old.strokeWidth || cornerRadius != old.cornerRadius;
+  bool shouldRepaint(_ProgressRingPainter oldDelegate) =>
+      progress != oldDelegate.progress ||
+      color != oldDelegate.color ||
+      strokeWidth != oldDelegate.strokeWidth ||
+      cornerRadius != oldDelegate.cornerRadius;
 }

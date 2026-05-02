@@ -155,6 +155,38 @@ class FrontingSessionsDao extends DatabaseAccessor<AppDatabase>
             ..limit(limit))
           .get();
 
+  /// Completed (non-active) sleep sessions that started within [start, end].
+  Future<List<FrontingSession>> getCompletedSleepSessionsBetween(
+    DateTime start,
+    DateTime end,
+  ) =>
+      (select(frontingSessions)
+            ..where(
+              (s) =>
+                  s.sessionType.equals(_sleepSessionType) &
+                  s.endTime.isNotNull() &
+                  s.isDeleted.equals(false) &
+                  s.startTime.isBiggerOrEqualValue(start) &
+                  s.startTime.isSmallerOrEqualValue(end),
+            )
+            ..orderBy([(s) => OrderingTerm.desc(s.startTime)]))
+          .get();
+
+  /// Streams the [limit] most recent completed sleep sessions.
+  Stream<List<FrontingSession>> watchRecentCompletedSleepSessions({
+    int limit = 20,
+  }) =>
+      (select(frontingSessions)
+            ..where(
+              (s) =>
+                  s.sessionType.equals(_sleepSessionType) &
+                  s.endTime.isNotNull() &
+                  s.isDeleted.equals(false),
+            )
+            ..orderBy([(s) => OrderingTerm.desc(s.startTime)])
+            ..limit(limit))
+          .watch();
+
   Future<int> insertSession(FrontingSessionsCompanion session) =>
       into(frontingSessions).insert(session);
 
@@ -239,6 +271,28 @@ class FrontingSessionsDao extends DatabaseAccessor<AppDatabase>
             ..orderBy([(s) => OrderingTerm.desc(s.startTime)]))
           .get();
 
+  /// Watches every session (fronting + sleep) overlapping the half-open
+  /// range `[start, end)` per §4.6 step 1: a session is included when
+  /// `start_time < end AND (end_time IS NULL OR end_time > start)`.
+  ///
+  /// Crucially, this is the query the derived-period sweep needs — a
+  /// 400-day continuous host whose row started before the visible window
+  /// is still surfaced, where a `LIMIT N ORDER BY start_time DESC` paging
+  /// query would silently drop it once N pages of newer rows accumulated.
+  Stream<List<FrontingSession>> watchSessionsOverlappingRange(
+    DateTime start,
+    DateTime end,
+  ) =>
+      (select(frontingSessions)
+            ..where(
+              (s) =>
+                  s.startTime.isSmallerThanValue(end) &
+                  (s.endTime.isBiggerThanValue(start) | s.endTime.isNull()) &
+                  s.isDeleted.equals(false),
+            )
+            ..orderBy([(s) => OrderingTerm.desc(s.startTime)]))
+          .watch();
+
   Future<int> getCount() async {
     final count = countAll();
     final query = selectOnly(frontingSessions)
@@ -268,6 +322,47 @@ class FrontingSessionsDao extends DatabaseAccessor<AppDatabase>
   ///
   /// Optional [startHour]/[endHour] filter by local time-of-day
   /// (e.g. 6..11 for morning sessions).
+  Future<({int count, Duration? avgDuration})> getSleepStats(
+    DateTime since,
+    DateTime? until,
+  ) async {
+    // Drift stores DateTimes as Unix seconds (integer). Convert accordingly.
+    final variables = <Variable>[
+      Variable.withInt(since.millisecondsSinceEpoch ~/ 1000),
+    ];
+    var untilClause = '';
+    if (until != null) {
+      untilClause = ' AND end_time < ?';
+      variables.add(Variable.withInt(until.millisecondsSinceEpoch ~/ 1000));
+    }
+    final sql = 'SELECT COUNT(*) AS c, AVG(end_time - start_time) AS avg_secs '
+        'FROM fronting_sessions '
+        'WHERE session_type = $_sleepSessionType '
+        'AND end_time IS NOT NULL '
+        'AND end_time > start_time '
+        'AND end_time >= ?'
+        '$untilClause '
+        'AND is_deleted = 0';
+    final row = (await customSelect(sql, variables: variables).get()).first;
+    final count = row.read<int>('c');
+    if (count == 0) return (count: 0, avgDuration: null);
+    final avgSecs = row.read<double?>('avg_secs');
+    final avg = avgSecs != null ? Duration(seconds: avgSecs.round()) : null;
+    return (count: count, avgDuration: avg);
+  }
+
+  Stream<List<FrontingSession>> watchRecentSleepSessions(int limit) =>
+      (select(frontingSessions)
+            ..where(
+              (t) =>
+                  t.sessionType.equals(_sleepSessionType) &
+                  t.isDeleted.equals(false) &
+                  t.endTime.isNotNull(),
+            )
+            ..orderBy([(t) => OrderingTerm.desc(t.startTime)])
+            ..limit(limit))
+          .watch();
+
   Future<Map<String, int>> getMemberFrontingCounts({
     int recentLimit = 50,
     int? startHour,

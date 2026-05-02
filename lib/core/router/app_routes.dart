@@ -13,6 +13,7 @@ abstract final class AppRoutePaths {
   static const reminders = '/reminders';
   static const notes = '/notes';
   static const statistics = '/statistics';
+  static const sleep = '/sleep';
 
   // Settings sub-routes
   static const settingsMembers = '/settings/members';
@@ -45,7 +46,6 @@ abstract final class AppRoutePaths {
   static const settingsSyncTroubleshooting = '/settings/sync-troubleshooting';
   static const settingsDevices = '/settings/devices';
   static const settingsDataBrowser = '/settings/data-browser';
-  static const settingsTimelineSanitization = '/settings/timeline-sanitization';
   static const settingsMembersManage = '/settings/members/manage';
   static const settingsGroups = '/settings/members/groups';
   static const settingsCustomFields = '/settings/custom-fields';
@@ -68,6 +68,7 @@ abstract final class AppRoutePaths {
   static String chatConversation(String id) => '/chat/$id';
   static String session(String id) => '/session/$id';
   static String sessionEdit(String id) => '/session/$id/edit';
+  static String sleepSession(String id) => '/sleep/session/$id';
   static String poll(String id) => '/polls/$id';
   static String habit(String id) => '/habits/$id';
   static String note(String id) => '/notes/$id';
@@ -105,6 +106,7 @@ enum AppShellTabId {
   notes,
   statistics,
   timeline,
+  sleep,
 }
 
 class AppShellTab {
@@ -154,6 +156,7 @@ class AppShellTab {
       AppShellTabId.notes => l10n.navNotes,
       AppShellTabId.statistics => l10n.navStatistics,
       AppShellTabId.timeline => l10n.navTimeline,
+      AppShellTabId.sleep => l10n.navSleep,
     };
   }
 
@@ -179,6 +182,7 @@ class AppShellTab {
       AppShellTabId.notes => flags.notes,
       AppShellTabId.statistics => true,
       AppShellTabId.timeline => true,
+      AppShellTabId.sleep => flags.sleep,
     };
   }
 }
@@ -263,6 +267,14 @@ final appShellTabs = [
     activeIcon: AppIcons.navTimelineActive,
     branchIndex: 9,
     rootLocation: AppRoutePaths.timeline,
+  ),
+  AppShellTab(
+    id: AppShellTabId.sleep,
+    label: 'Sleep',
+    icon: AppIcons.navSleep,
+    activeIcon: AppIcons.navSleepActive,
+    branchIndex: 10,
+    rootLocation: AppRoutePaths.sleep,
   ),
 ];
 

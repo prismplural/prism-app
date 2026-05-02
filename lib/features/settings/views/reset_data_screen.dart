@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/features/settings/providers/reset_data_provider.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
@@ -19,7 +20,10 @@ class ResetDataScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return PrismPageScaffold(
-      topBar: PrismTopBar(title: context.l10n.resetDataTitle, showBackButton: true),
+      topBar: PrismTopBar(
+        title: context.l10n.resetDataTitle,
+        showBackButton: true,
+      ),
       bodyPadding: EdgeInsets.zero,
       body: ListView(
         padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
@@ -84,11 +88,12 @@ class ResetDataScreen extends ConsumerWidget {
     required ResetCategory category,
     bool destructive = false,
   }) {
+    final terms = readTerminology(context, ref);
     return PrismSettingsRow(
       icon: icon,
       iconColor: iconColor,
-      title: category.label,
-      subtitle: category.description,
+      title: _categoryLabel(category, terms),
+      subtitle: _categoryDescription(category, terms),
       destructive: destructive,
       onTap: () => _showConfirmation(context, ref, category),
     );
@@ -101,14 +106,16 @@ class ResetDataScreen extends ConsumerWidget {
   ) async {
     final isAll = category == ResetCategory.all;
     final isSync = category == ResetCategory.sync;
+    final terms = readTerminology(context, ref);
+    final label = _categoryLabel(category, terms);
     final confirmed = await PrismDialog.confirm(
       context: context,
-      title: context.l10n.resetDataConfirmTitle(category.label),
+      title: context.l10n.resetDataConfirmTitle(label),
       message: isAll
-          ? context.l10n.resetDataConfirmAll
+          ? context.l10n.resetDataConfirmAll(terms.pluralLower)
           : isSync
           ? context.l10n.resetDataConfirmSync
-          : context.l10n.resetDataConfirmCategory(category.label.toLowerCase()),
+          : context.l10n.resetDataConfirmCategory(label.toLowerCase()),
       confirmLabel: isAll
           ? context.l10n.resetDataConfirmEverything
           : isSync
@@ -120,12 +127,20 @@ class ResetDataScreen extends ConsumerWidget {
     try {
       await ref.read(resetDataNotifierProvider.notifier).reset(category);
       if (!context.mounted) return;
-      PrismToast.show(context, message: context.l10n.resetDataSuccess(category.label));
+      PrismToast.show(context, message: context.l10n.resetDataSuccess(label));
     } catch (e) {
       if (!context.mounted) return;
       PrismToast.error(context, message: context.l10n.resetDataFailed(e));
     }
   }
+
+  String _categoryLabel(ResetCategory category, Terminology terms) =>
+      category == ResetCategory.members ? terms.plural : category.label;
+
+  String _categoryDescription(ResetCategory category, Terminology terms) =>
+      category == ResetCategory.members
+      ? 'Removes all ${terms.pluralLower}. Fronting sessions will show as unknown.'
+      : category.description;
 }
 
 class _CategoryEntry {

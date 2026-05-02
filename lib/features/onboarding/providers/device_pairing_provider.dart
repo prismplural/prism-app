@@ -8,8 +8,10 @@ import 'package:prism_plurality/core/constants/app_constants.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
+import 'package:prism_plurality/core/security/secret_bytes.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/core/sync/pairing_ceremony_api.dart';
+import 'package:prism_plurality/core/sync/pairing_sas_display.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/core/sync/sync_event_loop.dart';
 import 'package:prism_plurality/features/onboarding/providers/sync_setup_progress_provider.dart';
@@ -52,10 +54,7 @@ class PairingState {
   final String? requestDeviceId;
 
   /// SAS verification words displayed during relay-based pairing.
-  final String? sasWords;
-
-  /// SAS decimal code displayed during relay-based pairing.
-  final String? sasDecimal;
+  final List<String>? sasWords;
 
   /// When true, the initial data sync timed out and some data may still be
   /// arriving in the background. The pairing itself succeeded, but the user
@@ -70,7 +69,6 @@ class PairingState {
     this.requestQrPayload,
     this.requestDeviceId,
     this.sasWords,
-    this.sasDecimal,
     this.syncIncomplete = false,
   });
 
@@ -82,7 +80,6 @@ class PairingState {
     Object? requestQrPayload = _sentinel,
     Object? requestDeviceId = _sentinel,
     Object? sasWords = _sentinel,
-    Object? sasDecimal = _sentinel,
     bool? syncIncomplete,
   }) {
     return PairingState(
@@ -98,10 +95,9 @@ class PairingState {
       requestDeviceId: requestDeviceId == _sentinel
           ? this.requestDeviceId
           : requestDeviceId as String?,
-      sasWords: sasWords == _sentinel ? this.sasWords : sasWords as String?,
-      sasDecimal: sasDecimal == _sentinel
-          ? this.sasDecimal
-          : sasDecimal as String?,
+      sasWords: sasWords == _sentinel
+          ? this.sasWords
+          : sasWords as List<String>?,
       syncIncomplete: syncIncomplete ?? this.syncIncomplete,
     );
   }
@@ -157,6 +153,10 @@ class DevicePairingNotifier extends Notifier<PairingState> {
   /// sync settings exist in platform storage.
   String? _pairingRelayUrl;
 
+  /// Handle backing the currently active relay pairing ceremony. This can be
+  /// available before prismSyncHandleProvider has published its AsyncValue.
+  ffi.PrismSyncHandle? _activeCeremonyHandle;
+
   /// Test-only override for [drainRustStore]. When non-null, the notifier
   /// invokes this in place of the real top-level function. Used by unit
   /// tests to assert ordering between credential persistence and the
@@ -179,9 +179,15 @@ class DevicePairingNotifier extends Notifier<PairingState> {
   }
 
   void reset() {
+    final shouldCancelCeremony = _shouldCancelActiveCeremony(state);
+    final activeCeremonyHandle = _activeCeremonyHandle;
     _generation++;
+    if (shouldCancelCeremony) {
+      unawaited(_cancelActiveCeremony(activeCeremonyHandle));
+    }
     _pendingPin = null;
     _pairingRelayUrl = null;
+    _activeCeremonyHandle = null;
     ref.read(syncSetupProgressProvider.notifier).reset();
     state = const PairingState();
   }
@@ -189,11 +195,57 @@ class DevicePairingNotifier extends Notifier<PairingState> {
   /// Cancel any in-flight pairing attempt. Safe to call from UI when the
   /// user navigates away (e.g. leaveSyncDeviceFlow).
   void cancel() {
+    final shouldCancelCeremony = _shouldCancelActiveCeremony(state);
+    final activeCeremonyHandle = _activeCeremonyHandle;
     _generation++;
+    if (shouldCancelCeremony) {
+      unawaited(_cancelActiveCeremony(activeCeremonyHandle));
+    }
     _pendingPin = null;
     _pairingRelayUrl = null;
-    if (state.step == PairingStep.connecting) {
+    _activeCeremonyHandle = null;
+    if (state.step != PairingStep.enterUrl) {
       state = const PairingState();
+    }
+  }
+
+  bool _shouldCancelActiveCeremony(PairingState state) {
+    return switch (state.step) {
+      PairingStep.showingRequest ||
+      PairingStep.waitingForSas ||
+      PairingStep.showingSas ||
+      PairingStep.enterPin ||
+      PairingStep.connecting => true,
+      PairingStep.error =>
+        state.requestQrPayload != null ||
+            state.requestDeviceId != null ||
+            state.sasWords != null,
+      PairingStep.enterUrl ||
+      PairingStep.success ||
+      PairingStep.snapshotFailure => false,
+    };
+  }
+
+  Future<void> _cancelActiveCeremony([
+    ffi.PrismSyncHandle? activeHandle,
+  ]) async {
+    final handle =
+        activeHandle ??
+        _activeCeremonyHandle ??
+        ref.read(prismSyncHandleProvider).value;
+    if (handle == null) return;
+
+    try {
+      await ref
+          .read(pairingCeremonyApiProvider)
+          .cancelPairingCeremony(handle: handle)
+          .timeout(const Duration(seconds: 5));
+    } catch (e, st) {
+      ErrorReportingService.instance.report(
+        'Pairing ceremony cancel failed: $e',
+        severity: ErrorSeverity.warning,
+        stackTrace: st,
+      );
     }
   }
 
@@ -218,6 +270,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
       final handle = await handleNotifier.createHandle(
         relayUrl: effectiveRelayUrl,
       );
+      _activeCeremonyHandle = handle;
 
       final trimmedToken = registrationToken?.trim();
       if (trimmedToken != null && trimmedToken.isNotEmpty) {
@@ -246,6 +299,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     } catch (e) {
       final structuredError = PrismSyncStructuredError.tryParse(e);
       if (_generation != myGeneration) return;
+      unawaited(_cancelActiveCeremony());
       state = state.copyWith(
         step: PairingStep.error,
         errorMessage: structuredError?.userMessage ?? e.toString(),
@@ -260,9 +314,11 @@ class DevicePairingNotifier extends Notifier<PairingState> {
   ) {
     return ffi.seedSecureStore(
       handle: handle,
-      entriesJson: jsonEncode({
-        'registration_token': base64Encode(utf8.encode(registrationToken)),
-      }),
+      entries: {
+        'registration_token': Uint8List.fromList(
+          utf8.encode(registrationToken),
+        ),
+      },
     );
   }
 
@@ -280,17 +336,13 @@ class DevicePairingNotifier extends Notifier<PairingState> {
       if (_generation != myGeneration) return;
 
       final sasJson = jsonDecode(sasJsonString) as Map<String, dynamic>;
-      final sasWords = sasJson['sas_words'] as String;
-      final sasDecimal = sasJson['sas_decimal'] as String;
+      final sas = PairingSasDisplay.fromJson(sasJson);
 
-      state = state.copyWith(
-        step: PairingStep.showingSas,
-        sasWords: sasWords,
-        sasDecimal: sasDecimal,
-      );
+      state = state.copyWith(step: PairingStep.showingSas, sasWords: sas.words);
     } catch (e) {
       final structuredError = PrismSyncStructuredError.tryParse(e);
       if (_generation != myGeneration) return;
+      unawaited(_cancelActiveCeremony(handle));
       state = state.copyWith(
         step: PairingStep.error,
         errorMessage: structuredError?.userMessage ?? e.toString(),
@@ -347,8 +399,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     // (`cancelAndRemoveDevice`) or a server-confirmed `device_revoked`
     // event. Any unexpected exception after this flips routes to
     // `PairingStep.snapshotFailure` so the user can retry the snapshot
-    // phase without losing the joined identity (see Finding A and the
-    // follow-up drain-ordering finding in the codex review).
+    // phase without losing the joined identity.
     //
     // Critically: the flag is NOT flipped between ceremony returning and
     // drain succeeding. If drain itself throws we are still effectively
@@ -361,7 +412,8 @@ class DevicePairingNotifier extends Notifier<PairingState> {
 
     try {
       final pairingApi = ref.read(pairingCeremonyApiProvider);
-      final handle = ref.read(prismSyncHandleProvider).value;
+      final handle =
+          _activeCeremonyHandle ?? ref.read(prismSyncHandleProvider).value;
       if (handle == null) {
         throw StateError('No sync handle available');
       }
@@ -370,10 +422,13 @@ class DevicePairingNotifier extends Notifier<PairingState> {
 
       // PHASE 1 — Ceremony (45 s hard timeout). Credentials are not yet
       // established, so a timeout here is safe to clean up the keychain.
+      Uint8List? passwordBytes;
       try {
+        passwordBytes = secretUtf8Bytes(password);
         await pairingApi
-            .completeJoinerCeremony(handle: handle, password: password)
+            .completeJoinerCeremony(handle: handle, password: passwordBytes)
             .timeout(const Duration(seconds: 45));
+        _activeCeremonyHandle = null;
       } on TimeoutException {
         _pendingPin = null;
         await _cleanupKeychainOnFailure();
@@ -385,6 +440,8 @@ class DevicePairingNotifier extends Notifier<PairingState> {
           errorCode: null,
         );
         return;
+      } finally {
+        zeroBytesBestEffort(passwordBytes);
       }
 
       // Ceremony returned — credentials live in Rust's in-memory secure
@@ -534,17 +591,117 @@ class DevicePairingNotifier extends Notifier<PairingState> {
       progressNotifier.setPhase(PairingProgressPhase.downloading);
     }
 
-    await ffi.setAutoSync(
+    if (_generation != myGeneration) return;
+
+    await _runSnapshotBootstrap(handle, myGeneration, progressNotifier);
+  }
+
+  Future<void> _enableAutoSync(ffi.PrismSyncHandle handle) {
+    return ffi.setAutoSync(
       handle: handle,
       enabled: true,
       debounceMs: BigInt.from(300),
       retryDelayMs: BigInt.from(30000),
       maxRetries: 3,
     );
+  }
 
-    if (_generation != myGeneration) return;
+  Future<void> _runPostBootstrapCatchUp(
+    ffi.PrismSyncHandle handle, {
+    Future<String> Function({required ffi.PrismSyncHandle handle})? syncNow,
+    Future<void> Function(ffi.PrismSyncHandle handle)? drain,
+    Duration eventTimeout = const Duration(seconds: 60),
+  }) async {
+    final syncNowFn = syncNow ?? ffi.syncNow;
+    final drainFn = drain ?? _drainRustStore;
 
-    await _runSnapshotBootstrap(handle, myGeneration, progressNotifier);
+    Object? streamError;
+    StackTrace? streamStackTrace;
+    final terminalEventSeen = Completer<void>();
+    final subscription = ref.listen<AsyncValue<SyncEvent>>(
+      syncEventStreamProvider,
+      (_, next) {
+        next.when(
+          data: (event) {
+            if ((event.isSyncCompleted || event.isError) &&
+                !terminalEventSeen.isCompleted) {
+              terminalEventSeen.complete();
+            }
+          },
+          error: (error, stackTrace) {
+            streamError = error;
+            streamStackTrace = stackTrace;
+            if (!terminalEventSeen.isCompleted) {
+              terminalEventSeen.complete();
+            }
+          },
+          loading: () {},
+        );
+      },
+    );
+
+    try {
+      // Give StreamProvider one microtask to attach before syncNow emits events.
+      await Future<void>.delayed(Duration.zero);
+
+      final resultJson = await syncNowFn(handle: handle);
+      final result = jsonDecode(resultJson) as Map<String, dynamic>;
+      final error = result['error'];
+      if (error is String && error.isNotEmpty) {
+        throw StateError(error);
+      }
+
+      final pulled = _syncResultPulledCount(result);
+      if (pulled > 0) {
+        await terminalEventSeen.future.timeout(
+          eventTimeout,
+          onTimeout: () {
+            throw TimeoutException(
+              'Timed out waiting for post-pairing sync events',
+              eventTimeout,
+            );
+          },
+        );
+      }
+
+      if (streamError != null) {
+        Error.throwWithStackTrace(
+          streamError!,
+          streamStackTrace ?? StackTrace.current,
+        );
+      }
+
+      // syncNow performs missed-epoch recovery before pull. Persist any
+      // recovered epoch keys, refreshed session tokens, or other secure-store
+      // state before the user leaves the pairing flow.
+      await drainFn(handle);
+    } finally {
+      subscription.close();
+    }
+  }
+
+  int _syncResultPulledCount(Map<String, dynamic> result) {
+    final pulled = result['pulled'];
+    if (pulled is int) return pulled;
+    if (pulled is num) return pulled.toInt();
+    if (pulled is String) return int.tryParse(pulled) ?? 0;
+    return 0;
+  }
+
+  @visibleForTesting
+  Future<void> runPostBootstrapCatchUpForTest({
+    required ffi.PrismSyncHandle handle,
+    required Future<String> Function({required ffi.PrismSyncHandle handle})
+    syncNow,
+    required Future<void> Function(ffi.PrismSyncHandle handle) drain,
+    Duration eventTimeout = const Duration(seconds: 60),
+  }) {
+    return _runPostBootstrapCatchUp(
+      handle,
+      syncNow: syncNow,
+      drain: drain,
+      eventTimeout: eventTimeout,
+    );
   }
 
   /// Run the snapshot-download + apply phase. Extracted so the retry path can
@@ -707,17 +864,24 @@ class DevicePairingNotifier extends Notifier<PairingState> {
       return;
     }
 
-    // Snapshot applied cleanly — ACK so the relay drops it now rather
-    // than waiting for TTL. Best-effort: errors here don't undo a good
-    // pairing, and older relays respond 405 which the FFI folds to Ok.
     try {
-      await ffi.acknowledgeSnapshotApplied(handle: handle);
+      await _writeSnapshotApplyCompleteMarker();
     } catch (e, st) {
       ErrorReportingService.instance.report(
-        'acknowledgeSnapshotApplied failed (non-fatal): $e',
-        severity: ErrorSeverity.warning,
+        'Snapshot apply completed but recovery marker write failed: $e',
+        severity: ErrorSeverity.error,
         stackTrace: st,
       );
+      if (_generation != myGeneration) return;
+      state = state.copyWith(
+        step: PairingStep.snapshotFailure,
+        errorMessage:
+            'Pairing restored your system, but setup could not be saved '
+            'durably. Please try again.',
+        errorCode: null,
+        syncIncomplete: true,
+      );
+      return;
     }
 
     // BOUNDARY 3: syncBatchComplete resolved — entering finishing phase.
@@ -729,12 +893,13 @@ class DevicePairingNotifier extends Notifier<PairingState> {
 
     // Credentials were already drained to the keychain immediately after
     // `completeJoinerCeremony` returned — see `completeJoinerWithPassword`
-    // for the rationale. We intentionally do NOT re-drain here: the
-    // ceremony-time drain captures the same Rust secure-store state
-    // (sync_id, device_id, session_token, wrapped_dek, etc.) that would
+    // for the rationale. We intentionally do NOT re-drain just for snapshot
+    // bootstrap: the ceremony-time drain captures the same Rust secure-store
+    // state (sync_id, device_id, session_token, wrapped_dek, etc.) that would
     // have been written at this point, and `configureEngine` /
-    // `setAutoSync` / `bootstrapFromSnapshot` do not mint new credentials
-    // that need persisting.
+    // `bootstrapFromSnapshot` do not mint new credentials that need
+    // persisting. The post-bootstrap catch-up below does drain again because
+    // `syncNow` can recover a missed epoch key or refresh secure-store state.
     //
     // Defensively ensure relay_url and sync_id are written under the keys
     // that relayUrlProvider / syncIdProvider read from. The post-ceremony
@@ -758,8 +923,23 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     ref.invalidate(relayUrlProvider);
     ref.invalidate(syncIdProvider);
 
-    // Cache raw DEK so subsequent launches bypass Argon2id (Signal-style)
-    await cacheRuntimeKeys(handle, ref.read(databaseProvider));
+    // From here on, the snapshot has been imported and applied locally. These
+    // finishing steps improve startup/sync continuity, but they must not turn
+    // a restored device back into snapshotFailure and strand it in onboarding.
+    var syncIncomplete = false;
+
+    // Cache a device-bound wrapped DEK so launches bypass Argon2id. Non-fatal:
+    // if the cache write fails, the next launch can still recover through the
+    // mnemonic + PIN unlock sheet because wrapped credentials are durable.
+    try {
+      await cacheRuntimeKeys(handle, ref.read(databaseProvider));
+    } catch (e, st) {
+      ErrorReportingService.instance.report(
+        'cacheRuntimeKeys after pairing failed (non-fatal): $e',
+        severity: ErrorSeverity.warning,
+        stackTrace: st,
+      );
+    }
 
     // Store Device 1's PIN as this device's app lock PIN so the user
     // has one PIN across all devices. Non-fatal: credentials are already
@@ -779,6 +959,76 @@ class DevicePairingNotifier extends Notifier<PairingState> {
       }
     }
 
+    if (_generation != myGeneration) return;
+
+    // Enable notification-driven incremental sync only after the pairing
+    // snapshot has been imported and applied. The initiator rotates to the
+    // next epoch immediately after credentials are exchanged; starting the
+    // auto-sync driver before bootstrap can race that epoch catch-up sync
+    // against the snapshot apply path.
+    try {
+      await _enableAutoSync(handle);
+    } catch (e, st) {
+      syncIncomplete = true;
+      ErrorReportingService.instance.report(
+        'setAutoSync after pairing failed (non-fatal): $e',
+        severity: ErrorSeverity.warning,
+        stackTrace: st,
+      );
+    }
+
+    if (_generation != myGeneration) return;
+
+    // setAutoSync wires the auto-sync driver but does not emit an initial
+    // trigger. Run one explicit catch-up now so the joiner recovers the
+    // initiator's post-pairing epoch rotation and applies any rows that landed
+    // after the snapshot was cut.
+    try {
+      await _runPostBootstrapCatchUp(handle);
+    } on TimeoutException catch (e, st) {
+      syncIncomplete = true;
+      if (_generation == myGeneration) {
+        progressNotifier.markTimedOut();
+      }
+      ErrorReportingService.instance.report(
+        'Post-pairing catch-up timed out after snapshot apply '
+        '(non-fatal): $e',
+        severity: ErrorSeverity.warning,
+        stackTrace: st,
+      );
+    } catch (e, st) {
+      final structuredError = PrismSyncStructuredError.tryParse(e);
+      if (_isEpochVerificationFailure(structuredError)) {
+        Error.throwWithStackTrace(e, st);
+      }
+      syncIncomplete = true;
+      ErrorReportingService.instance.report(
+        'Post-pairing catch-up failed after snapshot apply '
+        '(non-fatal): $e',
+        severity: ErrorSeverity.warning,
+        stackTrace: st,
+      );
+    }
+
+    if (_generation != myGeneration) return;
+
+    // Snapshot apply succeeded. ACK now so the relay can discard the retained
+    // bootstrap snapshot; transient catch-up failures above do not need a
+    // snapshot retry because the restored baseline is already local.
+    // Best-effort: errors here don't undo a good pairing, and older relays
+    // respond 405 which the FFI folds to Ok.
+    try {
+      await ffi.acknowledgeSnapshotApplied(handle: handle);
+    } catch (e, st) {
+      ErrorReportingService.instance.report(
+        'acknowledgeSnapshotApplied failed (non-fatal): $e',
+        severity: ErrorSeverity.warning,
+        stackTrace: st,
+      );
+    }
+
+    if (_generation != myGeneration) return;
+
     final counts = await _countLocalData();
     if (kDebugMode) {
       debugPrint(
@@ -788,8 +1038,34 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     state = state.copyWith(
       step: PairingStep.success,
       counts: counts,
-      syncIncomplete: false,
+      syncIncomplete: syncIncomplete,
     );
+  }
+
+  Future<void> _writeSnapshotApplyCompleteMarker() async {
+    final syncId = await secureStorage.read(key: kSyncIdKey);
+    final deviceId = await secureStorage.read(key: kSyncDeviceIdKey);
+    if (syncId == null ||
+        syncId.isEmpty ||
+        deviceId == null ||
+        deviceId.isEmpty) {
+      throw StateError(
+        'Cannot mark snapshot apply complete without sync_id and device_id',
+      );
+    }
+
+    await secureStorage.write(
+      key: kSnapshotApplyCompleteKey,
+      value: snapshotApplyCompleteMarkerValue(
+        syncId: syncId,
+        deviceId: deviceId,
+      ),
+    );
+  }
+
+  @visibleForTesting
+  Future<void> writeSnapshotApplyCompleteMarkerForTest() {
+    return _writeSnapshotApplyCompleteMarker();
   }
 
   /// Wait for a strict-apply outcome while enforcing an idle (activity)
@@ -798,7 +1074,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
   /// `SyncCompleted` and `WebSocketStateChanged` are intentionally NOT
   /// treated as progress: they can fire from auto-sync completions or
   /// reconnect churn while an apply handler is stuck inside `asyncMap`,
-  /// which would mask a real hang indefinitely (codex Finding B).
+  /// which would mask a real hang indefinitely.
   ///
   /// Arbitrarily large snapshots still succeed as long as `RemoteChanges`
   /// keeps firing; [idleTimeout] of silence is treated as failure.
@@ -998,6 +1274,8 @@ class DevicePairingNotifier extends Notifier<PairingState> {
       '${prefix}relay_url',
       '${prefix}mnemonic',
       '${prefix}runtime_dek',
+      '${prefix}runtime_dek_wrapped_v1',
+      kSnapshotApplyCompleteKey,
     ];
     for (final key in keysToClean) {
       try {

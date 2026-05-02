@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/features/settings/widgets/create_edit_field_sheet.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
@@ -28,6 +29,7 @@ class CustomFieldsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final fieldsAsync = ref.watch(customFieldsProvider);
+    final terms = watchTerminology(context, ref);
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
@@ -44,13 +46,17 @@ class CustomFieldsScreen extends ConsumerWidget {
       bodyPadding: EdgeInsets.zero,
       body: fieldsAsync.when(
         loading: () => const PrismLoadingState(),
-        error: (e, _) => Center(child: Text(context.l10n.settingsCustomFieldsError(e.toString()))),
+        error: (e, _) => Center(
+          child: Text(context.l10n.settingsCustomFieldsError(e.toString())),
+        ),
         data: (fields) {
           if (fields.isEmpty) {
             return EmptyState(
               icon: Icon(AppIcons.tuneOutlined, size: 48),
               title: context.l10n.settingsCustomFieldsEmptyTitle,
-              subtitle: context.l10n.settingsCustomFieldsEmptySubtitle,
+              subtitle: context.l10n.settingsCustomFieldsEmptySubtitle(
+                terms.singularLower,
+              ),
               actionLabel: context.l10n.settingsCustomFieldsAddAction,
               onAction: () => _openCreateSheet(context),
             );
@@ -65,9 +71,8 @@ class CustomFieldsScreen extends ConsumerWidget {
   void _openCreateSheet(BuildContext context) {
     PrismSheet.showFullScreen(
       context: context,
-      builder: (context, scrollController) => CreateEditFieldSheet(
-        scrollController: scrollController,
-      ),
+      builder: (context, scrollController) =>
+          CreateEditFieldSheet(scrollController: scrollController),
     );
   }
 }
@@ -78,13 +83,14 @@ class _FieldsList extends ConsumerWidget {
   final List<CustomField> fields;
 
   IconData _iconForType(CustomFieldType type) => switch (type) {
-        CustomFieldType.text => AppIcons.textFields,
-        CustomFieldType.color => AppIcons.palette,
-        CustomFieldType.date => AppIcons.calendarToday,
-      };
+    CustomFieldType.text => AppIcons.textFields,
+    CustomFieldType.color => AppIcons.palette,
+    CustomFieldType.date => AppIcons.calendarToday,
+  };
 
   String _subtitleForField(CustomField field) {
-    if (field.fieldType == CustomFieldType.date && field.datePrecision != null) {
+    if (field.fieldType == CustomFieldType.date &&
+        field.datePrecision != null) {
       return '${field.fieldType.label} \u2022 ${field.datePrecision!.label}';
     }
     return field.fieldType.label;
@@ -113,9 +119,14 @@ class _FieldsList extends ConsumerWidget {
     );
     if (confirmed) {
       Haptics.heavy();
-      unawaited(ref.read(customFieldNotifierProvider.notifier).deleteField(field.id));
+      unawaited(
+        ref.read(customFieldNotifierProvider.notifier).deleteField(field.id),
+      );
       if (context.mounted) {
-        PrismToast.show(context, message: context.l10n.settingsCustomFieldsDeletedToast(field.name));
+        PrismToast.show(
+          context,
+          message: context.l10n.settingsCustomFieldsDeletedToast(field.name),
+        );
       }
     }
   }
@@ -143,7 +154,9 @@ class _FieldsList extends ConsumerWidget {
           animation: animation,
           builder: (context, child) => Material(
             elevation: 4,
-            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
+            borderRadius: BorderRadius.circular(
+              PrismShapes.of(context).radius(12),
+            ),
             child: child,
           ),
           child: child,
@@ -181,8 +194,9 @@ class _FieldsList extends ConsumerWidget {
               index: index,
               child: Icon(
                 AppIcons.dragHandle,
-                color:
-                    theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                color: theme.colorScheme.onSurfaceVariant.withValues(
+                  alpha: 0.4,
+                ),
               ),
             ),
             onTap: () => _openEditSheet(context, field),

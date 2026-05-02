@@ -97,6 +97,24 @@ _SystemSettings _$SystemSettingsFromJson(
     _$SleepQualityEnumMap,
     json['defaultSleepQuality'],
   ),
+  frontingListViewMode:
+      $enumDecodeNullable(
+        _$FrontingListViewModeEnumMap,
+        json['frontingListViewMode'],
+      ) ??
+      FrontingListViewMode.combinedPeriods,
+  addFrontDefaultBehavior:
+      $enumDecodeNullable(
+        _$FrontStartBehaviorEnumMap,
+        json['addFrontDefaultBehavior'],
+      ) ??
+      FrontStartBehavior.additive,
+  quickFrontDefaultBehavior:
+      $enumDecodeNullable(
+        _$FrontStartBehaviorEnumMap,
+        json['quickFrontDefaultBehavior'],
+      ) ??
+      FrontStartBehavior.additive,
 );
 
 Map<String, dynamic> _$SystemSettingsToJson(
@@ -156,6 +174,12 @@ Map<String, dynamic> _$SystemSettingsToJson(
   'syncNavigationEnabled': instance.syncNavigationEnabled,
   'chatBadgePreferences': instance.chatBadgePreferences,
   'defaultSleepQuality': _$SleepQualityEnumMap[instance.defaultSleepQuality],
+  'frontingListViewMode':
+      _$FrontingListViewModeEnumMap[instance.frontingListViewMode]!,
+  'addFrontDefaultBehavior':
+      _$FrontStartBehaviorEnumMap[instance.addFrontDefaultBehavior]!,
+  'quickFrontDefaultBehavior':
+      _$FrontStartBehaviorEnumMap[instance.quickFrontDefaultBehavior]!,
 };
 
 const _$SystemTerminologyEnumMap = {
@@ -215,4 +239,15 @@ const _$SleepQualityEnumMap = {
   SleepQuality.fair: 'fair',
   SleepQuality.good: 'good',
   SleepQuality.excellent: 'excellent',
+};
+
+const _$FrontingListViewModeEnumMap = {
+  FrontingListViewMode.combinedPeriods: 'combinedPeriods',
+  FrontingListViewMode.perMemberRows: 'perMemberRows',
+  FrontingListViewMode.timeline: 'timeline',
+};
+
+const _$FrontStartBehaviorEnumMap = {
+  FrontStartBehavior.additive: 'additive',
+  FrontStartBehavior.replace: 'replace',
 };

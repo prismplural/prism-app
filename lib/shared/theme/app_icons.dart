@@ -32,6 +32,8 @@ abstract final class AppIcons {
   static final navStatisticsActive = PhosphorIcons.chartBar(PhosphorIconsStyle.fill);
   static final navTimeline = PhosphorIcons.columns();
   static final navTimelineActive = PhosphorIcons.columns(PhosphorIconsStyle.fill);
+  static final navSleep = PhosphorIcons.moonStars();
+  static final navSleepActive = PhosphorIcons.moonStars(PhosphorIconsStyle.fill);
 
   // ── Actions / structural (regular) ────────────────────────────────────
 
@@ -194,6 +196,8 @@ abstract final class AppIcons {
   static final cameraAlt = PhosphorIcons.camera();
   static final addAPhotoOutlined = PhosphorIcons.camera();
   static final textFields = PhosphorIcons.textT();
+  static final textBold = PhosphorIcons.textB();
+  static final textItalic = PhosphorIcons.textItalic();
   static final alternateEmail = PhosphorIcons.at();
   static final tag = PhosphorIcons.hashStraight();
   static final label = PhosphorIcons.tag();
@@ -293,6 +297,11 @@ abstract final class AppIcons {
   static final bugReportOutlined = PhosphorIcons.bug();
   static final buildCircleOutlined = PhosphorIcons.wrench();
   static final feedbackOutlined = PhosphorIcons.chatCircleDots();
+  static final website = PhosphorIcons.globeSimple();
+  static final githubLogo = PhosphorIcons.githubLogo();
+  static final discordLogo = PhosphorIcons.discordLogo();
+  static final bluesky = PhosphorIcons.butterfly();
+  static final tumblrLogo = PhosphorIcons.tumblrLogo();
   static final speed = PhosphorIcons.gauge();
   static final healing = PhosphorIcons.firstAid();
   static final emojiEvents = PhosphorIcons.trophy();

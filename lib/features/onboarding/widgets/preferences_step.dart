@@ -41,13 +41,13 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
   // ---------------------------------------------------------------------------
 
   static String _englishPlural(SystemTerminology term) => switch (term) {
-        SystemTerminology.members => 'Members',
-        SystemTerminology.headmates => 'Headmates',
-        SystemTerminology.alters => 'Alters',
-        SystemTerminology.parts => 'Parts',
-        SystemTerminology.facets => 'Facets',
-        SystemTerminology.custom => 'Custom',
-      };
+    SystemTerminology.members => 'Members',
+    SystemTerminology.headmates => 'Headmates',
+    SystemTerminology.alters => 'Alters',
+    SystemTerminology.parts => 'Parts',
+    SystemTerminology.facets => 'Facets',
+    SystemTerminology.custom => 'Custom',
+  };
 
   // ---------------------------------------------------------------------------
   // Build helpers
@@ -69,9 +69,11 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
           color: isSelected
               ? primary.withValues(alpha: 0.2)
               : isDark
-                  ? AppColors.warmWhite.withValues(alpha: 0.1)
-                  : AppColors.parchmentElevated,
-          borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(10)),
+              ? AppColors.warmWhite.withValues(alpha: 0.1)
+              : AppColors.parchmentElevated,
+          borderRadius: BorderRadius.circular(
+            PrismShapes.of(context).radius(10),
+          ),
         ),
         child: Center(
           child: Text(
@@ -80,10 +82,9 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
               color: isSelected
                   ? primary
                   : isDark
-                      ? AppColors.warmWhite.withValues(alpha: 0.8)
-                      : AppColors.warmBlack.withValues(alpha: 0.8),
-              fontWeight:
-                  isSelected ? FontWeight.w600 : FontWeight.normal,
+                  ? AppColors.warmWhite.withValues(alpha: 0.8)
+                  : AppColors.warmBlack.withValues(alpha: 0.8),
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
             ),
           ),
         ),
@@ -109,13 +110,14 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
       crossAxisSpacing: 8,
       childAspectRatio: 3,
       children: terms.map((term) {
-        final isSelected = onboarding.selectedTerminology == term &&
+        final isSelected =
+            onboarding.selectedTerminology == term &&
             onboarding.terminologyUseEnglish == useEnglish;
         final label = useEnglish
             ? _englishPlural(term)
             : (term == SystemTerminology.custom
-                ? context.l10n.onboardingPreferencesCustomTerminology
-                : resolveTerminology(context.l10n, term).plural);
+                  ? context.l10n.onboardingPreferencesCustomTerminology
+                  : resolveTerminology(context.l10n, term).plural);
         return _termTile(
           context: context,
           label: label,
@@ -138,6 +140,13 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
     final primary = theme.colorScheme.primary;
     final locale = Localizations.localeOf(context);
     final isEnglish = locale.languageCode == 'en';
+    final terms = resolveTerminology(
+      context.l10n,
+      onboarding.selectedTerminology,
+      customSingular: onboarding.customTermSingular,
+      customPlural: onboarding.customTermPlural,
+      useEnglish: onboarding.terminologyUseEnglish,
+    );
 
     // Standard terms (custom handled separately)
     const standardTerms = [
@@ -223,8 +232,8 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
               child: _termTile(
                 context: context,
                 label: context.l10n.onboardingPreferencesCustomTerminology,
-                isSelected: onboarding.selectedTerminology ==
-                    SystemTerminology.custom,
+                isSelected:
+                    onboarding.selectedTerminology == SystemTerminology.custom,
                 onTap: () => notifier.setTerminology(
                   SystemTerminology.custom,
                   useEnglish: false,
@@ -292,7 +301,9 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
               color: isDark
                   ? AppColors.warmWhite.withValues(alpha: 0.1)
                   : AppColors.parchmentElevated,
-              borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
+              borderRadius: BorderRadius.circular(
+                PrismShapes.of(context).radius(12),
+              ),
             ),
             child: Row(
               children: [
@@ -301,7 +312,10 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        context.l10n.onboardingPreferencesPerMemberColors,
+                        context.l10n.onboardingPreferencesPerMemberColors(
+                          terms.singular,
+                          terms.singularLower,
+                        ),
                         style: theme.textTheme.labelLarge?.copyWith(
                           fontWeight: FontWeight.w600,
                           color: isDark
@@ -310,7 +324,10 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
                         ),
                       ),
                       Text(
-                        context.l10n.onboardingPreferencesPerMemberColorsSubtitle,
+                        context.l10n
+                            .onboardingPreferencesPerMemberColorsSubtitle(
+                              terms.singularLower,
+                            ),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: isDark
                               ? AppColors.mutedTextDark
@@ -360,8 +377,10 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
           fontSize: 14,
         ),
         fieldStyle: PrismTextFieldStyle.borderless,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 10,
+        ),
         onChanged: onChanged,
       ),
     );

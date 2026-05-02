@@ -9,6 +9,7 @@ import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/daos/member_groups_dao.dart';
 import 'package:prism_plurality/core/database/sqlite_constraint.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
+import 'package:prism_plurality/data/utils/sync_datetime.dart';
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
@@ -82,7 +83,7 @@ class PkGroupsImportResult {
 
 /// Imports PluralKit groups and memberships into Prism.
 ///
-/// Phase 1 (pull only). Follows the codex-reviewed revisions in
+/// Phase 1 (pull only). Implements the revisions documented in
 /// `docs/plans/pk-sp-gaps/03-pk-groups.md`:
 ///
 /// - R1: Authoritative-set diff — membership removals are driven by the PK
@@ -157,10 +158,10 @@ class PkGroupsImporter with SyncRecordMixin {
       'parent_group_id': row.parentGroupId,
       'group_type': row.groupType,
       'filter_rules': row.filterRules,
-      'created_at': row.createdAt.toIso8601String(),
+      'created_at': toSyncUtc(row.createdAt),
       'pluralkit_id': row.pluralkitId,
       'pluralkit_uuid': row.pluralkitUuid,
-      'last_seen_from_pk_at': row.lastSeenFromPkAt?.toIso8601String(),
+      'last_seen_from_pk_at': toSyncUtcOrNull(row.lastSeenFromPkAt),
       'is_deleted': row.isDeleted,
     };
   }

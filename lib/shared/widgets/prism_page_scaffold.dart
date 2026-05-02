@@ -41,9 +41,7 @@ class PrismPageScaffold extends StatelessWidget {
 
     final scaffoldBody = topBar != null
         ? NestedScrollView(
-            headerSliverBuilder: (_, _) => [
-              SliverPinnedTopBar(child: topBar!),
-            ],
+            headerSliverBuilder: (_, _) => [SliverPinnedTopBar(child: topBar!)],
             body: paddedBody,
           )
         : paddedBody;

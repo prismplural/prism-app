@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 
@@ -71,10 +74,12 @@ void main() {
         'prism_sync.wrapped_dek': 'aW==',
         'prism_sync.device_id': 'ZGV2aWNlMQ==',
         'prism_sync.sync_id': 'c3luYzE=',
+        'prism_sync.registration_token': 'cmVnLXRva2Vu',
       });
       expect(result['wrapped_dek'], 'aW==');
       expect(result['device_id'], 'ZGV2aWNlMQ==');
       expect(result['sync_id'], 'c3luYzE=');
+      expect(result['registration_token'], 'cmVnLXRva2Vu');
     });
 
     test('seed includes epoch_key_* entries from the keychain', () {
@@ -110,11 +115,169 @@ void main() {
     });
 
     test('ignores non-dynamic prefixed entries that are not allow-listed', () {
-      final result = computeSeedEntries({
-        'prism_sync.unknown_key': 'bogus',
-      });
+      final result = computeSeedEntries({'prism_sync.unknown_key': 'bogus'});
       expect(result, isEmpty);
     });
+  });
+
+  group('buildRuntimeDekAad', () {
+    test('binds sync id, device id, and wrapper version', () {
+      expect(
+        buildRuntimeDekAad(syncId: 'sync-1', deviceId: 'device-1'),
+        'sync-1|device-1|1',
+      );
+    });
+
+    test('returns null when either identity component is missing', () {
+      expect(buildRuntimeDekAad(syncId: null, deviceId: 'device-1'), isNull);
+      expect(buildRuntimeDekAad(syncId: 'sync-1', deviceId: null), isNull);
+      expect(buildRuntimeDekAad(syncId: '', deviceId: 'device-1'), isNull);
+      expect(buildRuntimeDekAad(syncId: 'sync-1', deviceId: ''), isNull);
+    });
+  });
+
+  group('readCachedRuntimeDekForRestoreCore', () {
+    test(
+      'migrates legacy raw runtime_dek into wrapped slot and deletes raw',
+      () async {
+        final rawDek = List<int>.generate(32, (i) => i);
+        final store = <String, String>{kRuntimeDekKey: base64Encode(rawDek)};
+
+        final restored = await readCachedRuntimeDekForRestoreCore(
+          aad: 'sync-1|device-1|1',
+          readKey: (key) async => store[key],
+          deleteKey: (key) async {
+            store.remove(key);
+          },
+          writeKey: (key, value) async {
+            store[key] = value;
+          },
+          unwrapDek: (_, _) => throw StateError('should not unwrap'),
+          wrapDek: (dekBytes, aad) async {
+            expect(aad, 'sync-1|device-1|1');
+            expect(dekBytes, rawDek);
+            return 'wrapped-json';
+          },
+        );
+
+        expect(restored, rawDek);
+        expect(store[kRuntimeDekKey], isNull);
+        expect(store[kRuntimeDekWrappedKey], 'wrapped-json');
+      },
+    );
+
+    test(
+      'deletes legacy raw runtime_dek after wrapped restore succeeds',
+      () async {
+        final rawDek = List<int>.generate(32, (i) => i);
+        final restoredDek = List<int>.generate(32, (i) => 255 - i);
+        final store = <String, String>{
+          kRuntimeDekKey: base64Encode(rawDek),
+          kRuntimeDekWrappedKey: 'wrapped-json',
+        };
+
+        final restored = await readCachedRuntimeDekForRestoreCore(
+          aad: 'sync-1|device-1|1',
+          readKey: (key) async => store[key],
+          deleteKey: (key) async {
+            store.remove(key);
+          },
+          writeKey: (key, value) async {
+            store[key] = value;
+          },
+          unwrapDek: (blob, aad) async {
+            expect(blob, 'wrapped-json');
+            expect(aad, 'sync-1|device-1|1');
+            return Uint8List.fromList(restoredDek);
+          },
+          wrapDek: (_, _) => throw StateError('should not wrap'),
+        );
+
+        expect(restored, restoredDek);
+        expect(store[kRuntimeDekKey], isNull);
+        expect(store[kRuntimeDekWrappedKey], 'wrapped-json');
+      },
+    );
+
+    test('wrapped restore returns a mutable Dart-owned copy', () async {
+      final restoredDek = Uint8List.fromList(
+        List<int>.generate(32, (i) => 255 - i),
+      ).asUnmodifiableView();
+      final store = <String, String>{kRuntimeDekWrappedKey: 'wrapped-json'};
+
+      final restored = await readCachedRuntimeDekForRestoreCore(
+        aad: 'sync-1|device-1|1',
+        readKey: (key) async => store[key],
+        deleteKey: (key) async {
+          store.remove(key);
+        },
+        writeKey: (key, value) async {
+          store[key] = value;
+        },
+        unwrapDek: (_, _) async => restoredDek,
+        wrapDek: (_, _) => throw StateError('should not wrap'),
+      );
+
+      expect(restored, restoredDek);
+      expect(() => restored!.fillRange(0, restored.length, 0), returnsNormally);
+      expect(restored, everyElement(0));
+    });
+
+    test(
+      'falls back to legacy raw runtime_dek when wrapped restore fails',
+      () async {
+        final rawDek = List<int>.generate(32, (i) => i);
+        final store = <String, String>{
+          kRuntimeDekKey: base64Encode(rawDek),
+          kRuntimeDekWrappedKey: 'stale-wrapped-json',
+        };
+
+        final restored = await readCachedRuntimeDekForRestoreCore(
+          aad: 'sync-1|device-1|1',
+          readKey: (key) async => store[key],
+          deleteKey: (key) async {
+            store.remove(key);
+          },
+          writeKey: (key, value) async {
+            store[key] = value;
+          },
+          unwrapDek: (_, _) => throw StateError('stale native wrapping key'),
+          wrapDek: (dekBytes, aad) async {
+            expect(aad, 'sync-1|device-1|1');
+            expect(dekBytes, rawDek);
+            return 'rewrapped-json';
+          },
+        );
+
+        expect(restored, rawDek);
+        expect(store[kRuntimeDekKey], isNull);
+        expect(store[kRuntimeDekWrappedKey], 'rewrapped-json');
+      },
+    );
+
+    test(
+      'deletes invalid legacy raw runtime_dek without writing wrapped slot',
+      () async {
+        final store = <String, String>{kRuntimeDekKey: 'not-base64'};
+
+        final restored = await readCachedRuntimeDekForRestoreCore(
+          aad: 'sync-1|device-1|1',
+          readKey: (key) async => store[key],
+          deleteKey: (key) async {
+            store.remove(key);
+          },
+          writeKey: (key, value) async {
+            store[key] = value;
+          },
+          unwrapDek: (_, _) => throw StateError('should not unwrap'),
+          wrapDek: (_, _) => throw StateError('should not wrap'),
+        );
+
+        expect(restored, isNull);
+        expect(store[kRuntimeDekKey], isNull);
+        expect(store[kRuntimeDekWrappedKey], isNull);
+      },
+    );
   });
 
   // --------------------------------------------------------------------
@@ -136,6 +299,8 @@ void main() {
         'prism_sync.pending_sync_id': 'p',
         'prism_sync.registration_token': 'r',
         'prism_sync.runtime_dek': 'd',
+        'prism_sync.runtime_dek_wrapped_v1': 'wrapped',
+        kSnapshotApplyCompleteKey: 'applied',
         'prism_sync.epoch_key_1': 'key1',
         'prism_sync.epoch_key_42': 'key42',
         'prism_sync.runtime_keys_foo': 'runtime',
@@ -146,6 +311,8 @@ void main() {
       expect(result, contains('prism_sync.pending_sync_id'));
       expect(result, contains('prism_sync.registration_token'));
       expect(result, contains('prism_sync.runtime_dek'));
+      expect(result, contains(kRuntimeDekWrappedKey));
+      expect(result, contains(kSnapshotApplyCompleteKey));
       expect(result, contains('prism_sync.epoch_key_1'));
       expect(result, contains('prism_sync.epoch_key_42'));
       expect(result, contains('prism_sync.runtime_keys_foo'));
@@ -201,10 +368,7 @@ void main() {
     });
 
     test('returns unpaired when both are missing', () {
-      final result = classifyHealthFromKeychain(
-        syncId: null,
-        deviceId: null,
-      );
+      final result = classifyHealthFromKeychain(syncId: null, deviceId: null);
       expect(result, SyncHealthState.unpaired);
     });
 
@@ -287,5 +451,164 @@ void main() {
         );
       },
     );
+  });
+
+  // --------------------------------------------------------------------
+  // The fronting migration startup gate must NOT fall through into the
+  // old-group seed/configure path until the reset/re-pair cutover completes.
+  // For `inProgress`, this also prevents `drainRustStore` from nuking
+  // `prism_sync.sync_id` before `resumeCleanup()` can target clear_sync_state.
+  // --------------------------------------------------------------------
+
+  group('startupHealthForMigrationMode (pass-4 #B-PASS4-P1)', () {
+    test('returns unpaired for known non-complete migration modes', () {
+      // The fronting migration is a hard sync boundary: known states before
+      // `complete` must not seed/configure the old sync group.
+      for (final mode in const [
+        'notStarted',
+        'deferred',
+        'upgradeAndKeep',
+        'startFresh',
+        'blocked',
+        'inProgress',
+      ]) {
+        expect(
+          startupHealthForMigrationMode(mode),
+          SyncHealthState.unpaired,
+          reason: mode,
+        );
+      }
+    });
+
+    test('returns null when the migration is already complete', () {
+      expect(startupHealthForMigrationMode('complete'), isNull);
+    });
+
+    test('returns null for an unknown / null mode (fail open)', () {
+      // Defensive: any unrecognized value (including null from a DAO
+      // read failure) must fall through to the normal startup path
+      // rather than silently locking the user into the cleanup screen.
+      expect(startupHealthForMigrationMode(null), isNull);
+      expect(startupHealthForMigrationMode(''), isNull);
+      expect(startupHealthForMigrationMode('totally-unknown-mode'), isNull);
+    });
+  });
+
+  group('applyDrainedEntries with empty entries (pass-4 #B-PASS4-P1)', () {
+    // Regression guard for the underlying destructive behavior: if the
+    // post-config block ever runs against an empty drain (the exact
+    // condition produced by skipping `_seedRustStore` when the
+    // migration is mid-cleanup), it would delete every static key —
+    // including `prism_sync.sync_id`. The fix is to NOT call into
+    // `applyDrainedEntries` from the in-progress gate; this test
+    // demonstrates *why* by pinning the destructive behavior.
+    test('deletes prism_sync.sync_id when entries map is empty', () async {
+      final deleted = <String>[];
+      final written = <String, String>{};
+
+      final committed = await applyDrainedEntries(
+        entries: const <String, String>{}, // empty: never-seeded engine
+        deleteKey: (full) async {
+          deleted.add(full);
+        },
+        writeKey: (full, value) async {
+          written[full] = value;
+        },
+      );
+
+      expect(committed, 0);
+      // `prism_sync.sync_id` is in the static `_secureStoreKeys`
+      // allow-list, so an empty drain wipes it. This is the exact
+      // mechanism by which the pre-fix in-progress gate corrupted the
+      // keychain.
+      expect(deleted, contains('prism_sync.sync_id'));
+      expect(written, isEmpty);
+    });
+
+    test(
+      'preserves prism_sync.sync_id when the drained entries echo it back',
+      () async {
+        // Sanity check: when Rust IS seeded and reports sync_id back,
+        // the helper writes it (and does not also delete it) — proving
+        // the destructive path above is uniquely the empty-drain case.
+        final deleted = <String>[];
+        final written = <String, String>{};
+
+        await applyDrainedEntries(
+          entries: const <String, String>{'sync_id': 'c3luYzE='},
+          deleteKey: (full) async {
+            deleted.add(full);
+          },
+          writeKey: (full, value) async {
+            written[full] = value;
+          },
+        );
+
+        expect(deleted, isNot(contains('prism_sync.sync_id')));
+        expect(written['prism_sync.sync_id'], 'c3luYzE=');
+      },
+    );
+  });
+
+  // --------------------------------------------------------------------
+  // wipeFrontingMigrationSyncKeychain — Workstream 2 step 4
+  // (remediation-plan-2026-04-30): the migration's wipe pass must
+  // consume `_secureStoreKeys` and `_dynamicSecureStorePrefixes` instead
+  // of inlining the list. We expose the static-key set + dynamic prefix
+  // list via two `@visibleForTesting` helpers so the contract is pinned.
+  // --------------------------------------------------------------------
+  group('frontingMigrationWipeStaticKeys', () {
+    test('includes every key in the seed allow-list', () {
+      // Anything seeded into Rust must also be wiped on migration cutover —
+      // otherwise the next launch re-seeds an old DEK / sync_id and the
+      // device silently re-attaches to the previous sync group.
+      final keys = frontingMigrationWipeStaticKeys();
+      expect(
+        keys,
+        containsAll(const <String>[
+          'wrapped_dek',
+          'dek_salt',
+          'device_secret',
+          'device_id',
+          'sync_id',
+          'session_token',
+          'epoch',
+          'relay_url',
+          'registration_token',
+          'setup_rollback_marker',
+          'sharing_prekey_store',
+          'sharing_id_cache',
+          'min_signature_version_floor',
+        ]),
+      );
+    });
+
+    test(
+      'includes wipe-only legacy slots not present in the seed allow-list',
+      () {
+        // `mnemonic` was sometimes persisted by older builds. Runtime DEK
+        // cache slots are not seed material, but must be wiped on reset.
+        final keys = frontingMigrationWipeStaticKeys();
+        expect(keys, contains('mnemonic'));
+        expect(keys, contains('runtime_dek'));
+        expect(keys, contains('runtime_dek_wrapped_v1'));
+        expect(keys, contains('snapshot_apply_complete_v1'));
+      },
+    );
+  });
+
+  group('frontingMigrationWipeDynamicPrefixes', () {
+    test('matches the seed-side dynamic prefix list', () {
+      // The wipe path must scan the same dynamic prefixes the seed path
+      // scans — otherwise an `epoch_key_1` left behind by a prior pairing
+      // gets re-seeded into Rust on the next launch. `computeSeedEntries`
+      // already pins `epoch_key_*` and `runtime_keys_*` as the dynamic
+      // prefix set; the wipe helper must mirror it.
+      final prefixes = frontingMigrationWipeDynamicPrefixes();
+      expect(
+        prefixes,
+        containsAll(const <String>['epoch_key_', 'runtime_keys_']),
+      );
+    });
   });
 }

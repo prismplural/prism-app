@@ -101,7 +101,9 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
   void initState() {
     super.initState();
     // Auto-select voting-as member: prefer current fronter, fall back to first active member.
-    ref.listenManual(activeMembersProvider, (_, next) {
+    // Non-fronting picker: filter out the Unknown sentinel so the auto-default
+    // never lands on the placeholder.
+    ref.listenManual(userVisibleMembersProvider, (_, next) {
       _queueDefaultVotingAs(next.value);
     }, fireImmediately: true);
     ref.listenManual<String?>(votingAsProvider, (_, next) {
@@ -386,7 +388,11 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final membersAsync = ref.watch(activeMembersProvider);
+    final terms = watchTerminology(context, ref);
+    // Non-fronting picker: hide the Unknown sentinel from the vote-as picker.
+    // The lookup at _shouldShowResults intentionally keeps activeMembersProvider
+    // so existing votes attributed to the sentinel still resolve.
+    final membersAsync = ref.watch(userVisibleMembersProvider);
     final votingAs = ref.watch(votingAsProvider);
     final hasCurrentMemberVoted = _hasCurrentMemberVoted;
     final hasPendingVoteChanges = _hasPendingVoteChanges;
@@ -519,7 +525,7 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
                 data: (members) {
                   if (members.isEmpty) {
                     return Text(
-                      context.l10n.pollsDetailNoMembers,
+                      context.l10n.pollsDetailNoMembers(terms.pluralLower),
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),

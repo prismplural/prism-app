@@ -70,29 +70,28 @@ void main() {
   });
 
   // ══════════════════════════════════════════════════════════════════════════
-  // Co-fronter expansion logic (extracted from timelineRowsProvider)
+  // Per-member session grouping (extracted from timelineRowsProvider)
+  //
+  // In the per-member model, each session has exactly one memberId. Grouping
+  // is a trivial bucket-by-memberId; co-fronting is emergent overlap, not a
+  // field on the session.
   // ══════════════════════════════════════════════════════════════════════════
 
-  group('Co-fronter expansion logic', () {
-    // Replicate the grouping logic from timelineRowsProvider to test it
-    // without requiring a full Riverpod container.
+  group('Per-member session grouping', () {
     Map<String, List<FrontingSession>> groupSessionsByMember(
       List<FrontingSession> sessions,
     ) {
       final rowMap = <String, List<FrontingSession>>{};
       for (final session in sessions) {
-        final primaryId = session.memberId;
-        if (primaryId != null) {
-          rowMap.putIfAbsent(primaryId, () => []).add(session);
-        }
-        for (final coId in session.coFronterIds) {
-          rowMap.putIfAbsent(coId, () => []).add(session);
+        final memberId = session.memberId;
+        if (memberId != null) {
+          rowMap.putIfAbsent(memberId, () => []).add(session);
         }
       }
       return rowMap;
     }
 
-    test('primary fronter gets their session', () {
+    test('member with one session gets one entry', () {
       final sessions = [
         FrontingSession(
           id: 's-1',
@@ -106,13 +105,23 @@ void main() {
       expect(grouped['alice']!.first.id, 's-1');
     });
 
-    test('co-fronters each get their own entry', () {
+    test('overlapping sessions for different members each get their own entry', () {
+      // Per-member model: co-fronting is two overlapping sessions, one per member.
       final sessions = [
         FrontingSession(
           id: 's-1',
           startTime: DateTime(2026, 3, 20, 10, 0),
           memberId: 'alice',
-          coFronterIds: ['bob', 'charlie'],
+        ),
+        FrontingSession(
+          id: 's-2',
+          startTime: DateTime(2026, 3, 20, 10, 0),
+          memberId: 'bob',
+        ),
+        FrontingSession(
+          id: 's-3',
+          startTime: DateTime(2026, 3, 20, 10, 0),
+          memberId: 'charlie',
         ),
       ];
 
@@ -120,10 +129,6 @@ void main() {
       expect(grouped['alice'], hasLength(1));
       expect(grouped['bob'], hasLength(1));
       expect(grouped['charlie'], hasLength(1));
-      // All three reference the same session
-      expect(grouped['alice']!.first.id, 's-1');
-      expect(grouped['bob']!.first.id, 's-1');
-      expect(grouped['charlie']!.first.id, 's-1');
     });
 
     test('member with multiple sessions gets all of them', () {
@@ -145,33 +150,18 @@ void main() {
       expect(grouped['alice'], hasLength(2));
     });
 
-    test('co-fronter appears in both their co-fronted session and own session', () {
-      final sessions = [
-        FrontingSession(
-          id: 's-1',
-          startTime: DateTime(2026, 3, 20, 10, 0),
-          memberId: 'alice',
-          coFronterIds: ['bob'],
-        ),
-        FrontingSession(
-          id: 's-2',
-          startTime: DateTime(2026, 3, 20, 14, 0),
-          memberId: 'bob',
-        ),
-      ];
-
-      final grouped = groupSessionsByMember(sessions);
-      expect(grouped['alice'], hasLength(1));
-      expect(grouped['bob'], hasLength(2)); // co-fronted + own session
-    });
-
-    test('session with null memberId only adds co-fronters', () {
+    test('session with null memberId is skipped (e.g. a sleep row)', () {
       final sessions = [
         FrontingSession(
           id: 's-1',
           startTime: DateTime(2026, 3, 20, 10, 0),
           memberId: null,
-          coFronterIds: ['bob'],
+          sessionType: SessionType.sleep,
+        ),
+        FrontingSession(
+          id: 's-2',
+          startTime: DateTime(2026, 3, 20, 10, 0),
+          memberId: 'bob',
         ),
       ];
 
@@ -183,20 +173,6 @@ void main() {
     test('empty sessions list produces empty map', () {
       final grouped = groupSessionsByMember([]);
       expect(grouped, isEmpty);
-    });
-
-    test('session with no co-fronters only appears for primary', () {
-      final sessions = [
-        FrontingSession(
-          id: 's-1',
-          startTime: DateTime(2026, 3, 20, 10, 0),
-          memberId: 'alice',
-          coFronterIds: [],
-        ),
-      ];
-
-      final grouped = groupSessionsByMember(sessions);
-      expect(grouped.keys, ['alice']);
     });
   });
 

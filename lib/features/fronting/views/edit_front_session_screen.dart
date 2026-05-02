@@ -3,18 +3,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/editing/fronting_edit_resolution_models.dart';
-import 'package:prism_plurality/features/fronting/validation/fronting_validation_models.dart';
 import 'package:prism_plurality/features/fronting/editing/fronting_session_change.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_editing_providers.dart';
-import 'package:prism_plurality/features/fronting/providers/fronting_sanitization_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
-import 'package:prism_plurality/features/fronting/sanitization/fronting_sanitizer_service.dart';
+import 'package:prism_plurality/features/fronting/validation/fronting_validation_models.dart';
 import 'package:prism_plurality/features/fronting/views/edit_sleep_sheet.dart';
 import 'package:prism_plurality/features/fronting/ui/gap_resolution_dialog.dart';
-import 'package:prism_plurality/features/fronting/ui/overlap_resolution_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/utils/member_search_groups.dart';
@@ -33,7 +31,6 @@ import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_datetime_pills.dart';
-import 'package:prism_plurality/shared/widgets/prism_chip.dart';
 
 /// Full-screen editor for an existing fronting session.
 class EditFrontSessionScreen extends ConsumerStatefulWidget {
@@ -52,7 +49,9 @@ class _EditFrontSessionScreenState
   DateTime? _endTime;
   bool _isActive = false;
   String? _memberId;
-  List<String> _coFronterIds = [];
+  // Co-fronter editing removed — each session is one member's continuous
+  // presence. Co-fronting is emergent from overlapping sessions.
+  // TODO(§2.5): Phase 3 — add period-level co-front management from detail.
   FrontConfidence? _confidence;
   final _notesController = TextEditingController();
   bool _saving = false;
@@ -72,7 +71,6 @@ class _EditFrontSessionScreenState
     _endTime = session.endTime;
     _isActive = session.isActive;
     _memberId = session.memberId;
-    _coFronterIds = List.from(session.coFronterIds);
     _confidence = session.confidence;
     _notesController.text = session.notes ?? '';
   }
@@ -81,7 +79,10 @@ class _EditFrontSessionScreenState
 
   /// Opens [MemberSearchSheet] in single-select mode for the fronter.
   ///
-  /// Includes an "Unknown" special row so the user can clear the fronter.
+  /// Includes an "Unknown" special row that maps to the Unknown sentinel
+  /// member id (not null). The executor's `_ensureSentinelIfNeeded` will
+  /// auto-create the sentinel member entity on save if it doesn't already
+  /// exist locally — keeping the FK resolvable.
   Future<void> _openFronterPicker(
     List<Member> members,
     String termPlural,
@@ -106,31 +107,15 @@ class _EditFrontSessionScreenState
       case MemberSearchResultSelected(:final memberId):
         setState(() => _memberId = memberId);
       case MemberSearchResultUnknown():
-        setState(() => _memberId = null);
+        // Map "Unknown" picker selection to the sentinel id directly so
+        // the executor takes the ensure-sentinel branch.  Writing null
+        // here would bypass _ensureSentinelIfNeeded and produce a legacy
+        // null-member row.
+        setState(() => _memberId = unknownSentinelMemberId);
       case MemberSearchResultDismissed():
       case MemberSearchResultCleared():
         break;
     }
-  }
-
-  /// Opens [MemberSearchSheet] in multi-select mode for co-fronters.
-  ///
-  /// Pre-seeds the selection with the current [_coFronterIds] so existing
-  /// values are preserved when the user opens the sheet.
-  Future<void> _openCoFronterPicker(
-    List<Member> available,
-    String termPlural,
-    List<MemberSearchGroup> groups,
-  ) async {
-    final result = await MemberSearchSheet.showMulti(
-      context,
-      members: available,
-      termPlural: termPlural,
-      groups: groups,
-      initialSelected: Set.from(_coFronterIds),
-    );
-    if (!mounted || result == null) return;
-    setState(() => _coFronterIds = List.from(result));
   }
 
   Future<void> _save() async {
@@ -170,14 +155,24 @@ class _EditFrontSessionScreenState
     }
 
     // 4. Build snapshot and patch for the edit guard
-    final originalSnapshot = FrontingSanitizerService.toSnapshot(original);
+    final originalSnapshot = original.toSnapshot();
+    // memberId handling: the picker now writes [unknownSentinelMemberId]
+    // (not null) when the user selects "Unknown", so any non-null change
+    // — including transitioning from a legacy null to the sentinel — flows
+    // through the [memberId] field and triggers the executor's
+    // ensure-sentinel branch.  [clearMemberId] is reserved for the
+    // (currently unreachable from this screen) "explicitly clear back to
+    // null" case; we keep the slot wired for symmetry but never set it
+    // from the Unknown picker.
+    final memberChanged = _memberId != original.memberId;
     final patch = FrontingSessionPatch(
       start: _startTime != original.startTime ? _startTime : null,
       end: end != original.endTime ? end : null,
       clearEnd: _isActive && original.endTime != null,
-      memberId: _memberId != original.memberId ? _memberId : null,
-      clearMemberId: _memberId == null && original.memberId != null,
-      coFronterIds: _coFronterIds,
+      memberId: memberChanged && _memberId != null ? _memberId : null,
+      clearMemberId: memberChanged && _memberId == null,
+      // coFronterIds omitted — each session is one member's continuous
+      // presence; co-fronting is emergent overlap, not a field.
       notes: trimmedNotes.isNotEmpty ? trimmedNotes : null,
       confidenceIndex: _confidence?.index,
     );
@@ -185,22 +180,11 @@ class _EditFrontSessionScreenState
     // 5. Load nearby sessions directly from repository (not stream provider,
     // which may not be loaded yet)
     final allSessions = await repo.getAllSessions();
-    final nearbySnapshots = allSessions
-        .map(FrontingSanitizerService.toSnapshot)
-        .toList();
+    final nearbySnapshots = allSessions.map((s) => s.toSnapshot()).toList();
 
-    // 6. Build the proposed snapshot (post-edit state) for overlap resolution
-    final proposedSnapshot = FrontingSessionSnapshot(
-      id: original.id,
-      memberId: _memberId,
-      start: _startTime,
-      end: end,
-      coFronterIds: _coFronterIds,
-      notes: trimmedNotes.isNotEmpty ? trimmedNotes : null,
-      confidenceIndex: _confidence?.index,
-    );
-
-    // 7. Run edit validation
+    // 6. Run edit validation
+    //    (no proposed-snapshot needed: cross-member overlap resolution was
+    //    removed with the per-member-sessions refactor — see §3.3.)
     final validation = editGuard.validateEdit(
       original: originalSnapshot,
       patch: patch,
@@ -208,39 +192,8 @@ class _EditFrontSessionScreenState
       timingMode: timingMode,
     );
 
+    // Cross-member overlaps are valid in the per-member model (spec §3.3).
     final allChanges = <FrontingSessionChange>[];
-
-    // 7. Handle overlaps
-    if (validation.overlappingSessions.isNotEmpty && mounted) {
-      // Check if any trim would delete a session
-      var wouldDelete = false;
-      for (final overlap in validation.overlappingSessions) {
-        final trimResult = resolutionService.computeTrimChanges(
-          originalSnapshot,
-          overlap,
-        );
-        if (trimResult.wouldDeleteConflicting) {
-          wouldDelete = true;
-          break;
-        }
-      }
-
-      final resolution = await showOverlapResolutionDialog(
-        context,
-        overlapCount: validation.overlappingSessions.length,
-        wouldDeleteConflicting: wouldDelete,
-        canCoFront: validation.canCoFront,
-      );
-      if (resolution == null || resolution == OverlapResolution.cancel) return;
-      if (!mounted) return;
-
-      final overlapChanges = resolutionService.resolveAllOverlaps(
-        edited: proposedSnapshot,
-        overlaps: validation.overlappingSessions,
-        resolution: resolution,
-      );
-      allChanges.addAll(overlapChanges);
-    }
 
     // 8. Handle gaps
     if (validation.gapsCreated.isNotEmpty && mounted) {
@@ -287,13 +240,6 @@ class _EditFrontSessionScreenState
       final result = await changeExecutor.execute(allChanges);
       result.when(
         success: (_) {
-          invalidateFrontingProviders(ref);
-          // Fire-and-forget rescan to update the issue banner
-          triggerPostEditRescan(
-            ref,
-            sessionStart: _startTime,
-            sessionEnd: _endTime,
-          );
           if (mounted) Navigator.of(context).pop(true);
         },
         failure: (error) {
@@ -425,38 +371,6 @@ class _EditFrontSessionScreenState
               ),
               const SizedBox(height: 24),
 
-              // Co-fronter editor
-              Text(
-                context.l10n.frontingCoFrontersSection,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 12),
-              membersAsync.when(
-                loading: () => const SizedBox.shrink(),
-                error: (_, _) => const SizedBox.shrink(),
-                data: (members) {
-                  final available = members
-                      .where((m) => m.id != _memberId)
-                      .toList();
-                  final searchGroups = watchMemberSearchGroups(ref, available);
-                  final selectedCoFronters = members
-                      .where((m) => _coFronterIds.contains(m.id))
-                      .toList();
-                  return _CoFronterPickerSection(
-                    hasAvailable: available.isNotEmpty,
-                    selectedCoFronters: selectedCoFronters,
-                    onPickerOpen: () => _openCoFronterPicker(
-                      available,
-                      termPlural,
-                      searchGroups,
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 24),
-
               // Confidence picker
               Text(
                 context.l10n.frontingConfidenceLevel,
@@ -548,57 +462,6 @@ class _FronterPickerRow extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-/// Displays the selected co-fronter chips and provides a search icon to open
-/// the [MemberSearchSheet] for multi-select.
-class _CoFronterPickerSection extends StatelessWidget {
-  const _CoFronterPickerSection({
-    required this.hasAvailable,
-    required this.selectedCoFronters,
-    required this.onPickerOpen,
-  });
-
-  final bool hasAvailable;
-  final List<Member> selectedCoFronters;
-  final VoidCallback onPickerOpen;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            if (hasAvailable)
-              IconButton(
-                icon: Icon(AppIcons.search),
-                tooltip: context.l10n.search,
-                onPressed: onPickerOpen,
-              ),
-          ],
-        ),
-        if (selectedCoFronters.isNotEmpty) ...[
-          const SizedBox(height: 4),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: selectedCoFronters
-                .map(
-                  (m) => PrismChip(
-                    label: m.name,
-                    selected: true,
-                    onTap: onPickerOpen,
-                    avatar: Text(m.emoji, style: const TextStyle(fontSize: 15)),
-                  ),
-                )
-                .toList(),
-          ),
-        ],
-      ],
     );
   }
 }

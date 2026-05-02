@@ -4,20 +4,6 @@ import 'package:prism_plurality/features/fronting/validation/fronting_validation
 
 void main() {
   group('FrontingTimingMode', () {
-    test('flexible mode has 5-minute gap threshold', () {
-      expect(
-        FrontingTimingMode.flexible.gapThreshold,
-        const Duration(minutes: 5),
-      );
-    });
-
-    test('strict mode has zero gap threshold', () {
-      expect(
-        FrontingTimingMode.strict.gapThreshold,
-        Duration.zero,
-      );
-    });
-
     test('flexible mode has 60-second adjacent merge threshold', () {
       expect(
         FrontingTimingMode.flexible.adjacentMergeThreshold,
@@ -40,22 +26,10 @@ void main() {
       expect(config.timingMode, FrontingTimingMode.flexible);
       expect(config.duplicateTolerance, const Duration(seconds: 60));
       expect(config.futureTolerance, Duration.zero);
-      expect(config.detectGaps, isTrue);
       expect(config.detectDuplicates, isTrue);
       expect(config.detectMergeableAdjacent, isTrue);
       expect(config.detectFutureSessions, isTrue);
-    });
-
-    test('reportableGapThreshold delegates to timingMode', () {
-      const flexibleConfig = FrontingValidationConfig(
-        timingMode: FrontingTimingMode.flexible,
-      );
-      const strictConfig = FrontingValidationConfig(
-        timingMode: FrontingTimingMode.strict,
-      );
-
-      expect(flexibleConfig.reportableGapThreshold, const Duration(minutes: 5));
-      expect(strictConfig.reportableGapThreshold, Duration.zero);
+      expect(config.detectSelfOverlaps, isTrue);
     });
 
     test('mergeableGapThreshold is always 60 seconds', () {
@@ -75,19 +49,19 @@ void main() {
         timingMode: FrontingTimingMode.strict,
         duplicateTolerance: Duration(seconds: 30),
         futureTolerance: Duration(minutes: 1),
-        detectGaps: false,
         detectDuplicates: false,
         detectMergeableAdjacent: false,
         detectFutureSessions: false,
+        detectSelfOverlaps: false,
       );
 
       expect(config.timingMode, FrontingTimingMode.strict);
       expect(config.duplicateTolerance, const Duration(seconds: 30));
       expect(config.futureTolerance, const Duration(minutes: 1));
-      expect(config.detectGaps, isFalse);
       expect(config.detectDuplicates, isFalse);
       expect(config.detectMergeableAdjacent, isFalse);
       expect(config.detectFutureSessions, isFalse);
+      expect(config.detectSelfOverlaps, isFalse);
     });
   });
 
@@ -98,51 +72,56 @@ void main() {
     test('constructs with required fields', () {
       final issue = FrontingValidationIssue(
         id: 'issue-1',
-        type: FrontingIssueType.overlap,
-        severity: FrontingIssueSeverity.error,
+        type: FrontingIssueType.selfOverlap,
+        severity: FrontingIssueSeverity.warning,
         sessionIds: ['session-a', 'session-b'],
         memberIds: ['member-1'],
         rangeStart: now,
         rangeEnd: later,
-        summary: 'Sessions overlap',
+        summary: 'Self-overlap detected',
       );
 
       expect(issue.id, 'issue-1');
-      expect(issue.type, FrontingIssueType.overlap);
-      expect(issue.severity, FrontingIssueSeverity.error);
+      expect(issue.type, FrontingIssueType.selfOverlap);
+      expect(issue.severity, FrontingIssueSeverity.warning);
       expect(issue.sessionIds, ['session-a', 'session-b']);
       expect(issue.memberIds, ['member-1']);
       expect(issue.rangeStart, now);
       expect(issue.rangeEnd, later);
-      expect(issue.summary, 'Sessions overlap');
+      expect(issue.summary, 'Self-overlap detected');
       expect(issue.details, isNull);
     });
 
     test('constructs with optional details', () {
       final issue = FrontingValidationIssue(
         id: 'issue-2',
-        type: FrontingIssueType.gap,
+        type: FrontingIssueType.duplicate,
         severity: FrontingIssueSeverity.info,
         sessionIds: ['session-c'],
         memberIds: [],
         rangeStart: now,
         rangeEnd: later,
-        summary: 'Gap detected',
-        details: 'A 30-minute gap was found between sessions.',
+        summary: 'Duplicate detected',
+        details: 'A duplicate session was found.',
       );
 
-      expect(issue.details, 'A 30-minute gap was found between sessions.');
+      expect(issue.details, 'A duplicate session was found.');
     });
 
     test('all FrontingIssueType values exist', () {
       expect(FrontingIssueType.values, containsAll([
-        FrontingIssueType.overlap,
-        FrontingIssueType.gap,
+        FrontingIssueType.selfOverlap,
         FrontingIssueType.duplicate,
         FrontingIssueType.mergeableAdjacent,
         FrontingIssueType.invalidRange,
         FrontingIssueType.futureSession,
       ]));
+    });
+
+    test('overlap and gap issue types do NOT exist', () {
+      final typeNames = FrontingIssueType.values.map((t) => t.name).toList();
+      expect(typeNames, isNot(contains('overlap')));
+      expect(typeNames, isNot(contains('gap')));
     });
 
     test('all FrontingIssueSeverity values exist', () {
@@ -169,7 +148,6 @@ void main() {
       expect(snapshot.memberId, 'member-1');
       expect(snapshot.start, now);
       expect(snapshot.end, isNull);
-      expect(snapshot.coFronterIds, isEmpty);
       expect(snapshot.notes, isNull);
       expect(snapshot.confidenceIndex, isNull);
       expect(snapshot.isDeleted, isFalse);
@@ -191,14 +169,12 @@ void main() {
         memberId: 'member-1',
         start: now,
         end: end,
-        coFronterIds: ['member-2', 'member-3'],
         notes: 'Test notes',
         confidenceIndex: 3,
         isDeleted: false,
       );
 
       expect(snapshot.end, end);
-      expect(snapshot.coFronterIds, ['member-2', 'member-3']);
       expect(snapshot.notes, 'Test notes');
       expect(snapshot.confidenceIndex, 3);
     });
@@ -223,6 +199,19 @@ void main() {
       );
 
       expect(snapshot.isDeleted, isTrue);
+    });
+
+    test('does NOT have coFronterIds field (per-member model)', () {
+      // Verify the field does not exist on the snapshot class.
+      // This test documents the model change from co-fronter to per-member.
+      final snapshot = FrontingSessionSnapshot(
+        id: 'snap-1',
+        memberId: 'member-1',
+        start: now,
+      );
+      // If coFronterIds still existed, this would be a compile error above.
+      // Snapshot should only carry per-member data.
+      expect(snapshot, isA<FrontingSessionSnapshot>());
     });
   });
 }

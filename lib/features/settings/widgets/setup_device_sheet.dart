@@ -10,7 +10,11 @@ import 'package:prism_sync/generated/api.dart' as ffi;
 
 import 'package:prism_plurality/core/constants/app_constants.dart';
 import 'package:prism_plurality/core/crypto/bip39_validate.dart';
+import 'package:prism_plurality/core/database/database_provider.dart';
+import 'package:prism_plurality/core/security/pin_buffer.dart';
+import 'package:prism_plurality/core/security/secret_bytes.dart';
 import 'package:prism_plurality/core/sync/pairing_ceremony_api.dart';
+import 'package:prism_plurality/core/sync/pairing_sas_display.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/core/sync/sync_event_loop.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -37,14 +41,16 @@ class SetupDeviceSheet {
 
     if (!context.mounted) return;
 
-    unawaited(PrismSheet.showFullScreen(
-      context: context,
-      builder: (ctx, sc) => _SetupDeviceSheetContent(
-        handle: handle,
-        relayUrl: relayUrl,
-        scrollController: sc,
+    unawaited(
+      PrismSheet.showFullScreen(
+        context: context,
+        builder: (ctx, sc) => _SetupDeviceSheetContent(
+          handle: handle,
+          relayUrl: relayUrl,
+          scrollController: sc,
+        ),
       ),
-    ));
+    );
   }
 }
 
@@ -86,8 +92,7 @@ class _SetupDeviceSheetContentState
     extends ConsumerState<_SetupDeviceSheetContent> {
   _InitiatorStep _step = _InitiatorStep.enterMnemonic;
   bool _joinerScanned = false;
-  String? _sasWords;
-  String? _sasDecimal;
+  List<String>? _sasWords;
   String? _error;
   MobileScannerController? _joinerScannerController;
 
@@ -107,9 +112,17 @@ class _SetupDeviceSheetContentState
 
   ProviderSubscription<AsyncValue<SyncEvent>>? _uploadEventSubscription;
 
-  // Recovery phrase typed by the user; required because the mnemonic is
-  // never persisted in the keychain. Zeroed on dispose.
+  // Recovery phrase typed by the user; required because the mnemonic is never
+  // persisted in the keychain. Dart Strings cannot be zeroed, so this is kept
+  // only until completeInitiatorCeremony returns, reset, or dispose.
   String? _mnemonic;
+  late final PairingCeremonyApi _pairingApi;
+
+  @override
+  void initState() {
+    super.initState();
+    _pairingApi = ref.read(pairingCeremonyApiProvider);
+  }
 
   MobileScannerController _ensureJoinerScanner() {
     return _joinerScannerController ??= MobileScannerController();
@@ -117,6 +130,9 @@ class _SetupDeviceSheetContentState
 
   @override
   void dispose() {
+    if (_shouldCancelActiveCeremony()) {
+      unawaited(_cancelActiveCeremony());
+    }
     _joinerScannerController?.dispose();
     _uploadEventSubscription?.close();
     _uploadEventSubscription = null;
@@ -125,6 +141,9 @@ class _SetupDeviceSheetContentState
   }
 
   void _reset() {
+    if (_shouldCancelActiveCeremony()) {
+      unawaited(_cancelActiveCeremony());
+    }
     _joinerScannerController?.dispose();
     _joinerScannerController = null;
     _uploadEventSubscription?.close();
@@ -133,7 +152,6 @@ class _SetupDeviceSheetContentState
       _step = _InitiatorStep.enterMnemonic;
       _joinerScanned = false;
       _sasWords = null;
-      _sasDecimal = null;
       _joinerDeviceId = null;
       _uploadBytesSent = null;
       _uploadBytesTotal = null;
@@ -141,6 +159,32 @@ class _SetupDeviceSheetContentState
       _error = null;
       _mnemonic = null;
     });
+  }
+
+  bool _shouldCancelActiveCeremony() {
+    return switch (_step) {
+      _InitiatorStep.scanning ||
+      _InitiatorStep.connecting ||
+      _InitiatorStep.sasVerification ||
+      _InitiatorStep.passwordEntry ||
+      _InitiatorStep.uploading ||
+      _InitiatorStep.completing ||
+      _InitiatorStep.error => true,
+      _InitiatorStep.enterMnemonic ||
+      _InitiatorStep.prompt ||
+      _InitiatorStep.uploadComplete ||
+      _InitiatorStep.done => false,
+    };
+  }
+
+  Future<void> _cancelActiveCeremony() async {
+    try {
+      await _pairingApi
+          .cancelPairingCeremony(handle: widget.handle)
+          .timeout(const Duration(seconds: 5));
+    } catch (e) {
+      debugPrint('[SYNC] Pairing ceremony cancel failed: $e');
+    }
   }
 
   Future<void> _startInitiatorCeremony(Uint8List tokenBytes) async {
@@ -156,21 +200,28 @@ class _SetupDeviceSheetContentState
         tokenBytes: tokenBytes,
       );
       final json = jsonDecode(jsonString) as Map<String, dynamic>;
-      final sasWords = json['sas_words'] as String;
-      final sasDecimal = json['sas_decimal'] as String;
+      final sas = PairingSasDisplay.fromJson(json);
       // Captured for uploadPairingSnapshot(forDeviceId:) in _completeInitiator.
-      // May be absent on older Rust builds; threading it through lets the
-      // joiner DELETE the snapshot once it has applied the bootstrap.
-      final joinerDeviceId = json['joiner_device_id'] as String?;
+      // This must be present so the pair-time snapshot cannot accidentally
+      // become a group-wide pruning snapshot.
+      final rawJoinerDeviceId = json['joiner_device_id'];
+      final joinerDeviceId = rawJoinerDeviceId is String
+          ? rawJoinerDeviceId.trim()
+          : null;
+      if (joinerDeviceId == null || joinerDeviceId.isEmpty) {
+        throw StateError(
+          'Pairing response missing joiner device id; update the app and try again.',
+        );
+      }
 
       if (!mounted) return;
       setState(() {
-        _sasWords = sasWords;
-        _sasDecimal = sasDecimal;
+        _sasWords = sas.words;
         _joinerDeviceId = joinerDeviceId;
         _step = _InitiatorStep.sasVerification;
       });
     } catch (e) {
+      unawaited(_cancelActiveCeremony());
       if (!mounted) return;
       setState(() {
         _error = e.toString();
@@ -253,14 +304,29 @@ class _SetupDeviceSheetContentState
       }
 
       final pairingApi = ref.read(pairingCeremonyApiProvider);
-      await pairingApi.completeInitiatorCeremony(
-        handle: widget.handle,
-        password: pin,
-        mnemonic: mnemonic,
-      );
+      Uint8List? pinBytes;
+      Uint8List? mnemonicBytes;
+      try {
+        pinBytes = secretUtf8Bytes(pin);
+        mnemonicBytes = secretUtf8Bytes(mnemonic);
+        await pairingApi.completeInitiatorCeremony(
+          handle: widget.handle,
+          password: pinBytes,
+          mnemonic: mnemonicBytes,
+        );
+      } finally {
+        zeroBytesBestEffort(pinBytes);
+        zeroBytesBestEffort(mnemonicBytes);
+        _mnemonic = null;
+      }
 
       // Drain store after completion (may mutate epoch / credentials)
       await drainRustStore(widget.handle);
+      try {
+        await cacheRuntimeKeys(widget.handle, ref.read(databaseProvider));
+      } catch (e) {
+        debugPrint('[SYNC] Failed to refresh runtime keys after pairing: $e');
+      }
 
       if (!mounted) return;
       // Brief confirmation so the user sees the upload actually finished
@@ -371,7 +437,6 @@ class _SetupDeviceSheetContentState
       ),
       _InitiatorStep.sasVerification => _SasVerificationView(
         sasWords: _sasWords!,
-        sasDecimal: _sasDecimal!,
         onConfirm: () => setState(() => _step = _InitiatorStep.passwordEntry),
         onReject: _reset,
       ),
@@ -573,7 +638,9 @@ class _JoinerQrScannerView extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         ClipRRect(
-          borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(16)),
+          borderRadius: BorderRadius.circular(
+            PrismShapes.of(context).radius(16),
+          ),
           child: SizedBox(
             height: 280,
             child: MobileScanner(
@@ -617,20 +684,17 @@ class _JoinerQrScannerView extends StatelessWidget {
 class _SasVerificationView extends StatelessWidget {
   const _SasVerificationView({
     required this.sasWords,
-    required this.sasDecimal,
     required this.onConfirm,
     required this.onReject,
   });
 
-  final String sasWords;
-  final String sasDecimal;
+  final List<String> sasWords;
   final VoidCallback onConfirm;
   final VoidCallback onReject;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final words = sasWords.split(' ');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -661,7 +725,9 @@ class _SasVerificationView extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
           decoration: BoxDecoration(
             color: theme.colorScheme.primary.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(16)),
+            borderRadius: BorderRadius.circular(
+              PrismShapes.of(context).radius(16),
+            ),
             border: Border.all(
               color: theme.colorScheme.primary.withValues(alpha: 0.2),
             ),
@@ -672,26 +738,17 @@ class _SasVerificationView extends StatelessWidget {
                 spacing: 12,
                 runSpacing: 8,
                 alignment: WrapAlignment.center,
-                children: words
+                children: sasWords
                     .map(
                       (word) => Text(
                         word,
                         style: theme.textTheme.headlineSmall?.copyWith(
                           fontWeight: FontWeight.w600,
-                          letterSpacing: 0.5,
+                          letterSpacing: 0,
                         ),
                       ),
                     )
                     .toList(),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                sasDecimal,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                  fontFamily: 'monospace',
-                  letterSpacing: 2,
-                ),
               ),
             ],
           ),
@@ -716,10 +773,7 @@ class _SasVerificationView extends StatelessWidget {
 
 /// PIN entry for the initiator after SAS verification.
 class _InitiatorPinView extends StatefulWidget {
-  const _InitiatorPinView({
-    required this.onPinEntered,
-    required this.onBack,
-  });
+  const _InitiatorPinView({required this.onPinEntered, required this.onBack});
 
   final void Function(String pin) onPinEntered;
   final VoidCallback onBack;
@@ -729,20 +783,29 @@ class _InitiatorPinView extends StatefulWidget {
 }
 
 class _InitiatorPinViewState extends State<_InitiatorPinView> {
-  String _pin = '';
   static const _pinLength = 6;
+  late final PinBuffer _pin = PinBuffer(length: _pinLength);
+
+  @override
+  void dispose() {
+    _pin.clear();
+    super.dispose();
+  }
 
   void _onDigit(String digit) {
-    if (_pin.length >= _pinLength) return;
-    setState(() => _pin += digit);
-    if (_pin.length == _pinLength) {
-      widget.onPinEntered(_pin);
+    if (!_pin.appendDigit(digit)) return;
+    if (_pin.isFull) {
+      final pin = _pin.consumeStringAndClear();
+      setState(() {});
+      widget.onPinEntered(pin);
+      return;
     }
+    setState(() {});
   }
 
   void _onBackspace() {
     if (_pin.isEmpty) return;
-    setState(() => _pin = _pin.substring(0, _pin.length - 1));
+    setState(_pin.removeLast);
   }
 
   @override
@@ -899,7 +962,9 @@ class _InitiatorDoneView extends StatelessWidget {
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: Colors.green.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
+            borderRadius: BorderRadius.circular(
+              PrismShapes.of(context).radius(12),
+            ),
           ),
           child: Row(
             children: [
@@ -921,7 +986,9 @@ class _InitiatorDoneView extends StatelessWidget {
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: theme.colorScheme.primary.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
+            borderRadius: BorderRadius.circular(
+              PrismShapes.of(context).radius(12),
+            ),
           ),
           child: Row(
             children: [
@@ -1074,11 +1141,10 @@ class _InitiatorUploadingView extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           ClipRRect(
-            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(8)),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 8,
+            borderRadius: BorderRadius.circular(
+              PrismShapes.of(context).radius(8),
             ),
+            child: LinearProgressIndicator(value: progress, minHeight: 8),
           ),
           const SizedBox(height: 12),
           Text(

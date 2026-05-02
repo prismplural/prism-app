@@ -181,7 +181,8 @@ final _groupedMemberListStructureProvider =
     Provider<List<GroupedMemberListItem>>((ref) {
   final tree = ref.watch(groupTreeProvider);
   final allEntries = ref.watch(allGroupEntriesProvider).value ?? [];
-  final allMembers = ref.watch(allMembersProvider).value ?? [];
+  // Member-management surface: hide the Unknown sentinel from the grouped list.
+  final allMembers = ref.watch(userVisibleAllMembersProvider).value ?? [];
   final showInactive = ref.watch(showInactiveInGroupedListProvider);
 
   final memberById = {for (final m in allMembers) m.id: m};
@@ -365,7 +366,9 @@ final activeGroupFilterProvider =
 
 /// True when at least one active member has no group entry.
 final ungroupedMembersExistProvider = Provider.autoDispose<bool>((ref) {
-  final members = ref.watch(allMembersProvider).value ?? [];
+  // Member-management surface: ignore the Unknown sentinel — it should never
+  // count as an "ungrouped member" needing UI affordance.
+  final members = ref.watch(userVisibleAllMembersProvider).value ?? [];
   final entries = ref.watch(allGroupEntriesProvider).value ?? [];
   final groupedMemberIds = entries.map((e) => e.memberId).toSet();
   return members.any((m) => m.isActive && !groupedMemberIds.contains(m.id));

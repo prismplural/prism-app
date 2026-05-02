@@ -215,8 +215,8 @@ class DriftPollRepository with SyncRecordMixin implements PollRepository {
       'is_anonymous': p.isAnonymous,
       'allows_multiple_votes': p.allowsMultipleVotes,
       'is_closed': p.isClosed,
-      'expires_at': p.expiresAt?.toIso8601String(),
-      'created_at': p.createdAt.toIso8601String(),
+      'expires_at': p.expiresAt?.toUtc().toIso8601String(),
+      'created_at': p.createdAt.toUtc().toIso8601String(),
       'is_deleted': false,
     };
   }
@@ -236,7 +236,7 @@ class DriftPollRepository with SyncRecordMixin implements PollRepository {
     return {
       'poll_option_id': optionId,
       'member_id': v.memberId,
-      'voted_at': v.votedAt.toIso8601String(),
+      'voted_at': v.votedAt.toUtc().toIso8601String(),
       'response_text': v.responseText,
       'is_deleted': false,
     };

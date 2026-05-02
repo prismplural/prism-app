@@ -24,11 +24,28 @@ class Members extends Table {
   // PK `birthday` raw wire string (YYYY-MM-DD). Sentinel `0004-MM-DD` means
   // the year is hidden. Stored as-is, parsed only for display.
   TextColumn get birthday => text().nullable()();
-  // PK `proxy_tags` raw JSON array: `[{"prefix": "...", "suffix": "..."}]`.
-  // Read-only in Prism — no editor UI.
+  // Proxy tags JSON array, PK-compatible:
+  // `[{"prefix": "...", "suffix": "..."}]`.
+  // May be pulled from PluralKit sync or edited locally in Prism.
   TextColumn get proxyTagsJson => text().nullable()();
   // PK `banner` URL. Stored for future banner UI; no bytes download yet.
   TextColumn get pkBannerUrl => text().nullable()();
+  IntColumn get profileHeaderSource =>
+      integer().withDefault(const Constant(1))();
+  IntColumn get profileHeaderLayout =>
+      integer().withDefault(const Constant(0))();
+  BoolColumn get profileHeaderVisible =>
+      boolean().withDefault(const Constant(true))();
+  IntColumn get nameStyleFont => integer().withDefault(const Constant(0))();
+  BoolColumn get nameStyleBold => boolean().withDefault(const Constant(true))();
+  BoolColumn get nameStyleItalic =>
+      boolean().withDefault(const Constant(false))();
+  IntColumn get nameStyleColorMode =>
+      integer().withDefault(const Constant(0))();
+  TextColumn get nameStyleColorHex => text().nullable()();
+  BlobColumn get profileHeaderImageData => blob().nullable()();
+  BlobColumn get pkBannerImageData => blob().nullable()();
+  TextColumn get pkBannerCachedUrl => text().nullable()();
   // Set when the user picked "Skip" or "Don't push" for this member in the
   // mapping flow. Durable — never re-offered until the user clears it.
   BoolColumn get pluralkitSyncIgnored =>
@@ -47,6 +64,18 @@ class Members extends Table {
   // device that takes ownership of pushing the DELETE stamps this; other
   // devices skip while it's fresh (< 10 min) and take over once stale.
   IntColumn get deletePushStartedAt => integer().nullable()();
+
+  // -- Phase 1: per-member fronting refactor (docs/plans/fronting-per-member-sessions.md §2.3) --
+  //
+  // When true, this member's session is treated as "background" and omitted
+  // from avatar stacks.  Surfaced instead in the "Always-present" header on
+  // period detail screens.  Allows the "24/7 host" pattern without the same
+  // face dominating every avatar stack.
+  //
+  // Default: false (opt-in per member via fronting settings).
+  // Synced via existing CRDT path so both peers render identical stacks.
+  BoolColumn get isAlwaysFronting =>
+      boolean().withDefault(const Constant(false))();
 
   @override
   Set<Column> get primaryKey => {id};

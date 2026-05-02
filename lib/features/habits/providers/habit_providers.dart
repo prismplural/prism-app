@@ -273,14 +273,21 @@ class HabitNotifier extends AsyncNotifier<void> {
           ? currentStreak
           : habit.bestStreak;
 
-      await repo.updateHabit(
-        habit.copyWith(
-          totalCompletions: habit.totalCompletions + 1,
-          currentStreak: currentStreak,
-          bestStreak: bestStreak,
-          modifiedAt: now,
-        ),
+      final updated = habit.copyWith(
+        totalCompletions: habit.totalCompletions + 1,
+        currentStreak: currentStreak,
+        bestStreak: bestStreak,
+        modifiedAt: now,
       );
+      await repo.updateHabit(updated);
+
+      // Suppress this period's reminder — fires before the listener's 500ms
+      // debounce so a same-day notification scheduled minutes from now
+      // doesn't slip through. Also clears any already-shown notification
+      // from notification center on iOS/Android (FLN.cancel removes
+      // delivered as well as pending).
+      final notifService = ref.read(habitNotificationServiceProvider);
+      await notifService.scheduleForHabit(updated, skipCurrentPeriod: true);
     });
   }
 
@@ -455,8 +462,11 @@ final habitNotifierProvider = AsyncNotifierProvider<HabitNotifier, void>(
   HabitNotifier.new,
 );
 
-/// Watches all active habits and reschedules notifications on any change,
-/// including sync-driven updates from other devices. Mirrors the
+/// Watches all active habits + completions and reschedules notifications
+/// on any change, including sync-driven updates from other devices. Each
+/// reschedule respects per-habit current-period completion state so a
+/// reminder doesn't fire for a habit that's already done for today (or
+/// the current weekly/interval window). Mirrors the
 /// [reminderSchedulerListenerProvider] pattern with a 500ms debounce to
 /// batch rapid consecutive changes (e.g., bulk sync).
 final habitNotificationListenerProvider = Provider<void>((ref) {
@@ -464,19 +474,31 @@ final habitNotificationListenerProvider = Provider<void>((ref) {
   Timer? debounceTimer;
   ref.onDispose(() => debounceTimer?.cancel());
 
-  ref.listen(
-    habitsProvider,
-    (previous, next) {
-      final habits = next.value;
-      if (habits != null) {
-        debounceTimer?.cancel();
-        debounceTimer = Timer(const Duration(milliseconds: 500), () {
-          service.rescheduleAll(habits).catchError((e) {
+  void scheduleReschedule() {
+    debounceTimer?.cancel();
+    debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      final habits = ref.read(habitsProvider).value;
+      if (habits == null) return;
+      final todayCompletions = ref.read(todayCompletionsProvider).value ?? const [];
+      final allCompletions = ref.read(allCompletionsProvider).value ?? const [];
+      final now = DateTime.now();
+      service
+          .rescheduleAll(
+            habits,
+            skipCurrentPeriodFor: (habit) => isHabitCompletedForCurrentPeriod(
+              habit: habit,
+              todayCompletions: todayCompletions,
+              allCompletions: allCompletions,
+              now: now,
+            ),
+          )
+          .catchError((e) {
             debugPrint('Habit notification reschedule failed (non-fatal): $e');
           });
-        });
-      }
-    },
-    fireImmediately: true,
-  );
+    });
+  }
+
+  ref.listen(habitsProvider, (_, _) => scheduleReschedule(), fireImmediately: true);
+  ref.listen(todayCompletionsProvider, (_, _) => scheduleReschedule());
+  ref.listen(allCompletionsProvider, (_, _) => scheduleReschedule());
 });

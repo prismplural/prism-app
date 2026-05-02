@@ -1142,6 +1142,30 @@ abstract class AppLocalizations {
   /// **'Enable PIN Lock to use biometric unlock'**
   String get pinLockBiometricDisabledSubtitle;
 
+  /// Unlock options section title in PIN lock settings
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock Options'**
+  String get pinLockUnlockOptionsSection;
+
+  /// Title for optional hard sync lock toggle
+  ///
+  /// In en, this message translates to:
+  /// **'Require recovery for sync'**
+  String get pinLockHardSyncLockTitle;
+
+  /// Subtitle for optional hard sync lock toggle when PIN lock is set
+  ///
+  /// In en, this message translates to:
+  /// **'When the app locks, forget the sync quick-unlock key. Background sync pauses until you enter your PIN and recovery phrase.'**
+  String get pinLockHardSyncLockSubtitle;
+
+  /// Subtitle for optional hard sync lock toggle when PIN lock is not set
+  ///
+  /// In en, this message translates to:
+  /// **'Enable PIN Lock to require recovery after app lock.'**
+  String get pinLockHardSyncLockDisabledSubtitle;
+
   /// Auto-lock section title
   ///
   /// In en, this message translates to:
@@ -1415,8 +1439,8 @@ abstract class AppLocalizations {
   /// Confirmation message when resetting all data
   ///
   /// In en, this message translates to:
-  /// **'This will permanently delete all your data including members, fronting sessions, messages, polls, habits, sleep data, and settings. This action cannot be undone.'**
-  String get resetDataConfirmAll;
+  /// **'This will permanently delete all your data including {termPluralLower}, fronting sessions, messages, polls, habits, sleep data, and settings. This action cannot be undone.'**
+  String resetDataConfirmAll(String termPluralLower);
 
   /// Confirmation message when resetting sync
   ///
@@ -1706,11 +1730,41 @@ abstract class AppLocalizations {
   /// **'Longest'**
   String get statisticsDurationLongest;
 
-  /// Title for the member comparison chart
+  /// Title for the per-member ranking chart. {term}-minutes (e.g., 'member-minutes', 'headmate-minutes'): when two co-front for an hour, that's two {term}-hours — same math as wall-clock-per-fronter, more honest framing. Mirrors the existing 'Per-{term} Colors' convention in appearance settings.
   ///
   /// In en, this message translates to:
-  /// **'Fronting Time by Member'**
-  String get statisticsFrontingTimeByMember;
+  /// **'Per-{term} minutes'**
+  String statisticsFrontingTimeByMember(String term);
+
+  /// Subtitle / accessibility hint clarifying that percentages are share of total {term}-minutes, not wall-clock fronting time.
+  ///
+  /// In en, this message translates to:
+  /// **'% of system {term}-minutes'**
+  String statisticsMemberMinutesAxisHint(String term);
+
+  /// Statistics overview stat label: median session duration
+  ///
+  /// In en, this message translates to:
+  /// **'Median Session'**
+  String get statisticsMedianSessionLabel;
+
+  /// Statistics overview stat label: total gap time between fronting sessions
+  ///
+  /// In en, this message translates to:
+  /// **'Gap Time'**
+  String get statisticsGapTimeLabel;
+
+  /// Statistics overview stat label: average number of fronting switches per day
+  ///
+  /// In en, this message translates to:
+  /// **'Switches/Day'**
+  String get statisticsSwitchesPerDayLabel;
+
+  /// Statistics overview stat label: count of unique fronters in the period. Uses the user's terminology for members.
+  ///
+  /// In en, this message translates to:
+  /// **'Unique {termPlural}'**
+  String statisticsUniqueFrontersLabel(String termPlural);
 
   /// Active/inactive member count breakdown in statistics
   ///
@@ -1898,18 +1952,6 @@ abstract class AppLocalizations {
   /// **'Tools'**
   String get debugTools;
 
-  /// Debug tools: timeline sanitization title
-  ///
-  /// In en, this message translates to:
-  /// **'Timeline Sanitization'**
-  String get debugTimelineSanitization;
-
-  /// Debug tools: timeline sanitization subtitle
-  ///
-  /// In en, this message translates to:
-  /// **'Scan for and fix timeline issues'**
-  String get debugTimelineSanitizationSubtitle;
-
   /// Debug: Device section title
   ///
   /// In en, this message translates to:
@@ -1961,8 +2003,8 @@ abstract class AppLocalizations {
   /// Second confirmation message for DB reset
   ///
   /// In en, this message translates to:
-  /// **'This will permanently erase all members, sessions, conversations, messages, and polls. There is no undo.'**
-  String get debugResetDatabaseConfirm2Message;
+  /// **'This will permanently erase all {termPluralLower}, sessions, conversations, messages, and polls. There is no undo.'**
+  String debugResetDatabaseConfirm2Message(String termPluralLower);
 
   /// Second confirmation: delete everything button
   ///
@@ -2093,8 +2135,8 @@ abstract class AppLocalizations {
   /// Semantic label for the member avatar change button
   ///
   /// In en, this message translates to:
-  /// **'Change member avatar'**
-  String get memberChangeAvatar;
+  /// **'Change {termSingularLower} avatar'**
+  String memberChangeAvatar(String termSingularLower);
 
   /// Title for the native avatar cropper
   ///
@@ -2113,6 +2155,198 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Remove photo'**
   String get memberRemoveAvatar;
+
+  /// Section title for member profile header settings
+  ///
+  /// In en, this message translates to:
+  /// **'Profile header'**
+  String get memberProfileHeaderSectionTitle;
+
+  /// Short description for member profile header settings
+  ///
+  /// In en, this message translates to:
+  /// **'Choose the image source and layout for this profile.'**
+  String get memberProfileHeaderSectionDescription;
+
+  /// Toggle label controlling whether a member profile header banner is visible
+  ///
+  /// In en, this message translates to:
+  /// **'Show profile header'**
+  String get memberProfileHeaderVisibleTitle;
+
+  /// Helper text for the member profile header visibility toggle
+  ///
+  /// In en, this message translates to:
+  /// **'Keeps the image and source saved while hiding the banner.'**
+  String get memberProfileHeaderVisibleSubtitle;
+
+  /// Profile header source option label for PluralKit
+  ///
+  /// In en, this message translates to:
+  /// **'PluralKit'**
+  String get memberProfileHeaderSourcePluralKit;
+
+  /// Profile header source option label for Prism
+  ///
+  /// In en, this message translates to:
+  /// **'Prism'**
+  String get memberProfileHeaderSourcePrism;
+
+  /// Helper text shown when the PluralKit profile header source is selected
+  ///
+  /// In en, this message translates to:
+  /// **'Refreshed from PluralKit when Prism syncs.'**
+  String get memberProfileHeaderSourcePluralKitHelper;
+
+  /// Helper text shown when the Prism profile header source is selected
+  ///
+  /// In en, this message translates to:
+  /// **'Private to Prism. Does not update PluralKit.'**
+  String get memberProfileHeaderSourcePrismHelper;
+
+  /// Explanation shown when PluralKit cannot be selected as a profile header source
+  ///
+  /// In en, this message translates to:
+  /// **'PluralKit appears after this member has a linked or cached banner.'**
+  String get memberProfileHeaderPluralKitUnavailable;
+
+  /// Button label to choose a Prism-owned profile header image
+  ///
+  /// In en, this message translates to:
+  /// **'Change image'**
+  String get memberProfileHeaderChangeImage;
+
+  /// Button label to remove a Prism-owned profile header image
+  ///
+  /// In en, this message translates to:
+  /// **'Remove image'**
+  String get memberProfileHeaderRemoveImage;
+
+  /// Label for the member profile header layout selector
+  ///
+  /// In en, this message translates to:
+  /// **'Layout'**
+  String get memberProfileHeaderLayoutLabel;
+
+  /// Profile header layout option that preserves the compact member row
+  ///
+  /// In en, this message translates to:
+  /// **'Compact'**
+  String get memberProfileHeaderLayoutCompact;
+
+  /// Profile header layout option with a wide banner and overlapping avatar
+  ///
+  /// In en, this message translates to:
+  /// **'Classic'**
+  String get memberProfileHeaderLayoutClassic;
+
+  /// Title for the native profile header cropper
+  ///
+  /// In en, this message translates to:
+  /// **'Crop profile header'**
+  String get memberProfileHeaderCropTitle;
+
+  /// Toast message shown when profile header image processing fails
+  ///
+  /// In en, this message translates to:
+  /// **'Could not process that image.'**
+  String get memberProfileHeaderProcessingError;
+
+  /// Tooltip for the button that opens member name style controls
+  ///
+  /// In en, this message translates to:
+  /// **'Edit name style'**
+  String get memberNameStyleTooltip;
+
+  /// Title of the member name style dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Name style'**
+  String get memberNameStyleDialogTitle;
+
+  /// Label for the member name font selector
+  ///
+  /// In en, this message translates to:
+  /// **'Font'**
+  String get memberNameStyleFontLabel;
+
+  /// Default member name font option
+  ///
+  /// In en, this message translates to:
+  /// **'Default'**
+  String get memberNameStyleFontDefault;
+
+  /// Display member name font option
+  ///
+  /// In en, this message translates to:
+  /// **'Display'**
+  String get memberNameStyleFontDisplay;
+
+  /// Serif member name font option
+  ///
+  /// In en, this message translates to:
+  /// **'Serif'**
+  String get memberNameStyleFontSerif;
+
+  /// Monospace member name font option
+  ///
+  /// In en, this message translates to:
+  /// **'Mono'**
+  String get memberNameStyleFontMono;
+
+  /// Rounded member name font option
+  ///
+  /// In en, this message translates to:
+  /// **'Rounded'**
+  String get memberNameStyleFontRounded;
+
+  /// Label for member name bold and italic toggles
+  ///
+  /// In en, this message translates to:
+  /// **'Style'**
+  String get memberNameStyleStyleLabel;
+
+  /// Bold toggle label for member name style
+  ///
+  /// In en, this message translates to:
+  /// **'Bold'**
+  String get memberNameStyleBold;
+
+  /// Italic toggle label for member name style
+  ///
+  /// In en, this message translates to:
+  /// **'Italic'**
+  String get memberNameStyleItalic;
+
+  /// Label for the member name color selector
+  ///
+  /// In en, this message translates to:
+  /// **'Color'**
+  String get memberNameStyleColorLabel;
+
+  /// Default member name color option
+  ///
+  /// In en, this message translates to:
+  /// **'Default'**
+  String get memberNameStyleColorDefault;
+
+  /// Member accent color option for member name style
+  ///
+  /// In en, this message translates to:
+  /// **'Accent'**
+  String get memberNameStyleColorAccent;
+
+  /// Custom color option for member name style
+  ///
+  /// In en, this message translates to:
+  /// **'Custom'**
+  String get memberNameStyleColorCustom;
+
+  /// Button label to reset member name style to defaults
+  ///
+  /// In en, this message translates to:
+  /// **'Reset'**
+  String get memberNameStyleReset;
 
   /// System name field label
   ///
@@ -2714,17 +2948,17 @@ abstract class AppLocalizations {
   /// **'Changing who\'s speaking in chat also logs a front'**
   String get featureChatLogFrontSubtitle;
 
-  /// Toggle title: use PluralKit proxy tags to author single messages
+  /// Toggle title: use proxy tags to author single messages
   ///
   /// In en, this message translates to:
   /// **'Use proxy tags to author messages'**
   String get featureChatProxyTagAuthoring;
 
-  /// Toggle subtitle: explains proxy-tag authoring, mentions PluralKit and case sensitivity
+  /// Toggle subtitle: explains proxy-tag authoring and case sensitivity
   ///
   /// In en, this message translates to:
-  /// **'Type a PluralKit proxy tag (e.g. A:) to author as that alter for one message. Case-sensitive.'**
-  String get featureChatProxyTagAuthoringSubtitle;
+  /// **'Type a proxy tag (e.g. A:) to author as that {termSingularLower} for one message. Case-sensitive.'**
+  String featureChatProxyTagAuthoringSubtitle(String termSingularLower);
 
   /// Chip label shown above the chat composer when a proxy tag matches the draft
   ///
@@ -2861,8 +3095,8 @@ abstract class AppLocalizations {
   /// Subtitle for the show/hide Quick Front toggle
   ///
   /// In en, this message translates to:
-  /// **'Show frequently fronting members as tap-and-hold shortcuts'**
-  String get featureFrontingShowQuickFrontSubtitle;
+  /// **'Show frequently fronting {termPluralLower} as tap-and-hold shortcuts'**
+  String featureFrontingShowQuickFrontSubtitle(String termPluralLower);
 
   /// Description text on habits feature settings screen
   ///
@@ -3098,23 +3332,35 @@ abstract class AppLocalizations {
   /// **'Loading older sessions'**
   String get frontingLoadingOlderSessions;
 
-  /// Info banner title when timeline validation issues are detected
+  /// Subtitle on the pinned 'always-present' header at the top of the home screen. The duration placeholder is a pre-formatted localized string like '2 weeks' or '3 hours'.
   ///
   /// In en, this message translates to:
-  /// **'Timeline issues found'**
-  String get frontingTimelineIssuesFound;
+  /// **'Always present · {duration}'**
+  String frontingAlwaysPresentLabel(String duration);
 
-  /// Info banner message showing timeline issue count
+  /// Single combined screen-reader announcement for the always-present pinned header. Names is a comma+ampersand-joined member list; duration is the same pre-formatted string used in the visible subtitle.
   ///
   /// In en, this message translates to:
-  /// **'{count, plural, =1{1 timeline issue found. Tap to review.} other{{count} timeline issues found. Tap to review.}}'**
-  String frontingTimelineIssuesBannerMessage(int count);
+  /// **'Always-present fronters: {names}, {duration}'**
+  String frontingAlwaysPresentSemantics(String names, String duration);
 
-  /// Button label in timeline issues banner
+  /// Duration formatted in whole weeks for the always-present header.
   ///
   /// In en, this message translates to:
-  /// **'Review'**
-  String get frontingTimelineIssuesReview;
+  /// **'{weeks, plural, =1{1 week} other{{weeks} weeks}}'**
+  String frontingAlwaysPresentDurationWeeks(int weeks);
+
+  /// Duration formatted in whole days for the always-present header (used when under one week).
+  ///
+  /// In en, this message translates to:
+  /// **'{days, plural, =1{1 day} other{{days} days}}'**
+  String frontingAlwaysPresentDurationDays(int days);
+
+  /// Duration formatted in whole hours for the always-present header (used when under one day, only reachable for explicit-always-fronting members whose session just started).
+  ///
+  /// In en, this message translates to:
+  /// **'{hours, plural, =1{1 hour} other{{hours} hours}}'**
+  String frontingAlwaysPresentDurationHours(int hours);
 
   /// Menu item to wake up and start fronting as a specific member
   ///
@@ -3271,6 +3517,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Select Fronter'**
   String get frontingSelectFronter;
+
+  /// Add-front sheet segmented control: additive mode (joins existing fronts)
+  ///
+  /// In en, this message translates to:
+  /// **'Add as co-fronter'**
+  String get frontingAddFrontModeAdditive;
+
+  /// Add-front sheet segmented control: replace mode (ends existing fronts, starts new)
+  ///
+  /// In en, this message translates to:
+  /// **'Replace current'**
+  String get frontingAddFrontModeReplace;
 
   /// Section header when selecting a member in co-front mode
   ///
@@ -3463,6 +3721,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Error saving session: {error}'**
   String frontingErrorSavingSession(Object error);
+
+  /// Floating button label on active session detail to end the session
+  ///
+  /// In en, this message translates to:
+  /// **'End session'**
+  String get frontingEndSessionButton;
+
+  /// Toast confirming a fronting session was ended
+  ///
+  /// In en, this message translates to:
+  /// **'Ended {member}\'s session'**
+  String frontingEndSessionEndedToast(String member);
+
+  /// Title of dialog shown when ending the only active session
+  ///
+  /// In en, this message translates to:
+  /// **'Who\'s fronting next?'**
+  String get frontingNextFronterTitle;
+
+  /// Body of next-fronter dialog
+  ///
+  /// In en, this message translates to:
+  /// **'No one will be fronting after this.'**
+  String get frontingNextFronterBody;
+
+  /// Dialog action: open the new-front sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a fronter'**
+  String get frontingNextFronterPick;
+
+  /// Dialog action: start an Unknown sentinel front
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown'**
+  String get frontingNextFronterUnknown;
+
+  /// Dialog action: end the session, leave no one fronting
+  ///
+  /// In en, this message translates to:
+  /// **'End without fronting'**
+  String get frontingNextFronterEnd;
 
   /// Tooltip on edit button in session detail screen
   ///
@@ -3782,192 +4082,6 @@ abstract class AppLocalizations {
   /// **'Start a fronting session to see it appear on the timeline.'**
   String get frontingTimelineNoHistorySubtitle;
 
-  /// Screen title for the timeline sanitization screen
-  ///
-  /// In en, this message translates to:
-  /// **'Timeline Sanitization'**
-  String get frontingSanitizationTitle;
-
-  /// Text shown while the sanitization scan is running
-  ///
-  /// In en, this message translates to:
-  /// **'Scanning timeline…'**
-  String get frontingSanitizationScanning;
-
-  /// Title on the initial state of sanitization screen
-  ///
-  /// In en, this message translates to:
-  /// **'Timeline Sanitization'**
-  String get frontingSanitizationIntroTitle;
-
-  /// Description on the initial state of sanitization screen
-  ///
-  /// In en, this message translates to:
-  /// **'Scan your fronting history for overlapping, duplicate, or invalid sessions, then apply automatic fixes.'**
-  String get frontingSanitizationIntroBody;
-
-  /// Button to start a sanitization scan
-  ///
-  /// In en, this message translates to:
-  /// **'Scan Timeline'**
-  String get frontingSanitizationScanButton;
-
-  /// Empty state title when no issues are found
-  ///
-  /// In en, this message translates to:
-  /// **'Timeline looks clean!'**
-  String get frontingSanitizationCleanTitle;
-
-  /// Empty state subtitle when no issues are found
-  ///
-  /// In en, this message translates to:
-  /// **'No overlaps, duplicates, or invalid sessions found.'**
-  String get frontingSanitizationCleanSubtitle;
-
-  /// Button to run a new scan after viewing results
-  ///
-  /// In en, this message translates to:
-  /// **'Scan Again'**
-  String get frontingSanitizationScanAgain;
-
-  /// Summary banner showing total issues found
-  ///
-  /// In en, this message translates to:
-  /// **'{count, plural, =1{Found 1 issue in your timeline.} other{Found {count} issues in your timeline.}}'**
-  String frontingSanitizationIssuesFound(int count);
-
-  /// Banner showing number of fixes applied
-  ///
-  /// In en, this message translates to:
-  /// **'{count, plural, =1{1 fix applied successfully.} other{{count} fixes applied successfully.}}'**
-  String frontingSanitizationFixesApplied(int count);
-
-  /// Error toast when a scan fails
-  ///
-  /// In en, this message translates to:
-  /// **'Scan failed: {error}'**
-  String frontingSanitizationScanFailed(Object error);
-
-  /// Error toast when applying a fix fails
-  ///
-  /// In en, this message translates to:
-  /// **'Fix failed: {error}'**
-  String frontingSanitizationFixFailed(Object error);
-
-  /// Error toast when fix options cannot be loaded
-  ///
-  /// In en, this message translates to:
-  /// **'Could not load fix options: {error}'**
-  String frontingSanitizationLoadFixFailed(Object error);
-
-  /// Sheet title for fix options
-  ///
-  /// In en, this message translates to:
-  /// **'Fix Options'**
-  String get frontingSanitizationFixOptionsTitle;
-
-  /// Message shown when no automated fix plans are available
-  ///
-  /// In en, this message translates to:
-  /// **'No automated fixes available for this issue.\nPlease review and resolve it manually.'**
-  String get frontingSanitizationNoAutoFix;
-
-  /// Button label to show fix preview
-  ///
-  /// In en, this message translates to:
-  /// **'Preview'**
-  String get frontingSanitizationPreview;
-
-  /// Button label to hide fix preview
-  ///
-  /// In en, this message translates to:
-  /// **'Hide Preview'**
-  String get frontingSanitizationHidePreview;
-
-  /// Button label to apply a fix plan
-  ///
-  /// In en, this message translates to:
-  /// **'Apply'**
-  String get frontingSanitizationApply;
-
-  /// Issue type chip label: overlap
-  ///
-  /// In en, this message translates to:
-  /// **'Overlap'**
-  String get frontingIssueTypeOverlap;
-
-  /// Issue type chip label: gap
-  ///
-  /// In en, this message translates to:
-  /// **'Gap'**
-  String get frontingIssueTypeGap;
-
-  /// Issue type chip label: duplicate
-  ///
-  /// In en, this message translates to:
-  /// **'Duplicate'**
-  String get frontingIssueTypeDuplicate;
-
-  /// Issue type chip label: mergeable adjacent
-  ///
-  /// In en, this message translates to:
-  /// **'Mergeable'**
-  String get frontingIssueTypeMergeable;
-
-  /// Issue type chip label: invalid range
-  ///
-  /// In en, this message translates to:
-  /// **'Invalid Range'**
-  String get frontingIssueTypeInvalidRange;
-
-  /// Issue type chip label: future session
-  ///
-  /// In en, this message translates to:
-  /// **'Future Session'**
-  String get frontingIssueTypeFutureSession;
-
-  /// Section header for overlapping issues in sanitization results
-  ///
-  /// In en, this message translates to:
-  /// **'Overlapping Sessions'**
-  String get frontingIssueSectionOverlap;
-
-  /// Section header for gap issues in sanitization results
-  ///
-  /// In en, this message translates to:
-  /// **'Gaps'**
-  String get frontingIssueSectionGap;
-
-  /// Section header for duplicate issues in sanitization results
-  ///
-  /// In en, this message translates to:
-  /// **'Duplicates'**
-  String get frontingIssueSectionDuplicate;
-
-  /// Section header for mergeable adjacent issues in sanitization results
-  ///
-  /// In en, this message translates to:
-  /// **'Mergeable Adjacent'**
-  String get frontingIssueSectionMergeable;
-
-  /// Section header for invalid range issues in sanitization results
-  ///
-  /// In en, this message translates to:
-  /// **'Invalid Ranges'**
-  String get frontingIssueSectionInvalidRange;
-
-  /// Section header for future session issues in sanitization results
-  ///
-  /// In en, this message translates to:
-  /// **'Future Sessions'**
-  String get frontingIssueSectionFutureSession;
-
-  /// Session count shown on a validation issue tile
-  ///
-  /// In en, this message translates to:
-  /// **'{count, plural, =1{1 session} other{{count} sessions}}'**
-  String frontingIssueSessionCount(int count);
-
   /// Dialog title when choosing a delete strategy for a session
   ///
   /// In en, this message translates to:
@@ -4124,13 +4238,13 @@ abstract class AppLocalizations {
   /// **'Notes'**
   String get memberSectionNotes;
 
-  /// Section header shown above member bio/notes field on detail screen
+  /// Section header shown above member bio/about field on detail screen
   ///
   /// In en, this message translates to:
-  /// **'Notes'**
+  /// **'Bio'**
   String get memberSectionBio;
 
-  /// Section header for PluralKit proxy tags on member detail screen
+  /// Section header for proxy tags on member surfaces
   ///
   /// In en, this message translates to:
   /// **'Proxy Tags'**
@@ -4148,7 +4262,55 @@ abstract class AppLocalizations {
   /// **'Edit on PluralKit'**
   String get memberProxyTagsEditOnPk;
 
-  /// Shown when a PK-linked member has no proxy tags
+  /// Help text for local proxy tag editing on the member edit sheet and detail screen
+  ///
+  /// In en, this message translates to:
+  /// **'Saved in Prism for chat proxy-tag authoring. Linked members sync with PluralKit when push sync is enabled.'**
+  String get memberProxyTagsLocalDescription;
+
+  /// Button label that opens Prism's local member editor for proxy tags
+  ///
+  /// In en, this message translates to:
+  /// **'Edit proxy tags'**
+  String get memberProxyTagsEditInPrism;
+
+  /// Button label for adding a proxy tag row
+  ///
+  /// In en, this message translates to:
+  /// **'Add proxy tag'**
+  String get memberProxyTagsAdd;
+
+  /// Tooltip and semantic label for removing a proxy tag row
+  ///
+  /// In en, this message translates to:
+  /// **'Remove proxy tag'**
+  String get memberProxyTagsRemove;
+
+  /// Text field label for the proxy tag prefix
+  ///
+  /// In en, this message translates to:
+  /// **'Prefix'**
+  String get memberProxyTagPrefixLabel;
+
+  /// Example proxy tag prefix hint
+  ///
+  /// In en, this message translates to:
+  /// **'A:'**
+  String get memberProxyTagPrefixHint;
+
+  /// Text field label for the proxy tag suffix
+  ///
+  /// In en, this message translates to:
+  /// **'Suffix'**
+  String get memberProxyTagSuffixLabel;
+
+  /// Example proxy tag suffix hint
+  ///
+  /// In en, this message translates to:
+  /// **'-a'**
+  String get memberProxyTagSuffixHint;
+
+  /// Shown when a member has no proxy tags
   ///
   /// In en, this message translates to:
   /// **'No proxy tags set.'**
@@ -4157,8 +4319,8 @@ abstract class AppLocalizations {
   /// Tooltip for edit member button
   ///
   /// In en, this message translates to:
-  /// **'Edit member'**
-  String get memberEditTooltip;
+  /// **'Edit {termSingularLower}'**
+  String memberEditTooltip(String termSingularLower);
 
   /// Tooltip for more options menu on member detail screen
   ///
@@ -4493,8 +4655,8 @@ abstract class AppLocalizations {
   /// Sheet title for headmate selection in note sheet
   ///
   /// In en, this message translates to:
-  /// **'Choose Headmate'**
-  String get memberNoteChooseHeadmate;
+  /// **'Choose {termSingular}'**
+  String memberNoteChooseHeadmate(String termSingular);
 
   /// Semantics label for the note date chip
   ///
@@ -4505,8 +4667,8 @@ abstract class AppLocalizations {
   /// Semantics label for the selected headmate chip in note sheet
   ///
   /// In en, this message translates to:
-  /// **'Headmate: {name}. Tap to change'**
-  String memberNoteMemberSemantics(String name);
+  /// **'{termSingular}: {name}. Tap to change'**
+  String memberNoteMemberSemantics(String termSingular, String name);
 
   /// Semantics label for the note sheet headmate picker when nothing is selected
   ///
@@ -4553,8 +4715,8 @@ abstract class AppLocalizations {
   /// Section header for members inside a group detail screen
   ///
   /// In en, this message translates to:
-  /// **'Members'**
-  String get memberGroupSectionMembers;
+  /// **'{termPlural}'**
+  String memberGroupSectionMembers(String termPlural);
 
   /// Button label to start a chat with all members in a group
   ///
@@ -4565,8 +4727,8 @@ abstract class AppLocalizations {
   /// Button label to add a member to a group
   ///
   /// In en, this message translates to:
-  /// **'Add member'**
-  String get memberGroupAddMember;
+  /// **'Add {termSingularLower}'**
+  String memberGroupAddMember(String termSingularLower);
 
   /// Button label to create a new sub-group inside an existing group
   ///
@@ -4595,8 +4757,8 @@ abstract class AppLocalizations {
   /// Confirmation dialog message when deleting a group
   ///
   /// In en, this message translates to:
-  /// **'Are you sure you want to delete \"{name}\"? Members will not be deleted.'**
-  String memberGroupDeleteMessage(String name);
+  /// **'Are you sure you want to delete \"{name}\"? {termPlural} will not be deleted.'**
+  String memberGroupDeleteMessage(String name, String termPlural);
 
   /// Confirm button for group deletion dialog
   ///
@@ -4643,8 +4805,8 @@ abstract class AppLocalizations {
   /// Confirmation dialog message for recursive group delete
   ///
   /// In en, this message translates to:
-  /// **'This will permanently delete \"{name}\" and all its sub-groups. Members will not be deleted.'**
-  String memberGroupDeleteAllConfirmMessage(String name);
+  /// **'This will permanently delete \"{name}\" and all its sub-groups. {termPlural} will not be deleted.'**
+  String memberGroupDeleteAllConfirmMessage(String name, String termPlural);
 
   /// Toast shown after sub-groups are promoted to root
   ///
@@ -4739,14 +4901,17 @@ abstract class AppLocalizations {
   /// Toast shown when all group members are already fronting
   ///
   /// In en, this message translates to:
-  /// **'All members are already fronting'**
-  String get memberGroupFrontAllAlreadyFronting;
+  /// **'All {termPluralLower} are already fronting'**
+  String memberGroupFrontAllAlreadyFronting(
+    String termPluralLower,
+    Object termPlural,
+  );
 
   /// No description provided for @memberGroupFrontAllInactive.
   ///
   /// In en, this message translates to:
-  /// **'All members in {name} are inactive. Front anyway?'**
-  String memberGroupFrontAllInactive(String name);
+  /// **'All {termPluralLower} in {name} are inactive. Front anyway?'**
+  String memberGroupFrontAllInactive(String name, String termPluralLower);
 
   /// Button label to front all members in a group
   ///
@@ -4763,20 +4928,24 @@ abstract class AppLocalizations {
   /// Confirmation dialog body when fronting multiple members in a group
   ///
   /// In en, this message translates to:
-  /// **'This will start a co-front session with all {count} members.'**
-  String memberGroupFrontGroupConfirmMessage(int count);
+  /// **'This will start a co-front session with {count} {termForCount}.'**
+  String memberGroupFrontGroupConfirmMessage(int count, String termForCount);
 
   /// No description provided for @memberGroupFrontGroupSemantics.
   ///
   /// In en, this message translates to:
-  /// **'Front all members in {name}'**
-  String memberGroupFrontGroupSemantics(String name);
+  /// **'Front all {termPluralLower} in {name}'**
+  String memberGroupFrontGroupSemantics(String name, String termPluralLower);
 
   /// No description provided for @memberGroupFrontSomeAlreadyFronting.
   ///
   /// In en, this message translates to:
-  /// **'{count} members already fronting. Add the remaining {remaining}?'**
-  String memberGroupFrontSomeAlreadyFronting(int count, int remaining);
+  /// **'{count} {termForCount} already fronting. Add the remaining {remaining}?'**
+  String memberGroupFrontSomeAlreadyFronting(
+    int count,
+    String termForCount,
+    int remaining,
+  );
 
   /// Empty state message on the manage groups screen
   ///
@@ -4931,8 +5100,8 @@ abstract class AppLocalizations {
   /// Switch subtitle: custom color
   ///
   /// In en, this message translates to:
-  /// **'Use a personal color for this member'**
-  String get memberCustomColorSubtitle;
+  /// **'Use a personal color for this {termSingularLower}'**
+  String memberCustomColorSubtitle(String termSingularLower);
 
   /// Label for the member color hex text field
   ///
@@ -4961,14 +5130,14 @@ abstract class AppLocalizations {
   /// Tooltip and semantics label for confirming selected members in the member search sheet
   ///
   /// In en, this message translates to:
-  /// **'Confirm selected members'**
-  String get memberSearchConfirmSelectionTooltip;
+  /// **'Confirm selected {termPluralLower}'**
+  String memberSearchConfirmSelectionTooltip(String termPluralLower);
 
   /// Tooltip and semantics label for saving a member from the add/edit member sheet
   ///
   /// In en, this message translates to:
-  /// **'Save member'**
-  String get memberSaveTooltip;
+  /// **'Save {termSingularLower}'**
+  String memberSaveTooltip(String termSingularLower);
 
   /// Bulk action button: activate selected members
   ///
@@ -5231,8 +5400,8 @@ abstract class AppLocalizations {
   /// Semantics label for the speaking-as button when no member is selected
   ///
   /// In en, this message translates to:
-  /// **'Choose speaking member'**
-  String get chatChooseSpeakingMember;
+  /// **'Choose speaking {termSingularLower}'**
+  String chatChooseSpeakingMember(String termSingularLower);
 
   /// Tooltip/semantics for dismiss reply banner button
   ///
@@ -5363,8 +5532,8 @@ abstract class AppLocalizations {
   /// Tooltip for add members button in conversation info
   ///
   /// In en, this message translates to:
-  /// **'Add members'**
-  String get chatInfoAddMembers;
+  /// **'Add {termPluralLower}'**
+  String chatInfoAddMembers(String termPluralLower);
 
   /// Role chip label for conversation owner
   ///
@@ -5381,14 +5550,14 @@ abstract class AppLocalizations {
   /// Placeholder name for a member that could not be loaded
   ///
   /// In en, this message translates to:
-  /// **'Unknown Member'**
-  String get chatInfoUnknownMember;
+  /// **'Unknown {termSingular}'**
+  String chatInfoUnknownMember(String termSingular);
 
   /// Error text when a participant member fails to load
   ///
   /// In en, this message translates to:
-  /// **'Error loading member'**
-  String get chatInfoErrorLoadingMember;
+  /// **'Error loading {termSingularLower}'**
+  String chatInfoErrorLoadingMember(String termSingularLower);
 
   /// Label for the category picker row in conversation info
   ///
@@ -5501,20 +5670,20 @@ abstract class AppLocalizations {
   /// Sheet title for adding members to a conversation
   ///
   /// In en, this message translates to:
-  /// **'Add Members'**
-  String get chatAddMembersTitle;
+  /// **'Add {termPlural}'**
+  String chatAddMembersTitle(String termPlural);
 
   /// Message when all members are already participants
   ///
   /// In en, this message translates to:
-  /// **'All active members are already in this conversation.'**
-  String get chatAddMembersAllAdded;
+  /// **'All active {termPluralLower} are already in this conversation.'**
+  String chatAddMembersAllAdded(String termPluralLower, Object termPlural);
 
   /// Toast when adding members fails
   ///
   /// In en, this message translates to:
-  /// **'Failed to add members: {error}'**
-  String chatAddMembersFailed(Object error);
+  /// **'Failed to add {termPluralLower}: {error}'**
+  String chatAddMembersFailed(String termPluralLower, Object error);
 
   /// Sheet title for creating a new conversation
   ///
@@ -5579,8 +5748,8 @@ abstract class AppLocalizations {
   /// Message shown when no members exist for participant selection
   ///
   /// In en, this message translates to:
-  /// **'No members available. Create members first.'**
-  String get chatCreateNoMembers;
+  /// **'No {termPluralLower} available. Create {termPluralLower} first.'**
+  String chatCreateNoMembers(String termPluralLower);
 
   /// Chip label marking the currently fronting member
   ///
@@ -5663,14 +5832,14 @@ abstract class AppLocalizations {
   /// Text shown in speaking-as picker when no members exist
   ///
   /// In en, this message translates to:
-  /// **'No members available'**
-  String get chatNoMembersAvailable;
+  /// **'No {termPluralLower} available'**
+  String chatNoMembersAvailable(String termPluralLower);
 
   /// Short error text in speaking-as picker
   ///
   /// In en, this message translates to:
-  /// **'Error loading members'**
-  String get chatErrorLoadingMembersShort;
+  /// **'Error loading {termPluralLower}'**
+  String chatErrorLoadingMembersShort(String termPluralLower);
 
   /// Sheet title for GIF picker
   ///
@@ -6113,14 +6282,17 @@ abstract class AppLocalizations {
   /// Fallback semantics label for a member avatar image
   ///
   /// In en, this message translates to:
-  /// **'Member avatar'**
-  String get memberAvatarSemanticsUnnamed;
+  /// **'{termSingular} avatar'**
+  String memberAvatarSemanticsUnnamed(
+    String termSingular,
+    Object termSingularLower,
+  );
 
   /// Semantics label for an image inside a grouped member avatar
   ///
   /// In en, this message translates to:
-  /// **'Group member avatar'**
-  String get groupMemberAvatarSemantics;
+  /// **'Group {termSingularLower} avatar'**
+  String groupMemberAvatarSemantics(String termSingularLower);
 
   /// Title for a scheduled habit reminder notification
   ///
@@ -6251,26 +6423,36 @@ abstract class AppLocalizations {
   /// Empty state text in add members step
   ///
   /// In en, this message translates to:
-  /// **'No members yet.\nTap \"Add Member\" to get started.'**
-  String get onboardingAddMembersNoMembers;
+  /// **'No {termPluralLower} yet.\nTap \"Add {termSingular}\" to get started.'**
+  String onboardingAddMembersNoMembers(
+    String termPluralLower,
+    String termSingular,
+    Object termSingularLower,
+  );
 
   /// Tooltip for the remove member button in add members list
   ///
   /// In en, this message translates to:
-  /// **'Remove member'**
-  String get onboardingAddMembersRemoveMember;
+  /// **'Remove {termSingularLower}'**
+  String onboardingAddMembersRemoveMember(String termSingularLower);
 
   /// Button label to open the add member sheet
   ///
   /// In en, this message translates to:
-  /// **'Add Member'**
-  String get onboardingAddMembersAddMember;
+  /// **'Add {termSingular}'**
+  String onboardingAddMembersAddMember(
+    String termSingular,
+    Object termSingularLower,
+  );
 
   /// Title bar of the add member sheet
   ///
   /// In en, this message translates to:
-  /// **'Add Member'**
-  String get onboardingAddMemberSheetTitle;
+  /// **'Add {termSingular}'**
+  String onboardingAddMemberSheetTitle(
+    String termSingular,
+    Object termSingularLower,
+  );
 
   /// Hint text for the emoji field in add member sheet
   ///
@@ -6335,8 +6517,8 @@ abstract class AppLocalizations {
   /// Feature toggle description for chat in features step
   ///
   /// In en, this message translates to:
-  /// **'Internal messaging between system members'**
-  String get onboardingFeaturesChatDescription;
+  /// **'Internal messaging between system {termPluralLower}'**
+  String onboardingFeaturesChatDescription(String termPluralLower);
 
   /// Feature toggle title for polls in features step
   ///
@@ -6395,8 +6577,8 @@ abstract class AppLocalizations {
   /// Feature toggle description for reminders in features step
   ///
   /// In en, this message translates to:
-  /// **'Set reminders for yourself or system members'**
-  String get onboardingFeaturesRemindersDescription;
+  /// **'Set reminders for yourself or system {termPluralLower}'**
+  String onboardingFeaturesRemindersDescription(String termPluralLower);
 
   /// Next step row title in complete step
   ///
@@ -6905,8 +7087,8 @@ abstract class AppLocalizations {
   /// Empty state message in whos fronting step
   ///
   /// In en, this message translates to:
-  /// **'No members added yet.\nGo back to add members first.'**
-  String get onboardingWhosFrontingNoMembers;
+  /// **'No {termPluralLower} added yet.\nGo back to add {termPluralLower} first.'**
+  String onboardingWhosFrontingNoMembers(String termPluralLower);
 
   /// Section header for suggested channels in chat setup step
   ///
@@ -6929,8 +7111,11 @@ abstract class AppLocalizations {
   /// Default onboarding channel: group chat visible to all members (cannot be removed)
   ///
   /// In en, this message translates to:
-  /// **'All Members'**
-  String get onboardingChatChannelAllMembers;
+  /// **'All {termPlural}'**
+  String onboardingChatChannelAllMembers(
+    String termPlural,
+    Object termPluralLower,
+  );
 
   /// Default onboarding channel suggestion: a place to vent
   ///
@@ -6995,14 +7180,17 @@ abstract class AppLocalizations {
   /// Toggle title for per-member colors in preferences step
   ///
   /// In en, this message translates to:
-  /// **'Per-Member Colors'**
-  String get onboardingPreferencesPerMemberColors;
+  /// **'Per-{termSingular} Colors'**
+  String onboardingPreferencesPerMemberColors(
+    String termSingular,
+    Object termSingularLower,
+  );
 
   /// Toggle subtitle for per-member colors in preferences step
   ///
   /// In en, this message translates to:
-  /// **'Let each member have their own accent color'**
-  String get onboardingPreferencesPerMemberColorsSubtitle;
+  /// **'Let each {termSingularLower} have their own accent color'**
+  String onboardingPreferencesPerMemberColorsSubtitle(String termSingularLower);
 
   /// Title on the join sync group prompt view
   ///
@@ -7241,8 +7429,8 @@ abstract class AppLocalizations {
   /// Label for assigned member select field
   ///
   /// In en, this message translates to:
-  /// **'Assigned Member'**
-  String get habitsAssignedMember;
+  /// **'Assigned {termSingular}'**
+  String habitsAssignedMember(String termSingular);
 
   /// Option label for no assigned member
   ///
@@ -7259,8 +7447,8 @@ abstract class AppLocalizations {
   /// Helper text below the only-notify-when-fronting toggle
   ///
   /// In en, this message translates to:
-  /// **'Reminders will fire even if this member isn\'t fronting — fronting-aware delivery requires background access.'**
-  String get habitsOnlyFrontingCaveat;
+  /// **'Reminders will fire even if this {termSingularLower} isn\'t fronting — fronting-aware delivery requires background access.'**
+  String habitsOnlyFrontingCaveat(String termSingularLower);
 
   /// Switch title for private habit toggle
   ///
@@ -7835,8 +8023,8 @@ abstract class AppLocalizations {
   /// Message shown when no members are available for voting
   ///
   /// In en, this message translates to:
-  /// **'No members available'**
-  String get pollsDetailNoMembers;
+  /// **'No {termPluralLower} available'**
+  String pollsDetailNoMembers(String termPluralLower);
 
   /// Button label to submit votes in poll detail
   ///
@@ -7979,8 +8167,8 @@ abstract class AppLocalizations {
   /// Supported data type: members
   ///
   /// In en, this message translates to:
-  /// **'Members'**
-  String get migrationSupportedMembers;
+  /// **'{termPlural}'**
+  String migrationSupportedMembers(String termPlural);
 
   /// Supported data type: custom fronts
   ///
@@ -8009,14 +8197,14 @@ abstract class AppLocalizations {
   /// Supported data type: member colors
   ///
   /// In en, this message translates to:
-  /// **'Member colors'**
-  String get migrationSupportedMemberColors;
+  /// **'{termSingular} colors'**
+  String migrationSupportedMemberColors(String termSingular);
 
   /// Supported data type: member descriptions
   ///
   /// In en, this message translates to:
-  /// **'Member descriptions'**
-  String get migrationSupportedMemberDescriptions;
+  /// **'{termSingular} descriptions'**
+  String migrationSupportedMemberDescriptions(String termSingular);
 
   /// Supported data type: avatar images
   ///
@@ -8189,8 +8377,8 @@ abstract class AppLocalizations {
   /// Confirmation dialog body for replacing all data
   ///
   /// In en, this message translates to:
-  /// **'This will delete all existing members, front history, conversations, and other data before importing. This action cannot be undone.\n\nIf you have sync set up, other paired devices should also be reset to avoid conflicts.'**
-  String get migrationReplaceAllMessage;
+  /// **'This will delete all existing {termPluralLower}, front history, conversations, and other data before importing. This action cannot be undone.\n\nIf you have sync set up, other paired devices should also be reset to avoid conflicts.'**
+  String migrationReplaceAllMessage(String termPluralLower);
 
   /// Confirmation button to replace all data
   ///
@@ -8225,8 +8413,8 @@ abstract class AppLocalizations {
   /// Import result row label for members
   ///
   /// In en, this message translates to:
-  /// **'Members'**
-  String get migrationResultMembers;
+  /// **'{termPlural}'**
+  String migrationResultMembers(String termPlural);
 
   /// Import result row label for front sessions
   ///
@@ -8516,6 +8704,12 @@ abstract class AppLocalizations {
   /// **'To get your token, DM the PluralKit bot on Discord with \"pk;token\" and paste the result here.'**
   String get pluralkitTokenHelp;
 
+  /// Help text for the PluralKit settings file import entry point
+  ///
+  /// In en, this message translates to:
+  /// **'Recover old PluralKit fronting history with a pk;export file and token. The file provides the switch history; the token lets Prism match it safely.'**
+  String get pluralkitFileImportHelp;
+
   /// Button label to import all data from PluralKit
   ///
   /// In en, this message translates to:
@@ -8573,14 +8767,14 @@ abstract class AppLocalizations {
   /// Sync summary row: members pulled from PluralKit
   ///
   /// In en, this message translates to:
-  /// **'{count, plural, =1{1 member pulled} other{{count} members pulled}}'**
-  String pluralkitMembersPulled(int count);
+  /// **'{count} {termForCount} pulled'**
+  String pluralkitMembersPulled(int count, String termForCount);
 
   /// Sync summary row: members pushed to PluralKit
   ///
   /// In en, this message translates to:
-  /// **'{count, plural, =1{1 member pushed} other{{count} members pushed}}'**
-  String pluralkitMembersPushed(int count);
+  /// **'{count} {termForCount} pushed'**
+  String pluralkitMembersPushed(int count, String termForCount);
 
   /// Sync summary row: switches pulled from PluralKit
   ///
@@ -8597,8 +8791,8 @@ abstract class AppLocalizations {
   /// Sync summary row: members with no changes
   ///
   /// In en, this message translates to:
-  /// **'{count, plural, =1{1 member unchanged} other{{count} members unchanged}}'**
-  String pluralkitMembersUnchanged(int count);
+  /// **'{count} {termForCount} unchanged'**
+  String pluralkitMembersUnchanged(int count, String termForCount);
 
   /// How It Works info row about sync direction
   ///
@@ -8615,13 +8809,13 @@ abstract class AppLocalizations {
   /// How It Works info row about the link-members step
   ///
   /// In en, this message translates to:
-  /// **'After connecting, link your PluralKit members to Prism members — or import them as new — so nothing gets duplicated.'**
-  String get pluralkitInfoMembers;
+  /// **'After connecting, link your PluralKit members to Prism {termPluralLower} — or import them as new — so nothing gets duplicated.'**
+  String pluralkitInfoMembers(String termPluralLower);
 
-  /// How It Works info row about switch import
+  /// How It Works info row about fronting history recovery from PluralKit
   ///
   /// In en, this message translates to:
-  /// **'Switches are imported as fronting sessions. Duplicate switches are automatically skipped.'**
+  /// **'Fronting history recovery uses a pk;export file plus a token so Prism can match export switches to PluralKit switch IDs.'**
   String get pluralkitInfoSwitches;
 
   /// Relative time label when PluralKit sync was less than a minute ago
@@ -8657,14 +8851,22 @@ abstract class AppLocalizations {
   /// Chip showing shared PK member count
   ///
   /// In en, this message translates to:
-  /// **'{count, plural, =1{1 shared PK member} other{{count} shared PK members}}'**
-  String pluralkitRepairSharedPkMembers(int count);
+  /// **'{count, plural, =1{1 shared PK {termSingularLower}} other{{count} shared PK {termPluralLower}}}'**
+  String pluralkitRepairSharedPkMembers(
+    int count,
+    String termSingularLower,
+    String termPluralLower,
+  );
 
   /// Chip showing local-only member count
   ///
   /// In en, this message translates to:
-  /// **'{count, plural, =1{1 local-only member} other{{count} local-only members}}'**
-  String pluralkitRepairLocalOnlyMembers(int count);
+  /// **'{count, plural, =1{1 local-only {termSingularLower}} other{{count} local-only {termPluralLower}}}'**
+  String pluralkitRepairLocalOnlyMembers(
+    int count,
+    String termSingularLower,
+    String termPluralLower,
+  );
 
   /// Chip showing candidate-only PK member count
   ///
@@ -8705,8 +8907,12 @@ abstract class AppLocalizations {
   /// Merge action preview fragment
   ///
   /// In en, this message translates to:
-  /// **'leave {count, plural, =1{1 PK-only member} other{{count} PK-only members}} unmatched'**
-  String pluralkitRepairPreviewLeavePkOnly(int count);
+  /// **'leave {count, plural, =1{1 PK-only {termSingularLower}} other{{count} PK-only {termPluralLower}}} unmatched'**
+  String pluralkitRepairPreviewLeavePkOnly(
+    int count,
+    String termSingularLower,
+    String termPluralLower,
+  );
 
   /// Button label for accepting the suggested PluralKit group match
   ///
@@ -9605,8 +9811,8 @@ abstract class AppLocalizations {
   /// Settings row subtitle for PluralKit import
   ///
   /// In en, this message translates to:
-  /// **'Import members & fronting via API token'**
-  String get dataManagementPluralKitRowSubtitle;
+  /// **'Import {termPluralLower} & fronting via API token'**
+  String dataManagementPluralKitRowSubtitle(String termPluralLower);
 
   /// Settings row title for Simply Plural import
   ///
@@ -9629,8 +9835,8 @@ abstract class AppLocalizations {
   /// Body text on the export idle state
   ///
   /// In en, this message translates to:
-  /// **'Create a password-protected backup of all your data including members, fronting sessions, messages, polls, and settings.'**
-  String get dataManagementExportDescription;
+  /// **'Create a password-protected backup of all your data including {termPluralLower}, fronting sessions, messages, polls, and settings.'**
+  String dataManagementExportDescription(String termPluralLower);
 
   /// Button label to start the export flow
   ///
@@ -9809,8 +10015,8 @@ abstract class AppLocalizations {
   /// Import preview row label for members
   ///
   /// In en, this message translates to:
-  /// **'Members'**
-  String get dataManagementPreviewMembers;
+  /// **'{termPlural}'**
+  String dataManagementPreviewMembers(String termPlural);
 
   /// Import preview row label for front sessions
   ///
@@ -10640,7 +10846,7 @@ abstract class AppLocalizations {
   /// **'Any front change'**
   String get remindersTargetAny;
 
-  /// Honesty disclosure shown when a member-targeted front-change reminder is configured. Prism is zero-knowledge, so the relay cannot push notifications for a specific member switch.
+  /// Honesty disclosure shown when a member-targeted front-change reminder is configured. Prism is end-to-end encrypted, so the relay cannot push notifications for a specific member switch.
   ///
   /// In en, this message translates to:
   /// **'Fires when Prism is running and sees the switch. External switches logged while Prism is closed may not trigger this reminder.'**
@@ -10673,14 +10879,38 @@ abstract class AppLocalizations {
   /// Description paragraph in the About section
   ///
   /// In en, this message translates to:
-  /// **'A privacy-focused app for managing plural systems. Track fronting, communicate between headmates, and keep your system organized.'**
-  String get settingsAboutDescription;
+  /// **'A privacy-focused app for managing plural systems. Track fronting, communicate between {termPluralLower}, and keep your system organized.'**
+  String settingsAboutDescription(String termPluralLower);
+
+  /// Website chip label in About section
+  ///
+  /// In en, this message translates to:
+  /// **'Website'**
+  String get settingsAboutWebsite;
 
   /// GitHub chip label in About section
   ///
   /// In en, this message translates to:
   /// **'GitHub'**
   String get settingsAboutGitHub;
+
+  /// Discord chip label in About section
+  ///
+  /// In en, this message translates to:
+  /// **'Discord'**
+  String get settingsAboutDiscord;
+
+  /// Bluesky chip label in About section
+  ///
+  /// In en, this message translates to:
+  /// **'Bluesky'**
+  String get settingsAboutBluesky;
+
+  /// Tumblr chip label in About section
+  ///
+  /// In en, this message translates to:
+  /// **'Tumblr'**
+  String get settingsAboutTumblr;
 
   /// Privacy chip label in About section
   ///
@@ -10693,6 +10923,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Feedback'**
   String get settingsAboutFeedback;
+
+  /// Toast shown when an About section external link cannot be opened
+  ///
+  /// In en, this message translates to:
+  /// **'Could not open that link'**
+  String get settingsAboutLinkOpenFailed;
 
   /// Toast shown when GitHub chip is tapped
   ///
@@ -10739,8 +10975,8 @@ abstract class AppLocalizations {
   /// Empty state subtitle for custom fields screen
   ///
   /// In en, this message translates to:
-  /// **'Add fields to track custom attributes for each member'**
-  String get settingsCustomFieldsEmptySubtitle;
+  /// **'Add fields to track custom attributes for each {termSingularLower}'**
+  String settingsCustomFieldsEmptySubtitle(String termSingularLower);
 
   /// Empty state action button label for adding a custom field
   ///
@@ -11123,8 +11359,8 @@ abstract class AppLocalizations {
   /// Tab label for the members table in the data browser
   ///
   /// In en, this message translates to:
-  /// **'Members'**
-  String get settingsDataBrowserTabMembers;
+  /// **'{termPlural}'**
+  String settingsDataBrowserTabMembers(String termPlural);
 
   /// Tab label for the sessions table in the data browser
   ///
@@ -11159,8 +11395,8 @@ abstract class AppLocalizations {
   /// Empty state text when members table is empty
   ///
   /// In en, this message translates to:
-  /// **'No members'**
-  String get settingsDataBrowserNoMembers;
+  /// **'No {termPluralLower}'**
+  String settingsDataBrowserNoMembers(String termPluralLower);
 
   /// Empty state text when sessions table is empty
   ///
@@ -11474,6 +11710,102 @@ abstract class AppLocalizations {
   /// **'Timeline'**
   String get navTimeline;
 
+  /// Bottom navigation tab label for the Sleep tab
+  ///
+  /// In en, this message translates to:
+  /// **'Sleep'**
+  String get navSleep;
+
+  /// Title shown in the top bar of the Sleep screen
+  ///
+  /// In en, this message translates to:
+  /// **'Sleep'**
+  String get sleepScreenTitle;
+
+  /// Tooltip for the + icon button on the Sleep screen top bar
+  ///
+  /// In en, this message translates to:
+  /// **'Log sleep'**
+  String get sleepScreenAddTooltip;
+
+  /// Tooltip for the settings gear icon button on the Sleep screen top bar
+  ///
+  /// In en, this message translates to:
+  /// **'Sleep settings'**
+  String get sleepScreenSettingsTooltip;
+
+  /// Empty state heading on the Sleep screen when no sessions exist
+  ///
+  /// In en, this message translates to:
+  /// **'No sleep sessions yet'**
+  String get sleepEmptyTitle;
+
+  /// Empty state body on the Sleep screen (em dash, no period per spec)
+  ///
+  /// In en, this message translates to:
+  /// **'Tap + to log your first'**
+  String get sleepEmptyBody;
+
+  /// Label for the Last Night stat card on the Sleep screen
+  ///
+  /// In en, this message translates to:
+  /// **'Last night'**
+  String get sleepLastNightLabel;
+
+  /// Label for the 7-day average stat card on the Sleep screen
+  ///
+  /// In en, this message translates to:
+  /// **'7-day avg'**
+  String get sleepSevenDayAvgLabel;
+
+  /// Section header for the recent sleep sessions list on the Sleep screen
+  ///
+  /// In en, this message translates to:
+  /// **'Recent'**
+  String get sleepRecentSectionHeader;
+
+  /// Placeholder shown in a stat card when no data is available (em dash)
+  ///
+  /// In en, this message translates to:
+  /// **'—'**
+  String get sleepStatUnavailable;
+
+  /// Row label in Settings → Features → Sleep that navigates to the Sleep screen
+  ///
+  /// In en, this message translates to:
+  /// **'View sleep history'**
+  String get sleepViewAllHistory;
+
+  /// Trend line on the 7-day average sleep stat card showing change vs prior 7 days
+  ///
+  /// In en, this message translates to:
+  /// **'vs prior week: {delta}'**
+  String sleepTrendVsPriorWeek(String delta);
+
+  /// Inline warning chip on a sleep session row when the start date is in the future (clock skew)
+  ///
+  /// In en, this message translates to:
+  /// **'Date looks off'**
+  String get sleepDateLooksOff;
+
+  /// Soft warning shown in StartSleepSheet when a historical sleep entry overlaps an existing session
+  ///
+  /// In en, this message translates to:
+  /// **'This overlaps an existing sleep session'**
+  String get sleepOverlapsExistingWarning;
+
+  /// Disclosure link in StartSleepSheet to switch into historical-logging mode with an end-time field
+  ///
+  /// In en, this message translates to:
+  /// **'Log past sleep'**
+  String get logPastSleep;
+
+  /// Link in StartSleepSheet to cancel historical-logging mode and return to start-now defaults
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get cancelHistoricalSleep;
+
   /// Header title for the onboarding welcome step
   ///
   /// In en, this message translates to:
@@ -11621,8 +11953,8 @@ abstract class AppLocalizations {
   /// Rationale for requesting notification permission
   ///
   /// In en, this message translates to:
-  /// **'We\'ll let you know when headmates log a switch or a habit reminder is due'**
-  String get onboardingPermissionsNotificationRationale;
+  /// **'We\'ll let you know when {termPluralLower} log a switch or a habit reminder is due'**
+  String onboardingPermissionsNotificationRationale(String termPluralLower);
 
   /// Title for microphone permission request in onboarding
   ///
@@ -11633,8 +11965,8 @@ abstract class AppLocalizations {
   /// Rationale for requesting microphone permission
   ///
   /// In en, this message translates to:
-  /// **'So you can record voice messages for your headmates'**
-  String get onboardingPermissionsMicrophoneRationale;
+  /// **'So you can record voice messages for your {termPluralLower}'**
+  String onboardingPermissionsMicrophoneRationale(String termPluralLower);
 
   /// Label shown when a permission has been granted
   ///
@@ -11999,26 +12331,26 @@ abstract class AppLocalizations {
   /// Button label to import a PluralKit pk;export JSON file
   ///
   /// In en, this message translates to:
-  /// **'Import from pk;export file'**
+  /// **'Recover history from pk;export'**
   String get pluralkitImportFromFile;
 
   /// Title for the post-connect mapping required banner
   ///
   /// In en, this message translates to:
-  /// **'One more step: link your members'**
-  String get pluralkitMappingBannerTitle;
+  /// **'One more step: link your {termPluralLower}'**
+  String pluralkitMappingBannerTitle(String termPluralLower);
 
   /// Body for the post-connect mapping required banner
   ///
   /// In en, this message translates to:
-  /// **'You\'re connected. Before sync turns on, match each PluralKit member to a member in Prism — or import them as new. This prevents duplicates and keeps switch history attached to the right person.'**
-  String get pluralkitMappingBannerBody;
+  /// **'You\'re connected. Before sync turns on, match each PluralKit member to a {termSingularLower} in Prism — or import them as new. This prevents duplicates and keeps switch history attached to the right person.'**
+  String pluralkitMappingBannerBody(String termSingularLower);
 
   /// Button label inside the mapping banner that opens the mapping flow
   ///
   /// In en, this message translates to:
-  /// **'Link members'**
-  String get pluralkitMappingBannerButton;
+  /// **'Link {termPluralLower}'**
+  String pluralkitMappingBannerButton(String termPluralLower);
 
   /// Wake-up sheet greeting shown between 5am and noon
   ///
@@ -12329,8 +12661,8 @@ abstract class AppLocalizations {
   /// Disposition option: create a tagged member for the custom front
   ///
   /// In en, this message translates to:
-  /// **'Import as member'**
-  String get migrationCfOptionMember;
+  /// **'Import as {termSingularLower}'**
+  String migrationCfOptionMember(String termSingularLower);
 
   /// Disposition option: append the CF name to affected session notes
   ///
@@ -12353,8 +12685,8 @@ abstract class AppLocalizations {
   /// Longer description of the import-as-member disposition
   ///
   /// In en, this message translates to:
-  /// **'Creates a member with this name. Front history entries for it are kept as member sessions.'**
-  String get migrationCfOptionMemberDesc;
+  /// **'Creates a {termSingularLower} with this name. Front history entries for it are kept as {termSingularLower} sessions.'**
+  String migrationCfOptionMemberDesc(String termSingularLower);
 
   /// Longer description of the merge-as-note disposition
   ///
@@ -12480,6 +12812,597 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count, plural, =1{1 duplicate-start SP sleep entry collapsed.} other{{count} duplicate-start SP sleep entries collapsed.}}'**
   String migrationWarnCfSleepDedup(int count);
+
+  /// Title bar of the per-member fronting upgrade modal
+  ///
+  /// In en, this message translates to:
+  /// **'Fronting upgrade'**
+  String get frontingUpgradeTitle;
+
+  /// Intro screen headline
+  ///
+  /// In en, this message translates to:
+  /// **'We\'re upgrading how fronting is stored'**
+  String get frontingUpgradeIntroHeadline;
+
+  /// Intro screen body explaining the upgrade
+  ///
+  /// In en, this message translates to:
+  /// **'Co-fronting now uses one record per {termSingularLower} instead of one shared record. This makes overlaps, edits, and analytics work correctly. We\'ll save a backup of your current data first, then run the upgrade.'**
+  String frontingUpgradeIntroBody(String termSingularLower);
+
+  /// Primary continue button on the intro screen
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get frontingUpgradeContinue;
+
+  /// Role-selection screen headline
+  ///
+  /// In en, this message translates to:
+  /// **'Is this your main device?'**
+  String get frontingUpgradeRoleHeadline;
+
+  /// Role-selection screen body
+  ///
+  /// In en, this message translates to:
+  /// **'Your main device keeps all your fronting history. Other devices will need to pair again afterward and pull the migrated history from the main device.'**
+  String get frontingUpgradeRoleBody;
+
+  /// Primary-role button
+  ///
+  /// In en, this message translates to:
+  /// **'Yes, this is my main device'**
+  String get frontingUpgradeRolePrimary;
+
+  /// Secondary-role button
+  ///
+  /// In en, this message translates to:
+  /// **'No, this is a secondary'**
+  String get frontingUpgradeRoleSecondary;
+
+  /// Mode-picker screen headline
+  ///
+  /// In en, this message translates to:
+  /// **'How should we upgrade?'**
+  String get frontingUpgradeModeHeadline;
+
+  /// Mode card: upgradeAndKeep title
+  ///
+  /// In en, this message translates to:
+  /// **'Keep my data'**
+  String get frontingUpgradeModeKeepTitle;
+
+  /// Mode card: upgradeAndKeep body
+  ///
+  /// In en, this message translates to:
+  /// **'Your existing fronts stay. PluralKit-imported fronts get re-imported with the new shape on next PluralKit sync.'**
+  String get frontingUpgradeModeKeepBody;
+
+  /// Mode card: startFresh title
+  ///
+  /// In en, this message translates to:
+  /// **'Start fresh'**
+  String get frontingUpgradeModeFreshTitle;
+
+  /// Mode card: startFresh body
+  ///
+  /// In en, this message translates to:
+  /// **'All fronts are wiped. Useful if your fronting history is messy and you want a clean slate. A backup file is still created.'**
+  String get frontingUpgradeModeFreshBody;
+
+  /// Recommended badge on the keep-data mode card
+  ///
+  /// In en, this message translates to:
+  /// **'Recommended'**
+  String get frontingUpgradeRecommended;
+
+  /// Password screen headline
+  ///
+  /// In en, this message translates to:
+  /// **'Protect your backup'**
+  String get frontingUpgradePasswordHeadline;
+
+  /// Password screen body
+  ///
+  /// In en, this message translates to:
+  /// **'We\'re about to back up your current fronting data and then upgrade it.'**
+  String get frontingUpgradePasswordBody;
+
+  /// Password screen note above the input
+  ///
+  /// In en, this message translates to:
+  /// **'This password protects your backup file. Save it somewhere safe — without it, the file can\'t be recovered.'**
+  String get frontingUpgradePasswordNote;
+
+  /// Submit button on the password screen
+  ///
+  /// In en, this message translates to:
+  /// **'Back up and upgrade'**
+  String get frontingUpgradePasswordSubmit;
+
+  /// Title shown while the migration is running
+  ///
+  /// In en, this message translates to:
+  /// **'Migrating your fronting history…'**
+  String get frontingUpgradeRunning;
+
+  /// Subtitle shown while the migration is running
+  ///
+  /// In en, this message translates to:
+  /// **'This may take a moment. Don\'t close the app.'**
+  String get frontingUpgradeRunningSubtitle;
+
+  /// Title shown while the PRISM1 backup is being exported
+  ///
+  /// In en, this message translates to:
+  /// **'Building your backup…'**
+  String get frontingUpgradeExporting;
+
+  /// Subtitle shown while the PRISM1 backup is being exported
+  ///
+  /// In en, this message translates to:
+  /// **'Encrypting your fronting data so you can keep a copy.'**
+  String get frontingUpgradeExportingSubtitle;
+
+  /// Headline of the durable-save gate that runs before the destructive migration step
+  ///
+  /// In en, this message translates to:
+  /// **'Backup ready'**
+  String get frontingUpgradeBackupReadyHeadline;
+
+  /// Body text on the durable-save gate explaining why saving the file is important
+  ///
+  /// In en, this message translates to:
+  /// **'Save this backup somewhere you\'ll be able to find it later — outside the app. Without it, you can\'t recover your old data if anything goes wrong.'**
+  String get frontingUpgradeBackupReadyBody;
+
+  /// Primary action on the backup-ready step — opens a file picker to save the file to a user-chosen destination
+  ///
+  /// In en, this message translates to:
+  /// **'Save backup…'**
+  String get frontingUpgradeBackupSaveAs;
+
+  /// Secondary action on the backup-ready step — opens the system share sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Share…'**
+  String get frontingUpgradeBackupShare;
+
+  /// Manual checkbox on the backup-ready step — auto-ticks on a successful save or share
+  ///
+  /// In en, this message translates to:
+  /// **'I have saved this backup somewhere I can find later'**
+  String get frontingUpgradeBackupAcknowledge;
+
+  /// Continue button on the backup-ready step; disabled until the acknowledgment checkbox is ticked
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get frontingUpgradeBackupContinue;
+
+  /// Success screen headline
+  ///
+  /// In en, this message translates to:
+  /// **'Migration complete!'**
+  String get frontingUpgradeSuccessHeadline;
+
+  /// Success counter: SP rows migrated
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Migrated 1 Simply Plural session.} other{Migrated {count} Simply Plural sessions.}}'**
+  String frontingUpgradeCountSpMigrated(int count);
+
+  /// Success counter: native rows migrated
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Migrated 1 fronting session.} other{Migrated {count} fronting sessions.}}'**
+  String frontingUpgradeCountNativeMigrated(int count);
+
+  /// Success counter: native rows fanned out
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Expanded 1 co-fronting period into per-{termSingularLower} records.} other{Expanded {count} co-fronting periods into per-{termSingularLower} records.}}'**
+  String frontingUpgradeCountNativeExpanded(
+    int count,
+    String termSingularLower,
+  );
+
+  /// Success counter and follow-up guidance when old-format PluralKit fronting history was cleared
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Old-format PluralKit history was cleared (1 session). Re-import it from a PluralKit token or a pk;export file.} other{Old-format PluralKit history was cleared ({count} sessions). Re-import it from a PluralKit token or a pk;export file.}}'**
+  String frontingUpgradeCountPkDeleted(int count);
+
+  /// Success counter: comments migrated
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Migrated 1 comment.} other{Migrated {count} comments.}}'**
+  String frontingUpgradeCountCommentsMigrated(int count);
+
+  /// Success counter: orphan rows assigned to sentinel
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Assigned 1 unattributed session to the Unknown {termSingularLower}.} other{Assigned {count} unattributed sessions to the Unknown {termSingularLower}.}}'**
+  String frontingUpgradeCountOrphansAssigned(
+    int count,
+    String termSingularLower,
+  );
+
+  /// Success counter: sentinel was created
+  ///
+  /// In en, this message translates to:
+  /// **'Created an Unknown {termSingularLower} to hold sessions with no clear fronter.'**
+  String frontingUpgradeCountSentinelCreated(String termSingularLower);
+
+  /// Success counter: rows whose co_fronter_ids JSON failed to parse and were migrated as single-member fallback
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 session had unreadable co-fronter data and was migrated as single-{termSingularLower}.} other{{count} sessions had unreadable co-fronter data and were migrated as single-{termSingularLower}.}}'**
+  String frontingUpgradeCountCorruptCoFronters(
+    int count,
+    String termSingularLower,
+  );
+
+  /// Warning shown on the upgrade modal's intro screen — the sync state wipe clears pending_ops, so any local writes that haven't been pushed yet will only exist on this device after the upgrade.
+  ///
+  /// In en, this message translates to:
+  /// **'If you have unsynced changes from offline use, make sure your device is online and synced before you continue. Pending uploads will need to be redone after the upgrade.'**
+  String get frontingUpgradeIntroPendingSyncWarning;
+
+  /// One-line FYI shown on the upgrade success screen explaining the analytics relabel from 'fronting time' to '{term}-minutes' (e.g., 'member-minutes', 'headmate-minutes').
+  ///
+  /// In en, this message translates to:
+  /// **'Analytics are now framed as {term}-minutes — when two of you co-front for an hour, that\'s two {term}-hours. Same math as before, clearer label.'**
+  String frontingUpgradeAnalyticsNote(String term);
+
+  /// Re-pair guidance for primary devices
+  ///
+  /// In en, this message translates to:
+  /// **'Your other devices need to pair again to receive the migrated history. Open Settings → Sync on your other devices and follow the pairing flow.'**
+  String get frontingUpgradeRepairPrimary;
+
+  /// Re-pair guidance for secondary devices
+  ///
+  /// In en, this message translates to:
+  /// **'Pair this device with your main device again to receive the migrated history.'**
+  String get frontingUpgradeRepairSecondary;
+
+  /// Final note for solo devices, no re-pair needed
+  ///
+  /// In en, this message translates to:
+  /// **'All set. Your fronting data is on the new format.'**
+  String get frontingUpgradeRepairSolo;
+
+  /// Button label on the fronting migration success screen that opens PluralKit import options
+  ///
+  /// In en, this message translates to:
+  /// **'Open PluralKit import'**
+  String get frontingUpgradeOpenPluralKitImport;
+
+  /// Failure screen headline
+  ///
+  /// In en, this message translates to:
+  /// **'Migration failed'**
+  String get frontingUpgradeFailureHeadline;
+
+  /// Reassurance shown on the failure screen when a backup exists
+  ///
+  /// In en, this message translates to:
+  /// **'Your backup file was saved. You can find it in your share sheet history if you need to recover.'**
+  String get frontingUpgradeFailureBackupNote;
+
+  /// Home-screen banner title when migration cleanup needs to be resumed
+  ///
+  /// In en, this message translates to:
+  /// **'Fronting upgrade pending'**
+  String get frontingUpgradeBannerTitle;
+
+  /// Home-screen banner message when migration cleanup needs to be resumed
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to continue the upgrade.'**
+  String get frontingUpgradeBannerMessage;
+
+  /// Headline shown when a previous migration attempt left the device mid-cleanup and the modal is offering to finish the remaining sync-credential reset.
+  ///
+  /// In en, this message translates to:
+  /// **'Finish migration'**
+  String get frontingUpgradeResumeCleanupHeadline;
+
+  /// Body text on the resume-cleanup step explaining what the remaining work touches.
+  ///
+  /// In en, this message translates to:
+  /// **'A previous upgrade attempt finished the data migration but couldn\'t complete the sync reset. Tap below to finish — no data will be touched, only the sync credentials.'**
+  String get frontingUpgradeResumeCleanupBody;
+
+  /// Primary button on the resume-cleanup step.
+  ///
+  /// In en, this message translates to:
+  /// **'Finish migration'**
+  String get frontingUpgradeResumeCleanupButton;
+
+  /// Title of the dialog that asks for a PluralKit token after the migration finishes, used to re-import PK fronting history.
+  ///
+  /// In en, this message translates to:
+  /// **'PluralKit token'**
+  String get frontingUpgradePkTokenDialogTitle;
+
+  /// Body of the post-migration PluralKit token dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Import PluralKit fronting history now. This uses the token once and does not turn on PluralKit sync.'**
+  String get frontingUpgradePkTokenDialogMessage;
+
+  /// Field label inside the post-migration PluralKit token dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'PluralKit token'**
+  String get frontingUpgradePkTokenLabel;
+
+  /// Field placeholder inside the post-migration PluralKit token dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste your PluralKit token'**
+  String get frontingUpgradePkTokenHint;
+
+  /// Confirm button on the post-migration PluralKit token dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Import'**
+  String get frontingUpgradePkTokenImport;
+
+  /// Button on the post-migration success screen that opens the PK token dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Import with PluralKit token'**
+  String get frontingUpgradePkImportButton;
+
+  /// Idle hint shown on the post-migration success screen before the user opts into a one-shot PK re-import.
+  ///
+  /// In en, this message translates to:
+  /// **'PluralKit history can be re-imported here with a temporary token. The token is used once and PluralKit sync stays off.'**
+  String get frontingUpgradePkImportIdle;
+
+  /// Status line shown while the post-migration PluralKit re-import is running.
+  ///
+  /// In en, this message translates to:
+  /// **'Re-importing PluralKit history...'**
+  String get frontingUpgradePkImportRunning;
+
+  /// Confirmation line shown after a successful post-migration PluralKit re-import.
+  ///
+  /// In en, this message translates to:
+  /// **'PluralKit history was re-imported.'**
+  String get frontingUpgradePkImportImported;
+
+  /// Optional follow-on line on the post-migration success screen reporting tombstoned rows the corrective re-import declined to resurrect.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 deleted row was left as-is to honor the local delete.} other{{count} deleted rows were left as-is to honor the local delete.}}'**
+  String frontingUpgradePkImportTombstoneLine(int count);
+
+  /// Optional follow-on line reporting zero-length presence skips during the post-migration PluralKit re-import.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 zero-length close was skipped (PluralKit listed an enter and a leave at the same instant).} other{{count} zero-length closes were skipped (PluralKit listed an enter and a leave at the same instant).}}'**
+  String frontingUpgradePkImportZeroLengthLine(int count);
+
+  /// Status line shown when the post-migration PluralKit re-import needs a token from the user.
+  ///
+  /// In en, this message translates to:
+  /// **'No stored PluralKit token was found. You can import with a temporary token here without turning on PluralKit sync.'**
+  String get frontingUpgradePkImportNeedsToken;
+
+  /// Status line shown when the post-migration PluralKit re-import errors out.
+  ///
+  /// In en, this message translates to:
+  /// **'PluralKit re-import failed: {error}'**
+  String frontingUpgradePkImportFailed(String error);
+
+  /// PluralKit file import preview/result row label for the count of members. Uses the user's terminology.
+  ///
+  /// In en, this message translates to:
+  /// **'{termPlural}'**
+  String pkFileImportMembersLabel(String termPlural);
+
+  /// PluralKit file import preview/result row label for the count of groups. Kept generic — PluralKit's own 'group' concept.
+  ///
+  /// In en, this message translates to:
+  /// **'Groups'**
+  String get pkFileImportGroupsLabel;
+
+  /// PluralKit file import preview row label for switches found in the export but not imported from file.
+  ///
+  /// In en, this message translates to:
+  /// **'Switches found (not imported)'**
+  String get pkFileImportFrontingSessionsLabel;
+
+  /// PluralKit file import preview/result row label for switches found in the export but not imported from file.
+  ///
+  /// In en, this message translates to:
+  /// **'Switches found (not imported)'**
+  String get pkFileImportSwitchesFoundLabel;
+
+  /// Informational note shown on the PluralKit file import preview screen before file plus token fronting import.
+  ///
+  /// In en, this message translates to:
+  /// **'Existing {termPlural} with the same PluralKit ID will be updated. To import fronting history, add a PluralKit token so Prism can match export switches before importing fronts.'**
+  String pkFileImportPreviewNote(String termPlural);
+
+  /// PluralKit file import: primary action button on the preview screen
+  ///
+  /// In en, this message translates to:
+  /// **'Import'**
+  String get pkFileImportImportButton;
+
+  /// PluralKit file import result row label for switches reconciled against the API by the token-backed import path.
+  ///
+  /// In en, this message translates to:
+  /// **'Switches matched with token'**
+  String get pkFileImportSwitchesMatchedLabel;
+
+  /// PluralKit file import result row label for API-only switches outside the export's range.
+  ///
+  /// In en, this message translates to:
+  /// **'Newer switches from PluralKit'**
+  String get pkFileImportNewerSwitchesLabel;
+
+  /// Note shown on the import-complete screen when fronting history was imported via the token path.
+  ///
+  /// In en, this message translates to:
+  /// **'Fronting history was imported through the token-backed PluralKit path so Prism can keep using canonical switch IDs.'**
+  String get pkFileImportFrontingImportedNote;
+
+  /// Variant of the imported note that also reports the count of newer API-only switches.
+  ///
+  /// In en, this message translates to:
+  /// **'Fronting history was imported through the token-backed PluralKit path so Prism can keep using canonical switch IDs. Prism also imported {count} newer switches from PluralKit that were not in the export.'**
+  String pkFileImportFrontingImportedNoteWithNewer(int count);
+
+  /// Note shown on the import-complete screen when fronting history was not imported.
+  ///
+  /// In en, this message translates to:
+  /// **'Fronting history was not imported because the export and PluralKit API did not match safely.'**
+  String get pkFileImportFrontingNotImportedNote;
+
+  /// Primary button on the PluralKit file import complete screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get pkFileImportDoneButton;
+
+  /// Headline on the PluralKit file import error screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Import failed'**
+  String get pkFileImportFailedHeadline;
+
+  /// Button on the PluralKit file import error screen that resets the flow.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again'**
+  String get pkFileImportTryAgainButton;
+
+  /// PluralKit file import: secondary action button on the preview screen to choose a different file
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a different file'**
+  String get pkFileImportPickDifferentButton;
+
+  /// PluralKit file import: heading on the success screen
+  ///
+  /// In en, this message translates to:
+  /// **'Import complete'**
+  String get pkFileImportCompleteHeading;
+
+  /// PluralKit file import result row: count of switches that were newly created. 'Switches' is PluralKit-internal vocabulary and is intentionally not localised through the terminology system.
+  ///
+  /// In en, this message translates to:
+  /// **'Switches created'**
+  String get pkFileImportSwitchesCreatedLabel;
+
+  /// PluralKit file import result row: count of switches found in the export but not imported from file. 'Switches' is PluralKit-internal vocabulary.
+  ///
+  /// In en, this message translates to:
+  /// **'Switches found (not imported)'**
+  String get pkFileImportSwitchesSkippedLabel;
+
+  /// Section header on the fronting feature settings screen, grouping the list view-mode preference and the add-front / quick-front default behavior preferences.
+  ///
+  /// In en, this message translates to:
+  /// **'Session display & front behavior'**
+  String get settingsFrontingSessionDisplaySectionTitle;
+
+  /// Row title for the home-screen session list view-mode preference (combined periods / per-member rows / timeline).
+  ///
+  /// In en, this message translates to:
+  /// **'Session list view'**
+  String get settingsFrontingListViewModeLabel;
+
+  /// Option label: render the home-screen session list as combined periods (avatar stacks per unique fronter group).
+  ///
+  /// In en, this message translates to:
+  /// **'Combined periods'**
+  String get settingsFrontingListViewModeCombinedPeriods;
+
+  /// Option subtitle for the combined-periods session list view mode.
+  ///
+  /// In en, this message translates to:
+  /// **'Avatar stacks for each unique fronter group'**
+  String get settingsFrontingListViewModeCombinedPeriodsDescription;
+
+  /// Option label: render the home-screen session list as one row per fronter session, side-by-side. {term} is the user's chosen singular member terminology (lowercase).
+  ///
+  /// In en, this message translates to:
+  /// **'Per-{term} rows'**
+  String settingsFrontingListViewModePerMemberRows(String term);
+
+  /// Option subtitle for the per-member-rows session list view mode.
+  ///
+  /// In en, this message translates to:
+  /// **'One row per fronter session, side-by-side'**
+  String get settingsFrontingListViewModePerMemberRowsDescription;
+
+  /// Option label: render the home-screen session list as a timeline / bar chart over time.
+  ///
+  /// In en, this message translates to:
+  /// **'Timeline'**
+  String get settingsFrontingListViewModeTimeline;
+
+  /// Option subtitle for the timeline session list view mode.
+  ///
+  /// In en, this message translates to:
+  /// **'Bar chart view of fronting over time'**
+  String get settingsFrontingListViewModeTimelineDescription;
+
+  /// Row title for the default behavior preference when starting a new front from the add-front sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'When adding a new front'**
+  String get settingsAddFrontDefaultBehaviorLabel;
+
+  /// Option label: starting a new front leaves any existing fronts in place; the new member joins as a co-fronter.
+  ///
+  /// In en, this message translates to:
+  /// **'Add as co-fronter'**
+  String get settingsAddFrontDefaultBehaviorAdditive;
+
+  /// Option subtitle for the additive add-front default behavior.
+  ///
+  /// In en, this message translates to:
+  /// **'New fronts join existing ones'**
+  String get settingsAddFrontDefaultBehaviorAdditiveDescription;
+
+  /// Option label: starting a new front ends all existing fronts before the new member begins.
+  ///
+  /// In en, this message translates to:
+  /// **'Replace current fronters'**
+  String get settingsAddFrontDefaultBehaviorReplace;
+
+  /// Option subtitle for the replace add-front default behavior.
+  ///
+  /// In en, this message translates to:
+  /// **'End all current fronts before starting new ones'**
+  String get settingsAddFrontDefaultBehaviorReplaceDescription;
+
+  /// Row title for the default behavior preference when triggering quick front (the per-member quick-action shortcut).
+  ///
+  /// In en, this message translates to:
+  /// **'When using quick front'**
+  String get settingsQuickFrontDefaultBehaviorLabel;
+
+  /// Option label: quick front leaves existing fronts in place; the tapped member joins as a co-fronter.
+  ///
+  /// In en, this message translates to:
+  /// **'Add as co-fronter'**
+  String get settingsQuickFrontDefaultBehaviorAdditive;
+
+  /// Option label: quick front ends all existing fronts before the tapped member begins.
+  ///
+  /// In en, this message translates to:
+  /// **'Replace current fronters'**
+  String get settingsQuickFrontDefaultBehaviorReplace;
 }
 
 class _AppLocalizationsDelegate

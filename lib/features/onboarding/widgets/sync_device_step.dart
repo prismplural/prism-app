@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import 'package:prism_plurality/core/constants/app_constants.dart';
+import 'package:prism_plurality/core/security/pin_buffer.dart';
 import 'package:prism_plurality/core/services/build_info.dart';
 import 'package:prism_plurality/features/onboarding/models/onboarding_data_counts.dart';
 import 'package:prism_plurality/features/onboarding/providers/device_pairing_provider.dart';
@@ -84,7 +85,6 @@ class _SyncDeviceStepState extends ConsumerState<SyncDeviceStep> {
         child = _SasVerificationView(
           key: const ValueKey('sas-verify'),
           sasWords: pairingState.sasWords!,
-          sasDecimal: pairingState.sasDecimal!,
           onConfirm: () =>
               ref.read(devicePairingProvider.notifier).confirmSas(),
           onReject: () => ref.read(devicePairingProvider.notifier).reset(),
@@ -173,9 +173,8 @@ class _SyncDeviceStepState extends ConsumerState<SyncDeviceStep> {
           message:
               pairingState.errorMessage ??
               context.l10n.onboardingSyncUnknownError,
-          onRetry: () => ref
-              .read(devicePairingProvider.notifier)
-              .retrySnapshotBootstrap(),
+          onRetry: () =>
+              ref.read(devicePairingProvider.notifier).retrySnapshotBootstrap(),
           onCancel: () async {
             await ref
                 .read(devicePairingProvider.notifier)
@@ -506,20 +505,17 @@ class _SasVerificationView extends StatelessWidget {
   const _SasVerificationView({
     super.key,
     required this.sasWords,
-    required this.sasDecimal,
     required this.onConfirm,
     required this.onReject,
   });
 
-  final String sasWords;
-  final String sasDecimal;
+  final List<String> sasWords;
   final VoidCallback onConfirm;
   final VoidCallback onReject;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final words = sasWords.split(' ');
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -562,7 +558,7 @@ class _SasVerificationView extends StatelessWidget {
                   spacing: 12,
                   runSpacing: 8,
                   alignment: WrapAlignment.center,
-                  children: words
+                  children: sasWords
                       .map(
                         (word) => Text(
                           word,
@@ -570,20 +566,11 @@ class _SasVerificationView extends StatelessWidget {
                             color: AppColors.warmWhite,
                             fontSize: 24,
                             fontWeight: FontWeight.w600,
-                            letterSpacing: 0.5,
+                            letterSpacing: 0,
                           ),
                         ),
                       )
                       .toList(),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  sasDecimal,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: AppColors.warmWhite.withValues(alpha: 0.5),
-                    fontFamily: 'monospace',
-                    letterSpacing: 2,
-                  ),
                 ),
               ],
             ),
@@ -626,8 +613,8 @@ class _PairingPinCapture extends StatefulWidget {
 
 class _PairingPinCaptureState extends State<_PairingPinCapture>
     with SingleTickerProviderStateMixin {
-  String _pin = '';
   static const _pinLength = 6;
+  late final PinBuffer _pin = PinBuffer(length: _pinLength);
   late AnimationController _shakeController;
   late Animation<double> _shakeAnimation;
 
@@ -652,21 +639,25 @@ class _PairingPinCaptureState extends State<_PairingPinCapture>
 
   @override
   void dispose() {
+    _pin.clear();
     _shakeController.dispose();
     super.dispose();
   }
 
   void _onDigit(String digit) {
-    if (_pin.length >= _pinLength) return;
-    setState(() => _pin += digit);
-    if (_pin.length == _pinLength) {
-      widget.onPinEntered(_pin);
+    if (!_pin.appendDigit(digit)) return;
+    if (_pin.isFull) {
+      final pin = _pin.consumeStringAndClear();
+      setState(() {});
+      widget.onPinEntered(pin);
+      return;
     }
+    setState(() {});
   }
 
   void _onBackspace() {
     if (_pin.isEmpty) return;
-    setState(() => _pin = _pin.substring(0, _pin.length - 1));
+    setState(_pin.removeLast);
   }
 
   @override

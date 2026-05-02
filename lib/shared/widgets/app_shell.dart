@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui';
 
@@ -11,6 +12,8 @@ import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
+import 'package:prism_plurality/features/fronting/migration/providers/fronting_migration_providers.dart';
+import 'package:prism_plurality/features/fronting/migration/views/fronting_upgrade_sheet.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/habits/providers/habit_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
@@ -57,6 +60,71 @@ double floatingNavBarExpandedHeight(
   return rowHeight +
       (resolvedOverflowRowHeight * overflowRows) +
       (_kNavBarRowGap * overflowRows);
+}
+
+/// Pure decision used by [AppShell] to decide whether to auto-surface
+/// the per-member fronting upgrade modal, and whether the modal should
+/// be dismissible.
+///
+/// Defined as a top-level function so the rule lives in one place and
+/// can be unit-tested without spinning up the full widget tree.
+///
+/// Inputs:
+/// - [gate]: resolved [FrontingMigrationGateStatus] from
+///   [frontingMigrationGateProvider].
+/// - [rawMode]: the underlying `pending_fronting_migration_mode`
+///   string. Kept for diagnostic context and future mode-specific policy.
+///
+/// Returns:
+/// - `shouldShow == false`: gate is `complete`.
+/// - `shouldShow == true, isDismissible == false`: any state where the
+///   user must pick a recovery path before runtime new-shape work
+///   resumes — `blocked`, `inProgress`, or `needsModal`.
+@visibleForTesting
+FrontingUpgradeSheetDecision frontingUpgradeSheetDecision({
+  required FrontingMigrationGateStatus gate,
+  required String? rawMode,
+}) {
+  switch (gate) {
+    case FrontingMigrationGateStatus.complete:
+      return const FrontingUpgradeSheetDecision.hidden();
+    case FrontingMigrationGateStatus.blocked:
+    case FrontingMigrationGateStatus.inProgress:
+      // Hard read-only states — modal is the only recovery surface.
+      return const FrontingUpgradeSheetDecision.show(isDismissible: false);
+    case FrontingMigrationGateStatus.needsModal:
+      // First-time prompt, legacy deferred sentinel, or crashed-retry
+      // sentinels. Present non-dismissible until the user picks a path.
+      return const FrontingUpgradeSheetDecision.show(isDismissible: false);
+  }
+}
+
+/// Result of [frontingUpgradeSheetDecision].
+@immutable
+@visibleForTesting
+class FrontingUpgradeSheetDecision {
+  const FrontingUpgradeSheetDecision.hidden()
+    : shouldShow = false,
+      isDismissible = false;
+  const FrontingUpgradeSheetDecision.show({required this.isDismissible})
+    : shouldShow = true;
+
+  final bool shouldShow;
+  final bool isDismissible;
+
+  @override
+  bool operator ==(Object other) =>
+      other is FrontingUpgradeSheetDecision &&
+      other.shouldShow == shouldShow &&
+      other.isDismissible == isDismissible;
+
+  @override
+  int get hashCode => Object.hash(shouldShow, isDismissible);
+
+  @override
+  String toString() =>
+      'FrontingUpgradeSheetDecision('
+      'shouldShow: $shouldShow, isDismissible: $isDismissible)';
 }
 
 double _measureNavBarLabelHeight({
@@ -209,14 +277,14 @@ class _NavLayoutSignature {
 
   @override
   int get hashCode => Object.hash(
-        barWidth,
-        textScaleFactor,
-        textDirection,
-        fontSize,
-        fontWeight,
-        Object.hashAll(primaryLabels),
-        Object.hashAll(overflowLabels),
-      );
+    barWidth,
+    textScaleFactor,
+    textDirection,
+    fontSize,
+    fontWeight,
+    Object.hashAll(primaryLabels),
+    Object.hashAll(overflowLabels),
+  );
 
   static bool _listEquals(List<String> a, List<String> b) {
     if (a.length != b.length) return false;
@@ -389,6 +457,7 @@ class _AppShellState extends ConsumerState<AppShell>
     with WidgetsBindingObserver {
   bool _wasDesktop = false;
   bool _locked = false;
+  int _lockGeneration = 0;
 
   /// Whether the initial PIN check has completed. While false, the app shows
   /// a loading/locked state to prevent content from being visible before we
@@ -482,6 +551,44 @@ class _AppShellState extends ConsumerState<AppShell>
       _locked = decision.locked;
       _pinCheckResolved = true;
     });
+    if (decision.locked) {
+      _startHardSyncLockIfEnabled(++_lockGeneration);
+    }
+  }
+
+  void _lockApp() {
+    if (_locked) return;
+    final generation = ++_lockGeneration;
+    setState(() => _locked = true);
+    _startHardSyncLockIfEnabled(generation);
+  }
+
+  void _unlockApp() {
+    ++_lockGeneration;
+    setState(() => _locked = false);
+  }
+
+  void _startHardSyncLockIfEnabled(int generation) {
+    unawaited(_hardLockSyncIfEnabled(generation));
+  }
+
+  Future<void> _hardLockSyncIfEnabled(int generation) async {
+    try {
+      final enabled = await ref.read(hardLockSyncOnAppLockProvider.future);
+      if (!mounted || !enabled || !_locked || generation != _lockGeneration) {
+        return;
+      }
+      await ref.read(syncHealthProvider.notifier).lock(hard: true);
+    } catch (e, st) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: e,
+          stack: st,
+          library: 'prism_plurality',
+          context: ErrorDescription('hard locking sync on app lock'),
+        ),
+      );
+    }
   }
 
   @override
@@ -509,7 +616,7 @@ class _AppShellState extends ConsumerState<AppShell>
     );
 
     if (shouldLock) {
-      setState(() => _locked = true);
+      _lockApp();
     }
   }
 
@@ -538,6 +645,9 @@ class _AppShellState extends ConsumerState<AppShell>
 
     // Keep syncStatusProvider alive so DeviceRevoked events are received.
     ref.watch(syncStatusProvider);
+
+    // Keep the local privacy preference loaded for app-lock decisions.
+    ref.watch(hardLockSyncOnAppLockProvider);
 
     // Keep the PK auto-poll notifier alive for its timer lifecycle.
     ref.watch(pkAutoPollProvider);
@@ -585,6 +695,41 @@ class _AppShellState extends ConsumerState<AppShell>
         _pinCheckResolved &&
         ref.read(syncHealthProvider) == SyncHealthState.needsPassword) {
       _showPasswordSheetIfNeeded(context, ref);
+    }
+
+    // Show the per-member fronting upgrade modal post-unlock.  Mirrors
+    // the password-sheet trigger above: only fires once the PIN check
+    // has resolved and the lock overlay is down, so the modal renders
+    // over the home tabs (not over the lock).
+    //
+    // We watch the resolved [frontingMigrationGateProvider] rather than
+    // the raw mode string so the policy lives at the gate provider and
+    // every consumer (PK push/poll, sync apply, this listener) agrees
+    // on what blocks runtime new-shape work. See WS1 step 4 + 5 in the
+    // remediation plan.
+    //
+    // Behavior per status:
+    // - [FrontingMigrationGateStatus.complete]: hidden.
+    // - [FrontingMigrationGateStatus.needsModal]: present non-dismissible.
+    // - [FrontingMigrationGateStatus.inProgress]: present non-dismissible.
+    //   The modal opens straight to a "Finish migration" screen that
+    //   calls `resumeCleanup()` (the Drift transaction committed but a
+    //   post-tx step failed).
+    // - [FrontingMigrationGateStatus.blocked]: present non-dismissible.
+    //   v7 onUpgrade refused the composite index because of duplicates;
+    //   the modal is the user's only recovery path.
+    ref.listen<FrontingMigrationGateStatus>(frontingMigrationGateProvider, (
+      prev,
+      next,
+    ) {
+      if (!_pinCheckResolved || _locked) return;
+      final mode = ref.read(frontingMigrationModeProvider).value;
+      _showFrontingUpgradeSheetIfNeeded(context, ref, next, mode);
+    });
+    if (!_locked && _pinCheckResolved) {
+      final gate = ref.read(frontingMigrationGateProvider);
+      final mode = ref.read(frontingMigrationModeProvider).value;
+      _showFrontingUpgradeSheetIfNeeded(context, ref, gate, mode);
     }
 
     void onTabSelected(AppShellTab tab, {required bool useHaptics}) {
@@ -791,7 +936,7 @@ class _AppShellState extends ConsumerState<AppShell>
           Positioned.fill(
             child: PinInputScreen(
               mode: PinInputMode.unlock,
-              onSuccess: () => setState(() => _locked = false),
+              onSuccess: _unlockApp,
             ),
           ),
         ],
@@ -820,6 +965,34 @@ class _AppShellState extends ConsumerState<AppShell>
       ref.read(syncPasswordSheetVisibleProvider.notifier).setValue(true);
       SyncPinSheet.show(context).whenComplete(() {
         ref.read(syncPasswordSheetVisibleProvider.notifier).setValue(false);
+      });
+    });
+  }
+
+  /// Tracks whether the upgrade modal is already showing so listener
+  /// re-fires (each settings stream emit) don't stack duplicate
+  /// sheets. Reset in `whenComplete` so a failed/retried modal can re-open.
+  bool _frontingUpgradeSheetShowing = false;
+
+  void _showFrontingUpgradeSheetIfNeeded(
+    BuildContext context,
+    WidgetRef ref,
+    FrontingMigrationGateStatus gate,
+    String? rawMode,
+  ) {
+    final decision = frontingUpgradeSheetDecision(gate: gate, rawMode: rawMode);
+    if (!decision.shouldShow) return;
+    if (_frontingUpgradeSheetShowing) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!context.mounted) return;
+      if (_frontingUpgradeSheetShowing) return;
+      _frontingUpgradeSheetShowing = true;
+      showFrontingUpgradeSheet(
+        context,
+        isDismissible: decision.isDismissible,
+      ).whenComplete(() {
+        _frontingUpgradeSheetShowing = false;
       });
     });
   }

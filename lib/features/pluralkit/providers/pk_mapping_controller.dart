@@ -286,8 +286,6 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
         try {
           await syncService.importSwitchesAfterLink();
           if (!ref.mounted) return;
-          await syncService.reattributeSwitches();
-          if (!ref.mounted) return;
           await syncService.pushPendingSwitches();
         } catch (_) {
           // Non-fatal — surfaces on next syncRecentData via state.syncError.

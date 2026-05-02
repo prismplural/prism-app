@@ -1,10 +1,10 @@
-import 'dart:convert';
-
+import 'package:flutter/foundation.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/core/database/daos/fronting_sessions_dao.dart';
 import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
 import 'package:prism_plurality/data/mappers/fronting_session_mapper.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
+import 'package:prism_plurality/data/utils/sync_datetime.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart' as domain;
 import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
 
@@ -148,6 +148,16 @@ class DriftFrontingSessionRepository
   }
 
   @override
+  Stream<List<domain.FrontingSession>> watchSessionsOverlappingRange(
+    DateTime start,
+    DateTime end,
+  ) {
+    return _dao
+        .watchSessionsOverlappingRange(start, end)
+        .map((rows) => rows.map(FrontingSessionMapper.toDomain).toList());
+  }
+
+  @override
   Future<void> createSession(domain.FrontingSession session) async {
     final companion = FrontingSessionMapper.toCompanion(session);
     await _dao.insertSession(companion);
@@ -211,6 +221,21 @@ class DriftFrontingSessionRepository
   }
 
   @override
+  Future<({int count, Duration? avgDuration})> getSleepStats({
+    required DateTime since,
+    DateTime? until,
+  }) => _dao.getSleepStats(since, until);
+
+  @override
+  Stream<List<domain.FrontingSession>> watchRecentSleepSessions({
+    required int limit,
+  }) {
+    return _dao
+        .watchRecentSleepSessions(limit)
+        .map((rows) => rows.map(FrontingSessionMapper.toDomain).toList());
+  }
+
+  @override
   Future<int> getCount() => _dao.getCount();
 
   @override
@@ -238,16 +263,40 @@ class DriftFrontingSessionRepository
     return rows.map(FrontingSessionMapper.toDomain).toList();
   }
 
+  /// Visible-for-testing: builds the field map this repository hands to the
+  /// Rust sync engine for create/update. Exposed so a regression test can
+  /// pin every emitted DateTime as Z-suffixed UTC — see
+  /// drift_fronting_session_repository_test.
+  @visibleForTesting
+  Map<String, dynamic> debugSessionFields(domain.FrontingSession s) =>
+      _sessionFields(s);
+
+  /// Emit a final-state `syncRecordCreate` for [id] reflecting the
+  /// row's current on-disk shape, or no-op when the row is missing or
+  /// soft-deleted. Used by the data-import rescue path
+  /// (`DataImportService.importData`) to emit one create per surviving
+  /// session id after the suppressed in-transaction rescue + merge
+  /// pass — see review finding #9. The post-suppress emission keeps
+  /// peer state convergent without leaking the intermediate merge
+  /// churn (create-then-update-then-delete) that the rescue body
+  /// generates internally.
+  Future<void> emitFinalStateCreateIfSurviving(String id) async {
+    final row = await _dao.getSessionById(id);
+    if (row == null || row.isDeleted) return;
+    final session = FrontingSessionMapper.toDomain(row);
+    await syncRecordCreate(_table, id, _sessionFields(session));
+  }
+
   Map<String, dynamic> _sessionFields(domain.FrontingSession s) {
     return {
-      'start_time': s.startTime.toIso8601String(),
-      'end_time': s.endTime?.toIso8601String(),
+      'start_time': toSyncUtc(s.startTime),
+      'end_time': toSyncUtcOrNull(s.endTime),
       'member_id': s.memberId,
-      'co_fronter_ids': jsonEncode(s.coFronterIds),
       'notes': s.notes,
       'confidence': s.confidence?.index,
       'pluralkit_uuid': s.pluralkitUuid,
-      'pk_member_ids_json': s.pkMemberIdsJson,
+      'pk_import_source': s.pkImportSource,
+      'pk_file_switch_id': s.pkFileSwitchId,
       'session_type': s.sessionType.index,
       'quality': s.quality?.index,
       'is_health_kit_import': s.isHealthKitImport,

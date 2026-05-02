@@ -104,7 +104,11 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final membersAsync = ref.watch(allMembersProvider);
+    final terms = watchTerminology(context, ref);
+    // Non-fronting picker: hide the Unknown sentinel — you don't assign a
+    // habit to the placeholder member. (Habit *completions* are still allowed
+    // to attribute to "Unknown" via the HeadmatePicker on the complete-sheet.)
+    final membersAsync = ref.watch(userVisibleAllMembersProvider);
 
     final canSave = _nameController.text.trim().isNotEmpty;
 
@@ -264,7 +268,9 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
                     final selectedMember = _assignedMember(members);
                     final searchGroups = watchMemberSearchGroups(ref, members);
                     return PrismListRow(
-                      title: Text(context.l10n.habitsAssignedMember),
+                      title: Text(
+                        context.l10n.habitsAssignedMember(terms.singular),
+                      ),
                       subtitle: Text(
                         selectedMember?.name ??
                             context.l10n.habitsAssignedMemberAnyone,
@@ -304,7 +310,9 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
                         vertical: 4,
                       ),
                       child: Text(
-                        context.l10n.habitsOnlyFrontingCaveat,
+                        context.l10n.habitsOnlyFrontingCaveat(
+                          terms.singularLower,
+                        ),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),

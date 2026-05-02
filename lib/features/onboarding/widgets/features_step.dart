@@ -4,6 +4,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
@@ -16,6 +17,13 @@ class FeaturesStep extends ConsumerWidget {
     final notifier = ref.read(onboardingProvider.notifier);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final primary = Theme.of(context).colorScheme.primary;
+    final terms = resolveTerminology(
+      context.l10n,
+      onboarding.selectedTerminology,
+      customSingular: onboarding.customTermSingular,
+      customPlural: onboarding.customTermPlural,
+      useEnglish: onboarding.terminologyUseEnglish,
+    );
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -31,7 +39,9 @@ class FeaturesStep extends ConsumerWidget {
                   isDark: isDark,
                   primary: primary,
                   title: context.l10n.onboardingFeaturesChat,
-                  description: context.l10n.onboardingFeaturesChatDescription,
+                  description: context.l10n.onboardingFeaturesChatDescription(
+                    terms.pluralLower,
+                  ),
                   value: onboarding.chatEnabled,
                   onChanged: (v) => notifier.setFeatureToggle(chatEnabled: v),
                 ),
@@ -83,8 +93,10 @@ class FeaturesStep extends ConsumerWidget {
                   isDark: isDark,
                   primary: primary,
                   title: context.l10n.onboardingFeaturesReminders,
-                  description:
-                      context.l10n.onboardingFeaturesRemindersDescription,
+                  description: context.l10n
+                      .onboardingFeaturesRemindersDescription(
+                        terms.pluralLower,
+                      ),
                   value: onboarding.remindersEnabled,
                   onChanged: (v) =>
                       notifier.setFeatureToggle(remindersEnabled: v),

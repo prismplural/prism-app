@@ -33,11 +33,6 @@ void main() {
       expect(patch.isEmpty, isFalse);
     });
 
-    test('isEmpty is false when coFronterIds is set', () {
-      const patch = FrontingSessionPatch(coFronterIds: ['a', 'b']);
-      expect(patch.isEmpty, isFalse);
-    });
-
     test('isEmpty is false when notes is set', () {
       const patch = FrontingSessionPatch(notes: 'some notes');
       expect(patch.isEmpty, isFalse);
@@ -60,7 +55,7 @@ void main() {
       expect(draft.memberId, isNull);
       expect(draft.start, equals(start));
       expect(draft.end, isNull);
-      expect(draft.coFronterIds, isEmpty);
+      // In per-member model, coFronterIds no longer exists on FrontingSessionDraft.
       expect(draft.notes, isNull);
       expect(draft.confidenceIndex, isNull);
     });
@@ -72,7 +67,6 @@ void main() {
         memberId: 'member-abc',
         start: start,
         end: end,
-        coFronterIds: const ['member-x', 'member-y'],
         notes: 'A note',
         confidenceIndex: 4,
       );
@@ -80,7 +74,6 @@ void main() {
       expect(draft.memberId, equals('member-abc'));
       expect(draft.start, equals(start));
       expect(draft.end, equals(end));
-      expect(draft.coFronterIds, equals(['member-x', 'member-y']));
       expect(draft.notes, equals('A note'));
       expect(draft.confidenceIndex, equals(4));
     });

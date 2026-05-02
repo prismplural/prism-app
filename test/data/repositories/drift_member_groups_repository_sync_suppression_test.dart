@@ -129,6 +129,10 @@ class _FakeMemberRepository implements MemberRepository {
   @override
   Stream<member_domain.Member?> watchMemberById(String id) =>
       throw UnimplementedError();
+
+  @override
+  Future<({member_domain.Member member, bool wasCreated})>
+      ensureUnknownSentinelMember() => throw UnimplementedError();
 }
 
 domain.MemberGroup _groupModel({

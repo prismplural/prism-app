@@ -187,7 +187,9 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
   @override
   Widget build(BuildContext context) {
     final settingsAsync = ref.watch(systemSettingsProvider);
-    final membersAsync = ref.watch(activeMembersProvider);
+    // System info shows member count + avatar cluster — exclude the Unknown
+    // sentinel so it doesn't appear as a manageable headmate.
+    final membersAsync = ref.watch(userVisibleMembersProvider);
     final terms = watchTerminology(context, ref);
 
     return PrismPageScaffold(

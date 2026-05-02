@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 import 'package:prism_plurality/core/router/app_routes.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_section.dart';
@@ -21,8 +22,12 @@ class ImportExportScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final terms = watchTerminology(context, ref);
     return PrismPageScaffold(
-      topBar: PrismTopBar(title: context.l10n.dataManagementImportExportTitle, showBackButton: true),
+      topBar: PrismTopBar(
+        title: context.l10n.dataManagementImportExportTitle,
+        showBackButton: true,
+      ),
       bodyPadding: EdgeInsets.zero,
       body: ListView(
         padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
@@ -60,7 +65,9 @@ class ImportExportScreen extends ConsumerWidget {
                     icon: AppIcons.cloudSync,
                     iconColor: Colors.deepPurple,
                     title: context.l10n.pluralkitTitle,
-                    subtitle: context.l10n.dataManagementPluralKitRowSubtitle,
+                    subtitle: context.l10n.dataManagementPluralKitRowSubtitle(
+                      terms.pluralLower,
+                    ),
                     onTap: () => context.push(AppRoutePaths.settingsPluralkit),
                   ),
                   const Divider(height: 1, indent: 60, endIndent: 12),
@@ -68,7 +75,8 @@ class ImportExportScreen extends ConsumerWidget {
                     icon: AppIcons.swapHoriz,
                     iconColor: Colors.purple,
                     title: context.l10n.dataManagementSimplyPluralRowTitle,
-                    subtitle: context.l10n.dataManagementSimplyPluralRowSubtitle,
+                    subtitle:
+                        context.l10n.dataManagementSimplyPluralRowSubtitle,
                     onTap: () => context.push(AppRoutePaths.settingsMigration),
                   ),
                 ],

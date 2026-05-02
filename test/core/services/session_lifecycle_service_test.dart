@@ -1,5 +1,6 @@
 // test/core/services/session_lifecycle_service_test.dart
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/services/session_lifecycle_service.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import '../../helpers/fake_repositories.dart';
@@ -463,6 +464,188 @@ void main() {
       expect(result.endTime, fronting.endTime);
       // Sleep session should NOT be deleted
       expect(repo.sessions, hasLength(2));
+    });
+  });
+
+  // ── Unknown-sentinel filler paths (Bug 1 + Bug 2) ────
+  //
+  // After audit batch L, both delete-fill and fillGaps must route the
+  // synthetic "we don't know who was fronting here" row through the Unknown
+  // sentinel member rather than writing memberId == null.
+
+  group('executeDelete fills with Unknown sentinel', () {
+    test('writes memberId == unknownSentinelMemberId, NOT null', () async {
+      final memberRepo = FakeMemberRepository();
+      final repo = FakeFrontingSessionRepository();
+      final service = SessionLifecycleService(memberRepository: memberRepo);
+
+      final target = _session(
+        id: 'target',
+        start: DateTime(2026, 1, 1, 12),
+        end: DateTime(2026, 1, 1, 14),
+        memberId: 'alice',
+      );
+      await repo.createSession(target);
+
+      final ctx = service.getDeleteOptions(target, [target]);
+      final fillerId =
+          await service.executeDelete(DeleteOption.delete, ctx, repo);
+
+      expect(fillerId, isNotNull);
+      final filler = repo.sessions.firstWhere((s) => s.id == fillerId);
+      expect(filler.memberId, equals(unknownSentinelMemberId));
+      expect(filler.memberId, isNot(isNull));
+
+      // The sentinel member was lazily created.
+      final sentinel = await memberRepo.getMemberById(unknownSentinelMemberId);
+      expect(sentinel, isNotNull);
+    });
+
+    test('throws StateError when sentinel filler needed but no '
+        'MemberRepository wired, and leaves original session intact',
+        () async {
+      const service = SessionLifecycleService();
+      final repo = FakeFrontingSessionRepository();
+
+      final target = _session(
+        id: 'target',
+        start: DateTime(2026, 1, 1, 12),
+        end: DateTime(2026, 1, 1, 14),
+        memberId: 'alice',
+      );
+      await repo.createSession(target);
+
+      final ctx = service.getDeleteOptions(target, [target]);
+      await expectLater(
+        () => service.executeDelete(DeleteOption.delete, ctx, repo),
+        throwsA(isA<StateError>()),
+      );
+
+      // Preflight runs BEFORE the delete: original row must still be there
+      // and no filler should have been written (partial-mutation guard).
+      expect(repo.deletedIds, isNot(contains('target')));
+      expect(repo.sessions, hasLength(1));
+      expect(repo.sessions.single.id, 'target');
+    });
+  });
+
+  group('fillGaps fills with Unknown sentinel', () {
+    test('writes memberId == unknownSentinelMemberId, NOT null', () async {
+      final memberRepo = FakeMemberRepository();
+      final repo = FakeFrontingSessionRepository();
+      final service = SessionLifecycleService(memberRepository: memberRepo);
+
+      final before = _session(
+        id: 'before',
+        start: DateTime(2026, 1, 1, 8),
+        end: DateTime(2026, 1, 1, 9),
+        memberId: 'alice',
+      );
+      final after = _session(
+        id: 'after',
+        start: DateTime(2026, 1, 1, 11),
+        end: DateTime(2026, 1, 1, 12),
+        memberId: 'bob',
+      );
+
+      final gap = GapInfo(
+        startTime: DateTime(2026, 1, 1, 9),
+        endTime: DateTime(2026, 1, 1, 11),
+        beforeSession: before,
+        afterSession: after,
+      );
+
+      await service.fillGaps([gap], repo);
+
+      expect(repo.sessions, hasLength(1));
+      final filler = repo.sessions.single;
+      expect(filler.memberId, equals(unknownSentinelMemberId));
+      expect(filler.memberId, isNot(isNull));
+
+      // The sentinel member was lazily created.
+      final sentinel = await memberRepo.getMemberById(unknownSentinelMemberId);
+      expect(sentinel, isNotNull);
+    });
+
+    test('empty gap list is a no-op (does not require MemberRepository)',
+        () async {
+      const service = SessionLifecycleService();
+      final repo = FakeFrontingSessionRepository();
+
+      // Should NOT throw — sentinel ensure is gated on having gaps to fill.
+      await service.fillGaps(const [], repo);
+
+      expect(repo.sessions, isEmpty);
+    });
+
+    test('produces deterministic id for the same gap', () async {
+      final memberRepoA = FakeMemberRepository();
+      final repoA = FakeFrontingSessionRepository();
+      final serviceA = SessionLifecycleService(memberRepository: memberRepoA);
+
+      final memberRepoB = FakeMemberRepository();
+      final repoB = FakeFrontingSessionRepository();
+      final serviceB = SessionLifecycleService(memberRepository: memberRepoB);
+
+      final before = _session(
+        id: 'before',
+        start: DateTime(2026, 1, 1, 8),
+        end: DateTime(2026, 1, 1, 9),
+        memberId: 'alice',
+      );
+      final after = _session(
+        id: 'after',
+        start: DateTime(2026, 1, 1, 11),
+        end: DateTime(2026, 1, 1, 12),
+        memberId: 'bob',
+      );
+      final gap = GapInfo(
+        startTime: DateTime(2026, 1, 1, 9),
+        endTime: DateTime(2026, 1, 1, 11),
+        beforeSession: before,
+        afterSession: after,
+      );
+
+      await serviceA.fillGaps([gap], repoA);
+      await serviceB.fillGaps([gap], repoB);
+
+      expect(repoA.sessions.single.id, equals(repoB.sessions.single.id),
+          reason: 'two devices filling the same wall-clock gap must converge '
+              'on a single CRDT row, not duplicate via random v4 ids');
+    });
+
+    test('throws StateError when gaps need filling but no '
+        'MemberRepository wired, and writes nothing', () async {
+      const service = SessionLifecycleService();
+      final repo = FakeFrontingSessionRepository();
+
+      final before = _session(
+        id: 'before',
+        start: DateTime(2026, 1, 1, 8),
+        end: DateTime(2026, 1, 1, 9),
+        memberId: 'alice',
+      );
+      final after = _session(
+        id: 'after',
+        start: DateTime(2026, 1, 1, 11),
+        end: DateTime(2026, 1, 1, 12),
+        memberId: 'bob',
+      );
+      final gap = GapInfo(
+        startTime: DateTime(2026, 1, 1, 9),
+        endTime: DateTime(2026, 1, 1, 11),
+        beforeSession: before,
+        afterSession: after,
+      );
+
+      await expectLater(
+        () => service.fillGaps([gap], repo),
+        throwsA(isA<StateError>()),
+      );
+
+      // Sentinel ensure happens BEFORE the first createSession — no
+      // partial filler row should have leaked through.
+      expect(repo.sessions, isEmpty);
     });
   });
 }

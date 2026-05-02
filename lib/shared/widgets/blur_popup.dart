@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -5,12 +6,18 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
+import 'package:prism_plurality/shared/utils/haptics.dart';
 
 /// Direction the popup opens relative to the anchor.
 enum BlurPopupDirection { up, down }
 
 /// How the popup is triggered.
 enum BlurPopupTrigger { tap, longPress, manual }
+
+double _clampToRange(double value, double lower, double upper) {
+  if (upper < lower) return lower;
+  return value.clamp(lower, upper).toDouble();
+}
 
 /// A frosted-glass popup menu that opens above or below an anchor widget.
 ///
@@ -106,14 +113,16 @@ class BlurPopupAnchorState extends State<BlurPopupAnchor>
   }
 
   /// Programmatically show the popup. Useful with [BlurPopupTrigger.manual].
-  void show() => _showPopup();
+  void show() {
+    _showPopup();
+  }
 
-  void _showPopup() {
-    if (_overlayEntry != null) return; // already showing
+  bool _showPopup() {
+    if (_overlayEntry != null) return false; // already showing
 
     final renderBox =
         _anchorKey.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox == null) return;
+    if (renderBox == null) return false;
 
     final overlay = Overlay.of(context);
     final overlayRenderBox = overlay.context.findRenderObject() as RenderBox?;
@@ -132,10 +141,20 @@ class BlurPopupAnchorState extends State<BlurPopupAnchor>
     }
 
     final overlaySize = overlayRenderBox?.size ?? MediaQuery.of(context).size;
+    final view = View.of(context);
+    final bottomInset = math.max(
+      MediaQuery.maybeOf(context)?.viewInsets.bottom ?? 0,
+      view.viewInsets.bottom / view.devicePixelRatio,
+    );
+    final visibleBottom = (overlaySize.height - bottomInset)
+        .clamp(0.0, overlaySize.height)
+        .toDouble();
+    final visibleBounds = Rect.fromLTRB(0, 0, overlaySize.width, visibleBottom);
 
     // Decide direction: how much space above vs below the anchor.
-    final spaceAbove = anchorOffset.dy;
-    final spaceBelow = overlaySize.height - anchorOffset.dy - anchorSize.height;
+    final spaceAbove = anchorOffset.dy - visibleBounds.top;
+    final spaceBelow =
+        visibleBounds.bottom - anchorOffset.dy - anchorSize.height;
 
     final direction =
         widget.preferredDirection ??
@@ -156,6 +175,7 @@ class BlurPopupAnchorState extends State<BlurPopupAnchor>
           anchorOffset: anchorOffset,
           anchorSize: anchorSize,
           screenSize: overlaySize,
+          visibleBounds: visibleBounds,
           direction: direction,
           itemCount: widget.itemCount,
           itemBuilder: widget.itemBuilder,
@@ -169,6 +189,16 @@ class BlurPopupAnchorState extends State<BlurPopupAnchor>
 
     overlay.insert(_overlayEntry!);
     _animController.forward(from: 0);
+    return true;
+  }
+
+  void _handleLongPress() {
+    final didOpen = _showPopup();
+    if (didOpen) Haptics.selection();
+  }
+
+  void _handleTap() {
+    _showPopup();
   }
 
   Future<void> _removeOverlay({required bool animate}) async {
@@ -190,9 +220,9 @@ class BlurPopupAnchorState extends State<BlurPopupAnchor>
       child: TextFieldTapRegion(
         child: GestureDetector(
           key: _anchorKey,
-          onTap: widget.trigger == BlurPopupTrigger.tap ? _showPopup : null,
+          onTap: widget.trigger == BlurPopupTrigger.tap ? _handleTap : null,
           onLongPress: widget.trigger == BlurPopupTrigger.longPress
-              ? _showPopup
+              ? _handleLongPress
               : null,
           behavior: widget.trigger == BlurPopupTrigger.manual
               ? null
@@ -214,6 +244,7 @@ class _BlurPopupOverlay extends StatelessWidget {
     required this.anchorOffset,
     required this.anchorSize,
     required this.screenSize,
+    required this.visibleBounds,
     required this.direction,
     required this.itemCount,
     required this.itemBuilder,
@@ -227,6 +258,7 @@ class _BlurPopupOverlay extends StatelessWidget {
   final Offset anchorOffset;
   final Size anchorSize;
   final Size screenSize;
+  final Rect visibleBounds;
   final BlurPopupDirection direction;
   final int itemCount;
   final Widget Function(BuildContext, int, VoidCallback) itemBuilder;
@@ -281,6 +313,7 @@ class _BlurPopupOverlay extends StatelessWidget {
                     anchorOffset: anchorOffset,
                     anchorSize: anchorSize,
                     screenSize: screenSize,
+                    visibleBounds: visibleBounds,
                     direction: direction,
                     itemCount: itemCount,
                     itemBuilder: itemBuilder,
@@ -308,6 +341,7 @@ class _BlurPopupContent extends StatelessWidget {
     required this.anchorOffset,
     required this.anchorSize,
     required this.screenSize,
+    required this.visibleBounds,
     required this.direction,
     required this.itemCount,
     required this.itemBuilder,
@@ -320,6 +354,7 @@ class _BlurPopupContent extends StatelessWidget {
   final Offset anchorOffset;
   final Size anchorSize;
   final Size screenSize;
+  final Rect visibleBounds;
   final BlurPopupDirection direction;
   final int itemCount;
   final Widget Function(BuildContext, int, VoidCallback) itemBuilder;
@@ -334,27 +369,44 @@ class _BlurPopupContent extends StatelessWidget {
     final isOled = Theme.of(context).scaffoldBackgroundColor == Colors.black;
 
     const gap = 8.0;
+    const edgePadding = 12.0;
 
     // Horizontal: center on anchor, clamped to screen edges.
     var left = anchorOffset.dx + (anchorSize.width / 2) - (width / 2);
-    left = left.clamp(12.0, screenSize.width - width - 12.0);
+    left = _clampToRange(
+      left,
+      visibleBounds.left + edgePadding,
+      visibleBounds.right - width - edgePadding,
+    );
 
     // Vertical position — use bottom-anchored positioning for "up" so the
     // popup grows upward from the anchor based on actual content size,
     // rather than reserving the full maxHeight.
     final double? top;
     final double? bottom;
+    final double effectiveMaxHeight;
+    final visibleTop = visibleBounds.top + edgePadding;
+    final visibleBottom = visibleBounds.bottom - edgePadding;
+    final visibleHeight = math.max(0.0, visibleBottom - visibleTop);
+    final minVisibleHeight = math.min(44.0, visibleHeight);
     if (direction == BlurPopupDirection.up) {
       top = null;
-      bottom = (screenSize.height - anchorOffset.dy + gap).clamp(
-        12.0,
-        screenSize.height - 12.0,
+      bottom = _clampToRange(
+        screenSize.height - anchorOffset.dy + gap,
+        screenSize.height - visibleBottom,
+        screenSize.height - visibleTop - minVisibleHeight,
+      );
+      final popupBottomY = screenSize.height - bottom;
+      effectiveMaxHeight = _clampToRange(
+        popupBottomY - visibleTop,
+        0,
+        maxHeight,
       );
     } else {
       final rawTop = anchorOffset.dy + anchorSize.height + gap;
-      // Clamp so the popup doesn't extend past the screen bottom.
-      top = rawTop.clamp(12.0, screenSize.height - maxHeight - 12.0);
+      top = _clampToRange(rawTop, visibleTop, visibleBottom - minVisibleHeight);
       bottom = null;
+      effectiveMaxHeight = _clampToRange(visibleBottom - top, 0, maxHeight);
     }
 
     return Stack(
@@ -365,7 +417,7 @@ class _BlurPopupContent extends StatelessWidget {
           bottom: bottom,
           width: width,
           child: ConstrainedBox(
-            constraints: BoxConstraints(maxHeight: maxHeight),
+            constraints: BoxConstraints(maxHeight: effectiveMaxHeight),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(
                 PrismShapes.of(context).radius(borderRadius),

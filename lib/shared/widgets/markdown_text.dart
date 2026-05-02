@@ -53,8 +53,17 @@ class MarkdownText extends StatelessWidget {
     TextStyle strip(TextStyle? style) =>
         (style ?? const TextStyle()).copyWith(letterSpacing: 0);
 
+    final radius = PrismShapes.of(context).radius(8);
+    final mutedSurface = theme.colorScheme.surfaceContainerHighest;
+    final mutedFg = theme.colorScheme.onSurfaceVariant;
+
     return base.copyWith(
       p: strip(baseStyle ?? base.p),
+      a: strip(base.a).copyWith(
+        color: theme.colorScheme.primary,
+        decoration: TextDecoration.underline,
+        decorationColor: theme.colorScheme.primary.withValues(alpha: 0.5),
+      ),
       h1: strip(base.h1)
           .copyWith(fontSize: 24, fontWeight: FontWeight.bold),
       h2: strip(base.h2)
@@ -67,14 +76,19 @@ class MarkdownText extends StatelessWidget {
       h6: strip(base.h6).copyWith(fontSize: 14),
       em: strip(base.em),
       strong: strip(base.strong),
-      blockquote: strip(base.blockquote),
-      listBullet: strip(base.listBullet),
-      code: strip(base.code).copyWith(
-        backgroundColor: theme.colorScheme.surfaceContainerHighest,
+      blockquote: strip(base.blockquote).copyWith(color: mutedFg),
+      blockquoteDecoration: BoxDecoration(
+        color: mutedSurface,
+        borderRadius: BorderRadius.circular(radius),
+        border: Border(
+          left: BorderSide(color: theme.colorScheme.primary, width: 3),
+        ),
       ),
+      listBullet: strip(base.listBullet),
+      code: strip(base.code).copyWith(backgroundColor: mutedSurface),
       codeblockDecoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(8)),
+        color: mutedSurface,
+        borderRadius: BorderRadius.circular(radius),
       ),
     );
   }

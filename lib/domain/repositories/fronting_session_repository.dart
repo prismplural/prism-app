@@ -18,6 +18,18 @@ abstract class FrontingSessionRepository {
   Future<List<domain.FrontingSession>> getRecentSleepSessions({int limit = 10});
   Stream<List<domain.FrontingSession>> watchRecentSessions({int limit = 20});
   Stream<List<domain.FrontingSession>> watchRecentAllSessions({int limit = 30});
+
+  /// Watches sessions overlapping a half-open range `[start, end)`.
+  ///
+  /// Per §4.6, the derived-period sweep must see every session that
+  /// touches the visible window — including a long-running host whose
+  /// row started before the window. A LIMIT-paged query ordered by
+  /// `start_time DESC` can hide such rows once enough newer rows
+  /// accumulate; this query does not.
+  Stream<List<domain.FrontingSession>> watchSessionsOverlappingRange(
+    DateTime start,
+    DateTime end,
+  );
   Future<void> createSession(domain.FrontingSession session);
   Future<void> updateSession(domain.FrontingSession session);
   Future<void> endSession(String id, DateTime endTime);
@@ -44,5 +56,19 @@ abstract class FrontingSessionRepository {
     int? startHour,
     int? endHour,
     int? withinDays,
+  });
+
+  /// [until] is exclusive; pass null to mean "up to now".
+  /// Excludes active sessions (endTime == null), zero/negative duration,
+  /// deleted rows, and non-sleep types.
+  Future<({int count, Duration? avgDuration})> getSleepStats({
+    required DateTime since,
+    DateTime? until,
+  });
+
+  /// Returns at most [limit] completed sleep sessions, newest first by
+  /// startTime. Active sessions (endTime == null) and deleted rows excluded.
+  Stream<List<domain.FrontingSession>> watchRecentSleepSessions({
+    required int limit,
   });
 }

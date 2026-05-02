@@ -232,6 +232,142 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _profileHeaderSourceMeta =
+      const VerificationMeta('profileHeaderSource');
+  @override
+  late final GeneratedColumn<int> profileHeaderSource = GeneratedColumn<int>(
+    'profile_header_source',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
+  static const VerificationMeta _profileHeaderLayoutMeta =
+      const VerificationMeta('profileHeaderLayout');
+  @override
+  late final GeneratedColumn<int> profileHeaderLayout = GeneratedColumn<int>(
+    'profile_header_layout',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _profileHeaderVisibleMeta =
+      const VerificationMeta('profileHeaderVisible');
+  @override
+  late final GeneratedColumn<bool> profileHeaderVisible = GeneratedColumn<bool>(
+    'profile_header_visible',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("profile_header_visible" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _nameStyleFontMeta = const VerificationMeta(
+    'nameStyleFont',
+  );
+  @override
+  late final GeneratedColumn<int> nameStyleFont = GeneratedColumn<int>(
+    'name_style_font',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _nameStyleBoldMeta = const VerificationMeta(
+    'nameStyleBold',
+  );
+  @override
+  late final GeneratedColumn<bool> nameStyleBold = GeneratedColumn<bool>(
+    'name_style_bold',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("name_style_bold" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _nameStyleItalicMeta = const VerificationMeta(
+    'nameStyleItalic',
+  );
+  @override
+  late final GeneratedColumn<bool> nameStyleItalic = GeneratedColumn<bool>(
+    'name_style_italic',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("name_style_italic" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _nameStyleColorModeMeta =
+      const VerificationMeta('nameStyleColorMode');
+  @override
+  late final GeneratedColumn<int> nameStyleColorMode = GeneratedColumn<int>(
+    'name_style_color_mode',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _nameStyleColorHexMeta = const VerificationMeta(
+    'nameStyleColorHex',
+  );
+  @override
+  late final GeneratedColumn<String> nameStyleColorHex =
+      GeneratedColumn<String>(
+        'name_style_color_hex',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _profileHeaderImageDataMeta =
+      const VerificationMeta('profileHeaderImageData');
+  @override
+  late final GeneratedColumn<Uint8List> profileHeaderImageData =
+      GeneratedColumn<Uint8List>(
+        'profile_header_image_data',
+        aliasedName,
+        true,
+        type: DriftSqlType.blob,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _pkBannerImageDataMeta = const VerificationMeta(
+    'pkBannerImageData',
+  );
+  @override
+  late final GeneratedColumn<Uint8List> pkBannerImageData =
+      GeneratedColumn<Uint8List>(
+        'pk_banner_image_data',
+        aliasedName,
+        true,
+        type: DriftSqlType.blob,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _pkBannerCachedUrlMeta = const VerificationMeta(
+    'pkBannerCachedUrl',
+  );
+  @override
+  late final GeneratedColumn<String> pkBannerCachedUrl =
+      GeneratedColumn<String>(
+        'pk_banner_cached_url',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _pluralkitSyncIgnoredMeta =
       const VerificationMeta('pluralkitSyncIgnored');
   @override
@@ -297,6 +433,21 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _isAlwaysFrontingMeta = const VerificationMeta(
+    'isAlwaysFronting',
+  );
+  @override
+  late final GeneratedColumn<bool> isAlwaysFronting = GeneratedColumn<bool>(
+    'is_always_fronting',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_always_fronting" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -319,11 +470,23 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
     birthday,
     proxyTagsJson,
     pkBannerUrl,
+    profileHeaderSource,
+    profileHeaderLayout,
+    profileHeaderVisible,
+    nameStyleFont,
+    nameStyleBold,
+    nameStyleItalic,
+    nameStyleColorMode,
+    nameStyleColorHex,
+    profileHeaderImageData,
+    pkBannerImageData,
+    pkBannerCachedUrl,
     pluralkitSyncIgnored,
     markdownEnabled,
     isDeleted,
     deleteIntentEpoch,
     deletePushStartedAt,
+    isAlwaysFronting,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -490,6 +653,105 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
         ),
       );
     }
+    if (data.containsKey('profile_header_source')) {
+      context.handle(
+        _profileHeaderSourceMeta,
+        profileHeaderSource.isAcceptableOrUnknown(
+          data['profile_header_source']!,
+          _profileHeaderSourceMeta,
+        ),
+      );
+    }
+    if (data.containsKey('profile_header_layout')) {
+      context.handle(
+        _profileHeaderLayoutMeta,
+        profileHeaderLayout.isAcceptableOrUnknown(
+          data['profile_header_layout']!,
+          _profileHeaderLayoutMeta,
+        ),
+      );
+    }
+    if (data.containsKey('profile_header_visible')) {
+      context.handle(
+        _profileHeaderVisibleMeta,
+        profileHeaderVisible.isAcceptableOrUnknown(
+          data['profile_header_visible']!,
+          _profileHeaderVisibleMeta,
+        ),
+      );
+    }
+    if (data.containsKey('name_style_font')) {
+      context.handle(
+        _nameStyleFontMeta,
+        nameStyleFont.isAcceptableOrUnknown(
+          data['name_style_font']!,
+          _nameStyleFontMeta,
+        ),
+      );
+    }
+    if (data.containsKey('name_style_bold')) {
+      context.handle(
+        _nameStyleBoldMeta,
+        nameStyleBold.isAcceptableOrUnknown(
+          data['name_style_bold']!,
+          _nameStyleBoldMeta,
+        ),
+      );
+    }
+    if (data.containsKey('name_style_italic')) {
+      context.handle(
+        _nameStyleItalicMeta,
+        nameStyleItalic.isAcceptableOrUnknown(
+          data['name_style_italic']!,
+          _nameStyleItalicMeta,
+        ),
+      );
+    }
+    if (data.containsKey('name_style_color_mode')) {
+      context.handle(
+        _nameStyleColorModeMeta,
+        nameStyleColorMode.isAcceptableOrUnknown(
+          data['name_style_color_mode']!,
+          _nameStyleColorModeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('name_style_color_hex')) {
+      context.handle(
+        _nameStyleColorHexMeta,
+        nameStyleColorHex.isAcceptableOrUnknown(
+          data['name_style_color_hex']!,
+          _nameStyleColorHexMeta,
+        ),
+      );
+    }
+    if (data.containsKey('profile_header_image_data')) {
+      context.handle(
+        _profileHeaderImageDataMeta,
+        profileHeaderImageData.isAcceptableOrUnknown(
+          data['profile_header_image_data']!,
+          _profileHeaderImageDataMeta,
+        ),
+      );
+    }
+    if (data.containsKey('pk_banner_image_data')) {
+      context.handle(
+        _pkBannerImageDataMeta,
+        pkBannerImageData.isAcceptableOrUnknown(
+          data['pk_banner_image_data']!,
+          _pkBannerImageDataMeta,
+        ),
+      );
+    }
+    if (data.containsKey('pk_banner_cached_url')) {
+      context.handle(
+        _pkBannerCachedUrlMeta,
+        pkBannerCachedUrl.isAcceptableOrUnknown(
+          data['pk_banner_cached_url']!,
+          _pkBannerCachedUrlMeta,
+        ),
+      );
+    }
     if (data.containsKey('pluralkit_sync_ignored')) {
       context.handle(
         _pluralkitSyncIgnoredMeta,
@@ -529,6 +791,15 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
         deletePushStartedAt.isAcceptableOrUnknown(
           data['delete_push_started_at']!,
           _deletePushStartedAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('is_always_fronting')) {
+      context.handle(
+        _isAlwaysFrontingMeta,
+        isAlwaysFronting.isAcceptableOrUnknown(
+          data['is_always_fronting']!,
+          _isAlwaysFrontingMeta,
         ),
       );
     }
@@ -621,6 +892,50 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
         DriftSqlType.string,
         data['${effectivePrefix}pk_banner_url'],
       ),
+      profileHeaderSource: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}profile_header_source'],
+      )!,
+      profileHeaderLayout: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}profile_header_layout'],
+      )!,
+      profileHeaderVisible: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}profile_header_visible'],
+      )!,
+      nameStyleFont: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}name_style_font'],
+      )!,
+      nameStyleBold: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}name_style_bold'],
+      )!,
+      nameStyleItalic: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}name_style_italic'],
+      )!,
+      nameStyleColorMode: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}name_style_color_mode'],
+      )!,
+      nameStyleColorHex: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name_style_color_hex'],
+      ),
+      profileHeaderImageData: attachedDatabase.typeMapping.read(
+        DriftSqlType.blob,
+        data['${effectivePrefix}profile_header_image_data'],
+      ),
+      pkBannerImageData: attachedDatabase.typeMapping.read(
+        DriftSqlType.blob,
+        data['${effectivePrefix}pk_banner_image_data'],
+      ),
+      pkBannerCachedUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pk_banner_cached_url'],
+      ),
       pluralkitSyncIgnored: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}pluralkit_sync_ignored'],
@@ -641,6 +956,10 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
         DriftSqlType.int,
         data['${effectivePrefix}delete_push_started_at'],
       ),
+      isAlwaysFronting: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_always_fronting'],
+      )!,
     );
   }
 
@@ -671,11 +990,23 @@ class Member extends DataClass implements Insertable<Member> {
   final String? birthday;
   final String? proxyTagsJson;
   final String? pkBannerUrl;
+  final int profileHeaderSource;
+  final int profileHeaderLayout;
+  final bool profileHeaderVisible;
+  final int nameStyleFont;
+  final bool nameStyleBold;
+  final bool nameStyleItalic;
+  final int nameStyleColorMode;
+  final String? nameStyleColorHex;
+  final Uint8List? profileHeaderImageData;
+  final Uint8List? pkBannerImageData;
+  final String? pkBannerCachedUrl;
   final bool pluralkitSyncIgnored;
   final bool markdownEnabled;
   final bool isDeleted;
   final int? deleteIntentEpoch;
   final int? deletePushStartedAt;
+  final bool isAlwaysFronting;
   const Member({
     required this.id,
     required this.name,
@@ -697,11 +1028,23 @@ class Member extends DataClass implements Insertable<Member> {
     this.birthday,
     this.proxyTagsJson,
     this.pkBannerUrl,
+    required this.profileHeaderSource,
+    required this.profileHeaderLayout,
+    required this.profileHeaderVisible,
+    required this.nameStyleFont,
+    required this.nameStyleBold,
+    required this.nameStyleItalic,
+    required this.nameStyleColorMode,
+    this.nameStyleColorHex,
+    this.profileHeaderImageData,
+    this.pkBannerImageData,
+    this.pkBannerCachedUrl,
     required this.pluralkitSyncIgnored,
     required this.markdownEnabled,
     required this.isDeleted,
     this.deleteIntentEpoch,
     this.deletePushStartedAt,
+    required this.isAlwaysFronting,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -750,6 +1093,27 @@ class Member extends DataClass implements Insertable<Member> {
     if (!nullToAbsent || pkBannerUrl != null) {
       map['pk_banner_url'] = Variable<String>(pkBannerUrl);
     }
+    map['profile_header_source'] = Variable<int>(profileHeaderSource);
+    map['profile_header_layout'] = Variable<int>(profileHeaderLayout);
+    map['profile_header_visible'] = Variable<bool>(profileHeaderVisible);
+    map['name_style_font'] = Variable<int>(nameStyleFont);
+    map['name_style_bold'] = Variable<bool>(nameStyleBold);
+    map['name_style_italic'] = Variable<bool>(nameStyleItalic);
+    map['name_style_color_mode'] = Variable<int>(nameStyleColorMode);
+    if (!nullToAbsent || nameStyleColorHex != null) {
+      map['name_style_color_hex'] = Variable<String>(nameStyleColorHex);
+    }
+    if (!nullToAbsent || profileHeaderImageData != null) {
+      map['profile_header_image_data'] = Variable<Uint8List>(
+        profileHeaderImageData,
+      );
+    }
+    if (!nullToAbsent || pkBannerImageData != null) {
+      map['pk_banner_image_data'] = Variable<Uint8List>(pkBannerImageData);
+    }
+    if (!nullToAbsent || pkBannerCachedUrl != null) {
+      map['pk_banner_cached_url'] = Variable<String>(pkBannerCachedUrl);
+    }
     map['pluralkit_sync_ignored'] = Variable<bool>(pluralkitSyncIgnored);
     map['markdown_enabled'] = Variable<bool>(markdownEnabled);
     map['is_deleted'] = Variable<bool>(isDeleted);
@@ -759,6 +1123,7 @@ class Member extends DataClass implements Insertable<Member> {
     if (!nullToAbsent || deletePushStartedAt != null) {
       map['delete_push_started_at'] = Variable<int>(deletePushStartedAt);
     }
+    map['is_always_fronting'] = Variable<bool>(isAlwaysFronting);
     return map;
   }
 
@@ -804,6 +1169,25 @@ class Member extends DataClass implements Insertable<Member> {
       pkBannerUrl: pkBannerUrl == null && nullToAbsent
           ? const Value.absent()
           : Value(pkBannerUrl),
+      profileHeaderSource: Value(profileHeaderSource),
+      profileHeaderLayout: Value(profileHeaderLayout),
+      profileHeaderVisible: Value(profileHeaderVisible),
+      nameStyleFont: Value(nameStyleFont),
+      nameStyleBold: Value(nameStyleBold),
+      nameStyleItalic: Value(nameStyleItalic),
+      nameStyleColorMode: Value(nameStyleColorMode),
+      nameStyleColorHex: nameStyleColorHex == null && nullToAbsent
+          ? const Value.absent()
+          : Value(nameStyleColorHex),
+      profileHeaderImageData: profileHeaderImageData == null && nullToAbsent
+          ? const Value.absent()
+          : Value(profileHeaderImageData),
+      pkBannerImageData: pkBannerImageData == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pkBannerImageData),
+      pkBannerCachedUrl: pkBannerCachedUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pkBannerCachedUrl),
       pluralkitSyncIgnored: Value(pluralkitSyncIgnored),
       markdownEnabled: Value(markdownEnabled),
       isDeleted: Value(isDeleted),
@@ -813,6 +1197,7 @@ class Member extends DataClass implements Insertable<Member> {
       deletePushStartedAt: deletePushStartedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(deletePushStartedAt),
+      isAlwaysFronting: Value(isAlwaysFronting),
     );
   }
 
@@ -842,6 +1227,31 @@ class Member extends DataClass implements Insertable<Member> {
       birthday: serializer.fromJson<String?>(json['birthday']),
       proxyTagsJson: serializer.fromJson<String?>(json['proxyTagsJson']),
       pkBannerUrl: serializer.fromJson<String?>(json['pkBannerUrl']),
+      profileHeaderSource: serializer.fromJson<int>(
+        json['profileHeaderSource'],
+      ),
+      profileHeaderLayout: serializer.fromJson<int>(
+        json['profileHeaderLayout'],
+      ),
+      profileHeaderVisible: serializer.fromJson<bool>(
+        json['profileHeaderVisible'],
+      ),
+      nameStyleFont: serializer.fromJson<int>(json['nameStyleFont']),
+      nameStyleBold: serializer.fromJson<bool>(json['nameStyleBold']),
+      nameStyleItalic: serializer.fromJson<bool>(json['nameStyleItalic']),
+      nameStyleColorMode: serializer.fromJson<int>(json['nameStyleColorMode']),
+      nameStyleColorHex: serializer.fromJson<String?>(
+        json['nameStyleColorHex'],
+      ),
+      profileHeaderImageData: serializer.fromJson<Uint8List?>(
+        json['profileHeaderImageData'],
+      ),
+      pkBannerImageData: serializer.fromJson<Uint8List?>(
+        json['pkBannerImageData'],
+      ),
+      pkBannerCachedUrl: serializer.fromJson<String?>(
+        json['pkBannerCachedUrl'],
+      ),
       pluralkitSyncIgnored: serializer.fromJson<bool>(
         json['pluralkitSyncIgnored'],
       ),
@@ -851,6 +1261,7 @@ class Member extends DataClass implements Insertable<Member> {
       deletePushStartedAt: serializer.fromJson<int?>(
         json['deletePushStartedAt'],
       ),
+      isAlwaysFronting: serializer.fromJson<bool>(json['isAlwaysFronting']),
     );
   }
   @override
@@ -877,11 +1288,25 @@ class Member extends DataClass implements Insertable<Member> {
       'birthday': serializer.toJson<String?>(birthday),
       'proxyTagsJson': serializer.toJson<String?>(proxyTagsJson),
       'pkBannerUrl': serializer.toJson<String?>(pkBannerUrl),
+      'profileHeaderSource': serializer.toJson<int>(profileHeaderSource),
+      'profileHeaderLayout': serializer.toJson<int>(profileHeaderLayout),
+      'profileHeaderVisible': serializer.toJson<bool>(profileHeaderVisible),
+      'nameStyleFont': serializer.toJson<int>(nameStyleFont),
+      'nameStyleBold': serializer.toJson<bool>(nameStyleBold),
+      'nameStyleItalic': serializer.toJson<bool>(nameStyleItalic),
+      'nameStyleColorMode': serializer.toJson<int>(nameStyleColorMode),
+      'nameStyleColorHex': serializer.toJson<String?>(nameStyleColorHex),
+      'profileHeaderImageData': serializer.toJson<Uint8List?>(
+        profileHeaderImageData,
+      ),
+      'pkBannerImageData': serializer.toJson<Uint8List?>(pkBannerImageData),
+      'pkBannerCachedUrl': serializer.toJson<String?>(pkBannerCachedUrl),
       'pluralkitSyncIgnored': serializer.toJson<bool>(pluralkitSyncIgnored),
       'markdownEnabled': serializer.toJson<bool>(markdownEnabled),
       'isDeleted': serializer.toJson<bool>(isDeleted),
       'deleteIntentEpoch': serializer.toJson<int?>(deleteIntentEpoch),
       'deletePushStartedAt': serializer.toJson<int?>(deletePushStartedAt),
+      'isAlwaysFronting': serializer.toJson<bool>(isAlwaysFronting),
     };
   }
 
@@ -906,11 +1331,23 @@ class Member extends DataClass implements Insertable<Member> {
     Value<String?> birthday = const Value.absent(),
     Value<String?> proxyTagsJson = const Value.absent(),
     Value<String?> pkBannerUrl = const Value.absent(),
+    int? profileHeaderSource,
+    int? profileHeaderLayout,
+    bool? profileHeaderVisible,
+    int? nameStyleFont,
+    bool? nameStyleBold,
+    bool? nameStyleItalic,
+    int? nameStyleColorMode,
+    Value<String?> nameStyleColorHex = const Value.absent(),
+    Value<Uint8List?> profileHeaderImageData = const Value.absent(),
+    Value<Uint8List?> pkBannerImageData = const Value.absent(),
+    Value<String?> pkBannerCachedUrl = const Value.absent(),
     bool? pluralkitSyncIgnored,
     bool? markdownEnabled,
     bool? isDeleted,
     Value<int?> deleteIntentEpoch = const Value.absent(),
     Value<int?> deletePushStartedAt = const Value.absent(),
+    bool? isAlwaysFronting,
   }) => Member(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -942,6 +1379,25 @@ class Member extends DataClass implements Insertable<Member> {
         ? proxyTagsJson.value
         : this.proxyTagsJson,
     pkBannerUrl: pkBannerUrl.present ? pkBannerUrl.value : this.pkBannerUrl,
+    profileHeaderSource: profileHeaderSource ?? this.profileHeaderSource,
+    profileHeaderLayout: profileHeaderLayout ?? this.profileHeaderLayout,
+    profileHeaderVisible: profileHeaderVisible ?? this.profileHeaderVisible,
+    nameStyleFont: nameStyleFont ?? this.nameStyleFont,
+    nameStyleBold: nameStyleBold ?? this.nameStyleBold,
+    nameStyleItalic: nameStyleItalic ?? this.nameStyleItalic,
+    nameStyleColorMode: nameStyleColorMode ?? this.nameStyleColorMode,
+    nameStyleColorHex: nameStyleColorHex.present
+        ? nameStyleColorHex.value
+        : this.nameStyleColorHex,
+    profileHeaderImageData: profileHeaderImageData.present
+        ? profileHeaderImageData.value
+        : this.profileHeaderImageData,
+    pkBannerImageData: pkBannerImageData.present
+        ? pkBannerImageData.value
+        : this.pkBannerImageData,
+    pkBannerCachedUrl: pkBannerCachedUrl.present
+        ? pkBannerCachedUrl.value
+        : this.pkBannerCachedUrl,
     pluralkitSyncIgnored: pluralkitSyncIgnored ?? this.pluralkitSyncIgnored,
     markdownEnabled: markdownEnabled ?? this.markdownEnabled,
     isDeleted: isDeleted ?? this.isDeleted,
@@ -951,6 +1407,7 @@ class Member extends DataClass implements Insertable<Member> {
     deletePushStartedAt: deletePushStartedAt.present
         ? deletePushStartedAt.value
         : this.deletePushStartedAt,
+    isAlwaysFronting: isAlwaysFronting ?? this.isAlwaysFronting,
   );
   Member copyWithCompanion(MembersCompanion data) {
     return Member(
@@ -994,6 +1451,39 @@ class Member extends DataClass implements Insertable<Member> {
       pkBannerUrl: data.pkBannerUrl.present
           ? data.pkBannerUrl.value
           : this.pkBannerUrl,
+      profileHeaderSource: data.profileHeaderSource.present
+          ? data.profileHeaderSource.value
+          : this.profileHeaderSource,
+      profileHeaderLayout: data.profileHeaderLayout.present
+          ? data.profileHeaderLayout.value
+          : this.profileHeaderLayout,
+      profileHeaderVisible: data.profileHeaderVisible.present
+          ? data.profileHeaderVisible.value
+          : this.profileHeaderVisible,
+      nameStyleFont: data.nameStyleFont.present
+          ? data.nameStyleFont.value
+          : this.nameStyleFont,
+      nameStyleBold: data.nameStyleBold.present
+          ? data.nameStyleBold.value
+          : this.nameStyleBold,
+      nameStyleItalic: data.nameStyleItalic.present
+          ? data.nameStyleItalic.value
+          : this.nameStyleItalic,
+      nameStyleColorMode: data.nameStyleColorMode.present
+          ? data.nameStyleColorMode.value
+          : this.nameStyleColorMode,
+      nameStyleColorHex: data.nameStyleColorHex.present
+          ? data.nameStyleColorHex.value
+          : this.nameStyleColorHex,
+      profileHeaderImageData: data.profileHeaderImageData.present
+          ? data.profileHeaderImageData.value
+          : this.profileHeaderImageData,
+      pkBannerImageData: data.pkBannerImageData.present
+          ? data.pkBannerImageData.value
+          : this.pkBannerImageData,
+      pkBannerCachedUrl: data.pkBannerCachedUrl.present
+          ? data.pkBannerCachedUrl.value
+          : this.pkBannerCachedUrl,
       pluralkitSyncIgnored: data.pluralkitSyncIgnored.present
           ? data.pluralkitSyncIgnored.value
           : this.pluralkitSyncIgnored,
@@ -1007,6 +1497,9 @@ class Member extends DataClass implements Insertable<Member> {
       deletePushStartedAt: data.deletePushStartedAt.present
           ? data.deletePushStartedAt.value
           : this.deletePushStartedAt,
+      isAlwaysFronting: data.isAlwaysFronting.present
+          ? data.isAlwaysFronting.value
+          : this.isAlwaysFronting,
     );
   }
 
@@ -1033,11 +1526,23 @@ class Member extends DataClass implements Insertable<Member> {
           ..write('birthday: $birthday, ')
           ..write('proxyTagsJson: $proxyTagsJson, ')
           ..write('pkBannerUrl: $pkBannerUrl, ')
+          ..write('profileHeaderSource: $profileHeaderSource, ')
+          ..write('profileHeaderLayout: $profileHeaderLayout, ')
+          ..write('profileHeaderVisible: $profileHeaderVisible, ')
+          ..write('nameStyleFont: $nameStyleFont, ')
+          ..write('nameStyleBold: $nameStyleBold, ')
+          ..write('nameStyleItalic: $nameStyleItalic, ')
+          ..write('nameStyleColorMode: $nameStyleColorMode, ')
+          ..write('nameStyleColorHex: $nameStyleColorHex, ')
+          ..write('profileHeaderImageData: $profileHeaderImageData, ')
+          ..write('pkBannerImageData: $pkBannerImageData, ')
+          ..write('pkBannerCachedUrl: $pkBannerCachedUrl, ')
           ..write('pluralkitSyncIgnored: $pluralkitSyncIgnored, ')
           ..write('markdownEnabled: $markdownEnabled, ')
           ..write('isDeleted: $isDeleted, ')
           ..write('deleteIntentEpoch: $deleteIntentEpoch, ')
-          ..write('deletePushStartedAt: $deletePushStartedAt')
+          ..write('deletePushStartedAt: $deletePushStartedAt, ')
+          ..write('isAlwaysFronting: $isAlwaysFronting')
           ..write(')'))
         .toString();
   }
@@ -1064,11 +1569,23 @@ class Member extends DataClass implements Insertable<Member> {
     birthday,
     proxyTagsJson,
     pkBannerUrl,
+    profileHeaderSource,
+    profileHeaderLayout,
+    profileHeaderVisible,
+    nameStyleFont,
+    nameStyleBold,
+    nameStyleItalic,
+    nameStyleColorMode,
+    nameStyleColorHex,
+    $driftBlobEquality.hash(profileHeaderImageData),
+    $driftBlobEquality.hash(pkBannerImageData),
+    pkBannerCachedUrl,
     pluralkitSyncIgnored,
     markdownEnabled,
     isDeleted,
     deleteIntentEpoch,
     deletePushStartedAt,
+    isAlwaysFronting,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -1097,11 +1614,29 @@ class Member extends DataClass implements Insertable<Member> {
           other.birthday == this.birthday &&
           other.proxyTagsJson == this.proxyTagsJson &&
           other.pkBannerUrl == this.pkBannerUrl &&
+          other.profileHeaderSource == this.profileHeaderSource &&
+          other.profileHeaderLayout == this.profileHeaderLayout &&
+          other.profileHeaderVisible == this.profileHeaderVisible &&
+          other.nameStyleFont == this.nameStyleFont &&
+          other.nameStyleBold == this.nameStyleBold &&
+          other.nameStyleItalic == this.nameStyleItalic &&
+          other.nameStyleColorMode == this.nameStyleColorMode &&
+          other.nameStyleColorHex == this.nameStyleColorHex &&
+          $driftBlobEquality.equals(
+            other.profileHeaderImageData,
+            this.profileHeaderImageData,
+          ) &&
+          $driftBlobEquality.equals(
+            other.pkBannerImageData,
+            this.pkBannerImageData,
+          ) &&
+          other.pkBannerCachedUrl == this.pkBannerCachedUrl &&
           other.pluralkitSyncIgnored == this.pluralkitSyncIgnored &&
           other.markdownEnabled == this.markdownEnabled &&
           other.isDeleted == this.isDeleted &&
           other.deleteIntentEpoch == this.deleteIntentEpoch &&
-          other.deletePushStartedAt == this.deletePushStartedAt);
+          other.deletePushStartedAt == this.deletePushStartedAt &&
+          other.isAlwaysFronting == this.isAlwaysFronting);
 }
 
 class MembersCompanion extends UpdateCompanion<Member> {
@@ -1125,11 +1660,23 @@ class MembersCompanion extends UpdateCompanion<Member> {
   final Value<String?> birthday;
   final Value<String?> proxyTagsJson;
   final Value<String?> pkBannerUrl;
+  final Value<int> profileHeaderSource;
+  final Value<int> profileHeaderLayout;
+  final Value<bool> profileHeaderVisible;
+  final Value<int> nameStyleFont;
+  final Value<bool> nameStyleBold;
+  final Value<bool> nameStyleItalic;
+  final Value<int> nameStyleColorMode;
+  final Value<String?> nameStyleColorHex;
+  final Value<Uint8List?> profileHeaderImageData;
+  final Value<Uint8List?> pkBannerImageData;
+  final Value<String?> pkBannerCachedUrl;
   final Value<bool> pluralkitSyncIgnored;
   final Value<bool> markdownEnabled;
   final Value<bool> isDeleted;
   final Value<int?> deleteIntentEpoch;
   final Value<int?> deletePushStartedAt;
+  final Value<bool> isAlwaysFronting;
   final Value<int> rowid;
   const MembersCompanion({
     this.id = const Value.absent(),
@@ -1152,11 +1699,23 @@ class MembersCompanion extends UpdateCompanion<Member> {
     this.birthday = const Value.absent(),
     this.proxyTagsJson = const Value.absent(),
     this.pkBannerUrl = const Value.absent(),
+    this.profileHeaderSource = const Value.absent(),
+    this.profileHeaderLayout = const Value.absent(),
+    this.profileHeaderVisible = const Value.absent(),
+    this.nameStyleFont = const Value.absent(),
+    this.nameStyleBold = const Value.absent(),
+    this.nameStyleItalic = const Value.absent(),
+    this.nameStyleColorMode = const Value.absent(),
+    this.nameStyleColorHex = const Value.absent(),
+    this.profileHeaderImageData = const Value.absent(),
+    this.pkBannerImageData = const Value.absent(),
+    this.pkBannerCachedUrl = const Value.absent(),
     this.pluralkitSyncIgnored = const Value.absent(),
     this.markdownEnabled = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.deleteIntentEpoch = const Value.absent(),
     this.deletePushStartedAt = const Value.absent(),
+    this.isAlwaysFronting = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   MembersCompanion.insert({
@@ -1180,11 +1739,23 @@ class MembersCompanion extends UpdateCompanion<Member> {
     this.birthday = const Value.absent(),
     this.proxyTagsJson = const Value.absent(),
     this.pkBannerUrl = const Value.absent(),
+    this.profileHeaderSource = const Value.absent(),
+    this.profileHeaderLayout = const Value.absent(),
+    this.profileHeaderVisible = const Value.absent(),
+    this.nameStyleFont = const Value.absent(),
+    this.nameStyleBold = const Value.absent(),
+    this.nameStyleItalic = const Value.absent(),
+    this.nameStyleColorMode = const Value.absent(),
+    this.nameStyleColorHex = const Value.absent(),
+    this.profileHeaderImageData = const Value.absent(),
+    this.pkBannerImageData = const Value.absent(),
+    this.pkBannerCachedUrl = const Value.absent(),
     this.pluralkitSyncIgnored = const Value.absent(),
     this.markdownEnabled = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.deleteIntentEpoch = const Value.absent(),
     this.deletePushStartedAt = const Value.absent(),
+    this.isAlwaysFronting = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        name = Value(name),
@@ -1210,11 +1781,23 @@ class MembersCompanion extends UpdateCompanion<Member> {
     Expression<String>? birthday,
     Expression<String>? proxyTagsJson,
     Expression<String>? pkBannerUrl,
+    Expression<int>? profileHeaderSource,
+    Expression<int>? profileHeaderLayout,
+    Expression<bool>? profileHeaderVisible,
+    Expression<int>? nameStyleFont,
+    Expression<bool>? nameStyleBold,
+    Expression<bool>? nameStyleItalic,
+    Expression<int>? nameStyleColorMode,
+    Expression<String>? nameStyleColorHex,
+    Expression<Uint8List>? profileHeaderImageData,
+    Expression<Uint8List>? pkBannerImageData,
+    Expression<String>? pkBannerCachedUrl,
     Expression<bool>? pluralkitSyncIgnored,
     Expression<bool>? markdownEnabled,
     Expression<bool>? isDeleted,
     Expression<int>? deleteIntentEpoch,
     Expression<int>? deletePushStartedAt,
+    Expression<bool>? isAlwaysFronting,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1239,6 +1822,22 @@ class MembersCompanion extends UpdateCompanion<Member> {
       if (birthday != null) 'birthday': birthday,
       if (proxyTagsJson != null) 'proxy_tags_json': proxyTagsJson,
       if (pkBannerUrl != null) 'pk_banner_url': pkBannerUrl,
+      if (profileHeaderSource != null)
+        'profile_header_source': profileHeaderSource,
+      if (profileHeaderLayout != null)
+        'profile_header_layout': profileHeaderLayout,
+      if (profileHeaderVisible != null)
+        'profile_header_visible': profileHeaderVisible,
+      if (nameStyleFont != null) 'name_style_font': nameStyleFont,
+      if (nameStyleBold != null) 'name_style_bold': nameStyleBold,
+      if (nameStyleItalic != null) 'name_style_italic': nameStyleItalic,
+      if (nameStyleColorMode != null)
+        'name_style_color_mode': nameStyleColorMode,
+      if (nameStyleColorHex != null) 'name_style_color_hex': nameStyleColorHex,
+      if (profileHeaderImageData != null)
+        'profile_header_image_data': profileHeaderImageData,
+      if (pkBannerImageData != null) 'pk_banner_image_data': pkBannerImageData,
+      if (pkBannerCachedUrl != null) 'pk_banner_cached_url': pkBannerCachedUrl,
       if (pluralkitSyncIgnored != null)
         'pluralkit_sync_ignored': pluralkitSyncIgnored,
       if (markdownEnabled != null) 'markdown_enabled': markdownEnabled,
@@ -1246,6 +1845,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
       if (deleteIntentEpoch != null) 'delete_intent_epoch': deleteIntentEpoch,
       if (deletePushStartedAt != null)
         'delete_push_started_at': deletePushStartedAt,
+      if (isAlwaysFronting != null) 'is_always_fronting': isAlwaysFronting,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1271,11 +1871,23 @@ class MembersCompanion extends UpdateCompanion<Member> {
     Value<String?>? birthday,
     Value<String?>? proxyTagsJson,
     Value<String?>? pkBannerUrl,
+    Value<int>? profileHeaderSource,
+    Value<int>? profileHeaderLayout,
+    Value<bool>? profileHeaderVisible,
+    Value<int>? nameStyleFont,
+    Value<bool>? nameStyleBold,
+    Value<bool>? nameStyleItalic,
+    Value<int>? nameStyleColorMode,
+    Value<String?>? nameStyleColorHex,
+    Value<Uint8List?>? profileHeaderImageData,
+    Value<Uint8List?>? pkBannerImageData,
+    Value<String?>? pkBannerCachedUrl,
     Value<bool>? pluralkitSyncIgnored,
     Value<bool>? markdownEnabled,
     Value<bool>? isDeleted,
     Value<int?>? deleteIntentEpoch,
     Value<int?>? deletePushStartedAt,
+    Value<bool>? isAlwaysFronting,
     Value<int>? rowid,
   }) {
     return MembersCompanion(
@@ -1299,11 +1911,24 @@ class MembersCompanion extends UpdateCompanion<Member> {
       birthday: birthday ?? this.birthday,
       proxyTagsJson: proxyTagsJson ?? this.proxyTagsJson,
       pkBannerUrl: pkBannerUrl ?? this.pkBannerUrl,
+      profileHeaderSource: profileHeaderSource ?? this.profileHeaderSource,
+      profileHeaderLayout: profileHeaderLayout ?? this.profileHeaderLayout,
+      profileHeaderVisible: profileHeaderVisible ?? this.profileHeaderVisible,
+      nameStyleFont: nameStyleFont ?? this.nameStyleFont,
+      nameStyleBold: nameStyleBold ?? this.nameStyleBold,
+      nameStyleItalic: nameStyleItalic ?? this.nameStyleItalic,
+      nameStyleColorMode: nameStyleColorMode ?? this.nameStyleColorMode,
+      nameStyleColorHex: nameStyleColorHex ?? this.nameStyleColorHex,
+      profileHeaderImageData:
+          profileHeaderImageData ?? this.profileHeaderImageData,
+      pkBannerImageData: pkBannerImageData ?? this.pkBannerImageData,
+      pkBannerCachedUrl: pkBannerCachedUrl ?? this.pkBannerCachedUrl,
       pluralkitSyncIgnored: pluralkitSyncIgnored ?? this.pluralkitSyncIgnored,
       markdownEnabled: markdownEnabled ?? this.markdownEnabled,
       isDeleted: isDeleted ?? this.isDeleted,
       deleteIntentEpoch: deleteIntentEpoch ?? this.deleteIntentEpoch,
       deletePushStartedAt: deletePushStartedAt ?? this.deletePushStartedAt,
+      isAlwaysFronting: isAlwaysFronting ?? this.isAlwaysFronting,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1371,6 +1996,45 @@ class MembersCompanion extends UpdateCompanion<Member> {
     if (pkBannerUrl.present) {
       map['pk_banner_url'] = Variable<String>(pkBannerUrl.value);
     }
+    if (profileHeaderSource.present) {
+      map['profile_header_source'] = Variable<int>(profileHeaderSource.value);
+    }
+    if (profileHeaderLayout.present) {
+      map['profile_header_layout'] = Variable<int>(profileHeaderLayout.value);
+    }
+    if (profileHeaderVisible.present) {
+      map['profile_header_visible'] = Variable<bool>(
+        profileHeaderVisible.value,
+      );
+    }
+    if (nameStyleFont.present) {
+      map['name_style_font'] = Variable<int>(nameStyleFont.value);
+    }
+    if (nameStyleBold.present) {
+      map['name_style_bold'] = Variable<bool>(nameStyleBold.value);
+    }
+    if (nameStyleItalic.present) {
+      map['name_style_italic'] = Variable<bool>(nameStyleItalic.value);
+    }
+    if (nameStyleColorMode.present) {
+      map['name_style_color_mode'] = Variable<int>(nameStyleColorMode.value);
+    }
+    if (nameStyleColorHex.present) {
+      map['name_style_color_hex'] = Variable<String>(nameStyleColorHex.value);
+    }
+    if (profileHeaderImageData.present) {
+      map['profile_header_image_data'] = Variable<Uint8List>(
+        profileHeaderImageData.value,
+      );
+    }
+    if (pkBannerImageData.present) {
+      map['pk_banner_image_data'] = Variable<Uint8List>(
+        pkBannerImageData.value,
+      );
+    }
+    if (pkBannerCachedUrl.present) {
+      map['pk_banner_cached_url'] = Variable<String>(pkBannerCachedUrl.value);
+    }
     if (pluralkitSyncIgnored.present) {
       map['pluralkit_sync_ignored'] = Variable<bool>(
         pluralkitSyncIgnored.value,
@@ -1387,6 +2051,9 @@ class MembersCompanion extends UpdateCompanion<Member> {
     }
     if (deletePushStartedAt.present) {
       map['delete_push_started_at'] = Variable<int>(deletePushStartedAt.value);
+    }
+    if (isAlwaysFronting.present) {
+      map['is_always_fronting'] = Variable<bool>(isAlwaysFronting.value);
     }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
@@ -1417,11 +2084,23 @@ class MembersCompanion extends UpdateCompanion<Member> {
           ..write('birthday: $birthday, ')
           ..write('proxyTagsJson: $proxyTagsJson, ')
           ..write('pkBannerUrl: $pkBannerUrl, ')
+          ..write('profileHeaderSource: $profileHeaderSource, ')
+          ..write('profileHeaderLayout: $profileHeaderLayout, ')
+          ..write('profileHeaderVisible: $profileHeaderVisible, ')
+          ..write('nameStyleFont: $nameStyleFont, ')
+          ..write('nameStyleBold: $nameStyleBold, ')
+          ..write('nameStyleItalic: $nameStyleItalic, ')
+          ..write('nameStyleColorMode: $nameStyleColorMode, ')
+          ..write('nameStyleColorHex: $nameStyleColorHex, ')
+          ..write('profileHeaderImageData: $profileHeaderImageData, ')
+          ..write('pkBannerImageData: $pkBannerImageData, ')
+          ..write('pkBannerCachedUrl: $pkBannerCachedUrl, ')
           ..write('pluralkitSyncIgnored: $pluralkitSyncIgnored, ')
           ..write('markdownEnabled: $markdownEnabled, ')
           ..write('isDeleted: $isDeleted, ')
           ..write('deleteIntentEpoch: $deleteIntentEpoch, ')
           ..write('deletePushStartedAt: $deletePushStartedAt, ')
+          ..write('isAlwaysFronting: $isAlwaysFronting, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1557,6 +2236,28 @@ class $FrontingSessionsTable extends FrontingSessions
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _pkImportSourceMeta = const VerificationMeta(
+    'pkImportSource',
+  );
+  @override
+  late final GeneratedColumn<String> pkImportSource = GeneratedColumn<String>(
+    'pk_import_source',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _pkFileSwitchIdMeta = const VerificationMeta(
+    'pkFileSwitchId',
+  );
+  @override
+  late final GeneratedColumn<String> pkFileSwitchId = GeneratedColumn<String>(
+    'pk_file_switch_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _pkMemberIdsJsonMeta = const VerificationMeta(
     'pkMemberIdsJson',
   );
@@ -1617,6 +2318,8 @@ class $FrontingSessionsTable extends FrontingSessions
     quality,
     isHealthKitImport,
     pluralkitUuid,
+    pkImportSource,
+    pkFileSwitchId,
     pkMemberIdsJson,
     isDeleted,
     deleteIntentEpoch,
@@ -1713,6 +2416,24 @@ class $FrontingSessionsTable extends FrontingSessions
         ),
       );
     }
+    if (data.containsKey('pk_import_source')) {
+      context.handle(
+        _pkImportSourceMeta,
+        pkImportSource.isAcceptableOrUnknown(
+          data['pk_import_source']!,
+          _pkImportSourceMeta,
+        ),
+      );
+    }
+    if (data.containsKey('pk_file_switch_id')) {
+      context.handle(
+        _pkFileSwitchIdMeta,
+        pkFileSwitchId.isAcceptableOrUnknown(
+          data['pk_file_switch_id']!,
+          _pkFileSwitchIdMeta,
+        ),
+      );
+    }
     if (data.containsKey('pk_member_ids_json')) {
       context.handle(
         _pkMemberIdsJsonMeta,
@@ -1799,6 +2520,14 @@ class $FrontingSessionsTable extends FrontingSessions
         DriftSqlType.string,
         data['${effectivePrefix}pluralkit_uuid'],
       ),
+      pkImportSource: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pk_import_source'],
+      ),
+      pkFileSwitchId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pk_file_switch_id'],
+      ),
       pkMemberIdsJson: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}pk_member_ids_json'],
@@ -1836,6 +2565,8 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
   final int? quality;
   final bool isHealthKitImport;
   final String? pluralkitUuid;
+  final String? pkImportSource;
+  final String? pkFileSwitchId;
   final String? pkMemberIdsJson;
   final bool isDeleted;
   final int? deleteIntentEpoch;
@@ -1852,6 +2583,8 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
     this.quality,
     required this.isHealthKitImport,
     this.pluralkitUuid,
+    this.pkImportSource,
+    this.pkFileSwitchId,
     this.pkMemberIdsJson,
     required this.isDeleted,
     this.deleteIntentEpoch,
@@ -1882,6 +2615,12 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
     map['is_health_kit_import'] = Variable<bool>(isHealthKitImport);
     if (!nullToAbsent || pluralkitUuid != null) {
       map['pluralkit_uuid'] = Variable<String>(pluralkitUuid);
+    }
+    if (!nullToAbsent || pkImportSource != null) {
+      map['pk_import_source'] = Variable<String>(pkImportSource);
+    }
+    if (!nullToAbsent || pkFileSwitchId != null) {
+      map['pk_file_switch_id'] = Variable<String>(pkFileSwitchId);
     }
     if (!nullToAbsent || pkMemberIdsJson != null) {
       map['pk_member_ids_json'] = Variable<String>(pkMemberIdsJson);
@@ -1921,6 +2660,12 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
       pluralkitUuid: pluralkitUuid == null && nullToAbsent
           ? const Value.absent()
           : Value(pluralkitUuid),
+      pkImportSource: pkImportSource == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pkImportSource),
+      pkFileSwitchId: pkFileSwitchId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pkFileSwitchId),
       pkMemberIdsJson: pkMemberIdsJson == null && nullToAbsent
           ? const Value.absent()
           : Value(pkMemberIdsJson),
@@ -1951,6 +2696,8 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
       quality: serializer.fromJson<int?>(json['quality']),
       isHealthKitImport: serializer.fromJson<bool>(json['isHealthKitImport']),
       pluralkitUuid: serializer.fromJson<String?>(json['pluralkitUuid']),
+      pkImportSource: serializer.fromJson<String?>(json['pkImportSource']),
+      pkFileSwitchId: serializer.fromJson<String?>(json['pkFileSwitchId']),
       pkMemberIdsJson: serializer.fromJson<String?>(json['pkMemberIdsJson']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
       deleteIntentEpoch: serializer.fromJson<int?>(json['deleteIntentEpoch']),
@@ -1974,6 +2721,8 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
       'quality': serializer.toJson<int?>(quality),
       'isHealthKitImport': serializer.toJson<bool>(isHealthKitImport),
       'pluralkitUuid': serializer.toJson<String?>(pluralkitUuid),
+      'pkImportSource': serializer.toJson<String?>(pkImportSource),
+      'pkFileSwitchId': serializer.toJson<String?>(pkFileSwitchId),
       'pkMemberIdsJson': serializer.toJson<String?>(pkMemberIdsJson),
       'isDeleted': serializer.toJson<bool>(isDeleted),
       'deleteIntentEpoch': serializer.toJson<int?>(deleteIntentEpoch),
@@ -1993,6 +2742,8 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
     Value<int?> quality = const Value.absent(),
     bool? isHealthKitImport,
     Value<String?> pluralkitUuid = const Value.absent(),
+    Value<String?> pkImportSource = const Value.absent(),
+    Value<String?> pkFileSwitchId = const Value.absent(),
     Value<String?> pkMemberIdsJson = const Value.absent(),
     bool? isDeleted,
     Value<int?> deleteIntentEpoch = const Value.absent(),
@@ -2011,6 +2762,12 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
     pluralkitUuid: pluralkitUuid.present
         ? pluralkitUuid.value
         : this.pluralkitUuid,
+    pkImportSource: pkImportSource.present
+        ? pkImportSource.value
+        : this.pkImportSource,
+    pkFileSwitchId: pkFileSwitchId.present
+        ? pkFileSwitchId.value
+        : this.pkFileSwitchId,
     pkMemberIdsJson: pkMemberIdsJson.present
         ? pkMemberIdsJson.value
         : this.pkMemberIdsJson,
@@ -2045,6 +2802,12 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
       pluralkitUuid: data.pluralkitUuid.present
           ? data.pluralkitUuid.value
           : this.pluralkitUuid,
+      pkImportSource: data.pkImportSource.present
+          ? data.pkImportSource.value
+          : this.pkImportSource,
+      pkFileSwitchId: data.pkFileSwitchId.present
+          ? data.pkFileSwitchId.value
+          : this.pkFileSwitchId,
       pkMemberIdsJson: data.pkMemberIdsJson.present
           ? data.pkMemberIdsJson.value
           : this.pkMemberIdsJson,
@@ -2072,6 +2835,8 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
           ..write('quality: $quality, ')
           ..write('isHealthKitImport: $isHealthKitImport, ')
           ..write('pluralkitUuid: $pluralkitUuid, ')
+          ..write('pkImportSource: $pkImportSource, ')
+          ..write('pkFileSwitchId: $pkFileSwitchId, ')
           ..write('pkMemberIdsJson: $pkMemberIdsJson, ')
           ..write('isDeleted: $isDeleted, ')
           ..write('deleteIntentEpoch: $deleteIntentEpoch, ')
@@ -2093,6 +2858,8 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
     quality,
     isHealthKitImport,
     pluralkitUuid,
+    pkImportSource,
+    pkFileSwitchId,
     pkMemberIdsJson,
     isDeleted,
     deleteIntentEpoch,
@@ -2113,6 +2880,8 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
           other.quality == this.quality &&
           other.isHealthKitImport == this.isHealthKitImport &&
           other.pluralkitUuid == this.pluralkitUuid &&
+          other.pkImportSource == this.pkImportSource &&
+          other.pkFileSwitchId == this.pkFileSwitchId &&
           other.pkMemberIdsJson == this.pkMemberIdsJson &&
           other.isDeleted == this.isDeleted &&
           other.deleteIntentEpoch == this.deleteIntentEpoch &&
@@ -2131,6 +2900,8 @@ class FrontingSessionsCompanion extends UpdateCompanion<FrontingSession> {
   final Value<int?> quality;
   final Value<bool> isHealthKitImport;
   final Value<String?> pluralkitUuid;
+  final Value<String?> pkImportSource;
+  final Value<String?> pkFileSwitchId;
   final Value<String?> pkMemberIdsJson;
   final Value<bool> isDeleted;
   final Value<int?> deleteIntentEpoch;
@@ -2148,6 +2919,8 @@ class FrontingSessionsCompanion extends UpdateCompanion<FrontingSession> {
     this.quality = const Value.absent(),
     this.isHealthKitImport = const Value.absent(),
     this.pluralkitUuid = const Value.absent(),
+    this.pkImportSource = const Value.absent(),
+    this.pkFileSwitchId = const Value.absent(),
     this.pkMemberIdsJson = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.deleteIntentEpoch = const Value.absent(),
@@ -2166,6 +2939,8 @@ class FrontingSessionsCompanion extends UpdateCompanion<FrontingSession> {
     this.quality = const Value.absent(),
     this.isHealthKitImport = const Value.absent(),
     this.pluralkitUuid = const Value.absent(),
+    this.pkImportSource = const Value.absent(),
+    this.pkFileSwitchId = const Value.absent(),
     this.pkMemberIdsJson = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.deleteIntentEpoch = const Value.absent(),
@@ -2185,6 +2960,8 @@ class FrontingSessionsCompanion extends UpdateCompanion<FrontingSession> {
     Expression<int>? quality,
     Expression<bool>? isHealthKitImport,
     Expression<String>? pluralkitUuid,
+    Expression<String>? pkImportSource,
+    Expression<String>? pkFileSwitchId,
     Expression<String>? pkMemberIdsJson,
     Expression<bool>? isDeleted,
     Expression<int>? deleteIntentEpoch,
@@ -2203,6 +2980,8 @@ class FrontingSessionsCompanion extends UpdateCompanion<FrontingSession> {
       if (quality != null) 'quality': quality,
       if (isHealthKitImport != null) 'is_health_kit_import': isHealthKitImport,
       if (pluralkitUuid != null) 'pluralkit_uuid': pluralkitUuid,
+      if (pkImportSource != null) 'pk_import_source': pkImportSource,
+      if (pkFileSwitchId != null) 'pk_file_switch_id': pkFileSwitchId,
       if (pkMemberIdsJson != null) 'pk_member_ids_json': pkMemberIdsJson,
       if (isDeleted != null) 'is_deleted': isDeleted,
       if (deleteIntentEpoch != null) 'delete_intent_epoch': deleteIntentEpoch,
@@ -2224,6 +3003,8 @@ class FrontingSessionsCompanion extends UpdateCompanion<FrontingSession> {
     Value<int?>? quality,
     Value<bool>? isHealthKitImport,
     Value<String?>? pluralkitUuid,
+    Value<String?>? pkImportSource,
+    Value<String?>? pkFileSwitchId,
     Value<String?>? pkMemberIdsJson,
     Value<bool>? isDeleted,
     Value<int?>? deleteIntentEpoch,
@@ -2242,6 +3023,8 @@ class FrontingSessionsCompanion extends UpdateCompanion<FrontingSession> {
       quality: quality ?? this.quality,
       isHealthKitImport: isHealthKitImport ?? this.isHealthKitImport,
       pluralkitUuid: pluralkitUuid ?? this.pluralkitUuid,
+      pkImportSource: pkImportSource ?? this.pkImportSource,
+      pkFileSwitchId: pkFileSwitchId ?? this.pkFileSwitchId,
       pkMemberIdsJson: pkMemberIdsJson ?? this.pkMemberIdsJson,
       isDeleted: isDeleted ?? this.isDeleted,
       deleteIntentEpoch: deleteIntentEpoch ?? this.deleteIntentEpoch,
@@ -2286,6 +3069,12 @@ class FrontingSessionsCompanion extends UpdateCompanion<FrontingSession> {
     if (pluralkitUuid.present) {
       map['pluralkit_uuid'] = Variable<String>(pluralkitUuid.value);
     }
+    if (pkImportSource.present) {
+      map['pk_import_source'] = Variable<String>(pkImportSource.value);
+    }
+    if (pkFileSwitchId.present) {
+      map['pk_file_switch_id'] = Variable<String>(pkFileSwitchId.value);
+    }
     if (pkMemberIdsJson.present) {
       map['pk_member_ids_json'] = Variable<String>(pkMemberIdsJson.value);
     }
@@ -2318,6 +3107,8 @@ class FrontingSessionsCompanion extends UpdateCompanion<FrontingSession> {
           ..write('quality: $quality, ')
           ..write('isHealthKitImport: $isHealthKitImport, ')
           ..write('pluralkitUuid: $pluralkitUuid, ')
+          ..write('pkImportSource: $pkImportSource, ')
+          ..write('pkFileSwitchId: $pkFileSwitchId, ')
           ..write('pkMemberIdsJson: $pkMemberIdsJson, ')
           ..write('isDeleted: $isDeleted, ')
           ..write('deleteIntentEpoch: $deleteIntentEpoch, ')
@@ -4685,6 +5476,65 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         type: DriftSqlType.string,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _pendingFrontingMigrationModeMeta =
+      const VerificationMeta('pendingFrontingMigrationMode');
+  @override
+  late final GeneratedColumn<String> pendingFrontingMigrationMode =
+      GeneratedColumn<String>(
+        'pending_fronting_migration_mode',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('complete'),
+      );
+  static const VerificationMeta _frontingListViewModeMeta =
+      const VerificationMeta('frontingListViewMode');
+  @override
+  late final GeneratedColumn<int> frontingListViewMode = GeneratedColumn<int>(
+    'fronting_list_view_mode',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _addFrontDefaultBehaviorMeta =
+      const VerificationMeta('addFrontDefaultBehavior');
+  @override
+  late final GeneratedColumn<int> addFrontDefaultBehavior =
+      GeneratedColumn<int>(
+        'add_front_default_behavior',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(0),
+      );
+  static const VerificationMeta _quickFrontDefaultBehaviorMeta =
+      const VerificationMeta('quickFrontDefaultBehavior');
+  @override
+  late final GeneratedColumn<int> quickFrontDefaultBehavior =
+      GeneratedColumn<int>(
+        'quick_front_default_behavior',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(0),
+      );
+  static const VerificationMeta _pendingFrontingMigrationCleanupSubstateMeta =
+      const VerificationMeta('pendingFrontingMigrationCleanupSubstate');
+  @override
+  late final GeneratedColumn<String> pendingFrontingMigrationCleanupSubstate =
+      GeneratedColumn<String>(
+        'pending_fronting_migration_cleanup_substate',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(''),
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -4743,6 +5593,11 @@ class $SystemSettingsTableTable extends SystemSettingsTable
     syncNavigationEnabled,
     chatBadgePreferences,
     defaultSleepQuality,
+    pendingFrontingMigrationMode,
+    frontingListViewMode,
+    addFrontDefaultBehavior,
+    quickFrontDefaultBehavior,
+    pendingFrontingMigrationCleanupSubstate,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -5227,6 +6082,51 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         ),
       );
     }
+    if (data.containsKey('pending_fronting_migration_mode')) {
+      context.handle(
+        _pendingFrontingMigrationModeMeta,
+        pendingFrontingMigrationMode.isAcceptableOrUnknown(
+          data['pending_fronting_migration_mode']!,
+          _pendingFrontingMigrationModeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('fronting_list_view_mode')) {
+      context.handle(
+        _frontingListViewModeMeta,
+        frontingListViewMode.isAcceptableOrUnknown(
+          data['fronting_list_view_mode']!,
+          _frontingListViewModeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('add_front_default_behavior')) {
+      context.handle(
+        _addFrontDefaultBehaviorMeta,
+        addFrontDefaultBehavior.isAcceptableOrUnknown(
+          data['add_front_default_behavior']!,
+          _addFrontDefaultBehaviorMeta,
+        ),
+      );
+    }
+    if (data.containsKey('quick_front_default_behavior')) {
+      context.handle(
+        _quickFrontDefaultBehaviorMeta,
+        quickFrontDefaultBehavior.isAcceptableOrUnknown(
+          data['quick_front_default_behavior']!,
+          _quickFrontDefaultBehaviorMeta,
+        ),
+      );
+    }
+    if (data.containsKey('pending_fronting_migration_cleanup_substate')) {
+      context.handle(
+        _pendingFrontingMigrationCleanupSubstateMeta,
+        pendingFrontingMigrationCleanupSubstate.isAcceptableOrUnknown(
+          data['pending_fronting_migration_cleanup_substate']!,
+          _pendingFrontingMigrationCleanupSubstateMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -5460,6 +6360,26 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         DriftSqlType.string,
         data['${effectivePrefix}default_sleep_quality'],
       ),
+      pendingFrontingMigrationMode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pending_fronting_migration_mode'],
+      )!,
+      frontingListViewMode: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}fronting_list_view_mode'],
+      )!,
+      addFrontDefaultBehavior: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}add_front_default_behavior'],
+      )!,
+      quickFrontDefaultBehavior: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}quick_front_default_behavior'],
+      )!,
+      pendingFrontingMigrationCleanupSubstate: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pending_fronting_migration_cleanup_substate'],
+      )!,
     );
   }
 
@@ -5527,6 +6447,20 @@ class SystemSettingsData extends DataClass
   final bool syncNavigationEnabled;
   final String chatBadgePreferences;
   final String? defaultSleepQuality;
+  final String pendingFrontingMigrationMode;
+
+  /// `FrontingListViewMode` index — default for the home-screen session list.
+  /// 0 = combinedPeriods (default), 1 = perMemberRows, 2 = timeline.
+  final int frontingListViewMode;
+
+  /// `FrontStartBehavior` index — default for the add-front sheet's submit.
+  /// 0 = additive (default), 1 = replace.
+  final int addFrontDefaultBehavior;
+
+  /// `FrontStartBehavior` index — default for quick-front (long-press / tap).
+  /// 0 = additive (default), 1 = replace.
+  final int quickFrontDefaultBehavior;
+  final String pendingFrontingMigrationCleanupSubstate;
   const SystemSettingsData({
     required this.id,
     this.systemName,
@@ -5584,6 +6518,11 @@ class SystemSettingsData extends DataClass
     required this.syncNavigationEnabled,
     required this.chatBadgePreferences,
     this.defaultSleepQuality,
+    required this.pendingFrontingMigrationMode,
+    required this.frontingListViewMode,
+    required this.addFrontDefaultBehavior,
+    required this.quickFrontDefaultBehavior,
+    required this.pendingFrontingMigrationCleanupSubstate,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -5674,6 +6613,17 @@ class SystemSettingsData extends DataClass
     if (!nullToAbsent || defaultSleepQuality != null) {
       map['default_sleep_quality'] = Variable<String>(defaultSleepQuality);
     }
+    map['pending_fronting_migration_mode'] = Variable<String>(
+      pendingFrontingMigrationMode,
+    );
+    map['fronting_list_view_mode'] = Variable<int>(frontingListViewMode);
+    map['add_front_default_behavior'] = Variable<int>(addFrontDefaultBehavior);
+    map['quick_front_default_behavior'] = Variable<int>(
+      quickFrontDefaultBehavior,
+    );
+    map['pending_fronting_migration_cleanup_substate'] = Variable<String>(
+      pendingFrontingMigrationCleanupSubstate,
+    );
     return map;
   }
 
@@ -5755,6 +6705,13 @@ class SystemSettingsData extends DataClass
       defaultSleepQuality: defaultSleepQuality == null && nullToAbsent
           ? const Value.absent()
           : Value(defaultSleepQuality),
+      pendingFrontingMigrationMode: Value(pendingFrontingMigrationMode),
+      frontingListViewMode: Value(frontingListViewMode),
+      addFrontDefaultBehavior: Value(addFrontDefaultBehavior),
+      quickFrontDefaultBehavior: Value(quickFrontDefaultBehavior),
+      pendingFrontingMigrationCleanupSubstate: Value(
+        pendingFrontingMigrationCleanupSubstate,
+      ),
     );
   }
 
@@ -5870,6 +6827,21 @@ class SystemSettingsData extends DataClass
       defaultSleepQuality: serializer.fromJson<String?>(
         json['defaultSleepQuality'],
       ),
+      pendingFrontingMigrationMode: serializer.fromJson<String>(
+        json['pendingFrontingMigrationMode'],
+      ),
+      frontingListViewMode: serializer.fromJson<int>(
+        json['frontingListViewMode'],
+      ),
+      addFrontDefaultBehavior: serializer.fromJson<int>(
+        json['addFrontDefaultBehavior'],
+      ),
+      quickFrontDefaultBehavior: serializer.fromJson<int>(
+        json['quickFrontDefaultBehavior'],
+      ),
+      pendingFrontingMigrationCleanupSubstate: serializer.fromJson<String>(
+        json['pendingFrontingMigrationCleanupSubstate'],
+      ),
     );
   }
   @override
@@ -5944,6 +6916,19 @@ class SystemSettingsData extends DataClass
       'syncNavigationEnabled': serializer.toJson<bool>(syncNavigationEnabled),
       'chatBadgePreferences': serializer.toJson<String>(chatBadgePreferences),
       'defaultSleepQuality': serializer.toJson<String?>(defaultSleepQuality),
+      'pendingFrontingMigrationMode': serializer.toJson<String>(
+        pendingFrontingMigrationMode,
+      ),
+      'frontingListViewMode': serializer.toJson<int>(frontingListViewMode),
+      'addFrontDefaultBehavior': serializer.toJson<int>(
+        addFrontDefaultBehavior,
+      ),
+      'quickFrontDefaultBehavior': serializer.toJson<int>(
+        quickFrontDefaultBehavior,
+      ),
+      'pendingFrontingMigrationCleanupSubstate': serializer.toJson<String>(
+        pendingFrontingMigrationCleanupSubstate,
+      ),
     };
   }
 
@@ -6004,6 +6989,11 @@ class SystemSettingsData extends DataClass
     bool? syncNavigationEnabled,
     String? chatBadgePreferences,
     Value<String?> defaultSleepQuality = const Value.absent(),
+    String? pendingFrontingMigrationMode,
+    int? frontingListViewMode,
+    int? addFrontDefaultBehavior,
+    int? quickFrontDefaultBehavior,
+    String? pendingFrontingMigrationCleanupSubstate,
   }) => SystemSettingsData(
     id: id ?? this.id,
     systemName: systemName.present ? systemName.value : this.systemName,
@@ -6080,6 +7070,16 @@ class SystemSettingsData extends DataClass
     defaultSleepQuality: defaultSleepQuality.present
         ? defaultSleepQuality.value
         : this.defaultSleepQuality,
+    pendingFrontingMigrationMode:
+        pendingFrontingMigrationMode ?? this.pendingFrontingMigrationMode,
+    frontingListViewMode: frontingListViewMode ?? this.frontingListViewMode,
+    addFrontDefaultBehavior:
+        addFrontDefaultBehavior ?? this.addFrontDefaultBehavior,
+    quickFrontDefaultBehavior:
+        quickFrontDefaultBehavior ?? this.quickFrontDefaultBehavior,
+    pendingFrontingMigrationCleanupSubstate:
+        pendingFrontingMigrationCleanupSubstate ??
+        this.pendingFrontingMigrationCleanupSubstate,
   );
   SystemSettingsData copyWithCompanion(SystemSettingsTableCompanion data) {
     return SystemSettingsData(
@@ -6240,6 +7240,22 @@ class SystemSettingsData extends DataClass
       defaultSleepQuality: data.defaultSleepQuality.present
           ? data.defaultSleepQuality.value
           : this.defaultSleepQuality,
+      pendingFrontingMigrationMode: data.pendingFrontingMigrationMode.present
+          ? data.pendingFrontingMigrationMode.value
+          : this.pendingFrontingMigrationMode,
+      frontingListViewMode: data.frontingListViewMode.present
+          ? data.frontingListViewMode.value
+          : this.frontingListViewMode,
+      addFrontDefaultBehavior: data.addFrontDefaultBehavior.present
+          ? data.addFrontDefaultBehavior.value
+          : this.addFrontDefaultBehavior,
+      quickFrontDefaultBehavior: data.quickFrontDefaultBehavior.present
+          ? data.quickFrontDefaultBehavior.value
+          : this.quickFrontDefaultBehavior,
+      pendingFrontingMigrationCleanupSubstate:
+          data.pendingFrontingMigrationCleanupSubstate.present
+          ? data.pendingFrontingMigrationCleanupSubstate.value
+          : this.pendingFrontingMigrationCleanupSubstate,
     );
   }
 
@@ -6303,7 +7319,16 @@ class SystemSettingsData extends DataClass
           ..write('navBarOverflowItems: $navBarOverflowItems, ')
           ..write('syncNavigationEnabled: $syncNavigationEnabled, ')
           ..write('chatBadgePreferences: $chatBadgePreferences, ')
-          ..write('defaultSleepQuality: $defaultSleepQuality')
+          ..write('defaultSleepQuality: $defaultSleepQuality, ')
+          ..write(
+            'pendingFrontingMigrationMode: $pendingFrontingMigrationMode, ',
+          )
+          ..write('frontingListViewMode: $frontingListViewMode, ')
+          ..write('addFrontDefaultBehavior: $addFrontDefaultBehavior, ')
+          ..write('quickFrontDefaultBehavior: $quickFrontDefaultBehavior, ')
+          ..write(
+            'pendingFrontingMigrationCleanupSubstate: $pendingFrontingMigrationCleanupSubstate',
+          )
           ..write(')'))
         .toString();
   }
@@ -6366,6 +7391,11 @@ class SystemSettingsData extends DataClass
     syncNavigationEnabled,
     chatBadgePreferences,
     defaultSleepQuality,
+    pendingFrontingMigrationMode,
+    frontingListViewMode,
+    addFrontDefaultBehavior,
+    quickFrontDefaultBehavior,
+    pendingFrontingMigrationCleanupSubstate,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -6431,7 +7461,14 @@ class SystemSettingsData extends DataClass
           other.navBarOverflowItems == this.navBarOverflowItems &&
           other.syncNavigationEnabled == this.syncNavigationEnabled &&
           other.chatBadgePreferences == this.chatBadgePreferences &&
-          other.defaultSleepQuality == this.defaultSleepQuality);
+          other.defaultSleepQuality == this.defaultSleepQuality &&
+          other.pendingFrontingMigrationMode ==
+              this.pendingFrontingMigrationMode &&
+          other.frontingListViewMode == this.frontingListViewMode &&
+          other.addFrontDefaultBehavior == this.addFrontDefaultBehavior &&
+          other.quickFrontDefaultBehavior == this.quickFrontDefaultBehavior &&
+          other.pendingFrontingMigrationCleanupSubstate ==
+              this.pendingFrontingMigrationCleanupSubstate);
 }
 
 class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
@@ -6491,6 +7528,11 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
   final Value<bool> syncNavigationEnabled;
   final Value<String> chatBadgePreferences;
   final Value<String?> defaultSleepQuality;
+  final Value<String> pendingFrontingMigrationMode;
+  final Value<int> frontingListViewMode;
+  final Value<int> addFrontDefaultBehavior;
+  final Value<int> quickFrontDefaultBehavior;
+  final Value<String> pendingFrontingMigrationCleanupSubstate;
   final Value<int> rowid;
   const SystemSettingsTableCompanion({
     this.id = const Value.absent(),
@@ -6549,6 +7591,11 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.syncNavigationEnabled = const Value.absent(),
     this.chatBadgePreferences = const Value.absent(),
     this.defaultSleepQuality = const Value.absent(),
+    this.pendingFrontingMigrationMode = const Value.absent(),
+    this.frontingListViewMode = const Value.absent(),
+    this.addFrontDefaultBehavior = const Value.absent(),
+    this.quickFrontDefaultBehavior = const Value.absent(),
+    this.pendingFrontingMigrationCleanupSubstate = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   SystemSettingsTableCompanion.insert({
@@ -6608,6 +7655,11 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.syncNavigationEnabled = const Value.absent(),
     this.chatBadgePreferences = const Value.absent(),
     this.defaultSleepQuality = const Value.absent(),
+    this.pendingFrontingMigrationMode = const Value.absent(),
+    this.frontingListViewMode = const Value.absent(),
+    this.addFrontDefaultBehavior = const Value.absent(),
+    this.quickFrontDefaultBehavior = const Value.absent(),
+    this.pendingFrontingMigrationCleanupSubstate = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   static Insertable<SystemSettingsData> custom({
@@ -6667,6 +7719,11 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Expression<bool>? syncNavigationEnabled,
     Expression<String>? chatBadgePreferences,
     Expression<String>? defaultSleepQuality,
+    Expression<String>? pendingFrontingMigrationMode,
+    Expression<int>? frontingListViewMode,
+    Expression<int>? addFrontDefaultBehavior,
+    Expression<int>? quickFrontDefaultBehavior,
+    Expression<String>? pendingFrontingMigrationCleanupSubstate,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -6749,6 +7806,17 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
         'chat_badge_preferences': chatBadgePreferences,
       if (defaultSleepQuality != null)
         'default_sleep_quality': defaultSleepQuality,
+      if (pendingFrontingMigrationMode != null)
+        'pending_fronting_migration_mode': pendingFrontingMigrationMode,
+      if (frontingListViewMode != null)
+        'fronting_list_view_mode': frontingListViewMode,
+      if (addFrontDefaultBehavior != null)
+        'add_front_default_behavior': addFrontDefaultBehavior,
+      if (quickFrontDefaultBehavior != null)
+        'quick_front_default_behavior': quickFrontDefaultBehavior,
+      if (pendingFrontingMigrationCleanupSubstate != null)
+        'pending_fronting_migration_cleanup_substate':
+            pendingFrontingMigrationCleanupSubstate,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -6810,6 +7878,11 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Value<bool>? syncNavigationEnabled,
     Value<String>? chatBadgePreferences,
     Value<String?>? defaultSleepQuality,
+    Value<String>? pendingFrontingMigrationMode,
+    Value<int>? frontingListViewMode,
+    Value<int>? addFrontDefaultBehavior,
+    Value<int>? quickFrontDefaultBehavior,
+    Value<String>? pendingFrontingMigrationCleanupSubstate,
     Value<int>? rowid,
   }) {
     return SystemSettingsTableCompanion(
@@ -6883,6 +7956,16 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
           syncNavigationEnabled ?? this.syncNavigationEnabled,
       chatBadgePreferences: chatBadgePreferences ?? this.chatBadgePreferences,
       defaultSleepQuality: defaultSleepQuality ?? this.defaultSleepQuality,
+      pendingFrontingMigrationMode:
+          pendingFrontingMigrationMode ?? this.pendingFrontingMigrationMode,
+      frontingListViewMode: frontingListViewMode ?? this.frontingListViewMode,
+      addFrontDefaultBehavior:
+          addFrontDefaultBehavior ?? this.addFrontDefaultBehavior,
+      quickFrontDefaultBehavior:
+          quickFrontDefaultBehavior ?? this.quickFrontDefaultBehavior,
+      pendingFrontingMigrationCleanupSubstate:
+          pendingFrontingMigrationCleanupSubstate ??
+          this.pendingFrontingMigrationCleanupSubstate,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -7100,6 +8183,31 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
         defaultSleepQuality.value,
       );
     }
+    if (pendingFrontingMigrationMode.present) {
+      map['pending_fronting_migration_mode'] = Variable<String>(
+        pendingFrontingMigrationMode.value,
+      );
+    }
+    if (frontingListViewMode.present) {
+      map['fronting_list_view_mode'] = Variable<int>(
+        frontingListViewMode.value,
+      );
+    }
+    if (addFrontDefaultBehavior.present) {
+      map['add_front_default_behavior'] = Variable<int>(
+        addFrontDefaultBehavior.value,
+      );
+    }
+    if (quickFrontDefaultBehavior.present) {
+      map['quick_front_default_behavior'] = Variable<int>(
+        quickFrontDefaultBehavior.value,
+      );
+    }
+    if (pendingFrontingMigrationCleanupSubstate.present) {
+      map['pending_fronting_migration_cleanup_substate'] = Variable<String>(
+        pendingFrontingMigrationCleanupSubstate.value,
+      );
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -7167,6 +8275,15 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
           ..write('syncNavigationEnabled: $syncNavigationEnabled, ')
           ..write('chatBadgePreferences: $chatBadgePreferences, ')
           ..write('defaultSleepQuality: $defaultSleepQuality, ')
+          ..write(
+            'pendingFrontingMigrationMode: $pendingFrontingMigrationMode, ',
+          )
+          ..write('frontingListViewMode: $frontingListViewMode, ')
+          ..write('addFrontDefaultBehavior: $addFrontDefaultBehavior, ')
+          ..write('quickFrontDefaultBehavior: $quickFrontDefaultBehavior, ')
+          ..write(
+            'pendingFrontingMigrationCleanupSubstate: $pendingFrontingMigrationCleanupSubstate, ',
+          )
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -9227,6 +10344,28 @@ class $PluralKitSyncStateTable extends PluralKitSyncState
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _switchCursorTimestampMeta =
+      const VerificationMeta('switchCursorTimestamp');
+  @override
+  late final GeneratedColumn<DateTime> switchCursorTimestamp =
+      GeneratedColumn<DateTime>(
+        'switch_cursor_timestamp',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _switchCursorIdMeta = const VerificationMeta(
+    'switchCursorId',
+  );
+  @override
+  late final GeneratedColumn<String> switchCursorId = GeneratedColumn<String>(
+    'switch_cursor_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -9238,6 +10377,8 @@ class $PluralKitSyncStateTable extends PluralKitSyncState
     mappingAcknowledged,
     linkedAt,
     linkEpoch,
+    switchCursorTimestamp,
+    switchCursorId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -9319,6 +10460,24 @@ class $PluralKitSyncStateTable extends PluralKitSyncState
         linkEpoch.isAcceptableOrUnknown(data['link_epoch']!, _linkEpochMeta),
       );
     }
+    if (data.containsKey('switch_cursor_timestamp')) {
+      context.handle(
+        _switchCursorTimestampMeta,
+        switchCursorTimestamp.isAcceptableOrUnknown(
+          data['switch_cursor_timestamp']!,
+          _switchCursorTimestampMeta,
+        ),
+      );
+    }
+    if (data.containsKey('switch_cursor_id')) {
+      context.handle(
+        _switchCursorIdMeta,
+        switchCursorId.isAcceptableOrUnknown(
+          data['switch_cursor_id']!,
+          _switchCursorIdMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -9364,6 +10523,14 @@ class $PluralKitSyncStateTable extends PluralKitSyncState
         DriftSqlType.int,
         data['${effectivePrefix}link_epoch'],
       )!,
+      switchCursorTimestamp: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}switch_cursor_timestamp'],
+      ),
+      switchCursorId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}switch_cursor_id'],
+      ),
     );
   }
 
@@ -9403,6 +10570,16 @@ class PluralKitSyncStateData extends DataClass
   /// own connection history, and cross-device coordination is handled via
   /// the synced `delete_push_started_at` timestamp instead).
   final int linkEpoch;
+
+  /// Timestamp of the last PK switch successfully processed by the diff sweep.
+  /// Used as the `before=` query parameter on resume: fetch
+  /// `before = switchCursorTimestamp + 1µs`.
+  final DateTime? switchCursorTimestamp;
+
+  /// UUID of the last PK switch successfully processed by the diff sweep.
+  /// Deduplicates within the fetched page when the cursor timestamp falls
+  /// on a page boundary shared by multiple switches.
+  final String? switchCursorId;
   const PluralKitSyncStateData({
     required this.id,
     this.systemId,
@@ -9413,6 +10590,8 @@ class PluralKitSyncStateData extends DataClass
     required this.mappingAcknowledged,
     this.linkedAt,
     required this.linkEpoch,
+    this.switchCursorTimestamp,
+    this.switchCursorId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -9436,6 +10615,14 @@ class PluralKitSyncStateData extends DataClass
       map['linked_at'] = Variable<DateTime>(linkedAt);
     }
     map['link_epoch'] = Variable<int>(linkEpoch);
+    if (!nullToAbsent || switchCursorTimestamp != null) {
+      map['switch_cursor_timestamp'] = Variable<DateTime>(
+        switchCursorTimestamp,
+      );
+    }
+    if (!nullToAbsent || switchCursorId != null) {
+      map['switch_cursor_id'] = Variable<String>(switchCursorId);
+    }
     return map;
   }
 
@@ -9460,6 +10647,12 @@ class PluralKitSyncStateData extends DataClass
           ? const Value.absent()
           : Value(linkedAt),
       linkEpoch: Value(linkEpoch),
+      switchCursorTimestamp: switchCursorTimestamp == null && nullToAbsent
+          ? const Value.absent()
+          : Value(switchCursorTimestamp),
+      switchCursorId: switchCursorId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(switchCursorId),
     );
   }
 
@@ -9482,6 +10675,10 @@ class PluralKitSyncStateData extends DataClass
       ),
       linkedAt: serializer.fromJson<DateTime?>(json['linkedAt']),
       linkEpoch: serializer.fromJson<int>(json['linkEpoch']),
+      switchCursorTimestamp: serializer.fromJson<DateTime?>(
+        json['switchCursorTimestamp'],
+      ),
+      switchCursorId: serializer.fromJson<String?>(json['switchCursorId']),
     );
   }
   @override
@@ -9497,6 +10694,10 @@ class PluralKitSyncStateData extends DataClass
       'mappingAcknowledged': serializer.toJson<bool>(mappingAcknowledged),
       'linkedAt': serializer.toJson<DateTime?>(linkedAt),
       'linkEpoch': serializer.toJson<int>(linkEpoch),
+      'switchCursorTimestamp': serializer.toJson<DateTime?>(
+        switchCursorTimestamp,
+      ),
+      'switchCursorId': serializer.toJson<String?>(switchCursorId),
     };
   }
 
@@ -9510,6 +10711,8 @@ class PluralKitSyncStateData extends DataClass
     bool? mappingAcknowledged,
     Value<DateTime?> linkedAt = const Value.absent(),
     int? linkEpoch,
+    Value<DateTime?> switchCursorTimestamp = const Value.absent(),
+    Value<String?> switchCursorId = const Value.absent(),
   }) => PluralKitSyncStateData(
     id: id ?? this.id,
     systemId: systemId.present ? systemId.value : this.systemId,
@@ -9524,6 +10727,12 @@ class PluralKitSyncStateData extends DataClass
     mappingAcknowledged: mappingAcknowledged ?? this.mappingAcknowledged,
     linkedAt: linkedAt.present ? linkedAt.value : this.linkedAt,
     linkEpoch: linkEpoch ?? this.linkEpoch,
+    switchCursorTimestamp: switchCursorTimestamp.present
+        ? switchCursorTimestamp.value
+        : this.switchCursorTimestamp,
+    switchCursorId: switchCursorId.present
+        ? switchCursorId.value
+        : this.switchCursorId,
   );
   PluralKitSyncStateData copyWithCompanion(PluralKitSyncStateCompanion data) {
     return PluralKitSyncStateData(
@@ -9546,6 +10755,12 @@ class PluralKitSyncStateData extends DataClass
           : this.mappingAcknowledged,
       linkedAt: data.linkedAt.present ? data.linkedAt.value : this.linkedAt,
       linkEpoch: data.linkEpoch.present ? data.linkEpoch.value : this.linkEpoch,
+      switchCursorTimestamp: data.switchCursorTimestamp.present
+          ? data.switchCursorTimestamp.value
+          : this.switchCursorTimestamp,
+      switchCursorId: data.switchCursorId.present
+          ? data.switchCursorId.value
+          : this.switchCursorId,
     );
   }
 
@@ -9560,7 +10775,9 @@ class PluralKitSyncStateData extends DataClass
           ..write('fieldSyncConfig: $fieldSyncConfig, ')
           ..write('mappingAcknowledged: $mappingAcknowledged, ')
           ..write('linkedAt: $linkedAt, ')
-          ..write('linkEpoch: $linkEpoch')
+          ..write('linkEpoch: $linkEpoch, ')
+          ..write('switchCursorTimestamp: $switchCursorTimestamp, ')
+          ..write('switchCursorId: $switchCursorId')
           ..write(')'))
         .toString();
   }
@@ -9576,6 +10793,8 @@ class PluralKitSyncStateData extends DataClass
     mappingAcknowledged,
     linkedAt,
     linkEpoch,
+    switchCursorTimestamp,
+    switchCursorId,
   );
   @override
   bool operator ==(Object other) =>
@@ -9589,7 +10808,9 @@ class PluralKitSyncStateData extends DataClass
           other.fieldSyncConfig == this.fieldSyncConfig &&
           other.mappingAcknowledged == this.mappingAcknowledged &&
           other.linkedAt == this.linkedAt &&
-          other.linkEpoch == this.linkEpoch);
+          other.linkEpoch == this.linkEpoch &&
+          other.switchCursorTimestamp == this.switchCursorTimestamp &&
+          other.switchCursorId == this.switchCursorId);
 }
 
 class PluralKitSyncStateCompanion
@@ -9603,6 +10824,8 @@ class PluralKitSyncStateCompanion
   final Value<bool> mappingAcknowledged;
   final Value<DateTime?> linkedAt;
   final Value<int> linkEpoch;
+  final Value<DateTime?> switchCursorTimestamp;
+  final Value<String?> switchCursorId;
   final Value<int> rowid;
   const PluralKitSyncStateCompanion({
     this.id = const Value.absent(),
@@ -9614,6 +10837,8 @@ class PluralKitSyncStateCompanion
     this.mappingAcknowledged = const Value.absent(),
     this.linkedAt = const Value.absent(),
     this.linkEpoch = const Value.absent(),
+    this.switchCursorTimestamp = const Value.absent(),
+    this.switchCursorId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   PluralKitSyncStateCompanion.insert({
@@ -9626,6 +10851,8 @@ class PluralKitSyncStateCompanion
     this.mappingAcknowledged = const Value.absent(),
     this.linkedAt = const Value.absent(),
     this.linkEpoch = const Value.absent(),
+    this.switchCursorTimestamp = const Value.absent(),
+    this.switchCursorId = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id);
   static Insertable<PluralKitSyncStateData> custom({
@@ -9638,6 +10865,8 @@ class PluralKitSyncStateCompanion
     Expression<bool>? mappingAcknowledged,
     Expression<DateTime>? linkedAt,
     Expression<int>? linkEpoch,
+    Expression<DateTime>? switchCursorTimestamp,
+    Expression<String>? switchCursorId,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -9652,6 +10881,9 @@ class PluralKitSyncStateCompanion
         'mapping_acknowledged': mappingAcknowledged,
       if (linkedAt != null) 'linked_at': linkedAt,
       if (linkEpoch != null) 'link_epoch': linkEpoch,
+      if (switchCursorTimestamp != null)
+        'switch_cursor_timestamp': switchCursorTimestamp,
+      if (switchCursorId != null) 'switch_cursor_id': switchCursorId,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -9666,6 +10898,8 @@ class PluralKitSyncStateCompanion
     Value<bool>? mappingAcknowledged,
     Value<DateTime?>? linkedAt,
     Value<int>? linkEpoch,
+    Value<DateTime?>? switchCursorTimestamp,
+    Value<String?>? switchCursorId,
     Value<int>? rowid,
   }) {
     return PluralKitSyncStateCompanion(
@@ -9678,6 +10912,9 @@ class PluralKitSyncStateCompanion
       mappingAcknowledged: mappingAcknowledged ?? this.mappingAcknowledged,
       linkedAt: linkedAt ?? this.linkedAt,
       linkEpoch: linkEpoch ?? this.linkEpoch,
+      switchCursorTimestamp:
+          switchCursorTimestamp ?? this.switchCursorTimestamp,
+      switchCursorId: switchCursorId ?? this.switchCursorId,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -9714,6 +10951,14 @@ class PluralKitSyncStateCompanion
     if (linkEpoch.present) {
       map['link_epoch'] = Variable<int>(linkEpoch.value);
     }
+    if (switchCursorTimestamp.present) {
+      map['switch_cursor_timestamp'] = Variable<DateTime>(
+        switchCursorTimestamp.value,
+      );
+    }
+    if (switchCursorId.present) {
+      map['switch_cursor_id'] = Variable<String>(switchCursorId.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -9732,6 +10977,8 @@ class PluralKitSyncStateCompanion
           ..write('mappingAcknowledged: $mappingAcknowledged, ')
           ..write('linkedAt: $linkedAt, ')
           ..write('linkEpoch: $linkEpoch, ')
+          ..write('switchCursorTimestamp: $switchCursorTimestamp, ')
+          ..write('switchCursorId: $switchCursorId, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -16060,6 +17307,28 @@ class $FrontSessionCommentsTable extends FrontSessionComments
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _targetTimeMeta = const VerificationMeta(
+    'targetTime',
+  );
+  @override
+  late final GeneratedColumn<DateTime> targetTime = GeneratedColumn<DateTime>(
+    'target_time',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _authorMemberIdMeta = const VerificationMeta(
+    'authorMemberId',
+  );
+  @override
+  late final GeneratedColumn<String> authorMemberId = GeneratedColumn<String>(
+    'author_member_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -16068,6 +17337,8 @@ class $FrontSessionCommentsTable extends FrontSessionComments
     timestamp,
     createdAt,
     isDeleted,
+    targetTime,
+    authorMemberId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -16124,6 +17395,21 @@ class $FrontSessionCommentsTable extends FrontSessionComments
         isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
       );
     }
+    if (data.containsKey('target_time')) {
+      context.handle(
+        _targetTimeMeta,
+        targetTime.isAcceptableOrUnknown(data['target_time']!, _targetTimeMeta),
+      );
+    }
+    if (data.containsKey('author_member_id')) {
+      context.handle(
+        _authorMemberIdMeta,
+        authorMemberId.isAcceptableOrUnknown(
+          data['author_member_id']!,
+          _authorMemberIdMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -16157,6 +17443,14 @@ class $FrontSessionCommentsTable extends FrontSessionComments
         DriftSqlType.bool,
         data['${effectivePrefix}is_deleted'],
       )!,
+      targetTime: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}target_time'],
+      ),
+      authorMemberId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}author_member_id'],
+      ),
     );
   }
 
@@ -16174,6 +17468,8 @@ class FrontSessionCommentRow extends DataClass
   final DateTime timestamp;
   final DateTime createdAt;
   final bool isDeleted;
+  final DateTime? targetTime;
+  final String? authorMemberId;
   const FrontSessionCommentRow({
     required this.id,
     required this.sessionId,
@@ -16181,6 +17477,8 @@ class FrontSessionCommentRow extends DataClass
     required this.timestamp,
     required this.createdAt,
     required this.isDeleted,
+    this.targetTime,
+    this.authorMemberId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -16191,6 +17489,12 @@ class FrontSessionCommentRow extends DataClass
     map['timestamp'] = Variable<DateTime>(timestamp);
     map['created_at'] = Variable<DateTime>(createdAt);
     map['is_deleted'] = Variable<bool>(isDeleted);
+    if (!nullToAbsent || targetTime != null) {
+      map['target_time'] = Variable<DateTime>(targetTime);
+    }
+    if (!nullToAbsent || authorMemberId != null) {
+      map['author_member_id'] = Variable<String>(authorMemberId);
+    }
     return map;
   }
 
@@ -16202,6 +17506,12 @@ class FrontSessionCommentRow extends DataClass
       timestamp: Value(timestamp),
       createdAt: Value(createdAt),
       isDeleted: Value(isDeleted),
+      targetTime: targetTime == null && nullToAbsent
+          ? const Value.absent()
+          : Value(targetTime),
+      authorMemberId: authorMemberId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(authorMemberId),
     );
   }
 
@@ -16217,6 +17527,8 @@ class FrontSessionCommentRow extends DataClass
       timestamp: serializer.fromJson<DateTime>(json['timestamp']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      targetTime: serializer.fromJson<DateTime?>(json['targetTime']),
+      authorMemberId: serializer.fromJson<String?>(json['authorMemberId']),
     );
   }
   @override
@@ -16229,6 +17541,8 @@ class FrontSessionCommentRow extends DataClass
       'timestamp': serializer.toJson<DateTime>(timestamp),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'isDeleted': serializer.toJson<bool>(isDeleted),
+      'targetTime': serializer.toJson<DateTime?>(targetTime),
+      'authorMemberId': serializer.toJson<String?>(authorMemberId),
     };
   }
 
@@ -16239,6 +17553,8 @@ class FrontSessionCommentRow extends DataClass
     DateTime? timestamp,
     DateTime? createdAt,
     bool? isDeleted,
+    Value<DateTime?> targetTime = const Value.absent(),
+    Value<String?> authorMemberId = const Value.absent(),
   }) => FrontSessionCommentRow(
     id: id ?? this.id,
     sessionId: sessionId ?? this.sessionId,
@@ -16246,6 +17562,10 @@ class FrontSessionCommentRow extends DataClass
     timestamp: timestamp ?? this.timestamp,
     createdAt: createdAt ?? this.createdAt,
     isDeleted: isDeleted ?? this.isDeleted,
+    targetTime: targetTime.present ? targetTime.value : this.targetTime,
+    authorMemberId: authorMemberId.present
+        ? authorMemberId.value
+        : this.authorMemberId,
   );
   FrontSessionCommentRow copyWithCompanion(FrontSessionCommentsCompanion data) {
     return FrontSessionCommentRow(
@@ -16255,6 +17575,12 @@ class FrontSessionCommentRow extends DataClass
       timestamp: data.timestamp.present ? data.timestamp.value : this.timestamp,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      targetTime: data.targetTime.present
+          ? data.targetTime.value
+          : this.targetTime,
+      authorMemberId: data.authorMemberId.present
+          ? data.authorMemberId.value
+          : this.authorMemberId,
     );
   }
 
@@ -16266,14 +17592,24 @@ class FrontSessionCommentRow extends DataClass
           ..write('body: $body, ')
           ..write('timestamp: $timestamp, ')
           ..write('createdAt: $createdAt, ')
-          ..write('isDeleted: $isDeleted')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('targetTime: $targetTime, ')
+          ..write('authorMemberId: $authorMemberId')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, sessionId, body, timestamp, createdAt, isDeleted);
+  int get hashCode => Object.hash(
+    id,
+    sessionId,
+    body,
+    timestamp,
+    createdAt,
+    isDeleted,
+    targetTime,
+    authorMemberId,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -16283,7 +17619,9 @@ class FrontSessionCommentRow extends DataClass
           other.body == this.body &&
           other.timestamp == this.timestamp &&
           other.createdAt == this.createdAt &&
-          other.isDeleted == this.isDeleted);
+          other.isDeleted == this.isDeleted &&
+          other.targetTime == this.targetTime &&
+          other.authorMemberId == this.authorMemberId);
 }
 
 class FrontSessionCommentsCompanion
@@ -16294,6 +17632,8 @@ class FrontSessionCommentsCompanion
   final Value<DateTime> timestamp;
   final Value<DateTime> createdAt;
   final Value<bool> isDeleted;
+  final Value<DateTime?> targetTime;
+  final Value<String?> authorMemberId;
   final Value<int> rowid;
   const FrontSessionCommentsCompanion({
     this.id = const Value.absent(),
@@ -16302,6 +17642,8 @@ class FrontSessionCommentsCompanion
     this.timestamp = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.isDeleted = const Value.absent(),
+    this.targetTime = const Value.absent(),
+    this.authorMemberId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   FrontSessionCommentsCompanion.insert({
@@ -16311,6 +17653,8 @@ class FrontSessionCommentsCompanion
     required DateTime timestamp,
     required DateTime createdAt,
     this.isDeleted = const Value.absent(),
+    this.targetTime = const Value.absent(),
+    this.authorMemberId = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        sessionId = Value(sessionId),
@@ -16324,6 +17668,8 @@ class FrontSessionCommentsCompanion
     Expression<DateTime>? timestamp,
     Expression<DateTime>? createdAt,
     Expression<bool>? isDeleted,
+    Expression<DateTime>? targetTime,
+    Expression<String>? authorMemberId,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -16333,6 +17679,8 @@ class FrontSessionCommentsCompanion
       if (timestamp != null) 'timestamp': timestamp,
       if (createdAt != null) 'created_at': createdAt,
       if (isDeleted != null) 'is_deleted': isDeleted,
+      if (targetTime != null) 'target_time': targetTime,
+      if (authorMemberId != null) 'author_member_id': authorMemberId,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -16344,6 +17692,8 @@ class FrontSessionCommentsCompanion
     Value<DateTime>? timestamp,
     Value<DateTime>? createdAt,
     Value<bool>? isDeleted,
+    Value<DateTime?>? targetTime,
+    Value<String?>? authorMemberId,
     Value<int>? rowid,
   }) {
     return FrontSessionCommentsCompanion(
@@ -16353,6 +17703,8 @@ class FrontSessionCommentsCompanion
       timestamp: timestamp ?? this.timestamp,
       createdAt: createdAt ?? this.createdAt,
       isDeleted: isDeleted ?? this.isDeleted,
+      targetTime: targetTime ?? this.targetTime,
+      authorMemberId: authorMemberId ?? this.authorMemberId,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -16378,6 +17730,12 @@ class FrontSessionCommentsCompanion
     if (isDeleted.present) {
       map['is_deleted'] = Variable<bool>(isDeleted.value);
     }
+    if (targetTime.present) {
+      map['target_time'] = Variable<DateTime>(targetTime.value);
+    }
+    if (authorMemberId.present) {
+      map['author_member_id'] = Variable<String>(authorMemberId.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -16393,6 +17751,8 @@ class FrontSessionCommentsCompanion
           ..write('timestamp: $timestamp, ')
           ..write('createdAt: $createdAt, ')
           ..write('isDeleted: $isDeleted, ')
+          ..write('targetTime: $targetTime, ')
+          ..write('authorMemberId: $authorMemberId, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -21631,11 +22991,23 @@ typedef $$MembersTableCreateCompanionBuilder =
       Value<String?> birthday,
       Value<String?> proxyTagsJson,
       Value<String?> pkBannerUrl,
+      Value<int> profileHeaderSource,
+      Value<int> profileHeaderLayout,
+      Value<bool> profileHeaderVisible,
+      Value<int> nameStyleFont,
+      Value<bool> nameStyleBold,
+      Value<bool> nameStyleItalic,
+      Value<int> nameStyleColorMode,
+      Value<String?> nameStyleColorHex,
+      Value<Uint8List?> profileHeaderImageData,
+      Value<Uint8List?> pkBannerImageData,
+      Value<String?> pkBannerCachedUrl,
       Value<bool> pluralkitSyncIgnored,
       Value<bool> markdownEnabled,
       Value<bool> isDeleted,
       Value<int?> deleteIntentEpoch,
       Value<int?> deletePushStartedAt,
+      Value<bool> isAlwaysFronting,
       Value<int> rowid,
     });
 typedef $$MembersTableUpdateCompanionBuilder =
@@ -21660,11 +23032,23 @@ typedef $$MembersTableUpdateCompanionBuilder =
       Value<String?> birthday,
       Value<String?> proxyTagsJson,
       Value<String?> pkBannerUrl,
+      Value<int> profileHeaderSource,
+      Value<int> profileHeaderLayout,
+      Value<bool> profileHeaderVisible,
+      Value<int> nameStyleFont,
+      Value<bool> nameStyleBold,
+      Value<bool> nameStyleItalic,
+      Value<int> nameStyleColorMode,
+      Value<String?> nameStyleColorHex,
+      Value<Uint8List?> profileHeaderImageData,
+      Value<Uint8List?> pkBannerImageData,
+      Value<String?> pkBannerCachedUrl,
       Value<bool> pluralkitSyncIgnored,
       Value<bool> markdownEnabled,
       Value<bool> isDeleted,
       Value<int?> deleteIntentEpoch,
       Value<int?> deletePushStartedAt,
+      Value<bool> isAlwaysFronting,
       Value<int> rowid,
     });
 
@@ -21777,6 +23161,61 @@ class $$MembersTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get profileHeaderSource => $composableBuilder(
+    column: $table.profileHeaderSource,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get profileHeaderLayout => $composableBuilder(
+    column: $table.profileHeaderLayout,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get profileHeaderVisible => $composableBuilder(
+    column: $table.profileHeaderVisible,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get nameStyleFont => $composableBuilder(
+    column: $table.nameStyleFont,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get nameStyleBold => $composableBuilder(
+    column: $table.nameStyleBold,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get nameStyleItalic => $composableBuilder(
+    column: $table.nameStyleItalic,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get nameStyleColorMode => $composableBuilder(
+    column: $table.nameStyleColorMode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get nameStyleColorHex => $composableBuilder(
+    column: $table.nameStyleColorHex,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<Uint8List> get profileHeaderImageData => $composableBuilder(
+    column: $table.profileHeaderImageData,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<Uint8List> get pkBannerImageData => $composableBuilder(
+    column: $table.pkBannerImageData,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pkBannerCachedUrl => $composableBuilder(
+    column: $table.pkBannerCachedUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<bool> get pluralkitSyncIgnored => $composableBuilder(
     column: $table.pluralkitSyncIgnored,
     builder: (column) => ColumnFilters(column),
@@ -21799,6 +23238,11 @@ class $$MembersTableFilterComposer
 
   ColumnFilters<int> get deletePushStartedAt => $composableBuilder(
     column: $table.deletePushStartedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isAlwaysFronting => $composableBuilder(
+    column: $table.isAlwaysFronting,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -21912,6 +23356,61 @@ class $$MembersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get profileHeaderSource => $composableBuilder(
+    column: $table.profileHeaderSource,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get profileHeaderLayout => $composableBuilder(
+    column: $table.profileHeaderLayout,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get profileHeaderVisible => $composableBuilder(
+    column: $table.profileHeaderVisible,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get nameStyleFont => $composableBuilder(
+    column: $table.nameStyleFont,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get nameStyleBold => $composableBuilder(
+    column: $table.nameStyleBold,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get nameStyleItalic => $composableBuilder(
+    column: $table.nameStyleItalic,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get nameStyleColorMode => $composableBuilder(
+    column: $table.nameStyleColorMode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get nameStyleColorHex => $composableBuilder(
+    column: $table.nameStyleColorHex,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<Uint8List> get profileHeaderImageData => $composableBuilder(
+    column: $table.profileHeaderImageData,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<Uint8List> get pkBannerImageData => $composableBuilder(
+    column: $table.pkBannerImageData,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pkBannerCachedUrl => $composableBuilder(
+    column: $table.pkBannerCachedUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get pluralkitSyncIgnored => $composableBuilder(
     column: $table.pluralkitSyncIgnored,
     builder: (column) => ColumnOrderings(column),
@@ -21934,6 +23433,11 @@ class $$MembersTableOrderingComposer
 
   ColumnOrderings<int> get deletePushStartedAt => $composableBuilder(
     column: $table.deletePushStartedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isAlwaysFronting => $composableBuilder(
+    column: $table.isAlwaysFronting,
     builder: (column) => ColumnOrderings(column),
   );
 }
@@ -22027,6 +23531,61 @@ class $$MembersTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<int> get profileHeaderSource => $composableBuilder(
+    column: $table.profileHeaderSource,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get profileHeaderLayout => $composableBuilder(
+    column: $table.profileHeaderLayout,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get profileHeaderVisible => $composableBuilder(
+    column: $table.profileHeaderVisible,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get nameStyleFont => $composableBuilder(
+    column: $table.nameStyleFont,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get nameStyleBold => $composableBuilder(
+    column: $table.nameStyleBold,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get nameStyleItalic => $composableBuilder(
+    column: $table.nameStyleItalic,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get nameStyleColorMode => $composableBuilder(
+    column: $table.nameStyleColorMode,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get nameStyleColorHex => $composableBuilder(
+    column: $table.nameStyleColorHex,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<Uint8List> get profileHeaderImageData => $composableBuilder(
+    column: $table.profileHeaderImageData,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<Uint8List> get pkBannerImageData => $composableBuilder(
+    column: $table.pkBannerImageData,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get pkBannerCachedUrl => $composableBuilder(
+    column: $table.pkBannerCachedUrl,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<bool> get pluralkitSyncIgnored => $composableBuilder(
     column: $table.pluralkitSyncIgnored,
     builder: (column) => column,
@@ -22047,6 +23606,11 @@ class $$MembersTableAnnotationComposer
 
   GeneratedColumn<int> get deletePushStartedAt => $composableBuilder(
     column: $table.deletePushStartedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isAlwaysFronting => $composableBuilder(
+    column: $table.isAlwaysFronting,
     builder: (column) => column,
   );
 }
@@ -22099,11 +23663,23 @@ class $$MembersTableTableManager
                 Value<String?> birthday = const Value.absent(),
                 Value<String?> proxyTagsJson = const Value.absent(),
                 Value<String?> pkBannerUrl = const Value.absent(),
+                Value<int> profileHeaderSource = const Value.absent(),
+                Value<int> profileHeaderLayout = const Value.absent(),
+                Value<bool> profileHeaderVisible = const Value.absent(),
+                Value<int> nameStyleFont = const Value.absent(),
+                Value<bool> nameStyleBold = const Value.absent(),
+                Value<bool> nameStyleItalic = const Value.absent(),
+                Value<int> nameStyleColorMode = const Value.absent(),
+                Value<String?> nameStyleColorHex = const Value.absent(),
+                Value<Uint8List?> profileHeaderImageData = const Value.absent(),
+                Value<Uint8List?> pkBannerImageData = const Value.absent(),
+                Value<String?> pkBannerCachedUrl = const Value.absent(),
                 Value<bool> pluralkitSyncIgnored = const Value.absent(),
                 Value<bool> markdownEnabled = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<int?> deleteIntentEpoch = const Value.absent(),
                 Value<int?> deletePushStartedAt = const Value.absent(),
+                Value<bool> isAlwaysFronting = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => MembersCompanion(
                 id: id,
@@ -22126,11 +23702,23 @@ class $$MembersTableTableManager
                 birthday: birthday,
                 proxyTagsJson: proxyTagsJson,
                 pkBannerUrl: pkBannerUrl,
+                profileHeaderSource: profileHeaderSource,
+                profileHeaderLayout: profileHeaderLayout,
+                profileHeaderVisible: profileHeaderVisible,
+                nameStyleFont: nameStyleFont,
+                nameStyleBold: nameStyleBold,
+                nameStyleItalic: nameStyleItalic,
+                nameStyleColorMode: nameStyleColorMode,
+                nameStyleColorHex: nameStyleColorHex,
+                profileHeaderImageData: profileHeaderImageData,
+                pkBannerImageData: pkBannerImageData,
+                pkBannerCachedUrl: pkBannerCachedUrl,
                 pluralkitSyncIgnored: pluralkitSyncIgnored,
                 markdownEnabled: markdownEnabled,
                 isDeleted: isDeleted,
                 deleteIntentEpoch: deleteIntentEpoch,
                 deletePushStartedAt: deletePushStartedAt,
+                isAlwaysFronting: isAlwaysFronting,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -22155,11 +23743,23 @@ class $$MembersTableTableManager
                 Value<String?> birthday = const Value.absent(),
                 Value<String?> proxyTagsJson = const Value.absent(),
                 Value<String?> pkBannerUrl = const Value.absent(),
+                Value<int> profileHeaderSource = const Value.absent(),
+                Value<int> profileHeaderLayout = const Value.absent(),
+                Value<bool> profileHeaderVisible = const Value.absent(),
+                Value<int> nameStyleFont = const Value.absent(),
+                Value<bool> nameStyleBold = const Value.absent(),
+                Value<bool> nameStyleItalic = const Value.absent(),
+                Value<int> nameStyleColorMode = const Value.absent(),
+                Value<String?> nameStyleColorHex = const Value.absent(),
+                Value<Uint8List?> profileHeaderImageData = const Value.absent(),
+                Value<Uint8List?> pkBannerImageData = const Value.absent(),
+                Value<String?> pkBannerCachedUrl = const Value.absent(),
                 Value<bool> pluralkitSyncIgnored = const Value.absent(),
                 Value<bool> markdownEnabled = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<int?> deleteIntentEpoch = const Value.absent(),
                 Value<int?> deletePushStartedAt = const Value.absent(),
+                Value<bool> isAlwaysFronting = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => MembersCompanion.insert(
                 id: id,
@@ -22182,11 +23782,23 @@ class $$MembersTableTableManager
                 birthday: birthday,
                 proxyTagsJson: proxyTagsJson,
                 pkBannerUrl: pkBannerUrl,
+                profileHeaderSource: profileHeaderSource,
+                profileHeaderLayout: profileHeaderLayout,
+                profileHeaderVisible: profileHeaderVisible,
+                nameStyleFont: nameStyleFont,
+                nameStyleBold: nameStyleBold,
+                nameStyleItalic: nameStyleItalic,
+                nameStyleColorMode: nameStyleColorMode,
+                nameStyleColorHex: nameStyleColorHex,
+                profileHeaderImageData: profileHeaderImageData,
+                pkBannerImageData: pkBannerImageData,
+                pkBannerCachedUrl: pkBannerCachedUrl,
                 pluralkitSyncIgnored: pluralkitSyncIgnored,
                 markdownEnabled: markdownEnabled,
                 isDeleted: isDeleted,
                 deleteIntentEpoch: deleteIntentEpoch,
                 deletePushStartedAt: deletePushStartedAt,
+                isAlwaysFronting: isAlwaysFronting,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -22224,6 +23836,8 @@ typedef $$FrontingSessionsTableCreateCompanionBuilder =
       Value<int?> quality,
       Value<bool> isHealthKitImport,
       Value<String?> pluralkitUuid,
+      Value<String?> pkImportSource,
+      Value<String?> pkFileSwitchId,
       Value<String?> pkMemberIdsJson,
       Value<bool> isDeleted,
       Value<int?> deleteIntentEpoch,
@@ -22243,6 +23857,8 @@ typedef $$FrontingSessionsTableUpdateCompanionBuilder =
       Value<int?> quality,
       Value<bool> isHealthKitImport,
       Value<String?> pluralkitUuid,
+      Value<String?> pkImportSource,
+      Value<String?> pkFileSwitchId,
       Value<String?> pkMemberIdsJson,
       Value<bool> isDeleted,
       Value<int?> deleteIntentEpoch,
@@ -22311,6 +23927,16 @@ class $$FrontingSessionsTableFilterComposer
 
   ColumnFilters<String> get pluralkitUuid => $composableBuilder(
     column: $table.pluralkitUuid,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pkImportSource => $composableBuilder(
+    column: $table.pkImportSource,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pkFileSwitchId => $composableBuilder(
+    column: $table.pkFileSwitchId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -22399,6 +24025,16 @@ class $$FrontingSessionsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get pkImportSource => $composableBuilder(
+    column: $table.pkImportSource,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pkFileSwitchId => $composableBuilder(
+    column: $table.pkFileSwitchId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get pkMemberIdsJson => $composableBuilder(
     column: $table.pkMemberIdsJson,
     builder: (column) => ColumnOrderings(column),
@@ -22472,6 +24108,16 @@ class $$FrontingSessionsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get pkImportSource => $composableBuilder(
+    column: $table.pkImportSource,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get pkFileSwitchId => $composableBuilder(
+    column: $table.pkFileSwitchId,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get pkMemberIdsJson => $composableBuilder(
     column: $table.pkMemberIdsJson,
     builder: (column) => column,
@@ -22539,6 +24185,8 @@ class $$FrontingSessionsTableTableManager
                 Value<int?> quality = const Value.absent(),
                 Value<bool> isHealthKitImport = const Value.absent(),
                 Value<String?> pluralkitUuid = const Value.absent(),
+                Value<String?> pkImportSource = const Value.absent(),
+                Value<String?> pkFileSwitchId = const Value.absent(),
                 Value<String?> pkMemberIdsJson = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<int?> deleteIntentEpoch = const Value.absent(),
@@ -22556,6 +24204,8 @@ class $$FrontingSessionsTableTableManager
                 quality: quality,
                 isHealthKitImport: isHealthKitImport,
                 pluralkitUuid: pluralkitUuid,
+                pkImportSource: pkImportSource,
+                pkFileSwitchId: pkFileSwitchId,
                 pkMemberIdsJson: pkMemberIdsJson,
                 isDeleted: isDeleted,
                 deleteIntentEpoch: deleteIntentEpoch,
@@ -22575,6 +24225,8 @@ class $$FrontingSessionsTableTableManager
                 Value<int?> quality = const Value.absent(),
                 Value<bool> isHealthKitImport = const Value.absent(),
                 Value<String?> pluralkitUuid = const Value.absent(),
+                Value<String?> pkImportSource = const Value.absent(),
+                Value<String?> pkFileSwitchId = const Value.absent(),
                 Value<String?> pkMemberIdsJson = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<int?> deleteIntentEpoch = const Value.absent(),
@@ -22592,6 +24244,8 @@ class $$FrontingSessionsTableTableManager
                 quality: quality,
                 isHealthKitImport: isHealthKitImport,
                 pluralkitUuid: pluralkitUuid,
+                pkImportSource: pkImportSource,
+                pkFileSwitchId: pkFileSwitchId,
                 pkMemberIdsJson: pkMemberIdsJson,
                 isDeleted: isDeleted,
                 deleteIntentEpoch: deleteIntentEpoch,
@@ -23430,6 +25084,11 @@ typedef $$SystemSettingsTableTableCreateCompanionBuilder =
       Value<bool> syncNavigationEnabled,
       Value<String> chatBadgePreferences,
       Value<String?> defaultSleepQuality,
+      Value<String> pendingFrontingMigrationMode,
+      Value<int> frontingListViewMode,
+      Value<int> addFrontDefaultBehavior,
+      Value<int> quickFrontDefaultBehavior,
+      Value<String> pendingFrontingMigrationCleanupSubstate,
       Value<int> rowid,
     });
 typedef $$SystemSettingsTableTableUpdateCompanionBuilder =
@@ -23490,6 +25149,11 @@ typedef $$SystemSettingsTableTableUpdateCompanionBuilder =
       Value<bool> syncNavigationEnabled,
       Value<String> chatBadgePreferences,
       Value<String?> defaultSleepQuality,
+      Value<String> pendingFrontingMigrationMode,
+      Value<int> frontingListViewMode,
+      Value<int> addFrontDefaultBehavior,
+      Value<int> quickFrontDefaultBehavior,
+      Value<String> pendingFrontingMigrationCleanupSubstate,
       Value<int> rowid,
     });
 
@@ -23781,6 +25445,32 @@ class $$SystemSettingsTableTableFilterComposer
     column: $table.defaultSleepQuality,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnFilters<String> get pendingFrontingMigrationMode => $composableBuilder(
+    column: $table.pendingFrontingMigrationMode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get frontingListViewMode => $composableBuilder(
+    column: $table.frontingListViewMode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get addFrontDefaultBehavior => $composableBuilder(
+    column: $table.addFrontDefaultBehavior,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get quickFrontDefaultBehavior => $composableBuilder(
+    column: $table.quickFrontDefaultBehavior,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pendingFrontingMigrationCleanupSubstate =>
+      $composableBuilder(
+        column: $table.pendingFrontingMigrationCleanupSubstate,
+        builder: (column) => ColumnFilters(column),
+      );
 }
 
 class $$SystemSettingsTableTableOrderingComposer
@@ -24072,6 +25762,33 @@ class $$SystemSettingsTableTableOrderingComposer
     column: $table.defaultSleepQuality,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get pendingFrontingMigrationMode =>
+      $composableBuilder(
+        column: $table.pendingFrontingMigrationMode,
+        builder: (column) => ColumnOrderings(column),
+      );
+
+  ColumnOrderings<int> get frontingListViewMode => $composableBuilder(
+    column: $table.frontingListViewMode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get addFrontDefaultBehavior => $composableBuilder(
+    column: $table.addFrontDefaultBehavior,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get quickFrontDefaultBehavior => $composableBuilder(
+    column: $table.quickFrontDefaultBehavior,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pendingFrontingMigrationCleanupSubstate =>
+      $composableBuilder(
+        column: $table.pendingFrontingMigrationCleanupSubstate,
+        builder: (column) => ColumnOrderings(column),
+      );
 }
 
 class $$SystemSettingsTableTableAnnotationComposer
@@ -24351,6 +26068,33 @@ class $$SystemSettingsTableTableAnnotationComposer
     column: $table.defaultSleepQuality,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get pendingFrontingMigrationMode =>
+      $composableBuilder(
+        column: $table.pendingFrontingMigrationMode,
+        builder: (column) => column,
+      );
+
+  GeneratedColumn<int> get frontingListViewMode => $composableBuilder(
+    column: $table.frontingListViewMode,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get addFrontDefaultBehavior => $composableBuilder(
+    column: $table.addFrontDefaultBehavior,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get quickFrontDefaultBehavior => $composableBuilder(
+    column: $table.quickFrontDefaultBehavior,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get pendingFrontingMigrationCleanupSubstate =>
+      $composableBuilder(
+        column: $table.pendingFrontingMigrationCleanupSubstate,
+        builder: (column) => column,
+      );
 }
 
 class $$SystemSettingsTableTableTableManager
@@ -24453,6 +26197,13 @@ class $$SystemSettingsTableTableTableManager
                 Value<bool> syncNavigationEnabled = const Value.absent(),
                 Value<String> chatBadgePreferences = const Value.absent(),
                 Value<String?> defaultSleepQuality = const Value.absent(),
+                Value<String> pendingFrontingMigrationMode =
+                    const Value.absent(),
+                Value<int> frontingListViewMode = const Value.absent(),
+                Value<int> addFrontDefaultBehavior = const Value.absent(),
+                Value<int> quickFrontDefaultBehavior = const Value.absent(),
+                Value<String> pendingFrontingMigrationCleanupSubstate =
+                    const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SystemSettingsTableCompanion(
                 id: id,
@@ -24512,6 +26263,12 @@ class $$SystemSettingsTableTableTableManager
                 syncNavigationEnabled: syncNavigationEnabled,
                 chatBadgePreferences: chatBadgePreferences,
                 defaultSleepQuality: defaultSleepQuality,
+                pendingFrontingMigrationMode: pendingFrontingMigrationMode,
+                frontingListViewMode: frontingListViewMode,
+                addFrontDefaultBehavior: addFrontDefaultBehavior,
+                quickFrontDefaultBehavior: quickFrontDefaultBehavior,
+                pendingFrontingMigrationCleanupSubstate:
+                    pendingFrontingMigrationCleanupSubstate,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -24573,6 +26330,13 @@ class $$SystemSettingsTableTableTableManager
                 Value<bool> syncNavigationEnabled = const Value.absent(),
                 Value<String> chatBadgePreferences = const Value.absent(),
                 Value<String?> defaultSleepQuality = const Value.absent(),
+                Value<String> pendingFrontingMigrationMode =
+                    const Value.absent(),
+                Value<int> frontingListViewMode = const Value.absent(),
+                Value<int> addFrontDefaultBehavior = const Value.absent(),
+                Value<int> quickFrontDefaultBehavior = const Value.absent(),
+                Value<String> pendingFrontingMigrationCleanupSubstate =
+                    const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SystemSettingsTableCompanion.insert(
                 id: id,
@@ -24632,6 +26396,12 @@ class $$SystemSettingsTableTableTableManager
                 syncNavigationEnabled: syncNavigationEnabled,
                 chatBadgePreferences: chatBadgePreferences,
                 defaultSleepQuality: defaultSleepQuality,
+                pendingFrontingMigrationMode: pendingFrontingMigrationMode,
+                frontingListViewMode: frontingListViewMode,
+                addFrontDefaultBehavior: addFrontDefaultBehavior,
+                quickFrontDefaultBehavior: quickFrontDefaultBehavior,
+                pendingFrontingMigrationCleanupSubstate:
+                    pendingFrontingMigrationCleanupSubstate,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -25648,6 +27418,8 @@ typedef $$PluralKitSyncStateTableCreateCompanionBuilder =
       Value<bool> mappingAcknowledged,
       Value<DateTime?> linkedAt,
       Value<int> linkEpoch,
+      Value<DateTime?> switchCursorTimestamp,
+      Value<String?> switchCursorId,
       Value<int> rowid,
     });
 typedef $$PluralKitSyncStateTableUpdateCompanionBuilder =
@@ -25661,6 +27433,8 @@ typedef $$PluralKitSyncStateTableUpdateCompanionBuilder =
       Value<bool> mappingAcknowledged,
       Value<DateTime?> linkedAt,
       Value<int> linkEpoch,
+      Value<DateTime?> switchCursorTimestamp,
+      Value<String?> switchCursorId,
       Value<int> rowid,
     });
 
@@ -25715,6 +27489,16 @@ class $$PluralKitSyncStateTableFilterComposer
 
   ColumnFilters<int> get linkEpoch => $composableBuilder(
     column: $table.linkEpoch,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get switchCursorTimestamp => $composableBuilder(
+    column: $table.switchCursorTimestamp,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get switchCursorId => $composableBuilder(
+    column: $table.switchCursorId,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -25772,6 +27556,16 @@ class $$PluralKitSyncStateTableOrderingComposer
     column: $table.linkEpoch,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<DateTime> get switchCursorTimestamp => $composableBuilder(
+    column: $table.switchCursorTimestamp,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get switchCursorId => $composableBuilder(
+    column: $table.switchCursorId,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$PluralKitSyncStateTableAnnotationComposer
@@ -25819,6 +27613,16 @@ class $$PluralKitSyncStateTableAnnotationComposer
 
   GeneratedColumn<int> get linkEpoch =>
       $composableBuilder(column: $table.linkEpoch, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get switchCursorTimestamp => $composableBuilder(
+    column: $table.switchCursorTimestamp,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get switchCursorId => $composableBuilder(
+    column: $table.switchCursorId,
+    builder: (column) => column,
+  );
 }
 
 class $$PluralKitSyncStateTableTableManager
@@ -25870,6 +27674,8 @@ class $$PluralKitSyncStateTableTableManager
                 Value<bool> mappingAcknowledged = const Value.absent(),
                 Value<DateTime?> linkedAt = const Value.absent(),
                 Value<int> linkEpoch = const Value.absent(),
+                Value<DateTime?> switchCursorTimestamp = const Value.absent(),
+                Value<String?> switchCursorId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PluralKitSyncStateCompanion(
                 id: id,
@@ -25881,6 +27687,8 @@ class $$PluralKitSyncStateTableTableManager
                 mappingAcknowledged: mappingAcknowledged,
                 linkedAt: linkedAt,
                 linkEpoch: linkEpoch,
+                switchCursorTimestamp: switchCursorTimestamp,
+                switchCursorId: switchCursorId,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -25894,6 +27702,8 @@ class $$PluralKitSyncStateTableTableManager
                 Value<bool> mappingAcknowledged = const Value.absent(),
                 Value<DateTime?> linkedAt = const Value.absent(),
                 Value<int> linkEpoch = const Value.absent(),
+                Value<DateTime?> switchCursorTimestamp = const Value.absent(),
+                Value<String?> switchCursorId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PluralKitSyncStateCompanion.insert(
                 id: id,
@@ -25905,6 +27715,8 @@ class $$PluralKitSyncStateTableTableManager
                 mappingAcknowledged: mappingAcknowledged,
                 linkedAt: linkedAt,
                 linkEpoch: linkEpoch,
+                switchCursorTimestamp: switchCursorTimestamp,
+                switchCursorId: switchCursorId,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -29015,6 +30827,8 @@ typedef $$FrontSessionCommentsTableCreateCompanionBuilder =
       required DateTime timestamp,
       required DateTime createdAt,
       Value<bool> isDeleted,
+      Value<DateTime?> targetTime,
+      Value<String?> authorMemberId,
       Value<int> rowid,
     });
 typedef $$FrontSessionCommentsTableUpdateCompanionBuilder =
@@ -29025,6 +30839,8 @@ typedef $$FrontSessionCommentsTableUpdateCompanionBuilder =
       Value<DateTime> timestamp,
       Value<DateTime> createdAt,
       Value<bool> isDeleted,
+      Value<DateTime?> targetTime,
+      Value<String?> authorMemberId,
       Value<int> rowid,
     });
 
@@ -29064,6 +30880,16 @@ class $$FrontSessionCommentsTableFilterComposer
 
   ColumnFilters<bool> get isDeleted => $composableBuilder(
     column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get targetTime => $composableBuilder(
+    column: $table.targetTime,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get authorMemberId => $composableBuilder(
+    column: $table.authorMemberId,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -29106,6 +30932,16 @@ class $$FrontSessionCommentsTableOrderingComposer
     column: $table.isDeleted,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<DateTime> get targetTime => $composableBuilder(
+    column: $table.targetTime,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get authorMemberId => $composableBuilder(
+    column: $table.authorMemberId,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$FrontSessionCommentsTableAnnotationComposer
@@ -29134,6 +30970,16 @@ class $$FrontSessionCommentsTableAnnotationComposer
 
   GeneratedColumn<bool> get isDeleted =>
       $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get targetTime => $composableBuilder(
+    column: $table.targetTime,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get authorMemberId => $composableBuilder(
+    column: $table.authorMemberId,
+    builder: (column) => column,
+  );
 }
 
 class $$FrontSessionCommentsTableTableManager
@@ -29185,6 +31031,8 @@ class $$FrontSessionCommentsTableTableManager
                 Value<DateTime> timestamp = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> targetTime = const Value.absent(),
+                Value<String?> authorMemberId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => FrontSessionCommentsCompanion(
                 id: id,
@@ -29193,6 +31041,8 @@ class $$FrontSessionCommentsTableTableManager
                 timestamp: timestamp,
                 createdAt: createdAt,
                 isDeleted: isDeleted,
+                targetTime: targetTime,
+                authorMemberId: authorMemberId,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -29203,6 +31053,8 @@ class $$FrontSessionCommentsTableTableManager
                 required DateTime timestamp,
                 required DateTime createdAt,
                 Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> targetTime = const Value.absent(),
+                Value<String?> authorMemberId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => FrontSessionCommentsCompanion.insert(
                 id: id,
@@ -29211,6 +31063,8 @@ class $$FrontSessionCommentsTableTableManager
                 timestamp: timestamp,
                 createdAt: createdAt,
                 isDeleted: isDeleted,
+                targetTime: targetTime,
+                authorMemberId: authorMemberId,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

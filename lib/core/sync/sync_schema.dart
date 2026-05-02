@@ -1,6 +1,15 @@
 /// JSON schema describing all syncable entities for prism-sync.
 ///
 /// Field types: String, Int, Real, Bool, DateTime, Blob
+///
+/// Transitional / deprecated fields:
+///   - `fronting_sessions.pk_member_ids_json` — legacy per-switch PK member
+///     id list, kept on disk through v7 so legacy peers can still round-trip
+///     the value until the mandatory per-member-fronting upgrade completes.
+///     v7+ does not write to it; the apply path uses `Value.absent()` when
+///     missing so we don't clobber whatever a legacy peer last sent. Removal
+///     target: 0.8.0 alongside the v8 cleanup `TableMigration` and
+///     `reset_sync_state` cutover.
 const String prismSyncSchema = '''
 {
   "entities": {
@@ -24,8 +33,20 @@ const String prismSyncSchema = '''
         "markdown_enabled": "Bool",
         "display_name": "String",
         "birthday": "String",
+        "is_always_fronting": "Bool",
         "proxy_tags_json": "String",
         "pk_banner_url": "String",
+        "profile_header_source": "Int",
+        "profile_header_layout": "Int",
+        "profile_header_visible": "Bool",
+        "name_style_font": "Int",
+        "name_style_bold": "Bool",
+        "name_style_italic": "Bool",
+        "name_style_color_mode": "Int",
+        "name_style_color_hex": "String",
+        "profile_header_image_data": "Blob",
+        "pk_banner_image_data": "Blob",
+        "pk_banner_cached_url": "String",
         "pluralkit_sync_ignored": "Bool",
         "delete_push_started_at": "Int",
         "is_deleted": "Bool"
@@ -36,13 +57,14 @@ const String prismSyncSchema = '''
         "start_time": "DateTime",
         "end_time": "DateTime",
         "member_id": "String",
-        "co_fronter_ids": "String",
         "notes": "String",
         "confidence": "Int",
         "session_type": "Int",
         "quality": "Int",
         "is_health_kit_import": "Bool",
         "pluralkit_uuid": "String",
+        "pk_import_source": "String",
+        "pk_file_switch_id": "String",
         "pk_member_ids_json": "String",
         "delete_push_started_at": "Int",
         "is_deleted": "Bool"
@@ -58,6 +80,7 @@ const String prismSyncSchema = '''
         "creator_id": "String",
         "participant_ids": "String",
         "archived_by_member_ids": "String",
+        "muted_by_member_ids": "String",
         "last_read_timestamps": "String",
         "description": "String",
         "category_id": "String",
@@ -126,6 +149,9 @@ const String prismSyncSchema = '''
         "nav_bar_items": "String",
         "nav_bar_overflow_items": "String",
         "chat_badge_preferences": "String",
+        "fronting_list_view_mode": "Int",
+        "add_front_default_behavior": "Int",
+        "quick_front_default_behavior": "Int",
         "is_deleted": "Bool"
       }
     },
@@ -255,7 +281,8 @@ const String prismSyncSchema = '''
     },
     "front_session_comments": {
       "fields": {
-        "session_id": "String",
+        "target_time": "DateTime",
+        "author_member_id": "String",
         "body": "String",
         "timestamp": "DateTime",
         "created_at": "DateTime",

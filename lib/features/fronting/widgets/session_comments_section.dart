@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 import 'package:prism_plurality/domain/models/front_session_comment.dart';
+import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/features/fronting/providers/front_comments_providers.dart';
 import 'package:prism_plurality/features/fronting/widgets/add_comment_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
@@ -17,14 +18,28 @@ import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 
 /// Comments section shown on session detail screen.
+///
+/// Comments are now anchored to a timestamp (targetTime) rather than a
+/// session ID. We watch comments in the session's time range as a proxy —
+/// showing any comment whose targetTime falls within [session.startTime,
+/// session.endTime ?? now). This is a Phase 2B.3 compile-pass implementation;
+/// the full period-level comment threading is deferred to Phase 3 per §3.5.
+///
+/// TODO(§3.5): Phase 3 — replace range-proxy with period-aware comment routing.
 class SessionCommentsSection extends ConsumerWidget {
-  const SessionCommentsSection({super.key, required this.sessionId});
+  const SessionCommentsSection({super.key, required this.session});
 
-  final String sessionId;
+  final FrontingSession session;
+
+  // Fall back to session.startTime when building the range for an active session.
+  DateTimeRange get _range => DateTimeRange(
+        start: session.startTime,
+        end: session.endTime ?? session.startTime.add(const Duration(days: 1)),
+      );
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final commentsAsync = ref.watch(sessionCommentsProvider(sessionId));
+    final commentsAsync = ref.watch(commentsForRangeProvider(_range));
     final theme = Theme.of(context);
 
     return commentsAsync.when(
@@ -66,7 +81,7 @@ class SessionCommentsSection extends ConsumerWidget {
                 const SizedBox(height: 12),
                 for (var i = 0; i < comments.length; i++) ...[
                   if (i > 0) const Divider(height: 16),
-                  _CommentTile(comment: comments[i], sessionId: sessionId),
+                  _CommentTile(comment: comments[i]),
                 ],
               ],
             ],
@@ -80,7 +95,8 @@ class SessionCommentsSection extends ConsumerWidget {
     PrismSheet.showFullScreen(
       context: context,
       builder: (context, scrollController) => AddCommentSheet(
-        sessionId: sessionId,
+        // Default targetTime to the session's start time; user can edit it.
+        targetTime: session.startTime,
         scrollController: scrollController,
       ),
     );
@@ -88,10 +104,9 @@ class SessionCommentsSection extends ConsumerWidget {
 }
 
 class _CommentTile extends ConsumerWidget {
-  const _CommentTile({required this.comment, required this.sessionId});
+  const _CommentTile({required this.comment});
 
   final FrontSessionComment comment;
-  final String sessionId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -158,7 +173,8 @@ class _CommentTile extends ConsumerWidget {
     PrismSheet.showFullScreen(
       context: context,
       builder: (context, scrollController) => AddCommentSheet(
-        sessionId: sessionId,
+        // Use comment's own targetTime (or timestamp as fallback) for editing.
+        targetTime: comment.targetTime ?? comment.timestamp,
         comment: comment,
         scrollController: scrollController,
       ),

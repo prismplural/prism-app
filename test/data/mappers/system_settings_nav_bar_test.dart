@@ -64,6 +64,11 @@ void main() {
         sleepSuggestionMinute: 0,
         wakeSuggestionEnabled: false,
         wakeSuggestionAfterHours: 8.0,
+        pendingFrontingMigrationMode: 'notStarted',
+        pendingFrontingMigrationCleanupSubstate: '',
+        frontingListViewMode: 0,
+        addFrontDefaultBehavior: 0,
+        quickFrontDefaultBehavior: 0,
       );
     }
 

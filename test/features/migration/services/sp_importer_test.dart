@@ -116,6 +116,10 @@ class _FakeMemberRepository implements MemberRepository {
   Future<void> clearPluralKitLink(String id) async {}
   @override
   Future<void> stampDeletePushStartedAt(String id, int timestampMs) async {}
+
+  @override
+  Future<({domain.Member member, bool wasCreated})>
+      ensureUnknownSentinelMember() => throw UnimplementedError();
 }
 
 class _FakeSessionRepository implements FrontingSessionRepository {
@@ -229,6 +233,20 @@ class _FakeSessionRepository implements FrontingSessionRepository {
       Stream.value(sessions.take(limit).toList());
 
   @override
+  Stream<List<domain.FrontingSession>> watchSessionsOverlappingRange(
+    DateTime start,
+    DateTime end,
+  ) {
+    final overlapping = sessions.where((s) {
+      if (!s.startTime.isBefore(end)) return false;
+      final endTime = s.endTime;
+      if (endTime == null) return true;
+      return endTime.isAfter(start);
+    }).toList();
+    return Stream.value(overlapping);
+  }
+
+  @override
   Stream<domain.FrontingSession?> watchSessionById(String id) =>
       Stream.value(null);
 
@@ -239,6 +257,17 @@ class _FakeSessionRepository implements FrontingSessionRepository {
   Future<void> clearPluralKitLink(String id) async {}
   @override
   Future<void> stampDeletePushStartedAt(String id, int timestampMs) async {}
+
+  @override
+  Future<({int count, Duration? avgDuration})> getSleepStats({
+    required DateTime since,
+    DateTime? until,
+  }) async => (count: 0, avgDuration: null);
+
+  @override
+  Stream<List<domain.FrontingSession>> watchRecentSleepSessions({
+    required int limit,
+  }) => Stream.value(const []);
 }
 
 class _FakeConversationRepository implements ConversationRepository {

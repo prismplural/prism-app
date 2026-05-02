@@ -43,6 +43,7 @@ void main() {
       expect(AppShellTabId.notes.name, 'notes');
       expect(AppShellTabId.statistics.name, 'statistics');
       expect(AppShellTabId.timeline.name, 'timeline');
+      expect(AppShellTabId.sleep.name, 'sleep');
     });
   });
 
@@ -70,6 +71,7 @@ void main() {
         AppShellTabId.notes,
         AppShellTabId.statistics,
         AppShellTabId.timeline,
+        AppShellTabId.sleep,
       ];
       for (final id in unlockedIds) {
         final tab = appShellTabs.firstWhere((t) => t.id == id);
@@ -149,6 +151,7 @@ void main() {
         AppShellTabId.polls,
         AppShellTabId.reminders,
         AppShellTabId.notes,
+        AppShellTabId.sleep,
       ];
       for (final id in gatedIds) {
         final tab = appShellTabs.firstWhere((t) => t.id == id);
@@ -162,13 +165,13 @@ void main() {
   });
 
   group('appShellTabs', () {
-    test('has 10 entries', () {
-      expect(appShellTabs, hasLength(10));
+    test('has 11 entries', () {
+      expect(appShellTabs, hasLength(11));
     });
 
-    test('branch indices are 0 through 9', () {
+    test('branch indices are 0 through 10', () {
       final indices = appShellTabs.map((t) => t.branchIndex).toList();
-      expect(indices, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+      expect(indices, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
     });
 
     test('no duplicate branch indices', () {

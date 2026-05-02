@@ -134,14 +134,7 @@ class _CreateConversationSheetState
     List<MemberSearchGroup> groups,
   ) async {
     final speakingAs = ref.read(speakingAsProvider);
-    final s = ref.read(terminologySettingProvider);
-    final termPlural = resolveTerminology(
-      context.l10n,
-      s.term,
-      customSingular: s.customSingular,
-      customPlural: s.customPlural,
-      useEnglish: s.useEnglish,
-    ).plural;
+    final termPlural = readTerminology(context, ref).plural;
 
     final frontingLabel = context.l10n.chatCreateFronting;
     final primaryColor = theme.colorScheme.primary;
@@ -207,7 +200,10 @@ class _CreateConversationSheetState
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final membersAsync = ref.watch(activeMembersProvider);
+    final terms = watchTerminology(context, ref);
+    // Non-fronting picker: hide the Unknown sentinel — chats with the
+    // placeholder member aren't a real flow.
+    final membersAsync = ref.watch(userVisibleMembersProvider);
     final speakingAs = ref.watch(speakingAsProvider);
 
     // Pre-select members once loaded only when the caller explicitly provided
@@ -439,6 +435,7 @@ class _CreateConversationSheetState
             membersAsync,
             displayMembers,
             searchGroups,
+            terms.pluralLower,
           ),
         ),
       ),
@@ -520,6 +517,7 @@ class _CreateConversationSheetState
     AsyncValue<dynamic> membersAsync,
     List<Member> displayMembers,
     List<MemberSearchGroup> searchGroups,
+    String termPluralLower,
   ) {
     return membersAsync.when(
       data: (_) {
@@ -527,7 +525,7 @@ class _CreateConversationSheetState
           return Padding(
             padding: const EdgeInsets.all(16),
             child: Text(
-              context.l10n.chatCreateNoMembers,
+              context.l10n.chatCreateNoMembers(termPluralLower),
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -569,7 +567,7 @@ class _CreateConversationSheetState
       error: (error, _) => Padding(
         padding: const EdgeInsets.all(16),
         child: Text(
-          context.l10n.chatAddMembersFailed(error),
+          context.l10n.chatAddMembersFailed(termPluralLower, error),
           style: TextStyle(color: Theme.of(context).colorScheme.error),
         ),
       ),

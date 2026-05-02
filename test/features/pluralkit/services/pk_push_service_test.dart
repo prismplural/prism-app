@@ -102,6 +102,7 @@ domain.Member _member({
   String? pluralkitId,
   String? customColorHex,
   bool customColorEnabled = false,
+  String? proxyTagsJson,
 }) {
   return domain.Member(
     id: id,
@@ -111,6 +112,7 @@ domain.Member _member({
     pluralkitId: pluralkitId,
     customColorHex: customColorHex,
     customColorEnabled: customColorEnabled,
+    proxyTagsJson: proxyTagsJson,
     createdAt: DateTime(2026, 1, 1),
   );
 }
@@ -199,6 +201,26 @@ void main() {
 
       final data = fakeClient.calls.first.args.last as Map<String, dynamic>;
       expect(data['description'], 'Hello world');
+    });
+
+    test('includes proxy tags when present', () async {
+      final member = _member(proxyTagsJson: '[{"prefix":"A:","suffix":null}]');
+
+      await pushService.pushMember(member, fakeClient);
+
+      final data = fakeClient.calls.first.args.last as Map<String, dynamic>;
+      expect(data['proxy_tags'], [
+        {'prefix': 'A:', 'suffix': null},
+      ]);
+    });
+
+    test('includes empty proxy tag list for explicit local clear', () async {
+      final member = _member(proxyTagsJson: '[]');
+
+      await pushService.pushMember(member, fakeClient);
+
+      final data = fakeClient.calls.first.args.last as Map<String, dynamic>;
+      expect(data['proxy_tags'], isEmpty);
     });
   });
 

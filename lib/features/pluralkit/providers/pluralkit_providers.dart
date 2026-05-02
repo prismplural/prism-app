@@ -11,7 +11,28 @@ import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_file_parser.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_group_reset_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_groups_importer.dart';
+import 'package:prism_plurality/features/fronting/migration/providers/fronting_migration_providers.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
+
+/// Thrown by [PluralKitSyncNotifier] surfaces when the per-member
+/// fronting migration is `blocked` or `inProgress` and the requested
+/// pull/push would write fronting rows in a transitional shape. UI
+/// callers should treat this as "tell the user the migration modal is
+/// the recovery surface" rather than a hard failure.
+///
+/// Push surfaces (e.g. `pushPendingSwitches`) opt to return 0 instead
+/// of throwing because they're called fire-and-forget from listeners
+/// and aren't user-initiated; pull surfaces throw because they're
+/// always invoked from explicit user actions where a no-op would be
+/// confusing.
+class PkSyncMigrationGatedException implements Exception {
+  const PkSyncMigrationGatedException();
+
+  @override
+  String toString() =>
+      'PkSyncMigrationGatedException: PluralKit sync is paused while the '
+      'per-member fronting migration is in progress or blocked.';
+}
 
 // ---------------------------------------------------------------------------
 // Sync service provider (singleton)
@@ -76,6 +97,10 @@ class PkSyncDirectionNotifier extends Notifier<PkSyncDirection> {
       description: direction,
       color: direction,
       birthday: direction,
+      // Proxy tags follow the global direction by design — see the
+      // PkFieldSyncConfig constructor doc in `pk_sync_config.dart` for why
+      // bidirectional remains the default for proxy tags.
+      proxyTags: direction,
     );
     await syncDao.upsertSyncState(
       PluralKitSyncStateCompanion(
@@ -131,23 +156,70 @@ class PluralKitSyncNotifier extends Notifier<PluralKitSyncState> {
   Future<(String? systemName, List<PKMember> pkMembers)> importMembersOnly() =>
       _service.importMembersOnly();
 
-  Future<void> performFullImport() => _service.performFullImport();
+  Future<void> performFullImport() async {
+    if (ref.read(frontingMigrationWritesBlockedProvider)) {
+      // Pull writes new fronting rows; defer until the migration is
+      // resolved. Same rationale as `pushPendingSwitches`.
+      throw const PkSyncMigrationGatedException();
+    }
+    await _service.performFullImport();
+  }
+
+  Future<PkTokenImportResult> performOneTimeFullImport({String? token}) async {
+    if (ref.read(frontingMigrationWritesBlockedProvider)) {
+      throw const PkSyncMigrationGatedException();
+    }
+    return _service.performOneTimeFullImport(token: token);
+  }
 
   Future<void> acknowledgeMapping() => _service.acknowledgeMapping();
+
+  Future<bool> hasRepairToken({String? token}) =>
+      _service.hasRepairToken(token: token);
 
   Future<PkFileImportResult> importFromFile(
     PkFileExport export, {
     void Function(double progress, String status)? onProgress,
-  }) => _service.importFromFile(export, onProgress: onProgress);
+  }) async {
+    if (ref.read(frontingMigrationWritesBlockedProvider)) {
+      throw const PkSyncMigrationGatedException();
+    }
+    return _service.importFromFile(export, onProgress: onProgress);
+  }
+
+  Future<PkFileTokenFrontingImportResult> importFromFileWithToken(
+    PkFileExport export, {
+    required String token,
+    void Function(double progress, String status)? onProgress,
+  }) async {
+    if (ref.read(frontingMigrationWritesBlockedProvider)) {
+      throw const PkSyncMigrationGatedException();
+    }
+    return _service.importFromFileWithToken(
+      export,
+      token: token,
+      onProgress: onProgress,
+    );
+  }
 
   /// Push any locally-created fronting sessions to PluralKit. Safe to call
   /// on every front change: it no-ops when the service isn't connected /
   /// is mid-mapping, and deduplicates already-pushed sessions via
   /// `pluralkitUuid`.
+  ///
+  /// Hard-gated on the per-member fronting migration: while the migration
+  /// is `blocked` or `inProgress`, fronting rows on disk may be in an
+  /// intermediate shape (composite unique index missing, or new-shape
+  /// rows without the post-tx sync state cutover). Pushing in that
+  /// window risks creating PK switches that don't match the local truth
+  /// after the migration finishes. Returns 0 silently — the upgrade
+  /// modal is the user's recovery surface.
   Future<int> pushPendingSwitches() async {
+    if (ref.read(frontingMigrationWritesBlockedProvider)) return 0;
     if (!state.isConnected || state.needsMapping) return 0;
     try {
-      return await _service.pushPendingSwitches();
+      final result = await _service.pushPendingSwitches();
+      return result.pushed;
     } catch (_) {
       return 0;
     }
@@ -156,7 +228,13 @@ class PluralKitSyncNotifier extends Notifier<PluralKitSyncState> {
   /// Push a single linked member's edits to PK. No-op when disconnected,
   /// mid-mapping, when the sync direction is pull-only, or when the member
   /// isn't linked. Safe to call from UI listeners — errors are swallowed.
+  ///
+  /// Migration-gated for the same reason as [pushPendingSwitches]: a
+  /// member edit pushed while the migration is mid-flight could fix a
+  /// PK row that the migration is about to delete (corrective import
+  /// path) or that the user is about to re-classify.
   Future<void> pushMemberUpdate(Member member) async {
+    if (ref.read(frontingMigrationWritesBlockedProvider)) return;
     if (!state.canAutoSync) return;
     if (!ref.read(pkSyncDirectionProvider).pushEnabled) return;
     if (member.pluralkitId == null || member.pluralkitId!.isEmpty) return;
@@ -168,7 +246,15 @@ class PluralKitSyncNotifier extends Notifier<PluralKitSyncState> {
   Future<PkSyncSummary?> syncRecentData({
     bool isManual = false,
     PkSyncDirection direction = PkSyncDirection.pullOnly,
-  }) => _service.syncRecentData(isManual: isManual, direction: direction);
+  }) {
+    if (ref.read(frontingMigrationWritesBlockedProvider)) {
+      // Polling for new switches while the local fronting tables are in
+      // a transitional shape would write rows the migration intends to
+      // overwrite. Skip silently and let the modal drive recovery.
+      return Future.value(null);
+    }
+    return _service.syncRecentData(isManual: isManual, direction: direction);
+  }
 
   Future<PKSystem?> fetchSystemProfile() => _service.fetchSystemProfile();
 

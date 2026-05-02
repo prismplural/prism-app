@@ -128,7 +128,9 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final canSave = _canSave;
-    final membersAsync = ref.watch(activeMembersProvider);
+    // Non-fronting picker: hide the Unknown sentinel — you don't set a
+    // reminder for the placeholder member.
+    final membersAsync = ref.watch(userVisibleMembersProvider);
 
     return SafeArea(
       child: Column(
@@ -382,7 +384,7 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
                   ),
                   if (_targetMemberId != null) ...[
                     const SizedBox(height: 12),
-                    // Honesty disclosure: Prism's relay is zero-knowledge, so
+                    // Honesty disclosure: Prism's relay only sees ciphertext, so
                     // member-targeted reminders can't be push-delivered — they
                     // only fire when THIS device observes the switch.
                     InfoBanner(

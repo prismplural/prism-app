@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/utils/member_search_groups.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
@@ -43,20 +45,56 @@ class AddFrontSessionSheet extends ConsumerStatefulWidget {
       _AddFrontSessionSheetState();
 }
 
+/// State for [AddFrontSessionSheet].
+///
+/// Per spec §2.5 the old "primary + co-fronter picker" UX is replaced by a
+/// single multi-select: the user picks one or more members and each selection
+/// becomes its own session with the same start time.
+///
+/// Differences from the old shape:
+/// - `_selectedIds` is now a multi-value set (was single primary + separate
+///   co-fronter set).
+/// - `_coFrontMode` toggle is removed — adding a co-fronter to an existing
+///   front is now done by opening this sheet and selecting the member.
+/// - `addCoFronter` is no longer called; we always call `startFronting(ids)`.
+///
+/// TODO(§2.5): Phase 3 — polish multi-select grid to show "already fronting"
+/// members as deselect-to-end, with "— ends session" hint under deselection.
 class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
     with WidgetsBindingObserver {
   static const _unknownId = '__unknown__';
-  String? _selectedId; // null = nothing selected, _unknownId = unknown
-  final Set<String> _coFronterIds = {};
+
+  // Multi-select set: each id becomes its own session row.
+  // `_unknownId` sentinel represents Unknown fronter (single, exclusive).
+  final Set<String> _selectedIds = {};
+
   FrontConfidence? _confidence;
   final _notesController = TextEditingController();
   final _notesFocus = FocusNode();
   final _notesKey = GlobalKey();
   bool _saving = false;
-  bool _coFrontMode = false;
 
-  bool get _frontAsUnknown => _selectedId == _unknownId;
-  String? get _selectedMemberId => _frontAsUnknown ? null : _selectedId;
+  /// Per-action override of the add-front behavior. Initialised from the
+  /// `add_front_default_behavior` system setting on first build (see
+  /// [_resolvedMode]) and toggled by the segmented control. NEVER written
+  /// back to the setting — the segmented control is a per-submit override
+  /// only.
+  ///
+  /// Null until the user touches the segmented control; once non-null, the
+  /// user's local pick is sticky for the rest of the sheet's lifetime.
+  FrontStartBehavior? _modeOverride;
+
+  /// The mode to use for the next submit: explicit override if set,
+  /// otherwise the persisted preference (with [FrontStartBehavior.additive]
+  /// as a fallback if settings haven't loaded yet).
+  FrontStartBehavior _resolvedMode(FrontStartBehavior preferenceDefault) =>
+      _modeOverride ?? preferenceDefault;
+
+  bool get _frontAsUnknown => _selectedIds.length == 1 && _selectedIds.contains(_unknownId);
+  // The real member IDs to pass to startFronting (excludes the Unknown sentinel).
+  List<String> get _memberIds =>
+      _selectedIds.where((id) => id != _unknownId).toList();
+  bool get _canSubmit => _selectedIds.isNotEmpty;
 
   @override
   void initState() {
@@ -90,38 +128,51 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
     }
   }
 
-  Future<void> _addCoFronter(String memberId) async {
+  /// Submits one or more sessions for the selected members.
+  ///
+  /// Branches on [mode]:
+  /// - [FrontStartBehavior.additive]: existing behavior — `startFronting`
+  ///   creates one row per selected member, leaving any other active
+  ///   sessions untouched.
+  /// - [FrontStartBehavior.replace]: `replaceFronting` ends every active
+  ///   normal session AND starts the new ones in a single transaction
+  ///   with one captured `now` (atomic — a crash mid-block leaves the
+  ///   prior state intact, not "no fronts at all").
+  ///
+  /// If the Unknown sentinel is the only selection, passes
+  /// `[unknownSentinelMemberId]` — the mutation service auto-creates the
+  /// sentinel member if it doesn't exist, then writes a single session
+  /// row attributed to it.
+  Future<void> _submit(FrontStartBehavior mode) async {
+    if (!_canSubmit) return;
     setState(() => _saving = true);
+
     try {
       final notifier = ref.read(frontingNotifierProvider.notifier);
-      await notifier.addCoFronter(memberId);
-      Haptics.success();
-      if (mounted) Navigator.of(context).pop(true);
-    } catch (e) {
-      if (mounted) {
-        PrismToast.error(
-          context,
-          message: context.l10n.frontingErrorAddingCoFronter(e),
-        );
+      final trimmedNotes = _notesController.text.trim();
+
+      // Multi-member: each id gets its own session row sharing start_time.
+      // The Unknown sentinel id is treated like any other member id — the
+      // mutation service auto-creates the sentinel member if needed.
+      final ids = _frontAsUnknown
+          ? <String>[unknownSentinelMemberId]
+          : _memberIds;
+      final notes = trimmedNotes.isNotEmpty ? trimmedNotes : null;
+
+      switch (mode) {
+        case FrontStartBehavior.additive:
+          await notifier.startFronting(
+            ids,
+            confidence: _confidence,
+            notes: notes,
+          );
+        case FrontStartBehavior.replace:
+          await notifier.replaceFronting(
+            ids,
+            confidence: _confidence,
+            notes: notes,
+          );
       }
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
-  }
-
-  Future<void> _create() async {
-    setState(() => _saving = true);
-
-    try {
-      final notifier = ref.read(frontingNotifierProvider.notifier);
-      await notifier.startFrontingWithDetails(
-        memberId: _frontAsUnknown ? null : _selectedMemberId,
-        coFronterIds: _coFronterIds.toList(),
-        confidence: _confidence,
-        notes: _notesController.text.trim().isNotEmpty
-            ? _notesController.text.trim()
-            : null,
-      );
       Haptics.success();
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
@@ -136,26 +187,6 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
     }
   }
 
-  Future<void> _openCoFronterSearch(
-    List<Member> available,
-    String termPlural,
-    List<MemberSearchGroup> groups,
-  ) async {
-    final result = await MemberSearchSheet.showMulti(
-      context,
-      members: available,
-      termPlural: termPlural,
-      groups: groups,
-      initialSelected: Set.from(_coFronterIds),
-    );
-    if (!mounted || result == null) return;
-    setState(() {
-      _coFronterIds
-        ..clear()
-        ..addAll(result);
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -163,281 +194,175 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
     final membersAsync = ref.watch(activeMembersProvider);
     final activeSessionsAsync = ref.watch(activeSessionsProvider);
     final activeSessions = activeSessionsAsync.whenOrNull(data: (s) => s) ?? [];
+    // Per-member model: each session is one member's continuous presence.
     final frontingMemberIds = <String>{
-      for (final s in activeSessions) ...[
+      for (final s in activeSessions)
         if (s.memberId != null) s.memberId!,
-        ...s.coFronterIds,
-      ],
     };
-    final hasActiveSession = activeSessions.isNotEmpty;
+
+    // Read the persisted default for the segmented control's initial state.
+    // Falls back to additive while the stream is loading. The segmented
+    // control's selected value is _modeOverride ?? settingDefault, so:
+    //   - first build before user touches it: tracks the persisted setting
+    //   - after user toggles: stays on their pick for the rest of this sheet
+    //   - when sheet closes: nothing is written back to the setting
+    final settingsAsync = ref.watch(systemSettingsProvider);
+    final settingDefault = settingsAsync.whenOrNull(
+          data: (s) => s.addFrontDefaultBehavior,
+        ) ??
+        FrontStartBehavior.additive;
+    final mode = _resolvedMode(settingDefault);
 
     return LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.maxHeight < 100) return const SizedBox.shrink();
         return Column(
-          children: _buildContent(
-            context,
-            theme,
-            terms,
-            membersAsync,
-            frontingMemberIds,
-            hasActiveSession,
-          ),
-        );
-      },
-    );
-  }
-
-  List<Widget> _buildContent(
-    BuildContext context,
-    ThemeData theme,
-    Terminology terms,
-    AsyncValue<List<Member>> membersAsync,
-    Set<String> frontingMemberIds,
-    bool hasActiveSession,
-  ) {
-    return [
-      PrismSheetTopBar(
-        title: _coFrontMode
-            ? context.l10n.frontingAddCoFronterTitle
-            : context.l10n.frontingNewSession,
-        trailing: PrismGlassIconButton(
-          icon: AppIcons.check,
-          tooltip: _coFrontMode
-              ? context.l10n.frontingAddCoFronterTooltip
-              : context.l10n.frontingStartSessionTooltip,
-          onPressed: (_saving || _selectedId == null)
-              ? null
-              : _coFrontMode
-              ? () => _addCoFronter(_selectedId!)
-              : _create,
-        ),
-      ),
-      Expanded(
-        child: ListView(
-          controller: widget.scrollController,
-          padding: EdgeInsets.fromLTRB(
-            24,
-            24,
-            24,
-            24 + MediaQuery.of(context).viewInsets.bottom,
-          ),
           children: [
-            // Header row with optional co-front toggle
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    _coFrontMode
-                        ? context.l10n.frontingSelectMember(terms.singular)
-                        : context.l10n.frontingSelectFronter,
+            PrismSheetTopBar(
+              title: context.l10n.frontingNewSession,
+              trailing: PrismGlassIconButton(
+                icon: AppIcons.check,
+                tooltip: context.l10n.frontingStartSessionTooltip,
+                onPressed: (_saving || !_canSubmit)
+                    ? null
+                    : () => _submit(mode),
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                controller: widget.scrollController,
+                padding: EdgeInsets.fromLTRB(
+                  24,
+                  8,
+                  24,
+                  24 + MediaQuery.of(context).viewInsets.bottom,
+                ),
+                children: [
+                  // Per-action mode toggle (1B-δ): defaults from
+                  // `add_front_default_behavior`; the user's pick here
+                  // applies only to this submit and is NOT written back
+                  // to the persisted setting.
+                  PrismSegmentedControl<FrontStartBehavior>(
+                    key: const Key('addFrontModeSegmentedControl'),
+                    segments: [
+                      PrismSegment(
+                        value: FrontStartBehavior.additive,
+                        label: context.l10n.frontingAddFrontModeAdditive,
+                      ),
+                      PrismSegment(
+                        value: FrontStartBehavior.replace,
+                        label: context.l10n.frontingAddFrontModeReplace,
+                      ),
+                    ],
+                    selected: mode,
+                    onChanged: (m) => setState(() => _modeOverride = m),
+                  ),
+                  const SizedBox(height: 24),
+                  // Section header — multi-select replaces primary + co-fronter.
+                  // TODO(§2.5): Phase 3 — show "already fronting" members as
+                  // deselect-to-end with "— ends session" hint per spec §2.5.
+                  Text(
+                    context.l10n.frontingSelectFronter,
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                ),
-                if (hasActiveSession) ...[
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => setState(() {
-                      _coFrontMode = !_coFrontMode;
-                      _selectedId = null;
-                      _coFronterIds.clear();
-                    }),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 6,
-                      ),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 5,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _coFrontMode
-                              ? AppColors.fronting(
-                                  theme.brightness,
-                                ).withValues(alpha: 0.15)
-                              : Colors.transparent,
-                          border: Border.all(
-                            color: _coFrontMode
-                                ? AppColors.fronting(theme.brightness)
-                                : theme.colorScheme.outline.withValues(
-                                    alpha: 0.4,
-                                  ),
-                          ),
-                          borderRadius: BorderRadius.circular(
-                            PrismShapes.of(context).radius(20),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              AppIcons.group,
-                              size: 14,
-                              color: _coFrontMode
-                                  ? AppColors.fronting(theme.brightness)
-                                  : theme.colorScheme.onSurfaceVariant,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              context.l10n.frontingCoFrontToggle,
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: _coFrontMode
-                                    ? AppColors.fronting(theme.brightness)
-                                    : theme.colorScheme.onSurfaceVariant,
-                                fontWeight: _coFrontMode
-                                    ? FontWeight.w600
-                                    : FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                  const SizedBox(height: 12),
+                  membersAsync.when(
+                    loading: () => const PrismLoadingState(),
+                    error: (e, _) => Text('Error: $e'),
+                    data: (members) => _MemberGrid(
+                      members: members,
+                      selectedIds: _selectedIds,
+                      unknownId: _unknownId,
+                      pluralTerm: terms.pluralLower,
+                      frontingMemberIds: frontingMemberIds,
+                      onToggle: (id) {
+                        setState(() {
+                          if (id == _unknownId) {
+                            // Unknown is exclusive — clear other selections.
+                            _selectedIds
+                              ..clear()
+                              ..add(_unknownId);
+                          } else {
+                            // Deselect Unknown when picking a real member.
+                            _selectedIds.remove(_unknownId);
+                            if (_selectedIds.contains(id)) {
+                              _selectedIds.remove(id);
+                            } else {
+                              _selectedIds.add(id);
+                            }
+                          }
+                        });
+                      },
                     ),
                   ),
+                  const SizedBox(height: 24),
+
+                  // Confidence level picker
+                  Text(
+                    context.l10n.frontingConfidenceLevel,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _ConfidencePicker(
+                    selected: _confidence,
+                    onSelect: (c) => setState(() => _confidence = c),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Notes
+                  PrismTextField(
+                    key: _notesKey,
+                    controller: _notesController,
+                    focusNode: _notesFocus,
+                    labelText: context.l10n.frontingNotes,
+                    hintText: context.l10n.frontingNotesHint,
+                    maxLines: 6,
+                    minLines: 3,
+                    textCapitalization: TextCapitalization.sentences,
+                  ),
+                  const SizedBox(height: 32),
                 ],
-              ],
-            ),
-            const SizedBox(height: 12),
-            membersAsync.when(
-              loading: () => const PrismLoadingState(),
-              error: (e, _) => Text('Error: $e'),
-              data: (members) => _MemberGrid(
-                members: members,
-                selectedId: _selectedId,
-                unknownId: _unknownId,
-                pluralTerm: terms.pluralLower,
-                frontingMemberIds: frontingMemberIds,
-                coFrontMode: _coFrontMode,
-                onSelect: (id) {
-                  setState(() {
-                    _selectedId = id;
-                    if (id == _unknownId) _coFronterIds.clear();
-                  });
-                },
               ),
             ),
-            const SizedBox(height: 12),
-
-            // Co-fronter multi-select (hidden in co-front mode)
-            if (_selectedMemberId != null && !_coFrontMode) ...[
-              Text(
-                context.l10n.frontingCoFronters,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 12),
-              membersAsync.when(
-                loading: () => const SizedBox.shrink(),
-                error: (_, _) => const SizedBox.shrink(),
-                data: (members) {
-                  final available = members
-                      .where((m) => m.id != _selectedMemberId)
-                      .toList();
-                  final searchGroups = watchMemberSearchGroups(ref, available);
-                  if (available.isEmpty) {
-                    return Text(
-                      context.l10n.frontingNoOtherMembers(terms.pluralLower),
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    );
-                  }
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      SelectedMultiMemberPicker(
-                        key: const Key(
-                          'addFrontSessionCoFrontersSelectedPicker',
-                        ),
-                        members: available,
-                        selectedMemberIds: _coFronterIds,
-                        onPressed: () => _openCoFronterSearch(
-                          available,
-                          terms.plural,
-                          searchGroups,
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
-              const SizedBox(height: 24),
-            ],
-
-            if (_coFrontMode) ...[
-              // In co-front mode, just show a hint
-              Text(
-                context.l10n.frontingCoFrontHint(terms.singularLower),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 32),
-            ],
-
-            // Confidence level picker (hidden in co-front mode)
-            if (!_coFrontMode) ...[
-              Text(
-                context.l10n.frontingConfidenceLevel,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 12),
-              _ConfidencePicker(
-                selected: _confidence,
-                onSelect: (c) => setState(() => _confidence = c),
-              ),
-              const SizedBox(height: 24),
-
-              // Notes
-              PrismTextField(
-                key: _notesKey,
-                controller: _notesController,
-                focusNode: _notesFocus,
-                labelText: context.l10n.frontingNotes,
-                hintText: context.l10n.frontingNotesHint,
-                maxLines: 6,
-                minLines: 3,
-                textCapitalization: TextCapitalization.sentences,
-              ),
-              const SizedBox(height: 32),
-            ], // end if (!_coFrontMode)
           ],
-        ),
-      ),
-    ];
+        );
+      },
+    );
   }
 }
 
-/// Switches between a large grid (≤12 members) and an inline expandable picker
-/// with search (>12 members) for selecting the fronting member.
+/// Multi-select grid for choosing who's fronting.
+///
+/// Switches between a large grid (≤12 members) and a compact picker with
+/// search (>12 members). Each tap toggles a member in the parent's [selectedIds]
+/// set via [onToggle]. The Unknown sentinel is exclusive — tapping it clears
+/// all other selections.
+///
+/// Per spec §2.5: the old single-select primary + co-fronter picker is replaced
+/// by this unified multi-select. Each selected member will become its own
+/// session row with the same start_time.
 class _MemberGrid extends ConsumerStatefulWidget {
   const _MemberGrid({
     required this.members,
-    required this.selectedId,
+    required this.selectedIds,
     required this.unknownId,
-    required this.onSelect,
+    required this.onToggle,
     required this.pluralTerm,
     this.frontingMemberIds = const {},
-    this.coFrontMode = false,
   });
 
   final List<Member> members;
-  final String? selectedId;
+  final Set<String> selectedIds;
   final String unknownId;
-  final ValueChanged<String> onSelect;
+  final ValueChanged<String> onToggle;
   final String pluralTerm;
   final Set<String> frontingMemberIds;
-  final bool coFrontMode;
 
-  /// Threshold above which we switch to inline picker + search.
+  /// Threshold above which we switch to compact picker + search.
   static const int _compactThreshold = 12;
 
   @override
@@ -454,13 +379,13 @@ class _MemberGridState extends ConsumerState<_MemberGrid> {
   }
 
   // ---------------------------------------------------------------------------
-  // Large grid (≤12 members): 3 columns, big avatars
+  // Large grid (≤12 members): 3 columns, big avatars, multi-select
   // ---------------------------------------------------------------------------
 
   Widget _buildLargeGrid(BuildContext context) {
     final theme = Theme.of(context);
-    final showUnknown = !widget.coFrontMode;
-    final totalCount = widget.members.length + (showUnknown ? 1 : 0);
+    // Always include the Unknown tile.
+    final totalCount = widget.members.length + 1;
 
     return GridView.builder(
       shrinkWrap: true,
@@ -473,7 +398,7 @@ class _MemberGridState extends ConsumerState<_MemberGrid> {
       ),
       itemCount: totalCount,
       itemBuilder: (context, index) {
-        if (showUnknown && index == totalCount - 1) {
+        if (index == totalCount - 1) {
           return _gridUnknownTile(theme);
         }
         return _gridMemberTile(theme, widget.members[index]);
@@ -482,12 +407,10 @@ class _MemberGridState extends ConsumerState<_MemberGrid> {
   }
 
   Widget _gridMemberTile(ThemeData theme, Member member) {
-    final isSelected = member.id == widget.selectedId;
+    final isSelected = widget.selectedIds.contains(member.id);
     final isFronting = widget.frontingMemberIds.contains(member.id);
-    // In co-front mode, already-fronting members are not selectable
-    final isDisabled = widget.coFrontMode && isFronting;
     return GestureDetector(
-      onTap: isDisabled ? null : () => widget.onSelect(member.id),
+      onTap: () => widget.onToggle(member.id),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         decoration: isSelected
@@ -569,9 +492,9 @@ class _MemberGridState extends ConsumerState<_MemberGrid> {
   }
 
   Widget _gridUnknownTile(ThemeData theme) {
-    final isSelected = widget.selectedId == widget.unknownId;
+    final isSelected = widget.selectedIds.contains(widget.unknownId);
     return GestureDetector(
-      onTap: () => widget.onSelect(widget.unknownId),
+      onTap: () => widget.onToggle(widget.unknownId),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         decoration: isSelected
@@ -620,92 +543,58 @@ class _MemberGridState extends ConsumerState<_MemberGrid> {
   }
 
   // ---------------------------------------------------------------------------
-  // Selected-summary picker (>12 members): add button opens shared sheet
+  // Compact list (>12 members): multi-select search sheet
   // ---------------------------------------------------------------------------
 
   Widget _buildCompactList(BuildContext context) {
-    final availableMembers = widget.coFrontMode
-        ? widget.members
-              .where((member) => !widget.frontingMemberIds.contains(member.id))
-              .toList()
-        : widget.members;
-    final searchGroups = watchMemberSearchGroups(ref, availableMembers);
+    final searchGroups = watchMemberSearchGroups(ref, widget.members);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SelectedMemberPicker(
+        SelectedMultiMemberPicker(
           key: const Key('addFrontSessionSelectedMemberPicker'),
-          members: availableMembers,
-          selectedMemberId: widget.selectedId == widget.unknownId
-              ? null
-              : widget.selectedId,
-          includeUnknown: !widget.coFrontMode,
-          unknownSelected: widget.selectedId == widget.unknownId,
-          onPressed: () => _openSearch(context, availableMembers, searchGroups),
+          members: widget.members,
+          selectedMemberIds: widget.selectedIds
+              .where((id) => id != widget.unknownId)
+              .toSet(),
+          onPressed: () => _openSearch(context, widget.members, searchGroups),
         ),
       ],
     );
   }
 
-  // A small avatar-like widget for the "Unknown" row in the compact list and
-  // as the leading widget passed into the shared search sheet's special row.
-  Widget _unknownLeading(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(
-        shape: PrismShapes.of(context).avatarShape(),
-        borderRadius: PrismShapes.of(context).avatarBorderRadius(),
-        color: theme.colorScheme.surfaceContainerHighest,
-      ),
-      child: Icon(
-        AppIcons.questionMarkRounded,
-        size: 20,
-        color: theme.colorScheme.onSurfaceVariant,
-      ),
-    );
-  }
-
-  /// Opens [MemberSearchSheet] in single-select mode.
-  ///
-  /// In co-front mode, already-fronting members are excluded (they are
-  /// disabled in the inline list for the same reason).  The "Unknown" special
-  /// row is only shown in normal session-creation mode.
+  /// Opens [MemberSearchSheet] in multi-select mode.
   Future<void> _openSearch(
     BuildContext context,
     List<Member> candidates,
     List<MemberSearchGroup> groups,
   ) async {
-    final specialRows = widget.coFrontMode
-        ? <MemberSearchSpecialRow>[]
-        : [
-            MemberSearchSpecialRow(
-              rowKey: '__unknown__',
-              title: context.l10n.unknown,
-              leading: _unknownLeading(context),
-              result: const MemberSearchResultUnknown(),
-            ),
-          ];
-
-    final result = await MemberSearchSheet.showSingle(
+    final result = await MemberSearchSheet.showMulti(
       context,
       members: candidates,
       termPlural: widget.pluralTerm,
       groups: groups,
-      specialRows: specialRows,
+      initialSelected: widget.selectedIds
+          .where((id) => id != widget.unknownId)
+          .toSet(),
     );
 
-    if (!mounted) return;
-    switch (result) {
-      case MemberSearchResultSelected(:final memberId):
-        widget.onSelect(memberId);
-      case MemberSearchResultUnknown():
-        widget.onSelect(widget.unknownId);
-      case MemberSearchResultDismissed():
-      case MemberSearchResultCleared():
-        break;
+    if (!mounted || result == null) return;
+    // The search sheet returns the new authoritative selection (excluding the
+    // Unknown sentinel, which is rendered separately on the grid). Compute the
+    // symmetric difference vs. what was selected before the sheet opened, then
+    // emit one toggle per id whose membership actually changed. Iterating
+    // `result` and calling `onToggle` for every id would invert the selection
+    // for already-selected members and leave deselected members untouched.
+    final previousSelected = widget.selectedIds
+        .where((id) => id != widget.unknownId)
+        .toSet();
+    final confirmedSelected = result.toSet();
+    final toToggle = previousSelected.difference(confirmedSelected)
+      ..addAll(confirmedSelected.difference(previousSelected));
+    for (final id in toToggle) {
+      widget.onToggle(id);
     }
   }
 }

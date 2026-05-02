@@ -25,6 +25,7 @@ import 'package:prism_plurality/features/pluralkit/widgets/pk_sync_direction_pic
 import 'package:prism_plurality/features/pluralkit/widgets/pk_sync_summary_card.dart';
 import 'package:prism_plurality/features/pluralkit/widgets/pk_system_profile_disclosure.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
@@ -731,7 +732,9 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
                 const SizedBox(height: 12),
                 _InfoRow(
                   icon: AppIcons.people,
-                  text: context.l10n.pluralkitInfoMembers,
+                  text: context.l10n.pluralkitInfoMembers(
+                    readTerminology(context, ref).pluralLower,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 _InfoRow(
@@ -822,6 +825,13 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
           const SizedBox(height: 12),
           Text(
             context.l10n.pluralkitTokenHelp,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            context.l10n.pluralkitFileImportHelp,
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -977,6 +987,7 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
   }
 
   Widget _buildMappingBanner(ThemeData theme) {
+    final terms = readTerminology(context, ref);
     return PrismSectionCard(
       padding: const EdgeInsets.all(16),
       accentColor: theme.colorScheme.primary,
@@ -989,7 +1000,7 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  context.l10n.pluralkitMappingBannerTitle,
+                  context.l10n.pluralkitMappingBannerTitle(terms.pluralLower),
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
@@ -999,7 +1010,7 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            context.l10n.pluralkitMappingBannerBody,
+            context.l10n.pluralkitMappingBannerBody(terms.singularLower),
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -1008,7 +1019,7 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
           PrismButton(
             onPressed: _openMappingScreen,
             icon: AppIcons.link,
-            label: context.l10n.pluralkitMappingBannerButton,
+            label: context.l10n.pluralkitMappingBannerButton(terms.pluralLower),
             tone: PrismButtonTone.filled,
             expanded: true,
           ),

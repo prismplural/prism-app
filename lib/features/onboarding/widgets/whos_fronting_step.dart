@@ -20,9 +20,18 @@ class WhosFrontingStep extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final membersAsync = ref.watch(allMembersProvider);
+    // Onboarding picker: hide the Unknown sentinel — users are picking their
+    // own members, not the system placeholder.
+    final membersAsync = ref.watch(userVisibleAllMembersProvider);
     final onboarding = ref.watch(onboardingProvider);
     final notifier = ref.read(onboardingProvider.notifier);
+    final terms = resolveTerminology(
+      context.l10n,
+      onboarding.selectedTerminology,
+      customSingular: onboarding.customTermSingular,
+      customPlural: onboarding.customTermPlural,
+      useEnglish: onboarding.terminologyUseEnglish,
+    );
 
     return membersAsync.when(
       loading: () => PrismLoadingState(
@@ -32,25 +41,18 @@ class WhosFrontingStep extends ConsumerWidget {
       ),
       error: (e, _) => Center(
         child: Text(
-          'Error loading members: $e',
+          context.l10n.errorLoadingMembers(terms.pluralLower, e),
           style: TextStyle(color: Colors.red.shade300),
         ),
       ),
       data: (members) {
         final isDark = Theme.of(context).brightness == Brightness.dark;
         final primary = Theme.of(context).colorScheme.primary;
-        final terms = resolveTerminology(
-          context.l10n,
-          onboarding.selectedTerminology,
-          customSingular: onboarding.customTermSingular,
-          customPlural: onboarding.customTermPlural,
-          useEnglish: onboarding.terminologyUseEnglish,
-        );
 
         if (members.isEmpty) {
           return Center(
             child: Text(
-              context.l10n.onboardingWhosFrontingNoMembers,
+              context.l10n.onboardingWhosFrontingNoMembers(terms.pluralLower),
               style: TextStyle(
                 color: isDark
                     ? AppColors.mutedTextDark

@@ -9,8 +9,11 @@ import 'package:prism_plurality/domain/models/fronting_session.dart' as domain;
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
+import 'package:prism_plurality/features/pluralkit/models/pk_import_source.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
+import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_switch_cursor.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
 
@@ -237,6 +240,10 @@ class FakeMemberRepository implements MemberRepository {
   Future<void> clearPluralKitLink(String id) async {}
   @override
   Future<void> stampDeletePushStartedAt(String id, int timestampMs) async {}
+
+  @override
+  Future<({domain.Member member, bool wasCreated})>
+  ensureUnknownSentinelMember() => throw UnimplementedError();
 }
 
 // ---------------------------------------------------------------------------
@@ -350,6 +357,20 @@ class FakeFrontingSessionRepository implements FrontingSessionRepository {
   }) => Stream.value(sessions.take(limit).toList());
 
   @override
+  Stream<List<domain.FrontingSession>> watchSessionsOverlappingRange(
+    DateTime start,
+    DateTime end,
+  ) {
+    final overlapping = sessions.where((s) {
+      if (!s.startTime.isBefore(end)) return false;
+      final endTime = s.endTime;
+      if (endTime == null) return true;
+      return endTime.isAfter(start);
+    }).toList();
+    return Stream.value(overlapping);
+  }
+
+  @override
   Future<int> getCount() async => sessions.length;
 
   @override
@@ -371,6 +392,17 @@ class FakeFrontingSessionRepository implements FrontingSessionRepository {
   Future<void> clearPluralKitLink(String id) async {}
   @override
   Future<void> stampDeletePushStartedAt(String id, int timestampMs) async {}
+
+  @override
+  Future<({int count, Duration? avgDuration})> getSleepStats({
+    required DateTime since,
+    DateTime? until,
+  }) async => (count: 0, avgDuration: null);
+
+  @override
+  Stream<List<domain.FrontingSession>> watchRecentSleepSessions({
+    required int limit,
+  }) => Stream.value(const []);
 }
 
 // ---------------------------------------------------------------------------
@@ -410,6 +442,27 @@ void main() {
 
   setUp(storageStub.setup);
   tearDown(storageStub.teardown);
+
+  // PR D / WS3 cursor + pagination guard tests live in their own group with
+  // their own setUp/tearDown so the secure-storage stub doesn't double-attach.
+  _registerWs3PrDTests();
+
+  group('PluralKit switch UUID guard', () {
+    test('accepts only UUID-shaped switch refs', () {
+      expect(
+        isPluralKitSwitchUuid('00000000-0000-0000-0000-000000000001'),
+        isTrue,
+      );
+      expect(
+        isPluralKitSwitchUuid('ABCDEFAB-CDEF-ABCD-EFAB-CDEFABCDEFAB'),
+        isTrue,
+      );
+      expect(isPluralKitSwitchUuid(null), isFalse);
+      expect(isPluralKitSwitchUuid(''), isFalse);
+      expect(isPluralKitSwitchUuid('pkfile:v1:abc'), isFalse);
+      expect(isPluralKitSwitchUuid('uuid-s1'), isFalse);
+    });
+  });
 
   // ── setToken ────────────────────────────────────────────────────────────────
 
@@ -892,6 +945,49 @@ void main() {
     });
   });
 
+  group('performOneTimeFullImport with explicit token', () {
+    test('imports data without storing token or enabling sync', () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+
+      final memberRepo = FakeMemberRepository();
+      final fakeClient = FakePluralKitClient()
+        ..systemToReturn = const PKSystem(id: 'sys-import', name: 'Import Me')
+        ..membersToReturn = const [
+          PKMember(id: 'abcde', uuid: 'pk-member-1', name: 'Alice'),
+        ]
+        ..switchesToReturn = const [];
+
+      final service = _makeService(
+        fakeClient: fakeClient,
+        db: db,
+        memberRepo: memberRepo,
+      );
+
+      final result = await service.performOneTimeFullImport(
+        token: 'one-shot-token',
+      );
+
+      expect(result.system.name, 'Import Me');
+      expect(result.members, hasLength(1));
+      expect(result.switchesImported, 0);
+      expect(memberRepo._members.values.single.pluralkitUuid, 'pk-member-1');
+      expect(fakeClient.getSystemCallCount, 1);
+      expect(fakeClient.getMembersCallCount, 1);
+      expect(fakeClient.getSwitchesCallCount, 1);
+      expect(storageStub.writeCount, 0);
+      expect(storageStub._store.containsKey(_pkTokenKey), isFalse);
+      expect(service.state.isConnected, isFalse);
+      expect(service.state.needsMapping, isFalse);
+      expect(service.state.canAutoSync, isFalse);
+
+      final row = await db.pluralKitSyncDao.getSyncState();
+      expect(row.isConnected, isFalse);
+      expect(row.mappingAcknowledged, isFalse);
+      expect(row.lastSyncDate, isNotNull);
+    });
+  });
+
   // ── syncRecentData — null lastSyncDate triggers full import ──────────────────
 
   group('syncRecentData — null lastSyncDate', () {
@@ -1094,11 +1190,15 @@ void main() {
         await service.loadState();
 
         // Session created after linkedAt — should be pushed.
+        // Explicit `pkImportSourceFileApi` so the source-aware push gate
+        // (WS3 step 10) treats this as push-eligible regardless of the
+        // null-source adoption cutoff.
         sessionRepo.sessions.add(
           domain.FrontingSession(
             id: 's-new',
             startTime: DateTime(2026, 2, 1, 12),
             memberId: 'local-a',
+            pkImportSource: pkImportSourceFileApi,
           ),
         );
         expect(service.state.needsMapping, isFalse);
@@ -1115,6 +1215,155 @@ void main() {
       },
     );
   });
+
+  // ── Source-aware push gate (WS3 step 10 / #38) ──────────────────────────────
+
+  group('pushPendingSwitches source-aware gate', () {
+    Future<({PluralKitSyncService service, _RecordingPushClient client})>
+    setupGate({required List<domain.FrontingSession> sessions}) async {
+      final db = _makeDb();
+      addTearDown(db.close);
+
+      final memberRepo = FakeMemberRepository()
+        ..seed([
+          domain.Member(
+            id: 'local-a',
+            name: 'Alice',
+            emoji: '❔',
+            isActive: true,
+            createdAt: DateTime(2026, 1, 1),
+            pluralkitId: 'pkA',
+          ),
+        ]);
+      final sessionRepo = FakeFrontingSessionRepository()
+        ..sessions.addAll(sessions);
+
+      final fakeClient = _RecordingPushClient();
+      final service = PluralKitSyncService(
+        memberRepository: memberRepo,
+        frontingSessionRepository: sessionRepo,
+        syncDao: db.pluralKitSyncDao,
+        secureStorage: const FlutterSecureStorage(),
+        clientFactory: (_) => fakeClient,
+      );
+      await service.setToken('valid-token');
+      await service.acknowledgeMapping();
+      // linkedAt before all session startTimes used in these tests.
+      await db.pluralKitSyncDao.upsertSyncState(
+        PluralKitSyncStateCompanion(
+          id: const Value('pk_config'),
+          linkedAt: Value(DateTime.utc(2024, 1, 1)),
+          lastSyncDate: Value(DateTime.utc(2024, 1, 2)),
+        ),
+      );
+      await service.loadState();
+      return (service: service, client: fakeClient);
+    }
+
+    test(
+      'null pkImportSource BEFORE adoption cutoff is skipped and counted',
+      () async {
+        // Cutoff is pkPushSourceAdoptionCutoff (2026-04-30 UTC).
+        final harness = await setupGate(
+          sessions: [
+            domain.FrontingSession(
+              id: 's-legacy',
+              startTime: DateTime.utc(2026, 4, 1, 12),
+              memberId: 'local-a',
+              // pkImportSource: null — the unclassifiable pre-source-tracking
+              // shape we don't want to push.
+            ),
+          ],
+        );
+
+        final result = await harness.service.pushPendingSwitches();
+
+        expect(result.pushed, 0);
+        expect(result.legacyNullSourceSkipped, 1);
+        expect(harness.client.createSwitchCallCount, 0);
+      },
+    );
+
+    test('null pkImportSource AFTER adoption cutoff is pushed', () async {
+      final harness = await setupGate(
+        sessions: [
+          domain.FrontingSession(
+            id: 's-new-null',
+            startTime: pkPushSourceAdoptionCutoff.add(const Duration(days: 1)),
+            memberId: 'local-a',
+          ),
+        ],
+      );
+
+      final result = await harness.service.pushPendingSwitches();
+
+      expect(result.pushed, 1);
+      expect(result.legacyNullSourceSkipped, 0);
+      expect(harness.client.createSwitchCallCount, 1);
+    });
+
+    test('explicit pkImportSourceFile is NEVER pushed', () async {
+      final harness = await setupGate(
+        sessions: [
+          // Even AFTER the cutoff: file-source rows must not push, ever.
+          domain.FrontingSession(
+            id: 's-file',
+            startTime: pkPushSourceAdoptionCutoff.add(const Duration(days: 1)),
+            memberId: 'local-a',
+            pkImportSource: pkImportSourceFile,
+          ),
+        ],
+      );
+
+      final result = await harness.service.pushPendingSwitches();
+
+      expect(result.pushed, 0);
+      expect(result.legacyNullSourceSkipped, 0);
+      expect(harness.client.createSwitchCallCount, 0);
+    });
+
+    test(
+      'explicit pkImportSourceFileApi IS pushed regardless of cutoff',
+      () async {
+        final harness = await setupGate(
+          sessions: [
+            // BEFORE the cutoff but explicitly file-API tagged: still push.
+            domain.FrontingSession(
+              id: 's-fileapi',
+              startTime: DateTime.utc(2026, 1, 15, 9),
+              memberId: 'local-a',
+              pkImportSource: pkImportSourceFileApi,
+            ),
+          ],
+        );
+
+        final result = await harness.service.pushPendingSwitches();
+
+        expect(result.pushed, 1);
+        expect(result.legacyNullSourceSkipped, 0);
+        expect(harness.client.createSwitchCallCount, 1);
+      },
+    );
+  });
+}
+
+// Subclass that records createSwitch invocations and returns a unique switch
+// id on each call. Used by the source-aware push gate tests above.
+class _RecordingPushClient extends FakePluralKitClient {
+  int createSwitchCallCount = 0;
+
+  @override
+  Future<PKSwitch> createSwitch(
+    List<String> memberIds, {
+    DateTime? timestamp,
+  }) async {
+    createSwitchCallCount++;
+    return PKSwitch(
+      id: 'sw-$createSwitchCallCount',
+      timestamp: timestamp ?? DateTime.now(),
+      members: memberIds,
+    );
+  }
 }
 
 // Subclass of FakePluralKitClient that always 404s createSwitch, simulating
@@ -1124,4 +1373,291 @@ class _StaleCreateSwitchClient extends FakePluralKitClient {
   Future<PKSwitch> createSwitch(List<String> memberIds, {DateTime? timestamp}) {
     throw const PluralKitApiError(404, 'stale');
   }
+}
+
+// Counting DAO that records each upsert that touches cursor columns —
+// used to verify the "once per batch" cursor advance contract (WS3 step 7).
+class _CountingPluralKitSyncDao extends PluralKitSyncDao {
+  _CountingPluralKitSyncDao(super.db);
+  int cursorWriteCount = 0;
+
+  @override
+  Future<void> upsertSyncState(PluralKitSyncStateCompanion state) {
+    if (state.switchCursorTimestamp.present || state.switchCursorId.present) {
+      cursorWriteCount++;
+    }
+    return super.upsertSyncState(state);
+  }
+}
+
+// Pagination-controllable fake client. Returns pages strictly in order from
+// [pages]; each call returns one page. Records every `before` value so tests
+// can assert the paging key advances.
+class _PaginatingFakeClient extends FakePluralKitClient {
+  _PaginatingFakeClient(this.pages);
+  final List<List<PKSwitch>> pages;
+  final List<DateTime?> beforeValues = [];
+
+  @override
+  Future<List<PKSwitch>> getSwitches({
+    DateTime? before,
+    int limit = 100,
+  }) async {
+    getSwitchesCallCount++;
+    beforeValues.add(before);
+    if (pages.isEmpty) return const [];
+    return pages.removeAt(0);
+  }
+}
+
+// Pagination client that returns the same fixed page forever — used to
+// drive both the no-progress guard (when consecutive pages don't advance
+// `before`) and the page-cap guard (when the loop never terminates).
+class _StuckPaginationFakeClient extends FakePluralKitClient {
+  _StuckPaginationFakeClient(this.fixedPage);
+  final List<PKSwitch> fixedPage;
+  int callsServed = 0;
+
+  @override
+  Future<List<PKSwitch>> getSwitches({
+    DateTime? before,
+    int limit = 100,
+  }) async {
+    getSwitchesCallCount++;
+    callsServed++;
+    return fixedPage;
+  }
+}
+
+void _registerWs3PrDTests() {
+  // The outer `main()` already sets up the secure-storage stub before each
+  // test, so this group only needs to register its own tests.
+  group('WS3 PR D — cursor batching + pagination guards', () {
+    test(
+      'cursor advances once per batch, not once per switch (WS3 step 7)',
+      () async {
+        final db = _makeDb();
+        addTearDown(db.close);
+        final countingDao = _CountingPluralKitSyncDao(db);
+
+        final memberRepo = FakeMemberRepository();
+        memberRepo.seed([
+          domain.Member(
+            id: 'local-a',
+            name: 'A',
+            emoji: '❔',
+            isActive: true,
+            createdAt: DateTime(2026, 1, 1),
+            pluralkitId: 'pkA',
+            pluralkitUuid: '00000000-0000-0000-0000-00000000000a',
+          ),
+        ]);
+
+        // Three switches in one batch. Under the old per-switch cursor
+        // advance this would trigger 3 cursor writes. With WS3 step 7 the
+        // incremental sweep must write the cursor exactly once.
+        final sw1 = PKSwitch(
+          id: 'sw-1',
+          timestamp: DateTime.utc(2026, 1, 1, 10),
+          members: const ['pkA'],
+        );
+        final sw2 = PKSwitch(
+          id: 'sw-2',
+          timestamp: DateTime.utc(2026, 1, 1, 11),
+          members: const ['pkA'],
+        );
+        final sw3 = PKSwitch(
+          id: 'sw-3',
+          timestamp: DateTime.utc(2026, 1, 1, 12),
+          members: const ['pkA'],
+        );
+
+        // Seed a prior cursor + lastSyncDate so syncRecentData runs the
+        // incremental sweep (single cursor write at end-of-batch). The
+        // performFullImport path resets the cursor up-front, which would
+        // double the count for reasons unrelated to step 7.
+        await countingDao.upsertSyncState(
+          PluralKitSyncStateCompanion(
+            id: const Value('pk_config'),
+            switchCursorTimestamp: Value(DateTime.utc(2025, 1, 1)),
+            switchCursorId: const Value('ancient'),
+            lastSyncDate: Value(DateTime.utc(2026, 1, 1)),
+          ),
+        );
+
+        final fakeClient = FakePluralKitClient()
+          ..switchesPageQueue = [
+            [sw3, sw2, sw1], // newest-first
+            [],
+          ];
+
+        final service = PluralKitSyncService(
+          memberRepository: memberRepo,
+          frontingSessionRepository: FakeFrontingSessionRepository(),
+          syncDao: countingDao,
+          secureStorage: const FlutterSecureStorage(),
+          clientFactory: (_) => fakeClient,
+        );
+        await service.setToken('valid-token');
+        await service.acknowledgeMapping();
+        await service.loadState();
+
+        // Reset the counter so we only measure the sweep itself, not setup.
+        countingDao.cursorWriteCount = 0;
+
+        await service.syncRecentData();
+
+        expect(
+          countingDao.cursorWriteCount,
+          1,
+          reason:
+              'incremental sweep must write the cursor exactly once per '
+              'batch (was once per switch under the old code path).',
+        );
+
+        final state = await db.pluralKitSyncDao.getSyncState();
+        expect(state.switchCursorId, 'sw-3', reason: 'newest in batch');
+        expect(
+          state.switchCursorTimestamp?.toUtc(),
+          DateTime.utc(2026, 1, 1, 12),
+        );
+      },
+    );
+
+    test(
+      'pagination no-progress guard: same `page.last.timestamp` on '
+      'consecutive non-empty pages throws PkPaginationNoProgressError',
+      () async {
+        final db = _makeDb();
+        addTearDown(db.close);
+
+        final memberRepo = FakeMemberRepository();
+        memberRepo.seed([
+          domain.Member(
+            id: 'local-a',
+            name: 'A',
+            emoji: '❔',
+            isActive: true,
+            createdAt: DateTime(2026, 1, 1),
+            pluralkitId: 'pkA',
+            pluralkitUuid: '00000000-0000-0000-0000-00000000000a',
+          ),
+        ]);
+
+        // Two consecutive pages that share the same oldest timestamp —
+        // naive `before = page.last.timestamp` would loop forever.
+        final stuckTs = DateTime.utc(2026, 1, 1, 10);
+        final fixedPage = List.generate(
+          100,
+          (i) => PKSwitch(
+            id: 'sw-${i.toString().padLeft(3, '0')}',
+            timestamp: stuckTs,
+            members: const ['pkA'],
+          ),
+        );
+
+        // Seed the cursor + lastSyncDate so syncRecentData enters the
+        // incremental path (which is where the no-progress guard lives).
+        await db.pluralKitSyncDao.upsertSyncState(
+          PluralKitSyncStateCompanion(
+            id: const Value('pk_config'),
+            switchCursorTimestamp: Value(DateTime.utc(2025, 1, 1)),
+            switchCursorId: const Value('cursor-id'),
+            lastSyncDate: Value(DateTime.utc(2026, 1, 1, 9)),
+          ),
+        );
+
+        final fakeClient = _StuckPaginationFakeClient(fixedPage);
+
+        final service = PluralKitSyncService(
+          memberRepository: memberRepo,
+          frontingSessionRepository: FakeFrontingSessionRepository(),
+          syncDao: db.pluralKitSyncDao,
+          secureStorage: const FlutterSecureStorage(),
+          clientFactory: (_) => fakeClient,
+        );
+        await service.setToken('valid-token');
+        await service.acknowledgeMapping();
+        await service.loadState();
+
+        await expectLater(
+          service.syncRecentData(),
+          throwsA(isA<PkPaginationNoProgressError>()),
+        );
+      },
+    );
+
+    test(
+      'page-cap guard: pagination beyond _maxIncrementalPages throws '
+      'PkImportTooLargeError',
+      () async {
+        final db = _makeDb();
+        addTearDown(db.close);
+
+        final memberRepo = FakeMemberRepository();
+        memberRepo.seed([
+          domain.Member(
+            id: 'local-a',
+            name: 'A',
+            emoji: '❔',
+            isActive: true,
+            createdAt: DateTime(2026, 1, 1),
+            pluralkitId: 'pkA',
+            pluralkitUuid: '00000000-0000-0000-0000-00000000000a',
+          ),
+        ]);
+
+        // Build a paginating client that always returns a full page with a
+        // strictly-decreasing oldest timestamp so the no-progress guard
+        // never trips, but the page count grows without bound. We rely on
+        // the page-cap guard (1000) to stop it.
+        final pages = List.generate(
+          PluralKitSyncService.maxIncrementalPagesForTesting + 5,
+          (pageIdx) => List.generate(100, (rowIdx) {
+            // Timestamps decrease with both page index and row index so the
+            // page's "last" timestamp is unique across pages.
+            final offset = pageIdx * 100 + rowIdx;
+            return PKSwitch(
+              id: 'p$pageIdx-r$rowIdx',
+              timestamp: DateTime.utc(
+                2026,
+                1,
+                1,
+              ).subtract(Duration(seconds: offset)),
+              members: const ['pkA'],
+            );
+          }),
+        );
+
+        await db.pluralKitSyncDao.upsertSyncState(
+          PluralKitSyncStateCompanion(
+            id: const Value('pk_config'),
+            switchCursorTimestamp: Value(DateTime.utc(2020, 1, 1)),
+            switchCursorId: const Value('ancient'),
+            lastSyncDate: Value(DateTime.utc(2026, 1, 1)),
+          ),
+        );
+
+        final fakeClient = _PaginatingFakeClient(pages);
+
+        final service = PluralKitSyncService(
+          memberRepository: memberRepo,
+          frontingSessionRepository: FakeFrontingSessionRepository(),
+          syncDao: db.pluralKitSyncDao,
+          secureStorage: const FlutterSecureStorage(),
+          clientFactory: (_) => fakeClient,
+        );
+        await service.setToken('valid-token');
+        await service.acknowledgeMapping();
+        await service.loadState();
+
+        await expectLater(
+          service.syncRecentData(),
+          throwsA(isA<PkImportTooLargeError>()),
+        );
+      },
+      // Building 1000+ pages × 100 rows is mildly slow; bump the timeout.
+      timeout: const Timeout(Duration(minutes: 2)),
+    );
+  });
 }

@@ -14,13 +14,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
+import 'package:prism_plurality/features/settings/views/sync_settings_screen.dart';
 
 class _FakePrismSyncHandle implements ffi.PrismSyncHandle {
   const _FakePrismSyncHandle();
 
   @override
-  dynamic noSuchMethod(Invocation invocation) =>
-      super.noSuchMethod(invocation);
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _FakeHandleNotifier extends PrismSyncHandleNotifier {
@@ -72,62 +72,61 @@ class _GatingHarness extends ConsumerWidget {
 }
 
 void main() {
-  testWidgets(
-    'SetupView does not flash on invalidate when configured',
-    (tester) async {
-      const handle = _FakePrismSyncHandle();
-      final container = ProviderContainer(
-        overrides: [
-          prismSyncHandleProvider.overrideWith(() => _FakeHandleNotifier(handle)),
-          relayUrlProvider.overrideWith(
-            (ref) async => 'https://relay.example.com',
-          ),
-          syncIdProvider.overrideWith((ref) async => 'sync-123'),
-        ],
-      );
-      addTearDown(container.dispose);
-
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: const _GatingHarness(),
+  testWidgets('SetupView does not flash on invalidate when configured', (
+    tester,
+  ) async {
+    const handle = _FakePrismSyncHandle();
+    final container = ProviderContainer(
+      overrides: [
+        prismSyncHandleProvider.overrideWith(() => _FakeHandleNotifier(handle)),
+        relayUrlProvider.overrideWith(
+          (ref) async => 'https://relay.example.com',
         ),
-      );
+        syncIdProvider.overrideWith((ref) async => 'sync-123'),
+      ],
+    );
+    addTearDown(container.dispose);
 
-      // Initial frame: providers still resolving — but the handle override
-      // resolves synchronously to AsyncData, so we should already be
-      // "configured" via the handle path. Confirm we never see "setup".
-      expect(find.text('setup'), findsNothing);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const _GatingHarness(),
+      ),
+    );
 
-      // Let the FutureProviders resolve.
-      await tester.pumpAndSettle();
-      expect(find.text('configured'), findsOneWidget);
-      expect(find.text('setup'), findsNothing);
+    // Initial frame: providers still resolving — but the handle override
+    // resolves synchronously to AsyncData, so we should already be
+    // "configured" via the handle path. Confirm we never see "setup".
+    expect(find.text('setup'), findsNothing);
 
-      // Now reproduce the user-reported flow: invalidate the
-      // keychain-backed providers. With the gating still based on
-      // `relayUrl/syncId.value`, this would briefly flip the screen to
-      // `_SetupView` while the providers re-fetch. With the handle-based
-      // gating from Phase 4A, the FFI handle stays non-null across the
-      // invalidate, so `_SetupView` must NEVER appear.
-      container.invalidate(relayUrlProvider);
-      container.invalidate(syncIdProvider);
+    // Let the FutureProviders resolve.
+    await tester.pumpAndSettle();
+    expect(find.text('configured'), findsOneWidget);
+    expect(find.text('setup'), findsNothing);
 
-      // Pump (don't pumpAndSettle) — we want to catch the intermediate
-      // frame where the providers are still re-fetching.
-      await tester.pump();
-      expect(
-        find.text('setup'),
-        findsNothing,
-        reason: 'mid-invalidate frame must not flash _SetupView',
-      );
+    // Now reproduce the user-reported flow: invalidate the
+    // keychain-backed providers. With the gating still based on
+    // `relayUrl/syncId.value`, this would briefly flip the screen to
+    // `_SetupView` while the providers re-fetch. With the handle-based
+    // gating from Phase 4A, the FFI handle stays non-null across the
+    // invalidate, so `_SetupView` must NEVER appear.
+    container.invalidate(relayUrlProvider);
+    container.invalidate(syncIdProvider);
 
-      // After re-fetch completes, we are still configured.
-      await tester.pumpAndSettle();
-      expect(find.text('configured'), findsOneWidget);
-      expect(find.text('setup'), findsNothing);
-    },
-  );
+    // Pump (don't pumpAndSettle) — we want to catch the intermediate
+    // frame where the providers are still re-fetching.
+    await tester.pump();
+    expect(
+      find.text('setup'),
+      findsNothing,
+      reason: 'mid-invalidate frame must not flash _SetupView',
+    );
+
+    // After re-fetch completes, we are still configured.
+    await tester.pumpAndSettle();
+    expect(find.text('configured'), findsOneWidget);
+    expect(find.text('setup'), findsNothing);
+  });
 
   testWidgets(
     'SetupView is shown when there is no handle and no keychain creds',
@@ -155,4 +154,63 @@ void main() {
       expect(find.text('configured'), findsNothing);
     },
   );
+
+  group('canTriggerManualSync', () {
+    test(
+      'enables reconnect when stored relay settings exist but handle is null',
+      () {
+        expect(
+          canTriggerManualSync(
+            hasHandle: true,
+            hasRelayUrl: false,
+            isSyncActive: false,
+            isHandleLoading: false,
+          ),
+          isTrue,
+        );
+        expect(
+          canTriggerManualSync(
+            hasHandle: false,
+            hasRelayUrl: true,
+            isSyncActive: false,
+            isHandleLoading: false,
+          ),
+          isTrue,
+        );
+        expect(
+          canTriggerManualSync(
+            hasHandle: false,
+            hasRelayUrl: false,
+            isSyncActive: false,
+            isHandleLoading: false,
+          ),
+          isFalse,
+        );
+      },
+    );
+
+    test(
+      'keeps manual sync disabled while sync or handle restoration is active',
+      () {
+        expect(
+          canTriggerManualSync(
+            hasHandle: true,
+            hasRelayUrl: true,
+            isSyncActive: true,
+            isHandleLoading: false,
+          ),
+          isFalse,
+        );
+        expect(
+          canTriggerManualSync(
+            hasHandle: false,
+            hasRelayUrl: true,
+            isSyncActive: false,
+            isHandleLoading: true,
+          ),
+          isFalse,
+        );
+      },
+    );
+  });
 }

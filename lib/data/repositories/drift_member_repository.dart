@@ -2,8 +2,10 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:prism_sync/generated/api.dart' as ffi;
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/daos/members_dao.dart';
 import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
+import 'package:prism_plurality/core/database/sqlite_constraint.dart';
 import 'package:prism_plurality/data/mappers/member_mapper.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 import 'package:prism_plurality/domain/models/member.dart' as domain;
@@ -22,8 +24,11 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
 
   static const _table = 'members';
 
-  DriftMemberRepository(this._dao, this._syncHandle, {PluralKitSyncDao? pkSyncDao})
-      : _pkSyncDao = pkSyncDao;
+  DriftMemberRepository(
+    this._dao,
+    this._syncHandle, {
+    PluralKitSyncDao? pkSyncDao,
+  }) : _pkSyncDao = pkSyncDao;
 
   @override
   Future<List<domain.Member>> getAllMembers() async {
@@ -63,7 +68,11 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
     final normalizedMember = _normalizeMember(member);
     final companion = MemberMapper.toCompanion(normalizedMember);
     await _dao.insertMember(companion);
-    await syncRecordCreate(_table, normalizedMember.id, _memberFields(normalizedMember));
+    await syncRecordCreate(
+      _table,
+      normalizedMember.id,
+      _memberFields(normalizedMember),
+    );
   }
 
   @override
@@ -71,11 +80,26 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
     final normalizedMember = _normalizeMember(member);
     final companion = MemberMapper.toCompanion(normalizedMember);
     await _dao.updateMember(companion);
-    await syncRecordUpdate(_table, normalizedMember.id, _memberFields(normalizedMember));
+    await syncRecordUpdate(
+      _table,
+      normalizedMember.id,
+      _memberFields(normalizedMember),
+    );
   }
 
   @override
   Future<void> deleteMember(String id) async {
+    // Refuse to delete the Unknown sentinel — it backs orphan-classified
+    // fronting rows ("Front as Unknown" + importer/migration fallbacks). If
+    // a user could delete it, those rows would render as broken-looking
+    // until ensureUnknownSentinelMember auto-recreates on next use. The
+    // member-list UI already filters this id out via userVisibleMembersProvider,
+    // but the repository guard is the durable invariant — covers any path
+    // (test, debug, future UI) that reaches deleteMember directly.
+    if (id == unknownSentinelMemberId) {
+      throw StateError('Unknown sentinel cannot be deleted');
+    }
+
     // Plan 02 R1: if this member has a PK link and a sync DAO is wired,
     // stamp the current link epoch on the tombstone in the same transaction
     // so the PK push path can distinguish "tombstoned under this link" from
@@ -84,7 +108,8 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
     int? epoch;
     final pkDao = _pkSyncDao;
     final existing = await _dao.getMemberById(id);
-    final isLinked = existing != null &&
+    final isLinked =
+        existing != null &&
         ((existing.pluralkitId != null && existing.pluralkitId!.isNotEmpty) ||
             (existing.pluralkitUuid != null &&
                 existing.pluralkitUuid!.isNotEmpty));
@@ -121,9 +146,7 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
   @override
   Future<void> stampDeletePushStartedAt(String id, int timestampMs) async {
     await _dao.stampDeletePushStartedAt(id, timestampMs);
-    await syncRecordUpdate(_table, id, {
-      'delete_push_started_at': timestampMs,
-    });
+    await syncRecordUpdate(_table, id, {'delete_push_started_at': timestampMs});
   }
 
   @override
@@ -141,6 +164,47 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
 
   @override
   Future<int> getCount() => _dao.getCount();
+
+  @override
+  Future<({domain.Member member, bool wasCreated})>
+  ensureUnknownSentinelMember() async {
+    // Determinism contract: `unknownSentinelMemberId` is a UUIDv5 derived
+    // from a fixed namespace + literal name (see
+    // `core/constants/fronting_namespaces.dart`). The id is byte-
+    // identical across devices and across fresh AppDatabase instances,
+    // so paired peers that ensure-the-sentinel under sync suppression
+    // converge on the same member row without a sync op carrying the id.
+    final existing = await getMemberById(unknownSentinelMemberId);
+    if (existing != null) {
+      return (member: existing, wasCreated: false);
+    }
+    final sentinel = domain.Member(
+      id: unknownSentinelMemberId,
+      name: 'Unknown',
+      emoji: '❔',
+      isActive: true,
+      createdAt: DateTime.now().toUtc(),
+    );
+    try {
+      await createMember(sentinel);
+      return (member: sentinel, wasCreated: true);
+    } catch (e) {
+      // Two concurrent callers can both observe missing and race to insert.
+      // Drift serializes writes on a single connection in practice, so this
+      // is a defense-in-depth path — but the helper's documented contract
+      // is "idempotent ensure," and an upsert would silently overwrite the
+      // winning row's name/emoji/isActive on every call. Catch the
+      // constraint, refetch the winner, and report wasCreated=false.
+      //
+      // The collision surfaces as SQLITE_CONSTRAINT_PRIMARYKEY (1555) on
+      // the members table since `id` is the PK; broaden to UNIQUE (2067)
+      // for paranoia in case future schema changes add a unique index.
+      if (!isUniqueOrPrimaryKeyConstraintViolation(e)) rethrow;
+      final raced = await getMemberById(unknownSentinelMemberId);
+      if (raced == null) rethrow; // genuinely something else
+      return (member: raced, wasCreated: false);
+    }
+  }
 
   domain.Member _normalizeMember(domain.Member member) {
     final normalizedAvatar = AvatarNormalizer.normalize(member.avatarImageData);
@@ -160,7 +224,7 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
       'bio': m.bio,
       'avatar_image_data': avatar != null ? base64Encode(avatar) : null,
       'is_active': m.isActive,
-      'created_at': m.createdAt.toIso8601String(),
+      'created_at': m.createdAt.toUtc().toIso8601String(),
       'display_order': m.displayOrder,
       'is_admin': m.isAdmin,
       'custom_color_enabled': m.customColorEnabled,
@@ -169,6 +233,27 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
       'pluralkit_uuid': m.pluralkitUuid,
       'pluralkit_id': m.pluralkitId,
       'markdown_enabled': m.markdownEnabled,
+      'display_name': m.displayName,
+      'birthday': m.birthday,
+      'proxy_tags_json': m.proxyTagsJson,
+      'pk_banner_url': m.pkBannerUrl,
+      'profile_header_source': m.profileHeaderSource.index,
+      'profile_header_layout': m.profileHeaderLayout.index,
+      'profile_header_visible': m.profileHeaderVisible,
+      'name_style_font': m.nameStyleFont.index,
+      'name_style_bold': m.nameStyleBold,
+      'name_style_italic': m.nameStyleItalic,
+      'name_style_color_mode': m.nameStyleColorMode.index,
+      'name_style_color_hex': m.nameStyleColorHex,
+      'profile_header_image_data': m.profileHeaderImageData != null
+          ? base64Encode(m.profileHeaderImageData!)
+          : null,
+      'pk_banner_image_data': m.pkBannerImageData != null
+          ? base64Encode(m.pkBannerImageData!)
+          : null,
+      'pk_banner_cached_url': m.pkBannerCachedUrl,
+      'pluralkit_sync_ignored': m.pluralkitSyncIgnored,
+      'is_always_fronting': m.isAlwaysFronting,
       'is_deleted': false,
     };
   }

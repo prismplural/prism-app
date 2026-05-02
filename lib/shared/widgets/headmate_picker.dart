@@ -43,7 +43,11 @@ class HeadmatePicker extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final membersAsync = ref.watch(activeMembersProvider);
+    // Picker source list: hide the Unknown sentinel from the searchable
+    // members. When [includeUnknown] is true the sheet still surfaces an
+    // explicit "Unknown" specialRow below — selecting it returns null
+    // (rather than the sentinel id), which is what callers expect.
+    final membersAsync = ref.watch(userVisibleMembersProvider);
 
     return membersAsync.when(
       loading: () => const SizedBox(height: 56, child: PrismLoadingState()),
