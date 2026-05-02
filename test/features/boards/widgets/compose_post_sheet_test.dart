@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/member_board_post.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
@@ -12,6 +13,7 @@ import 'package:prism_plurality/domain/models/member_group_entry.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/domain/repositories/member_board_posts_repository.dart';
 import 'package:prism_plurality/features/boards/providers/board_posts_providers.dart';
+import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/boards/widgets/compose_post_sheet.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart'
     show speakingAsProvider, SpeakingAsNotifier;
@@ -182,6 +184,9 @@ Widget _buildSubject({
       speakingAsProvider.overrideWith(
         () => _FakeSpeakingAsNotifier(speakingAs),
       ),
+      activeSessionsProvider.overrideWith(
+        (ref) => Stream.value(const <FrontingSession>[]),
+      ),
       activeMembersProvider.overrideWith(
         (ref) => Stream.value(members),
       ),
@@ -253,11 +258,11 @@ void main() {
       expect(find.text('Title (optional)'), findsOneWidget);
     });
 
-    testWidgets('no-headmate chip shown by default', (tester) async {
+    testWidgets('no-recipient row shown by default', (tester) async {
       await tester.pumpWidget(_buildSubject(members: [_alice, _bob]));
       await _openSheet(tester);
 
-      expect(find.text('No headmate'), findsOneWidget);
+      expect(find.text('No recipient'), findsOneWidget);
     });
 
     testWidgets('audience segmented button present', (tester) async {

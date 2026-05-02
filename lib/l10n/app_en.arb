@@ -8914,11 +8914,11 @@
   "@boardsDeleteConfirmBody": {
     "description": "Body text of the confirmation dialog shown before deleting a board post."
   },
-  "memberBoardScreenTitle": "Board Messages",
+  "memberBoardScreenTitle": "Public Posts",
   "@memberBoardScreenTitle": {
-    "description": "Title of the per-member board messages screen and section."
+    "description": "Title of the per-member board messages screen and section. The screen only shows public posts."
   },
-  "memberBoardEmpty": "No posts here yet.",
+  "memberBoardEmpty": "No public posts here yet.",
   "@memberBoardEmpty": {
     "description": "Empty state subtitle shown when a member's board has no posts."
   },
@@ -8952,7 +8952,7 @@
   "@boardsEmptyPublic": {
     "description": "Empty state subtitle for the Public sub-tab when no posts exist."
   },
-  "boardsEmptyInbox": "No private messages right now.",
+  "boardsEmptyInbox": "No private posts right now.",
   "@boardsEmptyInbox": {
     "description": "Empty state subtitle for the Inbox sub-tab when there are no private posts."
   },
@@ -9042,9 +9042,9 @@
   "@boardsComposeAudiencePrivate": {
     "description": "Audience segment label: post visible only to the addressed headmate."
   },
-  "boardsComposeToNoHeadmate": "No headmate",
+  "boardsComposeToNoHeadmate": "No recipient",
   "@boardsComposeToNoHeadmate": {
-    "description": "Placeholder label for the member chip when no headmate is addressed."
+    "description": "Label shown in the recipient row when no headmate has been addressed."
   },
   "boardsComposeWhoIsPosting": "Who is posting?",
   "@boardsComposeWhoIsPosting": {
@@ -9054,11 +9054,11 @@
   "@boardsComposeSelectAuthor": {
     "description": "Semantic label for the author avatar tap target in the compose toolbar when no author is selected."
   },
-  "memberSectionBoardMessages": "Board Messages",
+  "memberSectionBoardMessages": "Public Posts",
   "@memberSectionBoardMessages": {
-    "description": "Section heading for the Board Messages section on a member's profile."
+    "description": "Section heading on a member's profile. The section only shows public posts (private posts addressed to the member live in the Inbox)."
   },
-  "memberBoardSeeAll": "See all {count} posts",
+  "memberBoardSeeAll": "See all {count} public posts",
   "@memberBoardSeeAll": {
     "description": "Link shown below the board preview when there are 4 or more public posts.",
     "placeholders": {

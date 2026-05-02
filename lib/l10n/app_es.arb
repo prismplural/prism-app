@@ -2518,15 +2518,15 @@
   "boardsDetailDelete": "Eliminar",
   "boardsDeleteConfirmTitle": "¿Eliminar esta publicación?",
   "boardsDeleteConfirmBody": "Esto no se puede deshacer.",
-  "memberBoardScreenTitle": "Mensajes del tablero",
-  "memberBoardEmpty": "Aún no hay publicaciones aquí.",
+  "memberBoardScreenTitle": "Publicaciones públicas",
+  "memberBoardEmpty": "Aún no hay publicaciones públicas aquí.",
   "boardsScreenTitle": "Tableros",
   "boardsTabPublic": "Público",
   "boardsTabInbox": "Bandeja de entrada",
   "boardsViewFilterAll": "Todos los que están al frente",
   "boardsViewFilterMember": "{name}",
   "boardsEmptyPublic": "Todavía no hay nada en la línea de tiempo pública.",
-  "boardsEmptyInbox": "No hay mensajes privados en este momento.",
+  "boardsEmptyInbox": "No hay publicaciones privadas en este momento.",
   "boardsComposeNoFronterHint": "Nadie está al frente ahora mismo — inicia una sesión para publicar.",
   "boardsToastFronterDeFronted": "{name} dejó el frente — mostrando todos",
   "boardsComposeRecipientPublicEveryone": "Todos (público)",
@@ -2589,11 +2589,11 @@
   "@boardsComposeEditing": {
     "description": "Sheet title when editing an existing board post."
   },
-  "memberSectionBoardMessages": "Mensajes del tablero",
+  "memberSectionBoardMessages": "Publicaciones públicas",
   "@memberSectionBoardMessages": {
-    "description": "Section heading for the Board Messages section on a member's profile."
+    "description": "Section heading on a member's profile. The section only shows public posts (private posts addressed to the member live in the Inbox)."
   },
-  "memberBoardSeeAll": "Ver las {count} publicaciones",
+  "memberBoardSeeAll": "Ver las {count} publicaciones públicas",
   "@memberBoardSeeAll": {
     "description": "Link shown below the board preview when there are 4 or more public posts.",
     "placeholders": {
