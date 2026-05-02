@@ -29,6 +29,8 @@ import 'package:prism_plurality/features/members/providers/members_providers.dar
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 
+import '../../../helpers/fake_repositories.dart';
+
 Member _member(String id, String name) =>
     Member(id: id, name: name, createdAt: DateTime(2026, 1, 1));
 
@@ -923,6 +925,97 @@ void main() {
         await tester.pump();
         // No inline TimelineView — that path was removed in 1B fixups.
         expect(find.byType(TimelineView), findsNothing);
+      },
+    );
+  });
+
+  // ─────────────────────────────────────────────────────────────────────
+  // Task 12: long-press Delete on a multi-contributor period
+  // ─────────────────────────────────────────────────────────────────────
+
+  group('SessionHistoryList – long-press delete', () {
+    testWidgets(
+      'long-press a 2-contributor period → Delete → confirm → '
+      'both sessions deleted via repo',
+      (tester) async {
+        final t0 = DateTime(2026, 4, 1, 10);
+        final t1 = DateTime(2026, 4, 1, 12);
+
+        final repo = FakeFrontingSessionRepository();
+        repo.sessions.addAll([
+          _s(id: 's1', memberId: 'a', start: t0, end: t1),
+          _s(id: 's2', memberId: 'b', start: t0, end: t1),
+        ]);
+
+        final period = FrontingPeriod(
+          start: t0,
+          end: t1,
+          activeMembers: const ['a', 'b'],
+          briefVisitors: const [],
+          sessionIds: const ['s1', 's2'],
+          alwaysPresentMembers: const [],
+          isOpenEnded: false,
+        );
+
+        final widget = ProviderScope(
+          overrides: [
+            frontingSessionRepositoryProvider.overrideWithValue(
+              repo as FrontingSessionRepository,
+            ),
+            unifiedHistoryProvider.overrideWith(
+              (ref) => Stream.value(repo.sessions),
+            ),
+            derivedPeriodsProvider.overrideWith(
+              (ref) => AsyncValue.data([period]),
+            ),
+            membersByIdsProvider.overrideWith(
+              (ref, _) => Stream.value({
+                'a': _member('a', 'Alice'),
+                'b': _member('b', 'Bob'),
+              }),
+            ),
+            systemSettingsProvider.overrideWith(
+              (ref) => Stream.value(const SystemSettings()),
+            ),
+          ],
+          child: const MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: [Locale('en')],
+            home: Scaffold(
+              body: CustomScrollView(slivers: [SessionHistoryList()]),
+            ),
+          ),
+        );
+
+        await tester.pumpWidget(widget);
+        await tester.pumpAndSettle();
+
+        // Confirm the row is visible.
+        expect(find.text('Alice & Bob'), findsOneWidget);
+
+        // Long-press the row to open the context menu.
+        await tester.longPress(find.text('Alice & Bob'));
+        await tester.pumpAndSettle();
+
+        // The context popup should contain a "Delete" item.
+        expect(find.text('Delete'), findsOneWidget);
+
+        // Tap "Delete" in the popup.
+        await tester.tap(find.text('Delete'));
+        await tester.pumpAndSettle();
+
+        // The period-level confirm dialog should now be visible.
+        expect(find.text('Delete period?'), findsOneWidget);
+
+        // There are two "Delete" texts: the dialog confirm button.
+        // Use findsWidgets to handle the confirm button alongside any other
+        // rendered text.
+        await tester.tap(find.text('Delete').last);
+        await tester.pumpAndSettle();
+
+        // Both sessions must have been deleted via the repository.
+        expect(repo.deletedIds, containsAll(['s1', 's2']));
+        expect(repo.deletedIds.length, 2);
       },
     );
   });
