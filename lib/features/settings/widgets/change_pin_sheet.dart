@@ -15,6 +15,7 @@ import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/pin_numpad_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_mnemonic_field.dart';
+import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/secure_scope.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
@@ -701,13 +702,9 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 64),
         child: Center(
-          child: SizedBox(
-            width: 32,
-            height: 32,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: Theme.of(context).colorScheme.primary,
-            ),
+          child: PrismSpinner(
+            color: Theme.of(context).colorScheme.primary,
+            size: 32,
           ),
         ),
       );

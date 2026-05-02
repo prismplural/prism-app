@@ -51,6 +51,7 @@ const _allUserDataTables = [
   'friends',
   'sharing_requests',
   'media_attachments',
+  'member_board_posts',
   'sp_sync_state',
   'sp_id_map',
   'pk_mapping_state',
@@ -129,6 +130,7 @@ void main() {
         expect(await _countRows(reopened, 'member_group_entries'), 0);
         expect(await _countRows(reopened, 'notes'), 0);
         expect(await _countRows(reopened, 'habit_completions'), 0);
+        expect(await _countRows(reopened, 'member_board_posts'), 0);
         // Sessions preserved but member nulled.  Per-member shape: a
         // co-fronted seed expands to 2 normal rows + 1 sleep row = 3.
         expect(await _countRows(reopened, 'fronting_sessions'), 3);
@@ -1253,6 +1255,21 @@ class _ResetHarness {
             id: Value('media-1'),
             messageId: Value('msg-1'),
             mediaType: Value('image'),
+          ),
+        );
+
+    // ── Member board posts ────────────────────────────────────────────
+    await db
+        .into(db.memberBoardPosts)
+        .insert(
+          MemberBoardPostsCompanion(
+            id: const Value('board-post-1'),
+            targetMemberId: const Value('member-1'),
+            authorId: const Value('member-2'),
+            audience: const Value('public'),
+            body: const Value('seed body'),
+            createdAt: Value(now),
+            writtenAt: Value(now),
           ),
         );
 

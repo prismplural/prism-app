@@ -20,6 +20,7 @@ import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
+import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
@@ -449,7 +450,13 @@ class _PublicPageState extends ConsumerState<_PublicPage> {
     final postsAsync = ref.watch(publicBoardPostsProvider(firstCursor));
 
     return postsAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => Center(
+        child: Builder(
+          builder: (context) => PrismSpinner(
+            color: Theme.of(context).colorScheme.primary,
+          ),
+        ),
+      ),
       error: (e, _) => Center(child: Text('Error: $e')),
       data: (posts) {
         if (posts.isEmpty) {
@@ -631,7 +638,13 @@ class _InboxPageState extends ConsumerState<_InboxPage> {
         // Posts list
         Expanded(
           child: postsAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
+            loading: () => Center(
+        child: Builder(
+          builder: (context) => PrismSpinner(
+            color: Theme.of(context).colorScheme.primary,
+          ),
+        ),
+      ),
             error: (e, _) => Center(child: Text('Error: $e')),
             data: (_) {
               final posts = filteredPosts ?? const [];

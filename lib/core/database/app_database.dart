@@ -893,6 +893,18 @@ class AppDatabase extends _$AppDatabase {
       'CREATE INDEX IF NOT EXISTS idx_member_groups_parent_id '
       'ON member_groups (parent_group_id) WHERE parent_group_id IS NOT NULL',
     );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_mbp_target_audience '
+      'ON member_board_posts (target_member_id, audience, written_at DESC, is_deleted)',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_mbp_audience '
+      'ON member_board_posts (audience, written_at DESC, is_deleted)',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_mbp_author '
+      'ON member_board_posts (author_id, written_at DESC, is_deleted)',
+    );
   }
 
   Future<void> _createCommentsTargetTimeIndex() async {

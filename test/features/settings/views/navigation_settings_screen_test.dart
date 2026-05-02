@@ -129,8 +129,13 @@ void main() {
     testWidgets('disabled features appear in Disabled Features section', (
       tester,
     ) async {
-      // Disable chat and polls via settings.
-      const settings = SystemSettings(chatEnabled: false, pollsEnabled: false);
+      // Disable chat and polls via settings. Boards is also off-by-default;
+      // enable it so the disabled section under test is just Chat + Polls.
+      const settings = SystemSettings(
+        chatEnabled: false,
+        pollsEnabled: false,
+        boardsEnabled: true,
+      );
 
       // Nav bar has only Home + Habits + Settings (Chat/Polls disabled).
       final tabs = [
