@@ -110,7 +110,9 @@ class _PeriodDetailScreenState extends ConsumerState<PeriodDetailScreen> {
     );
 
     // Build the DateTimeRange for CommentsForRangeSection.
-    // Prefer matched period bounds → hint → null (no comments rendered).
+    // Prefer matched period (always-fresh bounds — closes-mid-mount safe) →
+    // hint → bounds derived from any resolved sessions (deep-link with no
+    // hint and no matching derived period yet) → null.
     final DateTimeRange? commentRange = () {
       if (matchedPeriod != null) {
         return DateTimeRange(
@@ -121,7 +123,24 @@ class _PeriodDetailScreenState extends ConsumerState<PeriodDetailScreen> {
       if (widget.hint != null) {
         return DateTimeRange(start: widget.hint!.start, end: widget.hint!.end);
       }
-      return null;
+      final resolved = <FrontingSession>[
+        for (final id in widget.sessionIds)
+          if (ref
+                  .watch(sessionByIdProvider(id))
+                  .whenOrNull(data: (s) => s) !=
+              null)
+            ref.watch(sessionByIdProvider(id)).whenOrNull(data: (s) => s)!,
+      ];
+      if (resolved.isEmpty) return null;
+      DateTime start = resolved.first.startTime;
+      DateTime end = resolved.first.endTime ?? resolved.first.startTime;
+      for (final s in resolved) {
+        if (s.startTime.isBefore(start)) start = s.startTime;
+        final e = s.endTime ?? DateTime.now();
+        if (e.isAfter(end)) end = e;
+      }
+      if (!end.isAfter(start)) end = start.add(const Duration(minutes: 1));
+      return DateTimeRange(start: start, end: end);
     }();
 
     return PrismPageScaffold(
@@ -175,17 +194,37 @@ class _Header extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Reactive isOpenEnded: prefer the matched FrontingPeriod from
-    // derivedPeriodsProvider; fall back to hint for first paint.
+    // Reactive header source. Prefer the matched FrontingPeriod from
+    // derivedPeriodsProvider whenever it's available — its bounds and
+    // isOpenEnded flag track the live state, so a closes-mid-mount
+    // transition updates display + duration without staleness from the
+    // captured hint. Fall back to hint for first paint and for periods
+    // that no longer match (graceful degrade).
     final periodsAsync = ref.watch(derivedPeriodsProvider);
     final matchedPeriod = periodsAsync.whenOrNull(
       data: (periods) => findPeriodBySessionIds(periods, sessionIds),
     );
-    final isOpenEnded =
-        matchedPeriod?.isOpenEnded ?? hint?.isOpenEnded ?? false;
 
-    if (hint == null) {
-      // Deep-link / no-hint case: small loading shimmer in the section card.
+    // Resolve member metadata when we need to draw the header without a
+    // hint (deep-link recovery). The hint already carries Member objects;
+    // matchedPeriod only carries ids, so look them up.
+    final activeMembers = () {
+      if (matchedPeriod != null && hint == null) {
+        final key = memberIdsKey(matchedPeriod.activeMembers);
+        final map = ref
+                .watch(membersByIdsProvider(key))
+                .whenOrNull(data: (m) => m) ??
+            const <String, Member>{};
+        return matchedPeriod.activeMembers
+            .map((id) => map[id])
+            .whereType<Member>()
+            .toList();
+      }
+      return hint?.activeMembers ?? const <Member>[];
+    }();
+
+    if (hint == null && matchedPeriod == null) {
+      // No hint AND no derived period yet: short loading shimmer.
       return const PrismSectionCard(
         margin: EdgeInsets.symmetric(vertical: 4),
         child: SizedBox(
@@ -201,16 +240,20 @@ class _Header extends ConsumerWidget {
       );
     }
 
+    final start = matchedPeriod?.start ?? hint!.start;
+    final end = matchedPeriod?.end ?? hint!.end;
+    final isOpenEnded =
+        matchedPeriod?.isOpenEnded ?? hint?.isOpenEnded ?? false;
+
     final theme = Theme.of(context);
-    final h = hint!;
-    final names = _namesString(h.activeMembers);
+    final names = _namesString(activeMembers);
 
     final locale = context.dateLocale;
-    final startStr = h.start.toTimeString(locale);
-    final endStr = isOpenEnded ? 'ongoing' : h.end.toTimeString(locale);
+    final startStr = start.toTimeString(locale);
+    final endStr = isOpenEnded ? 'ongoing' : end.toTimeString(locale);
     final timeRange = '$startStr – $endStr';
 
-    final duration = h.end.difference(h.start);
+    final duration = end.difference(start);
 
     return PrismSectionCard(
       margin: const EdgeInsets.symmetric(vertical: 4),
@@ -224,7 +267,7 @@ class _Header extends ConsumerWidget {
             GroupMemberAvatar(
               size: 56,
               members: [
-                for (final m in h.activeMembers)
+                for (final m in activeMembers)
                   GroupAvatarMember(
                     avatarImageData: m.avatarImageData,
                     emoji: m.emoji,
@@ -250,7 +293,7 @@ class _Header extends ConsumerWidget {
                     Row(
                       children: [
                         FrontingDurationText(
-                          startTime: h.start,
+                          startTime: start,
                           rounded: true,
                           style: theme.textTheme.bodyMedium?.copyWith(
                             fontWeight: FontWeight.w600,
