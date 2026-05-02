@@ -8857,5 +8857,25 @@
   "settingsQuickFrontDefaultBehaviorReplace": "Replace current fronters",
   "@settingsQuickFrontDefaultBehaviorReplace": {
     "description": "Option label: quick front ends all existing fronts before the tapped member begins."
+  },
+  "featureBoardsTitle": "Message Boards",
+  "@featureBoardsTitle": {
+    "description": "Title of the Message Boards feature settings screen."
+  },
+  "featureBoardsDescription": "Short messages between headmates — public timeline plus private inbox.",
+  "@featureBoardsDescription": {
+    "description": "Description shown at the top of the Message Boards feature settings screen."
+  },
+  "featureBoardsEnable": "Enable Message Boards",
+  "@featureBoardsEnable": {
+    "description": "Toggle row title for enabling the Message Boards feature."
+  },
+  "featureBoardsEnableSubtitle": "Adds the Boards tab to your nav.",
+  "@featureBoardsEnableSubtitle": {
+    "description": "Toggle row subtitle explaining what enabling Message Boards does."
+  },
+  "navMenuToastBoardsAdded": "Message Boards added to your nav menu — drag it where you want.",
+  "@navMenuToastBoardsAdded": {
+    "description": "One-time toast shown when Message Boards is first enabled via the settings toggle."
   }
 }

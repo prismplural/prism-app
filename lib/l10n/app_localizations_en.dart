@@ -8342,4 +8342,21 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get settingsQuickFrontDefaultBehaviorReplace =>
       'Replace current fronters';
+
+  @override
+  String get featureBoardsTitle => 'Message Boards';
+
+  @override
+  String get featureBoardsDescription =>
+      'Short messages between headmates — public timeline plus private inbox.';
+
+  @override
+  String get featureBoardsEnable => 'Enable Message Boards';
+
+  @override
+  String get featureBoardsEnableSubtitle => 'Adds the Boards tab to your nav.';
+
+  @override
+  String get navMenuToastBoardsAdded =>
+      'Message Boards added to your nav menu — drag it where you want.';
 }

@@ -194,6 +194,12 @@ class DriftSystemSettingsRepository
   }
 
   @override
+  Future<void> updateBoardsEnabled(bool value) async {
+    await _dao.updateBoardsEnabled(value);
+    await _syncField('boards_enabled', value);
+  }
+
+  @override
   Future<void> updateSyncThemeEnabled(bool value) async {
     await _dao.updateSyncThemeEnabled(value);
     await _syncField('sync_theme_enabled', value);

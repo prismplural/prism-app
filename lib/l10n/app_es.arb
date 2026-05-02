@@ -2503,5 +2503,10 @@
   "frontingNextFronterBody": "Después de esto no habrá nadie al frente.",
   "frontingNextFronterPick": "Elegir quién al frente",
   "frontingNextFronterUnknown": "Desconocido",
-  "frontingNextFronterEnd": "Terminar sin nadie al frente"
+  "frontingNextFronterEnd": "Terminar sin nadie al frente",
+  "featureBoardsTitle": "Tableros de Mensajes",
+  "featureBoardsDescription": "Mensajes cortos entre los integrantes del sistema — línea de tiempo pública e inbox privado.",
+  "featureBoardsEnable": "Activar Tableros de Mensajes",
+  "featureBoardsEnableSubtitle": "Añade la pestaña Tableros a tu navegación.",
+  "navMenuToastBoardsAdded": "Tableros de Mensajes añadido a tu menú de navegación — arrástralo donde quieras."
 }
