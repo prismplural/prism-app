@@ -230,12 +230,16 @@ class _PostTileContent extends ConsumerWidget {
     );
     final hasActions = perms.canEdit || perms.canDelete;
 
+    // Members with a custom color keep it (they opted in to the contrast
+    // tradeoff). Members without one fall back to onSurface for max
+    // readability against the tinted header banner — primary is too muted
+    // here.
     final authorColor =
         (author != null &&
             author!.customColorEnabled &&
             author!.customColorHex != null)
         ? AppColors.fromHex(author!.customColorHex!)
-        : theme.colorScheme.primary;
+        : theme.colorScheme.onSurface;
 
     final isDesktopOrWeb =
         defaultTargetPlatform == TargetPlatform.macOS ||

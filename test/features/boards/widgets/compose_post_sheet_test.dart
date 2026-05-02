@@ -268,15 +268,15 @@ void main() {
       expect(find.text('Private'), findsOneWidget);
     });
 
-    testWidgets('post button is present when body is empty', (tester) async {
+    testWidgets('top bar has close and save buttons', (tester) async {
       await tester.pumpWidget(_buildSubject(members: [_alice]));
       await _openSheet(tester);
 
-      // Post button present — enabled state gated by body content.
-      expect(find.widgetWithIcon(PrismGlassIconButton, Icons.check), findsOneWidget);
+      // PrismSheetTopBar renders two PrismGlassIconButtons: close + save.
+      expect(find.byType(PrismGlassIconButton), findsNWidgets(2));
     });
 
-    testWidgets('save becomes tappable after typing body text', (tester) async {
+    testWidgets('save becomes enabled after typing body text', (tester) async {
       await tester.pumpWidget(_buildSubject(members: [_alice]));
       await _openSheet(tester);
 
@@ -287,7 +287,8 @@ void main() {
       await tester.pump();
 
       expect(find.text('Hello headmates!'), findsOneWidget);
-      expect(find.text('Post'), findsWidgets);
+      // Two icon buttons present (close + enabled save).
+      expect(find.byType(PrismGlassIconButton), findsNWidgets(2));
     });
 
     testWidgets('whitespace-only body does not enable save', (tester) async {
@@ -299,7 +300,7 @@ void main() {
 
       // Post button is rendered (verify no crash; enabled-state verified
       // via notifier not being called on tap).
-      expect(find.text('Post'), findsWidgets);
+      expect(find.byType(PrismGlassIconButton), findsNWidgets(2));
     });
 
     testWidgets('close button dismisses the sheet', (tester) async {
@@ -341,7 +342,8 @@ void main() {
       );
       await _openSheet(tester);
 
-      await tester.tap(find.text('Post'));
+      // Tap the trailing save (check) button.
+      await tester.tap(find.byType(PrismGlassIconButton).last);
       await tester.pumpAndSettle();
 
       expect(notifier.createdAudience, 'private');
@@ -427,7 +429,7 @@ void main() {
       );
       await tester.pump();
 
-      await tester.tap(find.text('Post'));
+      await tester.tap(find.byType(PrismGlassIconButton).last);
       await tester.pumpAndSettle();
 
       expect(notifier.updatedId, 'edit-3');
@@ -465,8 +467,8 @@ void main() {
       await tester.tap(find.text('Private'));
       await tester.pump();
 
-      // Save.
-      await tester.tap(find.text('Post'));
+      // Save via the trailing check button.
+      await tester.tap(find.byType(PrismGlassIconButton).last);
       await tester.pumpAndSettle();
 
       expect(notifier.updatedAudience, 'private');

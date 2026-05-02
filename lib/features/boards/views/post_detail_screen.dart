@@ -147,12 +147,15 @@ class _PostDetailBody extends ConsumerWidget {
         : const AsyncValue<Member?>.data(null);
     final target = targetAsync.value;
 
+    // Members with a custom color keep it (they opted in to the contrast
+    // tradeoff). Members without one fall back to onSurface for max
+    // readability against the tinted header banner.
     final authorColor =
         (author != null &&
             author.customColorEnabled &&
             author.customColorHex != null)
         ? AppColors.fromHex(author.customColorHex!)
-        : theme.colorScheme.primary;
+        : theme.colorScheme.onSurface;
 
     final headerBgColor =
         theme.colorScheme.onSurface.withValues(alpha: 0.04);
