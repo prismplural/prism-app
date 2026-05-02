@@ -150,22 +150,31 @@ class DriftMemberBoardPostsRepository
   @override
   Future<void> markInboxOpenedFor(List<String> activeFronterIds) async {
     if (activeFronterIds.isEmpty) return;
+    // Snapshot the list immediately so a fronter de-fronting between dispatch
+    // and execution does not get marked-read after the fact.
+    final memberIds = List<String>.unmodifiable(activeFronterIds);
     final now = DateTime.now().toUtc();
 
-    // Write boardLastReadAt for each active fronter and emit sync ops.
-    // Each write goes through the members DAO so it lands in the Drift DB
-    // and the sync op records the field-level LWW update on the member row.
-    for (final memberId in activeFronterIds) {
-      await _membersDao.updateMember(
-        MembersCompanion(
-          id: Value(memberId),
-          boardLastReadAt: Value(now),
-        ),
-      );
-      await syncRecordUpdate(_membersTable, memberId, {
-        'board_last_read_at': toSyncUtc(now),
-      });
-    }
+    // Write boardLastReadAt for every active fronter atomically, then emit
+    // sync ops grouped under one logical batch so peers see the inbox-opened
+    // action as a single CRDT event.
+    await _membersDao.transaction(() async {
+      for (final memberId in memberIds) {
+        await _membersDao.updateMember(
+          MembersCompanion(
+            id: Value(memberId),
+            boardLastReadAt: Value(now),
+          ),
+        );
+      }
+    });
+    await withSyncBatch(() async {
+      for (final memberId in memberIds) {
+        await syncRecordUpdate(_membersTable, memberId, {
+          'board_last_read_at': toSyncUtc(now),
+        });
+      }
+    });
   }
 
   // ---------------------------------------------------------------------------

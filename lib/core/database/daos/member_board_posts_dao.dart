@@ -213,14 +213,15 @@ class MemberBoardPostsDao extends DatabaseAccessor<AppDatabase>
   /// Returns an existing post matching the dedup tuple used by the SP backfill
   /// service. Used by Batch F to skip already-imported posts.
   ///
-  /// The [bodyHash] parameter is carried by the caller for UUID v5 generation;
-  /// the SQL query matches on (target_member_id, author_id, written_at) because
-  /// the body is not stored as a hash in the DB column.
+  /// Matches on `(target_member_id, author_id, written_at)` — the body is not
+  /// stored as a hash column, so callers that need hash-based dedup should
+  /// compute a deterministic UUID v5 from
+  /// `(targetMemberId, authorId, writtenAt, bodyHash)` and call
+  /// [getPostById] first, then fall back to this tuple-level check.
   Future<MemberBoardPostRow?> findByDedupTuple({
     required String targetMemberId,
     required String? authorId,
     required DateTime writtenAt,
-    required String bodyHash,
   }) {
     final q =
         select(memberBoardPosts)
