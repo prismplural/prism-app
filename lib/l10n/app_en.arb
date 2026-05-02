@@ -9030,6 +9030,22 @@
   "@boardsComposeEditing": {
     "description": "Sheet title when editing an existing board post."
   },
+  "boardsComposeNewPost": "New post",
+  "@boardsComposeNewPost": {
+    "description": "Sheet title when composing a new board post."
+  },
+  "boardsComposeAudienceEveryone": "Everyone",
+  "@boardsComposeAudienceEveryone": {
+    "description": "Audience segment label: post visible to everyone in the system."
+  },
+  "boardsComposeAudiencePrivate": "Private",
+  "@boardsComposeAudiencePrivate": {
+    "description": "Audience segment label: post visible only to the addressed headmate."
+  },
+  "boardsComposeToNoHeadmate": "No headmate",
+  "@boardsComposeToNoHeadmate": {
+    "description": "Placeholder label for the member chip when no headmate is addressed."
+  },
   "memberSectionBoardMessages": "Board Messages",
   "@memberSectionBoardMessages": {
     "description": "Section heading for the Board Messages section on a member's profile."

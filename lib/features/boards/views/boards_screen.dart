@@ -696,10 +696,10 @@ class _InboxFronterFilterButton extends ConsumerWidget {
         ? fronters.where((m) => m.id == filterId).firstOrNull
         : null;
 
-    // Trigger: 44pt hit-area (matching topBarActionSize) hosting a
-    // 36pt avatar with a small down-chevron pip at the bottom-right.
+    // Trigger: full 44pt avatar matching the + button's circle, with a
+    // small down-chevron pip overlaying the bottom-right corner.
     const hitSize = PrismTokens.topBarActionSize; // 44
-    const avatarSize = 36.0;
+    const avatarSize = hitSize;
     final trigger = SizedBox(
       width: hitSize,
       height: hitSize,
