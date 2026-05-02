@@ -164,4 +164,20 @@ mixin SyncRecordMixin {
       );
     }
   }
+
+  /// Run [body] with all sync ops logically grouped into one batch.
+  ///
+  /// Callers should wrap multi-entity sync emissions in this helper so that
+  /// peers see the writes as a single CRDT action. The Drift transaction that
+  /// surrounds the DB writes must be opened by the caller — this helper only
+  /// governs the sync emission side.
+  ///
+  /// **Current limitation:** the Rust FFI does not yet expose a batch-begin /
+  /// batch-end API, so each `syncRecord*` call inside [body] still receives
+  /// its own `local_batch_id` from the engine. This wrapper establishes the
+  /// call-site pattern and will be wired to a real FFI batch fence once the
+  /// Rust layer exposes one.
+  Future<T> withSyncBatch<T>(Future<T> Function() body) async {
+    return body();
+  }
 }
