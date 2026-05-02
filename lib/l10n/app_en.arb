@@ -7835,6 +7835,8 @@
   "@navTimeline": { "description": "Bottom navigation tab label for the Timeline tab" },
   "navSleep": "Sleep",
   "@navSleep": { "description": "Bottom navigation tab label for the Sleep tab" },
+  "navBoards": "Boards",
+  "@navBoards": { "description": "Bottom navigation tab label for the Boards (message boards) tab" },
   "sleepScreenTitle": "Sleep",
   "@sleepScreenTitle": { "description": "Title shown in the top bar of the Sleep screen" },
   "sleepScreenAddTooltip": "Log sleep",

@@ -518,7 +518,15 @@ final syncAppearanceEnabledProvider = Provider<bool>((ref) {
 /// enabled state and deduplicating against [seen].
 List<AppShellTab> _resolveTabIds(
   List<String> ids,
-  ({bool chat, bool polls, bool habits, bool sleep, bool notes, bool reminders})
+  ({
+    bool chat,
+    bool polls,
+    bool habits,
+    bool sleep,
+    bool notes,
+    bool reminders,
+    bool boards,
+  })
   flags,
   Map<String, AppShellTab> tabById,
   Set<String> seen,
@@ -558,6 +566,7 @@ NavLayout normalizeNavLayout({
     bool sleep,
     bool notes,
     bool reminders,
+    bool boards,
   })
   flags,
 }) {
@@ -939,6 +948,7 @@ final featureFlagsProvider =
         bool sleep,
         bool notes,
         bool reminders,
+        bool boards,
       })
     >((ref) {
       final s = ref.watch(systemSettingsProvider).whenOrNull(data: (s) => s);
@@ -949,6 +959,7 @@ final featureFlagsProvider =
         sleep: s?.sleepTrackingEnabled ?? true,
         notes: s?.notesEnabled ?? true,
         reminders: s?.remindersEnabled ?? true,
+        boards: s?.boardsEnabled ?? false,
       );
     });
 

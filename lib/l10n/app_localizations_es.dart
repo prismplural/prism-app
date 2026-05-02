@@ -7244,6 +7244,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get navSleep => 'Sueño';
 
   @override
+  String get navBoards => 'Tableros';
+
+  @override
   String get sleepScreenTitle => 'Sueño';
 
   @override

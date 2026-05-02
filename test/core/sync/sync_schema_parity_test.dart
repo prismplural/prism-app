@@ -478,9 +478,10 @@ const _writeOmittedFields = <String, Set<String>>{
   // `boards_enabled` and `sp_boards_backfilled_at` are written via dedicated
   //   update paths (Batch C1' settings toggle and Batch F backfill service)
   //   that emit targeted syncRecordUpdate calls, not through _settingsFields.
-  //   The domain SystemSettings model does not yet carry these fields
-  //   (added in Batch C-pre). Until that batch lands, these are intentionally
-  //   omitted from the general-purpose _settingsFields helper.
+  //   Intentionally omitted from the general-purpose _settingsFields helper;
+  //   the domain SystemSettings model carries these fields (added in Batch C-pre)
+  //   but the emit path for each is a discrete syncRecordUpdate, not the bulk
+  //   helper.
   'system_settings': {'boards_enabled', 'sp_boards_backfilled_at'},
 };
 
