@@ -2869,6 +2869,134 @@
   "@frontingSessionDetailDeleteTooltip": {
     "description": "Tooltip on delete button in session detail screen"
   },
+  "frontingPeriodOngoing": "ongoing",
+  "@frontingPeriodOngoing": {
+    "description": "Substituted for the end time when a period is still open-ended (e.g. '10:00 AM – ongoing')."
+  },
+  "frontingPeriodMemberUnknown": "Unknown",
+  "@frontingPeriodMemberUnknown": {
+    "description": "Fallback name displayed in place of a member name when the member cannot be resolved."
+  },
+  "frontingPeriodCoFrontersTitle": "Co-fronters",
+  "@frontingPeriodCoFrontersTitle": {
+    "description": "Section header for the co-fronters list on the period detail screen."
+  },
+  "frontingPeriodBrieflyJoinedTitle": "Briefly joined",
+  "@frontingPeriodBrieflyJoinedTitle": {
+    "description": "Section header for brief visitors on the period detail screen."
+  },
+  "frontingPeriodAlwaysPresentTitle": "Always present",
+  "@frontingPeriodAlwaysPresentTitle": {
+    "description": "Section header for always-present members on the period detail screen."
+  },
+  "frontingPeriodBriefVisitSubtitle": "joined for {dur} at {start}",
+  "@frontingPeriodBriefVisitSubtitle": {
+    "description": "Subtitle on a brief-visitor row showing duration and start time.",
+    "placeholders": {
+      "dur": {
+        "type": "String"
+      },
+      "start": {
+        "type": "String"
+      }
+    }
+  },
+  "frontingPeriodHeaderSemantic": "Period: {names}, fronting from {start} to {end}, duration {duration}",
+  "@frontingPeriodHeaderSemantic": {
+    "description": "Screen-reader-only Semantics label for the period detail header card.",
+    "placeholders": {
+      "names": {
+        "type": "String"
+      },
+      "start": {
+        "type": "String"
+      },
+      "end": {
+        "type": "String"
+      },
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "frontingPeriodCoFronterSemanticActive": "{name}, fronting since {start}, currently fronting. Double tap to view details.",
+  "@frontingPeriodCoFronterSemanticActive": {
+    "description": "Semantics label for an active co-fronter row on the period detail screen.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "start": {
+        "type": "String"
+      }
+    }
+  },
+  "frontingPeriodCoFronterSemanticClosed": "{name}, fronting from {start} to {end}, duration {duration}. Double tap to view details.",
+  "@frontingPeriodCoFronterSemanticClosed": {
+    "description": "Semantics label for a closed co-fronter row on the period detail screen.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "start": {
+        "type": "String"
+      },
+      "end": {
+        "type": "String"
+      },
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "frontingPeriodBriefVisitorSemantic": "{name}, briefly joined for {dur} at {start}. Double tap to view details.",
+  "@frontingPeriodBriefVisitorSemantic": {
+    "description": "Semantics label for a brief-visitor row on the period detail screen.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "dur": {
+        "type": "String"
+      },
+      "start": {
+        "type": "String"
+      }
+    }
+  },
+  "frontingPeriodAlwaysPresentSemantic": "{name}, always present. Double tap to view profile.",
+  "@frontingPeriodAlwaysPresentSemantic": {
+    "description": "Semantics label for an always-present member row on the period detail screen.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "memberListJoinPair": "{a} & {b}",
+  "@memberListJoinPair": {
+    "description": "Joins exactly two member names with a conjunction ('Sky & Fern'). Translators replace '&' with the locale's equivalent (e.g. 'y' in Spanish).",
+    "placeholders": {
+      "a": {
+        "type": "String"
+      },
+      "b": {
+        "type": "String"
+      }
+    }
+  },
+  "memberListJoinAnd": "{items} & {last}",
+  "@memberListJoinAnd": {
+    "description": "Joins a pre-comma-joined list of all-but-last names with the final name ('Sky, Fern & Aimee'). {items} is the comma-joined prefix; {last} is the final name. Translators replace '&' with the locale's conjunction.",
+    "placeholders": {
+      "items": {
+        "type": "String"
+      },
+      "last": {
+        "type": "String"
+      }
+    }
+  },
   "frontingSleepingNow": "Sleeping now",
   "@frontingSleepingNow": {
     "description": "Title on sleep session detail when session is still active"

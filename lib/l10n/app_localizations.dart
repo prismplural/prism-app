@@ -3800,6 +3800,98 @@ abstract class AppLocalizations {
   /// **'Delete'**
   String get frontingSessionDetailDeleteTooltip;
 
+  /// Substituted for the end time when a period is still open-ended (e.g. '10:00 AM – ongoing').
+  ///
+  /// In en, this message translates to:
+  /// **'ongoing'**
+  String get frontingPeriodOngoing;
+
+  /// Fallback name displayed in place of a member name when the member cannot be resolved.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown'**
+  String get frontingPeriodMemberUnknown;
+
+  /// Section header for the co-fronters list on the period detail screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Co-fronters'**
+  String get frontingPeriodCoFrontersTitle;
+
+  /// Section header for brief visitors on the period detail screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Briefly joined'**
+  String get frontingPeriodBrieflyJoinedTitle;
+
+  /// Section header for always-present members on the period detail screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Always present'**
+  String get frontingPeriodAlwaysPresentTitle;
+
+  /// Subtitle on a brief-visitor row showing duration and start time.
+  ///
+  /// In en, this message translates to:
+  /// **'joined for {dur} at {start}'**
+  String frontingPeriodBriefVisitSubtitle(String dur, String start);
+
+  /// Screen-reader-only Semantics label for the period detail header card.
+  ///
+  /// In en, this message translates to:
+  /// **'Period: {names}, fronting from {start} to {end}, duration {duration}'**
+  String frontingPeriodHeaderSemantic(
+    String names,
+    String start,
+    String end,
+    String duration,
+  );
+
+  /// Semantics label for an active co-fronter row on the period detail screen.
+  ///
+  /// In en, this message translates to:
+  /// **'{name}, fronting since {start}, currently fronting. Double tap to view details.'**
+  String frontingPeriodCoFronterSemanticActive(String name, String start);
+
+  /// Semantics label for a closed co-fronter row on the period detail screen.
+  ///
+  /// In en, this message translates to:
+  /// **'{name}, fronting from {start} to {end}, duration {duration}. Double tap to view details.'**
+  String frontingPeriodCoFronterSemanticClosed(
+    String name,
+    String start,
+    String end,
+    String duration,
+  );
+
+  /// Semantics label for a brief-visitor row on the period detail screen.
+  ///
+  /// In en, this message translates to:
+  /// **'{name}, briefly joined for {dur} at {start}. Double tap to view details.'**
+  String frontingPeriodBriefVisitorSemantic(
+    String name,
+    String dur,
+    String start,
+  );
+
+  /// Semantics label for an always-present member row on the period detail screen.
+  ///
+  /// In en, this message translates to:
+  /// **'{name}, always present. Double tap to view profile.'**
+  String frontingPeriodAlwaysPresentSemantic(String name);
+
+  /// Joins exactly two member names with a conjunction ('Sky & Fern'). Translators replace '&' with the locale's equivalent (e.g. 'y' in Spanish).
+  ///
+  /// In en, this message translates to:
+  /// **'{a} & {b}'**
+  String memberListJoinPair(String a, String b);
+
+  /// Joins a pre-comma-joined list of all-but-last names with the final name ('Sky, Fern & Aimee'). {items} is the comma-joined prefix; {last} is the final name. Translators replace '&' with the locale's conjunction.
+  ///
+  /// In en, this message translates to:
+  /// **'{items} & {last}'**
+  String memberListJoinAnd(String items, String last);
+
   /// Title on sleep session detail when session is still active
   ///
   /// In en, this message translates to:

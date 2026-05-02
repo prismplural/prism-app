@@ -2130,6 +2130,75 @@ class AppLocalizationsEn extends AppLocalizations {
   String get frontingSessionDetailDeleteTooltip => 'Delete';
 
   @override
+  String get frontingPeriodOngoing => 'ongoing';
+
+  @override
+  String get frontingPeriodMemberUnknown => 'Unknown';
+
+  @override
+  String get frontingPeriodCoFrontersTitle => 'Co-fronters';
+
+  @override
+  String get frontingPeriodBrieflyJoinedTitle => 'Briefly joined';
+
+  @override
+  String get frontingPeriodAlwaysPresentTitle => 'Always present';
+
+  @override
+  String frontingPeriodBriefVisitSubtitle(String dur, String start) {
+    return 'joined for $dur at $start';
+  }
+
+  @override
+  String frontingPeriodHeaderSemantic(
+    String names,
+    String start,
+    String end,
+    String duration,
+  ) {
+    return 'Period: $names, fronting from $start to $end, duration $duration';
+  }
+
+  @override
+  String frontingPeriodCoFronterSemanticActive(String name, String start) {
+    return '$name, fronting since $start, currently fronting. Double tap to view details.';
+  }
+
+  @override
+  String frontingPeriodCoFronterSemanticClosed(
+    String name,
+    String start,
+    String end,
+    String duration,
+  ) {
+    return '$name, fronting from $start to $end, duration $duration. Double tap to view details.';
+  }
+
+  @override
+  String frontingPeriodBriefVisitorSemantic(
+    String name,
+    String dur,
+    String start,
+  ) {
+    return '$name, briefly joined for $dur at $start. Double tap to view details.';
+  }
+
+  @override
+  String frontingPeriodAlwaysPresentSemantic(String name) {
+    return '$name, always present. Double tap to view profile.';
+  }
+
+  @override
+  String memberListJoinPair(String a, String b) {
+    return '$a & $b';
+  }
+
+  @override
+  String memberListJoinAnd(String items, String last) {
+    return '$items & $last';
+  }
+
+  @override
   String get frontingSleepingNow => 'Sleeping now';
 
   @override
