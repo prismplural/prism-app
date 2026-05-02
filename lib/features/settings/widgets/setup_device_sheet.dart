@@ -202,9 +202,17 @@ class _SetupDeviceSheetContentState
       final json = jsonDecode(jsonString) as Map<String, dynamic>;
       final sas = PairingSasDisplay.fromJson(json);
       // Captured for uploadPairingSnapshot(forDeviceId:) in _completeInitiator.
-      // May be absent on older Rust builds; threading it through lets the
-      // joiner DELETE the snapshot once it has applied the bootstrap.
-      final joinerDeviceId = json['joiner_device_id'] as String?;
+      // This must be present so the pair-time snapshot cannot accidentally
+      // become a group-wide pruning snapshot.
+      final rawJoinerDeviceId = json['joiner_device_id'];
+      final joinerDeviceId = rawJoinerDeviceId is String
+          ? rawJoinerDeviceId.trim()
+          : null;
+      if (joinerDeviceId == null || joinerDeviceId.isEmpty) {
+        throw StateError(
+          'Pairing response missing joiner device id; update the app and try again.',
+        );
+      }
 
       if (!mounted) return;
       setState(() {

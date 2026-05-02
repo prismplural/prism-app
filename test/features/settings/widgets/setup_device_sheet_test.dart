@@ -64,7 +64,7 @@ class _FakePairingCeremonyApi extends PairingCeremonyApi {
         ) ??
         Future.value(
           jsonEncode({
-            'sas_version': 2,
+            'sas_version': 3,
             'sas_words': ['alpha', 'bravo', 'charlie', 'delta', 'echo'],
           }),
         );
@@ -134,7 +134,7 @@ void main() {
             expect(handle, same(fakeHandle));
             expect(tokenBytes, Uint8List.fromList([1, 2, 3, 4]));
             final payload = {
-              'sas_version': 2,
+              'sas_version': 3,
               'sas_words': ['alpha', 'bravo', 'charlie', 'delta', 'echo'],
               // New: joiner device_id flows through for forDeviceId threading.
               'joiner_device_id': 'joiner-dev-xyz',
@@ -220,6 +220,76 @@ void main() {
     expect(capturedCeremonyResult?['joiner_device_id'], 'joiner-dev-xyz');
   });
 
+  testWidgets(
+    'scanner flow rejects pairing responses without joiner device id',
+    (tester) async {
+      const fakeHandle = _FakePrismSyncHandle();
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            pairingCeremonyApiProvider.overrideWith(
+              (ref) => _FakePairingCeremonyApi(),
+            ),
+            prismSyncHandleProvider.overrideWithBuild(
+              (ref, notifier) => fakeHandle,
+            ),
+            relayUrlProvider.overrideWithValue(
+              const AsyncValue<String?>.data('https://relay.example.com'),
+            ),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Builder(
+              builder: (context) => Consumer(
+                builder: (context, ref, _) => Scaffold(
+                  body: Center(
+                    child: ElevatedButton(
+                      onPressed: () => SetupDeviceSheet.show(context, ref),
+                      child: const Text('Open'),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      const phrase =
+          'abandon abandon abandon abandon abandon abandon '
+          'abandon abandon abandon abandon abandon about';
+      final words = phrase.split(' ');
+      for (var i = 0; i < 12; i++) {
+        await tester.enterText(find.byType(TextField).at(i), words[i]);
+        await tester.pump();
+      }
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text("Scan Joiner's QR"));
+      await tester.pumpAndSettle();
+
+      final scanner = tester.widget<MobileScanner>(find.byType(MobileScanner));
+      scanner.onDetect!(
+        const BarcodeCapture(barcodes: [Barcode(rawValue: 'AQIDBA==')]),
+      );
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining('Pairing response missing joiner device id'),
+        findsOneWidget,
+      );
+      expect(find.text('Verify Security Code'), findsNothing);
+    },
+  );
+
   testWidgets('rejecting SAS cancels initiator ceremony', (tester) async {
     const fakeHandle = _FakePrismSyncHandle();
     var cancelCalls = 0;
@@ -228,7 +298,7 @@ void main() {
           ({required handle, required tokenBytes}) async {
             expect(handle, same(fakeHandle));
             return jsonEncode({
-              'sas_version': 2,
+              'sas_version': 3,
               'sas_words': ['alpha', 'bravo', 'charlie', 'delta', 'echo'],
               'joiner_device_id': 'joiner-dev-xyz',
             });

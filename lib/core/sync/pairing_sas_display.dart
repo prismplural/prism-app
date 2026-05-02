@@ -1,5 +1,5 @@
 class PairingSasDisplay {
-  static const currentVersion = 2;
+  static const currentVersion = 3;
   static const wordCount = 5;
 
   const PairingSasDisplay._(this.words);

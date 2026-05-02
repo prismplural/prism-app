@@ -70,7 +70,7 @@ class _FakePairingCeremonyApi extends PairingCeremonyApi {
     return getJoinerSasHandler?.call(handle: handle) ??
         Future.value(
           jsonEncode({
-            'sas_version': 2,
+            'sas_version': 3,
             'sas_words': ['apple', 'banana', 'cherry', 'delta', 'echo'],
           }),
         );
@@ -292,7 +292,7 @@ void main() {
 
         sasCompleter.complete(
           jsonEncode({
-            'sas_version': 2,
+            'sas_version': 3,
             'sas_words': ['delta', 'echo', 'foxtrot', 'golf', 'hotel'],
           }),
         );
@@ -317,7 +317,7 @@ void main() {
         getJoinerSasHandler: ({required handle}) async {
           expect(handle, same(fakeHandle));
           return jsonEncode({
-            'sas_version': 2,
+            'sas_version': 3,
             'sas_words': 'delta-echo-foxtrot-golf-hotel',
           });
         },
