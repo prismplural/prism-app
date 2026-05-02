@@ -259,6 +259,9 @@ class _DetailParticipantsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Sender carries the new info — most prominent. The receiver is
+    // predictable from context (we're in our inbox / on a profile) so it
+    // shares the muted style of the connector word.
     final mutedStyle = theme.textTheme.titleSmall?.copyWith(
       color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
       fontWeight: FontWeight.w500,
@@ -267,10 +270,7 @@ class _DetailParticipantsRow extends StatelessWidget {
       color: authorColor,
       fontWeight: FontWeight.w700,
     );
-    final receiverStyle = theme.textTheme.titleMedium?.copyWith(
-      color: theme.colorScheme.onSurface,
-      fontWeight: FontWeight.w600,
-    );
+    final receiverStyle = mutedStyle;
 
     final showTargetAvatar = post.targetMemberId != null;
     final receiverName = post.targetMemberId != null
@@ -305,13 +305,16 @@ class _DetailParticipantsRow extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (showTargetAvatar) ...[
-              MemberAvatar(
-                avatarImageData: target?.avatarImageData,
-                memberName: target?.name,
-                emoji: target?.emoji ?? '❔',
-                customColorEnabled: target?.customColorEnabled ?? false,
-                customColorHex: target?.customColorHex,
-                size: 32,
+              Opacity(
+                opacity: 0.7,
+                child: MemberAvatar(
+                  avatarImageData: target?.avatarImageData,
+                  memberName: target?.name,
+                  emoji: target?.emoji ?? '❔',
+                  customColorEnabled: target?.customColorEnabled ?? false,
+                  customColorHex: target?.customColorHex,
+                  size: 24,
+                ),
               ),
               const SizedBox(width: 8),
             ],
