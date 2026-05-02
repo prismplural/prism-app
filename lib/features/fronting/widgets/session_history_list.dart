@@ -37,6 +37,7 @@ import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_grouped_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
+import 'package:prism_plurality/features/fronting/services/period_delete.dart';
 import 'package:prism_plurality/features/fronting/views/period_detail_args.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
@@ -638,13 +639,29 @@ class _PeriodTile extends ConsumerWidget {
   }
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
-    // For a multi-session period, deletion uses the "delete the contributing
-    // sessions" semantics — we route the first session through the existing
-    // delete-strategy flow. Period-level delete UX is part of the
-    // period-detail screen (§3.1, not 1A).
-    final firstSessionId =
-        period.sessionIds.isNotEmpty ? period.sessionIds.first : null;
-    if (firstSessionId == null) return;
+    if (period.sessionIds.isEmpty) return;
+
+    // Multi-contributor periods (2+ sessions): use the period-level batch
+    // delete. The merge/fill-gap strategy dialog is not well-defined for
+    // overlapping sessions, so we skip it here.
+    if (period.sessionIds.length >= 2) {
+      final contributors = period.activeMembers
+          .map((id) => membersMap[id])
+          .whereType<Member>()
+          .toList();
+      await confirmAndDeletePeriod(
+        context,
+        ref,
+        sessionIds: period.sessionIds,
+        contributors: contributors,
+      );
+      return;
+    }
+
+    // Single-contributor period: keep the existing per-session strategy
+    // dialog (merge/fill-gap UX is well-defined for one session + its
+    // two neighbors).
+    final firstSessionId = period.sessionIds.first;
 
     final repo = ref.read(frontingSessionRepositoryProvider);
     final session = await repo.getSessionById(firstSessionId);
