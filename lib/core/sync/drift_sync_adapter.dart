@@ -163,6 +163,7 @@ SyncAdapterWithCompletion buildSyncAdapterWithCompletion(
       ),
       _friendsEntity(db, quarantine, pendingQuarantineWrites.add),
       _mediaAttachmentsEntity(db, quarantine, pendingQuarantineWrites.add),
+      _memberBoardPostsEntity(db, quarantine, pendingQuarantineWrites.add),
     ],
   );
   return SyncAdapterWithCompletion(
@@ -1239,6 +1240,7 @@ DriftSyncEntity _membersEntity(
         'delete_push_started_at': r.deletePushStartedAt,
         'is_always_fronting': r.isAlwaysFronting,
         'is_deleted': r.isDeleted,
+        'board_last_read_at': _dateTimeToSyncStringOrNull(r.boardLastReadAt),
       };
     },
     applyFields: (String id, Map<String, dynamic> fields) async {
@@ -1297,6 +1299,7 @@ DriftSyncEntity _membersEntity(
         deletePushStartedAt: f.intFieldNullable('delete_push_started_at'),
         isAlwaysFronting: f.boolField('is_always_fronting'),
         isDeleted: f.boolField('is_deleted'),
+        boardLastReadAt: f.dateTimeFieldNullable('board_last_read_at'),
       );
       await _insertOrUpdateById(
         db,
@@ -1377,6 +1380,7 @@ DriftSyncEntity _membersEntity(
         'delete_push_started_at': row.deletePushStartedAt,
         'is_always_fronting': row.isAlwaysFronting,
         'is_deleted': row.isDeleted,
+        'board_last_read_at': _dateTimeToSyncStringOrNull(row.boardLastReadAt),
       };
     },
     isDeleted: (String id) async {
@@ -1762,6 +1766,9 @@ DriftSyncEntity _systemSettingsEntity(
         'add_front_default_behavior': r.addFrontDefaultBehavior,
         'quick_front_default_behavior': r.quickFrontDefaultBehavior,
         'is_deleted': r.isDeleted,
+        'boards_enabled': r.boardsEnabled,
+        'sp_boards_backfilled_at':
+            _dateTimeToSyncStringOrNull(r.spBoardsBackfilledAt),
       };
     },
     applyFields: (String id, Map<String, dynamic> fields) async {
@@ -1833,6 +1840,8 @@ DriftSyncEntity _systemSettingsEntity(
         // Device-local fields (font*, pin*, biometric*, autoLock*) are
         // intentionally excluded from sync.
         isDeleted: f.boolField('is_deleted'),
+        boardsEnabled: f.boolField('boards_enabled'),
+        spBoardsBackfilledAt: f.dateTimeFieldNullable('sp_boards_backfilled_at'),
       );
       await _insertOrUpdateById(
         db,
@@ -1904,6 +1913,9 @@ DriftSyncEntity _systemSettingsEntity(
         'add_front_default_behavior': row.addFrontDefaultBehavior,
         'quick_front_default_behavior': row.quickFrontDefaultBehavior,
         'is_deleted': row.isDeleted,
+        'boards_enabled': row.boardsEnabled,
+        'sp_boards_backfilled_at':
+            _dateTimeToSyncStringOrNull(row.spBoardsBackfilledAt),
       };
     },
     isDeleted: (String id) async {
@@ -3253,6 +3265,99 @@ DriftSyncEntity _mediaAttachmentsEntity(
     isDeleted: (String id) async {
       final row = await (db.select(
         db.mediaAttachments,
+      )..where((t) => t.id.equals(id))).getSingleOrNull();
+      return row?.isDeleted ?? true;
+    },
+  );
+}
+
+// ---------------------------------------------------------------------------
+// member_board_posts
+// ---------------------------------------------------------------------------
+
+DriftSyncEntity _memberBoardPostsEntity(
+  AppDatabase db,
+  SyncQuarantineService? quarantine,
+  void Function(Future<void> write) trackQuarantineWrite,
+) {
+  return DriftSyncEntity(
+    tableName: 'member_board_posts',
+    toSyncFields: (dynamic row) {
+      final r = row as MemberBoardPostRow;
+      return {
+        'target_member_id': r.targetMemberId,
+        'author_id': r.authorId,
+        'audience': r.audience,
+        'title': r.title,
+        'body': r.body,
+        'created_at': _dateTimeToSyncString(r.createdAt),
+        'written_at': _dateTimeToSyncString(r.writtenAt),
+        'edited_at': _dateTimeToSyncStringOrNull(r.editedAt),
+        'is_deleted': r.isDeleted,
+      };
+    },
+    applyFields: (String id, Map<String, dynamic> fields) async {
+      final f = _FieldContext(
+        entityType: 'member_board_posts',
+        entityId: id,
+        fields: fields,
+        quarantine: quarantine,
+        trackQuarantineWrite: trackQuarantineWrite,
+      );
+
+      // Forward-compat audience fallback: if a future-version peer sends a
+      // value we don't recognise (neither 'public' nor 'private'), treat it
+      // as 'public'. Public is the more visible default — content is less
+      // likely to be silently hidden than if we defaulted to 'private'.
+      final rawAudience = _asString(fields['audience']);
+      final audience = (rawAudience == 'public' || rawAudience == 'private')
+          ? rawAudience
+          : (rawAudience != null ? 'public' : null);
+
+      final companion = MemberBoardPostsCompanion(
+        id: Value(id),
+        targetMemberId: f.stringFieldNullable('target_member_id'),
+        authorId: f.stringFieldNullable('author_id'),
+        audience: audience != null ? Value(audience) : const Value.absent(),
+        title: f.stringFieldNullable('title'),
+        body: f.stringField('body'),
+        createdAt: f.dateTimeField('created_at'),
+        writtenAt: f.dateTimeField('written_at'),
+        editedAt: f.dateTimeFieldNullable('edited_at'),
+        isDeleted: f.boolField('is_deleted'),
+      );
+      await _insertOrUpdateById(
+        db,
+        db.memberBoardPosts,
+        companion,
+        (t) => t.id.equals(id),
+      );
+    },
+    hardDelete: (String id) async {
+      await (db.delete(
+        db.memberBoardPosts,
+      )..where((t) => t.id.equals(id))).go();
+    },
+    readRow: (String id) async {
+      final row = await (db.select(
+        db.memberBoardPosts,
+      )..where((t) => t.id.equals(id))).getSingleOrNull();
+      if (row == null) return null;
+      return {
+        'target_member_id': row.targetMemberId,
+        'author_id': row.authorId,
+        'audience': row.audience,
+        'title': row.title,
+        'body': row.body,
+        'created_at': _dateTimeToSyncString(row.createdAt),
+        'written_at': _dateTimeToSyncString(row.writtenAt),
+        'edited_at': _dateTimeToSyncStringOrNull(row.editedAt),
+        'is_deleted': row.isDeleted,
+      };
+    },
+    isDeleted: (String id) async {
+      final row = await (db.select(
+        db.memberBoardPosts,
       )..where((t) => t.id.equals(id))).getSingleOrNull();
       return row?.isDeleted ?? true;
     },

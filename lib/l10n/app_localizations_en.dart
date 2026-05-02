@@ -3824,6 +3824,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'A personal journal and writing space for your system';
 
   @override
+  String get onboardingFeaturesBoards => 'Message Boards';
+
+  @override
+  String get onboardingFeaturesBoardsDescription =>
+      'Short messages between headmates — public timeline plus private inbox.';
+
+  @override
   String get onboardingFeaturesReminders => 'Reminders';
 
   @override
@@ -7117,6 +7124,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get navSleep => 'Sleep';
 
   @override
+  String get navBoards => 'Boards';
+
+  @override
   String get sleepScreenTitle => 'Sleep';
 
   @override
@@ -8339,4 +8349,166 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get settingsQuickFrontDefaultBehaviorReplace =>
       'Replace current fronters';
+
+  @override
+  String get featureBoardsTitle => 'Message Boards';
+
+  @override
+  String get featureBoardsDescription =>
+      'Short messages between headmates — public timeline plus private inbox.';
+
+  @override
+  String get featureBoardsEnable => 'Enable Message Boards';
+
+  @override
+  String get featureBoardsEnableSubtitle => 'Adds the Boards tab to your nav.';
+
+  @override
+  String get navMenuToastBoardsAdded =>
+      'Message Boards added to your nav menu — drag it where you want.';
+
+  @override
+  String get boardsTileEdited => 'edited';
+
+  @override
+  String get boardsTileToEveryone => 'to everyone';
+
+  @override
+  String get boardsTileRemovedMember => 'Removed member';
+
+  @override
+  String get boardsDetailEdit => 'Edit';
+
+  @override
+  String get boardsDetailDelete => 'Delete';
+
+  @override
+  String get boardsDeleteConfirmTitle => 'Delete this post?';
+
+  @override
+  String get boardsDeleteConfirmBody => 'This can\'t be undone.';
+
+  @override
+  String get memberBoardScreenTitle => 'Public Posts';
+
+  @override
+  String get memberBoardEmpty => 'No public posts here yet.';
+
+  @override
+  String get boardsScreenTitle => 'Boards';
+
+  @override
+  String get boardsTabPublic => 'Public';
+
+  @override
+  String get boardsTabInbox => 'Inbox';
+
+  @override
+  String get boardsViewFilterAll => 'All fronters';
+
+  @override
+  String boardsViewFilterMember(String name) {
+    return '$name';
+  }
+
+  @override
+  String get boardsEmptyPublic => 'Nothing on the public timeline yet.';
+
+  @override
+  String get boardsEmptyInbox => 'No private posts right now.';
+
+  @override
+  String get boardsComposeNoFronterHint =>
+      'No one\'s fronting right now — start a session to post.';
+
+  @override
+  String boardsToastFronterDeFronted(String name) {
+    return '$name de-fronted — showing all';
+  }
+
+  @override
+  String get boardsComposeRecipientPublicEveryone => 'Everyone (public)';
+
+  @override
+  String boardsComposeRecipientPublicMember(String name) {
+    return '$name (public)';
+  }
+
+  @override
+  String boardsComposeRecipientPrivateMember(String name) {
+    return '$name (private)';
+  }
+
+  @override
+  String get boardsComposeAddTitle => '+ Add title';
+
+  @override
+  String get boardsComposeTitlePlaceholder => 'Title (optional)';
+
+  @override
+  String get boardsComposeBodyPlaceholder => 'Write something...';
+
+  @override
+  String boardsComposeConsequencePrivate(String name) {
+    return 'Only $name will see this in their Inbox.';
+  }
+
+  @override
+  String boardsComposeConsequencePublicMember(String name) {
+    return '$name\'s profile and the Public feed will show this.';
+  }
+
+  @override
+  String get boardsComposeConsequencePublicEveryone =>
+      'Everyone in your system will see this in the Public feed.';
+
+  @override
+  String get boardsComposeSave => 'Post';
+
+  @override
+  String get boardsComposeCancel => 'Cancel';
+
+  @override
+  String get boardsComposeEditing => 'Edit post';
+
+  @override
+  String get boardsComposeNewPost => 'New post';
+
+  @override
+  String get boardsComposeAudienceEveryone => 'Everyone';
+
+  @override
+  String get boardsComposeAudiencePrivate => 'Private';
+
+  @override
+  String get boardsComposeToNoHeadmate => 'No recipient';
+
+  @override
+  String get boardsComposeWhoIsPosting => 'Who is posting?';
+
+  @override
+  String get boardsComposeSelectAuthor => 'Select author';
+
+  @override
+  String get memberSectionBoardMessages => 'Public Posts';
+
+  @override
+  String memberBoardSeeAll(int count) {
+    return 'See all $count public posts';
+  }
+
+  @override
+  String memberBoardAddPost(String name) {
+    return 'Post to $name';
+  }
+
+  @override
+  String get importDisclosureBoardsEnabled =>
+      'Message Boards enabled — your imported posts are in the Inbox.';
+
+  @override
+  String get boardsPostDetailTitle => 'Post';
+
+  @override
+  String get boardsPostDetailNotFound => 'This post is no longer available.';
 }

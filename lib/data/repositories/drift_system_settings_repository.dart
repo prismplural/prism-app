@@ -194,6 +194,23 @@ class DriftSystemSettingsRepository
   }
 
   @override
+  Future<void> updateBoardsEnabled(bool value) async {
+    await _dao.updateBoardsEnabled(value);
+    await _syncField('boards_enabled', value);
+  }
+
+  @override
+  Future<void> updateSpBoardsBackfilledAt(DateTime? value) async {
+    await _dao.updateSpBoardsBackfilledAt(value);
+    // sp_boards_backfilled_at is a CRDT LWW field — sync it so a peer that
+    // completes the backfill before us can abort our run via sentinel check.
+    await _syncField(
+      'sp_boards_backfilled_at',
+      value?.toUtc().toIso8601String(),
+    );
+  }
+
+  @override
   Future<void> updateSyncThemeEnabled(bool value) async {
     await _dao.updateSyncThemeEnabled(value);
     await _syncField('sync_theme_enabled', value);

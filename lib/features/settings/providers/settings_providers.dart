@@ -401,6 +401,7 @@ class SettingsNotifier extends AsyncNotifier<void> {
     bool? pollsEnabled,
     bool? habitsEnabled,
     bool? sleepTrackingEnabled,
+    bool? boardsEnabled,
   }) async {
     state = await AsyncValue.guard(() async {
       final repo = ref.read(systemSettingsRepositoryProvider);
@@ -410,6 +411,25 @@ class SettingsNotifier extends AsyncNotifier<void> {
         habitsEnabled: habitsEnabled,
         sleepTrackingEnabled: sleepTrackingEnabled,
       );
+      if (boardsEnabled != null) {
+        // Check if we're flipping boards on for the first time, so we can
+        // append 'boards' to the nav overflow if it isn't already present.
+        final current = await repo.getSettings();
+        final wasEnabled = current.boardsEnabled;
+        await repo.updateBoardsEnabled(boardsEnabled);
+        if (!wasEnabled && boardsEnabled) {
+          // First-enable nav-append: add 'boards' to the overflow list if it
+          // is absent from both the primary nav and the overflow.
+          final re = await repo.getSettings();
+          final primaryIds = re.navBarItems;
+          final overflowIds = re.navBarOverflowItems;
+          final alreadyPresent =
+              primaryIds.contains('boards') || overflowIds.contains('boards');
+          if (!alreadyPresent) {
+            await repo.updateNavBarOverflowItems([...overflowIds, 'boards']);
+          }
+        }
+      }
     });
   }
 }
@@ -518,7 +538,15 @@ final syncAppearanceEnabledProvider = Provider<bool>((ref) {
 /// enabled state and deduplicating against [seen].
 List<AppShellTab> _resolveTabIds(
   List<String> ids,
-  ({bool chat, bool polls, bool habits, bool sleep, bool notes, bool reminders})
+  ({
+    bool chat,
+    bool polls,
+    bool habits,
+    bool sleep,
+    bool notes,
+    bool reminders,
+    bool boards,
+  })
   flags,
   Map<String, AppShellTab> tabById,
   Set<String> seen,
@@ -558,6 +586,7 @@ NavLayout normalizeNavLayout({
     bool sleep,
     bool notes,
     bool reminders,
+    bool boards,
   })
   flags,
 }) {
@@ -701,6 +730,14 @@ final notesEnabledProvider = Provider<bool>((ref) {
           .watch(systemSettingsProvider)
           .whenOrNull(data: (s) => s.notesEnabled) ??
       true;
+});
+
+/// Narrow provider for `boardsEnabled` flag.
+final boardsEnabledProvider = Provider<bool>((ref) {
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.boardsEnabled) ??
+      false;
 });
 
 /// Narrow provider for system name.
@@ -939,6 +976,7 @@ final featureFlagsProvider =
         bool sleep,
         bool notes,
         bool reminders,
+        bool boards,
       })
     >((ref) {
       final s = ref.watch(systemSettingsProvider).whenOrNull(data: (s) => s);
@@ -949,6 +987,7 @@ final featureFlagsProvider =
         sleep: s?.sleepTrackingEnabled ?? true,
         notes: s?.notesEnabled ?? true,
         reminders: s?.remindersEnabled ?? true,
+        boards: s?.boardsEnabled ?? false,
       );
     });
 

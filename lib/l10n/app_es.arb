@@ -1069,6 +1069,8 @@
   "onboardingFeaturesSleepTrackingDescription": "Monitorea patrones y calidad del sueño",
   "onboardingFeaturesNotes": "Notas",
   "onboardingFeaturesNotesDescription": "Un diario personal y espacio de escritura para tu sistema",
+  "onboardingFeaturesBoards": "Tableros de Mensajes",
+  "onboardingFeaturesBoardsDescription": "Mensajes cortos entre compañeros del sistema — línea de tiempo pública más bandeja de entrada privada.",
   "onboardingFeaturesReminders": "Recordatorios",
   "onboardingFeaturesRemindersDescription": "Configura recordatorios para ti o {termPluralLower} del sistema",
   "onboardingCompleteTrackFrontingTitle": "Registra quién está al frente",
@@ -1925,6 +1927,7 @@
   "navStatistics": "Estadísticas",
   "navTimeline": "Cronología",
   "navSleep": "Sueño",
+  "navBoards": "Tableros",
   "sleepScreenTitle": "Sueño",
   "sleepScreenAddTooltip": "Registrar sueño",
   "sleepScreenSettingsTooltip": "Ajustes de sueño",
@@ -2502,5 +2505,122 @@
   "frontingNextFronterBody": "Después de esto no habrá nadie al frente.",
   "frontingNextFronterPick": "Elegir quién al frente",
   "frontingNextFronterUnknown": "Desconocido",
-  "frontingNextFronterEnd": "Terminar sin nadie al frente"
+  "frontingNextFronterEnd": "Terminar sin nadie al frente",
+  "featureBoardsTitle": "Tableros de Mensajes",
+  "featureBoardsDescription": "Mensajes cortos entre los integrantes del sistema — línea de tiempo pública e inbox privado.",
+  "featureBoardsEnable": "Activar Tableros de Mensajes",
+  "featureBoardsEnableSubtitle": "Añade la pestaña Tableros a tu navegación.",
+  "navMenuToastBoardsAdded": "Tableros de Mensajes añadido a tu menú de navegación — arrástralo donde quieras.",
+  "boardsTileEdited": "editado",
+  "boardsTileToEveryone": "para todos",
+  "boardsTileRemovedMember": "Integrante eliminado",
+  "boardsDetailEdit": "Editar",
+  "boardsDetailDelete": "Eliminar",
+  "boardsDeleteConfirmTitle": "¿Eliminar esta publicación?",
+  "boardsDeleteConfirmBody": "Esto no se puede deshacer.",
+  "memberBoardScreenTitle": "Publicaciones públicas",
+  "memberBoardEmpty": "Aún no hay publicaciones públicas aquí.",
+  "boardsScreenTitle": "Tableros",
+  "boardsTabPublic": "Público",
+  "boardsTabInbox": "Bandeja de entrada",
+  "boardsViewFilterAll": "Todos los que están al frente",
+  "boardsViewFilterMember": "{name}",
+  "boardsEmptyPublic": "Todavía no hay nada en la línea de tiempo pública.",
+  "boardsEmptyInbox": "No hay publicaciones privadas en este momento.",
+  "boardsComposeNoFronterHint": "Nadie está al frente ahora mismo — inicia una sesión para publicar.",
+  "boardsToastFronterDeFronted": "{name} dejó el frente — mostrando todos",
+  "boardsComposeRecipientPublicEveryone": "Todos (público)",
+  "@boardsComposeRecipientPublicEveryone": {
+    "description": "Recipient picker option: post is public and addressed to all system members."
+  },
+  "boardsComposeRecipientPublicMember": "{name} (público)",
+  "@boardsComposeRecipientPublicMember": {
+    "description": "Recipient picker option: post is public and addressed to a specific member.",
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "boardsComposeRecipientPrivateMember": "{name} (privado)",
+  "@boardsComposeRecipientPrivateMember": {
+    "description": "Recipient picker option: post is private and addressed to a specific member.",
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "boardsComposeAddTitle": "+ Agregar título",
+  "@boardsComposeAddTitle": {
+    "description": "Affordance label to reveal the optional title field in the compose sheet."
+  },
+  "boardsComposeTitlePlaceholder": "Título (opcional)",
+  "@boardsComposeTitlePlaceholder": {
+    "description": "Placeholder text for the optional title field in the compose sheet."
+  },
+  "boardsComposeBodyPlaceholder": "Escribe algo...",
+  "@boardsComposeBodyPlaceholder": {
+    "description": "Placeholder text for the required body field in the compose sheet."
+  },
+  "boardsComposeConsequencePrivate": "Solo {name} verá esto en su Inbox.",
+  "@boardsComposeConsequencePrivate": {
+    "description": "Consequence text shown when composing a private post to a named member.",
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "boardsComposeConsequencePublicMember": "El perfil de {name} y el feed público mostrarán esto.",
+  "@boardsComposeConsequencePublicMember": {
+    "description": "Consequence text shown when composing a public post directed at a named member.",
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "boardsComposeConsequencePublicEveryone": "Todos en tu sistema verán esto en el feed público.",
+  "@boardsComposeConsequencePublicEveryone": {
+    "description": "Consequence text shown when composing a public post addressed to no specific member."
+  },
+  "boardsComposeSave": "Publicar",
+  "@boardsComposeSave": {
+    "description": "Save/submit button label in the compose post sheet."
+  },
+  "boardsComposeCancel": "Cancelar",
+  "@boardsComposeCancel": {
+    "description": "Cancel button label in the compose post sheet."
+  },
+  "boardsComposeEditing": "Editar publicación",
+  "@boardsComposeEditing": {
+    "description": "Sheet title when editing an existing board post."
+  },
+  "memberSectionBoardMessages": "Publicaciones públicas",
+  "@memberSectionBoardMessages": {
+    "description": "Section heading on a member's profile. The section only shows public posts (private posts addressed to the member live in the Inbox)."
+  },
+  "memberBoardSeeAll": "Ver las {count} publicaciones públicas",
+  "@memberBoardSeeAll": {
+    "description": "Link shown below the board preview when there are 4 or more public posts.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "memberBoardAddPost": "Publicar para {name}",
+  "@memberBoardAddPost": {
+    "description": "Tooltip for the + button in the Board Messages section header.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "importDisclosureBoardsEnabled": "Tableros de mensajes activados — tus mensajes importados están en el Buzón.",
+  "@importDisclosureBoardsEnabled": {
+    "description": "Disclosure shown after an SP import that contained board messages, informing the user that Message Boards have been auto-enabled."
+  },
+  "boardsPostDetailTitle": "Publicación",
+  "@boardsPostDetailTitle": {
+    "description": "Top bar title on the full-screen board post detail view."
+  },
+  "boardsPostDetailNotFound": "Esta publicación ya no está disponible.",
+  "@boardsPostDetailNotFound": {
+    "description": "Shown on the post detail screen when the post id no longer resolves (deleted, never synced)."
+  }
 }

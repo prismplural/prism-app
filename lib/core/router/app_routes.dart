@@ -14,6 +14,7 @@ abstract final class AppRoutePaths {
   static const notes = '/notes';
   static const statistics = '/statistics';
   static const sleep = '/sleep';
+  static const boards = '/boards';
 
   // Settings sub-routes
   static const settingsMembers = '/settings/members';
@@ -76,6 +77,8 @@ abstract final class AppRoutePaths {
   static String settingsMember(String id) => '/settings/members/$id';
   static String settingsHabit(String id) => '/settings/habits/$id';
   static String settingsFriend(String id) => '/settings/sharing/$id';
+  static String memberBoard(String id) => '/boards/member/$id';
+  static String boardPost(String id) => '/boards/post/$id';
 }
 
 abstract final class AppRouteNames {
@@ -93,6 +96,9 @@ abstract final class AppRouteNames {
   static const secretKeySetup = 'secret-key-setup';
   static const syncSetup = 'sync-setup';
   static const timeline = 'timeline';
+  static const boards = 'boards';
+  static const memberBoard = 'member-board';
+  static const boardPost = 'board-post';
 }
 
 enum AppShellTabId {
@@ -107,6 +113,7 @@ enum AppShellTabId {
   statistics,
   timeline,
   sleep,
+  boards,
 }
 
 class AppShellTab {
@@ -157,6 +164,7 @@ class AppShellTab {
       AppShellTabId.statistics => l10n.navStatistics,
       AppShellTabId.timeline => l10n.navTimeline,
       AppShellTabId.sleep => l10n.navSleep,
+      AppShellTabId.boards => l10n.navBoards,
     };
   }
 
@@ -168,6 +176,7 @@ class AppShellTab {
       bool sleep,
       bool notes,
       bool reminders,
+      bool boards,
     })
     flags,
   ) {
@@ -183,6 +192,7 @@ class AppShellTab {
       AppShellTabId.statistics => true,
       AppShellTabId.timeline => true,
       AppShellTabId.sleep => flags.sleep,
+      AppShellTabId.boards => flags.boards,
     };
   }
 }
@@ -276,6 +286,15 @@ final appShellTabs = [
     branchIndex: 10,
     rootLocation: AppRoutePaths.sleep,
   ),
+  AppShellTab(
+    id: AppShellTabId.boards,
+    label: 'Boards',
+    // shared with Chat — both surfaces use the conversation glyph
+    icon: AppIcons.navBoards,
+    activeIcon: AppIcons.navBoardsActive,
+    branchIndex: 11,
+    rootLocation: AppRoutePaths.boards,
+  ),
 ];
 
 /// The default nav bar tab IDs when no custom configuration exists.
@@ -291,6 +310,7 @@ const defaultNavBarOverflowTabIds = [
   'reminders',
   'statistics',
   'timeline',
+  'boards',
 ];
 
 /// Maximum number of tabs that can appear in the primary nav bar. Excess

@@ -6616,6 +6616,18 @@ abstract class AppLocalizations {
   /// **'A personal journal and writing space for your system'**
   String get onboardingFeaturesNotesDescription;
 
+  /// Feature toggle label for message boards in features step
+  ///
+  /// In en, this message translates to:
+  /// **'Message Boards'**
+  String get onboardingFeaturesBoards;
+
+  /// Feature toggle description for message boards in features step
+  ///
+  /// In en, this message translates to:
+  /// **'Short messages between headmates — public timeline plus private inbox.'**
+  String get onboardingFeaturesBoardsDescription;
+
   /// Feature toggle label for reminders in features step
   ///
   /// In en, this message translates to:
@@ -11764,6 +11776,12 @@ abstract class AppLocalizations {
   /// **'Sleep'**
   String get navSleep;
 
+  /// Bottom navigation tab label for the Boards (message boards) tab
+  ///
+  /// In en, this message translates to:
+  /// **'Boards'**
+  String get navBoards;
+
   /// Title shown in the top bar of the Sleep screen
   ///
   /// In en, this message translates to:
@@ -13451,6 +13469,288 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Replace current fronters'**
   String get settingsQuickFrontDefaultBehaviorReplace;
+
+  /// Title of the Message Boards feature settings screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Message Boards'**
+  String get featureBoardsTitle;
+
+  /// Description shown at the top of the Message Boards feature settings screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Short messages between headmates — public timeline plus private inbox.'**
+  String get featureBoardsDescription;
+
+  /// Toggle row title for enabling the Message Boards feature.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable Message Boards'**
+  String get featureBoardsEnable;
+
+  /// Toggle row subtitle explaining what enabling Message Boards does.
+  ///
+  /// In en, this message translates to:
+  /// **'Adds the Boards tab to your nav.'**
+  String get featureBoardsEnableSubtitle;
+
+  /// One-time toast shown when Message Boards is first enabled via the settings toggle.
+  ///
+  /// In en, this message translates to:
+  /// **'Message Boards added to your nav menu — drag it where you want.'**
+  String get navMenuToastBoardsAdded;
+
+  /// Suffix shown after the timestamp on a board post tile when the post has been edited.
+  ///
+  /// In en, this message translates to:
+  /// **'edited'**
+  String get boardsTileEdited;
+
+  /// Recipient chip text shown on a public post with no specific target member.
+  ///
+  /// In en, this message translates to:
+  /// **'to everyone'**
+  String get boardsTileToEveryone;
+
+  /// Fallback name shown when the author or target member of a board post no longer exists.
+  ///
+  /// In en, this message translates to:
+  /// **'Removed member'**
+  String get boardsTileRemovedMember;
+
+  /// Edit action label in the board post detail sheet and context menu.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get boardsDetailEdit;
+
+  /// Delete action label in the board post detail sheet and context menu.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get boardsDetailDelete;
+
+  /// Title of the confirmation dialog shown before deleting a board post.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this post?'**
+  String get boardsDeleteConfirmTitle;
+
+  /// Body text of the confirmation dialog shown before deleting a board post.
+  ///
+  /// In en, this message translates to:
+  /// **'This can\'t be undone.'**
+  String get boardsDeleteConfirmBody;
+
+  /// Title of the per-member board messages screen and section. The screen only shows public posts.
+  ///
+  /// In en, this message translates to:
+  /// **'Public Posts'**
+  String get memberBoardScreenTitle;
+
+  /// Empty state subtitle shown when a member's board has no posts.
+  ///
+  /// In en, this message translates to:
+  /// **'No public posts here yet.'**
+  String get memberBoardEmpty;
+
+  /// Title shown in the top bar of the main Boards screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Boards'**
+  String get boardsScreenTitle;
+
+  /// Label for the Public sub-tab on the Boards screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Public'**
+  String get boardsTabPublic;
+
+  /// Label for the Inbox sub-tab on the Boards screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Inbox'**
+  String get boardsTabInbox;
+
+  /// Inbox view-filter option: show posts for all currently-fronting members.
+  ///
+  /// In en, this message translates to:
+  /// **'All fronters'**
+  String get boardsViewFilterAll;
+
+  /// Inbox view-filter option showing a specific member's name.
+  ///
+  /// In en, this message translates to:
+  /// **'{name}'**
+  String boardsViewFilterMember(String name);
+
+  /// Empty state subtitle for the Public sub-tab when no posts exist.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing on the public timeline yet.'**
+  String get boardsEmptyPublic;
+
+  /// Empty state subtitle for the Inbox sub-tab when there are no private posts.
+  ///
+  /// In en, this message translates to:
+  /// **'No private posts right now.'**
+  String get boardsEmptyInbox;
+
+  /// Hint shown in the Inbox empty state when no members are currently fronting.
+  ///
+  /// In en, this message translates to:
+  /// **'No one\'s fronting right now — start a session to post.'**
+  String get boardsComposeNoFronterHint;
+
+  /// Toast shown when the inbox view-filter member stops fronting, resetting the filter.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} de-fronted — showing all'**
+  String boardsToastFronterDeFronted(String name);
+
+  /// Recipient picker option: post is public and addressed to all system members.
+  ///
+  /// In en, this message translates to:
+  /// **'Everyone (public)'**
+  String get boardsComposeRecipientPublicEveryone;
+
+  /// Recipient picker option: post is public and addressed to a specific member.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} (public)'**
+  String boardsComposeRecipientPublicMember(String name);
+
+  /// Recipient picker option: post is private and addressed to a specific member.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} (private)'**
+  String boardsComposeRecipientPrivateMember(String name);
+
+  /// Affordance label to reveal the optional title field in the compose sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'+ Add title'**
+  String get boardsComposeAddTitle;
+
+  /// Placeholder text for the optional title field in the compose sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Title (optional)'**
+  String get boardsComposeTitlePlaceholder;
+
+  /// Placeholder text for the required body field in the compose sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Write something...'**
+  String get boardsComposeBodyPlaceholder;
+
+  /// Consequence text shown when composing a private post to a named member.
+  ///
+  /// In en, this message translates to:
+  /// **'Only {name} will see this in their Inbox.'**
+  String boardsComposeConsequencePrivate(String name);
+
+  /// Consequence text shown when composing a public post directed at a named member.
+  ///
+  /// In en, this message translates to:
+  /// **'{name}\'s profile and the Public feed will show this.'**
+  String boardsComposeConsequencePublicMember(String name);
+
+  /// Consequence text shown when composing a public post addressed to no specific member.
+  ///
+  /// In en, this message translates to:
+  /// **'Everyone in your system will see this in the Public feed.'**
+  String get boardsComposeConsequencePublicEveryone;
+
+  /// Save/submit button label in the compose post sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Post'**
+  String get boardsComposeSave;
+
+  /// Cancel button label in the compose post sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get boardsComposeCancel;
+
+  /// Sheet title when editing an existing board post.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit post'**
+  String get boardsComposeEditing;
+
+  /// Sheet title when composing a new board post.
+  ///
+  /// In en, this message translates to:
+  /// **'New post'**
+  String get boardsComposeNewPost;
+
+  /// Audience segment label: post visible to everyone in the system.
+  ///
+  /// In en, this message translates to:
+  /// **'Everyone'**
+  String get boardsComposeAudienceEveryone;
+
+  /// Audience segment label: post visible only to the addressed headmate.
+  ///
+  /// In en, this message translates to:
+  /// **'Private'**
+  String get boardsComposeAudiencePrivate;
+
+  /// Label shown in the recipient row when no headmate has been addressed.
+  ///
+  /// In en, this message translates to:
+  /// **'No recipient'**
+  String get boardsComposeToNoHeadmate;
+
+  /// Dialog title asking which co-fronter is authoring the board post.
+  ///
+  /// In en, this message translates to:
+  /// **'Who is posting?'**
+  String get boardsComposeWhoIsPosting;
+
+  /// Semantic label for the author avatar tap target in the compose toolbar when no author is selected.
+  ///
+  /// In en, this message translates to:
+  /// **'Select author'**
+  String get boardsComposeSelectAuthor;
+
+  /// Section heading on a member's profile. The section only shows public posts (private posts addressed to the member live in the Inbox).
+  ///
+  /// In en, this message translates to:
+  /// **'Public Posts'**
+  String get memberSectionBoardMessages;
+
+  /// Link shown below the board preview when there are 4 or more public posts.
+  ///
+  /// In en, this message translates to:
+  /// **'See all {count} public posts'**
+  String memberBoardSeeAll(int count);
+
+  /// Tooltip for the + button in the Board Messages section header.
+  ///
+  /// In en, this message translates to:
+  /// **'Post to {name}'**
+  String memberBoardAddPost(String name);
+
+  /// Disclosure shown after an SP import that contained board messages, informing the user that Message Boards have been auto-enabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Message Boards enabled — your imported posts are in the Inbox.'**
+  String get importDisclosureBoardsEnabled;
+
+  /// Top bar title on the full-screen board post detail view.
+  ///
+  /// In en, this message translates to:
+  /// **'Post'**
+  String get boardsPostDetailTitle;
+
+  /// Shown on the post detail screen when the post id no longer resolves (deleted, never synced).
+  ///
+  /// In en, this message translates to:
+  /// **'This post is no longer available.'**
+  String get boardsPostDetailNotFound;
 }
 
 class _AppLocalizationsDelegate
