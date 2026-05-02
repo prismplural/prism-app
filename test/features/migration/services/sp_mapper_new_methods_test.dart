@@ -405,89 +405,119 @@ void main() {
   });
 
   group('Board messages mapping', () {
-    test('messages grouped by (writtenBy, writtenFor) pair into DM conversations',
-        () {
-      final data = _makeExportData(
-        members: [_memberA, _memberB],
-        boardMessages: [
-          SpBoardMessage(
-            id: 'bm1',
-            writtenBy: 'sp-a',
-            writtenFor: 'sp-b',
-            message: 'Hello Bob!',
-            writtenAt: DateTime(2024, 1, 1),
-          ),
-          SpBoardMessage(
-            id: 'bm2',
-            writtenBy: 'sp-a',
-            writtenFor: 'sp-b',
-            message: 'How are you?',
-            writtenAt: DateTime(2024, 1, 2),
-          ),
-        ],
-      );
+    test(
+      'board messages produce MemberBoardPost rows, not DM conversations',
+      () {
+        final data = _makeExportData(
+          members: [_memberA, _memberB],
+          boardMessages: [
+            SpBoardMessage(
+              id: 'bm1',
+              writtenBy: 'sp-a',
+              writtenFor: 'sp-b',
+              message: 'Hello Bob!',
+              writtenAt: DateTime(2024, 1, 1),
+            ),
+            SpBoardMessage(
+              id: 'bm2',
+              writtenBy: 'sp-a',
+              writtenFor: 'sp-b',
+              message: 'How are you?',
+              writtenAt: DateTime(2024, 1, 2),
+            ),
+          ],
+        );
 
-      final mapper = SpMapper();
-      final result = mapper.mapAll(data);
+        final mapper = SpMapper();
+        final result = mapper.mapAll(data);
 
-      // Both messages in same pair should create one conversation
-      final boardConvs = result.conversations
-          .where((c) => c.emoji == '\u{1F4DD}')
-          .toList();
-      expect(boardConvs, hasLength(1));
+        // No synthetic DM conversations are created for board messages.
+        final boardConvs = result.conversations
+            .where((c) => c.emoji == '\u{1F4DD}')
+            .toList();
+        expect(boardConvs, isEmpty);
 
-      // Two messages in that conversation
-      final convId = boardConvs.first.id;
-      final boardMsgs =
-          result.messages.where((m) => m.conversationId == convId).toList();
-      expect(boardMsgs, hasLength(2));
-    });
+        // Two first-class MemberBoardPost rows are produced instead.
+        expect(result.boardPosts, hasLength(2));
 
-    test('order-independent pair key (A->B and B->A go to same conversation)',
-        () {
-      final data = _makeExportData(
-        members: [_memberA, _memberB],
-        boardMessages: [
-          SpBoardMessage(
-            id: 'bm1',
-            writtenBy: 'sp-a',
-            writtenFor: 'sp-b',
-            message: 'From A to B',
-            writtenAt: DateTime(2024, 1, 1),
-          ),
-          SpBoardMessage(
-            id: 'bm2',
-            writtenBy: 'sp-b',
-            writtenFor: 'sp-a',
-            message: 'From B to A',
-            writtenAt: DateTime(2024, 1, 2),
-          ),
-        ],
-      );
+        // Each post is private, has the correct author and recipient.
+        final prismIdA = result.members
+            .firstWhere((m) => m.name == 'Alice')
+            .id;
+        final prismIdB = result.members
+            .firstWhere((m) => m.name == 'Bob')
+            .id;
 
-      final mapper = SpMapper();
-      final result = mapper.mapAll(data);
+        for (final post in result.boardPosts) {
+          expect(post.audience, 'private');
+          expect(post.authorId, prismIdA);
+          expect(post.targetMemberId, prismIdB);
+        }
 
-      // Should still be only one DM conversation
-      final boardConvs = result.conversations
-          .where((c) => c.emoji == '\u{1F4DD}')
-          .toList();
-      expect(boardConvs, hasLength(1));
+        expect(result.warnings, isEmpty);
+      },
+    );
 
-      final convId = boardConvs.first.id;
-      final boardMsgs =
-          result.messages.where((m) => m.conversationId == convId).toList();
-      expect(boardMsgs, hasLength(2));
-    });
+    test(
+      'A→B and B→A board messages each produce separate MemberBoardPost rows',
+      () {
+        final data = _makeExportData(
+          members: [_memberA, _memberB],
+          boardMessages: [
+            SpBoardMessage(
+              id: 'bm1',
+              writtenBy: 'sp-a',
+              writtenFor: 'sp-b',
+              message: 'From A to B',
+              writtenAt: DateTime(2024, 1, 1),
+            ),
+            SpBoardMessage(
+              id: 'bm2',
+              writtenBy: 'sp-b',
+              writtenFor: 'sp-a',
+              message: 'From B to A',
+              writtenAt: DateTime(2024, 1, 2),
+            ),
+          ],
+        );
 
-    test('message with both unknown sender+recipient is skipped with warning',
+        final mapper = SpMapper();
+        final result = mapper.mapAll(data);
+
+        // No synthetic DM conversations.
+        expect(
+          result.conversations.where((c) => c.emoji == '\u{1F4DD}'),
+          isEmpty,
+        );
+
+        // Two independent posts — directionality preserved.
+        expect(result.boardPosts, hasLength(2));
+
+        final prismIdA = result.members
+            .firstWhere((m) => m.name == 'Alice')
+            .id;
+        final prismIdB = result.members
+            .firstWhere((m) => m.name == 'Bob')
+            .id;
+
+        final postAtob =
+            result.boardPosts.firstWhere((p) => p.authorId == prismIdA);
+        expect(postAtob.targetMemberId, prismIdB);
+
+        final postBtoa =
+            result.boardPosts.firstWhere((p) => p.authorId == prismIdB);
+        expect(postBtoa.targetMemberId, prismIdA);
+      },
+    );
+
+    test('message with unknown recipient (writtenFor not in members map) is skipped with warning',
         () {
       final data = _makeExportData(
         members: [_memberA],
         boardMessages: [
           SpBoardMessage(
             id: 'bm1',
-            writtenBy: 'unknown-x',
+            writtenBy: 'sp-a',
             writtenFor: 'unknown-y',
             message: 'Orphan message',
             writtenAt: DateTime(2024, 1, 1),
@@ -498,11 +528,8 @@ void main() {
       final mapper = SpMapper();
       final result = mapper.mapAll(data);
 
-      // No DM conversations should be created
-      final boardConvs = result.conversations
-          .where((c) => c.emoji == '\u{1F4DD}')
-          .toList();
-      expect(boardConvs, isEmpty);
+      // No board posts should be created for unresolved recipients.
+      expect(result.boardPosts, isEmpty);
 
       expect(result.warnings, isNotEmpty);
       expect(
@@ -528,13 +555,15 @@ void main() {
       final mapper = SpMapper();
       final result = mapper.mapAll(data);
 
-      final boardConvs = result.conversations
-          .where((c) => c.emoji == '\u{1F4DD}')
-          .toList();
-      expect(boardConvs, isEmpty);
+      expect(result.boardPosts, isEmpty);
+      // Empty board messages do not create DM conversations either.
+      expect(
+        result.conversations.where((c) => c.emoji == '\u{1F4DD}'),
+        isEmpty,
+      );
     });
 
-    test('title prepended to content with markdown bold', () {
+    test('title is stored on the MemberBoardPost, not prepended to body', () {
       final data = _makeExportData(
         members: [_memberA, _memberB],
         boardMessages: [
@@ -552,16 +581,82 @@ void main() {
       final mapper = SpMapper();
       final result = mapper.mapAll(data);
 
-      final boardConvs = result.conversations
-          .where((c) => c.emoji == '\u{1F4DD}')
-          .toList();
-      expect(boardConvs, hasLength(1));
+      expect(result.boardPosts, hasLength(1));
+      final post = result.boardPosts.first;
+      // Title is its own field on MemberBoardPost.
+      expect(post.title, 'Important');
+      // Body contains only the message text, no bold-prefix prepending.
+      expect(post.body, 'Read this please');
+      expect(post.audience, 'private');
+    });
 
-      final convId = boardConvs.first.id;
-      final boardMsgs =
-          result.messages.where((m) => m.conversationId == convId).toList();
-      expect(boardMsgs, hasLength(1));
-      expect(boardMsgs.first.content, '**Important**\nRead this please');
+    test('SP read:true propagates to boardLastReadAtUpdates for the recipient',
+        () {
+      final data = _makeExportData(
+        members: [_memberA, _memberB],
+        boardMessages: [
+          SpBoardMessage(
+            id: 'bm1',
+            writtenBy: 'sp-a',
+            writtenFor: 'sp-b',
+            message: 'Already read message',
+            writtenAt: DateTime(2024, 3, 10, 12),
+            read: true,
+          ),
+          SpBoardMessage(
+            id: 'bm2',
+            writtenBy: 'sp-a',
+            writtenFor: 'sp-b',
+            message: 'Unread message',
+            writtenAt: DateTime(2024, 3, 10, 15),
+            read: false,
+          ),
+        ],
+      );
+
+      final mapper = SpMapper();
+      final result = mapper.mapAll(data);
+
+      expect(result.boardPosts, hasLength(2));
+
+      final prismIdB = result.members
+          .firstWhere((m) => m.name == 'Bob')
+          .id;
+
+      // boardLastReadAtUpdates should record the high-water-mark for Bob
+      // from the read=true message only.
+      expect(result.boardLastReadAtUpdates.containsKey(prismIdB), isTrue);
+      expect(
+        result.boardLastReadAtUpdates[prismIdB],
+        DateTime(2024, 3, 10, 12),
+      );
+    });
+
+    test('writtenFor:null produces an import warning and no board post', () {
+      final data = _makeExportData(
+        members: [_memberA, _memberB],
+        boardMessages: [
+          SpBoardMessage(
+            id: 'bm-null-for',
+            writtenBy: 'sp-a',
+            writtenFor: null,
+            message: 'No recipient set',
+            writtenAt: DateTime(2024, 1, 1),
+          ),
+        ],
+      );
+
+      final mapper = SpMapper();
+      final result = mapper.mapAll(data);
+
+      // Null writtenFor is not silently re-targeted — it is skipped.
+      expect(result.boardPosts, isEmpty);
+
+      expect(result.warnings, isNotEmpty);
+      expect(
+        result.warnings.any((w) => w.contains('bm-null-for')),
+        isTrue,
+      );
     });
   });
 
