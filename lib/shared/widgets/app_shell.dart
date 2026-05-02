@@ -11,6 +11,7 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/features/boards/providers/board_posts_providers.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/fronting/migration/providers/fronting_migration_providers.dart';
 import 'package:prism_plurality/features/fronting/migration/views/fronting_upgrade_sheet.dart';
@@ -414,6 +415,7 @@ Widget _maybeBadge({
   required bool showSyncBadge,
   required int habitsDueCount,
   required int chatUnreadCount,
+  required int boardsBadge,
   required Widget child,
 }) {
   if (tab.id == AppShellTabId.settings && showSyncBadge) {
@@ -425,6 +427,12 @@ Widget _maybeBadge({
   if (tab.id == AppShellTabId.chat && chatUnreadCount > 0) {
     return Badge(
       label: Text(chatUnreadCount > 99 ? '99+' : '$chatUnreadCount'),
+      child: child,
+    );
+  }
+  if (tab.id == AppShellTabId.boards && boardsBadge > 0) {
+    return Badge(
+      label: Text(boardsBadge > 99 ? '99+' : '$boardsBadge'),
       child: child,
     );
   }
@@ -1187,6 +1195,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
     final habitsBadgeEnabled = ref.watch(habitsBadgeEnabledProvider);
     final dueCount = habitsBadgeEnabled ? ref.watch(dueHabitsCountProvider) : 0;
     final chatUnreadCount = ref.watch(unreadConversationCountProvider);
+    final boardsBadge = ref.watch(boardsTabBadgeProvider);
     final terms = watchTerminology(context, ref);
 
     final isOled = Theme.of(context).scaffoldBackgroundColor == Colors.black;
@@ -1197,6 +1206,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
         showSyncBadge: showSyncBadge,
         dueCount: dueCount,
         chatUnreadCount: chatUnreadCount,
+        boardsBadge: boardsBadge,
         isDark: isDark,
         terminologyPlural: terms.plural,
       );
@@ -1260,6 +1270,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                                       showSyncBadge: showSyncBadge,
                                       dueCount: dueCount,
                                       chatUnreadCount: chatUnreadCount,
+                                      boardsBadge: boardsBadge,
                                     ),
                                   ),
                                 ],
@@ -1355,6 +1366,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                                             showSyncBadge: showSyncBadge,
                                             habitsDueCount: dueCount,
                                             chatUnreadCount: chatUnreadCount,
+                                            boardsBadge: boardsBadge,
                                             rowHeight: widget.rowHeight,
                                             onTap: () => _handleTap(i),
                                           ),
@@ -1398,6 +1410,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
     required bool showSyncBadge,
     required int dueCount,
     required int chatUnreadCount,
+  required int boardsBadge,
   }) {
     if (slot == null) return const SizedBox.shrink();
     // Stagger on the original tab index so icons animate in reading order
@@ -1424,6 +1437,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
           showSyncBadge: showSyncBadge,
           habitsDueCount: dueCount,
           chatUnreadCount: chatUnreadCount,
+          boardsBadge: boardsBadge,
           rowHeight: widget.rowHeight,
           showItemPill: true,
           onTap: () => _handleTap(widget.primaryTabs.length + slot.index),
@@ -1440,6 +1454,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
     required bool showSyncBadge,
     required int dueCount,
     required int chatUnreadCount,
+  required int boardsBadge,
   }) {
     final populatedSlots = slots
         .whereType<({int index, AppShellTab tab})>()
@@ -1469,6 +1484,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                   showSyncBadge: showSyncBadge,
                   dueCount: dueCount,
                   chatUnreadCount: chatUnreadCount,
+                  boardsBadge: boardsBadge,
                 ),
               ),
           ],
@@ -1525,6 +1541,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
     required bool showSyncBadge,
     required int dueCount,
     required int chatUnreadCount,
+  required int boardsBadge,
     required bool isDark,
     required String terminologyPlural,
   }) {
@@ -1612,6 +1629,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                                 showSyncBadge: showSyncBadge,
                                 habitsDueCount: dueCount,
                                 chatUnreadCount: chatUnreadCount,
+                                boardsBadge: boardsBadge,
                                 rowHeight: widget.rowHeight,
                                 onTap: () => widget.onTap(index),
                               ),
@@ -1696,6 +1714,7 @@ class _NavBarItem extends StatelessWidget {
     required this.showSyncBadge,
     required this.habitsDueCount,
     required this.chatUnreadCount,
+    required this.boardsBadge,
     required this.rowHeight,
     required this.onTap,
     this.showItemPill = false,
@@ -1709,6 +1728,7 @@ class _NavBarItem extends StatelessWidget {
   final bool showSyncBadge;
   final int habitsDueCount;
   final int chatUnreadCount;
+  final int boardsBadge;
   final double rowHeight;
   final VoidCallback onTap;
 
@@ -1738,6 +1758,7 @@ class _NavBarItem extends StatelessWidget {
       showSyncBadge: showSyncBadge,
       habitsDueCount: habitsDueCount,
       chatUnreadCount: chatUnreadCount,
+      boardsBadge: boardsBadge,
       child: iconWidget,
     );
 
@@ -1824,6 +1845,7 @@ class _FloatingSidebar extends ConsumerWidget {
     final habitsBadgeEnabled = ref.watch(habitsBadgeEnabledProvider);
     final dueCount = habitsBadgeEnabled ? ref.watch(dueHabitsCountProvider) : 0;
     final chatUnreadCount = ref.watch(unreadConversationCountProvider);
+    final boardsBadge = ref.watch(boardsTabBadgeProvider);
     final terms = watchTerminology(context, ref);
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -1888,6 +1910,7 @@ class _FloatingSidebar extends ConsumerWidget {
                       showSyncBadge: showSyncBadge,
                       habitsDueCount: dueCount,
                       chatUnreadCount: chatUnreadCount,
+                      boardsBadge: boardsBadge,
                       onTap: () => onTap(index),
                     );
                   }),
@@ -1912,6 +1935,7 @@ class _SidebarItem extends StatefulWidget {
     required this.showSyncBadge,
     required this.habitsDueCount,
     required this.chatUnreadCount,
+    required this.boardsBadge,
     required this.onTap,
   });
 
@@ -1923,6 +1947,7 @@ class _SidebarItem extends StatefulWidget {
   final bool showSyncBadge;
   final int habitsDueCount;
   final int chatUnreadCount;
+  final int boardsBadge;
   final VoidCallback onTap;
 
   @override
@@ -1987,6 +2012,7 @@ class _SidebarItemState extends State<_SidebarItem> {
                   showSyncBadge: widget.showSyncBadge,
                   habitsDueCount: widget.habitsDueCount,
                   chatUnreadCount: widget.chatUnreadCount,
+                  boardsBadge: widget.boardsBadge,
                   child: Icon(
                     widget.isSelected ? widget.tab.activeIcon : widget.tab.icon,
                     size: 20,
