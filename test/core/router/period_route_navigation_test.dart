@@ -45,13 +45,12 @@ void main() {
 
     test('non-PeriodDetailArgs extra resolves to null hint', () {
       const extra = 'not-a-hint';
-      final hint = extra is PeriodDetailArgs ? extra : null;
+      const hint = extra is PeriodDetailArgs ? extra : null;
       expect(hint, isNull);
     });
 
     test('PeriodDetailScreen accepts sorted ids and null hint without error', () {
-      // Verify the constructor signature matches what the route builder passes.
-      final screen = PeriodDetailScreen(sessionIds: const ['a', 'b'], hint: null);
+      const screen = PeriodDetailScreen(sessionIds: ['a', 'b'], hint: null);
       expect(screen.sessionIds, ['a', 'b']);
       expect(screen.hint, isNull);
     });

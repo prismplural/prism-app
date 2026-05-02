@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -956,7 +958,7 @@ void main() {
         // Navigate to the detail route with push (preserves "/" in history so
         // Navigator.canPop() returns true and the pop lands on "/").
         await tester.pump(); // initial build: "/" renders
-        router.push('/detail');
+        unawaited(router.push('/detail'));
         await tester.pump(); // route pushed
         await tester.pump(); // streams deliver null data
         // Post-frame callback fires — toast shown, pop requested.
@@ -1023,7 +1025,7 @@ void main() {
         );
 
         await tester.pump(); // initial build
-        router.push('/detail');
+        unawaited(router.push('/detail'));
         await tester.pump();
         await tester.pump();
         await tester.pump(Duration.zero);
