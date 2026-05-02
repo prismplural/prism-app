@@ -70,33 +70,88 @@ class _PeriodDetailScreenState extends ConsumerState<PeriodDetailScreen> {
   /// Guards against re-firing the toast + pop on subsequent rebuilds.
   bool _staleHandled = false;
 
-  @override
-  Widget build(BuildContext context) {
-    // Watch each sessionByIdProvider at the screen level to detect the
-    // all-null case. These watches are additive — _CoFrontersSection also
-    // watches them, but Riverpod's family cache means no duplicate work.
+  /// Set at the same time as [_staleHandled] to keep showing a loading shell
+  /// until the post-frame pop fires — prevents a one-frame flash of empty
+  /// content while the callback is pending.
+  bool _popQueued = false;
+
+  // ── Stale-session detection ───────────────────────────────────────────────
+
+  /// Called by [ref.listen] listeners whenever any watched session changes.
+  /// Checks whether all sessions have resolved to null (fully stale period)
+  /// and, if so, queues a toast + pop via [WidgetsBinding.addPostFrameCallback].
+  void _maybeHandleStale() {
+    if (_staleHandled) return;
     final asyncs = [
-      for (final id in widget.sessionIds) ref.watch(sessionByIdProvider(id)),
+      for (final id in widget.sessionIds) ref.read(sessionByIdProvider(id)),
     ];
     final allLoaded = asyncs.every((a) => !a.isLoading);
     final allNull = allLoaded &&
         asyncs.every((a) => a.whenOrNull(data: (v) => v) == null);
+    if (!allNull) return;
 
-    if (allNull && !_staleHandled) {
-      _staleHandled = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        PrismToast.error(
-          context,
-          message: context.l10n.frontingSessionNotFound,
-        );
-        final nav = Navigator.of(context);
-        if (nav.canPop()) {
-          nav.pop();
-        }
-      });
-      // Keep showing a loading shell so the screen doesn't flash empty
-      // content for the one frame before the post-frame callback fires.
+    _staleHandled = true;
+    _popQueued = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      PrismToast.error(context, message: context.l10n.frontingSessionNotFound);
+      final nav = Navigator.of(context);
+      if (nav.canPop()) {
+        nav.pop();
+      } else {
+        // Deep-link entry with all-stale IDs and no back stack — route to
+        // home instead of leaving the loading shell up forever.
+        context.go(AppRoutePaths.home);
+      }
+    });
+  }
+
+  // ── Delete contributor resolution ─────────────────────────────────────────
+
+  /// Resolves the list of [Member] objects for the delete confirm dialog.
+  ///
+  /// When a [PeriodDetailArgs] hint is present it already carries [Member]
+  /// objects, so we use those directly. On the deep-link path (hint == null)
+  /// we fall back to matching the period from [derivedPeriodsProvider] and
+  /// batch-loading its member IDs via [membersByIdsProvider]. If both hint
+  /// and matched period are absent (extreme edge case — deep-link before
+  /// periods have been derived), returns an empty list with a comment that
+  /// this is a degenerate state.
+  List<Member> _resolveDeleteContributors() {
+    if (widget.hint != null) return widget.hint!.activeMembers;
+    final periodsAsync = ref.read(derivedPeriodsProvider);
+    final matched = periodsAsync.whenOrNull(
+      data: (periods) => findPeriodBySessionIds(periods, widget.sessionIds),
+    );
+    // Degenerate state: deep-link arrived before derived periods resolved.
+    // The confirm dialog will show an empty names string — acceptable because
+    // this window is extremely short (periods derive from a single DB query).
+    if (matched == null) return const <Member>[];
+    final key = memberIdsKey(matched.activeMembers);
+    final map =
+        ref.read(membersByIdsProvider(key)).whenOrNull(data: (m) => m) ??
+        const <String, Member>{};
+    return matched.activeMembers
+        .map((id) => map[id])
+        .whereType<Member>()
+        .toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Listen to each session for the all-null transition. ref.listen is the
+    // sanctioned side-effect mechanism inside build — fires only on actual
+    // value changes, not on every rebuild.
+    for (final id in widget.sessionIds) {
+      ref.listen<AsyncValue<FrontingSession?>>(
+        sessionByIdProvider(id),
+        (prev, next) => _maybeHandleStale(),
+      );
+    }
+
+    // While a post-frame pop is queued, keep showing a loading shell so the
+    // screen doesn't flash empty content for the one frame before it fires.
+    if (_popQueued) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       );
@@ -156,7 +211,7 @@ class _PeriodDetailScreenState extends ConsumerState<PeriodDetailScreen> {
                 context,
                 ref,
                 sessionIds: widget.sessionIds,
-                contributors: widget.hint?.activeMembers ?? <Member>[],
+                contributors: _resolveDeleteContributors(),
               );
               if (didDelete && context.mounted) {
                 context.pop();
@@ -384,7 +439,6 @@ class _CoFrontersSection extends ConsumerWidget {
     final sorted = [...resolvedSessions]
       ..sort((a, b) => a.startTime.compareTo(b.startTime));
 
-    // Collect member IDs for batch lookup.
     final memberIds =
         sorted.map((s) => s.memberId).whereType<String>().toList();
     final membersKey = memberIdsKey(memberIds);
@@ -485,6 +539,7 @@ class _CoFronterRow extends ConsumerWidget {
 
   Future<void> _endFronting(BuildContext context, WidgetRef ref) async {
     if (session.memberId == null) return;
+    Haptics.heavy();
     try {
       await ref
           .read(frontingNotifierProvider.notifier)
@@ -550,7 +605,6 @@ class _CoFronterRow extends ConsumerWidget {
 
     const dimAlpha = 0.6;
 
-    // Leading: avatar or Unknown circle.
     final leadingWidget = isUnknown
         ? Container(
             width: 40,
