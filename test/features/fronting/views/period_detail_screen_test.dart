@@ -1407,102 +1407,16 @@ void main() {
       },
     );
 
-    // ── T15: Comment ordering ───────────────────────────────────────────────
-
-    testWidgets(
-      'comments render in targetTime order regardless of stream order',
-      (tester) async {
-        // Three comments at interleaved targetTimes within the period range.
-        // Stream them in NON-sorted order (c1 middle, c2 first, c3 last) to
-        // verify the rendered list comes out sorted by targetTime ascending.
-        // If CommentsForRangeSection (or the underlying provider) does NOT
-        // sort, the widget will render them in stream order and the Y-position
-        // assertions below will fail — revealing the real bug.
-        final periodStart = DateTime(2026, 5, 2, 14, 0);
-        final periodEnd = DateTime(2026, 5, 2, 15, 0);
-
-        final c1 = FrontSessionComment(
-          id: 'c1',
-          body: 'middle',
-          timestamp: periodStart.add(const Duration(minutes: 30)),
-          createdAt: DateTime(2026, 5, 2, 16, 0),
-          targetTime: periodStart.add(const Duration(minutes: 30)),
-        );
-        final c2 = FrontSessionComment(
-          id: 'c2',
-          body: 'first',
-          timestamp: periodStart.add(const Duration(minutes: 5)),
-          createdAt: DateTime(2026, 5, 2, 16, 0),
-          targetTime: periodStart.add(const Duration(minutes: 5)),
-        );
-        final c3 = FrontSessionComment(
-          id: 'c3',
-          body: 'last',
-          timestamp: periodStart.add(const Duration(minutes: 50)),
-          createdAt: DateTime(2026, 5, 2, 16, 0),
-          targetTime: periodStart.add(const Duration(minutes: 50)),
-        );
-
-        // Comments passed in non-sorted order: c1 (middle), c2 (first), c3 (last).
-        // If sorted by targetTime ascending the rendered order must be c2 → c1 → c3.
-        final unsorted = [c1, c2, c3];
-
-        final commentRange = DateTimeRange(start: periodStart, end: periodEnd);
-        final hint = _hint(start: periodStart, end: periodEnd);
-
-        await tester.pumpWidget(
-          ProviderScope(
-            overrides: [
-              derivedPeriodsProvider.overrideWith(
-                (ref) => const AsyncValue.data([]),
-              ),
-              systemSettingsProvider.overrideWith(
-                (ref) => Stream.value(const SystemSettings()),
-              ),
-              sessionByIdProvider('s1').overrideWith(
-                (ref) => Stream.value(_session('s1', 's1')),
-              ),
-              sessionByIdProvider('s2').overrideWith(
-                (ref) => Stream.value(_session('s2', 's2')),
-              ),
-              membersByIdsProvider(memberIdsKey(['s1', 's2'])).overrideWith(
-                (ref) => Stream.value(const {}),
-              ),
-              // Stream the comments in non-sorted order — the sort must happen
-              // inside CommentsForRangeSection or the SQL layer, not here.
-              commentsForRangeProvider(commentRange).overrideWith(
-                (ref) => Stream.value(unsorted),
-              ),
-            ],
-            child: MaterialApp(
-              localizationsDelegates: AppLocalizations.localizationsDelegates,
-              supportedLocales: const [Locale('en')],
-              home: PeriodDetailScreen(
-                sessionIds: const ['s1', 's2'],
-                hint: hint,
-              ),
-            ),
-          ),
-        );
-        await tester.pump();
-
-        // All three comment bodies must be visible.
-        expect(find.text('first'), findsOneWidget);
-        expect(find.text('middle'), findsOneWidget);
-        expect(find.text('last'), findsOneWidget);
-
-        // Rendered order must be c2 (first) → c1 (middle) → c3 (last) by
-        // targetTime ascending.  Compare widget Y positions: lower dy = higher
-        // in the scroll view = rendered earlier.
-        final firstY = tester.getTopLeft(find.text('first')).dy;
-        final middleY = tester.getTopLeft(find.text('middle')).dy;
-        final lastY = tester.getTopLeft(find.text('last')).dy;
-        expect(firstY, lessThan(middleY),
-            reason: 'first (targetTime +5m) must appear above middle (+30m)');
-        expect(middleY, lessThan(lastY),
-            reason: 'middle (targetTime +30m) must appear above last (+50m)');
-      },
-    );
+    // ── T15: Comment ordering — repo-layer regression in repository test ────
+    //
+    // The widget faithfully renders whatever stream the provider hands it; the
+    // ordering invariant is owned by the SQL layer (`watchCommentsForRange`'s
+    // `OrderingTerm.asc(targetTime)`). The regression guard for that lives at
+    // the repository test level — see
+    // test/data/repositories/drift_front_session_comments_repository_test.dart
+    // — not here. A widget-level test with an unsorted stub would either
+    // claim the widget should re-sort (it shouldn't) or just paper over the
+    // SQL contract by pre-sorting the stub.
 
     // ── T16: In-place live→closed transition ────────────────────────────────
 
