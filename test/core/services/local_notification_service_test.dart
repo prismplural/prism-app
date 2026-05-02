@@ -1,9 +1,81 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/services/local_notification_service.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  group('permission checks', () {
+    const channel = MethodChannel('dexterous.com/flutter/local_notifications');
+    final calls = <MethodCall>[];
+
+    setUp(() {
+      calls.clear();
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            calls.add(call);
+            return switch (call.method) {
+              'initialize' => true,
+              'checkPermissions' => <String, Object>{
+                'isEnabled': true,
+                'isSoundEnabled': true,
+                'isAlertEnabled': true,
+                'isBadgeEnabled': true,
+                'isProvisionalEnabled': false,
+                'isCriticalEnabled': false,
+                'isProvidesAppNotificationSettingsEnabled': false,
+                'isCarPlayEnabled': false,
+              },
+              _ => null,
+            };
+          });
+    });
+
+    tearDown(() {
+      debugDefaultTargetPlatformOverride = null;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null);
+    });
+
+    test(
+      'iOS uses checkPermissions for status instead of requestPermissions',
+      () async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+        IOSFlutterLocalNotificationsPlugin.registerWith();
+
+        final granted = await LocalNotificationService().isPermissionGranted();
+
+        expect(granted, isTrue);
+        expect(calls.map((c) => c.method), contains('checkPermissions'));
+        expect(
+          calls.map((c) => c.method),
+          isNot(contains('requestPermissions')),
+        );
+      },
+    );
+
+    test(
+      'macOS uses checkPermissions for status instead of requestPermissions',
+      () async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        MacOSFlutterLocalNotificationsPlugin.registerWith();
+
+        final granted = await LocalNotificationService().isPermissionGranted();
+
+        expect(granted, isTrue);
+        expect(calls.map((c) => c.method), contains('checkPermissions'));
+        expect(
+          calls.map((c) => c.method),
+          isNot(contains('requestPermissions')),
+        );
+      },
+    );
+  });
+
   // ── nextWeekdayOccurrenceFrom ──────────────────────────────────────
   //
   // Regression: the picker emits 0=Sunday..6=Saturday but Dart's
