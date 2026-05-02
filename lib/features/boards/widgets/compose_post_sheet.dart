@@ -438,9 +438,11 @@ class _ComposePostSheetBodyState
                 behavior: HitTestBehavior.translucent,
                 child: ListView(
                   controller: widget.scrollController,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: PrismTokens.pageHorizontalPadding + 8,
-                    vertical: 16,
+                  padding: const EdgeInsets.fromLTRB(
+                    PrismTokens.pageHorizontalPadding + 8,
+                    8,
+                    PrismTokens.pageHorizontalPadding + 8,
+                    16,
                   ),
                   children: [
                     // ── Recipient picker ─────────────────────────────────────
