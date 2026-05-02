@@ -7,11 +7,13 @@ import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
+import '../../features/fronting/views/edit_front_session_screen.dart';
 import '../../features/fronting/views/fronting_screen.dart';
+import '../../features/fronting/views/period_detail_args.dart';
+import '../../features/fronting/views/period_detail_screen.dart';
 import '../../features/fronting/views/session_detail_screen.dart';
 import '../../features/fronting/views/sleep_screen.dart';
 import '../../features/fronting/views/timeline_screen.dart';
-import '../../features/fronting/views/edit_front_session_screen.dart';
 import '../../features/members/views/members_screen.dart';
 import '../../features/members/views/member_detail_screen.dart';
 import '../../features/chat/views/chat_screen.dart';
@@ -301,6 +303,16 @@ final routerProvider = Provider<GoRouter>((ref) {
                         ),
                       ),
                     ],
+                  ),
+                  GoRoute(
+                    path: 'period',
+                    builder: (context, state) {
+                      final ids = parsePeriodIds(state.uri);
+                      final hint = state.extra is PeriodDetailArgs
+                          ? state.extra as PeriodDetailArgs
+                          : null;
+                      return PeriodDetailScreen(sessionIds: ids, hint: hint);
+                    },
                   ),
                 ],
               ),
