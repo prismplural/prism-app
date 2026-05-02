@@ -1,16 +1,16 @@
 // End-to-end migration harness for SP board messages → Prism MemberBoardPost.
 //
 // Covers three paths:
-//   1. New import  — SpMapper emits MemberBoardPost rows directly (Batch F+).
-//   2. Old + backfill — The pre-Batch-F importer created synthetic DM conversations
-//      (is_dm=true, emoji=📝, "**title**\nbody" content). SpBoardsBackfillService
-//      converts those to the same MemberBoardPost rows with identical deterministic
-//      UUID v5 IDs.
-//   3. Full import   — SpImporter.executeImport() wired to an in-memory DB,
+//   1. New import  — SpMapper emits MemberBoardPost rows directly.
+//   2. Old + backfill — the pre-rewrite importer created synthetic DM
+//      conversations (is_dm=true, emoji=📝, "**title**\nbody" content).
+//      SpBoardsBackfillService converts those to MemberBoardPost rows with
+//      identical deterministic UUID v5 IDs.
+//   3. Full import — SpImporter.executeImport() wired to an in-memory DB,
 //      verifying the importer result counts and the boardsEnabled auto-enable.
 //
-// Test data: /Users/sky/Downloads/export_7b35523d…(2).json
-//   5 board messages, all members resolved, all read=false.
+// Requires a real SP export to run. Set PRISM_SP_BOARDS_EXPORT to the
+// absolute path; tests are skipped when unset or pointing at a missing file.
 
 import 'dart:convert';
 import 'dart:io';
@@ -39,12 +39,9 @@ import '../../../helpers/fake_repositories.dart';
 // Helpers
 // =============================================================================
 
-/// Path to the real SP export file.
-const _exportPath =
-    '/Users/sky/Downloads/'
-    'export_7b35523dcdf0f69a3aed9e965506e1c0ad9d6a9df79ddba866cbd4bdc352703a(2).json';
+final String? _exportPath = Platform.environment['PRISM_SP_BOARDS_EXPORT'];
 
-SpExportData _loadExport() => SpParser.parse(File(_exportPath).readAsStringSync());
+SpExportData _loadExport() => SpParser.parse(File(_exportPath!).readAsStringSync());
 
 AppDatabase _makeDb() => AppDatabase(NativeDatabase.memory());
 
@@ -91,8 +88,15 @@ String _oldContent(String? title, String body) {
 // =============================================================================
 
 void main() {
-  final exportExists = File(_exportPath).existsSync();
-  final skipMsg = exportExists ? null : 'Export file not found at $_exportPath';
+  final path = _exportPath;
+  final String? skipMsg;
+  if (path == null || path.isEmpty) {
+    skipMsg = 'PRISM_SP_BOARDS_EXPORT not set; skipping SP boards e2e tests';
+  } else if (!File(path).existsSync()) {
+    skipMsg = 'PRISM_SP_BOARDS_EXPORT points at missing file: $path';
+  } else {
+    skipMsg = null;
+  }
 
   // ---------------------------------------------------------------------------
   // Group 1 — New import path via SpMapper
