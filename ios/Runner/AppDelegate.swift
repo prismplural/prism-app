@@ -377,6 +377,8 @@ enum PlatformAttestationError: Error, LocalizedError {
         case "deleteRuntimeDekWrappingKey":
           self.deleteRuntimeDekWrappingKey()
           result(nil)
+        case "getRuntimeDekDiagnostics":
+          result(self.collectRuntimeDekDiagnostics())
         default:
           result(FlutterMethodNotImplemented)
         }
@@ -518,8 +520,17 @@ enum PlatformAttestationError: Error, LocalizedError {
     else {
       throw runtimeDekError("Invalid wrapped runtime DEK blob")
     }
+    // Use the existing-only path: never auto-generate during unwrap, so a
+    // transient Keychain lookup failure can't silently mint a fresh key
+    // and orphan the existing wrapped blob. Mirrors the Kotlin
+    // getExistingRuntimeDekWrappingKey split.
+    guard let privateKey = readRuntimeDekPrivateKey() else {
+      throw runtimeDekError(
+        "Runtime DEK private key not present in Keychain"
+      )
+    }
     let key = try deriveRuntimeDekAesKey(
-      privateKey: try loadOrCreateRuntimeDekPrivateKey(),
+      privateKey: privateKey,
       peerPublicKeyData: ephemeralPublicKeyData,
       aad: aad
     )
@@ -645,6 +656,56 @@ enum PlatformAttestationError: Error, LocalizedError {
       code: -1,
       userInfo: [NSLocalizedDescriptionKey: message]
     )
+  }
+
+  /// Returns a snapshot of runtime-DEK-relevant Keychain + device state
+  /// for the Crypto storage debug screen. Read-only — must not mutate the
+  /// Keychain (no SecItemAdd, no test-unwrap). Mirrors the Kotlin twin in
+  /// MainActivity.kt.
+  private func collectRuntimeDekDiagnostics() -> [String: Any] {
+    var out: [String: Any] = [:]
+
+    // Alias presence — try to read without copying material.
+    let query: [String: Any] = [
+      kSecClass as String: kSecClassKey,
+      kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
+      kSecAttrApplicationTag as String: runtimeDekPrivateKeyTag,
+      kSecMatchLimit as String: kSecMatchLimitOne,
+      kSecReturnAttributes as String: true,
+    ]
+    var item: CFTypeRef?
+    let status = SecItemCopyMatching(query as CFDictionary, &item)
+    out["alias_present"] = (status == errSecSuccess)
+    if status != errSecSuccess && status != errSecItemNotFound {
+      out["keychain_introspection_status"] = Int(status)
+    }
+    if status == errSecSuccess, let attrs = item as? [String: Any] {
+      var keySecurity: [String: Any] = [:]
+      if let accessible = attrs[kSecAttrAccessible as String] as? String {
+        keySecurity["accessible"] = accessible
+      }
+      if let synchronizable = attrs[kSecAttrSynchronizable as String] as? Bool {
+        keySecurity["synchronizable"] = synchronizable
+      }
+      if let isExtractable = attrs[kSecAttrIsExtractable as String] as? Bool {
+        keySecurity["is_extractable"] = isExtractable
+      }
+      out["key_security"] = keySecurity
+    }
+
+    out["device_state"] = [
+      "is_protected_data_available": UIApplication.shared.isProtectedDataAvailable,
+    ]
+
+    let device = UIDevice.current
+    out["build"] = [
+      "manufacturer": "Apple",
+      "model": device.model,
+      "system_name": device.systemName,
+      "system_version": device.systemVersion,
+    ]
+
+    return out
   }
 
   /// Maps an unwrap failure into one of three Dart-facing codes — see the

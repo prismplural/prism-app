@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 
 import 'package:prism_plurality/core/services/crypto_boot_log.dart';
+import 'package:prism_plurality/core/services/runtime_dek_store.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
@@ -90,12 +91,22 @@ class _CryptoStorageDebugScreenState
 
     final health = ref.read(syncHealthProvider);
 
+    Map<String, dynamic>? platformDiagnostics;
+    try {
+      platformDiagnostics =
+          await const DeviceBoundRuntimeDekStore().getDiagnostics();
+    } catch (_) {
+      platformDiagnostics = null;
+    }
+
     return _SnapshotData(
       entries: entries,
       handlePresent: handle != null,
       unlocked: unlocked,
       health: health,
       capturedAt: DateTime.now(),
+      lastUnwrapFailure: RuntimeDekUnwrapFailureRegistry.last,
+      platformDiagnostics: platformDiagnostics,
     );
   }
 
@@ -163,12 +174,35 @@ class _CryptoStorageDebugScreenState
 
   Future<void> _copyDiagnostic(_SnapshotData snapshot) async {
     final history = await CryptoBootLog.instance.readAll();
+    const jsonIndent = JsonEncoder.withIndent('  ');
     final buf = StringBuffer()
       ..writeln('Prism crypto storage diagnostic')
       ..writeln('Captured: ${snapshot.capturedAt.toIso8601String()}')
       ..writeln('Handle present: ${snapshot.handlePresent}')
       ..writeln('Engine unlocked: ${snapshot.unlocked ?? 'unknown'}')
-      ..writeln('Sync health: ${snapshot.health.name}')
+      ..writeln('Sync health: ${snapshot.health.name}');
+
+    if (snapshot.lastUnwrapFailure != null) {
+      final f = snapshot.lastUnwrapFailure!;
+      buf
+        ..writeln()
+        ..writeln('Last unwrap failure:')
+        ..writeln('  classification: ${f.classification.name}')
+        ..writeln('  attempts: ${f.attempts}')
+        ..writeln('  cache_preserved: ${f.cachePreserved}')
+        ..writeln('  error_code: ${f.errorCode ?? '(none)'}')
+        ..writeln('  error_message: ${f.errorMessage ?? '(none)'}')
+        ..writeln('  timestamp: ${f.timestamp.toIso8601String()}');
+    }
+
+    if (snapshot.platformDiagnostics != null) {
+      buf
+        ..writeln()
+        ..writeln('Platform diagnostics:')
+        ..writeln(jsonIndent.convert(snapshot.platformDiagnostics));
+    }
+
+    buf
       ..writeln()
       ..writeln('Keychain entries (prism_sync.*) — current:');
     for (final e in snapshot.entries) {
@@ -197,6 +231,24 @@ class _CryptoStorageDebugScreenState
               'unlocked=${s.engineUnlocked ?? 'unknown'}  '
               'v=${s.appVersion}  '
               'platform=${s.platform}');
+        if (s.unwrapFailure != null) {
+          final f = s.unwrapFailure!;
+          buf.writeln(
+            '    unwrap_failure: ${f.classification.name}  '
+            'code=${f.errorCode ?? '(none)'}  '
+            'attempts=${f.attempts}  '
+            'preserved=${f.cachePreserved}',
+          );
+          if (f.errorMessage != null) {
+            buf.writeln('    unwrap_message: ${f.errorMessage}');
+          }
+        }
+        if (s.platformDiagnostics != null) {
+          buf.writeln(
+            '    platform_diagnostics: '
+            '${jsonIndent.convert(s.platformDiagnostics)}',
+          );
+        }
         for (final e in s.keys) {
           buf.writeln(
             '    ✓ ${e.bareKey}  '
@@ -334,6 +386,64 @@ class _EngineStateCard extends StatelessWidget {
                 : (snapshot.unlocked! ? 'yes' : 'no'),
           ),
           row('Health', snapshot.health.name),
+
+          if (snapshot.lastUnwrapFailure != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              'Last unwrap failure',
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: theme.colorScheme.error,
+              ),
+            ),
+            const SizedBox(height: 4),
+            row(
+              'Classification',
+              snapshot.lastUnwrapFailure!.classification.name,
+            ),
+            row('Attempts', snapshot.lastUnwrapFailure!.attempts.toString()),
+            row(
+              'Cache preserved',
+              snapshot.lastUnwrapFailure!.cachePreserved ? 'yes' : 'no',
+            ),
+            if (snapshot.lastUnwrapFailure!.errorCode != null)
+              row('Error code', snapshot.lastUnwrapFailure!.errorCode!),
+            if (snapshot.lastUnwrapFailure!.errorMessage != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Error message:',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              SelectableText(
+                snapshot.lastUnwrapFailure!.errorMessage!,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ],
+          ],
+
+          if (snapshot.platformDiagnostics != null &&
+              snapshot.platformDiagnostics!.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              'Platform diagnostics',
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 4),
+            SelectableText(
+              const JsonEncoder.withIndent('  ').convert(
+                snapshot.platformDiagnostics,
+              ),
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontFamily: 'monospace',
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -572,6 +682,60 @@ class _BootLogTile extends StatelessWidget {
                     : (snapshot.engineUnlocked! ? 'yes' : 'no'),
               ),
               const SizedBox(height: 8),
+              if (snapshot.unwrapFailure != null) ...[
+                Text(
+                  'Unwrap failure: ${snapshot.unwrapFailure!.classification.name}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.error,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(left: 8, top: 2),
+                  child: Text(
+                    'code=${snapshot.unwrapFailure!.errorCode ?? '(none)'}  '
+                    'attempts=${snapshot.unwrapFailure!.attempts}  '
+                    'cache_preserved=${snapshot.unwrapFailure!.cachePreserved}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontFamily: 'monospace',
+                      color: theme.colorScheme.error,
+                    ),
+                  ),
+                ),
+                if (snapshot.unwrapFailure!.errorMessage != null)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8, top: 2),
+                    child: Text(
+                      'message: ${snapshot.unwrapFailure!.errorMessage}',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontFamily: 'monospace',
+                        color: theme.colorScheme.error,
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 8),
+              ],
+              if (snapshot.platformDiagnostics != null &&
+                  snapshot.platformDiagnostics!.isNotEmpty) ...[
+                Text(
+                  'Platform diagnostics:',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(left: 8, top: 2),
+                  child: SelectableText(
+                    const JsonEncoder.withIndent('  ')
+                        .convert(snapshot.platformDiagnostics),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
               if (missing.isNotEmpty) ...[
                 Text(
                   'Missing expected keys:',
@@ -689,6 +853,8 @@ class _SnapshotData {
     required this.unlocked,
     required this.health,
     required this.capturedAt,
+    this.lastUnwrapFailure,
+    this.platformDiagnostics,
   });
 
   final List<_KeyStatus> entries;
@@ -696,4 +862,6 @@ class _SnapshotData {
   final bool? unlocked;
   final SyncHealthState health;
   final DateTime capturedAt;
+  final RuntimeDekUnwrapFailure? lastUnwrapFailure;
+  final Map<String, dynamic>? platformDiagnostics;
 }

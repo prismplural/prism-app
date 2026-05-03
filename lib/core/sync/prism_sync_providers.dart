@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:math' show min;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path/path.dart' as p;
@@ -1036,10 +1037,23 @@ Future<Uint8List?> readCachedRuntimeDekForRestoreCore({
   required Future<Uint8List> Function(String blob, String aad) unwrapDek,
   required Future<String> Function(Uint8List dekBytes, String aad) wrapDek,
   RuntimeDekUnwrapClassification Function(Object error)? classifyError,
+  void Function(RuntimeDekUnwrapFailure failure)? recordFailure,
+  void Function()? clearFailureRecord,
   void Function(String message, Object error, StackTrace stackTrace)?
   reportWarning,
 }) async {
   final classify = classifyError ?? classifyRuntimeDekUnwrapError;
+  final record = recordFailure ?? RuntimeDekUnwrapFailureRegistry.record;
+  final clearRecord =
+      clearFailureRecord ?? RuntimeDekUnwrapFailureRegistry.clear;
+
+  String? errorCodeOf(Object? e) =>
+      e is PlatformException ? e.code : null;
+  String? errorMessageOf(Object? e) {
+    if (e == null) return null;
+    if (e is PlatformException) return e.message;
+    return e.toString();
+  }
 
   final wrapped = await readKey(kRuntimeDekWrappedKey);
   if (wrapped != null && wrapped.isNotEmpty) {
@@ -1051,6 +1065,7 @@ Future<Uint8List?> readCachedRuntimeDekForRestoreCore({
     );
     if (firstAttempt.bytes != null) {
       await deleteKey(kRuntimeDekKey);
+      clearRecord();
       return firstAttempt.bytes;
     }
 
@@ -1066,11 +1081,23 @@ Future<Uint8List?> readCachedRuntimeDekForRestoreCore({
       );
       if (secondAttempt.bytes != null) {
         await deleteKey(kRuntimeDekKey);
+        clearRecord();
         return secondAttempt.bytes;
       }
       // Retry also failed — leave the cache alone for the next launch.
       // The user falls through to needsPassword for THIS session, but
       // we don't permanently invalidate a viable blob.
+      record(
+        RuntimeDekUnwrapFailure(
+          classification: RuntimeDekUnwrapClassification.transient,
+          errorCode: errorCodeOf(secondAttempt.error ?? firstAttempt.error),
+          errorMessage:
+              errorMessageOf(secondAttempt.error ?? firstAttempt.error),
+          attempts: 2,
+          cachePreserved: true,
+          timestamp: DateTime.now().toUtc(),
+        ),
+      );
       reportWarning?.call(
         'Wrapped runtime DEK transient unwrap failed twice; cache '
         'preserved for next launch.',
@@ -1082,6 +1109,16 @@ Future<Uint8List?> readCachedRuntimeDekForRestoreCore({
       // Blob can't be unwrapped by any key we hold — discard so the next
       // successful unlock writes a fresh one.
       await deleteKey(kRuntimeDekWrappedKey);
+      record(
+        RuntimeDekUnwrapFailure(
+          classification: RuntimeDekUnwrapClassification.terminal,
+          errorCode: errorCodeOf(firstAttempt.error),
+          errorMessage: errorMessageOf(firstAttempt.error),
+          attempts: 1,
+          cachePreserved: false,
+          timestamp: DateTime.now().toUtc(),
+        ),
+      );
       reportWarning?.call(
         'Wrapped runtime DEK terminal unwrap failure; cache deleted.',
         firstAttempt.error ?? StateError('unknown'),
@@ -1093,6 +1130,16 @@ Future<Uint8List?> readCachedRuntimeDekForRestoreCore({
       // user will fall through to needsPassword; if it's actually a new
       // transient mode we haven't classified, future launches will pick
       // it up cleanly.
+      record(
+        RuntimeDekUnwrapFailure(
+          classification: RuntimeDekUnwrapClassification.unknown,
+          errorCode: errorCodeOf(firstAttempt.error),
+          errorMessage: errorMessageOf(firstAttempt.error),
+          attempts: 1,
+          cachePreserved: true,
+          timestamp: DateTime.now().toUtc(),
+        ),
+      );
       reportWarning?.call(
         'Wrapped runtime DEK unwrap failed with unclassified error; '
         'cache preserved.',

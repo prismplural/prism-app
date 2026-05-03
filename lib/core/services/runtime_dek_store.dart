@@ -1,7 +1,84 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+
+/// One observed runtime-DEK unwrap failure. Captured by the cache-restore
+/// pipeline so the next boot snapshot can include the platform code +
+/// message in the diagnostic export.
+@immutable
+class RuntimeDekUnwrapFailure {
+  const RuntimeDekUnwrapFailure({
+    required this.classification,
+    required this.errorCode,
+    required this.errorMessage,
+    required this.attempts,
+    required this.cachePreserved,
+    required this.timestamp,
+  });
+
+  final RuntimeDekUnwrapClassification classification;
+
+  /// Platform error code from `PlatformException.code`, or `null` for
+  /// non-platform failures (e.g. an unrelated Dart-side throw).
+  final String? errorCode;
+  final String? errorMessage;
+
+  /// Number of unwrap attempts made for this snapshot's restore flow
+  /// (1 = single failure, 2 = transient classification triggered a retry
+  /// that also failed).
+  final int attempts;
+
+  /// Whether the wrapped cache was kept on disk after this failure (only
+  /// terminal codes evict the cache).
+  final bool cachePreserved;
+
+  final DateTime timestamp;
+
+  Map<String, dynamic> toJson() => {
+        'classification': classification.name,
+        if (errorCode != null) 'error_code': errorCode,
+        if (errorMessage != null) 'error_message': errorMessage,
+        'attempts': attempts,
+        'cache_preserved': cachePreserved,
+        'timestamp': timestamp.toIso8601String(),
+      };
+
+  factory RuntimeDekUnwrapFailure.fromJson(Map<String, dynamic> json) {
+    return RuntimeDekUnwrapFailure(
+      classification: RuntimeDekUnwrapClassification.values.firstWhere(
+        (c) => c.name == (json['classification'] as String?),
+        orElse: () => RuntimeDekUnwrapClassification.unknown,
+      ),
+      errorCode: json['error_code'] as String?,
+      errorMessage: json['error_message'] as String?,
+      attempts: json['attempts'] as int? ?? 1,
+      cachePreserved: json['cache_preserved'] as bool? ?? true,
+      timestamp: DateTime.parse(json['timestamp'] as String),
+    );
+  }
+}
+
+/// Process-wide registry for the last observed runtime-DEK unwrap
+/// failure. Updated by `readCachedRuntimeDekForRestoreCore`; read by the
+/// boot-log snapshot path. Cleared on a successful unwrap so the
+/// diagnostic accurately reflects the most recent failure.
+class RuntimeDekUnwrapFailureRegistry {
+  RuntimeDekUnwrapFailureRegistry._();
+
+  static RuntimeDekUnwrapFailure? _last;
+
+  static RuntimeDekUnwrapFailure? get last => _last;
+
+  static void record(RuntimeDekUnwrapFailure failure) {
+    _last = failure;
+  }
+
+  static void clear() {
+    _last = null;
+  }
+}
 
 /// Classification for a wrapped-DEK unwrap failure. Drives the Dart-side
 /// cache eviction policy: `terminal` → discard the wrapped blob (it can
@@ -89,5 +166,30 @@ class DeviceBoundRuntimeDekStore {
   Future<void> deleteWrappingKey() async {
     if (!isSupported) return;
     await _channel.invokeMethod<void>('deleteRuntimeDekWrappingKey');
+  }
+
+  /// Returns a platform-defined map of runtime-DEK Keystore/Keychain
+  /// state for diagnostic surfacing. Read-only — never mutates platform
+  /// state. Returns null when called on an unsupported platform or when
+  /// the platform handler is missing (older builds).
+  ///
+  /// Shape (best-effort, platform-specific):
+  ///   - `alias_present`: bool
+  ///   - `key_security`: map (security level, StrongBox, accessibility)
+  ///   - `device_state`: map (KeyguardManager / UserManager on Android;
+  ///     `isProtectedDataAvailable` on iOS)
+  ///   - `build`: map (manufacturer, model, OS version)
+  Future<Map<String, dynamic>?> getDiagnostics() async {
+    if (!isSupported) return null;
+    try {
+      final raw = await _channel.invokeMapMethod<String, dynamic>(
+        'getRuntimeDekDiagnostics',
+      );
+      return raw;
+    } on MissingPluginException {
+      return null;
+    } catch (_) {
+      return null;
+    }
   }
 }

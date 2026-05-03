@@ -24,6 +24,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'package:prism_plurality/core/services/build_info.dart';
+import 'package:prism_plurality/core/services/runtime_dek_store.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
 
 /// One row per `prism_sync.*` key at snapshot time.
@@ -70,6 +71,8 @@ class CryptoBootSnapshot {
     required this.engineUnlocked,
     required this.keys,
     required this.trigger,
+    this.unwrapFailure,
+    this.platformDiagnostics,
   });
 
   final DateTime timestamp;
@@ -85,6 +88,17 @@ class CryptoBootSnapshot {
   /// in the debug screen.
   final String trigger;
 
+  /// Most recent runtime-DEK unwrap failure observed during the cache
+  /// restore that immediately preceded this snapshot. Null when the
+  /// unwrap succeeded (or wasn't attempted because the cache was empty).
+  final RuntimeDekUnwrapFailure? unwrapFailure;
+
+  /// Platform-side diagnostic blob (Keystore alias presence, security
+  /// level, device-lock state, OEM/build info). Shape is platform-defined
+  /// — see `MainActivity.kt#collectRuntimeDekDiagnostics` and the iOS
+  /// twin in `AppDelegate.swift`.
+  final Map<String, dynamic>? platformDiagnostics;
+
   Map<String, dynamic> toJson() => {
         'ts': timestamp.toIso8601String(),
         'v': appVersion,
@@ -94,6 +108,8 @@ class CryptoBootSnapshot {
         if (engineUnlocked != null) 'u': engineUnlocked,
         't': trigger,
         'k': keys.map((e) => e.toJson()).toList(),
+        if (unwrapFailure != null) 'uf': unwrapFailure!.toJson(),
+        if (platformDiagnostics != null) 'pd': platformDiagnostics,
       };
 
   factory CryptoBootSnapshot.fromJson(Map<String, dynamic> json) {
@@ -108,6 +124,14 @@ class CryptoBootSnapshot {
       keys: (json['k'] as List<dynamic>? ?? const [])
           .map((e) => CryptoBootKeyEntry.fromJson(e as Map<String, dynamic>))
           .toList(),
+      unwrapFailure: json['uf'] is Map<String, dynamic>
+          ? RuntimeDekUnwrapFailure.fromJson(
+              json['uf'] as Map<String, dynamic>,
+            )
+          : null,
+      platformDiagnostics: json['pd'] is Map<String, dynamic>
+          ? Map<String, dynamic>.from(json['pd'] as Map<String, dynamic>)
+          : null,
     );
   }
 
@@ -161,6 +185,17 @@ class CryptoBootLog {
     }
     entries.sort((a, b) => a.bareKey.compareTo(b.bareKey));
 
+    // Best-effort platform Keystore/Keychain introspection. Read-only —
+    // never mutates platform state. Returns null on unsupported platforms
+    // or older builds without the method handler.
+    Map<String, dynamic>? platformDiagnostics;
+    try {
+      platformDiagnostics =
+          await const DeviceBoundRuntimeDekStore().getDiagnostics();
+    } catch (e) {
+      debugPrint('[CryptoBootLog] platform diagnostics failed: $e');
+    }
+
     return CryptoBootSnapshot(
       timestamp: DateTime.now().toUtc(),
       appVersion: BuildInfo.appVersion,
@@ -170,6 +205,8 @@ class CryptoBootLog {
       engineUnlocked: engineUnlocked,
       trigger: trigger,
       keys: entries,
+      unwrapFailure: RuntimeDekUnwrapFailureRegistry.last,
+      platformDiagnostics: platformDiagnostics,
     );
   }
 

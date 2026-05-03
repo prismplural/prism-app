@@ -2,6 +2,7 @@ package com.prismplural.prism
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.app.KeyguardManager
 import android.content.ClipDescription
 import android.content.Context
 import android.content.pm.PackageManager
@@ -10,6 +11,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.UserManager
 import android.provider.MediaStore
 import android.security.keystore.KeyInfo
 import android.security.keystore.KeyGenParameterSpec
@@ -146,6 +148,8 @@ class MainActivity : FlutterActivity() {
                         deleteRuntimeDekWrappingKey()
                         result.success(null)
                     }
+                    "getRuntimeDekDiagnostics" ->
+                        result.success(collectRuntimeDekDiagnostics())
                     else -> result.notImplemented()
                 }
             } catch (t: Throwable) {
@@ -250,14 +254,45 @@ class MainActivity : FlutterActivity() {
             ?: throw IllegalArgumentException("aad is required")
         val iv = Base64.decode(args["iv"] as? String ?: "", Base64.NO_WRAP)
         val ciphertext = Base64.decode(args["ciphertext"] as? String ?: "", Base64.NO_WRAP)
+
+        // Use the existing-only path: never auto-generate during unwrap.
+        // A transient lookup failure on the existing alias must surface as
+        // a TRANSIENT classification (so the cache survives), not as an
+        // accidental key replacement that would orphan the wrapped blob.
+        val key = getExistingRuntimeDekWrappingKey()
+
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(
-            Cipher.DECRYPT_MODE,
-            getOrCreateRuntimeDekWrappingKey(),
-            GCMParameterSpec(128, iv),
-        )
+        cipher.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(128, iv))
         cipher.updateAAD(aad.toByteArray(Charsets.UTF_8))
         return cipher.doFinal(ciphertext)
+    }
+
+    /**
+     * Loads the existing runtime DEK wrapping key without ever generating
+     * one. Distinguishes "alias genuinely missing" (terminal — the cached
+     * blob can never be unwrapped, throw [UnrecoverableKeyException]) from
+     * "alias present but getKey returned null" (transient — fall back via
+     * [KeyStoreException] which the classifier maps to retry).
+     *
+     * Splitting this from [getOrCreateRuntimeDekWrappingKey] is load-bearing:
+     * the previous implementation called the or-create path during unwrap,
+     * so a transient `getKey` failure would silently generate a new key,
+     * permanently orphaning the existing wrapped blob.
+     */
+    private fun getExistingRuntimeDekWrappingKey(): SecretKey {
+        val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+        if (!keyStore.containsAlias(RUNTIME_DEK_KEY_ALIAS)) {
+            throw UnrecoverableKeyException(
+                "Runtime DEK wrapping key alias '$RUNTIME_DEK_KEY_ALIAS' " +
+                    "not present in AndroidKeyStore"
+            )
+        }
+        val key = keyStore.getKey(RUNTIME_DEK_KEY_ALIAS, null) as? SecretKey
+            ?: throw KeyStoreException(
+                "Runtime DEK wrapping key alias '$RUNTIME_DEK_KEY_ALIAS' " +
+                    "present but getKey() returned null (transient)"
+            )
+        return key
     }
 
     private fun getOrCreateRuntimeDekWrappingKey(): SecretKey {
@@ -371,6 +406,15 @@ class MainActivity : FlutterActivity() {
         var current: Throwable? = throwable
         val seen = HashSet<Throwable>()
         while (current != null && seen.add(current)) {
+            // android.security.KeyStoreException (API 30+) is a SEPARATE
+            // type from java.security.KeyStoreException — different
+            // package, different inheritance tree. The diagnostic methods
+            // (isTransientFailure, requiresUserAuthentication,
+            // getNumericErrorCode) are API 33+. Detect by name to avoid
+            // a hard runtime dependency on minSdk 30+.
+            if (current::class.java.name == "android.security.KeyStoreException") {
+                return classifyAndroidKeyStoreException(current)
+            }
             when (current) {
                 // Hard terminal: the wrapping key is gone or the blob
                 // can't be authenticated against any key we hold.
@@ -394,11 +438,111 @@ class MainActivity : FlutterActivity() {
         return "runtime_dek_wrap_failed"
     }
 
+    /**
+     * Classifies an android.security.KeyStoreException via reflection
+     * (the class is API 30+; diagnostic methods are API 33+). Treats
+     * isTransientFailure() / requiresUserAuthentication() as transient.
+     * Other API-33+ verdicts default to terminal (the keystore says this
+     * is the permanent answer). On API 30-32 the diagnostic methods are
+     * absent, default to transient — these are most commonly thrown for
+     * retryable device-state issues.
+     */
+    private fun classifyAndroidKeyStoreException(e: Throwable): String {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            try {
+                val cls = e::class.java
+                val isTransient = cls.getMethod("isTransientFailure")
+                    .invoke(e) as? Boolean ?: false
+                if (isTransient) return "runtime_dek_wrap_transient"
+                val requiresAuth = cls.getMethod("requiresUserAuthentication")
+                    .invoke(e) as? Boolean ?: false
+                if (requiresAuth) return "runtime_dek_wrap_transient"
+                return "runtime_dek_wrap_terminal"
+            } catch (_: Throwable) {
+                // Fall through to default below.
+            }
+        }
+        return "runtime_dek_wrap_transient"
+    }
+
     private fun deleteRuntimeDekWrappingKey() {
         val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
         if (keyStore.containsAlias(RUNTIME_DEK_KEY_ALIAS)) {
             keyStore.deleteEntry(RUNTIME_DEK_KEY_ALIAS)
         }
+    }
+
+    /**
+     * Returns a snapshot of runtime-DEK-relevant Keystore + device state
+     * for diagnostic surfacing in the Crypto storage debug screen. All
+     * fields are read-only — this MUST NOT mutate the keystore (no
+     * generate-on-miss, no test-unwrap).
+     *
+     * Output map shape:
+     *   - alias_present: Boolean — keystore.containsAlias check.
+     *   - get_key_succeeded: Boolean? — null if alias missing; otherwise
+     *     true/false based on whether SecretKey load returned non-null.
+     *   - key_security: Map<String, Any>? — security level + StrongBox +
+     *     unlocked-device-required policy, if alias resolves.
+     *   - device_state: Map<String, Any> — KeyguardManager + UserManager
+     *     state (locked, user unlocked) at the moment of capture.
+     *   - build: Map<String, String> — manufacturer / model / sdk_int /
+     *     security_patch for OEM diagnosis.
+     */
+    private fun collectRuntimeDekDiagnostics(): Map<String, Any?> {
+        val out = HashMap<String, Any?>()
+
+        var aliasPresent = false
+        var getKeySucceeded: Boolean? = null
+        var keySecurity: Map<String, Any>? = null
+        try {
+            val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+            aliasPresent = keyStore.containsAlias(RUNTIME_DEK_KEY_ALIAS)
+            if (aliasPresent) {
+                val key = keyStore.getKey(RUNTIME_DEK_KEY_ALIAS, null) as? SecretKey
+                getKeySucceeded = key != null
+                if (key != null) {
+                    keySecurity = runtimeDekKeySecurity(key)
+                }
+            }
+        } catch (t: Throwable) {
+            out["keystore_introspection_error"] =
+                "${t::class.java.simpleName}: ${t.message ?: ""}"
+        }
+        out["alias_present"] = aliasPresent
+        out["get_key_succeeded"] = getKeySucceeded
+        out["key_security"] = keySecurity
+
+        val deviceState = HashMap<String, Any?>()
+        try {
+            val km = getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
+            if (km != null) {
+                deviceState["is_keyguard_locked"] = km.isKeyguardLocked
+                deviceState["is_keyguard_secure"] = km.isKeyguardSecure
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
+                    deviceState["is_device_locked"] = km.isDeviceLocked
+                    deviceState["is_device_secure"] = km.isDeviceSecure
+                }
+            }
+            val um = getSystemService(Context.USER_SERVICE) as? UserManager
+            if (um != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                deviceState["is_user_unlocked"] = um.isUserUnlocked
+            }
+        } catch (t: Throwable) {
+            deviceState["device_state_error"] =
+                "${t::class.java.simpleName}: ${t.message ?: ""}"
+        }
+        out["device_state"] = deviceState
+
+        out["build"] = mapOf(
+            "manufacturer" to (Build.MANUFACTURER ?: "unknown"),
+            "model" to (Build.MODEL ?: "unknown"),
+            "device" to (Build.DEVICE ?: "unknown"),
+            "sdk_int" to Build.VERSION.SDK_INT,
+            "security_patch" to (Build.VERSION.SECURITY_PATCH ?: "unknown"),
+        )
+
+        return out
     }
 
     private fun collectFirstDeviceAdmissionProof(
