@@ -5213,6 +5213,18 @@ abstract class AppLocalizations {
   /// **'Admins can manage system settings'**
   String get memberAdminSubtitle;
 
+  /// Switch label: mark this member as always fronting
+  ///
+  /// In en, this message translates to:
+  /// **'Always fronting'**
+  String get memberAlwaysFrontingTitle;
+
+  /// Switch subtitle: always-fronting opt-in
+  ///
+  /// In en, this message translates to:
+  /// **'Show this {termSingularLower} in the always-present header instead of avatar stacks'**
+  String memberAlwaysFrontingSubtitle(String termSingularLower);
+
   /// Section heading for the member accent color controls
   ///
   /// In en, this message translates to:

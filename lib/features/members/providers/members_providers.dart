@@ -99,6 +99,7 @@ class MembersNotifier extends AsyncNotifier<void> {
     String? displayName,
     String? birthday,
     String? proxyTagsJson,
+    bool isAlwaysFronting = false,
     MemberProfileHeaderSource profileHeaderSource =
         MemberProfileHeaderSource.prism,
     MemberProfileHeaderLayout profileHeaderLayout =
@@ -127,6 +128,7 @@ class MembersNotifier extends AsyncNotifier<void> {
         displayName: displayName,
         birthday: birthday,
         proxyTagsJson: proxyTagsJson,
+        isAlwaysFronting: isAlwaysFronting,
         profileHeaderSource: profileHeaderSource,
         profileHeaderLayout: profileHeaderLayout,
         profileHeaderVisible: profileHeaderVisible,

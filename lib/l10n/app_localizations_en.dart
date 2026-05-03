@@ -2984,6 +2984,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memberAdminSubtitle => 'Admins can manage system settings';
 
   @override
+  String get memberAlwaysFrontingTitle => 'Always fronting';
+
+  @override
+  String memberAlwaysFrontingSubtitle(String termSingularLower) {
+    return 'Show this $termSingularLower in the always-present header instead of avatar stacks';
+  }
+
+  @override
   String get memberAccentColorSectionTitle => 'Accent color';
 
   @override

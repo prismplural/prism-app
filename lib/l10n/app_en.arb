@@ -4086,6 +4086,19 @@
   "@memberAdminSubtitle": {
     "description": "Switch subtitle: admin status"
   },
+  "memberAlwaysFrontingTitle": "Always fronting",
+  "@memberAlwaysFrontingTitle": {
+    "description": "Switch label: mark this member as always fronting"
+  },
+  "memberAlwaysFrontingSubtitle": "Show this {termSingularLower} in the always-present header instead of avatar stacks",
+  "@memberAlwaysFrontingSubtitle": {
+    "description": "Switch subtitle: always-fronting opt-in",
+    "placeholders": {
+      "termSingularLower": {
+        "type": "String"
+      }
+    }
+  },
   "memberAccentColorSectionTitle": "Accent color",
   "@memberAccentColorSectionTitle": {
     "description": "Section heading for the member accent color controls"

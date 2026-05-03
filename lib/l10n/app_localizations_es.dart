@@ -3047,6 +3047,14 @@ class AppLocalizationsEs extends AppLocalizations {
       'Los admins pueden gestionar la configuración del sistema';
 
   @override
+  String get memberAlwaysFrontingTitle => 'Siempre al frente';
+
+  @override
+  String memberAlwaysFrontingSubtitle(String termSingularLower) {
+    return 'Mostrar a este/a $termSingularLower en la cabecera de siempre presentes en lugar de las pilas de avatares';
+  }
+
+  @override
   String get memberAccentColorSectionTitle => 'Color de acento';
 
   @override

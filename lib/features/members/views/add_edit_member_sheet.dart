@@ -68,6 +68,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
   bool _isAdmin = false;
   bool _markdownEnabled = false;
   bool _customColorEnabled = false;
+  bool _isAlwaysFronting = false;
   Uint8List? _avatarImageData;
   late MemberProfileHeaderSource _profileHeaderSource;
   late MemberProfileHeaderLayout _profileHeaderLayout;
@@ -117,6 +118,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
     _isAdmin = m?.isAdmin ?? false;
     _markdownEnabled = m?.markdownEnabled ?? false;
     _customColorEnabled = m?.customColorEnabled ?? false;
+    _isAlwaysFronting = m?.isAlwaysFronting ?? false;
     _avatarImageData = m?.avatarImageData;
     _profileHeaderSource =
         m?.profileHeaderSource ?? MemberProfileHeaderSource.prism;
@@ -424,6 +426,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
           displayName: displayName.isNotEmpty ? displayName : null,
           birthday: birthdayWire,
           proxyTagsJson: proxyTagsJson,
+          isAlwaysFronting: _isAlwaysFronting,
           profileHeaderSource: _profileHeaderSource,
           profileHeaderLayout: _profileHeaderLayout,
           profileHeaderVisible: _profileHeaderVisible,
@@ -446,6 +449,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
           avatarImageData: _avatarImageData,
           isAdmin: _isAdmin,
           customColorHex: colorHex,
+          isAlwaysFronting: _isAlwaysFronting,
           displayName: displayName.isNotEmpty ? displayName : null,
           birthday: birthdayWire,
           proxyTagsJson: proxyTagsJson,
@@ -972,6 +976,16 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
                     subtitle: l10n.memberAdminSubtitle,
                     value: _isAdmin,
                     onChanged: (v) => setState(() => _isAdmin = v),
+                  ),
+                  const SizedBox(height: 8),
+
+                  PrismSwitchRow(
+                    title: l10n.memberAlwaysFrontingTitle,
+                    subtitle: l10n.memberAlwaysFrontingSubtitle(
+                      terms.singularLower,
+                    ),
+                    value: _isAlwaysFronting,
+                    onChanged: (v) => setState(() => _isAlwaysFronting = v),
                   ),
 
                   CustomFieldsEditor(memberId: _memberId),
