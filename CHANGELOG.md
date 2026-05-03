@@ -4,13 +4,17 @@ All notable changes to Prism will be documented in this file.
 
 ## [Unreleased]
 
-## [0.7.1] - 2026-05-03
+## [0.7.2] - 2026-05-03
 
 ### Added
 - **Settings → Sync → Sync troubleshooting → Advanced diagnostics → Crypto storage** — new diagnostic screen for sign-in prompt issues. Lists which on-device credential slots are present (no values shown, only presence + size) and snapshots state on every cold start, so you can scroll back to the exact launch where something went missing. Most useful when sharing with support if you've hit unexpected PIN or recovery-phrase prompts.
 
 ### Fixed
 - Sign-in prompts no longer come back after a transient device-credential hiccup on Android. Pre-fix, the on-device cached unlock key was being discarded any time the system briefly couldn't unwrap it (a lock-screen race after boot, a secure-element flake), forcing a fresh PIN + recovery-phrase entry on the next launch. The cache now retries once and stays put on transient errors, so a passing flake costs at most one re-auth in that session — the next launch reads the cache cleanly.
+
+## [0.7.1] - 2026-05-03
+
+### Fixed
 - Fronting upgrade now completes for systems that did a PluralKit file import on an older build. The migration was tripping a database check at the end of the cleanup step on rows from old PK imports where the member couldn't be resolved at import time; those rows are now removed before the constraint is installed. Affected users complete the upgrade on retry after installing this build.
 - Importing a PRISM1 backup that contains legacy orphan rows (no resolved member) now succeeds — the rescue importer routes those rows to the Unknown sentinel instead of failing partway through with a database error.
 
