@@ -515,6 +515,20 @@ Future<SyncHealthState> _autoConfigureIfReady(
   // Try the fast path: restore runtime keys from the device-bound wrapped DEK.
   final isUnlocked = await ffi.isUnlocked(handle: handle);
   if (!isUnlocked) {
+    // Android only: the runtime DEK wrapping key sets
+    // `setUnlockedDeviceRequired(true)` on API 35+. If the device is
+    // currently locked from KeyguardManager's perspective (typical when
+    // the app is woken by workmanager / BOOT_COMPLETED before the user
+    // has unlocked the screen, OR when `flutter run` reinstalls onto a
+    // screen-off phone), an unwrap attempt would fail with a transient
+    // Keystore error. Skip the attempt entirely and report a new
+    // `awaitingDeviceUnlock` state so AppShell does NOT show the
+    // password modal — the cache is intact and the next foreground
+    // after unlock will retry cleanly via `onAppLifecycleResume`.
+    if (await _isAndroidDeviceLockedForRuntimeDekUnwrap()) {
+      return SyncHealthState.awaitingDeviceUnlock;
+    }
+
     final runtimeDekAad = buildRuntimeDekAad(
       syncId: decodeStoredUtf8(syncId),
       deviceId: decodeStoredUtf8(deviceId),
@@ -1185,6 +1199,27 @@ Future<Uint8List?> readCachedRuntimeDekForRestoreCore({
       st,
     );
     return null;
+  }
+}
+
+/// Returns true when running on Android AND the device is currently
+/// locked according to `KeyguardManager`. Reads via the existing
+/// `getRuntimeDekDiagnostics` platform method (a single fast IPC); on
+/// iOS or older Android builds without the method handler, returns
+/// false so the unwrap proceeds normally.
+Future<bool> _isAndroidDeviceLockedForRuntimeDekUnwrap() async {
+  if (!Platform.isAndroid) return false;
+  try {
+    final diagnostics = await _runtimeDekStore.getDiagnostics();
+    if (diagnostics == null) return false;
+    final deviceState = diagnostics['device_state'];
+    if (deviceState is! Map) return false;
+    final locked = deviceState['is_device_locked'];
+    return locked is bool && locked;
+  } catch (_) {
+    // Diagnostic IPC failed — fall back to attempting the unwrap. The
+    // existing classify-and-retry policy still protects the cache.
+    return false;
   }
 }
 
@@ -1969,6 +2004,14 @@ enum SyncHealthState {
   /// post-config drain / cacheRuntimeKeys / scheduled onResume calls that
   /// would otherwise warn "no DEK loaded" on a locked handle.
   unpaired,
+
+  /// Android device is currently locked, so the runtime DEK wrapping key
+  /// (which uses `setUnlockedDeviceRequired(true)` on API 35+) cannot be
+  /// used right now. Auto-config skipped the unwrap deliberately — the
+  /// cache is intact; the next foreground after unlock retries cleanly.
+  /// Behaves like `unpaired` from the AppShell perspective: NO password
+  /// sheet, NO reconnect card. The user is unaware sync was paused.
+  awaitingDeviceUnlock,
 }
 
 final syncHealthProvider =

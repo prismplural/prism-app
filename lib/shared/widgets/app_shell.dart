@@ -610,7 +610,24 @@ class _AppShellState extends ConsumerState<AppShell>
       _checkLockOnResume();
       ref.invalidate(currentDateProvider);
       ref.read(pkAutoPollProvider.notifier).markForegrounded(true);
+      _retrySyncConfigureIfAwaitingUnlock();
     }
+  }
+
+  /// When the app foregrounds and sync was paused at boot because the
+  /// Android device was locked (Keystore `setUnlockedDeviceRequired(true)`
+  /// blocked the runtime DEK unwrap), retry auto-config now. The user is
+  /// here, the device is unlocked, the cache is intact — the unwrap
+  /// should succeed cleanly and transition health to `healthy` without
+  /// the user ever seeing the password modal.
+  void _retrySyncConfigureIfAwaitingUnlock() {
+    final health = ref.read(syncHealthProvider);
+    if (health != SyncHealthState.awaitingDeviceUnlock) return;
+    final handle = ref.read(prismSyncHandleProvider).value;
+    if (handle == null) return;
+    unawaited(
+      ref.read(prismSyncHandleProvider.notifier).ensureConfigured(handle),
+    );
   }
 
   void _checkLockOnResume() {

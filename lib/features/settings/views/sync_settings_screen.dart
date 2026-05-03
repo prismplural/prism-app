@@ -574,6 +574,9 @@ class _ConfiguredView extends ConsumerWidget {
         SyncHealthState.disconnected =>
           'Sync credentials are missing. Set up sync again to reconnect.',
         SyncHealthState.unpaired => 'Sync is not set up on this device.',
+        SyncHealthState.awaitingDeviceUnlock =>
+          'Sync paused while the device was locked — it will reconnect '
+              'once you bring the app to the foreground.',
         SyncHealthState.healthy => 'Sync is not ready yet.',
       };
 }
