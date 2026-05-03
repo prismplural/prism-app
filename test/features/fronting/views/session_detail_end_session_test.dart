@@ -61,11 +61,8 @@ class _FakeFrontingNotifier extends FrontingNotifier {
 const _memberId = 'member-1';
 const _sessionId = 'session-1';
 
-Member _member() => Member(
-  id: _memberId,
-  name: 'Alice',
-  createdAt: DateTime(2026, 4, 30),
-);
+Member _member() =>
+    Member(id: _memberId, name: 'Alice', createdAt: DateTime(2026, 4, 30));
 
 FrontingSession _activeSession({String? memberId = _memberId}) =>
     FrontingSession(
@@ -101,25 +98,20 @@ Widget _buildApp({
   final fake = frontingNotifier ?? _FakeFrontingNotifier();
   final memberToUse = member ?? _member();
 
-  final commentRange = DateTimeRange(
-    start: session.startTime,
-    end: session.endTime ?? session.startTime.add(const Duration(days: 1)),
-  );
-
   return ProviderScope(
     overrides: [
-      sessionByIdProvider(session.id).overrideWith(
-        (ref) => Stream.value(session),
-      ),
-      memberByIdProvider(memberToUse.id).overrideWith(
-        (ref) => Stream.value(memberToUse),
-      ),
+      sessionByIdProvider(
+        session.id,
+      ).overrideWith((ref) => Stream.value(session)),
+      memberByIdProvider(
+        memberToUse.id,
+      ).overrideWith((ref) => Stream.value(memberToUse)),
       activeSessionsProvider.overrideWith(
         (ref) => Stream.value(activeSessions),
       ),
-      commentsForRangeProvider(commentRange).overrideWith(
-        (ref) => Stream.value(const []),
-      ),
+      commentsForSessionProvider(
+        session.id,
+      ).overrideWith((ref) => Stream.value(const [])),
       frontingNotifierProvider.overrideWith(() => fake),
     ],
     child: MaterialApp(
@@ -251,35 +243,34 @@ void main() {
     );
 
     // 7. Dialog → End without fronting → endFronting called
-    testWidgets(
-      'dialog → End without fronting calls endFronting once',
-      (tester) async {
-        final session = _activeSession();
-        final fake = _FakeFrontingNotifier();
+    testWidgets('dialog → End without fronting calls endFronting once', (
+      tester,
+    ) async {
+      final session = _activeSession();
+      final fake = _FakeFrontingNotifier();
 
-        await tester.pumpWidget(
-          _buildApp(
-            session: session,
-            activeSessions: [session],
-            frontingNotifier: fake,
-          ),
-        );
-        await tester.pumpAndSettle();
+      await tester.pumpWidget(
+        _buildApp(
+          session: session,
+          activeSessions: [session],
+          frontingNotifier: fake,
+        ),
+      );
+      await tester.pumpAndSettle();
 
-        await tester.tap(find.text('End session'));
-        await tester.pumpAndSettle();
+      await tester.tap(find.text('End session'));
+      await tester.pumpAndSettle();
 
-        await tester.tap(find.text('End without fronting'));
-        await tester.pumpAndSettle();
+      await tester.tap(find.text('End without fronting'));
+      await tester.pumpAndSettle();
 
-        expect(fake.endedCalls, [
-          [_memberId],
-        ]);
-        expect(fake.startedCalls, isEmpty);
+      expect(fake.endedCalls, [
+        [_memberId],
+      ]);
+      expect(fake.startedCalls, isEmpty);
 
-        PrismToast.resetForTest();
-      },
-    );
+      PrismToast.resetForTest();
+    });
 
     // 8. Dialog → Unknown → endFronting then startFronting([unknownSentinelMemberId])
     testWidgets(
@@ -315,31 +306,30 @@ void main() {
     );
 
     // 11. Dialog → tap outside barrier → no calls
-    testWidgets(
-      'dismissing dialog by tapping barrier makes no calls',
-      (tester) async {
-        final session = _activeSession();
-        final fake = _FakeFrontingNotifier();
+    testWidgets('dismissing dialog by tapping barrier makes no calls', (
+      tester,
+    ) async {
+      final session = _activeSession();
+      final fake = _FakeFrontingNotifier();
 
-        await tester.pumpWidget(
-          _buildApp(
-            session: session,
-            activeSessions: [session],
-            frontingNotifier: fake,
-          ),
-        );
-        await tester.pumpAndSettle();
+      await tester.pumpWidget(
+        _buildApp(
+          session: session,
+          activeSessions: [session],
+          frontingNotifier: fake,
+        ),
+      );
+      await tester.pumpAndSettle();
 
-        await tester.tap(find.text('End session'));
-        await tester.pumpAndSettle();
+      await tester.tap(find.text('End session'));
+      await tester.pumpAndSettle();
 
-        // Tap the barrier to dismiss
-        await tester.tapAt(const Offset(10, 10));
-        await tester.pumpAndSettle();
+      // Tap the barrier to dismiss
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
 
-        expect(fake.endedCalls, isEmpty);
-        expect(fake.startedCalls, isEmpty);
-      },
-    );
+      expect(fake.endedCalls, isEmpty);
+      expect(fake.startedCalls, isEmpty);
+    });
   });
 }

@@ -971,13 +971,11 @@ class FrontingMigrationService {
     // Step 5: comments.  Walk every comment, look up its parent
     // session by legacy `session_id`, decide preserve-or-delete.
     //
-    // Preserved comments use `updateComment` (NOT create) so the row
-    // id stays stable and the comments DAO's plain `insert` doesn't
-    // collide.  The update emits a v2 entity op carrying the new
-    // `target_time` + `author_member_id` fields; the legacy
-    // `session_id` column on disk stays in place (the v8 schema
-    // rebuild drops it later — until then the comments mapper writes
-    // the empty-string sentinel on every new insert anyway).
+    // Preserved comments stay attached to their physical parent session id.
+    // Native co-front comments continue on the primary per-member row because
+    // that row keeps the legacy aggregate id. PK-parent comments are deleted
+    // in this app-layer migration; PRISM1 rescue import has the richer final
+    // session-id map needed to preserve those safely.
     final byParent = <String, FrontingSessionRow>{
       for (final r in allRows) r.id: r,
     };
@@ -998,18 +996,13 @@ class FrontingMigrationService {
         continue;
       }
 
-      // Migrate comment in place to new shape, anchored at the LEGACY
-      // `timestamp` column (NOT createdAt — see spec warning §4.1
-      // step 5).  Author is the parent session's member_id (may be
-      // null for orphan/sleep parents — comments tolerate that).
       await frontSessionCommentsRepository.updateComment(
         FrontSessionComment(
           id: cmt.id,
+          sessionId: cmt.sessionId,
           body: cmt.body,
           timestamp: cmt.timestamp,
           createdAt: cmt.createdAt,
-          targetTime: cmt.timestamp,
-          authorMemberId: parent.memberId,
         ),
       );
       counters.commentsMigrated++;
@@ -1069,6 +1062,7 @@ class FrontingMigrationService {
     counters.adjacentMergesPerformed = await mergeAdjacentSameMemberRows(
       frontingSessionRepository,
       memberIds: touchedMemberIds,
+      commentsRepository: frontSessionCommentsRepository,
     );
 
     // Step 9: explicitly DO NOT clear `sp_id_map` rows with

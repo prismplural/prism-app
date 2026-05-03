@@ -602,98 +602,95 @@ void main() {
     // This test pins the routing-to-orphan behavior. SP sleep rows
     // (sessionType=1) legitimately allow null member_id and are not
     // affected.
-    test(
-      'solo upgradeAndKeep: SP-mapped normal rows with null member_id are '
-      'reassigned to the Unknown sentinel and their sp_id_map entries are '
-      'preserved',
-      () async {
-        const realMemberId = 'sp-real';
-        await _seedMember(db, realMemberId);
+    test('solo upgradeAndKeep: SP-mapped normal rows with null member_id are '
+        'reassigned to the Unknown sentinel and their sp_id_map entries are '
+        'preserved', () async {
+      const realMemberId = 'sp-real';
+      await _seedMember(db, realMemberId);
 
-        // SP row with a real member — should migrate 1:1.
-        await _seedSession(
-          db,
-          id: 'sp-resolved',
-          startTime: DateTime(2026, 4, 1, 9).toUtc(),
-          endTime: DateTime(2026, 4, 1, 10).toUtc(),
-          memberId: realMemberId,
-        );
-        await _seedSpMapping(db, 'sp-resolved', spId: 'sp-source-resolved');
+      // SP row with a real member — should migrate 1:1.
+      await _seedSession(
+        db,
+        id: 'sp-resolved',
+        startTime: DateTime(2026, 4, 1, 9).toUtc(),
+        endTime: DateTime(2026, 4, 1, 10).toUtc(),
+        memberId: realMemberId,
+      );
+      await _seedSpMapping(db, 'sp-resolved', spId: 'sp-source-resolved');
 
-        // SP row with NULL member_id, session_type = normal — must land
-        // on the Unknown sentinel.
-        await _seedSession(
-          db,
-          id: 'sp-orphan',
-          startTime: DateTime(2026, 4, 1, 11).toUtc(),
-          endTime: DateTime(2026, 4, 1, 12).toUtc(),
-          // memberId omitted → null
-        );
-        await _seedSpMapping(db, 'sp-orphan', spId: 'sp-source-orphan');
+      // SP row with NULL member_id, session_type = normal — must land
+      // on the Unknown sentinel.
+      await _seedSession(
+        db,
+        id: 'sp-orphan',
+        startTime: DateTime(2026, 4, 1, 11).toUtc(),
+        endTime: DateTime(2026, 4, 1, 12).toUtc(),
+        // memberId omitted → null
+      );
+      await _seedSpMapping(db, 'sp-orphan', spId: 'sp-source-orphan');
 
-        // SP sleep row with NULL member_id — sleep allows null, must
-        // migrate 1:1 (NOT routed to orphan handler).
-        await _seedSession(
-          db,
-          id: 'sp-sleep',
-          startTime: DateTime(2026, 4, 1, 13).toUtc(),
-          endTime: DateTime(2026, 4, 1, 14).toUtc(),
-          sessionType: 1,
-        );
-        await _seedSpMapping(db, 'sp-sleep', spId: 'sp-source-sleep');
+      // SP sleep row with NULL member_id — sleep allows null, must
+      // migrate 1:1 (NOT routed to orphan handler).
+      await _seedSession(
+        db,
+        id: 'sp-sleep',
+        startTime: DateTime(2026, 4, 1, 13).toUtc(),
+        endTime: DateTime(2026, 4, 1, 14).toUtc(),
+        sessionType: 1,
+      );
+      await _seedSpMapping(db, 'sp-sleep', spId: 'sp-source-sleep');
 
-        final svc = _makeService(db, exportService);
-        final result = await svc.runMigration(
-          mode: MigrationMode.upgradeAndKeep,
-          role: DeviceRole.solo,
-          shareFile: _noopShare,
-        );
+      final svc = _makeService(db, exportService);
+      final result = await svc.runMigration(
+        mode: MigrationMode.upgradeAndKeep,
+        role: DeviceRole.solo,
+        shareFile: _noopShare,
+      );
 
-        expect(result.outcome, MigrationOutcome.success);
-        // resolved + sleep migrate 1:1 via the SP path; orphan is
-        // routed to Step 7 and excluded from spRowsMigrated.
-        expect(result.spRowsMigrated, 2);
-        expect(result.orphanRowsAssignedToSentinel, 1);
-        expect(result.unknownSentinelCreated, isTrue);
+      expect(result.outcome, MigrationOutcome.success);
+      // resolved + sleep migrate 1:1 via the SP path; orphan is
+      // routed to Step 7 and excluded from spRowsMigrated.
+      expect(result.spRowsMigrated, 2);
+      expect(result.orphanRowsAssignedToSentinel, 1);
+      expect(result.unknownSentinelCreated, isTrue);
 
-        const uuid = Uuid();
-        final sentinelId = uuid.v5(
-          spFrontingNamespace,
-          'unknown-member-sentinel',
-        );
+      const uuid = Uuid();
+      final sentinelId = uuid.v5(
+        spFrontingNamespace,
+        'unknown-member-sentinel',
+      );
 
-        final rows = await db.frontingSessionsDao.getAllSessions();
-        final byId = {for (final r in rows) r.id: r};
+      final rows = await db.frontingSessionsDao.getAllSessions();
+      final byId = {for (final r in rows) r.id: r};
 
-        // Resolved SP row keeps its member; sleep row keeps its null
-        // member and sleep type; orphan SP row now points at the
-        // sentinel.
-        expect(byId['sp-resolved']!.memberId, realMemberId);
-        expect(byId['sp-sleep']!.memberId, isNull);
-        expect(byId['sp-sleep']!.sessionType, 1);
-        expect(byId['sp-orphan']!.memberId, sentinelId);
-        expect(byId['sp-orphan']!.sessionType, 0);
+      // Resolved SP row keeps its member; sleep row keeps its null
+      // member and sleep type; orphan SP row now points at the
+      // sentinel.
+      expect(byId['sp-resolved']!.memberId, realMemberId);
+      expect(byId['sp-sleep']!.memberId, isNull);
+      expect(byId['sp-sleep']!.sessionType, 1);
+      expect(byId['sp-orphan']!.memberId, sentinelId);
+      expect(byId['sp-orphan']!.sessionType, 0);
 
-        // Sentinel member exists.
-        final sentinel = await DriftMemberRepository(
-          db.membersDao,
-          null,
-        ).getMemberById(sentinelId);
-        expect(sentinel, isNotNull);
-        expect(sentinel!.name, 'Unknown');
+      // Sentinel member exists.
+      final sentinel = await DriftMemberRepository(
+        db.membersDao,
+        null,
+      ).getMemberById(sentinelId);
+      expect(sentinel, isNotNull);
+      expect(sentinel!.name, 'Unknown');
 
-        // sp_id_map entries preserved per §4.1 step 9 — including the
-        // orphan's, so a future SP re-import resolves to the same row.
-        final mappings = await db.spImportDao.getAllMappings();
-        final spIds = mappings
-            .where((m) => m.entityType == 'session')
-            .map((m) => m.spId)
-            .toSet();
-        expect(spIds, contains('sp-source-resolved'));
-        expect(spIds, contains('sp-source-orphan'));
-        expect(spIds, contains('sp-source-sleep'));
-      },
-    );
+      // sp_id_map entries preserved per §4.1 step 9 — including the
+      // orphan's, so a future SP re-import resolves to the same row.
+      final mappings = await db.spImportDao.getAllMappings();
+      final spIds = mappings
+          .where((m) => m.entityType == 'session')
+          .map((m) => m.spId)
+          .toSet();
+      expect(spIds, contains('sp-source-resolved'));
+      expect(spIds, contains('sp-source-orphan'));
+      expect(spIds, contains('sp-source-sleep'));
+    });
 
     test('phase 2 harness: real SP fixture plus native rows survives '
         'upgradeAndKeep without duplicate or orphaned fronting rows', () async {
@@ -867,9 +864,8 @@ void main() {
 
       final comments = await db.frontSessionCommentsDao.getAllComments();
       final comment = comments.singleWhere((c) => c.id == nativeComment);
-      expect(comment.sessionId, '');
-      expect(comment.targetTime?.toUtc(), nativeCommentTime);
-      expect(comment.authorMemberId, nativePrimary);
+      expect(comment.sessionId, nativeMulti);
+      expect(comment.timestamp.toUtc(), nativeCommentTime);
       expect(comment.body, 'native comment survives');
       expect(comment.isDeleted, isFalse);
     }, timeout: const Timeout(Duration(minutes: 2)));
@@ -1047,86 +1043,88 @@ void main() {
     );
 
     // -------------------------------------------------------------------
-    // Comments preserve / delete + target_time anchored at timestamp
+    // Comments preserve / delete with restored session-attached parentage
     // -------------------------------------------------------------------
-    test('primary upgradeAndKeep: comments on PK parents deleted; comments on '
-        'SP/native parents migrated to new shape with target_time = legacy '
-        'timestamp and author_member_id from parent', () async {
-      const memberA = 'mem-a';
-      const memberB = 'mem-b';
-      for (final id in [memberA, memberB]) {
-        await _seedMember(db, id);
-      }
-      // PK parent (its comment will be deleted).
-      await _seedSession(
-        db,
-        id: 'pk-parent',
-        startTime: DateTime(2026, 4, 1, 9).toUtc(),
-        endTime: DateTime(2026, 4, 1, 10).toUtc(),
-        memberId: memberA,
-        pluralkitUuid: '33333333-3333-4333-8333-333333333333',
-      );
-      // Native parent (its comment is migrated).
-      await _seedSession(
-        db,
-        id: 'native-parent',
-        startTime: DateTime(2026, 4, 1, 11).toUtc(),
-        endTime: DateTime(2026, 4, 1, 12).toUtc(),
-        memberId: memberB,
-      );
-      // Comment timestamps differ from createdAt to verify the
-      // anchor truly comes from `timestamp` (per spec warning).
-      final cmt1Time = DateTime(2026, 4, 1, 9, 30).toUtc();
-      final cmt2Time = DateTime(2026, 4, 1, 11, 30).toUtc();
-      await _seedComment(
-        db,
-        id: 'cmt-pk',
-        sessionId: 'pk-parent',
-        body: 'pk note',
-        timestamp: cmt1Time,
-      );
-      await _seedComment(
-        db,
-        id: 'cmt-native',
-        sessionId: 'native-parent',
-        body: 'native note',
-        timestamp: cmt2Time,
-      );
+    test(
+      'primary upgradeAndKeep: comments on PK parents deleted; comments on '
+      'SP/native parents stay attached to their physical session rows',
+      () async {
+        const memberA = 'mem-a';
+        const memberB = 'mem-b';
+        for (final id in [memberA, memberB]) {
+          await _seedMember(db, id);
+        }
+        // PK parent (its comment will be deleted).
+        await _seedSession(
+          db,
+          id: 'pk-parent',
+          startTime: DateTime(2026, 4, 1, 9).toUtc(),
+          endTime: DateTime(2026, 4, 1, 10).toUtc(),
+          memberId: memberA,
+          pluralkitUuid: '33333333-3333-4333-8333-333333333333',
+        );
+        // Native parent (its comment is migrated).
+        await _seedSession(
+          db,
+          id: 'native-parent',
+          startTime: DateTime(2026, 4, 1, 11).toUtc(),
+          endTime: DateTime(2026, 4, 1, 12).toUtc(),
+          memberId: memberB,
+        );
+        // Comment timestamps differ from createdAt to verify the
+        // anchor truly comes from `timestamp` (per spec warning).
+        final cmt1Time = DateTime(2026, 4, 1, 9, 30).toUtc();
+        final cmt2Time = DateTime(2026, 4, 1, 11, 30).toUtc();
+        await _seedComment(
+          db,
+          id: 'cmt-pk',
+          sessionId: 'pk-parent',
+          body: 'pk note',
+          timestamp: cmt1Time,
+        );
+        await _seedComment(
+          db,
+          id: 'cmt-native',
+          sessionId: 'native-parent',
+          body: 'native note',
+          timestamp: cmt2Time,
+        );
 
-      final svc = _makeService(db, exportService);
-      final result = await svc.runMigration(
-        mode: MigrationMode.upgradeAndKeep,
-        role: DeviceRole.primary,
-        shareFile: _noopShare,
-      );
+        final svc = _makeService(db, exportService);
+        final result = await svc.runMigration(
+          mode: MigrationMode.upgradeAndKeep,
+          role: DeviceRole.primary,
+          shareFile: _noopShare,
+        );
 
-      expect(result.outcome, MigrationOutcome.success);
-      expect(result.commentsMigrated, 1);
-      expect(result.commentsDeleted, 1);
+        expect(result.outcome, MigrationOutcome.success);
+        expect(result.commentsMigrated, 1);
+        expect(result.commentsDeleted, 1);
 
-      // Native comment migrated in place: target_time set, author set,
-      // body intact, row id stable.
-      final nativeRow = await db
-          .customSelect(
-            'SELECT target_time, author_member_id, body, is_deleted '
-            'FROM front_session_comments WHERE id = ?',
-            variables: [drift.Variable.withString('cmt-native')],
-          )
-          .getSingle();
-      expect(nativeRow.read<DateTime?>('target_time')?.toUtc(), cmt2Time);
-      expect(nativeRow.read<String?>('author_member_id'), memberB);
-      expect(nativeRow.read<String>('body'), 'native note');
-      expect(nativeRow.read<int>('is_deleted'), 0);
+        // Native comment migrated in place: session parent, timestamp, body, and
+        // row id stay stable.
+        final nativeRow = await db
+            .customSelect(
+              'SELECT session_id, timestamp, body, is_deleted '
+              'FROM front_session_comments WHERE id = ?',
+              variables: [drift.Variable.withString('cmt-native')],
+            )
+            .getSingle();
+        expect(nativeRow.read<String>('session_id'), 'native-parent');
+        expect(nativeRow.read<DateTime>('timestamp').toUtc(), cmt2Time);
+        expect(nativeRow.read<String>('body'), 'native note');
+        expect(nativeRow.read<int>('is_deleted'), 0);
 
-      // PK comment soft-deleted.
-      final pkRow = await db
-          .customSelect(
-            'SELECT is_deleted FROM front_session_comments WHERE id = ?',
-            variables: [drift.Variable.withString('cmt-pk')],
-          )
-          .getSingle();
-      expect(pkRow.read<int>('is_deleted'), 1);
-    });
+        // PK comment soft-deleted.
+        final pkRow = await db
+            .customSelect(
+              'SELECT is_deleted FROM front_session_comments WHERE id = ?',
+              variables: [drift.Variable.withString('cmt-pk')],
+            )
+            .getSingle();
+        expect(pkRow.read<int>('is_deleted'), 1);
+      },
+    );
 
     // -------------------------------------------------------------------
     // Corrupt co_fronter_ids JSON
@@ -2046,6 +2044,50 @@ void main() {
     });
 
     test(
+      'adjacent merge reparents comments from merged-away row to survivor',
+      () async {
+        const host = 'host-comment-merge';
+        await _seedMember(db, host);
+        await _seedSession(
+          db,
+          id: 'survivor',
+          startTime: DateTime.utc(2026, 4, 1, 6, 42),
+          endTime: DateTime.utc(2026, 4, 1, 8, 50),
+          memberId: host,
+        );
+        await _seedSession(
+          db,
+          id: 'absorbed',
+          startTime: DateTime.utc(2026, 4, 1, 8, 50),
+          endTime: DateTime.utc(2026, 4, 1, 9, 7),
+          memberId: host,
+        );
+        await _seedComment(
+          db,
+          id: 'comment-on-absorbed',
+          sessionId: 'absorbed',
+          body: 'keep me with the merged period',
+          timestamp: DateTime.utc(2026, 4, 1, 8, 55),
+        );
+
+        final svc = _makeService(db, exportService);
+        final result = await svc.runMigration(
+          mode: MigrationMode.upgradeAndKeep,
+          role: DeviceRole.solo,
+          shareFile: _noopShare,
+        );
+
+        expect(result.outcome, MigrationOutcome.success);
+        expect(result.adjacentMergesPerformed, 1);
+
+        final comment = await db.frontSessionCommentsDao.getAllComments();
+        expect(comment.single.id, 'comment-on-absorbed');
+        expect(comment.single.sessionId, 'survivor');
+        expect(comment.single.isDeleted, isFalse);
+      },
+    );
+
+    test(
       'three-row cascade: A→B→C all adjacent same-member collapse to 1 row',
       () async {
         const host = 'host';
@@ -2864,12 +2906,24 @@ class _SuppressionAssertingFrontSessionCommentsRepository
   }
 
   @override
-  Stream<List<FrontSessionComment>> watchCommentsForRange(TimeRange range) =>
-      _inner.watchCommentsForRange(range);
+  Stream<List<FrontSessionComment>> watchCommentsForSession(String sessionId) =>
+      _inner.watchCommentsForSession(sessionId);
 
   @override
-  Stream<int> watchCommentCountForRange(TimeRange range) =>
-      _inner.watchCommentCountForRange(range);
+  Stream<int> watchCommentCount(String sessionId) =>
+      _inner.watchCommentCount(sessionId);
+
+  @override
+  Stream<List<FrontSessionComment>> watchCommentsForPeriod({
+    required Iterable<String> sessionIds,
+    required TimeRange range,
+  }) => _inner.watchCommentsForPeriod(sessionIds: sessionIds, range: range);
+
+  @override
+  Stream<int> watchCommentCountForPeriod({
+    required Iterable<String> sessionIds,
+    required TimeRange range,
+  }) => _inner.watchCommentCountForPeriod(sessionIds: sessionIds, range: range);
 
   @override
   Stream<List<FrontSessionComment>> watchAllComments() =>
@@ -2877,6 +2931,32 @@ class _SuppressionAssertingFrontSessionCommentsRepository
 
   @override
   Future<List<FrontSessionComment>> getAllComments() => _inner.getAllComments();
+
+  @override
+  Future<void> reparentComments({
+    required String fromSessionId,
+    required String toSessionId,
+  }) {
+    _assertSuppressed('reparentComments');
+    return _inner.reparentComments(
+      fromSessionId: fromSessionId,
+      toSessionId: toSessionId,
+    );
+  }
+
+  @override
+  Future<void> reparentCommentsAtOrAfter({
+    required String fromSessionId,
+    required String toSessionId,
+    required DateTime atOrAfter,
+  }) {
+    _assertSuppressed('reparentCommentsAtOrAfter');
+    return _inner.reparentCommentsAtOrAfter(
+      fromSessionId: fromSessionId,
+      toSessionId: toSessionId,
+      atOrAfter: atOrAfter,
+    );
+  }
 }
 
 class _SuppressionAssertingMemberRepository implements MemberRepository {

@@ -6,6 +6,7 @@ import 'package:prism_plurality/core/database/app_database.dart'
 import 'package:prism_plurality/core/mutations/field_patch.dart';
 import 'package:prism_plurality/core/mutations/mutation_runner.dart';
 import 'package:prism_plurality/data/repositories/drift_fronting_session_repository.dart';
+import 'package:prism_plurality/domain/models/front_session_comment.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/fronting/models/update_fronting_session_patch.dart';
@@ -135,10 +136,7 @@ void main() {
       final result = await svc.startFronting(['alice', 'bob']);
       expect(result.isSuccess, isTrue);
       expect(repo.sessions, hasLength(2));
-      expect(
-        repo.sessions.map((s) => s.memberId).toSet(),
-        {'alice', 'bob'},
-      );
+      expect(repo.sessions.map((s) => s.memberId).toSet(), {'alice', 'bob'});
       expect(repo.sessions.every((s) => s.isActive), isTrue);
     });
 
@@ -170,70 +168,75 @@ void main() {
       expect(alice.isActive, isTrue);
     });
 
-    test('startFronting ends existing active session for same member', () async {
-      final repo = FakeFrontingSessionRepository();
-      final aliceOld = FrontingSession(
-        id: 'alice-old',
-        startTime: DateTime(2026, 3, 11, 8),
-        memberId: 'alice',
-      );
-      await repo.createSession(aliceOld);
+    test(
+      'startFronting ends existing active session for same member',
+      () async {
+        final repo = FakeFrontingSessionRepository();
+        final aliceOld = FrontingSession(
+          id: 'alice-old',
+          startTime: DateTime(2026, 3, 11, 8),
+          memberId: 'alice',
+        );
+        await repo.createSession(aliceOld);
 
-      final svc = FrontingMutationService(
-        repository: repo,
-        mutationRunner: MutationRunner(
-          transactionRunner: _passthroughTransactionRunner,
-        ),
-      );
+        final svc = FrontingMutationService(
+          repository: repo,
+          mutationRunner: MutationRunner(
+            transactionRunner: _passthroughTransactionRunner,
+          ),
+        );
 
-      final result = await svc.startFronting(['alice']);
-      expect(result.isSuccess, isTrue);
-      expect(repo.sessions, hasLength(2));
+        final result = await svc.startFronting(['alice']);
+        expect(result.isSuccess, isTrue);
+        expect(repo.sessions, hasLength(2));
 
-      final old = repo.sessions.firstWhere((s) => s.id == 'alice-old');
-      expect(old.isActive, isFalse, reason: 'old alice session was ended');
+        final old = repo.sessions.firstWhere((s) => s.id == 'alice-old');
+        expect(old.isActive, isFalse, reason: 'old alice session was ended');
 
-      final newSessions = repo.sessions.where((s) => s.id != 'alice-old');
-      expect(newSessions, hasLength(1));
-      expect(newSessions.single.isActive, isTrue);
-    });
+        final newSessions = repo.sessions.where((s) => s.id != 'alice-old');
+        expect(newSessions, hasLength(1));
+        expect(newSessions.single.isActive, isTrue);
+      },
+    );
 
-    test('startFronting ends active sleep sessions before creating fronting',
-        () async {
-      final repo = FakeFrontingSessionRepository();
-      final sleep = FrontingSession(
-        id: 'sleep-1',
-        startTime: DateTime(2026, 3, 11, 8),
-        memberId: null,
-        sessionType: SessionType.sleep,
-      );
-      await repo.createSession(sleep);
+    test(
+      'startFronting ends active sleep sessions before creating fronting',
+      () async {
+        final repo = FakeFrontingSessionRepository();
+        final sleep = FrontingSession(
+          id: 'sleep-1',
+          startTime: DateTime(2026, 3, 11, 8),
+          memberId: null,
+          sessionType: SessionType.sleep,
+        );
+        await repo.createSession(sleep);
 
-      final svc = FrontingMutationService(
-        repository: repo,
-        mutationRunner: MutationRunner(
-          transactionRunner: _passthroughTransactionRunner,
-        ),
-      );
+        final svc = FrontingMutationService(
+          repository: repo,
+          mutationRunner: MutationRunner(
+            transactionRunner: _passthroughTransactionRunner,
+          ),
+        );
 
-      // Sleep sessions are ended when the same member starts fronting (member
-      // is null for sleep so the "same member" check doesn't match, but the
-      // broader loop does end the sleep). Actually per spec, startFronting
-      // ends the *same-member's* existing open session. Sleep has memberId=null
-      // which doesn't match 'bob', so it stays. Let's verify correct behavior:
-      // startFronting does NOT auto-end sleep for other members.
-      final result = await svc.startFronting(['bob']);
-      expect(result.isSuccess, isTrue);
-      expect(repo.sessions, hasLength(2));
-      final endedSleep = repo.sessions.where((s) => s.id == sleep.id).single;
-      // Sleep is not ended — per-member model: only same-member sessions end.
-      expect(endedSleep.endTime, isNull);
-      final createdFronting = repo.sessions
-          .where((s) => s.id != sleep.id)
-          .single;
-      expect(createdFronting.memberId, 'bob');
-      expect(createdFronting.isSleep, isFalse);
-    });
+        // Sleep sessions are ended when the same member starts fronting (member
+        // is null for sleep so the "same member" check doesn't match, but the
+        // broader loop does end the sleep). Actually per spec, startFronting
+        // ends the *same-member's* existing open session. Sleep has memberId=null
+        // which doesn't match 'bob', so it stays. Let's verify correct behavior:
+        // startFronting does NOT auto-end sleep for other members.
+        final result = await svc.startFronting(['bob']);
+        expect(result.isSuccess, isTrue);
+        expect(repo.sessions, hasLength(2));
+        final endedSleep = repo.sessions.where((s) => s.id == sleep.id).single;
+        // Sleep is not ended — per-member model: only same-member sessions end.
+        expect(endedSleep.endTime, isNull);
+        final createdFronting = repo.sessions
+            .where((s) => s.id != sleep.id)
+            .single;
+        expect(createdFronting.memberId, 'bob');
+        expect(createdFronting.isSleep, isFalse);
+      },
+    );
 
     // -------------------------------------------------------------------------
     // endFronting
@@ -241,16 +244,20 @@ void main() {
 
     test('endFronting ends only the specified members', () async {
       final repo = FakeFrontingSessionRepository();
-      await repo.createSession(FrontingSession(
-        id: 'alice-1',
-        startTime: DateTime(2026, 3, 11, 8),
-        memberId: 'alice',
-      ));
-      await repo.createSession(FrontingSession(
-        id: 'bob-1',
-        startTime: DateTime(2026, 3, 11, 8),
-        memberId: 'bob',
-      ));
+      await repo.createSession(
+        FrontingSession(
+          id: 'alice-1',
+          startTime: DateTime(2026, 3, 11, 8),
+          memberId: 'alice',
+        ),
+      );
+      await repo.createSession(
+        FrontingSession(
+          id: 'bob-1',
+          startTime: DateTime(2026, 3, 11, 8),
+          memberId: 'bob',
+        ),
+      );
 
       final svc = FrontingMutationService(
         repository: repo,
@@ -269,21 +276,23 @@ void main() {
       expect(bob.isActive, isTrue, reason: 'bob was not in the end list');
     });
 
-    test('endFronting is a no-op for members without active sessions',
-        () async {
-      final repo = FakeFrontingSessionRepository();
+    test(
+      'endFronting is a no-op for members without active sessions',
+      () async {
+        final repo = FakeFrontingSessionRepository();
 
-      final svc = FrontingMutationService(
-        repository: repo,
-        mutationRunner: MutationRunner(
-          transactionRunner: _passthroughTransactionRunner,
-        ),
-      );
+        final svc = FrontingMutationService(
+          repository: repo,
+          mutationRunner: MutationRunner(
+            transactionRunner: _passthroughTransactionRunner,
+          ),
+        );
 
-      final result = await svc.endFronting(['alice']);
-      expect(result.isSuccess, isTrue);
-      expect(repo.sessions, isEmpty);
-    });
+        final result = await svc.endFronting(['alice']);
+        expect(result.isSuccess, isTrue);
+        expect(repo.sessions, isEmpty);
+      },
+    );
 
     // -------------------------------------------------------------------------
     // addCoFronter / removeCoFronter sugar
@@ -304,90 +313,98 @@ void main() {
       expect(repo.sessions.single.memberId, 'sky');
     });
 
-    test('removeCoFronter ends the active session for the given member',
-        () async {
-      final repo = FakeFrontingSessionRepository();
-      await repo.createSession(FrontingSession(
-        id: 'sky-1',
-        startTime: DateTime(2026, 3, 11, 8),
-        memberId: 'sky',
-      ));
+    test(
+      'removeCoFronter ends the active session for the given member',
+      () async {
+        final repo = FakeFrontingSessionRepository();
+        await repo.createSession(
+          FrontingSession(
+            id: 'sky-1',
+            startTime: DateTime(2026, 3, 11, 8),
+            memberId: 'sky',
+          ),
+        );
 
-      final svc = FrontingMutationService(
-        repository: repo,
-        mutationRunner: MutationRunner(
-          transactionRunner: _passthroughTransactionRunner,
-        ),
-      );
+        final svc = FrontingMutationService(
+          repository: repo,
+          mutationRunner: MutationRunner(
+            transactionRunner: _passthroughTransactionRunner,
+          ),
+        );
 
-      final result = await svc.removeCoFronter('sky');
-      expect(result.isSuccess, isTrue);
+        final result = await svc.removeCoFronter('sky');
+        expect(result.isSuccess, isTrue);
 
-      final sky = repo.sessions.single;
-      expect(sky.isActive, isFalse);
-    });
+        final sky = repo.sessions.single;
+        expect(sky.isActive, isFalse);
+      },
+    );
 
     // -------------------------------------------------------------------------
     // replaceFronting — atomic end-actives + start-new in one transaction
     // -------------------------------------------------------------------------
 
     group('replaceFronting', () {
-      test(
-        'ends all active normal fronts AND starts the new session in one '
-        'transaction with a single captured now',
-        () async {
-          final repo = FakeFrontingSessionRepository();
-          // Two prior actives (alice, bob) — replaceFronting should end both.
-          await repo.createSession(FrontingSession(
+      test('ends all active normal fronts AND starts the new session in one '
+          'transaction with a single captured now', () async {
+        final repo = FakeFrontingSessionRepository();
+        // Two prior actives (alice, bob) — replaceFronting should end both.
+        await repo.createSession(
+          FrontingSession(
             id: 'alice-old',
             startTime: DateTime(2026, 4, 25, 8),
             memberId: 'alice',
-          ));
-          await repo.createSession(FrontingSession(
+          ),
+        );
+        await repo.createSession(
+          FrontingSession(
             id: 'bob-old',
             startTime: DateTime(2026, 4, 25, 9),
             memberId: 'bob',
-          ));
+          ),
+        );
 
-          final svc = FrontingMutationService(
-            repository: repo,
-            mutationRunner: MutationRunner(
-              transactionRunner: _passthroughTransactionRunner,
-            ),
-          );
+        final svc = FrontingMutationService(
+          repository: repo,
+          mutationRunner: MutationRunner(
+            transactionRunner: _passthroughTransactionRunner,
+          ),
+        );
 
-          final result = await svc.replaceFronting(['carol']);
-          expect(result.isSuccess, isTrue);
+        final result = await svc.replaceFronting(['carol']);
+        expect(result.isSuccess, isTrue);
 
-          // alice and bob were ended.
-          final alice = repo.sessions.firstWhere((s) => s.id == 'alice-old');
-          final bob = repo.sessions.firstWhere((s) => s.id == 'bob-old');
-          expect(alice.isActive, isFalse);
-          expect(bob.isActive, isFalse);
+        // alice and bob were ended.
+        final alice = repo.sessions.firstWhere((s) => s.id == 'alice-old');
+        final bob = repo.sessions.firstWhere((s) => s.id == 'bob-old');
+        expect(alice.isActive, isFalse);
+        expect(bob.isActive, isFalse);
 
-          // A new active session for carol was created.
-          final carol = repo.sessions
-              .firstWhere((s) => s.id != 'alice-old' && s.id != 'bob-old');
-          expect(carol.memberId, 'carol');
-          expect(carol.isActive, isTrue);
+        // A new active session for carol was created.
+        final carol = repo.sessions.firstWhere(
+          (s) => s.id != 'alice-old' && s.id != 'bob-old',
+        );
+        expect(carol.memberId, 'carol');
+        expect(carol.isActive, isTrue);
 
-          // Single captured `now`: end_time of the prior sessions equals
-          // start_time of the new session, exactly. No off-by-microseconds
-          // gap or overlap is acceptable — the contract is "one captured now."
-          expect(alice.endTime, equals(carol.startTime));
-          expect(bob.endTime, equals(carol.startTime));
-        },
-      );
+        // Single captured `now`: end_time of the prior sessions equals
+        // start_time of the new session, exactly. No off-by-microseconds
+        // gap or overlap is acceptable — the contract is "one captured now."
+        expect(alice.endTime, equals(carol.startTime));
+        expect(bob.endTime, equals(carol.startTime));
+      });
 
       test(
         'starting multiple replacement members shares one captured now',
         () async {
           final repo = FakeFrontingSessionRepository();
-          await repo.createSession(FrontingSession(
-            id: 'old-1',
-            startTime: DateTime(2026, 4, 25, 8),
-            memberId: 'alice',
-          ));
+          await repo.createSession(
+            FrontingSession(
+              id: 'old-1',
+              startTime: DateTime(2026, 4, 25, 8),
+              memberId: 'alice',
+            ),
+          );
 
           final svc = FrontingMutationService(
             repository: repo,
@@ -416,12 +433,14 @@ void main() {
         'leaves sleep sessions untouched (only ends normal fronts)',
         () async {
           final repo = FakeFrontingSessionRepository();
-          await repo.createSession(FrontingSession(
-            id: 'sleep-1',
-            startTime: DateTime(2026, 4, 25, 8),
-            memberId: null,
-            sessionType: SessionType.sleep,
-          ));
+          await repo.createSession(
+            FrontingSession(
+              id: 'sleep-1',
+              startTime: DateTime(2026, 4, 25, 8),
+              memberId: null,
+              sessionType: SessionType.sleep,
+            ),
+          );
 
           final svc = FrontingMutationService(
             repository: repo,
@@ -476,7 +495,8 @@ void main() {
           expect(
             alicePersisted!.isActive,
             isTrue,
-            reason: 'a failure mid-replace must leave the prior actives '
+            reason:
+                'a failure mid-replace must leave the prior actives '
                 'intact, not "no fronts at all"',
           );
 
@@ -505,13 +525,13 @@ void main() {
             isNull,
           );
 
-          final result =
-              await svc.replaceFronting([unknownSentinelMemberId]);
+          final result = await svc.replaceFronting([unknownSentinelMemberId]);
           expect(result.isSuccess, isTrue);
 
           // Sentinel was lazy-created (same contract as startFronting).
-          final sentinel =
-              await memberRepo.getMemberById(unknownSentinelMemberId);
+          final sentinel = await memberRepo.getMemberById(
+            unknownSentinelMemberId,
+          );
           expect(sentinel, isNotNull);
           expect(sentinel!.name, 'Unknown');
 
@@ -571,35 +591,109 @@ void main() {
       expect(second.endTime, DateTime(2026, 3, 12, 8));
     });
 
+    test('splitSession uses deterministic v5 id for the second half', () async {
+      final repo = FakeFrontingSessionRepository();
+      final original = FrontingSession(
+        id: 'front-1',
+        startTime: DateTime(2026, 4, 25, 10),
+        endTime: DateTime(2026, 4, 25, 12),
+        memberId: 'alice',
+      );
+      await repo.createSession(original);
+
+      final svc = FrontingMutationService(
+        repository: repo,
+        mutationRunner: MutationRunner(
+          transactionRunner: _passthroughTransactionRunner,
+        ),
+      );
+
+      final splitTime = DateTime(2026, 4, 25, 11);
+      final result = await svc.splitSession(original.id, splitTime);
+      expect(result.isSuccess, isTrue);
+
+      final second = repo.sessions.firstWhere((s) => s.id != original.id);
+
+      // The id is non-random (v5 of original.id + splitTime) — assert it's
+      // populated and distinct from the original.
+      expect(second.id, isNotEmpty);
+      expect(second.id, isNot(original.id));
+    });
+
     test(
-      'splitSession uses deterministic v5 id for the second half',
+      'splitSession moves comments at or after split time to new row',
       () async {
         final repo = FakeFrontingSessionRepository();
+        final commentsRepo = FakeFrontSessionCommentsRepository();
         final original = FrontingSession(
-          id: 'front-1',
+          id: 'front-with-comments',
           startTime: DateTime(2026, 4, 25, 10),
           endTime: DateTime(2026, 4, 25, 12),
           memberId: 'alice',
         );
+        final splitTime = DateTime(2026, 4, 25, 11);
         await repo.createSession(original);
+        await commentsRepo.createComment(
+          FrontSessionComment(
+            id: 'before',
+            sessionId: original.id,
+            body: 'before',
+            timestamp: DateTime(2026, 4, 25, 10, 30),
+            createdAt: DateTime(2026, 4, 25, 10, 30),
+          ),
+        );
+        await commentsRepo.createComment(
+          FrontSessionComment(
+            id: 'at-split',
+            sessionId: original.id,
+            body: 'at split',
+            timestamp: splitTime,
+            createdAt: splitTime,
+          ),
+        );
+        await commentsRepo.createComment(
+          FrontSessionComment(
+            id: 'after',
+            sessionId: original.id,
+            body: 'after',
+            timestamp: DateTime(2026, 4, 25, 11, 30),
+            createdAt: DateTime(2026, 4, 25, 11, 30),
+          ),
+        );
 
         final svc = FrontingMutationService(
           repository: repo,
           mutationRunner: MutationRunner(
             transactionRunner: _passthroughTransactionRunner,
           ),
+          frontSessionCommentsRepository: commentsRepo,
         );
 
-        final splitTime = DateTime(2026, 4, 25, 11);
         final result = await svc.splitSession(original.id, splitTime);
         expect(result.isSuccess, isTrue);
+        final secondHalf = result.when(
+          success: (session) => session,
+          failure: (_) => throw StateError('split failed unexpectedly'),
+        );
 
-        final second = repo.sessions.firstWhere((s) => s.id != original.id);
-
-        // The id is non-random (v5 of original.id + splitTime) — assert it's
-        // populated and distinct from the original.
-        expect(second.id, isNotEmpty);
-        expect(second.id, isNot(original.id));
+        expect(
+          commentsRepo.comments
+              .firstWhere((comment) => comment.id == 'before')
+              .sessionId,
+          original.id,
+        );
+        expect(
+          commentsRepo.comments
+              .firstWhere((comment) => comment.id == 'at-split')
+              .sessionId,
+          secondHalf.id,
+        );
+        expect(
+          commentsRepo.comments
+              .firstWhere((comment) => comment.id == 'after')
+              .sessionId,
+          secondHalf.id,
+        );
       },
     );
 
@@ -613,14 +707,15 @@ void main() {
         // toIso8601String() emits no offset on local DateTimes, so the
         // derivation key MUST be normalized to UTC before hashing.
         final localSplit = DateTime(2026, 4, 25, 13); // local wall-clock
-        final utcSplit = localSplit.toUtc();          // same instant, UTC
+        final utcSplit = localSplit.toUtc(); // same instant, UTC
 
         // CI guard: this test is meaningless if the host's TZ is UTC (local
         // and utc are then equal). Assert the precondition fails loudly.
         expect(
           localSplit.toIso8601String(),
           isNot(utcSplit.toIso8601String()),
-          reason: 'Test host TZ must be non-UTC for this regression test '
+          reason:
+              'Test host TZ must be non-UTC for this regression test '
               'to be meaningful. Set TZ=America/Los_Angeles in CI.',
         );
 
@@ -650,98 +745,98 @@ void main() {
         expect(
           localId,
           utcId,
-          reason: 'Local and UTC representations of the same instant must '
+          reason:
+              'Local and UTC representations of the same instant must '
               'derive the same v5 id so paired devices converge.',
         );
       },
     );
 
-    test(
-      'splitSession clears pluralkitUuid on the second half '
-      '(PK composite unique index)',
-      () async {
-        // Uses the real DriftFrontingSessionRepository so the DB-level index
-        // constraint is in play — a fake repo would not catch this regression.
-        final original = FrontingSession(
-          id: 'pk-linked-1',
-          startTime: DateTime(2026, 4, 25, 10),
-          endTime: DateTime(2026, 4, 25, 12),
-          memberId: 'alice',
-          pluralkitUuid: 'pk-switch-uuid-abc',
-        );
-        await repository.createSession(original);
+    test('splitSession clears pluralkitUuid on the second half '
+        '(PK composite unique index)', () async {
+      // Uses the real DriftFrontingSessionRepository so the DB-level index
+      // constraint is in play — a fake repo would not catch this regression.
+      final original = FrontingSession(
+        id: 'pk-linked-1',
+        startTime: DateTime(2026, 4, 25, 10),
+        endTime: DateTime(2026, 4, 25, 12),
+        memberId: 'alice',
+        pluralkitUuid: 'pk-switch-uuid-abc',
+      );
+      await repository.createSession(original);
 
-        final result = await service.splitSession(
-          original.id,
-          DateTime(2026, 4, 25, 11),
-        );
+      final result = await service.splitSession(
+        original.id,
+        DateTime(2026, 4, 25, 11),
+      );
 
-        expect(
-          result.isSuccess,
-          isTrue,
-          reason: 'split must not crash on PK-linked sessions',
-        );
+      expect(
+        result.isSuccess,
+        isTrue,
+        reason: 'split must not crash on PK-linked sessions',
+      );
 
-        final all = await repository.getAllSessions();
-        expect(all, hasLength(2));
-        final first = all.firstWhere((s) => s.id == original.id);
-        final second = all.firstWhere((s) => s.id != original.id);
+      final all = await repository.getAllSessions();
+      expect(all, hasLength(2));
+      final first = all.firstWhere((s) => s.id == original.id);
+      final second = all.firstWhere((s) => s.id != original.id);
 
-        expect(
-          first.pluralkitUuid,
-          'pk-switch-uuid-abc',
-          reason: 'original retains the PK link',
-        );
-        expect(
-          second.pluralkitUuid,
-          isNull,
-          reason: 'split-half is a new local segment with no PK switch yet',
-        );
+      expect(
+        first.pluralkitUuid,
+        'pk-switch-uuid-abc',
+        reason: 'original retains the PK link',
+      );
+      expect(
+        second.pluralkitUuid,
+        isNull,
+        reason: 'split-half is a new local segment with no PK switch yet',
+      );
 
-        expect(first.endTime, DateTime(2026, 4, 25, 11));
-        expect(second.startTime, DateTime(2026, 4, 25, 11));
-        expect(second.endTime, DateTime(2026, 4, 25, 12));
-      },
-    );
+      expect(first.endTime, DateTime(2026, 4, 25, 11));
+      expect(second.startTime, DateTime(2026, 4, 25, 11));
+      expect(second.endTime, DateTime(2026, 4, 25, 12));
+    });
 
     // -------------------------------------------------------------------------
     // Sleep lifecycle
     // -------------------------------------------------------------------------
 
-    test('startSleep ends active fronting sessions before creating sleep',
-        () async {
-      final repo = FakeFrontingSessionRepository();
-      final fronting = FrontingSession(
-        id: 'front-1',
-        startTime: DateTime(2026, 3, 11, 8),
-        memberId: 'alice',
-      );
-      await repo.createSession(fronting);
+    test(
+      'startSleep ends active fronting sessions before creating sleep',
+      () async {
+        final repo = FakeFrontingSessionRepository();
+        final fronting = FrontingSession(
+          id: 'front-1',
+          startTime: DateTime(2026, 3, 11, 8),
+          memberId: 'alice',
+        );
+        await repo.createSession(fronting);
 
-      final svc = FrontingMutationService(
-        repository: repo,
-        mutationRunner: MutationRunner(
-          transactionRunner: _passthroughTransactionRunner,
-        ),
-      );
+        final svc = FrontingMutationService(
+          repository: repo,
+          mutationRunner: MutationRunner(
+            transactionRunner: _passthroughTransactionRunner,
+          ),
+        );
 
-      final result = await svc.startSleep(
-        notes: 'nap',
-        startTime: DateTime(2026, 3, 11, 10),
-      );
+        final result = await svc.startSleep(
+          notes: 'nap',
+          startTime: DateTime(2026, 3, 11, 10),
+        );
 
-      expect(result.isSuccess, isTrue);
-      expect(repo.sessions, hasLength(2));
-      final endedFronting = repo.sessions
-          .where((session) => session.id == fronting.id)
-          .single;
-      expect(endedFronting.endTime, DateTime(2026, 3, 11, 10));
-      final createdSleep = repo.sessions
-          .where((session) => session.isSleep)
-          .single;
-      expect(createdSleep.memberId, isNull);
-      expect(createdSleep.notes, 'nap');
-    });
+        expect(result.isSuccess, isTrue);
+        expect(repo.sessions, hasLength(2));
+        final endedFronting = repo.sessions
+            .where((session) => session.id == fronting.id)
+            .single;
+        expect(endedFronting.endTime, DateTime(2026, 3, 11, 10));
+        final createdSleep = repo.sessions
+            .where((session) => session.isSleep)
+            .single;
+        expect(createdSleep.memberId, isNull);
+        expect(createdSleep.notes, 'nap');
+      },
+    );
 
     test('startSleep ends a prior active sleep session', () async {
       final repo = FakeFrontingSessionRepository();
@@ -1007,8 +1102,9 @@ void main() {
         expect(result.isSuccess, isTrue);
 
         // Sentinel member was lazy-created.
-        final sentinel =
-            await memberRepo.getMemberById(unknownSentinelMemberId);
+        final sentinel = await memberRepo.getMemberById(
+          unknownSentinelMemberId,
+        );
         expect(sentinel, isNotNull);
         expect(sentinel!.name, 'Unknown');
         expect(sentinel.emoji, '❔');
@@ -1055,48 +1151,14 @@ void main() {
         },
       );
 
-      test(
-        'startFronting with a mix of real members and the sentinel creates '
-        'one row per id and ensures the sentinel',
-        () async {
-          final repo = FakeFrontingSessionRepository();
-          final memberRepo = FakeMemberRepository();
-          memberRepo.seed([
-            Member(id: 'alice', name: 'Alice', createdAt: DateTime(2026)),
-            Member(id: 'bob', name: 'Bob', createdAt: DateTime(2026)),
-          ]);
-          final svc = FrontingMutationService(
-            repository: repo,
-            memberRepository: memberRepo,
-            mutationRunner: MutationRunner(
-              transactionRunner: _passthroughTransactionRunner,
-            ),
-          );
-
-          final result = await svc.startFronting(
-            ['alice', unknownSentinelMemberId, 'bob'],
-          );
-          expect(result.isSuccess, isTrue);
-
-          // Three session rows, one per id.
-          expect(repo.sessions, hasLength(3));
-          expect(
-            repo.sessions.map((s) => s.memberId).toSet(),
-            {'alice', 'bob', unknownSentinelMemberId},
-          );
-
-          // Sentinel was ensured.
-          expect(
-            await memberRepo.getMemberById(unknownSentinelMemberId),
-            isNotNull,
-          );
-        },
-      );
-
-      test('addCoFronter for the sentinel auto-creates the sentinel member',
-          () async {
+      test('startFronting with a mix of real members and the sentinel creates '
+          'one row per id and ensures the sentinel', () async {
         final repo = FakeFrontingSessionRepository();
         final memberRepo = FakeMemberRepository();
+        memberRepo.seed([
+          Member(id: 'alice', name: 'Alice', createdAt: DateTime(2026)),
+          Member(id: 'bob', name: 'Bob', createdAt: DateTime(2026)),
+        ]);
         final svc = FrontingMutationService(
           repository: repo,
           memberRepository: memberRepo,
@@ -1105,15 +1167,51 @@ void main() {
           ),
         );
 
-        final result = await svc.addCoFronter(unknownSentinelMemberId);
+        final result = await svc.startFronting([
+          'alice',
+          unknownSentinelMemberId,
+          'bob',
+        ]);
         expect(result.isSuccess, isTrue);
+
+        // Three session rows, one per id.
+        expect(repo.sessions, hasLength(3));
+        expect(repo.sessions.map((s) => s.memberId).toSet(), {
+          'alice',
+          'bob',
+          unknownSentinelMemberId,
+        });
+
+        // Sentinel was ensured.
         expect(
           await memberRepo.getMemberById(unknownSentinelMemberId),
           isNotNull,
         );
-        expect(repo.sessions, hasLength(1));
-        expect(repo.sessions.single.memberId, unknownSentinelMemberId);
       });
+
+      test(
+        'addCoFronter for the sentinel auto-creates the sentinel member',
+        () async {
+          final repo = FakeFrontingSessionRepository();
+          final memberRepo = FakeMemberRepository();
+          final svc = FrontingMutationService(
+            repository: repo,
+            memberRepository: memberRepo,
+            mutationRunner: MutationRunner(
+              transactionRunner: _passthroughTransactionRunner,
+            ),
+          );
+
+          final result = await svc.addCoFronter(unknownSentinelMemberId);
+          expect(result.isSuccess, isTrue);
+          expect(
+            await memberRepo.getMemberById(unknownSentinelMemberId),
+            isNotNull,
+          );
+          expect(repo.sessions, hasLength(1));
+          expect(repo.sessions.single.memberId, unknownSentinelMemberId);
+        },
+      );
 
       test(
         'endFronting for the sentinel does NOT call ensure '

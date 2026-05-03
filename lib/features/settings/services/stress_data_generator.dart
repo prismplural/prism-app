@@ -136,12 +136,10 @@ class _StressEpisode {
   const _StressEpisode({
     required this.start,
     required this.end,
-    required this.members,
     required this.firstRowId,
   });
   final DateTime start;
   final DateTime end;
-  final List<String> members;
   final String firstRowId;
 }
 
@@ -157,41 +155,145 @@ class StressDataGenerator {
   static const _chunkSize = 2000;
 
   static const _colorPalette = [
-    'FF6B6B', 'FFA07A', 'FFD93D', '6BCB77', '4D96FF',
-    '9B59B6', 'E91E63', '00BCD4', 'FF9800', '8BC34A',
-    '3F51B5', '795548', '607D8B', 'F44336', '009688',
+    'FF6B6B',
+    'FFA07A',
+    'FFD93D',
+    '6BCB77',
+    '4D96FF',
+    '9B59B6',
+    'E91E63',
+    '00BCD4',
+    'FF9800',
+    '8BC34A',
+    '3F51B5',
+    '795548',
+    '607D8B',
+    'F44336',
+    '009688',
   ];
 
   static const _emojis = [
-    '\u{1F60A}', '\u{1F31F}', '\u{1F308}', '\u{2728}', '\u{1F33B}',
-    '\u{1F338}', '\u{1F984}', '\u{1F431}', '\u{1F436}', '\u{1F985}',
-    '\u{1F989}', '\u{1F98B}', '\u{1F33A}', '\u{2B50}', '\u{1F525}',
-    '\u{1F30A}', '\u{2744}\u{FE0F}', '\u{1F343}', '\u{1FA90}', '\u{1F48E}',
+    '\u{1F60A}',
+    '\u{1F31F}',
+    '\u{1F308}',
+    '\u{2728}',
+    '\u{1F33B}',
+    '\u{1F338}',
+    '\u{1F984}',
+    '\u{1F431}',
+    '\u{1F436}',
+    '\u{1F985}',
+    '\u{1F989}',
+    '\u{1F98B}',
+    '\u{1F33A}',
+    '\u{2B50}',
+    '\u{1F525}',
+    '\u{1F30A}',
+    '\u{2744}\u{FE0F}',
+    '\u{1F343}',
+    '\u{1FA90}',
+    '\u{1F48E}',
   ];
 
   static const _habitNames = [
-    'Exercise', 'Journaling', 'Meditation', 'Reading', 'Hydration',
-    'Stretching', 'Walk outside', 'Gratitude list', 'Art practice',
-    'Music practice', 'Cooking', 'Cleaning', 'Study session', 'Yoga',
-    'Deep breathing', 'Therapy homework', 'Social time', 'Self-care',
-    'Vitamins', 'Screen break',
+    'Exercise',
+    'Journaling',
+    'Meditation',
+    'Reading',
+    'Hydration',
+    'Stretching',
+    'Walk outside',
+    'Gratitude list',
+    'Art practice',
+    'Music practice',
+    'Cooking',
+    'Cleaning',
+    'Study session',
+    'Yoga',
+    'Deep breathing',
+    'Therapy homework',
+    'Social time',
+    'Self-care',
+    'Vitamins',
+    'Screen break',
   ];
 
   static const _noteWords = [
-    'Today', 'feeling', 'noticed', 'worked', 'talked', 'thought',
-    'remembered', 'tried', 'started', 'finished', 'felt', 'happy',
-    'calm', 'anxious', 'tired', 'energetic', 'creative', 'focused',
-    'distracted', 'peaceful', 'about', 'the', 'and', 'with', 'a',
-    'some', 'really', 'quite', 'very', 'somewhat',
+    'Today',
+    'feeling',
+    'noticed',
+    'worked',
+    'talked',
+    'thought',
+    'remembered',
+    'tried',
+    'started',
+    'finished',
+    'felt',
+    'happy',
+    'calm',
+    'anxious',
+    'tired',
+    'energetic',
+    'creative',
+    'focused',
+    'distracted',
+    'peaceful',
+    'about',
+    'the',
+    'and',
+    'with',
+    'a',
+    'some',
+    'really',
+    'quite',
+    'very',
+    'somewhat',
   ];
 
   static const _messageWords = [
-    'hey', 'hi', 'hello', 'how', 'are', 'you', 'doing', 'good',
-    'great', 'thanks', 'yeah', 'sure', 'okay', 'sounds', 'nice',
-    'cool', 'awesome', 'interesting', 'agree', 'think', 'maybe',
-    'probably', 'definitely', 'absolutely', 'right', 'exactly',
-    'lol', 'haha', 'true', 'same', 'I', 'we', 'they', 'it',
-    'was', 'is', 'that', 'this', 'not', 'but', 'and', 'the',
+    'hey',
+    'hi',
+    'hello',
+    'how',
+    'are',
+    'you',
+    'doing',
+    'good',
+    'great',
+    'thanks',
+    'yeah',
+    'sure',
+    'okay',
+    'sounds',
+    'nice',
+    'cool',
+    'awesome',
+    'interesting',
+    'agree',
+    'think',
+    'maybe',
+    'probably',
+    'definitely',
+    'absolutely',
+    'right',
+    'exactly',
+    'lol',
+    'haha',
+    'true',
+    'same',
+    'I',
+    'we',
+    'they',
+    'it',
+    'was',
+    'is',
+    'that',
+    'this',
+    'not',
+    'but',
+    'and',
+    'the',
   ];
 
   /// Generate stress data, yielding progress updates.
@@ -241,7 +343,9 @@ class StressDataGenerator {
             MembersCompanion.insert(
               id: memberIds[i],
               name: 'Stress Member $i',
-              pronouns: Value(i % 3 == 0 ? 'they/them' : (i % 3 == 1 ? 'she/her' : 'he/him')),
+              pronouns: Value(
+                i % 3 == 0 ? 'they/them' : (i % 3 == 1 ? 'she/her' : 'he/him'),
+              ),
               emoji: Value(_emojis[i % _emojis.length]),
               createdAt: DateTime(2020, 1, 1).add(Duration(days: i)),
               customColorEnabled: const Value(true),
@@ -279,18 +383,22 @@ class StressDataGenerator {
       final entryCompanions = <MemberGroupEntriesCompanion>[];
       for (var m = 0; m < preset.members; m++) {
         final groupIndex = m % preset.groups;
-        entryCompanions.add(MemberGroupEntriesCompanion.insert(
-          id: 'stress-mge-$m-$groupIndex',
-          groupId: groupIds[groupIndex],
-          memberId: memberIds[m],
-        ));
+        entryCompanions.add(
+          MemberGroupEntriesCompanion.insert(
+            id: 'stress-mge-$m-$groupIndex',
+            groupId: groupIds[groupIndex],
+            memberId: memberIds[m],
+          ),
+        );
         if (m % 3 == 0 && preset.groups > 1) {
           final secondGroup = (groupIndex + 1) % preset.groups;
-          entryCompanions.add(MemberGroupEntriesCompanion.insert(
-            id: 'stress-mge-$m-$secondGroup',
-            groupId: groupIds[secondGroup],
-            memberId: memberIds[m],
-          ));
+          entryCompanions.add(
+            MemberGroupEntriesCompanion.insert(
+              id: 'stress-mge-$m-$secondGroup',
+              groupId: groupIds[secondGroup],
+              memberId: memberIds[m],
+            ),
+          );
         }
       }
       for (var chunk = 0; chunk < entryCompanions.length; chunk += _chunkSize) {
@@ -331,12 +439,14 @@ class StressDataGenerator {
       for (var f = 0; f < preset.customFields; f++) {
         final membersWithValue = min(preset.members, 20);
         for (var m = 0; m < membersWithValue; m++) {
-          valueCompanions.add(CustomFieldValuesCompanion.insert(
-            id: 'stress-cfv-$f-$m',
-            customFieldId: fieldIds[f],
-            memberId: memberIds[m],
-            value: 'Value $f for member $m',
-          ));
+          valueCompanions.add(
+            CustomFieldValuesCompanion.insert(
+              id: 'stress-cfv-$f-$m',
+              customFieldId: fieldIds[f],
+              memberId: memberIds[m],
+              value: 'Value $f for member $m',
+            ),
+          );
         }
       }
       for (var chunk = 0; chunk < valueCompanions.length; chunk += _chunkSize) {
@@ -348,7 +458,9 @@ class StressDataGenerator {
         });
       }
     }
-    sink.add(StressProgress('Custom Fields', preset.customFields, preset.customFields));
+    sink.add(
+      StressProgress('Custom Fields', preset.customFields, preset.customFields),
+    );
 
     // --- Fronting Sessions ---
     //
@@ -380,7 +492,10 @@ class StressDataGenerator {
     final episodes = <_StressEpisode>[];
     while (sessionRowsWritten < preset.sessions) {
       // Build one batch worth of episodes.
-      final batchTargetEnd = min(sessionRowsWritten + _chunkSize, preset.sessions);
+      final batchTargetEnd = min(
+        sessionRowsWritten + _chunkSize,
+        preset.sessions,
+      );
       await _db.batch((batch) {
         while (sessionRowsWritten < batchTargetEnd) {
           // Pick a "primary" presence and 0..2 co-fronters by Zipf weight.
@@ -389,10 +504,10 @@ class StressDataGenerator {
           final memberCount = preset.members <= 1
               ? 1
               : coRoll < 0.5
-                  ? 1
-                  : coRoll < 0.85
-                      ? 2
-                      : 3;
+              ? 1
+              : coRoll < 0.85
+              ? 2
+              : 3;
           final episodeMembers = <String>{};
           while (episodeMembers.length < min(memberCount, preset.members)) {
             episodeMembers.add(
@@ -405,8 +520,9 @@ class StressDataGenerator {
           );
           final episodeStart = earliest.add(startOffset);
           final episodeMinutes = 30 + rng.nextInt(450); // 30 min to 8 hr
-          final episodeEnd =
-              episodeStart.add(Duration(minutes: episodeMinutes));
+          final episodeEnd = episodeStart.add(
+            Duration(minutes: episodeMinutes),
+          );
 
           // ~3% of episodes are still active (no end on at least one row).
           final isActiveEpisode = rng.nextDouble() < 0.03;
@@ -422,9 +538,11 @@ class StressDataGenerator {
             // 25% early.
             final memberStart = m == 0
                 ? episodeStart
-                : episodeStart.add(Duration(
-                    minutes: rng.nextInt((episodeMinutes * 0.25).floor() + 1),
-                  ));
+                : episodeStart.add(
+                    Duration(
+                      minutes: rng.nextInt((episodeMinutes * 0.25).floor() + 1),
+                    ),
+                  );
             DateTime? memberEnd;
             if (isActiveEpisode && m == 0) {
               memberEnd = null; // primary still fronting
@@ -432,8 +550,7 @@ class StressDataGenerator {
               final earlyLeave = m == 0
                   ? 0
                   : rng.nextInt((episodeMinutes * 0.25).floor() + 1);
-              memberEnd = episodeEnd
-                  .subtract(Duration(minutes: earlyLeave));
+              memberEnd = episodeEnd.subtract(Duration(minutes: earlyLeave));
               // Guard: never end before start.
               if (!memberEnd.isAfter(memberStart)) {
                 memberEnd = memberStart.add(const Duration(minutes: 1));
@@ -469,18 +586,23 @@ class StressDataGenerator {
           }
 
           if (episodeFronters.isNotEmpty) {
-            episodes.add(_StressEpisode(
-              start: episodeStart,
-              end: episodeEnd,
-              members: episodeFronters,
-              firstRowId: 'stress-session-$episodeIdx-0',
-            ));
+            episodes.add(
+              _StressEpisode(
+                start: episodeStart,
+                end: episodeEnd,
+                firstRowId: 'stress-session-$episodeIdx-0',
+              ),
+            );
           }
           episodeIdx++;
         }
       });
       sink.add(
-        StressProgress('Fronting Sessions', sessionRowsWritten, preset.sessions),
+        StressProgress(
+          'Fronting Sessions',
+          sessionRowsWritten,
+          preset.sessions,
+        ),
       );
     }
 
@@ -498,7 +620,9 @@ class StressDataGenerator {
               .add(Duration(days: dayOffset))
               .copyWith(hour: 21 + rng.nextInt(3), minute: rng.nextInt(60));
           final sleepHours = 5 + rng.nextInt(5); // 5-9 hours
-          final sleepEnd = sleepStart.add(Duration(hours: sleepHours, minutes: rng.nextInt(60)));
+          final sleepEnd = sleepStart.add(
+            Duration(hours: sleepHours, minutes: rng.nextInt(60)),
+          );
           batch.insert(
             _db.sleepSessions,
             SleepSessionsCompanion.insert(
@@ -517,7 +641,13 @@ class StressDataGenerator {
     }
 
     // --- Conversation Categories ---
-    const categoryNames = ['General', 'System Talk', 'Fun', 'Venting', 'Planning'];
+    const categoryNames = [
+      'General',
+      'System Talk',
+      'Fun',
+      'Venting',
+      'Planning',
+    ];
     final categoryCount = min(categoryNames.length, preset.conversations ~/ 4);
     final categoryIds = List.generate(categoryCount, (i) => 'stress-cat-$i');
     if (categoryCount > 0) {
@@ -558,11 +688,12 @@ class StressDataGenerator {
             if (!participants.contains(p)) participants.add(p);
           }
           convParticipants[conversationIds[i]] = participants;
-          final created = earliest.add(Duration(
-            seconds: rng.nextInt(timeSpan.inSeconds),
-          ));
+          final created = earliest.add(
+            Duration(seconds: rng.nextInt(timeSpan.inSeconds)),
+          );
           // Assign ~60% of group chats to a category.
-          final assignCategory = !isDm && categoryCount > 0 && rng.nextDouble() < 0.6;
+          final assignCategory =
+              !isDm && categoryCount > 0 && rng.nextDouble() < 0.6;
           batch.insert(
             _db.conversations,
             ConversationsCompanion.insert(
@@ -570,7 +701,9 @@ class StressDataGenerator {
               createdAt: created,
               lastActivityAt: now,
               title: isDm ? const Value.absent() : Value('Chat Room $i'),
-              emoji: isDm ? const Value.absent() : Value(_emojis[i % _emojis.length]),
+              emoji: isDm
+                  ? const Value.absent()
+                  : Value(_emojis[i % _emojis.length]),
               isDirectMessage: Value(isDm),
               creatorId: Value(participants.first),
               participantIds: Value(jsonEncode(participants)),
@@ -582,7 +715,13 @@ class StressDataGenerator {
         }
       });
     }
-    sink.add(StressProgress('Conversations', preset.conversations, preset.conversations));
+    sink.add(
+      StressProgress(
+        'Conversations',
+        preset.conversations,
+        preset.conversations,
+      ),
+    );
 
     // Messages distributed with power law across conversations.
     sink.add(StressProgress('Messages', 0, preset.messages));
@@ -600,17 +739,25 @@ class StressDataGenerator {
                 conversationIds[_pickCumulative(rng, convCumulative)];
             final participants = convParticipants[convId]!;
             final authorId = participants[rng.nextInt(participants.length)];
-            final msgTime = earliest.add(Duration(
-              seconds: rng.nextInt(timeSpan.inSeconds),
-            ));
+            final msgTime = earliest.add(
+              Duration(seconds: rng.nextInt(timeSpan.inSeconds)),
+            );
             final contentLength = 5 + rng.nextInt(196);
-            final content = _generateText(rng, _messageWords, 1, contentLength ~/ 5 + 1);
+            final content = _generateText(
+              rng,
+              _messageWords,
+              1,
+              contentLength ~/ 5 + 1,
+            );
 
             // ~5% have reactions
             String? reactionsJson;
             if (rng.nextDouble() < 0.05) {
               reactionsJson = jsonEncode([
-                {'emoji': _emojis[rng.nextInt(_emojis.length)], 'memberId': authorId},
+                {
+                  'emoji': _emojis[rng.nextInt(_emojis.length)],
+                  'memberId': authorId,
+                },
               ]);
             }
 
@@ -648,9 +795,9 @@ class StressDataGenerator {
         final end = min(chunk + _chunkSize, preset.habits);
         await _db.batch((batch) {
           for (var i = chunk; i < end; i++) {
-            final created = earliest.add(Duration(
-              seconds: rng.nextInt(timeSpan.inSeconds),
-            ));
+            final created = earliest.add(
+              Duration(seconds: rng.nextInt(timeSpan.inSeconds)),
+            );
             batch.insert(
               _db.habits,
               HabitsCompanion.insert(
@@ -679,16 +826,18 @@ class StressDataGenerator {
         await _db.batch((batch) {
           for (var i = chunk; i < end; i++) {
             final habitId = habitIds[i % preset.habits];
-            final completedAt = earliest.add(Duration(
-              seconds: rng.nextInt(timeSpan.inSeconds),
-            ));
+            final completedAt = earliest.add(
+              Duration(seconds: rng.nextInt(timeSpan.inSeconds)),
+            );
             batch.insert(
               _db.habitCompletions,
               HabitCompletionsCompanion.insert(
                 id: 'stress-hc-$i',
                 habitId: habitId,
                 completedAt: completedAt,
-                completedByMemberId: Value(memberIds[rng.nextInt(preset.members)]),
+                completedByMemberId: Value(
+                  memberIds[rng.nextInt(preset.members)],
+                ),
                 createdAt: completedAt,
                 modifiedAt: completedAt,
               ),
@@ -701,17 +850,22 @@ class StressDataGenerator {
 
     // --- Reminders ---
     const reminderNames = [
-      'Check in with everyone', 'Take meds', 'Stretch break',
-      'Log fronting', 'Drink water', 'Therapy prep',
-      'Update journal', 'System meeting',
+      'Check in with everyone',
+      'Take meds',
+      'Stretch break',
+      'Log fronting',
+      'Drink water',
+      'Therapy prep',
+      'Update journal',
+      'System meeting',
     ];
     final reminderCount = min(reminderNames.length, preset.habits ~/ 3);
     if (reminderCount > 0) {
       await _db.batch((batch) {
         for (var i = 0; i < reminderCount; i++) {
-          final created = earliest.add(Duration(
-            seconds: rng.nextInt(timeSpan.inSeconds),
-          ));
+          final created = earliest.add(
+            Duration(seconds: rng.nextInt(timeSpan.inSeconds)),
+          );
           batch.insert(
             _db.reminders,
             RemindersCompanion.insert(
@@ -736,9 +890,9 @@ class StressDataGenerator {
         final end = min(chunk + _chunkSize, preset.notes);
         await _db.batch((batch) {
           for (var i = chunk; i < end; i++) {
-            final date = earliest.add(Duration(
-              seconds: rng.nextInt(timeSpan.inSeconds),
-            ));
+            final date = earliest.add(
+              Duration(seconds: rng.nextInt(timeSpan.inSeconds)),
+            );
             batch.insert(
               _db.notes,
               NotesCompanion.insert(
@@ -764,9 +918,9 @@ class StressDataGenerator {
     if (preset.polls > 0) {
       await _db.batch((batch) {
         for (var i = 0; i < preset.polls; i++) {
-          final created = earliest.add(Duration(
-            seconds: rng.nextInt(timeSpan.inSeconds),
-          ));
+          final created = earliest.add(
+            Duration(seconds: rng.nextInt(timeSpan.inSeconds)),
+          );
           batch.insert(
             _db.polls,
             PollsCompanion.insert(
@@ -788,16 +942,22 @@ class StressDataGenerator {
         for (var o = 0; o < optionCount; o++) {
           final optId = 'stress-pollopt-$p-$o';
           optIds.add(optId);
-          optionCompanions.add(PollOptionsCompanion.insert(
-            id: optId,
-            pollId: pollIds[p],
-            optionText: 'Option $o for poll $p',
-            sortOrder: Value(o),
-          ));
+          optionCompanions.add(
+            PollOptionsCompanion.insert(
+              id: optId,
+              pollId: pollIds[p],
+              optionText: 'Option $o for poll $p',
+              sortOrder: Value(o),
+            ),
+          );
         }
         pollOptionIds[pollIds[p]] = optIds;
       }
-      for (var chunk = 0; chunk < optionCompanions.length; chunk += _chunkSize) {
+      for (
+        var chunk = 0;
+        chunk < optionCompanions.length;
+        chunk += _chunkSize
+      ) {
         final end = min(chunk + _chunkSize, optionCompanions.length);
         await _db.batch((batch) {
           for (var i = chunk; i < end; i++) {
@@ -814,12 +974,14 @@ class StressDataGenerator {
         final options = pollOptionIds[pollIds[p]]!;
         for (var v = 0; v < voterCount; v++) {
           final optId = options[rng.nextInt(options.length)];
-          voteCompanions.add(PollVotesCompanion.insert(
-            id: 'stress-vote-$voteIndex',
-            pollOptionId: optId,
-            memberId: memberIds[v % preset.members],
-            votedAt: now.subtract(Duration(days: rng.nextInt(365))),
-          ));
+          voteCompanions.add(
+            PollVotesCompanion.insert(
+              id: 'stress-vote-$voteIndex',
+              pollOptionId: optId,
+              memberId: memberIds[v % preset.members],
+              votedAt: now.subtract(Duration(days: rng.nextInt(365))),
+            ),
+          );
           voteIndex++;
         }
       }
@@ -836,13 +998,9 @@ class StressDataGenerator {
 
     // --- Front Session Comments ---
     //
-    // New-shape comments (Phase 5 — see plan §3.5): each comment carries a
-    // `target_time` (the moment it's *about*) and an optional
-    // `author_member_id`.  The legacy `session_id` column still exists in
-    // v7 (dropped in v8) and is required by the Drift insertable, so we
-    // populate it with the first per-member row of the targeted episode
-    // for legacy-reader compatibility — but no new code path should rely
-    // on that linkage.
+    // Restored session-attached comments: each comment belongs to a real
+    // generated fronting session row, while `timestamp` remains the visible
+    // moment the comment is about.
     //
     // Add comments to ~10% of episodes (rather than ~10% of rows, so a
     // multi-member episode doesn't get N times the comments).
@@ -854,37 +1012,32 @@ class StressDataGenerator {
         await _db.batch((batch) {
           for (var i = chunk; i < end; i++) {
             final episode = episodes[rng.nextInt(episodes.length)];
-            // target_time falls inside the episode's wall-clock range so
-            // the comment is meaningfully attached to a moment when the
-            // chosen author was actually fronting.
+            // Keep the comment's visible timestamp inside the episode's
+            // wall-clock range while attaching it to a real generated row.
             final episodeSpan = episode.end.difference(episode.start);
             final spanSeconds = episodeSpan.inSeconds <= 0
                 ? 1
                 : episodeSpan.inSeconds;
-            final targetTime = episode.start.add(
+            final commentTime = episode.start.add(
               Duration(seconds: rng.nextInt(spanSeconds)),
             );
-            final authorMemberId =
-                episode.members[rng.nextInt(episode.members.length)];
             // createdAt can lag the moment it's about (users back-date
-            // notes); pick something between targetTime and now.
-            final maxLagSeconds =
-                now.difference(targetTime).inSeconds.clamp(1, 86400);
-            final createdAt =
-                targetTime.add(Duration(seconds: rng.nextInt(maxLagSeconds)));
+            // notes); pick something between commentTime and now.
+            final maxLagSeconds = now
+                .difference(commentTime)
+                .inSeconds
+                .clamp(1, 86400);
+            final createdAt = commentTime.add(
+              Duration(seconds: rng.nextInt(maxLagSeconds)),
+            );
             batch.insert(
               _db.frontSessionComments,
               FrontSessionCommentsCompanion.insert(
                 id: 'stress-comment-$i',
-                // Legacy column — required-by-Drift; fall back to a real
-                // session row id from the same episode.  No new reader
-                // should consult this.
                 sessionId: episode.firstRowId,
                 body: _generateText(rng, _noteWords, 5, 20),
-                timestamp: targetTime,
+                timestamp: commentTime,
                 createdAt: createdAt,
-                targetTime: Value(targetTime),
-                authorMemberId: Value(authorMemberId),
               ),
             );
           }
@@ -952,17 +1105,21 @@ class StressDataGenerator {
 
   /// Check if any stress data exists in the database.
   Future<bool> hasStressData() async {
-    final result = await _db.customSelect(
-      "SELECT COUNT(*) as c FROM members WHERE id LIKE 'stress-%'",
-    ).getSingle();
+    final result = await _db
+        .customSelect(
+          "SELECT COUNT(*) as c FROM members WHERE id LIKE 'stress-%'",
+        )
+        .getSingle();
     return result.read<int>('c') > 0;
   }
 
   /// Check if database has any non-stress data (for the "non-empty DB" warning).
   Future<bool> hasExistingData() async {
-    final result = await _db.customSelect(
-      "SELECT COUNT(*) as c FROM members WHERE id NOT LIKE 'stress-%' AND is_deleted = 0",
-    ).getSingle();
+    final result = await _db
+        .customSelect(
+          "SELECT COUNT(*) as c FROM members WHERE id NOT LIKE 'stress-%' AND is_deleted = 0",
+        )
+        .getSingle();
     return result.read<int>('c') > 0;
   }
 

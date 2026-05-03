@@ -4,6 +4,7 @@ import 'package:prism_plurality/core/mutations/mutation_result.dart';
 import 'package:prism_plurality/core/mutations/mutation_runner.dart';
 import 'package:prism_plurality/core/services/session_lifecycle_service.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
+import 'package:prism_plurality/domain/repositories/front_session_comments_repository.dart';
 import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/features/fronting/editing/fronting_edit_guard.dart';
@@ -32,12 +33,14 @@ class FrontingMutationService {
     required FrontingSessionRepository repository,
     required MutationRunner mutationRunner,
     MemberRepository? memberRepository,
+    FrontSessionCommentsRepository? frontSessionCommentsRepository,
     SessionLifecycleService lifecycle = const SessionLifecycleService(),
     FrontingEditGuard editGuard = const FrontingEditGuard(),
     Uuid? uuid,
   }) : _repository = repository,
        _mutationRunner = mutationRunner,
        _memberRepository = memberRepository,
+       _frontSessionCommentsRepository = frontSessionCommentsRepository,
        _lifecycle = lifecycle,
        _editGuard = editGuard,
        _uuid = uuid ?? const Uuid();
@@ -49,6 +52,7 @@ class FrontingMutationService {
   // payload, this MUST be wired or the service throws (see
   // [_ensureSentinelIfNeeded]).
   final MemberRepository? _memberRepository;
+  final FrontSessionCommentsRepository? _frontSessionCommentsRepository;
   final SessionLifecycleService _lifecycle;
   final FrontingEditGuard _editGuard;
   final Uuid _uuid;
@@ -60,9 +64,7 @@ class FrontingMutationService {
   void _assertTimeRange(DateTime start, DateTime? end) {
     final issues = _editGuard.validateTimeRange(start, end);
     if (issues.isEmpty) return;
-    throw AppFailure.validation(
-      issues.map((i) => i.summary).join('; '),
-    );
+    throw AppFailure.validation(issues.map((i) => i.summary).join('; '));
   }
 
   /// If [memberIds] contains the Unknown sentinel id, lazily creates the
@@ -283,8 +285,11 @@ class FrontingMutationService {
     return _mutationRunner.run<FrontingMutationResult>(
       actionLabel: 'Start sleep session',
       action: () async {
-        final activeSessions = await _repository.getAllActiveSessionsUnfiltered();
-        final previousMemberIds = activeSessions.map((s) => s.memberId).toList();
+        final activeSessions = await _repository
+            .getAllActiveSessionsUnfiltered();
+        final previousMemberIds = activeSessions
+            .map((s) => s.memberId)
+            .toList();
         final now = startTime ?? DateTime.now();
         _assertTimeRange(now, null);
         for (final session in activeSessions) {
@@ -615,6 +620,17 @@ class FrontingMutationService {
           isHealthKitImport: session.isHealthKitImport,
         );
         await _repository.createSession(secondHalf);
+        await reparentFrontSessionCommentsByTimestamp(
+          _frontSessionCommentsRepository,
+          fromSessionId: session.id,
+          targets: [
+            FrontSessionCommentReparentTarget(
+              sessionId: secondHalf.id,
+              startTime: splitTime,
+              endTime: null,
+            ),
+          ],
+        );
         return secondHalf;
       },
     );

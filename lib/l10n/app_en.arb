@@ -7318,6 +7318,11 @@
   "@dataManagementImportingMessage": { "description": "Hint shown while importing" },
   "dataManagementImportComplete": "Import Complete",
   "@dataManagementImportComplete": { "description": "Headline when import succeeds" },
+  "dataImportTimestampOnlyCommentsDropped": "{count, plural, =1{1 fronting comment was dropped because it was not attached to a session.} other{{count} fronting comments were dropped because they were not attached to a session.}}",
+  "@dataImportTimestampOnlyCommentsDropped": {
+    "description": "Import warning when abandoned timestamp-only front session comments could not be restored because they lacked a usable session id",
+    "placeholders": { "count": { "type": "int" } }
+  },
   "dataManagementImportFailed": "Import Failed",
   "@dataManagementImportFailed": { "description": "Headline when import fails" },
   "dataManagementImportFailedNote": "No data was imported. The database was not modified.",

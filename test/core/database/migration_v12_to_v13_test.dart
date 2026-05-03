@@ -30,8 +30,8 @@ Future<void> _seedV12Db(File dbFile) async {
 }
 
 void main() {
-  group('schema v13 migration (comment target_time index)', () {
-    test('v12 -> v13 adds the target_time range index', () async {
+  group('schema v12 -> current comment cleanup', () {
+    test('upgrade leaves restored session-attached comment index only', () async {
       final tempDir = Directory.systemTemp.createTempSync(
         'prism_migration_v12_to_v13_',
       );
@@ -50,12 +50,21 @@ void main() {
           .customSelect("PRAGMA index_list('front_session_comments')")
           .get();
       final names = indexes.map((row) => row.read<String>('name')).toSet();
-      expect(names, contains('idx_comments_target_time'));
+      expect(names, contains('idx_comments_session'));
+      expect(names, isNot(contains('idx_comments_target_time')));
+
+      final cols = await upgraded
+          .customSelect("PRAGMA table_info('front_session_comments')")
+          .get();
+      final colNames = cols.map((row) => row.read<String>('name')).toSet();
+      expect(colNames, contains('session_id'));
+      expect(colNames, isNot(contains('target_time')));
+      expect(colNames, isNot(contains('author_member_id')));
 
       final version = await upgraded
           .customSelect('PRAGMA user_version')
           .getSingle();
-      expect(version.read<int>('user_version'), 15);
+      expect(version.read<int>('user_version'), 16);
     });
   });
 }

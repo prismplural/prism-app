@@ -94,7 +94,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 15;
+  int get schemaVersion => 16;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -232,16 +232,6 @@ class AppDatabase extends _$AppDatabase {
             "VALUES ('singleton', 'notStarted') "
             'ON CONFLICT(id) DO UPDATE SET '
             "pending_fronting_migration_mode = 'notStarted'",
-          );
-
-          // New columns: front_session_comments.target_time + author_member_id (§3.5)
-          await migrator.addColumn(
-            frontSessionComments,
-            frontSessionComments.targetTime,
-          );
-          await migrator.addColumn(
-            frontSessionComments,
-            frontSessionComments.authorMemberId,
           );
 
           // Create the migration-blockers side table used by
@@ -430,10 +420,10 @@ class AppDatabase extends _$AppDatabase {
         current = 12;
       }
       if (current == 12 && to >= 13) {
-        // SQL-backed range queries on front_session_comments now filter by
-        // target_time. Add an index so each period-detail watcher only wakes
-        // on rows in its own window.
-        await _createCommentsTargetTimeIndex();
+        // v13 briefly introduced a target_time range index for the abandoned
+        // timestamp-anchored comment model. The restored v16 schema keeps
+        // comments attached to session_id, so there is no v13 DDL left to
+        // apply for fresh step-through upgrades.
         current = 13;
       }
       if (current == 13 && to >= 14) {
@@ -497,19 +487,12 @@ class AppDatabase extends _$AppDatabase {
           systemSettingsTable,
           systemSettingsTable.spBoardsBackfilledAt,
         );
-        await customStatement(
-          'CREATE INDEX IF NOT EXISTS idx_mbp_target_audience '
-          'ON member_board_posts(target_member_id, audience, written_at DESC, is_deleted)',
-        );
-        await customStatement(
-          'CREATE INDEX IF NOT EXISTS idx_mbp_audience '
-          'ON member_board_posts(audience, written_at DESC, is_deleted)',
-        );
-        await customStatement(
-          'CREATE INDEX IF NOT EXISTS idx_mbp_author '
-          'ON member_board_posts(author_id, written_at DESC, is_deleted)',
-        );
+        await _createMemberBoardPostIndexes();
         current = 15;
+      }
+      if (current == 15 && to >= 16) {
+        await _rebuildFrontSessionCommentsSessionAttached();
+        current = 16;
       }
       if (current != to) {
         throw UnsupportedError(
@@ -522,7 +505,7 @@ class AppDatabase extends _$AppDatabase {
     onCreate: (migrator) async {
       await migrator.createAll();
       await _createCurrentIndexes();
-      await _createCommentsTargetTimeIndex();
+      await _createMemberBoardPostIndexes();
       await _createPkUniqueIndexes();
       // Fresh v7 install: jump straight to composite + orphan fronting indexes.
       // Empty table, so no detect-and-refuse needed.
@@ -754,6 +737,51 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
+  Future<void> _rebuildFrontSessionCommentsSessionAttached() async {
+    await transaction(() async {
+      await customStatement('DROP INDEX IF EXISTS idx_comments_target_time');
+      await customStatement('DROP INDEX IF EXISTS idx_comments_session');
+      await customStatement('''
+        CREATE TABLE front_session_comments_new (
+          id TEXT NOT NULL,
+          session_id TEXT NOT NULL,
+          body TEXT NOT NULL,
+          timestamp INTEGER NOT NULL,
+          created_at INTEGER NOT NULL,
+          is_deleted INTEGER NOT NULL DEFAULT 0 CHECK (is_deleted IN (0, 1)),
+          PRIMARY KEY (id)
+        )
+      ''');
+      await customStatement('''
+        INSERT INTO front_session_comments_new (
+          id,
+          session_id,
+          body,
+          timestamp,
+          created_at,
+          is_deleted
+        )
+        SELECT
+          id,
+          session_id,
+          body,
+          timestamp,
+          created_at,
+          is_deleted
+        FROM front_session_comments
+        WHERE session_id IS NOT NULL AND session_id != ''
+      ''');
+      await customStatement('DROP TABLE front_session_comments');
+      await customStatement(
+        'ALTER TABLE front_session_comments_new RENAME TO front_session_comments',
+      );
+      await customStatement(
+        'CREATE INDEX IF NOT EXISTS idx_comments_session '
+        'ON front_session_comments (session_id, is_deleted, timestamp ASC)',
+      );
+    });
+  }
+
   Future<void> _createCurrentIndexes() async {
     await customStatement(
       'CREATE INDEX IF NOT EXISTS idx_members_active '
@@ -893,6 +921,9 @@ class AppDatabase extends _$AppDatabase {
       'CREATE INDEX IF NOT EXISTS idx_member_groups_parent_id '
       'ON member_groups (parent_group_id) WHERE parent_group_id IS NOT NULL',
     );
+  }
+
+  Future<void> _createMemberBoardPostIndexes() async {
     await customStatement(
       'CREATE INDEX IF NOT EXISTS idx_mbp_target_audience '
       'ON member_board_posts (target_member_id, audience, written_at DESC, is_deleted)',
@@ -904,14 +935,6 @@ class AppDatabase extends _$AppDatabase {
     await customStatement(
       'CREATE INDEX IF NOT EXISTS idx_mbp_author '
       'ON member_board_posts (author_id, written_at DESC, is_deleted)',
-    );
-  }
-
-  Future<void> _createCommentsTargetTimeIndex() async {
-    await customStatement(
-      'CREATE INDEX IF NOT EXISTS idx_comments_target_time '
-      'ON front_session_comments (target_time, is_deleted) '
-      'WHERE target_time IS NOT NULL',
     );
   }
 

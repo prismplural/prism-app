@@ -1369,6 +1369,7 @@
   "dataManagementHidePassword": "Ocultar contraseña",
   "dataManagementImport": "Importar",
   "dataManagementImportComplete": "Importación completa",
+  "dataImportTimestampOnlyCommentsDropped": "{count, plural, =1{Se descartó 1 comentario al frente porque no tenía una sesión adjunta.} other{Se descartaron {count} comentarios al frente porque no tenían una sesión adjunta.}}",
   "dataManagementImportExportTitle": "Importar y exportar",
   "dataManagementImportFailed": "Fallo en la importación",
   "dataManagementImportFailedNote": "No se importaron datos. La base de datos no fue modificada.",

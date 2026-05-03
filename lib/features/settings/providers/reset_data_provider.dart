@@ -7,6 +7,8 @@ import 'package:path/path.dart' as p;
 import 'package:prism_sync/generated/api.dart' as ffi;
 
 import 'package:prism_plurality/core/constants/app_constants.dart';
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
+import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/database_encryption.dart';
 import 'package:prism_plurality/core/services/app_data_dir.dart';
 import 'package:prism_plurality/core/services/biometric_service_provider.dart';
@@ -293,12 +295,24 @@ class ResetDataNotifier extends AsyncNotifier<void> {
     final db = ref.read(databaseProvider);
     _log('Resetting members');
     await db.transaction(() async {
-      // Set fronting sessions to unknown (null member) instead of deleting.
-      // Per-member shape (Phase 5): each row already represents a single
-      // member, so nulling member_id orphans the row to "unknown" without
-      // any co-fronter list to reset.  The v7 `co_fronter_ids` column is
-      // legacy/unread storage and is not touched here.
-      await db.customStatement('UPDATE fronting_sessions SET member_id = NULL');
+      await db
+          .into(db.members)
+          .insert(
+            MembersCompanion(
+              id: Value(unknownSentinelMemberId),
+              name: const Value('Unknown'),
+              emoji: const Value('❔'),
+              createdAt: Value(DateTime.now().toUtc()),
+            ),
+            mode: InsertMode.insertOrIgnore,
+          );
+      // Preserve fronting history by attributing normal rows to the
+      // system-managed Unknown sentinel. Normal fronting rows cannot use null
+      // because the per-member schema enforces member_id for session_type = 0.
+      await db.customStatement(
+        'UPDATE fronting_sessions SET member_id = ? WHERE session_type = 0',
+        [unknownSentinelMemberId],
+      );
       // Delete child data that references members
       await db.customStatement('DELETE FROM custom_field_values');
       await db.customStatement('DELETE FROM member_group_entries');
@@ -306,8 +320,11 @@ class ResetDataNotifier extends AsyncNotifier<void> {
       await db.customStatement('DELETE FROM poll_votes');
       await db.customStatement('DELETE FROM habit_completions');
       await db.customStatement('DELETE FROM member_board_posts');
-      // Delete members
-      await db.customStatement('DELETE FROM members');
+      // Delete user members; keep the system-managed Unknown sentinel because
+      // fronting history now points to it and member-management UI filters it.
+      await db.customStatement('DELETE FROM members WHERE id <> ?', [
+        unknownSentinelMemberId,
+      ]);
     });
     _notifyTableChanges([
       'fronting_sessions',

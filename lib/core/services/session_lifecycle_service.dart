@@ -1,5 +1,6 @@
 // lib/core/services/session_lifecycle_service.dart
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
+import 'package:prism_plurality/domain/repositories/front_session_comments_repository.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
@@ -29,6 +30,60 @@ class GapInfo {
   final FrontingSession afterSession;
 
   Duration get duration => endTime.difference(startTime);
+}
+
+class FrontSessionCommentReparentTarget {
+  const FrontSessionCommentReparentTarget({
+    required this.sessionId,
+    required this.startTime,
+    required this.endTime,
+  });
+
+  final String sessionId;
+  final DateTime startTime;
+  final DateTime? endTime;
+
+  bool contains(DateTime timestamp) {
+    if (timestamp.isBefore(startTime)) return false;
+    final end = endTime;
+    return end == null || timestamp.isBefore(end);
+  }
+}
+
+Future<void> reparentFrontSessionComments(
+  FrontSessionCommentsRepository? repository, {
+  required String fromSessionId,
+  required String toSessionId,
+}) async {
+  if (repository == null || fromSessionId == toSessionId) return;
+  await repository.reparentComments(
+    fromSessionId: fromSessionId,
+    toSessionId: toSessionId,
+  );
+}
+
+Future<void> reparentFrontSessionCommentsByTimestamp(
+  FrontSessionCommentsRepository? repository, {
+  required String fromSessionId,
+  required Iterable<FrontSessionCommentReparentTarget> targets,
+}) async {
+  if (repository == null) return;
+  final targetList = targets.toList(growable: false);
+  if (targetList.isEmpty) return;
+
+  final comments = await repository.getAllComments();
+  for (final comment in comments) {
+    if (comment.sessionId != fromSessionId) continue;
+    for (final target in targetList) {
+      if (!target.contains(comment.timestamp)) continue;
+      if (target.sessionId != fromSessionId) {
+        await repository.updateComment(
+          comment.copyWith(sessionId: target.sessionId),
+        );
+      }
+      break;
+    }
+  }
 }
 
 // ──────────────────────────────────────────────
@@ -110,14 +165,18 @@ enum QuickSwitchAction {
 // ──────────────────────────────────────────────
 
 class SessionLifecycleService {
-  const SessionLifecycleService({MemberRepository? memberRepository})
-    : _memberRepository = memberRepository;
+  const SessionLifecycleService({
+    MemberRepository? memberRepository,
+    FrontSessionCommentsRepository? frontSessionCommentsRepository,
+  }) : _memberRepository = memberRepository,
+       _frontSessionCommentsRepository = frontSessionCommentsRepository;
 
   /// Optional so unit tests that don't exercise the Unknown-sentinel filler
   /// paths (`executeDelete` with `DeleteOption.delete`, `fillGaps`) can omit
   /// it.  When those paths run without a wired [MemberRepository], the
   /// service throws — see [_ensureUnknownSentinel].
   final MemberRepository? _memberRepository;
+  final FrontSessionCommentsRepository? _frontSessionCommentsRepository;
 
   /// Lazily creates the Unknown sentinel member so the freshly-emitted
   /// fronting_sessions row that points at [unknownSentinelMemberId] has a
@@ -247,18 +306,33 @@ class SessionLifecycleService {
         // Re-open previous session (remove its endTime).
         final updated = ctx.previous!.copyWith(endTime: null);
         await repo.updateSession(updated);
+        await reparentFrontSessionComments(
+          _frontSessionCommentsRepository,
+          fromSessionId: ctx.session.id,
+          toSessionId: updated.id,
+        );
         await repo.deleteSession(ctx.session.id);
         return null;
 
       case DeleteOption.extendPrevious:
         final updated = ctx.previous!.copyWith(endTime: ctx.session.endTime);
         await repo.updateSession(updated);
+        await reparentFrontSessionComments(
+          _frontSessionCommentsRepository,
+          fromSessionId: ctx.session.id,
+          toSessionId: updated.id,
+        );
         await repo.deleteSession(ctx.session.id);
         return null;
 
       case DeleteOption.extendNext:
         final updated = ctx.next!.copyWith(startTime: ctx.session.startTime);
         await repo.updateSession(updated);
+        await reparentFrontSessionComments(
+          _frontSessionCommentsRepository,
+          fromSessionId: ctx.session.id,
+          toSessionId: updated.id,
+        );
         await repo.deleteSession(ctx.session.id);
         return null;
 
@@ -273,7 +347,8 @@ class SessionLifecycleService {
         // (e.g. no `MemberRepository` wired), we'd otherwise be left with
         // the original session deleted and no filler — a partial mutation.
         // Sleep deletes never get filled, so they skip the preflight.
-        final needsFiller = !ctx.session.isSleep &&
+        final needsFiller =
+            !ctx.session.isSleep &&
             endTime != null &&
             endTime.difference(ctx.session.startTime).inSeconds > 0;
 
@@ -286,14 +361,15 @@ class SessionLifecycleService {
           await _ensureUnknownSentinel();
         }
 
-        await repo.deleteSession(ctx.session.id);
-
         if (!needsFiller) {
+          await repo.deleteSession(ctx.session.id);
           return null;
         }
 
-        final unknownId =
-            deriveGapFillerSessionId(ctx.session.startTime, endTime);
+        final unknownId = deriveGapFillerSessionId(
+          ctx.session.startTime,
+          endTime,
+        );
         final unknown = FrontingSession(
           id: unknownId,
           startTime: ctx.session.startTime,
@@ -301,6 +377,12 @@ class SessionLifecycleService {
           memberId: unknownSentinelMemberId,
         );
         await repo.createSession(unknown);
+        await reparentFrontSessionComments(
+          _frontSessionCommentsRepository,
+          fromSessionId: ctx.session.id,
+          toSessionId: unknownId,
+        );
+        await repo.deleteSession(ctx.session.id);
         return unknownId;
     }
   }
@@ -325,6 +407,11 @@ class SessionLifecycleService {
       if (edited.startTime.difference(overlapping.startTime).inSeconds > 0) {
         await repo.updateSession(trimmed);
       } else {
+        await reparentFrontSessionComments(
+          _frontSessionCommentsRepository,
+          fromSessionId: overlapping.id,
+          toSessionId: edited.id,
+        );
         await repo.deleteSession(overlapping.id);
       }
     } else {
@@ -333,6 +420,11 @@ class SessionLifecycleService {
       if (overlapEnd.difference(editedEnd).inSeconds > 0) {
         await repo.updateSession(trimmed);
       } else {
+        await reparentFrontSessionComments(
+          _frontSessionCommentsRepository,
+          fromSessionId: overlapping.id,
+          toSessionId: edited.id,
+        );
         await repo.deleteSession(overlapping.id);
       }
     }
@@ -375,6 +467,11 @@ class SessionLifecycleService {
       if (session.notes != null && session.notes!.isNotEmpty) {
         allNotes.add(session.notes!);
       }
+      await reparentFrontSessionComments(
+        _frontSessionCommentsRepository,
+        fromSessionId: session.id,
+        toSessionId: target.id,
+      );
       await repo.deleteSession(session.id);
     }
 

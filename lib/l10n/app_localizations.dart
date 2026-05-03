@@ -10284,6 +10284,12 @@ abstract class AppLocalizations {
   /// **'Import Complete'**
   String get dataManagementImportComplete;
 
+  /// Import warning when abandoned timestamp-only front session comments could not be restored because they lacked a usable session id
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 fronting comment was dropped because it was not attached to a session.} other{{count} fronting comments were dropped because they were not attached to a session.}}'**
+  String dataImportTimestampOnlyCommentsDropped(int count);
+
   /// Headline when import fails
   ///
   /// In en, this message translates to:

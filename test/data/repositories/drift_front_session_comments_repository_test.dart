@@ -11,14 +11,14 @@ void main() {
 
   FrontSessionComment comment({
     required String id,
+    required String sessionId,
     required DateTime timestamp,
-    DateTime? targetTime,
   }) => FrontSessionComment(
     id: id,
+    sessionId: sessionId,
     body: id,
     timestamp: timestamp,
     createdAt: timestamp,
-    targetTime: targetTime,
   );
 
   setUp(() {
@@ -33,7 +33,7 @@ void main() {
     await db.close();
   });
 
-  test('fresh schema indexes comment target_time range queries', () async {
+  test('fresh schema keeps only the session comment index', () async {
     await db.customSelect('SELECT 1').get();
 
     final indexes = await db
@@ -41,74 +41,148 @@ void main() {
         .get();
     final names = indexes.map((row) => row.read<String>('name')).toSet();
 
-    expect(names, contains('idx_comments_target_time'));
+    expect(names, contains('idx_comments_session'));
+    expect(names, isNot(contains('idx_comments_target_time')));
   });
 
-  test('range query uses target_time and excludes null targets', () async {
+  test('session query uses session_id and excludes deleted comments', () async {
+    final ts = DateTime.utc(2026, 4, 30, 10);
+
+    await repo.createComment(
+      comment(id: 'session-a-1', sessionId: 'session-a', timestamp: ts),
+    );
+    await repo.createComment(
+      comment(id: 'session-b-1', sessionId: 'session-b', timestamp: ts),
+    );
+    await repo.deleteComment('session-a-1');
+    await repo.createComment(
+      comment(
+        id: 'session-a-2',
+        sessionId: 'session-a',
+        timestamp: ts.add(const Duration(minutes: 1)),
+      ),
+    );
+
+    final comments = await repo.watchCommentsForSession('session-a').first;
+    final count = await repo.watchCommentCount('session-a').first;
+
+    expect(comments.map((c) => c.id), ['session-a-2']);
+    expect(count, 1);
+  });
+
+  test('period query filters by session membership and half-open time range',
+      () async {
     final start = DateTime.utc(2026, 4, 30, 10);
     final end = DateTime.utc(2026, 4, 30, 11);
 
     await repo.createComment(
       comment(
         id: 'before',
+        sessionId: 'session-a',
         timestamp: start.subtract(const Duration(minutes: 1)),
-        targetTime: start.subtract(const Duration(minutes: 1)),
       ),
     );
     await repo.createComment(
-      comment(id: 'at-start', timestamp: start, targetTime: start),
+      comment(id: 'at-start', sessionId: 'session-a', timestamp: start),
     );
     await repo.createComment(
       comment(
         id: 'inside',
+        sessionId: 'session-b',
         timestamp: start.add(const Duration(minutes: 15)),
-        targetTime: start.add(const Duration(minutes: 15)),
       ),
     );
     await repo.createComment(
-      comment(id: 'at-end', timestamp: end, targetTime: end),
+      comment(id: 'wrong-session', sessionId: 'session-c', timestamp: start),
     );
     await repo.createComment(
-      comment(
-        id: 'null-target',
-        timestamp: start.add(const Duration(minutes: 5)),
-      ),
+      comment(id: 'at-end', sessionId: 'session-a', timestamp: end),
     );
 
     final range = TimeRange(start: start, end: end);
-    final comments = await repo.watchCommentsForRange(range).first;
-    final count = await repo.watchCommentCountForRange(range).first;
+    final comments = await repo
+        .watchCommentsForPeriod(
+          sessionIds: ['session-b', 'session-a'],
+          range: range,
+        )
+        .first;
+    final count = await repo
+        .watchCommentCountForPeriod(
+          sessionIds: ['session-b', 'session-a'],
+          range: range,
+        )
+        .first;
 
     expect(comments.map((c) => c.id), ['at-start', 'inside']);
     expect(count, 2);
   });
 
-  test('range query returns rows sorted by target_time ascending', () async {
-    final start = DateTime.utc(2026, 4, 30, 14);
-    final end = DateTime.utc(2026, 4, 30, 15);
+  test('period query handles empty session id list', () async {
+    final start = DateTime.utc(2026, 4, 30, 10);
+    final range = TimeRange(
+      start: start,
+      end: start.add(const Duration(hours: 1)),
+    );
 
-    // Insert deliberately out of order so insertion order ≠ targetTime order.
-    // The SQL ORDER BY targetTime ASC is what guarantees the result set comes
-    // back sorted; without it the period detail screen would render comments
-    // in whatever order the storage layer happened to return.
-    await repo.createComment(comment(
-      id: 'middle',
-      timestamp: start.add(const Duration(minutes: 30)),
-      targetTime: start.add(const Duration(minutes: 30)),
-    ));
-    await repo.createComment(comment(
-      id: 'last',
-      timestamp: start.add(const Duration(minutes: 50)),
-      targetTime: start.add(const Duration(minutes: 50)),
-    ));
-    await repo.createComment(comment(
-      id: 'first',
-      timestamp: start.add(const Duration(minutes: 5)),
-      targetTime: start.add(const Duration(minutes: 5)),
-    ));
+    final comments = await repo
+        .watchCommentsForPeriod(sessionIds: const [], range: range)
+        .first;
+    final count = await repo
+        .watchCommentCountForPeriod(sessionIds: const [], range: range)
+        .first;
 
-    final range = TimeRange(start: start, end: end);
-    final comments = await repo.watchCommentsForRange(range).first;
-    expect(comments.map((c) => c.id), ['first', 'middle', 'last']);
+    expect(comments, isEmpty);
+    expect(count, 0);
+  });
+
+  test('reparent moves active comments and emits updated session ids', () async {
+    final ts = DateTime.utc(2026, 4, 30, 10);
+    await repo.createComment(
+      comment(id: 'move-me', sessionId: 'old-session', timestamp: ts),
+    );
+
+    await repo.reparentComments(
+      fromSessionId: 'old-session',
+      toSessionId: 'new-session',
+    );
+
+    final oldComments = await repo.watchCommentsForSession('old-session').first;
+    final newComments = await repo.watchCommentsForSession('new-session').first;
+
+    expect(oldComments, isEmpty);
+    expect(newComments.map((c) => c.id), ['move-me']);
+  });
+
+  test('reparent at-or-after splits comments by timestamp', () async {
+    final split = DateTime.utc(2026, 4, 30, 10);
+    await repo.createComment(
+      comment(
+        id: 'before',
+        sessionId: 'old-session',
+        timestamp: split.subtract(const Duration(minutes: 1)),
+      ),
+    );
+    await repo.createComment(
+      comment(id: 'at-split', sessionId: 'old-session', timestamp: split),
+    );
+    await repo.createComment(
+      comment(
+        id: 'after',
+        sessionId: 'old-session',
+        timestamp: split.add(const Duration(minutes: 1)),
+      ),
+    );
+
+    await repo.reparentCommentsAtOrAfter(
+      fromSessionId: 'old-session',
+      toSessionId: 'new-session',
+      atOrAfter: split,
+    );
+
+    final oldComments = await repo.watchCommentsForSession('old-session').first;
+    final newComments = await repo.watchCommentsForSession('new-session').first;
+
+    expect(oldComments.map((c) => c.id), ['before']);
+    expect(newComments.map((c) => c.id), ['at-split', 'after']);
   });
 }

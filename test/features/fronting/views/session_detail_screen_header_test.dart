@@ -35,19 +35,14 @@ Member _member({bool profileHeaderVisible = true}) => Member(
 );
 
 Widget _wrap({required FrontingSession session, required Member member}) {
-  final commentRange = DateTimeRange(
-    start: session.startTime,
-    end: session.endTime ?? session.startTime.add(const Duration(days: 1)),
-  );
-
   return ProviderScope(
     overrides: [
       sessionByIdProvider(
         session.id,
       ).overrideWith((ref) => Stream.value(session)),
       memberByIdProvider(member.id).overrideWith((ref) => Stream.value(member)),
-      commentsForRangeProvider(
-        commentRange,
+      commentsForSessionProvider(
+        session.id,
       ).overrideWith((ref) => Stream.value(const [])),
     ],
     child: MaterialApp(

@@ -132,13 +132,10 @@ class DataExportService {
     // Optional legacy-field lookups (only loaded when requested). Reads
     // the v7 Drift columns directly because the new-shape freezed models
     // no longer expose `co_fronter_ids` / `pk_member_ids_json` on
-    // FrontingSession or `session_id` on FrontSessionComment.
+    // FrontingSession.
     final legacySessionFields = includeLegacyFields
         ? await _fetchLegacySessionFields(db)
         : const <String, _LegacySessionFields>{};
-    final legacyCommentSessionIds = includeLegacyFields
-        ? await _fetchLegacyCommentSessionIds(db)
-        : const <String, String>{};
 
     // Convert to V3 models
     final v1Headmates = members.map(_mapMember).toList();
@@ -181,7 +178,7 @@ class DataExportService {
     // Fetch front session comments
     final allComments = await frontSessionCommentsRepository.getAllComments();
     final v1FrontSessionComments = allComments
-        .map((c) => _mapFrontSessionComment(c, legacyCommentSessionIds[c.id]))
+        .map(_mapFrontSessionComment)
         .toList();
 
     // Fetch conversation categories
@@ -631,21 +628,14 @@ class DataExportService {
     modifiedAt: n.modifiedAt.toUtc().toIso8601String(),
   );
 
-  V1FrontSessionComment _mapFrontSessionComment(
-    FrontSessionComment c, [
-    String? legacySessionId,
-  ]) => V1FrontSessionComment(
-    id: c.id,
-    // Only emitted in legacy-fields mode — new-shape exports anchor
-    // comments via `targetTime`, not a session FK. The v7 column is
-    // still present in Drift but unread by the new code paths.
-    sessionId: legacySessionId,
-    body: c.body,
-    timestamp: c.timestamp.toUtc().toIso8601String(),
-    createdAt: c.createdAt.toUtc().toIso8601String(),
-    targetTime: c.targetTime?.toUtc().toIso8601String(),
-    authorMemberId: c.authorMemberId,
-  );
+  V1FrontSessionComment _mapFrontSessionComment(FrontSessionComment c) =>
+      V1FrontSessionComment(
+        id: c.id,
+        sessionId: c.sessionId,
+        body: c.body,
+        timestamp: c.timestamp.toUtc().toIso8601String(),
+        createdAt: c.createdAt.toUtc().toIso8601String(),
+      );
 
   V1ConversationCategory _mapConversationCategory(ConversationCategory c) =>
       V1ConversationCategory(
@@ -761,29 +751,6 @@ class DataExportService {
       );
     }
     return out;
-  }
-
-  /// Reads the v7 `session_id` column off `front_session_comments` for
-  /// every non-deleted comment row. Returns the empty map if no rows have
-  /// a non-empty `session_id` (post-migration the comments mapper writes
-  /// an empty string sentinel into the column), or if the column has been
-  /// dropped by a future cleanup migration. Issue #40 (review-2026-04-30).
-  Future<Map<String, String>> _fetchLegacyCommentSessionIds(
-    AppDatabase db,
-  ) async {
-    if (!await _hasColumn('front_session_comments', 'session_id')) {
-      return const <String, String>{};
-    }
-    final rows = await db
-        .customSelect(
-          'SELECT id, session_id FROM front_session_comments '
-          "WHERE is_deleted = 0 AND session_id IS NOT NULL AND session_id != ''",
-        )
-        .get();
-    return {
-      for (final row in rows)
-        row.read<String>('id'): row.read<String>('session_id'),
-    };
   }
 }
 

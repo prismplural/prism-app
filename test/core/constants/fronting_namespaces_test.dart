@@ -18,6 +18,7 @@ void main() {
     for (final entry in {
       'pkFrontingNamespace': pkFrontingNamespace,
       'spFrontingNamespace': spFrontingNamespace,
+      'spFrontCommentNamespace': spFrontCommentNamespace,
       'migrationFrontingNamespace': migrationFrontingNamespace,
       'splitNamespace': splitNamespace,
       'gapFillerNamespace': gapFillerNamespace,
@@ -45,6 +46,13 @@ void main() {
       expect(
         deriveSpSessionId('foo'),
         '33455d29-6345-5341-9d3b-04a90323fbb4',
+      );
+    });
+
+    test('deriveSpFrontCommentId is deterministic', () {
+      expect(
+        deriveSpFrontCommentId('foo'),
+        '99eb9b3a-7006-580c-a6e5-627294c911c8',
       );
     });
 

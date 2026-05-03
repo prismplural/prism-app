@@ -615,8 +615,7 @@ void main() {
         await sourceCommentsRepo.createComment(
           FrontSessionComment(
             id: 'comment-1',
-            // Post-Phase-5 comments anchor to targetTime, not session id.
-            targetTime: now,
+            sessionId: 'session-rnd',
             body: 'Felt good today',
             timestamp: now,
             createdAt: now,
@@ -625,7 +624,7 @@ void main() {
         await sourceCommentsRepo.createComment(
           FrontSessionComment(
             id: 'comment-2',
-            targetTime: now.add(const Duration(minutes: 5)),
+            sessionId: 'session-rnd',
             body: 'Second comment',
             timestamp: now.add(const Duration(minutes: 5)),
             createdAt: now.add(const Duration(minutes: 5)),
@@ -684,7 +683,7 @@ void main() {
         expect(importedComments, hasLength(2));
         final c1 = importedComments.firstWhere((c) => c.id == 'comment-1');
         expect(c1.body, 'Felt good today');
-        expect(c1.targetTime?.toUtc(), now);
+        expect(c1.sessionId, 'session-rnd');
         final c2 = importedComments.firstWhere((c) => c.id == 'comment-2');
         expect(c2.body, 'Second comment');
       },
@@ -762,7 +761,7 @@ void main() {
         await sourceCommentsRepo.createComment(
           FrontSessionComment(
             id: 'comment-idem',
-            targetTime: now,
+            sessionId: 'session-idem',
             body: 'Test comment',
             timestamp: now,
             createdAt: now,
@@ -941,141 +940,139 @@ void main() {
       await targetDb.close();
     });
 
-    test(
-      'tier 1 (sp_id_map present): importing the same legacy file '
-      'twice produces zero new rows on the second pass',
-      () async {
-        const memberId = 'sp-tier1-member';
-        const sessionId = 'sp-tier1-session';
-        const spEntityId = 'sp-source-tier1';
-        // Seed the member + sp_id_map in target before import.
-        final memberRepo = DriftMemberRepository(targetDb.membersDao, null);
-        await memberRepo.createMember(Member(
+    test('tier 1 (sp_id_map present): importing the same legacy file '
+        'twice produces zero new rows on the second pass', () async {
+      const memberId = 'sp-tier1-member';
+      const sessionId = 'sp-tier1-session';
+      const spEntityId = 'sp-source-tier1';
+      // Seed the member + sp_id_map in target before import.
+      final memberRepo = DriftMemberRepository(targetDb.membersDao, null);
+      await memberRepo.createMember(
+        Member(
           id: memberId,
           name: 'M',
           emoji: 'M',
           createdAt: DateTime(2026, 1, 1).toUtc(),
-        ));
-        await targetDb.spImportDao.upsertMapping(
-          SpIdMapTableCompanion.insert(
-            spId: spEntityId,
-            entityType: 'session',
-            prismId: sessionId,
-          ),
-        );
+        ),
+      );
+      await targetDb.spImportDao.upsertMapping(
+        SpIdMapTableCompanion.insert(
+          spId: spEntityId,
+          entityType: 'session',
+          prismId: sessionId,
+        ),
+      );
 
-        final start = DateTime.utc(2026, 4, 1, 9);
-        final end = DateTime.utc(2026, 4, 1, 11);
-        final json = const JsonEncoder().convert({
-          'formatVersion': '1.0',
-          'version': '1.0',
-          'appName': 'Prism Plurality',
-          'exportDate': DateTime(2026, 4, 25).toUtc().toIso8601String(),
-          'totalRecords': 1,
-          'headmates': [],
-          'frontSessions': [
-            {
-              'id': sessionId,
-              'startTime': start.toIso8601String(),
-              'endTime': end.toIso8601String(),
-              'headmateId': memberId,
-              'coFronterIds': <String>[],
-            },
-          ],
-          'sleepSessions': [],
-          'conversations': [],
-          'messages': [],
-          'polls': [],
-          'pollOptions': [],
-          'systemSettings': [],
-          'habits': [],
-          'habitCompletions': [],
-        });
+      final start = DateTime.utc(2026, 4, 1, 9);
+      final end = DateTime.utc(2026, 4, 1, 11);
+      final json = const JsonEncoder().convert({
+        'formatVersion': '1.0',
+        'version': '1.0',
+        'appName': 'Prism Plurality',
+        'exportDate': DateTime(2026, 4, 25).toUtc().toIso8601String(),
+        'totalRecords': 1,
+        'headmates': [],
+        'frontSessions': [
+          {
+            'id': sessionId,
+            'startTime': start.toIso8601String(),
+            'endTime': end.toIso8601String(),
+            'headmateId': memberId,
+            'coFronterIds': <String>[],
+          },
+        ],
+        'sleepSessions': [],
+        'conversations': [],
+        'messages': [],
+        'polls': [],
+        'pollOptions': [],
+        'systemSettings': [],
+        'habits': [],
+        'habitCompletions': [],
+      });
 
-        // First import: tier 1 derives the row id.
-        final r1 = await importService.importData(json);
-        expect(r1.frontSessionsCreated, 1);
-        expect(r1.legacySpIdPreservedCount, 0);
+      // First import: tier 1 derives the row id.
+      final r1 = await importService.importData(json);
+      expect(r1.frontSessionsCreated, 1);
+      expect(r1.legacySpIdPreservedCount, 0);
 
-        // Second import: dedup hits on the deterministic id.
-        final r2 = await importService.importData(json);
-        expect(r2.frontSessionsCreated, 0);
-        expect(r2.legacySpIdPreservedCount, 0);
+      // Second import: dedup hits on the deterministic id.
+      final r2 = await importService.importData(json);
+      expect(r2.frontSessionsCreated, 0);
+      expect(r2.legacySpIdPreservedCount, 0);
 
-        final rows = await targetDb.frontingSessionsDao.getAllSessions();
-        expect(rows, hasLength(1));
-      },
-    );
+      final rows = await targetDb.frontingSessionsDao.getAllSessions();
+      expect(rows, hasLength(1));
+    });
 
-    test(
-      'tier 3 (legacy v4 id, no map entry): importing the same legacy '
-      'file twice produces zero new rows on the second pass',
-      () async {
-        const memberId = 'sp-tier3-member';
-        const sessionId = 'sp-tier3-random-v4';
-        // Seed sp_id_map entry with empty spId so the row is
-        // classified SP-rescue but tier-1/2 derivation falls through
-        // to tier 3 (preserve s.id).
-        final memberRepo = DriftMemberRepository(targetDb.membersDao, null);
-        await memberRepo.createMember(Member(
+    test('tier 3 (legacy v4 id, no map entry): importing the same legacy '
+        'file twice produces zero new rows on the second pass', () async {
+      const memberId = 'sp-tier3-member';
+      const sessionId = 'sp-tier3-random-v4';
+      // Seed sp_id_map entry with empty spId so the row is
+      // classified SP-rescue but tier-1/2 derivation falls through
+      // to tier 3 (preserve s.id).
+      final memberRepo = DriftMemberRepository(targetDb.membersDao, null);
+      await memberRepo.createMember(
+        Member(
           id: memberId,
           name: 'M',
           emoji: 'M',
           createdAt: DateTime(2026, 1, 1).toUtc(),
-        ));
-        await targetDb.spImportDao.upsertMapping(
-          SpIdMapTableCompanion.insert(
-            spId: '',
-            entityType: 'session',
-            prismId: sessionId,
-          ),
-        );
+        ),
+      );
+      await targetDb.spImportDao.upsertMapping(
+        SpIdMapTableCompanion.insert(
+          spId: '',
+          entityType: 'session',
+          prismId: sessionId,
+        ),
+      );
 
-        final start = DateTime.utc(2026, 4, 1, 9);
-        final end = DateTime.utc(2026, 4, 1, 11);
-        final json = const JsonEncoder().convert({
-          'formatVersion': '1.0',
-          'version': '1.0',
-          'appName': 'Prism Plurality',
-          'exportDate': DateTime(2026, 4, 25).toUtc().toIso8601String(),
-          'totalRecords': 1,
-          'headmates': [],
-          'frontSessions': [
-            {
-              'id': sessionId,
-              'startTime': start.toIso8601String(),
-              'endTime': end.toIso8601String(),
-              'headmateId': memberId,
-              'coFronterIds': <String>[],
-            },
-          ],
-          'sleepSessions': [],
-          'conversations': [],
-          'messages': [],
-          'polls': [],
-          'pollOptions': [],
-          'systemSettings': [],
-          'habits': [],
-          'habitCompletions': [],
-        });
+      final start = DateTime.utc(2026, 4, 1, 9);
+      final end = DateTime.utc(2026, 4, 1, 11);
+      final json = const JsonEncoder().convert({
+        'formatVersion': '1.0',
+        'version': '1.0',
+        'appName': 'Prism Plurality',
+        'exportDate': DateTime(2026, 4, 25).toUtc().toIso8601String(),
+        'totalRecords': 1,
+        'headmates': [],
+        'frontSessions': [
+          {
+            'id': sessionId,
+            'startTime': start.toIso8601String(),
+            'endTime': end.toIso8601String(),
+            'headmateId': memberId,
+            'coFronterIds': <String>[],
+          },
+        ],
+        'sleepSessions': [],
+        'conversations': [],
+        'messages': [],
+        'polls': [],
+        'pollOptions': [],
+        'systemSettings': [],
+        'habits': [],
+        'habitCompletions': [],
+      });
 
-        // First import: tier 3 preserves the legacy v4 id.
-        final r1 = await importService.importData(json);
-        expect(r1.frontSessionsCreated, 1);
-        expect(r1.legacySpIdPreservedCount, 1);
+      // First import: tier 3 preserves the legacy v4 id.
+      final r1 = await importService.importData(json);
+      expect(r1.frontSessionsCreated, 1);
+      expect(r1.legacySpIdPreservedCount, 1);
 
-        // Second import: dedup hits on the preserved v4 id.
-        final r2 = await importService.importData(json);
-        expect(r2.frontSessionsCreated, 0);
-        // Counter ticks again because tier 3 ran again before the
-        // dedup short-circuit (writeSession returns false). The
-        // counter measures policy-tier hits, not row writes.
-        expect(r2.legacySpIdPreservedCount, 1);
+      // Second import: dedup hits on the preserved v4 id.
+      final r2 = await importService.importData(json);
+      expect(r2.frontSessionsCreated, 0);
+      // Counter ticks again because tier 3 ran again before the
+      // dedup short-circuit (writeSession returns false). The
+      // counter measures policy-tier hits, not row writes.
+      expect(r2.legacySpIdPreservedCount, 1);
 
-        final rows = await targetDb.frontingSessionsDao.getAllSessions();
-        expect(rows, hasLength(1));
-        expect(rows.single.id, sessionId);
-      },
-    );
+      final rows = await targetDb.frontingSessionsDao.getAllSessions();
+      expect(rows, hasLength(1));
+      expect(rows.single.id, sessionId);
+    });
   });
 }

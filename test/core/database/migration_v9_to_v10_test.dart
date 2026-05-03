@@ -118,7 +118,7 @@ void main() {
         final version = await upgraded
             .customSelect('PRAGMA user_version')
             .get();
-        expect(version.first.read<int>('user_version'), 15);
+        expect(version.first.read<int>('user_version'), 16);
       },
     );
   });

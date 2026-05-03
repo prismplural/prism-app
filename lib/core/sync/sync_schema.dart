@@ -284,8 +284,7 @@ const String prismSyncSchema = '''
     },
     "front_session_comments": {
       "fields": {
-        "target_time": "DateTime",
-        "author_member_id": "String",
+        "session_id": "String",
         "body": "String",
         "timestamp": "DateTime",
         "created_at": "DateTime",
