@@ -4,6 +4,63 @@ All notable changes to Prism will be documented in this file.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-05-02
+
+### Added
+- Per-member fronting sessions — fronting data model rewritten so each member who's up has their own session row instead of a primary-plus-co-fronters tuple. Co-fronters can end independently; analytics reports actual member-minutes; splitting and editing operate on the right members.
+- One-time fronting migration on first launch — multi-step modal (PIN → backup builds → durable-save gate → atomic migration). Backup is the standard `.prism` format; migration either completes fully or rolls back to the old shape so it can be retried.
+- PRISM1 rescue importer — backups taken before 0.7.0 are converted from the old single-entry shape to per-member sessions on import, automatically.
+- Period Detail screen for multi-contributor periods — header with time range and members, brief summary, "always present" section, and range-scoped comments. Supports period-level delete and gracefully handles fully-stale periods (toast + pop).
+- Member Message Boards (new feature, opt-in) — per-member boards with public + private posts, Public/Inbox sub-tabs on the Boards tab, compose sheet that pre-targets the member you started from, and a per-member detail screen. Settings → Features and Onboarding both have toggles; auto-enables for systems with previously-imported SP message-board-shaped DMs.
+- Sleep tab (top-level) — last-night card (duration + quality), 7-day average card with vs-prior-week trend, paginated history, active sleep card. Long-pressing the Sleep Mode card jumps to the Sleep tab.
+- Log past sleep session from the Sleep tab, with overlap warning against existing sessions.
+- "Always present" pinned glass header on the Fronting tab — surfaces members flagged as always-fronting plus members whose current session has been open for at least a week.
+- Session list view setting — Combined periods (default), Per-member rows, Timeline (Settings → Features → Fronting → Session list view).
+- "When adding a new front" + "When using quick front" behavior settings — additive (co-fronter) vs replace.
+- Member profile headers (banner image), custom color picker, name style controls, editable proxy tags for PluralKit-linked members.
+- PluralKit fronting import from a file token without an API connection (paste a `pk;token` and a file together; file provides history, token drives ongoing sync).
+- Image paste in chat via custom clipboard reader (handles platforms that previously dropped pasted images).
+- Floating end-session button on the active session detail screen.
+- Locale-aware weekday and month names + 12h/24h time on weekday picker (habit/reminder editors), timeline gutter, poll expiration dates, and habit completion timestamps.
+- Spanish translations for end-session button, next-fronter dialog, fronting upgrade modal, Period Detail screen, analytics screen, PluralKit mapping flow, secret-key reveal, and biometric onboarding.
+- Settings → About: real installed version + working external links (website, GitHub, Discord, Bluesky, Tumblr, privacy, encryption, feedback email).
+
+### Changed
+- Quick "front a member" actions on the home screen require a hold instead of a tap (with a progress ring) to prevent accidental sessions.
+- Period entries in the fronting history use a long-press menu instead of swipe-to-delete (End / Edit / Delete; Wake Up / Edit / Delete on sleep entries).
+- Member actions on the Members tab moved from swipe-to-delete to a long-press menu, with haptic feedback.
+- Member archiving now requires a confirmation step.
+- Statistics screen reports per-member fronting time correctly when members overlap (a co-fronter who was up for two of four hours is credited with two).
+- Custom terminology ("Parts", "Headmates", "Alters", etc.) applied in dialog copy and fronting flow surfaces that were still falling back to "Members".
+- Member profile edit sheet polish — fields easier to reach with one hand, save behavior consistent across name, color, avatar, and proxy fields.
+- Sleep moved out of the Fronting tab into its own top-level tab (where enabled).
+- "Zero-knowledge" terminology replaced with accurate "end-to-end encryption" in the app and on the site (no on-wire change).
+- "Third-party audit" line on the encryption page softened until the audit is done and citable.
+- Apple App Attest verification migrated from the legacy CBOR library to a maintained one (ciborium); now fails closed if attestation roots are missing.
+- First-device sync bootstraps from a snapshot first (faster setup; removes a class of partial-state bugs from interrupted bootstraps).
+
+### Fixed
+- Display font toggle — turning off the bundled display font in Settings now actually disables it (previous build silently kept it active).
+- Popup menus opened from a text field while the keyboard is up no longer hide behind the keyboard.
+- Notification permission status checks no longer prompt for the permission on iOS and macOS (now uses `checkPermissions` instead of `requestPermissions`).
+- SP-imported group channels are visible again — they were getting filed as direct messages with empty participant lists when the SP export omitted `members`, and the DM privacy filter then hid them.
+- Habit reminders no longer fire for periods that are already completed (notably for already-logged sleep sessions).
+- PluralKit push to PluralKit is now source-aware — changes that came from PluralKit don't get pushed back as if they were local edits.
+- PluralKit corrective re-import preserves user-side tombstones — members deleted in Prism stay deleted instead of being resurrected by a re-pull. Upgrade sheet reports how many tombstones were kept.
+- PluralKit incremental-sync cursor and pagination are stable — long histories no longer occasionally re-fetch the same page or skip a window.
+- PluralKit corrective re-imports are idempotent.
+- PluralKit re-import from the migration sheet stays in the sheet instead of dropping the user out mid-flow.
+- Joiner devices recover from epoch rotations during pairing instead of getting stuck.
+
+### Security
+- Encrypted op batches are padded so batch size doesn't leak how much was written.
+- Wrapped key material is bound to a versioned context, blocking cross-context replay of wrapped keys.
+- Runtime DEK cache is bound to the device — a leaked cache file can't be unwrapped on another machine.
+- Pairing SAS hardened; signature floors added so a stale signature can't be replayed.
+- Change-PIN flow hardened so a partway failure can't leave PINs out of sync across material.
+- Sync error messages and logs no longer leak internal field values — sensitive content redacted before it can reach a clipboard.
+- Sync supply-chain check added to CI to catch malicious dependency updates in the sync layer.
+
 ## [0.6.2] - 2026-04-25
 
 ### Added
