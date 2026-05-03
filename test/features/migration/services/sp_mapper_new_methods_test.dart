@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/features/migration/services/sp_parser.dart';
 import 'package:prism_plurality/features/migration/services/sp_mapper.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart' as domain;
@@ -92,12 +93,7 @@ void main() {
       final data = _makeExportData(
         members: [],
         notes: [
-          SpNote(
-            id: 'n1',
-            title: '',
-            body: '',
-            date: DateTime(2024, 1, 1),
-          ),
+          SpNote(id: 'n1', title: '', body: '', date: DateTime(2024, 1, 1)),
         ],
       );
 
@@ -147,38 +143,43 @@ void main() {
   });
 
   group('Front comments mapping', () {
-    test('comment on frontHistory collection gets mapped with resolved session ID',
-        () {
-      final frontEntry = SpFrontHistory(
-        id: 'fh1',
-        memberId: 'sp-a',
-        startTime: DateTime(2024, 1, 1),
-      );
+    test(
+      'comment on frontHistory collection gets mapped with resolved session ID',
+      () {
+        final frontEntry = SpFrontHistory(
+          id: 'fh1',
+          memberId: 'sp-a',
+          startTime: DateTime(2024, 1, 1),
+        );
 
-      final data = _makeExportData(
-        members: [_memberA],
-        frontHistory: [frontEntry],
-        comments: [
-          SpComment(
-            id: 'c1',
-            documentId: 'fh1',
-            collection: 'frontHistory',
-            text: 'A comment on this session',
-            time: DateTime(2024, 1, 1, 12),
-          ),
-        ],
-      );
+        final data = _makeExportData(
+          members: [_memberA],
+          frontHistory: [frontEntry],
+          comments: [
+            SpComment(
+              id: 'c1',
+              documentId: 'fh1',
+              collection: 'frontHistory',
+              text: 'A comment on this session',
+              time: DateTime(2024, 1, 1, 12),
+            ),
+          ],
+        );
 
-      final mapper = SpMapper();
-      final result = mapper.mapAll(data);
+        final mapper = SpMapper();
+        final result = mapper.mapAll(data);
 
-      expect(result.frontComments, hasLength(1));
-      expect(result.frontComments.first.body, 'A comment on this session');
-      // Comments now anchor to targetTime (the SP comment's own timestamp)
-      // rather than a sessionId FK.  Verify the comment's targetTime was set.
-      expect(result.frontComments.first.targetTime, DateTime(2024, 1, 1, 12));
-      expect(result.warnings, isEmpty);
-    });
+        expect(result.frontComments, hasLength(1));
+        expect(result.frontComments.first.body, 'A comment on this session');
+        expect(
+          result.frontComments.first.sessionId,
+          mapper.sessionIdMap['fh1'],
+        );
+        expect(result.frontComments.first.id, deriveSpFrontCommentId('c1'));
+        expect(result.frontComments.first.timestamp, DateTime(2024, 1, 1, 12));
+        expect(result.warnings, isEmpty);
+      },
+    );
 
     test('comment on non-frontHistory collection is skipped', () {
       final data = _makeExportData(
@@ -308,33 +309,35 @@ void main() {
       expect(result.customFields.first.fieldType, domain.CustomFieldType.text);
     });
 
-    test('values extracted from member info maps with correct field+member resolution',
-        () {
-      final data = _makeExportData(
-        members: [
-          const SpMember(
-            id: 'sp-a',
-            name: 'Alice',
-            info: {'cf1': 'Blue'},
-          ),
-        ],
-        customFields: [
-          const SpCustomFieldDef(id: 'cf1', name: 'Fav Color', type: 1),
-        ],
-      );
+    test(
+      'values extracted from member info maps with correct field+member resolution',
+      () {
+        final data = _makeExportData(
+          members: [
+            const SpMember(id: 'sp-a', name: 'Alice', info: {'cf1': 'Blue'}),
+          ],
+          customFields: [
+            const SpCustomFieldDef(id: 'cf1', name: 'Fav Color', type: 1),
+          ],
+        );
 
-      final mapper = SpMapper();
-      final result = mapper.mapAll(data);
+        final mapper = SpMapper();
+        final result = mapper.mapAll(data);
 
-      expect(result.customFieldValues, hasLength(1));
-      expect(result.customFieldValues.first.value, 'Blue');
-      // The customFieldId should match the Prism UUID for cf1
-      expect(result.customFieldValues.first.customFieldId,
-          result.customFields.first.id);
-      // The memberId should match the Prism UUID for sp-a
-      expect(
-          result.customFieldValues.first.memberId, result.members.first.id);
-    });
+        expect(result.customFieldValues, hasLength(1));
+        expect(result.customFieldValues.first.value, 'Blue');
+        // The customFieldId should match the Prism UUID for cf1
+        expect(
+          result.customFieldValues.first.customFieldId,
+          result.customFields.first.id,
+        );
+        // The memberId should match the Prism UUID for sp-a
+        expect(
+          result.customFieldValues.first.memberId,
+          result.members.first.id,
+        );
+      },
+    );
   });
 
   group('Groups mapping', () {
@@ -360,8 +363,7 @@ void main() {
       final data = _makeExportData(
         members: [_memberA, _memberB],
         groups: [
-          const SpGroup(
-              id: 'g1', name: 'Team', memberIds: ['sp-a', 'sp-b']),
+          const SpGroup(id: 'g1', name: 'Team', memberIds: ['sp-a', 'sp-b']),
         ],
       );
 
@@ -397,10 +399,7 @@ void main() {
       // Only sp-a should be resolved
       expect(result.groupMemberships, hasLength(1));
       expect(result.warnings, isNotEmpty);
-      expect(
-        result.warnings.any((w) => w.contains('nonexistent')),
-        isTrue,
-      );
+      expect(result.warnings.any((w) => w.contains('nonexistent')), isTrue);
     });
   });
 
@@ -441,12 +440,8 @@ void main() {
         expect(result.boardPosts, hasLength(2));
 
         // Each post is private, has the correct author and recipient.
-        final prismIdA = result.members
-            .firstWhere((m) => m.name == 'Alice')
-            .id;
-        final prismIdB = result.members
-            .firstWhere((m) => m.name == 'Bob')
-            .id;
+        final prismIdA = result.members.firstWhere((m) => m.name == 'Alice').id;
+        final prismIdB = result.members.firstWhere((m) => m.name == 'Bob').id;
 
         for (final post in result.boardPosts) {
           expect(post.audience, 'private');
@@ -493,50 +488,47 @@ void main() {
         // Two independent posts — directionality preserved.
         expect(result.boardPosts, hasLength(2));
 
-        final prismIdA = result.members
-            .firstWhere((m) => m.name == 'Alice')
-            .id;
-        final prismIdB = result.members
-            .firstWhere((m) => m.name == 'Bob')
-            .id;
+        final prismIdA = result.members.firstWhere((m) => m.name == 'Alice').id;
+        final prismIdB = result.members.firstWhere((m) => m.name == 'Bob').id;
 
-        final postAtob =
-            result.boardPosts.firstWhere((p) => p.authorId == prismIdA);
+        final postAtob = result.boardPosts.firstWhere(
+          (p) => p.authorId == prismIdA,
+        );
         expect(postAtob.targetMemberId, prismIdB);
 
-        final postBtoa =
-            result.boardPosts.firstWhere((p) => p.authorId == prismIdB);
+        final postBtoa = result.boardPosts.firstWhere(
+          (p) => p.authorId == prismIdB,
+        );
         expect(postBtoa.targetMemberId, prismIdA);
       },
     );
 
-    test('message with unknown recipient (writtenFor not in members map) is skipped with warning',
-        () {
-      final data = _makeExportData(
-        members: [_memberA],
-        boardMessages: [
-          SpBoardMessage(
-            id: 'bm1',
-            writtenBy: 'sp-a',
-            writtenFor: 'unknown-y',
-            message: 'Orphan message',
-            writtenAt: DateTime(2024, 1, 1),
-          ),
-        ],
-      );
+    test(
+      'message with unknown recipient (writtenFor not in members map) is skipped with warning',
+      () {
+        final data = _makeExportData(
+          members: [_memberA],
+          boardMessages: [
+            SpBoardMessage(
+              id: 'bm1',
+              writtenBy: 'sp-a',
+              writtenFor: 'unknown-y',
+              message: 'Orphan message',
+              writtenAt: DateTime(2024, 1, 1),
+            ),
+          ],
+        );
 
-      final mapper = SpMapper();
-      final result = mapper.mapAll(data);
+        final mapper = SpMapper();
+        final result = mapper.mapAll(data);
 
-      // No board posts should be created for unresolved recipients.
-      expect(result.boardPosts, isEmpty);
+        // No board posts should be created for unresolved recipients.
+        expect(result.boardPosts, isEmpty);
 
-      expect(result.warnings, isNotEmpty);
-      expect(
-        result.warnings.any((w) => w.contains('bm1')),
-        isTrue,
-      );
-    });
+        expect(result.warnings, isNotEmpty);
+        expect(result.warnings.any((w) => w.contains('bm1')), isTrue);
+      },
+    );
 
     test('empty message is skipped', () {
       final data = _makeExportData(
@@ -590,47 +582,47 @@ void main() {
       expect(post.audience, 'private');
     });
 
-    test('SP read:true propagates to boardLastReadAtUpdates for the recipient',
-        () {
-      final data = _makeExportData(
-        members: [_memberA, _memberB],
-        boardMessages: [
-          SpBoardMessage(
-            id: 'bm1',
-            writtenBy: 'sp-a',
-            writtenFor: 'sp-b',
-            message: 'Already read message',
-            writtenAt: DateTime(2024, 3, 10, 12),
-            read: true,
-          ),
-          SpBoardMessage(
-            id: 'bm2',
-            writtenBy: 'sp-a',
-            writtenFor: 'sp-b',
-            message: 'Unread message',
-            writtenAt: DateTime(2024, 3, 10, 15),
-            read: false,
-          ),
-        ],
-      );
+    test(
+      'SP read:true propagates to boardLastReadAtUpdates for the recipient',
+      () {
+        final data = _makeExportData(
+          members: [_memberA, _memberB],
+          boardMessages: [
+            SpBoardMessage(
+              id: 'bm1',
+              writtenBy: 'sp-a',
+              writtenFor: 'sp-b',
+              message: 'Already read message',
+              writtenAt: DateTime(2024, 3, 10, 12),
+              read: true,
+            ),
+            SpBoardMessage(
+              id: 'bm2',
+              writtenBy: 'sp-a',
+              writtenFor: 'sp-b',
+              message: 'Unread message',
+              writtenAt: DateTime(2024, 3, 10, 15),
+              read: false,
+            ),
+          ],
+        );
 
-      final mapper = SpMapper();
-      final result = mapper.mapAll(data);
+        final mapper = SpMapper();
+        final result = mapper.mapAll(data);
 
-      expect(result.boardPosts, hasLength(2));
+        expect(result.boardPosts, hasLength(2));
 
-      final prismIdB = result.members
-          .firstWhere((m) => m.name == 'Bob')
-          .id;
+        final prismIdB = result.members.firstWhere((m) => m.name == 'Bob').id;
 
-      // boardLastReadAtUpdates should record the high-water-mark for Bob
-      // from the read=true message only.
-      expect(result.boardLastReadAtUpdates.containsKey(prismIdB), isTrue);
-      expect(
-        result.boardLastReadAtUpdates[prismIdB],
-        DateTime(2024, 3, 10, 12),
-      );
-    });
+        // boardLastReadAtUpdates should record the high-water-mark for Bob
+        // from the read=true message only.
+        expect(result.boardLastReadAtUpdates.containsKey(prismIdB), isTrue);
+        expect(
+          result.boardLastReadAtUpdates[prismIdB],
+          DateTime(2024, 3, 10, 12),
+        );
+      },
+    );
 
     test('writtenFor:null produces an import warning and no board post', () {
       final data = _makeExportData(
@@ -653,10 +645,7 @@ void main() {
       expect(result.boardPosts, isEmpty);
 
       expect(result.warnings, isNotEmpty);
-      expect(
-        result.warnings.any((w) => w.contains('bm-null-for')),
-        isTrue,
-      );
+      expect(result.warnings.any((w) => w.contains('bm-null-for')), isTrue);
     });
   });
 
@@ -684,11 +673,7 @@ void main() {
       final data = _makeExportData(
         members: [_memberA, _memberB],
         channels: const [
-          SpChannel(
-            id: 'ch-pair',
-            name: 'Pair',
-            memberIds: ['sp-a', 'sp-b'],
-          ),
+          SpChannel(id: 'ch-pair', name: 'Pair', memberIds: ['sp-a', 'sp-b']),
         ],
       );
 

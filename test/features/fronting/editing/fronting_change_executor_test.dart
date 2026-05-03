@@ -6,8 +6,11 @@ import 'package:prism_plurality/core/database/app_database.dart'
 import 'package:prism_plurality/core/mutations/mutation_runner.dart';
 import 'package:prism_plurality/data/repositories/drift_fronting_session_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
+import 'package:prism_plurality/domain/models/front_session_comment.dart';
+import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/features/fronting/editing/fronting_change_executor.dart';
 import 'package:prism_plurality/features/fronting/editing/fronting_session_change.dart';
+import '../../../helpers/fake_repositories.dart';
 
 void main() {
   group('FrontingChangeExecutor', () {
@@ -17,10 +20,7 @@ void main() {
 
     setUp(() {
       db = AppDatabase(NativeDatabase.memory());
-      repository = DriftFrontingSessionRepository(
-        db.frontingSessionsDao,
-        null,
-      );
+      repository = DriftFrontingSessionRepository(db.frontingSessionsDao, null);
       executor = FrontingChangeExecutor(
         repository: repository,
         mutationRunner: MutationRunner(transactionRunner: db.transaction),
@@ -69,12 +69,85 @@ void main() {
       expect(sessions, hasLength(1));
 
       final sessionId = sessions.first.id;
-      final result =
-          await executor.execute([DeleteSessionChange(sessionId)]);
+      final result = await executor.execute([DeleteSessionChange(sessionId)]);
       expect(result.isSuccess, isTrue);
 
       final remaining = await repository.getAllSessions();
       expect(remaining, isEmpty);
+    });
+
+    test('split-between delete reparents comments by timestamp', () async {
+      final commentsRepo = FakeFrontSessionCommentsRepository();
+      final executor = FrontingChangeExecutor(
+        repository: repository,
+        mutationRunner: MutationRunner(transactionRunner: db.transaction),
+        frontSessionCommentsRepository: commentsRepo,
+      );
+      final previous = FrontingSession(
+        id: 'previous',
+        startTime: DateTime(2026, 3, 15, 10),
+        endTime: DateTime(2026, 3, 15, 12),
+        memberId: 'alice',
+      );
+      final deleted = FrontingSession(
+        id: 'deleted',
+        startTime: DateTime(2026, 3, 15, 12),
+        endTime: DateTime(2026, 3, 15, 14),
+        memberId: 'bob',
+      );
+      final next = FrontingSession(
+        id: 'next',
+        startTime: DateTime(2026, 3, 15, 14),
+        endTime: DateTime(2026, 3, 15, 16),
+        memberId: 'carol',
+      );
+      await repository.createSession(previous);
+      await repository.createSession(deleted);
+      await repository.createSession(next);
+      await commentsRepo.createComment(
+        FrontSessionComment(
+          id: 'early',
+          sessionId: deleted.id,
+          body: 'early',
+          timestamp: DateTime(2026, 3, 15, 12, 30),
+          createdAt: DateTime(2026, 3, 15, 12, 30),
+        ),
+      );
+      await commentsRepo.createComment(
+        FrontSessionComment(
+          id: 'late',
+          sessionId: deleted.id,
+          body: 'late',
+          timestamp: DateTime(2026, 3, 15, 13, 30),
+          createdAt: DateTime(2026, 3, 15, 13, 30),
+        ),
+      );
+
+      final result = await executor.execute([
+        UpdateSessionChange(
+          sessionId: previous.id,
+          patch: FrontingSessionPatch(end: DateTime(2026, 3, 15, 13)),
+        ),
+        UpdateSessionChange(
+          sessionId: next.id,
+          patch: FrontingSessionPatch(start: DateTime(2026, 3, 15, 13)),
+        ),
+        DeleteSessionChange(deleted.id),
+      ]);
+
+      expect(result.isSuccess, isTrue);
+      expect(
+        commentsRepo.comments
+            .firstWhere((comment) => comment.id == 'early')
+            .sessionId,
+        previous.id,
+      );
+      expect(
+        commentsRepo.comments
+            .firstWhere((comment) => comment.id == 'late')
+            .sessionId,
+        next.id,
+      );
     });
 
     test('execute UpdateSessionChange updates a session', () async {
@@ -120,34 +193,33 @@ void main() {
     test('UpdateSessionChange on missing session returns failure', () async {
       const patch = FrontingSessionPatch(notes: 'irrelevant');
       final result = await executor.execute([
-        const UpdateSessionChange(
-          sessionId: 'nonexistent-id',
-          patch: patch,
-        ),
+        const UpdateSessionChange(sessionId: 'nonexistent-id', patch: patch),
       ]);
       expect(result.isFailure, isTrue);
     });
 
-    test('multiple changes in one execute call are applied atomically',
-        () async {
-      final draft1 = FrontingSessionDraft(
-        memberId: 'member-5',
-        start: DateTime(2026, 3, 15, 6),
-      );
-      final draft2 = FrontingSessionDraft(
-        memberId: 'member-6',
-        start: DateTime(2026, 3, 15, 7),
-      );
+    test(
+      'multiple changes in one execute call are applied atomically',
+      () async {
+        final draft1 = FrontingSessionDraft(
+          memberId: 'member-5',
+          start: DateTime(2026, 3, 15, 6),
+        );
+        final draft2 = FrontingSessionDraft(
+          memberId: 'member-6',
+          start: DateTime(2026, 3, 15, 7),
+        );
 
-      final result = await executor.execute([
-        CreateSessionChange(draft1),
-        CreateSessionChange(draft2),
-      ]);
-      expect(result.isSuccess, isTrue);
+        final result = await executor.execute([
+          CreateSessionChange(draft1),
+          CreateSessionChange(draft2),
+        ]);
+        expect(result.isSuccess, isTrue);
 
-      final sessions = await repository.getAllSessions();
-      expect(sessions, hasLength(2));
-    });
+        final sessions = await repository.getAllSessions();
+        expect(sessions, hasLength(2));
+      },
+    );
   });
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -187,133 +259,114 @@ void main() {
       await db.close();
     });
 
-    test(
-      'CreateSessionChange referencing the sentinel id auto-creates the '
-      'sentinel member and the session in the same transaction',
-      () async {
-        // Pre-condition: no Unknown sentinel member exists yet.
-        expect(
-          await memberRepo.getMemberById(unknownSentinelMemberId),
-          isNull,
-        );
+    test('CreateSessionChange referencing the sentinel id auto-creates the '
+        'sentinel member and the session in the same transaction', () async {
+      // Pre-condition: no Unknown sentinel member exists yet.
+      expect(await memberRepo.getMemberById(unknownSentinelMemberId), isNull);
 
-        final draft = FrontingSessionDraft(
-          memberId: unknownSentinelMemberId,
-          start: DateTime(2026, 4, 27, 10),
-          end: DateTime(2026, 4, 27, 11),
-        );
+      final draft = FrontingSessionDraft(
+        memberId: unknownSentinelMemberId,
+        start: DateTime(2026, 4, 27, 10),
+        end: DateTime(2026, 4, 27, 11),
+      );
 
-        final result = await executor.execute([CreateSessionChange(draft)]);
-        expect(result.isSuccess, isTrue);
+      final result = await executor.execute([CreateSessionChange(draft)]);
+      expect(result.isSuccess, isTrue);
 
-        // Sentinel member is now present.
-        final sentinel =
-            await memberRepo.getMemberById(unknownSentinelMemberId);
-        expect(sentinel, isNotNull);
-        expect(sentinel!.id, unknownSentinelMemberId);
+      // Sentinel member is now present.
+      final sentinel = await memberRepo.getMemberById(unknownSentinelMemberId);
+      expect(sentinel, isNotNull);
+      expect(sentinel!.id, unknownSentinelMemberId);
 
-        // Session row is present and references the sentinel.
-        final sessions = await sessionRepo.getAllSessions();
-        expect(sessions, hasLength(1));
-        expect(sessions.first.memberId, unknownSentinelMemberId);
-      },
-    );
+      // Session row is present and references the sentinel.
+      final sessions = await sessionRepo.getAllSessions();
+      expect(sessions, hasLength(1));
+      expect(sessions.first.memberId, unknownSentinelMemberId);
+    });
 
-    test(
-      'UpdateSessionChange with patch.memberId = sentinel auto-creates the '
-      'sentinel member',
-      () async {
-        // Seed a session whose member is some other id.
-        final seed = FrontingSessionDraft(
-          memberId: 'alice',
-          start: DateTime(2026, 4, 27, 9),
-          end: DateTime(2026, 4, 27, 10),
-        );
-        final seedResult =
-            await executor.execute([CreateSessionChange(seed)]);
-        expect(seedResult.isSuccess, isTrue);
-        final sessionId = (await sessionRepo.getAllSessions()).first.id;
+    test('UpdateSessionChange with patch.memberId = sentinel auto-creates the '
+        'sentinel member', () async {
+      // Seed a session whose member is some other id.
+      final seed = FrontingSessionDraft(
+        memberId: 'alice',
+        start: DateTime(2026, 4, 27, 9),
+        end: DateTime(2026, 4, 27, 10),
+      );
+      final seedResult = await executor.execute([CreateSessionChange(seed)]);
+      expect(seedResult.isSuccess, isTrue);
+      final sessionId = (await sessionRepo.getAllSessions()).first.id;
 
-        // Pre-condition: sentinel still doesn't exist.
-        expect(
-          await memberRepo.getMemberById(unknownSentinelMemberId),
-          isNull,
-        );
+      // Pre-condition: sentinel still doesn't exist.
+      expect(await memberRepo.getMemberById(unknownSentinelMemberId), isNull);
 
-        // Convert to Unknown via the sentinel id.
-        final patch =
-            FrontingSessionPatch(memberId: unknownSentinelMemberId);
-        final result = await executor.execute([
-          UpdateSessionChange(sessionId: sessionId, patch: patch),
-        ]);
-        expect(result.isSuccess, isTrue);
+      // Convert to Unknown via the sentinel id.
+      final patch = FrontingSessionPatch(memberId: unknownSentinelMemberId);
+      final result = await executor.execute([
+        UpdateSessionChange(sessionId: sessionId, patch: patch),
+      ]);
+      expect(result.isSuccess, isTrue);
 
-        // Sentinel member exists now.
-        expect(
-          await memberRepo.getMemberById(unknownSentinelMemberId),
-          isNotNull,
-        );
+      // Sentinel member exists now.
+      expect(
+        await memberRepo.getMemberById(unknownSentinelMemberId),
+        isNotNull,
+      );
 
-        // Session now points at the sentinel.
-        final updated = await sessionRepo.getSessionById(sessionId);
-        expect(updated, isNotNull);
-        expect(updated!.memberId, unknownSentinelMemberId);
-      },
-    );
+      // Session now points at the sentinel.
+      final updated = await sessionRepo.getSessionById(sessionId);
+      expect(updated, isNotNull);
+      expect(updated!.memberId, unknownSentinelMemberId);
+    });
 
-    test(
-      'sentinel ensure is idempotent: a second sentinel-referencing change '
-      'does not duplicate the member',
-      () async {
-        // First create — sentinel must be created.
-        await executor.execute([
-          CreateSessionChange(FrontingSessionDraft(
+    test('sentinel ensure is idempotent: a second sentinel-referencing change '
+        'does not duplicate the member', () async {
+      // First create — sentinel must be created.
+      await executor.execute([
+        CreateSessionChange(
+          FrontingSessionDraft(
             memberId: unknownSentinelMemberId,
             start: DateTime(2026, 4, 27, 10),
             end: DateTime(2026, 4, 27, 11),
-          )),
-        ]);
-        // Second create — sentinel must still resolve to the same row.
-        await executor.execute([
-          CreateSessionChange(FrontingSessionDraft(
+          ),
+        ),
+      ]);
+      // Second create — sentinel must still resolve to the same row.
+      await executor.execute([
+        CreateSessionChange(
+          FrontingSessionDraft(
             memberId: unknownSentinelMemberId,
             start: DateTime(2026, 4, 27, 12),
             end: DateTime(2026, 4, 27, 13),
-          )),
-        ]);
+          ),
+        ),
+      ]);
 
-        // Two sessions, one sentinel row.
-        final sessions = await sessionRepo.getAllSessions();
-        expect(sessions, hasLength(2));
-        for (final s in sessions) {
-          expect(s.memberId, unknownSentinelMemberId);
-        }
+      // Two sessions, one sentinel row.
+      final sessions = await sessionRepo.getAllSessions();
+      expect(sessions, hasLength(2));
+      for (final s in sessions) {
+        expect(s.memberId, unknownSentinelMemberId);
+      }
 
-        final all = await memberRepo.getAllMembers();
-        final sentinels =
-            all.where((m) => m.id == unknownSentinelMemberId).toList();
-        expect(sentinels, hasLength(1));
-      },
-    );
+      final all = await memberRepo.getAllMembers();
+      final sentinels = all
+          .where((m) => m.id == unknownSentinelMemberId)
+          .toList();
+      expect(sentinels, hasLength(1));
+    });
 
-    test(
-      'no sentinel-referencing change → ensure helper is a no-op '
-      '(sentinel is NOT created)',
-      () async {
-        final draft = FrontingSessionDraft(
-          memberId: 'alice',
-          start: DateTime(2026, 4, 27, 10),
-          end: DateTime(2026, 4, 27, 11),
-        );
-        final result = await executor.execute([CreateSessionChange(draft)]);
-        expect(result.isSuccess, isTrue);
+    test('no sentinel-referencing change → ensure helper is a no-op '
+        '(sentinel is NOT created)', () async {
+      final draft = FrontingSessionDraft(
+        memberId: 'alice',
+        start: DateTime(2026, 4, 27, 10),
+        end: DateTime(2026, 4, 27, 11),
+      );
+      final result = await executor.execute([CreateSessionChange(draft)]);
+      expect(result.isSuccess, isTrue);
 
-        // Sentinel must remain absent — we never referenced it.
-        expect(
-          await memberRepo.getMemberById(unknownSentinelMemberId),
-          isNull,
-        );
-      },
-    );
+      // Sentinel must remain absent — we never referenced it.
+      expect(await memberRepo.getMemberById(unknownSentinelMemberId), isNull);
+    });
   });
 }

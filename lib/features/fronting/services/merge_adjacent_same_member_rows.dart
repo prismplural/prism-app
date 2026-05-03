@@ -18,7 +18,9 @@
 /// — same as the rest of the migration body).
 library;
 
+import 'package:prism_plurality/core/services/session_lifecycle_service.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
+import 'package:prism_plurality/domain/repositories/front_session_comments_repository.dart';
 import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
 
 /// Walks each [memberIds] member's normal (non-sleep) active sessions
@@ -68,6 +70,7 @@ Future<int> mergeAdjacentSameMemberRows(
   FrontingSessionRepository repo, {
   required Iterable<String> memberIds,
   Set<String> excludeMemberIds = const {},
+  FrontSessionCommentsRepository? commentsRepository,
 }) async {
   var merges = 0;
   for (final memberId in memberIds) {
@@ -104,6 +107,11 @@ Future<int> mergeAdjacentSameMemberRows(
             notes: _mergeNotes(a.notes, b.notes),
             confidence: _mergeConfidence(a.confidence, b.confidence),
           ),
+        );
+        await reparentFrontSessionComments(
+          commentsRepository,
+          fromSessionId: b.id,
+          toSessionId: a.id,
         );
         await repo.deleteSession(b.id);
         merges++;

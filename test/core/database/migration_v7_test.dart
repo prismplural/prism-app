@@ -84,10 +84,6 @@ Future<void> _seedV6Db(
       'DROP COLUMN pending_fronting_migration_cleanup_substate',
     );
     rawDb.execute('DROP INDEX IF EXISTS idx_comments_target_time');
-    rawDb.execute('ALTER TABLE front_session_comments DROP COLUMN target_time');
-    rawDb.execute(
-      'ALTER TABLE front_session_comments DROP COLUMN author_member_id',
-    );
     // Phase 4B cursor columns (folded into v7) — must also be absent at v6.
     rawDb.execute(
       'ALTER TABLE plural_kit_sync_state DROP COLUMN switch_cursor_timestamp',
@@ -112,7 +108,7 @@ Future<void> _seedV6Db(
     // constraint set before running extraStatements.
     rawDb.execute('PRAGMA writable_schema = ON');
     rawDb.execute(
-      "UPDATE sqlite_master "
+      'UPDATE sqlite_master '
       "SET sql = REPLACE(sql, ', CHECK (session_type != 0 OR member_id IS NOT NULL)', '') "
       "WHERE type = 'table' AND name = 'fronting_sessions'",
     );
@@ -162,15 +158,16 @@ void main() {
         contains('pending_fronting_migration_mode'),
       );
 
-      // front_session_comments new columns
+      // front_session_comments restored session-attached shape
       final commentCols = await db
           .customSelect('PRAGMA table_info(front_session_comments)')
           .get();
       final commentColNames = commentCols
           .map((r) => r.read<String>('name'))
           .toSet();
-      expect(commentColNames, contains('target_time'));
-      expect(commentColNames, contains('author_member_id'));
+      expect(commentColNames, contains('session_id'));
+      expect(commentColNames, isNot(contains('target_time')));
+      expect(commentColNames, isNot(contains('author_member_id')));
 
       // Phase 4B cursor columns (folded into v7): plural_kit_sync_state
       final pkStateCols = await db
@@ -276,8 +273,9 @@ void main() {
         final commentColNames = commentCols
             .map((r) => r.read<String>('name'))
             .toSet();
-        expect(commentColNames, contains('target_time'));
-        expect(commentColNames, contains('author_member_id'));
+        expect(commentColNames, contains('session_id'));
+        expect(commentColNames, isNot(contains('target_time')));
+        expect(commentColNames, isNot(contains('author_member_id')));
 
         // Phase 4B cursor columns (folded into v7): plural_kit_sync_state
         final pkStateCols = await upgraded

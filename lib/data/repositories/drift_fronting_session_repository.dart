@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
+import 'package:prism_plurality/core/database/daos/front_session_comments_dao.dart';
 import 'package:prism_plurality/core/database/daos/fronting_sessions_dao.dart';
 import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
 import 'package:prism_plurality/data/mappers/fronting_session_mapper.dart';
@@ -15,17 +16,21 @@ class DriftFrontingSessionRepository
   final ffi.PrismSyncHandle? _syncHandle;
   // Plan 02 R1: optional link-epoch stamper (same pattern as the member repo).
   final PluralKitSyncDao? _pkSyncDao;
+  final FrontSessionCommentsDao? _commentsDao;
 
   @override
   ffi.PrismSyncHandle? get syncHandle => _syncHandle;
 
   static const _table = 'fronting_sessions';
+  static const _commentsTable = 'front_session_comments';
 
   DriftFrontingSessionRepository(
     this._dao,
     this._syncHandle, {
     PluralKitSyncDao? pkSyncDao,
-  }) : _pkSyncDao = pkSyncDao;
+    FrontSessionCommentsDao? commentsDao,
+  }) : _pkSyncDao = pkSyncDao,
+       _commentsDao = commentsDao;
 
   @override
   Future<List<domain.FrontingSession>> getAllSessions() async {
@@ -195,6 +200,7 @@ class DriftFrontingSessionRepository
       epoch = await pkDao.getLinkEpoch();
     }
 
+    await _softDeleteAttachedComments(id);
     await _dao.softDeleteSession(id);
     if (epoch != null) {
       await _dao.stampDeleteIntent(id, epoch);
@@ -302,5 +308,16 @@ class DriftFrontingSessionRepository
       'is_health_kit_import': s.isHealthKitImport,
       'is_deleted': false,
     };
+  }
+
+  Future<void> _softDeleteAttachedComments(String sessionId) async {
+    final commentsDao = _commentsDao;
+    if (commentsDao == null) return;
+    final comments = await commentsDao.getActiveCommentsForSession(sessionId);
+    if (comments.isEmpty) return;
+    await commentsDao.softDeleteCommentsForSession(sessionId);
+    for (final comment in comments) {
+      await syncRecordDelete(_commentsTable, comment.id);
+    }
   }
 }

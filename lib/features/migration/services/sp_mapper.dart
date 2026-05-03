@@ -1033,15 +1033,10 @@ class SpMapper {
 
       comments.add(
         domain.FrontSessionComment(
-          id: _uuid.v4(),
+          id: deriveSpFrontCommentId(sp.id),
+          sessionId: sessionId,
           body: sp.text,
           timestamp: sp.time,
-          // targetTime anchors the comment to the moment in time it references.
-          // Per §3.5, comments attach to a timestamp (not a session FK).
-          // Use sp.time as the target — it's the user-meaningful "when" for
-          // the comment.  The session id is tracked via _sessionIdMap for
-          // comment-orphan detection above but is no longer stored on the row.
-          targetTime: sp.time,
           createdAt: sp.time,
         ),
       );

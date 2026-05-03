@@ -133,7 +133,7 @@ void main() {
   );
 
   test(
-    'front_session_comments applyFields writes legacy session_id sentinel',
+    'front_session_comments applyFields writes required session_id',
     () async {
       final db = database.AppDatabase(NativeDatabase.memory());
       addTearDown(db.close);
@@ -144,8 +144,7 @@ void main() {
       );
 
       await comments.applyFields('comment-1', {
-        'target_time': DateTime.utc(2026, 4, 29, 12).toIso8601String(),
-        'author_member_id': 'member-1',
+        'session_id': 'session-1',
         'body': 'hello',
         'timestamp': DateTime.utc(2026, 4, 29, 12, 1).toIso8601String(),
         'created_at': DateTime.utc(2026, 4, 29, 12, 2).toIso8601String(),
@@ -155,62 +154,45 @@ void main() {
       final row = await (db.select(
         db.frontSessionComments,
       )..where((t) => t.id.equals('comment-1'))).getSingle();
-      expect(row.sessionId, '');
-      expect(row.targetTime?.toUtc(), DateTime.utc(2026, 4, 29, 12));
-      expect(row.authorMemberId, 'member-1');
+      expect(row.sessionId, 'session-1');
       expect(row.body, 'hello');
     },
   );
 
   test(
-    'front_session_comments applyFields preserves existing legacy session_id '
-    'on update',
+    'front_session_comments applyFields quarantines missing session_id',
     () async {
-      // Issue #4 (review-2026-04-30): a v6 row arriving on a v7 device with a
-      // real session_id (FK to fronting_sessions.id) must NOT have that
-      // column clobbered to '' on the next sync update — the v8 cleanup
-      // migration is going to read this column to backfill target_time.
       final db = database.AppDatabase(NativeDatabase.memory());
       addTearDown(db.close);
 
-      // Seed a row with a legacy session_id, then apply an updated payload.
-      await db
-          .into(db.frontSessionComments)
-          .insert(
-            database.FrontSessionCommentsCompanion.insert(
-              id: 'comment-1',
-              sessionId: 'legacy-session-fk',
-              body: 'original body',
-              timestamp: DateTime.utc(2026, 4, 29, 12, 1),
-              createdAt: DateTime.utc(2026, 4, 29, 12, 2),
-            ),
-          );
-
-      final syncAdapter = buildSyncAdapterWithCompletion(db);
+      final quarantine = SyncQuarantineService(db.syncQuarantineDao);
+      final syncAdapter = buildSyncAdapterWithCompletion(
+        db,
+        quarantine: quarantine,
+      );
       final comments = syncAdapter.adapter.entities.singleWhere(
         (entity) => entity.tableName == 'front_session_comments',
       );
 
+      syncAdapter.beginSyncBatch();
       await comments.applyFields('comment-1', {
-        'target_time': DateTime.utc(2026, 4, 29, 12).toIso8601String(),
-        'author_member_id': 'member-1',
         'body': 'edited body',
         'timestamp': DateTime.utc(2026, 4, 29, 12, 1).toIso8601String(),
         'created_at': DateTime.utc(2026, 4, 29, 12, 2).toIso8601String(),
         'is_deleted': false,
       });
+      await syncAdapter.completeSyncBatch();
 
       final row = await (db.select(
         db.frontSessionComments,
-      )..where((t) => t.id.equals('comment-1'))).getSingle();
-      expect(
-        row.sessionId,
-        'legacy-session-fk',
-        reason:
-            'apply path must use Value.absent() for session_id on update so '
-            'a legacy FK survives until the v8 cleanup migration reads it',
-      );
-      expect(row.body, 'edited body');
+      )..where((t) => t.id.equals('comment-1'))).getSingleOrNull();
+      expect(row, isNull);
+
+      final entries = await db.syncQuarantineDao.getAll();
+      expect(entries, hasLength(1));
+      expect(entries.single.entityType, 'front_session_comments');
+      expect(entries.single.entityId, 'comment-1');
+      expect(entries.single.fieldName, 'session_id');
     },
   );
 
@@ -1001,8 +983,7 @@ void main() {
 
       syncAdapter.beginSyncBatch();
       await comments.applyFields('comment-blocked', {
-        'target_time': DateTime.utc(2026, 4, 29, 12).toIso8601String(),
-        'author_member_id': 'member-1',
+        'session_id': 'session-1',
         'body': 'queued comment',
         'timestamp': DateTime.utc(2026, 4, 29, 12, 1).toIso8601String(),
         'created_at': DateTime.utc(2026, 4, 29, 12, 2).toIso8601String(),
@@ -1386,8 +1367,7 @@ const _remoteCreatePayloads = <String, Map<String, dynamic>>{
     'is_deleted': false,
   },
   'front_session_comments': {
-    'target_time': _remoteIso,
-    'author_member_id': 'member-1',
+    'session_id': 'session-1',
     'body': 'comment',
     'timestamp': _remoteIso,
     'created_at': _remoteIsoLater,

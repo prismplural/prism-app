@@ -2,6 +2,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/services/session_lifecycle_service.dart';
+import 'package:prism_plurality/domain/models/front_session_comment.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import '../../helpers/fake_repositories.dart';
 
@@ -20,6 +21,20 @@ FrontingSession _session({
     memberId: memberId,
     notes: notes,
     sessionType: sessionType,
+  );
+}
+
+FrontSessionComment _comment({
+  required String id,
+  required String sessionId,
+  required DateTime timestamp,
+}) {
+  return FrontSessionComment(
+    id: id,
+    sessionId: sessionId,
+    body: id,
+    timestamp: timestamp,
+    createdAt: DateTime(2026, 1, 1),
   );
 }
 
@@ -382,8 +397,11 @@ void main() {
       );
 
       final overlaps = service.detectOverlaps(fronting, [fronting, sleep]);
-      expect(overlaps, isEmpty,
-          reason: 'cross-type overlaps should be ignored');
+      expect(
+        overlaps,
+        isEmpty,
+        reason: 'cross-type overlaps should be ignored',
+      );
     });
   });
 
@@ -412,6 +430,96 @@ void main() {
       expect(afterFronting!.endTime, DateTime(2026, 1, 1, 14));
       expect(afterSleep!.startTime, DateTime(2026, 1, 1, 12));
     });
+  });
+
+  group('comment reparenting', () {
+    test(
+      'extendPrevious moves comments to the surviving row before delete',
+      () async {
+        final repo = FakeFrontingSessionRepository();
+        final commentsRepo = FakeFrontSessionCommentsRepository();
+        final service = SessionLifecycleService(
+          frontSessionCommentsRepository: commentsRepo,
+        );
+        final previous = _session(
+          id: 'previous',
+          start: DateTime(2026, 1, 1, 10),
+          end: DateTime(2026, 1, 1, 12),
+          memberId: 'alice',
+        );
+        final deleted = _session(
+          id: 'deleted',
+          start: DateTime(2026, 1, 1, 12),
+          end: DateTime(2026, 1, 1, 14),
+          memberId: 'bob',
+        );
+        await repo.createSession(previous);
+        await repo.createSession(deleted);
+        await commentsRepo.createComment(
+          _comment(
+            id: 'comment-1',
+            sessionId: deleted.id,
+            timestamp: DateTime(2026, 1, 1, 13),
+          ),
+        );
+
+        await service.executeDelete(
+          DeleteOption.extendPrevious,
+          DeleteContext(
+            session: deleted,
+            previous: previous,
+            next: null,
+            availableOptions: const [],
+          ),
+          repo,
+        );
+
+        expect(commentsRepo.comments.single.sessionId, previous.id);
+        expect(repo.deletedIds, [deleted.id]);
+      },
+    );
+
+    test(
+      'delete with Unknown filler moves comments to the filler row',
+      () async {
+        final repo = FakeFrontingSessionRepository();
+        final commentsRepo = FakeFrontSessionCommentsRepository();
+        final service = SessionLifecycleService(
+          memberRepository: FakeMemberRepository(),
+          frontSessionCommentsRepository: commentsRepo,
+        );
+        final deleted = _session(
+          id: 'deleted',
+          start: DateTime(2026, 1, 1, 12),
+          end: DateTime(2026, 1, 1, 14),
+          memberId: 'bob',
+        );
+        await repo.createSession(deleted);
+        await commentsRepo.createComment(
+          _comment(
+            id: 'comment-1',
+            sessionId: deleted.id,
+            timestamp: DateTime(2026, 1, 1, 13),
+          ),
+        );
+
+        final fillerId = await service.executeDelete(
+          DeleteOption.delete,
+          DeleteContext(
+            session: deleted,
+            previous: null,
+            next: null,
+            availableOptions: const [],
+          ),
+          repo,
+        );
+
+        expect(fillerId, isNotNull);
+        expect(commentsRepo.comments.single.sessionId, fillerId);
+        expect(repo.sessions.single.id, fillerId);
+        expect(repo.deletedIds, [deleted.id]);
+      },
+    );
   });
 
   group('mergeAdjacent', () {
@@ -488,8 +596,11 @@ void main() {
       await repo.createSession(target);
 
       final ctx = service.getDeleteOptions(target, [target]);
-      final fillerId =
-          await service.executeDelete(DeleteOption.delete, ctx, repo);
+      final fillerId = await service.executeDelete(
+        DeleteOption.delete,
+        ctx,
+        repo,
+      );
 
       expect(fillerId, isNotNull);
       final filler = repo.sessions.firstWhere((s) => s.id == fillerId);
@@ -502,8 +613,7 @@ void main() {
     });
 
     test('throws StateError when sentinel filler needed but no '
-        'MemberRepository wired, and leaves original session intact',
-        () async {
+        'MemberRepository wired, and leaves original session intact', () async {
       const service = SessionLifecycleService();
       final repo = FakeFrontingSessionRepository();
 
@@ -567,16 +677,18 @@ void main() {
       expect(sentinel, isNotNull);
     });
 
-    test('empty gap list is a no-op (does not require MemberRepository)',
-        () async {
-      const service = SessionLifecycleService();
-      final repo = FakeFrontingSessionRepository();
+    test(
+      'empty gap list is a no-op (does not require MemberRepository)',
+      () async {
+        const service = SessionLifecycleService();
+        final repo = FakeFrontingSessionRepository();
 
-      // Should NOT throw — sentinel ensure is gated on having gaps to fill.
-      await service.fillGaps(const [], repo);
+        // Should NOT throw — sentinel ensure is gated on having gaps to fill.
+        await service.fillGaps(const [], repo);
 
-      expect(repo.sessions, isEmpty);
-    });
+        expect(repo.sessions, isEmpty);
+      },
+    );
 
     test('produces deterministic id for the same gap', () async {
       final memberRepoA = FakeMemberRepository();
@@ -609,9 +721,13 @@ void main() {
       await serviceA.fillGaps([gap], repoA);
       await serviceB.fillGaps([gap], repoB);
 
-      expect(repoA.sessions.single.id, equals(repoB.sessions.single.id),
-          reason: 'two devices filling the same wall-clock gap must converge '
-              'on a single CRDT row, not duplicate via random v4 ids');
+      expect(
+        repoA.sessions.single.id,
+        equals(repoB.sessions.single.id),
+        reason:
+            'two devices filling the same wall-clock gap must converge '
+            'on a single CRDT row, not duplicate via random v4 ids',
+      );
     });
 
     test('throws StateError when gaps need filling but no '

@@ -17,17 +17,22 @@ final frontingEditGuardProvider = Provider<FrontingEditGuard>((ref) {
 /// changes needed to resolve overlaps, gaps, and deletes.
 final frontingEditResolutionServiceProvider =
     Provider<FrontingEditResolutionService>((ref) {
-  return const FrontingEditResolutionService();
-});
+      return const FrontingEditResolutionService();
+    });
 
 /// Provides a [FrontingChangeExecutor] wired to the fronting session
 /// repository and a [MutationRunner] backed by the app database.
 final frontingChangeExecutorProvider = Provider<FrontingChangeExecutor>((ref) {
   final repository = ref.watch(frontingSessionRepositoryProvider);
-  final mutationRunner = MutationRunner.forDatabase(ref.watch(databaseProvider));
+  final mutationRunner = MutationRunner.forDatabase(
+    ref.watch(databaseProvider),
+  );
   return FrontingChangeExecutor(
     repository: repository,
     mutationRunner: mutationRunner,
+    frontSessionCommentsRepository: ref.watch(
+      frontSessionCommentsRepositoryProvider,
+    ),
     // Required so convertToUnknown / gap-fill writes that target the
     // Unknown sentinel id can lazily create the sentinel member before
     // the foreign key resolves.

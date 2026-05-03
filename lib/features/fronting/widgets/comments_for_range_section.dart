@@ -12,33 +12,31 @@ import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
-import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 
-/// Comments section keyed on a [DateTimeRange] rather than a specific session.
+/// Comments section for a derived period.
 ///
-/// Comments are anchored to a timestamp (targetTime) rather than a session ID.
-/// We watch all comments whose targetTime falls within [range] and render them
-/// with the same header/add-button/list layout used on the session detail screen.
-///
-/// TODO(§3.5): Phase 3 — replace range-proxy with period-aware comment routing.
+/// Periods are not persisted rows, so this aggregates comments attached to the
+/// physical [sessionIds] that make up the period and whose timestamp falls in
+/// the half-open [range].
 class CommentsForRangeSection extends ConsumerWidget {
   const CommentsForRangeSection({
     super.key,
+    required this.sessionIds,
     required this.range,
-    this.defaultTargetTime,
   });
 
+  final List<String> sessionIds;
   final DateTimeRange range;
-
-  /// The targetTime pre-filled in the add-comment sheet.
-  /// Defaults to [range.start] when null.
-  final DateTime? defaultTargetTime;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final commentsAsync = ref.watch(commentsForRangeProvider(range));
+    final commentsAsync = ref.watch(
+      commentsForPeriodProvider(
+        PeriodCommentsQuery(sessionIds: sessionIds, range: range),
+      ),
+    );
     final theme = Theme.of(context);
 
     return commentsAsync.when(
@@ -58,14 +56,6 @@ class CommentsForRangeSection extends ConsumerWidget {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const Spacer(),
-                  PrismInlineIconButton(
-                    icon: AppIcons.addCommentOutlined,
-                    iconSize: 20,
-                    color: theme.colorScheme.primary,
-                    onPressed: () => _openAddSheet(context),
-                    tooltip: context.l10n.frontingAddCommentTooltip,
-                  ),
                 ],
               ),
               if (comments.isEmpty) ...[
@@ -80,7 +70,7 @@ class CommentsForRangeSection extends ConsumerWidget {
                 const SizedBox(height: 12),
                 for (var i = 0; i < comments.length; i++) ...[
                   if (i > 0) const Divider(height: 16),
-                  _CommentTile(comment: comments[i]),
+                  FrontSessionCommentTile(comment: comments[i]),
                 ],
               ],
             ],
@@ -89,21 +79,10 @@ class CommentsForRangeSection extends ConsumerWidget {
       },
     );
   }
-
-  void _openAddSheet(BuildContext context) {
-    PrismSheet.showFullScreen(
-      context: context,
-      builder: (context, scrollController) => AddCommentSheet(
-        // Default targetTime to defaultTargetTime if provided, else range.start.
-        targetTime: defaultTargetTime ?? range.start,
-        scrollController: scrollController,
-      ),
-    );
-  }
 }
 
-class _CommentTile extends ConsumerWidget {
-  const _CommentTile({required this.comment});
+class FrontSessionCommentTile extends ConsumerWidget {
+  const FrontSessionCommentTile({super.key, required this.comment});
 
   final FrontSessionComment comment;
 
@@ -111,7 +90,9 @@ class _CommentTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final timeStr = DateFormat.jm(context.dateLocale).format(comment.timestamp);
-    final dateStr = DateFormat.MMMd(context.dateLocale).format(comment.timestamp);
+    final dateStr = DateFormat.MMMd(
+      context.dateLocale,
+    ).format(comment.timestamp);
 
     return BlurPopupAnchor(
       trigger: BlurPopupTrigger.longPress,
@@ -169,11 +150,13 @@ class _CommentTile extends ConsumerWidget {
   }
 
   void _openEditSheet(BuildContext context) {
+    final sessionId = comment.sessionId;
+    if (sessionId.trim().isEmpty) return;
     PrismSheet.showFullScreen(
       context: context,
       builder: (context, scrollController) => AddCommentSheet(
-        // Use comment's own targetTime (or timestamp as fallback) for editing.
-        targetTime: comment.targetTime ?? comment.timestamp,
+        sessionId: sessionId,
+        timestamp: comment.timestamp,
         comment: comment,
         scrollController: scrollController,
       ),
@@ -189,7 +172,9 @@ class _CommentTile extends ConsumerWidget {
       destructive: true,
     );
     if (confirmed) {
-      unawaited(ref.read(commentNotifierProvider.notifier).deleteComment(comment.id));
+      unawaited(
+        ref.read(commentNotifierProvider.notifier).deleteComment(comment.id),
+      );
     }
   }
 }

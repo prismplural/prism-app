@@ -15,20 +15,19 @@ import 'package:prism_plurality/shared/widgets/prism_time_picker.dart';
 
 /// Create or edit a front session comment.
 ///
-/// Comments now attach to a [targetTime] (the moment the comment is about)
-/// rather than a session ID. The [targetTime] defaults to the session's start
-/// time and is editable in this sheet.
+/// Comments attach to a physical fronting session row. The timestamp remains
+/// the user-visible moment the comment is about and is editable in this sheet.
 class AddCommentSheet extends ConsumerStatefulWidget {
   const AddCommentSheet({
     super.key,
-    required this.targetTime,
+    required this.sessionId,
+    required this.timestamp,
     this.comment,
     this.scrollController,
   });
 
-  /// The moment this comment is about. Pre-populated from the session start
-  /// time; user can adjust it to pinpoint the exact moment.
-  final DateTime targetTime;
+  final String sessionId;
+  final DateTime timestamp;
   final FrontSessionComment? comment;
   final ScrollController? scrollController;
 
@@ -45,13 +44,8 @@ class _AddCommentSheetState extends ConsumerState<AddCommentSheet> {
   @override
   void initState() {
     super.initState();
-    _bodyController =
-        TextEditingController(text: widget.comment?.body ?? '');
-    // Use existing comment's targetTime (or legacy timestamp) when editing;
-    // otherwise default to the targetTime passed by the caller.
-    _timestamp = widget.comment?.targetTime
-        ?? widget.comment?.timestamp
-        ?? widget.targetTime;
+    _bodyController = TextEditingController(text: widget.comment?.body ?? '');
+    _timestamp = widget.comment?.timestamp ?? widget.timestamp;
   }
 
   @override
@@ -60,7 +54,9 @@ class _AddCommentSheetState extends ConsumerState<AddCommentSheet> {
     super.dispose();
   }
 
-  bool get _isValid => _bodyController.text.trim().isNotEmpty;
+  bool get _isValid =>
+      _bodyController.text.trim().isNotEmpty &&
+      widget.sessionId.trim().isNotEmpty;
 
   Future<void> _save() async {
     if (!_isValid) return;
@@ -68,14 +64,15 @@ class _AddCommentSheetState extends ConsumerState<AddCommentSheet> {
     if (_isEditing) {
       await notifier.updateComment(
         widget.comment!.copyWith(
+          sessionId: widget.sessionId,
           body: _bodyController.text.trim(),
           timestamp: _timestamp,
-          targetTime: _timestamp,
         ),
       );
     } else {
       await notifier.createComment(
-        targetTime: _timestamp,
+        sessionId: widget.sessionId,
+        timestamp: _timestamp,
         body: _bodyController.text.trim(),
       );
     }
@@ -99,7 +96,12 @@ class _AddCommentSheetState extends ConsumerState<AddCommentSheet> {
     if (time != null) {
       setState(() {
         _timestamp = DateTime(
-            date.year, date.month, date.day, time.hour, time.minute);
+          date.year,
+          date.month,
+          date.day,
+          time.hour,
+          time.minute,
+        );
       });
     }
   }
@@ -109,13 +111,14 @@ class _AddCommentSheetState extends ConsumerState<AddCommentSheet> {
     return Column(
       children: [
         PrismSheetTopBar(
-          title: _isEditing ? context.l10n.frontingEditCommentTitle : context.l10n.frontingAddCommentTitle,
+          title: _isEditing
+              ? context.l10n.frontingEditCommentTitle
+              : context.l10n.frontingAddCommentTitle,
         ),
         Expanded(
           child: ListView(
             controller: widget.scrollController,
-            padding:
-                const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             children: [
               PrismTextField(
                 controller: _bodyController,
@@ -129,9 +132,11 @@ class _AddCommentSheetState extends ConsumerState<AddCommentSheet> {
                 builder: (anchorContext) => PrismListRow(
                   padding: EdgeInsets.zero,
                   leading: Icon(AppIcons.accessTime),
-                  title: Text(DateFormat.yMMMd(context.dateLocale)
-                      .add_jm()
-                      .format(_timestamp)),
+                  title: Text(
+                    DateFormat.yMMMd(
+                      context.dateLocale,
+                    ).add_jm().format(_timestamp),
+                  ),
                   trailing: Icon(AppIcons.chevronRight),
                   onTap: () => _pickDateTime(anchorContext),
                 ),

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/tables/front_session_comments_table.dart';
@@ -30,6 +32,46 @@ class FrontSessionCommentsDao extends DatabaseAccessor<AppDatabase>
     return query.watchSingle().map((row) => row.read(count)!);
   }
 
+  /// Watches comments attached to any of [sessionIds] whose user-visible
+  /// timestamp falls in `[start, end)`.
+  Stream<List<FrontSessionCommentRow>> watchCommentsForPeriod(
+    Iterable<String> sessionIds,
+    DateTime start,
+    DateTime end,
+  ) {
+    final ids = sessionIds.toSet().toList(growable: false);
+    if (ids.isEmpty) return Stream.value(const <FrontSessionCommentRow>[]);
+    return (select(frontSessionComments)
+          ..where(
+            (c) =>
+                c.sessionId.isIn(ids) &
+                c.isDeleted.equals(false) &
+                c.timestamp.isBiggerOrEqualValue(start) &
+                c.timestamp.isSmallerThanValue(end),
+          )
+          ..orderBy([(c) => OrderingTerm.asc(c.timestamp)]))
+        .watch();
+  }
+
+  Stream<int> watchCommentCountForPeriod(
+    Iterable<String> sessionIds,
+    DateTime start,
+    DateTime end,
+  ) {
+    final ids = sessionIds.toSet().toList(growable: false);
+    if (ids.isEmpty) return Stream.value(0);
+    final count = countAll();
+    final query = selectOnly(frontSessionComments)
+      ..where(
+        frontSessionComments.sessionId.isIn(ids) &
+            frontSessionComments.isDeleted.equals(false) &
+            frontSessionComments.timestamp.isBiggerOrEqualValue(start) &
+            frontSessionComments.timestamp.isSmallerThanValue(end),
+      )
+      ..addColumns([count]);
+    return query.watchSingle().map((row) => row.read(count)!);
+  }
+
   /// Returns all active comments across all sessions.
   Stream<List<FrontSessionCommentRow>> watchAllComments() =>
       (select(frontSessionComments)
@@ -44,43 +86,50 @@ class FrontSessionCommentsDao extends DatabaseAccessor<AppDatabase>
             ..orderBy([(c) => OrderingTerm.asc(c.timestamp)]))
           .get();
 
-  /// Watches comments whose `target_time` falls in `[start, end)`.
-  ///
-  /// Filters in SQL so each watcher only wakes when a row in its own range
-  /// changes — period-detail screens don't fan out on every unrelated
-  /// comment write. Rows with NULL `target_time` are excluded by design:
-  /// pre-Phase-5 rows haven't been backfilled yet and don't belong to any
-  /// range until the migration writes a real value. After backfill every
-  /// row has a non-null `target_time` and the result set is complete.
-  Stream<List<FrontSessionCommentRow>> watchCommentsForRange(
-    DateTime start,
-    DateTime end,
-  ) =>
-      (select(frontSessionComments)
+  Future<List<FrontSessionCommentRow>> getActiveCommentsForSession(
+    String sessionId, {
+    DateTime? atOrAfter,
+  }) {
+    final query = select(frontSessionComments)
+      ..where(
+        (c) =>
+            c.sessionId.equals(sessionId) &
+            c.isDeleted.equals(false) &
+            (atOrAfter == null
+                ? const Constant(true)
+                : c.timestamp.isBiggerOrEqualValue(atOrAfter)),
+      )
+      ..orderBy([(c) => OrderingTerm.asc(c.timestamp)]);
+    return query.get();
+  }
+
+  Future<void> reparentComments({
+    required String fromSessionId,
+    required String toSessionId,
+    DateTime? atOrAfter,
+  }) {
+    final companion = FrontSessionCommentsCompanion(
+      sessionId: Value(toSessionId),
+    );
+    return (update(frontSessionComments)
+          ..where(
+            (c) =>
+                c.sessionId.equals(fromSessionId) &
+                c.isDeleted.equals(false) &
+                (atOrAfter == null
+                    ? const Constant(true)
+                    : c.timestamp.isBiggerOrEqualValue(atOrAfter)),
+          ))
+        .write(companion);
+  }
+
+  Future<void> softDeleteCommentsForSession(String sessionId) =>
+      (update(frontSessionComments)
             ..where(
               (c) =>
-                  c.isDeleted.equals(false) &
-                  c.targetTime.isNotNull() &
-                  c.targetTime.isBiggerOrEqualValue(start) &
-                  c.targetTime.isSmallerThanValue(end),
-            )
-            ..orderBy([(c) => OrderingTerm.asc(c.targetTime)]))
-          .watch();
-
-  /// Watches the count of comments whose `target_time` falls in
-  /// `[start, end)`. Mirrors [watchCommentsForRange]'s null-exclusion.
-  Stream<int> watchCommentCountForRange(DateTime start, DateTime end) {
-    final count = countAll();
-    final query = selectOnly(frontSessionComments)
-      ..where(
-        frontSessionComments.isDeleted.equals(false) &
-            frontSessionComments.targetTime.isNotNull() &
-            frontSessionComments.targetTime.isBiggerOrEqualValue(start) &
-            frontSessionComments.targetTime.isSmallerThanValue(end),
-      )
-      ..addColumns([count]);
-    return query.watchSingle().map((row) => row.read(count)!);
-  }
+                  c.sessionId.equals(sessionId) & c.isDeleted.equals(false),
+            ))
+          .write(const FrontSessionCommentsCompanion(isDeleted: Value(true)));
 
   Future<int> createComment(FrontSessionCommentsCompanion companion) =>
       into(frontSessionComments).insert(companion);

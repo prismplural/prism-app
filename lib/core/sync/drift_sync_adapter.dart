@@ -120,6 +120,30 @@ void _trackMigrationGatedQuarantine({
   trackQuarantineWrite(write);
 }
 
+void _trackInvalidFrontSessionCommentSessionId({
+  required SyncQuarantineService? quarantine,
+  required void Function(Future<void> write) trackQuarantineWrite,
+  required String entityId,
+  required Map<String, dynamic> fields,
+  required bool missing,
+}) {
+  final q = quarantine;
+  if (q == null) return;
+  final raw = fields['session_id'];
+  final write = q.quarantineField(
+    entityType: 'front_session_comments',
+    entityId: entityId,
+    fieldName: 'session_id',
+    expectedType: 'non-empty String',
+    receivedType: missing ? 'missing' : raw?.runtimeType.toString() ?? 'null',
+    receivedValue: raw?.toString(),
+    errorMessage: missing
+        ? 'Missing required session_id for front session comment'
+        : 'Blank session_id is not a valid front session comment parent',
+  );
+  trackQuarantineWrite(write);
+}
+
 SyncAdapterWithCompletion buildSyncAdapterWithCompletion(
   AppDatabase db, {
   SyncQuarantineService? quarantine,
@@ -2973,8 +2997,7 @@ DriftSyncEntity _frontSessionCommentsEntity(
     toSyncFields: (dynamic row) {
       final r = row as FrontSessionCommentRow;
       return {
-        'target_time': _dateTimeToSyncStringOrNull(r.targetTime),
-        'author_member_id': r.authorMemberId,
+        'session_id': r.sessionId,
         'body': r.body,
         'timestamp': _dateTimeToSyncString(r.timestamp),
         'created_at': _dateTimeToSyncString(r.createdAt),
@@ -3005,21 +3028,33 @@ DriftSyncEntity _frontSessionCommentsEntity(
         quarantine: quarantine,
         trackQuarantineWrite: trackQuarantineWrite,
       );
-      // `session_id` is a NOT NULL legacy column that still exists on disk
-      // until the v8 cleanup rebuild removes it. Remote sync payloads only
-      // carry the new timestamp-based shape, so inserts on a newly paired
-      // device must write the same inert sentinel the local mapper uses.
-      // On UPDATE we must NOT touch the column — a v6 row imported with a
-      // real session_id has to keep it for the v8 cleanup migration to
-      // backfill from. Issue #4 (review-2026-04-30).
       final existing = await (db.select(
         db.frontSessionComments,
       )..where((t) => t.id.equals(id))).getSingleOrNull();
+      final sessionId = f.stringField('session_id');
+      if (sessionId.present && sessionId.value.trim().isEmpty) {
+        _trackInvalidFrontSessionCommentSessionId(
+          quarantine: quarantine,
+          trackQuarantineWrite: trackQuarantineWrite,
+          entityId: id,
+          fields: fields,
+          missing: false,
+        );
+        return;
+      }
+      if (!sessionId.present && existing == null) {
+        _trackInvalidFrontSessionCommentSessionId(
+          quarantine: quarantine,
+          trackQuarantineWrite: trackQuarantineWrite,
+          entityId: id,
+          fields: fields,
+          missing: true,
+        );
+        return;
+      }
       final companion = FrontSessionCommentsCompanion(
         id: Value(id),
-        sessionId: existing == null ? const Value('') : const Value.absent(),
-        targetTime: f.dateTimeFieldNullable('target_time'),
-        authorMemberId: f.stringFieldNullable('author_member_id'),
+        sessionId: sessionId,
         body: f.stringField('body'),
         timestamp: f.dateTimeField('timestamp'),
         createdAt: f.dateTimeField('created_at'),
@@ -3043,8 +3078,7 @@ DriftSyncEntity _frontSessionCommentsEntity(
       )..where((t) => t.id.equals(id))).getSingleOrNull();
       if (row == null) return null;
       return {
-        'target_time': _dateTimeToSyncStringOrNull(row.targetTime),
-        'author_member_id': row.authorMemberId,
+        'session_id': row.sessionId,
         'body': row.body,
         'timestamp': _dateTimeToSyncString(row.timestamp),
         'created_at': _dateTimeToSyncString(row.createdAt),

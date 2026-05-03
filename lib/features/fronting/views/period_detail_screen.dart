@@ -32,6 +32,7 @@ import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
+import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
@@ -53,11 +54,7 @@ import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 /// pops the route. Partial staleness (some null, some live) renders the
 /// surviving rows silently without any error treatment.
 class PeriodDetailScreen extends ConsumerStatefulWidget {
-  const PeriodDetailScreen({
-    super.key,
-    required this.sessionIds,
-    this.hint,
-  });
+  const PeriodDetailScreen({super.key, required this.sessionIds, this.hint});
 
   final List<String> sessionIds;
   final PeriodDetailArgs? hint;
@@ -86,8 +83,8 @@ class _PeriodDetailScreenState extends ConsumerState<PeriodDetailScreen> {
       for (final id in widget.sessionIds) ref.read(sessionByIdProvider(id)),
     ];
     final allLoaded = asyncs.every((a) => !a.isLoading);
-    final allNull = allLoaded &&
-        asyncs.every((a) => a.whenOrNull(data: (v) => v) == null);
+    final allNull =
+        allLoaded && asyncs.every((a) => a.whenOrNull(data: (v) => v) == null);
     if (!allNull) return;
 
     _staleHandled = true;
@@ -148,12 +145,13 @@ class _PeriodDetailScreenState extends ConsumerState<PeriodDetailScreen> {
         (prev, next) => _maybeHandleStale(),
       );
     }
+    final theme = Theme.of(context);
 
     // While a post-frame pop is queued, keep showing a loading shell so the
     // screen doesn't flash empty content for the one frame before it fires.
     if (_popQueued) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+      return Scaffold(
+        body: Center(child: PrismSpinner(color: theme.colorScheme.primary)),
       );
     }
 
@@ -180,9 +178,7 @@ class _PeriodDetailScreenState extends ConsumerState<PeriodDetailScreen> {
       }
       final resolved = <FrontingSession>[
         for (final id in widget.sessionIds)
-          if (ref
-                  .watch(sessionByIdProvider(id))
-                  .whenOrNull(data: (s) => s) !=
+          if (ref.watch(sessionByIdProvider(id)).whenOrNull(data: (s) => s) !=
               null)
             ref.watch(sessionByIdProvider(id)).whenOrNull(data: (s) => s)!,
       ];
@@ -197,6 +193,7 @@ class _PeriodDetailScreenState extends ConsumerState<PeriodDetailScreen> {
       if (!end.isAfter(start)) end = start.add(const Duration(minutes: 1));
       return DateTimeRange(start: start, end: end);
     }();
+    final commentSessionIds = matchedPeriod?.sessionIds ?? widget.sessionIds;
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
@@ -232,8 +229,8 @@ class _PeriodDetailScreenState extends ConsumerState<PeriodDetailScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: CommentsForRangeSection(
+                sessionIds: commentSessionIds,
                 range: commentRange,
-                defaultTargetTime: commentRange.start,
               ),
             )
           else
@@ -262,6 +259,7 @@ class _Header extends ConsumerWidget {
     final matchedPeriod = periodsAsync.whenOrNull(
       data: (periods) => findPeriodBySessionIds(periods, sessionIds),
     );
+    final theme = Theme.of(context);
 
     // Resolve member metadata when we need to draw the header without a
     // hint (deep-link recovery). The hint already carries Member objects;
@@ -269,9 +267,8 @@ class _Header extends ConsumerWidget {
     final activeMembers = () {
       if (matchedPeriod != null && hint == null) {
         final key = memberIdsKey(matchedPeriod.activeMembers);
-        final map = ref
-                .watch(membersByIdsProvider(key))
-                .whenOrNull(data: (m) => m) ??
+        final map =
+            ref.watch(membersByIdsProvider(key)).whenOrNull(data: (m) => m) ??
             const <String, Member>{};
         return matchedPeriod.activeMembers
             .map((id) => map[id])
@@ -283,15 +280,15 @@ class _Header extends ConsumerWidget {
 
     if (hint == null && matchedPeriod == null) {
       // No hint AND no derived period yet: short loading shimmer.
-      return const PrismSectionCard(
-        margin: EdgeInsets.symmetric(vertical: 8),
+      return PrismSectionCard(
+        margin: const EdgeInsets.symmetric(vertical: 8),
         child: SizedBox(
           height: 80,
           child: Center(
             child: SizedBox(
               width: 24,
               height: 24,
-              child: CircularProgressIndicator(strokeWidth: 2),
+              child: PrismSpinner(color: theme.colorScheme.primary, size: 24),
             ),
           ),
         ),
@@ -303,13 +300,13 @@ class _Header extends ConsumerWidget {
     final isOpenEnded =
         matchedPeriod?.isOpenEnded ?? hint?.isOpenEnded ?? false;
 
-    final theme = Theme.of(context);
     final names = _namesString(context, activeMembers);
 
     final locale = context.dateLocale;
     final startStr = start.toTimeString(locale);
-    final endStr =
-        isOpenEnded ? context.l10n.frontingPeriodOngoing : end.toTimeString(locale);
+    final endStr = isOpenEnded
+        ? context.l10n.frontingPeriodOngoing
+        : end.toTimeString(locale);
     final timeRange = '$startStr – $endStr';
 
     final duration = end.difference(start);
@@ -373,20 +370,22 @@ class _Header extends ConsumerWidget {
                     )
                   else
                     Text.rich(
-                      TextSpan(children: [
-                        TextSpan(
-                          text: duration.toRoundedString(),
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: duration.toRoundedString(),
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
-                        TextSpan(
-                          text: '  ·  $timeRange',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
+                          TextSpan(
+                            text: '  ·  $timeRange',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
                           ),
-                        ),
-                      ]),
+                        ],
+                      ),
                     ),
                 ],
               ),
@@ -429,8 +428,9 @@ class _CoFrontersSection extends ConsumerWidget {
     // blank screen).
     final resolvedSessions = <FrontingSession>[];
     for (final id in sessionIds) {
-      final session =
-          ref.watch(sessionByIdProvider(id)).whenOrNull(data: (d) => d);
+      final session = ref
+          .watch(sessionByIdProvider(id))
+          .whenOrNull(data: (d) => d);
       if (session != null) {
         resolvedSessions.add(session);
       }
@@ -442,11 +442,15 @@ class _CoFrontersSection extends ConsumerWidget {
     final sorted = [...resolvedSessions]
       ..sort((a, b) => a.startTime.compareTo(b.startTime));
 
-    final memberIds =
-        sorted.map((s) => s.memberId).whereType<String>().toList();
+    final memberIds = sorted
+        .map((s) => s.memberId)
+        .whereType<String>()
+        .toList();
     final membersKey = memberIdsKey(memberIds);
     final membersMap =
-        ref.watch(membersByIdsProvider(membersKey)).whenOrNull(data: (d) => d) ??
+        ref
+            .watch(membersByIdsProvider(membersKey))
+            .whenOrNull(data: (d) => d) ??
         const <String, Member>{};
 
     return PrismSectionCard(
@@ -459,9 +463,9 @@ class _CoFrontersSection extends ConsumerWidget {
             child: Text(
               context.l10n.frontingPeriodCoFrontersTitle,
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                  ),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
           for (var i = 0; i < sorted.length; i++) ...[
@@ -470,13 +474,11 @@ class _CoFrontersSection extends ConsumerWidget {
                 height: 1,
                 indent: 64,
                 endIndent: 12,
-                color: Theme.of(context).colorScheme.onSurface
-                    .withValues(alpha: 0.08),
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withValues(alpha: 0.08),
               ),
-            _CoFronterRow(
-              session: sorted[i],
-              membersMap: membersMap,
-            ),
+            _CoFronterRow(session: sorted[i], membersMap: membersMap),
           ],
           const SizedBox(height: 4),
         ],
@@ -491,10 +493,7 @@ class _CoFrontersSection extends ConsumerWidget {
 /// avatar + name + duration · time range + chevron.  Long-press opens the
 /// edit/delete context menu (same actions as the list-row pattern).
 class _CoFronterRow extends ConsumerWidget {
-  const _CoFronterRow({
-    required this.session,
-    required this.membersMap,
-  });
+  const _CoFronterRow({required this.session, required this.membersMap});
 
   final FrontingSession session;
   final Map<String, Member> membersMap;
@@ -513,8 +512,7 @@ class _CoFronterRow extends ConsumerWidget {
 
     final sessionSnapshot = current.toSnapshot();
     final allSnapshots = allSessions.map((s) => s.toSnapshot()).toList();
-    final deleteCtx =
-        editGuard.getDeleteContext(sessionSnapshot, allSnapshots);
+    final deleteCtx = editGuard.getDeleteContext(sessionSnapshot, allSnapshots);
 
     if (!context.mounted) return;
     final strategy = await showDeleteStrategyDialog(
@@ -544,9 +542,9 @@ class _CoFronterRow extends ConsumerWidget {
     if (session.memberId == null) return;
     Haptics.heavy();
     try {
-      await ref
-          .read(frontingNotifierProvider.notifier)
-          .endFronting([session.memberId!]);
+      await ref.read(frontingNotifierProvider.notifier).endFronting([
+        session.memberId!,
+      ]);
     } catch (e) {
       if (context.mounted) {
         PrismToast.error(
@@ -591,9 +589,11 @@ class _CoFronterRow extends ConsumerWidget {
     final isUnknown = member == null;
 
     final accentColor =
-        member != null && member.customColorEnabled && member.customColorHex != null
-            ? AppColors.fromHex(member.customColorHex!)
-            : theme.colorScheme.primary;
+        member != null &&
+            member.customColorEnabled &&
+            member.customColorHex != null
+        ? AppColors.fromHex(member.customColorHex!)
+        : theme.colorScheme.primary;
 
     final locale = context.dateLocale;
     final startStr = session.startTime.toTimeString(locale);
@@ -656,15 +656,11 @@ class _CoFronterRow extends ConsumerWidget {
               children: [
                 TextSpan(
                   text: duration.toRoundedString(),
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
                 TextSpan(
                   text: '  ·  $timeRange',
-                  style: TextStyle(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+                  style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
                 ),
               ],
             ),
@@ -702,8 +698,9 @@ class _CoFronterRow extends ConsumerWidget {
                             ? theme.textTheme.bodyLarge?.copyWith(
                                 fontStyle: FontStyle.italic,
                                 fontWeight: FontWeight.w300,
-                                color: theme.colorScheme.onSurface
-                                    .withValues(alpha: dimAlpha),
+                                color: theme.colorScheme.onSurface.withValues(
+                                  alpha: dimAlpha,
+                                ),
                               )
                             : theme.textTheme.bodyLarge?.copyWith(
                                 fontWeight: FontWeight.w600,
@@ -711,14 +708,14 @@ class _CoFronterRow extends ConsumerWidget {
                       ),
                       const SizedBox(height: 2),
                       DefaultTextStyle(
-                        style:
-                            (theme.textTheme.bodySmall ?? const TextStyle())
-                                .copyWith(
-                          color: isUnknown
-                              ? theme.colorScheme.onSurface
-                                  .withValues(alpha: dimAlpha)
-                              : null,
-                        ),
+                        style: (theme.textTheme.bodySmall ?? const TextStyle())
+                            .copyWith(
+                              color: isUnknown
+                                  ? theme.colorScheme.onSurface.withValues(
+                                      alpha: dimAlpha,
+                                    )
+                                  : null,
+                            ),
                         child: subtitleWidget,
                       ),
                     ],
@@ -793,7 +790,9 @@ class _BrieflyJoinedSection extends ConsumerWidget {
     final memberIds = visitors.map((v) => v.memberId).toList();
     final membersKey = memberIdsKey(memberIds);
     final membersMap =
-        ref.watch(membersByIdsProvider(membersKey)).whenOrNull(data: (d) => d) ??
+        ref
+            .watch(membersByIdsProvider(membersKey))
+            .whenOrNull(data: (d) => d) ??
         const <String, Member>{};
 
     final locale = context.dateLocale;
@@ -808,9 +807,9 @@ class _BrieflyJoinedSection extends ConsumerWidget {
             child: Text(
               context.l10n.frontingPeriodBrieflyJoinedTitle,
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                  ),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
           for (var i = 0; i < visitors.length; i++) ...[
@@ -819,10 +818,9 @@ class _BrieflyJoinedSection extends ConsumerWidget {
                 height: 1,
                 indent: 64,
                 endIndent: 12,
-                color: Theme.of(context)
-                    .colorScheme
-                    .onSurface
-                    .withValues(alpha: 0.08),
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withValues(alpha: 0.08),
               ),
             _BriefVisitorRow(
               visit: visitors[i],
@@ -899,7 +897,8 @@ class _BriefVisitorRow extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () => GoRouter.of(context).push(AppRoutePaths.session(visit.sessionId)),
+          onTap: () =>
+              GoRouter.of(context).push(AppRoutePaths.session(visit.sessionId)),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
@@ -916,8 +915,9 @@ class _BriefVisitorRow extends StatelessWidget {
                             ? theme.textTheme.bodyLarge?.copyWith(
                                 fontStyle: FontStyle.italic,
                                 fontWeight: FontWeight.w300,
-                                color: theme.colorScheme.onSurface
-                                    .withValues(alpha: dimAlpha),
+                                color: theme.colorScheme.onSurface.withValues(
+                                  alpha: dimAlpha,
+                                ),
                               )
                             : theme.textTheme.bodyLarge?.copyWith(
                                 fontWeight: FontWeight.w600,
@@ -928,8 +928,9 @@ class _BriefVisitorRow extends StatelessWidget {
                         subtitle,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: isUnknown
-                              ? theme.colorScheme.onSurface
-                                  .withValues(alpha: dimAlpha)
+                              ? theme.colorScheme.onSurface.withValues(
+                                  alpha: dimAlpha,
+                                )
                               : theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
@@ -978,7 +979,9 @@ class _AlwaysPresentSection extends ConsumerWidget {
     final memberIds = matchedPeriod.alwaysPresentMembers;
     final membersKey = memberIdsKey(memberIds);
     final membersMap =
-        ref.watch(membersByIdsProvider(membersKey)).whenOrNull(data: (d) => d) ??
+        ref
+            .watch(membersByIdsProvider(membersKey))
+            .whenOrNull(data: (d) => d) ??
         const <String, Member>{};
 
     return PrismSectionCard(
@@ -991,9 +994,9 @@ class _AlwaysPresentSection extends ConsumerWidget {
             child: Text(
               context.l10n.frontingPeriodAlwaysPresentTitle,
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                  ),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
           for (var i = 0; i < memberIds.length; i++) ...[
@@ -1002,10 +1005,9 @@ class _AlwaysPresentSection extends ConsumerWidget {
                 height: 1,
                 indent: 64,
                 endIndent: 12,
-                color: Theme.of(context)
-                    .colorScheme
-                    .onSurface
-                    .withValues(alpha: 0.08),
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withValues(alpha: 0.08),
               ),
             _AlwaysPresentRow(
               memberId: memberIds[i],
@@ -1021,10 +1023,7 @@ class _AlwaysPresentSection extends ConsumerWidget {
 
 /// One row in [_AlwaysPresentSection].
 class _AlwaysPresentRow extends StatelessWidget {
-  const _AlwaysPresentRow({
-    required this.memberId,
-    required this.member,
-  });
+  const _AlwaysPresentRow({required this.memberId, required this.member});
 
   final String memberId;
   final Member? member;
@@ -1086,8 +1085,9 @@ class _AlwaysPresentRow extends StatelessWidget {
                         ? theme.textTheme.bodyLarge?.copyWith(
                             fontStyle: FontStyle.italic,
                             fontWeight: FontWeight.w300,
-                            color: theme.colorScheme.onSurface
-                                .withValues(alpha: dimAlpha),
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: dimAlpha,
+                            ),
                           )
                         : theme.textTheme.bodyLarge?.copyWith(
                             fontWeight: FontWeight.w600,
@@ -1099,8 +1099,9 @@ class _AlwaysPresentRow extends StatelessWidget {
                   Icon(
                     AppIcons.chevronRightRounded,
                     size: 20,
-                    color: theme.colorScheme.onSurfaceVariant
-                        .withValues(alpha: 0.4),
+                    color: theme.colorScheme.onSurfaceVariant.withValues(
+                      alpha: 0.4,
+                    ),
                   ),
                 ],
               ],

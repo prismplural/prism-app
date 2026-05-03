@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:prism_plurality/domain/models/front_session_comment.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
@@ -21,6 +20,7 @@ import 'package:prism_plurality/features/members/providers/members_batch_provide
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/widgets/group_member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
+import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 
@@ -52,8 +52,8 @@ class _PeriodsNotifier extends Notifier<AsyncValue<List<FrontingPeriod>>> {
 
 final _periodsProvider =
     NotifierProvider<_PeriodsNotifier, AsyncValue<List<FrontingPeriod>>>(
-  _PeriodsNotifier.new,
-);
+      _PeriodsNotifier.new,
+    );
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -69,9 +69,7 @@ PeriodDetailArgs _hint({
   DateTime? end,
   bool isOpenEnded = false,
 }) {
-  final activeMembers =
-      members ??
-      [_member('a', 'Sky'), _member('b', 'Fern')];
+  final activeMembers = members ?? [_member('a', 'Sky'), _member('b', 'Fern')];
   return PeriodDetailArgs(
     activeMembers: activeMembers,
     start: start ?? _t0,
@@ -89,6 +87,13 @@ FrontingSession _session(String id, String memberId, {bool active = false}) =>
       endTime: active ? null : _t1,
     );
 
+dynamic _emptyPeriodCommentsOverride(
+  Iterable<String> sessionIds,
+  DateTimeRange range,
+) => commentsForPeriodProvider(
+  PeriodCommentsQuery(sessionIds: sessionIds, range: range),
+).overrideWith((ref) => Stream.value(const []));
+
 Widget _wrap({
   required List<String> sessionIds,
   PeriodDetailArgs? hint,
@@ -98,9 +103,9 @@ Widget _wrap({
   // sessions so the screen renders normally instead of triggering staleness.
   bool allSessionsNull = false,
 }) {
-  // CommentsForRangeSection watches commentsForRangeProvider(range), where range
-  // comes from the matched period or the hint. Stub the expected range so Drift
-  // is never touched and no pending timers fire on teardown.
+  // CommentsForRangeSection watches commentsForPeriodProvider(sessionIds, range),
+  // where range comes from the matched period or the hint. Stub the expected
+  // query so Drift is never touched and no pending timers fire on teardown.
   //
   // The helper's hint defaults to _t0.._t1, and _wrap passes no matching period
   // by default (periods=[]), so the range is derived from the hint.
@@ -123,9 +128,7 @@ Widget _wrap({
 
   return ProviderScope(
     overrides: [
-      derivedPeriodsProvider.overrideWith(
-        (ref) => AsyncValue.data(periods),
-      ),
+      derivedPeriodsProvider.overrideWith((ref) => AsyncValue.data(periods)),
       // Stub systemSettingsProvider — GroupMemberAvatar reads terminology
       // settings which chain through systemSettingsProvider to Drift. Without
       // this stub, a pending Drift cleanup timer fires on test teardown.
@@ -145,14 +148,12 @@ Widget _wrap({
       // membersByIdsProvider for the stub member IDs (= sessionIds). Stub to
       // avoid hitting Drift and leaving pending timers.
       if (!allSessionsNull)
-        membersByIdsProvider(memberIdsKey(sessionIds)).overrideWith(
-          (ref) => Stream.value(const {}),
-        ),
-      // Stub commentsForRangeProvider — CommentsForRangeSection watches this.
+        membersByIdsProvider(
+          memberIdsKey(sessionIds),
+        ).overrideWith((ref) => Stream.value(const {})),
+      // Stub commentsForPeriodProvider — CommentsForRangeSection watches this.
       // Without a stub it hits Drift and leaves a pending cleanup timer.
-      commentsForRangeProvider(commentRange).overrideWith(
-        (ref) => Stream.value(const []),
-      ),
+      _emptyPeriodCommentsOverride(sessionIds, commentRange),
     ],
     child: MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -193,14 +194,12 @@ void main() {
     });
 
     testWidgets('loading state when hint is null', (tester) async {
-      await tester.pumpWidget(
-        _wrap(sessionIds: const ['s1'], hint: null),
-      );
-      // Use pump() — CircularProgressIndicator is animated and pumpAndSettle
-      // would spin forever.
+      await tester.pumpWidget(_wrap(sessionIds: const ['s1'], hint: null));
+      // Use pump() because the loading indicator is animated and pumpAndSettle
+      // would wait forever.
       await tester.pump();
 
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.byType(PrismSpinner), findsOneWidget);
     });
 
     testWidgets('live timer renders for open-ended period', (tester) async {
@@ -219,17 +218,9 @@ void main() {
       // Start with open-ended hint and no matching period in provider (hint
       // drives isOpenEnded = true).
       final start = DateTime.now().subtract(const Duration(hours: 1));
-      final hint = _hint(
-        isOpenEnded: true,
-        start: start,
-        end: DateTime.now(),
-      );
+      final hint = _hint(isOpenEnded: true, start: start, end: DateTime.now());
       await tester.pumpWidget(
-        _wrap(
-          sessionIds: const ['s1', 's2'],
-          hint: hint,
-          periods: const [],
-        ),
+        _wrap(sessionIds: const ['s1', 's2'], hint: hint, periods: const []),
       );
       await tester.pump();
 
@@ -265,22 +256,23 @@ void main() {
               // Stub sessionByIdProvider — _CoFrontersSection watches these.
               // Must be non-null to avoid triggering the all-null staleness UX.
               // Without stubs they hit Drift and leave pending timers.
-              sessionByIdProvider('s1').overrideWith(
-                (ref) => Stream.value(_session('s1', 's1')),
-              ),
-              sessionByIdProvider('s2').overrideWith(
-                (ref) => Stream.value(_session('s2', 's2')),
-              ),
+              sessionByIdProvider(
+                's1',
+              ).overrideWith((ref) => Stream.value(_session('s1', 's1'))),
+              sessionByIdProvider(
+                's2',
+              ).overrideWith((ref) => Stream.value(_session('s2', 's2'))),
               // Stub membersByIdsProvider for the sessions' member IDs — avoids
               // hitting Drift and leaving pending timers.
-              membersByIdsProvider(memberIdsKey(['s1', 's2'])).overrideWith(
-                (ref) => Stream.value(const {}),
-              ),
-              // Stub commentsForRangeProvider — matched period is closedPeriod
+              membersByIdsProvider(
+                memberIdsKey(['s1', 's2']),
+              ).overrideWith((ref) => Stream.value(const {})),
+              // Stub the period comments query — matched period is closedPeriod
               // with start/end derived from closedPeriod.start/end.
-              commentsForRangeProvider(
+              _emptyPeriodCommentsOverride(
+                const ['s1', 's2'],
                 DateTimeRange(start: closedPeriod.start, end: closedPeriod.end),
-              ).overrideWith((ref) => Stream.value(const [])),
+              ),
             ],
             child: MaterialApp(
               localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -367,18 +359,19 @@ void main() {
             systemSettingsProvider.overrideWith(
               (ref) => Stream.value(const SystemSettings()),
             ),
-            sessionByIdProvider('s1').overrideWith(
-              (ref) => Stream.value(sessionS1),
-            ),
-            sessionByIdProvider('s2').overrideWith(
-              (ref) => Stream.value(sessionS2),
-            ),
+            sessionByIdProvider(
+              's1',
+            ).overrideWith((ref) => Stream.value(sessionS1)),
+            sessionByIdProvider(
+              's2',
+            ).overrideWith((ref) => Stream.value(sessionS2)),
             membersByIdsProvider(memberIdsKey(['ma', 'mb'])).overrideWith(
               (ref) => Stream.value({'ma': memberA, 'mb': memberB}),
             ),
-            commentsForRangeProvider(
-              DateTimeRange(start: _t0, end: _t1),
-            ).overrideWith((ref) => Stream.value(const [])),
+            _emptyPeriodCommentsOverride(const [
+              's1',
+              's2',
+            ], DateTimeRange(start: _t0, end: _t1)),
           ],
           child: MaterialApp(
             localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -416,19 +409,18 @@ void main() {
             systemSettingsProvider.overrideWith(
               (ref) => Stream.value(const SystemSettings()),
             ),
-            sessionByIdProvider('s1').overrideWith(
-              (ref) => Stream.value(sessionS1),
-            ),
+            sessionByIdProvider(
+              's1',
+            ).overrideWith((ref) => Stream.value(sessionS1)),
             // s2 resolves to null (tombstoned/missing).
-            sessionByIdProvider('s2').overrideWith(
-              (ref) => Stream.value(null),
-            ),
-            membersByIdsProvider(memberIdsKey(['ma'])).overrideWith(
-              (ref) => Stream.value({'ma': memberA}),
-            ),
-            commentsForRangeProvider(
-              DateTimeRange(start: _t0, end: _t1),
-            ).overrideWith((ref) => Stream.value(const [])),
+            sessionByIdProvider('s2').overrideWith((ref) => Stream.value(null)),
+            membersByIdsProvider(
+              memberIdsKey(['ma']),
+            ).overrideWith((ref) => Stream.value({'ma': memberA})),
+            _emptyPeriodCommentsOverride(const [
+              's1',
+              's2',
+            ], DateTimeRange(start: _t0, end: _t1)),
           ],
           child: MaterialApp(
             localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -463,22 +455,18 @@ void main() {
         routes: [
           GoRoute(
             path: '/',
-            builder: (_, _) => PeriodDetailScreen(
-              sessionIds: const ['s1'],
-              hint: _hint(),
-            ),
+            builder: (_, _) =>
+                PeriodDetailScreen(sessionIds: const ['s1'], hint: _hint()),
           ),
           GoRoute(
             path: '/session/:id',
-            builder: (_, state) => Scaffold(
-              body: Text('session-${state.pathParameters['id']}'),
-            ),
+            builder: (_, state) =>
+                Scaffold(body: Text('session-${state.pathParameters['id']}')),
           ),
           GoRoute(
             path: '/session/:id/edit',
-            builder: (_, state) => Scaffold(
-              body: Text('edit-${state.pathParameters['id']}'),
-            ),
+            builder: (_, state) =>
+                Scaffold(body: Text('edit-${state.pathParameters['id']}')),
           ),
         ],
       );
@@ -492,15 +480,15 @@ void main() {
             systemSettingsProvider.overrideWith(
               (ref) => Stream.value(const SystemSettings()),
             ),
-            sessionByIdProvider('s1').overrideWith(
-              (ref) => Stream.value(sessionS1),
-            ),
-            membersByIdsProvider(memberIdsKey(['ma'])).overrideWith(
-              (ref) => Stream.value({'ma': memberA}),
-            ),
-            commentsForRangeProvider(
-              DateTimeRange(start: _t0, end: _t1),
-            ).overrideWith((ref) => Stream.value(const [])),
+            sessionByIdProvider(
+              's1',
+            ).overrideWith((ref) => Stream.value(sessionS1)),
+            membersByIdsProvider(
+              memberIdsKey(['ma']),
+            ).overrideWith((ref) => Stream.value({'ma': memberA})),
+            _emptyPeriodCommentsOverride(const [
+              's1',
+            ], DateTimeRange(start: _t0, end: _t1)),
           ],
           child: MaterialApp.router(
             localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -538,24 +526,21 @@ void main() {
               systemSettingsProvider.overrideWith(
                 (ref) => Stream.value(const SystemSettings()),
               ),
-              sessionByIdProvider('s1').overrideWith(
-                (ref) => Stream.value(sessionS1),
-              ),
+              sessionByIdProvider(
+                's1',
+              ).overrideWith((ref) => Stream.value(sessionS1)),
               // Empty map — member not resolved.
               membersByIdsProvider(
                 memberIdsKey(['missing-member-id']),
               ).overrideWith((ref) => Stream.value({})),
-              commentsForRangeProvider(
-                DateTimeRange(start: _t0, end: _t1),
-              ).overrideWith((ref) => Stream.value(const [])),
+              _emptyPeriodCommentsOverride(const [
+                's1',
+              ], DateTimeRange(start: _t0, end: _t1)),
             ],
             child: MaterialApp(
               localizationsDelegates: AppLocalizations.localizationsDelegates,
               supportedLocales: const [Locale('en')],
-              home: PeriodDetailScreen(
-                sessionIds: const ['s1'],
-                hint: _hint(),
-              ),
+              home: PeriodDetailScreen(sessionIds: const ['s1'], hint: _hint()),
             ),
           ),
         );
@@ -606,22 +591,21 @@ void main() {
             ),
             // s1 is non-null to prevent the all-null staleness UX from firing.
             // s2 is null — partial staleness is silently tolerated.
-            sessionByIdProvider('s1').overrideWith(
-              (ref) => Stream.value(_session('s1', 's1')),
-            ),
-            sessionByIdProvider('s2').overrideWith(
-              (ref) => Stream.value(null),
-            ),
+            sessionByIdProvider(
+              's1',
+            ).overrideWith((ref) => Stream.value(_session('s1', 's1'))),
+            sessionByIdProvider('s2').overrideWith((ref) => Stream.value(null)),
             // Stub members for s1 (memberId='s1') and Jules (m1).
-            membersByIdsProvider(memberIdsKey(['s1'])).overrideWith(
-              (ref) => Stream.value(const {}),
-            ),
-            membersByIdsProvider(memberIdsKey(['m1'])).overrideWith(
-              (ref) => Stream.value({'m1': memberM1}),
-            ),
-            commentsForRangeProvider(
-              DateTimeRange(start: _t0, end: _t1),
-            ).overrideWith((ref) => Stream.value(const [])),
+            membersByIdsProvider(
+              memberIdsKey(['s1']),
+            ).overrideWith((ref) => Stream.value(const {})),
+            membersByIdsProvider(
+              memberIdsKey(['m1']),
+            ).overrideWith((ref) => Stream.value({'m1': memberM1})),
+            _emptyPeriodCommentsOverride(const [
+              's1',
+              's2',
+            ], DateTimeRange(start: _t0, end: _t1)),
           ],
           child: MaterialApp(
             localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -640,30 +624,31 @@ void main() {
       expect(find.text('Jules'), findsOneWidget);
     });
 
-    testWidgets('briefly joined section is hidden when briefVisitors is empty', (
-      tester,
-    ) async {
-      final period = FrontingPeriod(
-        start: _t0,
-        end: _t1,
-        activeMembers: const ['a', 'b'],
-        briefVisitors: const [],
-        sessionIds: const ['s1', 's2'],
-        alwaysPresentMembers: const [],
-        isOpenEnded: false,
-      );
-
-      await tester.pumpWidget(
-        _wrap(
+    testWidgets(
+      'briefly joined section is hidden when briefVisitors is empty',
+      (tester) async {
+        final period = FrontingPeriod(
+          start: _t0,
+          end: _t1,
+          activeMembers: const ['a', 'b'],
+          briefVisitors: const [],
           sessionIds: const ['s1', 's2'],
-          hint: _hint(),
-          periods: [period],
-        ),
-      );
-      await tester.pump();
+          alwaysPresentMembers: const [],
+          isOpenEnded: false,
+        );
 
-      expect(find.text('Briefly joined'), findsNothing);
-    });
+        await tester.pumpWidget(
+          _wrap(
+            sessionIds: const ['s1', 's2'],
+            hint: _hint(),
+            periods: [period],
+          ),
+        );
+        await tester.pump();
+
+        expect(find.text('Briefly joined'), findsNothing);
+      },
+    );
 
     testWidgets(
       'tapping a brief visitor row navigates to that visit session detail',
@@ -698,15 +683,13 @@ void main() {
             ),
             GoRoute(
               path: '/session/:id',
-              builder: (_, state) => Scaffold(
-                body: Text('session-${state.pathParameters['id']}'),
-              ),
+              builder: (_, state) =>
+                  Scaffold(body: Text('session-${state.pathParameters['id']}')),
             ),
             GoRoute(
               path: '/session/:id/edit',
-              builder: (_, state) => Scaffold(
-                body: Text('edit-${state.pathParameters['id']}'),
-              ),
+              builder: (_, state) =>
+                  Scaffold(body: Text('edit-${state.pathParameters['id']}')),
             ),
           ],
         );
@@ -721,21 +704,22 @@ void main() {
                 (ref) => Stream.value(const SystemSettings()),
               ),
               // s1 non-null to prevent the all-null staleness UX.
-              sessionByIdProvider('s1').overrideWith(
-                (ref) => Stream.value(_session('s1', 's1')),
-              ),
-              sessionByIdProvider('s2').overrideWith(
-                (ref) => Stream.value(null),
-              ),
-              membersByIdsProvider(memberIdsKey(['s1'])).overrideWith(
-                (ref) => Stream.value(const {}),
-              ),
-              membersByIdsProvider(memberIdsKey(['m1'])).overrideWith(
-                (ref) => Stream.value({'m1': memberM1}),
-              ),
-              commentsForRangeProvider(
-                DateTimeRange(start: _t0, end: _t1),
-              ).overrideWith((ref) => Stream.value(const [])),
+              sessionByIdProvider(
+                's1',
+              ).overrideWith((ref) => Stream.value(_session('s1', 's1'))),
+              sessionByIdProvider(
+                's2',
+              ).overrideWith((ref) => Stream.value(null)),
+              membersByIdsProvider(
+                memberIdsKey(['s1']),
+              ).overrideWith((ref) => Stream.value(const {})),
+              membersByIdsProvider(
+                memberIdsKey(['m1']),
+              ).overrideWith((ref) => Stream.value({'m1': memberM1})),
+              _emptyPeriodCommentsOverride(const [
+                's1',
+                's2',
+              ], DateTimeRange(start: _t0, end: _t1)),
             ],
             child: MaterialApp.router(
               localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -783,21 +767,22 @@ void main() {
                 (ref) => Stream.value(const SystemSettings()),
               ),
               // s1 non-null to prevent the all-null staleness UX from firing.
-              sessionByIdProvider('s1').overrideWith(
-                (ref) => Stream.value(_session('s1', 's1')),
-              ),
-              sessionByIdProvider('s2').overrideWith(
-                (ref) => Stream.value(null),
-              ),
-              membersByIdsProvider(memberIdsKey(['s1'])).overrideWith(
-                (ref) => Stream.value(const {}),
-              ),
-              membersByIdsProvider(memberIdsKey(['ap1'])).overrideWith(
-                (ref) => Stream.value({'ap1': memberAp1}),
-              ),
-              commentsForRangeProvider(
-                DateTimeRange(start: _t0, end: _t1),
-              ).overrideWith((ref) => Stream.value(const [])),
+              sessionByIdProvider(
+                's1',
+              ).overrideWith((ref) => Stream.value(_session('s1', 's1'))),
+              sessionByIdProvider(
+                's2',
+              ).overrideWith((ref) => Stream.value(null)),
+              membersByIdsProvider(
+                memberIdsKey(['s1']),
+              ).overrideWith((ref) => Stream.value(const {})),
+              membersByIdsProvider(
+                memberIdsKey(['ap1']),
+              ).overrideWith((ref) => Stream.value({'ap1': memberAp1})),
+              _emptyPeriodCommentsOverride(const [
+                's1',
+                's2',
+              ], DateTimeRange(start: _t0, end: _t1)),
             ],
             child: MaterialApp(
               localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -895,110 +880,103 @@ void main() {
       );
 
       await tester.pumpWidget(
-        _wrap(
-          sessionIds: const ['s1', 's2'],
-          hint: _hint(),
-          periods: [period],
-        ),
+        _wrap(sessionIds: const ['s1', 's2'], hint: _hint(), periods: [period]),
       );
       await tester.pump();
 
       expect(find.byType(CommentsForRangeSection), findsOneWidget);
     });
 
-    testWidgets('comments section renders with hint range when no matching period', (
-      tester,
-    ) async {
-      // Provide a hint but no matching period — CommentsForRangeSection should
-      // still render, deriving range from hint.start/hint.end.
-      await tester.pumpWidget(
-        _wrap(
-          sessionIds: const ['s1', 's2'],
-          hint: _hint(start: _t0, end: _t1),
-          periods: const [],
-        ),
-      );
-      await tester.pump();
+    testWidgets(
+      'comments section renders with hint range when no matching period',
+      (tester) async {
+        // Provide a hint but no matching period — CommentsForRangeSection should
+        // still render, deriving range from hint.start/hint.end.
+        await tester.pumpWidget(
+          _wrap(
+            sessionIds: const ['s1', 's2'],
+            hint: _hint(start: _t0, end: _t1),
+            periods: const [],
+          ),
+        );
+        await tester.pump();
 
-      expect(find.byType(CommentsForRangeSection), findsOneWidget);
-    });
+        expect(find.byType(CommentsForRangeSection), findsOneWidget);
+      },
+    );
 
     // ── T13: Stale-session UX ───────────────────────────────────────────────
 
-    testWidgets(
-      'all sessionIds resolve null → toast shown and route popped',
-      (tester) async {
-        // Use GoRouter with 2 routes: home "/" + detail "/detail".
-        // Navigate to detail, let sessions resolve null, and verify:
-        //   1. We end up back at "/"  (the detail was popped)
-        //   2. The error toast text is visible via PrismToastHost.
-        final router = GoRouter(
-          routes: [
-            GoRoute(
-              path: '/',
-              builder: (_, _) => const Scaffold(
-                body: Center(child: Text('home')),
-              ),
-            ),
-            GoRoute(
-              path: '/detail',
-              builder: (_, _) => PeriodDetailScreen(
-                sessionIds: const ['s1', 's2'],
-                hint: _hint(),
-              ),
-            ),
-          ],
-        );
-
-        await tester.pumpWidget(
-          ProviderScope(
-            overrides: [
-              derivedPeriodsProvider.overrideWith(
-                (ref) => const AsyncValue.data([]),
-              ),
-              systemSettingsProvider.overrideWith(
-                (ref) => Stream.value(const SystemSettings()),
-              ),
-              // Both sessions resolve to null — fully stale.
-              sessionByIdProvider('s1').overrideWith(
-                (ref) => Stream.value(null),
-              ),
-              sessionByIdProvider('s2').overrideWith(
-                (ref) => Stream.value(null),
-              ),
-              commentsForRangeProvider(DateTimeRange(start: _t0, end: _t1))
-                  .overrideWith((ref) => Stream.value(const [])),
-            ],
-            child: MaterialApp.router(
-              localizationsDelegates: AppLocalizations.localizationsDelegates,
-              supportedLocales: const [Locale('en')],
-              routerConfig: router,
-              builder: (context, child) => PrismToastHost(child: child!),
+    testWidgets('all sessionIds resolve null → toast shown and route popped', (
+      tester,
+    ) async {
+      // Use GoRouter with 2 routes: home "/" + detail "/detail".
+      // Navigate to detail, let sessions resolve null, and verify:
+      //   1. We end up back at "/"  (the detail was popped)
+      //   2. The error toast text is visible via PrismToastHost.
+      final router = GoRouter(
+        routes: [
+          GoRoute(
+            path: '/',
+            builder: (_, _) =>
+                const Scaffold(body: Center(child: Text('home'))),
+          ),
+          GoRoute(
+            path: '/detail',
+            builder: (_, _) => PeriodDetailScreen(
+              sessionIds: const ['s1', 's2'],
+              hint: _hint(),
             ),
           ),
-        );
+        ],
+      );
 
-        // Navigate to the detail route with push (preserves "/" in history so
-        // Navigator.canPop() returns true and the pop lands on "/").
-        await tester.pump(); // initial build: "/" renders
-        unawaited(router.push('/detail'));
-        await tester.pump(); // route pushed
-        await tester.pump(); // streams deliver null data
-        // Post-frame callback fires — toast shown, pop requested.
-        await tester.pump(Duration.zero);
-        // Let the pop animation settle.
-        await tester.pump();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            derivedPeriodsProvider.overrideWith(
+              (ref) => const AsyncValue.data([]),
+            ),
+            systemSettingsProvider.overrideWith(
+              (ref) => Stream.value(const SystemSettings()),
+            ),
+            // Both sessions resolve to null — fully stale.
+            sessionByIdProvider('s1').overrideWith((ref) => Stream.value(null)),
+            sessionByIdProvider('s2').overrideWith((ref) => Stream.value(null)),
+            _emptyPeriodCommentsOverride(const [
+              's1',
+              's2',
+            ], DateTimeRange(start: _t0, end: _t1)),
+          ],
+          child: MaterialApp.router(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: const [Locale('en')],
+            routerConfig: router,
+            builder: (context, child) => PrismToastHost(child: child!),
+          ),
+        ),
+      );
 
-        // Toast message visible (PrismToastHost renders it in the builder).
-        expect(find.text('Session not found'), findsOneWidget);
-        // We are back at "/" — the detail screen was popped.
-        expect(find.text('home'), findsOneWidget);
+      // Navigate to the detail route with push (preserves "/" in history so
+      // Navigator.canPop() returns true and the pop lands on "/").
+      await tester.pump(); // initial build: "/" renders
+      unawaited(router.push('/detail'));
+      await tester.pump(); // route pushed
+      await tester.pump(); // streams deliver null data
+      // Post-frame callback fires — toast shown, pop requested.
+      await tester.pump(Duration.zero);
+      // Let the pop animation settle.
+      await tester.pump();
 
-        // Dismiss the toast timer — must be called inside the test body because
-        // _verifyInvariants (pending timer check) fires BEFORE tearDown.
-        PrismToast.resetForTest();
-      },
-    );
+      // Toast message visible (PrismToastHost renders it in the builder).
+      expect(find.text('Session not found'), findsOneWidget);
+      // We are back at "/" — the detail screen was popped.
+      expect(find.text('home'), findsOneWidget);
+
+      // Dismiss the toast timer — must be called inside the test body because
+      // _verifyInvariants (pending timer check) fires BEFORE tearDown.
+      PrismToast.resetForTest();
+    });
 
     testWidgets(
       'toast fires exactly once — not re-fired on subsequent rebuilds',
@@ -1009,16 +987,13 @@ void main() {
           routes: [
             GoRoute(
               path: '/',
-              builder: (_, _) => const Scaffold(
-                body: Center(child: Text('home')),
-              ),
+              builder: (_, _) =>
+                  const Scaffold(body: Center(child: Text('home'))),
             ),
             GoRoute(
               path: '/detail',
-              builder: (_, _) => PeriodDetailScreen(
-                sessionIds: const ['s1'],
-                hint: _hint(),
-              ),
+              builder: (_, _) =>
+                  PeriodDetailScreen(sessionIds: const ['s1'], hint: _hint()),
             ),
           ],
         );
@@ -1032,11 +1007,12 @@ void main() {
               systemSettingsProvider.overrideWith(
                 (ref) => Stream.value(const SystemSettings()),
               ),
-              sessionByIdProvider('s1').overrideWith(
-                (ref) => Stream.value(null),
-              ),
-              commentsForRangeProvider(DateTimeRange(start: _t0, end: _t1))
-                  .overrideWith((ref) => Stream.value(const [])),
+              sessionByIdProvider(
+                's1',
+              ).overrideWith((ref) => Stream.value(null)),
+              _emptyPeriodCommentsOverride(const [
+                's1',
+              ], DateTimeRange(start: _t0, end: _t1)),
             ],
             child: MaterialApp.router(
               localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -1092,17 +1068,19 @@ void main() {
                 (ref) => Stream.value(const SystemSettings()),
               ),
               // s1 resolves to a real session; s2 is null.
-              sessionByIdProvider('s1').overrideWith(
-                (ref) => Stream.value(sessionS1),
-              ),
-              sessionByIdProvider('s2').overrideWith(
-                (ref) => Stream.value(null),
-              ),
-              membersByIdsProvider(memberIdsKey(['ma'])).overrideWith(
-                (ref) => Stream.value({'ma': memberA}),
-              ),
-              commentsForRangeProvider(DateTimeRange(start: _t0, end: _t1))
-                  .overrideWith((ref) => Stream.value(const [])),
+              sessionByIdProvider(
+                's1',
+              ).overrideWith((ref) => Stream.value(sessionS1)),
+              sessionByIdProvider(
+                's2',
+              ).overrideWith((ref) => Stream.value(null)),
+              membersByIdsProvider(
+                memberIdsKey(['ma']),
+              ).overrideWith((ref) => Stream.value({'ma': memberA})),
+              _emptyPeriodCommentsOverride(const [
+                's1',
+                's2',
+              ], DateTimeRange(start: _t0, end: _t1)),
             ],
             child: MaterialApp(
               localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -1153,22 +1131,10 @@ void main() {
 
       // The Semantics label on the header must contain every member name.
       // _namesString produces "Sky, Fern, Aimee & Hex" for 4 members.
-      expect(
-        find.bySemanticsLabel(RegExp(r'Sky')),
-        findsAtLeastNWidgets(1),
-      );
-      expect(
-        find.bySemanticsLabel(RegExp(r'Fern')),
-        findsAtLeastNWidgets(1),
-      );
-      expect(
-        find.bySemanticsLabel(RegExp(r'Aimee')),
-        findsAtLeastNWidgets(1),
-      );
-      expect(
-        find.bySemanticsLabel(RegExp(r'Hex')),
-        findsAtLeastNWidgets(1),
-      );
+      expect(find.bySemanticsLabel(RegExp(r'Sky')), findsAtLeastNWidgets(1));
+      expect(find.bySemanticsLabel(RegExp(r'Fern')), findsAtLeastNWidgets(1));
+      expect(find.bySemanticsLabel(RegExp(r'Aimee')), findsAtLeastNWidgets(1));
+      expect(find.bySemanticsLabel(RegExp(r'Hex')), findsAtLeastNWidgets(1));
       // Confirm a single label node contains ALL four names.
       expect(
         find.bySemanticsLabel(RegExp(r'Sky.*Fern.*Aimee.*Hex')),
@@ -1193,15 +1159,15 @@ void main() {
             systemSettingsProvider.overrideWith(
               (ref) => Stream.value(const SystemSettings()),
             ),
-            sessionByIdProvider('s1').overrideWith(
-              (ref) => Stream.value(sessionS1),
-            ),
-            membersByIdsProvider(memberIdsKey(['ma'])).overrideWith(
-              (ref) => Stream.value({'ma': memberA}),
-            ),
-            commentsForRangeProvider(
-              DateTimeRange(start: _t0, end: _t1),
-            ).overrideWith((ref) => Stream.value(const [])),
+            sessionByIdProvider(
+              's1',
+            ).overrideWith((ref) => Stream.value(sessionS1)),
+            membersByIdsProvider(
+              memberIdsKey(['ma']),
+            ).overrideWith((ref) => Stream.value({'ma': memberA})),
+            _emptyPeriodCommentsOverride(const [
+              's1',
+            ], DateTimeRange(start: _t0, end: _t1)),
           ],
           child: MaterialApp(
             localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -1222,7 +1188,9 @@ void main() {
       // by anchoring the match to NOT start with "Period".
       expect(
         find.bySemanticsLabel(
-          RegExp(r'^Fern, fronting from 10:00 AM to 11:00 AM, duration 1h\. Double tap'),
+          RegExp(
+            r'^Fern, fronting from 10:00 AM to 11:00 AM, duration 1h\. Double tap',
+          ),
         ),
         findsOneWidget,
       );
@@ -1259,21 +1227,20 @@ void main() {
             systemSettingsProvider.overrideWith(
               (ref) => Stream.value(const SystemSettings()),
             ),
-            sessionByIdProvider('s1').overrideWith(
-              (ref) => Stream.value(_session('s1', 's1')),
-            ),
-            sessionByIdProvider('s2').overrideWith(
-              (ref) => Stream.value(null),
-            ),
-            membersByIdsProvider(memberIdsKey(['s1'])).overrideWith(
-              (ref) => Stream.value(const {}),
-            ),
-            membersByIdsProvider(memberIdsKey(['m1'])).overrideWith(
-              (ref) => Stream.value({'m1': memberM1}),
-            ),
-            commentsForRangeProvider(
-              DateTimeRange(start: _t0, end: _t1),
-            ).overrideWith((ref) => Stream.value(const [])),
+            sessionByIdProvider(
+              's1',
+            ).overrideWith((ref) => Stream.value(_session('s1', 's1'))),
+            sessionByIdProvider('s2').overrideWith((ref) => Stream.value(null)),
+            membersByIdsProvider(
+              memberIdsKey(['s1']),
+            ).overrideWith((ref) => Stream.value(const {})),
+            membersByIdsProvider(
+              memberIdsKey(['m1']),
+            ).overrideWith((ref) => Stream.value({'m1': memberM1})),
+            _emptyPeriodCommentsOverride(const [
+              's1',
+              's2',
+            ], DateTimeRange(start: _t0, end: _t1)),
           ],
           child: MaterialApp(
             localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -1290,9 +1257,7 @@ void main() {
 
       // "Jules, briefly joined for 10m at 10:05 AM. Double tap to view details."
       expect(
-        find.bySemanticsLabel(
-          RegExp(r'Jules.*briefly joined.*10m.*10:05 AM'),
-        ),
+        find.bySemanticsLabel(RegExp(r'Jules.*briefly joined.*10m.*10:05 AM')),
         findsOneWidget,
       );
     });
@@ -1320,21 +1285,20 @@ void main() {
             systemSettingsProvider.overrideWith(
               (ref) => Stream.value(const SystemSettings()),
             ),
-            sessionByIdProvider('s1').overrideWith(
-              (ref) => Stream.value(_session('s1', 's1')),
-            ),
-            sessionByIdProvider('s2').overrideWith(
-              (ref) => Stream.value(null),
-            ),
-            membersByIdsProvider(memberIdsKey(['s1'])).overrideWith(
-              (ref) => Stream.value(const {}),
-            ),
-            membersByIdsProvider(memberIdsKey(['ap1'])).overrideWith(
-              (ref) => Stream.value({'ap1': memberAp1}),
-            ),
-            commentsForRangeProvider(
-              DateTimeRange(start: _t0, end: _t1),
-            ).overrideWith((ref) => Stream.value(const [])),
+            sessionByIdProvider(
+              's1',
+            ).overrideWith((ref) => Stream.value(_session('s1', 's1'))),
+            sessionByIdProvider('s2').overrideWith((ref) => Stream.value(null)),
+            membersByIdsProvider(
+              memberIdsKey(['s1']),
+            ).overrideWith((ref) => Stream.value(const {})),
+            membersByIdsProvider(
+              memberIdsKey(['ap1']),
+            ).overrideWith((ref) => Stream.value({'ap1': memberAp1})),
+            _emptyPeriodCommentsOverride(const [
+              's1',
+              's2',
+            ], DateTimeRange(start: _t0, end: _t1)),
           ],
           child: MaterialApp(
             localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -1358,60 +1322,57 @@ void main() {
       );
     });
 
-    testWidgets(
-      'dropped ID from original set: header renders from hint, '
-      'period-level subsections hide (set-equality miss)',
-      (tester) async {
-        // Screen receives 2 IDs; original period had 3 (s1, s2, s3).
-        // derivedPeriodsProvider returns the 3-id period — set-equality
-        // mismatch → no matchedPeriod → Briefly joined + Always present hidden.
-        final originalPeriod = FrontingPeriod(
-          start: _t0,
-          end: _t1,
-          activeMembers: const ['a', 'b', 'c'],
-          briefVisitors: [
-            EphemeralVisit(
-              memberId: 'bv1',
-              start: _t0,
-              end: _t1,
-              sessionId: 'sv1',
-            ),
-          ],
-          sessionIds: const ['s1', 's2', 's3'],
-          alwaysPresentMembers: const ['ap1'],
-          isOpenEnded: false,
-        );
-
-        final hint = _hint(
-          members: [_member('a', 'Sky'), _member('b', 'Fern')],
-          start: _t0,
-          end: _t1,
-        );
-
-        await tester.pumpWidget(
-          _wrap(
-            sessionIds: const ['s1', 's2'],
-            hint: hint,
-            periods: [originalPeriod],
+    testWidgets('dropped ID from original set: header renders from hint, '
+        'period-level subsections hide (set-equality miss)', (tester) async {
+      // Screen receives 2 IDs; original period had 3 (s1, s2, s3).
+      // derivedPeriodsProvider returns the 3-id period — set-equality
+      // mismatch → no matchedPeriod → Briefly joined + Always present hidden.
+      final originalPeriod = FrontingPeriod(
+        start: _t0,
+        end: _t1,
+        activeMembers: const ['a', 'b', 'c'],
+        briefVisitors: [
+          EphemeralVisit(
+            memberId: 'bv1',
+            start: _t0,
+            end: _t1,
+            sessionId: 'sv1',
           ),
-        );
-        await tester.pump();
+        ],
+        sessionIds: const ['s1', 's2', 's3'],
+        alwaysPresentMembers: const ['ap1'],
+        isOpenEnded: false,
+      );
 
-        // Header renders from hint (Sky & Fern present).
-        expect(find.textContaining('Sky'), findsOneWidget);
-        expect(find.textContaining('Fern'), findsOneWidget);
+      final hint = _hint(
+        members: [_member('a', 'Sky'), _member('b', 'Fern')],
+        start: _t0,
+        end: _t1,
+      );
 
-        // Period-level subsections hidden — set-equality miss, no matchedPeriod.
-        expect(find.text('Briefly joined'), findsNothing);
-        expect(find.text('Always present'), findsNothing);
-      },
-    );
+      await tester.pumpWidget(
+        _wrap(
+          sessionIds: const ['s1', 's2'],
+          hint: hint,
+          periods: [originalPeriod],
+        ),
+      );
+      await tester.pump();
+
+      // Header renders from hint (Sky & Fern present).
+      expect(find.textContaining('Sky'), findsOneWidget);
+      expect(find.textContaining('Fern'), findsOneWidget);
+
+      // Period-level subsections hidden — set-equality miss, no matchedPeriod.
+      expect(find.text('Briefly joined'), findsNothing);
+      expect(find.text('Always present'), findsNothing);
+    });
 
     // ── T15: Comment ordering — repo-layer regression in repository test ────
     //
     // The widget faithfully renders whatever stream the provider hands it; the
-    // ordering invariant is owned by the SQL layer (`watchCommentsForRange`'s
-    // `OrderingTerm.asc(targetTime)`). The regression guard for that lives at
+    // ordering invariant is owned by the SQL layer (`watchCommentsForPeriod`'s
+    // `OrderingTerm.asc(timestamp)`). The regression guard for that lives at
     // the repository test level — see
     // test/data/repositories/drift_front_session_comments_repository_test.dart
     // — not here. A widget-level test with an unsorted stub would either
@@ -1453,11 +1414,7 @@ void main() {
         );
 
         final commentRange = DateTimeRange(start: start, end: closedEnd);
-        final hint = _hint(
-          isOpenEnded: true,
-          start: start,
-          end: openEnd,
-        );
+        final hint = _hint(isOpenEnded: true, start: start, end: openEnd);
 
         await tester.pumpWidget(
           ProviderScope(
@@ -1473,18 +1430,16 @@ void main() {
               systemSettingsProvider.overrideWith(
                 (ref) => Stream.value(const SystemSettings()),
               ),
-              sessionByIdProvider('s1').overrideWith(
-                (ref) => Stream.value(_session('s1', 's1')),
-              ),
-              sessionByIdProvider('s2').overrideWith(
-                (ref) => Stream.value(_session('s2', 's2')),
-              ),
-              membersByIdsProvider(memberIdsKey(['s1', 's2'])).overrideWith(
-                (ref) => Stream.value(const {}),
-              ),
-              commentsForRangeProvider(commentRange).overrideWith(
-                (ref) => Stream.value(const []),
-              ),
+              sessionByIdProvider(
+                's1',
+              ).overrideWith((ref) => Stream.value(_session('s1', 's1'))),
+              sessionByIdProvider(
+                's2',
+              ).overrideWith((ref) => Stream.value(_session('s2', 's2'))),
+              membersByIdsProvider(
+                memberIdsKey(['s1', 's2']),
+              ).overrideWith((ref) => Stream.value(const {})),
+              _emptyPeriodCommentsOverride(const ['s1', 's2'], commentRange),
             ],
             child: MaterialApp(
               localizationsDelegates: AppLocalizations.localizationsDelegates,

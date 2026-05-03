@@ -18122,28 +18122,6 @@ class $FrontSessionCommentsTable extends FrontSessionComments
     ),
     defaultValue: const Constant(false),
   );
-  static const VerificationMeta _targetTimeMeta = const VerificationMeta(
-    'targetTime',
-  );
-  @override
-  late final GeneratedColumn<DateTime> targetTime = GeneratedColumn<DateTime>(
-    'target_time',
-    aliasedName,
-    true,
-    type: DriftSqlType.dateTime,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _authorMemberIdMeta = const VerificationMeta(
-    'authorMemberId',
-  );
-  @override
-  late final GeneratedColumn<String> authorMemberId = GeneratedColumn<String>(
-    'author_member_id',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -18152,8 +18130,6 @@ class $FrontSessionCommentsTable extends FrontSessionComments
     timestamp,
     createdAt,
     isDeleted,
-    targetTime,
-    authorMemberId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -18210,21 +18186,6 @@ class $FrontSessionCommentsTable extends FrontSessionComments
         isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
       );
     }
-    if (data.containsKey('target_time')) {
-      context.handle(
-        _targetTimeMeta,
-        targetTime.isAcceptableOrUnknown(data['target_time']!, _targetTimeMeta),
-      );
-    }
-    if (data.containsKey('author_member_id')) {
-      context.handle(
-        _authorMemberIdMeta,
-        authorMemberId.isAcceptableOrUnknown(
-          data['author_member_id']!,
-          _authorMemberIdMeta,
-        ),
-      );
-    }
     return context;
   }
 
@@ -18258,14 +18219,6 @@ class $FrontSessionCommentsTable extends FrontSessionComments
         DriftSqlType.bool,
         data['${effectivePrefix}is_deleted'],
       )!,
-      targetTime: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
-        data['${effectivePrefix}target_time'],
-      ),
-      authorMemberId: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}author_member_id'],
-      ),
     );
   }
 
@@ -18283,8 +18236,6 @@ class FrontSessionCommentRow extends DataClass
   final DateTime timestamp;
   final DateTime createdAt;
   final bool isDeleted;
-  final DateTime? targetTime;
-  final String? authorMemberId;
   const FrontSessionCommentRow({
     required this.id,
     required this.sessionId,
@@ -18292,8 +18243,6 @@ class FrontSessionCommentRow extends DataClass
     required this.timestamp,
     required this.createdAt,
     required this.isDeleted,
-    this.targetTime,
-    this.authorMemberId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -18304,12 +18253,6 @@ class FrontSessionCommentRow extends DataClass
     map['timestamp'] = Variable<DateTime>(timestamp);
     map['created_at'] = Variable<DateTime>(createdAt);
     map['is_deleted'] = Variable<bool>(isDeleted);
-    if (!nullToAbsent || targetTime != null) {
-      map['target_time'] = Variable<DateTime>(targetTime);
-    }
-    if (!nullToAbsent || authorMemberId != null) {
-      map['author_member_id'] = Variable<String>(authorMemberId);
-    }
     return map;
   }
 
@@ -18321,12 +18264,6 @@ class FrontSessionCommentRow extends DataClass
       timestamp: Value(timestamp),
       createdAt: Value(createdAt),
       isDeleted: Value(isDeleted),
-      targetTime: targetTime == null && nullToAbsent
-          ? const Value.absent()
-          : Value(targetTime),
-      authorMemberId: authorMemberId == null && nullToAbsent
-          ? const Value.absent()
-          : Value(authorMemberId),
     );
   }
 
@@ -18342,8 +18279,6 @@ class FrontSessionCommentRow extends DataClass
       timestamp: serializer.fromJson<DateTime>(json['timestamp']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
-      targetTime: serializer.fromJson<DateTime?>(json['targetTime']),
-      authorMemberId: serializer.fromJson<String?>(json['authorMemberId']),
     );
   }
   @override
@@ -18356,8 +18291,6 @@ class FrontSessionCommentRow extends DataClass
       'timestamp': serializer.toJson<DateTime>(timestamp),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'isDeleted': serializer.toJson<bool>(isDeleted),
-      'targetTime': serializer.toJson<DateTime?>(targetTime),
-      'authorMemberId': serializer.toJson<String?>(authorMemberId),
     };
   }
 
@@ -18368,8 +18301,6 @@ class FrontSessionCommentRow extends DataClass
     DateTime? timestamp,
     DateTime? createdAt,
     bool? isDeleted,
-    Value<DateTime?> targetTime = const Value.absent(),
-    Value<String?> authorMemberId = const Value.absent(),
   }) => FrontSessionCommentRow(
     id: id ?? this.id,
     sessionId: sessionId ?? this.sessionId,
@@ -18377,10 +18308,6 @@ class FrontSessionCommentRow extends DataClass
     timestamp: timestamp ?? this.timestamp,
     createdAt: createdAt ?? this.createdAt,
     isDeleted: isDeleted ?? this.isDeleted,
-    targetTime: targetTime.present ? targetTime.value : this.targetTime,
-    authorMemberId: authorMemberId.present
-        ? authorMemberId.value
-        : this.authorMemberId,
   );
   FrontSessionCommentRow copyWithCompanion(FrontSessionCommentsCompanion data) {
     return FrontSessionCommentRow(
@@ -18390,12 +18317,6 @@ class FrontSessionCommentRow extends DataClass
       timestamp: data.timestamp.present ? data.timestamp.value : this.timestamp,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
-      targetTime: data.targetTime.present
-          ? data.targetTime.value
-          : this.targetTime,
-      authorMemberId: data.authorMemberId.present
-          ? data.authorMemberId.value
-          : this.authorMemberId,
     );
   }
 
@@ -18407,24 +18328,14 @@ class FrontSessionCommentRow extends DataClass
           ..write('body: $body, ')
           ..write('timestamp: $timestamp, ')
           ..write('createdAt: $createdAt, ')
-          ..write('isDeleted: $isDeleted, ')
-          ..write('targetTime: $targetTime, ')
-          ..write('authorMemberId: $authorMemberId')
+          ..write('isDeleted: $isDeleted')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(
-    id,
-    sessionId,
-    body,
-    timestamp,
-    createdAt,
-    isDeleted,
-    targetTime,
-    authorMemberId,
-  );
+  int get hashCode =>
+      Object.hash(id, sessionId, body, timestamp, createdAt, isDeleted);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -18434,9 +18345,7 @@ class FrontSessionCommentRow extends DataClass
           other.body == this.body &&
           other.timestamp == this.timestamp &&
           other.createdAt == this.createdAt &&
-          other.isDeleted == this.isDeleted &&
-          other.targetTime == this.targetTime &&
-          other.authorMemberId == this.authorMemberId);
+          other.isDeleted == this.isDeleted);
 }
 
 class FrontSessionCommentsCompanion
@@ -18447,8 +18356,6 @@ class FrontSessionCommentsCompanion
   final Value<DateTime> timestamp;
   final Value<DateTime> createdAt;
   final Value<bool> isDeleted;
-  final Value<DateTime?> targetTime;
-  final Value<String?> authorMemberId;
   final Value<int> rowid;
   const FrontSessionCommentsCompanion({
     this.id = const Value.absent(),
@@ -18457,8 +18364,6 @@ class FrontSessionCommentsCompanion
     this.timestamp = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.isDeleted = const Value.absent(),
-    this.targetTime = const Value.absent(),
-    this.authorMemberId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   FrontSessionCommentsCompanion.insert({
@@ -18468,8 +18373,6 @@ class FrontSessionCommentsCompanion
     required DateTime timestamp,
     required DateTime createdAt,
     this.isDeleted = const Value.absent(),
-    this.targetTime = const Value.absent(),
-    this.authorMemberId = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        sessionId = Value(sessionId),
@@ -18483,8 +18386,6 @@ class FrontSessionCommentsCompanion
     Expression<DateTime>? timestamp,
     Expression<DateTime>? createdAt,
     Expression<bool>? isDeleted,
-    Expression<DateTime>? targetTime,
-    Expression<String>? authorMemberId,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -18494,8 +18395,6 @@ class FrontSessionCommentsCompanion
       if (timestamp != null) 'timestamp': timestamp,
       if (createdAt != null) 'created_at': createdAt,
       if (isDeleted != null) 'is_deleted': isDeleted,
-      if (targetTime != null) 'target_time': targetTime,
-      if (authorMemberId != null) 'author_member_id': authorMemberId,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -18507,8 +18406,6 @@ class FrontSessionCommentsCompanion
     Value<DateTime>? timestamp,
     Value<DateTime>? createdAt,
     Value<bool>? isDeleted,
-    Value<DateTime?>? targetTime,
-    Value<String?>? authorMemberId,
     Value<int>? rowid,
   }) {
     return FrontSessionCommentsCompanion(
@@ -18518,8 +18415,6 @@ class FrontSessionCommentsCompanion
       timestamp: timestamp ?? this.timestamp,
       createdAt: createdAt ?? this.createdAt,
       isDeleted: isDeleted ?? this.isDeleted,
-      targetTime: targetTime ?? this.targetTime,
-      authorMemberId: authorMemberId ?? this.authorMemberId,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -18545,12 +18440,6 @@ class FrontSessionCommentsCompanion
     if (isDeleted.present) {
       map['is_deleted'] = Variable<bool>(isDeleted.value);
     }
-    if (targetTime.present) {
-      map['target_time'] = Variable<DateTime>(targetTime.value);
-    }
-    if (authorMemberId.present) {
-      map['author_member_id'] = Variable<String>(authorMemberId.value);
-    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -18566,8 +18455,6 @@ class FrontSessionCommentsCompanion
           ..write('timestamp: $timestamp, ')
           ..write('createdAt: $createdAt, ')
           ..write('isDeleted: $isDeleted, ')
-          ..write('targetTime: $targetTime, ')
-          ..write('authorMemberId: $authorMemberId, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -32019,8 +31906,6 @@ typedef $$FrontSessionCommentsTableCreateCompanionBuilder =
       required DateTime timestamp,
       required DateTime createdAt,
       Value<bool> isDeleted,
-      Value<DateTime?> targetTime,
-      Value<String?> authorMemberId,
       Value<int> rowid,
     });
 typedef $$FrontSessionCommentsTableUpdateCompanionBuilder =
@@ -32031,8 +31916,6 @@ typedef $$FrontSessionCommentsTableUpdateCompanionBuilder =
       Value<DateTime> timestamp,
       Value<DateTime> createdAt,
       Value<bool> isDeleted,
-      Value<DateTime?> targetTime,
-      Value<String?> authorMemberId,
       Value<int> rowid,
     });
 
@@ -32072,16 +31955,6 @@ class $$FrontSessionCommentsTableFilterComposer
 
   ColumnFilters<bool> get isDeleted => $composableBuilder(
     column: $table.isDeleted,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<DateTime> get targetTime => $composableBuilder(
-    column: $table.targetTime,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get authorMemberId => $composableBuilder(
-    column: $table.authorMemberId,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -32124,16 +31997,6 @@ class $$FrontSessionCommentsTableOrderingComposer
     column: $table.isDeleted,
     builder: (column) => ColumnOrderings(column),
   );
-
-  ColumnOrderings<DateTime> get targetTime => $composableBuilder(
-    column: $table.targetTime,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get authorMemberId => $composableBuilder(
-    column: $table.authorMemberId,
-    builder: (column) => ColumnOrderings(column),
-  );
 }
 
 class $$FrontSessionCommentsTableAnnotationComposer
@@ -32162,16 +32025,6 @@ class $$FrontSessionCommentsTableAnnotationComposer
 
   GeneratedColumn<bool> get isDeleted =>
       $composableBuilder(column: $table.isDeleted, builder: (column) => column);
-
-  GeneratedColumn<DateTime> get targetTime => $composableBuilder(
-    column: $table.targetTime,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<String> get authorMemberId => $composableBuilder(
-    column: $table.authorMemberId,
-    builder: (column) => column,
-  );
 }
 
 class $$FrontSessionCommentsTableTableManager
@@ -32223,8 +32076,6 @@ class $$FrontSessionCommentsTableTableManager
                 Value<DateTime> timestamp = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
-                Value<DateTime?> targetTime = const Value.absent(),
-                Value<String?> authorMemberId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => FrontSessionCommentsCompanion(
                 id: id,
@@ -32233,8 +32084,6 @@ class $$FrontSessionCommentsTableTableManager
                 timestamp: timestamp,
                 createdAt: createdAt,
                 isDeleted: isDeleted,
-                targetTime: targetTime,
-                authorMemberId: authorMemberId,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -32245,8 +32094,6 @@ class $$FrontSessionCommentsTableTableManager
                 required DateTime timestamp,
                 required DateTime createdAt,
                 Value<bool> isDeleted = const Value.absent(),
-                Value<DateTime?> targetTime = const Value.absent(),
-                Value<String?> authorMemberId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => FrontSessionCommentsCompanion.insert(
                 id: id,
@@ -32255,8 +32102,6 @@ class $$FrontSessionCommentsTableTableManager
                 timestamp: timestamp,
                 createdAt: createdAt,
                 isDeleted: isDeleted,
-                targetTime: targetTime,
-                authorMemberId: authorMemberId,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

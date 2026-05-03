@@ -111,6 +111,7 @@ final frontingSessionRepositoryProvider = Provider<FrontingSessionRepository>(
     ref.watch(frontingSessionsDaoProvider),
     _resolveSyncHandle(ref),
     pkSyncDao: ref.watch(pluralKitSyncDaoProvider),
+    commentsDao: ref.watch(frontSessionCommentsDaoProvider),
   ),
 );
 

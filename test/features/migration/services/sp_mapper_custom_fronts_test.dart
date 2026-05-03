@@ -801,7 +801,7 @@ void main() {
       );
     });
 
-    test('converted-sleep session keeps its comments with targetTime set', () {
+    test('converted-sleep session keeps its comments attached', () {
       final commentTime = DateTime(2024, 1, 1, 4);
       final data = _data(
         customFronts: const [SpCustomFront(id: 'cf1', name: 'Asleep')],
@@ -830,8 +830,8 @@ void main() {
       final result = mapper.mapAll(data);
       expect(result.sessions, hasLength(1));
       expect(result.frontComments, hasLength(1));
-      // Comments now anchor to targetTime, not a sessionId FK.
-      expect(result.frontComments.first.targetTime, commentTime);
+      expect(result.frontComments.first.sessionId, result.sessions.first.id);
+      expect(result.frontComments.first.timestamp, commentTime);
       expect(result.frontComments.first.body, 'had a dream');
     });
   });
@@ -890,8 +890,8 @@ void main() {
       // Unknown now maps to the sentinel member (not null).
       expect(result.sessions.first.memberId, isNotNull);
       expect(result.frontComments, hasLength(1));
-      // Comment anchors to targetTime.
-      expect(result.frontComments.first.targetTime, DateTime(2024, 1, 1, 1));
+      expect(result.frontComments.first.sessionId, result.sessions.first.id);
+      expect(result.frontComments.first.timestamp, DateTime(2024, 1, 1, 1));
     });
 
     test(

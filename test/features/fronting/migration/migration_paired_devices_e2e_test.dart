@@ -283,13 +283,12 @@ void main() {
         equals(aComments.map((c) => c.id).toSet()),
       );
       for (final c in bComments) {
-        final author = c.authorMemberId;
-        if (author == null) continue;
+        final parent = c.sessionId;
         expect(
-          bMemberIds.contains(author),
+          bSessions.any((s) => s.id == parent),
           isTrue,
           reason:
-              'comment ${c.id} authored by $author which is not present '
+              'comment ${c.id} attached to session $parent which is not present '
               'on device B',
         );
       }

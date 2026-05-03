@@ -549,6 +549,15 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
             ],
           ),
         ),
+        if (r.timestampOnlyFrontSessionCommentsDropped > 0) ...[
+          const SizedBox(height: 12),
+          _importWarning(
+            theme,
+            context.l10n.dataImportTimestampOnlyCommentsDropped(
+              r.timestampOnlyFrontSessionCommentsDropped,
+            ),
+          ),
+        ],
         const SizedBox(height: 24),
         PrismButton(
           onPressed: () => Navigator.pop(context),
@@ -557,6 +566,23 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
           expanded: true,
         ),
       ],
+    );
+  }
+
+  Widget _importWarning(ThemeData theme, String text) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.errorContainer.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(8)),
+      ),
+      child: Text(
+        text,
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: theme.colorScheme.onErrorContainer,
+        ),
+      ),
     );
   }
 

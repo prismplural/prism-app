@@ -2,7 +2,9 @@ import 'package:uuid/uuid.dart';
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/mutations/mutation_runner.dart';
 import 'package:prism_plurality/core/mutations/mutation_result.dart';
+import 'package:prism_plurality/core/services/session_lifecycle_service.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
+import 'package:prism_plurality/domain/repositories/front_session_comments_repository.dart';
 import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/features/fronting/editing/fronting_session_change.dart';
@@ -15,9 +17,11 @@ class FrontingChangeExecutor {
     required FrontingSessionRepository repository,
     required MutationRunner mutationRunner,
     MemberRepository? memberRepository,
+    FrontSessionCommentsRepository? frontSessionCommentsRepository,
   }) : _repository = repository,
        _mutationRunner = mutationRunner,
-       _memberRepository = memberRepository;
+       _memberRepository = memberRepository,
+       _frontSessionCommentsRepository = frontSessionCommentsRepository;
 
   final FrontingSessionRepository _repository;
   final MutationRunner _mutationRunner;
@@ -26,6 +30,7 @@ class FrontingChangeExecutor {
   // batch references [unknownSentinelMemberId] — see
   // [_ensureSentinelIfNeeded].
   final MemberRepository? _memberRepository;
+  final FrontSessionCommentsRepository? _frontSessionCommentsRepository;
 
   /// Executes a list of [FrontingSessionChange]s atomically.
   ///
@@ -42,6 +47,7 @@ class FrontingChangeExecutor {
         // key is resolvable.  Mirrors the pattern in
         // FrontingMutationService._ensureSentinelIfNeeded.
         await _ensureSentinelIfNeeded(changes);
+        await _reparentCommentsForStructuralDeletes(changes);
         for (final change in changes) {
           await _applyChange(change);
         }
@@ -79,6 +85,60 @@ class FrontingChangeExecutor {
       );
     }
     await repo.ensureUnknownSentinelMember();
+  }
+
+  Future<void> _reparentCommentsForStructuralDeletes(
+    List<FrontingSessionChange> changes,
+  ) async {
+    if (_frontSessionCommentsRepository == null) return;
+
+    final updates = changes.whereType<UpdateSessionChange>().toList();
+    final deletes = changes.whereType<DeleteSessionChange>().toList();
+    if (updates.isEmpty || deletes.isEmpty) return;
+
+    final updatedSessionsById = <String, FrontingSession>{};
+    for (final update in updates) {
+      final existing = await _repository.getSessionById(update.sessionId);
+      if (existing == null) continue;
+      updatedSessionsById[update.sessionId] = _applyPatch(
+        existing,
+        update.patch,
+      );
+    }
+
+    for (final delete in deletes) {
+      final deleted = await _repository.getSessionById(delete.sessionId);
+      if (deleted == null) continue;
+      final targets = updatedSessionsById.values
+          .where(
+            (session) =>
+                session.id != deleted.id &&
+                session.sessionType == deleted.sessionType &&
+                _rangesOverlap(session, deleted),
+          )
+          .map(
+            (session) => FrontSessionCommentReparentTarget(
+              sessionId: session.id,
+              startTime: session.startTime,
+              endTime: session.endTime,
+            ),
+          )
+          .toList();
+
+      if (targets.length == 1) {
+        await reparentFrontSessionComments(
+          _frontSessionCommentsRepository,
+          fromSessionId: deleted.id,
+          toSessionId: targets.single.sessionId,
+        );
+      } else if (targets.length > 1) {
+        await reparentFrontSessionCommentsByTimestamp(
+          _frontSessionCommentsRepository,
+          fromSessionId: deleted.id,
+          targets: targets,
+        );
+      }
+    }
   }
 
   Future<void> _applyChange(FrontingSessionChange change) async {
@@ -155,6 +215,12 @@ class FrontingChangeExecutor {
       quality: session.quality,
       isHealthKitImport: session.isHealthKitImport,
     );
+  }
+
+  bool _rangesOverlap(FrontingSession a, FrontingSession b) {
+    final aEnd = a.endTime ?? DateTime(9999);
+    final bEnd = b.endTime ?? DateTime(9999);
+    return a.startTime.isBefore(bEnd) && b.startTime.isBefore(aEnd);
   }
 
   String _buildLabel(List<FrontingSessionChange> changes) {

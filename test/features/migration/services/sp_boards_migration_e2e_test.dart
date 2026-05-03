@@ -237,7 +237,7 @@ void main() {
           pairToConvId[pairKey] = convId;
 
           final participants = <String>[
-            if (byId != null) byId,
+            ?byId,
             if (forId != byId) forId,
           ];
 
@@ -319,8 +319,9 @@ void main() {
       await service.run();
 
       // Reset sentinel so the service can run again.
-      settingsRepo.updateSettings(
-          settingsRepo.settings.copyWith(spBoardsBackfilledAt: null));
+      await settingsRepo.updateSettings(
+        settingsRepo.settings.copyWith(spBoardsBackfilledAt: null),
+      );
 
       final result2 = await service.run();
       expect(result2.postsConverted, equals(0));

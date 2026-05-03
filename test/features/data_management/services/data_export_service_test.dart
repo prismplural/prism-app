@@ -179,119 +179,107 @@ void main() {
 
     // -- PR G additions (review finding #39): envelope shape gating ----
 
-    test(
-      'V1Export.fromJson rejects unknown formatVersion explicitly '
-      '(review finding #39 + remediation plan WS4 step 7)',
-      () async {
-        final json = {
-          'formatVersion': '99.0',
-          'version': '1.0',
-          'appName': 'Prism Plurality',
-          'exportDate': '2026-04-30T00:00:00.000Z',
-          'totalRecords': 0,
-          'headmates': [],
-          'frontSessions': [],
-          'sleepSessions': [],
-          'conversations': [],
-          'messages': [],
-          'polls': [],
-          'pollOptions': [],
-          'systemSettings': [],
-          'habits': [],
-          'habitCompletions': [],
-        };
-        expect(
-          () => V1Export.fromJson(json),
-          throwsA(isA<FormatException>()),
-        );
-      },
-    );
+    test('V1Export.fromJson rejects unknown formatVersion explicitly '
+        '(review finding #39 + remediation plan WS4 step 7)', () async {
+      final json = {
+        'formatVersion': '99.0',
+        'version': '1.0',
+        'appName': 'Prism Plurality',
+        'exportDate': '2026-04-30T00:00:00.000Z',
+        'totalRecords': 0,
+        'headmates': [],
+        'frontSessions': [],
+        'sleepSessions': [],
+        'conversations': [],
+        'messages': [],
+        'polls': [],
+        'pollOptions': [],
+        'systemSettings': [],
+        'habits': [],
+        'habitCompletions': [],
+      };
+      expect(() => V1Export.fromJson(json), throwsA(isA<FormatException>()));
+    });
 
-    test(
-      'envelope rescueLegacyFields=true wins over ambiguous row shape: '
-      'a row carrying only `headmateId` (which the row-shape sniff would '
-      'route to new-shape) routes through legacy when the envelope '
-      'flag is set',
-      () async {
-        // Row shape: only headmateId, no coFronterIds, no pkMemberIdsJson,
-        // no sessionType / memberId. Per the row-shape sniff this would
-        // be classified as legacy via the "no headmateId AND no
-        // coFronterIds AND no new-shape marker" leg — but it DOES have
-        // headmateId, so the row sniff alone routes it to new-shape.
-        // The envelope flag overrides.
-        V1FrontSession.resetRowShapeLegacyFallbackCount();
-        final json = {
-          'formatVersion': '1.0',
-          'version': '1.0',
-          'appName': 'Prism Plurality',
-          'exportDate': '2026-04-30T00:00:00.000Z',
-          'totalRecords': 1,
-          'rescueLegacyFields': true,
-          'headmates': [],
-          'frontSessions': [
-            {
-              'id': 'ambig-1',
-              'startTime': '2026-04-01T09:00:00.000Z',
-              'headmateId': 'm1',
-            },
-          ],
-          'sleepSessions': [],
-          'conversations': [],
-          'messages': [],
-          'polls': [],
-          'pollOptions': [],
-          'systemSettings': [],
-          'habits': [],
-          'habitCompletions': [],
-        };
-        final export = V1Export.fromJson(json);
-        // Envelope flag forces legacy.
-        expect(export.frontSessions.single.isLegacyShape, true);
-        // Envelope flag drove the decision; the per-row sniff
-        // fallback counter did not tick.
-        expect(V1FrontSession.rowShapeLegacyFallbackCount, 0);
-      },
-    );
+    test('envelope rescueLegacyFields=true wins over ambiguous row shape: '
+        'a row carrying only `headmateId` (which the row-shape sniff would '
+        'route to new-shape) routes through legacy when the envelope '
+        'flag is set', () async {
+      // Row shape: only headmateId, no coFronterIds, no pkMemberIdsJson,
+      // no sessionType / memberId. Per the row-shape sniff this would
+      // be classified as legacy via the "no headmateId AND no
+      // coFronterIds AND no new-shape marker" leg — but it DOES have
+      // headmateId, so the row sniff alone routes it to new-shape.
+      // The envelope flag overrides.
+      V1FrontSession.resetRowShapeLegacyFallbackCount();
+      final json = {
+        'formatVersion': '1.0',
+        'version': '1.0',
+        'appName': 'Prism Plurality',
+        'exportDate': '2026-04-30T00:00:00.000Z',
+        'totalRecords': 1,
+        'rescueLegacyFields': true,
+        'headmates': [],
+        'frontSessions': [
+          {
+            'id': 'ambig-1',
+            'startTime': '2026-04-01T09:00:00.000Z',
+            'headmateId': 'm1',
+          },
+        ],
+        'sleepSessions': [],
+        'conversations': [],
+        'messages': [],
+        'polls': [],
+        'pollOptions': [],
+        'systemSettings': [],
+        'habits': [],
+        'habitCompletions': [],
+      };
+      final export = V1Export.fromJson(json);
+      // Envelope flag forces legacy.
+      expect(export.frontSessions.single.isLegacyShape, true);
+      // Envelope flag drove the decision; the per-row sniff
+      // fallback counter did not tick.
+      expect(V1FrontSession.rowShapeLegacyFallbackCount, 0);
+    });
 
-    test(
-      'envelope rescueLegacyFields=false + ambiguous row: per-row sniff '
-      'is the fallback and the counter ticks (so its uses can be '
-      'observed and eventually removed)',
-      () async {
-        V1FrontSession.resetRowShapeLegacyFallbackCount();
-        final json = {
-          'formatVersion': '1.0',
-          'version': '1.0',
-          'appName': 'Prism Plurality',
-          'exportDate': '2026-04-30T00:00:00.000Z',
-          'totalRecords': 1,
-          // No rescueLegacyFields: false implicit.
-          'headmates': [],
-          'frontSessions': [
-            {
-              'id': 'leg-1',
-              'startTime': '2026-04-01T09:00:00.000Z',
-              // Pure legacy shape (pkMemberIdsJson present, no
-              // sessionType / memberId).
-              'pkMemberIdsJson': '["abc"]',
-              'pluralkitUuid': 'switch-1',
-            },
-          ],
-          'sleepSessions': [],
-          'conversations': [],
-          'messages': [],
-          'polls': [],
-          'pollOptions': [],
-          'systemSettings': [],
-          'habits': [],
-          'habitCompletions': [],
-        };
-        final export = V1Export.fromJson(json);
-        expect(export.frontSessions.single.isLegacyShape, true);
-        // Per-row sniff was the trigger — counter ticks once.
-        expect(V1FrontSession.rowShapeLegacyFallbackCount, 1);
-      },
-    );
+    test('envelope rescueLegacyFields=false + ambiguous row: per-row sniff '
+        'is the fallback and the counter ticks (so its uses can be '
+        'observed and eventually removed)', () async {
+      V1FrontSession.resetRowShapeLegacyFallbackCount();
+      final json = {
+        'formatVersion': '1.0',
+        'version': '1.0',
+        'appName': 'Prism Plurality',
+        'exportDate': '2026-04-30T00:00:00.000Z',
+        'totalRecords': 1,
+        // No rescueLegacyFields: false implicit.
+        'headmates': [],
+        'frontSessions': [
+          {
+            'id': 'leg-1',
+            'startTime': '2026-04-01T09:00:00.000Z',
+            // Pure legacy shape (pkMemberIdsJson present, no
+            // sessionType / memberId).
+            'pkMemberIdsJson': '["abc"]',
+            'pluralkitUuid': 'switch-1',
+          },
+        ],
+        'sleepSessions': [],
+        'conversations': [],
+        'messages': [],
+        'polls': [],
+        'pollOptions': [],
+        'systemSettings': [],
+        'habits': [],
+        'habitCompletions': [],
+      };
+      final export = V1Export.fromJson(json);
+      expect(export.frontSessions.single.isLegacyShape, true);
+      // Per-row sniff was the trigger — counter ticks once.
+      expect(V1FrontSession.rowShapeLegacyFallbackCount, 1);
+    });
 
     test(
       'buildExport with includeLegacyFields=true gracefully skips legacy '
@@ -328,12 +316,11 @@ void main() {
         await db.customStatement(
           'CREATE TABLE _new_front_session_comments ('
           '  id TEXT NOT NULL PRIMARY KEY,'
+          '  session_id TEXT NOT NULL,'
           '  body TEXT NOT NULL,'
           '  timestamp INTEGER NOT NULL,'
           '  created_at INTEGER NOT NULL,'
-          '  is_deleted INTEGER NOT NULL DEFAULT 0,'
-          '  target_time INTEGER,'
-          '  author_member_id TEXT'
+          '  is_deleted INTEGER NOT NULL DEFAULT 0'
           ')',
         );
         await db.customStatement('DROP TABLE front_session_comments');
@@ -345,9 +332,7 @@ void main() {
         // Build a fresh export service so the column-existence cache
         // starts clean against the rewritten tables.
         final freshExport = _makeExport(db, cacheDir);
-        final export = await freshExport.buildExport(
-          includeLegacyFields: true,
-        );
+        final export = await freshExport.buildExport(includeLegacyFields: true);
         expect(
           export,
           isNotNull,

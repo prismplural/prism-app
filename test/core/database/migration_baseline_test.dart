@@ -31,6 +31,7 @@ void _dropPostV3Schema(raw.Database db) {
     'DROP INDEX IF EXISTS idx_fronting_sessions_pluralkit_uuid_orphan;',
   );
   db.execute('DROP INDEX IF EXISTS idx_comments_target_time;');
+  db.execute('DROP TABLE IF EXISTS member_board_posts;');
   db.execute(
     'CREATE UNIQUE INDEX IF NOT EXISTS idx_fronting_sessions_pluralkit_uuid '
     'ON fronting_sessions(pluralkit_uuid) WHERE pluralkit_uuid IS NOT NULL;',
@@ -50,6 +51,7 @@ void _dropPostV3Schema(raw.Database db) {
     ['members', 'pk_banner_cached_url'],
     ['members', 'is_always_fronting'],
     ['members', 'pk_banner_url'],
+    ['members', 'board_last_read_at'],
     ['fronting_sessions', 'pk_import_source'],
     ['fronting_sessions', 'pk_file_switch_id'],
     ['system_settings', 'fronting_list_view_mode'],
@@ -57,6 +59,8 @@ void _dropPostV3Schema(raw.Database db) {
     ['system_settings', 'quick_front_default_behavior'],
     ['system_settings', 'pending_fronting_migration_mode'],
     ['system_settings', 'pending_fronting_migration_cleanup_substate'],
+    ['system_settings', 'boards_enabled'],
+    ['system_settings', 'sp_boards_backfilled_at'],
     ['front_session_comments', 'target_time'],
     ['front_session_comments', 'author_member_id'],
     ['plural_kit_sync_state', 'switch_cursor_timestamp'],

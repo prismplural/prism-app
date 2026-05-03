@@ -2103,6 +2103,44 @@ class _SimplyPluralImportFlowState
                 ],
               ),
             ),
+            if (migration.result?.warnings.isNotEmpty ?? false) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(
+                    PrismShapes.of(context).radius(12),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      context.l10n.migrationWarnings(
+                        migration.result!.warnings.length,
+                      ),
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: textColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ...migration.result!.warnings.map(
+                      (warning) => Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text(
+                          warning,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: textColor,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
 
           // Error

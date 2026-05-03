@@ -54,6 +54,18 @@ const String spFrontingNamespace = '07fa8466-1914-4510-9f1c-d1223d2b8e60';
 String deriveSpSessionId(String entryId) =>
     const Uuid().v5(spFrontingNamespace, entryId);
 
+/// Namespace for Simply Plural front-history comment ids.
+///
+/// Key format: SP comment `_id` string from the source export.
+/// Used so repeated imports of the same SP comment converge instead of
+/// creating a new random Prism comment each time.
+const String spFrontCommentNamespace =
+    '420e95f8-67e4-417f-88af-0d3e5534dec0';
+
+/// Canonical SP front-history comment id derivation.
+String deriveSpFrontCommentId(String commentId) =>
+    const Uuid().v5(spFrontCommentNamespace, commentId);
+
 /// Namespace for migration-expanded co-fronter rows.
 ///
 /// Key format: `"${legacy_session_id}:${member_id}"`

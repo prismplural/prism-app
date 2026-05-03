@@ -20,6 +20,7 @@ import 'package:prism_plurality/features/pluralkit/services/pk_group_sync_v2_cat
 import 'package:prism_plurality/features/settings/providers/reset_data_provider.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 
 /// Every user-data table in the database. When a new table is added to the
 /// Drift schema, add it here — the completeness guard test will fail if any
@@ -124,7 +125,7 @@ void main() {
         final reopened = await harness.reopenDatabase();
         addTearDown(reopened.close);
 
-        expect(await _countRows(reopened, 'members'), 0);
+        expect(await _countRows(reopened, 'members'), 1);
         expect(await _countRows(reopened, 'poll_votes'), 0);
         expect(await _countRows(reopened, 'custom_field_values'), 0);
         expect(await _countRows(reopened, 'member_group_entries'), 0);
@@ -139,20 +140,30 @@ void main() {
         expect(await _countRows(reopened, 'member_groups'), 1);
         expect(await _countRows(reopened, 'custom_fields'), 1);
 
-        // Per-member shape (Phase 5): _resetMembers nulls member_id on the
-        // remaining session rows.  co_fronter_ids still physically exists in
-        // v7 (legacy/unread storage) but is no longer touched by the reset.
-        final sessionRow = await reopened
+        // Per-member shape: normal sessions remain valid by pointing at the
+        // system-managed Unknown sentinel. Sleep rows still carry null.
+        final normalRows = await reopened.customSelect('''
+        SELECT member_id
+        FROM fronting_sessions
+        WHERE session_type = 0
+        ''').get();
+        expect(normalRows, hasLength(2));
+        expect(
+          normalRows.map((row) => row.data['member_id']),
+          everyElement(unknownSentinelMemberId),
+        );
+
+        final sleepRow = await reopened
             .customSelect(
               '''
         SELECT member_id
         FROM fronting_sessions
         WHERE id = ?
         ''',
-              variables: [Variable.withString('session-1')],
+              variables: [Variable.withString('sleep-front-1')],
             )
             .getSingle();
-        expect(sessionRow.data['member_id'], isNull);
+        expect(sleepRow.data['member_id'], isNull);
       },
     );
 
@@ -1370,6 +1381,10 @@ class _ResetHarness {
 
   Future<void> reset(ResetCategory category) async {
     await container.read(resetDataNotifierProvider.notifier).reset(category);
+    final resetState = container.read(resetDataNotifierProvider);
+    if (resetState.hasError) {
+      Error.throwWithStackTrace(resetState.error!, resetState.stackTrace!);
+    }
   }
 
   Future<AppDatabase> reopenDatabase() async {

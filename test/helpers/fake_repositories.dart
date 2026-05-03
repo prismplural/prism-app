@@ -2,13 +2,16 @@ import 'dart:typed_data';
 
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/domain/models/conversation.dart';
+import 'package:prism_plurality/domain/models/front_session_comment.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/domain/repositories/conversation_repository.dart';
+import 'package:prism_plurality/domain/repositories/front_session_comments_repository.dart';
 import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/domain/repositories/system_settings_repository.dart';
+import 'package:prism_plurality/domain/utils/time_range.dart';
 
 // =============================================================================
 // FakeMemberRepository
@@ -102,7 +105,7 @@ class FakeMemberRepository implements MemberRepository {
 
   @override
   Future<({Member member, bool wasCreated})>
-      ensureUnknownSentinelMember() async {
+  ensureUnknownSentinelMember() async {
     final existing = await getMemberById(unknownSentinelMemberId);
     if (existing != null) {
       return (member: existing, wasCreated: false);
@@ -705,4 +708,122 @@ class FakeFrontingSessionRepository implements FrontingSessionRepository {
   Stream<List<FrontingSession>> watchRecentSleepSessions({
     required int limit,
   }) => Stream.value(const []);
+}
+
+// =============================================================================
+// FakeFrontSessionCommentsRepository
+// =============================================================================
+
+class FakeFrontSessionCommentsRepository
+    implements FrontSessionCommentsRepository {
+  final List<FrontSessionComment> comments = [];
+  final List<({String fromSessionId, String toSessionId})> reparentCalls = [];
+
+  @override
+  Future<void> reparentComments({
+    required String fromSessionId,
+    required String toSessionId,
+  }) async {
+    reparentCalls.add((fromSessionId: fromSessionId, toSessionId: toSessionId));
+    for (var i = 0; i < comments.length; i++) {
+      final comment = comments[i];
+      if (comment.sessionId == fromSessionId) {
+        comments[i] = comment.copyWith(sessionId: toSessionId);
+      }
+    }
+  }
+
+  @override
+  Future<void> reparentCommentsAtOrAfter({
+    required String fromSessionId,
+    required String toSessionId,
+    required DateTime atOrAfter,
+  }) async {
+    reparentCalls.add((fromSessionId: fromSessionId, toSessionId: toSessionId));
+    for (var i = 0; i < comments.length; i++) {
+      final comment = comments[i];
+      if (comment.sessionId == fromSessionId &&
+          !comment.timestamp.isBefore(atOrAfter)) {
+        comments[i] = comment.copyWith(sessionId: toSessionId);
+      }
+    }
+  }
+
+  @override
+  Future<void> createComment(FrontSessionComment comment) async {
+    comments.add(comment);
+  }
+
+  @override
+  Future<void> deleteComment(String id) async {
+    comments.removeWhere((comment) => comment.id == id);
+  }
+
+  @override
+  Future<List<FrontSessionComment>> getAllComments() async =>
+      List.unmodifiable(comments);
+
+  @override
+  Future<void> updateComment(FrontSessionComment comment) async {
+    final index = comments.indexWhere((existing) => existing.id == comment.id);
+    if (index >= 0) {
+      comments[index] = comment;
+    }
+  }
+
+  @override
+  Stream<List<FrontSessionComment>> watchAllComments() {
+    return Stream.value(List.unmodifiable(comments));
+  }
+
+  @override
+  Stream<int> watchCommentCount(String sessionId) {
+    return Stream.value(
+      comments.where((comment) => comment.sessionId == sessionId).length,
+    );
+  }
+
+  @override
+  Stream<int> watchCommentCountForPeriod({
+    required Iterable<String> sessionIds,
+    required TimeRange range,
+  }) {
+    return Stream.value(
+      _commentsForPeriod(sessionIds: sessionIds, range: range).length,
+    );
+  }
+
+  @override
+  Stream<List<FrontSessionComment>> watchCommentsForPeriod({
+    required Iterable<String> sessionIds,
+    required TimeRange range,
+  }) {
+    return Stream.value(
+      _commentsForPeriod(sessionIds: sessionIds, range: range),
+    );
+  }
+
+  @override
+  Stream<List<FrontSessionComment>> watchCommentsForSession(String sessionId) {
+    return Stream.value(
+      comments
+          .where((comment) => comment.sessionId == sessionId)
+          .toList(growable: false),
+    );
+  }
+
+  List<FrontSessionComment> _commentsForPeriod({
+    required Iterable<String> sessionIds,
+    required TimeRange range,
+  }) {
+    final ids = sessionIds.toSet();
+    return comments
+        .where(
+          (comment) =>
+              ids.contains(comment.sessionId) &&
+              !comment.timestamp.isBefore(range.start) &&
+              comment.timestamp.isBefore(range.end),
+        )
+        .toList(growable: false);
+  }
 }

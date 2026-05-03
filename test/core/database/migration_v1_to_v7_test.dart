@@ -23,7 +23,6 @@ import 'package:prism_plurality/core/database/app_database.dart';
 //              members.pk_banner_url (v6)
 //              members.is_always_fronting (v7)
 //              system_settings.pending_fronting_migration_mode (v7)
-//              front_session_comments.{target_time, author_member_id} (v7)
 //              plural_kit_sync_state.{switch_cursor_timestamp, switch_cursor_id} (v7,
 //                folded from what was briefly a v8 bump — Phase 4B diff-sweep
 //                resume cursor, §2.6)
@@ -751,7 +750,7 @@ void main() {
       final uv = await db.customSelect('PRAGMA user_version').getSingle();
       expect(
         uv.read<int>('user_version'),
-        14,
+        16,
         reason: 'all migration steps must complete',
       );
 
@@ -777,15 +776,17 @@ void main() {
             'added by v6→v7',
       );
 
-      // v7-only columns: front_session_comments.target_time + author_member_id
+      // v16 final shape: comments stay session-attached; the abandoned
+      // timestamp-anchor columns are not present after the full upgrade.
       final commentCols = await db
           .customSelect('PRAGMA table_info(front_session_comments)')
           .get();
       final commentColNames = commentCols
           .map((r) => r.read<String>('name'))
           .toSet();
-      expect(commentColNames, contains('target_time'));
-      expect(commentColNames, contains('author_member_id'));
+      expect(commentColNames, contains('session_id'));
+      expect(commentColNames, isNot(contains('target_time')));
+      expect(commentColNames, isNot(contains('author_member_id')));
 
       // Phase 4B cursor columns (folded into v7): plural_kit_sync_state
       final pkStateCols = await db
@@ -913,7 +914,7 @@ void main() {
 
       // user_version must match the current schema.
       final uv = await db.customSelect('PRAGMA user_version').getSingle();
-      expect(uv.read<int>('user_version'), 15);
+      expect(uv.read<int>('user_version'), 16);
 
       // mode = 'blocked'
       final settings = await db.systemSettingsDao.getSettings();
@@ -1018,7 +1019,7 @@ void main() {
 
       // user_version must match the current schema.
       final uv = await db.customSelect('PRAGMA user_version').getSingle();
-      expect(uv.read<int>('user_version'), 15);
+      expect(uv.read<int>('user_version'), 16);
 
       // mode = 'blocked'
       final settings = await db.systemSettingsDao.getSettings();

@@ -26,27 +26,36 @@ class DriftFrontSessionCommentsRepository
   // Reads
   // ---------------------------------------------------------------------------
 
-  /// Returns comments whose [domain.FrontSessionComment.targetTime] falls in
-  /// [range] (inclusive start, exclusive end).
-  ///
-  /// Filtering happens in SQL — backed by `idx_comments_target_time` — so
-  /// each watcher only wakes when a row in its own range changes.
-  /// Comments with `targetTime == null` are excluded; see the
-  /// repository-interface docstring for the rationale.
   @override
-  Stream<List<domain.FrontSessionComment>> watchCommentsForRange(
-    TimeRange range,
+  Stream<List<domain.FrontSessionComment>> watchCommentsForSession(
+    String sessionId,
   ) {
     return _dao
-        .watchCommentsForRange(range.start, range.end)
+        .watchCommentsForSession(sessionId)
         .map((rows) => rows.map(FrontSessionCommentMapper.toDomain).toList());
   }
 
-  /// Comment count for a time range. Pre-backfill (null targetTime) rows
-  /// are excluded — see [watchCommentsForRange].
   @override
-  Stream<int> watchCommentCountForRange(TimeRange range) {
-    return _dao.watchCommentCountForRange(range.start, range.end);
+  Stream<int> watchCommentCount(String sessionId) {
+    return _dao.watchCommentCount(sessionId);
+  }
+
+  @override
+  Stream<List<domain.FrontSessionComment>> watchCommentsForPeriod({
+    required Iterable<String> sessionIds,
+    required TimeRange range,
+  }) {
+    return _dao
+        .watchCommentsForPeriod(sessionIds, range.start, range.end)
+        .map((rows) => rows.map(FrontSessionCommentMapper.toDomain).toList());
+  }
+
+  @override
+  Stream<int> watchCommentCountForPeriod({
+    required Iterable<String> sessionIds,
+    required TimeRange range,
+  }) {
+    return _dao.watchCommentCountForPeriod(sessionIds, range.start, range.end);
   }
 
   @override
@@ -86,6 +95,30 @@ class DriftFrontSessionCommentsRepository
     await syncRecordDelete(_table, id);
   }
 
+  @override
+  Future<void> reparentComments({
+    required String fromSessionId,
+    required String toSessionId,
+  }) async {
+    await _reparentComments(
+      fromSessionId: fromSessionId,
+      toSessionId: toSessionId,
+    );
+  }
+
+  @override
+  Future<void> reparentCommentsAtOrAfter({
+    required String fromSessionId,
+    required String toSessionId,
+    required DateTime atOrAfter,
+  }) async {
+    await _reparentComments(
+      fromSessionId: fromSessionId,
+      toSessionId: toSessionId,
+      atOrAfter: atOrAfter,
+    );
+  }
+
   // ---------------------------------------------------------------------------
   // Private helpers
   // ---------------------------------------------------------------------------
@@ -98,14 +131,33 @@ class DriftFrontSessionCommentsRepository
   Map<String, dynamic> debugCommentFields(domain.FrontSessionComment c) =>
       _commentFields(c);
 
+  Future<void> _reparentComments({
+    required String fromSessionId,
+    required String toSessionId,
+    DateTime? atOrAfter,
+  }) async {
+    if (fromSessionId == toSessionId) return;
+    final rows = await _dao.getActiveCommentsForSession(
+      fromSessionId,
+      atOrAfter: atOrAfter,
+    );
+    if (rows.isEmpty) return;
+    await _dao.reparentComments(
+      fromSessionId: fromSessionId,
+      toSessionId: toSessionId,
+      atOrAfter: atOrAfter,
+    );
+    for (final row in rows) {
+      final updated = FrontSessionCommentMapper.toDomain(
+        row,
+      ).copyWith(sessionId: toSessionId);
+      await syncRecordUpdate(_table, updated.id, _commentFields(updated));
+    }
+  }
+
   Map<String, dynamic> _commentFields(domain.FrontSessionComment c) {
     return {
-      // session_id column still exists in v7 Drift schema (dropped in
-      // schema cleanup via TableMigration rebuild); leave null on new
-      // inserts so the column stays inert. Do NOT write a session_id
-      // here — new comments are anchored to target_time, not a session FK.
-      'target_time': toSyncUtcOrNull(c.targetTime),
-      'author_member_id': c.authorMemberId,
+      'session_id': c.sessionId,
       'body': c.body,
       'timestamp': toSyncUtc(c.timestamp),
       'created_at': toSyncUtc(c.createdAt),

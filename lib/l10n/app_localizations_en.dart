@@ -6277,6 +6277,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dataManagementImportComplete => 'Import Complete';
 
   @override
+  String dataImportTimestampOnlyCommentsDropped(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          '$count fronting comments were dropped because they were not attached to a session.',
+      one:
+          '1 fronting comment was dropped because it was not attached to a session.',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get dataManagementImportFailed => 'Import Failed';
 
   @override

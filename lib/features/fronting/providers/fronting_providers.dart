@@ -55,10 +55,10 @@ final frontingHistoryProvider = StreamProvider.autoDispose
 /// [frontingTableTickerProvider].
 final memberFrontingCountsProvider =
     FutureProvider.autoDispose<Map<String, int>>((ref) {
-  ref.watch(frontingTableTickerProvider);
-  final repo = ref.watch(frontingSessionRepositoryProvider);
-  return repo.getMemberFrontingCounts(recentLimit: 50);
-});
+      ref.watch(frontingTableTickerProvider);
+      final repo = ref.watch(frontingSessionRepositoryProvider);
+      return repo.getMemberFrontingCounts(recentLimit: 50);
+    });
 
 /// Single session by ID. Uses a stream for real-time updates after edits.
 final sessionByIdProvider = StreamProvider.autoDispose
@@ -71,16 +71,21 @@ final frontingMutationServiceProvider = Provider<FrontingMutationService>((
   ref,
 ) {
   final memberRepository = ref.watch(memberRepositoryProvider);
+  final commentsRepository = ref.watch(frontSessionCommentsRepositoryProvider);
   return FrontingMutationService(
     repository: ref.watch(frontingSessionRepositoryProvider),
     mutationRunner: MutationRunner.forDatabase(ref.watch(databaseProvider)),
+    frontSessionCommentsRepository: commentsRepository,
     // Required for the auto-create-Unknown-sentinel path used by the
     // add-front sheet's "Front as Unknown" flow.
     memberRepository: memberRepository,
     // The lifecycle's delete-fill + fillGaps paths also auto-create the
     // Unknown sentinel — wire the same MemberRepository through so those
     // writes don't dangle.
-    lifecycle: SessionLifecycleService(memberRepository: memberRepository),
+    lifecycle: SessionLifecycleService(
+      memberRepository: memberRepository,
+      frontSessionCommentsRepository: commentsRepository,
+    ),
   );
 });
 
@@ -125,12 +130,14 @@ class FrontingNotifier extends AsyncNotifier<void> {
     DateTime? startTime,
   }) async {
     final result = await _unwrapMutation(
-      ref.read(frontingMutationServiceProvider).startFronting(
-        memberIds,
-        confidence: confidence,
-        notes: notes,
-        startTime: startTime,
-      ),
+      ref
+          .read(frontingMutationServiceProvider)
+          .startFronting(
+            memberIds,
+            confidence: confidence,
+            notes: notes,
+            startTime: startTime,
+          ),
     );
     for (final session in result.sessions) {
       _invalidateMemberStats(session.memberId);
@@ -153,11 +160,9 @@ class FrontingNotifier extends AsyncNotifier<void> {
     String? notes,
   }) async {
     final result = await _unwrapMutation(
-      ref.read(frontingMutationServiceProvider).replaceFronting(
-        memberIds,
-        confidence: confidence,
-        notes: notes,
-      ),
+      ref
+          .read(frontingMutationServiceProvider)
+          .replaceFronting(memberIds, confidence: confidence, notes: notes),
     );
     for (final session in result.sessions) {
       _invalidateMemberStats(session.memberId);
@@ -298,10 +303,7 @@ class FrontingNotifier extends AsyncNotifier<void> {
   ///
   /// Both halves keep the same member — per the per-member model,
   /// member-reassignment on split is done by a subsequent edit, not here.
-  Future<void> splitSession(
-    String sessionId,
-    DateTime splitTime,
-  ) async {
+  Future<void> splitSession(String sessionId, DateTime splitTime) async {
     final session = await ref
         .read(frontingSessionRepositoryProvider)
         .getSessionById(sessionId);
@@ -370,10 +372,10 @@ final sessionLimitProvider = NotifierProvider<SessionLimitNotifier, int>(
 /// overlap-query path the sweep uses.
 final unifiedHistoryProvider =
     StreamProvider.autoDispose<List<FrontingSession>>((ref) {
-  final limit = ref.watch(sessionLimitProvider);
-  final repo = ref.watch(frontingSessionRepositoryProvider);
-  return repo.watchRecentAllSessions(limit: limit);
-});
+      final limit = ref.watch(sessionLimitProvider);
+      final repo = ref.watch(frontingSessionRepositoryProvider);
+      return repo.watchRecentAllSessions(limit: limit);
+    });
 
 /// How far back the derived-period sweep looks when computing periods
 /// for the unified history list.
@@ -458,19 +460,23 @@ class DerivedPeriodsInputBundle {
 /// now]` as the visible window.
 final unifiedHistoryOverlapProvider =
     StreamProvider.autoDispose<DerivedPeriodsInputBundle>((ref) {
-  final repo = ref.watch(frontingSessionRepositoryProvider);
-  final now = DateTime.now();
-  final rangeStart =
-      now.subtract(const Duration(days: derivedPeriodsLookbackDays));
-  // SQL-only lookahead (internal, NOT exposed to the bundle). Catches
-  // newly-inserted rows whose start_time may be slightly after the
-  // captured `now` so the Drift `.watch()` re-evaluation surfaces them.
-  final sqlUpperBound =
-      now.add(const Duration(days: derivedPeriodsLookaheadDays));
-  return repo.watchSessionsOverlappingRange(rangeStart, sqlUpperBound).map(
-        (sessions) => DerivedPeriodsInputBundle(
-          sessions: sessions,
-          rangeStart: rangeStart,
-        ),
+      final repo = ref.watch(frontingSessionRepositoryProvider);
+      final now = DateTime.now();
+      final rangeStart = now.subtract(
+        const Duration(days: derivedPeriodsLookbackDays),
       );
-});
+      // SQL-only lookahead (internal, NOT exposed to the bundle). Catches
+      // newly-inserted rows whose start_time may be slightly after the
+      // captured `now` so the Drift `.watch()` re-evaluation surfaces them.
+      final sqlUpperBound = now.add(
+        const Duration(days: derivedPeriodsLookaheadDays),
+      );
+      return repo
+          .watchSessionsOverlappingRange(rangeStart, sqlUpperBound)
+          .map(
+            (sessions) => DerivedPeriodsInputBundle(
+              sessions: sessions,
+              rangeStart: rangeStart,
+            ),
+          );
+    });

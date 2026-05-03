@@ -1666,6 +1666,7 @@ class V1FrontSessionComment {
     this.targetTime,
     this.authorMemberId,
     this.isLegacyShape = false,
+    this.isTimestampOnlyShape = false,
   });
 
   /// Process-wide counter for the per-row legacy-shape fallback.
@@ -1678,29 +1679,29 @@ class V1FrontSessionComment {
   }
 
   final String id;
-  // Legacy-shape FK to fronting_sessions. Required in pre-0.7.0 exports;
-  // omitted in new-shape exports (comments anchor to targetTime, not a
-  // session id). Kept on the model for the PRISM1 rescue importer (§4.7).
+  // FK to fronting_sessions. Current exports always emit this. It stays
+  // nullable on the import model so abandoned timestamp-only beta exports can
+  // be parsed and then dropped with a user-visible diagnostic.
   final String? sessionId;
   final String body;
   final String timestamp;
   final String createdAt;
 
-  // -- New-shape fields (per-member fronting refactor §3.5) -----------
-  //
-  // `targetTime`: the moment this comment is about. Replaces the
-  // session-id anchor in new-shape exports. Comment lookups for a period
-  // join on `targetTime IN [period.start, period.end)`.
+  // Abandoned timestamp-only beta fields. They are accepted for import
+  // compatibility but current exports do not emit them and current imports
+  // drop rows that have only these fields without a usable sessionId.
   final String? targetTime;
-  // `authorMemberId`: optional member who wrote the comment. New-shape
-  // only — legacy comments derive author from the parent session's
-  // member during the rescue conversion.
   final String? authorMemberId;
 
-  // Per-row sniff result: true when the comment carries `sessionId` and
-  // none of the new-shape `targetTime` / `authorMemberId` keys. Routes
-  // through the §4.7 rescue conversion in the importer.
+  // Retained for old tests/callers. Restored session-attached imports do not
+  // need a separate legacy branch for comments; any non-empty sessionId is
+  // resolved directly or through the session rescue map.
   final bool isLegacyShape;
+
+  // True when a row carries only the abandoned timestamp-only beta anchor.
+  // DataImportService drops these rows because there is no durable physical
+  // fronting session parent to attach them to.
+  final bool isTimestampOnlyShape;
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -1716,17 +1717,13 @@ class V1FrontSessionComment {
     Map<String, dynamic> json, {
     bool forceLegacyShape = false,
   }) {
-    // Envelope-level marker takes precedence (see V1FrontSession.fromJson).
-    // When the parent V1Export carries `rescueLegacyFields: true`, route
-    // every comment through the legacy/rescue path even if it carries
-    // `targetTime` / `authorMemberId` (the migration-time export emits
-    // both shapes on the same row).
     final hasSessionId =
         json.containsKey('sessionId') &&
         (json['sessionId'] as String?)?.isNotEmpty == true;
     final hasNewShapeMarker =
         json.containsKey('targetTime') || json.containsKey('authorMemberId');
     final rowShapeLegacy = hasSessionId && !hasNewShapeMarker;
+    final timestampOnlyShape = !hasSessionId && hasNewShapeMarker;
     final isLegacy = forceLegacyShape || rowShapeLegacy;
     if (!forceLegacyShape && rowShapeLegacy) {
       _rowShapeLegacyFallbackCount++;
@@ -1740,6 +1737,7 @@ class V1FrontSessionComment {
       targetTime: json['targetTime'] as String?,
       authorMemberId: json['authorMemberId'] as String?,
       isLegacyShape: isLegacy,
+      isTimestampOnlyShape: timestampOnlyShape,
     );
   }
 }

@@ -694,63 +694,56 @@ void main() {
       expect(rows.single.memberId, primaryId);
     });
 
-    test(
-      'legacy comments join to parent session by sessionId and write '
-      'new-shape target_time + author_member_id (spec §3.5 + §4.1 step 5)',
-      () async {
-        const memberId = 'm-comments';
-        const sessionId = 'session-with-comments';
-        await memberRepo.createMember(
-          Member(
-            id: memberId,
-            name: 'C',
-            emoji: 'C',
-            createdAt: DateTime(2026, 1, 1).toUtc(),
-          ),
-        );
+    test('legacy comments join to parent session by sessionId and write '
+        'restored session_id', () async {
+      const memberId = 'm-comments';
+      const sessionId = 'session-with-comments';
+      await memberRepo.createMember(
+        Member(
+          id: memberId,
+          name: 'C',
+          emoji: 'C',
+          createdAt: DateTime(2026, 1, 1).toUtc(),
+        ),
+      );
 
-        final commentTimestamp = DateTime.utc(2026, 4, 1, 10);
-        final json = _envelope(
-          frontSessions: [
-            {
-              'id': sessionId,
-              'startTime': DateTime.utc(2026, 4, 1, 9).toIso8601String(),
-              'endTime': DateTime.utc(2026, 4, 1, 11).toIso8601String(),
-              'headmateId': memberId,
-              'coFronterIds': [],
-            },
-          ],
-          frontSessionComments: [
-            {
-              'id': 'comment-1',
-              'sessionId': sessionId,
-              'body': 'feeling great',
-              'timestamp': commentTimestamp.toIso8601String(),
-              'createdAt': DateTime.utc(2026, 4, 2).toIso8601String(),
-            },
-          ],
-        );
+      final commentTimestamp = DateTime.utc(2026, 4, 1, 10);
+      final json = _envelope(
+        frontSessions: [
+          {
+            'id': sessionId,
+            'startTime': DateTime.utc(2026, 4, 1, 9).toIso8601String(),
+            'endTime': DateTime.utc(2026, 4, 1, 11).toIso8601String(),
+            'headmateId': memberId,
+            'coFronterIds': [],
+          },
+        ],
+        frontSessionComments: [
+          {
+            'id': 'comment-1',
+            'sessionId': sessionId,
+            'body': 'feeling great',
+            'timestamp': commentTimestamp.toIso8601String(),
+            'createdAt': DateTime.utc(2026, 4, 2).toIso8601String(),
+          },
+        ],
+      );
 
-        final result = await importService.importData(json);
-        expect(result.frontSessionsCreated, 1);
-        expect(result.frontSessionCommentsCreated, 1);
+      final result = await importService.importData(json);
+      expect(result.frontSessionsCreated, 1);
+      expect(result.frontSessionCommentsCreated, 1);
 
-        // Read raw row via custom select to confirm the target_time and
-        // author_member_id columns landed (the repository's
-        // watchAllComments would also work, but raw assertion is more
-        // explicit about which column the value lives in).
-        final commentRow = await db
-            .customSelect(
-              'SELECT target_time, author_member_id FROM '
-              'front_session_comments WHERE id = ?',
-              variables: [drift.Variable.withString('comment-1')],
-            )
-            .getSingle();
-        final targetMs = commentRow.read<DateTime?>('target_time')?.toUtc();
-        expect(targetMs, commentTimestamp.toUtc());
-        expect(commentRow.read<String?>('author_member_id'), memberId);
-      },
-    );
+      // Read raw row via custom select to confirm the restored parent
+      // session id landed.
+      final commentRow = await db
+          .customSelect(
+            'SELECT session_id FROM '
+            'front_session_comments WHERE id = ?',
+            variables: [drift.Variable.withString('comment-1')],
+          )
+          .getSingle();
+      expect(commentRow.read<String>('session_id'), sessionId);
+    });
 
     test('legacy PK comments derive author from the first resolved PK '
         'member of the parent switch', () async {
@@ -811,12 +804,15 @@ void main() {
 
       final commentRow = await db
           .customSelect(
-            'SELECT author_member_id FROM front_session_comments '
+            'SELECT session_id FROM front_session_comments '
             'WHERE id = ?',
             variables: [drift.Variable.withString('pk-comment-1')],
           )
           .getSingle();
-      expect(commentRow.read<String?>('author_member_id'), alexLocalId);
+      expect(
+        commentRow.read<String>('session_id'),
+        derivePkSessionId(switchUuid, alexPkUuid),
+      );
     });
 
     test('new-shape rows route through the standard import path, no fan-out, '
@@ -1762,8 +1758,7 @@ void main() {
     });
 
     test(
-      'legacy comments outside parent bounds clamp to nearest bound '
-      'and increment legacyClampedCommentsCount (review finding #41)',
+      'legacy comments outside parent bounds keep timestamp and session parent',
       () async {
         const memberId = 'member-clamp';
         const sessionId = 'parent-session-clamp';
@@ -1777,9 +1772,6 @@ void main() {
         );
         final start = DateTime.utc(2026, 4, 1, 10);
         final end = DateTime.utc(2026, 4, 1, 12);
-        // Comment 1: BEFORE start → clamps to start.
-        // Comment 2: INSIDE bounds → keeps own timestamp.
-        // Comment 3: AFTER end → clamps to end.
         final beforeTs = DateTime.utc(2026, 4, 1, 9, 30);
         final insideTs = DateTime.utc(2026, 4, 1, 11);
         final afterTs = DateTime.utc(2026, 4, 1, 13);
@@ -1820,67 +1812,93 @@ void main() {
 
         final result = await importService.importData(json);
         expect(result.frontSessionCommentsCreated, 3);
-        // 2 of the 3 comments were clamped (before + after).
-        expect(result.legacyClampedCommentsCount, 2);
+        expect(result.legacyClampedCommentsCount, 0);
 
         final commentRows = await db.frontSessionCommentsDao.getAllComments();
         final byId = {for (final r in commentRows) r.id: r};
-        expect(byId['c-before']!.targetTime?.toUtc(), start);
-        expect(byId['c-inside']!.targetTime?.toUtc(), insideTs);
-        expect(byId['c-after']!.targetTime?.toUtc(), end);
+        expect(byId['c-before']!.sessionId, sessionId);
+        expect(byId['c-before']!.timestamp.toUtc(), beforeTs);
+        expect(byId['c-inside']!.sessionId, sessionId);
+        expect(byId['c-inside']!.timestamp.toUtc(), insideTs);
+        expect(byId['c-after']!.sessionId, sessionId);
+        expect(byId['c-after']!.timestamp.toUtc(), afterTs);
       },
     );
 
-    test('legacy comment with null parent.endTime: only clamps before-start; '
-        'after-start with null end stays at own timestamp', () async {
-      const memberId = 'member-open';
-      const sessionId = 'parent-session-open';
-      await memberRepo.createMember(
-        Member(
-          id: memberId,
-          name: 'M',
-          emoji: 'M',
-          createdAt: DateTime(2026, 1, 1).toUtc(),
-        ),
-      );
-      // Open-ended parent (endTime null).
-      final start = DateTime.utc(2026, 4, 1, 10);
-      final beforeTs = DateTime.utc(2026, 4, 1, 9);
-      final afterStartTs = DateTime.utc(2026, 4, 1, 23);
+    test(
+      'legacy comment with null parent.endTime keeps session parent',
+      () async {
+        const memberId = 'member-open';
+        const sessionId = 'parent-session-open';
+        await memberRepo.createMember(
+          Member(
+            id: memberId,
+            name: 'M',
+            emoji: 'M',
+            createdAt: DateTime(2026, 1, 1).toUtc(),
+          ),
+        );
+        // Open-ended parent (endTime null).
+        final start = DateTime.utc(2026, 4, 1, 10);
+        final beforeTs = DateTime.utc(2026, 4, 1, 9);
+        final afterStartTs = DateTime.utc(2026, 4, 1, 23);
+        final json = _envelope(
+          frontSessions: [
+            {
+              'id': sessionId,
+              'startTime': start.toIso8601String(),
+              'headmateId': memberId,
+              'coFronterIds': <String>[],
+            },
+          ],
+          frontSessionComments: [
+            {
+              'id': 'c-pre-open',
+              'sessionId': sessionId,
+              'body': 'pre',
+              'timestamp': beforeTs.toIso8601String(),
+              'createdAt': beforeTs.toIso8601String(),
+            },
+            {
+              'id': 'c-post-open',
+              'sessionId': sessionId,
+              'body': 'post',
+              'timestamp': afterStartTs.toIso8601String(),
+              'createdAt': afterStartTs.toIso8601String(),
+            },
+          ],
+        );
+
+        final result = await importService.importData(json);
+        expect(result.legacyClampedCommentsCount, 0);
+        final rows = await db.frontSessionCommentsDao.getAllComments();
+        final byId = {for (final r in rows) r.id: r};
+        expect(byId['c-pre-open']!.sessionId, sessionId);
+        expect(byId['c-pre-open']!.timestamp.toUtc(), beforeTs);
+        expect(byId['c-post-open']!.sessionId, sessionId);
+        expect(byId['c-post-open']!.timestamp.toUtc(), afterStartTs);
+      },
+    );
+
+    test('timestamp-only comments without sessionId are dropped', () async {
       final json = _envelope(
-        frontSessions: [
-          {
-            'id': sessionId,
-            'startTime': start.toIso8601String(),
-            'headmateId': memberId,
-            'coFronterIds': <String>[],
-          },
-        ],
         frontSessionComments: [
           {
-            'id': 'c-pre-open',
-            'sessionId': sessionId,
-            'body': 'pre',
-            'timestamp': beforeTs.toIso8601String(),
-            'createdAt': beforeTs.toIso8601String(),
-          },
-          {
-            'id': 'c-post-open',
-            'sessionId': sessionId,
-            'body': 'post',
-            'timestamp': afterStartTs.toIso8601String(),
-            'createdAt': afterStartTs.toIso8601String(),
+            'id': 'timestamp-only-comment',
+            'body': 'lost parent',
+            'timestamp': DateTime.utc(2026, 4, 1, 10).toIso8601String(),
+            'createdAt': DateTime.utc(2026, 4, 1, 10).toIso8601String(),
+            'targetTime': DateTime.utc(2026, 4, 1, 10).toIso8601String(),
+            'authorMemberId': 'member-old-beta',
           },
         ],
       );
 
       final result = await importService.importData(json);
-      expect(result.legacyClampedCommentsCount, 1);
+      expect(result.frontSessionCommentsCreated, 0);
+      expect(result.timestampOnlyFrontSessionCommentsDropped, 1);
       final rows = await db.frontSessionCommentsDao.getAllComments();
-      final byId = {for (final r in rows) r.id: r};
-      expect(byId['c-pre-open']!.targetTime?.toUtc(), start);
-      // Open-ended parent: post-start comment keeps its timestamp.
-      expect(byId['c-post-open']!.targetTime?.toUtc(), afterStartTs);
+      expect(rows, isEmpty);
     });
   });
 
