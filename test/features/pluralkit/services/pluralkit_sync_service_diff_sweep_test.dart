@@ -30,7 +30,6 @@ import 'package:prism_plurality/domain/models/fronting_session.dart'
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
-import 'package:prism_plurality/features/pluralkit/services/pk_switch_cursor.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
 
@@ -692,6 +691,89 @@ void main() {
           secondCount,
           firstCount,
           reason: 'Deterministic IDs collide — no row duplication on re-import',
+        );
+      },
+    );
+
+    test(
+      'idempotent re-import does not back-close a currently open later row',
+      () async {
+        // Regression from the live PK integration test: a second full import
+        // seeded the replay with the current open row, then replayed history
+        // from the beginning. The first older switch treated that current row
+        // as a leaver and tried to close it before its own start time.
+        final db = _makeDb();
+        addTearDown(db.close);
+
+        final memberRepo = DriftMemberRepository(db.membersDao, null);
+        await memberRepo.createMember(
+          _member(localId: 'local-a', pkShortId: 'pkA', pkUuid: 'uuid-a'),
+        );
+        await memberRepo.createMember(
+          _member(localId: 'local-b', pkShortId: 'pkB', pkUuid: 'uuid-b'),
+        );
+
+        final sw1 = PKSwitch(
+          id: 'sw-1',
+          timestamp: DateTime.utc(2025, 1, 1, 10),
+          members: const ['pkA'],
+        );
+        final sw2 = PKSwitch(
+          id: 'sw-2',
+          timestamp: DateTime.utc(2025, 1, 1, 12),
+          members: const [],
+        );
+        final sw3 = PKSwitch(
+          id: 'sw-3',
+          timestamp: DateTime.utc(2026, 1, 1, 10),
+          members: const ['pkB'],
+        );
+
+        final sessionRepo = DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+        );
+        final svc1 = _makeService(
+          db: db,
+          client: _FakeClient([
+            [sw3, sw2, sw1],
+            [],
+          ]),
+          memberRepo: memberRepo,
+          sessionRepo: sessionRepo,
+        );
+        await svc1.setToken('t');
+        await svc1.acknowledgeMapping();
+        await svc1.performFullImport();
+
+        final firstRows = await sessionRepo.getAllSessions();
+        expect(firstRows, hasLength(2));
+        final openB = firstRows.singleWhere((s) => s.memberId == 'local-b');
+        expect(openB.startTime, _sameInstant(DateTime.utc(2026, 1, 1, 10)));
+        expect(openB.endTime, isNull);
+
+        final svc2 = _makeService(
+          db: db,
+          client: _FakeClient([
+            [sw3, sw2, sw1],
+            [],
+          ]),
+          memberRepo: memberRepo,
+          sessionRepo: sessionRepo,
+        );
+        await svc2.setToken('t');
+        await svc2.acknowledgeMapping();
+        await svc2.performFullImport();
+
+        final secondRows = await sessionRepo.getAllSessions();
+        expect(secondRows, hasLength(2));
+        expect(
+          secondRows.singleWhere((s) => s.memberId == 'local-b').endTime,
+          isNull,
+        );
+        expect(
+          secondRows.singleWhere((s) => s.memberId == 'local-a').endTime,
+          _sameInstant(DateTime.utc(2025, 1, 1, 12)),
         );
       },
     );
@@ -1770,15 +1852,17 @@ void main() {
     );
   });
 
-  // -- WS3 step 5 / review #29: full import seeds prevActive from open DB rows
+  // -- WS3 step 5 / review #29: seed rows active before first switch
   //
   // Before PR E2, _runFullImportWithClient called _runDiffSweep with
   // `prevActive: {}`, so existing-but-no-longer-fronting members were never
   // closed by the leaver path. PR E2 unifies the seed: both the incremental
   // and corrective paths reconstitute prevActive from open PK-linked DB rows
-  // inside _runDiffSweep. This group locks in that invariant.
+  // inside _runDiffSweep. The seed is bounded to rows that started at or
+  // before the first switch in the batch so full-history replays do not close
+  // current rows against older switches.
 
-  group('full import seeds prevActive from open DB rows (WS3 #29)', () {
+  group('diff sweep seeds rows active before first switch (WS3 #29)', () {
     test('open existing PK row gets closed by the next leaver in a corrective '
         'sweep (no longer stranded open after PR E2)', () async {
       final db = _makeDb();
@@ -1924,14 +2008,15 @@ void main() {
     });
   });
 
-  // -- WS3 step 6 / review #30: zero-length close guard + ordering error
+  // -- WS3 step 6 / review #30: zero-length close guard
   //
   // The leaver path used to call `endSession(rowId, sw.timestamp)` without
   // checking the row's start_time. Two pathological cases needed to be
   // handled:
   //   1. end == start: zero-length presence (skip the close, increment
   //      `zeroLengthCloseSkipped`).
-  //   2. end <  start: corrupt input ordering (throw PkSwitchOrderingError).
+  //   2. end <  start: the row is not considered active before this batch
+  //      unless it started at or before the first switch.
 
   group('leaver close guard (WS3 #30)', () {
     test('same-timestamp leave-then-enter on a member produces no zero-length '
@@ -1984,78 +2069,77 @@ void main() {
       expect(sessions.single.startTime, _sameInstant(ts));
     });
 
-    test('corrupt switch ordering (leaver before entrant) throws '
-        'PkSwitchOrderingError and stops the batch', () async {
-      final db = _makeDb();
-      addTearDown(db.close);
+    test(
+      'future-start open row is not seeded before an earlier batch',
+      () async {
+        final db = _makeDb();
+        addTearDown(db.close);
 
-      final memberRepo = DriftMemberRepository(db.membersDao, null);
-      await memberRepo.createMember(
-        _member(localId: 'local-a', pkShortId: 'pkA', pkUuid: 'uuid-a'),
-      );
+        final memberRepo = DriftMemberRepository(db.membersDao, null);
+        await memberRepo.createMember(
+          _member(localId: 'local-a', pkShortId: 'pkA', pkUuid: 'uuid-a'),
+        );
 
-      final sessionRepo = DriftFrontingSessionRepository(
-        db.frontingSessionsDao,
-        null,
-      );
+        final sessionRepo = DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+        );
 
-      // Seed an open row at startTime = T (later than the leaver below).
-      // The diff sweep reconstitutes prevActive from open PK-linked rows
-      // — that filter requires `pluralkitUuid` to match the strict PK
-      // switch UUID format, so we use a real-shaped UUID here (not the
-      // 'sw-1' shorthand the diff-sweep correctness tests use, where
-      // prevActive is empty and the filter never runs).
-      const switchId = '11111111-1111-1111-1111-111111111111';
-      final rowId = derivePkSessionId(switchId, 'uuid-a');
-      final laterStart = DateTime.utc(2026, 1, 1, 12);
-      await sessionRepo.createSession(
-        domain_fs.FrontingSession(
-          id: rowId,
-          startTime: laterStart,
-          memberId: 'local-a',
-          pluralkitUuid: switchId,
-        ),
-      );
+        // Seed an open row at startTime = T (later than the switch below).
+        // The diff sweep reconstitutes prevActive from open PK-linked rows
+        // — that filter requires `pluralkitUuid` to match the strict PK
+        // switch UUID format, so we use a real-shaped UUID here (not the
+        // 'sw-1' shorthand the diff-sweep correctness tests use, where
+        // prevActive is empty and the filter never runs).
+        const switchId = '11111111-1111-1111-1111-111111111111';
+        final rowId = derivePkSessionId(switchId, 'uuid-a');
+        final laterStart = DateTime.utc(2026, 1, 1, 12);
+        await sessionRepo.createSession(
+          domain_fs.FrontingSession(
+            id: rowId,
+            startTime: laterStart,
+            memberId: 'local-a',
+            pluralkitUuid: switchId,
+          ),
+        );
 
-      // The "API" returns one switch at T-1h with members=[] — the
-      // leaver. Because the row's startTime is T (later), the leaver's
-      // close timestamp predates the start. The sweep must throw the
-      // typed ordering error rather than write a negative-duration close.
-      final earlierLeaver = PKSwitch(
-        id: '22222222-2222-2222-2222-222222222222',
-        timestamp: DateTime.utc(2026, 1, 1, 11),
-        members: const [],
-      );
+        // The "API" returns one switch at T-1h with members=[]. The row's
+        // startTime is T, so it cannot be part of the active set before this
+        // earlier batch. The seed must skip it instead of treating this switch
+        // as a leaver and attempting a negative-duration close.
+        final earlierLeaver = PKSwitch(
+          id: '22222222-2222-2222-2222-222222222222',
+          timestamp: DateTime.utc(2026, 1, 1, 11),
+          members: const [],
+        );
 
-      final client = _FakeClient([
-        [earlierLeaver],
-        [],
-      ]);
+        final client = _FakeClient([
+          [earlierLeaver],
+          [],
+        ]);
 
-      final service = _makeService(
-        db: db,
-        client: client,
-        memberRepo: memberRepo,
-        sessionRepo: sessionRepo,
-      );
-      await service.setToken('t');
-      await service.acknowledgeMapping();
+        final service = _makeService(
+          db: db,
+          client: client,
+          memberRepo: memberRepo,
+          sessionRepo: sessionRepo,
+        );
+        await service.setToken('t');
+        await service.acknowledgeMapping();
 
-      await expectLater(
-        service.importSwitchesAfterLink(),
-        throwsA(isA<PkSwitchOrderingError>()),
-      );
+        await expectLater(service.importSwitchesAfterLink(), completes);
 
-      // The original row is unchanged (the failing transaction rolled back).
-      final raw = await sessionRepo.getSessionById(rowId);
-      expect(raw, isNotNull);
-      expect(raw!.startTime, _sameInstant(laterStart));
-      expect(
-        raw.endTime,
-        isNull,
-        reason: 'transaction must roll back on the ordering error',
-      );
-    });
+        // The original row is unchanged.
+        final raw = await sessionRepo.getSessionById(rowId);
+        expect(raw, isNotNull);
+        expect(raw!.startTime, _sameInstant(laterStart));
+        expect(
+          raw.endTime,
+          isNull,
+          reason: 'future-start seed rows must not be closed in the past',
+        );
+      },
+    );
   });
 
   // -- WS3 step 8 / review #34: canonicalization wrapped in a transaction

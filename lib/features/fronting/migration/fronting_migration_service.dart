@@ -883,14 +883,14 @@ class FrontingMigrationService {
     // unknown-sentinel resolution may also have them on disk.
     for (final c in classified) {
       if (c.kind != _SessionKind.spImported) continue;
-      if (c.row.memberId == null &&
+      if (_isBlankMemberId(c.row.memberId) &&
           c.row.sessionType != SessionType.sleep.index) {
         orphans.add(c.row);
         continue;
       }
       await frontingSessionRepository.updateSession(_rowToDomain(c.row));
       counters.spRowsMigrated++;
-      final mid = c.row.memberId;
+      final mid = _normalizeMemberId(c.row.memberId);
       if (mid != null) touchedMemberIds.add(mid);
     }
 
@@ -919,7 +919,7 @@ class FrontingMigrationService {
       try {
         final decoded = jsonDecode(row.coFronterIdsRaw);
         coFronters = decoded is List
-            ? decoded.whereType<String>().toList()
+            ? _distinctCoFronterIds(decoded.whereType<String>())
             : const <String>[];
       } catch (_) {
         corrupt = true;
@@ -930,22 +930,25 @@ class FrontingMigrationService {
       // Detect orphans (member_id NULL on a normal row): handle
       // separately at step 7 so we only create the sentinel when
       // there's at least one orphan.
-      if (row.memberId == null) {
+      final primaryMemberId = _normalizeMemberId(row.memberId);
+      if (primaryMemberId == null) {
         orphans.add(row);
         continue;
       }
 
       // Migrate the primary row in place.
-      await frontingSessionRepository.updateSession(_rowToDomain(row));
+      await frontingSessionRepository.updateSession(
+        _rowToDomain(row, memberIdOverride: primaryMemberId),
+      );
       counters.nativeRowsMigrated++;
-      touchedMemberIds.add(row.memberId!);
+      touchedMemberIds.add(primaryMemberId);
 
       // Skip fan-out on corrupt JSON (we already counted the row).
       if (corrupt) continue;
 
       // Fan out additional co-fronters into new per-member rows.
       for (final coId in coFronters) {
-        if (coId == row.memberId) continue; // sanity guard
+        if (coId == primaryMemberId) continue; // sanity guard
         final derivedId = deriveMigrationFanoutSessionId(row.id, coId);
         // Use createSession so a v2 op emits.  CRDT field-LWW + the
         // composite (pluralkit_uuid, member_id) index are bug
@@ -1177,12 +1180,32 @@ class FrontingMigrationService {
     return _SessionKind.nativeNormal;
   }
 
-  FrontingSession _rowToDomain(FrontingSessionRow r) {
+  String? _normalizeMemberId(String? id) {
+    final normalized = id?.trim();
+    if (normalized == null || normalized.isEmpty) return null;
+    return normalized;
+  }
+
+  bool _isBlankMemberId(String? id) => _normalizeMemberId(id) == null;
+
+  List<String> _distinctCoFronterIds(Iterable<String> ids) {
+    final seen = <String>{};
+    return [
+      for (final id in ids)
+        if (_normalizeMemberId(id) case final normalized?)
+          if (seen.add(normalized)) normalized,
+    ];
+  }
+
+  FrontingSession _rowToDomain(
+    FrontingSessionRow r, {
+    String? memberIdOverride,
+  }) {
     return FrontingSession(
       id: r.id,
       startTime: r.startTime,
       endTime: r.endTime,
-      memberId: r.memberId,
+      memberId: memberIdOverride ?? _normalizeMemberId(r.memberId),
       notes: r.notes,
       confidence: _intToConfidence(r.confidence),
       pluralkitUuid: r.pluralkitUuid,

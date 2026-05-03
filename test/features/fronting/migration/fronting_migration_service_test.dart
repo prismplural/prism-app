@@ -1435,6 +1435,83 @@ void main() {
       expect(byId[co2Id]!.memberId, coId2);
     });
 
+    test(
+      'native multi-member fan-out skips blank and repeated co-fronter ids',
+      () async {
+        const primaryId = 'primary';
+        const coId = 'co-duplicate';
+        for (final id in [primaryId, coId]) {
+          await _seedMember(db, id);
+        }
+        await _seedSession(
+          db,
+          id: 'multi-with-dupes',
+          startTime: DateTime(2026, 4, 1, 9).toUtc(),
+          endTime: DateTime(2026, 4, 1, 10).toUtc(),
+          memberId: primaryId,
+          coFronterIds: jsonEncode(['', '  ', coId, coId]),
+        );
+
+        final svc = _makeService(db, exportService);
+        final result = await svc.runMigration(
+          mode: MigrationMode.upgradeAndKeep,
+          role: DeviceRole.solo,
+          shareFile: _noopShare,
+        );
+
+        expect(result.outcome, MigrationOutcome.success);
+        expect(result.nativeRowsMigrated, 1);
+        expect(result.nativeRowsExpanded, 1);
+
+        const uuid = Uuid();
+        final coRowId = uuid.v5(
+          migrationFrontingNamespace,
+          'multi-with-dupes:$coId',
+        );
+        final rows = await db.frontingSessionsDao.getAllSessions();
+        final byId = {for (final r in rows) r.id: r};
+        expect(byId.keys, containsAll(['multi-with-dupes', coRowId]));
+        expect(byId[coRowId]!.memberId, coId);
+      },
+    );
+
+    test(
+      'native row with blank primary member id routes to Unknown sentinel',
+      () async {
+        const coId = 'co-ignored';
+        await _seedMember(db, coId);
+        await _seedSession(
+          db,
+          id: 'blank-primary',
+          startTime: DateTime(2026, 4, 1, 9).toUtc(),
+          endTime: DateTime(2026, 4, 1, 10).toUtc(),
+          memberId: '  ',
+          coFronterIds: jsonEncode([coId]),
+        );
+
+        final svc = _makeService(db, exportService);
+        final result = await svc.runMigration(
+          mode: MigrationMode.upgradeAndKeep,
+          role: DeviceRole.solo,
+          shareFile: _noopShare,
+        );
+
+        expect(result.outcome, MigrationOutcome.success);
+        expect(result.nativeRowsMigrated, 0);
+        expect(result.nativeRowsExpanded, 0);
+        expect(result.orphanRowsAssignedToSentinel, 1);
+
+        final rows = await db.frontingSessionsDao.getAllSessions();
+        final byId = {for (final r in rows) r.id: r};
+        expect(byId['blank-primary']!.memberId, unknownSentinelMemberId);
+        final coRowId = const Uuid().v5(
+          migrationFrontingNamespace,
+          'blank-primary:$coId',
+        );
+        expect(byId.containsKey(coRowId), isFalse);
+      },
+    );
+
     // -------------------------------------------------------------------
     // Regression: suppression flag is cleared after migration.
     //

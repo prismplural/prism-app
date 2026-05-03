@@ -684,12 +684,29 @@ class DataImportService {
         // normalize it the same as null. [contextTag] shows up in the
         // debug log so a user-visible "[Import][rescue] X routed to
         // sentinel" trail makes triage straightforward.
-        bool isBlankMemberId(String? id) => id == null || id.isEmpty;
+        String? normalizeMemberId(String? id) {
+          final normalized = id?.trim();
+          if (normalized == null || normalized.isEmpty) return null;
+          return normalized;
+        }
+
+        bool isBlankMemberId(String? id) => normalizeMemberId(id) == null;
+
+        List<String> distinctMemberIds(Iterable<String> ids) {
+          final seen = <String>{};
+          return [
+            for (final id in ids)
+              if (normalizeMemberId(id) case final normalized?)
+                if (seen.add(normalized)) normalized,
+          ];
+        }
+
         Future<String> resolveNormalMemberId(
           String? raw,
           String contextTag,
         ) async {
-          if (!isBlankMemberId(raw)) return raw!;
+          final normalized = normalizeMemberId(raw);
+          if (normalized != null) return normalized;
           final sentinelId = await ensureUnknownSentinel();
           debugPrint(
             '[Import][rescue] $contextTag routed to Unknown sentinel '
@@ -1160,7 +1177,9 @@ class DataImportService {
             if (hasCorrupt) {
               legacyCorruptCoFronterRows.add(s.id);
             }
-            final coFronters = hasCorrupt ? const <String>[] : s.coFronterIds;
+            final coFronters = hasCorrupt
+                ? const <String>[]
+                : distinctMemberIds(s.coFronterIds);
 
             if (isBlankMemberId(s.headmateId)) {
               // Orphan: assign Unknown sentinel. Catches both the
@@ -1193,6 +1212,8 @@ class DataImportService {
               continue;
             }
 
+            final primaryMemberId = normalizeMemberId(s.headmateId)!;
+
             // Native single-member or multi-member. Primary keeps the legacy
             // id; additional co-fronters get deterministic v5 ids derived
             // from `(legacy_session_id, member_id)` so paired devices
@@ -1201,23 +1222,21 @@ class DataImportService {
               id: s.id,
               startTime: start,
               endTime: end,
-              memberId: s.headmateId,
+              memberId: primaryMemberId,
               notes: s.notes,
               confidence: conf,
               sessionType: SessionType.normal,
             );
             if (primaryCreated) frontSessionsCreated++;
-            if (s.headmateId != null) {
-              legacyTouchedMemberIds.add(s.headmateId!);
-            }
+            legacyTouchedMemberIds.add(primaryMemberId);
             legacySessionParents[s.id] = _LegacyParentInfo(
               sessionId: s.id,
-              memberId: s.headmateId,
+              memberId: primaryMemberId,
               startTime: start,
               endTime: end,
             );
             for (final coId in coFronters) {
-              if (coId == s.headmateId) continue; // sanity guard
+              if (coId == primaryMemberId) continue; // sanity guard
               final derivedId = deriveMigrationFanoutSessionId(s.id, coId);
               final created = await writeSession(
                 id: derivedId,

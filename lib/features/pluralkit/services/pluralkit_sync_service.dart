@@ -762,12 +762,11 @@ class PluralKitSyncService {
   ///
   /// This is the explicit "Re-import all from PluralKit" user action. It
   /// differs from [syncRecentData] in setup:
-  ///   1. Reseeds prevActive from currently-open PK-linked DB rows inside
-  ///      [_runDiffSweep] (WS3 step 5 / review #29) — same construction the
-  ///      incremental path uses, so existing-but-no-longer-fronting rows
-  ///      get closed by the leaver path instead of stranded open. The
-  ///      previous behavior pre-closed every open PK-linked row before
-  ///      the sweep; that churned end_times and lost the API-truth close.
+  ///   1. Reseeds prevActive from PK-linked DB rows that were already open
+  ///      before the first fetched switch inside [_runDiffSweep] (WS3 step 5 /
+  ///      review #29) — same construction the incremental path uses, but
+  ///      bounded to the replay window so current rows from later in history
+  ///      are not closed against old switches.
   ///   2. Resets the diff-sweep cursor so the sweep runs from the beginning
   ///      of PK history.
   ///   3. Canonicalizes: tombstones API-linked rows whose deterministic id
@@ -1987,12 +1986,12 @@ class PluralKitSyncService {
   ///     prevActive = newActive
   ///   advance resume cursor once at end of the batch to (newest.ts, newest.id)
   ///
-  /// `prevActive` is *always* seeded from open PK-linked DB rows at the
-  /// start of the sweep (WS3 step 5 / review #29). The previous behavior
-  /// gated the seed behind a non-empty caller-provided `prevActive` set,
-  /// which meant the corrective full-import path skipped the seed entirely
-  /// and treated every switch as a fresh entrant — leaving open-but-no-
-  /// longer-fronting rows uncloseable. Both paths now use the same seed.
+  /// `prevActive` is seeded from open PK-linked DB rows that could actually be
+  /// active before the first switch in this batch: rows whose start time is at
+  /// or before the first switch timestamp (WS3 step 5 / review #29). This keeps
+  /// incremental resume able to close a member who was already fronting before
+  /// the new batch, without letting a corrective full-history replay close a
+  /// current row against an older switch that predates the row's start.
   ///
   /// Each switch's row writes commit in a single Drift transaction (atomic).
   /// The resume cursor advances ONCE after the batch loop succeeds (WS3 step 7),
@@ -2059,6 +2058,9 @@ class PluralKitSyncService {
     // pre-loop below populates one entry per currently-open PK row, and
     // the entrant/leaver paths below add and remove entries.
     final active = <String, _PkActivePresence>{};
+    final firstSwitchTimestamp = switches.isEmpty
+        ? null
+        : switches.first.timestamp;
 
     // Populate `active` from the database. WS3 step 5 / review #29: this
     // runs unconditionally now (not only when [prevActive] is non-empty),
@@ -2076,6 +2078,10 @@ class PluralKitSyncService {
           isPluralKitSwitchUuid(s.pluralkitUuid) &&
           !s.isDeleted &&
           s.memberId != null) {
+        if (firstSwitchTimestamp != null &&
+            s.startTime.isAfter(firstSwitchTimestamp)) {
+          continue;
+        }
         final localId = s.memberId!;
         active[localId] = _PkActivePresence(
           localMemberId: localId,

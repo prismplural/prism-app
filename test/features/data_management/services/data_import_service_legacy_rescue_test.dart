@@ -492,7 +492,7 @@ void main() {
             'startTime': DateTime.utc(2026, 4, 1, 9).toIso8601String(),
             'endTime': DateTime.utc(2026, 4, 1, 11).toIso8601String(),
             'headmateId': primaryId,
-            'coFronterIds': [coId1, coId2],
+            'coFronterIds': ['', coId1, '  ', coId1, coId2],
           },
         ],
       );
@@ -1580,7 +1580,8 @@ void main() {
       expect(
         rows.single.memberId,
         sentinelId,
-        reason: 'SP orphan must route to Unknown sentinel, not pass null '
+        reason:
+            'SP orphan must route to Unknown sentinel, not pass null '
             'through to writeSession (which would throw CHECK violation)',
       );
     });
@@ -1706,7 +1707,8 @@ void main() {
       expect(
         result.unknownSentinelCreated,
         isFalse,
-        reason: 'sleep rows do not need sentinel — null member_id is '
+        reason:
+            'sleep rows do not need sentinel — null member_id is '
             'legitimate when session_type=1',
       );
 
@@ -1794,7 +1796,8 @@ void main() {
       expect(
         comments,
         hasLength(1),
-        reason: 'comment must reattach to the sentinel-rescued physical '
+        reason:
+            'comment must reattach to the sentinel-rescued physical '
             'row via legacySessionParents lookup',
       );
       expect(comments.single.id, commentId);
