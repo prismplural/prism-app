@@ -4,6 +4,10 @@ All notable changes to Prism will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- Sync now preserves fronting replacement order across devices whose clocks differ slightly. A replacement front no longer reopens the prior fronter as a co-fronter on the peer device.
+- Sync reconnects now trigger an immediate catch-up pass, so a device that missed live change notifications while disconnected catches up without waiting for a later local edit.
+
 ## [0.7.3] - 2026-05-03
 
 ### Added
