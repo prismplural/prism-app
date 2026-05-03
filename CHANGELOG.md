@@ -4,6 +4,12 @@ All notable changes to Prism will be documented in this file.
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-05-03
+
+### Fixed
+- Fronting upgrade now completes for systems that did a PluralKit file import on an older build. The migration was tripping a database check at the end of the cleanup step on rows from old PK imports where the member couldn't be resolved at import time; those rows are now removed before the constraint is installed. Affected users complete the upgrade on retry after installing this build.
+- Importing a PRISM1 backup that contains legacy orphan rows (no resolved member) now succeeds — the rescue importer routes those rows to the Unknown sentinel instead of failing partway through with a database error.
+
 ## [0.7.0] - 2026-05-02
 
 ### Added
