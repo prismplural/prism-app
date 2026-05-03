@@ -128,7 +128,7 @@ void main() {
       await tester.pump();
 
       // When disabled, section should render nothing (SizedBox.shrink).
-      expect(find.text('Board Messages'), findsNothing);
+      expect(find.text('Public Posts'), findsNothing);
     });
 
     testWidgets('shows section header when boards is enabled', (tester) async {
@@ -137,7 +137,7 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.text('Board Messages'), findsOneWidget);
+      expect(find.text('Public Posts'), findsOneWidget);
     });
   });
 
@@ -152,7 +152,7 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.text('No posts here yet.'), findsOneWidget);
+      expect(find.text('No public posts here yet.'), findsOneWidget);
     });
   });
 
@@ -206,7 +206,7 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.textContaining('See all 4 posts'), findsOneWidget);
+      expect(find.textContaining('See all 4 public posts'), findsOneWidget);
     });
 
     testWidgets('"See all" link navigates to /boards/member/:id', (tester) async {

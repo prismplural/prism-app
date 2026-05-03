@@ -85,6 +85,10 @@ Widget _buildBoardsScreen({
       activeMembersProvider.overrideWith(
         (ref) => Stream.value(activeMembers),
       ),
+      currentFronterMemberIdsProvider.overrideWith(
+        (ref) => activeMembers.map((m) => m.id).toList(growable: false),
+      ),
+      currentFronterMembersProvider.overrideWith((ref) => activeMembers),
       userVisibleMembersProvider.overrideWith(
         (ref) => AsyncValue.data(activeMembers),
       ),
@@ -290,8 +294,8 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 350)); // animation settle
 
-      // Verify Inbox is active by finding the "All fronters" filter chip.
-      expect(find.text('All fronters'), findsOneWidget);
+      // Verify Inbox is active by finding the avatar filter trigger's label.
+      expect(find.bySemanticsLabel(RegExp('All fronters')), findsWidgets);
     });
   });
 

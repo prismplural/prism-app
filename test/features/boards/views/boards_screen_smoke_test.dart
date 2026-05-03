@@ -93,6 +93,10 @@ Widget _buildBoardsScreen({
       ),
       speakingAsProvider.overrideWith(_FakeSpeakingAsNotifier.new),
       activeMembersProvider.overrideWith((ref) => Stream.value(activeMembers)),
+      currentFronterMemberIdsProvider.overrideWith(
+        (ref) => activeMembers.map((m) => m.id).toList(growable: false),
+      ),
+      currentFronterMembersProvider.overrideWith((ref) => activeMembers),
       userVisibleMembersProvider.overrideWith(
         (ref) => AsyncValue.data(activeMembers),
       ),
@@ -185,8 +189,8 @@ void main() {
       await tester.tap(find.text('Inbox'));
       await tester.pumpAndSettle();
 
-      // Inbox page shows the "All fronters" filter chip.
-      expect(find.text('All fronters'), findsOneWidget);
+      // Inbox page shows the avatar filter trigger with an explicit label.
+      expect(find.bySemanticsLabel(RegExp('All fronters')), findsWidgets);
     });
 
     testWidgets('swipe left reveals Inbox page', (tester) async {
@@ -199,7 +203,7 @@ void main() {
       await tester.fling(find.byType(PageView), const Offset(-400, 0), 800);
       await tester.pumpAndSettle();
 
-      expect(find.text('All fronters'), findsOneWidget);
+      expect(find.bySemanticsLabel(RegExp('All fronters')), findsWidgets);
     });
 
     testWidgets('unread dot appears on Public segment when hasUnreadPublic',
@@ -263,7 +267,7 @@ void main() {
       await tester.tap(find.text('Inbox'));
       await tester.pumpAndSettle();
 
-      expect(find.text('All fronters'), findsOneWidget);
+      expect(find.bySemanticsLabel(RegExp('All fronters')), findsWidgets);
     });
 
     testWidgets('default landing tab is Public', (tester) async {
@@ -292,11 +296,11 @@ void main() {
       await tester.tap(find.text('Inbox'));
       await tester.pumpAndSettle();
 
-      // The filter chip "All fronters" is the trigger.
-      expect(find.text('All fronters'), findsOneWidget);
+      // The avatar trigger exposes "All fronters" to assistive tech.
+      expect(find.bySemanticsLabel(RegExp('All fronters')), findsWidgets);
     });
 
-    testWidgets('filter chip starts at "All fronters"', (tester) async {
+    testWidgets('filter trigger starts at "All fronters"', (tester) async {
       await tester.pumpWidget(
         _buildBoardsScreen(activeMembers: [_alice, _bob]),
       );
@@ -305,7 +309,7 @@ void main() {
       await tester.tap(find.text('Inbox'));
       await tester.pumpAndSettle();
 
-      expect(find.text('All fronters'), findsOneWidget);
+      expect(find.bySemanticsLabel(RegExp('All fronters')), findsWidgets);
     });
   });
 }

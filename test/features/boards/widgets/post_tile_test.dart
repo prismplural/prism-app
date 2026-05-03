@@ -120,7 +120,7 @@ void main() {
       expect(find.textContaining('to everyone'), findsOneWidget);
     });
 
-    testWidgets('public post with target member shows "→ Bob"', (tester) async {
+    testWidgets('public post with target member shows Bob', (tester) async {
       await tester.pumpWidget(
         _buildTile(
           _post(audience: 'public', targetMemberId: 'bob'),
@@ -129,10 +129,10 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.textContaining('→ Bob'), findsOneWidget);
+      expect(find.text('Bob'), findsOneWidget);
     });
 
-    testWidgets('private post with target member shows "→ Bob"', (tester) async {
+    testWidgets('private post with target member shows Bob', (tester) async {
       await tester.pumpWidget(
         _buildTile(
           _post(audience: 'private', targetMemberId: 'bob'),
@@ -141,7 +141,7 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.textContaining('→ Bob'), findsOneWidget);
+      expect(find.text('Bob'), findsOneWidget);
     });
 
     testWidgets('renders post body text', (tester) async {
