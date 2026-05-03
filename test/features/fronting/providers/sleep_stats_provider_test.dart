@@ -25,8 +25,9 @@ class _FakeRepo implements FrontingSessionRepository {
           (s) =>
               s.isSleep &&
               !s.isActive &&
-              !s.startTime.isBefore(since) &&
-              !s.startTime.isAfter(end),
+              s.endTime != null &&
+              !s.endTime!.isBefore(since) &&
+              s.endTime!.isBefore(end),
         )
         .toList();
     if (matching.isEmpty) return (count: 0, avgDuration: null);
@@ -142,9 +143,12 @@ FrontingSession _sleepSession({
   sessionType: SessionType.sleep,
 );
 
-ProviderContainer _makeContainer(_FakeRepo repo) {
+ProviderContainer _makeContainer(_FakeRepo repo, {DateTime? now}) {
   final container = ProviderContainer(
-    overrides: [frontingSessionRepositoryProvider.overrideWithValue(repo)],
+    overrides: [
+      frontingSessionRepositoryProvider.overrideWithValue(repo),
+      if (now != null) sleepStatsClockProvider.overrideWithValue(() => now),
+    ],
   );
   addTearDown(container.dispose);
   return container;
@@ -160,7 +164,7 @@ void main() {
   group('sleepStatsProvider', () {
     test('empty repo → all zeros, no lastNight', () async {
       final repo = _FakeRepo();
-      final container = _makeContainer(repo);
+      final container = _makeContainer(repo, now: now);
 
       final stats = await container.read(sleepStatsProvider.future);
 
@@ -183,7 +187,7 @@ void main() {
             ),
           ),
         ]);
-        final container = _makeContainer(repo);
+        final container = _makeContainer(repo, now: now);
 
         final stats = await container.read(sleepStatsProvider.future);
 
@@ -240,7 +244,7 @@ void main() {
             ),
           ),
         ]);
-        final container = _makeContainer(repo);
+        final container = _makeContainer(repo, now: now);
 
         final stats = await container.read(sleepStatsProvider.future);
 
@@ -254,7 +258,7 @@ void main() {
 
     test('invalidation causes re-evaluation against fresh repo state', () async {
       final repo = _FakeRepo();
-      final container = _makeContainer(repo);
+      final container = _makeContainer(repo, now: now);
 
       // First read — empty
       final before = await container.read(sleepStatsProvider.future);

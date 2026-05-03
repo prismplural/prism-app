@@ -35,14 +35,20 @@ class SleepStatsView {
 
   @override
   int get hashCode => Object.hash(
-        totalEverCount,
-        lastNight,
-        avg7d.count,
-        avg7d.avgDuration,
-        avg7dPrior.count,
-        avg7dPrior.avgDuration,
-      );
+    totalEverCount,
+    lastNight,
+    avg7d.count,
+    avg7d.avgDuration,
+    avg7dPrior.count,
+    avg7dPrior.avgDuration,
+  );
 }
+
+/// Wall-clock source for sleep stats windows. Defaults to `DateTime.now`; tests
+/// override it so fixed fixture dates don't drift as real time passes.
+final sleepStatsClockProvider = Provider<DateTime Function()>((ref) {
+  return DateTime.now;
+});
 
 /// Watches the current active sleep session (null if not sleeping).
 final activeSleepSessionProvider = StreamProvider<FrontingSession?>((ref) {
@@ -56,20 +62,21 @@ final activeSleepSessionProvider = StreamProvider<FrontingSession?>((ref) {
 /// with screen lifetime. autoDispose means a short-lived ref (e.g. inside a
 /// scroll callback) would dispose it immediately, triggering a fresh DB fetch
 /// on every re-read.
-final sleepStatsProvider =
-    FutureProvider.autoDispose<SleepStatsView>((ref) async {
+final sleepStatsProvider = FutureProvider.autoDispose<SleepStatsView>((
+  ref,
+) async {
   ref.watch(frontingTableTickerProvider);
 
   final repo = ref.watch(frontingSessionRepositoryProvider);
-  final now = DateTime.now();
+  final now = ref.watch(sleepStatsClockProvider)();
   final minus7d = now.subtract(const Duration(days: 7));
   final minus14d = now.subtract(const Duration(days: 14));
   final epoch = DateTime.fromMillisecondsSinceEpoch(0);
 
   final results = await Future.wait([
-    repo.getSleepStats(since: minus7d),
+    repo.getSleepStats(since: minus7d, until: now),
     repo.getSleepStats(since: minus14d, until: minus7d),
-    repo.getSleepStats(since: epoch),
+    repo.getSleepStats(since: epoch, until: now),
   ]);
 
   final current7d = results[0];
@@ -91,21 +98,21 @@ final sleepStatsProvider =
 /// Default limit of 20 is appropriate for most list views.
 final recentSleepSessionsPaginatedProvider = StreamProvider.autoDispose
     .family<List<FrontingSession>, int>((ref, limit) {
-  final repo = ref.watch(frontingSessionRepositoryProvider);
-  return repo.watchRecentSleepSessions(limit: limit);
-});
+      final repo = ref.watch(frontingSessionRepositoryProvider);
+      return repo.watchRecentSleepSessions(limit: limit);
+    });
 
 /// Member fronting frequency during morning hours (6am-12pm) over last 60 days.
 /// Used by the wake-up sheet to suggest likely morning fronters.
 final morningFrontingCountsProvider =
     FutureProvider.autoDispose<Map<String, int>>((ref) {
-  final repo = ref.watch(frontingSessionRepositoryProvider);
-  return repo.getMemberFrontingCounts(
-    startHour: 6,
-    endHour: 11,
-    withinDays: 60,
-  );
-});
+      final repo = ref.watch(frontingSessionRepositoryProvider);
+      return repo.getMemberFrontingCounts(
+        startHour: 6,
+        endHour: 11,
+        withinDays: 60,
+      );
+    });
 
 /// Notifier for sleep session actions.
 class SleepNotifier extends Notifier<void> {
@@ -117,11 +124,9 @@ class SleepNotifier extends Notifier<void> {
     DateTime? startTime,
     SleepQuality? quality,
   }) async {
-    await ref.read(frontingMutationServiceProvider).startSleep(
-      notes: notes,
-      startTime: startTime,
-      quality: quality,
-    );
+    await ref
+        .read(frontingMutationServiceProvider)
+        .startSleep(notes: notes, startTime: startTime, quality: quality);
   }
 
   Future<void> endSleep(String id) async {
@@ -129,10 +134,9 @@ class SleepNotifier extends Notifier<void> {
   }
 
   Future<void> updateSleepQuality(String id, SleepQuality quality) async {
-    await ref.read(frontingMutationServiceProvider).updateSleepQuality(
-      id,
-      quality,
-    );
+    await ref
+        .read(frontingMutationServiceProvider)
+        .updateSleepQuality(id, quality);
   }
 
   Future<void> deleteSleep(String id) async {
@@ -157,5 +161,6 @@ class SleepNotifier extends Notifier<void> {
   }
 }
 
-final sleepNotifierProvider =
-    NotifierProvider<SleepNotifier, void>(SleepNotifier.new);
+final sleepNotifierProvider = NotifierProvider<SleepNotifier, void>(
+  SleepNotifier.new,
+);
