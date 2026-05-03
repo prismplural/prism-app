@@ -21,6 +21,7 @@ import 'package:prism_plurality/core/security/secret_bytes.dart'
 import 'package:prism_plurality/core/services/app_data_dir.dart';
 import 'package:prism_plurality/core/services/biometric_service.dart';
 import 'package:prism_plurality/core/services/biometric_service_provider.dart';
+import 'package:prism_plurality/core/services/crypto_boot_log.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/services/runtime_dek_store.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
@@ -311,6 +312,30 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
     } finally {
       syncAutoConfigureInProgress.value = false;
     }
+
+    // Diagnostic: persistent boot snapshot for crypto-storage debugging.
+    // Captures which prism_sync.* keychain entries existed at this cold
+    // start, plus the resolved sync health. Surfaces in the Crypto
+    // storage debug screen so users diagnosing intermittent re-prompts
+    // can scroll back through launches and spot the boot where a key
+    // disappeared. Failures are swallowed inside the service —
+    // diagnostic must never break startup.
+    bool? bootUnlocked;
+    try {
+      bootUnlocked = await ffi.isUnlocked(handle: handle);
+    } catch (_) {
+      bootUnlocked = null;
+    }
+    unawaited(
+      CryptoBootLog.instance
+          .capture(
+            syncHealth: health.name,
+            handlePresent: true,
+            engineUnlocked: bootUnlocked,
+            trigger: 'boot',
+          )
+          .then(CryptoBootLog.instance.append),
+    );
 
     // Persist any Rust state changes from configureEngine (prevents credential
     // loss if the app crashes before an explicit drain happens).

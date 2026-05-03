@@ -39,6 +39,7 @@ import '../../features/settings/views/component_gallery_screen.dart';
 import '../../features/settings/views/debug_screen.dart';
 import '../../features/settings/views/error_history_screen.dart';
 import '../../features/settings/views/sync_debug_screen.dart';
+import '../../features/settings/views/crypto_storage_debug_screen.dart';
 import '../../features/migration/views/migration_screen.dart';
 import '../../features/settings/views/sync_troubleshooting_screen.dart';
 import '../../features/settings/views/device_management_screen.dart';
@@ -485,6 +486,11 @@ final routerProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: 'sync-debug',
                     builder: (context, state) => const SyncDebugScreen(),
+                  ),
+                  GoRoute(
+                    path: 'crypto-storage-debug',
+                    builder: (context, state) =>
+                        const CryptoStorageDebugScreen(),
                   ),
                   GoRoute(
                     path: 'errors',

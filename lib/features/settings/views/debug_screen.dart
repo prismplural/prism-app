@@ -326,6 +326,16 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
                   onTap: () =>
                       context.push(AppRoutePaths.settingsComponentGallery),
                 ),
+                PrismListRow(
+                  leading: Icon(AppIcons.lock),
+                  title: const Text('Crypto storage'),
+                  subtitle: const Text(
+                    'Inspect keychain entries (presence + length only)',
+                  ),
+                  trailing: Icon(AppIcons.chevronRight),
+                  onTap: () =>
+                      context.push(AppRoutePaths.settingsCryptoStorageDebug),
+                ),
               ],
             ),
           ),

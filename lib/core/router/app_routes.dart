@@ -41,6 +41,7 @@ abstract final class AppRoutePaths {
       '/settings/debug/pluralkit-group-tester';
   static const settingsComponentGallery = '/settings/component-gallery';
   static const settingsSyncDebug = '/settings/sync-debug';
+  static const settingsCryptoStorageDebug = '/settings/crypto-storage-debug';
   static const settingsErrors = '/settings/errors';
   static const settingsPluralkit = '/settings/pluralkit';
   static const settingsMigration = '/settings/migration';

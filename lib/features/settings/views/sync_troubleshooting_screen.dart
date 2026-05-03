@@ -11,6 +11,7 @@ import 'package:prism_plurality/features/settings/widgets/sync_toast_listener.da
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
+import 'package:prism_plurality/shared/widgets/prism_expandable_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
@@ -229,15 +230,6 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: PrismButton(
-                onPressed: () => context.push(AppRoutePaths.settingsSyncDebug),
-                icon: AppIcons.receiptLongOutlined,
-                label: context.l10n.syncTroubleshootingOpenEventLog,
-                tone: PrismButtonTone.outlined,
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: PrismButton(
                 onPressed: () => _confirmReset(context, ref),
                 enabled: isConfigured || hasActiveHandle,
                 icon: AppIcons.restartAlt,
@@ -273,6 +265,50 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
                 ),
               ),
             ),
+            const Divider(height: 32, indent: 16, endIndent: 16),
+
+            // -- Advanced diagnostics (collapsed) --
+            //
+            // Deep technical screens — useful when sharing a diagnostic
+            // with support, not for self-serve fixes. Kept collapsed by
+            // default so non-technical beta users see the actionable
+            // surfaces above without being distracted by raw event
+            // streams or keychain inventories.
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: PrismExpandableSection(
+                leading: Icon(AppIcons.buildCircleOutlined),
+                title: const Text('Advanced diagnostics'),
+                subtitle: const Text(
+                  'For support requests — these screens show technical '
+                  'details, not user actions',
+                ),
+                children: [
+                  PrismListRow(
+                    leading: Icon(AppIcons.receiptLongOutlined),
+                    title: const Text('Sync event log'),
+                    subtitle: const Text(
+                      'Stream of sync events from this session',
+                    ),
+                    showChevron: true,
+                    onTap: () =>
+                        context.push(AppRoutePaths.settingsSyncDebug),
+                  ),
+                  PrismListRow(
+                    leading: Icon(AppIcons.lock),
+                    title: const Text('Crypto storage'),
+                    subtitle: const Text(
+                      'Keychain inventory + per-boot snapshot history',
+                    ),
+                    showChevron: true,
+                    onTap: () => context.push(
+                      AppRoutePaths.settingsCryptoStorageDebug,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
             const Divider(height: 32, indent: 16, endIndent: 16),
 
             // -- Common Issues --
