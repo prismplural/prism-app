@@ -244,7 +244,7 @@ void main() {
       expect(player.disposeTrackCallCount, 1);
     });
 
-    test('cycleSpeed cycles through 1.0 → 1.5 → 2.0 → 1.0', () async {
+    test('cycleSpeed cycles through 1.0 → 1.5 → 2.0 → 0.5 → 1.0', () async {
       final player = FakeMobileVoicePlaybackPlayer();
       final backend = MobileVoicePlaybackBackend(
         player: player,
@@ -263,9 +263,68 @@ void main() {
         await backend.cycleSpeed(),
         await backend.cycleSpeed(),
         await backend.cycleSpeed(),
+        await backend.cycleSpeed(),
       ];
 
-      expect(speeds, [1.5, 2.0, 1.0]);
+      expect(speeds, [1.5, 2.0, 0.5, 1.0]);
+    });
+
+    test('play() re-applies speed across early polling ticks', () async {
+      final player = FakeMobileVoicePlaybackPlayer();
+      final backend = MobileVoicePlaybackBackend(
+        player: player,
+        sessionConfigurator: FakeMobileVoicePlaybackSessionConfigurator(),
+        positionPollInterval: const Duration(milliseconds: 5),
+      );
+
+      await backend.load(
+        VoicePlaybackSource.bytes(
+          bytes: _validOggOpusBytes(),
+          mimeType: 'audio/ogg',
+          mediaId: 'voice-poll-speed',
+        ),
+      );
+      await backend.cycleSpeed(); // 1.0 → 1.5
+      await backend.play();
+
+      // Sanity: setSpeed is not invoked synchronously inside play().
+      expect(player.setSpeedCallCount, 0);
+
+      // Allow the first re-apply window to elapse (6 ticks × 5ms).
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(player.setSpeedCallCount, greaterThanOrEqualTo(6));
+      expect(player.lastSetSpeedValue, 1.5);
+
+      final stableCount = player.setSpeedCallCount;
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+
+      // After the re-apply window, polling stops touching speed.
+      expect(player.setSpeedCallCount, stableCount);
+    });
+
+    test('speed re-apply no-ops once the handle is stopped', () async {
+      final player = FakeMobileVoicePlaybackPlayer();
+      final backend = MobileVoicePlaybackBackend(
+        player: player,
+        sessionConfigurator: FakeMobileVoicePlaybackSessionConfigurator(),
+        positionPollInterval: const Duration(milliseconds: 5),
+      );
+
+      await backend.load(
+        VoicePlaybackSource.bytes(
+          bytes: _validOggOpusBytes(),
+          mimeType: 'audio/ogg',
+          mediaId: 'voice-stop-before-reapply',
+        ),
+      );
+      await backend.cycleSpeed(); // 1.5
+      await backend.play();
+      await backend.stop();
+
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(player.setSpeedCallCount, 0);
     });
 
     test('play failure transitions to error state', () async {
@@ -316,6 +375,8 @@ final class FakeMobileVoicePlaybackPlayer implements MobileVoicePlaybackPlayer {
   Duration position = Duration.zero;
   Duration? lastSeek;
   double? lastSpeed;
+  double? lastSetSpeedValue;
+  int setSpeedCallCount = 0;
   int stopCallCount = 0;
   int disposeTrackCallCount = 0;
   int disposePlayerCallCount = 0;
@@ -406,6 +467,8 @@ final class FakeMobileVoicePlaybackPlayer implements MobileVoicePlaybackPlayer {
   @override
   void setSpeed(MobileVoicePlaybackHandle handle, double speed) {
     lastSpeed = speed;
+    lastSetSpeedValue = speed;
+    setSpeedCallCount += 1;
   }
 
   @override

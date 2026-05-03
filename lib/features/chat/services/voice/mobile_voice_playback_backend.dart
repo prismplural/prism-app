@@ -64,6 +64,7 @@ class MobileVoicePlaybackBackend implements VoicePlaybackBackend {
   StreamSubscription<MobileVoicePlaybackHandle>? _completionSubscription;
   Timer? _positionTimer;
   bool _isDisposed = false;
+  int _speedReapplyTicksRemaining = 0;
 
   @override
   Future<void> load(VoicePlaybackSource source) async {
@@ -159,7 +160,15 @@ class MobileVoicePlaybackBackend implements VoicePlaybackBackend {
       if (requestedPosition > Duration.zero) {
         _player.seek(handle, requestedPosition);
       }
-      _player.setSpeed(handle, state.value.speed);
+      // SoLoud's BufferStream::getAudio overwrites the voice's
+      // mBaseSamplerate and mSamplerate the first time it's called
+      // (BufferType::AUTO decodes the opus header and updates the
+      // instance to match the source rate). That overwrite wipes any
+      // setRelativePlaySpeed applied earlier — speed snaps back to
+      // 1.0× while the pitch-shift filter param (per-sample, owned by
+      // the source) survives. Re-apply for several polling ticks so
+      // setSpeed lands AFTER that first getAudio() call.
+      _speedReapplyTicksRemaining = 6;
       _startPositionPolling();
       state.value = state.value.copyWith(
         status: VoicePlaybackStatus.playing,
@@ -319,6 +328,10 @@ class MobileVoicePlaybackBackend implements VoicePlaybackBackend {
         return;
       }
       _updatePositionFromHandle(handle);
+      if (_speedReapplyTicksRemaining > 0) {
+        _speedReapplyTicksRemaining -= 1;
+        _player.setSpeed(handle, state.value.speed);
+      }
     });
   }
 
@@ -489,20 +502,23 @@ class SoLoudMobileVoicePlaybackPlayer implements MobileVoicePlaybackPlayer {
     MobileVoicePlaybackTrack track, {
     required double speed,
   }) {
+    // Speed is intentionally not applied here. BufferStream::getAudio
+    // overwrites the voice's mBaseSamplerate/mSamplerate the first time
+    // it runs (BufferType::AUTO decodes the opus header), wiping any
+    // setRelativePlaySpeed applied beforehand. The pitch-shift filter
+    // param would stick while the play-rate would not, leaving audio
+    // playing at 1.0× with the wrong pitch shift active. The backend
+    // re-applies setSpeed across the first several position-poll ticks
+    // so the call lands AFTER that first getAudio().
     final pending = _pendingHandle;
     _pendingHandle = null;
     if (pending != null) {
-      pending.source.filters.pitchShiftFilter.timeStretch(
-        pending.handle,
-        speed,
-      );
       _soLoud.setPause(pending.handle, false);
       return pending;
     }
     // Fallback for replay after completion — start fresh.
     final soLoudTrack = track as _SoLoudMobileVoicePlaybackTrack;
     final handle = _soLoud.play(soLoudTrack.source);
-    soLoudTrack.source.filters.pitchShiftFilter.timeStretch(handle, speed);
     return _SoLoudMobileVoicePlaybackHandle(handle, soLoudTrack.source);
   }
 
