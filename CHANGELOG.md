@@ -4,6 +4,19 @@ All notable changes to Prism will be documented in this file.
 
 ## [Unreleased]
 
+## [0.7.3] - 2026-05-03
+
+### Added
+- 0.5× playback speed for voice messages. Tap the speed button to cycle 1× → 1.5× → 2× → 0.5× → 1×.
+
+### Fixed
+- Fronting upgrade now completes for systems whose old multi-member fronting rows contain repeated or blank co-fronter IDs. This could happen after some older Simply Plural imports and caused the upgrade to fail with a duplicate fronting session ID.
+- Blank or whitespace-only member IDs in old fronting rows are now treated as unresolved and routed to the Unknown sentinel instead of being preserved as invalid member references.
+- Restoring PRISM1 backups with the same duplicate/blank co-fronter shape now imports cleanly through the rescue path.
+- PluralKit full re-imports are idempotent again for histories with a currently-open row late in the timeline. A second full import no longer tries to close that current row against older switches.
+- Sync no longer asks for your PIN and recovery phrase after a background wake on Android while the device was locked.
+- Voice messages played at 1.5× or 2× no longer start at normal speed with the wrong pitch. The speed setting now takes effect on the first playback, including after replaying a finished voice message.
+
 ## [0.7.2] - 2026-05-03
 
 ### Added
