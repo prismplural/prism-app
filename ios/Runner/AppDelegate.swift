@@ -381,8 +381,20 @@ enum PlatformAttestationError: Error, LocalizedError {
           result(FlutterMethodNotImplemented)
         }
       } catch {
+        // Classify only on the unwrap path; the Dart cache logic uses the
+        // returned code to decide whether the wrapped runtime DEK blob
+        // should be discarded. iOS Keychain (AfterFirstUnlockThisDeviceOnly)
+        // is much more durable than Android Keystore so transient failures
+        // are rare here, but the same code surface is plumbed through for
+        // symmetry with Android.
+        let code: String
+        if call.method == "unwrapRuntimeDek" {
+          code = self.classifyRuntimeDekUnwrapFailure(error)
+        } else {
+          code = "RUNTIME_DEK_WRAP_FAILED"
+        }
         result(FlutterError(
-          code: "RUNTIME_DEK_WRAP_FAILED",
+          code: code,
           message: error.localizedDescription,
           details: nil
         ))
@@ -633,6 +645,43 @@ enum PlatformAttestationError: Error, LocalizedError {
       code: -1,
       userInfo: [NSLocalizedDescriptionKey: message]
     )
+  }
+
+  /// Maps an unwrap failure into one of three Dart-facing codes — see the
+  /// Kotlin twin in MainActivity.kt for the full contract.
+  ///
+  /// Terminal: AES.GCM authentication failure (blob no longer valid for
+  /// the held key — happened after a Keychain wipe / restore mismatch),
+  /// or a malformed blob shape.
+  ///
+  /// Transient: the only iOS Keychain status that genuinely transient is
+  /// `errSecInteractionNotAllowed` (-25308 — accessed before first unlock
+  /// after boot). All other Keychain failures imply an unrecoverable
+  /// state for the held key.
+  private func classifyRuntimeDekUnwrapFailure(_ error: Error) -> String {
+    if error is CryptoKitError {
+      return "RUNTIME_DEK_WRAP_TERMINAL"
+    }
+    let nsError = error as NSError
+    if nsError.domain == "com.prism.prism_plurality.runtime_dek_wrap" {
+      return "RUNTIME_DEK_WRAP_TERMINAL"
+    }
+    if nsError.domain == NSOSStatusErrorDomain {
+      let status = OSStatus(nsError.code)
+      switch status {
+      case errSecInteractionNotAllowed:
+        return "RUNTIME_DEK_WRAP_TRANSIENT"
+      case errSecAuthFailed,
+           errSecItemNotFound,
+           errSecParam,
+           errSecDecode,
+           errSecMissingEntitlement:
+        return "RUNTIME_DEK_WRAP_TERMINAL"
+      default:
+        return "RUNTIME_DEK_WRAP_FAILED"
+      }
+    }
+    return "RUNTIME_DEK_WRAP_FAILED"
   }
 
   private func deleteRuntimeDekWrappingKey() {

@@ -1,7 +1,8 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/core/services/runtime_dek_store.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 
 void main() {
@@ -276,6 +277,188 @@ void main() {
         expect(restored, isNull);
         expect(store[kRuntimeDekKey], isNull);
         expect(store[kRuntimeDekWrappedKey], isNull);
+      },
+    );
+
+    // ── Classification + retry policy (Android Keystore eviction fix) ────
+    //
+    // Pre-fix: any unwrap failure deleted the wrapped cache and forced a
+    // full PIN+12-words re-auth on the NEXT launch. Post-fix: classify
+    // the failure and only delete on terminal codes; transient codes get
+    // one retry; unknown codes preserve the cache so future launches can
+    // try again.
+
+    test(
+      'transient unwrap failure: retries once, succeeds, returns DEK and '
+      'PRESERVES wrapped cache',
+      () async {
+        final restoredDek = List<int>.generate(32, (i) => 99);
+        final store = <String, String>{
+          kRuntimeDekWrappedKey: 'transient-blob',
+        };
+        var attempts = 0;
+
+        final restored = await readCachedRuntimeDekForRestoreCore(
+          aad: 'sync-1|device-1|1',
+          readKey: (key) async => store[key],
+          deleteKey: (key) async {
+            store.remove(key);
+          },
+          writeKey: (key, value) async {
+            store[key] = value;
+          },
+          unwrapDek: (_, _) async {
+            attempts++;
+            if (attempts == 1) {
+              throw PlatformException(code: 'runtime_dek_wrap_transient');
+            }
+            return Uint8List.fromList(restoredDek);
+          },
+          wrapDek: (_, _) => throw StateError('should not wrap'),
+        );
+
+        expect(attempts, 2);
+        expect(restored, restoredDek);
+        expect(store[kRuntimeDekWrappedKey], 'transient-blob');
+      },
+    );
+
+    test(
+      'transient unwrap failure that persists across retry: returns null '
+      'but PRESERVES wrapped cache for next launch',
+      () async {
+        final store = <String, String>{
+          kRuntimeDekWrappedKey: 'transient-blob',
+        };
+        var attempts = 0;
+
+        final restored = await readCachedRuntimeDekForRestoreCore(
+          aad: 'sync-1|device-1|1',
+          readKey: (key) async => store[key],
+          deleteKey: (key) async {
+            store.remove(key);
+          },
+          writeKey: (key, value) async {
+            store[key] = value;
+          },
+          unwrapDek: (_, _) async {
+            attempts++;
+            throw PlatformException(code: 'runtime_dek_wrap_transient');
+          },
+          wrapDek: (_, _) => throw StateError('should not wrap'),
+        );
+
+        expect(attempts, 2, reason: 'must retry once on transient');
+        expect(restored, isNull);
+        expect(
+          store[kRuntimeDekWrappedKey],
+          'transient-blob',
+          reason: 'transient failure must NOT delete the cache',
+        );
+      },
+    );
+
+    test(
+      'terminal unwrap failure: returns null and DELETES wrapped cache',
+      () async {
+        final store = <String, String>{
+          kRuntimeDekWrappedKey: 'unrecoverable-blob',
+        };
+        var attempts = 0;
+
+        final restored = await readCachedRuntimeDekForRestoreCore(
+          aad: 'sync-1|device-1|1',
+          readKey: (key) async => store[key],
+          deleteKey: (key) async {
+            store.remove(key);
+          },
+          writeKey: (key, value) async {
+            store[key] = value;
+          },
+          unwrapDek: (_, _) async {
+            attempts++;
+            throw PlatformException(code: 'runtime_dek_wrap_terminal');
+          },
+          wrapDek: (_, _) => throw StateError('should not wrap'),
+        );
+
+        expect(attempts, 1, reason: 'terminal must NOT retry');
+        expect(restored, isNull);
+        expect(
+          store[kRuntimeDekWrappedKey],
+          isNull,
+          reason: 'terminal failure must delete the cache',
+        );
+      },
+    );
+
+    test(
+      'unknown / legacy unwrap failure: returns null and PRESERVES wrapped '
+      'cache (conservative — preserve viable blobs)',
+      () async {
+        final store = <String, String>{
+          kRuntimeDekWrappedKey: 'unclassified-blob',
+        };
+        var attempts = 0;
+
+        final restored = await readCachedRuntimeDekForRestoreCore(
+          aad: 'sync-1|device-1|1',
+          readKey: (key) async => store[key],
+          deleteKey: (key) async {
+            store.remove(key);
+          },
+          writeKey: (key, value) async {
+            store[key] = value;
+          },
+          unwrapDek: (_, _) async {
+            attempts++;
+            // Legacy code from older platform builds — no _terminal /
+            // _transient suffix.
+            throw PlatformException(code: 'runtime_dek_wrap_failed');
+          },
+          wrapDek: (_, _) => throw StateError('should not wrap'),
+        );
+
+        expect(
+          attempts,
+          1,
+          reason: 'unknown classification must NOT retry (could be terminal)',
+        );
+        expect(restored, isNull);
+        expect(
+          store[kRuntimeDekWrappedKey],
+          'unclassified-blob',
+          reason: 'unknown failure must preserve cache to avoid spurious '
+              'eviction of a viable blob',
+        );
+      },
+    );
+
+    test(
+      'classifyRuntimeDekUnwrapError: uppercase iOS codes also classify',
+      () {
+        expect(
+          classifyRuntimeDekUnwrapError(
+            PlatformException(code: 'RUNTIME_DEK_WRAP_TERMINAL'),
+          ),
+          RuntimeDekUnwrapClassification.terminal,
+        );
+        expect(
+          classifyRuntimeDekUnwrapError(
+            PlatformException(code: 'RUNTIME_DEK_WRAP_TRANSIENT'),
+          ),
+          RuntimeDekUnwrapClassification.transient,
+        );
+        expect(
+          classifyRuntimeDekUnwrapError(
+            PlatformException(code: 'RUNTIME_DEK_WRAP_FAILED'),
+          ),
+          RuntimeDekUnwrapClassification.unknown,
+        );
+        expect(
+          classifyRuntimeDekUnwrapError(StateError('non-platform')),
+          RuntimeDekUnwrapClassification.unknown,
+        );
       },
     );
   });

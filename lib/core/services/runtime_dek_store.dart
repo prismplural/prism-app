@@ -3,6 +3,33 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 
+/// Classification for a wrapped-DEK unwrap failure. Drives the Dart-side
+/// cache eviction policy: `terminal` → discard the wrapped blob (it can
+/// never be unwrapped); `transient` → preserve the blob and retry on a
+/// later launch (the failure was a device-lock-state race or secure-element
+/// flake); `unknown` → preserve conservatively.
+///
+/// Codes emitted by the platform handlers (see `MainActivity.kt` /
+/// `AppDelegate.swift`):
+///   Android: `runtime_dek_wrap_terminal`, `runtime_dek_wrap_transient`,
+///            `runtime_dek_wrap_failed`.
+///   iOS:     `RUNTIME_DEK_WRAP_TERMINAL`, `RUNTIME_DEK_WRAP_TRANSIENT`,
+///            `RUNTIME_DEK_WRAP_FAILED`.
+enum RuntimeDekUnwrapClassification { terminal, transient, unknown }
+
+RuntimeDekUnwrapClassification classifyRuntimeDekUnwrapError(Object error) {
+  if (error is PlatformException) {
+    final code = error.code.toLowerCase();
+    if (code.endsWith('_terminal')) {
+      return RuntimeDekUnwrapClassification.terminal;
+    }
+    if (code.endsWith('_transient')) {
+      return RuntimeDekUnwrapClassification.transient;
+    }
+  }
+  return RuntimeDekUnwrapClassification.unknown;
+}
+
 /// Device-bound runtime DEK envelope wrapping.
 ///
 /// The returned blob is safe to persist: it is AEAD ciphertext produced with a

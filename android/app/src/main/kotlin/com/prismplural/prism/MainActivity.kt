@@ -13,17 +13,23 @@ import android.os.Looper
 import android.provider.MediaStore
 import android.security.keystore.KeyInfo
 import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyPermanentlyInvalidatedException
 import android.security.keystore.KeyProperties
 import android.security.keystore.StrongBoxUnavailableException
+import android.security.keystore.UserNotAuthenticatedException
 import android.util.Base64
 import android.util.Log
 import java.security.KeyPairGenerator
 import java.security.KeyStore
+import java.security.KeyStoreException
 import java.security.MessageDigest
 import java.security.ProviderException
+import java.security.UnrecoverableKeyException
 import java.security.InvalidAlgorithmParameterException
 import java.security.cert.X509Certificate
 import java.security.spec.ECGenParameterSpec
+import javax.crypto.AEADBadTagException
+import javax.crypto.BadPaddingException
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -143,7 +149,18 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             } catch (t: Throwable) {
-                result.error("runtime_dek_wrap_failed", t.message, null)
+                // Classify only on the unwrap path. The Dart-side cache logic
+                // uses the code to decide whether the wrapped runtime DEK
+                // blob should be discarded (terminal: blob/key gone for good)
+                // or preserved for a retry next launch (transient: device-
+                // lock state, StrongBox flake, etc.). Wrap and delete failures
+                // don't drive cache eviction, so they keep the legacy code.
+                val code = if (call.method == "unwrapRuntimeDek") {
+                    classifyRuntimeDekUnwrapFailure(t)
+                } else {
+                    "runtime_dek_wrap_failed"
+                }
+                result.error(code, t.message, null)
             }
         }
         MethodChannel(
@@ -333,6 +350,48 @@ class MainActivity : FlutterActivity() {
                 "not_enabled_android_12_14_caveat"
             }
         return metadata
+    }
+
+    /**
+     * Maps a Throwable from `unwrapRuntimeDek` into one of three Dart-facing
+     * codes so the Dart cache logic can react appropriately:
+     *   - `runtime_dek_wrap_terminal`: blob is unrecoverable; cache should
+     *     be discarded.
+     *   - `runtime_dek_wrap_transient`: temporary failure (device locked at
+     *     evaluation time, StrongBox briefly unavailable); a retry next
+     *     launch is expected to succeed. Cache must be preserved.
+     *   - `runtime_dek_wrap_failed`: legacy/unknown — Dart treats as
+     *     "preserve cache" by default to avoid spuriously invalidating a
+     *     viable blob on a failure mode we haven't classified yet.
+     *
+     * Walks the cause chain because Cipher operations wrap Keystore errors
+     * inside generic exceptions on some OEM devices.
+     */
+    private fun classifyRuntimeDekUnwrapFailure(throwable: Throwable): String {
+        var current: Throwable? = throwable
+        val seen = HashSet<Throwable>()
+        while (current != null && seen.add(current)) {
+            when (current) {
+                // Hard terminal: the wrapping key is gone or the blob
+                // can't be authenticated against any key we hold.
+                is KeyPermanentlyInvalidatedException,
+                is UnrecoverableKeyException,
+                is AEADBadTagException,
+                is BadPaddingException,
+                is IllegalArgumentException ->
+                    return "runtime_dek_wrap_terminal"
+
+                // Transient: device-lock state at eval time, secure
+                // element flake, key-validity-window race. Retrying on a
+                // future launch is expected to succeed.
+                is UserNotAuthenticatedException,
+                is StrongBoxUnavailableException,
+                is KeyStoreException ->
+                    return "runtime_dek_wrap_transient"
+            }
+            current = current.cause
+        }
+        return "runtime_dek_wrap_failed"
     }
 
     private fun deleteRuntimeDekWrappingKey() {

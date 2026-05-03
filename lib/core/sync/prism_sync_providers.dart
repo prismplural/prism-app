@@ -992,6 +992,41 @@ Future<void> wipeFrontingMigrationSyncKeychain() async {
   await _clearBiometricSyncDekBestEffort();
 }
 
+class _UnwrapAttempt {
+  const _UnwrapAttempt({
+    this.bytes,
+    required this.classification,
+    this.error,
+    this.stackTrace,
+  });
+
+  final Uint8List? bytes;
+  final RuntimeDekUnwrapClassification classification;
+  final Object? error;
+  final StackTrace? stackTrace;
+}
+
+Future<_UnwrapAttempt> _tryUnwrapForRestore({
+  required String blob,
+  required String aad,
+  required Future<Uint8List> Function(String blob, String aad) unwrapDek,
+  required RuntimeDekUnwrapClassification Function(Object error) classify,
+}) async {
+  try {
+    final bytes = Uint8List.fromList(await unwrapDek(blob, aad));
+    return _UnwrapAttempt(
+      bytes: bytes,
+      classification: RuntimeDekUnwrapClassification.unknown,
+    );
+  } catch (e, st) {
+    return _UnwrapAttempt(
+      classification: classify(e),
+      error: e,
+      stackTrace: st,
+    );
+  }
+}
+
 @visibleForTesting
 Future<Uint8List?> readCachedRuntimeDekForRestoreCore({
   required String aad,
@@ -1000,21 +1035,69 @@ Future<Uint8List?> readCachedRuntimeDekForRestoreCore({
   required Future<void> Function(String key, String value) writeKey,
   required Future<Uint8List> Function(String blob, String aad) unwrapDek,
   required Future<String> Function(Uint8List dekBytes, String aad) wrapDek,
+  RuntimeDekUnwrapClassification Function(Object error)? classifyError,
   void Function(String message, Object error, StackTrace stackTrace)?
   reportWarning,
 }) async {
+  final classify = classifyError ?? classifyRuntimeDekUnwrapError;
+
   final wrapped = await readKey(kRuntimeDekWrappedKey);
   if (wrapped != null && wrapped.isNotEmpty) {
-    try {
-      final dekBytes = Uint8List.fromList(await unwrapDek(wrapped, aad));
+    final firstAttempt = await _tryUnwrapForRestore(
+      blob: wrapped,
+      aad: aad,
+      unwrapDek: unwrapDek,
+      classify: classify,
+    );
+    if (firstAttempt.bytes != null) {
       await deleteKey(kRuntimeDekKey);
-      return dekBytes;
-    } catch (e, st) {
+      return firstAttempt.bytes;
+    }
+
+    // Retry once on transient failures (Android Keystore device-lock race
+    // or StrongBox flake commonly resolve on a second attempt).
+    if (firstAttempt.classification ==
+        RuntimeDekUnwrapClassification.transient) {
+      final secondAttempt = await _tryUnwrapForRestore(
+        blob: wrapped,
+        aad: aad,
+        unwrapDek: unwrapDek,
+        classify: classify,
+      );
+      if (secondAttempt.bytes != null) {
+        await deleteKey(kRuntimeDekKey);
+        return secondAttempt.bytes;
+      }
+      // Retry also failed — leave the cache alone for the next launch.
+      // The user falls through to needsPassword for THIS session, but
+      // we don't permanently invalidate a viable blob.
+      reportWarning?.call(
+        'Wrapped runtime DEK transient unwrap failed twice; cache '
+        'preserved for next launch.',
+        secondAttempt.error ?? firstAttempt.error ?? StateError('unknown'),
+        secondAttempt.stackTrace ?? firstAttempt.stackTrace ?? StackTrace.empty,
+      );
+    } else if (firstAttempt.classification ==
+        RuntimeDekUnwrapClassification.terminal) {
+      // Blob can't be unwrapped by any key we hold — discard so the next
+      // successful unlock writes a fresh one.
       await deleteKey(kRuntimeDekWrappedKey);
       reportWarning?.call(
-        'Wrapped runtime DEK restore failed; cache deleted: $e',
-        e,
-        st,
+        'Wrapped runtime DEK terminal unwrap failure; cache deleted.',
+        firstAttempt.error ?? StateError('unknown'),
+        firstAttempt.stackTrace ?? StackTrace.empty,
+      );
+    } else {
+      // Unknown failure mode — preserve the cache conservatively. If the
+      // blob really is dead, every launch will harmlessly re-fail and the
+      // user will fall through to needsPassword; if it's actually a new
+      // transient mode we haven't classified, future launches will pick
+      // it up cleanly.
+      reportWarning?.call(
+        'Wrapped runtime DEK unwrap failed with unclassified error; '
+        'cache preserved.',
+        firstAttempt.error ?? StateError('unknown'),
+        firstAttempt.stackTrace ?? StackTrace.empty,
       );
     }
   }
