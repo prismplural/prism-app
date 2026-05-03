@@ -1526,6 +1526,279 @@ void main() {
       expect(rows.where((r) => r.memberId == zari), hasLength(1));
       expect(rows.where((r) => r.memberId == aimee), hasLength(2));
     });
+
+    // ── Sentinel rescue for blank-headmate rows that previously crashed ────
+    //
+    // These pin the v14 CHECK protection: a normal (session_type=0) row
+    // with NULL or empty member_id violates the constraint on insert.
+    // The rescue importer now routes these through ensureUnknownSentinel
+    // BEFORE the writeSession call, matching the migration service's
+    // behavior (fronting_migration_service.dart:933).
+
+    test('SP rescue: null headmateId routes to Unknown sentinel '
+        '(pre-fix would throw CHECK violation)', () async {
+      const sessionId = 'sp-orphan-session';
+      const spEntityId = 'sp-entity-orphan';
+      // Pre-seed sp_id_map so the rescue importer classifies this row as
+      // SP (line 1050: `if (isSp)` checks `spIds.contains(s.id)`). Without
+      // this, the row falls through to the native branch and the test
+      // would pass for the wrong reason.
+      await db.spImportDao.upsertMapping(
+        SpIdMapTableCompanion.insert(
+          spId: spEntityId,
+          entityType: 'session',
+          prismId: sessionId,
+        ),
+      );
+
+      final json = _envelope(
+        frontSessions: [
+          {
+            'id': sessionId,
+            'startTime': DateTime.utc(2026, 4, 1, 9).toIso8601String(),
+            'endTime': DateTime.utc(2026, 4, 1, 11).toIso8601String(),
+            // No headmateId — historical SP `_IdKind.missing` / `cfNote`
+            // shape that older builds wrote with member_id NULL.
+            'coFronterIds': [],
+          },
+        ],
+      );
+
+      final result = await importService.importData(json);
+      expect(result.frontSessionsCreated, 1);
+      expect(result.unknownSentinelCreated, isTrue);
+
+      const uuid = Uuid();
+      final sentinelId = uuid.v5(
+        spFrontingNamespace,
+        'unknown-member-sentinel',
+      );
+      final derivedId = deriveSpSessionId(spEntityId);
+      final rows = await db.frontingSessionsDao.getAllSessions();
+      expect(rows, hasLength(1));
+      expect(rows.single.id, derivedId);
+      expect(
+        rows.single.memberId,
+        sentinelId,
+        reason: 'SP orphan must route to Unknown sentinel, not pass null '
+            'through to writeSession (which would throw CHECK violation)',
+      );
+    });
+
+    test('Native rescue: multi-member row with null primary + non-empty '
+        'co-fronters routes to sentinel; co-fronters are NOT fanned out '
+        '(matches migration service behavior at line 933)', () async {
+      const co1 = 'co-1';
+      const co2 = 'co-2';
+      await memberRepo.createMember(
+        Member(
+          id: co1,
+          name: 'Co1',
+          emoji: 'C',
+          createdAt: DateTime(2026, 1, 1).toUtc(),
+        ),
+      );
+      await memberRepo.createMember(
+        Member(
+          id: co2,
+          name: 'Co2',
+          emoji: 'D',
+          createdAt: DateTime(2026, 1, 1).toUtc(),
+        ),
+      );
+
+      const sessionId = 'native-null-primary';
+      final json = _envelope(
+        frontSessions: [
+          {
+            'id': sessionId,
+            'startTime': DateTime.utc(2026, 4, 1, 9).toIso8601String(),
+            'endTime': DateTime.utc(2026, 4, 1, 11).toIso8601String(),
+            // No headmateId — primary missing.
+            'coFronterIds': [co1, co2],
+          },
+        ],
+      );
+
+      final result = await importService.importData(json);
+      expect(result.frontSessionsCreated, 1);
+      expect(result.unknownSentinelCreated, isTrue);
+
+      const uuid = Uuid();
+      final sentinelId = uuid.v5(
+        spFrontingNamespace,
+        'unknown-member-sentinel',
+      );
+      final rows = await db.frontingSessionsDao.getAllSessions();
+      expect(
+        rows,
+        hasLength(1),
+        reason:
+            'co-fronter fan-out must be skipped when primary is null '
+            '(matches fronting_migration_service.dart:933 behavior — '
+            'orphan routes to sentinel without fan-out)',
+      );
+      expect(rows.single.id, sessionId);
+      expect(rows.single.memberId, sentinelId);
+
+      // Verify NEITHER co-fronter fan-out row was written.
+      final fanoutCo1 = deriveMigrationFanoutSessionId(sessionId, co1);
+      final fanoutCo2 = deriveMigrationFanoutSessionId(sessionId, co2);
+      expect(rows.any((r) => r.id == fanoutCo1), isFalse);
+      expect(rows.any((r) => r.id == fanoutCo2), isFalse);
+    });
+
+    test('New-shape import: normal row with null headmateId routes to '
+        'sentinel (covers exports that omit legacy keys)', () async {
+      // A row with `sessionType: 0` and no legacy keys is classified as
+      // new-shape by V1FrontSession.fromJson, so it lands at line 830 in
+      // data_import_service.dart — the new-shape branch. Pre-fix that
+      // path passed s.headmateId through unconditionally, throwing CHECK
+      // for null-headmate normal rows.
+      const sessionId = 'new-shape-null-headmate';
+      final json = _envelope(
+        frontSessions: [
+          {
+            'id': sessionId,
+            'startTime': DateTime.utc(2026, 4, 1, 9).toIso8601String(),
+            'endTime': DateTime.utc(2026, 4, 1, 11).toIso8601String(),
+            // No headmateId; sessionType marks this as new-shape.
+            'sessionType': 0,
+          },
+        ],
+      );
+
+      final result = await importService.importData(json);
+      expect(result.frontSessionsCreated, 1);
+      expect(result.unknownSentinelCreated, isTrue);
+
+      const uuid = Uuid();
+      final sentinelId = uuid.v5(
+        spFrontingNamespace,
+        'unknown-member-sentinel',
+      );
+      final rows = await db.frontingSessionsDao.getAllSessions();
+      expect(rows, hasLength(1));
+      expect(rows.single.id, sessionId);
+      expect(rows.single.memberId, sentinelId);
+    });
+
+    test('New-shape sleep row with null headmateId is allowed (CHECK only '
+        'rejects normal rows with null member_id)', () async {
+      // Sleep rows legitimately have nullable member_id — the CHECK is
+      // `session_type != 0 OR member_id IS NOT NULL`, so session_type=1
+      // satisfies it regardless. Verify the new-shape rerouting does NOT
+      // accidentally route sleep rows to sentinel.
+      const sessionId = 'sleep-null-headmate';
+      final json = _envelope(
+        frontSessions: [
+          {
+            'id': sessionId,
+            'startTime': DateTime.utc(2026, 4, 1, 23).toIso8601String(),
+            'endTime': DateTime.utc(2026, 4, 2, 7).toIso8601String(),
+            'sessionType': 1, // sleep
+          },
+        ],
+      );
+
+      final result = await importService.importData(json);
+      expect(result.frontSessionsCreated, 1);
+      expect(
+        result.unknownSentinelCreated,
+        isFalse,
+        reason: 'sleep rows do not need sentinel — null member_id is '
+            'legitimate when session_type=1',
+      );
+
+      final rows = await db.frontingSessionsDao.getAllSessions();
+      expect(rows, hasLength(1));
+      expect(rows.single.id, sessionId);
+      expect(rows.single.memberId, isNull);
+      // Drift row stores sessionType as int; SessionType.sleep.index == 1.
+      expect(rows.single.sessionType, SessionType.sleep.index);
+    });
+
+    test('Empty-string headmateId is treated as blank and routes to '
+        'sentinel', () async {
+      // Empty string satisfies `member_id IS NOT NULL` on the CHECK but
+      // is a bogus reference. Treat the same as null at the rescue
+      // boundary.
+      const sessionId = 'empty-string-headmate';
+      final json = _envelope(
+        frontSessions: [
+          {
+            'id': sessionId,
+            'startTime': DateTime.utc(2026, 4, 1, 9).toIso8601String(),
+            'endTime': DateTime.utc(2026, 4, 1, 11).toIso8601String(),
+            'headmateId': '',
+            'coFronterIds': [], // legacy marker → routes to rescue
+          },
+        ],
+      );
+
+      final result = await importService.importData(json);
+      expect(result.frontSessionsCreated, 1);
+      expect(result.unknownSentinelCreated, isTrue);
+
+      const uuid = Uuid();
+      final sentinelId = uuid.v5(
+        spFrontingNamespace,
+        'unknown-member-sentinel',
+      );
+      final rows = await db.frontingSessionsDao.getAllSessions();
+      expect(rows.single.memberId, sentinelId);
+    });
+
+    test('Sentinel-rescued SP row supports comment join via '
+        'legacySessionParents', () async {
+      const sessionId = 'sp-orphan-with-comment';
+      const spEntityId = 'sp-entity-with-comment';
+      const commentId = 'comment-on-orphan';
+      await db.spImportDao.upsertMapping(
+        SpIdMapTableCompanion.insert(
+          spId: spEntityId,
+          entityType: 'session',
+          prismId: sessionId,
+        ),
+      );
+
+      final json = _envelope(
+        frontSessions: [
+          {
+            'id': sessionId,
+            'startTime': DateTime.utc(2026, 4, 1, 9).toIso8601String(),
+            'endTime': DateTime.utc(2026, 4, 1, 11).toIso8601String(),
+            // No headmateId — sentinel rescue path.
+            'coFronterIds': [],
+          },
+        ],
+        frontSessionComments: [
+          {
+            'id': commentId,
+            'sessionId': sessionId, // anchor on the legacy id
+            'body': 'comment on orphan',
+            'timestamp': DateTime.utc(2026, 4, 1, 10).toIso8601String(),
+            'createdAt': DateTime.utc(2026, 4, 1, 10).toIso8601String(),
+          },
+        ],
+      );
+
+      final result = await importService.importData(json);
+      expect(result.frontSessionsCreated, 1);
+
+      // Comment must resolve to the rescued physical row id (the
+      // deterministic SP-derived id), not the legacy session id.
+      final derivedId = deriveSpSessionId(spEntityId);
+      final comments = await db.frontSessionCommentsDao
+          .getActiveCommentsForSession(derivedId);
+      expect(
+        comments,
+        hasLength(1),
+        reason: 'comment must reattach to the sentinel-rescued physical '
+            'row via legacySessionParents lookup',
+      );
+      expect(comments.single.id, commentId);
+    });
   });
 
   // -- PR G additions (review findings #9, #10, #41, #42, #44) -----------

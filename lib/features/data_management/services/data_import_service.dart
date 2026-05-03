@@ -677,6 +677,27 @@ class DataImportService {
           return unknownSentinelId!;
         }
 
+        // Returns a non-null member id for a normal-type session: pass
+        // through if [raw] is a real id, route to Unknown sentinel
+        // otherwise. Empty string is treated as blank — it satisfies the
+        // CHECK constraint but represents a dangling reference, so we
+        // normalize it the same as null. [contextTag] shows up in the
+        // debug log so a user-visible "[Import][rescue] X routed to
+        // sentinel" trail makes triage straightforward.
+        bool isBlankMemberId(String? id) => id == null || id.isEmpty;
+        Future<String> resolveNormalMemberId(
+          String? raw,
+          String contextTag,
+        ) async {
+          if (!isBlankMemberId(raw)) return raw!;
+          final sentinelId = await ensureUnknownSentinel();
+          debugPrint(
+            '[Import][rescue] $contextTag routed to Unknown sentinel '
+            '(headmateId was ${raw == null ? 'null' : 'empty'}).',
+          );
+          return sentinelId;
+        }
+
         final allSessionRows = await db.frontingSessionsDao
             .getAllSessionsIncludingDeleted();
         final existingSessionIds = {for (final s in allSessionRows) s.id};
@@ -827,11 +848,23 @@ class DataImportService {
                       s.quality! < SleepQuality.values.length
                   ? SleepQuality.values[s.quality!]
                   : (st == SessionType.sleep ? SleepQuality.unknown : null);
+              // Normal-type rows MUST satisfy the v14 CHECK
+              // (session_type != 0 OR member_id IS NOT NULL). A new-shape
+              // export from a build that allowed orphan rows on disk, or
+              // a manually-edited backup, could land here with a blank
+              // headmateId — route to sentinel. Sleep rows legitimately
+              // allow null member_id and pass through unchanged.
+              final memberIdForRow = st == SessionType.normal
+                  ? await resolveNormalMemberId(
+                      s.headmateId,
+                      'new-shape ${s.id}',
+                    )
+                  : s.headmateId;
               final created = await writeSession(
                 id: s.id,
                 startTime: start,
                 endTime: end,
-                memberId: s.headmateId,
+                memberId: memberIdForRow,
                 notes: s.notes,
                 confidence: conf,
                 pluralkitUuid: s.pluralkitUuid,
@@ -846,7 +879,7 @@ class DataImportService {
               // write happens — the join only fires for legacy comments.
               legacySessionParents[s.id] = _LegacyParentInfo(
                 sessionId: s.id,
-                memberId: s.headmateId,
+                memberId: memberIdForRow,
                 startTime: start,
                 endTime: end,
               );
@@ -1080,26 +1113,33 @@ class DataImportService {
                 spRowId = s.id;
                 legacySpIdPreservedCount++;
               }
+              // SP rows are 1:1 per-member by source semantics, but
+              // `_IdKind.missing` / `cfNote` paths in older SP imports
+              // wrote rows with null headmateId; if such a row appears
+              // in a backup, route to sentinel rather than failing the
+              // CHECK on insert.
+              final spMemberId = await resolveNormalMemberId(
+                s.headmateId,
+                'SP rescue $spRowId',
+              );
               final created = await writeSession(
                 id: spRowId,
                 startTime: start,
                 endTime: end,
-                memberId: s.headmateId,
+                memberId: spMemberId,
                 notes: s.notes,
                 confidence: conf,
                 sessionType: SessionType.normal,
               );
               if (created) frontSessionsCreated++;
-              if (s.headmateId != null) {
-                legacyTouchedMemberIds.add(s.headmateId!);
-              }
+              legacyTouchedMemberIds.add(spMemberId);
               // Use the original legacy session id as the parent-info key
               // so legacy comments anchored to `s.id` still resolve, even
               // when the new row was written under the deterministic
               // derived id.
               legacySessionParents[s.id] = _LegacyParentInfo(
                 sessionId: spRowId,
-                memberId: s.headmateId,
+                memberId: spMemberId,
                 startTime: start,
                 endTime: end,
               );
@@ -1122,8 +1162,16 @@ class DataImportService {
             }
             final coFronters = hasCorrupt ? const <String>[] : s.coFronterIds;
 
-            if (s.headmateId == null && coFronters.isEmpty) {
-              // Orphan: assign Unknown sentinel.
+            if (isBlankMemberId(s.headmateId)) {
+              // Orphan: assign Unknown sentinel. Catches both the
+              // single-member null case and the multi-member case where
+              // primary headmateId is null/blank but co-fronters are
+              // present — matches the migration service's behavior at
+              // fronting_migration_service.dart:933 (orphan → sentinel,
+              // no fan-out). Co-fronter info on these rows is lost
+              // deliberately: without a resolved primary, partial
+              // fan-out would attribute time to co-fronters who may
+              // have been deleted/renamed since the row was written.
               final sentinelId = await ensureUnknownSentinel();
               final created = await writeSession(
                 id: s.id,
