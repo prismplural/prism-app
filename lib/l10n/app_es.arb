@@ -835,6 +835,8 @@
   "memberMarkdownSubtitle": "Mostrar el texto con formato markdown",
   "memberAdminTitle": "Administrador",
   "memberAdminSubtitle": "Los admins pueden gestionar la configuración del sistema",
+  "memberAlwaysFrontingTitle": "Siempre al frente",
+  "memberAlwaysFrontingSubtitle": "Mostrar a este/a {termSingularLower} en la cabecera de siempre presentes en lugar de las pilas de avatares",
   "memberAccentColorSectionTitle": "Color de acento",
   "memberCustomColorTitle": "Color personalizado",
   "memberCustomColorSubtitle": "Usar un color personal para {termSingularLower}",
