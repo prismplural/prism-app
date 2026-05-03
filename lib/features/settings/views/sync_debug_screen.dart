@@ -23,12 +23,24 @@ class SyncDebugScreen extends ConsumerWidget {
     final events = ref.watch(syncEventLogProvider);
 
     Future<void> copyLog() async {
-      final lines = events.reversed
-          .map((e) => '[${e.timeLabel}] ${e.summary}')
-          .join('\n');
-      await Clipboard.setData(ClipboardData(text: lines));
+      const encoder = JsonEncoder.withIndent('  ');
+      final buffer = StringBuffer()
+        ..writeln('Sync event log (${events.length} entries)')
+        ..writeln();
+      for (final entry in events.reversed) {
+        buffer.writeln('[${entry.timeLabel}] ${entry.summary}');
+        if (entry.data.isNotEmpty) {
+          buffer
+            ..writeln(encoder.convert(entry.data))
+            ..writeln();
+        }
+      }
+      await Clipboard.setData(ClipboardData(text: buffer.toString()));
       if (!context.mounted) return;
-      PrismToast.show(context, message: context.l10n.settingsSyncDebugCopiedToast);
+      PrismToast.show(
+        context,
+        message: context.l10n.settingsSyncDebugCopiedToast,
+      );
     }
 
     return PrismPageScaffold(
@@ -140,7 +152,9 @@ class _EventTile extends StatelessWidget {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: theme.colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
+              borderRadius: BorderRadius.circular(
+                PrismShapes.of(context).radius(12),
+              ),
             ),
             child: SelectableText(
               const JsonEncoder.withIndent('  ').convert(entry.data),
