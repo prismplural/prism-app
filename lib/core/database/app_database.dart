@@ -1,5 +1,5 @@
 import 'package:drift/drift.dart';
-import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
 import 'package:prism_plurality/core/database/daos/chat_messages_dao.dart';
 import 'package:prism_plurality/core/database/daos/conversations_dao.dart';
 import 'package:prism_plurality/core/database/daos/fronting_sessions_dao.dart';
@@ -708,11 +708,31 @@ class AppDatabase extends _$AppDatabase {
     // auto-emitted `CHECK (... IN (0, 1))` clauses on BoolColumns,
     // which are present from the very first `createAll()`.
     if (RegExp(_frontingMemberCheckClausePattern).hasMatch(sql)) return;
+
+    // Hard-delete unrecoverable orphans BEFORE the CHECK install. Drift's
+    // TableMigration copies every row including is_deleted=1 ones, so any
+    // (session_type=0, member_id NULL) row would trip the new constraint
+    // and abort the table rebuild. These rows carry no recoverable signal
+    // — pluralkit_uuid (when set) is a switch id, not a member id, and the
+    // typical source is older PK file imports that wrote a row before the
+    // member could be resolved. Step 7 of the per-member migration routes
+    // is_deleted=0 orphans to the Unknown sentinel; this scrub catches the
+    // soft-deleted leftovers AND any orphan that reaches a v13→v14
+    // onUpgrade through the mode=complete branch.
+    await _purgeUnrecoverableFrontingOrphans('CHECK install');
+
     final migrator = Migrator(this);
     await migrator.alterTable(TableMigration(frontingSessions));
   }
 
   Future<void> ensurePkFrontingIndexes() async {
+    // Defensive: scrub unrecoverable orphan rows so the orphan unique
+    // index install (filter: pluralkit_uuid IS NOT NULL AND member_id IS
+    // NULL — applies to soft-deleted rows too) cannot fail on duplicate
+    // orphan rows surfacing through any path that reaches this helper
+    // without going through the migration service's step 7.
+    await _purgeUnrecoverableFrontingOrphans('PK index install');
+
     // Drop the v2-era single-column uniqueness index if it survived an
     // earlier migration step (e.g., the v1→v2 leg of a step-through, or
     // a v6 DB whose v6→v7 onUpgrade hit the blocked path and left the
@@ -724,6 +744,28 @@ class AppDatabase extends _$AppDatabase {
     // path; both already use CREATE UNIQUE INDEX IF NOT EXISTS.
     await _createPkFrontingCompositeIndex();
     await _createPkFrontingOrphanIndex();
+  }
+
+  /// Removes fronting rows with `session_type = 0 AND member_id IS NULL`
+  /// regardless of `is_deleted`. These rows are unrecoverable: a normal
+  /// (non-sleep) session needs a fronter, and a NULL member_id with a
+  /// non-null pluralkit_uuid (the only way the importer could have
+  /// produced one) carries the *switch* id, not a member uuid, so the
+  /// fronter cannot be reconstituted.
+  ///
+  /// Idempotent — a no-op when the table holds no offending rows.
+  Future<void> _purgeUnrecoverableFrontingOrphans(String reason) async {
+    final purged = await customUpdate(
+      'DELETE FROM fronting_sessions '
+      'WHERE session_type = 0 AND member_id IS NULL',
+      updates: {frontingSessions},
+    );
+    if (purged > 0) {
+      debugPrint(
+        '[MIGRATION] purged $purged unrecoverable orphan fronting rows '
+        'before $reason.',
+      );
+    }
   }
 
   Future<void> _recreateMemberGroupPkUniqueIndex() async {
