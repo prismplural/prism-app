@@ -96,15 +96,15 @@ Widget _buildScreen({
 
 void main() {
   group('MemberBoardScreen — smoke', () {
-    testWidgets('renders screen title "Board Messages"', (tester) async {
+    testWidgets('renders screen title "Public Posts"', (tester) async {
       await tester.pumpWidget(
         _buildScreen(allMembers: [_alice]),
       );
       await tester.pump();
 
-      // "Board Messages" appears at least once (top bar title), possibly more
+      // "Public Posts" appears at least once (top bar title), possibly more
       // in empty-state copy.
-      expect(find.text('Board Messages'), findsWidgets);
+      expect(find.text('Public Posts'), findsWidgets);
     });
 
     testWidgets('shows member name as subtitle', (tester) async {
@@ -122,7 +122,7 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.text('No posts here yet.'), findsOneWidget);
+      expect(find.text('No public posts here yet.'), findsOneWidget);
     });
 
     testWidgets('renders list of posts when data available', (tester) async {
