@@ -121,7 +121,7 @@ class ConversationTile extends ConsumerWidget {
                     : theme.colorScheme.onSurfaceVariant,
               ),
             ),
-            if (tileData.unreadCount > 0) ...[
+            if (tileData.showUnreadBadge) ...[
               const SizedBox(height: 4),
               Badge(
                 label: Text(

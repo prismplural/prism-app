@@ -35,11 +35,13 @@ void main() {
     String? speakingAs,
     Map<String, Member>? participantMap,
     int unreadCount = 0,
+    bool showUnreadBadge = false,
   }) =>
       ConversationTileData(
         conversation: conversation ?? makeConversation(),
         participantMap: participantMap ?? const {},
         unreadCount: unreadCount,
+        showUnreadBadge: showUnreadBadge,
         speakingAs: speakingAs,
       );
 
@@ -62,6 +64,7 @@ void main() {
         conversation: makeConversation(
           createdAt: now,
           lastActivityAt: now.add(const Duration(hours: 1)),
+          participantIds: ['member-1'],
           lastReadTimestamps: {}, // no entry for this member
         ),
         speakingAs: 'member-1',
@@ -74,6 +77,7 @@ void main() {
         conversation: makeConversation(
           createdAt: now,
           lastActivityAt: now.add(const Duration(hours: 1)),
+          participantIds: ['member-1'],
           lastReadTimestamps: {
             'member-1': now.add(const Duration(hours: 2)),
           },
@@ -88,6 +92,7 @@ void main() {
         conversation: makeConversation(
           createdAt: now,
           lastActivityAt: now.add(const Duration(hours: 3)),
+          participantIds: ['member-1'],
           lastReadTimestamps: {
             'member-1': now.add(const Duration(hours: 1)),
           },
@@ -103,9 +108,26 @@ void main() {
         conversation: makeConversation(
           createdAt: now,
           lastActivityAt: sentAt,
+          participantIds: ['member-1'],
           lastReadTimestamps: {'member-1': sentAt},
         ),
         speakingAs: 'member-1',
+      );
+      expect(tile.hasUnread, isFalse);
+    });
+
+    test('returns false for a non-participant viewer (admin observing others\' DM)', () {
+      // Repro of the bug where admins saw permanent unread badges on DMs they
+      // weren't part of: hasUnread should be false because the viewer has no
+      // read state in a conversation they don't participate in.
+      final tile = makeTileData(
+        conversation: makeConversation(
+          createdAt: now,
+          lastActivityAt: now.add(const Duration(hours: 1)),
+          participantIds: ['member-2', 'member-3'],
+          lastReadTimestamps: const {},
+        ),
+        speakingAs: 'admin-1',
       );
       expect(tile.hasUnread, isFalse);
     });

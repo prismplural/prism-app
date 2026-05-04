@@ -742,6 +742,10 @@ final allUnreadCountsProvider = StreamProvider<Map<String, int>>((ref) {
 
   final conversationSince = <String, DateTime>{};
   for (final conv in conversations) {
+    // Observers (e.g. admins viewing a DM they aren't part of) don't track
+    // unread state — they have no last-read timestamp, so falling back to
+    // createdAt would mark every message in the conversation unread forever.
+    if (!conv.participantIds.contains(speakingAs)) continue;
     final lastRead = conv.lastReadTimestamps[speakingAs];
     conversationSince[conv.id] = lastRead ?? conv.createdAt;
   }
@@ -780,6 +784,7 @@ final unreadConversationCountProvider = Provider<int>((ref) {
   // Collect unread conversations (excluding muted/archived).
   final unreadConvs = <Conversation>[];
   for (final conv in conversations) {
+    if (!conv.participantIds.contains(speakingAs)) continue;
     if (conv.mutedByMemberIds.contains(speakingAs)) continue;
     if (conv.archivedByMemberIds.contains(speakingAs)) continue;
 
@@ -812,6 +817,41 @@ final unreadConversationCountProvider = Provider<int>((ref) {
       .value;
 
   return mentionConvIds?.length ?? 0;
+});
+
+/// IDs of conversations with unread mentions for the speaking-as member.
+///
+/// Returns an empty set when mentions-only badging is off — keeps the watch
+/// cheap so per-tile [conversationTileDataProvider]s can subscribe
+/// unconditionally without recomputing per tile.
+final mentionConversationIdsProvider = Provider.autoDispose<Set<String>>((ref) {
+  final speakingAs = ref.watch(speakingAsProvider);
+  if (speakingAs == null) return const {};
+
+  final badgePrefs = ref.watch(chatBadgePreferencesProvider);
+  if (badgePrefs[speakingAs] != 'mentions_only') return const {};
+
+  final conversations = ref.watch(conversationsProvider).value;
+  if (conversations == null) return const {};
+
+  final conversationSince = <String, DateTime>{};
+  for (final conv in conversations) {
+    if (!conv.participantIds.contains(speakingAs)) continue;
+    final lastRead = conv.lastReadTimestamps[speakingAs];
+    conversationSince[conv.id] = lastRead ?? conv.createdAt;
+  }
+
+  if (conversationSince.isEmpty) return const {};
+
+  return ref
+          .watch(
+            conversationsWithMentionsProvider((
+              conversationSince: conversationSince,
+              memberId: speakingAs,
+            )),
+          )
+          .value ??
+      const <String>{};
 });
 
 /// Single batch stream that returns which conversations have mentions for a member.
@@ -876,6 +916,7 @@ class ConversationTileData {
   final ChatMessage? lastMessage;
   final Map<String, Member> participantMap;
   final int unreadCount;
+  final bool showUnreadBadge;
   final String? speakingAs;
   final Member? dmPartner;
   final String? lastMessageAuthorName;
@@ -886,6 +927,7 @@ class ConversationTileData {
     this.lastMessage,
     required this.participantMap,
     required this.unreadCount,
+    required this.showUnreadBadge,
     this.speakingAs,
     this.dmPartner,
     this.lastMessageAuthorName,
@@ -894,6 +936,9 @@ class ConversationTileData {
 
   bool get hasUnread {
     if (speakingAs == null) return false;
+    // Non-participants (e.g. admins viewing others' DMs) are observers, not
+    // participants — they have no read state to track.
+    if (!conversation.participantIds.contains(speakingAs)) return false;
     final lastRead = conversation.lastReadTimestamps[speakingAs];
     if (lastRead == null) {
       return conversation.lastActivityAt.isAfter(conversation.createdAt);
@@ -952,6 +997,21 @@ final conversationTileDataProvider = Provider.autoDispose
       // Unread count (derived from batch provider).
       final unreadCount = ref.watch(unreadMessageCountProvider(conversationId));
 
+      // Badge gating: in mentions-only mode, only show the per-tile badge
+      // when this conversation actually has an unread mention. Outside
+      // mentions-only mode the provider returns an empty set, so the
+      // mentions_only branch short-circuits without extra work.
+      final mentionsOnly =
+          speakingAs != null &&
+          ref.watch(chatBadgePreferencesProvider)[speakingAs] ==
+              'mentions_only';
+      final showUnreadBadge =
+          unreadCount > 0 &&
+          (!mentionsOnly ||
+              ref
+                  .watch(mentionConversationIdsProvider)
+                  .contains(conversationId));
+
       // Mention name map — always watch to keep the dependency graph stable.
       final nameMap = ref.watch(memberNameMapProvider);
 
@@ -988,6 +1048,7 @@ final conversationTileDataProvider = Provider.autoDispose
         lastMessage: lastMessage,
         participantMap: participantMap,
         unreadCount: unreadCount,
+        showUnreadBadge: showUnreadBadge,
         speakingAs: speakingAs,
         dmPartner: dmPartner,
         lastMessageAuthorName: lastMessageAuthorName,
