@@ -20,6 +20,8 @@ import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
+import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 
@@ -90,8 +92,7 @@ class _ComposePostSheetBody extends ConsumerStatefulWidget {
       _ComposePostSheetBodyState();
 }
 
-class _ComposePostSheetBodyState
-    extends ConsumerState<_ComposePostSheetBody> {
+class _ComposePostSheetBodyState extends ConsumerState<_ComposePostSheetBody> {
   late final TextEditingController _titleController;
   late final MarkdownEditingController _bodyController;
   late final FocusNode _bodyFocusNode;
@@ -283,8 +284,10 @@ class _ComposePostSheetBodyState
 
   void _initAuthorSelection() {
     final sessions = ref.read(activeSessionsProvider).value ?? [];
-    final fronterIds =
-        sessions.map((s) => s.memberId).whereType<String>().toList();
+    final fronterIds = sessions
+        .map((s) => s.memberId)
+        .whereType<String>()
+        .toList();
 
     if (fronterIds.length == 1) {
       ref.read(speakingAsProvider.notifier).setMember(fronterIds.first);
@@ -293,8 +296,9 @@ class _ComposePostSheetBodyState
 
     if (fronterIds.length > 1) {
       final allMembers = ref.read(userVisibleMembersProvider).value ?? [];
-      final coFronters =
-          allMembers.where((m) => fronterIds.contains(m.id)).toList();
+      final coFronters = allMembers
+          .where((m) => fronterIds.contains(m.id))
+          .toList();
       if (coFronters.isNotEmpty && mounted) _showCoFronterPicker(coFronters);
     }
   }
@@ -308,9 +312,8 @@ class _ComposePostSheetBodyState
         mainAxisSize: MainAxisSize.min,
         children: [
           for (final member in coFronters)
-            ListTile(
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            PrismListRow(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               leading: MemberAvatar(
                 memberName: member.name,
                 emoji: member.emoji,
@@ -434,8 +437,8 @@ class _ComposePostSheetBodyState
                   children: [
                     // ── Recipient picker ─────────────────────────────────────
                     Semantics(
-                      label: targetMember?.name ??
-                          l10n.boardsComposeToNoHeadmate,
+                      label:
+                          targetMember?.name ?? l10n.boardsComposeToNoHeadmate,
                       button: true,
                       child: InkWell(
                         onTap: _pickMember,
@@ -493,8 +496,9 @@ class _ComposePostSheetBodyState
                       ),
                       hintStyle: theme.textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.w600,
-                        color: theme.colorScheme.onSurfaceVariant
-                            .withValues(alpha: 0.4),
+                        color: theme.colorScheme.onSurfaceVariant.withValues(
+                          alpha: 0.4,
+                        ),
                       ),
                       maxLines: null,
                       textCapitalization: TextCapitalization.sentences,
@@ -508,8 +512,9 @@ class _ComposePostSheetBodyState
                       fieldStyle: PrismTextFieldStyle.borderless,
                       style: theme.textTheme.bodyLarge,
                       hintStyle: theme.textTheme.bodyLarge?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant
-                            .withValues(alpha: 0.4),
+                        color: theme.colorScheme.onSurfaceVariant.withValues(
+                          alpha: 0.4,
+                        ),
                       ),
                       minLines: 8,
                       maxLines: null,
@@ -623,25 +628,27 @@ class _BottomToolbar extends ConsumerWidget {
             const SizedBox(width: 8),
           ],
           const Spacer(),
-          SegmentedButton<String>(
-            segments: [
-              ButtonSegment(
-                value: 'public',
-                label: Text(l10n.boardsComposeAudienceEveryone),
+          SizedBox(
+            width: 210,
+            child: IgnorePointer(
+              ignoring: memberId == null,
+              child: Opacity(
+                opacity: memberId == null ? 0.55 : 1,
+                child: PrismSegmentedControl<String>(
+                  segments: [
+                    PrismSegment(
+                      value: 'public',
+                      label: l10n.boardsComposeAudienceEveryone,
+                    ),
+                    PrismSegment(
+                      value: 'private',
+                      label: l10n.boardsComposeAudiencePrivate,
+                    ),
+                  ],
+                  selected: audience,
+                  onChanged: memberId != null ? onAudienceChanged : (_) {},
+                ),
               ),
-              ButtonSegment(
-                value: 'private',
-                label: Text(l10n.boardsComposeAudiencePrivate),
-              ),
-            ],
-            selected: {audience},
-            onSelectionChanged: memberId != null
-                ? (v) => onAudienceChanged(v.first)
-                : null,
-            style: SegmentedButton.styleFrom(
-              visualDensity: VisualDensity.compact,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              textStyle: theme.textTheme.labelMedium,
             ),
           ),
         ],
