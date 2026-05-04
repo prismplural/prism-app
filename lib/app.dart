@@ -10,6 +10,7 @@ import 'core/router/app_router.dart';
 import 'core/services/notification_providers.dart';
 import 'core/services/reminder_scheduler_service.dart';
 import 'core/sync/prism_sync_providers.dart';
+import 'features/fronting/migration/providers/fronting_migration_providers.dart';
 import 'features/habits/providers/habit_providers.dart';
 import 'features/pluralkit/providers/pk_group_repair_provider.dart';
 import 'domain/models/system_settings.dart';
@@ -80,6 +81,20 @@ class _PrismAppState extends ConsumerState<PrismApp> {
     ref.listen(habitNotificationListenerProvider, (_, _) {});
     // Keep the fronting reminder listener alive — schedules/cancels based on settings.
     ref.listen(frontingReminderListenerProvider, (_, _) {});
+    // Keep frontingMigrationModeProvider always-warm. The sync apply path
+    // reads `frontingMigrationWritesBlockedProvider` per row inside a
+    // `db.transaction(...)` (drift_sync_adapter.dart `_frontingSessionsEntity`
+    // → `applyGate`). That read traverses
+    // `frontingMigrationWritesBlockedProvider` →
+    // `frontingMigrationGateProvider` → `frontingMigrationModeProvider`, and
+    // the last one is a StreamProvider whose build callback synchronously
+    // calls `systemSettingsDao.watchSettings()`. If the chain is cold when
+    // the apply transaction reads it, that Drift call fires from INSIDE the
+    // open transaction and deadlocks Drift's commit-result message on the
+    // background isolate (verified 2026-05-03 on Pixel 6 Pro fresh-install
+    // pairing). Building it here guarantees the chain is warm before any
+    // sync apply runs. Do not remove without re-testing fresh-install pairing.
+    ref.listen(frontingMigrationModeProvider, (_, _) {});
     // Keep PK repair bootstrap alive so local legacy repair can run once sync
     // is ready, without coupling it to the sync engine internals.
     ref.listen(pkGroupRepairBootstrapProvider, (_, _) {});

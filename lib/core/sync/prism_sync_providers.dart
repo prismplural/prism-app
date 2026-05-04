@@ -1590,6 +1590,20 @@ final driftSyncAdapterProvider = Provider<SyncAdapterWithCompletion>((ref) {
   // rows would race with the in-flight migration. We read from
   // `frontingMigrationWritesBlockedProvider` lazily inside the closure
   // so the adapter doesn't have to be rebuilt on every state change.
+  //
+  // INVARIANT: `frontingMigrationModeProvider` MUST already be built
+  // by the time this closure runs inside `db.transaction()`. The closure's
+  // `ref.read` traverses
+  //   frontingMigrationWritesBlockedProvider
+  //   → frontingMigrationGateProvider
+  //   → frontingMigrationModeProvider (StreamProvider over
+  //     `systemSettingsDao.watchSettings()`)
+  // and if the chain is cold, the StreamProvider's build callback fires
+  // a Drift query from inside the open transaction, deadlocking the
+  // bg-isolate commit-result message (verified 2026-05-03 on Pixel 6 Pro
+  // fresh-install pairing — apply hung at chunk-1 commit). The provider
+  // is kept always-warm via an `ref.listen(frontingMigrationModeProvider, …)`
+  // in `app.dart` — do not remove that listener.
   return buildSyncAdapterWithCompletion(
     db,
     quarantine: quarantine,
@@ -1930,12 +1944,6 @@ Future<ApplyResult> applyRemoteChanges(
           final entityId = entityIdRaw as String;
           final isDelete = change['is_delete'] as bool? ?? false;
           final fields = (change['fields'] as Map<String, dynamic>?) ?? {};
-
-          if (kDebugMode) {
-            debugPrint(
-              '[SYNC_APPLY] table=$table id=$entityId delete=$isDelete fields=${fields.keys.toList()}',
-            );
-          }
 
           if (isDelete) {
             await adapter.hardDelete(table, entityId);
