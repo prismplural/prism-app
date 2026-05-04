@@ -91,7 +91,8 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
   FrontStartBehavior _resolvedMode(FrontStartBehavior preferenceDefault) =>
       _modeOverride ?? preferenceDefault;
 
-  bool get _frontAsUnknown => _selectedIds.length == 1 && _selectedIds.contains(_unknownId);
+  bool get _frontAsUnknown =>
+      _selectedIds.length == 1 && _selectedIds.contains(_unknownId);
   // The real member IDs to pass to startFronting (excludes the Unknown sentinel).
   List<String> get _memberIds =>
       _selectedIds.where((id) => id != _unknownId).toList();
@@ -208,9 +209,8 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
     //   - after user toggles: stays on their pick for the rest of this sheet
     //   - when sheet closes: nothing is written back to the setting
     final settingsAsync = ref.watch(systemSettingsProvider);
-    final settingDefault = settingsAsync.whenOrNull(
-          data: (s) => s.addFrontDefaultBehavior,
-        ) ??
+    final settingDefault =
+        settingsAsync.whenOrNull(data: (s) => s.addFrontDefaultBehavior) ??
         FrontStartBehavior.additive;
     final mode = _resolvedMode(settingDefault);
 

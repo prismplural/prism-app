@@ -40,25 +40,30 @@ void main() {
     required String id,
     required DateTime start,
     DateTime? end,
+    String memberId = 'fronting-member',
   }) {
     return domain.FrontingSession(
       id: id,
       sessionType: domain.SessionType.normal,
       startTime: start,
       endTime: end,
+      memberId: memberId,
     );
   }
 
   Future<void> insert(domain.FrontingSession s) async {
-    await db.into(db.frontingSessions).insert(
-      FrontingSessionsCompanion.insert(
-        id: s.id,
-        sessionType: Value(s.sessionType.index),
-        startTime: s.startTime,
-        endTime: Value(s.endTime),
-        isDeleted: Value(s.isDeleted),
-      ),
-    );
+    await db
+        .into(db.frontingSessions)
+        .insert(
+          FrontingSessionsCompanion.insert(
+            id: s.id,
+            sessionType: Value(s.sessionType.index),
+            startTime: s.startTime,
+            endTime: Value(s.endTime),
+            memberId: Value(s.memberId),
+            isDeleted: Value(s.isDeleted),
+          ),
+        );
   }
 
   group('getSleepStats', () {
@@ -72,25 +77,31 @@ void main() {
 
     test('3 completed sleeps returns correct count and average', () async {
       final base = now.subtract(const Duration(days: 3));
-      await insert(makeSleep(
-        id: 's1',
-        start: base,
-        end: base.add(const Duration(hours: 8)),
-      ));
-      await insert(makeSleep(
-        id: 's2',
-        start: base.subtract(const Duration(days: 1)),
-        end: base
-            .subtract(const Duration(days: 1))
-            .add(const Duration(hours: 6)),
-      ));
-      await insert(makeSleep(
-        id: 's3',
-        start: base.subtract(const Duration(days: 2)),
-        end: base
-            .subtract(const Duration(days: 2))
-            .add(const Duration(hours: 7)),
-      ));
+      await insert(
+        makeSleep(
+          id: 's1',
+          start: base,
+          end: base.add(const Duration(hours: 8)),
+        ),
+      );
+      await insert(
+        makeSleep(
+          id: 's2',
+          start: base.subtract(const Duration(days: 1)),
+          end: base
+              .subtract(const Duration(days: 1))
+              .add(const Duration(hours: 6)),
+        ),
+      );
+      await insert(
+        makeSleep(
+          id: 's3',
+          start: base.subtract(const Duration(days: 2)),
+          end: base
+              .subtract(const Duration(days: 2))
+              .add(const Duration(hours: 7)),
+        ),
+      );
 
       final stats = await repo.getSleepStats(
         since: now.subtract(const Duration(days: 7)),
@@ -105,11 +116,13 @@ void main() {
       'excludes active sessions (endTime null) from count and average',
       () async {
         final base = now.subtract(const Duration(days: 2));
-        await insert(makeSleep(
-          id: 's1',
-          start: base,
-          end: base.add(const Duration(hours: 8)),
-        ));
+        await insert(
+          makeSleep(
+            id: 's1',
+            start: base,
+            end: base.add(const Duration(hours: 8)),
+          ),
+        );
         // Active — no endTime
         await insert(
           makeSleep(id: 's2', start: base.subtract(const Duration(hours: 2))),
@@ -125,16 +138,20 @@ void main() {
 
     test('excludes non-sleep sessions from count and average', () async {
       final base = now.subtract(const Duration(days: 2));
-      await insert(makeSleep(
-        id: 's1',
-        start: base,
-        end: base.add(const Duration(hours: 8)),
-      ));
-      await insert(makeFronting(
-        id: 'f1',
-        start: base.subtract(const Duration(hours: 1)),
-        end: base.add(const Duration(hours: 1)),
-      ));
+      await insert(
+        makeSleep(
+          id: 's1',
+          start: base,
+          end: base.add(const Duration(hours: 8)),
+        ),
+      );
+      await insert(
+        makeFronting(
+          id: 'f1',
+          start: base.subtract(const Duration(hours: 1)),
+          end: base.add(const Duration(hours: 1)),
+        ),
+      );
 
       final stats = await repo.getSleepStats(
         since: now.subtract(const Duration(days: 7)),
@@ -144,19 +161,23 @@ void main() {
 
     test('excludes deleted rows from count and average', () async {
       final base = now.subtract(const Duration(days: 2));
-      await insert(makeSleep(
-        id: 's1',
-        start: base,
-        end: base.add(const Duration(hours: 8)),
-      ));
-      await insert(makeSleep(
-        id: 's2',
-        start: base.subtract(const Duration(hours: 4)),
-        end: base
-            .subtract(const Duration(hours: 4))
-            .add(const Duration(hours: 6)),
-        isDeleted: true,
-      ));
+      await insert(
+        makeSleep(
+          id: 's1',
+          start: base,
+          end: base.add(const Duration(hours: 8)),
+        ),
+      );
+      await insert(
+        makeSleep(
+          id: 's2',
+          start: base.subtract(const Duration(hours: 4)),
+          end: base
+              .subtract(const Duration(hours: 4))
+              .add(const Duration(hours: 6)),
+          isDeleted: true,
+        ),
+      );
 
       final stats = await repo.getSleepStats(
         since: now.subtract(const Duration(days: 7)),
@@ -167,18 +188,22 @@ void main() {
 
     test('excludes zero-duration sessions (endTime == startTime)', () async {
       final base = now.subtract(const Duration(days: 2));
-      await insert(makeSleep(
-        id: 's1',
-        start: base,
-        end: base, // zero duration
-      ));
-      await insert(makeSleep(
-        id: 's2',
-        start: base.subtract(const Duration(hours: 1)),
-        end: base
-            .subtract(const Duration(hours: 1))
-            .add(const Duration(hours: 7)),
-      ));
+      await insert(
+        makeSleep(
+          id: 's1',
+          start: base,
+          end: base, // zero duration
+        ),
+      );
+      await insert(
+        makeSleep(
+          id: 's2',
+          start: base.subtract(const Duration(hours: 1)),
+          end: base
+              .subtract(const Duration(hours: 1))
+              .add(const Duration(hours: 7)),
+        ),
+      );
 
       final stats = await repo.getSleepStats(
         since: now.subtract(const Duration(days: 7)),
@@ -189,18 +214,22 @@ void main() {
 
     test('excludes negative-duration sessions (endTime < startTime)', () async {
       final base = now.subtract(const Duration(days: 2));
-      await insert(makeSleep(
-        id: 's1',
-        start: base,
-        end: base.subtract(const Duration(hours: 1)), // negative duration
-      ));
-      await insert(makeSleep(
-        id: 's2',
-        start: base.subtract(const Duration(hours: 2)),
-        end: base
-            .subtract(const Duration(hours: 2))
-            .add(const Duration(hours: 8)),
-      ));
+      await insert(
+        makeSleep(
+          id: 's1',
+          start: base,
+          end: base.subtract(const Duration(hours: 1)), // negative duration
+        ),
+      );
+      await insert(
+        makeSleep(
+          id: 's2',
+          start: base.subtract(const Duration(hours: 2)),
+          end: base
+              .subtract(const Duration(hours: 2))
+              .add(const Duration(hours: 8)),
+        ),
+      );
 
       final stats = await repo.getSleepStats(
         since: now.subtract(const Duration(days: 7)),
@@ -215,19 +244,23 @@ void main() {
 
       // Prior week session (14–7 days ago window)
       final priorBase = now.subtract(const Duration(days: 10));
-      await insert(makeSleep(
-        id: 'old1',
-        start: priorBase,
-        end: priorBase.add(const Duration(hours: 9)),
-      ));
+      await insert(
+        makeSleep(
+          id: 'old1',
+          start: priorBase,
+          end: priorBase.add(const Duration(hours: 9)),
+        ),
+      );
 
       // Current week session (within 7 days)
       final recentBase = now.subtract(const Duration(days: 3));
-      await insert(makeSleep(
-        id: 'new1',
-        start: recentBase,
-        end: recentBase.add(const Duration(hours: 6)),
-      ));
+      await insert(
+        makeSleep(
+          id: 'new1',
+          start: recentBase,
+          end: recentBase.add(const Duration(hours: 6)),
+        ),
+      );
 
       final priorStats = await repo.getSleepStats(
         since: fourteenDaysAgo,
@@ -246,11 +279,13 @@ void main() {
     test('emits at most limit sessions, newest first by startTime', () async {
       for (var i = 0; i < 8; i++) {
         final base = now.subtract(Duration(days: i + 1));
-        await insert(makeSleep(
-          id: 's$i',
-          start: base,
-          end: base.add(const Duration(hours: 7)),
-        ));
+        await insert(
+          makeSleep(
+            id: 's$i',
+            start: base,
+            end: base.add(const Duration(hours: 7)),
+          ),
+        );
       }
 
       final sessions = await repo.watchRecentSleepSessions(limit: 5).first;
@@ -267,11 +302,13 @@ void main() {
 
     test('excludes active sessions (endTime null)', () async {
       final base = now.subtract(const Duration(days: 1));
-      await insert(makeSleep(
-        id: 'completed',
-        start: base,
-        end: base.add(const Duration(hours: 8)),
-      ));
+      await insert(
+        makeSleep(
+          id: 'completed',
+          start: base,
+          end: base.add(const Duration(hours: 8)),
+        ),
+      );
       await insert(
         makeSleep(id: 'active', start: now.subtract(const Duration(hours: 2))),
       );
@@ -283,19 +320,23 @@ void main() {
 
     test('excludes deleted rows', () async {
       final base = now.subtract(const Duration(days: 1));
-      await insert(makeSleep(
-        id: 'alive',
-        start: base,
-        end: base.add(const Duration(hours: 8)),
-      ));
-      await insert(makeSleep(
-        id: 'dead',
-        start: base.subtract(const Duration(hours: 2)),
-        end: base
-            .subtract(const Duration(hours: 2))
-            .add(const Duration(hours: 7)),
-        isDeleted: true,
-      ));
+      await insert(
+        makeSleep(
+          id: 'alive',
+          start: base,
+          end: base.add(const Duration(hours: 8)),
+        ),
+      );
+      await insert(
+        makeSleep(
+          id: 'dead',
+          start: base.subtract(const Duration(hours: 2)),
+          end: base
+              .subtract(const Duration(hours: 2))
+              .add(const Duration(hours: 7)),
+          isDeleted: true,
+        ),
+      );
 
       final sessions = await repo.watchRecentSleepSessions(limit: 10).first;
       expect(sessions, hasLength(1));
