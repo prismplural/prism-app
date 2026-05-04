@@ -4,14 +4,21 @@ part 'custom_field.freezed.dart';
 part 'custom_field.g.dart';
 
 enum CustomFieldType {
-  text, // 0
+  text, // 0 - short text
   color, // 1
-  date; // 2
+  date, // 2
+  longText; // 3
 
   String get label => switch (this) {
-        CustomFieldType.text => 'Text',
+        CustomFieldType.text => 'Short Text',
         CustomFieldType.color => 'Color',
         CustomFieldType.date => 'Date',
+        CustomFieldType.longText => 'Long Text',
+      };
+
+  bool get isTextual => switch (this) {
+        CustomFieldType.text || CustomFieldType.longText => true,
+        CustomFieldType.color || CustomFieldType.date => false,
       };
 }
 

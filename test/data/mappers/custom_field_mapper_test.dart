@@ -233,16 +233,25 @@ void main() {
       expect(domain.CustomFieldType.text.index, 0);
       expect(domain.CustomFieldType.color.index, 1);
       expect(domain.CustomFieldType.date.index, 2);
+      expect(domain.CustomFieldType.longText.index, 3);
     });
 
     test('has labels', () {
-      expect(domain.CustomFieldType.text.label, 'Text');
+      expect(domain.CustomFieldType.text.label, 'Short Text');
       expect(domain.CustomFieldType.color.label, 'Color');
       expect(domain.CustomFieldType.date.label, 'Date');
+      expect(domain.CustomFieldType.longText.label, 'Long Text');
     });
 
-    test('values list has 3 types', () {
-      expect(domain.CustomFieldType.values.length, 3);
+    test('values list has 4 types', () {
+      expect(domain.CustomFieldType.values.length, 4);
+    });
+
+    test('isTextual identifies short and long text fields', () {
+      expect(domain.CustomFieldType.text.isTextual, isTrue);
+      expect(domain.CustomFieldType.longText.isTextual, isTrue);
+      expect(domain.CustomFieldType.color.isTextual, isFalse);
+      expect(domain.CustomFieldType.date.isTextual, isFalse);
     });
   });
 

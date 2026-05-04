@@ -190,6 +190,17 @@ void main() {
 
       expect(field.name, 'Field');
     });
+
+    test('parses supportMarkdown flag', () {
+      final field = SpCustomFieldDef.fromJson({
+        '_id': 'f1',
+        'name': 'Notes',
+        'type': 0,
+        'supportMarkdown': true,
+      });
+
+      expect(field.supportMarkdown, isTrue);
+    });
   });
 
   group('SpBoardMessage.fromJson', () {

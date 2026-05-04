@@ -38,6 +38,13 @@ class CreateEditFieldSheet extends ConsumerStatefulWidget {
 }
 
 class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
+  static const _fieldTypeOptions = [
+    CustomFieldType.text,
+    CustomFieldType.longText,
+    CustomFieldType.color,
+    CustomFieldType.date,
+  ];
+
   late final TextEditingController _nameController;
   CustomFieldType _selectedType = CustomFieldType.text;
   DatePrecision _selectedPrecision = DatePrecision.full;
@@ -165,7 +172,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      for (final type in CustomFieldType.values)
+                      for (final type in _fieldTypeOptions)
                         PrismChip(
                           label: type.label,
                           selected: type == _selectedType,
@@ -186,7 +193,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      for (final type in CustomFieldType.values)
+                      for (final type in _fieldTypeOptions)
                         PrismChip(
                           label: type.label,
                           selected: type == _selectedType,
@@ -236,6 +243,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
 
   IconData _iconForType(CustomFieldType type) => switch (type) {
     CustomFieldType.text => AppIcons.textFields,
+    CustomFieldType.longText => AppIcons.notes,
     CustomFieldType.color => AppIcons.palette,
     CustomFieldType.date => AppIcons.calendarToday,
   };

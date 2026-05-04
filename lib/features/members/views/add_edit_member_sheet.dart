@@ -27,9 +27,9 @@ import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/members/widgets/custom_fields_editor.dart';
+import 'package:prism_plurality/features/members/widgets/full_screen_markdown_editor_sheet.dart';
 import 'package:prism_plurality/features/members/widgets/member_profile_header_editor.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
-import 'package:prism_plurality/shared/widgets/markdown_editing_controller.dart';
 import 'package:uuid/uuid.dart';
 
 enum _MemberEditTab { edit, style }
@@ -367,12 +367,11 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
   }
 
   Future<void> _openBioEditor() async {
-    final result = await PrismSheet.showFullScreen<String>(
+    final result = await showFullScreenMarkdownEditor(
       context: context,
-      builder: (context, scrollController) => _BioEditorSheet(
-        initialBio: _bioController.text,
-        scrollController: scrollController,
-      ),
+      title: context.l10n.memberBioLabel,
+      initialText: _bioController.text,
+      hintText: context.l10n.memberBioHint,
     );
     if (result != null && mounted) {
       setState(() => _bioController.text = result);
@@ -1274,126 +1273,6 @@ class _BirthdayField extends StatelessWidget {
           ),
         ],
       ],
-    );
-  }
-}
-
-/// Full-screen markdown editor for the member bio field.
-///
-/// Returns the trimmed bio text when saved, or null if cancelled without saving.
-class _BioEditorSheet extends StatefulWidget {
-  const _BioEditorSheet({
-    required this.initialBio,
-    required this.scrollController,
-  });
-
-  final String initialBio;
-  final ScrollController scrollController;
-
-  @override
-  State<_BioEditorSheet> createState() => _BioEditorSheetState();
-}
-
-class _BioEditorSheetState extends State<_BioEditorSheet> {
-  late final MarkdownEditingController _controller;
-  late final FocusNode _focusNode;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = MarkdownEditingController(text: widget.initialBio);
-    _focusNode = FocusNode();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    _focusNode.dispose();
-    super.dispose();
-  }
-
-  bool get _isDirty => _controller.text != widget.initialBio;
-
-  Future<void> _save() async {
-    Navigator.of(context).pop(_controller.text.trim());
-  }
-
-  Future<void> _maybeDiscard() async {
-    if (!_isDirty) {
-      Navigator.of(context).pop(null);
-      return;
-    }
-    final confirm = await PrismDialog.confirm(
-      context: context,
-      title: context.l10n.memberNoteDiscardTitle,
-      message: context.l10n.memberNoteDiscardMessage,
-      confirmLabel: context.l10n.memberNoteDiscardConfirm,
-      destructive: true,
-    );
-    if (confirm && mounted) Navigator.of(context).pop(null);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final l10n = context.l10n;
-    _controller.updateTheme(context);
-
-    return ListenableBuilder(
-      listenable: _controller,
-      builder: (context, _) => PopScope(
-        canPop: !_isDirty,
-        onPopInvokedWithResult: (didPop, _) async {
-          if (didPop) return;
-          await _maybeDiscard();
-        },
-        child: Column(
-          children: [
-            PrismSheetTopBar(
-              title: l10n.memberBioLabel,
-              trailing: PrismGlassIconButton(
-                icon: AppIcons.check,
-                onPressed: _save,
-                tooltip: l10n.save,
-                size: PrismTokens.topBarActionSize,
-                tint: theme.colorScheme.primary,
-                accentIcon: true,
-              ),
-            ),
-            Expanded(
-              child: GestureDetector(
-                onTap: () => _focusNode.requestFocus(),
-                behavior: HitTestBehavior.translucent,
-                child: ListView(
-                  controller: widget.scrollController,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: PrismTokens.pageHorizontalPadding + 8,
-                    vertical: 16,
-                  ),
-                  children: [
-                    PrismTextField(
-                      controller: _controller,
-                      focusNode: _focusNode,
-                      hintText: l10n.memberBioHint,
-                      fieldStyle: PrismTextFieldStyle.borderless,
-                      style: theme.textTheme.bodyLarge,
-                      hintStyle: theme.textTheme.bodyLarge?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant.withValues(
-                          alpha: 0.4,
-                        ),
-                      ),
-                      minLines: 12,
-                      maxLines: null,
-                      textCapitalization: TextCapitalization.sentences,
-                      autofocus: true,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

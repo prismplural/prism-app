@@ -4,8 +4,12 @@ import 'package:intl/intl.dart';
 
 import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/domain/models/custom_field_value.dart';
+import 'package:prism_plurality/features/chat/widgets/chat_markdown_editing_controller.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
+import 'package:prism_plurality/features/members/widgets/full_screen_markdown_editor_sheet.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/widgets/markdown_editing_controller.dart';
+import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
@@ -104,19 +108,30 @@ class _FieldInput extends ConsumerStatefulWidget {
 
 class _FieldInputState extends ConsumerState<_FieldInput> {
   late final TextEditingController _textController;
+  late final CustomFieldValueNotifier _valueNotifier;
+  late String _lastSavedValue;
 
   @override
   void initState() {
     super.initState();
-    _textController = TextEditingController(
-      text: widget.existingValue?.value ?? '',
-    );
+    _valueNotifier = ref.read(customFieldValueNotifierProvider.notifier);
+    final initialValue = widget.existingValue?.value ?? '';
+    _lastSavedValue = initialValue;
+    _textController = switch (widget.field.fieldType) {
+      CustomFieldType.text => ChatMarkdownEditingController(text: initialValue),
+      CustomFieldType.longText => MarkdownEditingController(text: initialValue),
+      CustomFieldType.color ||
+      CustomFieldType.date => TextEditingController(text: initialValue),
+    };
   }
 
   @override
   void didUpdateWidget(covariant _FieldInput oldWidget) {
     super.didUpdateWidget(oldWidget);
     final newVal = widget.existingValue?.value ?? '';
+    if (oldWidget.existingValue?.value != newVal) {
+      _lastSavedValue = newVal;
+    }
     if (oldWidget.existingValue?.value != newVal &&
         _textController.text != newVal) {
       _textController.text = newVal;
@@ -125,33 +140,53 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
 
   @override
   void dispose() {
+    _savePendingValue();
     _textController.dispose();
     super.dispose();
   }
 
+  void _savePendingValue() {
+    switch (widget.field.fieldType) {
+      case CustomFieldType.text:
+      case CustomFieldType.longText:
+      case CustomFieldType.color:
+        _saveValue(_textController.text.trim());
+      case CustomFieldType.date:
+        break;
+    }
+  }
+
   void _saveValue(String value) {
+    if (value == _lastSavedValue) return;
+
     if (value.isEmpty && widget.existingValue != null) {
-      ref
-          .read(customFieldValueNotifierProvider.notifier)
-          .deleteValue(widget.existingValue!.id);
+      _lastSavedValue = '';
+      _valueNotifier.deleteValue(widget.existingValue!.id);
       return;
     }
     if (value.isEmpty) return;
 
-    ref
-        .read(customFieldValueNotifierProvider.notifier)
-        .setValue(
-          customFieldId: widget.field.id,
-          memberId: widget.memberId,
-          value: value,
-          existingId: widget.existingValue?.id,
-        );
+    _lastSavedValue = value;
+    _valueNotifier.setValue(
+      customFieldId: widget.field.id,
+      memberId: widget.memberId,
+      value: value,
+      existingId: widget.existingValue?.id,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final controller = _textController;
+    if (controller is ChatMarkdownEditingController) {
+      controller.updateTheme(context);
+    } else if (controller is MarkdownEditingController) {
+      controller.updateTheme(context);
+    }
+
     return switch (widget.field.fieldType) {
       CustomFieldType.text => _buildTextInput(context),
+      CustomFieldType.longText => _buildLongTextInput(context),
       CustomFieldType.color => _buildColorInput(context),
       CustomFieldType.date => _buildDateInput(context),
     };
@@ -161,16 +196,78 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
     final l10n = context.l10n;
     return Focus(
       onFocusChange: (hasFocus) {
-        if (!hasFocus) _saveValue(_textController.text.trim());
+        if (!hasFocus) _savePendingValue();
       },
       child: PrismTextField(
         controller: _textController,
         labelText: widget.field.name,
-        hintText: l10n.memberCustomFieldEnterHint(widget.field.name.toLowerCase()),
+        hintText: l10n.memberCustomFieldEnterHint(
+          widget.field.name.toLowerCase(),
+        ),
         onChanged: (_) {},
         onSubmitted: _saveValue,
       ),
     );
+  }
+
+  Widget _buildLongTextInput(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = context.l10n;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                widget.field.name,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+            PrismIconButton(
+              icon: AppIcons.edit,
+              tooltip: l10n.edit,
+              semanticLabel: l10n.terminologyEditItem(widget.field.name),
+              onPressed: () => _openLongTextEditor(context),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Focus(
+          onFocusChange: (hasFocus) {
+            if (!hasFocus) _savePendingValue();
+          },
+          child: PrismTextField(
+            controller: _textController,
+            hintText: l10n.memberCustomFieldEnterHint(
+              widget.field.name.toLowerCase(),
+            ),
+            keyboardType: TextInputType.multiline,
+            minLines: 5,
+            maxLines: null,
+            textCapitalization: TextCapitalization.sentences,
+            onChanged: (_) {},
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _openLongTextEditor(BuildContext context) async {
+    final result = await showFullScreenMarkdownEditor(
+      context: context,
+      title: widget.field.name,
+      initialText: _textController.text,
+      hintText: context.l10n.memberCustomFieldEnterHint(
+        widget.field.name.toLowerCase(),
+      ),
+    );
+    if (result == null || !mounted) return;
+
+    setState(() => _textController.text = result);
+    _saveValue(result);
   }
 
   Widget _buildColorInput(BuildContext context) {
@@ -185,7 +282,7 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
 
     return Focus(
       onFocusChange: (hasFocus) {
-        if (!hasFocus) _saveValue(_textController.text.trim());
+        if (!hasFocus) _savePendingValue();
       },
       child: PrismTextField(
         controller: _textController,
@@ -287,11 +384,7 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
           ),
         ),
         const SizedBox(height: 4),
-        Semantics(
-          label: widget.field.name,
-          button: true,
-          child: dateField,
-        ),
+        Semantics(label: widget.field.name, button: true, child: dateField),
       ],
     );
   }
@@ -390,7 +483,11 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
     }
   }
 
-  String _formatForPrecision(DateTime dt, DatePrecision precision, String locale) {
+  String _formatForPrecision(
+    DateTime dt,
+    DatePrecision precision,
+    String locale,
+  ) {
     return switch (precision) {
       DatePrecision.full => DateFormat.yMMMd(locale).format(dt),
       DatePrecision.monthYear => DateFormat.yMMM(locale).format(dt),

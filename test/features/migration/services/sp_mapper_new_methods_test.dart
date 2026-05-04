@@ -309,6 +309,27 @@ void main() {
       expect(result.customFields.first.fieldType, domain.CustomFieldType.text);
     });
 
+    test('markdown text fields map to CustomFieldType.longText', () {
+      final data = _makeExportData(
+        customFields: [
+          const SpCustomFieldDef(
+            id: 'cf1',
+            name: 'Backstory',
+            type: 0,
+            supportMarkdown: true,
+          ),
+        ],
+      );
+
+      final mapper = SpMapper();
+      final result = mapper.mapAll(data);
+
+      expect(
+        result.customFields.first.fieldType,
+        domain.CustomFieldType.longText,
+      );
+    });
+
     test(
       'values extracted from member info maps with correct field+member resolution',
       () {

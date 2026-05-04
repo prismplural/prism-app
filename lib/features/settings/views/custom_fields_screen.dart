@@ -84,6 +84,7 @@ class _FieldsList extends ConsumerWidget {
 
   IconData _iconForType(CustomFieldType type) => switch (type) {
     CustomFieldType.text => AppIcons.textFields,
+    CustomFieldType.longText => AppIcons.notes,
     CustomFieldType.color => AppIcons.palette,
     CustomFieldType.date => AppIcons.calendarToday,
   };

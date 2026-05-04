@@ -1059,6 +1059,7 @@ class SpMapper {
       final fieldType = switch (sp.type) {
         1 => domain.CustomFieldType.color,
         2 || 3 || 4 || 5 || 6 || 7 => domain.CustomFieldType.date,
+        _ when sp.supportMarkdown => domain.CustomFieldType.longText,
         _ => domain.CustomFieldType.text,
       };
 
