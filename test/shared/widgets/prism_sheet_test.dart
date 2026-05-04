@@ -228,6 +228,35 @@ void main() {
     expect(find.text('Natural size content'), findsOneWidget);
   });
 
+  testWidgets('PrismSheet includes bottom navigation inset in padding', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: MediaQuery(
+          data: MediaQueryData(viewPadding: EdgeInsets.only(bottom: 48)),
+          child: Scaffold(
+            body: PrismSheet(title: 'Sheet', child: Text('Body')),
+          ),
+        ),
+      ),
+    );
+
+    final sheetPadding = tester.widget<Padding>(
+      find
+          .byWidgetPredicate(
+            (widget) =>
+                widget is Padding &&
+                widget.padding is EdgeInsets &&
+                (widget.padding as EdgeInsets).top == 16 &&
+                (widget.padding as EdgeInsets).bottom == 64,
+          )
+          .first,
+    );
+
+    expect((sheetPadding.padding as EdgeInsets).bottom, 64);
+  });
+
   testWidgets('PrismSheetTopBar close action has a localized semantics label', (
     tester,
   ) async {

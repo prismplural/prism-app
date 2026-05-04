@@ -14,6 +14,7 @@ import 'package:prism_plurality/features/settings/providers/terminology_provider
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
+import 'package:prism_plurality/shared/utils/modal_insets.dart';
 import 'package:prism_plurality/shared/widgets/markdown_editing_controller.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
@@ -556,7 +557,7 @@ class _BottomToolbar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final l10n = context.l10n;
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final bottomInset = modalBottomInsetOf(context);
     final mutedColor = theme.colorScheme.onSurfaceVariant;
 
     // Author avatar — only shown for new posts.

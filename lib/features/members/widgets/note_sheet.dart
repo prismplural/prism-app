@@ -6,6 +6,7 @@ import 'package:prism_plurality/domain/models/note.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/providers/notes_providers.dart';
 import 'package:prism_plurality/features/members/widgets/member_select_sheet.dart';
+import 'package:prism_plurality/shared/utils/modal_insets.dart';
 import 'package:prism_plurality/shared/widgets/markdown_editing_controller.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
@@ -252,7 +253,7 @@ class _BottomToolbar extends ConsumerWidget {
     final l10n = context.l10n;
     final dateFormat = DateFormat.MMMd(context.dateLocale);
     final terminology = watchTerminology(context, ref);
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final bottomInset = modalBottomInsetOf(context);
     final mutedColor = theme.colorScheme.onSurfaceVariant;
 
     // Resolve member if set.

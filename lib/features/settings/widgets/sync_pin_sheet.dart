@@ -8,6 +8,7 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 import 'package:prism_plurality/shared/providers/visual_effects_provider.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
+import 'package:prism_plurality/shared/utils/modal_insets.dart';
 import 'package:prism_plurality/shared/widgets/pin_numpad_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
@@ -297,7 +298,7 @@ class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final bottomInset = modalBottomInsetOf(context);
 
     return SecureScope(
       child: SingleChildScrollView(

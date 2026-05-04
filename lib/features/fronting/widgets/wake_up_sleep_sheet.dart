@@ -14,6 +14,7 @@ import 'package:prism_plurality/features/settings/providers/terminology_provider
 import 'package:prism_plurality/shared/extensions/duration_extensions.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/utils/modal_insets.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
@@ -130,7 +131,7 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
           left: 24,
           right: 24,
           top: 8,
-          bottom: 16 + MediaQuery.of(context).viewInsets.bottom,
+          bottom: 16 + modalBottomInsetOf(context),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,

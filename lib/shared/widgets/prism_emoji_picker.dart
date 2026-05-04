@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/utils/modal_insets.dart';
 import 'package:prism_plurality/shared/widgets/glass_surface.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
@@ -74,7 +75,8 @@ class PrismEmojiPicker extends StatelessWidget {
       ),
       emojiViewConfig: EmojiViewConfig(
         columns: 8,
-        emojiSizeMax: 28 *
+        emojiSizeMax:
+            28 *
             (foundation.defaultTargetPlatform == TargetPlatform.iOS
                 ? 1.2
                 : 1.0),
@@ -92,9 +94,7 @@ class PrismEmojiPicker extends StatelessWidget {
             ? AppColors.warmWhite.withValues(alpha: 0.06)
             : AppColors.warmBlack.withValues(alpha: 0.06),
       ),
-      bottomActionBarConfig: const BottomActionBarConfig(
-        enabled: false,
-      ),
+      bottomActionBarConfig: const BottomActionBarConfig(enabled: false),
       searchViewConfig: SearchViewConfig(
         backgroundColor: Colors.transparent,
         buttonIconColor: theme.colorScheme.onSurfaceVariant,
@@ -148,9 +148,9 @@ class _PickerBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final keyboardHeight = MediaQuery.viewInsetsOf(context).bottom;
+    final bottomInset = modalBottomInsetOf(context);
     return Padding(
-      padding: EdgeInsets.only(bottom: keyboardHeight),
+      padding: EdgeInsets.only(bottom: bottomInset),
       child: GlassSurface(
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         height: _kPickerHeight,

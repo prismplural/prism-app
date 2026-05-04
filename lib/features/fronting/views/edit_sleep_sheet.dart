@@ -7,6 +7,7 @@ import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/models/update_fronting_session_patch.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/fronting/utils/sleep_quality_l10n.dart';
+import 'package:prism_plurality/shared/utils/modal_insets.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_select.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
@@ -149,7 +150,7 @@ class _EditSleepSheetState extends ConsumerState<EditSleepSheet> {
               24,
               24,
               24,
-              24 + MediaQuery.of(context).viewInsets.bottom,
+              24 + modalBottomInsetOf(context),
             ),
             children: [
               PrismSurface(

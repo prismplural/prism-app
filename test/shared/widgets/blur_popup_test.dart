@@ -121,4 +121,37 @@ void main() {
       expect(firstMenuTop, lessThan(anchorTop));
     },
   );
+
+  testWidgets('BlurPopupAnchor dismisses before route pop on system back', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: const [Locale('en'), Locale('es')],
+        home: Scaffold(
+          body: Center(
+            child: BlurPopupAnchor(
+              itemCount: 1,
+              itemBuilder: (context, index, close) =>
+                  TextButton(onPressed: close, child: const Text('Popup item')),
+              child: const Text('Anchor'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Anchor'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Popup item'), findsOneWidget);
+
+    final handled = await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(handled, isTrue);
+    expect(find.text('Popup item'), findsNothing);
+    expect(find.text('Anchor'), findsOneWidget);
+  });
 }

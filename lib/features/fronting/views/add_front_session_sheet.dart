@@ -12,6 +12,7 @@ import 'package:prism_plurality/features/settings/providers/terminology_provider
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
+import 'package:prism_plurality/shared/utils/modal_insets.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
@@ -235,7 +236,7 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
                   24,
                   8,
                   24,
-                  24 + MediaQuery.of(context).viewInsets.bottom,
+                  24 + modalBottomInsetOf(context),
                 ),
                 children: [
                   // Per-action mode toggle (1B-δ): defaults from

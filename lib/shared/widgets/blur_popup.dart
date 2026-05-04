@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'dart:ui';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -7,6 +8,7 @@ import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
+import 'package:prism_plurality/shared/utils/modal_insets.dart';
 
 /// Direction the popup opens relative to the anchor.
 enum BlurPopupDirection { up, down }
@@ -93,6 +95,8 @@ class BlurPopupAnchorState extends State<BlurPopupAnchor>
     with SingleTickerProviderStateMixin {
   final _anchorKey = GlobalKey();
   OverlayEntry? _overlayEntry;
+  LocalHistoryEntry? _historyEntry;
+  bool _removingHistoryEntry = false;
   late final AnimationController _animController;
 
   @override
@@ -142,10 +146,10 @@ class BlurPopupAnchorState extends State<BlurPopupAnchor>
 
     final overlaySize = overlayRenderBox?.size ?? MediaQuery.of(context).size;
     final view = View.of(context);
-    final bottomInset = math.max(
-      MediaQuery.maybeOf(context)?.viewInsets.bottom ?? 0,
-      view.viewInsets.bottom / view.devicePixelRatio,
-    );
+    final viewBottomInset =
+        math.max(view.viewInsets.bottom, view.viewPadding.bottom) /
+        view.devicePixelRatio;
+    final bottomInset = math.max(modalBottomInsetOf(context), viewBottomInset);
     final visibleBottom = (overlaySize.height - bottomInset)
         .clamp(0.0, overlaySize.height)
         .toDouble();
@@ -188,6 +192,18 @@ class BlurPopupAnchorState extends State<BlurPopupAnchor>
     );
 
     overlay.insert(_overlayEntry!);
+    final route = ModalRoute.of(context);
+    if (route != null) {
+      final historyEntry = LocalHistoryEntry(
+        onRemove: () {
+          if (_removingHistoryEntry) return;
+          _historyEntry = null;
+          unawaited(_removeOverlay(animate: true, removeHistoryEntry: false));
+        },
+      );
+      route.addLocalHistoryEntry(historyEntry);
+      _historyEntry = historyEntry;
+    }
     _animController.forward(from: 0);
     return true;
   }
@@ -201,13 +217,28 @@ class BlurPopupAnchorState extends State<BlurPopupAnchor>
     _showPopup();
   }
 
-  Future<void> _removeOverlay({required bool animate}) async {
-    if (_overlayEntry == null) return;
+  Future<void> _removeOverlay({
+    required bool animate,
+    bool removeHistoryEntry = true,
+  }) async {
+    final overlayEntry = _overlayEntry;
+    if (overlayEntry == null) return;
+    _overlayEntry = null;
+
+    final historyEntry = _historyEntry;
+    if (removeHistoryEntry && historyEntry != null) {
+      _removingHistoryEntry = true;
+      historyEntry.remove();
+      _removingHistoryEntry = false;
+      _historyEntry = null;
+    } else if (!removeHistoryEntry) {
+      _historyEntry = null;
+    }
+
     if (animate && mounted) {
       await _animController.reverse();
     }
-    _overlayEntry?.remove();
-    _overlayEntry = null;
+    overlayEntry.remove();
   }
 
   @override

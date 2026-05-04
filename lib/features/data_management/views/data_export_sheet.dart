@@ -8,6 +8,7 @@ import 'package:share_plus/share_plus.dart';
 
 import 'package:prism_plurality/features/data_management/providers/data_management_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
+import 'package:prism_plurality/shared/utils/modal_insets.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_field_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
@@ -131,7 +132,7 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
               24,
               24,
               24,
-              24 + MediaQuery.of(context).viewInsets.bottom,
+              24 + modalBottomInsetOf(context),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,

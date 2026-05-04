@@ -3,6 +3,7 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/utils/modal_insets.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 
 /// A styled bottom sheet wrapper with consistent Prism design language.
@@ -147,7 +148,7 @@ class PrismSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final bottomInset = modalBottomInsetOf(context);
 
     return Padding(
       padding: EdgeInsets.only(

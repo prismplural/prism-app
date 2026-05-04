@@ -54,6 +54,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
   // Section keys for scroll-to-section navigation in the grouped list.
   final Map<String, GlobalKey> _sectionKeys = {};
   final GlobalKey _ungroupedKey = GlobalKey();
+  final GlobalKey<BlurPopupAnchorState> _optionsPopupKey = GlobalKey();
   final ScrollController _scrollController = ScrollController();
 
   @override
@@ -75,146 +76,166 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
         : AppRoutePaths.settingsMember(id);
   }
 
-  void _showOptionsMenu(List<Member>? members, dynamic terms) {
+  Widget _buildOptionsMenuAction(List<Member>? members, Terminology terms) {
     final l10n = context.l10n;
-    final canSearch = members != null && members.isNotEmpty;
-    PrismSheet.show<void>(
-      context: context,
-      title: l10n.options,
-      builder: (ctx) {
+    final availableMembers = members ?? const <Member>[];
+    final canSearch = availableMembers.isNotEmpty;
+
+    final entries = <Widget Function(BuildContext, VoidCallback)>[
+      (ctx, close) {
         final theme = Theme.of(ctx);
         final ctxL10n = ctx.l10n;
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            PrismListRow(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              leading: Icon(AppIcons.search),
-              title: Text(ctxL10n.terminologySearchHint(terms.pluralLower)),
-              enabled: canSearch,
-              onTap: canSearch
-                  ? () {
-                      Navigator.of(ctx).pop();
-                      _openSearch(members);
-                    }
-                  : null,
-            ),
-            const Divider(height: 1),
-            PrismListRow(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              leading: Icon(
-                _showInactive
-                    ? AppIcons.visibility
-                    : AppIcons.visibilityOutlined,
-              ),
-              title: Text(
-                _showInactive
-                    ? ctxL10n.memberHideInactive
-                    : ctxL10n.memberShowInactive,
-              ),
-              trailing: _showInactive
-                  ? Icon(
-                      AppIcons.check,
-                      size: 18,
-                      color: theme.colorScheme.primary,
-                    )
-                  : null,
-              onTap: () {
-                Navigator.of(ctx).pop();
-                setState(() => _showInactive = !_showInactive);
-                ref
-                    .read(showInactiveInGroupedListProvider.notifier)
-                    .set(_showInactive);
-              },
-            ),
-            if (members != null && members.length > 1) ...[
-              const Divider(height: 1),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(0, 12, 0, 4),
-                child: Text(
-                  ctxL10n.memberReorderBy,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              PrismListRow(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                dense: true,
-                title: Text(ctxL10n.memberSortNameAZ),
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  _reorderBy(
-                    members,
-                    (a, b) =>
-                        a.name.toLowerCase().compareTo(b.name.toLowerCase()),
-                  );
-                },
-              ),
-              PrismListRow(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                dense: true,
-                title: Text(ctxL10n.memberSortNameZA),
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  _reorderBy(
-                    members,
-                    (a, b) =>
-                        b.name.toLowerCase().compareTo(a.name.toLowerCase()),
-                  );
-                },
-              ),
-              PrismListRow(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                dense: true,
-                title: Text(ctxL10n.memberSortRecentlyCreated),
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  _reorderBy(
-                    members,
-                    (a, b) => b.createdAt.compareTo(a.createdAt),
-                  );
-                },
-              ),
-              PrismListRow(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                dense: true,
-                title: Text(ctxL10n.memberSortMostFronting),
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  _reorderByFronting(members, descending: true);
-                },
-              ),
-              PrismListRow(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                dense: true,
-                title: Text(ctxL10n.memberSortLeastFronting),
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  _reorderByFronting(members, descending: false);
-                },
-              ),
-            ],
-          ],
+        return PrismListRow(
+          dense: true,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          leading: Icon(AppIcons.search, size: 20),
+          title: Text(
+            ctxL10n.terminologySearchHint(terms.pluralLower),
+            style: theme.textTheme.bodyMedium,
+          ),
+          enabled: canSearch,
+          onTap: canSearch
+              ? () {
+                  close();
+                  _openSearch(availableMembers);
+                }
+              : null,
         );
       },
+      (_, _) => const Divider(height: 1),
+      (ctx, close) {
+        final theme = Theme.of(ctx);
+        final ctxL10n = ctx.l10n;
+        return PrismListRow(
+          dense: true,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          leading: Icon(
+            _showInactive ? AppIcons.visibility : AppIcons.visibilityOutlined,
+            size: 20,
+          ),
+          title: Text(
+            _showInactive
+                ? ctxL10n.memberHideInactive
+                : ctxL10n.memberShowInactive,
+            style: theme.textTheme.bodyMedium,
+          ),
+          trailing: _showInactive
+              ? Icon(AppIcons.check, size: 18, color: theme.colorScheme.primary)
+              : null,
+          onTap: () {
+            close();
+            setState(() => _showInactive = !_showInactive);
+            ref
+                .read(showInactiveInGroupedListProvider.notifier)
+                .set(_showInactive);
+          },
+        );
+      },
+    ];
+
+    if (availableMembers.length > 1) {
+      entries.addAll([
+        (_, _) => const Divider(height: 1),
+        (ctx, _) {
+          final theme = Theme.of(ctx);
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            child: Text(
+              ctx.l10n.memberReorderBy,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          );
+        },
+        (ctx, close) => _buildSortMenuRow(
+          context: ctx,
+          icon: AppIcons.arrowUpward,
+          label: ctx.l10n.memberSortNameAZ,
+          onTap: () {
+            close();
+            _reorderBy(
+              availableMembers,
+              (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+            );
+          },
+        ),
+        (ctx, close) => _buildSortMenuRow(
+          context: ctx,
+          icon: AppIcons.arrowDownward,
+          label: ctx.l10n.memberSortNameZA,
+          onTap: () {
+            close();
+            _reorderBy(
+              availableMembers,
+              (a, b) => b.name.toLowerCase().compareTo(a.name.toLowerCase()),
+            );
+          },
+        ),
+        (ctx, close) => _buildSortMenuRow(
+          context: ctx,
+          icon: AppIcons.history,
+          label: ctx.l10n.memberSortRecentlyCreated,
+          onTap: () {
+            close();
+            _reorderBy(
+              availableMembers,
+              (a, b) => b.createdAt.compareTo(a.createdAt),
+            );
+          },
+        ),
+        (ctx, close) => _buildSortMenuRow(
+          context: ctx,
+          icon: AppIcons.flashOn,
+          label: ctx.l10n.memberSortMostFronting,
+          onTap: () {
+            close();
+            _reorderByFronting(availableMembers, descending: true);
+          },
+        ),
+        (ctx, close) => _buildSortMenuRow(
+          context: ctx,
+          icon: AppIcons.frontHandOutlined,
+          label: ctx.l10n.memberSortLeastFronting,
+          onTap: () {
+            close();
+            _reorderByFronting(availableMembers, descending: false);
+          },
+        ),
+      ]);
+    }
+
+    return BlurPopupAnchor(
+      key: _optionsPopupKey,
+      trigger: BlurPopupTrigger.manual,
+      preferredDirection: BlurPopupDirection.down,
+      width: 260,
+      maxHeight: 384,
+      itemCount: entries.length,
+      semanticLabel: l10n.options,
+      itemBuilder: (ctx, index, close) => entries[index](ctx, close),
+      child: PrismTopBarAction(
+        icon: AppIcons.moreVert,
+        tooltip: l10n.options,
+        onPressed: () => _optionsPopupKey.currentState?.show(),
+      ),
+    );
+  }
+
+  Widget _buildSortMenuRow({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    final theme = Theme.of(context);
+    return PrismListRow(
+      dense: true,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      leading: Icon(icon, size: 20),
+      title: Text(label, style: theme.textTheme.bodyMedium),
+      onTap: onTap,
     );
   }
 
@@ -416,11 +437,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
             tooltip: context.l10n.terminologyAddButton(terms.singular),
             onPressed: _openAddSheet,
           ),
-          PrismTopBarAction(
-            icon: AppIcons.moreVert,
-            tooltip: context.l10n.options,
-            onPressed: () => _showOptionsMenu(membersAsync.value, terms),
-          ),
+          _buildOptionsMenuAction(membersAsync.value, terms),
         ],
       ),
       bodyPadding: EdgeInsets.zero,

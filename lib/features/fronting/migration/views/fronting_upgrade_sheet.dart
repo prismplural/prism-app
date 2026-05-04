@@ -35,6 +35,7 @@ import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/utils/modal_insets.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_field_icon_button.dart';
@@ -628,7 +629,7 @@ class _FrontingUpgradeSheetState extends ConsumerState<FrontingUpgradeSheet> {
               24,
               24,
               24,
-              24 + MediaQuery.of(context).viewInsets.bottom,
+              24 + modalBottomInsetOf(context),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
