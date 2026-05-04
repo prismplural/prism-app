@@ -177,6 +177,45 @@ void main() {
     );
 
     test(
+      'update: short-id-only member is completed instead of duplicated',
+      () async {
+        await db.membersDao.insertMember(
+          MembersCompanion.insert(
+            id: 'local-half-linked',
+            name: 'Alice',
+            createdAt: DateTime(2026),
+            pluralkitId: const Value('aaaaa'),
+          ),
+        );
+
+        final service = PluralKitSyncService(
+          memberRepository: DriftMemberRepository(db.membersDao, null),
+          frontingSessionRepository: DriftFrontingSessionRepository(
+            db.frontingSessionsDao,
+            null,
+          ),
+          syncDao: db.pluralKitSyncDao,
+          tokenOverride: 't',
+          clientFactory: (_) => _mockClient(
+            system: {'id': 'sys1', 'name': 'Test'},
+            members: [
+              {'id': 'aaaaa', 'uuid': 'u-alice', 'name': 'Alice'},
+            ],
+          ),
+          bannerCacheService: _testBannerCacheService(),
+        );
+
+        await service.importMembersOnly();
+
+        final rows = await db.membersDao.getAllMembers();
+        expect(rows, hasLength(1));
+        expect(rows.single.id, 'local-half-linked');
+        expect(rows.single.pluralkitId, 'aaaaa');
+        expect(rows.single.pluralkitUuid, 'u-alice');
+      },
+    );
+
+    test(
       'update: missing proxy_tags on subsequent import preserves local value',
       () async {
         // First import populates proxy tags.

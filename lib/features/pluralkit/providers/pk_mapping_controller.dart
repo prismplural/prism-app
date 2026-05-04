@@ -9,6 +9,7 @@ import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers
 import 'package:prism_plurality/features/pluralkit/services/pk_mapping_applier.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_member_matcher.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_push_service.dart';
+import 'package:prism_plurality/features/pluralkit/utils/pk_link_utils.dart';
 
 /// Immutable state backing the mapping screen.
 class PkMappingState {
@@ -77,7 +78,7 @@ class PkMappingState {
   List<domain.Member> get unlinkedLocals {
     final consumed = linkedLocalIds;
     return localMembers
-        .where((m) => m.pluralkitUuid == null && !consumed.contains(m.id))
+        .where((m) => !hasPluralKitLink(m) && !consumed.contains(m.id))
         .toList();
   }
 }
@@ -93,19 +94,32 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
     final (_, pkMembers) = await syncService.fetchPkMembersWithoutImport();
 
     final memberRepo = ref.read(memberRepositoryProvider);
-    final locals = (await memberRepo.getAllMembers())
-        .where((m) => !m.pluralkitSyncIgnored)
+    final allLocals = await memberRepo.getAllMembers();
+    final locals = allLocals.where((m) => !m.pluralkitSyncIgnored).toList();
+    final linkedPkUuids = {
+      for (final m in allLocals)
+        if (m.pluralkitUuid != null && m.pluralkitUuid!.trim().isNotEmpty)
+          m.pluralkitUuid!.trim(),
+    };
+    final linkedPkIds = {
+      for (final m in allLocals)
+        if (m.pluralkitId != null && m.pluralkitId!.trim().isNotEmpty)
+          m.pluralkitId!.trim(),
+    };
+    final unmappedPkMembers = pkMembers
+        .where(
+          (pk) =>
+              !linkedPkUuids.contains(pk.uuid) && !linkedPkIds.contains(pk.id),
+        )
         .toList();
 
     // Exclude already-linked locals from mapping choices entirely — they're
     // considered done.
-    final unlinkedLocals = locals
-        .where((m) => m.pluralkitUuid == null)
-        .toList();
+    final unlinkedLocals = locals.where((m) => !hasPluralKitLink(m)).toList();
 
     final suggestions = const PkMemberMatcher().suggest(
       unlinkedLocals,
-      pkMembers,
+      unmappedPkMembers,
     );
 
     final pkDecisions = <String, PkMappingDecision>{};
@@ -142,7 +156,7 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
     }
 
     return PkMappingState(
-      pkMembers: pkMembers,
+      pkMembers: unmappedPkMembers,
       localMembers: locals,
       decisionsByPkUuid: pkDecisions,
       decisionsByLocalId: localDecisions,

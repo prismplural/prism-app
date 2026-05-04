@@ -27,6 +27,7 @@ import 'package:prism_plurality/features/pluralkit/services/pk_push_service.dart
 import 'package:prism_plurality/features/pluralkit/services/pk_session_id.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_switch_cursor.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
+import 'package:prism_plurality/features/pluralkit/utils/pk_link_utils.dart';
 import 'package:prism_plurality/shared/utils/avatar_fetcher.dart';
 
 final RegExp _pluralKitSwitchUuidPattern = RegExp(
@@ -1155,9 +1156,6 @@ class PluralKitSyncService {
     }
 
     try {
-      // Build member resolution map for the diff sweep.
-      final shortIdToUuid = await _buildShortIdToUuidMap();
-
       // Accumulates messages for PK-side 404s we detected during this run.
       // Surfaced via `syncError` at the end so the user sees that a linked
       // member or switch was deleted on PK (otherwise the unlink would be
@@ -1183,7 +1181,7 @@ class PluralKitSyncService {
         // detect stale-link clears.
         final linkedBefore = <String, String>{
           for (final m in allMembers)
-            if (m.pluralkitId != null || m.pluralkitUuid != null) m.id: m.name,
+            if (hasPluralKitLink(m)) m.id: m.name,
         };
 
         final biService = PkBidirectionalService(
@@ -1205,7 +1203,7 @@ class PluralKitSyncService {
         for (final entry in linkedBefore.entries) {
           final now = afterById[entry.key];
           if (now == null) continue;
-          if (now.pluralkitId == null && now.pluralkitUuid == null) {
+          if (!hasPluralKitLink(now)) {
             staleLinkMessages.add(
               "PluralKit member '${entry.value}' was removed on the "
               'server — unlinked locally. Re-link from the mapping screen '
@@ -1321,10 +1319,9 @@ class PluralKitSyncService {
         debugPrint('[PK_PULL] ${newSwitches.length} new switches to process');
 
         if (newSwitches.isNotEmpty) {
-          // Re-build shortIdToUuid in case member sync updated mappings.
-          final resolvedShortIdToUuid = shortIdToUuid.isEmpty
-              ? await _buildShortIdToUuidMap()
-              : shortIdToUuid;
+          // Build after member sync so short-id-only repaired rows can resolve
+          // switch member references on this same pass.
+          final resolvedShortIdToUuid = await _buildShortIdToUuidMap();
 
           final sweepResult = await _runDiffSweep(
             switches: newSwitches,
@@ -1579,9 +1576,15 @@ class PluralKitSyncService {
     final existing = await _memberRepository.getAllMembers();
     debugPrint('[PK_SVC] _importMembers: existing in DB=${existing.length}');
     final byPkUuid = <String, domain.Member>{};
+    final byPkId = <String, domain.Member>{};
     for (final m in existing) {
-      if (m.pluralkitUuid != null) {
-        byPkUuid[m.pluralkitUuid!] = m;
+      final pkUuid = m.pluralkitUuid?.trim();
+      if (pkUuid != null && pkUuid.isNotEmpty) {
+        byPkUuid[pkUuid] = m;
+      }
+      final pkId = m.pluralkitId?.trim();
+      if (pkId != null && pkId.isNotEmpty) {
+        byPkId[pkId] = m;
       }
     }
 
@@ -1595,7 +1598,7 @@ class PluralKitSyncService {
       }
 
       try {
-        final localMember = byPkUuid[pk.uuid];
+        final localMember = byPkUuid[pk.uuid] ?? byPkId[pk.id];
         final bannerCache = await _bannerCacheService.resolve(
           PkBannerCacheInput(
             currentPkBannerUrl: localMember?.pkBannerUrl,
@@ -1686,8 +1689,13 @@ class PluralKitSyncService {
     final members = await _memberRepository.getAllMembers();
     final map = <String, String>{};
     for (final m in members) {
-      if (m.pluralkitId != null && m.pluralkitUuid != null) {
-        map[m.pluralkitId!] = m.pluralkitUuid!;
+      final pkId = m.pluralkitId?.trim();
+      final pkUuid = m.pluralkitUuid?.trim();
+      if (pkId != null &&
+          pkId.isNotEmpty &&
+          pkUuid != null &&
+          pkUuid.isNotEmpty) {
+        map[pkId] = pkUuid;
       }
     }
     return map;
@@ -1698,8 +1706,9 @@ class PluralKitSyncService {
     final members = await _memberRepository.getAllMembers();
     final map = <String, String>{};
     for (final m in members) {
-      if (m.pluralkitUuid != null) {
-        map[m.pluralkitUuid!] = m.id;
+      final pkUuid = m.pluralkitUuid?.trim();
+      if (pkUuid != null && pkUuid.isNotEmpty) {
+        map[pkUuid] = m.id;
       }
     }
     return map;
@@ -2607,8 +2616,11 @@ class PluralKitSyncService {
         );
         continue;
       }
-      if (fresh.pluralkitUuid == null ||
-          fresh.pluralkitUuid != session.pluralkitUuid) {
+      final freshPkUuid = fresh.pluralkitUuid?.trim();
+      final queuedPkUuid = session.pluralkitUuid?.trim();
+      if (freshPkUuid == null ||
+          freshPkUuid.isEmpty ||
+          freshPkUuid != queuedPkUuid) {
         debugPrint(
           '[PK] Session ${session.id} pluralkit_uuid changed since dequeue; '
           'aborting DELETE.',
@@ -2625,7 +2637,7 @@ class PluralKitSyncService {
         continue;
       }
 
-      final pkUuid = fresh.pluralkitUuid!;
+      final pkUuid = freshPkUuid;
       if (!isPluralKitSwitchUuid(pkUuid)) {
         debugPrint(
           '[PK] Session ${session.id} has non-API pluralkit_uuid=$pkUuid; '
@@ -2716,8 +2728,11 @@ class PluralKitSyncService {
         );
         continue;
       }
-      if (fresh.pluralkitId == null ||
-          fresh.pluralkitId != member.pluralkitId) {
+      final freshPkId = fresh.pluralkitId?.trim();
+      final queuedPkId = member.pluralkitId?.trim();
+      if (freshPkId == null ||
+          freshPkId.isEmpty ||
+          freshPkId != queuedPkId) {
         debugPrint(
           '[PK] Member ${member.id} pluralkit_id changed since dequeue; '
           'aborting DELETE.',
@@ -2733,7 +2748,7 @@ class PluralKitSyncService {
         continue;
       }
 
-      final pkId = fresh.pluralkitId!;
+      final pkId = freshPkId;
       try {
         await push.pushMemberDeletion(member.id, pkId, client);
         await _memberRepository.clearPluralKitLink(member.id);
@@ -2789,8 +2804,9 @@ class PluralKitSyncService {
       final members = await _memberRepository.getAllMembers();
       final localIdToPkId = <String, String>{};
       for (final m in members) {
-        if (m.pluralkitId != null && m.pluralkitId!.isNotEmpty) {
-          localIdToPkId[m.id] = m.pluralkitId!;
+        final pkId = m.pluralkitId?.trim();
+        if (pkId != null && pkId.isNotEmpty) {
+          localIdToPkId[m.id] = pkId;
         }
       }
 
@@ -2813,7 +2829,7 @@ class PluralKitSyncService {
           legacyNullSourceSkipped++;
           continue;
         }
-        if (session.pluralkitUuid != null) continue;
+        if ((session.pluralkitUuid ?? '').trim().isNotEmpty) continue;
         if (!session.startTime.isAfter(linkedAt)) continue;
         final memberId = session.memberId;
         if (memberId == null) continue;
@@ -2900,7 +2916,8 @@ class PluralKitSyncService {
     domain.Member member, {
     PkPushService? pushService,
   }) async {
-    if (member.pluralkitId == null || member.pluralkitId!.isEmpty) return false;
+    final pkId = member.pluralkitId?.trim();
+    if (pkId == null || pkId.isEmpty) return false;
     if (!_state.canAutoSync) return false;
 
     final client = await _buildClient();

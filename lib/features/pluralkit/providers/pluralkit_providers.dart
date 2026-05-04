@@ -237,7 +237,7 @@ class PluralKitSyncNotifier extends Notifier<PluralKitSyncState> {
     if (ref.read(frontingMigrationWritesBlockedProvider)) return;
     if (!state.canAutoSync) return;
     if (!ref.read(pkSyncDirectionProvider).pushEnabled) return;
-    if (member.pluralkitId == null || member.pluralkitId!.isEmpty) return;
+    if ((member.pluralkitId ?? '').trim().isEmpty) return;
     try {
       await _service.pushMemberUpdate(member);
     } catch (_) {}

@@ -7,6 +7,7 @@ import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_banner_cache_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_push_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
+import 'package:prism_plurality/features/pluralkit/utils/pk_link_utils.dart';
 import 'package:uuid/uuid.dart';
 
 /// One user decision made in the mapping screen.
@@ -190,8 +191,23 @@ class PkMappingApplier {
     if (local == null) {
       throw StateError('Local member ${d.localMemberId} not found');
     }
+    final pk = d.pkMember;
+    final linkedElsewhere = await _findExistingLinkedMember(
+      pk,
+      exceptLocalId: local.id,
+    );
+    if (linkedElsewhere != null) {
+      throw StateError(
+        'PluralKit member ${pk.name} is already linked to '
+        '${linkedElsewhere.name}',
+      );
+    }
     // Idempotent: if already linked to this PK member, no-op.
-    if (local.pluralkitUuid == d.pkMember.uuid) return;
+    if (local.pluralkitUuid == pk.uuid &&
+        local.pluralkitId == pk.id &&
+        !local.pluralkitSyncIgnored) {
+      return;
+    }
 
     // Plan 08 "Conflict semantics on link": on first link, if the local field
     // is the Prism default (empty/null/placeholder), accept PK's value —
@@ -200,7 +216,6 @@ class PkMappingApplier {
     //
     // We also download PK's avatar if local has none, so the linked member
     // gets its picture without waiting for a full re-import.
-    final pk = d.pkMember;
     var updated = local.copyWith(
       pluralkitUuid: pk.uuid,
       pluralkitId: pk.id,
@@ -274,13 +289,22 @@ class PkMappingApplier {
   static bool _isDefaultName(String name) => name.isEmpty;
 
   Future<void> _applyImport(PkImportDecision d) async {
-    // Idempotent: if a local with this UUID already exists, no-op.
-    final existing = await _members.getAllMembers();
-    final byUuid = existing.firstWhere(
-      (m) => m.pluralkitUuid == d.pkMember.uuid,
-      orElse: () => _sentinel,
-    );
-    if (!identical(byUuid, _sentinel)) return;
+    // Idempotent: if a local with this UUID or short ID already exists, no-op.
+    // Older push paths persisted only the short ID; complete the UUID here so
+    // the mapping screen no longer treats that member as unlinked.
+    final existing = await _findExistingLinkedMember(d.pkMember);
+    if (existing != null) {
+      if (existing.pluralkitUuid != d.pkMember.uuid ||
+          existing.pluralkitId != d.pkMember.id) {
+        await _members.updateMember(
+          existing.copyWith(
+            pluralkitUuid: d.pkMember.uuid,
+            pluralkitId: d.pkMember.id,
+          ),
+        );
+      }
+      return;
+    }
 
     // Download avatar when PK has one, matching the PluralKitSyncService
     // _importMembers behavior so mapping-UI Imports don't produce avatar-less
@@ -346,7 +370,7 @@ class PkMappingApplier {
       throw StateError('Local member ${d.localMemberId} not found');
     }
     // Idempotent: if already has a PK ID, no-op.
-    if (local.pluralkitId != null && local.pluralkitUuid != null) return;
+    if (_hasText(local.pluralkitId) && _hasText(local.pluralkitUuid)) return;
 
     // Crash-recovery: prior run POSTed but never wrote the local member.
     // pk_mapping_state has the PK id/uuid — reuse them instead of re-POSTing.
@@ -361,10 +385,13 @@ class PkMappingApplier {
     }
 
     // If pluralkitId exists but uuid missing, fetch to complete the pairing.
-    if (local.pluralkitId != null && local.pluralkitUuid == null) {
+    final existingPkId = local.pluralkitId?.trim();
+    if (existingPkId != null &&
+        existingPkId.isNotEmpty &&
+        !_hasText(local.pluralkitUuid)) {
       final members = await _client.getMembers();
       final match = members.firstWhere(
-        (m) => m.id == local.pluralkitId,
+        (m) => m.id == existingPkId,
         orElse: () => _pkSentinel,
       );
       if (!identical(match, _pkSentinel)) {
@@ -377,13 +404,9 @@ class PkMappingApplier {
 
     // Push through PkPushService (handles queue + rate limits) to get the ID,
     // then fetch the full PKMember object for the UUID.
-    final createdId = await _pushService.pushMember(local, _client);
-    final members = await _client.getMembers();
-    final created = members.firstWhere(
-      (m) => m.id == createdId,
-      orElse: () => _pkSentinel,
-    );
-    final createdUuid = identical(created, _pkSentinel) ? null : created.uuid;
+    final created = await _pushService.pushMemberFull(local, _client);
+    final createdId = created.id;
+    final createdUuid = created.uuid;
 
     // Persist the returned PK identifiers to pk_mapping_state BEFORE writing
     // the member, so a crash between here and the member update doesn't cause
@@ -417,12 +440,19 @@ class PkMappingApplier {
     // PK-side skip is recorded purely in pk_mapping_state; no local write.
   }
 
-  // Sentinels for "not found" without nullable casts.
-  static final domain.Member _sentinel = domain.Member(
-    id: '__sentinel__',
-    name: '',
-    createdAt: DateTime.fromMillisecondsSinceEpoch(0),
-  );
+  Future<domain.Member?> _findExistingLinkedMember(
+    PKMember pk, {
+    String? exceptLocalId,
+  }) async {
+    final existing = await _members.getAllMembers();
+    for (final member in existing) {
+      if (member.id == exceptLocalId) continue;
+      if (memberMatchesPkMember(member, pk)) return member;
+    }
+    return null;
+  }
+
+  // Sentinel for "not found" without nullable casts.
   static const PKMember _pkSentinel = PKMember(
     id: '__sentinel__',
     uuid: '__sentinel__',

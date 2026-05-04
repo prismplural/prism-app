@@ -279,7 +279,7 @@ void main() {
       expect(summary.membersSkipped, 1);
     });
 
-    test('new local member pushed and pkId stored', () async {
+    test('new local member pushed and PK identifiers stored', () async {
       final localMembers = [_localMember(id: 'local-1', name: 'NewMember')];
 
       final summary = await service.syncMembers(
@@ -298,7 +298,34 @@ void main() {
       // Should have stored the PK ID back via memberRepository.updateMember
       expect(fakeRepo.calls.any((c) => c.method == 'updateMember'), isTrue);
       final updatedMember = (fakeRepo.calls.first.args[0] as domain.Member);
-      expect(updatedMember.pluralkitId, isNotNull);
+      expect(updatedMember.pluralkitId, 'pk001');
+      expect(updatedMember.pluralkitUuid, 'uuid-pk001');
+    });
+  });
+
+  group('identity repair', () {
+    test('fills missing UUID on short-id-only local link', () async {
+      final local = _localMember(pluralkitId: 'pk001');
+      final pk = _pkMember(id: 'pk001', uuid: 'uuid-pk001');
+
+      final summary = await service.syncMembers(
+        localMembers: [local],
+        pkMembers: [pk],
+        fieldConfigs: {},
+        direction: PkSyncDirection.bidirectional,
+        lastSyncDate: null,
+        memberRepository: fakeRepo,
+        client: fakeClient,
+      );
+
+      final updates = fakeRepo.calls
+          .where((c) => c.method == 'updateMember')
+          .map((c) => c.args[0] as domain.Member)
+          .toList();
+      expect(updates, isNotEmpty);
+      expect(updates.first.pluralkitId, 'pk001');
+      expect(updates.first.pluralkitUuid, 'uuid-pk001');
+      expect(summary.membersPulled, 1);
     });
   });
 
@@ -614,6 +641,7 @@ void main() {
         pronouns: 'she/her',
         bio: 'hello',
         pluralkitId: 'pk001',
+        pluralkitUuid: 'uuid-pk001',
         displayName: 'SameDisplay',
         birthday: '2020-01-15',
       );
@@ -971,41 +999,37 @@ void main() {
   // -------------------------------------------------------------------------
 
   group('proxy tag canonicalization', () {
-    test(
-      'reordered per-tag map keys are treated as equal (no push)',
-      () async {
-        // Local tag is `{"prefix":"X:","suffix":null}`; PK tag is the same
-        // payload but with the keys serialized in the opposite order. The
-        // raw JSON strings differ but the canonical form must match.
-        final local = _localMember(
-          id: 'local-1',
-          pluralkitId: 'pk001',
-          proxyTagsJson: '[{"prefix":"X:","suffix":null}]',
-        );
-        final pk = _pkMember(
-          id: 'pk001',
-          proxyTagsJson: '[{"suffix":null,"prefix":"X:"}]',
-        );
+    test('reordered per-tag map keys are treated as equal (no push)', () async {
+      // Local tag is `{"prefix":"X:","suffix":null}`; PK tag is the same
+      // payload but with the keys serialized in the opposite order. The
+      // raw JSON strings differ but the canonical form must match.
+      final local = _localMember(
+        id: 'local-1',
+        pluralkitId: 'pk001',
+        proxyTagsJson: '[{"prefix":"X:","suffix":null}]',
+      );
+      final pk = _pkMember(
+        id: 'pk001',
+        proxyTagsJson: '[{"suffix":null,"prefix":"X:"}]',
+      );
 
-        final summary = await service.syncMembers(
-          localMembers: [local],
-          pkMembers: [pk],
-          fieldConfigs: {},
-          direction: PkSyncDirection.bidirectional,
-          lastSyncDate: null,
-          memberRepository: fakeRepo,
-          client: fakeClient,
-        );
+      final summary = await service.syncMembers(
+        localMembers: [local],
+        pkMembers: [pk],
+        fieldConfigs: {},
+        direction: PkSyncDirection.bidirectional,
+        lastSyncDate: null,
+        memberRepository: fakeRepo,
+        client: fakeClient,
+      );
 
-        expect(summary.membersPushed, 0);
-        expect(
-          fakeClient.calls.any((c) => c.method == 'updateMember'),
-          isFalse,
-          reason:
-              'Identical tags with reordered map keys must not trigger push',
-        );
-      },
-    );
+      expect(summary.membersPushed, 0);
+      expect(
+        fakeClient.calls.any((c) => c.method == 'updateMember'),
+        isFalse,
+        reason: 'Identical tags with reordered map keys must not trigger push',
+      );
+    });
 
     test(
       'reordered outer list elements are treated as equal (no push)',
@@ -1036,8 +1060,7 @@ void main() {
         expect(
           fakeClient.calls.any((c) => c.method == 'updateMember'),
           isFalse,
-          reason:
-              'Same tag set in different list order must not trigger push',
+          reason: 'Same tag set in different list order must not trigger push',
         );
       },
     );
@@ -1064,10 +1087,7 @@ void main() {
       );
 
       expect(summary.membersPushed, 1);
-      expect(
-        fakeClient.calls.any((c) => c.method == 'updateMember'),
-        isTrue,
-      );
+      expect(fakeClient.calls.any((c) => c.method == 'updateMember'), isTrue);
     });
   });
 }

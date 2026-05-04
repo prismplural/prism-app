@@ -1,5 +1,6 @@
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
+import 'package:prism_plurality/features/pluralkit/utils/pk_link_utils.dart';
 
 enum PkMatchConfidence { exact, caseInsensitive, none }
 
@@ -25,14 +26,14 @@ class PkMemberMatcher {
   /// - `caseInsensitive`: names match case-insensitively (after trim), unique on both sides
   /// - `none`: no match, or ambiguous (multiple candidates on either side)
   ///
-  /// Members already linked (have non-null `pluralkitUuid`) are excluded from
+  /// Members already linked by either PK UUID or short ID are excluded from
   /// candidacy — they're considered already-mapped.
   List<PkMatchSuggestion> suggest(
     List<Member> locals,
     List<PKMember> pkMembers,
   ) {
     final unlinkedLocals = locals
-        .where((m) => m.pluralkitUuid == null && !m.pluralkitSyncIgnored)
+        .where((m) => !hasPluralKitLink(m) && !m.pluralkitSyncIgnored)
         .toList();
 
     final localsByExactName = <String, List<Member>>{};

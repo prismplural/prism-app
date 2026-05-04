@@ -1014,6 +1014,72 @@ void main() {
       // performFullImport calls getSwitches at least once
       expect(fakeClient.getSwitchesCallCount, greaterThan(0));
     });
+
+    test(
+      'repairs short-id-only member before resolving switches in same pass',
+      () async {
+        final db = _makeDb();
+        addTearDown(db.close);
+
+        final memberRepo = FakeMemberRepository()
+          ..seed([
+            domain.Member(
+              id: 'local-half-linked',
+              name: 'Alice',
+              createdAt: DateTime.utc(2026, 1, 1),
+              pluralkitId: 'pk001',
+            ),
+            domain.Member(
+              id: 'local-complete',
+              name: 'Bob',
+              createdAt: DateTime.utc(2026, 1, 1),
+              pluralkitId: 'pk999',
+              pluralkitUuid: 'uuid-pk999',
+            ),
+          ]);
+        final sessionRepo = FakeFrontingSessionRepository();
+        const switchId = '00000000-0000-0000-0000-000000000001';
+        final fakeClient = FakePluralKitClient()
+          ..membersToReturn = const [
+            PKMember(id: 'pk001', uuid: 'uuid-pk001', name: 'Alice'),
+            PKMember(id: 'pk999', uuid: 'uuid-pk999', name: 'Bob'),
+          ]
+          ..switchesPageQueue = [
+            [
+              PKSwitch(
+                id: switchId,
+                timestamp: DateTime.utc(2026, 2, 1, 12),
+                members: ['pk001'],
+              ),
+            ],
+            [],
+          ];
+
+        final service = _makeService(
+          fakeClient: fakeClient,
+          db: db,
+          memberRepo: memberRepo,
+          sessionRepo: sessionRepo,
+        );
+        await service.setToken('valid-token');
+        await service.acknowledgeMapping();
+        await db.pluralKitSyncDao.upsertSyncState(
+          PluralKitSyncStateCompanion(
+            id: const Value('pk_config'),
+            lastSyncDate: Value(DateTime.utc(2026, 1, 1)),
+          ),
+        );
+        await service.loadState();
+
+        await service.syncRecentData(direction: PkSyncDirection.bidirectional);
+
+        final repaired = await memberRepo.getMemberById('local-half-linked');
+        expect(repaired!.pluralkitUuid, 'uuid-pk001');
+        expect(sessionRepo.sessions, hasLength(1));
+        expect(sessionRepo.sessions.single.memberId, 'local-half-linked');
+        expect(sessionRepo.sessions.single.pluralkitUuid, switchId);
+      },
+    );
   });
 
   // ── switch import — empty-member switch skipped ───────────────────────────────

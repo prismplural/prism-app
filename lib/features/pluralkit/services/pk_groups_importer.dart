@@ -207,8 +207,9 @@ class PkGroupsImporter with SyncRecordMixin {
     final allMembers = await _memberRepository.getAllMembers();
     final pkUuidToLocalMemberId = <String, String>{};
     for (final m in allMembers) {
-      if (m.pluralkitUuid != null && m.pluralkitUuid!.isNotEmpty) {
-        pkUuidToLocalMemberId[m.pluralkitUuid!] = m.id;
+      final pkUuid = m.pluralkitUuid?.trim();
+      if (pkUuid != null && pkUuid.isNotEmpty) {
+        pkUuidToLocalMemberId[pkUuid] = m.id;
       }
     }
 
@@ -331,8 +332,9 @@ class PkGroupsImporter with SyncRecordMixin {
     final allMembers = await _memberRepository.getAllMembers();
     final pkUuidToLocalMemberId = <String, String>{};
     for (final m in allMembers) {
-      if (m.pluralkitUuid != null && m.pluralkitUuid!.isNotEmpty) {
-        pkUuidToLocalMemberId[m.pluralkitUuid!] = m.id;
+      final pkUuid = m.pluralkitUuid?.trim();
+      if (pkUuid != null && pkUuid.isNotEmpty) {
+        pkUuidToLocalMemberId[pkUuid] = m.id;
       }
     }
 

@@ -7,6 +7,7 @@ import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_banner_cache_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_push_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
+import 'package:prism_plurality/features/pluralkit/utils/pk_link_utils.dart';
 
 /// Orchestrates bidirectional sync between Prism and PluralKit.
 ///
@@ -47,24 +48,23 @@ class PkBidirectionalService {
     int pushed = 0;
     int skipped = 0;
 
-    // Build lookup maps
-    final pkByUuid = <String, PKMember>{};
-    final pkById = <String, PKMember>{};
-    for (final pk in pkMembers) {
-      pkByUuid[pk.uuid] = pk;
-      pkById[pk.id] = pk;
-    }
-
+    // Build lookup maps.
     final localByPkUuid = <String, domain.Member>{};
     final localByPkId = <String, domain.Member>{};
     for (final m in localMembers) {
-      if (m.pluralkitUuid != null) localByPkUuid[m.pluralkitUuid!] = m;
-      if (m.pluralkitId != null) localByPkId[m.pluralkitId!] = m;
+      final pkUuid = m.pluralkitUuid?.trim();
+      if (pkUuid != null && pkUuid.isNotEmpty) {
+        localByPkUuid[pkUuid] = m;
+      }
+      final pkId = m.pluralkitId?.trim();
+      if (pkId != null && pkId.isNotEmpty) {
+        localByPkId[pkId] = m;
+      }
     }
 
     // Process members that exist on PK
     for (final pk in pkMembers) {
-      final local = localByPkUuid[pk.uuid] ?? localByPkId[pk.id];
+      var local = localByPkUuid[pk.uuid] ?? localByPkId[pk.id];
 
       if (local == null) {
         // New member on PK, not in Prism — pull if direction allows
@@ -77,6 +77,14 @@ class PkBidirectionalService {
         continue;
       }
 
+      final needsIdentityRepair =
+          !memberMatchesPkMember(local, pk) ||
+          local.pluralkitUuid != pk.uuid ||
+          local.pluralkitId != pk.id;
+      if (needsIdentityRepair) {
+        local = local.copyWith(pluralkitUuid: pk.uuid, pluralkitId: pk.id);
+      }
+
       final config = fieldConfigs[local.id] ?? const PkFieldSyncConfig();
 
       if (direction.pushEnabled) {
@@ -85,6 +93,9 @@ class PkBidirectionalService {
         if (hasLocalChanges) {
           try {
             await _pushService.pushMember(local, client, pkMember: pk);
+            if (needsIdentityRepair) {
+              await memberRepository.updateMember(local);
+            }
             pushed++;
             continue;
           } on PkStaleLinkException catch (_) {
@@ -108,6 +119,7 @@ class PkBidirectionalService {
           config,
           direction,
           memberRepository,
+          forceWrite: needsIdentityRepair,
         );
         if (applied) {
           pulled++;
@@ -115,17 +127,25 @@ class PkBidirectionalService {
         }
       }
 
+      if (needsIdentityRepair) {
+        await memberRepository.updateMember(local);
+      }
       skipped++;
     }
 
     // Process local members that have no PK counterpart
     if (direction.pushEnabled) {
       for (final local in localMembers) {
-        if (local.pluralkitUuid != null || local.pluralkitId != null) continue;
+        if (hasPluralKitLink(local)) continue;
         // New local member — push to PK
-        final pkId = await _pushService.pushMember(local, client);
-        // Store the PK ID back on the local member
-        await memberRepository.updateMember(local.copyWith(pluralkitId: pkId));
+        final pkMember = await _pushService.pushMemberFull(local, client);
+        // Store both PK identifiers back on the local member.
+        await memberRepository.updateMember(
+          local.copyWith(
+            pluralkitId: pkMember.id,
+            pluralkitUuid: pkMember.uuid,
+          ),
+        );
         pushed++;
       }
     }
@@ -219,12 +239,13 @@ class PkBidirectionalService {
     PKMember pk,
     PkFieldSyncConfig config,
     PkSyncDirection direction,
-    MemberRepository memberRepository,
-  ) async {
+    MemberRepository memberRepository, {
+    bool forceWrite = false,
+  }) async {
     if (!direction.pullEnabled) return false;
 
     var updated = local;
-    var changed = false;
+    var changed = forceWrite;
 
     // Pre-phase-3 the pull path wrote `pk.displayName ?? pk.name` into
     // local.name (no separate displayName field). If an existing mapped

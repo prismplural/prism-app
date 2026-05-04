@@ -80,18 +80,27 @@ class PkPushService {
     domain.Member member,
     PluralKitClient client, {
     PKMember? pkMember,
+  }) async => (await pushMemberFull(member, client, pkMember: pkMember)).id;
+
+  /// Same as [pushMember], but returns PluralKit's full member payload so
+  /// callers can persist both the short ID and UUID after creating a member.
+  Future<PKMember> pushMemberFull(
+    domain.Member member,
+    PluralKitClient client, {
+    PKMember? pkMember,
   }) async {
-    if (member.pluralkitId != null && member.pluralkitId!.isNotEmpty) {
+    final pkId = member.pluralkitId?.trim();
+    if (pkId != null && pkId.isNotEmpty) {
       // PATCH — include explicit nulls to clear fields on PK.
       final data = _memberToPayload(member, pkMember: pkMember, isPatch: true);
       try {
-        final updated = await client.updateMember(member.pluralkitId!, data);
-        return updated.id;
+        final updated = await client.updateMember(pkId, data);
+        return updated;
       } on PluralKitApiError catch (e) {
         if (e.statusCode == 404) {
           throw PkStaleLinkException(
             localId: member.id,
-            pkId: member.pluralkitId!,
+            pkId: pkId,
             kind: PkStaleLinkKind.member,
             cause: e,
           );
@@ -102,7 +111,7 @@ class PkPushService {
       // POST — create new PK member. Omit nulls (PK's POST treats omit = clear).
       final data = _memberToPayload(member, isPatch: false);
       final created = await client.createMember(data);
-      return created.id;
+      return created;
     }
   }
 
@@ -248,8 +257,10 @@ class PkPushService {
     String pkId,
     PluralKitClient client,
   ) async {
+    final trimmedPkId = pkId.trim();
+    if (trimmedPkId.isEmpty) return;
     try {
-      await client.deleteMember(pkId);
+      await client.deleteMember(trimmedPkId);
     } on PluralKitApiError catch (e) {
       if (e.statusCode == 404) {
         // Treat as success — caller's guard already confirmed the epoch is
@@ -261,7 +272,7 @@ class PkPushService {
       if (e.statusCode == 403) {
         throw PkDeletionForbiddenException(
           localId: localId,
-          pkId: pkId,
+          pkId: trimmedPkId,
           kind: PkStaleLinkKind.member,
           cause: e,
         );

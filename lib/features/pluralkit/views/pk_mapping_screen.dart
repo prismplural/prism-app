@@ -5,6 +5,7 @@ import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pk_mapping_controller.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_mapping_applier.dart';
+import 'package:prism_plurality/features/pluralkit/utils/pk_link_utils.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
@@ -255,9 +256,7 @@ class _PkMemberRow extends ConsumerWidget {
         label: l10n.pkMappingOptionSkip,
         leading: Icon(AppIcons.linkOff),
       ),
-      for (final local in state.localMembers.where(
-        (m) => m.pluralkitUuid == null,
-      ))
+      for (final local in state.localMembers.where((m) => !hasPluralKitLink(m)))
         PrismSelectItem(
           value: local.id,
           label: l10n.pkMappingOptionLink(local.name),

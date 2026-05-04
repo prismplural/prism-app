@@ -57,8 +57,7 @@ class FakeMemberRepo implements MemberRepository {
       Stream.value(_byId.values.toList());
 
   @override
-  Stream<domain.Member?> watchMemberById(String id) =>
-      Stream.value(_byId[id]);
+  Stream<domain.Member?> watchMemberById(String id) => Stream.value(_byId[id]);
 
   @override
   Future<List<domain.Member>> getDeletedLinkedMembers() async => const [];
@@ -69,7 +68,7 @@ class FakeMemberRepo implements MemberRepository {
 
   @override
   Future<({domain.Member member, bool wasCreated})>
-      ensureUnknownSentinelMember() => throw UnimplementedError();
+  ensureUnknownSentinelMember() => throw UnimplementedError();
 }
 
 /// Stubs PluralKitClient; we only need createMember + getMembers + updateMember.
@@ -87,9 +86,9 @@ class FakePluralKitClient extends PluralKitClient {
     this.onCreate,
     Map<String, List<int>>? avatarBytes,
     this.downloadError,
-  })  : allMembers = members ?? [],
-        avatarBytes = avatarBytes ?? {},
-        super(token: 'fake-token', httpClient: http.Client());
+  }) : allMembers = members ?? [],
+       avatarBytes = avatarBytes ?? {},
+       super(token: 'fake-token', httpClient: http.Client());
 
   @override
   Future<List<PKMember>> getMembers() async => allMembers;
@@ -98,7 +97,8 @@ class FakePluralKitClient extends PluralKitClient {
   Future<PKMember> createMember(Map<String, dynamic> data) async {
     createCallCount++;
     createdPayloads.add(data);
-    final result = onCreate?.call(data) ??
+    final result =
+        onCreate?.call(data) ??
         PKMember(
           id: 'abcde',
           uuid: 'new-uuid-${createdPayloads.length}',
@@ -110,7 +110,11 @@ class FakePluralKitClient extends PluralKitClient {
 
   @override
   Future<PKMember> updateMember(String id, Map<String, dynamic> data) async {
-    return PKMember(id: id, uuid: 'existing-uuid', name: data['name'] as String);
+    return PKMember(
+      id: id,
+      uuid: 'existing-uuid',
+      name: data['name'] as String,
+    );
   }
 
   @override
@@ -187,9 +191,7 @@ void main() {
     final client = FakePluralKitClient();
     final applier = buildApplier(repo: repo, client: client);
     const pk = PKMember(id: 'abcde', uuid: 'u-1', name: 'Alice');
-    final decisions = [
-      const PkLinkDecision(localMemberId: 'l1', pkMember: pk),
-    ];
+    final decisions = [const PkLinkDecision(localMemberId: 'l1', pkMember: pk)];
     await applier.apply(decisions);
     final results = await applier.apply(decisions);
     expect(results.single.outcome, PkApplyOutcome.alreadyApplied);
@@ -234,14 +236,29 @@ void main() {
     expect(all, hasLength(1));
   });
 
+  test('import completes an existing short-id-only link', () async {
+    final repo = FakeMemberRepo([
+      _local(id: 'l1', name: 'Existing', pluralkitId: 'abcde'),
+    ]);
+    final client = FakePluralKitClient();
+    final applier = buildApplier(repo: repo, client: client);
+    const pk = PKMember(id: 'abcde', uuid: 'u-imp', name: 'Imported');
+
+    final results = await applier.apply([const PkImportDecision(pkMember: pk)]);
+
+    expect(results.single.outcome, PkApplyOutcome.applied);
+    final all = await repo.getAllMembers();
+    expect(all, hasLength(1));
+    expect(all.single.id, 'l1');
+    expect(all.single.pluralkitId, 'abcde');
+    expect(all.single.pluralkitUuid, 'u-imp');
+  });
+
   test('push creates PK member, stores id + uuid locally', () async {
     final repo = FakeMemberRepo([_local(id: 'l1', name: 'Alice')]);
     final client = FakePluralKitClient(
-      onCreate: (data) => PKMember(
-        id: 'newid',
-        uuid: 'new-uuid',
-        name: data['name'] as String,
-      ),
+      onCreate: (data) =>
+          PKMember(id: 'newid', uuid: 'new-uuid', name: data['name'] as String),
     );
     final applier = buildApplier(repo: repo, client: client);
 
@@ -396,9 +413,11 @@ void main() {
 
   test('link: downloads PK avatar when local has none', () async {
     final repo = FakeMemberRepo([_local(id: 'l1', name: 'Alice')]);
-    final client = FakePluralKitClient(avatarBytes: {
-      'https://pk/avatar.png': [1, 2, 3, 4],
-    });
+    final client = FakePluralKitClient(
+      avatarBytes: {
+        'https://pk/avatar.png': [1, 2, 3, 4],
+      },
+    );
     final applier = buildApplier(repo: repo, client: client);
 
     const pk = PKMember(
@@ -423,9 +442,11 @@ void main() {
 
   test('import: downloads avatar when pk.avatarUrl is set', () async {
     final repo = FakeMemberRepo([]);
-    final client = FakePluralKitClient(avatarBytes: {
-      'https://pk/x.png': [9, 8, 7],
-    });
+    final client = FakePluralKitClient(
+      avatarBytes: {
+        'https://pk/x.png': [9, 8, 7],
+      },
+    );
     final applier = buildApplier(repo: repo, client: client);
 
     const pk = PKMember(
@@ -479,13 +500,15 @@ void main() {
     );
     final applier = buildApplier(repo: repo, client: client);
 
-    var results = await applier
-        .apply([const PkPushNewDecision(localMemberId: 'l1')]);
+    var results = await applier.apply([
+      const PkPushNewDecision(localMemberId: 'l1'),
+    ]);
     expect(results.single.outcome, PkApplyOutcome.failed);
 
     shouldFail = false;
-    results = await applier
-        .apply([const PkPushNewDecision(localMemberId: 'l1')]);
+    results = await applier.apply([
+      const PkPushNewDecision(localMemberId: 'l1'),
+    ]);
     expect(results.single.outcome, PkApplyOutcome.applied);
     final updated = await repo.getMemberById('l1');
     expect(updated!.pluralkitUuid, 'new-uuid');
