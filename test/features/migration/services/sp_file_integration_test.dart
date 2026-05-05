@@ -195,7 +195,7 @@ void main() {
         final importer = SpImporter();
         final exportData = importer.parseFile(_exportPath);
 
-        Future<int> runImport({bool clear = false}) async {
+        Future<ImportResult> runImport({bool clear = false}) async {
           final r = await importer.executeImport(
             db: db,
             data: exportData,
@@ -222,17 +222,25 @@ void main() {
             downloadAvatars: false,
             clearExistingData: clear,
           );
-          return r.membersImported;
+          return r;
         }
 
         final first = await runImport();
         final second = await runImport(clear: true);
 
-        expect(second, first,
+        expect(second.membersImported, first.membersImported,
             reason: 're-import should yield the same member count');
+        expect(second.conversationsImported, first.conversationsImported,
+            reason: 're-import should yield the same conversation count');
+        expect(second.messagesImported, first.messagesImported,
+            reason: 're-import should preserve chat message count');
 
         final membersInDb = await db.membersDao.getAllMembers();
-        expect(membersInDb.length, second);
+        expect(membersInDb.length, second.membersImported);
+        final conversationsInDb = await db.conversationsDao.getAllConversations();
+        expect(conversationsInDb.length, second.conversationsImported);
+        final messagesInDb = await db.chatMessagesDao.getAllMessages();
+        expect(messagesInDb.length, second.messagesImported);
       },
       timeout: const Timeout(Duration(minutes: 2)),
     );

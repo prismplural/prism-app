@@ -22,7 +22,7 @@ class SpApiError implements Exception {
 /// 401 Unauthorized — invalid or missing token.
 class SpAuthError extends SpApiError {
   const SpAuthError([String message = 'Unauthorized — check your token'])
-      : super(401, message);
+    : super(401, message);
 }
 
 // ---------------------------------------------------------------------------
@@ -40,11 +40,9 @@ class SpApiClient {
 
   late final Map<String, String> _headers;
 
-  SpApiClient({
-    required String token,
-    http.Client? httpClient,
-  })  : _token = token.trim(),
-        _http = httpClient ?? http.Client() {
+  SpApiClient({required String token, http.Client? httpClient})
+    : _token = token.trim(),
+      _http = httpClient ?? http.Client() {
     if (_token.isEmpty) {
       throw ArgumentError('SP API token must not be empty');
     }
@@ -72,10 +70,7 @@ class SpApiClient {
 
   Future<dynamic> _get(String path) async {
     final response = await _http
-        .get(
-          Uri.parse('$_baseUrl$path'),
-          headers: _headers,
-        )
+        .get(Uri.parse('$_baseUrl$path'), headers: _headers)
         .timeout(const Duration(seconds: 10));
     return _handleResponse(response);
   }
@@ -90,7 +85,8 @@ class SpApiClient {
     final json = await _get('/me') as Map<String, dynamic>;
     final content =
         (json['content'] as Map<String, dynamic>?) ?? <String, dynamic>{};
-    final uid = content['uid']?.toString() ??
+    final uid =
+        content['uid']?.toString() ??
         json['id']?.toString() ??
         json['uid']?.toString() ??
         json['_id']?.toString() ??
@@ -107,10 +103,7 @@ class SpApiClient {
   static Map<String, dynamic> _unwrap(Map<String, dynamic> raw) {
     final content = raw['content'];
     if (content is! Map<String, dynamic>) return raw;
-    return {
-      ...content,
-      '_id': raw['id'] ?? raw['_id'],
-    };
+    return {...content, '_id': raw['id'] ?? raw['_id']};
   }
 
   /// Parse a list response — unwraps content-wrapped items and returns
@@ -118,10 +111,7 @@ class SpApiClient {
   Future<List<Map<String, dynamic>>> _getList(String path) async {
     final json = await _get(path);
     if (json is List) {
-      return json
-          .cast<Map<String, dynamic>>()
-          .map(_unwrap)
-          .toList();
+      return json.cast<Map<String, dynamic>>().map(_unwrap).toList();
     }
     return [];
   }
@@ -154,22 +144,61 @@ class SpApiClient {
       _getList('/polls/${_enc(sid)}');
 
   /// GET /v1/notes/:sid/:memberId
-  Future<List<Map<String, dynamic>>> getNotes(
-          String sid, String memberId) =>
+  Future<List<Map<String, dynamic>>> getNotes(String sid, String memberId) =>
       _getList('/notes/${_enc(sid)}/${_enc(memberId)}');
 
   /// GET /v1/comments/:type/:docId
-  Future<List<Map<String, dynamic>>> getComments(
-          String type, String docId) =>
+  Future<List<Map<String, dynamic>>> getComments(String type, String docId) =>
       _getList('/comments/${_enc(type)}/${_enc(docId)}');
 
   /// GET /v1/chat/channels — all chat channels for the authenticated user.
   Future<List<Map<String, dynamic>>> getChannels() =>
       _getList('/chat/channels');
 
-  /// GET /v1/chat/channel/messages/:channelId — messages in a channel.
-  Future<List<Map<String, dynamic>>> getChannelMessages(String channelId) =>
-      _getList('/chat/channel/messages/${_enc(channelId)}');
+  /// GET /v1/chat/messages/:channelId — messages in a channel.
+  ///
+  /// The current SP API requires a `limit` query parameter and paginates via
+  /// `skipTo=<lastMessageId>`. We walk forward until the server returns a short
+  /// page or stops advancing the cursor, deduping by message id defensively in
+  /// case the terminal page repeats.
+  Future<List<Map<String, dynamic>>> getChannelMessages(
+    String channelId,
+  ) async {
+    const pageSize = 100;
+    final allMessages = <Map<String, dynamic>>[];
+    final seenMessageIds = <String>{};
+    String? cursor;
+
+    while (true) {
+      final query = <String>[
+        'limit=$pageSize',
+        'sortOrder=1',
+        if (cursor != null) 'skipTo=${_enc(cursor)}',
+      ].join('&');
+      final page = await _getList('/chat/messages/${_enc(channelId)}?$query');
+      if (page.isEmpty) break;
+
+      final lastId = (page.last['_id'] ?? page.last['id'] ?? '').toString();
+      if (cursor != null && (lastId.isEmpty || lastId == cursor)) {
+        break;
+      }
+
+      for (final message in page) {
+        final messageId = (message['_id'] ?? message['id'] ?? '').toString();
+        if (messageId.isNotEmpty && !seenMessageIds.add(messageId)) {
+          continue;
+        }
+        allMessages.add(message);
+      }
+
+      if (page.length < pageSize || lastId.isEmpty) {
+        break;
+      }
+      cursor = lastId;
+    }
+
+    return allMessages;
+  }
 
   // -------------------------------------------------------------------------
   // fetchAll — assemble a full SpExportData from the API
@@ -216,8 +245,7 @@ class SpApiClient {
       final noteResults = await Future.wait(
         chunk.map((m) {
           final mid = (m['_id'] ?? m['id'] ?? '').toString();
-          return getNotes(sid, mid)
-              .catchError((_) => <Map<String, dynamic>>[]);
+          return getNotes(sid, mid).catchError((_) => <Map<String, dynamic>>[]);
         }),
       );
       for (final notes in noteResults) {
@@ -233,8 +261,10 @@ class SpApiClient {
       final commentResults = await Future.wait(
         chunk.map((fh) {
           final fhId = (fh['_id'] ?? fh['id'] ?? '').toString();
-          return getComments('frontHistory', fhId)
-              .catchError((_) => <Map<String, dynamic>>[]);
+          return getComments(
+            'frontHistory',
+            fhId,
+          ).catchError((_) => <Map<String, dynamic>>[]);
         }),
       );
       for (final comments in commentResults) {
@@ -244,8 +274,9 @@ class SpApiClient {
     }
 
     // 5. Fetch chat channels and their messages.
-    final channels = await getChannels()
-        .catchError((_) => <Map<String, dynamic>>[]);
+    final channels = await getChannels().catchError(
+      (_) => <Map<String, dynamic>>[],
+    );
     onProgress?.call('Channels', channels.length);
 
     final allChatMessages = <SpMessage>[];
@@ -255,9 +286,9 @@ class SpApiClient {
         chunk.map((ch) {
           final chId = (ch['_id'] ?? ch['id'] ?? '').toString();
           return getChannelMessages(chId)
-              .then((msgs) => msgs
-                  .map((m) => SpMessage.fromJson(m, chId))
-                  .toList())
+              .then(
+                (msgs) => msgs.map((m) => SpMessage.fromJson(m, chId)).toList(),
+              )
               .catchError((_) => <SpMessage>[]);
         }),
       );
@@ -274,8 +305,9 @@ class SpApiClient {
       final boardResults = await Future.wait(
         chunk.map((m) {
           final mid = (m['_id'] ?? m['id'] ?? '').toString();
-          return _getList('/board/member/${_enc(mid)}')
-              .catchError((_) => <Map<String, dynamic>>[]);
+          return _getList(
+            '/board/member/${_enc(mid)}',
+          ).catchError((_) => <Map<String, dynamic>>[]);
         }),
       );
       for (final msgs in boardResults) {
