@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/daos/chat_messages_dao.dart';
 import 'package:prism_plurality/core/database/daos/conversations_dao.dart';
 import 'package:prism_plurality/core/database/daos/fronting_sessions_dao.dart';
@@ -25,6 +26,7 @@ import 'package:prism_plurality/core/database/daos/sharing_requests_dao.dart';
 import 'package:prism_plurality/core/database/daos/media_attachments_dao.dart';
 import 'package:prism_plurality/core/database/daos/sp_import_dao.dart';
 import 'package:prism_plurality/core/database/daos/pk_mapping_state_dao.dart';
+import 'package:prism_plurality/core/services/fronting_migration_breadcrumb_log.dart';
 import 'package:prism_plurality/core/database/tables/tables.dart';
 
 part 'app_database.g.dart';
@@ -457,9 +459,7 @@ class AppDatabase extends _$AppDatabase {
         ''').get();
         final mode = modeRows.isEmpty
             ? null
-            : modeRows.first.read<String?>(
-                'pending_fronting_migration_mode',
-              );
+            : modeRows.first.read<String?>('pending_fronting_migration_mode');
         if (mode == 'complete') {
           await ensureFrontingMemberCheckConstraint();
         }
@@ -709,16 +709,16 @@ class AppDatabase extends _$AppDatabase {
     // which are present from the very first `createAll()`.
     if (RegExp(_frontingMemberCheckClausePattern).hasMatch(sql)) return;
 
-    // Hard-delete unrecoverable orphans BEFORE the CHECK install. Drift's
-    // TableMigration copies every row including is_deleted=1 ones, so any
-    // (session_type=0, member_id NULL) row would trip the new constraint
-    // and abort the table rebuild. These rows carry no recoverable signal
-    // — pluralkit_uuid (when set) is a switch id, not a member id, and the
-    // typical source is older PK file imports that wrote a row before the
-    // member could be resolved. Step 7 of the per-member migration routes
-    // is_deleted=0 orphans to the Unknown sentinel; this scrub catches the
-    // soft-deleted leftovers AND any orphan that reaches a v13→v14
-    // onUpgrade through the mode=complete branch.
+    // Rescue live orphans to the Unknown sentinel before we install the
+    // CHECK. This keeps locally-visible session history intact for devices
+    // that somehow reached mode=complete with active `(session_type=0,
+    // member_id=NULL)` rows still on disk.
+    await _rescueActiveFrontingOrphansToUnknownSentinel('CHECK install');
+
+    // Hard-delete unrecoverable deleted leftovers BEFORE the CHECK install.
+    // Drift's TableMigration copies every row including is_deleted=1 ones, so
+    // any tombstoned `(session_type=0, member_id NULL)` row would trip the
+    // new constraint and abort the table rebuild.
     await _purgeUnrecoverableFrontingOrphans('CHECK install');
 
     final migrator = Migrator(this);
@@ -726,11 +726,16 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<void> ensurePkFrontingIndexes() async {
-    // Defensive: scrub unrecoverable orphan rows so the orphan unique
-    // index install (filter: pluralkit_uuid IS NOT NULL AND member_id IS
-    // NULL — applies to soft-deleted rows too) cannot fail on duplicate
-    // orphan rows surfacing through any path that reaches this helper
-    // without going through the migration service's step 7.
+    // Rescue live orphans before index installation. We clear their stale
+    // pluralkit_uuid at the same time because on orphan rows it stores a
+    // switch id, not a resolvable member identity; preserving it would make
+    // multiple rescued Unknown rows collide on the composite PK fronting
+    // index.
+    await _rescueActiveFrontingOrphansToUnknownSentinel('PK index install');
+
+    // Scrub unrecoverable deleted leftovers so the orphan/composite unique
+    // index install cannot fail on tombstones surfacing through any path that
+    // reaches this helper without going through the migration service's step 7.
     await _purgeUnrecoverableFrontingOrphans('PK index install');
 
     // Drop the v2-era single-column uniqueness index if it survived an
@@ -746,24 +751,83 @@ class AppDatabase extends _$AppDatabase {
     await _createPkFrontingOrphanIndex();
   }
 
-  /// Removes fronting rows with `session_type = 0 AND member_id IS NULL`
-  /// regardless of `is_deleted`. These rows are unrecoverable: a normal
-  /// (non-sleep) session needs a fronter, and a NULL member_id with a
-  /// non-null pluralkit_uuid (the only way the importer could have
-  /// produced one) carries the *switch* id, not a member uuid, so the
-  /// fronter cannot be reconstituted.
+  /// Re-home active orphan fronting rows to the deterministic Unknown
+  /// sentinel member and clear any stale PK switch UUIDs that would
+  /// otherwise collide on the composite fronting indexes.
   ///
-  /// Idempotent — a no-op when the table holds no offending rows.
+  /// These rows are user-visible history, so preserving them is better than
+  /// silently deleting them during a structural upgrade. The migration
+  /// service's primary path already routes such rows to the same sentinel in
+  /// step 7; this helper is the defensive backstop for unexpected
+  /// post-migration leftovers that reach the schema ensure steps directly.
+  Future<int> _rescueActiveFrontingOrphansToUnknownSentinel(
+    String reason,
+  ) async {
+    final activeOrphans = await customUpdate(
+      'UPDATE fronting_sessions '
+      'SET member_id = ?, pluralkit_uuid = NULL '
+      'WHERE session_type = 0 AND member_id IS NULL AND is_deleted = 0',
+      variables: [Variable<String>(unknownSentinelMemberId)],
+      updates: {frontingSessions},
+    );
+    if (activeOrphans <= 0) {
+      return 0;
+    }
+
+    await membersDao.upsertMember(
+      MembersCompanion.insert(
+        id: unknownSentinelMemberId,
+        name: 'Unknown',
+        createdAt: DateTime.now().toUtc(),
+        emoji: const Value('❔'),
+        isActive: const Value(true),
+      ),
+    );
+
+    debugPrint(
+      '[MIGRATION] rescued $activeOrphans active orphan fronting rows '
+      'to the Unknown sentinel before $reason.',
+    );
+    await FrontingMigrationBreadcrumbLog.instance.append(
+      FrontingMigrationBreadcrumb(
+        timestamp: DateTime.now().toUtc(),
+        kind: 'rescued_active_orphans',
+        reason: reason,
+        count: activeOrphans,
+        data: <String, dynamic>{
+          'target_member_id': unknownSentinelMemberId,
+          'pluralkit_uuid_cleared': true,
+        },
+      ),
+    );
+    return activeOrphans;
+  }
+
+  /// Removes deleted fronting rows with `session_type = 0 AND member_id IS NULL`.
+  ///
+  /// Active rows are rescued by [_rescueActiveFrontingOrphansToUnknownSentinel]
+  /// before this helper runs. What remains here is deleted historical debris
+  /// that would otherwise block CHECK/index installation.
+  ///
+  /// Idempotent — a no-op when the table holds no offending tombstones.
   Future<void> _purgeUnrecoverableFrontingOrphans(String reason) async {
     final purged = await customUpdate(
       'DELETE FROM fronting_sessions '
-      'WHERE session_type = 0 AND member_id IS NULL',
+      'WHERE session_type = 0 AND member_id IS NULL AND is_deleted = 1',
       updates: {frontingSessions},
     );
     if (purged > 0) {
       debugPrint(
         '[MIGRATION] purged $purged unrecoverable orphan fronting rows '
         'before $reason.',
+      );
+      await FrontingMigrationBreadcrumbLog.instance.append(
+        FrontingMigrationBreadcrumb(
+          timestamp: DateTime.now().toUtc(),
+          kind: 'purged_deleted_orphans',
+          reason: reason,
+          count: purged,
+        ),
       );
     }
   }
