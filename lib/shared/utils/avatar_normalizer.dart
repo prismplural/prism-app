@@ -18,6 +18,18 @@ class AvatarNormalizer {
       throw StateError('Unsupported avatar image format');
     }
 
+    // Idempotent fast-path: if the input is already a JPEG within both the
+    // dimension and byte budget, return it verbatim. The repository calls
+    // normalize on every member write, including writes that don't touch the
+    // avatar field — without this, JPEG-on-JPEG re-encoding accumulates
+    // generation loss until the avatar visibly degrades.
+    if (_isJpeg(bytes) &&
+        bytes.length <= targetMaxBytes &&
+        decoded.width <= maxDimension &&
+        decoded.height <= maxDimension) {
+      return bytes;
+    }
+
     final resized = _resize(decoded);
 
     Uint8List? bestEffort;
@@ -32,6 +44,13 @@ class AvatarNormalizer {
     }
 
     return bestEffort;
+  }
+
+  static bool _isJpeg(Uint8List bytes) {
+    return bytes.length >= 3 &&
+        bytes[0] == 0xFF &&
+        bytes[1] == 0xD8 &&
+        bytes[2] == 0xFF;
   }
 
   static img.Image _resize(img.Image source) {
