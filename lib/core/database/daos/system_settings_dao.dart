@@ -39,9 +39,12 @@ class SystemSettingsDao extends DatabaseAccessor<AppDatabase>
       into(systemSettingsTable).insertOnConflictUpdate(settings);
 
   /// Update a single field in the singleton settings row.
-  Future<void> _updateField(SystemSettingsTableCompanion companion) => (update(
-    systemSettingsTable,
-  )..where((s) => s.id.equals(_singletonId))).write(companion);
+  Future<void> _updateField(SystemSettingsTableCompanion companion) async {
+    await getSettings();
+    await (update(
+      systemSettingsTable,
+    )..where((s) => s.id.equals(_singletonId))).write(companion);
+  }
 
   // --- Text fields ---
 
