@@ -341,6 +341,21 @@
   "systemInfoChangeAvatar": "Cambiar avatar",
   "memberChangeAvatar": "Cambiar avatar de {termSingularLower}",
   "avatarCropTitle": "Recortar avatar",
+  "@avatarCropTitle": {
+    "description": "Título del recortador de avatar"
+  },
+  "imageCropRotateLeft": "Rotar a la izquierda",
+  "@imageCropRotateLeft": {
+    "description": "Etiqueta del botón que rota un recorte de imagen a la izquierda"
+  },
+  "imageCropRotateRight": "Rotar a la derecha",
+  "@imageCropRotateRight": {
+    "description": "Etiqueta del botón que rota un recorte de imagen a la derecha"
+  },
+  "imageCropProcessingError": "No se pudo procesar esa imagen.",
+  "@imageCropProcessingError": {
+    "description": "Mensaje mostrado cuando falla el procesamiento del recorte de imagen"
+  },
   "systemInfoRemoveAvatar": "Eliminar avatar",
   "memberRemoveAvatar": "Eliminar foto",
   "memberProfileHeaderSectionTitle": "Encabezado del perfil",
@@ -360,6 +375,9 @@
   "memberProfileHeaderLayoutCompact": "Compacto",
   "memberProfileHeaderLayoutClassic": "Clásico",
   "memberProfileHeaderCropTitle": "Recortar encabezado del perfil",
+  "@memberProfileHeaderCropTitle": {
+    "description": "Título del recortador del encabezado del perfil"
+  },
   "memberProfileHeaderProcessingError": "No se pudo procesar esa imagen.",
   "memberNameStyleTooltip": "Editar estilo del nombre",
   "memberNameStyleDialogTitle": "Estilo del nombre",

@@ -14,13 +14,13 @@ class _PickCall {
 
 class _CropCall {
   _CropCall({
-    required this.sourcePath,
+    required this.sourceBytes,
     required this.title,
     required this.doneButtonTitle,
     required this.cancelButtonTitle,
   });
 
-  final String sourcePath;
+  final Uint8List sourceBytes;
   final String title;
   final String doneButtonTitle;
   final String cancelButtonTitle;
@@ -42,15 +42,6 @@ class _FakePickedImage implements AvatarPickedImage {
   }
 }
 
-class _FakeCroppedImage implements AvatarCroppedImage {
-  _FakeCroppedImage(this.bytes);
-
-  final Uint8List bytes;
-
-  @override
-  Future<Uint8List> readAsBytes() async => bytes;
-}
-
 void main() {
   group('AvatarImagePicker', () {
     testWidgets('returns null when image picking is cancelled', (tester) async {
@@ -64,7 +55,7 @@ void main() {
           return null;
         },
         cropImage: (
-          sourcePath,
+          sourceBytes,
           context, {
           required title,
           required doneButtonTitle,
@@ -72,7 +63,7 @@ void main() {
         }) async {
           cropCalls.add(
             _CropCall(
-              sourcePath: sourcePath,
+              sourceBytes: sourceBytes,
               title: title,
               doneButtonTitle: doneButtonTitle,
               cancelButtonTitle: cancelButtonTitle,
@@ -90,7 +81,7 @@ void main() {
     });
 
     for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
-      testWidgets('uses native cropper on $platform', (tester) async {
+      testWidgets('uses cropper on $platform', (tester) async {
         final pickedBytes = Uint8List.fromList([1, 2, 3]);
         final croppedBytes = Uint8List.fromList([9, 8, 7]);
         final pickedImage = _FakePickedImage(
@@ -103,7 +94,7 @@ void main() {
           tester,
           pickImage: (_) async => pickedImage,
           cropImage: (
-            sourcePath,
+            sourceBytes,
             context, {
             required title,
             required doneButtonTitle,
@@ -111,24 +102,24 @@ void main() {
           }) async {
             cropCalls.add(
               _CropCall(
-                sourcePath: sourcePath,
+                sourceBytes: sourceBytes,
                 title: title,
                 doneButtonTitle: doneButtonTitle,
                 cancelButtonTitle: cancelButtonTitle,
               ),
             );
-            return _FakeCroppedImage(croppedBytes);
+            return croppedBytes;
           },
           platform: platform,
         );
 
         expect(result, croppedBytes);
         expect(cropCalls, hasLength(1));
-        expect(cropCalls.single.sourcePath, '/tmp/avatar-source.png');
+        expect(cropCalls.single.sourceBytes, pickedBytes);
         expect(cropCalls.single.title, 'Crop avatar');
         expect(cropCalls.single.doneButtonTitle, 'Done');
         expect(cropCalls.single.cancelButtonTitle, 'Cancel');
-        expect(pickedImage.readCount, 0);
+        expect(pickedImage.readCount, 1);
       });
     }
 
@@ -143,7 +134,7 @@ void main() {
           bytes: Uint8List.fromList([1, 2, 3]),
         ),
         cropImage: (
-          sourcePath,
+          sourceBytes,
           context, {
           required title,
           required doneButtonTitle,
@@ -151,13 +142,13 @@ void main() {
         }) async {
           cropCalls.add(
             _CropCall(
-              sourcePath: sourcePath,
+              sourceBytes: sourceBytes,
               title: title,
               doneButtonTitle: doneButtonTitle,
               cancelButtonTitle: cancelButtonTitle,
             ),
           );
-          return _FakeCroppedImage(Uint8List.fromList([9, 8, 7]));
+          return Uint8List.fromList([9, 8, 7]);
         },
         platform: TargetPlatform.iOS,
         locale: const Locale('es'),
@@ -168,7 +159,7 @@ void main() {
       expect(cropCalls.single.cancelButtonTitle, 'Cancelar');
     });
 
-    testWidgets('returns null when native cropper is cancelled', (
+    testWidgets('returns null when cropper is cancelled', (
       tester,
     ) async {
       final pickedImage = _FakePickedImage(
@@ -181,7 +172,7 @@ void main() {
         tester,
         pickImage: (_) async => pickedImage,
         cropImage: (
-          sourcePath,
+          sourceBytes,
           context, {
           required title,
           required doneButtonTitle,
@@ -195,7 +186,7 @@ void main() {
 
       expect(result, isNull);
       expect(cropCalls, 1);
-      expect(pickedImage.readCount, 0);
+      expect(pickedImage.readCount, 1);
     });
 
     testWidgets('falls back to picked bytes on unsupported platforms', (
@@ -212,14 +203,14 @@ void main() {
         tester,
         pickImage: (_) async => pickedImage,
         cropImage: (
-          sourcePath,
+          sourceBytes,
           context, {
           required title,
           required doneButtonTitle,
           required cancelButtonTitle,
         }) async {
           cropCalls += 1;
-          return _FakeCroppedImage(Uint8List.fromList([9, 8, 7]));
+          return Uint8List.fromList([9, 8, 7]);
         },
         platform: TargetPlatform.macOS,
       );
@@ -255,14 +246,14 @@ void main() {
         context,
         pickImage: (_) => pickCompleter.future,
         cropImage: (
-          sourcePath,
+          sourceBytes,
           context, {
           required title,
           required doneButtonTitle,
           required cancelButtonTitle,
         }) async {
           cropCalls += 1;
-          return _FakeCroppedImage(Uint8List.fromList([9, 8, 7]));
+          return Uint8List.fromList([9, 8, 7]);
         },
         platform: TargetPlatform.android,
       );

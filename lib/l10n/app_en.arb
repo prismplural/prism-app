@@ -1555,7 +1555,19 @@
   },
   "avatarCropTitle": "Crop avatar",
   "@avatarCropTitle": {
-    "description": "Title for the native avatar cropper"
+    "description": "Title for the avatar cropper"
+  },
+  "imageCropRotateLeft": "Rotate left",
+  "@imageCropRotateLeft": {
+    "description": "Label for the button that rotates an image crop left"
+  },
+  "imageCropRotateRight": "Rotate right",
+  "@imageCropRotateRight": {
+    "description": "Label for the button that rotates an image crop right"
+  },
+  "imageCropProcessingError": "Could not process that image.",
+  "@imageCropProcessingError": {
+    "description": "Toast message shown when image crop processing fails"
   },
   "systemInfoRemoveAvatar": "Remove avatar",
   "@systemInfoRemoveAvatar": {
@@ -1631,7 +1643,7 @@
   },
   "memberProfileHeaderCropTitle": "Crop profile header",
   "@memberProfileHeaderCropTitle": {
-    "description": "Title for the native profile header cropper"
+    "description": "Title for the profile header cropper"
   },
   "memberProfileHeaderProcessingError": "Could not process that image.",
   "@memberProfileHeaderProcessingError": {

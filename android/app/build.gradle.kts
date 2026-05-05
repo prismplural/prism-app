@@ -92,11 +92,6 @@ android {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
-    // uCrop 2.2.11's JitPack POM omits these runtime dependencies; keep them
-    // aligned with upstream to avoid Android 16 cropper activity crashes.
-    implementation("androidx.appcompat:appcompat:1.7.1")
-    implementation("androidx.appcompat:appcompat-resources:1.7.1")
-    implementation("androidx.transition:transition:1.6.0")
     // Flutter 3.41.5 generates GeneratedPluginRegistrant.java with integration_test
     // registered regardless of dev_dependency status, but only adds it as debugImplementation.
     // Add it explicitly so release compilation finds the class; R8 will strip unused test code.

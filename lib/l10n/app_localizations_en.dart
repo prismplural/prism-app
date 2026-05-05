@@ -1144,6 +1144,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get avatarCropTitle => 'Crop avatar';
 
   @override
+  String get imageCropRotateLeft => 'Rotate left';
+
+  @override
+  String get imageCropRotateRight => 'Rotate right';
+
+  @override
+  String get imageCropProcessingError => 'Could not process that image.';
+
+  @override
   String get systemInfoRemoveAvatar => 'Remove avatar';
 
   @override

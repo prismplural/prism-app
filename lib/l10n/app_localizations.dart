@@ -2138,11 +2138,29 @@ abstract class AppLocalizations {
   /// **'Change {termSingularLower} avatar'**
   String memberChangeAvatar(String termSingularLower);
 
-  /// Title for the native avatar cropper
+  /// Title for the avatar cropper
   ///
   /// In en, this message translates to:
   /// **'Crop avatar'**
   String get avatarCropTitle;
+
+  /// Label for the button that rotates an image crop left
+  ///
+  /// In en, this message translates to:
+  /// **'Rotate left'**
+  String get imageCropRotateLeft;
+
+  /// Label for the button that rotates an image crop right
+  ///
+  /// In en, this message translates to:
+  /// **'Rotate right'**
+  String get imageCropRotateRight;
+
+  /// Toast message shown when image crop processing fails
+  ///
+  /// In en, this message translates to:
+  /// **'Could not process that image.'**
+  String get imageCropProcessingError;
 
   /// Avatar action: remove avatar
   ///
@@ -2252,7 +2270,7 @@ abstract class AppLocalizations {
   /// **'Classic'**
   String get memberProfileHeaderLayoutClassic;
 
-  /// Title for the native profile header cropper
+  /// Title for the profile header cropper
   ///
   /// In en, this message translates to:
   /// **'Crop profile header'**

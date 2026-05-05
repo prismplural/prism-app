@@ -1,13 +1,18 @@
 // ignore_for_file: experimental_member_use
 
+import 'dart:typed_data';
+
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image/image.dart' as img;
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/daos/members_dao.dart';
 import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
 import 'package:prism_plurality/domain/models/member.dart' as domain;
+import 'package:prism_plurality/shared/utils/avatar_image_picker.dart';
+import 'package:prism_plurality/shared/utils/avatar_normalizer.dart';
 
 /// Wraps a real MembersDao and overrides only the methods the
 /// `ensureUnknownSentinelMember` path touches. `insertMember` always
@@ -259,6 +264,74 @@ void main() {
 
       final updated = await repo.getMemberById('flip-1');
       expect(updated!.isAlwaysFronting, isTrue);
+    });
+  });
+
+  group('avatar image round-trip', () {
+    test('stores picker-style avatar bytes as decodable normalized image', () async {
+      final source = img.Image(width: 900, height: 600);
+      img.fill(source, color: img.ColorRgb8(20, 30, 40));
+      img.fillRect(
+        source,
+        x1: 200,
+        y1: 100,
+        x2: 699,
+        y2: 499,
+        color: img.ColorRgb8(220, 180, 40),
+      );
+      final avatarBytes = encodeAvatarOutputForStorage(
+        Uint8List.fromList(img.encodePng(source)),
+      );
+      final member = domain.Member(
+        id: 'avatar-1',
+        name: 'Avatar',
+        createdAt: DateTime.now().toUtc(),
+        avatarImageData: avatarBytes,
+      );
+
+      await repo.createMember(member);
+
+      final fetched = await repo.getMemberById('avatar-1');
+      expect(fetched, isNotNull);
+      expect(fetched!.avatarImageData, isNotNull);
+
+      final decoded = img.decodeJpg(fetched.avatarImageData!);
+      expect(decoded, isNotNull);
+      expect(decoded!.width, lessThanOrEqualTo(AvatarNormalizer.maxDimension));
+      expect(decoded.height, lessThanOrEqualTo(AvatarNormalizer.maxDimension));
+      expect(
+        fetched.avatarImageData!.length,
+        lessThanOrEqualTo(AvatarNormalizer.targetMaxBytes),
+      );
+    });
+
+    test('keeps stored avatar bytes decodable after unrelated update', () async {
+      final source = img.Image(width: 900, height: 600);
+      img.fill(source, color: img.ColorRgb8(80, 60, 40));
+      final avatarBytes = encodeAvatarOutputForStorage(
+        Uint8List.fromList(img.encodePng(source)),
+      );
+      final member = domain.Member(
+        id: 'avatar-2',
+        name: 'Avatar 2',
+        createdAt: DateTime.now().toUtc(),
+        avatarImageData: avatarBytes,
+      );
+
+      await repo.createMember(member);
+      final initial = await repo.getMemberById('avatar-2');
+      expect(initial, isNotNull);
+
+      await repo.updateMember(initial!.copyWith(pronouns: 'they/them'));
+
+      final updated = await repo.getMemberById('avatar-2');
+      expect(updated, isNotNull);
+      expect(updated!.avatarImageData, isNotNull);
+
+      final decoded = img.decodeJpg(updated.avatarImageData!);
+      expect(decoded, isNotNull);
+      expect(decoded!.width, lessThanOrEqualTo(AvatarNormalizer.maxDimension));
+      expect(decoded.height, lessThanOrEqualTo(AvatarNormalizer.maxDimension));
     });
   });
 }
