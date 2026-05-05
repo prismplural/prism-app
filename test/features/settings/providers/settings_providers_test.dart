@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show TargetPlatform;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -16,6 +17,7 @@ Future<ProviderContainer> makeContainerWithIgnore({
   domain.SystemSettings? settings,
   CornerStyle? cachedCornerStyle,
   domain.ThemeStyle? cachedThemeStyle,
+  TargetPlatform? targetPlatform,
 }) async {
   SharedPreferences.setMockInitialValues({
     if (ignoreSynced) 'prism.pref.ignore_synced_appearance': true,
@@ -34,6 +36,8 @@ Future<ProviderContainer> makeContainerWithIgnore({
         cachedCornerStyleProvider.overrideWithValue(cachedCornerStyle),
       if (cachedThemeStyle != null)
         cachedThemeStyleProvider.overrideWithValue(cachedThemeStyle),
+      if (targetPlatform != null)
+        targetPlatformProvider.overrideWithValue(targetPlatform),
     ],
   );
 
@@ -305,6 +309,62 @@ void main() {
 
       expect(container.read(themeStyleProvider), domain.ThemeStyle.oled);
     });
+  });
+
+  group('effectiveThemeStyleProvider', () {
+    test('keeps materialYou on Android', () async {
+      final container = await makeContainerWithIgnore(
+        settings: const domain.SystemSettings(
+          themeStyle: domain.ThemeStyle.materialYou,
+        ),
+        targetPlatform: TargetPlatform.android,
+      );
+      addTearDown(container.dispose);
+
+      expect(
+        container.read(effectiveThemeStyleProvider),
+        domain.ThemeStyle.materialYou,
+      );
+    });
+
+    test('downgrades synced materialYou to standard on iOS', () async {
+      final container = await makeContainerWithIgnore(
+        settings: const domain.SystemSettings(
+          themeStyle: domain.ThemeStyle.materialYou,
+        ),
+        targetPlatform: TargetPlatform.iOS,
+      );
+      addTearDown(container.dispose);
+
+      expect(
+        container.read(effectiveThemeStyleProvider),
+        domain.ThemeStyle.standard,
+      );
+    });
+
+    test(
+      'downgrades cached materialYou to standard on iOS when ignore=true',
+      () async {
+        final container = await makeContainerWithIgnore(
+          ignoreSynced: true,
+          settings: const domain.SystemSettings(
+            themeStyle: domain.ThemeStyle.oled,
+          ),
+          cachedThemeStyle: domain.ThemeStyle.materialYou,
+          targetPlatform: TargetPlatform.iOS,
+        );
+        addTearDown(container.dispose);
+
+        expect(
+          container.read(themeStyleProvider),
+          domain.ThemeStyle.materialYou,
+        );
+        expect(
+          container.read(effectiveThemeStyleProvider),
+          domain.ThemeStyle.standard,
+        );
+      },
+    );
   });
 
   // ---------------------------------------------------------------------------

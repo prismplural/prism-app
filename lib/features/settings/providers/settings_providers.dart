@@ -1,6 +1,8 @@
 import 'dart:typed_data';
 import 'dart:ui' show Locale;
 
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -16,6 +18,13 @@ const _kThemeCornerStyleCache = 'prism.cache.theme_corner_style';
 const _kIgnoreSyncedAppearance = 'prism.pref.ignore_synced_appearance';
 const _kUseProxyTagsForAuthoring = 'prism.pref.use_proxy_tags_for_authoring';
 const _kHardLockSyncOnAppLock = 'prism.pref.hard_lock_sync_on_app_lock';
+
+ThemeStyle effectiveThemeStyleForPlatform(
+  ThemeStyle style,
+  TargetPlatform platform,
+) => style == ThemeStyle.materialYou && platform != TargetPlatform.android
+    ? ThemeStyle.standard
+    : style;
 
 /// Transient storage for a generated mnemonic during secret key setup.
 /// Auto-disposed when no longer watched (Riverpod 3 auto-disposes by default).
@@ -145,7 +154,7 @@ class SettingsNotifier extends AsyncNotifier<void> {
     });
   }
 
-  /// Save the current accent color before switching to Material You,
+  /// Save the current accent color before switching to dynamic system colors,
   /// and restore it when switching away.
   Future<void> handleThemeStyleChange(ThemeStyle style) async {
     state = await AsyncValue.guard(() async {
@@ -154,11 +163,11 @@ class SettingsNotifier extends AsyncNotifier<void> {
 
       if (style == ThemeStyle.materialYou &&
           current.themeStyle != ThemeStyle.materialYou) {
-        // Save current accent color to DB before switching to Material You.
+        // Save the current accent color before enabling dynamic system colors.
         await repo.updatePreviousAccentColorHex(current.accentColorHex);
       } else if (style != ThemeStyle.materialYou &&
           current.themeStyle == ThemeStyle.materialYou) {
-        // Restore saved accent color when switching away from Material You.
+        // Restore the saved accent color when leaving dynamic system colors.
         final saved = current.previousAccentColorHex;
         if (saved.isNotEmpty) {
           await repo.updateAccentColorHex(saved);
@@ -458,6 +467,10 @@ final cachedThemeStyleProvider = Provider<ThemeStyle>(
   (_) => ThemeStyle.standard,
 );
 
+final targetPlatformProvider = Provider<TargetPlatform>(
+  (_) => defaultTargetPlatform,
+);
+
 /// Seeded from SharedPreferences in main() before runApp().
 /// Falls back to rounded if no cache exists.
 /// Override in ProviderScope to supply the cached value.
@@ -511,6 +524,16 @@ final themeStyleProvider = Provider<ThemeStyle>((ref) {
           .watch(systemSettingsProvider)
           .whenOrNull(data: (s) => s.themeStyle) ??
       ref.watch(cachedThemeStyleProvider);
+});
+
+/// Current theme style after applying platform capabilities.
+///
+/// Dynamic system colors are only available on Android, so any synced or
+/// cached `materialYou` style downgrades to `standard` elsewhere.
+final effectiveThemeStyleProvider = Provider<ThemeStyle>((ref) {
+  final style = ref.watch(themeStyleProvider);
+  final platform = ref.watch(targetPlatformProvider);
+  return effectiveThemeStyleForPlatform(style, platform);
 });
 
 /// Reactive corner style, gated by ignoreSyncedAppearance.

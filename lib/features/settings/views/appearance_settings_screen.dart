@@ -1,12 +1,12 @@
-import 'package:flutter/foundation.dart'
-    show defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart' show TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 import 'package:prism_plurality/domain/models/models.dart' hide CornerStyle;
-import 'package:prism_plurality/domain/models/system_settings.dart' hide CornerStyle;
+import 'package:prism_plurality/domain/models/system_settings.dart'
+    hide CornerStyle;
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/views/accent_color_picker.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
@@ -34,178 +34,176 @@ class AppearanceSettingsScreen extends ConsumerWidget {
     final settingsAsync = ref.watch(systemSettingsProvider);
 
     return PrismPageScaffold(
-      topBar: PrismTopBar(title: context.l10n.appearanceTitle, showBackButton: true),
+      topBar: PrismTopBar(
+        title: context.l10n.appearanceTitle,
+        showBackButton: true,
+      ),
       bodyPadding: EdgeInsets.zero,
       body: settingsAsync.when(
         loading: () => const PrismLoadingState(),
         error: (e, _) => Center(child: Text(context.l10n.errorWithDetail(e))),
-        data: (settings) => ListView(
-          padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
-          children: [
-            PrismSection(
-              title: context.l10n.appearanceBrightness,
-              child: PrismSegmentedControl<ThemeBrightness>(
-                segments: ThemeBrightness.values
-                    .map(
-                      (b) => PrismSegment(
-                        value: b,
-                        label: b.displayName,
-                      ),
-                    )
-                    .toList(),
-                selected: settings.themeBrightness,
-                onChanged: (value) {
-                  ref
-                      .read(settingsNotifierProvider.notifier)
-                      .updateThemeBrightness(value);
-                },
+        data: (settings) {
+          final effectiveThemeStyle = ref.watch(effectiveThemeStyleProvider);
+          final platform = ref.watch(targetPlatformProvider);
+
+          return ListView(
+            padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
+            children: [
+              PrismSection(
+                title: context.l10n.appearanceBrightness,
+                child: PrismSegmentedControl<ThemeBrightness>(
+                  segments: ThemeBrightness.values
+                      .map((b) => PrismSegment(value: b, label: b.displayName))
+                      .toList(),
+                  selected: settings.themeBrightness,
+                  onChanged: (value) {
+                    ref
+                        .read(settingsNotifierProvider.notifier)
+                        .updateThemeBrightness(value);
+                  },
+                ),
               ),
-            ),
-            PrismSection(
-              title: context.l10n.appearanceStyle,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  PrismSegmentedControl<ThemeStyle>(
-                    segments: ThemeStyle.values
-                        .where((s) {
-                          if (s == ThemeStyle.materialYou) {
-                            return defaultTargetPlatform ==
-                                TargetPlatform.android;
-                          }
-                          return true;
-                        })
-                        .map(
-                          (s) => PrismSegment(
-                            value: s,
-                            label: s.displayName,
-                          ),
-                        )
-                        .toList(),
-                    selected: settings.themeStyle == ThemeStyle.materialYou &&
-                            defaultTargetPlatform != TargetPlatform.android
-                        ? ThemeStyle.standard
-                        : settings.themeStyle,
+              PrismSection(
+                title: context.l10n.appearanceStyle,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    PrismSegmentedControl<ThemeStyle>(
+                      segments: ThemeStyle.values
+                          .where((s) {
+                            if (s == ThemeStyle.materialYou) {
+                              return platform == TargetPlatform.android;
+                            }
+                            return true;
+                          })
+                          .map(
+                            (s) => PrismSegment(value: s, label: s.displayName),
+                          )
+                          .toList(),
+                      selected: effectiveThemeStyle,
+                      onChanged: (value) {
+                        ref
+                            .read(settingsNotifierProvider.notifier)
+                            .handleThemeStyleChange(value);
+                      },
+                    ),
+                    if (effectiveThemeStyle == ThemeStyle.materialYou &&
+                        platform == TargetPlatform.android) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        context.l10n.appearanceUsesSystemPalette,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurface.withValues(alpha: 0.5),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              PrismSection(
+                title: context.l10n.appearanceCornerStyleTitle,
+                description: context.l10n.appearanceCornerStyleDescription,
+                child: PrismSegmentedControl<CornerStyle>(
+                  segments: [
+                    PrismSegment(
+                      value: CornerStyle.rounded,
+                      label: context.l10n.appearanceCornerStyleRounded,
+                    ),
+                    PrismSegment(
+                      value: CornerStyle.angular,
+                      label: context.l10n.appearanceCornerStyleAngular,
+                    ),
+                  ],
+                  selected: ref.watch(cornerStyleProvider),
+                  onChanged: (value) {
+                    ref
+                        .read(settingsNotifierProvider.notifier)
+                        .updateCornerStyle(value);
+                  },
+                ),
+              ),
+              PrismSection(
+                title: context.l10n.appearanceAccentColor,
+                child: PrismSectionCard(
+                  child: AccentColorPicker(
+                    currentHex: settings.accentColorHex,
+                    onChanged: (hex) => ref
+                        .read(settingsNotifierProvider.notifier)
+                        .updateAccentColor(hex),
+                    materialYouActive:
+                        effectiveThemeStyle == ThemeStyle.materialYou,
+                  ),
+                ),
+              ),
+              FontSettingsSection(settings: settings),
+              PrismSection(
+                title: context.l10n.appearancePerMemberColors(
+                  watchTerminology(context, ref).singular,
+                ),
+                child: PrismSectionCard(
+                  child: PrismSwitchRow(
+                    title: context.l10n.appearancePerMemberColorsSwitchTitle(
+                      watchTerminology(context, ref).singularLower,
+                    ),
+                    subtitle: context.l10n
+                        .appearancePerMemberColorsSwitchSubtitle(
+                          watchTerminology(context, ref).singularLower,
+                        ),
+                    value: settings.perMemberAccentColors,
                     onChanged: (value) {
                       ref
                           .read(settingsNotifierProvider.notifier)
-                          .handleThemeStyleChange(value);
+                          .updatePerMemberAccentColors(value);
                     },
                   ),
-                  if (settings.themeStyle == ThemeStyle.materialYou &&
-                      defaultTargetPlatform == TargetPlatform.android) ...[
-                    const SizedBox(height: 12),
-                    Text(
-                      context.l10n.appearanceUsesSystemPalette,
-                      style: Theme.of(context).textTheme.bodySmall
-                          ?.copyWith(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurface.withValues(alpha: 0.5),
-                          ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            PrismSection(
-              title: context.l10n.appearanceCornerStyleTitle,
-              description: context.l10n.appearanceCornerStyleDescription,
-              child: PrismSegmentedControl<CornerStyle>(
-                segments: [
-                  PrismSegment(
-                    value: CornerStyle.rounded,
-                    label: context.l10n.appearanceCornerStyleRounded,
-                  ),
-                  PrismSegment(
-                    value: CornerStyle.angular,
-                    label: context.l10n.appearanceCornerStyleAngular,
-                  ),
-                ],
-                selected: ref.watch(cornerStyleProvider),
-                onChanged: (value) {
-                  ref
-                      .read(settingsNotifierProvider.notifier)
-                      .updateCornerStyle(value);
-                },
-              ),
-            ),
-            PrismSection(
-              title: context.l10n.appearanceAccentColor,
-              child: PrismSectionCard(
-                child: AccentColorPicker(
-                  currentHex: settings.accentColorHex,
-                  onChanged: (hex) => ref
-                      .read(settingsNotifierProvider.notifier)
-                      .updateAccentColor(hex),
-                  materialYouActive:
-                      settings.themeStyle == ThemeStyle.materialYou,
                 ),
               ),
-            ),
-            FontSettingsSection(settings: settings),
-            PrismSection(
-              title: context.l10n.appearancePerMemberColors(watchTerminology(context, ref).singular),
-              child: PrismSectionCard(
-                child: PrismSwitchRow(
-                  title: context.l10n.appearancePerMemberColorsSwitchTitle(
-                    watchTerminology(context, ref).singularLower,
+              PrismSection(
+                title: context.l10n.appearanceSyncSection,
+                child: PrismSectionCard(
+                  child: PrismSwitchRow(
+                    title: context.l10n.appearanceSyncThemeTitle,
+                    subtitle: context.l10n.appearanceSyncThemeSubtitle,
+                    value: settings.syncThemeEnabled,
+                    onChanged: (value) {
+                      ref
+                          .read(settingsNotifierProvider.notifier)
+                          .updateSyncThemeEnabled(value);
+                    },
                   ),
-                  subtitle: context.l10n.appearancePerMemberColorsSwitchSubtitle(
-                    watchTerminology(context, ref).singularLower,
+                ),
+              ),
+              PrismSection(
+                title: context.l10n.appearanceTerminology,
+                child: PrismSectionCard(
+                  child: TerminologyPicker(
+                    current: settings.terminology,
+                    currentUseEnglish: settings.terminologyUseEnglish,
+                    customTerminology: settings.customTerminology,
+                    customPluralTerminology: settings.customPluralTerminology,
                   ),
-                  value: settings.perMemberAccentColors,
-                  onChanged: (value) {
-                    ref
+                ),
+              ),
+              PrismSection(
+                title: context.l10n.appearanceLanguage,
+                child: PrismSectionCard(
+                  child: _LanguagePicker(
+                    current: settings.localeOverride,
+                    onChanged: (code) => ref
                         .read(settingsNotifierProvider.notifier)
-                        .updatePerMemberAccentColors(value);
-                  },
+                        .updateLocaleOverride(code),
+                  ),
                 ),
               ),
-            ),
-            PrismSection(
-              title: context.l10n.appearanceSyncSection,
-              child: PrismSectionCard(
-                child: PrismSwitchRow(
-                  title: context.l10n.appearanceSyncThemeTitle,
-                  subtitle: context.l10n.appearanceSyncThemeSubtitle,
-                  value: settings.syncThemeEnabled,
-                  onChanged: (value) {
-                    ref
-                        .read(settingsNotifierProvider.notifier)
-                        .updateSyncThemeEnabled(value);
-                  },
-                ),
+              PrismSection(
+                title: context.l10n.appearancePreview,
+                child: _PreviewCard(settings: settings),
               ),
-            ),
-            PrismSection(
-              title: context.l10n.appearanceTerminology,
-              child: PrismSectionCard(
-                child: TerminologyPicker(
-                  current: settings.terminology,
-                  currentUseEnglish: settings.terminologyUseEnglish,
-                  customTerminology: settings.customTerminology,
-                  customPluralTerminology: settings.customPluralTerminology,
-                ),
-              ),
-            ),
-            PrismSection(
-              title: context.l10n.appearanceLanguage,
-              child: PrismSectionCard(
-                child: _LanguagePicker(
-                  current: settings.localeOverride,
-                  onChanged: (code) => ref
-                      .read(settingsNotifierProvider.notifier)
-                      .updateLocaleOverride(code),
-                ),
-              ),
-            ),
-            PrismSection(
-              title: context.l10n.appearancePreview,
-              child: _PreviewCard(settings: settings),
-            ),
-          ],
-        ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -258,10 +256,7 @@ class _PreviewCard extends ConsumerWidget {
 }
 
 class _LanguagePicker extends StatelessWidget {
-  const _LanguagePicker({
-    required this.current,
-    required this.onChanged,
-  });
+  const _LanguagePicker({required this.current, required this.onChanged});
 
   final String? current;
   final ValueChanged<String?> onChanged;
@@ -327,18 +322,9 @@ class _LanguageRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           children: [
-            Expanded(
-              child: Text(
-                title,
-                style: theme.textTheme.bodyLarge,
-              ),
-            ),
+            Expanded(child: Text(title, style: theme.textTheme.bodyLarge)),
             if (isSelected)
-              Icon(
-                AppIcons.check,
-                color: theme.colorScheme.primary,
-                size: 20,
-              ),
+              Icon(AppIcons.check, color: theme.colorScheme.primary, size: 20),
           ],
         ),
       ),
