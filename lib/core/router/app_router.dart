@@ -326,6 +326,10 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 name: AppRouteNames.chat,
                 path: AppRoutePaths.chat,
+                redirect: (context, state) {
+                  final flags = ref.read(featureFlagsProvider);
+                  return flags.chat ? null : AppRoutePaths.home;
+                },
                 builder: (context, state) => const ChatScreen(),
                 routes: [
                   GoRoute(
@@ -350,6 +354,10 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 name: AppRouteNames.habits,
                 path: AppRoutePaths.habits,
+                redirect: (context, state) {
+                  final flags = ref.read(featureFlagsProvider);
+                  return flags.habits ? null : AppRoutePaths.home;
+                },
                 builder: (context, state) => const HabitsListScreen(),
                 routes: [
                   GoRoute(
@@ -368,6 +376,10 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 name: AppRouteNames.polls,
                 path: AppRoutePaths.polls,
+                redirect: (context, state) {
+                  final flags = ref.read(featureFlagsProvider);
+                  return flags.polls ? null : AppRoutePaths.home;
+                },
                 builder: (context, state) => const PollsListScreen(),
                 routes: [
                   GoRoute(
@@ -648,6 +660,10 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 name: AppRouteNames.reminders,
                 path: AppRoutePaths.reminders,
+                redirect: (context, state) {
+                  final flags = ref.read(featureFlagsProvider);
+                  return flags.reminders ? null : AppRoutePaths.home;
+                },
                 builder: (context, state) =>
                     const RemindersScreen(showBackButton: false),
               ),
@@ -660,6 +676,10 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 name: AppRouteNames.notes,
                 path: AppRoutePaths.notes,
+                redirect: (context, state) {
+                  final flags = ref.read(featureFlagsProvider);
+                  return flags.notes ? null : AppRoutePaths.home;
+                },
                 builder: (context, state) =>
                     const NotesListScreen(showBackButton: false),
                 routes: [
