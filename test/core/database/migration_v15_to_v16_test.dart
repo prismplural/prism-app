@@ -15,6 +15,11 @@ Future<void> _seedV15TimestampCommentShapeDb(File dbFile) async {
 
   final rawDb = raw.sqlite3.open(dbFile.path);
   try {
+    // v17 (fronting auto-promotion) — drop column added by v16→v17.
+    rawDb.execute(
+      'ALTER TABLE system_settings DROP COLUMN auto_promote_long_fronting_sessions',
+    );
+
     rawDb.execute(
       'ALTER TABLE front_session_comments ADD COLUMN target_time INTEGER',
     );
@@ -105,7 +110,7 @@ void main() {
         final version = await upgraded
             .customSelect('PRAGMA user_version')
             .getSingle();
-        expect(version.read<int>('user_version'), 16);
+        expect(version.read<int>('user_version'), 17);
 
         final cols = await upgraded
             .customSelect("PRAGMA table_info('front_session_comments')")

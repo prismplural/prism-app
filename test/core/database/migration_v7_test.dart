@@ -35,6 +35,11 @@ Future<void> _seedV6Db(
 
   final rawDb = raw.sqlite3.open(dbFile.path);
   try {
+    // v17 (fronting auto-promotion) — drop column added by v16→v17.
+    rawDb.execute(
+      'ALTER TABLE system_settings DROP COLUMN auto_promote_long_fronting_sessions',
+    );
+
     // v15 (Member Boards) — drop columns added by v14→v15 to simulate older state.
     rawDb.execute('ALTER TABLE members DROP COLUMN board_last_read_at');
     rawDb.execute(

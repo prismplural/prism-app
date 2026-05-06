@@ -22,6 +22,11 @@ Future<void> _seedV10Db(File dbFile) async {
 
   final rawDb = raw.sqlite3.open(dbFile.path);
   try {
+    // v17 (fronting auto-promotion) — drop column added by v16→v17.
+    rawDb.execute(
+      'ALTER TABLE system_settings DROP COLUMN auto_promote_long_fronting_sessions',
+    );
+
     rawDb.execute('ALTER TABLE members DROP COLUMN profile_header_visible');
     rawDb.execute('ALTER TABLE members DROP COLUMN name_style_font');
     rawDb.execute('ALTER TABLE members DROP COLUMN name_style_bold');
@@ -77,7 +82,7 @@ void main() {
       expect(member.profileHeaderVisible, isTrue);
 
       final version = await upgraded.customSelect('PRAGMA user_version').get();
-      expect(version.first.read<int>('user_version'), 16);
+      expect(version.first.read<int>('user_version'), 17);
     });
   });
 }
