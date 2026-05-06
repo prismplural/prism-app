@@ -101,7 +101,11 @@ class LocalNotificationService {
   }) async {
     if (kIsWeb) return;
     await _ensureInitialized();
-    final scheduled = _nextWeekdayOccurrence(time, weekday, notBefore: notBefore);
+    final scheduled = _nextWeekdayOccurrence(
+      time,
+      weekday,
+      notBefore: notBefore,
+    );
     await _plugin.zonedSchedule(
       id: id,
       title: title,
@@ -171,6 +175,50 @@ class LocalNotificationService {
       title: title,
       body: body,
       repeatInterval: interval,
+      notificationDetails: details,
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+    );
+  }
+
+  /// Schedules a repeating notification using the exact duration selected.
+  ///
+  /// This is used for fronting reminders where sub-hour intervals like
+  /// 15 minutes need to remain 15 minutes instead of collapsing to the
+  /// plugin's coarse hourly/daily/weekly buckets.
+  Future<void> scheduleRepeatingWithDuration({
+    required int id,
+    required String title,
+    required String body,
+    required Duration interval,
+    required NotificationDetails details,
+  }) async {
+    if (kIsWeb) return;
+    await _ensureInitialized();
+    await _plugin.periodicallyShowWithDuration(
+      id: id,
+      title: title,
+      body: body,
+      repeatDurationInterval: interval,
+      notificationDetails: details,
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+    );
+  }
+
+  /// Schedules a one-shot notification for a future wall-clock time.
+  Future<void> scheduleOneShot({
+    required int id,
+    required String title,
+    required String body,
+    required DateTime scheduledFor,
+    required NotificationDetails details,
+  }) async {
+    if (kIsWeb) return;
+    await _ensureInitialized();
+    await _plugin.zonedSchedule(
+      id: id,
+      title: title,
+      body: body,
+      scheduledDate: tz.TZDateTime.from(scheduledFor, tz.local),
       notificationDetails: details,
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
     );
@@ -320,11 +368,10 @@ class LocalNotificationService {
     TimeOfDay time,
     int weekday, {
     DateTime? notBefore,
-  }) =>
-      nextWeekdayOccurrenceFrom(
-        _nextOccurrence(time, notBefore: notBefore),
-        weekday,
-      );
+  }) => nextWeekdayOccurrenceFrom(
+    _nextOccurrence(time, notBefore: notBefore),
+    weekday,
+  );
 }
 
 /// Walks forward from [from] until landing on [weekday] (the app's picker

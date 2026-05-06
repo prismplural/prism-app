@@ -382,18 +382,17 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
                       );
                     },
                   ),
-                  if (_targetMemberId != null) ...[
-                    const SizedBox(height: 12),
-                    // Honesty disclosure: Prism's relay only sees ciphertext, so
-                    // member-targeted reminders can't be push-delivered — they
-                    // only fire when THIS device observes the switch.
-                    InfoBanner(
-                      icon: AppIcons.infoOutlineRounded,
-                      iconColor: theme.colorScheme.primary,
-                      title: context.l10n.remindersTargetLabel,
-                      message: context.l10n.remindersTargetDisclosure,
-                    ),
-                  ],
+                  const SizedBox(height: 12),
+                  // Honesty disclosure: Prism's relay only sees ciphertext, so
+                  // front-change reminders only fire when THIS device observes
+                  // the switch. That limitation applies whether the reminder
+                  // targets a specific member or any front change.
+                  InfoBanner(
+                    icon: AppIcons.infoOutlineRounded,
+                    iconColor: theme.colorScheme.primary,
+                    title: context.l10n.remindersTriggerFrontChange,
+                    message: context.l10n.remindersTargetDisclosure,
+                  ),
                 ],
 
                 if (_isEditing) ...[

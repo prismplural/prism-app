@@ -6863,7 +6863,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get remindersTargetDisclosure =>
-      'Se activa cuando Prism está en ejecución y detecta el cambio. Los cambios externos registrados mientras Prism está cerrado pueden no activar este recordatorio.';
+      'Solo se activa cuando Prism está en ejecución en este dispositivo y detecta el cambio. Si Prism está cerrado y el cambio se registra en otro lugar, este recordatorio no se activará de inmediato.';
 
   @override
   String remindersSubtitleTargetPrefix(String name) {

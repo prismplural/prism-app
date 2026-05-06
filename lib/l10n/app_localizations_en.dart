@@ -6750,7 +6750,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get remindersTargetDisclosure =>
-      'Fires when Prism is running and sees the switch. External switches logged while Prism is closed may not trigger this reminder.';
+      'Only fires when Prism is running on this device and notices the switch. If Prism is closed and the switch is logged elsewhere, this reminder will not trigger right away.';
 
   @override
   String remindersSubtitleTargetPrefix(String name) {

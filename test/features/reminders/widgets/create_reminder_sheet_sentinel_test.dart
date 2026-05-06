@@ -26,14 +26,14 @@ Member _member({required String id, required String name}) =>
 /// scheduled-trigger UI hides the member section entirely; only front-change
 /// reminders surface the picker we want to test.
 Reminder _editingFrontChangeReminder() => Reminder(
-      id: 'r1',
-      name: 'Test',
-      message: '',
-      trigger: ReminderTrigger.onFrontChange,
-      delayHours: 0,
-      createdAt: DateTime(2024, 1, 1),
-      modifiedAt: DateTime(2024, 1, 1),
-    );
+  id: 'r1',
+  name: 'Test',
+  message: '',
+  trigger: ReminderTrigger.onFrontChange,
+  delayHours: 0,
+  createdAt: DateTime(2024, 1, 1),
+  modifiedAt: DateTime(2024, 1, 1),
+);
 
 Widget _buildTestWidget(List<Member> members) {
   return ProviderScope(
@@ -83,6 +83,13 @@ void main() {
 
       await tester.pumpWidget(_buildTestWidget(members));
       await tester.pumpAndSettle();
+
+      expect(
+        find.text(
+          'Only fires when Prism is running on this device and notices the switch. If Prism is closed and the switch is logged elsewhere, this reminder will not trigger right away.',
+        ),
+        findsOneWidget,
+      );
 
       // The member target row shows on the create-reminder sheet for
       // front-change triggers; tap it to open the search sheet which

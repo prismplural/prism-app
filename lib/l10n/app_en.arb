@@ -7702,7 +7702,7 @@
   "@remindersTargetLabel": { "description": "Section label for the optional member target picker on a front-change reminder" },
   "remindersTargetAny": "Any front change",
   "@remindersTargetAny": { "description": "Target picker option meaning the reminder fires on any front change (no specific member)" },
-  "remindersTargetDisclosure": "Fires when Prism is running and sees the switch. External switches logged while Prism is closed may not trigger this reminder.",
+  "remindersTargetDisclosure": "Only fires when Prism is running on this device and notices the switch. If Prism is closed and the switch is logged elsewhere, this reminder will not trigger right away.",
   "@remindersTargetDisclosure": { "description": "Honesty disclosure shown when a member-targeted front-change reminder is configured. Prism is end-to-end encrypted, so the relay cannot push notifications for a specific member switch." },
   "remindersSubtitleTargetPrefix": "When {name} fronts",
   "@remindersSubtitleTargetPrefix": {

@@ -98,7 +98,12 @@ class ReminderSchedulerService {
       if (target != null && !currentFronterIds.contains(target)) {
         continue;
       }
-      await _showImmediate(reminder);
+      final delayHours = reminder.delayHours ?? 0;
+      if (delayHours > 0) {
+        await _scheduleDelayed(reminder, Duration(hours: delayHours));
+      } else {
+        await _showImmediate(reminder);
+      }
     }
   }
 
@@ -146,11 +151,12 @@ class ReminderSchedulerService {
         // Defense-in-depth: even though the mapper guards corrupt rows,
         // direct callers via providers could bypass it. Drop out-of-range
         // weekdays and dedupe so each weekday schedules exactly once.
-        final days = (reminder.weeklyDays ?? const <int>[])
-            .where((d) => d >= 0 && d <= 6)
-            .toSet()
-            .toList()
-          ..sort();
+        final days =
+            (reminder.weeklyDays ?? const <int>[])
+                .where((d) => d >= 0 && d <= 6)
+                .toSet()
+                .toList()
+              ..sort();
         if (days.isEmpty) return;
         for (var i = 0; i < days.length; i++) {
           await _localService.scheduleExactWeekly(
@@ -187,25 +193,43 @@ class ReminderSchedulerService {
   }
 
   Future<void> _showImmediate(Reminder reminder) async {
-    const androidDetails = AndroidNotificationDetails(
-      _channelId,
-      _channelName,
-      channelDescription: _channelDesc,
-      importance: Importance.high,
-      priority: Priority.high,
-    );
-    const darwinDetails = DarwinNotificationDetails();
-    const details = NotificationDetails(
-      android: androidDetails,
-      iOS: darwinDetails,
-      macOS: darwinDetails,
-    );
+    final details = _notificationDetails(importance: Importance.high);
     await _localService.showImmediate(
       id: _notificationIdBase(reminder.id),
       title: reminder.name,
       body: reminder.message,
       details: details,
     );
+  }
+
+  Future<void> _scheduleDelayed(Reminder reminder, Duration delay) async {
+    final details = _notificationDetails(importance: Importance.high);
+    await _localService.scheduleOneShot(
+      id: _notificationIdBase(reminder.id),
+      title: reminder.name,
+      body: reminder.message,
+      scheduledFor: DateTime.now().add(delay),
+      details: details,
+    );
+  }
+
+  NotificationDetails _notificationDetails({required Importance importance}) {
+    final androidDetails = AndroidNotificationDetails(
+      _channelId,
+      _channelName,
+      channelDescription: _channelDesc,
+      importance: importance,
+      priority: importance == Importance.high
+          ? Priority.high
+          : Priority.defaultPriority,
+    );
+    const darwinDetails = DarwinNotificationDetails();
+    final details = NotificationDetails(
+      android: androidDetails,
+      iOS: darwinDetails,
+      macOS: darwinDetails,
+    );
+    return details;
   }
 
   /// Generates a stable base notification ID from a reminder ID string.
@@ -234,8 +258,9 @@ class ReminderSchedulerService {
 }
 
 /// Provides the [ReminderSchedulerService] singleton instance.
-final reminderSchedulerServiceProvider =
-    Provider<ReminderSchedulerService>((ref) {
+final reminderSchedulerServiceProvider = Provider<ReminderSchedulerService>((
+  ref,
+) {
   return ReminderSchedulerService(ref.watch(localNotificationServiceProvider));
 });
 
@@ -257,21 +282,17 @@ final reminderSchedulerListenerProvider = Provider<void>((ref) {
   ref.onDispose(() => debounceTimer?.cancel());
 
   // Watch active reminders and reschedule when they change (debounced).
-  ref.listen(
-    activeRemindersProvider,
-    (previous, next) {
-      final reminders = next.value;
-      if (reminders != null) {
-        debounceTimer?.cancel();
-        debounceTimer = Timer(const Duration(milliseconds: 500), () {
-          service.rescheduleAll(reminders).catchError((e) {
-            debugPrint('Reminder reschedule failed (non-fatal): $e');
-          });
+  ref.listen(activeRemindersProvider, (previous, next) {
+    final reminders = next.value;
+    if (reminders != null) {
+      debounceTimer?.cancel();
+      debounceTimer = Timer(const Duration(milliseconds: 500), () {
+        service.rescheduleAll(reminders).catchError((e) {
+          debugPrint('Reminder reschedule failed (non-fatal): $e');
         });
-      }
-    },
-    fireImmediately: true,
-  );
+      });
+    }
+  }, fireImmediately: true);
 
   // Watch active fronting sessions and fire front-change reminders when
   // the active-fronter member set changes.
@@ -282,24 +303,21 @@ final reminderSchedulerListenerProvider = Provider<void>((ref) {
   // end_time IS NULL, is_deleted=0). A "front change" is any add/remove of
   // a member from this set — solo→co-front, co-front→solo, swap, or
   // anyone-fronting ⇄ no-one-fronting.
-  ref.listen(
-    activeSessionsProvider,
-    (previous, next) {
-      final previousSessions = previous?.value;
-      final currentSessions = next.value;
+  ref.listen(activeSessionsProvider, (previous, next) {
+    final previousSessions = previous?.value;
+    final currentSessions = next.value;
 
-      // Only fire on actual changes, not on initial load.
-      if (previousSessions == null || currentSessions == null) return;
+    // Only fire on actual changes, not on initial load.
+    if (previousSessions == null || currentSessions == null) return;
 
-      final previousMemberIds = activeFronterMemberIds(previousSessions);
-      final currentMemberIds = activeFronterMemberIds(currentSessions);
-      if (_setsEqual(previousMemberIds, currentMemberIds)) return;
+    final previousMemberIds = activeFronterMemberIds(previousSessions);
+    final currentMemberIds = activeFronterMemberIds(currentSessions);
+    if (_setsEqual(previousMemberIds, currentMemberIds)) return;
 
-      service.fireFrontChangeReminders(currentMemberIds).catchError((e) {
-        debugPrint('Front-change reminder fire failed (non-fatal): $e');
-      });
-    },
-  );
+    service.fireFrontChangeReminders(currentMemberIds).catchError((e) {
+      debugPrint('Front-change reminder fire failed (non-fatal): $e');
+    });
+  });
 });
 
 /// Collects member_ids from a list of active per-member sessions.

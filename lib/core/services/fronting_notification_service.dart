@@ -42,11 +42,12 @@ class FrontingNotificationService {
       macOS: darwinDetails,
     );
 
-    await _localService.scheduleRepeating(
+    await _localService.scheduleRepeatingWithDuration(
       id: _reminderNotificationId,
       title: 'Fronting Reminder',
-      body: '$currentFronterName is currently fronting. Is this still accurate?',
-      interval: _repeatIntervalFrom(interval),
+      body:
+          '$currentFronterName is currently fronting. Is this still accurate?',
+      interval: interval,
       details: details,
     );
   }
@@ -78,13 +79,5 @@ class FrontingNotificationService {
       body: '$newFronterName is now fronting.',
       details: details,
     );
-  }
-
-  // ── Helpers ──────────────────────────────────────────────────────
-
-  RepeatInterval _repeatIntervalFrom(Duration duration) {
-    if (duration.inMinutes <= 60) return RepeatInterval.hourly;
-    if (duration.inHours <= 24) return RepeatInterval.daily;
-    return RepeatInterval.weekly;
   }
 }

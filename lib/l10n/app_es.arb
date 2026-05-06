@@ -1821,7 +1821,7 @@
   "remindersDelayHours": "{count, plural, =1{1 hora} other{{count} horas}}",
   "remindersTargetLabel": "Destino",
   "remindersTargetAny": "Cualquier cambio de frente",
-  "remindersTargetDisclosure": "Se activa cuando Prism está en ejecución y detecta el cambio. Los cambios externos registrados mientras Prism está cerrado pueden no activar este recordatorio.",
+  "remindersTargetDisclosure": "Solo se activa cuando Prism está en ejecución en este dispositivo y detecta el cambio. Si Prism está cerrado y el cambio se registra en otro lugar, este recordatorio no se activará de inmediato.",
   "remindersSubtitleTargetPrefix": "Cuando {name} está al frente",
   "settingsAboutAppName": "Prism",
   "settingsAboutTagline": "Gestión de sistemas plurales",

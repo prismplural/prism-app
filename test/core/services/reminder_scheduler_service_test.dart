@@ -23,8 +23,11 @@ class _FakeLocalNotificationService extends LocalNotificationService {
   final List<(int, int, TimeOfDay)> scheduleExactWeeklyCalls =
       []; // (id, weekday, time)
   final List<({int idBase, int intervalDays, TimeOfDay time})>
-      scheduleExactIntervalCalls = [];
-  final List<(int, String, String)> showImmediateCalls = []; // (id, title, body)
+  scheduleExactIntervalCalls = [];
+  final List<({int id, DateTime scheduledFor, String title, String body})>
+  scheduleOneShotCalls = [];
+  final List<(int, String, String)> showImmediateCalls =
+      []; // (id, title, body)
 
   @override
   Future<void> scheduleExactDaily({
@@ -65,8 +68,11 @@ class _FakeLocalNotificationService extends LocalNotificationService {
     DateTime? notBefore,
   }) async {
     methodCalls.add('scheduleExactInterval');
-    scheduleExactIntervalCalls
-        .add((idBase: idBase, intervalDays: intervalDays, time: time));
+    scheduleExactIntervalCalls.add((
+      idBase: idBase,
+      intervalDays: intervalDays,
+      time: time,
+    ));
   }
 
   @override
@@ -78,6 +84,23 @@ class _FakeLocalNotificationService extends LocalNotificationService {
   }) async {
     methodCalls.add('showImmediate');
     showImmediateCalls.add((id, title, body));
+  }
+
+  @override
+  Future<void> scheduleOneShot({
+    required int id,
+    required String title,
+    required String body,
+    required DateTime scheduledFor,
+    required NotificationDetails details,
+  }) async {
+    methodCalls.add('scheduleOneShot');
+    scheduleOneShotCalls.add((
+      id: id,
+      scheduledFor: scheduledFor,
+      title: title,
+      body: body,
+    ));
   }
 
   @override
@@ -103,6 +126,7 @@ Reminder _reminder({
   List<int>? weeklyDays,
   int? intervalDays,
   String? timeOfDay = '09:00',
+  int? delayHours,
   String? targetMemberId,
   bool isActive = true,
 }) {
@@ -116,6 +140,7 @@ Reminder _reminder({
     weeklyDays: weeklyDays,
     intervalDays: intervalDays,
     timeOfDay: timeOfDay,
+    delayHours: delayHours,
     targetMemberId: targetMemberId,
     isActive: isActive,
     createdAt: now,
@@ -219,8 +244,7 @@ void main() {
 
       await service.scheduleReminder(reminder);
 
-      final weekdays =
-          fake.scheduleExactWeeklyCalls.map((c) => c.$2).toList();
+      final weekdays = fake.scheduleExactWeeklyCalls.map((c) => c.$2).toList();
       expect(weekdays, [1, 3, 5]);
     });
 
@@ -258,23 +282,26 @@ void main() {
       );
     });
 
-    test('weeklyDays [1, 1, 3] → dedup to 2 calls with weekdays [1, 3]',
-        () async {
-      final fake = _FakeLocalNotificationService();
-      final service = ReminderSchedulerService(fake);
-      final reminder = _reminder(
-        id: 'r-weekly-dedup',
-        frequency: ReminderFrequency.weekly,
-        weeklyDays: [1, 1, 3],
-      );
+    test(
+      'weeklyDays [1, 1, 3] → dedup to 2 calls with weekdays [1, 3]',
+      () async {
+        final fake = _FakeLocalNotificationService();
+        final service = ReminderSchedulerService(fake);
+        final reminder = _reminder(
+          id: 'r-weekly-dedup',
+          frequency: ReminderFrequency.weekly,
+          weeklyDays: [1, 1, 3],
+        );
 
-      await service.scheduleReminder(reminder);
+        await service.scheduleReminder(reminder);
 
-      expect(fake.scheduleExactWeeklyCalls, hasLength(2));
-      final weekdays =
-          fake.scheduleExactWeeklyCalls.map((c) => c.$2).toList();
-      expect(weekdays, [1, 3]);
-    });
+        expect(fake.scheduleExactWeeklyCalls, hasLength(2));
+        final weekdays = fake.scheduleExactWeeklyCalls
+            .map((c) => c.$2)
+            .toList();
+        expect(weekdays, [1, 3]);
+      },
+    );
 
     test('weeklyDays [-1, 7, 99] → zero calls (all invalid)', () async {
       final fake = _FakeLocalNotificationService();
@@ -305,14 +332,11 @@ void main() {
       await service.scheduleReminder(reminder);
 
       expect(fake.scheduleExactWeeklyCalls, hasLength(2));
-      final weekdays =
-          fake.scheduleExactWeeklyCalls.map((c) => c.$2).toList();
+      final weekdays = fake.scheduleExactWeeklyCalls.map((c) => c.$2).toList();
       expect(weekdays, [1, 3]);
     });
 
-    test(
-        'weekly with intervalDays=1 → weekly path wins (not daily)',
-        () async {
+    test('weekly with intervalDays=1 → weekly path wins (not daily)', () async {
       final fake = _FakeLocalNotificationService();
       final service = ReminderSchedulerService(fake);
       final reminder = _reminder(
@@ -444,22 +468,24 @@ void main() {
       );
     });
 
-    test('onFrontChange reminder does not call the notification plugin',
-        () async {
-      final fake = _FakeLocalNotificationService();
-      final service = ReminderSchedulerService(fake);
-      final reminder = _reminder(
-        id: 'r-fc',
-        trigger: ReminderTrigger.onFrontChange,
-      );
+    test(
+      'onFrontChange reminder does not call the notification plugin',
+      () async {
+        final fake = _FakeLocalNotificationService();
+        final service = ReminderSchedulerService(fake);
+        final reminder = _reminder(
+          id: 'r-fc',
+          trigger: ReminderTrigger.onFrontChange,
+        );
 
-      await service.scheduleReminder(reminder);
+        await service.scheduleReminder(reminder);
 
-      expect(
-        fake.methodCalls.where((m) => m.startsWith('scheduleExact')).length,
-        0,
-      );
-    });
+        expect(
+          fake.methodCalls.where((m) => m.startsWith('scheduleExact')).length,
+          0,
+        );
+      },
+    );
   });
 
   // ── Per-member firing filter (plan 06) ──────────────────────────────
@@ -468,11 +494,13 @@ void main() {
     test('null target fires on any switch', () async {
       final fake = _FakeLocalNotificationService();
       final service = ReminderSchedulerService(fake);
-      await service.scheduleReminder(_reminder(
-        id: 'r-any',
-        trigger: ReminderTrigger.onFrontChange,
-        // targetMemberId intentionally null.
-      ));
+      await service.scheduleReminder(
+        _reminder(
+          id: 'r-any',
+          trigger: ReminderTrigger.onFrontChange,
+          // targetMemberId intentionally null.
+        ),
+      );
 
       await service.fireFrontChangeReminders({'alex'});
       await service.fireFrontChangeReminders({'sam'});
@@ -484,11 +512,13 @@ void main() {
     test('member target fires only when that member is fronting', () async {
       final fake = _FakeLocalNotificationService();
       final service = ReminderSchedulerService(fake);
-      await service.scheduleReminder(_reminder(
-        id: 'r-alex',
-        trigger: ReminderTrigger.onFrontChange,
-        targetMemberId: 'alex',
-      ));
+      await service.scheduleReminder(
+        _reminder(
+          id: 'r-alex',
+          trigger: ReminderTrigger.onFrontChange,
+          targetMemberId: 'alex',
+        ),
+      );
 
       await service.fireFrontChangeReminders({'sam'}); // not alex
       expect(fake.showImmediateCalls, isEmpty);
@@ -500,32 +530,73 @@ void main() {
       expect(fake.showImmediateCalls, hasLength(2));
     });
 
-    test('mix: null target always fires, targeted only when matching',
-        () async {
-      final fake = _FakeLocalNotificationService();
-      final service = ReminderSchedulerService(fake);
-      await service.scheduleReminder(_reminder(
-        id: 'r-any',
-        name: 'any',
-        trigger: ReminderTrigger.onFrontChange,
-      ));
-      await service.scheduleReminder(_reminder(
-        id: 'r-alex',
-        name: 'alex',
-        trigger: ReminderTrigger.onFrontChange,
-        targetMemberId: 'alex',
-      ));
+    test(
+      'mix: null target always fires, targeted only when matching',
+      () async {
+        final fake = _FakeLocalNotificationService();
+        final service = ReminderSchedulerService(fake);
+        await service.scheduleReminder(
+          _reminder(
+            id: 'r-any',
+            name: 'any',
+            trigger: ReminderTrigger.onFrontChange,
+          ),
+        );
+        await service.scheduleReminder(
+          _reminder(
+            id: 'r-alex',
+            name: 'alex',
+            trigger: ReminderTrigger.onFrontChange,
+            targetMemberId: 'alex',
+          ),
+        );
 
-      await service.fireFrontChangeReminders({'sam'});
-      // Only the null-target reminder fires.
-      expect(fake.showImmediateCalls, hasLength(1));
-      expect(fake.showImmediateCalls.single.$2, 'any');
+        await service.fireFrontChangeReminders({'sam'});
+        // Only the null-target reminder fires.
+        expect(fake.showImmediateCalls, hasLength(1));
+        expect(fake.showImmediateCalls.single.$2, 'any');
 
-      fake.showImmediateCalls.clear();
-      await service.fireFrontChangeReminders({'alex'});
-      // Both fire.
-      expect(fake.showImmediateCalls, hasLength(2));
-    });
+        fake.showImmediateCalls.clear();
+        await service.fireFrontChangeReminders({'alex'});
+        // Both fire.
+        expect(fake.showImmediateCalls, hasLength(2));
+      },
+    );
+
+    test(
+      'delayHours schedules a delayed notification instead of immediate',
+      () async {
+        final fake = _FakeLocalNotificationService();
+        final service = ReminderSchedulerService(fake);
+        await service.scheduleReminder(
+          _reminder(
+            id: 'r-delay',
+            name: 'hydrate',
+            message: 'check in',
+            trigger: ReminderTrigger.onFrontChange,
+            delayHours: 4,
+          ),
+        );
+
+        final before = DateTime.now();
+        await service.fireFrontChangeReminders({'alex'});
+        final after = DateTime.now();
+
+        expect(fake.showImmediateCalls, isEmpty);
+        expect(fake.scheduleOneShotCalls, hasLength(1));
+        final call = fake.scheduleOneShotCalls.single;
+        expect(call.title, 'hydrate');
+        expect(call.body, 'check in');
+        expect(
+          call.scheduledFor.isBefore(before.add(const Duration(hours: 4))),
+          isFalse,
+        );
+        expect(
+          call.scheduledFor.isAfter(after.add(const Duration(hours: 4))),
+          isFalse,
+        );
+      },
+    );
   });
 
   // ── activeFronterMemberIds helper (per-member set computation) ─────
@@ -585,8 +656,9 @@ void main() {
           // Empty stream — we drive the on-front-change reminder by
           // registering it directly on the service to bypass the 500ms
           // rescheduleAll debounce.
-          activeRemindersProvider
-              .overrideWith((ref) => const Stream<List<Reminder>>.empty()),
+          activeRemindersProvider.overrideWith(
+            (ref) => const Stream<List<Reminder>>.empty(),
+          ),
         ],
       );
       // Pre-register the on-front-change reminder on the service so its
