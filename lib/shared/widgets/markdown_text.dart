@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import 'package:markdown/markdown.dart' as md;
 import 'package:url_launcher/url_launcher.dart';
 
 /// Renders text as Markdown when [enabled], otherwise as plain [Text].
@@ -41,7 +42,6 @@ class MarkdownText extends StatelessWidget {
       data: data,
       selectable: selectable,
       styleSheet: sheet,
-      onTapLink: (text, href, title) => _onTapLink(href),
       imageBuilder: (uri, title, alt) => const SizedBox.shrink(),
       checkboxBuilder: (checked) => _buildTaskListCheckbox(
         theme: theme,
@@ -49,6 +49,7 @@ class MarkdownText extends StatelessWidget {
         padding: sheet.listBulletPadding,
         checked: checked,
       ),
+      builders: {'a': _SafeLinkBuilder(theme: theme)},
     );
   }
 
@@ -115,12 +116,45 @@ class MarkdownText extends StatelessWidget {
       ),
     );
   }
+}
 
-  Future<void> _onTapLink(String? href) async {
-    if (href == null) return;
-    final uri = Uri.tryParse(href);
-    if (uri == null) return;
-    if (uri.scheme != 'http' && uri.scheme != 'https') return;
+/// Renders `<a>` elements, downgrading any non-http(s) link to plain text
+/// so unsafe schemes (e.g. `javascript:`, `mailto:`) don't appear tappable.
+///
+/// Registering a builder for `a` bypasses flutter_markdown_plus's default
+/// link path, so this builder must construct the tappable widget itself for
+/// safe links.
+class _SafeLinkBuilder extends MarkdownElementBuilder {
+  _SafeLinkBuilder({required this.theme});
+
+  final ThemeData theme;
+
+  @override
+  Widget? visitElementAfterWithContext(
+    BuildContext context,
+    md.Element element,
+    TextStyle? preferredStyle,
+    TextStyle? parentStyle,
+  ) {
+    final href = element.attributes['href'];
+    final uri = href != null ? Uri.tryParse(href) : null;
+    final text = element.textContent;
+    final base = parentStyle ?? const TextStyle();
+    if (uri == null || (uri.scheme != 'http' && uri.scheme != 'https')) {
+      return Text(text, style: base);
+    }
+    final linkStyle = base.copyWith(
+      color: theme.colorScheme.primary,
+      decoration: TextDecoration.underline,
+      decorationColor: theme.colorScheme.primary.withValues(alpha: 0.5),
+    );
+    return GestureDetector(
+      onTap: () => _launchExternal(uri),
+      child: Text(text, style: linkStyle),
+    );
+  }
+
+  Future<void> _launchExternal(Uri uri) async {
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 }

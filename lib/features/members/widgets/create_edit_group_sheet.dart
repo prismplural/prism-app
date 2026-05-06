@@ -9,6 +9,7 @@ import 'package:prism_plurality/features/members/providers/member_groups_provide
 import 'package:prism_plurality/features/members/widgets/group_parent_picker.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
+import 'package:prism_plurality/shared/widgets/markdown_editing_controller.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_emoji_picker.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
@@ -72,7 +73,7 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
   final _formKey = GlobalKey<FormState>();
 
   late final TextEditingController _nameController;
-  late final TextEditingController _descriptionController;
+  late final MarkdownEditingController _descriptionController;
 
   String? _emoji;
   Color? _selectedColor;
@@ -84,7 +85,7 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
     super.initState();
     final g = widget.group;
     _nameController = TextEditingController(text: g?.name ?? '');
-    _descriptionController = TextEditingController(text: g?.description ?? '');
+    _descriptionController = MarkdownEditingController(text: g?.description ?? '');
     if (g?.colorHex != null) {
       _selectedColor = AppColors.fromHex(g!.colorHex!);
     }
@@ -230,6 +231,7 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
     final theme = Theme.of(context);
     final l10n = context.l10n;
     final canSave = _nameController.text.trim().isNotEmpty;
+    _descriptionController.updateTheme(context);
 
     // Look up the display name for the currently selected parent group.
     // Use `select` so we only rebuild when the relevant group's name changes,

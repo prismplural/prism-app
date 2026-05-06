@@ -86,6 +86,7 @@ class _ChatMessageTextState extends State<ChatMessageText> {
           extensionSet: chatExtensionSet,
           selectable: false,
           softLineBreak: true,
+          imageBuilder: (uri, title, alt) => const SizedBox.shrink(),
           builders: {
             'mention':
                 MentionBuilder(authorMap: widget.authorMap, theme: theme),

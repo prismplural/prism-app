@@ -7,6 +7,7 @@ import 'package:prism_plurality/features/settings/providers/terminology_provider
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
+import 'package:prism_plurality/shared/widgets/markdown_editing_controller.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
@@ -34,7 +35,7 @@ class CreatePollSheet extends ConsumerStatefulWidget {
 
 class _CreatePollSheetState extends ConsumerState<CreatePollSheet> {
   final _questionController = TextEditingController();
-  final _descriptionController = TextEditingController();
+  final _descriptionController = MarkdownEditingController();
   final List<TextEditingController> _optionControllers = [
     TextEditingController(),
     TextEditingController(),
@@ -161,6 +162,7 @@ class _CreatePollSheetState extends ConsumerState<CreatePollSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    _descriptionController.updateTheme(context);
 
     return SafeArea(
       child: Column(
