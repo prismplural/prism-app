@@ -1933,7 +1933,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get frontingMenuLogFront => 'Registrar frente';
 
   @override
-  String get frontingMenuLogPastSession => 'Log Past Session';
+  String get frontingMenuLogPastSession => 'Registrar sesión pasada';
 
   @override
   String get frontingMenuStartSleep => 'Empezar a dormir';
@@ -2033,7 +2033,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get frontingSessionTimePastSession => 'Sesión pasada';
 
   @override
-  String get frontingLogPastSession => 'Log Past Session';
+  String get frontingLogPastSession => 'Registrar sesión pasada';
 
   @override
   String get frontingAddCoFronterTitle => 'Agregar al co-frente';
