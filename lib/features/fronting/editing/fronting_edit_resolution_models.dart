@@ -73,10 +73,6 @@ class FrontingDeleteContext {
 
     final strategies = <FrontingDeleteStrategy>[];
     if (previous != null) strategies.add(FrontingDeleteStrategy.extendPrevious);
-    if (next != null) strategies.add(FrontingDeleteStrategy.extendNext);
-    if (previous != null && next != null && session.end != null) {
-      strategies.add(FrontingDeleteStrategy.splitBetweenNeighbors);
-    }
     strategies.add(FrontingDeleteStrategy.convertToUnknown);
     strategies.add(FrontingDeleteStrategy.leaveGap);
     return strategies;

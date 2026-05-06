@@ -356,39 +356,36 @@ void main() {
       // Cross-type overlap → trim only, no co-fronting concept.
     });
 
-    test(
-      'sleep edit detects overlap with adjacent fronting session',
-      () {
-        // Editing a sleep session so it overruns an adjacent fronting session
-        // should surface the overlap too — mirror of the above.
-        final sleep = makeSession(
-          id: 'sleep',
-          start: base,
-          end: base.add(const Duration(hours: 8)),
-          memberId: null,
-          sessionType: SessionType.sleep,
-        );
-        final front = makeSession(
-          id: 'front',
-          start: base.add(const Duration(hours: 8)),
-          end: base.add(const Duration(hours: 10)),
-        );
-        final patch = FrontingSessionPatch(
-          end: base.add(const Duration(hours: 9)), // sleep now bleeds into front
-        );
+    test('sleep edit detects overlap with adjacent fronting session', () {
+      // Editing a sleep session so it overruns an adjacent fronting session
+      // should surface the overlap too — mirror of the above.
+      final sleep = makeSession(
+        id: 'sleep',
+        start: base,
+        end: base.add(const Duration(hours: 8)),
+        memberId: null,
+        sessionType: SessionType.sleep,
+      );
+      final front = makeSession(
+        id: 'front',
+        start: base.add(const Duration(hours: 8)),
+        end: base.add(const Duration(hours: 10)),
+      );
+      final patch = FrontingSessionPatch(
+        end: base.add(const Duration(hours: 9)), // sleep now bleeds into front
+      );
 
-        final result = guard.validateEdit(
-          original: sleep,
-          patch: patch,
-          nearbySessions: [sleep, front],
-          timingMode: FrontingTimingMode.flexible,
-        );
+      final result = guard.validateEdit(
+        original: sleep,
+        patch: patch,
+        nearbySessions: [sleep, front],
+        timingMode: FrontingTimingMode.flexible,
+      );
 
-        expect(result.overlappingSessions, hasLength(1));
-        expect(result.overlappingSessions.first.id, 'front');
-        // Cross-type overlap → trim only, no co-fronting concept.
-      },
-    );
+      expect(result.overlappingSessions, hasLength(1));
+      expect(result.overlappingSessions.first.id, 'front');
+      // Cross-type overlap → trim only, no co-fronting concept.
+    });
   });
 
   // ---------------------------------------------------------------------------
@@ -522,42 +519,13 @@ void main() {
         );
       });
 
-      test('has next → includes extendNext', () {
-        final target = makeSession(
-          id: 'target',
-          start: base,
-          end: base.add(const Duration(hours: 1)),
-        );
-        final next = makeSession(
-          id: 'next',
-          start: base.add(const Duration(hours: 1)),
-          end: base.add(const Duration(hours: 2)),
-          memberId: 'member2',
-        );
-        final ctx = guard.getDeleteContext(target, [target, next]);
-        expect(
-          ctx.availableStrategies,
-          contains(FrontingDeleteStrategy.extendNext),
-        );
-        expect(
-          ctx.availableStrategies,
-          isNot(contains(FrontingDeleteStrategy.extendPrevious)),
-        );
-      });
-
       test(
-        'both neighbors + closed target → includes splitBetweenNeighbors',
+        'has only next → omits extendPrevious and keeps fallback options',
         () {
-          final prev = makeSession(
-            id: 'prev',
-            start: base.subtract(const Duration(hours: 1)),
-            end: base,
-            memberId: 'member2',
-          );
           final target = makeSession(
             id: 'target',
             start: base,
-            end: base.add(const Duration(hours: 1)), // closed
+            end: base.add(const Duration(hours: 1)),
           );
           final next = makeSession(
             id: 'next',
@@ -565,44 +533,23 @@ void main() {
             end: base.add(const Duration(hours: 2)),
             memberId: 'member2',
           );
-          final ctx = guard.getDeleteContext(target, [prev, target, next]);
+          final ctx = guard.getDeleteContext(target, [target, next]);
           expect(
             ctx.availableStrategies,
-            contains(FrontingDeleteStrategy.splitBetweenNeighbors),
+            isNot(contains(FrontingDeleteStrategy.extendPrevious)),
+          );
+          expect(
+            ctx.availableStrategies,
+            containsAll([
+              FrontingDeleteStrategy.convertToUnknown,
+              FrontingDeleteStrategy.leaveGap,
+            ]),
           );
         },
       );
 
       test(
-        'both neighbors + active target (null end) → no splitBetweenNeighbors',
-        () {
-          final prev = makeSession(
-            id: 'prev',
-            start: base.subtract(const Duration(hours: 1)),
-            end: base,
-            memberId: 'member2',
-          );
-          final target = makeSession(
-            id: 'target',
-            start: base,
-            end: null, // active — no end time
-          );
-          final next = makeSession(
-            id: 'next',
-            start: base.add(const Duration(hours: 1)),
-            end: base.add(const Duration(hours: 2)),
-            memberId: 'member2',
-          );
-          final ctx = guard.getDeleteContext(target, [prev, target, next]);
-          expect(
-            ctx.availableStrategies,
-            isNot(contains(FrontingDeleteStrategy.splitBetweenNeighbors)),
-          );
-        },
-      );
-
-      test(
-        'all 5 strategies available when both neighbors + closed target',
+        'previous neighbor keeps extend previous and drops legacy next/split options',
         () {
           final prev = makeSession(
             id: 'prev',
@@ -622,16 +569,22 @@ void main() {
             memberId: 'member2',
           );
           final ctx = guard.getDeleteContext(target, [prev, target, next]);
-          expect(ctx.availableStrategies, hasLength(5));
+          expect(ctx.availableStrategies, hasLength(3));
           expect(
             ctx.availableStrategies,
             containsAll([
               FrontingDeleteStrategy.extendPrevious,
-              FrontingDeleteStrategy.extendNext,
-              FrontingDeleteStrategy.splitBetweenNeighbors,
               FrontingDeleteStrategy.convertToUnknown,
               FrontingDeleteStrategy.leaveGap,
             ]),
+          );
+          expect(
+            ctx.availableStrategies,
+            isNot(contains(FrontingDeleteStrategy.extendNext)),
+          );
+          expect(
+            ctx.availableStrategies,
+            isNot(contains(FrontingDeleteStrategy.splitBetweenNeighbors)),
           );
         },
       );

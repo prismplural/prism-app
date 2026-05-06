@@ -60,26 +60,26 @@ class PrismDialog extends StatelessWidget {
       context: context,
       barrierDismissible: barrierDismissible,
       barrierLabel: context.l10n.dismiss,
-      barrierColor: AppColors.warmBlack
-          .withValues(alpha: isDark ? 0.55 : 0.45),
+      barrierColor: AppColors.warmBlack.withValues(alpha: isDark ? 0.55 : 0.45),
       transitionDuration: const Duration(milliseconds: 200),
-      transitionBuilder: (transitionContext, animation, secondaryAnimation, child) {
-        if (MediaQuery.of(transitionContext).disableAnimations) {
-          return child;
-        }
-        final curved = CurvedAnimation(
-          parent: animation,
-          curve: Curves.easeOutCubic,
-          reverseCurve: Curves.easeInCubic,
-        );
-        return FadeTransition(
-          opacity: curved,
-          child: ScaleTransition(
-            scale: Tween<double>(begin: 0.9, end: 1.0).animate(curved),
-            child: child,
-          ),
-        );
-      },
+      transitionBuilder:
+          (transitionContext, animation, secondaryAnimation, child) {
+            if (MediaQuery.of(transitionContext).disableAnimations) {
+              return child;
+            }
+            final curved = CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+              reverseCurve: Curves.easeInCubic,
+            );
+            return FadeTransition(
+              opacity: curved,
+              child: ScaleTransition(
+                scale: Tween<double>(begin: 0.9, end: 1.0).animate(curved),
+                child: child,
+              ),
+            );
+          },
       pageBuilder: (dialogContext, _, _) {
         final content = builder(dialogContext);
         return Center(
@@ -120,26 +120,26 @@ class PrismDialog extends StatelessWidget {
       context: context,
       barrierDismissible: barrierDismissible,
       barrierLabel: context.l10n.dismiss,
-      barrierColor: AppColors.warmBlack
-          .withValues(alpha: isDark ? 0.55 : 0.45),
+      barrierColor: AppColors.warmBlack.withValues(alpha: isDark ? 0.55 : 0.45),
       transitionDuration: const Duration(milliseconds: 200),
-      transitionBuilder: (transitionContext, animation, secondaryAnimation, child) {
-        if (MediaQuery.of(transitionContext).disableAnimations) {
-          return child;
-        }
-        final curved = CurvedAnimation(
-          parent: animation,
-          curve: Curves.easeOutCubic,
-          reverseCurve: Curves.easeInCubic,
-        );
-        return FadeTransition(
-          opacity: curved,
-          child: ScaleTransition(
-            scale: Tween<double>(begin: 0.9, end: 1.0).animate(curved),
-            child: child,
-          ),
-        );
-      },
+      transitionBuilder:
+          (transitionContext, animation, secondaryAnimation, child) {
+            if (MediaQuery.of(transitionContext).disableAnimations) {
+              return child;
+            }
+            final curved = CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+              reverseCurve: Curves.easeInCubic,
+            );
+            return FadeTransition(
+              opacity: curved,
+              child: ScaleTransition(
+                scale: Tween<double>(begin: 0.9, end: 1.0).animate(curved),
+                child: child,
+              ),
+            );
+          },
       pageBuilder: (dialogContext, _, _) {
         return Center(
           child: _GlassDialogShell(
@@ -185,11 +185,7 @@ class PrismDialog extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (icon != null) ...[
-            Icon(
-              icon,
-              size: 32,
-              color: iconColor ?? theme.colorScheme.primary,
-            ),
+            Icon(icon, size: 32, color: iconColor ?? theme.colorScheme.primary),
             const SizedBox(height: 12),
           ],
           if (title != null) ...[
@@ -199,7 +195,7 @@ class PrismDialog extends StatelessWidget {
                 fontWeight: FontWeight.w700,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
           ],
           if (message != null) ...[
             Text(
@@ -237,6 +233,7 @@ class _GlassDialogShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final size = MediaQuery.sizeOf(context);
     final maxWidth = min(size.width - 48.0, PrismTokens.dialogMaxWidth);
     final maxHeight = min(size.height * 0.8, 560.0);
@@ -244,21 +241,21 @@ class _GlassDialogShell extends StatelessWidget {
     final borderRadius = BorderRadius.circular(
       PrismShapes.of(context).radius(PrismTokens.radiusLarge),
     );
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final fillColor = isDark
-        ? AppColors.warmWhite.withValues(alpha: 0.18)
-        : AppColors.warmWhite.withValues(alpha: 0.82);
-    final borderColor = isDark
-        ? AppColors.warmWhite.withValues(alpha: 0.1)
-        : AppColors.warmBlack.withValues(alpha: 0.06);
+    final isDark = theme.brightness == Brightness.dark;
+    final dialogBaseColor =
+        theme.dialogTheme.backgroundColor ??
+        (isDark
+            ? theme.colorScheme.surfaceContainerHigh
+            : theme.colorScheme.surfaceContainerLow);
+    final fillColor = dialogBaseColor.withValues(alpha: isDark ? 0.9 : 0.96);
+    final borderColor = theme.colorScheme.onSurface.withValues(
+      alpha: isDark ? 0.12 : 0.08,
+    );
 
     return Material(
       type: MaterialType.transparency,
       child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: maxWidth,
-          maxHeight: maxHeight,
-        ),
+        constraints: BoxConstraints(maxWidth: maxWidth, maxHeight: maxHeight),
         child: ClipRRect(
           borderRadius: borderRadius,
           child: BackdropFilter(

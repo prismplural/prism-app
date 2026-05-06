@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:prism_plurality/shared/theme/prism_shapes.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/features/fronting/validation/fronting_validation_models.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 import 'package:prism_plurality/features/fronting/editing/fronting_edit_resolution_models.dart';
@@ -15,16 +17,24 @@ Future<FrontingDeleteStrategy?> showDeleteStrategyDialog(
   BuildContext context, {
   required FrontingDeleteContext deleteContext,
 }) async {
+  final previousSessionName = await _resolveSessionName(
+    context,
+    deleteContext.previous,
+  );
+  if (!context.mounted) return null;
+
   return PrismDialog.show<FrontingDeleteStrategy>(
     context: context,
-    title: context.l10n.frontingDeleteStrategyTitle,
+    title: 'Delete Session',
     builder: (ctx) {
       return Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           ...deleteContext.availableStrategies.map((strategy) {
-            final isRecommended =
-                strategy == FrontingDeleteStrategy.convertToUnknown;
+            final copy = _copyForStrategy(
+              strategy,
+              previousSessionName: previousSessionName,
+            );
             final icon = switch (strategy) {
               FrontingDeleteStrategy.extendPrevious => AppIcons.arrowBack,
               FrontingDeleteStrategy.extendNext => AppIcons.arrowForward,
@@ -38,43 +48,30 @@ Future<FrontingDeleteStrategy?> showDeleteStrategyDialog(
                 ? theme.colorScheme.error
                 : null;
 
-            return PrismListRow(
-              padding: EdgeInsets.zero,
-              leading: Icon(icon, color: color),
-              title: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      strategy.label,
-                      style:
-                          color != null ? TextStyle(color: color) : null,
-                    ),
-                  ),
-                  if (isRecommended)
-                    Container(
-                      margin: const EdgeInsets.only(left: 8),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.primaryContainer,
-                        borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
-                      ),
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: PrismListRow(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 4,
+                  vertical: 10,
+                ),
+                leading: Icon(icon, color: color),
+                title: Row(
+                  children: [
+                    Expanded(
                       child: Text(
-                        ctx.l10n.frontingDeleteStrategyRecommended,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.colorScheme.onPrimaryContainer,
-                        ),
+                        copy.title,
+                        style: color != null ? TextStyle(color: color) : null,
                       ),
                     ),
-                ],
+                  ],
+                ),
+                subtitle: Text(copy.subtitle),
+                onTap: () => Navigator.of(ctx).pop(strategy),
               ),
-              subtitle: Text(strategy.description),
-              onTap: () => Navigator.of(ctx).pop(strategy),
             );
           }),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           Align(
             alignment: Alignment.centerRight,
             child: PrismButton(
@@ -86,4 +83,48 @@ Future<FrontingDeleteStrategy?> showDeleteStrategyDialog(
       );
     },
   );
+}
+
+Future<String?> _resolveSessionName(
+  BuildContext context,
+  FrontingSessionSnapshot? session,
+) async {
+  final memberId = session?.memberId;
+  if (memberId == null) return null;
+
+  final container = ProviderScope.containerOf(context, listen: false);
+  final memberRepo = container.read(memberRepositoryProvider);
+  final member = await memberRepo.getMemberById(memberId);
+  return member?.name;
+}
+
+({String title, String subtitle}) _copyForStrategy(
+  FrontingDeleteStrategy strategy, {
+  String? previousSessionName,
+}) {
+  return switch (strategy) {
+    FrontingDeleteStrategy.extendPrevious => (
+      title: 'Extend Previous Session',
+      subtitle: previousSessionName == null
+          ? 'Add this time to the previous session.'
+          : 'Add this time to $previousSessionName\'s session.',
+    ),
+    FrontingDeleteStrategy.convertToUnknown => (
+      title: 'Mark as Unknown',
+      subtitle: 'Keep this time, but mark it as Unknown.',
+    ),
+    FrontingDeleteStrategy.leaveGap => (
+      title: 'Delete session',
+      subtitle:
+          'Remove this session. If nothing else covers this time, it will leave a gap.',
+    ),
+    FrontingDeleteStrategy.extendNext => (
+      title: strategy.label,
+      subtitle: strategy.description,
+    ),
+    FrontingDeleteStrategy.splitBetweenNeighbors => (
+      title: strategy.label,
+      subtitle: strategy.description,
+    ),
+  };
 }
