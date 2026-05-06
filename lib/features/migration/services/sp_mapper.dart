@@ -236,50 +236,32 @@ class SpMapper {
     // 3b. Map channels to conversations.
     final conversations = _mapChannels(data.channels);
 
-    // 4. Add a board conversation if there are board messages.
-    final hasBoardMessages = data.messages.any((m) => m.channelId == '_board');
-    if (hasBoardMessages) {
-      final boardId = _uuid.v4();
-      _channelIdMap['_board'] = boardId;
-      conversations.add(
-        domain.Conversation(
-          id: boardId,
-          createdAt: DateTime.now(),
-          lastActivityAt: DateTime.now(),
-          title: 'Board Messages',
-          emoji: '\u{1F4CB}',
-          isDirectMessage: true,
-          participantIds: const [],
-        ),
-      );
-    }
-
-    // 5. Map messages.
+    // 4. Map chat messages.
     final messages = _mapMessages(data.messages, warnings);
 
-    // 6. Map polls.
+    // 5. Map polls.
     final polls = _mapPolls(data.polls);
 
-    // 7. Map notes.
+    // 6. Map notes.
     final notes = _mapNotes(data.notes, warnings);
 
-    // 8. Map front comments.
+    // 7. Map front comments.
     final frontComments = _mapFrontComments(data.comments, warnings);
 
-    // 9. Map custom fields + values from member info maps.
+    // 8. Map custom fields + values from member info maps.
     final customFields = _mapCustomFieldDefs(data.customFields);
     final customFieldValues = _mapCustomFieldValues(data.members, warnings);
 
-    // 10. Map groups.
+    // 9. Map groups.
     final groups = _mapGroups(data.groups);
     final groupMemberships = _mapGroupMemberships(data.groups, warnings);
 
-    // 11. Map board messages to first-class MemberBoardPost rows.
+    // 10. Map board messages to first-class MemberBoardPost rows.
     //     Supersedes the old synthetic-DM approach — no new conversations or
     //     chat messages are created for board messages.
     final boardResult = _mapBoardMessages(data.boardMessages, warnings);
 
-    // 12. Map timers to reminders.
+    // 11. Map timers to reminders.
     final reminders = _mapTimers(
       data.automatedTimers,
       data.repeatedTimers,
@@ -598,8 +580,7 @@ class SpMapper {
       }
 
       // Deterministic ID: sp_id_map lookup first, then v5 derivation.
-      final sessionId =
-          _sessionIdMap[entry.id] ?? deriveSpSessionId(entry.id);
+      final sessionId = _sessionIdMap[entry.id] ?? deriveSpSessionId(entry.id);
       _sessionIdMap[entry.id] = sessionId;
 
       // live: true → end_time = NULL; false → end_time = endTime.
@@ -1273,8 +1254,7 @@ class SpMapper {
       // the mapper used raw ms, the mapper and backfill would produce different IDs
       // for any SP timestamp with a non-zero millisecond component.
       final bodyHex = sha256.convert(utf8.encode(body)).toString();
-      final writtenAtMs =
-          (bm.writtenAt.millisecondsSinceEpoch ~/ 1000) * 1000;
+      final writtenAtMs = (bm.writtenAt.millisecondsSinceEpoch ~/ 1000) * 1000;
       final deterministicId = _uuid.v5(
         boardsBackfillNamespace,
         '$forId|${byId ?? ''}|$writtenAtMs|$bodyHex',
@@ -1447,10 +1427,43 @@ class SpMapper {
     for (final sp in spPolls) {
       if (sp.question.isEmpty) continue;
 
+      final normalizedVoteNames = <String>{};
+      for (final vote in sp.votes) {
+        final normalized = _normalizePollOptionName(vote.optionName);
+        if (normalized.isNotEmpty) {
+          normalizedVoteNames.add(normalized);
+        }
+      }
+
+      final sourceOptions = <SpPollOption>[];
+      if (sp.options.isNotEmpty) {
+        sourceOptions.addAll(sp.options);
+      } else if (!sp.isCustom) {
+        sourceOptions.add(const SpPollOption(name: 'Yes'));
+        sourceOptions.add(const SpPollOption(name: 'No'));
+        if (sp.allowAbstain) {
+          sourceOptions.add(const SpPollOption(name: 'Abstain'));
+        }
+        if (sp.allowVeto) {
+          sourceOptions.add(const SpPollOption(name: 'Veto'));
+        }
+      } else if (normalizedVoteNames.isNotEmpty) {
+        // Best-effort fallback for shallow/custom API payloads that contain
+        // vote strings but omit the explicit options array.
+        final seen = <String>{};
+        for (final vote in sp.votes) {
+          final normalized = _normalizePollOptionName(vote.optionName);
+          if (normalized.isEmpty || !seen.add(normalized)) {
+            continue;
+          }
+          sourceOptions.add(SpPollOption(name: vote.optionName));
+        }
+      }
+
       // Build options with colors.
       final options = <domain.PollOption>[];
-      for (var i = 0; i < sp.options.length; i++) {
-        final spOption = sp.options[i];
+      for (var i = 0; i < sourceOptions.length; i++) {
+        final spOption = sourceOptions[i];
         String? colorHex = spOption.color;
         if (colorHex != null) {
           colorHex = colorHex.replaceFirst('#', '');
@@ -1470,7 +1483,7 @@ class SpMapper {
       // Build a lookup from option name to PollOption for vote resolution.
       final optionByName = <String, domain.PollOption>{};
       for (final opt in options) {
-        optionByName[opt.text] = opt;
+        optionByName[_normalizePollOptionName(opt.text)] = opt;
       }
 
       // Collect votes grouped by option ID.
@@ -1479,7 +1492,8 @@ class SpMapper {
         final prismMemberId = _memberIdMap[vote.memberId];
         if (prismMemberId == null) continue; // Unknown member, skip.
 
-        final matchedOption = optionByName[vote.optionName];
+        final matchedOption =
+            optionByName[_normalizePollOptionName(vote.optionName)];
         if (matchedOption == null) continue; // No matching option, skip.
 
         votesByOptionId
@@ -1515,6 +1529,10 @@ class SpMapper {
     }
 
     return polls;
+  }
+
+  String _normalizePollOptionName(String value) {
+    return value.trim().toLowerCase();
   }
 }
 

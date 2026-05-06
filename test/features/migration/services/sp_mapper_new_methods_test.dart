@@ -266,6 +266,53 @@ void main() {
 
       expect(result.frontComments, isEmpty);
     });
+
+    test(
+      'mixed comment collections only import frontHistory-scoped comments',
+      () {
+        final data = _makeExportData(
+          members: [_memberA],
+          frontHistory: [
+            SpFrontHistory(
+              id: 'fh1',
+              memberId: 'sp-a',
+              startTime: DateTime(2024, 1, 1),
+            ),
+          ],
+          comments: [
+            SpComment(
+              id: 'c-front',
+              documentId: 'fh1',
+              collection: 'frontHistory',
+              text: 'Keep me',
+              time: DateTime(2024, 1, 1, 12),
+            ),
+            SpComment(
+              id: 'c-member',
+              documentId: 'sp-a',
+              collection: 'members',
+              text: 'Ignore me',
+              time: DateTime(2024, 1, 1, 13),
+            ),
+            SpComment(
+              id: 'c-orphan',
+              documentId: 'missing-fh',
+              collection: 'frontHistory',
+              text: 'Warn and skip me',
+              time: DateTime(2024, 1, 1, 14),
+            ),
+          ],
+        );
+
+        final mapper = SpMapper();
+        final result = mapper.mapAll(data);
+
+        expect(result.frontComments, hasLength(1));
+        expect(result.frontComments.single.body, 'Keep me');
+        expect(result.warnings.any((w) => w.contains('missing-fh')), isTrue);
+        expect(result.warnings.any((w) => w.contains('c-member')), isFalse);
+      },
+    );
   });
 
   group('Custom fields mapping', () {
@@ -357,6 +404,48 @@ void main() {
           result.customFieldValues.first.memberId,
           result.members.first.id,
         );
+      },
+    );
+
+    test(
+      'member info values are stringified and empty or unknown entries are dropped',
+      () {
+        final data = _makeExportData(
+          members: [
+            const SpMember(
+              id: 'sp-a',
+              name: 'Alice',
+              info: {
+                'cf-text': 'Blue',
+                'cf-bool': true,
+                'cf-list': ['alpha', 'beta'],
+                'cf-num': 7,
+                'cf-empty': '',
+                'cf-null': null,
+                'cf-unknown': 'skip',
+              },
+            ),
+          ],
+          customFields: [
+            const SpCustomFieldDef(id: 'cf-text', name: 'Text', type: 0),
+            const SpCustomFieldDef(id: 'cf-bool', name: 'Bool', type: 0),
+            const SpCustomFieldDef(id: 'cf-list', name: 'List', type: 0),
+            const SpCustomFieldDef(id: 'cf-num', name: 'Num', type: 0),
+            const SpCustomFieldDef(id: 'cf-empty', name: 'Empty', type: 0),
+            const SpCustomFieldDef(id: 'cf-null', name: 'Null', type: 0),
+          ],
+        );
+
+        final mapper = SpMapper();
+        final result = mapper.mapAll(data);
+
+        expect(result.customFieldValues, hasLength(4));
+        expect(result.customFieldValues.map((value) => value.value).toSet(), {
+          'Blue',
+          'true',
+          '[alpha, beta]',
+          '7',
+        });
       },
     );
   });
@@ -576,6 +665,38 @@ void main() {
       );
     });
 
+    test('legacy _board chat messages do not synthesize chat imports', () {
+      final data = _makeExportData(
+        members: [_memberA, _memberB],
+        messages: [
+          SpMessage(
+            id: 'legacy-board-msg',
+            channelId: '_board',
+            senderId: 'sp-a',
+            content: 'Legacy board payload',
+            timestamp: DateTime(2024, 1, 1),
+          ),
+        ],
+        boardMessages: [
+          SpBoardMessage(
+            id: 'bm1',
+            writtenBy: 'sp-a',
+            writtenFor: 'sp-b',
+            message: 'Real board payload',
+            writtenAt: DateTime(2024, 1, 2),
+          ),
+        ],
+      );
+
+      final mapper = SpMapper();
+      final result = mapper.mapAll(data);
+
+      expect(result.conversations, isEmpty);
+      expect(result.messages, isEmpty);
+      expect(result.boardPosts, hasLength(1));
+      expect(result.boardPosts.first.body, 'Real board payload');
+    });
+
     test('title is stored on the MemberBoardPost, not prepended to body', () {
       final data = _makeExportData(
         members: [_memberA, _memberB],
@@ -668,6 +789,86 @@ void main() {
       expect(result.warnings, isNotEmpty);
       expect(result.warnings.any((w) => w.contains('bm-null-for')), isTrue);
     });
+  });
+
+  group('Poll mapping', () {
+    test('standard polls synthesize default options and preserve votes', () {
+      final data = _makeExportData(
+        members: [_memberA],
+        polls: [
+          SpPoll(
+            id: 'p1',
+            question: 'Test poll',
+            isCustom: false,
+            allowAbstain: true,
+            allowVeto: true,
+            votes: const [SpPollVote(memberId: 'sp-a', optionName: 'yes')],
+          ),
+        ],
+      );
+
+      final mapper = SpMapper();
+      final result = mapper.mapAll(data);
+
+      expect(result.polls, hasLength(1));
+      expect(result.polls.first.options.map((o) => o.text).toList(), [
+        'Yes',
+        'No',
+        'Abstain',
+        'Veto',
+      ]);
+      final yesOption = result.polls.first.options.firstWhere(
+        (o) => o.text == 'Yes',
+      );
+      expect(yesOption.votes, hasLength(1));
+      expect(yesOption.votes.first.memberId, result.members.first.id);
+    });
+
+    test(
+      'multi-select custom polls preserve allowsMultipleVotes and per-option votes',
+      () {
+        final data = _makeExportData(
+          members: [_memberA, _memberB],
+          polls: [
+            const SpPoll(
+              id: 'p1',
+              question: 'Pick multiple',
+              isCustom: true,
+              allowMultiple: true,
+              options: [
+                SpPollOption(name: 'Alpha', color: '#AA0000'),
+                SpPollOption(name: 'Beta', color: '#00BB00'),
+              ],
+              votes: [
+                SpPollVote(
+                  memberId: 'sp-a',
+                  optionName: 'Alpha',
+                  comment: 'first pick',
+                ),
+                SpPollVote(memberId: 'sp-a', optionName: 'Beta'),
+                SpPollVote(memberId: 'sp-b', optionName: 'Beta'),
+              ],
+            ),
+          ],
+        );
+
+        final mapper = SpMapper();
+        final result = mapper.mapAll(data);
+
+        expect(result.polls, hasLength(1));
+        final poll = result.polls.single;
+        expect(poll.allowsMultipleVotes, isTrue);
+
+        final alpha = poll.options.firstWhere(
+          (option) => option.text == 'Alpha',
+        );
+        final beta = poll.options.firstWhere((option) => option.text == 'Beta');
+
+        expect(alpha.votes, hasLength(1));
+        expect(alpha.votes.single.responseText, 'first pick');
+        expect(beta.votes, hasLength(2));
+      },
+    );
   });
 
   group('Channel mapping — DM classification', () {

@@ -325,17 +325,25 @@ void main() {
   group('SpApiClient.fetchAll', () {
     /// Build a mock client that routes SP API endpoints to fixture data.
     MockClient buildMockClient({
+      Map<String, dynamic> me = const {
+        '_id': 'sys1',
+        'uid': 'sys1',
+        'username': 'test-sys',
+      },
       List<Map<String, dynamic>> members = const [],
       List<Map<String, dynamic>> customFronts = const [],
       List<Map<String, dynamic>> frontHistory = const [],
       List<Map<String, dynamic>> groups = const [],
       List<Map<String, dynamic>> customFields = const [],
       List<Map<String, dynamic>> polls = const [],
+      Map<String, Map<String, dynamic>> pollDetails = const {},
+      List<Map<String, dynamic>> channelCategories = const [],
       List<Map<String, dynamic>> channels = const [],
       Map<String, List<Map<String, dynamic>>> messagesByChannel = const {},
       Set<String> failMessageChannels = const {},
       Map<String, List<Map<String, dynamic>>> notesByMember = const {},
       Map<String, List<Map<String, dynamic>>> commentsByDoc = const {},
+      Map<String, List<Map<String, dynamic>>> boardMessagesByMember = const {},
       bool failNotesForMember = false,
       String? failNotesId,
     }) {
@@ -343,10 +351,7 @@ void main() {
         final path = request.url.path;
 
         if (path == '/v1/me') {
-          return http.Response(
-            jsonEncode({'_id': 'sys1', 'uid': 'sys1', 'username': 'test-sys'}),
-            200,
-          );
+          return http.Response(jsonEncode(me), 200);
         }
         if (path.startsWith('/v1/members/')) {
           return http.Response(jsonEncode(members), 200);
@@ -365,6 +370,17 @@ void main() {
         }
         if (path.startsWith('/v1/polls/')) {
           return http.Response(jsonEncode(polls), 200);
+        }
+        if (path.startsWith('/v1/poll/')) {
+          final pollId = path.split('/').last;
+          final detail = pollDetails[pollId];
+          if (detail != null) {
+            return http.Response(jsonEncode(detail), 200);
+          }
+          return http.Response('Not found', 404);
+        }
+        if (path == '/v1/chat/categories') {
+          return http.Response(jsonEncode(channelCategories), 200);
         }
         if (path == '/v1/chat/channels') {
           return http.Response(jsonEncode(channels), 200);
@@ -404,7 +420,12 @@ void main() {
           return http.Response(jsonEncode(commentsByDoc[docId] ?? []), 200);
         }
         if (path.startsWith('/v1/board/member/')) {
-          return http.Response(jsonEncode([]), 200);
+          final segments = path.split('/');
+          final memberId = segments.last;
+          return http.Response(
+            jsonEncode(boardMessagesByMember[memberId] ?? []),
+            200,
+          );
         }
 
         return http.Response('Not Found', 404);
@@ -467,6 +488,127 @@ void main() {
     });
 
     test(
+      'fetchAll hydrates polls from detail endpoint and threads parity fields',
+      () async {
+        final client = SpApiClient(
+          token: 'test-token',
+          httpClient: buildMockClient(
+            me: const {
+              'exists': true,
+              'id': 'sys1',
+              'content': {
+                'uid': 'sys1',
+                'username': 'test-sys',
+                'name': 'Test System',
+                'color': '#123456',
+                'desc': 'System bio',
+                'avatarUuid': 'avatar-uuid',
+              },
+            },
+            members: const [
+              {'_id': 'mem1', 'name': 'Kai'},
+            ],
+            polls: const [
+              {'_id': 'poll1', 'name': 'Weekend plan?'},
+            ],
+            pollDetails: const {
+              'poll1': {
+                '_id': 'poll1',
+                'name': 'Weekend plan?',
+                'custom': true,
+                'options': [
+                  {'name': 'Stay in', 'color': '#D94A4A'},
+                  {'name': 'Go out', 'color': '#2ECC71'},
+                ],
+                'votes': [
+                  {'id': 'mem1', 'vote': 'Stay in', 'comment': 'Need rest'},
+                ],
+              },
+            },
+            channelCategories: const [
+              {
+                '_id': 'cat1',
+                'name': 'General',
+                'channels': ['ch1'],
+              },
+            ],
+            channels: const [
+              {'_id': 'ch1', 'name': 'General'},
+            ],
+          ),
+        );
+
+        final data = await client.fetchAll();
+        expect(data.polls, hasLength(1));
+        expect(data.polls.first.question, 'Weekend plan?');
+        expect(data.polls.first.options.map((o) => o.name).toList(), [
+          'Stay in',
+          'Go out',
+        ]);
+        expect(data.polls.first.votes, hasLength(1));
+        expect(data.polls.first.votes.first.optionName, 'Stay in');
+        expect(data.channelCategories, hasLength(1));
+        expect(data.channelCategories.first.name, 'General');
+        expect(data.systemName, 'Test System');
+        expect(data.systemColor, '#123456');
+        expect(data.systemDescription, 'System bio');
+        expect(
+          data.systemAvatarUrl,
+          'https://serve.apparyllis.com/avatars/sys1/avatar-uuid',
+        );
+        client.dispose();
+      },
+    );
+
+    test(
+      'fetchAll preserves multi-select poll detail fields from the detail endpoint',
+      () async {
+        final client = SpApiClient(
+          token: 'test-token',
+          httpClient: buildMockClient(
+            members: const [
+              {'_id': 'mem1', 'name': 'Kai'},
+              {'_id': 'mem2', 'name': 'Luna'},
+            ],
+            polls: const [
+              {'_id': 'poll1', 'name': 'Pick multiple'},
+            ],
+            pollDetails: const {
+              'poll1': {
+                '_id': 'poll1',
+                'question': 'Pick multiple',
+                'custom': true,
+                'allowMultiple': true,
+                'options': [
+                  {'text': 'Alpha', 'color': '#AA0000'},
+                  {'name': 'Beta', 'color': '#00BB00'},
+                ],
+                'votes': [
+                  {'id': 'mem1', 'vote': 'Alpha'},
+                  {'id': 'mem1', 'vote': 'Beta'},
+                  {'id': 'mem2', 'vote': 'Beta'},
+                ],
+              },
+            },
+          ),
+        );
+
+        final data = await client.fetchAll();
+        expect(data.polls, hasLength(1));
+        expect(data.polls.single.allowMultiple, isTrue);
+        expect(data.polls.single.options.map((o) => o.name).toList(), [
+          'Alpha',
+          'Beta',
+        ]);
+        expect(
+          data.polls.single.votes.map((vote) => vote.optionName).toList(),
+          ['Alpha', 'Beta', 'Beta'],
+        );
+        client.dispose();
+      },
+    );
+
+    test(
       'fetchAll unwraps content-wrapped channels and messages in the same run',
       () async {
         final client = SpApiClient(
@@ -511,6 +653,104 @@ void main() {
         expect(data.messages.first.channelId, 'ch1');
         expect(data.messages.first.senderId, 'mem1');
         expect(data.messages.first.content, 'hello');
+        client.dispose();
+      },
+    );
+
+    test(
+      'fetchAll normalizes custom field aliases and keeps reply/edit plus board read-state',
+      () async {
+        final client = SpApiClient(
+          token: 'test-token',
+          httpClient: buildMockClient(
+            me: const {
+              'id': 'sys1',
+              'content': {
+                'uid': 'sys1',
+                'username': 'test-sys',
+                'fields': {
+                  'opaque-field-1': {'name': 'cf1'},
+                },
+              },
+            },
+            members: const [
+              {
+                'exists': true,
+                'id': 'mem1',
+                'content': {
+                  'name': 'Kai',
+                  'info': {'opaque-field-1': 'Blue'},
+                },
+              },
+              {
+                'exists': true,
+                'id': 'mem2',
+                'content': {'name': 'Luna'},
+              },
+            ],
+            channels: const [
+              {
+                'exists': true,
+                'id': 'ch1',
+                'content': {
+                  'name': 'General',
+                  'members': ['mem1', 'mem2'],
+                },
+              },
+            ],
+            messagesByChannel: const {
+              'ch1': [
+                {
+                  'exists': true,
+                  'id': 'msg1',
+                  'content': {
+                    'message': 'Root',
+                    'sender': 'mem1',
+                    'timestamp': 1768435200000,
+                  },
+                },
+                {
+                  'exists': true,
+                  'id': 'msg2',
+                  'content': {
+                    'message': 'Reply',
+                    'sender': 'mem2',
+                    'timestamp': 1768435260000,
+                    'replyTo': 'msg1',
+                    'updatedAt': 1768435320000,
+                  },
+                },
+              ],
+            },
+            boardMessagesByMember: const {
+              'mem2': [
+                {
+                  'exists': true,
+                  'id': 'bm1',
+                  'content': {
+                    'writtenBy': 'mem1',
+                    'writtenFor': 'mem2',
+                    'message': 'Seen already',
+                    'writtenAt': 1768435380000,
+                    'read': true,
+                  },
+                },
+              ],
+            },
+          ),
+        );
+
+        final data = await client.fetchAll();
+        expect(data.members.first.info, {'cf1': 'Blue'});
+        expect(data.messages, hasLength(2));
+        expect(data.messages[1].replyTo, 'msg1');
+        expect(
+          data.messages[1].updatedAt,
+          DateTime.fromMillisecondsSinceEpoch(1768435320000),
+        );
+        expect(data.boardMessages, hasLength(1));
+        expect(data.boardMessages.single.read, isTrue);
+        expect(data.boardMessages.single.writtenFor, 'mem2');
         client.dispose();
       },
     );

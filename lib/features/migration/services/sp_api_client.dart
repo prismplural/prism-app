@@ -34,6 +34,7 @@ class SpAuthError extends SpApiError {
 /// All requests require an API token set via the constructor.
 class SpApiClient {
   static const _baseUrl = 'https://api.apparyllis.com/v1';
+  static const _avatarServeBaseUrl = 'https://serve.apparyllis.com/avatars';
 
   final String _token;
   final http.Client _http;
@@ -75,13 +76,18 @@ class SpApiClient {
     return _handleResponse(response);
   }
 
-  // -- public API -----------------------------------------------------------
-
-  /// GET /v1/me — returns the system user ID and username.
-  ///
-  /// The /me response wraps user data inside a `content` field:
-  /// `{ "id": "...", "content": { "uid": "...", "username": "..." } }`
-  Future<({String systemId, String? username})> verifyToken() async {
+  Future<
+    ({
+      String systemId,
+      String? username,
+      String? systemName,
+      String? systemColor,
+      String? systemDescription,
+      String? systemAvatarUrl,
+      Map<String, String> customFieldValueKeyMap,
+    })
+  >
+  _getSelfProfile() async {
     final json = await _get('/me') as Map<String, dynamic>;
     final content =
         (json['content'] as Map<String, dynamic>?) ?? <String, dynamic>{};
@@ -93,7 +99,41 @@ class SpApiClient {
         '';
     final username =
         content['username'] as String? ?? json['username'] as String?;
-    return (systemId: uid, username: username);
+    final systemName =
+        (content['name'] as String?) ?? (json['name'] as String?) ?? username;
+    final avatarUrl =
+        (content['avatarUrl'] as String?) ?? (json['avatarUrl'] as String?);
+    final avatarUuid =
+        (content['avatarUuid'] as String?) ?? (json['avatarUuid'] as String?);
+    final systemAvatarUrl = avatarUrl != null && avatarUrl.isNotEmpty
+        ? avatarUrl
+        : (avatarUuid != null && avatarUuid.isNotEmpty && uid.isNotEmpty)
+        ? '$_avatarServeBaseUrl/$uid/$avatarUuid'
+        : null;
+
+    return (
+      systemId: uid,
+      username: username,
+      systemName: systemName,
+      systemColor: (content['color'] as String?) ?? (json['color'] as String?),
+      systemDescription:
+          (content['desc'] as String?) ?? (json['desc'] as String?),
+      systemAvatarUrl: systemAvatarUrl,
+      customFieldValueKeyMap: extractSpCustomFieldValueKeyMap(
+        content['fields'],
+      ),
+    );
+  }
+
+  // -- public API -----------------------------------------------------------
+
+  /// GET /v1/me — returns the system user ID and username.
+  ///
+  /// The /me response wraps user data inside a `content` field:
+  /// `{ "id": "...", "content": { "uid": "...", "username": "..." } }`
+  Future<({String systemId, String? username})> verifyToken() async {
+    final profile = await _getSelfProfile();
+    return (systemId: profile.systemId, username: profile.username);
   }
 
   /// SP API list responses wrap each item in `{exists, id, content: {...}}`.
@@ -143,6 +183,15 @@ class SpApiClient {
   Future<List<Map<String, dynamic>>> getPolls(String sid) =>
       _getList('/polls/${_enc(sid)}');
 
+  /// GET /v1/poll/:sid/:pollId
+  Future<Map<String, dynamic>?> getPoll(String sid, String pollId) async {
+    final json = await _get('/poll/${_enc(sid)}/${_enc(pollId)}');
+    if (json is Map<String, dynamic>) {
+      return _unwrap(json);
+    }
+    return null;
+  }
+
   /// GET /v1/notes/:sid/:memberId
   Future<List<Map<String, dynamic>>> getNotes(String sid, String memberId) =>
       _getList('/notes/${_enc(sid)}/${_enc(memberId)}');
@@ -154,6 +203,10 @@ class SpApiClient {
   /// GET /v1/chat/channels — all chat channels for the authenticated user.
   Future<List<Map<String, dynamic>>> getChannels() =>
       _getList('/chat/channels');
+
+  /// GET /v1/chat/categories — all chat categories for the authenticated user.
+  Future<List<Map<String, dynamic>>> getChannelCategories() =>
+      _getList('/chat/categories');
 
   /// GET /v1/chat/messages/:channelId — messages in a channel.
   ///
@@ -211,9 +264,9 @@ class SpApiClient {
   Future<SpExportData> fetchAll({
     void Function(String collection, int count)? onProgress,
   }) async {
-    // 1. Get system ID.
-    final verified = await verifyToken();
-    final sid = verified.systemId;
+    // 1. Get the authenticated user's profile once and reuse it.
+    final profile = await _getSelfProfile();
+    final sid = profile.systemId;
 
     // 2. Fetch main collections in parallel.
     final results = await Future.wait([
@@ -223,6 +276,7 @@ class SpApiClient {
       getGroups(sid),
       getCustomFields(sid),
       getPolls(sid),
+      getChannelCategories(),
     ]);
 
     final members = results[0];
@@ -235,8 +289,24 @@ class SpApiClient {
     onProgress?.call('Groups', groups.length);
     final customFields = results[4];
     onProgress?.call('Custom fields', customFields.length);
-    final polls = results[5];
-    onProgress?.call('Polls', polls.length);
+    final pollSummaries = results[5];
+    final channelCategories = results[6];
+    onProgress?.call('Categories', channelCategories.length);
+
+    final polls = <Map<String, dynamic>>[];
+    for (var i = 0; i < pollSummaries.length; i += 5) {
+      final chunk = pollSummaries.skip(i).take(5);
+      final pollResults = await Future.wait(
+        chunk.map((summary) async {
+          final pollId = (summary['_id'] ?? summary['id'] ?? '').toString();
+          if (pollId.isEmpty) return summary;
+          final detail = await getPoll(sid, pollId).catchError((_) => null);
+          return _mergePollPayload(summary, detail);
+        }),
+      );
+      polls.addAll(pollResults);
+      onProgress?.call('Polls', polls.length);
+    }
 
     // 3. Fetch notes per member (5 concurrent).
     final allNotes = <Map<String, dynamic>>[];
@@ -320,11 +390,23 @@ class SpApiClient {
     // Note: automatedTimers and repeatedTimers are not available via the SP
     // API (no public endpoints), so they are only imported via file export.
     return SpExportData(
-      members: members.map(SpMember.fromJson).toList(),
+      members: members
+          .map(
+            (memberJson) => SpMember.fromJson(
+              normalizeSpMemberJsonInfoKeys(
+                memberJson,
+                profile.customFieldValueKeyMap,
+              ),
+            ),
+          )
+          .toList(),
       customFronts: customFronts.map(SpCustomFront.fromJson).toList(),
       frontHistory: frontHistory.map(SpFrontHistory.fromJson).toList(),
       groups: groups.map(SpGroup.fromJson).toList(),
       channels: channels.map(SpChannel.fromJson).toList(),
+      channelCategories: channelCategories
+          .map(SpChannelCategory.fromJson)
+          .toList(),
       messages: allChatMessages,
       polls: polls.map(SpPoll.fromJson).toList(),
       notes: allNotes.map(SpNote.fromJson).toList(),
@@ -333,7 +415,30 @@ class SpApiClient {
       boardMessages: allBoardMessages.map(SpBoardMessage.fromJson).toList(),
       automatedTimers: const [],
       repeatedTimers: const [],
+      systemName: profile.systemName,
+      systemColor: profile.systemColor,
+      systemDescription: profile.systemDescription,
+      systemAvatarUrl: profile.systemAvatarUrl,
     );
+  }
+
+  Map<String, dynamic> _mergePollPayload(
+    Map<String, dynamic> summary,
+    Map<String, dynamic>? detail,
+  ) {
+    if (detail == null) return summary;
+    return {
+      ...summary,
+      ...detail,
+      'options': detail['options'] ?? summary['options'],
+      'votes': detail['votes'] ?? summary['votes'],
+      'allowAbstain': detail['allowAbstain'] ?? summary['allowAbstain'],
+      'allowVeto': detail['allowVeto'] ?? summary['allowVeto'],
+      'allowMultiple': detail['allowMultiple'] ?? summary['allowMultiple'],
+      'custom': detail['custom'] ?? summary['custom'],
+      'desc': detail['desc'] ?? summary['desc'],
+      'endTime': detail['endTime'] ?? summary['endTime'],
+    };
   }
 
   /// Dispose the underlying HTTP client.

@@ -78,6 +78,28 @@ void main() {
       expect(data.messages.first.channelId, 'ch1');
     });
 
+    test('keeps boardMessages separate from chat messages', () {
+      final json = jsonEncode({
+        'members': [],
+        'frontHistory': [],
+        'boardMessages': [
+          {
+            '_id': 'bm1',
+            'writtenBy': 'mem1',
+            'writtenFor': 'mem2',
+            'title': 'Hello',
+            'message': 'Board body',
+            'writtenAt': 1774242087364,
+          },
+        ],
+      });
+      final data = SpParser.parse(json);
+      expect(data.messages, isEmpty);
+      expect(data.boardMessages, hasLength(1));
+      expect(data.boardMessages.first.id, 'bm1');
+      expect(data.boardMessages.first.message, 'Board body');
+    });
+
     test('parses automatedTimers from automatedReminders key', () {
       final json = jsonEncode({
         'members': [],

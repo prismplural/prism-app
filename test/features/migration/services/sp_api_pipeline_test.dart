@@ -64,6 +64,9 @@ void main() {
                 path.startsWith('/v1/board/member/')) {
               return http.Response(jsonEncode(const []), 200);
             }
+            if (path == '/v1/chat/categories') {
+              return http.Response(jsonEncode(const []), 200);
+            }
             if (path == '/v1/chat/channels') {
               return http.Response(
                 jsonEncode([
@@ -224,6 +227,9 @@ void main() {
                 path.startsWith('/v1/board/member/')) {
               return http.Response(jsonEncode(const []), 200);
             }
+            if (path == '/v1/chat/categories') {
+              return http.Response(jsonEncode(const []), 200);
+            }
             if (path == '/v1/chat/channels') {
               return http.Response(
                 jsonEncode([
@@ -320,6 +326,158 @@ void main() {
         expect(messages.first.content, 'message 125');
         expect(messages.last.content, 'message 1');
         expect(messages.map((m) => m.content).toSet(), hasLength(125));
+      },
+    );
+
+    test(
+      'mocked API import preserves standard poll options and votes on overwrite',
+      () async {
+        final client = SpApiClient(
+          token: 'test-token',
+          httpClient: MockClient((request) async {
+            final path = request.url.path;
+
+            if (path == '/v1/me') {
+              return http.Response(
+                jsonEncode({'_id': 'sys1', 'uid': 'sys1', 'username': 'test'}),
+                200,
+              );
+            }
+            if (path.startsWith('/v1/members/')) {
+              return http.Response(
+                jsonEncode([
+                  {'_id': 'mem1', 'name': 'Kai', 'pronouns': 'he/him'},
+                ]),
+                200,
+              );
+            }
+            if (path == '/v1/frontHistory') {
+              return http.Response(jsonEncode(const []), 200);
+            }
+            if (path.startsWith('/v1/customFronts/') ||
+                path.startsWith('/v1/groups/') ||
+                path.startsWith('/v1/customFields/') ||
+                path.startsWith('/v1/notes/') ||
+                path.startsWith('/v1/comments/') ||
+                path.startsWith('/v1/board/member/')) {
+              return http.Response(jsonEncode(const []), 200);
+            }
+            if (path.startsWith('/v1/polls/')) {
+              return http.Response(
+                jsonEncode([
+                  {
+                    '_id': 'poll1',
+                    'name': 'Test poll',
+                    'custom': false,
+                    'allowAbstain': true,
+                    'allowVeto': true,
+                    'votes': [
+                      {'id': 'mem1', 'vote': 'yes', 'comment': 'hell yea'},
+                    ],
+                  },
+                ]),
+                200,
+              );
+            }
+            if (path == '/v1/poll/sys1/poll1') {
+              return http.Response(
+                jsonEncode({
+                  '_id': 'poll1',
+                  'name': 'Test poll',
+                  'custom': false,
+                  'allowAbstain': true,
+                  'allowVeto': true,
+                  'votes': [
+                    {'id': 'mem1', 'vote': 'yes', 'comment': 'hell yea'},
+                  ],
+                }),
+                200,
+              );
+            }
+            if (path == '/v1/chat/categories' || path == '/v1/chat/channels') {
+              return http.Response(jsonEncode(const []), 200);
+            }
+
+            return http.Response('Not found', 404);
+          }),
+        );
+        addTearDown(client.dispose);
+
+        Future<void> runImport({required bool clearExistingData}) async {
+          final exportData = await client.fetchAll();
+          final result = await SpImporter().executeImport(
+            db: db,
+            data: exportData,
+            memberRepo: DriftMemberRepository(db.membersDao, null),
+            sessionRepo: DriftFrontingSessionRepository(
+              db.frontingSessionsDao,
+              null,
+            ),
+            conversationRepo: DriftConversationRepository(
+              db.conversationsDao,
+              null,
+            ),
+            messageRepo: DriftChatMessageRepository(db.chatMessagesDao, null),
+            pollRepo: DriftPollRepository(
+              db.pollsDao,
+              db.pollOptionsDao,
+              db.pollVotesDao,
+              null,
+            ),
+            notesRepo: DriftNotesRepository(db.notesDao, null),
+            commentsRepo: DriftFrontSessionCommentsRepository(
+              db.frontSessionCommentsDao,
+              null,
+            ),
+            customFieldsRepo: DriftCustomFieldsRepository(
+              db.customFieldsDao,
+              null,
+            ),
+            groupsRepo: DriftMemberGroupsRepository(db.memberGroupsDao, null),
+            remindersRepo: DriftRemindersRepository(db.remindersDao, null),
+            settingsRepo: DriftSystemSettingsRepository(
+              db.systemSettingsDao,
+              null,
+            ),
+            categoriesRepo: DriftConversationCategoriesRepository(
+              db.conversationCategoriesDao,
+              null,
+            ),
+            spImportDao: db.spImportDao,
+            downloadAvatars: false,
+            clearExistingData: clearExistingData,
+          );
+
+          expect(result.pollsImported, 1);
+        }
+
+        await runImport(clearExistingData: false);
+
+        var polls = await db.pollsDao.getAllPolls();
+        var options = await db.pollOptionsDao.getAllOptions();
+        var votes = await db.pollVotesDao.getAllVotes();
+        expect(polls, hasLength(1));
+        expect(options.map((o) => o.optionText).toList(), [
+          'Yes',
+          'No',
+          'Abstain',
+          'Veto',
+        ]);
+        expect(votes, hasLength(1));
+
+        await runImport(clearExistingData: true);
+
+        polls = await db.pollsDao.getAllPolls();
+        options = await db.pollOptionsDao.getAllOptions();
+        votes = await db.pollVotesDao.getAllVotes();
+        expect(polls, hasLength(1));
+        expect(options.map((o) => o.optionText).toList(), [
+          'Yes',
+          'No',
+          'Abstain',
+          'Veto',
+        ]);
+        expect(votes, hasLength(1));
       },
     );
   });

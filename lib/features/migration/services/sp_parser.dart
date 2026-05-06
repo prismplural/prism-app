@@ -1,5 +1,41 @@
 import 'dart:convert';
 
+Map<String, String> extractSpCustomFieldValueKeyMap(dynamic rawFields) {
+  if (rawFields is! Map) return const {};
+
+  final valueKeyMap = <String, String>{};
+  for (final entry in rawFields.entries) {
+    final alias = entry.key.toString();
+    final rawField = entry.value;
+    if (alias.isEmpty || rawField is! Map) continue;
+
+    final fieldId = rawField['name']?.toString();
+    if (fieldId == null || fieldId.isEmpty) continue;
+    valueKeyMap[alias] = fieldId;
+  }
+
+  return valueKeyMap;
+}
+
+Map<String, dynamic> normalizeSpMemberJsonInfoKeys(
+  Map<String, dynamic> memberJson,
+  Map<String, String> customFieldValueKeyMap,
+) {
+  final rawInfo = memberJson['info'];
+  if (customFieldValueKeyMap.isEmpty || rawInfo is! Map) {
+    return memberJson;
+  }
+
+  final normalizedInfo = <String, dynamic>{};
+  for (final entry in rawInfo.entries) {
+    final rawKey = entry.key.toString();
+    final normalizedKey = customFieldValueKeyMap[rawKey] ?? rawKey;
+    normalizedInfo[normalizedKey] = entry.value;
+  }
+
+  return {...memberJson, 'info': normalizedInfo};
+}
+
 /// Parsed Simply Plural export data.
 class SpExportData {
   final List<SpMember> members;
@@ -68,7 +104,7 @@ class SpMember {
   final String? pronouns;
   final String? avatarUrl;
   final String? avatarUuid; // MinIO-hosted avatar (new-style uploads)
-  final String? uid;        // System owner ID — needed to construct avatarUuid URL
+  final String? uid; // System owner ID — needed to construct avatarUuid URL
   final String? color;
   final String? desc;
   final bool archived;
@@ -355,9 +391,14 @@ class SpMessage {
     return SpMessage(
       id: (json['_id'] ?? json['id'] ?? '').toString(),
       channelId: channelId,
-      senderId: json['sender']?.toString() ?? json['writer']?.toString() ?? json['member']?.toString(),
+      senderId:
+          json['sender']?.toString() ??
+          json['writer']?.toString() ??
+          json['member']?.toString(),
       content: (json['message'] ?? json['content'] ?? '').toString(),
-      timestamp: parseTime(json['timestamp'] ?? json['writtenAt'] ?? json['createdAt']),
+      timestamp: parseTime(
+        json['timestamp'] ?? json['writtenAt'] ?? json['createdAt'],
+      ),
       // Only store replyTo if it's a non-empty string (SP uses "" to mean no reply).
       replyTo: (replyTo != null && replyTo.isNotEmpty) ? replyTo : null,
       updatedAt: parseOptionalTime(json['updatedAt'] ?? json['lastUpdated']),
@@ -393,7 +434,10 @@ class SpPoll {
   final String? description;
   final List<SpPollOption> options;
   final List<SpPollVote> votes;
+  final bool isCustom;
   final bool allowMultiple;
+  final bool allowAbstain;
+  final bool allowVeto;
   final DateTime? endDate;
 
   const SpPoll({
@@ -402,7 +446,10 @@ class SpPoll {
     this.description,
     this.options = const [],
     this.votes = const [],
+    this.isCustom = false,
     this.allowMultiple = false,
+    this.allowAbstain = false,
+    this.allowVeto = false,
     this.endDate,
   });
 
@@ -429,10 +476,12 @@ class SpPoll {
     if (rawOptions is List) {
       for (final o in rawOptions) {
         if (o is Map) {
-          optionList.add(SpPollOption(
-            name: (o['text'] ?? o['name'] ?? o.toString()).toString(),
-            color: o['color'] as String?,
-          ));
+          optionList.add(
+            SpPollOption(
+              name: (o['text'] ?? o['name'] ?? o.toString()).toString(),
+              color: o['color'] as String?,
+            ),
+          );
         } else {
           optionList.add(SpPollOption(name: o.toString()));
         }
@@ -447,11 +496,13 @@ class SpPoll {
           final memberId = (v['id'] ?? '').toString();
           final optionName = (v['vote'] ?? '').toString();
           if (memberId.isNotEmpty && optionName.isNotEmpty) {
-            voteList.add(SpPollVote(
-              memberId: memberId,
-              optionName: optionName,
-              comment: v['comment'] as String?,
-            ));
+            voteList.add(
+              SpPollVote(
+                memberId: memberId,
+                optionName: optionName,
+                comment: v['comment'] as String?,
+              ),
+            );
           }
         }
       }
@@ -461,11 +512,15 @@ class SpPoll {
 
     return SpPoll(
       id: (json['_id'] ?? json['id'] ?? '').toString(),
-      question: (json['question'] ?? json['title'] ?? json['name'] ?? '').toString(),
+      question: (json['question'] ?? json['title'] ?? json['name'] ?? '')
+          .toString(),
       description: json['desc'] as String? ?? json['description'] as String?,
       options: optionList,
       votes: voteList,
+      isCustom: json['custom'] == true,
       allowMultiple: json['allowMultiple'] == true,
+      allowAbstain: json['allowAbstain'] == true,
+      allowVeto: json['allowVeto'] == true,
       endDate: rawEndTime != null ? parseTime(rawEndTime) : null,
     );
   }
@@ -645,9 +700,11 @@ class SpAutomatedTimer {
   final String? message;
   final num? delayHours;
   final bool enabled;
+
   /// SP timer target type. 0 = specific member, 1 = custom front, 2 = any
   /// front change. null if the export omitted the field (treated as "any").
   final int? type;
+
   /// Target member or custom-front id when [type] is 0 or 1.
   /// Source fields vary across SP export versions; the parser tries `action`
   /// first (string id of the target), then `id` / `targetId`.
@@ -688,8 +745,8 @@ class SpAutomatedTimer {
       delayHours: json['delayInHours'] is num
           ? json['delayInHours'] as num
           : json['delayInHours'] is String
-              ? num.tryParse(json['delayInHours'] as String)
-              : null,
+          ? num.tryParse(json['delayInHours'] as String)
+          : null,
       enabled: json['enabled'] != false,
       type: parseType(json['type']),
       targetId: parseTargetId(json),
@@ -723,12 +780,12 @@ class SpRepeatedTimer {
       intervalDays: json['dayInterval'] is int
           ? json['dayInterval'] as int
           : json['intervalInDays'] is int
-              ? json['intervalInDays'] as int
-              : json['intervalInDays'] is String
-                  ? int.tryParse(json['intervalInDays'] as String)
-                  : json['interval'] is int
-                      ? json['interval'] as int
-                      : null,
+          ? json['intervalInDays'] as int
+          : json['intervalInDays'] is String
+          ? int.tryParse(json['intervalInDays'] as String)
+          : json['interval'] is int
+          ? json['interval'] as int
+          : null,
       timeOfDay: json['time'] is Map
           ? '${json['time']['hour']}:${json['time']['minute'].toString().padLeft(2, '0')}'
           : json['time'] as String? ?? json['timeOfDay'] as String?,
@@ -798,12 +855,16 @@ class SpParser {
 
     // Try to get system info from users collection.
     final users = json['users'];
+    var customFieldValueKeyMap = const <String, String>{};
     if (users is List && users.isNotEmpty) {
       final user = users.first;
       if (user is Map<String, dynamic>) {
         systemName ??= user['username'] as String?;
         systemColor ??= user['color'] as String?;
         systemDescription ??= user['desc'] as String?;
+        customFieldValueKeyMap = extractSpCustomFieldValueKeyMap(
+          user['fields'],
+        );
 
         // System-level avatar: prefer direct URL, else construct the
         // serve.apparyllis.com URL from (uid, avatarUuid). Mirrors the
@@ -824,31 +885,76 @@ class SpParser {
     }
 
     return SpExportData(
-      members: _parseList(json['members'], SpMember.fromJson),
-      customFronts:
-          _parseList(json['frontStatuses'] ?? json['customFronts'], SpCustomFront.fromJson),
-      frontHistory:
-          _parseList(json['frontHistory'], SpFrontHistory.fromJson),
+      members: _parseMembers(json['members'], customFieldValueKeyMap),
+      customFronts: _parseList(
+        json['frontStatuses'] ?? json['customFronts'],
+        SpCustomFront.fromJson,
+      ),
+      frontHistory: _parseList(json['frontHistory'], SpFrontHistory.fromJson),
       groups: _parseList(json['groups'], SpGroup.fromJson),
       channels: _parseList(json['channels'], SpChannel.fromJson),
-      channelCategories: _parseList(json['channelCategories'], SpChannelCategory.fromJson),
-      messages: _parseMessages(json['messages'], json['boardMessages'], json['chatMessages']),
+      channelCategories: _parseList(
+        json['channelCategories'],
+        SpChannelCategory.fromJson,
+      ),
+      messages: _parseMessages(json['messages'], json['chatMessages']),
       polls: _parseList(json['polls'], SpPoll.fromJson),
       notes: _parseList(json['notes'], SpNote.fromJson),
       comments: _parseList(json['comments'], SpComment.fromJson),
-      customFields:
-          _parseList(json['customFields'], SpCustomFieldDef.fromJson),
-      boardMessages:
-          _parseList(json['boardMessages'], SpBoardMessage.fromJson),
-      automatedTimers:
-          _parseList(json['automatedReminders'] ?? json['automatedTimers'], SpAutomatedTimer.fromJson),
-      repeatedTimers:
-          _parseList(json['repeatedReminders'] ?? json['repeatedRemidners'] ?? json['repeatedTimers'], SpRepeatedTimer.fromJson),
+      customFields: _parseList(json['customFields'], SpCustomFieldDef.fromJson),
+      boardMessages: _parseList(json['boardMessages'], SpBoardMessage.fromJson),
+      automatedTimers: _parseList(
+        json['automatedReminders'] ?? json['automatedTimers'],
+        SpAutomatedTimer.fromJson,
+      ),
+      repeatedTimers: _parseList(
+        json['repeatedReminders'] ??
+            json['repeatedRemidners'] ??
+            json['repeatedTimers'],
+        SpRepeatedTimer.fromJson,
+      ),
       systemName: systemName,
       systemColor: systemColor,
       systemDescription: systemDescription,
       systemAvatarUrl: systemAvatarUrl,
     );
+  }
+
+  static List<SpMember> _parseMembers(
+    dynamic raw,
+    Map<String, String> customFieldValueKeyMap,
+  ) {
+    if (raw == null) return [];
+
+    if (raw is List) {
+      return raw
+          .whereType<Map<String, dynamic>>()
+          .map(
+            (memberJson) => SpMember.fromJson(
+              normalizeSpMemberJsonInfoKeys(
+                memberJson,
+                customFieldValueKeyMap,
+              ),
+            ),
+          )
+          .toList();
+    }
+
+    if (raw is Map<String, dynamic>) {
+      return raw.values
+          .whereType<Map<String, dynamic>>()
+          .map(
+            (memberJson) => SpMember.fromJson(
+              normalizeSpMemberJsonInfoKeys(
+                memberJson,
+                customFieldValueKeyMap,
+              ),
+            ),
+          )
+          .toList();
+    }
+
+    return [];
   }
 
   /// Parse a list that might be an array or a map of keyed objects.
@@ -859,10 +965,7 @@ class SpParser {
     if (raw == null) return [];
 
     if (raw is List) {
-      return raw
-          .whereType<Map<String, dynamic>>()
-          .map(fromJson)
-          .toList();
+      return raw.whereType<Map<String, dynamic>>().map(fromJson).toList();
     }
 
     // SP sometimes exports collections as { "id1": { ... }, "id2": { ... } }
@@ -876,10 +979,9 @@ class SpParser {
     return [];
   }
 
-  /// Parse messages from both channel messages and board messages.
+  /// Parse chat messages from both channel-message export formats.
   static List<SpMessage> _parseMessages(
     dynamic channelMessages,
-    dynamic boardMessages,
     dynamic flatChatMessages,
   ) {
     final messages = <SpMessage>[];
@@ -908,16 +1010,6 @@ class SpParser {
         }
       }
     }
-
-    // Board messages go into a special DM-style conversation.
-    if (boardMessages is List) {
-      for (final msg in boardMessages) {
-        if (msg is Map<String, dynamic>) {
-          messages.add(SpMessage.fromJson(msg, '_board'));
-        }
-      }
-    }
-
     return messages;
   }
 }

@@ -23,6 +23,7 @@ import 'package:prism_plurality/data/repositories/drift_fronting_session_reposit
 import 'package:prism_plurality/data/repositories/drift_member_groups_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_notes_repository.dart';
+import 'package:prism_plurality/data/repositories/drift_member_board_posts_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_poll_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_reminders_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_system_settings_repository.dart';
@@ -31,10 +32,9 @@ import 'package:prism_plurality/features/migration/services/sp_importer.dart';
 
 final String? _spToken = Platform.environment['SP_TOKEN'];
 
-Object? get _skipWithoutSpToken =>
-    _spToken == null || _spToken!.isEmpty
-        ? 'SP_TOKEN env var not set — skipping live Simply Plural integration tests'
-        : false;
+Object? get _skipWithoutSpToken => _spToken == null || _spToken!.isEmpty
+    ? 'SP_TOKEN env var not set — skipping live Simply Plural integration tests'
+    : false;
 
 String get _testToken {
   final token = _spToken;
@@ -109,6 +109,11 @@ void main() {
             db.systemSettingsDao,
             null,
           ),
+          boardPostsRepo: DriftMemberBoardPostsRepository(
+            db.memberBoardPostsDao,
+            db.membersDao,
+            null,
+          ),
           categoriesRepo: DriftConversationCategoriesRepository(
             db.conversationCategoriesDao,
             null,
@@ -135,6 +140,107 @@ void main() {
           reason: 'DB member count should match import result',
         );
 
+        final settings = await DriftSystemSettingsRepository(
+          db.systemSettingsDao,
+          null,
+        ).getSettings();
+        if ((exportData.systemDescription ?? '').trim().isNotEmpty) {
+          expect(
+            settings.systemDescription,
+            exportData.systemDescription,
+            reason:
+                'System description from the API should persist into settings',
+          );
+        }
+
+        final chatMessagesInDb = await db.chatMessagesDao.getAllMessages();
+        final sourceReplyMessages = exportData.messages
+            .where((message) => (message.replyTo ?? '').isNotEmpty)
+            .toList();
+        if (sourceReplyMessages.isNotEmpty) {
+          expect(
+            chatMessagesInDb
+                .where((message) => message.replyToId != null)
+                .length,
+            sourceReplyMessages.length,
+            reason: 'Reply metadata should survive SP API import',
+          );
+        }
+
+        final sourceEditedMessages = exportData.messages
+            .where((message) => message.updatedAt != null)
+            .toList();
+        if (sourceEditedMessages.isNotEmpty) {
+          expect(
+            chatMessagesInDb
+                .where((message) => message.editedAt != null)
+                .length,
+            sourceEditedMessages.length,
+            reason: 'Edited timestamps should survive SP API import',
+          );
+        }
+
+        final pollsInDb = await db.pollsDao.getAllPolls();
+        expect(
+          pollsInDb.length,
+          result.pollsImported,
+          reason: 'DB poll count should match import result',
+        );
+
+        final standardSourcePolls = exportData.polls
+            .where((poll) => !poll.isCustom)
+            .toList();
+        expect(
+          standardSourcePolls,
+          isNotEmpty,
+          reason: 'Live test account should include at least one standard poll',
+        );
+
+        for (final sourcePoll in standardSourcePolls) {
+          final matchingPolls = pollsInDb
+              .where((poll) => poll.question == sourcePoll.question)
+              .toList();
+          expect(
+            matchingPolls,
+            isNotEmpty,
+            reason:
+                'Imported DB should contain standard poll "${sourcePoll.question}"',
+          );
+          final importedPoll = matchingPolls.first;
+
+          final optionsForPoll = await db.pollOptionsDao.getOptionsForPoll(
+            importedPoll.id,
+          );
+          final optionTexts = optionsForPoll
+              .map((option) => option.optionText)
+              .toList();
+          final expectedOptionTexts = <String>[
+            'Yes',
+            'No',
+            if (sourcePoll.allowAbstain) 'Abstain',
+            if (sourcePoll.allowVeto) 'Veto',
+          ];
+          expect(
+            optionTexts,
+            expectedOptionTexts,
+            reason:
+                'Standard poll "${sourcePoll.question}" should synthesize fixed Prism options',
+          );
+
+          var importedVoteCount = 0;
+          for (final option in optionsForPoll) {
+            importedVoteCount += (await db.pollVotesDao.getVotesForOption(
+              option.id,
+            )).length;
+          }
+          expect(
+            importedVoteCount,
+            sourcePoll.votes.length,
+            reason:
+                'Standard poll "${sourcePoll.question}" should preserve all source votes',
+          );
+        }
+
         // -- 5. ID map was persisted -----------------------------------------------
         final idMappings = await db.spImportDao.getAllMappings();
         expect(
@@ -147,6 +253,86 @@ void main() {
             .where((r) => r.entityType == 'member')
             .toList();
         expect(memberMappings.length, result.membersImported);
+
+        final valuesInDb = await db.customFieldsDao.getAllValues();
+        final sourceMembersWithInfo = exportData.members
+            .where(
+              (member) => member.info.entries.any(
+                (entry) =>
+                    entry.value != null &&
+                    entry.value.toString().trim().isNotEmpty,
+              ),
+            )
+            .toList();
+        expect(
+          sourceMembersWithInfo,
+          isNotEmpty,
+          reason:
+              'Live test account should include at least one member with custom field values',
+        );
+
+        for (final sourceMember in sourceMembersWithInfo) {
+          final prismMemberId = memberMappings
+              .firstWhere((mapping) => mapping.spId == sourceMember.id)
+              .prismId;
+          final expectedValues = sourceMember.info.values
+              .where(
+                (value) => value != null && value.toString().trim().isNotEmpty,
+              )
+              .map((value) => value.toString())
+              .toSet();
+          final importedValues = valuesInDb
+              .where((value) => value.memberId == prismMemberId)
+              .map((value) => value.value)
+              .toSet();
+          expect(
+            importedValues,
+            expectedValues,
+            reason:
+                'Custom field values should round-trip for member "${sourceMember.name}"',
+          );
+        }
+
+        final readBoardMessages = exportData.boardMessages
+            .where((message) => message.read && message.writtenFor != null)
+            .toList();
+        expect(
+          readBoardMessages,
+          isNotEmpty,
+          reason:
+              'Live test account should include at least one read board message',
+        );
+
+        final latestReadAtBySpMember = <String, DateTime>{};
+        for (final message in readBoardMessages) {
+          final memberId = message.writtenFor!;
+          final previous = latestReadAtBySpMember[memberId];
+          if (previous == null || message.writtenAt.isAfter(previous)) {
+            latestReadAtBySpMember[memberId] = message.writtenAt;
+          }
+        }
+
+        for (final entry in latestReadAtBySpMember.entries) {
+          final prismMemberId = memberMappings
+              .firstWhere((mapping) => mapping.spId == entry.key)
+              .prismId;
+          final importedMember = await db.membersDao.getMemberById(
+            prismMemberId,
+          );
+          expect(importedMember, isNotNull);
+          expect(
+            importedMember!.boardLastReadAt,
+            isNotNull,
+            reason:
+                'Read board messages should set boardLastReadAt for member ${entry.key}',
+          );
+          expect(
+            importedMember.boardLastReadAt!.millisecondsSinceEpoch,
+            (entry.value.toUtc().millisecondsSinceEpoch ~/ 1000) * 1000,
+            reason:
+                'boardLastReadAt should match latest read board message timestamp',
+          );
+        }
 
         // -- 6. Sync state was written --------------------------------------------
         final syncState = await db.spImportDao.getSyncState();
@@ -225,6 +411,11 @@ void main() {
               db.systemSettingsDao,
               null,
             ),
+            boardPostsRepo: DriftMemberBoardPostsRepository(
+              db.memberBoardPostsDao,
+              db.membersDao,
+              null,
+            ),
             categoriesRepo: DriftConversationCategoriesRepository(
               db.conversationCategoriesDao,
               null,
@@ -270,6 +461,11 @@ void main() {
               remindersRepo: DriftRemindersRepository(db.remindersDao, null),
               settingsRepo: DriftSystemSettingsRepository(
                 db.systemSettingsDao,
+                null,
+              ),
+              boardPostsRepo: DriftMemberBoardPostsRepository(
+                db.memberBoardPostsDao,
+                db.membersDao,
                 null,
               ),
               categoriesRepo: DriftConversationCategoriesRepository(
