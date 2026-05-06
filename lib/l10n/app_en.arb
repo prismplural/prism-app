@@ -2535,10 +2535,6 @@
   "@frontingMenuLogPastSession": {
     "description": "Menu item to log a closed historical fronting session"
   },
-  "frontingMenuNewPoll": "New Poll",
-  "@frontingMenuNewPoll": {
-    "description": "Menu item to create a new poll"
-  },
   "frontingMenuStartSleep": "Start Sleep",
   "@frontingMenuStartSleep": {
     "description": "Menu item to start a sleep session"

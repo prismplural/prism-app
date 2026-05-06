@@ -3416,12 +3416,6 @@ abstract class AppLocalizations {
   /// **'Log Past Session'**
   String get frontingMenuLogPastSession;
 
-  /// Menu item to create a new poll
-  ///
-  /// In en, this message translates to:
-  /// **'New Poll'**
-  String get frontingMenuNewPoll;
-
   /// Menu item to start a sleep session
   ///
   /// In en, this message translates to:

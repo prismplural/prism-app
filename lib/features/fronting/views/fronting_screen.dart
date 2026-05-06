@@ -23,7 +23,6 @@ import 'package:prism_plurality/features/members/providers/members_providers.dar
 import 'package:prism_plurality/features/members/utils/member_search_groups.dart';
 import 'package:prism_plurality/features/members/views/add_edit_member_sheet.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
-import 'package:prism_plurality/features/polls/views/create_poll_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
@@ -419,18 +418,6 @@ class _AddButtonState extends ConsumerState<_AddButton> {
             context: context,
             builder: (context, scrollController) =>
                 AddEditMemberSheet(scrollController: scrollController),
-          );
-        },
-      ),
-      _MenuItem(
-        icon: AppIcons.pollOutlined,
-        label: context.l10n.frontingMenuNewPoll,
-        onTap: (close) {
-          close();
-          PrismSheet.showFullScreen(
-            context: context,
-            builder: (context, scrollController) =>
-                CreatePollSheet(scrollController: scrollController),
           );
         },
       ),

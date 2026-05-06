@@ -1886,9 +1886,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get frontingMenuLogPastSession => 'Log Past Session';
 
   @override
-  String get frontingMenuNewPoll => 'New Poll';
-
-  @override
   String get frontingMenuStartSleep => 'Start Sleep';
 
   @override
