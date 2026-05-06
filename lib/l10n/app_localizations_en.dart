@@ -1839,6 +1839,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String frontingLongRunningSemantics(String names, String duration) {
+    return 'Long-running fronters: $names, $duration. Double tap to view details.';
+  }
+
+  @override
   String frontingAlwaysPresentDurationWeeks(int weeks) {
     String _temp0 = intl.Intl.pluralLogic(
       weeks,
@@ -8470,6 +8475,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsQuickFrontDefaultBehaviorLabel => 'When using quick front';
+
+  @override
+  String get settingsAutoPromoteLongFrontingSessionsLabel =>
+      'Auto-promote long sessions';
+
+  @override
+  String get settingsAutoPromoteLongFrontingSessionsDescription =>
+      'Show long-running fronting sessions in the pinned header even if they are not marked Always fronting';
 
   @override
   String get settingsQuickFrontDefaultBehaviorAdditive => 'Add as co-fronter';

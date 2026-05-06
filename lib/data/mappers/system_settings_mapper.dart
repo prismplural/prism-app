@@ -85,6 +85,7 @@ class SystemSettingsMapper {
         domain.FrontStartBehavior.values,
         domain.FrontStartBehavior.additive,
       ),
+      autoPromoteLongFrontingSessions: row.autoPromoteLongFrontingSessions,
       boardsEnabled: row.boardsEnabled,
       spBoardsBackfilledAt: row.spBoardsBackfilledAt,
     );
@@ -152,6 +153,9 @@ class SystemSettingsMapper {
       frontingListViewMode: Value(model.frontingListViewMode.index),
       addFrontDefaultBehavior: Value(model.addFrontDefaultBehavior.index),
       quickFrontDefaultBehavior: Value(model.quickFrontDefaultBehavior.index),
+      autoPromoteLongFrontingSessions: Value(
+        model.autoPromoteLongFrontingSessions,
+      ),
       boardsEnabled: Value(model.boardsEnabled),
       spBoardsBackfilledAt: Value(model.spBoardsBackfilledAt),
     );

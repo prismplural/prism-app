@@ -17,9 +17,7 @@ void main() {
 
   Widget buildSubject(FakeSystemSettingsRepository repo) {
     return ProviderScope(
-      overrides: [
-        systemSettingsRepositoryProvider.overrideWithValue(repo),
-      ],
+      overrides: [systemSettingsRepositoryProvider.overrideWithValue(repo)],
       child: const MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: [Locale('en')],
@@ -29,8 +27,9 @@ void main() {
   }
 
   group('FrontingFeatureSettingsScreen — session display & front behavior', () {
-    testWidgets('renders the section header and three preference rows',
-        (tester) async {
+    testWidgets('renders the section header and four preference rows', (
+      tester,
+    ) async {
       final repo = FakeSystemSettingsRepository();
       await tester.pumpWidget(buildSubject(repo));
       await tester.pumpAndSettle();
@@ -39,6 +38,7 @@ void main() {
       expect(find.text('Session list view'), findsOneWidget);
       expect(find.text('When adding a new front'), findsOneWidget);
       expect(find.text('When using quick front'), findsOneWidget);
+      expect(find.text('Auto-promote long sessions'), findsOneWidget);
     });
 
     testWidgets('subtitles reflect the saved enum values', (tester) async {
@@ -61,8 +61,9 @@ void main() {
       expect(find.text('Replace current fronters'), findsNWidgets(2));
     });
 
-    testWidgets('tapping list-view-mode picker writes the selected value',
-        (tester) async {
+    testWidgets('tapping list-view-mode picker writes the selected value', (
+      tester,
+    ) async {
       final repo = FakeSystemSettingsRepository();
       await tester.pumpWidget(buildSubject(repo));
       await tester.pumpAndSettle();
@@ -74,14 +75,12 @@ void main() {
       await tester.tap(find.text('Timeline').last);
       await tester.pumpAndSettle();
 
-      expect(
-        repo.settings.frontingListViewMode,
-        FrontingListViewMode.timeline,
-      );
+      expect(repo.settings.frontingListViewMode, FrontingListViewMode.timeline);
     });
 
-    testWidgets('tapping add-front-behavior picker writes the selected value',
-        (tester) async {
+    testWidgets('tapping add-front-behavior picker writes the selected value', (
+      tester,
+    ) async {
       final repo = FakeSystemSettingsRepository();
       await tester.pumpWidget(buildSubject(repo));
       await tester.pumpAndSettle();
@@ -92,10 +91,7 @@ void main() {
       await tester.tap(find.text('Replace current fronters').last);
       await tester.pumpAndSettle();
 
-      expect(
-        repo.settings.addFrontDefaultBehavior,
-        FrontStartBehavior.replace,
-      );
+      expect(repo.settings.addFrontDefaultBehavior, FrontStartBehavior.replace);
       // Quick-front behavior is independent and must NOT have been touched.
       expect(
         repo.settings.quickFrontDefaultBehavior,
@@ -103,26 +99,41 @@ void main() {
       );
     });
 
-    testWidgets('tapping quick-front-behavior picker writes the selected value',
-        (tester) async {
+    testWidgets(
+      'tapping quick-front-behavior picker writes the selected value',
+      (tester) async {
+        final repo = FakeSystemSettingsRepository();
+        await tester.pumpWidget(buildSubject(repo));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('When using quick front'));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Replace current fronters').last);
+        await tester.pumpAndSettle();
+
+        expect(
+          repo.settings.quickFrontDefaultBehavior,
+          FrontStartBehavior.replace,
+        );
+        expect(
+          repo.settings.addFrontDefaultBehavior,
+          FrontStartBehavior.additive,
+        );
+      },
+    );
+
+    testWidgets('toggling auto-promote writes the saved value', (tester) async {
       final repo = FakeSystemSettingsRepository();
       await tester.pumpWidget(buildSubject(repo));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('When using quick front'));
+      await tester.drag(find.byType(ListView), const Offset(0, -300));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(Switch).last);
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Replace current fronters').last);
-      await tester.pumpAndSettle();
-
-      expect(
-        repo.settings.quickFrontDefaultBehavior,
-        FrontStartBehavior.replace,
-      );
-      expect(
-        repo.settings.addFrontDefaultBehavior,
-        FrontStartBehavior.additive,
-      );
+      expect(repo.settings.autoPromoteLongFrontingSessions, isFalse);
     });
   });
 }

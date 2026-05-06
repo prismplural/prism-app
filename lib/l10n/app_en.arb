@@ -2484,6 +2484,18 @@
       }
     }
   },
+  "frontingLongRunningSemantics": "Long-running fronters: {names}, {duration}. Double tap to view details.",
+  "@frontingLongRunningSemantics": {
+    "description": "Screen-reader announcement for the pinned header when at least one surfaced member is only there because their session has been running a long time, not because they explicitly opted into always fronting.",
+    "placeholders": {
+      "names": {
+        "type": "String"
+      },
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
   "frontingAlwaysPresentDurationWeeks": "{weeks, plural, =1{1 week} other{{weeks} weeks}}",
   "@frontingAlwaysPresentDurationWeeks": {
     "description": "Duration formatted in whole weeks for the always-present header.",
@@ -9051,6 +9063,14 @@
   "settingsQuickFrontDefaultBehaviorLabel": "When using quick front",
   "@settingsQuickFrontDefaultBehaviorLabel": {
     "description": "Row title for the default behavior preference when triggering quick front (the per-member quick-action shortcut)."
+  },
+  "settingsAutoPromoteLongFrontingSessionsLabel": "Auto-promote long sessions",
+  "@settingsAutoPromoteLongFrontingSessionsLabel": {
+    "description": "Switch label for whether long-running fronting sessions should appear in the pinned header even without explicit always-fronting opt-in."
+  },
+  "settingsAutoPromoteLongFrontingSessionsDescription": "Show long-running fronting sessions in the pinned header even if they are not marked Always fronting",
+  "@settingsAutoPromoteLongFrontingSessionsDescription": {
+    "description": "Switch subtitle for whether long-running fronting sessions should appear in the pinned header even without explicit always-fronting opt-in."
   },
   "settingsQuickFrontDefaultBehaviorAdditive": "Add as co-fronter",
   "@settingsQuickFrontDefaultBehaviorAdditive": {

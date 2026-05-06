@@ -170,6 +170,11 @@ class SystemSettingsTable extends Table {
   IntColumn get quickFrontDefaultBehavior =>
       integer().withDefault(const Constant(0))();
 
+  /// Whether long-running active sessions should appear in the pinned header
+  /// even when the member has not explicitly opted into always-fronting.
+  BoolColumn get autoPromoteLongFrontingSessions =>
+      boolean().withDefault(const Constant(true))();
+
   // Substate within the `'inProgress'` window of the per-member fronting
   // migration.
   //
@@ -202,7 +207,8 @@ class SystemSettingsTable extends Table {
   // Synced feature toggle. Default false (opt-in). When false, the Boards tab
   // is filtered from the nav and the profile section is hidden; posts are
   // retained in the DB. Synced via CRDT so all devices see the same toggle.
-  BoolColumn get boardsEnabled => boolean().withDefault(const Constant(false))();
+  BoolColumn get boardsEnabled =>
+      boolean().withDefault(const Constant(false))();
 
   // Coordination sentinel for the SP boards backfill. The first device to
   // start the backfill writes a timestamp here; other devices observe it and

@@ -102,6 +102,13 @@ class SettingsNotifier extends AsyncNotifier<void> {
     });
   }
 
+  Future<void> updateAutoPromoteLongFrontingSessions(bool enabled) async {
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateAutoPromoteLongFrontingSessions(enabled);
+    });
+  }
+
   Future<void> updateFrontingReminders({
     required bool enabled,
     int? intervalMinutes,
@@ -737,6 +744,14 @@ final quickFrontDefaultBehaviorProvider = Provider<FrontStartBehavior>((ref) {
           .watch(systemSettingsProvider)
           .whenOrNull(data: (s) => s.quickFrontDefaultBehavior) ??
       FrontStartBehavior.additive;
+});
+
+/// Whether long-running active sessions auto-promote into the pinned header.
+final autoPromoteLongFrontingSessionsProvider = Provider<bool>((ref) {
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.autoPromoteLongFrontingSessions) ??
+      true;
 });
 
 /// Narrow provider for `hasCompletedOnboarding` flag.

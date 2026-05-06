@@ -95,6 +95,12 @@ class DriftSystemSettingsRepository
   }
 
   @override
+  Future<void> updateAutoPromoteLongFrontingSessions(bool value) async {
+    await _dao.updateAutoPromoteLongFrontingSessions(value);
+    await _syncField('auto_promote_long_fronting_sessions', value);
+  }
+
+  @override
   Future<void> updatePerMemberAccentColors(bool value) async {
     await _dao.updatePerMemberAccentColors(value);
     await _syncField('per_member_accent_colors', value);
@@ -567,6 +573,7 @@ class DriftSystemSettingsRepository
       'fronting_list_view_mode': s.frontingListViewMode.index,
       'add_front_default_behavior': s.addFrontDefaultBehavior.index,
       'quick_front_default_behavior': s.quickFrontDefaultBehavior.index,
+      'auto_promote_long_fronting_sessions': s.autoPromoteLongFrontingSessions,
       'is_deleted': false,
     };
   }

@@ -5580,6 +5580,21 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         requiredDuringInsert: false,
         defaultValue: const Constant(0),
       );
+  static const VerificationMeta _autoPromoteLongFrontingSessionsMeta =
+      const VerificationMeta('autoPromoteLongFrontingSessions');
+  @override
+  late final GeneratedColumn<bool> autoPromoteLongFrontingSessions =
+      GeneratedColumn<bool>(
+        'auto_promote_long_fronting_sessions',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("auto_promote_long_fronting_sessions" IN (0, 1))',
+        ),
+        defaultValue: const Constant(true),
+      );
   static const VerificationMeta _pendingFrontingMigrationCleanupSubstateMeta =
       const VerificationMeta('pendingFrontingMigrationCleanupSubstate');
   @override
@@ -5680,6 +5695,7 @@ class $SystemSettingsTableTable extends SystemSettingsTable
     frontingListViewMode,
     addFrontDefaultBehavior,
     quickFrontDefaultBehavior,
+    autoPromoteLongFrontingSessions,
     pendingFrontingMigrationCleanupSubstate,
     boardsEnabled,
     spBoardsBackfilledAt,
@@ -6203,6 +6219,15 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         ),
       );
     }
+    if (data.containsKey('auto_promote_long_fronting_sessions')) {
+      context.handle(
+        _autoPromoteLongFrontingSessionsMeta,
+        autoPromoteLongFrontingSessions.isAcceptableOrUnknown(
+          data['auto_promote_long_fronting_sessions']!,
+          _autoPromoteLongFrontingSessionsMeta,
+        ),
+      );
+    }
     if (data.containsKey('pending_fronting_migration_cleanup_substate')) {
       context.handle(
         _pendingFrontingMigrationCleanupSubstateMeta,
@@ -6479,6 +6504,10 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         DriftSqlType.int,
         data['${effectivePrefix}quick_front_default_behavior'],
       )!,
+      autoPromoteLongFrontingSessions: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}auto_promote_long_fronting_sessions'],
+      )!,
       pendingFrontingMigrationCleanupSubstate: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}pending_fronting_migration_cleanup_substate'],
@@ -6571,6 +6600,10 @@ class SystemSettingsData extends DataClass
   /// `FrontStartBehavior` index — default for quick-front (long-press / tap).
   /// 0 = additive (default), 1 = replace.
   final int quickFrontDefaultBehavior;
+
+  /// Whether long-running active sessions should appear in the pinned header
+  /// even when the member has not explicitly opted into always-fronting.
+  final bool autoPromoteLongFrontingSessions;
   final String pendingFrontingMigrationCleanupSubstate;
   final bool boardsEnabled;
   final DateTime? spBoardsBackfilledAt;
@@ -6635,6 +6668,7 @@ class SystemSettingsData extends DataClass
     required this.frontingListViewMode,
     required this.addFrontDefaultBehavior,
     required this.quickFrontDefaultBehavior,
+    required this.autoPromoteLongFrontingSessions,
     required this.pendingFrontingMigrationCleanupSubstate,
     required this.boardsEnabled,
     this.spBoardsBackfilledAt,
@@ -6736,6 +6770,9 @@ class SystemSettingsData extends DataClass
     map['quick_front_default_behavior'] = Variable<int>(
       quickFrontDefaultBehavior,
     );
+    map['auto_promote_long_fronting_sessions'] = Variable<bool>(
+      autoPromoteLongFrontingSessions,
+    );
     map['pending_fronting_migration_cleanup_substate'] = Variable<String>(
       pendingFrontingMigrationCleanupSubstate,
     );
@@ -6828,6 +6865,7 @@ class SystemSettingsData extends DataClass
       frontingListViewMode: Value(frontingListViewMode),
       addFrontDefaultBehavior: Value(addFrontDefaultBehavior),
       quickFrontDefaultBehavior: Value(quickFrontDefaultBehavior),
+      autoPromoteLongFrontingSessions: Value(autoPromoteLongFrontingSessions),
       pendingFrontingMigrationCleanupSubstate: Value(
         pendingFrontingMigrationCleanupSubstate,
       ),
@@ -6962,6 +7000,9 @@ class SystemSettingsData extends DataClass
       quickFrontDefaultBehavior: serializer.fromJson<int>(
         json['quickFrontDefaultBehavior'],
       ),
+      autoPromoteLongFrontingSessions: serializer.fromJson<bool>(
+        json['autoPromoteLongFrontingSessions'],
+      ),
       pendingFrontingMigrationCleanupSubstate: serializer.fromJson<String>(
         json['pendingFrontingMigrationCleanupSubstate'],
       ),
@@ -7053,6 +7094,9 @@ class SystemSettingsData extends DataClass
       'quickFrontDefaultBehavior': serializer.toJson<int>(
         quickFrontDefaultBehavior,
       ),
+      'autoPromoteLongFrontingSessions': serializer.toJson<bool>(
+        autoPromoteLongFrontingSessions,
+      ),
       'pendingFrontingMigrationCleanupSubstate': serializer.toJson<String>(
         pendingFrontingMigrationCleanupSubstate,
       ),
@@ -7124,6 +7168,7 @@ class SystemSettingsData extends DataClass
     int? frontingListViewMode,
     int? addFrontDefaultBehavior,
     int? quickFrontDefaultBehavior,
+    bool? autoPromoteLongFrontingSessions,
     String? pendingFrontingMigrationCleanupSubstate,
     bool? boardsEnabled,
     Value<DateTime?> spBoardsBackfilledAt = const Value.absent(),
@@ -7210,6 +7255,8 @@ class SystemSettingsData extends DataClass
         addFrontDefaultBehavior ?? this.addFrontDefaultBehavior,
     quickFrontDefaultBehavior:
         quickFrontDefaultBehavior ?? this.quickFrontDefaultBehavior,
+    autoPromoteLongFrontingSessions:
+        autoPromoteLongFrontingSessions ?? this.autoPromoteLongFrontingSessions,
     pendingFrontingMigrationCleanupSubstate:
         pendingFrontingMigrationCleanupSubstate ??
         this.pendingFrontingMigrationCleanupSubstate,
@@ -7389,6 +7436,10 @@ class SystemSettingsData extends DataClass
       quickFrontDefaultBehavior: data.quickFrontDefaultBehavior.present
           ? data.quickFrontDefaultBehavior.value
           : this.quickFrontDefaultBehavior,
+      autoPromoteLongFrontingSessions:
+          data.autoPromoteLongFrontingSessions.present
+          ? data.autoPromoteLongFrontingSessions.value
+          : this.autoPromoteLongFrontingSessions,
       pendingFrontingMigrationCleanupSubstate:
           data.pendingFrontingMigrationCleanupSubstate.present
           ? data.pendingFrontingMigrationCleanupSubstate.value
@@ -7470,6 +7521,9 @@ class SystemSettingsData extends DataClass
           ..write('addFrontDefaultBehavior: $addFrontDefaultBehavior, ')
           ..write('quickFrontDefaultBehavior: $quickFrontDefaultBehavior, ')
           ..write(
+            'autoPromoteLongFrontingSessions: $autoPromoteLongFrontingSessions, ',
+          )
+          ..write(
             'pendingFrontingMigrationCleanupSubstate: $pendingFrontingMigrationCleanupSubstate, ',
           )
           ..write('boardsEnabled: $boardsEnabled, ')
@@ -7540,6 +7594,7 @@ class SystemSettingsData extends DataClass
     frontingListViewMode,
     addFrontDefaultBehavior,
     quickFrontDefaultBehavior,
+    autoPromoteLongFrontingSessions,
     pendingFrontingMigrationCleanupSubstate,
     boardsEnabled,
     spBoardsBackfilledAt,
@@ -7614,6 +7669,8 @@ class SystemSettingsData extends DataClass
           other.frontingListViewMode == this.frontingListViewMode &&
           other.addFrontDefaultBehavior == this.addFrontDefaultBehavior &&
           other.quickFrontDefaultBehavior == this.quickFrontDefaultBehavior &&
+          other.autoPromoteLongFrontingSessions ==
+              this.autoPromoteLongFrontingSessions &&
           other.pendingFrontingMigrationCleanupSubstate ==
               this.pendingFrontingMigrationCleanupSubstate &&
           other.boardsEnabled == this.boardsEnabled &&
@@ -7681,6 +7738,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
   final Value<int> frontingListViewMode;
   final Value<int> addFrontDefaultBehavior;
   final Value<int> quickFrontDefaultBehavior;
+  final Value<bool> autoPromoteLongFrontingSessions;
   final Value<String> pendingFrontingMigrationCleanupSubstate;
   final Value<bool> boardsEnabled;
   final Value<DateTime?> spBoardsBackfilledAt;
@@ -7746,6 +7804,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.frontingListViewMode = const Value.absent(),
     this.addFrontDefaultBehavior = const Value.absent(),
     this.quickFrontDefaultBehavior = const Value.absent(),
+    this.autoPromoteLongFrontingSessions = const Value.absent(),
     this.pendingFrontingMigrationCleanupSubstate = const Value.absent(),
     this.boardsEnabled = const Value.absent(),
     this.spBoardsBackfilledAt = const Value.absent(),
@@ -7812,6 +7871,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.frontingListViewMode = const Value.absent(),
     this.addFrontDefaultBehavior = const Value.absent(),
     this.quickFrontDefaultBehavior = const Value.absent(),
+    this.autoPromoteLongFrontingSessions = const Value.absent(),
     this.pendingFrontingMigrationCleanupSubstate = const Value.absent(),
     this.boardsEnabled = const Value.absent(),
     this.spBoardsBackfilledAt = const Value.absent(),
@@ -7878,6 +7938,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Expression<int>? frontingListViewMode,
     Expression<int>? addFrontDefaultBehavior,
     Expression<int>? quickFrontDefaultBehavior,
+    Expression<bool>? autoPromoteLongFrontingSessions,
     Expression<String>? pendingFrontingMigrationCleanupSubstate,
     Expression<bool>? boardsEnabled,
     Expression<DateTime>? spBoardsBackfilledAt,
@@ -7971,6 +8032,8 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
         'add_front_default_behavior': addFrontDefaultBehavior,
       if (quickFrontDefaultBehavior != null)
         'quick_front_default_behavior': quickFrontDefaultBehavior,
+      if (autoPromoteLongFrontingSessions != null)
+        'auto_promote_long_fronting_sessions': autoPromoteLongFrontingSessions,
       if (pendingFrontingMigrationCleanupSubstate != null)
         'pending_fronting_migration_cleanup_substate':
             pendingFrontingMigrationCleanupSubstate,
@@ -8042,6 +8105,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Value<int>? frontingListViewMode,
     Value<int>? addFrontDefaultBehavior,
     Value<int>? quickFrontDefaultBehavior,
+    Value<bool>? autoPromoteLongFrontingSessions,
     Value<String>? pendingFrontingMigrationCleanupSubstate,
     Value<bool>? boardsEnabled,
     Value<DateTime?>? spBoardsBackfilledAt,
@@ -8125,6 +8189,9 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
           addFrontDefaultBehavior ?? this.addFrontDefaultBehavior,
       quickFrontDefaultBehavior:
           quickFrontDefaultBehavior ?? this.quickFrontDefaultBehavior,
+      autoPromoteLongFrontingSessions:
+          autoPromoteLongFrontingSessions ??
+          this.autoPromoteLongFrontingSessions,
       pendingFrontingMigrationCleanupSubstate:
           pendingFrontingMigrationCleanupSubstate ??
           this.pendingFrontingMigrationCleanupSubstate,
@@ -8367,6 +8434,11 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
         quickFrontDefaultBehavior.value,
       );
     }
+    if (autoPromoteLongFrontingSessions.present) {
+      map['auto_promote_long_fronting_sessions'] = Variable<bool>(
+        autoPromoteLongFrontingSessions.value,
+      );
+    }
     if (pendingFrontingMigrationCleanupSubstate.present) {
       map['pending_fronting_migration_cleanup_substate'] = Variable<String>(
         pendingFrontingMigrationCleanupSubstate.value,
@@ -8453,6 +8525,9 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
           ..write('frontingListViewMode: $frontingListViewMode, ')
           ..write('addFrontDefaultBehavior: $addFrontDefaultBehavior, ')
           ..write('quickFrontDefaultBehavior: $quickFrontDefaultBehavior, ')
+          ..write(
+            'autoPromoteLongFrontingSessions: $autoPromoteLongFrontingSessions, ',
+          )
           ..write(
             'pendingFrontingMigrationCleanupSubstate: $pendingFrontingMigrationCleanupSubstate, ',
           )
@@ -25818,6 +25893,7 @@ typedef $$SystemSettingsTableTableCreateCompanionBuilder =
       Value<int> frontingListViewMode,
       Value<int> addFrontDefaultBehavior,
       Value<int> quickFrontDefaultBehavior,
+      Value<bool> autoPromoteLongFrontingSessions,
       Value<String> pendingFrontingMigrationCleanupSubstate,
       Value<bool> boardsEnabled,
       Value<DateTime?> spBoardsBackfilledAt,
@@ -25885,6 +25961,7 @@ typedef $$SystemSettingsTableTableUpdateCompanionBuilder =
       Value<int> frontingListViewMode,
       Value<int> addFrontDefaultBehavior,
       Value<int> quickFrontDefaultBehavior,
+      Value<bool> autoPromoteLongFrontingSessions,
       Value<String> pendingFrontingMigrationCleanupSubstate,
       Value<bool> boardsEnabled,
       Value<DateTime?> spBoardsBackfilledAt,
@@ -26197,6 +26274,11 @@ class $$SystemSettingsTableTableFilterComposer
 
   ColumnFilters<int> get quickFrontDefaultBehavior => $composableBuilder(
     column: $table.quickFrontDefaultBehavior,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get autoPromoteLongFrontingSessions => $composableBuilder(
+    column: $table.autoPromoteLongFrontingSessions,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -26528,6 +26610,12 @@ class $$SystemSettingsTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get autoPromoteLongFrontingSessions =>
+      $composableBuilder(
+        column: $table.autoPromoteLongFrontingSessions,
+        builder: (column) => ColumnOrderings(column),
+      );
+
   ColumnOrderings<String> get pendingFrontingMigrationCleanupSubstate =>
       $composableBuilder(
         column: $table.pendingFrontingMigrationCleanupSubstate,
@@ -26844,6 +26932,12 @@ class $$SystemSettingsTableTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<bool> get autoPromoteLongFrontingSessions =>
+      $composableBuilder(
+        column: $table.autoPromoteLongFrontingSessions,
+        builder: (column) => column,
+      );
+
   GeneratedColumn<String> get pendingFrontingMigrationCleanupSubstate =>
       $composableBuilder(
         column: $table.pendingFrontingMigrationCleanupSubstate,
@@ -26966,6 +27060,8 @@ class $$SystemSettingsTableTableTableManager
                 Value<int> frontingListViewMode = const Value.absent(),
                 Value<int> addFrontDefaultBehavior = const Value.absent(),
                 Value<int> quickFrontDefaultBehavior = const Value.absent(),
+                Value<bool> autoPromoteLongFrontingSessions =
+                    const Value.absent(),
                 Value<String> pendingFrontingMigrationCleanupSubstate =
                     const Value.absent(),
                 Value<bool> boardsEnabled = const Value.absent(),
@@ -27033,6 +27129,8 @@ class $$SystemSettingsTableTableTableManager
                 frontingListViewMode: frontingListViewMode,
                 addFrontDefaultBehavior: addFrontDefaultBehavior,
                 quickFrontDefaultBehavior: quickFrontDefaultBehavior,
+                autoPromoteLongFrontingSessions:
+                    autoPromoteLongFrontingSessions,
                 pendingFrontingMigrationCleanupSubstate:
                     pendingFrontingMigrationCleanupSubstate,
                 boardsEnabled: boardsEnabled,
@@ -27103,6 +27201,8 @@ class $$SystemSettingsTableTableTableManager
                 Value<int> frontingListViewMode = const Value.absent(),
                 Value<int> addFrontDefaultBehavior = const Value.absent(),
                 Value<int> quickFrontDefaultBehavior = const Value.absent(),
+                Value<bool> autoPromoteLongFrontingSessions =
+                    const Value.absent(),
                 Value<String> pendingFrontingMigrationCleanupSubstate =
                     const Value.absent(),
                 Value<bool> boardsEnabled = const Value.absent(),
@@ -27170,6 +27270,8 @@ class $$SystemSettingsTableTableTableManager
                 frontingListViewMode: frontingListViewMode,
                 addFrontDefaultBehavior: addFrontDefaultBehavior,
                 quickFrontDefaultBehavior: quickFrontDefaultBehavior,
+                autoPromoteLongFrontingSessions:
+                    autoPromoteLongFrontingSessions,
                 pendingFrontingMigrationCleanupSubstate:
                     pendingFrontingMigrationCleanupSubstate,
                 boardsEnabled: boardsEnabled,

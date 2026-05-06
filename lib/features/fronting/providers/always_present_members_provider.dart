@@ -6,6 +6,7 @@ import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_table_ticker_provider.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 
 /// How long an open fronting session must be running before a member is
 /// auto-promoted into the "Always present" pinned header — even when the
@@ -90,64 +91,78 @@ class AlwaysPresentMember {
 /// This keeps the avatar stack visually stable across rebuilds.
 final alwaysPresentMembersProvider =
     Provider<AsyncValue<List<AlwaysPresentMember>>>((ref) {
-  // Force rebuild on `fronting_sessions` writes (debounced ticker).
-  ref.watch(frontingTableTickerProvider);
+      // Force rebuild on `fronting_sessions` writes (debounced ticker).
+      ref.watch(frontingTableTickerProvider);
 
-  final activeSessions = ref.watch(activeSessionsProvider);
-  final members = ref.watch(allMembersProvider);
-  final clock = ref.watch(alwaysPresentClockProvider);
+      final activeSessions = ref.watch(activeSessionsProvider);
+      final members = ref.watch(allMembersProvider);
+      final clock = ref.watch(alwaysPresentClockProvider);
+      final autoPromoteLongFrontingSessions = ref.watch(
+        autoPromoteLongFrontingSessionsProvider,
+      );
 
-  return activeSessions.when(
-    loading: () => const AsyncValue.loading(),
-    error: AsyncValue.error,
-    data: (sessions) => members.when(
-      loading: () => const AsyncValue.loading(),
-      error: AsyncValue.error,
-      data: (memberList) {
-        final now = clock();
-        final byId = {for (final m in memberList) m.id: m};
-        final qualifying = <AlwaysPresentMember>[];
+      return activeSessions.when(
+        loading: () => const AsyncValue.loading(),
+        error: AsyncValue.error,
+        data: (sessions) => members.when(
+          loading: () => const AsyncValue.loading(),
+          error: AsyncValue.error,
+          data: (memberList) {
+            final now = clock();
+            final byId = {for (final m in memberList) m.id: m};
+            final qualifying = <AlwaysPresentMember>[];
 
-        for (final session in sessions) {
-          if (session.endTime != null) continue;
-          if (session.sessionType != SessionType.normal) continue;
-          if (session.isDeleted) continue;
-          final memberId = session.memberId;
-          if (memberId == null) continue;
-          final member = byId[memberId];
-          if (member == null) continue;
+            for (final session in sessions) {
+              if (session.endTime != null) continue;
+              if (session.sessionType != SessionType.normal) continue;
+              if (session.isDeleted) continue;
+              final memberId = session.memberId;
+              if (memberId == null) continue;
+              final member = byId[memberId];
+              if (member == null) continue;
 
-          final age = now.difference(session.startTime);
-          final qualifies =
-              member.isAlwaysFronting || age >= kAutoPromoteThreshold;
-          if (!qualifies) continue;
+              final age = now.difference(session.startTime);
+              final qualifies =
+                  member.isAlwaysFronting ||
+                  (autoPromoteLongFrontingSessions &&
+                      age >= kAutoPromoteThreshold);
+              if (!qualifies) continue;
 
-          qualifying.add(AlwaysPresentMember(
-            member: member,
-            session: session,
-            age: age,
-          ));
-        }
+              qualifying.add(
+                AlwaysPresentMember(member: member, session: session, age: age),
+              );
+            }
 
-        qualifying.sort((a, b) {
-          final byOrder = a.member.displayOrder.compareTo(b.member.displayOrder);
-          if (byOrder != 0) return byOrder;
-          final byStart = a.session.startTime.compareTo(b.session.startTime);
-          if (byStart != 0) return byStart;
-          return a.member.id.compareTo(b.member.id);
-        });
+            qualifying.sort((a, b) {
+              final byOrder = a.member.displayOrder.compareTo(
+                b.member.displayOrder,
+              );
+              if (byOrder != 0) return byOrder;
+              final byStart = a.session.startTime.compareTo(
+                b.session.startTime,
+              );
+              if (byStart != 0) return byStart;
+              return a.member.id.compareTo(b.member.id);
+            });
 
-        // Schedule a one-shot timer for the next session crossing the
-        // auto-promote threshold among any not-yet-promoted active rows.
-        // No DB write happens at the crossing moment, so without this the
-        // header would never render until the user triggers a write.
-        _scheduleThresholdTimer(ref, sessions, byId, now, clock);
+            // Schedule a one-shot timer for the next session crossing the
+            // auto-promote threshold among any not-yet-promoted active rows.
+            // No DB write happens at the crossing moment, so without this the
+            // header would never render until the user triggers a write.
+            _scheduleThresholdTimer(
+              ref,
+              sessions,
+              byId,
+              now,
+              clock,
+              autoPromoteLongFrontingSessions,
+            );
 
-        return AsyncValue.data(List.unmodifiable(qualifying));
-      },
-    ),
-  );
-});
+            return AsyncValue.data(List.unmodifiable(qualifying));
+          },
+        ),
+      );
+    });
 
 /// Caps the per-wake delay so a wall-clock jump (NTP correction, manual
 /// timezone change, daylight-saving transition) can't keep the timer
@@ -183,7 +198,10 @@ void _scheduleThresholdTimer(
   Map<String, Member> memberMap,
   DateTime now,
   DateTime Function() clock,
+  bool autoPromoteEnabled,
 ) {
+  if (!autoPromoteEnabled) return;
+
   DateTime? earliestCrossing;
   for (final session in sessions) {
     if (session.endTime != null) continue;

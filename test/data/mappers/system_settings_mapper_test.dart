@@ -14,6 +14,7 @@ void main() {
     int frontingListViewMode = 0,
     int addFrontDefaultBehavior = 0,
     int quickFrontDefaultBehavior = 0,
+    bool autoPromoteLongFrontingSessions = true,
   }) {
     return SystemSettingsData(
       id: 'singleton',
@@ -76,7 +77,9 @@ void main() {
       frontingListViewMode: frontingListViewMode,
       addFrontDefaultBehavior: addFrontDefaultBehavior,
       quickFrontDefaultBehavior: quickFrontDefaultBehavior,
+      autoPromoteLongFrontingSessions: autoPromoteLongFrontingSessions,
       boardsEnabled: false,
+      spBoardsBackfilledAt: null,
     );
   }
 
@@ -144,6 +147,27 @@ void main() {
         final domain = SystemSettingsMapper.toDomain(row);
         expect(domain.frontingListViewMode, mode);
       }
+    });
+  });
+
+  group('SystemSettingsMapper — autoPromoteLongFrontingSessions', () {
+    test('default SystemSettings enables auto-promote', () {
+      const settings = SystemSettings();
+      expect(settings.autoPromoteLongFrontingSessions, isTrue);
+    });
+
+    test('stored bool maps through both directions', () {
+      expect(
+        SystemSettingsMapper.toDomain(
+          makeDbRow(autoPromoteLongFrontingSessions: false),
+        ).autoPromoteLongFrontingSessions,
+        isFalse,
+      );
+
+      final companion = SystemSettingsMapper.toCompanion(
+        const SystemSettings(autoPromoteLongFrontingSessions: false),
+      );
+      expect(companion.autoPromoteLongFrontingSessions.value, isFalse);
     });
   });
 

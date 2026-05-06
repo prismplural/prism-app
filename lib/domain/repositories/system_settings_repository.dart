@@ -21,6 +21,7 @@ abstract class SystemSettingsRepository {
 
   // Bool fields
   Future<void> updateShowQuickFront(bool value);
+  Future<void> updateAutoPromoteLongFrontingSessions(bool value);
   Future<void> updatePerMemberAccentColors(bool value);
   Future<void> updateFrontingRemindersEnabled(bool value);
   Future<void> updateChatEnabled(bool value);
@@ -82,6 +83,7 @@ abstract class SystemSettingsRepository {
   Future<void> updateSystemDescription(String? value);
   Future<void> updateSystemColor(String? colorHex);
   Future<void> updatePkGroupSyncV2Enabled(bool value);
+
   /// Updates the PluralKit system tag.
   Future<void> updateSystemTag(String? value);
   Future<void> updateSystemAvatarData(Uint8List? value);

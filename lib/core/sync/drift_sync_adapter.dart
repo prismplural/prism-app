@@ -89,8 +89,7 @@ enum DriftSyncApplyRefusal {
 /// resolves a Riverpod-backed boolean stamped at startup and updated by
 /// the Drift settings stream. Make this async only if a future gate
 /// truly needs an awaited check.
-typedef DriftSyncApplyGate = DriftSyncApplyRefusal? Function(
-    String tableName);
+typedef DriftSyncApplyGate = DriftSyncApplyRefusal? Function(String tableName);
 
 /// Records a "this remote payload was deferred because the per-member
 /// fronting migration is blocked/inProgress" entry in the quarantine
@@ -114,7 +113,8 @@ void _trackMigrationGatedQuarantine({
     fieldName: null,
     expectedType: 'apply',
     receivedType: 'deferred',
-    errorMessage: 'fronting migration gate (${refusal.name}): apply deferred '
+    errorMessage:
+        'fronting migration gate (${refusal.name}): apply deferred '
         'until the per-member fronting migration completes',
   );
   trackQuarantineWrite(write);
@@ -1789,10 +1789,13 @@ DriftSyncEntity _systemSettingsEntity(
         'fronting_list_view_mode': r.frontingListViewMode,
         'add_front_default_behavior': r.addFrontDefaultBehavior,
         'quick_front_default_behavior': r.quickFrontDefaultBehavior,
+        'auto_promote_long_fronting_sessions':
+            r.autoPromoteLongFrontingSessions,
         'is_deleted': r.isDeleted,
         'boards_enabled': r.boardsEnabled,
-        'sp_boards_backfilled_at':
-            _dateTimeToSyncStringOrNull(r.spBoardsBackfilledAt),
+        'sp_boards_backfilled_at': _dateTimeToSyncStringOrNull(
+          r.spBoardsBackfilledAt,
+        ),
       };
     },
     applyFields: (String id, Map<String, dynamic> fields) async {
@@ -1861,11 +1864,16 @@ DriftSyncEntity _systemSettingsEntity(
         frontingListViewMode: f.intField('fronting_list_view_mode'),
         addFrontDefaultBehavior: f.intField('add_front_default_behavior'),
         quickFrontDefaultBehavior: f.intField('quick_front_default_behavior'),
+        autoPromoteLongFrontingSessions: f.boolField(
+          'auto_promote_long_fronting_sessions',
+        ),
         // Device-local fields (font*, pin*, biometric*, autoLock*) are
         // intentionally excluded from sync.
         isDeleted: f.boolField('is_deleted'),
         boardsEnabled: f.boolField('boards_enabled'),
-        spBoardsBackfilledAt: f.dateTimeFieldNullable('sp_boards_backfilled_at'),
+        spBoardsBackfilledAt: f.dateTimeFieldNullable(
+          'sp_boards_backfilled_at',
+        ),
       );
       await _insertOrUpdateById(
         db,
@@ -1936,10 +1944,13 @@ DriftSyncEntity _systemSettingsEntity(
         'fronting_list_view_mode': row.frontingListViewMode,
         'add_front_default_behavior': row.addFrontDefaultBehavior,
         'quick_front_default_behavior': row.quickFrontDefaultBehavior,
+        'auto_promote_long_fronting_sessions':
+            row.autoPromoteLongFrontingSessions,
         'is_deleted': row.isDeleted,
         'boards_enabled': row.boardsEnabled,
-        'sp_boards_backfilled_at':
-            _dateTimeToSyncStringOrNull(row.spBoardsBackfilledAt),
+        'sp_boards_backfilled_at': _dateTimeToSyncStringOrNull(
+          row.spBoardsBackfilledAt,
+        ),
       };
     },
     isDeleted: (String id) async {

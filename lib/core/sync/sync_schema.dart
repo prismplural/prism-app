@@ -153,6 +153,7 @@ const String prismSyncSchema = '''
         "fronting_list_view_mode": "Int",
         "add_front_default_behavior": "Int",
         "quick_front_default_behavior": "Int",
+        "auto_promote_long_fronting_sessions": "Bool",
         "is_deleted": "Bool",
         "boards_enabled": "Bool",
         "sp_boards_backfilled_at": "DateTime"

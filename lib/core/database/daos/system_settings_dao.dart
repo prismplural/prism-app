@@ -74,6 +74,13 @@ class SystemSettingsDao extends DatabaseAccessor<AppDatabase>
   Future<void> updateShowQuickFront(bool value) =>
       _updateField(SystemSettingsTableCompanion(showQuickFront: Value(value)));
 
+  Future<void> updateAutoPromoteLongFrontingSessions(bool value) =>
+      _updateField(
+        SystemSettingsTableCompanion(
+          autoPromoteLongFrontingSessions: Value(value),
+        ),
+      );
+
   Future<void> updatePerMemberAccentColors(bool value) => _updateField(
     SystemSettingsTableCompanion(perMemberAccentColors: Value(value)),
   );

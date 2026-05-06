@@ -167,6 +167,9 @@ class FakeSystemSettingsRepository implements SystemSettingsRepository {
   Future<void> updateShowQuickFront(bool value) async =>
       updateSettings(settings.copyWith(showQuickFront: value));
   @override
+  Future<void> updateAutoPromoteLongFrontingSessions(bool value) async =>
+      updateSettings(settings.copyWith(autoPromoteLongFrontingSessions: value));
+  @override
   Future<void> updatePerMemberAccentColors(bool value) async =>
       updateSettings(settings.copyWith(perMemberAccentColors: value));
   @override

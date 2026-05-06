@@ -3374,6 +3374,12 @@ abstract class AppLocalizations {
   /// **'Always-present fronters: {names}, {duration}'**
   String frontingAlwaysPresentSemantics(String names, String duration);
 
+  /// Screen-reader announcement for the pinned header when at least one surfaced member is only there because their session has been running a long time, not because they explicitly opted into always fronting.
+  ///
+  /// In en, this message translates to:
+  /// **'Long-running fronters: {names}, {duration}. Double tap to view details.'**
+  String frontingLongRunningSemantics(String names, String duration);
+
   /// Duration formatted in whole weeks for the always-present header.
   ///
   /// In en, this message translates to:
@@ -13627,6 +13633,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'When using quick front'**
   String get settingsQuickFrontDefaultBehaviorLabel;
+
+  /// Switch label for whether long-running fronting sessions should appear in the pinned header even without explicit always-fronting opt-in.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-promote long sessions'**
+  String get settingsAutoPromoteLongFrontingSessionsLabel;
+
+  /// Switch subtitle for whether long-running fronting sessions should appear in the pinned header even without explicit always-fronting opt-in.
+  ///
+  /// In en, this message translates to:
+  /// **'Show long-running fronting sessions in the pinned header even if they are not marked Always fronting'**
+  String get settingsAutoPromoteLongFrontingSessionsDescription;
 
   /// Option label: quick front leaves existing fronts in place; the tapped member joins as a co-fronter.
   ///

@@ -38,6 +38,7 @@ Map<String, dynamic> _buildSyncFieldsMap(SystemSettings s) => {
   'sync_theme_enabled': s.syncThemeEnabled,
   'timing_mode': s.timingMode.index,
   'pk_group_sync_v2_enabled': s.pkGroupSyncV2Enabled,
+  'auto_promote_long_fronting_sessions': s.autoPromoteLongFrontingSessions,
   'system_color': 'ff0000',
   'is_deleted': false,
 };

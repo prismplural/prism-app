@@ -9,7 +9,7 @@ import 'package:prism_plurality/data/repositories/drift_system_settings_reposito
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/shared/utils/avatar_image_picker.dart';
 
-/// Sync-emit contract: the three Phase 1B preference fields must appear in
+/// Sync-emit contract: fronting preference fields must appear in
 /// `_settingsFields` (the map handed to `syncRecordUpdate`). Adapter-level
 /// parity (sync_schema_parity_test) only catches drift between the engine's
 /// schema and the adapter's `toSyncFields`. A field that is silently dropped
@@ -26,18 +26,20 @@ void main() {
 
   tearDown(() => db.close());
 
-  group('_settingsFields emits Phase 1B preference keys', () {
-    test('default settings emit all three preference keys with index 0', () {
+  group('_settingsFields emits fronting preference keys', () {
+    test('default settings emit enum prefs plus the auto-promote bool', () {
       const settings = SystemSettings();
       final fields = repo.debugSettingsFields(settings);
 
       expect(fields, contains('fronting_list_view_mode'));
       expect(fields, contains('add_front_default_behavior'));
       expect(fields, contains('quick_front_default_behavior'));
+      expect(fields, contains('auto_promote_long_fronting_sessions'));
 
       expect(fields['fronting_list_view_mode'], 0);
       expect(fields['add_front_default_behavior'], 0);
       expect(fields['quick_front_default_behavior'], 0);
+      expect(fields['auto_promote_long_fronting_sessions'], isTrue);
     });
 
     test('non-default values flow through as enum indices', () {
@@ -45,6 +47,7 @@ void main() {
         frontingListViewMode: FrontingListViewMode.timeline,
         addFrontDefaultBehavior: FrontStartBehavior.replace,
         quickFrontDefaultBehavior: FrontStartBehavior.replace,
+        autoPromoteLongFrontingSessions: false,
       );
       final fields = repo.debugSettingsFields(settings);
 
@@ -60,15 +63,17 @@ void main() {
         fields['quick_front_default_behavior'],
         FrontStartBehavior.replace.index,
       );
+      expect(fields['auto_promote_long_fronting_sessions'], isFalse);
     });
 
-    test('every emitted preference value is an int (matches schema "Int")', () {
+    test('enum prefs remain ints and auto-promote remains bool', () {
       const settings = SystemSettings();
       final fields = repo.debugSettingsFields(settings);
 
       expect(fields['fronting_list_view_mode'], isA<int>());
       expect(fields['add_front_default_behavior'], isA<int>());
       expect(fields['quick_front_default_behavior'], isA<int>());
+      expect(fields['auto_promote_long_fronting_sessions'], isA<bool>());
     });
 
     test('has_completed_onboarding stays local-only', () {
@@ -107,11 +112,14 @@ void main() {
       expect(decoded.height, 512);
     });
 
-    test('field update creates the singleton row on a fresh database', () async {
-      await repo.updateSystemName('Prism');
+    test(
+      'field update creates the singleton row on a fresh database',
+      () async {
+        await repo.updateSystemName('Prism');
 
-      final settings = await repo.getSettings();
-      expect(settings.systemName, 'Prism');
-    });
+        final settings = await repo.getSettings();
+        expect(settings.systemName, 'Prism');
+      },
+    );
   });
 }

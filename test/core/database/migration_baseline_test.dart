@@ -57,6 +57,7 @@ void _dropPostV3Schema(raw.Database db) {
     ['system_settings', 'fronting_list_view_mode'],
     ['system_settings', 'add_front_default_behavior'],
     ['system_settings', 'quick_front_default_behavior'],
+    ['system_settings', 'auto_promote_long_fronting_sessions'],
     ['system_settings', 'pending_fronting_migration_mode'],
     ['system_settings', 'pending_fronting_migration_cleanup_substate'],
     ['system_settings', 'boards_enabled'],

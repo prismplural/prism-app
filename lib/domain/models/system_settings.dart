@@ -169,6 +169,7 @@ abstract class SystemSettings with _$SystemSettings {
     String? systemDescription,
     String? systemColor,
     @Default(false) bool pkGroupSyncV2Enabled,
+
     /// Synced PluralKit system profile tag.
     String? systemTag,
     @JsonKey(fromJson: _uint8ListFromJson, toJson: _uint8ListToJson)
@@ -200,6 +201,7 @@ abstract class SystemSettings with _$SystemSettings {
     FrontStartBehavior addFrontDefaultBehavior,
     @Default(FrontStartBehavior.additive)
     FrontStartBehavior quickFrontDefaultBehavior,
+    @Default(true) bool autoPromoteLongFrontingSessions,
     // Message Boards feature flag.
     @Default(false) bool boardsEnabled,
     // Timestamp written by [SpBoardsBackfillService] when SP boards migration

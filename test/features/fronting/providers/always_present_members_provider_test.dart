@@ -7,6 +7,7 @@ import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/fronting/providers/always_present_members_provider.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 
 Member _member({
   required String id,
@@ -44,11 +45,15 @@ FrontingSession _session({
 ProviderContainer _container({
   required List<FrontingSession> sessions,
   required List<Member> members,
+  bool autoPromoteLongFrontingSessions = true,
 }) {
   return ProviderContainer(
     overrides: [
       activeSessionsProvider.overrideWith((ref) => Stream.value(sessions)),
       allMembersProvider.overrideWith((ref) => Stream.value(members)),
+      autoPromoteLongFrontingSessionsProvider.overrideWithValue(
+        autoPromoteLongFrontingSessions,
+      ),
     ],
   );
 }
@@ -147,6 +152,26 @@ void main() {
 
       final result = await _drain(container);
       expect(result, isEmpty);
+    });
+
+    test('disabling auto-promote hides long-running sessions without '
+        'affecting explicit always-fronting members', () async {
+      final start = DateTime.now().subtract(const Duration(days: 8));
+      final container = _container(
+        sessions: [
+          _session(id: 's1', memberId: 'a', start: start),
+          _session(id: 's2', memberId: 'b', start: DateTime.now()),
+        ],
+        members: [
+          _member(id: 'a'),
+          _member(id: 'b', isAlwaysFronting: true),
+        ],
+        autoPromoteLongFrontingSessions: false,
+      );
+      addTearDown(container.dispose);
+
+      final result = await _drain(container);
+      expect(result.map((q) => q.member.id), ['b']);
     });
 
     test('boundary: session age slightly past 7d is included', () async {
@@ -349,6 +374,7 @@ void main() {
                 (ref) => Stream.value([_member(id: 'a')]),
               ),
               alwaysPresentClockProvider.overrideWithValue(now),
+              autoPromoteLongFrontingSessionsProvider.overrideWithValue(true),
             ],
           );
           addTearDown(container.dispose);
@@ -409,6 +435,7 @@ void main() {
               (ref) => Stream.value([_member(id: 'a')]),
             ),
             alwaysPresentClockProvider.overrideWithValue(now),
+            autoPromoteLongFrontingSessionsProvider.overrideWithValue(true),
           ],
         );
         addTearDown(container.dispose);

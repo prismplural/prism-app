@@ -115,6 +115,8 @@ _SystemSettings _$SystemSettingsFromJson(
         json['quickFrontDefaultBehavior'],
       ) ??
       FrontStartBehavior.additive,
+  autoPromoteLongFrontingSessions:
+      json['autoPromoteLongFrontingSessions'] as bool? ?? true,
   boardsEnabled: json['boardsEnabled'] as bool? ?? false,
   spBoardsBackfilledAt: json['spBoardsBackfilledAt'] == null
       ? null
@@ -184,6 +186,7 @@ Map<String, dynamic> _$SystemSettingsToJson(
       _$FrontStartBehaviorEnumMap[instance.addFrontDefaultBehavior]!,
   'quickFrontDefaultBehavior':
       _$FrontStartBehaviorEnumMap[instance.quickFrontDefaultBehavior]!,
+  'autoPromoteLongFrontingSessions': instance.autoPromoteLongFrontingSessions,
   'boardsEnabled': instance.boardsEnabled,
   'spBoardsBackfilledAt': instance.spBoardsBackfilledAt?.toIso8601String(),
 };

@@ -257,6 +257,9 @@ class FrontingFeatureSettingsScreen extends ConsumerWidget {
     final listViewMode = ref.watch(frontingListViewModeProvider);
     final addFrontBehavior = ref.watch(addFrontDefaultBehaviorProvider);
     final quickFrontBehavior = ref.watch(quickFrontDefaultBehaviorProvider);
+    final autoPromoteLongFrontingSessions = ref.watch(
+      autoPromoteLongFrontingSessionsProvider,
+    );
     final terms = watchTerminology(context, ref);
     final memberTermLower = terms.singularLower;
     final theme = Theme.of(context);
@@ -364,6 +367,20 @@ class FrontingFeatureSettingsScreen extends ConsumerWidget {
                       ref,
                       quickFrontBehavior,
                     ),
+                  ),
+                  PrismSwitchRow(
+                    icon: AppIcons.schedule,
+                    iconColor: Colors.purple,
+                    title: context
+                        .l10n
+                        .settingsAutoPromoteLongFrontingSessionsLabel,
+                    subtitle: context
+                        .l10n
+                        .settingsAutoPromoteLongFrontingSessionsDescription,
+                    value: autoPromoteLongFrontingSessions,
+                    onChanged: (value) => ref
+                        .read(settingsNotifierProvider.notifier)
+                        .updateAutoPromoteLongFrontingSessions(value),
                   ),
                 ],
               ),

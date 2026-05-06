@@ -2500,6 +2500,13 @@
       "duration": { "type": "String" }
     }
   },
+  "frontingLongRunningSemantics": "Frentes de larga duración: {names}, {duration}. Doble toque para ver detalles.",
+  "@frontingLongRunningSemantics": {
+    "placeholders": {
+      "names": { "type": "String" },
+      "duration": { "type": "String" }
+    }
+  },
   "frontingAlwaysPresentDurationWeeks": "{weeks, plural, =1{1 semana} other{{weeks} semanas}}",
   "@frontingAlwaysPresentDurationWeeks": {
     "placeholders": {
@@ -2536,6 +2543,8 @@
   "settingsAddFrontDefaultBehaviorReplace": "Reemplazar quienes están al frente",
   "settingsAddFrontDefaultBehaviorReplaceDescription": "Termina todos los frentes actuales antes de iniciar uno nuevo",
   "settingsQuickFrontDefaultBehaviorLabel": "Al usar frente rápido",
+  "settingsAutoPromoteLongFrontingSessionsLabel": "Autopromocionar sesiones largas",
+  "settingsAutoPromoteLongFrontingSessionsDescription": "Muestra sesiones largas de frente en la cabecera fija aunque no estén marcadas como Siempre al frente",
   "settingsQuickFrontDefaultBehaviorAdditive": "Agregar al co-frente",
   "settingsQuickFrontDefaultBehaviorReplace": "Reemplazar quienes están al frente",
   "frontingEndSessionButton": "Terminar sesión",

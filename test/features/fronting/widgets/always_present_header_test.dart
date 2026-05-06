@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
+import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
@@ -47,7 +49,6 @@ Future<void> _pumpHeader(
           useEnglish: false,
         )),
       ],
-      // ignore: prefer_const_constructors — `value` is non-const.
       child: MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: const [Locale('en'), Locale('es')],
@@ -63,36 +64,34 @@ void main() {
   group('AlwaysPresentHeader', () {
     testWidgets('empty list collapses to SizedBox.shrink', (tester) async {
       await _pumpHeader(tester, value: const AsyncValue.data([]));
-
-      // No "Always present" subtitle text rendered.
       expect(find.textContaining('Always present'), findsNothing);
     });
 
     testWidgets('loading state collapses to SizedBox.shrink', (tester) async {
       await _pumpHeader(tester, value: const AsyncValue.loading());
-
       expect(find.textContaining('Always present'), findsNothing);
     });
 
-    testWidgets('renders name + duration label for one qualifying member', (
-      tester,
-    ) async {
-      final member = _member(id: 'host', name: 'Host');
-      await _pumpHeader(
-        tester,
-        value: AsyncValue.data([
-          AlwaysPresentMember(
-            member: member,
-            session: _session('s1', 'host'),
-            age: const Duration(days: 14),
-          ),
-        ]),
-      );
+    testWidgets(
+      'auto-promoted sessions show only the duration, not "Always present"',
+      (tester) async {
+        final member = _member(id: 'host', name: 'Host');
+        await _pumpHeader(
+          tester,
+          value: AsyncValue.data([
+            AlwaysPresentMember(
+              member: member,
+              session: _session('s1', 'host'),
+              age: const Duration(days: 14),
+            ),
+          ]),
+        );
 
-      expect(find.text('Host'), findsOneWidget);
-      // Duration falls in the weeks bucket → "2 weeks".
-      expect(find.text('Always present · 2 weeks'), findsOneWidget);
-    });
+        expect(find.text('Host'), findsOneWidget);
+        expect(find.text('2 weeks'), findsOneWidget);
+        expect(find.textContaining('Always present'), findsNothing);
+      },
+    );
 
     testWidgets('joins names for two qualifying members with ampersand', (
       tester,
@@ -116,8 +115,7 @@ void main() {
       );
 
       expect(find.text('Host & Friend'), findsOneWidget);
-      // Shortest age wins for the duration → 2 weeks.
-      expect(find.text('Always present · 2 weeks'), findsOneWidget);
+      expect(find.text('2 weeks'), findsOneWidget);
     });
 
     testWidgets(
@@ -143,10 +141,9 @@ void main() {
       },
     );
 
-    testWidgets('renders days bucket when duration is < 1 week', (
+    testWidgets('explicit always-fronting members keep the label', (
       tester,
     ) async {
-      // Reachable only via explicit-always-fronting (auto-promote is 7d).
       final host = _member(id: 'host', name: 'Host', isAlwaysFronting: true);
       await _pumpHeader(
         tester,
@@ -180,36 +177,87 @@ void main() {
       expect(find.text('Always present · 5 hours'), findsOneWidget);
     });
 
-    testWidgets(
-      'wraps a single Semantics container that combines names + duration',
-      (tester) async {
-        final host = _member(id: 'host', name: 'Host');
-        final friend = _member(id: 'friend', name: 'Friend');
-        await _pumpHeader(
-          tester,
-          value: AsyncValue.data([
-            AlwaysPresentMember(
-              member: host,
-              session: _session('s1', 'host'),
-              age: const Duration(days: 14),
-            ),
-            AlwaysPresentMember(
-              member: friend,
-              session: _session('s2', 'friend'),
-              age: const Duration(days: 14),
-            ),
-          ]),
-        );
-
-        // The combined Semantics label should match the localized
-        // template — names then duration.
-        expect(
-          find.bySemanticsLabel(
-            'Always-present fronters: Host & Friend, 2 weeks',
+    testWidgets('uses long-running semantics when the member is not explicit', (
+      tester,
+    ) async {
+      final host = _member(id: 'host', name: 'Host');
+      final friend = _member(id: 'friend', name: 'Friend');
+      await _pumpHeader(
+        tester,
+        value: AsyncValue.data([
+          AlwaysPresentMember(
+            member: host,
+            session: _session('s1', 'host'),
+            age: const Duration(days: 14),
           ),
-          findsOneWidget,
-        );
-      },
-    );
+          AlwaysPresentMember(
+            member: friend,
+            session: _session('s2', 'friend'),
+            age: const Duration(days: 14),
+          ),
+        ]),
+      );
+
+      expect(
+        find.bySemanticsLabel(
+          'Long-running fronters: Host & Friend, 2 weeks. Double tap to view details.',
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('tap opens the qualifying session detail route', (
+      tester,
+    ) async {
+      final member = _member(id: 'host', name: 'Host');
+      final router = GoRouter(
+        initialLocation: '/',
+        routes: [
+          GoRoute(
+            path: '/',
+            builder: (context, state) => ProviderScope(
+              overrides: [
+                alwaysPresentMembersProvider.overrideWithValue(
+                  AsyncValue.data([
+                    AlwaysPresentMember(
+                      member: member,
+                      session: _session('s1', 'host'),
+                      age: const Duration(days: 14),
+                    ),
+                  ]),
+                ),
+                terminologySettingProvider.overrideWithValue((
+                  term: SystemTerminology.headmates,
+                  customSingular: null,
+                  customPlural: null,
+                  useEnglish: false,
+                )),
+              ],
+              child: const Scaffold(body: AlwaysPresentHeader()),
+            ),
+          ),
+          GoRoute(
+            path: AppRoutePaths.session(':id'),
+            builder: (context, state) =>
+                Text('session:${state.pathParameters['id']}'),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp.router(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: const [Locale('en')],
+          routerConfig: router,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Host'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('session:s1'), findsOneWidget);
+    });
   });
 }
