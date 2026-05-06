@@ -179,8 +179,8 @@ class _MessageInputState extends ConsumerState<MessageInput> {
     List<Member> members,
     Conversation? conversation,
   ) {
-    final participantIds = conversation?.participantIds.toSet();
-    if (participantIds == null) return members;
+    if (conversation == null || !conversation.isDirectMessage) return members;
+    final participantIds = conversation.participantIds.toSet();
     return members
         .where((member) => participantIds.contains(member.id))
         .toList(growable: false);

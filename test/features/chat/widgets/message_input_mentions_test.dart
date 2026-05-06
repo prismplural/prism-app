@@ -111,7 +111,8 @@ void main() {
 
     expect(find.byType(MentionOverlay), findsOneWidget);
     expect(find.text('Alice'), findsOneWidget);
-    expect(find.text('Casey'), findsNothing);
+    expect(find.text('Casey'), findsOneWidget);
+    expect(find.text('Bob'), findsNothing);
     expect(tester.getTopLeft(find.byType(TextField)), textFieldTopLeftBefore);
 
     final overlaySize = tester.getSize(
