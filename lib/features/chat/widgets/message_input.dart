@@ -59,9 +59,11 @@ class _MessageInputState extends ConsumerState<MessageInput> {
   final _controller = ChatMarkdownEditingController();
   final _focusNode = FocusNode();
   final _layerLink = LayerLink();
+  final _mentionFieldKey = GlobalKey();
+  final _mentionOverlayController = OverlayPortalController();
   bool _isSending = false;
-  OverlayEntry? _mentionOverlay;
   String _mentionFilter = '';
+  bool _mentionMenuVisible = false;
   final _mentionOverlayKey = GlobalKey<MentionOverlayState>();
   Uint8List? _stagedImageBytes;
   bool _isRecording = false;
@@ -135,7 +137,11 @@ class _MessageInputState extends ConsumerState<MessageInput> {
   @override
   void dispose() {
     _controller.removeListener(_onTextChanged);
-    _dismissMentionOverlay();
+    if (_mentionOverlayController.isShowing) {
+      _mentionOverlayController.hide();
+    }
+    _mentionMenuVisible = false;
+    _mentionFilter = '';
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -144,65 +150,75 @@ class _MessageInputState extends ConsumerState<MessageInput> {
   /// Detect `@` trigger and manage the mention overlay.
   void _onTextChanged() {
     if (!mounted) return;
-    if (_lastText != _controller.text) {
-      setState(() => _lastText = _controller.text);
-    }
+    final nextText = _controller.text;
     final selection = _controller.selection;
-    if (!selection.isValid || !selection.isCollapsed) {
-      _dismissMentionOverlay();
+    var nextMentionVisible = false;
+    var nextMentionFilter = '';
+    if (selection.isValid && selection.isCollapsed) {
+      final trigger = detectMentionTrigger(nextText, selection.baseOffset);
+      if (trigger != null) {
+        nextMentionVisible = true;
+        nextMentionFilter = trigger.filter;
+      }
+    }
+
+    if (_lastText == nextText &&
+        _mentionMenuVisible == nextMentionVisible &&
+        _mentionFilter == nextMentionFilter) {
       return;
     }
 
-    final trigger = detectMentionTrigger(
-      _controller.text,
-      selection.baseOffset,
-    );
-    if (trigger == null) {
-      _dismissMentionOverlay();
-      return;
-    }
-
-    _mentionFilter = trigger.filter;
-    if (_mentionOverlay == null) {
-      _showMentionOverlay();
-    } else {
-      // Update filter by rebuilding overlay.
-      _mentionOverlay?.markNeedsBuild();
-    }
+    setState(() {
+      _lastText = nextText;
+      _mentionMenuVisible = nextMentionVisible;
+      _mentionFilter = nextMentionFilter;
+    });
   }
 
-  List<Member> _getMentionCandidates() {
-    final members = ref.read(activeMembersProvider).value ?? [];
-    final conversationAsync = ref.read(
-      conversationByIdProvider(widget.conversationId),
-    );
-    final participantIds = conversationAsync.value?.participantIds.toSet();
-    return participantIds != null
-        ? members.where((m) => participantIds.contains(m.id)).toList()
-        : members;
+  List<Member> _getMentionCandidates(
+    List<Member> members,
+    Conversation? conversation,
+  ) {
+    final participantIds = conversation?.participantIds.toSet();
+    if (participantIds == null) return members;
+    return members
+        .where((member) => participantIds.contains(member.id))
+        .toList(growable: false);
   }
 
-  void _showMentionOverlay() {
-    final overlay = Overlay.of(context);
-    final candidates = _getMentionCandidates();
-    _mentionOverlay = OverlayEntry(
-      builder: (context) {
-        return MentionOverlay(
-          key: _mentionOverlayKey,
-          members: candidates,
-          filter: _mentionFilter,
-          layerLink: _layerLink,
-          onSelect: _onMemberSelected,
-        );
-      },
-    );
-    overlay.insert(_mentionOverlay!);
+  void _syncMentionOverlayPortal(bool shouldShow) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (shouldShow) {
+        if (!_mentionOverlayController.isShowing) {
+          _mentionOverlayController.show();
+        }
+      } else if (_mentionOverlayController.isShowing) {
+        _mentionOverlayController.hide();
+      }
+    });
+  }
+
+  double _mentionOverlayAvailableWidth(BuildContext context) {
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final renderBox =
+        _mentionFieldKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null) return screenWidth - 20;
+    final anchorLeft = renderBox.localToGlobal(Offset.zero).dx;
+    return (screenWidth - anchorLeft - 12)
+        .clamp(0.0, screenWidth - 20)
+        .toDouble();
   }
 
   void _dismissMentionOverlay() {
-    _mentionOverlay?.remove();
-    _mentionOverlay = null;
-    _mentionFilter = '';
+    if (_mentionOverlayController.isShowing) {
+      _mentionOverlayController.hide();
+    }
+    if (!_mentionMenuVisible && _mentionFilter.isEmpty) return;
+    setState(() {
+      _mentionMenuVisible = false;
+      _mentionFilter = '';
+    });
   }
 
   void _onMemberSelected(Member member) {
@@ -538,7 +554,9 @@ class _MessageInputState extends ConsumerState<MessageInput> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final speakingAs = ref.watch(speakingAsProvider);
-    ref.watch(conversationByIdProvider(widget.conversationId));
+    final conversationAsync = ref.watch(
+      conversationByIdProvider(widget.conversationId),
+    );
     final membersAsync = ref.watch(activeMembersProvider);
     final replyingTo = ref.watch(replyingToProvider(widget.conversationId));
     final useProxyTags =
@@ -550,8 +568,16 @@ class _MessageInputState extends ConsumerState<MessageInput> {
     final parentContext = context;
 
     final members = membersAsync.value ?? [];
+    final mentionCandidates = _getMentionCandidates(
+      members,
+      conversationAsync.value,
+    );
+    final showMentionOverlay =
+        _mentionMenuVisible && !_isRecording && mentionCandidates.isNotEmpty;
+    _syncMentionOverlayPortal(showMentionOverlay);
     final memberSearchGroups = watchMemberSearchGroups(ref, members);
     final memberMap = {for (final m in members) m.id: m};
+    _controller.updateMentionMembers(memberMap);
     final currentMember = speakingAs != null
         ? members.where((m) => m.id == speakingAs).firstOrNull
         : null;
@@ -757,36 +783,60 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                 // overlays it; AbsorbPointer blocks stray touches through.
                 Expanded(
                   child: Stack(
+                    clipBehavior: Clip.none,
                     children: [
                       Opacity(
                         opacity: _isRecording ? 0.0 : 1.0,
                         child: AbsorbPointer(
                           absorbing: _isRecording,
-                          child: CompositedTransformTarget(
-                            link: _layerLink,
-                            child: _GlassTextField(
-                              controller: _controller,
-                              focusNode: _focusNode,
-                              minHeight: inputHeight,
-                              onChanged: (_) => setState(() {}),
-                              onSend: _sendMessage,
-                              onContentInserted: _handleInsertedContent,
-                              onPasteImage: _pasteImageFromClipboard,
-                              onKeyEvent: _mentionOverlay != null
-                                  ? (event) {
-                                      final consumed =
-                                          _mentionOverlayKey.currentState
-                                              ?.handleKeyEvent(event) ??
-                                          false;
-                                      if (event is KeyDownEvent &&
-                                          event.logicalKey ==
-                                              LogicalKeyboardKey.escape) {
-                                        _dismissMentionOverlay();
-                                        return true;
+                          child: OverlayPortal(
+                            controller: _mentionOverlayController,
+                            overlayChildBuilder: (context) {
+                              return CompositedTransformFollower(
+                                link: _layerLink,
+                                showWhenUnlinked: false,
+                                targetAnchor: Alignment.topLeft,
+                                followerAnchor: Alignment.bottomLeft,
+                                offset: const Offset(0, -8),
+                                child: TextFieldTapRegion(
+                                  child: MentionOverlay(
+                                    key: _mentionOverlayKey,
+                                    members: mentionCandidates,
+                                    filter: _mentionFilter,
+                                    availableWidth:
+                                        _mentionOverlayAvailableWidth(context),
+                                    onSelect: _onMemberSelected,
+                                  ),
+                                ),
+                              );
+                            },
+                            child: CompositedTransformTarget(
+                              key: _mentionFieldKey,
+                              link: _layerLink,
+                              child: _GlassTextField(
+                                controller: _controller,
+                                focusNode: _focusNode,
+                                minHeight: inputHeight,
+                                onChanged: (_) => setState(() {}),
+                                onSend: _sendMessage,
+                                onContentInserted: _handleInsertedContent,
+                                onPasteImage: _pasteImageFromClipboard,
+                                onKeyEvent: _mentionMenuVisible
+                                    ? (event) {
+                                        final consumed =
+                                            _mentionOverlayKey.currentState
+                                                ?.handleKeyEvent(event) ??
+                                            false;
+                                        if (event is KeyDownEvent &&
+                                            event.logicalKey ==
+                                                LogicalKeyboardKey.escape) {
+                                          _dismissMentionOverlay();
+                                          return true;
+                                        }
+                                        return consumed;
                                       }
-                                      return consumed;
-                                    }
-                                  : null,
+                                    : null,
+                              ),
                             ),
                           ),
                         ),
@@ -1092,6 +1142,7 @@ class _GlassTextField extends StatelessWidget {
         controller: controller,
         focusNode: focusNode,
         textCapitalization: TextCapitalization.sentences,
+        inputFormatters: const [AtomicMentionFormatter()],
         minLines: 1,
         maxLines: 6,
         // On phones, show the send action on the soft keyboard

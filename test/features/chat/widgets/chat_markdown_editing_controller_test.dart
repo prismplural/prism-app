@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/chat/widgets/chat_markdown_editing_controller.dart';
 
 void main() {
   Widget buildApp(ChatMarkdownEditingController controller) {
     return MaterialApp(
-      home: Scaffold(
-        body: TextField(controller: controller),
-      ),
+      home: Scaffold(body: TextField(controller: controller)),
     );
   }
 
@@ -35,8 +34,9 @@ void main() {
 
   group('ChatMarkdownEditingController', () {
     group('fallback cases', () {
-      testWidgets('empty text falls back to super.buildTextSpan',
-          (tester) async {
+      testWidgets('empty text falls back to super.buildTextSpan', (
+        tester,
+      ) async {
         final controller = ChatMarkdownEditingController(text: '');
         final children = await getSpanChildren(tester, controller);
 
@@ -46,18 +46,19 @@ void main() {
       });
 
       testWidgets(
-          'before updateTheme is called falls back to super.buildTextSpan',
-          (tester) async {
-        final controller = ChatMarkdownEditingController(text: '**bold**');
-        final children = await getSpanChildren(
-          tester,
-          controller,
-          callUpdateTheme: false,
-        );
+        'before updateTheme is called falls back to super.buildTextSpan',
+        (tester) async {
+          final controller = ChatMarkdownEditingController(text: '**bold**');
+          final children = await getSpanChildren(
+            tester,
+            controller,
+            callUpdateTheme: false,
+          );
 
-        // Without updateTheme, _themeReady is false, so it falls back.
-        expect(children, isNull);
-      });
+          // Without updateTheme, _themeReady is false, so it falls back.
+          expect(children, isNull);
+        },
+      );
     });
 
     group('plain text', () {
@@ -69,6 +70,35 @@ void main() {
         expect(children!.length, 1);
         expect((children[0] as TextSpan).text, 'hello');
       });
+
+      testWidgets(
+        'renders mention tokens as display names with mention styling',
+        (tester) async {
+          const memberId = '00000000-0000-0000-0000-000000000001';
+          final controller = ChatMarkdownEditingController(
+            text: 'hi @[$memberId]',
+          );
+          controller.updateMentionMembers({
+            memberId: Member(
+              id: memberId,
+              name: 'Alice',
+              createdAt: DateTime(2025, 1, 1),
+              isActive: true,
+              customColorEnabled: true,
+              customColorHex: '#ff6600',
+            ),
+          });
+          final children = await getSpanChildren(tester, controller);
+
+          expect(children, isNotNull);
+          expect(children!.length, 2);
+          expect((children[0] as TextSpan).text, 'hi ');
+          final mention = children[1] as TextSpan;
+          expect(mention.text, '@Alice');
+          expect(mention.style?.fontWeight, FontWeight.w600);
+          expect(mention.style?.backgroundColor, isNotNull);
+        },
+      );
     });
 
     group('bold stars', () {
@@ -80,16 +110,14 @@ void main() {
         expect(children!.length, 3);
         expect((children[0] as TextSpan).text, '**');
         expect((children[1] as TextSpan).text, 'bold');
-        expect(
-          (children[1] as TextSpan).style!.fontWeight,
-          FontWeight.bold,
-        );
+        expect((children[1] as TextSpan).style!.fontWeight, FontWeight.bold);
         expect((children[2] as TextSpan).text, '**');
       });
 
       testWidgets('parses hello **world** into 4 children', (tester) async {
-        final controller =
-            ChatMarkdownEditingController(text: 'hello **world**');
+        final controller = ChatMarkdownEditingController(
+          text: 'hello **world**',
+        );
         final children = await getSpanChildren(tester, controller);
 
         expect(children, isNotNull);
@@ -97,17 +125,15 @@ void main() {
         expect((children[0] as TextSpan).text, 'hello ');
         expect((children[1] as TextSpan).text, '**');
         expect((children[2] as TextSpan).text, 'world');
-        expect(
-          (children[2] as TextSpan).style!.fontWeight,
-          FontWeight.bold,
-        );
+        expect((children[2] as TextSpan).style!.fontWeight, FontWeight.bold);
         expect((children[3] as TextSpan).text, '**');
       });
     });
 
     group('bold underscores (__bold__ = bold in chat, not underline)', () {
-      testWidgets('parses __bold__ into 3 children with FontWeight.bold',
-          (tester) async {
+      testWidgets('parses __bold__ into 3 children with FontWeight.bold', (
+        tester,
+      ) async {
         final controller = ChatMarkdownEditingController(text: '__bold__');
         final children = await getSpanChildren(tester, controller);
 
@@ -115,15 +141,13 @@ void main() {
         expect(children!.length, 3);
         expect((children[0] as TextSpan).text, '__');
         expect((children[1] as TextSpan).text, 'bold');
-        expect(
-          (children[1] as TextSpan).style!.fontWeight,
-          FontWeight.bold,
-        );
+        expect((children[1] as TextSpan).style!.fontWeight, FontWeight.bold);
         expect((children[2] as TextSpan).text, '__');
       });
 
-      testWidgets('__bold__ content has no underline decoration',
-          (tester) async {
+      testWidgets('__bold__ content has no underline decoration', (
+        tester,
+      ) async {
         final controller = ChatMarkdownEditingController(text: '__bold__');
         final children = await getSpanChildren(tester, controller);
 
@@ -142,10 +166,7 @@ void main() {
         expect(children!.length, 3);
         expect((children[0] as TextSpan).text, '*');
         expect((children[1] as TextSpan).text, 'italic');
-        expect(
-          (children[1] as TextSpan).style!.fontStyle,
-          FontStyle.italic,
-        );
+        expect((children[1] as TextSpan).style!.fontStyle, FontStyle.italic);
         expect((children[2] as TextSpan).text, '*');
       });
     });
@@ -159,10 +180,7 @@ void main() {
         expect(children!.length, 3);
         expect((children[0] as TextSpan).text, '_');
         expect((children[1] as TextSpan).text, 'italic');
-        expect(
-          (children[1] as TextSpan).style!.fontStyle,
-          FontStyle.italic,
-        );
+        expect((children[1] as TextSpan).style!.fontStyle, FontStyle.italic);
         expect((children[2] as TextSpan).text, '_');
       });
     });
@@ -197,8 +215,9 @@ void main() {
     });
 
     group('precedence and overlap exclusion', () {
-      testWidgets('**foo** does not also trip single-star italic',
-          (tester) async {
+      testWidgets('**foo** does not also trip single-star italic', (
+        tester,
+      ) async {
         final controller = ChatMarkdownEditingController(text: '**foo**');
         final children = await getSpanChildren(tester, controller);
 
@@ -206,27 +225,22 @@ void main() {
         // The inner *foo* must NOT produce italic children.
         expect(children, isNotNull);
         expect(children!.length, 3);
-        expect(
-          (children[1] as TextSpan).style!.fontWeight,
-          FontWeight.bold,
-        );
+        expect((children[1] as TextSpan).style!.fontWeight, FontWeight.bold);
         expect(
           (children[1] as TextSpan).style!.fontStyle,
           isNot(FontStyle.italic),
         );
       });
 
-      testWidgets('__foo__ does not also trip single-underscore italic',
-          (tester) async {
+      testWidgets('__foo__ does not also trip single-underscore italic', (
+        tester,
+      ) async {
         final controller = ChatMarkdownEditingController(text: '__foo__');
         final children = await getSpanChildren(tester, controller);
 
         expect(children, isNotNull);
         expect(children!.length, 3);
-        expect(
-          (children[1] as TextSpan).style!.fontWeight,
-          FontWeight.bold,
-        );
+        expect((children[1] as TextSpan).style!.fontWeight, FontWeight.bold);
         expect(
           (children[1] as TextSpan).style!.fontStyle,
           isNot(FontStyle.italic),
@@ -235,8 +249,9 @@ void main() {
     });
 
     group('caching', () {
-      testWidgets('second buildTextSpan call returns same children list',
-          (tester) async {
+      testWidgets('second buildTextSpan call returns same children list', (
+        tester,
+      ) async {
         final controller = ChatMarkdownEditingController(text: '**cached**');
         await tester.pumpWidget(buildApp(controller));
         final context = tester.element(find.byType(TextField));
@@ -274,10 +289,7 @@ void main() {
         // Content color differs from marker color.
         expect(content.style!.color, isNot(openMarker.style!.color));
         // Marker alpha should be 180 (softer than notes' 102).
-        expect(
-          (openMarker.style!.color!.a * 255.0).round().clamp(0, 255),
-          180,
-        );
+        expect((openMarker.style!.color!.a * 255.0).round().clamp(0, 255), 180);
       });
     });
   });

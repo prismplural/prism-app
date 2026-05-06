@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -19,7 +20,7 @@ class MentionOverlay extends StatefulWidget {
     required this.members,
     required this.filter,
     required this.onSelect,
-    required this.layerLink,
+    required this.availableWidth,
   });
 
   /// Members to show (conversation participants).
@@ -31,8 +32,8 @@ class MentionOverlay extends StatefulWidget {
   /// Called when a member is selected.
   final ValueChanged<Member> onSelect;
 
-  /// Layer link to position relative to the text field.
-  final LayerLink layerLink;
+  /// Width available from the anchored composer field.
+  final double availableWidth;
 
   @override
   State<MentionOverlay> createState() => MentionOverlayState();
@@ -99,7 +100,8 @@ class MentionOverlayState extends State<MentionOverlay>
     }
     if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
       setState(() {
-        _selectedIndex = (_selectedIndex - 1 + filtered.length) % filtered.length;
+        _selectedIndex =
+            (_selectedIndex - 1 + filtered.length) % filtered.length;
       });
       return true;
     }
@@ -123,13 +125,11 @@ class MentionOverlayState extends State<MentionOverlay>
 
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final popupWidth = math.min(widget.availableWidth, 320.0);
+    final minWidth = math.min(popupWidth, 220.0);
 
-    return CompositedTransformFollower(
-      link: widget.layerLink,
-      showWhenUnlinked: false,
-      targetAnchor: Alignment.topLeft,
-      followerAnchor: Alignment.bottomLeft,
-      offset: const Offset(0, -8),
+    return Align(
+      alignment: Alignment.bottomLeft,
       child: ScaleTransition(
         scale: _scaleAnimation,
         alignment: Alignment.bottomLeft,
@@ -137,77 +137,92 @@ class MentionOverlayState extends State<MentionOverlay>
           opacity: _fadeAnimation,
           child: Material(
             type: MaterialType.transparency,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(16)),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(
-                  sigmaX: PrismTokens.glassBlurStrong,
-                  sigmaY: PrismTokens.glassBlurStrong,
+            child: SizedBox(
+              key: const Key('mentionOverlaySurface'),
+              width: popupWidth,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(
+                  PrismShapes.of(context).radius(16),
                 ),
-                child: Container(
-                  constraints: const BoxConstraints(maxHeight: 240, maxWidth: 280),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? AppColors.warmBlack.withValues(alpha: 0.65)
-                        : AppColors.warmWhite.withValues(alpha: 0.8),
-                    borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(16)),
-                    border: Border.all(
-                      color: isDark
-                          ? AppColors.warmWhite.withValues(alpha: 0.12)
-                          : AppColors.warmBlack.withValues(alpha: 0.08),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.warmBlack.withValues(alpha: isDark ? 0.4 : 0.12),
-                        blurRadius: 20,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(
+                    sigmaX: PrismTokens.glassBlurStrong,
+                    sigmaY: PrismTokens.glassBlurStrong,
                   ),
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    itemCount: filtered.length,
-                    itemBuilder: (context, index) {
-                      final member = filtered[index];
-                      final isHighlighted = index == _selectedIndex;
-                      return GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: () => widget.onSelect(member),
-                        child: Container(
-                          height: 48,
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          color: isHighlighted
-                              ? theme.colorScheme.primary.withValues(alpha: 0.12)
-                              : Colors.transparent,
-                          child: Row(
-                            children: [
-                              MemberAvatar(
-                                avatarImageData: member.avatarImageData,
-                                memberName: member.name,
-                                emoji: member.emoji,
-                                customColorEnabled: member.customColorEnabled,
-                                customColorHex: member.customColorHex,
-                                size: 32,
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  member.name,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    fontWeight: isHighlighted
-                                        ? FontWeight.w600
-                                        : FontWeight.w400,
+                  child: Container(
+                    constraints: BoxConstraints(
+                      minWidth: minWidth,
+                      maxHeight: 240,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? AppColors.warmBlack.withValues(alpha: 0.65)
+                          : AppColors.warmWhite.withValues(alpha: 0.8),
+                      borderRadius: BorderRadius.circular(
+                        PrismShapes.of(context).radius(16),
+                      ),
+                      border: Border.all(
+                        color: isDark
+                            ? AppColors.warmWhite.withValues(alpha: 0.12)
+                            : AppColors.warmBlack.withValues(alpha: 0.08),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.warmBlack.withValues(
+                            alpha: isDark ? 0.4 : 0.12,
+                          ),
+                          blurRadius: 20,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      itemCount: filtered.length,
+                      itemBuilder: (context, index) {
+                        final member = filtered[index];
+                        final isHighlighted = index == _selectedIndex;
+                        return GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => widget.onSelect(member),
+                          child: Container(
+                            height: 48,
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            color: isHighlighted
+                                ? theme.colorScheme.primary.withValues(
+                                    alpha: 0.12,
+                                  )
+                                : Colors.transparent,
+                            child: Row(
+                              children: [
+                                MemberAvatar(
+                                  avatarImageData: member.avatarImageData,
+                                  memberName: member.name,
+                                  emoji: member.emoji,
+                                  customColorEnabled: member.customColorEnabled,
+                                  customColorHex: member.customColorHex,
+                                  size: 32,
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    member.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      fontWeight: isHighlighted
+                                          ? FontWeight.w600
+                                          : FontWeight.w400,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
                 ),
               ),

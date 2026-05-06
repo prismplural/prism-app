@@ -1,5 +1,7 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/data/mappers/system_settings_mapper.dart';
+import 'package:prism_plurality/domain/models/chat_message.dart';
 import 'package:prism_plurality/features/chat/utils/mention_utils.dart';
 
 void main() {
@@ -12,10 +14,7 @@ void main() {
     });
 
     test('extracts multiple mentions', () {
-      expect(
-        extractMentionIds('@[$id1] and @[$id2]'),
-        [id1, id2],
-      );
+      expect(extractMentionIds('@[$id1] and @[$id2]'), [id1, id2]);
     });
 
     test('returns empty for no mentions', () {
@@ -43,13 +42,51 @@ void main() {
     });
   });
 
+  group('collectReferencedMemberIds', () {
+    test('includes authors, reply authors, and inline mentions', () {
+      final messages = [
+        ChatMessage(
+          id: 'm1',
+          content: 'Hello @[$id1]',
+          timestamp: DateTime(2025, 1, 1),
+          authorId: id2,
+          conversationId: 'c1',
+          replyToAuthorId: id1,
+          replyToContent: 'Quoted @[$id2]',
+        ),
+        ChatMessage(
+          id: 'm2',
+          content: '@[$id2] and @[$id1]',
+          timestamp: DateTime(2025, 1, 1),
+          authorId: id1,
+          conversationId: 'c1',
+        ),
+      ];
+
+      expect(
+        collectReferencedMemberIds(messages),
+        {id1, id2},
+      );
+    });
+
+    test('ignores malformed mention tokens and null reply content', () {
+      final messages = [
+        ChatMessage(
+          id: 'm1',
+          content: 'Hello @[bad-token]',
+          timestamp: DateTime(2025, 1, 1),
+          conversationId: 'c1',
+        ),
+      ];
+
+      expect(collectReferencedMemberIds(messages), isEmpty);
+    });
+  });
+
   group('replaceMentionsWithNames', () {
     test('replaces mention with name', () {
       final nameMap = {id1: 'Alice'};
-      expect(
-        replaceMentionsWithNames('Hi @[$id1]!', nameMap),
-        'Hi @Alice!',
-      );
+      expect(replaceMentionsWithNames('Hi @[$id1]!', nameMap), 'Hi @Alice!');
     });
 
     test('replaces multiple mentions', () {
@@ -61,17 +98,11 @@ void main() {
     });
 
     test('uses Unknown for missing names', () {
-      expect(
-        replaceMentionsWithNames('Hi @[$id1]!', {}),
-        'Hi @Unknown!',
-      );
+      expect(replaceMentionsWithNames('Hi @[$id1]!', {}), 'Hi @Unknown!');
     });
 
     test('returns unchanged content with no mentions', () {
-      expect(
-        replaceMentionsWithNames('Hello world!', {}),
-        'Hello world!',
-      );
+      expect(replaceMentionsWithNames('Hello world!', {}), 'Hello world!');
     });
   });
 
@@ -137,19 +168,80 @@ void main() {
     });
 
     test('decode empty string returns empty map', () {
-      expect(SystemSettingsMapper.decodeBadgePrefs(''), const <String, String>{});
+      expect(
+        SystemSettingsMapper.decodeBadgePrefs(''),
+        const <String, String>{},
+      );
     });
 
     test('decode {} returns empty map', () {
-      expect(SystemSettingsMapper.decodeBadgePrefs('{}'), const <String, String>{});
+      expect(
+        SystemSettingsMapper.decodeBadgePrefs('{}'),
+        const <String, String>{},
+      );
     });
 
     test('decode malformed JSON returns empty map', () {
-      expect(SystemSettingsMapper.decodeBadgePrefs('{broken'), const <String, String>{});
+      expect(
+        SystemSettingsMapper.decodeBadgePrefs('{broken'),
+        const <String, String>{},
+      );
     });
 
     test('encode empty map returns {}', () {
       expect(SystemSettingsMapper.encodeBadgePrefs({}), '{}');
+    });
+  });
+
+  group('AtomicMentionFormatter', () {
+    const formatter = AtomicMentionFormatter();
+
+    test('backspace at mention boundary deletes the whole token', () {
+      const oldText = 'Hi @[$id1] there';
+      final mentionEnd = oldText.indexOf(' there');
+      final oldValue = TextEditingValue(
+        text: oldText,
+        selection: TextSelection.collapsed(offset: mentionEnd),
+      );
+      final newText = oldText.replaceRange(mentionEnd - 1, mentionEnd, '');
+      final newValue = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: mentionEnd - 1),
+      );
+
+      final result = formatter.formatEditUpdate(oldValue, newValue);
+      expect(result.text, 'Hi  there');
+      expect(result.selection.baseOffset, 3);
+    });
+
+    test('cursor snaps out of the middle of a mention', () {
+      const text = 'Hi @[$id1] there';
+      final insideMention = text.indexOf('@[') + 5;
+      final value = TextEditingValue(
+        text: text,
+        selection: TextSelection.collapsed(offset: insideMention),
+      );
+
+      final result = formatter.formatEditUpdate(value, value);
+      expect(result.selection.baseOffset, 3);
+    });
+
+    test('typing inside a mention replaces the whole mention', () {
+      const oldText = 'Hi @[$id1] there';
+      final insideMention = oldText.indexOf('@[') + 5;
+      final oldValue = TextEditingValue(
+        text: oldText,
+        selection: TextSelection.collapsed(offset: insideMention),
+      );
+      final newText = oldText.replaceRange(insideMention, insideMention, 'x');
+      final newValue = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: insideMention + 1),
+      );
+
+      final result = formatter.formatEditUpdate(oldValue, newValue);
+      expect(result.text, 'Hi x there');
+      expect(result.selection.baseOffset, 4);
     });
   });
 }

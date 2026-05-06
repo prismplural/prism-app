@@ -57,6 +57,10 @@ class _ChatMessageTextState extends State<ChatMessageText> {
     if (widget.content.isEmpty) return const SizedBox.shrink();
 
     final theme = Theme.of(context);
+    final renderKey = ValueKey(_mentionRenderSignature(
+      widget.content,
+      widget.authorMap,
+    ));
 
     // Fast path: skips the markdown parser. `redactSpoilers` runs before
     // rendering so a >2000-char message with `||secret||` can't leak the
@@ -64,13 +68,16 @@ class _ChatMessageTextState extends State<ChatMessageText> {
     // oversize messages.
     if (widget.content.length > _fastPathThreshold ||
         !hasMarkdownChars(widget.content)) {
-      return Text.rich(
-        buildMentionSpan(
-          content: redactSpoilers(widget.content),
-          authorMap: widget.authorMap,
-          theme: theme,
-          defaultColor: widget.defaultColor,
-          baseStyle: widget.baseStyle,
+      return KeyedSubtree(
+        key: renderKey,
+        child: Text.rich(
+          buildMentionSpan(
+            content: redactSpoilers(widget.content),
+            authorMap: widget.authorMap,
+            theme: theme,
+            defaultColor: widget.defaultColor,
+            baseStyle: widget.baseStyle,
+          ),
         ),
       );
     }
@@ -81,6 +88,7 @@ class _ChatMessageTextState extends State<ChatMessageText> {
       notifier: _revealController,
       child: MergeSemantics(
         child: MarkdownBody(
+          key: renderKey,
           data: preprocessed,
           styleSheet: chatStylesheet(context, widget.baseStyle),
           extensionSet: chatExtensionSet,
@@ -105,6 +113,21 @@ class _ChatMessageTextState extends State<ChatMessageText> {
     final uri = Uri.tryParse(href);
     if (uri == null) return;
     await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  Object _mentionRenderSignature(String content, Map<String, Member>? authorMap) {
+    final values = <Object?>[content];
+    for (final match in mentionRegex.allMatches(content)) {
+      final memberId = match.group(1)!;
+      final member = authorMap?[memberId];
+      values.addAll([
+        memberId,
+        member?.name,
+        member?.customColorEnabled,
+        member?.customColorHex,
+      ]);
+    }
+    return Object.hashAll(values);
   }
 }
 

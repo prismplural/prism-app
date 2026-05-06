@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/features/chat/utils/mention_utils.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 
 /// A [TextEditingController] that highlights inline markdown syntax for chat.
@@ -12,15 +14,15 @@ class ChatMarkdownEditingController extends TextEditingController {
   static final _spoiler = RegExp(r'\|\|(.+?)\|\|');
   static final _boldStar = RegExp(r'\*\*(.+?)\*\*');
   static final _boldUnderscore = RegExp(r'__(.+?)__');
-  static final _italicStar =
-      RegExp(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)');
-  static final _italicUnderscore =
-      RegExp(r'(?<!_)_(?!_)(.+?)(?<!_)_(?!_)');
+  static final _italicStar = RegExp(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)');
+  static final _italicUnderscore = RegExp(r'(?<!_)_(?!_)(.+?)(?<!_)_(?!_)');
 
   Color _onSurface = AppColors.warmBlack;
   Color _markerColor = Colors.grey;
+  Color _mentionFallbackColor = AppColors.prismPurple;
   TextStyle _baseStyle = const TextStyle();
   bool _themeReady = false;
+  Map<String, Member> _mentionMembers = const {};
 
   // Cache: parsed spans are expensive to build on every keystroke.
   // Invalidated when text changes or when updateTheme() is called.
@@ -33,10 +35,19 @@ class ChatMarkdownEditingController extends TextEditingController {
     final colorScheme = Theme.of(context).colorScheme;
     _onSurface = colorScheme.onSurface;
     _markerColor = colorScheme.onSurfaceVariant.withAlpha(180);
+    _mentionFallbackColor = colorScheme.primary;
     _baseStyle = TextStyle(color: _onSurface);
     _themeReady = true;
     _cachedText = null;
     _cachedChildren = null;
+  }
+
+  void updateMentionMembers(Map<String, Member> members) {
+    if (_sameMentionMembers(_mentionMembers, members)) return;
+    _mentionMembers = Map<String, Member>.unmodifiable(members);
+    _cachedText = null;
+    _cachedChildren = null;
+    notifyListeners();
   }
 
   @override
@@ -81,7 +92,40 @@ class ChatMarkdownEditingController extends TextEditingController {
   void _parseInlineMarkdown(
     String line,
     TextStyle baseStyle,
-    List<TextSpan> spans,
+    List<InlineSpan> spans,
+  ) {
+    final mentions = mentionRegex.allMatches(line).toList();
+    if (mentions.isEmpty) {
+      _parseInlineMarkdownWithoutMentions(line, baseStyle, spans);
+      return;
+    }
+
+    var cursor = 0;
+    for (final mention in mentions) {
+      if (mention.start > cursor) {
+        _parseInlineMarkdownWithoutMentions(
+          line.substring(cursor, mention.start),
+          baseStyle,
+          spans,
+        );
+      }
+      spans.add(_buildMentionSpan(mention.group(1)!, baseStyle));
+      cursor = mention.end;
+    }
+
+    if (cursor < line.length) {
+      _parseInlineMarkdownWithoutMentions(
+        line.substring(cursor),
+        baseStyle,
+        spans,
+      );
+    }
+  }
+
+  void _parseInlineMarkdownWithoutMentions(
+    String line,
+    TextStyle baseStyle,
+    List<InlineSpan> spans,
   ) {
     final segments = <_Segment>[];
     final matched = List.filled(line.length, false);
@@ -96,16 +140,18 @@ class ChatMarkdownEditingController extends TextEditingController {
       for (var i = match.start; i < match.end; i++) {
         matched[i] = true;
       }
-      segments.add(_Segment(
-        start: match.start,
-        end: match.end,
-        markerBefore: '||',
-        markerAfter: '||',
-        content: match.group(1)!,
-        contentStyle: baseStyle.copyWith(
-          backgroundColor: _onSurface.withAlpha(40),
+      segments.add(
+        _Segment(
+          start: match.start,
+          end: match.end,
+          markerBefore: '||',
+          markerAfter: '||',
+          content: match.group(1)!,
+          contentStyle: baseStyle.copyWith(
+            backgroundColor: _onSurface.withAlpha(40),
+          ),
         ),
-      ));
+      );
     }
 
     // 2. Bold stars — skip if overlapping spoiler.
@@ -114,14 +160,16 @@ class ChatMarkdownEditingController extends TextEditingController {
       for (var i = match.start; i < match.end; i++) {
         matched[i] = true;
       }
-      segments.add(_Segment(
-        start: match.start,
-        end: match.end,
-        markerBefore: '**',
-        markerAfter: '**',
-        content: match.group(1)!,
-        contentStyle: baseStyle.copyWith(fontWeight: FontWeight.bold),
-      ));
+      segments.add(
+        _Segment(
+          start: match.start,
+          end: match.end,
+          markerBefore: '**',
+          markerAfter: '**',
+          content: match.group(1)!,
+          contentStyle: baseStyle.copyWith(fontWeight: FontWeight.bold),
+        ),
+      );
     }
 
     // 3. Bold underscores — only non-overlapping.
@@ -130,14 +178,16 @@ class ChatMarkdownEditingController extends TextEditingController {
       for (var i = match.start; i < match.end; i++) {
         matched[i] = true;
       }
-      segments.add(_Segment(
-        start: match.start,
-        end: match.end,
-        markerBefore: '__',
-        markerAfter: '__',
-        content: match.group(1)!,
-        contentStyle: baseStyle.copyWith(fontWeight: FontWeight.bold),
-      ));
+      segments.add(
+        _Segment(
+          start: match.start,
+          end: match.end,
+          markerBefore: '__',
+          markerAfter: '__',
+          content: match.group(1)!,
+          contentStyle: baseStyle.copyWith(fontWeight: FontWeight.bold),
+        ),
+      );
     }
 
     // 4. Italic star — only non-overlapping.
@@ -146,14 +196,16 @@ class ChatMarkdownEditingController extends TextEditingController {
       for (var i = match.start; i < match.end; i++) {
         matched[i] = true;
       }
-      segments.add(_Segment(
-        start: match.start,
-        end: match.end,
-        markerBefore: '*',
-        markerAfter: '*',
-        content: match.group(1)!,
-        contentStyle: baseStyle.copyWith(fontStyle: FontStyle.italic),
-      ));
+      segments.add(
+        _Segment(
+          start: match.start,
+          end: match.end,
+          markerBefore: '*',
+          markerAfter: '*',
+          content: match.group(1)!,
+          contentStyle: baseStyle.copyWith(fontStyle: FontStyle.italic),
+        ),
+      );
     }
 
     // 5. Italic underscore — only non-overlapping.
@@ -162,14 +214,16 @@ class ChatMarkdownEditingController extends TextEditingController {
       for (var i = match.start; i < match.end; i++) {
         matched[i] = true;
       }
-      segments.add(_Segment(
-        start: match.start,
-        end: match.end,
-        markerBefore: '_',
-        markerAfter: '_',
-        content: match.group(1)!,
-        contentStyle: baseStyle.copyWith(fontStyle: FontStyle.italic),
-      ));
+      segments.add(
+        _Segment(
+          start: match.start,
+          end: match.end,
+          markerBefore: '_',
+          markerAfter: '_',
+          content: match.group(1)!,
+          contentStyle: baseStyle.copyWith(fontStyle: FontStyle.italic),
+        ),
+      );
     }
 
     segments.sort((a, b) => a.start.compareTo(b.start));
@@ -179,10 +233,12 @@ class ChatMarkdownEditingController extends TextEditingController {
 
     for (final segment in segments) {
       if (cursor < segment.start) {
-        spans.add(TextSpan(
-          text: line.substring(cursor, segment.start),
-          style: baseStyle,
-        ));
+        spans.add(
+          TextSpan(
+            text: line.substring(cursor, segment.start),
+            style: baseStyle,
+          ),
+        );
       }
       spans.add(TextSpan(text: segment.markerBefore, style: markerStyle));
       spans.add(TextSpan(text: segment.content, style: segment.contentStyle));
@@ -191,15 +247,47 @@ class ChatMarkdownEditingController extends TextEditingController {
     }
 
     if (cursor < line.length) {
-      spans.add(TextSpan(
-        text: line.substring(cursor),
-        style: baseStyle,
-      ));
+      spans.add(TextSpan(text: line.substring(cursor), style: baseStyle));
     }
 
     if (segments.isEmpty && line.isEmpty) {
       spans.add(TextSpan(text: '', style: baseStyle));
     }
+  }
+
+  TextSpan _buildMentionSpan(String memberId, TextStyle baseStyle) {
+    final member = _mentionMembers[memberId];
+    final name = member?.name ?? 'Unknown';
+    final mentionColor =
+        member != null &&
+            member.customColorEnabled &&
+            member.customColorHex != null
+        ? AppColors.fromHex(member.customColorHex!)
+        : _mentionFallbackColor;
+    return TextSpan(
+      text: '@$name',
+      style: baseStyle.copyWith(
+        color: mentionColor,
+        fontWeight: FontWeight.w600,
+        backgroundColor: mentionColor.withValues(alpha: 0.16),
+      ),
+      semanticsLabel: '@$name',
+    );
+  }
+
+  bool _sameMentionMembers(Map<String, Member> a, Map<String, Member> b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (final entry in a.entries) {
+      final other = b[entry.key];
+      if (other == null) return false;
+      if (other.name != entry.value.name ||
+          other.customColorEnabled != entry.value.customColorEnabled ||
+          other.customColorHex != entry.value.customColorHex) {
+        return false;
+      }
+    }
+    return true;
   }
 
   bool _overlaps(List<bool> matched, int start, int end) {

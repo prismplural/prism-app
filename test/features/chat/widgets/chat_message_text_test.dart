@@ -170,6 +170,28 @@ void main() {
         findsAtLeastNWidgets(1),
       );
     });
+
+    testWidgets(
+        '12. visible mention re-renders when authorMap loads after first paint',
+        (tester) async {
+      await tester.pumpWidget(_widget(
+        content: 'hi @[$_kMentionId]',
+        authorMap: const {},
+      ));
+      expect(
+        find.textContaining('@Unknown', findRichText: true),
+        findsOneWidget,
+      );
+
+      await tester.pumpWidget(_widget(
+        content: 'hi @[$_kMentionId]',
+        authorMap: {_kMentionId: _makeMember()},
+      ));
+      await tester.pump();
+
+      expect(find.textContaining('@Unknown', findRichText: true), findsNothing);
+      expect(find.textContaining('@Alice', findRichText: true), findsOneWidget);
+    });
   });
 
   group('buildMentionSpan unit tests', () {

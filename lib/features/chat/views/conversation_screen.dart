@@ -10,6 +10,7 @@ import 'package:go_router/go_router.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/chat/models/conversation_permissions.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
+import 'package:prism_plurality/features/chat/utils/mention_utils.dart';
 import 'package:prism_plurality/features/chat/views/conversation_info_sheet.dart';
 import 'package:prism_plurality/features/chat/widgets/date_separator.dart';
 import 'package:prism_plurality/features/chat/widgets/message_input.dart';
@@ -232,13 +233,10 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                       );
                     }
 
-                    // Batch-load all message authors in one provider call.
-                    final authorIds = {
-                      ...messages.map((m) => m.authorId).whereType<String>(),
-                      ...messages
-                          .map((m) => m.replyToAuthorId)
-                          .whereType<String>(),
-                    };
+                    // Batch-load every member referenced by visible messages so
+                    // inline mentions and reply previews can resolve names
+                    // without waiting for unrelated rows to scroll into view.
+                    final authorIds = collectReferencedMemberIds(messages);
                     final authorMap = ref.watch(
                       membersByIdsProvider(memberIdsKey(authorIds))
                           .select((s) => s.value ?? {}),
@@ -381,4 +379,3 @@ String _conversationTitle(BuildContext context, WidgetRef ref, Conversation conv
     error: (_, _) => context.l10n.chatConversationNoTitle,
   );
 }
-
