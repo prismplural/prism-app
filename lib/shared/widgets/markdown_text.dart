@@ -43,6 +43,12 @@ class MarkdownText extends StatelessWidget {
       styleSheet: sheet,
       onTapLink: (text, href, title) => _onTapLink(href),
       imageBuilder: (uri, title, alt) => const SizedBox.shrink(),
+      checkboxBuilder: (checked) => _buildTaskListCheckbox(
+        theme: theme,
+        style: sheet.checkbox,
+        padding: sheet.listBulletPadding,
+        checked: checked,
+      ),
     );
   }
 
@@ -64,14 +70,10 @@ class MarkdownText extends StatelessWidget {
         decoration: TextDecoration.underline,
         decorationColor: theme.colorScheme.primary.withValues(alpha: 0.5),
       ),
-      h1: strip(base.h1)
-          .copyWith(fontSize: 24, fontWeight: FontWeight.bold),
-      h2: strip(base.h2)
-          .copyWith(fontSize: 21, fontWeight: FontWeight.bold),
-      h3: strip(base.h3)
-          .copyWith(fontSize: 18, fontWeight: FontWeight.w600),
-      h4: strip(base.h4)
-          .copyWith(fontSize: 16, fontWeight: FontWeight.w600),
+      h1: strip(base.h1).copyWith(fontSize: 24, fontWeight: FontWeight.bold),
+      h2: strip(base.h2).copyWith(fontSize: 21, fontWeight: FontWeight.bold),
+      h3: strip(base.h3).copyWith(fontSize: 18, fontWeight: FontWeight.w600),
+      h4: strip(base.h4).copyWith(fontSize: 16, fontWeight: FontWeight.w600),
       h5: strip(base.h5).copyWith(fontSize: 15),
       h6: strip(base.h6).copyWith(fontSize: 14),
       em: strip(base.em),
@@ -85,10 +87,31 @@ class MarkdownText extends StatelessWidget {
         ),
       ),
       listBullet: strip(base.listBullet),
+      checkbox: strip(
+        base.checkbox,
+      ).copyWith(color: mutedFg.withValues(alpha: 0.92)),
       code: strip(base.code).copyWith(backgroundColor: mutedSurface),
       codeblockDecoration: BoxDecoration(
         color: mutedSurface,
         borderRadius: BorderRadius.circular(radius),
+      ),
+    );
+  }
+
+  Widget _buildTaskListCheckbox({
+    required ThemeData theme,
+    required TextStyle? style,
+    required EdgeInsets? padding,
+    required bool checked,
+  }) {
+    return Padding(
+      padding: padding ?? const EdgeInsets.only(right: 4),
+      child: Icon(
+        checked ? Icons.check_box : Icons.check_box_outline_blank,
+        size: (style?.fontSize ?? baseStyle?.fontSize ?? 14) + 2,
+        color: checked
+            ? theme.colorScheme.primary
+            : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.92),
       ),
     );
   }
