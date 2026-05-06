@@ -534,6 +534,10 @@ class _NoopMemberRepository implements MemberRepository {
   Future<void> createMember(member_domain.Member member) async {}
 
   @override
+  Future<List<member_domain.Member>> getAllMembersIncludingDeleted() async =>
+      const [];
+
+  @override
   Future<void> deleteMember(String id) async {}
 
   @override

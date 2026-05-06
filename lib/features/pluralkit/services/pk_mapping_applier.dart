@@ -202,6 +202,13 @@ class PkMappingApplier {
         '${linkedElsewhere.name}',
       );
     }
+    final deletedHolder = await _findDeletedPkIdentityHolder(
+      pk,
+      exceptLocalId: local.id,
+    );
+    if (deletedHolder != null) {
+      throw _pkIdentityHeldByDeletedMember(pk, deletedHolder);
+    }
     // Idempotent: if already linked to this PK member, no-op.
     if (local.pluralkitUuid == pk.uuid &&
         local.pluralkitId == pk.id &&
@@ -304,6 +311,10 @@ class PkMappingApplier {
         );
       }
       return;
+    }
+    final deletedHolder = await _findDeletedPkIdentityHolder(d.pkMember);
+    if (deletedHolder != null) {
+      throw _pkIdentityHeldByDeletedMember(d.pkMember, deletedHolder);
     }
 
     // Download avatar when PK has one, matching the PluralKitSyncService
@@ -450,6 +461,27 @@ class PkMappingApplier {
       if (memberMatchesPkMember(member, pk)) return member;
     }
     return null;
+  }
+
+  Future<domain.Member?> _findDeletedPkIdentityHolder(
+    PKMember pk, {
+    String? exceptLocalId,
+  }) async {
+    final existing = await _members.getAllMembersIncludingDeleted();
+    for (final member in existing) {
+      if (member.id == exceptLocalId || !member.isDeleted) continue;
+      if (memberMatchesPkMember(member, pk)) return member;
+    }
+    return null;
+  }
+
+  StateError _pkIdentityHeldByDeletedMember(PKMember pk, domain.Member member) {
+    final localName = member.name.isEmpty ? member.id : member.name;
+    return StateError(
+      'PluralKit member ${pk.name} cannot be linked or imported because a '
+      'deleted local member still owns this PluralKit link '
+      '($localName, id=${member.id}).',
+    );
   }
 
   // Sentinel for "not found" without nullable casts.

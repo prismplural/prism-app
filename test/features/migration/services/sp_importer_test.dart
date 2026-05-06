@@ -78,6 +78,10 @@ class _FakeMemberRepository implements MemberRepository {
       List.unmodifiable(_members);
 
   @override
+  Future<List<domain.Member>> getAllMembersIncludingDeleted() async =>
+      List.unmodifiable(_members);
+
+  @override
   Future<domain.Member?> getMemberById(String id) async =>
       _members.cast<domain.Member?>().firstWhere(
         (m) => m?.id == id,

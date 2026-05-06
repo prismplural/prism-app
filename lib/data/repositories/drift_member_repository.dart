@@ -37,6 +37,12 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
   }
 
   @override
+  Future<List<domain.Member>> getAllMembersIncludingDeleted() async {
+    final rows = await _dao.getAllMembersIncludingDeleted();
+    return rows.map(MemberMapper.toDomain).toList();
+  }
+
+  @override
   Stream<List<domain.Member>> watchAllMembers() {
     return _dao.watchAllMembers().map(
       (rows) => rows.map(MemberMapper.toDomain).toList(),

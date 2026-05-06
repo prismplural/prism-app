@@ -2,6 +2,7 @@ import 'package:prism_plurality/domain/models/member.dart' as domain;
 
 abstract class MemberRepository {
   Future<List<domain.Member>> getAllMembers();
+  Future<List<domain.Member>> getAllMembersIncludingDeleted();
   Stream<List<domain.Member>> watchAllMembers();
   Stream<List<domain.Member>> watchActiveMembers();
   Future<domain.Member?> getMemberById(String id);

@@ -195,6 +195,10 @@ class FakeMemberRepository implements MemberRepository {
   Future<List<domain.Member>> getAllMembers() async => _members.values.toList();
 
   @override
+  Future<List<domain.Member>> getAllMembersIncludingDeleted() async =>
+      _members.values.toList();
+
+  @override
   Future<domain.Member?> getMemberById(String id) async => _members[id];
 
   @override

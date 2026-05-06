@@ -33,6 +33,9 @@ class _FakeMemberRepository implements MemberRepository {
   Future<List<Member>> getAllMembers() async => [member];
 
   @override
+  Future<List<Member>> getAllMembersIncludingDeleted() async => [member];
+
+  @override
   Stream<List<Member>> watchAllMembers() => Stream.value([member]);
 
   @override

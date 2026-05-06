@@ -1573,7 +1573,7 @@ class PluralKitSyncService {
     PluralKitClient? client,
     List<PKMember> pkMembers,
   ) async {
-    final existing = await _memberRepository.getAllMembers();
+    final existing = await _memberRepository.getAllMembersIncludingDeleted();
     debugPrint('[PK_SVC] _importMembers: existing in DB=${existing.length}');
     final byPkUuid = <String, domain.Member>{};
     final byPkId = <String, domain.Member>{};
@@ -1599,6 +1599,14 @@ class PluralKitSyncService {
 
       try {
         final localMember = byPkUuid[pk.uuid] ?? byPkId[pk.id];
+        if (localMember?.isDeleted == true) {
+          debugPrint(
+            '[PK_SVC] _importMembers: skipped ${pk.name} (${pk.uuid}) '
+            'because deleted local member ${localMember!.id} still owns '
+            'its PluralKit identity.',
+          );
+          continue;
+        }
         final bannerCache = await _bannerCacheService.resolve(
           PkBannerCacheInput(
             currentPkBannerUrl: localMember?.pkBannerUrl,

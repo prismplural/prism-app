@@ -40,6 +40,10 @@ class FakeMemberRepository implements MemberRepository {
   Future<List<Member>> getAllMembers() async => List.unmodifiable(_members);
 
   @override
+  Future<List<Member>> getAllMembersIncludingDeleted() async =>
+      List.unmodifiable(_members);
+
+  @override
   Future<Member?> getMemberById(String id) async {
     for (final member in _members) {
       if (member.id == id) {

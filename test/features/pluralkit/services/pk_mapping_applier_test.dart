@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/daos/pk_mapping_state_dao.dart';
+import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
@@ -22,6 +23,10 @@ class FakeMemberRepo implements MemberRepository {
 
   @override
   Future<List<domain.Member>> getAllMembers() async => _byId.values.toList();
+
+  @override
+  Future<List<domain.Member>> getAllMembersIncludingDeleted() async =>
+      _byId.values.toList();
 
   @override
   Future<domain.Member?> getMemberById(String id) async => _byId[id];
@@ -156,7 +161,7 @@ void main() {
   });
 
   PkMappingApplier buildApplier({
-    required FakeMemberRepo repo,
+    required MemberRepository repo,
     required FakePluralKitClient client,
   }) {
     return PkMappingApplier(
@@ -253,6 +258,62 @@ void main() {
     expect(all.single.pluralkitId, 'abcde');
     expect(all.single.pluralkitUuid, 'u-imp');
   });
+
+  test(
+    'link fails when a tombstoned row still owns the same pluralkitId',
+    () async {
+      final repo = DriftMemberRepository(db.membersDao, null);
+      await repo.createMember(
+        _local(id: 'tomb', name: 'Old', pluralkitId: 'abcde'),
+      );
+      await repo.deleteMember('tomb');
+      await repo.createMember(_local(id: 'l1', name: 'Alice'));
+
+      final client = FakePluralKitClient();
+      final applier = buildApplier(repo: repo, client: client);
+      const pk = PKMember(id: 'abcde', uuid: 'u-link', name: 'Alice');
+
+      final results = await applier.apply([
+        const PkLinkDecision(localMemberId: 'l1', pkMember: pk),
+      ]);
+
+      expect(results.single.outcome, PkApplyOutcome.failed);
+      expect(
+        results.single.error,
+        contains('deleted local member still owns this PluralKit link'),
+      );
+
+      final local = await repo.getMemberById('l1');
+      expect(local!.pluralkitId, isNull);
+      expect(local.pluralkitUuid, isNull);
+    },
+  );
+
+  test(
+    'import fails when a tombstoned row still owns the same pluralkitId',
+    () async {
+      final repo = DriftMemberRepository(db.membersDao, null);
+      await repo.createMember(
+        _local(id: 'tomb', name: 'Old', pluralkitId: 'abcde'),
+      );
+      await repo.deleteMember('tomb');
+
+      final client = FakePluralKitClient();
+      final applier = buildApplier(repo: repo, client: client);
+      const pk = PKMember(id: 'abcde', uuid: 'u-import', name: 'Imported');
+
+      final results = await applier.apply([const PkImportDecision(pkMember: pk)]);
+
+      expect(results.single.outcome, PkApplyOutcome.failed);
+      expect(
+        results.single.error,
+        contains('deleted local member still owns this PluralKit link'),
+      );
+
+      final allVisible = await repo.getAllMembers();
+      expect(allVisible, isEmpty);
+    },
+  );
 
   test('push creates PK member, stores id + uuid locally', () async {
     final repo = FakeMemberRepo([_local(id: 'l1', name: 'Alice')]);

@@ -85,6 +85,10 @@ class _FakeMemberRepository implements MemberRepository {
   Future<List<member_domain.Member>> getAllMembers() async => _members;
 
   @override
+  Future<List<member_domain.Member>> getAllMembersIncludingDeleted() async =>
+      _members;
+
+  @override
   Future<int> getCount() async => _members.length;
 
   @override

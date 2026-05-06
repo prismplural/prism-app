@@ -2764,6 +2764,10 @@ class _ThrowingMemberRepository implements MemberRepository {
   Future<List<Member>> getAllMembers() => _inner.getAllMembers();
 
   @override
+  Future<List<Member>> getAllMembersIncludingDeleted() =>
+      _inner.getAllMembersIncludingDeleted();
+
+  @override
   Stream<List<Member>> watchAllMembers() => _inner.watchAllMembers();
 
   @override
@@ -3067,6 +3071,10 @@ class _SuppressionAssertingMemberRepository implements MemberRepository {
 
   @override
   Future<List<Member>> getAllMembers() => _inner.getAllMembers();
+
+  @override
+  Future<List<Member>> getAllMembersIncludingDeleted() =>
+      _inner.getAllMembersIncludingDeleted();
   @override
   Stream<List<Member>> watchAllMembers() => _inner.watchAllMembers();
   @override

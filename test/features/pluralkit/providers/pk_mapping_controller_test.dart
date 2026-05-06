@@ -57,7 +57,12 @@ class _FakeMemberRepo implements MemberRepository {
   }
 
   @override
-  Future<List<domain.Member>> getAllMembers() async => _byId.values.toList();
+  Future<List<domain.Member>> getAllMembers() async =>
+      _byId.values.where((m) => !m.isDeleted).toList();
+
+  @override
+  Future<List<domain.Member>> getAllMembersIncludingDeleted() async =>
+      _byId.values.toList();
   @override
   Future<domain.Member?> getMemberById(String id) async => _byId[id];
   @override
@@ -87,7 +92,7 @@ class _FakeMemberRepo implements MemberRepository {
       Stream.value(_byId.values.where((m) => m.isActive).toList());
   @override
   Stream<List<domain.Member>> watchAllMembers() =>
-      Stream.value(_byId.values.toList());
+      Stream.value(_byId.values.where((m) => !m.isDeleted).toList());
   @override
   Stream<domain.Member?> watchMemberById(String id) => Stream.value(_byId[id]);
 
@@ -223,6 +228,39 @@ void main() {
       expect(state.decisionsByLocalId['l3'], isA<PkPushNewDecision>());
       // l1 is consumed by the link — not in the push pool.
       expect(state.decisionsByLocalId.containsKey('l1'), isFalse);
+    },
+  );
+
+  test(
+    'build: excludes PK members whose identity is held by a deleted local row',
+    () async {
+      repo = _FakeMemberRepo([
+        _local('l1', 'Alice'),
+        _local('l2', 'Bob'),
+        _local('gone', 'Deleted Alice', pkId: 'aaaaa').copyWith(isDeleted: true),
+      ]);
+      syncService = PluralKitSyncService(
+        memberRepository: repo,
+        frontingSessionRepository: _NoopFrontingSessionRepo(),
+        syncDao: PluralKitSyncDao(db),
+        clientFactory: (_) => client,
+        tokenOverride: 'fake',
+      );
+      await syncService.setToken('fake');
+      container.dispose();
+      container = ProviderContainer(
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          memberRepositoryProvider.overrideWithValue(repo),
+          pluralKitSyncServiceProvider.overrideWithValue(syncService),
+        ],
+      );
+
+      final state = await container.read(pkMappingControllerProvider.future);
+
+      expect(state.pkMembers.map((m) => m.uuid), isNot(contains('pk-alice')));
+      expect(state.decisionsByPkUuid.containsKey('pk-alice'), isFalse);
+      expect(state.decisionsByPkUuid['pk-dana'], isA<PkImportDecision>());
     },
   );
 

@@ -95,14 +95,16 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
 
     final memberRepo = ref.read(memberRepositoryProvider);
     final allLocals = await memberRepo.getAllMembers();
+    final allLocalsIncludingDeleted =
+        await memberRepo.getAllMembersIncludingDeleted();
     final locals = allLocals.where((m) => !m.pluralkitSyncIgnored).toList();
     final linkedPkUuids = {
-      for (final m in allLocals)
+      for (final m in allLocalsIncludingDeleted)
         if (m.pluralkitUuid != null && m.pluralkitUuid!.trim().isNotEmpty)
           m.pluralkitUuid!.trim(),
     };
     final linkedPkIds = {
-      for (final m in allLocals)
+      for (final m in allLocalsIncludingDeleted)
         if (m.pluralkitId != null && m.pluralkitId!.trim().isNotEmpty)
           m.pluralkitId!.trim(),
     };

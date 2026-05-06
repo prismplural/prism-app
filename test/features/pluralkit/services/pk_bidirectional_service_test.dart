@@ -104,6 +104,10 @@ class FakeMemberRepository implements MemberRepository {
 
   @override
   Future<List<domain.Member>> getAllMembers() async => _members.values.toList();
+
+  @override
+  Future<List<domain.Member>> getAllMembersIncludingDeleted() async =>
+      _members.values.toList();
   @override
   Stream<List<domain.Member>> watchAllMembers() => throw UnimplementedError();
   @override
