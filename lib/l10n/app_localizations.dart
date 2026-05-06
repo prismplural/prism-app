@@ -7377,6 +7377,60 @@ abstract class AppLocalizations {
   /// **'Terminology'**
   String get onboardingPreferencesTerminology;
 
+  /// Section header for fronting behavior preferences in onboarding
+  ///
+  /// In en, this message translates to:
+  /// **'Fronting behavior'**
+  String get onboardingFrontBehaviorSection;
+
+  /// Title for onboarding preference that controls the Add Front sheet default behavior
+  ///
+  /// In en, this message translates to:
+  /// **'When adding a new front'**
+  String get onboardingAddFrontBehaviorTitle;
+
+  /// Description for onboarding preference that controls the Add Front sheet default behavior
+  ///
+  /// In en, this message translates to:
+  /// **'Choose what happens when you start a front from the full Add Front sheet.'**
+  String get onboardingAddFrontBehaviorDescription;
+
+  /// Title for onboarding preference that controls the quick-front shortcut default behavior
+  ///
+  /// In en, this message translates to:
+  /// **'When using quick front'**
+  String get onboardingQuickFrontBehaviorTitle;
+
+  /// Description for onboarding preference that controls the quick-front shortcut default behavior
+  ///
+  /// In en, this message translates to:
+  /// **'Choose what happens when you hold a quick-front button for someone not already fronting.'**
+  String get onboardingQuickFrontBehaviorDescription;
+
+  /// Segment label for adding a member while keeping current fronters active
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get onboardingFrontBehaviorAdditive;
+
+  /// Segment label for replacing current fronters with the new member
+  ///
+  /// In en, this message translates to:
+  /// **'Replace'**
+  String get onboardingFrontBehaviorReplace;
+
+  /// Selected-state explanation for additive fronting behavior
+  ///
+  /// In en, this message translates to:
+  /// **'Keeps everyone currently fronting and adds the new member as a co-fronter.'**
+  String get onboardingFrontBehaviorAdditiveDescription;
+
+  /// Selected-state explanation for replace fronting behavior
+  ///
+  /// In en, this message translates to:
+  /// **'Ends the current front first, then starts the new member.'**
+  String get onboardingFrontBehaviorReplaceDescription;
+
   /// Label for the custom terminology option in preferences grid
   ///
   /// In en, this message translates to:
@@ -11079,7 +11133,7 @@ abstract class AppLocalizations {
   /// Honesty disclosure shown when a member-targeted front-change reminder is configured. Prism is end-to-end encrypted, so the relay cannot push notifications for a specific member switch.
   ///
   /// In en, this message translates to:
-  /// **'Fires when Prism is running and sees the switch. External switches logged while Prism is closed may not trigger this reminder.'**
+  /// **'Only fires when Prism is running on this device and notices the switch. If Prism is closed and the switch is logged elsewhere, this reminder will not trigger right away.'**
   String get remindersTargetDisclosure;
 
   /// Reminder list subtitle prefix shown when a front-change reminder targets a specific member

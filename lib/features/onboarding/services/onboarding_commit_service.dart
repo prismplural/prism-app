@@ -95,6 +95,12 @@ class OnboardingCommitService {
           notesEnabled: onboarding.notesEnabled,
           boardsEnabled: onboarding.boardsEnabled,
           remindersEnabled: onboarding.remindersEnabled,
+          addFrontDefaultBehavior:
+              onboarding.addFrontDefaultBehavior ??
+              currentSettings.addFrontDefaultBehavior,
+          quickFrontDefaultBehavior:
+              onboarding.quickFrontDefaultBehavior ??
+              currentSettings.quickFrontDefaultBehavior,
           hasCompletedOnboarding: true,
           // Idempotently append 'boards' to overflow nav if the user
           // enabled the feature during onboarding. Only appended if

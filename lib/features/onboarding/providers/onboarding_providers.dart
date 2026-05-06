@@ -119,6 +119,8 @@ class OnboardingState {
   final bool notesEnabled;
   final bool boardsEnabled;
   final bool remindersEnabled;
+  final FrontStartBehavior? addFrontDefaultBehavior;
+  final FrontStartBehavior? quickFrontDefaultBehavior;
   final String? selectedFronterId;
   final bool wasImportedFromPluralKit;
   final bool wasImportedFromSimplyPlural;
@@ -155,6 +157,8 @@ class OnboardingState {
     this.notesEnabled = true,
     this.boardsEnabled = false,
     this.remindersEnabled = true,
+    this.addFrontDefaultBehavior,
+    this.quickFrontDefaultBehavior,
     this.selectedFronterId,
     this.wasImportedFromPluralKit = false,
     this.wasImportedFromSimplyPlural = false,
@@ -185,6 +189,8 @@ class OnboardingState {
     bool? notesEnabled,
     bool? boardsEnabled,
     bool? remindersEnabled,
+    Object? addFrontDefaultBehavior = _sentinel,
+    Object? quickFrontDefaultBehavior = _sentinel,
     String? selectedFronterId,
     bool? wasImportedFromPluralKit,
     bool? wasImportedFromSimplyPlural,
@@ -213,6 +219,12 @@ class OnboardingState {
       notesEnabled: notesEnabled ?? this.notesEnabled,
       boardsEnabled: boardsEnabled ?? this.boardsEnabled,
       remindersEnabled: remindersEnabled ?? this.remindersEnabled,
+      addFrontDefaultBehavior: addFrontDefaultBehavior == _sentinel
+          ? this.addFrontDefaultBehavior
+          : addFrontDefaultBehavior as FrontStartBehavior?,
+      quickFrontDefaultBehavior: quickFrontDefaultBehavior == _sentinel
+          ? this.quickFrontDefaultBehavior
+          : quickFrontDefaultBehavior as FrontStartBehavior?,
       selectedFronterId: clearFronterId
           ? null
           : (selectedFronterId ?? this.selectedFronterId),
@@ -613,6 +625,14 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
 
   void setUsePerMemberColors(bool value) {
     state = state.copyWith(usePerMemberColors: value);
+  }
+
+  void setAddFrontDefaultBehavior(FrontStartBehavior value) {
+    state = state.copyWith(addFrontDefaultBehavior: value);
+  }
+
+  void setQuickFrontDefaultBehavior(FrontStartBehavior value) {
+    state = state.copyWith(quickFrontDefaultBehavior: value);
   }
 
   void setFeatureToggle({

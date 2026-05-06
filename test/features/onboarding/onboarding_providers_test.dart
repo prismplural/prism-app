@@ -44,8 +44,7 @@ void main() {
       },
     );
 
-    test('next() skips importedDataReady when importedDataCounts is null',
-        () {
+    test('next() skips importedDataReady when importedDataCounts is null', () {
       final container = ProviderContainer(
         overrides: [
           memberRepositoryProvider.overrideWithValue(FakeMemberRepository()),
@@ -77,9 +76,7 @@ void main() {
 
       final notifier = container.read(onboardingProvider.notifier);
       // Set counts so importedDataReady is not skipped
-      notifier.showImportedDataReady(
-        const OnboardingDataCounts(members: 2),
-      );
+      notifier.showImportedDataReady(const OnboardingDataCounts(members: 2));
       // Move back to welcome to test forward navigation
       // We can't go back easily, so instead verify the step was set
       expect(
@@ -97,9 +94,7 @@ void main() {
       addTearDown(container.dispose);
 
       final notifier = container.read(onboardingProvider.notifier);
-      notifier.showImportedDataReady(
-        const OnboardingDataCounts(members: 1),
-      );
+      notifier.showImportedDataReady(const OnboardingDataCounts(members: 1));
       expect(notifier.canProceed, isFalse);
     });
 
@@ -121,6 +116,33 @@ void main() {
       expect(state.importedDataCounts, isNotNull);
       expect(state.importedDataCounts!.members, 3);
       expect(state.importedDataCounts!.notes, 5);
+    });
+
+    test('fronting behavior setters update onboarding state independently', () {
+      final container = ProviderContainer(
+        overrides: [
+          memberRepositoryProvider.overrideWithValue(FakeMemberRepository()),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final notifier = container.read(onboardingProvider.notifier);
+
+      notifier.setAddFrontDefaultBehavior(FrontStartBehavior.replace);
+      expect(
+        container.read(onboardingProvider).addFrontDefaultBehavior,
+        FrontStartBehavior.replace,
+      );
+      expect(
+        container.read(onboardingProvider).quickFrontDefaultBehavior,
+        isNull,
+      );
+
+      notifier.setQuickFrontDefaultBehavior(FrontStartBehavior.replace);
+      expect(
+        container.read(onboardingProvider).quickFrontDefaultBehavior,
+        FrontStartBehavior.replace,
+      );
     });
   });
 
@@ -186,6 +208,89 @@ void main() {
         );
         expect(frontingRepository.sessions, hasLength(1));
         expect(frontingRepository.sessions.single.memberId, 'member-1');
+      },
+    );
+
+    test('complete writes onboarding front behavior choices', () async {
+      final settingsRepository = FakeSystemSettingsRepository();
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final container = ProviderContainer(
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          memberRepositoryProvider.overrideWithValue(FakeMemberRepository()),
+          systemSettingsRepositoryProvider.overrideWithValue(
+            settingsRepository,
+          ),
+          conversationRepositoryProvider.overrideWithValue(
+            FakeConversationRepository(),
+          ),
+          frontingSessionRepositoryProvider.overrideWithValue(
+            FakeFrontingSessionRepository(),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container
+          .read(onboardingCommitServiceProvider)
+          .complete(
+            const OnboardingState(
+              systemName: 'Prism Collective',
+              addFrontDefaultBehavior: FrontStartBehavior.replace,
+              quickFrontDefaultBehavior: FrontStartBehavior.replace,
+            ),
+          );
+
+      expect(
+        settingsRepository.settings.addFrontDefaultBehavior,
+        FrontStartBehavior.replace,
+      );
+      expect(
+        settingsRepository.settings.quickFrontDefaultBehavior,
+        FrontStartBehavior.replace,
+      );
+    });
+
+    test(
+      'complete preserves existing front behavior choices when untouched',
+      () async {
+        final settingsRepository = FakeSystemSettingsRepository()
+          ..settings = const SystemSettings(
+            addFrontDefaultBehavior: FrontStartBehavior.replace,
+            quickFrontDefaultBehavior: FrontStartBehavior.replace,
+          );
+        final db = AppDatabase(NativeDatabase.memory());
+        addTearDown(db.close);
+        final container = ProviderContainer(
+          overrides: [
+            databaseProvider.overrideWithValue(db),
+            memberRepositoryProvider.overrideWithValue(FakeMemberRepository()),
+            systemSettingsRepositoryProvider.overrideWithValue(
+              settingsRepository,
+            ),
+            conversationRepositoryProvider.overrideWithValue(
+              FakeConversationRepository(),
+            ),
+            frontingSessionRepositoryProvider.overrideWithValue(
+              FakeFrontingSessionRepository(),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        await container
+            .read(onboardingCommitServiceProvider)
+            .complete(const OnboardingState(systemName: 'Prism Collective'));
+
+        expect(
+          settingsRepository.settings.addFrontDefaultBehavior,
+          FrontStartBehavior.replace,
+        );
+        expect(
+          settingsRepository.settings.quickFrontDefaultBehavior,
+          FrontStartBehavior.replace,
+        );
       },
     );
 

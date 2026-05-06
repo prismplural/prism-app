@@ -4364,6 +4364,37 @@ class AppLocalizationsEs extends AppLocalizations {
   String get onboardingPreferencesTerminology => 'Terminología';
 
   @override
+  String get onboardingFrontBehaviorSection => 'Comportamiento al frente';
+
+  @override
+  String get onboardingAddFrontBehaviorTitle => 'Al agregar un nuevo frente';
+
+  @override
+  String get onboardingAddFrontBehaviorDescription =>
+      'Elige qué pasa cuando inicias un frente desde la hoja completa de Agregar frente.';
+
+  @override
+  String get onboardingQuickFrontBehaviorTitle => 'Al usar frente rápido';
+
+  @override
+  String get onboardingQuickFrontBehaviorDescription =>
+      'Elige qué pasa cuando mantienes presionado un botón de frente rápido para alguien que aún no está al frente.';
+
+  @override
+  String get onboardingFrontBehaviorAdditive => 'Agregar';
+
+  @override
+  String get onboardingFrontBehaviorReplace => 'Reemplazar';
+
+  @override
+  String get onboardingFrontBehaviorAdditiveDescription =>
+      'Mantiene a quienes ya están al frente y agrega al nuevo integrante como cofronter.';
+
+  @override
+  String get onboardingFrontBehaviorReplaceDescription =>
+      'Termina el frente actual primero y luego inicia al nuevo integrante.';
+
+  @override
   String get onboardingPreferencesCustomTerminology => 'Personalizado';
 
   @override

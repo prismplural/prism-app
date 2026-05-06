@@ -5872,6 +5872,42 @@
   "@onboardingPreferencesTerminology": {
     "description": "Section header for terminology section in preferences step"
   },
+  "onboardingFrontBehaviorSection": "Fronting behavior",
+  "@onboardingFrontBehaviorSection": {
+    "description": "Section header for fronting behavior preferences in onboarding"
+  },
+  "onboardingAddFrontBehaviorTitle": "When adding a new front",
+  "@onboardingAddFrontBehaviorTitle": {
+    "description": "Title for onboarding preference that controls the Add Front sheet default behavior"
+  },
+  "onboardingAddFrontBehaviorDescription": "Choose what happens when you start a front from the full Add Front sheet.",
+  "@onboardingAddFrontBehaviorDescription": {
+    "description": "Description for onboarding preference that controls the Add Front sheet default behavior"
+  },
+  "onboardingQuickFrontBehaviorTitle": "When using quick front",
+  "@onboardingQuickFrontBehaviorTitle": {
+    "description": "Title for onboarding preference that controls the quick-front shortcut default behavior"
+  },
+  "onboardingQuickFrontBehaviorDescription": "Choose what happens when you hold a quick-front button for someone not already fronting.",
+  "@onboardingQuickFrontBehaviorDescription": {
+    "description": "Description for onboarding preference that controls the quick-front shortcut default behavior"
+  },
+  "onboardingFrontBehaviorAdditive": "Add",
+  "@onboardingFrontBehaviorAdditive": {
+    "description": "Segment label for adding a member while keeping current fronters active"
+  },
+  "onboardingFrontBehaviorReplace": "Replace",
+  "@onboardingFrontBehaviorReplace": {
+    "description": "Segment label for replacing current fronters with the new member"
+  },
+  "onboardingFrontBehaviorAdditiveDescription": "Keeps everyone currently fronting and adds the new member as a co-fronter.",
+  "@onboardingFrontBehaviorAdditiveDescription": {
+    "description": "Selected-state explanation for additive fronting behavior"
+  },
+  "onboardingFrontBehaviorReplaceDescription": "Ends the current front first, then starts the new member.",
+  "@onboardingFrontBehaviorReplaceDescription": {
+    "description": "Selected-state explanation for replace fronting behavior"
+  },
   "onboardingPreferencesCustomTerminology": "Custom",
   "@onboardingPreferencesCustomTerminology": {
     "description": "Label for the custom terminology option in preferences grid"
