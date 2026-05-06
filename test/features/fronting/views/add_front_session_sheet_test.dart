@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:drift/native.dart';
 
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
+import 'package:prism_plurality/core/database/app_database.dart' as appdb;
+import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/domain/models/member_group_entry.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
+import 'package:prism_plurality/data/repositories/drift_fronting_session_repository.dart';
+import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/fronting/views/add_front_session_sheet.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
@@ -35,6 +40,8 @@ List<Member> _bigMemberList() =>
 class _FakeFrontingNotifier extends FrontingNotifier {
   final List<List<String>> startFrontingCalls = [];
   final List<List<String>> replaceFrontingCalls = [];
+  final List<({List<String> memberIds, DateTime startTime, DateTime endTime})>
+  logHistoricalFrontingCalls = [];
 
   @override
   Future<void> build() async {}
@@ -56,6 +63,21 @@ class _FakeFrontingNotifier extends FrontingNotifier {
     String? notes,
   }) async {
     replaceFrontingCalls.add(List<String>.from(memberIds));
+  }
+
+  @override
+  Future<void> logHistoricalFronting(
+    List<String> memberIds, {
+    required DateTime startTime,
+    required DateTime endTime,
+    FrontConfidence? confidence,
+    String? notes,
+  }) async {
+    logHistoricalFrontingCalls.add((
+      memberIds: List<String>.from(memberIds),
+      startTime: startTime,
+      endTime: endTime,
+    ));
   }
 }
 
@@ -756,6 +778,153 @@ void main() {
               'first-open override of "replace" must not have persisted',
         );
         expect(notifier.replaceFrontingCalls, hasLength(1));
+      },
+    );
+  });
+
+  group('historical mode', () {
+    testWidgets(
+      'log past session mode shows time fields and submits historical fronting',
+      (tester) async {
+        final notifier = _FakeFrontingNotifier();
+        final members = List.generate(
+          3,
+          (i) => _member(id: 'id$i', name: 'M$i'),
+        );
+
+        await tester.pumpWidget(
+          _buildSheetTrigger(members: members, fakeNotifier: notifier),
+        );
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('M0'));
+        await tester.pumpAndSettle();
+
+        await tester.scrollUntilVisible(
+          find.byKey(const Key('sessionTimeSegmentedControl')),
+          200,
+          scrollable: find.descendant(
+            of: find.byType(AddFrontSessionSheet),
+            matching: find.byType(Scrollable),
+          ).first,
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Session Time'), findsOneWidget);
+
+        await tester.tap(find.text('Past Session'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Start'), findsOneWidget);
+        expect(find.text('End'), findsOneWidget);
+
+        await tester.tap(_saveButton());
+        await tester.pumpAndSettle();
+
+        expect(notifier.logHistoricalFrontingCalls, hasLength(1));
+        expect(notifier.logHistoricalFrontingCalls.single.memberIds, ['id0']);
+        expect(notifier.startFrontingCalls, isEmpty);
+        expect(notifier.replaceFrontingCalls, isEmpty);
+      },
+    );
+
+    testWidgets(
+      'normal Log Front does not merge touching historical rows for the same member',
+      (tester) async {
+        final db = appdb.AppDatabase(NativeDatabase.memory());
+        final sessionRepo = DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+        );
+        final memberRepo = DriftMemberRepository(db.membersDao, null);
+
+        final alice = _member(id: 'alice', name: 'Alice');
+        await memberRepo.createMember(alice);
+        await sessionRepo.createSession(
+          FrontingSession(
+            id: 'hist-1',
+            startTime: DateTime(2026, 4, 28, 8),
+            endTime: DateTime(2026, 4, 28, 9),
+            memberId: 'alice',
+          ),
+        );
+        await sessionRepo.createSession(
+          FrontingSession(
+            id: 'hist-2',
+            startTime: DateTime(2026, 4, 28, 9),
+            endTime: DateTime(2026, 4, 28, 10),
+            memberId: 'alice',
+          ),
+        );
+
+        final container = ProviderContainer(
+          overrides: [
+            databaseProvider.overrideWithValue(db),
+            activeMembersProvider.overrideWith(
+              (ref) => Stream.value(<Member>[alice]),
+            ),
+            activeSessionsProvider.overrideWith(
+              (ref) => Stream.value(const <FrontingSession>[]),
+            ),
+            systemSettingsProvider.overrideWith(
+              (ref) => Stream.value(
+                const SystemSettings(
+                  addFrontDefaultBehavior: FrontStartBehavior.additive,
+                ),
+              ),
+            ),
+            allGroupsProvider.overrideWith(
+              (ref) => Stream.value(const <MemberGroup>[]),
+            ),
+            allGroupEntriesProvider.overrideWith(
+              (ref) => Stream.value(const <MemberGroupEntry>[]),
+            ),
+          ],
+        );
+
+        try {
+          await tester.pumpWidget(
+            UncontrolledProviderScope(
+              container: container,
+              child: MaterialApp(
+                localizationsDelegates: AppLocalizations.localizationsDelegates,
+                supportedLocales: const [Locale('en')],
+                home: Builder(
+                  builder: (ctx) => Scaffold(
+                    body: ElevatedButton(
+                      onPressed: () => AddFrontSessionSheet.show(ctx),
+                      child: const Text('Open'),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          await tester.tap(find.text('Open'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Alice'));
+          await tester.pumpAndSettle();
+          await tester.tap(_saveButton());
+          await tester.pumpAndSettle();
+
+          final sessions = await sessionRepo.getAllSessions();
+          expect(sessions, hasLength(3));
+          expect(sessions.where((s) => s.id == 'hist-1'), hasLength(1));
+          expect(sessions.where((s) => s.id == 'hist-2'), hasLength(1));
+          expect(
+            sessions.where((s) => s.memberId == 'alice' && s.endTime == null),
+            hasLength(1),
+          );
+        } finally {
+          await tester.pumpWidget(const SizedBox.shrink());
+          await tester.pump();
+          container.dispose();
+          await tester.pump();
+          await db.close();
+        }
       },
     );
   });

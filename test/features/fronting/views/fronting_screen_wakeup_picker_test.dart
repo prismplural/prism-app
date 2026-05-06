@@ -1,29 +1,27 @@
-// Tests for the wake-up-as picker in FrontingScreen.
-//
-// The picker is invoked via the private _showWakeUpPicker method on
-// _AddButtonState. Since that is not directly callable from outside the
-// library, the tests use a thin ConsumerStatefulWidget harness that mirrors
-// the exact logic the method will execute after the MemberSearchSheet
-// migration.  This lets us verify:
-//   1. The shared single-select sheet (MemberSearchSheet) is shown.
-//   2. Selecting a member ends the sleep session then starts fronting.
-//   3. Dismissing the sheet does not trigger the wake-up flow.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/domain/models/member_group.dart';
+import 'package:prism_plurality/domain/models/member_group_entry.dart';
+import 'package:prism_plurality/domain/models/system_settings.dart';
+import 'package:prism_plurality/features/fronting/providers/always_present_members_provider.dart';
+import 'package:prism_plurality/features/fronting/providers/derived_periods_provider.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart';
+import 'package:prism_plurality/features/fronting/services/derive_periods.dart';
+import 'package:prism_plurality/features/fronting/migration/providers/fronting_migration_providers.dart';
+import 'package:prism_plurality/features/fronting/views/fronting_screen.dart';
+import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
+import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
+import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
+import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
-import 'package:prism_plurality/shared/widgets/prism_toast.dart';
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Test doubles
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _FakeSleepNotifier extends SleepNotifier {
   final List<String> endedIds = [];
@@ -36,7 +34,7 @@ class _FakeSleepNotifier extends SleepNotifier {
 }
 
 class _FakeFrontingNotifier extends FrontingNotifier {
-  final List<String> startedIds = [];
+  final List<List<String>> startedIds = [];
 
   @override
   Future<void> build() async {}
@@ -47,180 +45,155 @@ class _FakeFrontingNotifier extends FrontingNotifier {
     FrontConfidence? confidence,
     String? notes,
     DateTime? startTime,
-  }) async => startedIds.addAll(memberIds);
+  }) async {
+    startedIds.add(List<String>.from(memberIds));
+  }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────────────────────
+class _FakeShowFrontingViewToggleNotifier
+    extends ShowFrontingViewToggleNotifier {
+  @override
+  Future<bool> build() async => false;
+}
+
+class _FakePluralKitSyncNotifier extends PluralKitSyncNotifier {
+  @override
+  PluralKitSyncState build() => const PluralKitSyncState();
+}
 
 Member _member(String id, String name) =>
     Member(id: id, name: name, createdAt: DateTime(2024));
 
 FrontingSession _sleepSession() => FrontingSession(
   id: 'sleep-1',
-  startTime: DateTime(2024),
+  startTime: DateTime(2024, 1, 1, 22),
   sessionType: SessionType.sleep,
 );
-
-/// Minimal harness that mirrors the logic of _showWakeUpPicker after the
-/// MemberSearchSheet migration.  A tap on the "Wake up as" button triggers
-/// the same async flow the production method will use.
-class _WakeUpPickerHarness extends ConsumerStatefulWidget {
-  const _WakeUpPickerHarness({
-    required this.sleepSession,
-    required this.members,
-  });
-
-  final FrontingSession sleepSession;
-  final List<Member> members;
-
-  @override
-  ConsumerState<_WakeUpPickerHarness> createState() =>
-      _WakeUpPickerHarnessState();
-}
-
-class _WakeUpPickerHarnessState extends ConsumerState<_WakeUpPickerHarness> {
-  Future<void> _showPicker() async {
-    final session = widget.sleepSession;
-    final result = await MemberSearchSheet.showSingle(
-      context,
-      members: widget.members,
-      termPlural: 'Members',
-    );
-
-    if (!mounted || !context.mounted) return;
-    if (result is! MemberSearchResultSelected) return;
-    final activeSession = ref.read(activeSleepSessionProvider).value;
-    if (activeSession?.id != session.id) return;
-
-    try {
-      await ref.read(sleepNotifierProvider.notifier).endSleep(session.id);
-      await ref
-          .read(frontingNotifierProvider.notifier)
-          .startFronting([result.memberId]);
-    } catch (e) {
-      if (context.mounted) {
-        PrismToast.error(context, message: 'error');
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    ref.watch(activeSleepSessionProvider);
-    return ElevatedButton(
-      onPressed: _showPicker,
-      child: const Text('Wake up as'),
-    );
-  }
-}
 
 Widget _buildSubject({
   required _FakeSleepNotifier sleepNotifier,
   required _FakeFrontingNotifier frontingNotifier,
-  List<Member>? members,
+  required List<Member> members,
   FrontingSession? activeSleepSession,
 }) {
-  final ms = members ?? [_member('m1', 'Alice'), _member('m2', 'Bob')];
-  final sleep = activeSleepSession ?? _sleepSession();
+  final settings = const SystemSettings(
+    systemName: 'Test System',
+    showQuickFront: false,
+    frontingListViewMode: FrontingListViewMode.combinedPeriods,
+    wakeSuggestionEnabled: false,
+  );
+
   return ProviderScope(
     overrides: [
       sleepNotifierProvider.overrideWith(() => sleepNotifier),
       frontingNotifierProvider.overrideWith(() => frontingNotifier),
-      activeSleepSessionProvider.overrideWith((ref) => Stream.value(sleep)),
+      activeSleepSessionProvider.overrideWith(
+        (ref) => Stream.value(activeSleepSession),
+      ),
+      activeMembersProvider.overrideWith((ref) => Stream.value(members)),
+      allMembersProvider.overrideWith((ref) => Stream.value(members)),
+      activeSessionsProvider.overrideWith((ref) => Stream.value(const [])),
+      allGroupsProvider.overrideWith(
+        (ref) => Stream.value(const <MemberGroup>[]),
+      ),
+      allGroupEntriesProvider.overrideWith(
+        (ref) => Stream.value(const <MemberGroupEntry>[]),
+      ),
+      unifiedHistoryProvider.overrideWith(
+        (ref) => Stream.value(const <FrontingSession>[]),
+      ),
+      derivedPeriodsProvider.overrideWith(
+        (ref) => const AsyncValue.data(<FrontingPeriod>[]),
+      ),
+      membersByIdsProvider.overrideWith((ref, _) => Stream.value(const {})),
+      alwaysPresentMembersProvider.overrideWith(
+        (ref) => const AsyncValue.data(<AlwaysPresentMember>[]),
+      ),
+      frontingMigrationModeProvider.overrideWith(
+        (ref) => Stream.value('complete'),
+      ),
+      showQuickFrontProvider.overrideWith((ref) => false),
+      systemSettingsProvider.overrideWith((ref) => Stream.value(settings)),
+      showFrontingViewToggleProvider.overrideWith(
+        _FakeShowFrontingViewToggleNotifier.new,
+      ),
+      pluralKitSyncProvider.overrideWith(_FakePluralKitSyncNotifier.new),
     ],
     child: MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: const [Locale('en')],
-      home: Scaffold(
-        body: _WakeUpPickerHarness(sleepSession: _sleepSession(), members: ms),
-      ),
+      home: const FrontingScreen(),
     ),
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Tests
-// ─────────────────────────────────────────────────────────────────────────────
+Finder _addButton() => find.byTooltip('Add fronting entry');
 
 void main() {
-  group('wake-up picker', () {
-    testWidgets('tapping Wake up as opens the shared single-select sheet', (
+  group('FrontingScreen add menu', () {
+    testWidgets('long-press menu opens historical sheet in past-session mode', (
       tester,
     ) async {
       await tester.pumpWidget(
         _buildSubject(
           sleepNotifier: _FakeSleepNotifier(),
           frontingNotifier: _FakeFrontingNotifier(),
+          members: [_member('m1', 'Alice')],
         ),
       );
+      await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Wake up as'));
+      await tester.longPress(_addButton());
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Log Past Session').first);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(MemberSearchSheet), findsNothing);
+      expect(find.text('Start'), findsOneWidget);
+      expect(find.text('End'), findsOneWidget);
+      expect(
+        find.byKey(const Key('addFrontModeSegmentedControl')),
+        findsNothing,
+      );
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    });
+
+    testWidgets('Wake Up As uses the real screen flow', (tester) async {
+      final sleep = _FakeSleepNotifier();
+      final fronting = _FakeFrontingNotifier();
+
+      await tester.pumpWidget(
+        _buildSubject(
+          sleepNotifier: sleep,
+          frontingNotifier: fronting,
+          members: [_member('m1', 'Alice'), _member('m2', 'Bob')],
+          activeSleepSession: _sleepSession(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.longPress(_addButton());
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Wake Up As...'));
       await tester.pumpAndSettle();
 
       expect(find.byType(MemberSearchSheet), findsOneWidget);
-    });
 
-    testWidgets('selecting a member ends sleep then starts fronting', (
-      tester,
-    ) async {
-      final sleep = _FakeSleepNotifier();
-      final fronting = _FakeFrontingNotifier();
-
-      await tester.pumpWidget(
-        _buildSubject(sleepNotifier: sleep, frontingNotifier: fronting),
-      );
-
-      await tester.tap(find.text('Wake up as'));
-      await tester.pumpAndSettle();
-
-      // Tap the first member row in the search sheet.
       await tester.tap(find.text('Alice').last);
       await tester.pumpAndSettle();
 
-      expect(
-        sleep.endedIds,
-        ['sleep-1'],
-        reason: 'endSleep must be called with the sleep session id',
-      );
-      expect(
-        fronting.startedIds,
+      expect(sleep.endedIds, ['sleep-1']);
+      expect(fronting.startedIds, [
         ['m1'],
-        reason: 'startFronting must be called with the selected member id',
-      );
+      ]);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
     });
 
-    testWidgets('dismissing the sheet does not trigger the wake-up flow', (
-      tester,
-    ) async {
-      final sleep = _FakeSleepNotifier();
-      final fronting = _FakeFrontingNotifier();
-
-      await tester.pumpWidget(
-        _buildSubject(sleepNotifier: sleep, frontingNotifier: fronting),
-      );
-
-      await tester.tap(find.text('Wake up as'));
-      await tester.pumpAndSettle();
-
-      // Close via the X button in the sheet's top bar.
-      await tester.tap(find.bySemanticsLabel('Close'));
-      await tester.pumpAndSettle();
-
-      expect(
-        sleep.endedIds,
-        isEmpty,
-        reason: 'endSleep must not be called on dismiss',
-      );
-      expect(
-        fronting.startedIds,
-        isEmpty,
-        reason: 'startFronting must not be called on dismiss',
-      );
-    });
-
-    testWidgets('does not end sleep after active sleep session changes', (
+    testWidgets('dismissing Wake Up As does not trigger sleep/front actions', (
       tester,
     ) async {
       final sleep = _FakeSleepNotifier();
@@ -230,58 +203,24 @@ void main() {
         _buildSubject(
           sleepNotifier: sleep,
           frontingNotifier: fronting,
-          activeSleepSession: FrontingSession(
-            id: 'other-sleep',
-            startTime: DateTime(2024),
-            sessionType: SessionType.sleep,
-          ),
+          members: [_member('m1', 'Alice')],
+          activeSleepSession: _sleepSession(),
         ),
       );
-
-      await tester.tap(find.text('Wake up as'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Alice').last);
+
+      await tester.longPress(_addButton());
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Wake Up As...'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.bySemanticsLabel('Close'));
       await tester.pumpAndSettle();
 
       expect(sleep.endedIds, isEmpty);
       expect(fronting.startedIds, isEmpty);
-    });
 
-    testWidgets('does not end sleep or start fronting when widget is '
-        'disposed mid-picker', (tester) async {
-      final sleep = _FakeSleepNotifier();
-      final fronting = _FakeFrontingNotifier();
-
-      await tester.pumpWidget(
-        _buildSubject(sleepNotifier: sleep, frontingNotifier: fronting),
-      );
-
-      await tester.tap(find.text('Wake up as'));
-      await tester.pumpAndSettle();
-
-      // Swap in a replacement widget while the sheet is open. This disposes
-      // the _WakeUpPickerHarness and drops its State's mounted flag before
-      // the selection result can propagate.
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: Scaffold(body: SizedBox.shrink()),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(
-        sleep.endedIds,
-        isEmpty,
-        reason:
-            'endSleep must not be called after the host widget is disposed',
-      );
-      expect(
-        fronting.startedIds,
-        isEmpty,
-        reason:
-            'startFronting must not be called after the host widget is '
-            'disposed',
-      );
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
     });
   });
 }

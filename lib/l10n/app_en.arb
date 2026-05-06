@@ -2519,6 +2519,10 @@
   "@frontingMenuLogFront": {
     "description": "Menu item to log a new fronting entry"
   },
+  "frontingMenuLogPastSession": "Log Past Session",
+  "@frontingMenuLogPastSession": {
+    "description": "Menu item to log a closed historical fronting session"
+  },
   "frontingMenuNewPoll": "New Poll",
   "@frontingMenuNewPoll": {
     "description": "Menu item to create a new poll"
@@ -2652,6 +2656,22 @@
   "frontingNewSession": "New Session",
   "@frontingNewSession": {
     "description": "Sheet title when creating a new fronting session (non-co-front mode)"
+  },
+  "frontingSessionTime": "Session Time",
+  "@frontingSessionTime": {
+    "description": "Section header on the add-front sheet for choosing between a live session and a historical session"
+  },
+  "frontingSessionTimeStartNow": "Start Now",
+  "@frontingSessionTimeStartNow": {
+    "description": "Segmented-control option on the add-front sheet for starting a session immediately"
+  },
+  "frontingSessionTimePastSession": "Past Session",
+  "@frontingSessionTimePastSession": {
+    "description": "Segmented-control option on the add-front sheet for logging a historical session"
+  },
+  "frontingLogPastSession": "Log Past Session",
+  "@frontingLogPastSession": {
+    "description": "Sheet title and disclosure label for the historical fronting session flow"
   },
   "frontingAddCoFronterTitle": "Add Co-Fronter",
   "@frontingAddCoFronterTitle": {

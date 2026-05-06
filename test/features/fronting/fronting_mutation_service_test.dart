@@ -5,6 +5,7 @@ import 'package:prism_plurality/core/database/app_database.dart'
     hide FrontingSession, Member;
 import 'package:prism_plurality/core/mutations/field_patch.dart';
 import 'package:prism_plurality/core/mutations/mutation_runner.dart';
+import 'package:prism_plurality/data/repositories/drift_front_session_comments_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_fronting_session_repository.dart';
 import 'package:prism_plurality/domain/models/front_session_comment.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
@@ -21,14 +22,20 @@ void main() {
   group('FrontingMutationService', () {
     late AppDatabase db;
     late DriftFrontingSessionRepository repository;
+    late DriftFrontSessionCommentsRepository commentsRepository;
     late FrontingMutationService service;
 
     setUp(() {
       db = AppDatabase(NativeDatabase.memory());
       repository = DriftFrontingSessionRepository(db.frontingSessionsDao, null);
+      commentsRepository = DriftFrontSessionCommentsRepository(
+        db.frontSessionCommentsDao,
+        null,
+      );
       service = FrontingMutationService(
         repository: repository,
         mutationRunner: MutationRunner(transactionRunner: db.transaction),
+        frontSessionCommentsRepository: commentsRepository,
       );
     });
 
@@ -117,6 +124,62 @@ void main() {
         expect(persistedOverlap, isNotNull);
         expect(persistedOverlap!.startTime, DateTime(2026, 3, 11, 10, 30));
         expect(persistedOverlap.endTime, DateTime(2026, 3, 11, 11, 30));
+      },
+    );
+
+    test(
+      'logHistoricalFronting merges same-member rows in Drift and reparents comments',
+      () async {
+        await repository.createSession(
+          FrontingSession(
+            id: 'alice-early',
+            startTime: DateTime(2026, 4, 28, 8),
+            endTime: DateTime(2026, 4, 28, 9),
+            memberId: 'alice',
+            notes: 'early',
+          ),
+        );
+        await repository.createSession(
+          FrontingSession(
+            id: 'alice-late',
+            startTime: DateTime(2026, 4, 28, 10),
+            endTime: DateTime(2026, 4, 28, 11),
+            memberId: 'alice',
+            notes: 'late',
+          ),
+        );
+        await commentsRepository.createComment(
+          FrontSessionComment(
+            id: 'comment-1',
+            sessionId: 'alice-late',
+            body: 'keep me',
+            timestamp: DateTime(2026, 4, 28, 10, 30),
+            createdAt: DateTime(2026, 4, 28, 10, 30),
+          ),
+        );
+
+        final result = await service.logHistoricalFronting(
+          ['alice'],
+          startTime: DateTime(2026, 4, 28, 9),
+          endTime: DateTime(2026, 4, 28, 10),
+          notes: 'bridge',
+          confidence: FrontConfidence.strong,
+        );
+
+        expect(result.isSuccess, isTrue);
+
+        final sessions = await repository.getAllSessions();
+        expect(sessions, hasLength(1));
+        final merged = sessions.single;
+        expect(merged.id, 'alice-early');
+        expect(merged.startTime, DateTime(2026, 4, 28, 8));
+        expect(merged.endTime, DateTime(2026, 4, 28, 11));
+        expect(merged.notes, 'early\n\nbridge\n\nlate');
+        expect(merged.confidence, FrontConfidence.strong);
+
+        final comments = await commentsRepository.getAllComments();
+        expect(comments, hasLength(1));
+        expect(comments.single.sessionId, 'alice-early');
       },
     );
 

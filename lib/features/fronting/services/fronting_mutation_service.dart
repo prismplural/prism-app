@@ -145,6 +145,44 @@ class FrontingMutationService {
     );
   }
 
+  /// Creates one closed fronting row per member in [memberIds] for the
+  /// historical range `[startTime, endTime]`.
+  ///
+  /// Same-member rows that overlap or touch the inserted range are collapsed
+  /// into one continuous session. Cross-member overlap is intentionally left
+  /// untouched.
+  Future<MutationResult<FrontingMutationResult>> logHistoricalFronting(
+    List<String> memberIds, {
+    required DateTime startTime,
+    required DateTime endTime,
+    FrontConfidence? confidence,
+    String? notes,
+  }) {
+    return _mutationRunner.run<FrontingMutationResult>(
+      actionLabel: 'Log historical fronting session',
+      action: () async {
+        await _ensureSentinelIfNeeded(memberIds);
+        _assertTimeRange(startTime, endTime);
+
+        final mergedSessions = <FrontingSession>[];
+        for (final memberId in memberIds) {
+          final drafted = FrontingSession(
+            id: _uuid.v4(),
+            startTime: startTime,
+            endTime: endTime,
+            memberId: memberId,
+            confidence: confidence,
+            notes: notes,
+          );
+          final merged = await _mergeOrCreateHistoricalSession(drafted);
+          mergedSessions.add(merged);
+        }
+
+        return FrontingMutationResult(sessions: mergedSessions);
+      },
+    );
+  }
+
   /// Atomically ends all currently-active normal (non-sleep) fronting
   /// sessions AND starts a session for each member in [memberIds],
   /// inside a single MutationRunner transaction with one captured `now`.
@@ -646,5 +684,132 @@ class FrontingMutationService {
       throw AppFailure.notFound('Fronting session not found.');
     }
     return session;
+  }
+
+  Future<FrontingSession> _mergeOrCreateHistoricalSession(
+    FrontingSession drafted,
+  ) async {
+    final memberId = drafted.memberId;
+    if (memberId == null) {
+      await _repository.createSession(drafted);
+      return drafted;
+    }
+
+    final existing = await _repository.getSessionsForMember(memberId);
+    final mergeCandidates = _collectSameMemberMergeCandidates(
+      existing,
+      drafted,
+    );
+
+    if (mergeCandidates.isEmpty) {
+      await _repository.createSession(drafted);
+      return drafted;
+    }
+
+    final survivor = mergeCandidates.first;
+    final allSessions = [...mergeCandidates, drafted]
+      ..sort((a, b) => a.startTime.compareTo(b.startTime));
+
+    final merged = survivor.copyWith(
+      startTime: allSessions
+          .map((session) => session.startTime)
+          .reduce((a, b) => a.isBefore(b) ? a : b),
+      endTime: _mergeEndTime(allSessions),
+      notes: _mergeNotes(allSessions.map((session) => session.notes)),
+      confidence: _mergeConfidence(
+        allSessions.map((session) => session.confidence),
+      ),
+    );
+    await _repository.updateSession(merged);
+
+    for (final session in mergeCandidates.skip(1)) {
+      await reparentFrontSessionComments(
+        _frontSessionCommentsRepository,
+        fromSessionId: session.id,
+        toSessionId: survivor.id,
+      );
+      await _repository.deleteSession(session.id);
+    }
+
+    return merged;
+  }
+
+  bool _shouldMergeSameMember(
+    FrontingSession existing,
+    DateTime start,
+    DateTime? end,
+  ) {
+    if (existing.isSleep) return false;
+    final mergedEnd = end ?? DateTime.utc(9999);
+    final existingEnd = existing.endTime ?? DateTime.utc(9999);
+    return !existing.startTime.isAfter(mergedEnd) &&
+        !start.isAfter(existingEnd);
+  }
+
+  List<FrontingSession> _collectSameMemberMergeCandidates(
+    List<FrontingSession> existing,
+    FrontingSession drafted,
+  ) {
+    var mergedStart = drafted.startTime;
+    var mergedEnd = drafted.endTime;
+    if (mergedEnd == null) return const [];
+
+    final remaining = [...existing];
+    final mergeCandidates = <FrontingSession>[];
+
+    var madeProgress = true;
+    while (madeProgress) {
+      madeProgress = false;
+      for (var i = remaining.length - 1; i >= 0; i--) {
+        final session = remaining[i];
+        if (!_shouldMergeSameMember(session, mergedStart, mergedEnd)) continue;
+        remaining.removeAt(i);
+        mergeCandidates.add(session);
+        if (session.startTime.isBefore(mergedStart)) {
+          mergedStart = session.startTime;
+        }
+        final sessionEnd = session.endTime;
+        if (sessionEnd == null) {
+          mergedEnd = null;
+        } else if (mergedEnd == null || sessionEnd.isAfter(mergedEnd)) {
+          mergedEnd = sessionEnd;
+        }
+        madeProgress = true;
+      }
+    }
+
+    mergeCandidates.sort((a, b) => a.startTime.compareTo(b.startTime));
+    return mergeCandidates;
+  }
+
+  DateTime? _mergeEndTime(Iterable<FrontingSession> sessions) {
+    DateTime? latest;
+    for (final session in sessions) {
+      final end = session.endTime;
+      if (end == null) return null;
+      if (latest == null || end.isAfter(latest)) latest = end;
+    }
+    return latest;
+  }
+
+  String? _mergeNotes(Iterable<String?> notes) {
+    final nonEmpty = notes
+        .whereType<String>()
+        .map((note) => note.trim())
+        .where((note) => note.isNotEmpty)
+        .toList();
+    if (nonEmpty.isEmpty) return null;
+    return nonEmpty.join('\n\n');
+  }
+
+  FrontConfidence? _mergeConfidence(Iterable<FrontConfidence?> confidences) {
+    FrontConfidence? strongest;
+    for (final confidence in confidences) {
+      if (confidence == null) continue;
+      if (strongest == null || confidence.index > strongest.index) {
+        strongest = confidence;
+      }
+    }
+    return strongest;
   }
 }

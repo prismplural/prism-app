@@ -20,6 +20,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
+import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/mutations/mutation_result.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
@@ -204,6 +205,95 @@ void main() {
         expect(find.text('Bob'), findsWidgets);
       },
     );
+
+    testWidgets(
+      'editing a session does not collapse touching same-member rows into one session',
+      (tester) async {
+        final db = appdb.AppDatabase(NativeDatabase.memory());
+        final repo = DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+        );
+        final memberRepo = DriftMemberRepository(db.membersDao, null);
+
+        final alice = _member(id: 'alice', name: 'Alice');
+        await memberRepo.createMember(alice);
+
+        final first = FrontingSession(
+          id: 'touching-1',
+          startTime: DateTime(2026, 4, 28, 8),
+          endTime: DateTime(2026, 4, 28, 9),
+          memberId: 'alice',
+        );
+        final second = FrontingSession(
+          id: 'touching-2',
+          startTime: DateTime(2026, 4, 28, 9),
+          endTime: DateTime(2026, 4, 28, 10),
+          memberId: 'alice',
+        );
+        await repo.createSession(first);
+        await repo.createSession(second);
+
+        final container = ProviderContainer(
+          overrides: [
+            databaseProvider.overrideWithValue(db),
+            sessionByIdProvider(
+              first.id,
+            ).overrideWith((ref) => Stream.value(first)),
+            activeMembersProvider.overrideWith(
+              (ref) => Stream.value(<Member>[alice]),
+            ),
+            allGroupsProvider.overrideWith(
+              (ref) => Stream.value(const <MemberGroup>[]),
+            ),
+            allGroupEntriesProvider.overrideWith(
+              (ref) => Stream.value(const <MemberGroupEntry>[]),
+            ),
+            systemSettingsProvider.overrideWith(
+              (ref) => Stream.value(const SystemSettings()),
+            ),
+          ],
+        );
+
+        try {
+          await tester.pumpWidget(
+            UncontrolledProviderScope(
+              container: container,
+              child: MaterialApp(
+                localizationsDelegates: AppLocalizations.localizationsDelegates,
+                supportedLocales: const [Locale('en')],
+                home: Scaffold(
+                  body: EditFrontSessionScreen(sessionId: first.id),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          await tester.enterText(find.byType(TextField).last, 'edited note');
+          await tester.pumpAndSettle();
+          await tester.tap(find.byIcon(AppIcons.check));
+          await tester.pumpAndSettle();
+
+          final sessions = await repo.getAllSessions();
+          expect(sessions, hasLength(2));
+          expect(sessions.where((s) => s.id == 'touching-1'), hasLength(1));
+          expect(sessions.where((s) => s.id == 'touching-2'), hasLength(1));
+
+          final updated = await repo.getSessionById(first.id);
+          expect(updated, isNotNull);
+          expect(updated!.notes, 'edited note');
+          expect(updated.startTime, first.startTime);
+          expect(updated.endTime, first.endTime);
+        } finally {
+          await tester.pumpWidget(const SizedBox.shrink());
+          await tester.pump();
+          container.dispose();
+          await tester.pump();
+          await db.close();
+        }
+      },
+    );
   });
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -348,4 +438,3 @@ class _CapturingFrontingChangeExecutor extends FrontingChangeExecutor {
     return super.execute(changes);
   }
 }
-

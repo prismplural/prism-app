@@ -1878,6 +1878,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get frontingMenuLogFront => 'Log Front';
 
   @override
+  String get frontingMenuLogPastSession => 'Log Past Session';
+
+  @override
   String get frontingMenuNewPoll => 'New Poll';
 
   @override
@@ -1965,6 +1968,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get frontingNewSession => 'New Session';
+
+  @override
+  String get frontingSessionTime => 'Session Time';
+
+  @override
+  String get frontingSessionTimeStartNow => 'Start Now';
+
+  @override
+  String get frontingSessionTimePastSession => 'Past Session';
+
+  @override
+  String get frontingLogPastSession => 'Log Past Session';
 
   @override
   String get frontingAddCoFronterTitle => 'Add Co-Fronter';

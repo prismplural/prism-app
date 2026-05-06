@@ -148,6 +148,32 @@ class FrontingNotifier extends AsyncNotifier<void> {
     _invalidateDerivedHistory();
   }
 
+  /// Creates one closed historical row per member and merges any same-member
+  /// touching/overlapping rows into a single canonical session.
+  Future<void> logHistoricalFronting(
+    List<String> memberIds, {
+    required DateTime startTime,
+    required DateTime endTime,
+    FrontConfidence? confidence,
+    String? notes,
+  }) async {
+    final result = await _unwrapMutation(
+      ref
+          .read(frontingMutationServiceProvider)
+          .logHistoricalFronting(
+            memberIds,
+            startTime: startTime,
+            endTime: endTime,
+            confidence: confidence,
+            notes: notes,
+          ),
+    );
+    for (final session in result.sessions) {
+      _invalidateMemberStats(session.memberId);
+    }
+    _invalidateDerivedHistory();
+  }
+
   /// Atomically ends all currently-active normal fronts AND starts a session
   /// for each member in [memberIds] in one transaction.
   ///

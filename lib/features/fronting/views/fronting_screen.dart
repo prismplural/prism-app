@@ -79,9 +79,9 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
   /// can land after `initState` runs.
   void _maybeInitializeToggleFromPref() {
     if (_toggleInitialized) return;
-    final mode = ref.read(systemSettingsProvider).whenOrNull(
-          data: (s) => s.frontingListViewMode,
-        );
+    final mode = ref
+        .read(systemSettingsProvider)
+        .whenOrNull(data: (s) => s.frontingListViewMode);
     if (mode == null) return;
     _toggleInitialized = true;
     final shouldShowTimeline = mode == FrontingListViewMode.timeline;
@@ -403,6 +403,14 @@ class _AddButtonState extends ConsumerState<_AddButton> {
         },
       ),
       _MenuItem(
+        icon: AppIcons.history,
+        label: context.l10n.frontingMenuLogPastSession,
+        onTap: (close) {
+          close();
+          _openAddSessionSheet(context, initialHistorical: true);
+        },
+      ),
+      _MenuItem(
         icon: AppIcons.personAddOutlined,
         label: context.l10n.terminologyAddButton(terms.singular),
         onTap: (close) {
@@ -492,8 +500,11 @@ class _AddButtonState extends ConsumerState<_AddButton> {
     );
   }
 
-  void _openAddSessionSheet(BuildContext context) {
-    AddFrontSessionSheet.show(context);
+  void _openAddSessionSheet(
+    BuildContext context, {
+    bool initialHistorical = false,
+  }) {
+    AddFrontSessionSheet.show(context, initialHistorical: initialHistorical);
   }
 
   Future<void> _runPluralKitSync(BuildContext context, WidgetRef ref) async {
@@ -542,9 +553,9 @@ class _AddButtonState extends ConsumerState<_AddButton> {
 
     try {
       await ref.read(sleepNotifierProvider.notifier).endSleep(session.id);
-      await ref
-          .read(frontingNotifierProvider.notifier)
-          .startFronting([result.memberId]); // single-member start post-sleep
+      await ref.read(frontingNotifierProvider.notifier).startFronting([
+        result.memberId,
+      ]); // single-member start post-sleep
     } catch (e) {
       if (context.mounted) {
         PrismToast.error(
@@ -702,9 +713,7 @@ class FrontingBannerStack extends StatelessWidget {
         // Fronting per-member upgrade banner — only renders when
         // migration cleanup needs to be resumed. Auto-hidden after
         // migration completes via Riverpod state.
-        const FrontingUpgradeBanner(
-          padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
-        ),
+        const FrontingUpgradeBanner(padding: EdgeInsets.fromLTRB(16, 8, 16, 0)),
         _BedtimeReminderBanner(
           theme: theme,
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),

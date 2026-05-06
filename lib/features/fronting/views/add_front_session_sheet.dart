@@ -15,6 +15,7 @@ import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/utils/modal_insets.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
+import 'package:prism_plurality/shared/widgets/prism_datetime_pills.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
@@ -28,16 +29,26 @@ import 'package:prism_plurality/shared/widgets/selected_member_picker.dart';
 ///
 /// Opens via [PrismSheet.showFullScreen] for consistency with other modals.
 class AddFrontSessionSheet extends ConsumerStatefulWidget {
-  const AddFrontSessionSheet({super.key, required this.scrollController});
+  const AddFrontSessionSheet({
+    super.key,
+    required this.scrollController,
+    this.initialHistorical = false,
+  });
 
   final ScrollController scrollController;
+  final bool initialHistorical;
 
   /// Opens the sheet using the standard full-screen modal pattern.
-  static Future<bool?> show(BuildContext context) {
+  static Future<bool?> show(
+    BuildContext context, {
+    bool initialHistorical = false,
+  }) {
     return PrismSheet.showFullScreen<bool>(
       context: context,
-      builder: (context, scrollController) =>
-          AddFrontSessionSheet(scrollController: scrollController),
+      builder: (context, scrollController) => AddFrontSessionSheet(
+        scrollController: scrollController,
+        initialHistorical: initialHistorical,
+      ),
     );
   }
 
@@ -73,6 +84,9 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
   final _notesController = TextEditingController();
   final _notesFocus = FocusNode();
   final _notesKey = GlobalKey();
+  late DateTime _startTime;
+  DateTime? _endTime;
+  bool _isHistorical = false;
   bool _saving = false;
 
   /// Per-action override of the add-front behavior. Initialised from the
@@ -102,6 +116,14 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _isHistorical = widget.initialHistorical;
+    if (_isHistorical) {
+      _startTime = DateTime.now().subtract(const Duration(hours: 1));
+      _endTime = DateTime.now();
+    } else {
+      _startTime = DateTime.now();
+      _endTime = null;
+    }
   }
 
   @override
@@ -161,19 +183,37 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
           : _memberIds;
       final notes = trimmedNotes.isNotEmpty ? trimmedNotes : null;
 
-      switch (mode) {
-        case FrontStartBehavior.additive:
-          await notifier.startFronting(
-            ids,
-            confidence: _confidence,
-            notes: notes,
+      if (_isHistorical) {
+        final endTime = _endTime;
+        if (endTime == null || !endTime.isAfter(_startTime)) {
+          PrismToast.error(
+            context,
+            message: context.l10n.frontingEndTimeMustBeAfterStart,
           );
-        case FrontStartBehavior.replace:
-          await notifier.replaceFronting(
-            ids,
-            confidence: _confidence,
-            notes: notes,
-          );
+          return;
+        }
+        await notifier.logHistoricalFronting(
+          ids,
+          startTime: _startTime,
+          endTime: endTime,
+          confidence: _confidence,
+          notes: notes,
+        );
+      } else {
+        switch (mode) {
+          case FrontStartBehavior.additive:
+            await notifier.startFronting(
+              ids,
+              confidence: _confidence,
+              notes: notes,
+            );
+          case FrontStartBehavior.replace:
+            await notifier.replaceFronting(
+              ids,
+              confidence: _confidence,
+              notes: notes,
+            );
+        }
       }
       Haptics.success();
       if (mounted) Navigator.of(context).pop(true);
@@ -187,6 +227,22 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  void _enterHistoricalMode() {
+    setState(() {
+      _isHistorical = true;
+      _startTime = DateTime.now().subtract(const Duration(hours: 1));
+      _endTime = DateTime.now();
+    });
+  }
+
+  void _exitHistoricalMode() {
+    setState(() {
+      _isHistorical = false;
+      _startTime = DateTime.now();
+      _endTime = null;
+    });
   }
 
   @override
@@ -220,7 +276,9 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
         return Column(
           children: [
             PrismSheetTopBar(
-              title: context.l10n.frontingNewSession,
+              title: _isHistorical
+                  ? context.l10n.frontingLogPastSession
+                  : context.l10n.frontingNewSession,
               trailing: PrismGlassIconButton(
                 icon: AppIcons.check,
                 tooltip: context.l10n.frontingStartSessionTooltip,
@@ -239,25 +297,22 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
                   24 + modalBottomInsetOf(context),
                 ),
                 children: [
-                  // Per-action mode toggle (1B-δ): defaults from
-                  // `add_front_default_behavior`; the user's pick here
-                  // applies only to this submit and is NOT written back
-                  // to the persisted setting.
-                  PrismSegmentedControl<FrontStartBehavior>(
-                    key: const Key('addFrontModeSegmentedControl'),
-                    segments: [
-                      PrismSegment(
-                        value: FrontStartBehavior.additive,
-                        label: context.l10n.frontingAddFrontModeAdditive,
-                      ),
-                      PrismSegment(
-                        value: FrontStartBehavior.replace,
-                        label: context.l10n.frontingAddFrontModeReplace,
-                      ),
-                    ],
-                    selected: mode,
-                    onChanged: (m) => setState(() => _modeOverride = m),
-                  ),
+                  if (!_isHistorical)
+                    PrismSegmentedControl<FrontStartBehavior>(
+                      key: const Key('addFrontModeSegmentedControl'),
+                      segments: [
+                        PrismSegment(
+                          value: FrontStartBehavior.additive,
+                          label: context.l10n.frontingAddFrontModeAdditive,
+                        ),
+                        PrismSegment(
+                          value: FrontStartBehavior.replace,
+                          label: context.l10n.frontingAddFrontModeReplace,
+                        ),
+                      ],
+                      selected: mode,
+                      onChanged: (m) => setState(() => _modeOverride = m),
+                    ),
                   const SizedBox(height: 24),
                   // Section header — multi-select replaces primary + co-fronter.
                   // TODO(§2.5): Phase 3 — show "already fronting" members as
@@ -298,6 +353,54 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
                       },
                     ),
                   ),
+                  const SizedBox(height: 10),
+                  Text(
+                    context.l10n.frontingSessionTime,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  PrismSegmentedControl<bool>(
+                    key: const Key('sessionTimeSegmentedControl'),
+                    segments: [
+                      PrismSegment(
+                        value: false,
+                        label: context.l10n.frontingSessionTimeStartNow,
+                      ),
+                      PrismSegment(
+                        value: true,
+                        label: context.l10n.frontingSessionTimePastSession,
+                      ),
+                    ],
+                    selected: _isHistorical,
+                    onChanged: (isHistorical) {
+                      if (_saving) return;
+                      if (isHistorical) {
+                        _enterHistoricalMode();
+                      } else {
+                        _exitHistoricalMode();
+                      }
+                    },
+                  ),
+                  if (_isHistorical) ...[
+                    const SizedBox(height: 16),
+                    PrismDateTimePills(
+                      label: context.l10n.frontingStart,
+                      dateTime: _startTime,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime.now(),
+                      onChanged: (dt) => setState(() => _startTime = dt),
+                    ),
+                    const SizedBox(height: 16),
+                    PrismDateTimePills(
+                      label: context.l10n.frontingEnd,
+                      dateTime: _endTime ?? DateTime.now(),
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime.now(),
+                      onChanged: (dt) => setState(() => _endTime = dt),
+                    ),
+                  ],
                   const SizedBox(height: 24),
 
                   // Confidence level picker
@@ -315,11 +418,17 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
                   const SizedBox(height: 24),
 
                   // Notes
+                  Text(
+                    context.l10n.frontingNotes,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   PrismTextField(
                     key: _notesKey,
                     controller: _notesController,
                     focusNode: _notesFocus,
-                    labelText: context.l10n.frontingNotes,
                     hintText: context.l10n.frontingNotesHint,
                     maxLines: 6,
                     minLines: 3,
@@ -393,9 +502,9 @@ class _MemberGridState extends ConsumerState<_MemberGrid> {
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
-        mainAxisSpacing: 0,
-        crossAxisSpacing: 0,
-        childAspectRatio: 0.85,
+        mainAxisSpacing: 4,
+        crossAxisSpacing: 4,
+        childAspectRatio: 0.94,
       ),
       itemCount: totalCount,
       itemBuilder: (context, index) {
@@ -454,9 +563,9 @@ class _MemberGridState extends ConsumerState<_MemberGrid> {
               textAlign: TextAlign.center,
             ),
             if (isFronting) ...[
-              const SizedBox(height: 2),
+              const SizedBox(height: 1),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                 decoration: BoxDecoration(
                   color: AppColors.fronting(
                     theme.brightness,
@@ -527,7 +636,7 @@ class _MemberGridState extends ConsumerState<_MemberGrid> {
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 6),
             Text(
               'Unknown',
               style: theme.textTheme.labelMedium?.copyWith(

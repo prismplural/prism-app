@@ -3404,6 +3404,12 @@ abstract class AppLocalizations {
   /// **'Log Front'**
   String get frontingMenuLogFront;
 
+  /// Menu item to log a closed historical fronting session
+  ///
+  /// In en, this message translates to:
+  /// **'Log Past Session'**
+  String get frontingMenuLogPastSession;
+
   /// Menu item to create a new poll
   ///
   /// In en, this message translates to:
@@ -3535,6 +3541,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'New Session'**
   String get frontingNewSession;
+
+  /// Section header on the add-front sheet for choosing between a live session and a historical session
+  ///
+  /// In en, this message translates to:
+  /// **'Session Time'**
+  String get frontingSessionTime;
+
+  /// Segmented-control option on the add-front sheet for starting a session immediately
+  ///
+  /// In en, this message translates to:
+  /// **'Start Now'**
+  String get frontingSessionTimeStartNow;
+
+  /// Segmented-control option on the add-front sheet for logging a historical session
+  ///
+  /// In en, this message translates to:
+  /// **'Past Session'**
+  String get frontingSessionTimePastSession;
+
+  /// Sheet title and disclosure label for the historical fronting session flow
+  ///
+  /// In en, this message translates to:
+  /// **'Log Past Session'**
+  String get frontingLogPastSession;
 
   /// Sheet title when adding a co-fronter to the active session
   ///

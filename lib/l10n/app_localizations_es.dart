@@ -1928,6 +1928,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get frontingMenuLogFront => 'Registrar frente';
 
   @override
+  String get frontingMenuLogPastSession => 'Log Past Session';
+
+  @override
   String get frontingMenuNewPoll => 'Nueva encuesta';
 
   @override
@@ -2017,6 +2020,18 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get frontingNewSession => 'Nueva sesión';
+
+  @override
+  String get frontingSessionTime => 'Tiempo de la sesión';
+
+  @override
+  String get frontingSessionTimeStartNow => 'Empezar ahora';
+
+  @override
+  String get frontingSessionTimePastSession => 'Sesión pasada';
+
+  @override
+  String get frontingLogPastSession => 'Log Past Session';
 
   @override
   String get frontingAddCoFronterTitle => 'Agregar al co-frente';
