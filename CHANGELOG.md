@@ -2,11 +2,49 @@
 
 All notable changes to Prism will be documented in this file.
 
-## [Unreleased]
+## [0.7.6] - 2026-05-06
+
+### Added
+- Log a past fronting session — new flow with inline start/end timing on the Fronting tab.
+- Auto-promote always-present members as co-fronters on new sessions (Settings → Features → Fronting).
+
+### Changed
+- Poll and group-description editors now use the markdown editor (formatting markers dim while typing).
+- Disabled feature routes (chat, polls, habits, notes, reminders) redirect to home, matching sleep/boards.
+- Refined fronting delete dialog wording.
 
 ### Fixed
-- Sync now preserves fronting replacement order across devices whose clocks differ slightly. A replacement front no longer reopens the prior fronter as a co-fronter on the peer device.
-- Sync reconnects now trigger an immediate catch-up pass, so a device that missed live change notifications while disconnected catches up without waiting for a later local edit.
+- @ mentions in group chats now list every active member, not just stored participants. DMs still filter to participants.
+- Chat mention picker and rendering reliability.
+- Dark-mode styling for markdown task-list checkboxes.
+- PluralKit member-link and import identity edge cases.
+- Simply Plural migration parity gaps in the API client, parser, and mapper.
+
+### Security
+- Markdown image URLs in chat no longer fetch remotely (was an IP-leak vector).
+- Unsafe-scheme links in longform markdown render as plain text instead of looking tappable.
+
+## [0.7.5] - 2026-05-05
+
+### Changed
+- Replaced the native image cropper with a Flutter-side cropper to fix crashes in the platform plugin (build 7502).
+
+### Fixed
+- Fronting migration no longer drops orphaned sessions from older imports — they route to the Unknown sentinel.
+- Simply Plural chat import no longer overwrites earlier pages of long histories.
+- Material You fallback normalized on non-Android devices with sync enabled.
+- Sync preserves fronting replacement order across devices with slight clock drift.
+- Sync reconnects trigger an immediate catch-up pass instead of waiting for a later local edit.
+
+## [0.7.4] - 2026-05-04
+
+### Added
+- Markdown in custom fields, plus a new Long Text custom field type.
+
+### Fixed
+- Fresh-install pairing hang.
+- Avatars no longer re-encode on every member save (caused gradual quality loss).
+- Unread badges no longer show on DMs you aren't part of.
 
 ## [0.7.3] - 2026-05-03
 
