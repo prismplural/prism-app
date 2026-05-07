@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -19,14 +21,18 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 
 /// Inline editor for custom field values on the member edit sheet.
 class CustomFieldsEditor extends ConsumerWidget {
-  const CustomFieldsEditor({super.key, required this.memberId});
+  const CustomFieldsEditor({
+    super.key,
+    required this.memberId,
+    this.controller,
+  });
 
   final String memberId;
+  final CustomFieldsEditorController? controller;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final fieldsAsync = ref.watch(customFieldsProvider);
-    final valuesAsync = ref.watch(memberCustomFieldValuesProvider(memberId));
 
     return fieldsAsync.when(
       loading: () => const SizedBox.shrink(),
@@ -34,6 +40,9 @@ class CustomFieldsEditor extends ConsumerWidget {
       data: (fields) {
         if (fields.isEmpty) return const SizedBox.shrink();
 
+        final valuesAsync = ref.watch(
+          memberCustomFieldValuesProvider(memberId),
+        );
         return valuesAsync.when(
           loading: () => const SizedBox.shrink(),
           error: (_, _) => const SizedBox.shrink(),
@@ -83,6 +92,7 @@ class CustomFieldsEditor extends ConsumerWidget {
             field: field,
             memberId: memberId,
             existingValue: valueMap[field.id],
+            controller: controller,
           ),
           const SizedBox(height: 12),
         ],
@@ -91,16 +101,36 @@ class CustomFieldsEditor extends ConsumerWidget {
   }
 }
 
+class CustomFieldsEditorController {
+  final Set<_FieldInputState> _inputs = {};
+
+  Future<void> savePendingValues() async {
+    for (final input in List<_FieldInputState>.of(_inputs)) {
+      await input.savePendingValue();
+    }
+  }
+
+  void _register(_FieldInputState input) {
+    _inputs.add(input);
+  }
+
+  void _unregister(_FieldInputState input) {
+    _inputs.remove(input);
+  }
+}
+
 class _FieldInput extends ConsumerStatefulWidget {
   const _FieldInput({
     required this.field,
     required this.memberId,
     this.existingValue,
+    this.controller,
   });
 
   final CustomField field;
   final String memberId;
   final CustomFieldValue? existingValue;
+  final CustomFieldsEditorController? controller;
 
   @override
   ConsumerState<_FieldInput> createState() => _FieldInputState();
@@ -108,6 +138,7 @@ class _FieldInput extends ConsumerStatefulWidget {
 
 class _FieldInputState extends ConsumerState<_FieldInput> {
   late final TextEditingController _textController;
+  late final FocusNode _focusNode;
   late final CustomFieldValueNotifier _valueNotifier;
   late String _lastSavedValue;
 
@@ -115,6 +146,8 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
   void initState() {
     super.initState();
     _valueNotifier = ref.read(customFieldValueNotifierProvider.notifier);
+    _focusNode = FocusNode();
+    widget.controller?._register(this);
     final initialValue = widget.existingValue?.value ?? '';
     _lastSavedValue = initialValue;
     _textController = switch (widget.field.fieldType) {
@@ -133,6 +166,7 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
       _lastSavedValue = newVal;
     }
     if (oldWidget.existingValue?.value != newVal &&
+        !_focusNode.hasFocus &&
         _textController.text != newVal) {
       _textController.text = newVal;
     }
@@ -140,34 +174,36 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
 
   @override
   void dispose() {
-    _savePendingValue();
+    widget.controller?._unregister(this);
+    unawaited(savePendingValue());
+    _focusNode.dispose();
     _textController.dispose();
     super.dispose();
   }
 
-  void _savePendingValue() {
+  Future<void> savePendingValue() async {
     switch (widget.field.fieldType) {
       case CustomFieldType.text:
       case CustomFieldType.longText:
       case CustomFieldType.color:
-        _saveValue(_textController.text.trim());
+        await _saveValue(_textController.text.trim());
       case CustomFieldType.date:
         break;
     }
   }
 
-  void _saveValue(String value) {
+  Future<void> _saveValue(String value) async {
     if (value == _lastSavedValue) return;
 
     if (value.isEmpty && widget.existingValue != null) {
       _lastSavedValue = '';
-      _valueNotifier.deleteValue(widget.existingValue!.id);
+      await _valueNotifier.deleteValue(widget.existingValue!.id);
       return;
     }
     if (value.isEmpty) return;
 
     _lastSavedValue = value;
-    _valueNotifier.setValue(
+    await _valueNotifier.setValue(
       customFieldId: widget.field.id,
       memberId: widget.memberId,
       value: value,
@@ -196,16 +232,17 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
     final l10n = context.l10n;
     return Focus(
       onFocusChange: (hasFocus) {
-        if (!hasFocus) _savePendingValue();
+        if (!hasFocus) unawaited(savePendingValue());
       },
       child: PrismTextField(
+        focusNode: _focusNode,
         controller: _textController,
         labelText: widget.field.name,
         hintText: l10n.memberCustomFieldEnterHint(
           widget.field.name.toLowerCase(),
         ),
         onChanged: (_) {},
-        onSubmitted: _saveValue,
+        onSubmitted: (value) => unawaited(_saveValue(value)),
       ),
     );
   }
@@ -237,9 +274,10 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
         const SizedBox(height: 4),
         Focus(
           onFocusChange: (hasFocus) {
-            if (!hasFocus) _savePendingValue();
+            if (!hasFocus) unawaited(savePendingValue());
           },
           child: PrismTextField(
+            focusNode: _focusNode,
             controller: _textController,
             hintText: l10n.memberCustomFieldEnterHint(
               widget.field.name.toLowerCase(),
@@ -267,7 +305,7 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
     if (result == null || !mounted) return;
 
     setState(() => _textController.text = result);
-    _saveValue(result);
+    await _saveValue(result);
   }
 
   Widget _buildColorInput(BuildContext context) {
@@ -282,14 +320,15 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
 
     return Focus(
       onFocusChange: (hasFocus) {
-        if (!hasFocus) _savePendingValue();
+        if (!hasFocus) unawaited(savePendingValue());
       },
       child: PrismTextField(
+        focusNode: _focusNode,
         controller: _textController,
         labelText: widget.field.name,
         hintText: '#AF8EE9',
         onChanged: (val) => setState(() {}),
-        onSubmitted: _saveValue,
+        onSubmitted: (value) => unawaited(_saveValue(value)),
         suffix: previewColor != null
             ? Padding(
                 padding: const EdgeInsets.only(right: 8),
@@ -342,9 +381,11 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
                     onPressed: () {
                       _textController.text = '';
                       if (widget.existingValue != null) {
-                        ref
-                            .read(customFieldValueNotifierProvider.notifier)
-                            .deleteValue(widget.existingValue!.id);
+                        unawaited(
+                          ref
+                              .read(customFieldValueNotifierProvider.notifier)
+                              .deleteValue(widget.existingValue!.id),
+                        );
                       }
                       setState(() {});
                     },
@@ -421,7 +462,7 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
         );
         if (picked != null && mounted) {
           _textController.text = picked.toIso8601String();
-          _saveValue(_textController.text);
+          await _saveValue(_textController.text);
           setState(() {});
         }
 
@@ -435,7 +476,7 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
         );
         if (picked != null && mounted) {
           _textController.text = picked.toIso8601String();
-          _saveValue(_textController.text);
+          await _saveValue(_textController.text);
           setState(() {});
         }
 
@@ -450,7 +491,7 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
         );
         if (picked != null && mounted) {
           _textController.text = picked.toIso8601String();
-          _saveValue(_textController.text);
+          await _saveValue(_textController.text);
           setState(() {});
         }
 
@@ -478,7 +519,7 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
           time.minute,
         );
         _textController.text = combined.toIso8601String();
-        _saveValue(_textController.text);
+        await _saveValue(_textController.text);
         setState(() {});
     }
   }
