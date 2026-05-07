@@ -75,8 +75,9 @@ class _AnimatedQuickFrontRow extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final slotWidth = constraints.maxWidth / 4;
+        final ringSize = slotWidth < _kRingSize ? slotWidth : _kRingSize;
         return SizedBox(
-          height: _kRingSize + 28, // ring + label
+          height: _kRingSize + _kQuickFrontLabelHeight,
           child: Stack(
             children: [
               for (int i = 0; i < members.length; i++)
@@ -84,13 +85,14 @@ class _AnimatedQuickFrontRow extends StatelessWidget {
                   key: ValueKey(members[i].id),
                   duration: Anim.md,
                   curve: Anim.standard,
-                  left: i * slotWidth + (slotWidth - _kRingSize) / 2,
+                  left: i * slotWidth,
                   top: 0,
                   child: SizedBox(
-                    width: _kRingSize,
+                    width: slotWidth,
                     child: _QuickFrontButton(
                       member: members[i],
                       isFronting: frontingIds.contains(members[i].id),
+                      ringSize: ringSize,
                     ),
                   ),
                 ),
@@ -104,6 +106,8 @@ class _AnimatedQuickFrontRow extends StatelessWidget {
 
 const _kAvatarSize = 62.0;
 const _kRingSize = 76.0;
+const _kAvatarRingInset = _kRingSize - _kAvatarSize;
+const _kQuickFrontLabelHeight = 44.0;
 const _kRingWidth = 3.5;
 const _kHoldDuration = Duration(milliseconds: 800);
 
@@ -114,10 +118,15 @@ const _kHoldDuration = Duration(milliseconds: 800);
 /// Other members' sessions are affected only when the user's quick-front
 /// preference is `replace`.
 class _QuickFrontButton extends ConsumerStatefulWidget {
-  const _QuickFrontButton({required this.member, required this.isFronting});
+  const _QuickFrontButton({
+    required this.member,
+    required this.isFronting,
+    required this.ringSize,
+  });
 
   final Member member;
   final bool isFronting;
+  final double ringSize;
 
   @override
   ConsumerState<_QuickFrontButton> createState() => _QuickFrontButtonState();
@@ -202,6 +211,8 @@ class _QuickFrontButtonState extends ConsumerState<_QuickFrontButton>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final member = widget.member;
+    final ringSize = widget.ringSize;
+    final avatarSize = (ringSize - _kAvatarRingInset).clamp(0.0, ringSize);
     final accentColor =
         member.customColorEnabled && member.customColorHex != null
         ? AppColors.fromHex(member.customColorHex!)
@@ -234,19 +245,19 @@ class _QuickFrontButtonState extends ConsumerState<_QuickFrontButton>
             mainAxisSize: MainAxisSize.min,
             children: [
               SizedBox(
-                width: _kRingSize,
-                height: _kRingSize,
+                width: ringSize,
+                height: ringSize,
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
                     // Static ring for active fronter
                     if (widget.isFronting)
                       Container(
-                        width: _kRingSize,
-                        height: _kRingSize,
+                        width: ringSize,
+                        height: ringSize,
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(
-                            PrismShapes.of(context).radius(_kRingSize / 2),
+                            PrismShapes.of(context).radius(ringSize / 2),
                           ),
                           border: Border.all(
                             color: accentColor,
@@ -262,14 +273,14 @@ class _QuickFrontButtonState extends ConsumerState<_QuickFrontButton>
                             return const SizedBox.shrink();
                           }
                           return CustomPaint(
-                            size: const Size(_kRingSize, _kRingSize),
+                            size: Size(ringSize, ringSize),
                             painter: _ProgressRingPainter(
                               progress: _controller.value,
                               color: accentColor,
                               strokeWidth: _kRingWidth,
                               cornerRadius: PrismShapes.of(
                                 context,
-                              ).radius(_kRingSize / 2),
+                              ).radius(ringSize / 2),
                             ),
                           );
                         },
@@ -281,7 +292,7 @@ class _QuickFrontButtonState extends ConsumerState<_QuickFrontButton>
                       emoji: member.emoji,
                       customColorEnabled: member.customColorEnabled,
                       customColorHex: member.customColorHex,
-                      size: _kAvatarSize,
+                      size: avatarSize,
                     ),
                   ],
                 ),
@@ -294,7 +305,7 @@ class _QuickFrontButtonState extends ConsumerState<_QuickFrontButton>
                       ? FontWeight.bold
                       : FontWeight.normal,
                 ),
-                maxLines: 1,
+                maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
               ),

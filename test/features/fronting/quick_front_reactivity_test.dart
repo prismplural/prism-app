@@ -12,6 +12,7 @@ import 'package:prism_plurality/features/fronting/widgets/quick_front_section.da
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 
 class _FakeFrontingNotifier extends FrontingNotifier {
   /// Member ids passed to [startFronting]. Named "switches" because the
@@ -71,6 +72,7 @@ Widget _harness({
   required Map<String, int> counts,
   _FakeFrontingNotifier? notifier,
   FrontStartBehavior quickFrontDefaultBehavior = FrontStartBehavior.additive,
+  double width = 400,
 }) {
   return ProviderScope(
     overrides: [
@@ -85,10 +87,12 @@ Widget _harness({
       if (notifier != null)
         frontingNotifierProvider.overrideWith(() => notifier),
     ],
-    child: const MaterialApp(
+    child: MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: [Locale('en')],
-      home: Scaffold(body: SizedBox(width: 400, child: QuickFrontSection())),
+      supportedLocales: const [Locale('en')],
+      home: Scaffold(
+        body: SizedBox(width: width, child: const QuickFrontSection()),
+      ),
     ),
   );
 }
@@ -148,6 +152,65 @@ void main() {
       );
     },
   );
+
+  testWidgets('quick front member names can wrap to two lines', (tester) async {
+    final longName = 'Alexandria North Harbor';
+    final members = [_m('a', longName), _m('b', 'Bea')];
+    final controller = StreamController<List<FrontingSession>>.broadcast();
+    addTearDown(controller.close);
+    controller.onListen = () => controller.add([_activeSession('a')]);
+
+    await tester.pumpWidget(
+      _harness(
+        members: members,
+        sessionsStream: controller.stream,
+        counts: {'a': 50, 'b': 30},
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final nameText = tester.widget<Text>(find.text(longName));
+    expect(nameText.maxLines, 2);
+    expect(
+      tester.getSize(find.byWidget(nameText).hitTestable().first).width,
+      100,
+    );
+    expect(
+      tester.widget<MemberAvatar>(find.byType(MemberAvatar).first).size,
+      62,
+    );
+  });
+
+  testWidgets('quick front shrinks circles to fit narrow screens', (
+    tester,
+  ) async {
+    final longName = 'Alexandria North Harbor';
+    final members = [_m('a', longName), _m('b', 'Bea')];
+    final controller = StreamController<List<FrontingSession>>.broadcast();
+    addTearDown(controller.close);
+    controller.onListen = () => controller.add([_activeSession('a')]);
+
+    await tester.pumpWidget(
+      _harness(
+        members: members,
+        sessionsStream: controller.stream,
+        counts: {'a': 50, 'b': 30},
+        width: 288,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final nameText = tester.widget<Text>(find.text(longName));
+    expect(nameText.maxLines, 2);
+    expect(
+      tester.getSize(find.byWidget(nameText).hitTestable().first).width,
+      72,
+    );
+    expect(
+      tester.widget<MemberAvatar>(find.byType(MemberAvatar).first).size,
+      58,
+    );
+  });
 
   testWidgets(
     'regression: hold-to-front does not leave a phantom progress ring on the '
