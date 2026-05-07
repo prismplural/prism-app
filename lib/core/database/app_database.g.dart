@@ -5668,6 +5668,33 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         requiredDuringInsert: false,
         defaultValue: const Constant(0),
       );
+  static const VerificationMeta _membersShowFrontButtonsMeta =
+      const VerificationMeta('membersShowFrontButtons');
+  @override
+  late final GeneratedColumn<bool> membersShowFrontButtons =
+      GeneratedColumn<bool>(
+        'members_show_front_buttons',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("members_show_front_buttons" IN (0, 1))',
+        ),
+        defaultValue: const Constant(false),
+      );
+  static const VerificationMeta _membersFrontButtonBehaviorMeta =
+      const VerificationMeta('membersFrontButtonBehavior');
+  @override
+  late final GeneratedColumn<int> membersFrontButtonBehavior =
+      GeneratedColumn<int>(
+        'members_front_button_behavior',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(0),
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -5737,6 +5764,8 @@ class $SystemSettingsTableTable extends SystemSettingsTable
     membersListViewMode,
     membersGroupedDefaultState,
     membersFolderMemberVisibility,
+    membersShowFrontButtons,
+    membersFrontButtonBehavior,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -6320,6 +6349,24 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         ),
       );
     }
+    if (data.containsKey('members_show_front_buttons')) {
+      context.handle(
+        _membersShowFrontButtonsMeta,
+        membersShowFrontButtons.isAcceptableOrUnknown(
+          data['members_show_front_buttons']!,
+          _membersShowFrontButtonsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('members_front_button_behavior')) {
+      context.handle(
+        _membersFrontButtonBehaviorMeta,
+        membersFrontButtonBehavior.isAcceptableOrUnknown(
+          data['members_front_button_behavior']!,
+          _membersFrontButtonBehaviorMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -6597,6 +6644,14 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         DriftSqlType.int,
         data['${effectivePrefix}members_folder_member_visibility'],
       )!,
+      membersShowFrontButtons: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}members_show_front_buttons'],
+      )!,
+      membersFrontButtonBehavior: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}members_front_button_behavior'],
+      )!,
     );
   }
 
@@ -6696,6 +6751,13 @@ class SystemSettingsData extends DataClass
   /// `MembersFolderMemberVisibility` index.
   /// 0 = allMembers (default), 1 = ungroupedOnly.
   final int membersFolderMemberVisibility;
+
+  /// Whether visible member rows show direct front action buttons.
+  final bool membersShowFrontButtons;
+
+  /// `FrontStartBehavior` index for member row front action buttons.
+  /// 0 = additive (default), 1 = replace.
+  final int membersFrontButtonBehavior;
   const SystemSettingsData({
     required this.id,
     this.systemName,
@@ -6764,6 +6826,8 @@ class SystemSettingsData extends DataClass
     required this.membersListViewMode,
     required this.membersGroupedDefaultState,
     required this.membersFolderMemberVisibility,
+    required this.membersShowFrontButtons,
+    required this.membersFrontButtonBehavior,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -6879,6 +6943,10 @@ class SystemSettingsData extends DataClass
     map['members_folder_member_visibility'] = Variable<int>(
       membersFolderMemberVisibility,
     );
+    map['members_show_front_buttons'] = Variable<bool>(membersShowFrontButtons);
+    map['members_front_button_behavior'] = Variable<int>(
+      membersFrontButtonBehavior,
+    );
     return map;
   }
 
@@ -6975,6 +7043,8 @@ class SystemSettingsData extends DataClass
       membersListViewMode: Value(membersListViewMode),
       membersGroupedDefaultState: Value(membersGroupedDefaultState),
       membersFolderMemberVisibility: Value(membersFolderMemberVisibility),
+      membersShowFrontButtons: Value(membersShowFrontButtons),
+      membersFrontButtonBehavior: Value(membersFrontButtonBehavior),
     );
   }
 
@@ -7121,6 +7191,12 @@ class SystemSettingsData extends DataClass
       membersFolderMemberVisibility: serializer.fromJson<int>(
         json['membersFolderMemberVisibility'],
       ),
+      membersShowFrontButtons: serializer.fromJson<bool>(
+        json['membersShowFrontButtons'],
+      ),
+      membersFrontButtonBehavior: serializer.fromJson<int>(
+        json['membersFrontButtonBehavior'],
+      ),
     );
   }
   @override
@@ -7222,6 +7298,12 @@ class SystemSettingsData extends DataClass
       'membersFolderMemberVisibility': serializer.toJson<int>(
         membersFolderMemberVisibility,
       ),
+      'membersShowFrontButtons': serializer.toJson<bool>(
+        membersShowFrontButtons,
+      ),
+      'membersFrontButtonBehavior': serializer.toJson<int>(
+        membersFrontButtonBehavior,
+      ),
     };
   }
 
@@ -7293,6 +7375,8 @@ class SystemSettingsData extends DataClass
     int? membersListViewMode,
     int? membersGroupedDefaultState,
     int? membersFolderMemberVisibility,
+    bool? membersShowFrontButtons,
+    int? membersFrontButtonBehavior,
   }) => SystemSettingsData(
     id: id ?? this.id,
     systemName: systemName.present ? systemName.value : this.systemName,
@@ -7390,6 +7474,10 @@ class SystemSettingsData extends DataClass
         membersGroupedDefaultState ?? this.membersGroupedDefaultState,
     membersFolderMemberVisibility:
         membersFolderMemberVisibility ?? this.membersFolderMemberVisibility,
+    membersShowFrontButtons:
+        membersShowFrontButtons ?? this.membersShowFrontButtons,
+    membersFrontButtonBehavior:
+        membersFrontButtonBehavior ?? this.membersFrontButtonBehavior,
   );
   SystemSettingsData copyWithCompanion(SystemSettingsTableCompanion data) {
     return SystemSettingsData(
@@ -7585,6 +7673,12 @@ class SystemSettingsData extends DataClass
       membersFolderMemberVisibility: data.membersFolderMemberVisibility.present
           ? data.membersFolderMemberVisibility.value
           : this.membersFolderMemberVisibility,
+      membersShowFrontButtons: data.membersShowFrontButtons.present
+          ? data.membersShowFrontButtons.value
+          : this.membersShowFrontButtons,
+      membersFrontButtonBehavior: data.membersFrontButtonBehavior.present
+          ? data.membersFrontButtonBehavior.value
+          : this.membersFrontButtonBehavior,
     );
   }
 
@@ -7666,8 +7760,10 @@ class SystemSettingsData extends DataClass
           ..write('membersListViewMode: $membersListViewMode, ')
           ..write('membersGroupedDefaultState: $membersGroupedDefaultState, ')
           ..write(
-            'membersFolderMemberVisibility: $membersFolderMemberVisibility',
+            'membersFolderMemberVisibility: $membersFolderMemberVisibility, ',
           )
+          ..write('membersShowFrontButtons: $membersShowFrontButtons, ')
+          ..write('membersFrontButtonBehavior: $membersFrontButtonBehavior')
           ..write(')'))
         .toString();
   }
@@ -7741,6 +7837,8 @@ class SystemSettingsData extends DataClass
     membersListViewMode,
     membersGroupedDefaultState,
     membersFolderMemberVisibility,
+    membersShowFrontButtons,
+    membersFrontButtonBehavior,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -7821,7 +7919,9 @@ class SystemSettingsData extends DataClass
           other.membersListViewMode == this.membersListViewMode &&
           other.membersGroupedDefaultState == this.membersGroupedDefaultState &&
           other.membersFolderMemberVisibility ==
-              this.membersFolderMemberVisibility);
+              this.membersFolderMemberVisibility &&
+          other.membersShowFrontButtons == this.membersShowFrontButtons &&
+          other.membersFrontButtonBehavior == this.membersFrontButtonBehavior);
 }
 
 class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
@@ -7892,6 +7992,8 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
   final Value<int> membersListViewMode;
   final Value<int> membersGroupedDefaultState;
   final Value<int> membersFolderMemberVisibility;
+  final Value<bool> membersShowFrontButtons;
+  final Value<int> membersFrontButtonBehavior;
   final Value<int> rowid;
   const SystemSettingsTableCompanion({
     this.id = const Value.absent(),
@@ -7961,6 +8063,8 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.membersListViewMode = const Value.absent(),
     this.membersGroupedDefaultState = const Value.absent(),
     this.membersFolderMemberVisibility = const Value.absent(),
+    this.membersShowFrontButtons = const Value.absent(),
+    this.membersFrontButtonBehavior = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   SystemSettingsTableCompanion.insert({
@@ -8031,6 +8135,8 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.membersListViewMode = const Value.absent(),
     this.membersGroupedDefaultState = const Value.absent(),
     this.membersFolderMemberVisibility = const Value.absent(),
+    this.membersShowFrontButtons = const Value.absent(),
+    this.membersFrontButtonBehavior = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   static Insertable<SystemSettingsData> custom({
@@ -8101,6 +8207,8 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Expression<int>? membersListViewMode,
     Expression<int>? membersGroupedDefaultState,
     Expression<int>? membersFolderMemberVisibility,
+    Expression<bool>? membersShowFrontButtons,
+    Expression<int>? membersFrontButtonBehavior,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -8205,6 +8313,10 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
         'members_grouped_default_state': membersGroupedDefaultState,
       if (membersFolderMemberVisibility != null)
         'members_folder_member_visibility': membersFolderMemberVisibility,
+      if (membersShowFrontButtons != null)
+        'members_show_front_buttons': membersShowFrontButtons,
+      if (membersFrontButtonBehavior != null)
+        'members_front_button_behavior': membersFrontButtonBehavior,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -8277,6 +8389,8 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Value<int>? membersListViewMode,
     Value<int>? membersGroupedDefaultState,
     Value<int>? membersFolderMemberVisibility,
+    Value<bool>? membersShowFrontButtons,
+    Value<int>? membersFrontButtonBehavior,
     Value<int>? rowid,
   }) {
     return SystemSettingsTableCompanion(
@@ -8370,6 +8484,10 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
           membersGroupedDefaultState ?? this.membersGroupedDefaultState,
       membersFolderMemberVisibility:
           membersFolderMemberVisibility ?? this.membersFolderMemberVisibility,
+      membersShowFrontButtons:
+          membersShowFrontButtons ?? this.membersShowFrontButtons,
+      membersFrontButtonBehavior:
+          membersFrontButtonBehavior ?? this.membersFrontButtonBehavior,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -8638,6 +8756,16 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
         membersFolderMemberVisibility.value,
       );
     }
+    if (membersShowFrontButtons.present) {
+      map['members_show_front_buttons'] = Variable<bool>(
+        membersShowFrontButtons.value,
+      );
+    }
+    if (membersFrontButtonBehavior.present) {
+      map['members_front_button_behavior'] = Variable<int>(
+        membersFrontButtonBehavior.value,
+      );
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -8724,6 +8852,8 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
           ..write(
             'membersFolderMemberVisibility: $membersFolderMemberVisibility, ',
           )
+          ..write('membersShowFrontButtons: $membersShowFrontButtons, ')
+          ..write('membersFrontButtonBehavior: $membersFrontButtonBehavior, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -26091,6 +26221,8 @@ typedef $$SystemSettingsTableTableCreateCompanionBuilder =
       Value<int> membersListViewMode,
       Value<int> membersGroupedDefaultState,
       Value<int> membersFolderMemberVisibility,
+      Value<bool> membersShowFrontButtons,
+      Value<int> membersFrontButtonBehavior,
       Value<int> rowid,
     });
 typedef $$SystemSettingsTableTableUpdateCompanionBuilder =
@@ -26162,6 +26294,8 @@ typedef $$SystemSettingsTableTableUpdateCompanionBuilder =
       Value<int> membersListViewMode,
       Value<int> membersGroupedDefaultState,
       Value<int> membersFolderMemberVisibility,
+      Value<bool> membersShowFrontButtons,
+      Value<int> membersFrontButtonBehavior,
       Value<int> rowid,
     });
 
@@ -26507,6 +26641,16 @@ class $$SystemSettingsTableTableFilterComposer
 
   ColumnFilters<int> get membersFolderMemberVisibility => $composableBuilder(
     column: $table.membersFolderMemberVisibility,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get membersShowFrontButtons => $composableBuilder(
+    column: $table.membersShowFrontButtons,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get membersFrontButtonBehavior => $composableBuilder(
+    column: $table.membersFrontButtonBehavior,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -26858,6 +27002,16 @@ class $$SystemSettingsTableTableOrderingComposer
     column: $table.membersFolderMemberVisibility,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get membersShowFrontButtons => $composableBuilder(
+    column: $table.membersShowFrontButtons,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get membersFrontButtonBehavior => $composableBuilder(
+    column: $table.membersFrontButtonBehavior,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$SystemSettingsTableTableAnnotationComposer
@@ -27195,6 +27349,16 @@ class $$SystemSettingsTableTableAnnotationComposer
     column: $table.membersFolderMemberVisibility,
     builder: (column) => column,
   );
+
+  GeneratedColumn<bool> get membersShowFrontButtons => $composableBuilder(
+    column: $table.membersShowFrontButtons,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get membersFrontButtonBehavior => $composableBuilder(
+    column: $table.membersFrontButtonBehavior,
+    builder: (column) => column,
+  );
 }
 
 class $$SystemSettingsTableTableTableManager
@@ -27311,6 +27475,8 @@ class $$SystemSettingsTableTableTableManager
                 Value<int> membersListViewMode = const Value.absent(),
                 Value<int> membersGroupedDefaultState = const Value.absent(),
                 Value<int> membersFolderMemberVisibility = const Value.absent(),
+                Value<bool> membersShowFrontButtons = const Value.absent(),
+                Value<int> membersFrontButtonBehavior = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SystemSettingsTableCompanion(
                 id: id,
@@ -27383,6 +27549,8 @@ class $$SystemSettingsTableTableTableManager
                 membersListViewMode: membersListViewMode,
                 membersGroupedDefaultState: membersGroupedDefaultState,
                 membersFolderMemberVisibility: membersFolderMemberVisibility,
+                membersShowFrontButtons: membersShowFrontButtons,
+                membersFrontButtonBehavior: membersFrontButtonBehavior,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -27458,6 +27626,8 @@ class $$SystemSettingsTableTableTableManager
                 Value<int> membersListViewMode = const Value.absent(),
                 Value<int> membersGroupedDefaultState = const Value.absent(),
                 Value<int> membersFolderMemberVisibility = const Value.absent(),
+                Value<bool> membersShowFrontButtons = const Value.absent(),
+                Value<int> membersFrontButtonBehavior = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SystemSettingsTableCompanion.insert(
                 id: id,
@@ -27530,6 +27700,8 @@ class $$SystemSettingsTableTableTableManager
                 membersListViewMode: membersListViewMode,
                 membersGroupedDefaultState: membersGroupedDefaultState,
                 membersFolderMemberVisibility: membersFolderMemberVisibility,
+                membersShowFrontButtons: membersShowFrontButtons,
+                membersFrontButtonBehavior: membersFrontButtonBehavior,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

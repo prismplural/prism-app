@@ -18,6 +18,8 @@ void main() {
     int membersListViewMode = 0,
     int membersGroupedDefaultState = 0,
     int membersFolderMemberVisibility = 0,
+    bool membersShowFrontButtons = false,
+    int membersFrontButtonBehavior = 0,
   }) {
     return SystemSettingsData(
       id: 'singleton',
@@ -86,6 +88,8 @@ void main() {
       membersListViewMode: membersListViewMode,
       membersGroupedDefaultState: membersGroupedDefaultState,
       membersFolderMemberVisibility: membersFolderMemberVisibility,
+      membersShowFrontButtons: membersShowFrontButtons,
+      membersFrontButtonBehavior: membersFrontButtonBehavior,
     );
   }
 
@@ -314,6 +318,8 @@ void main() {
         settings.membersFolderMemberVisibility,
         MembersFolderMemberVisibility.allMembers,
       );
+      expect(settings.membersShowFrontButtons, isFalse);
+      expect(settings.membersFrontButtonBehavior, FrontStartBehavior.additive);
     });
 
     test('stored enum indices map to domain values', () {
@@ -322,6 +328,8 @@ void main() {
           membersListViewMode: 1,
           membersGroupedDefaultState: 1,
           membersFolderMemberVisibility: 1,
+          membersShowFrontButtons: true,
+          membersFrontButtonBehavior: 1,
         ),
       );
 
@@ -334,6 +342,8 @@ void main() {
         settings.membersFolderMemberVisibility,
         MembersFolderMemberVisibility.ungroupedOnly,
       );
+      expect(settings.membersShowFrontButtons, isTrue);
+      expect(settings.membersFrontButtonBehavior, FrontStartBehavior.replace);
     });
 
     test('invalid stored indices fall back to defaults', () {
@@ -342,6 +352,7 @@ void main() {
           membersListViewMode: 99,
           membersGroupedDefaultState: -1,
           membersFolderMemberVisibility: 99,
+          membersFrontButtonBehavior: 99,
         ),
       );
 
@@ -354,6 +365,7 @@ void main() {
         settings.membersFolderMemberVisibility,
         MembersFolderMemberVisibility.allMembers,
       );
+      expect(settings.membersFrontButtonBehavior, FrontStartBehavior.additive);
     });
 
     test('toCompanion stores enum indices', () {
@@ -362,6 +374,8 @@ void main() {
         membersGroupedDefaultState: MembersGroupedDefaultState.closed,
         membersFolderMemberVisibility:
             MembersFolderMemberVisibility.ungroupedOnly,
+        membersShowFrontButtons: true,
+        membersFrontButtonBehavior: FrontStartBehavior.replace,
       );
       final companion = SystemSettingsMapper.toCompanion(settings);
 
@@ -376,6 +390,11 @@ void main() {
       expect(
         companion.membersFolderMemberVisibility.value,
         MembersFolderMemberVisibility.ungroupedOnly.index,
+      );
+      expect(companion.membersShowFrontButtons.value, isTrue);
+      expect(
+        companion.membersFrontButtonBehavior.value,
+        FrontStartBehavior.replace.index,
       );
     });
   });

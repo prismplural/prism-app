@@ -17,6 +17,7 @@ class PrismSwitchRow extends StatelessWidget {
     this.icon,
     this.iconColor,
     this.enabled = true,
+    this.padding = const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
   });
 
   final String title;
@@ -31,6 +32,7 @@ class PrismSwitchRow extends StatelessWidget {
   final Color? iconColor;
 
   final bool enabled;
+  final EdgeInsets padding;
 
   @override
   Widget build(BuildContext context) {
@@ -38,7 +40,10 @@ class PrismSwitchRow extends StatelessWidget {
       child: PrismListRow(
         title: Text(title),
         subtitle: subtitle != null ? Text(subtitle!) : null,
-        leading: icon != null ? _IconCircle(icon: icon!, color: iconColor, enabled: enabled) : null,
+        leading: icon != null
+            ? _IconCircle(icon: icon!, color: iconColor, enabled: enabled)
+            : null,
+        padding: padding,
         trailing: Switch.adaptive(
           value: value,
           onChanged: enabled ? onChanged : null,

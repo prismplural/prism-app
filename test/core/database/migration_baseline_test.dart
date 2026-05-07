@@ -61,6 +61,8 @@ void _dropPostV3Schema(raw.Database db) {
     ['system_settings', 'members_list_view_mode'],
     ['system_settings', 'members_grouped_default_state'],
     ['system_settings', 'members_folder_member_visibility'],
+    ['system_settings', 'members_show_front_buttons'],
+    ['system_settings', 'members_front_button_behavior'],
     ['system_settings', 'pending_fronting_migration_mode'],
     ['system_settings', 'pending_fronting_migration_cleanup_substate'],
     ['system_settings', 'boards_enabled'],

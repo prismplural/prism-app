@@ -56,6 +56,10 @@ abstract class SystemSettingsRepository {
   Future<void> updateMembersFolderMemberVisibility(
     domain.MembersFolderMemberVisibility value,
   );
+  Future<void> updateMembersShowFrontButtons(bool value);
+  Future<void> updateMembersFrontButtonBehavior(
+    domain.FrontStartBehavior value,
+  );
 
   // Int fields
   Future<void> updateFrontingReminderIntervalMinutes(int value);

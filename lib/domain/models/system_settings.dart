@@ -223,6 +223,9 @@ abstract class SystemSettings with _$SystemSettings {
     MembersGroupedDefaultState membersGroupedDefaultState,
     @Default(MembersFolderMemberVisibility.allMembers)
     MembersFolderMemberVisibility membersFolderMemberVisibility,
+    @Default(false) bool membersShowFrontButtons,
+    @Default(FrontStartBehavior.additive)
+    FrontStartBehavior membersFrontButtonBehavior,
   }) = _SystemSettings;
 
   factory SystemSettings.fromJson(Map<String, dynamic> json) =>

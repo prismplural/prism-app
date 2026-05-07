@@ -5,6 +5,7 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
+import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
 class MemberGroupRow extends StatelessWidget {
   const MemberGroupRow({
@@ -120,7 +121,7 @@ class _GroupRowSurface extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: Row(
           children: [
-            if (hasColor) Container(width: 4, height: 56, color: accentColor),
+            if (hasColor) Container(width: 4, height: 64, color: accentColor),
             Expanded(
               child: Padding(
                 padding: EdgeInsets.only(
@@ -186,29 +187,16 @@ class _GroupAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    if (group.emoji != null && group.emoji!.isNotEmpty) {
-      return SizedBox(
-        width: 32,
-        height: 32,
-        child: Center(
-          child: Text(group.emoji!, style: const TextStyle(fontSize: 20)),
-        ),
-      );
-    }
+    final tint = accentColor ?? theme.colorScheme.primary;
+    final hasEmoji = group.emoji != null && group.emoji!.isNotEmpty;
 
-    return Container(
-      width: 32,
-      height: 32,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: accentColor ?? theme.colorScheme.primaryContainer,
-      ),
-      child: Icon(
-        AppIcons.folderOutlined,
-        size: 16,
-        color: accentColor != null
-            ? AppColors.warmWhite
-            : theme.colorScheme.onPrimaryContainer,
+    return TintedGlassSurface.circle(
+      size: 44,
+      tint: tint,
+      child: Center(
+        child: hasEmoji
+            ? Text(group.emoji!, style: const TextStyle(fontSize: 22))
+            : Icon(AppIcons.folderOutlined, size: 22, color: tint),
       ),
     );
   }

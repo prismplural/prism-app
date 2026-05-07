@@ -324,6 +324,14 @@ class SystemSettingsDao extends DatabaseAccessor<AppDatabase>
     SystemSettingsTableCompanion(membersFolderMemberVisibility: Value(value)),
   );
 
+  Future<void> updateMembersShowFrontButtons(bool value) => _updateField(
+    SystemSettingsTableCompanion(membersShowFrontButtons: Value(value)),
+  );
+
+  Future<void> updateMembersFrontButtonBehavior(int value) => _updateField(
+    SystemSettingsTableCompanion(membersFrontButtonBehavior: Value(value)),
+  );
+
   // --- Int fields ---
 
   Future<void> updateFrontingReminderIntervalMinutes(int value) => _updateField(

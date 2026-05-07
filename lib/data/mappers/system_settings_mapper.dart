@@ -103,6 +103,12 @@ class SystemSettingsMapper {
         domain.MembersFolderMemberVisibility.values,
         domain.MembersFolderMemberVisibility.allMembers,
       ),
+      membersShowFrontButtons: row.membersShowFrontButtons,
+      membersFrontButtonBehavior: enumByIndex(
+        row.membersFrontButtonBehavior,
+        domain.FrontStartBehavior.values,
+        domain.FrontStartBehavior.additive,
+      ),
     );
   }
 
@@ -178,6 +184,8 @@ class SystemSettingsMapper {
       membersFolderMemberVisibility: Value(
         model.membersFolderMemberVisibility.index,
       ),
+      membersShowFrontButtons: Value(model.membersShowFrontButtons),
+      membersFrontButtonBehavior: Value(model.membersFrontButtonBehavior.index),
     );
   }
 

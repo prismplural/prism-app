@@ -22,6 +22,14 @@ Future<void> _seedV10Db(File dbFile) async {
 
   final rawDb = raw.sqlite3.open(dbFile.path);
   try {
+    // v19 (member list front buttons) — drop columns added by v18→v19.
+    rawDb.execute(
+      'ALTER TABLE system_settings DROP COLUMN members_show_front_buttons',
+    );
+    rawDb.execute(
+      'ALTER TABLE system_settings DROP COLUMN members_front_button_behavior',
+    );
+
     // v18 (member list display preferences) — drop columns added by v17→v18.
     rawDb.execute(
       'ALTER TABLE system_settings DROP COLUMN members_list_view_mode',
@@ -91,7 +99,7 @@ void main() {
       expect(member.profileHeaderVisible, isTrue);
 
       final version = await upgraded.customSelect('PRAGMA user_version').get();
-      expect(version.first.read<int>('user_version'), 18);
+      expect(version.first.read<int>('user_version'), 19);
     });
   });
 }

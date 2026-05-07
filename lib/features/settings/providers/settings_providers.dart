@@ -254,6 +254,22 @@ class SettingsNotifier extends AsyncNotifier<void> {
     });
   }
 
+  Future<void> updateMembersShowFrontButtons(bool value) async {
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateMembersShowFrontButtons(value);
+    });
+  }
+
+  Future<void> updateMembersFrontButtonBehavior(
+    FrontStartBehavior behavior,
+  ) async {
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateMembersFrontButtonBehavior(behavior);
+    });
+  }
+
   Future<void> updateHabitsBadgeEnabled(bool value) async {
     state = await AsyncValue.guard(() async {
       final repo = ref.read(systemSettingsRepositoryProvider);
@@ -813,6 +829,22 @@ final membersFolderMemberVisibilityProvider =
               .whenOrNull(data: (s) => s.membersFolderMemberVisibility) ??
           MembersFolderMemberVisibility.allMembers;
     });
+
+/// Device-local visibility of direct front buttons in member rows.
+final membersShowFrontButtonsProvider = Provider<bool>((ref) {
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.membersShowFrontButtons) ??
+      false;
+});
+
+/// Device-local behavior used by member-row front buttons and row actions.
+final membersFrontButtonBehaviorProvider = Provider<FrontStartBehavior>((ref) {
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.membersFrontButtonBehavior) ??
+      FrontStartBehavior.additive;
+});
 
 /// Narrow provider for `hasCompletedOnboarding` flag.
 final hasCompletedOnboardingProvider = Provider<bool>((ref) {

@@ -28,9 +28,12 @@ import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
+import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/markdown_text.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
@@ -113,13 +116,16 @@ class _GroupDetailBody extends ConsumerWidget {
       ),
       bodyPadding: EdgeInsets.zero,
       body: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(24, 0, 24, NavBarInset.of(context)),
+        padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
 
-            _GroupInfoHeader(group: group),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _GroupInfoHeader(group: group),
+            ),
 
             const SizedBox(height: 24),
 
@@ -127,14 +133,14 @@ class _GroupDetailBody extends ConsumerWidget {
                   data: (entries) {
                     if (entries.isEmpty) return null;
                     return Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
                       child: Row(
                         children: [
                           Expanded(
                             child: PrismButton(
                               label: l10n.memberGroupFrontGroup,
                               icon: Icons.group_outlined,
-                              tone: PrismButtonTone.outlined,
+                              tone: PrismButtonTone.subtle,
                               expanded: true,
                               semanticLabel: l10n
                                   .memberGroupFrontGroupSemantics(
@@ -150,7 +156,7 @@ class _GroupDetailBody extends ConsumerWidget {
                             child: PrismButton(
                               label: l10n.memberGroupStartChat,
                               icon: Icons.chat_bubble_outline,
-                              tone: PrismButtonTone.outlined,
+                              tone: PrismButtonTone.subtle,
                               expanded: true,
                               onPressed: () => _onStartChat(context, entries),
                             ),
@@ -165,34 +171,54 @@ class _GroupDetailBody extends ConsumerWidget {
             _SubGroupsSection(
               groupId: group.id,
               settingsBranch: settingsBranch,
+              canAddSubGroup: canAddSubGroup,
+              onAddSubGroup: () => _addSubGroup(context),
             ),
 
-            Row(
-              children: [
-                Icon(
-                  AppIcons.peopleOutline,
-                  size: 18,
-                  color: theme.colorScheme.primary,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  l10n.memberGroupSectionMembers(terms.plural),
-                  style: theme.textTheme.labelLarge?.copyWith(
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 8, 0),
+              child: Row(
+                children: [
+                  Icon(
+                    AppIcons.peopleOutline,
+                    size: 18,
                     color: theme.colorScheme.primary,
-                    fontWeight: FontWeight.w600,
                   ),
-                ),
-              ],
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      l10n.memberGroupSectionMembers(terms.plural),
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: theme.colorScheme.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  PrismInlineIconButton(
+                    icon: AppIcons.personAddOutlined,
+                    tooltip: l10n.memberGroupAddMember(terms.singularLower),
+                    size: 32,
+                    iconSize: 20,
+                    color: theme.colorScheme.primary,
+                    onPressed: () => _addMember(context, ref),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 8),
 
             entriesAsync.when(
               loading: () => const PrismLoadingState(),
-              error: (e, _) => Text('Error: $e'),
+              error: (e, _) => Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text('Error: $e'),
+              ),
               data: (entries) {
                 if (entries.isEmpty) {
                   return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 16,
+                    ),
                     child: EmptyState(
                       icon: Icon(AppIcons.personAddOutlined),
                       title: l10n.memberGroupNoMembers(terms.pluralLower),
@@ -206,6 +232,7 @@ class _GroupDetailBody extends ConsumerWidget {
                 return ListView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
+                  padding: EdgeInsets.zero,
                   itemCount: entries.length,
                   itemBuilder: (context, index) => _GroupMemberTile(
                     entry: entries[index],
@@ -215,42 +242,6 @@ class _GroupDetailBody extends ConsumerWidget {
                 );
               },
             ),
-
-            const SizedBox(height: 16),
-
-            if (canAddSubGroup)
-              Row(
-                children: [
-                  Expanded(
-                    child: PrismButton(
-                      label: l10n.memberGroupAddMember(terms.singularLower),
-                      onPressed: () => _addMember(context, ref),
-                      icon: AppIcons.personAddOutlined,
-                      tone: PrismButtonTone.subtle,
-                      expanded: true,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: PrismButton(
-                      label: l10n.memberGroupAddSubGroup,
-                      onPressed: () => _addSubGroup(context),
-                      icon: AppIcons.folderOutlined,
-                      tone: PrismButtonTone.subtle,
-                      expanded: true,
-                    ),
-                  ),
-                ],
-              )
-            else
-              Center(
-                child: PrismButton(
-                  label: l10n.memberGroupAddMember(terms.singularLower),
-                  onPressed: () => _addMember(context, ref),
-                  icon: AppIcons.personAddOutlined,
-                  tone: PrismButtonTone.subtle,
-                ),
-              ),
 
             const SizedBox(height: 32),
           ],
@@ -463,74 +454,75 @@ class _GroupInfoHeader extends StatelessWidget {
     final theme = Theme.of(context);
     final hasColor = group.colorHex != null && group.colorHex!.isNotEmpty;
     final accentColor = hasColor ? AppColors.fromHex(group.colorHex!) : null;
+    final radius = BorderRadius.circular(PrismShapes.of(context).radius(14));
+    final hasEmoji = group.emoji != null && group.emoji!.isNotEmpty;
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (group.emoji != null && group.emoji!.isNotEmpty)
-          SizedBox(
-            width: 56,
-            height: 56,
-            child: Center(
-              child: Text(group.emoji!, style: const TextStyle(fontSize: 36)),
-            ),
-          )
-        else
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: accentColor ?? theme.colorScheme.primaryContainer,
-            ),
-            child: Icon(
-              AppIcons.folderOutlined,
-              size: 28,
-              color: accentColor != null
-                  ? AppColors.warmWhite
-                  : theme.colorScheme.onPrimaryContainer,
-            ),
-          ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                group.name,
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
+    return Material(
+      color: theme.colorScheme.onSurface.withValues(alpha: 0.06),
+      borderRadius: radius,
+      clipBehavior: Clip.antiAlias,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (hasColor) Container(width: 4, color: accentColor),
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(hasColor ? 12 : 16, 16, 16, 16),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TintedGlassSurface.circle(
+                      size: 56,
+                      tint: accentColor ?? theme.colorScheme.primary,
+                      child: Center(
+                        child: hasEmoji
+                            ? Text(
+                                group.emoji!,
+                                style: const TextStyle(fontSize: 30),
+                              )
+                            : Icon(
+                                AppIcons.folderOutlined,
+                                size: 26,
+                                color: accentColor ?? theme.colorScheme.primary,
+                              ),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              group.name,
+                              style: theme.textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          if (group.description != null &&
+                              group.description!.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            MarkdownText(
+                              data: group.description!,
+                              enabled: true,
+                              baseStyle: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              if (group.description != null &&
-                  group.description!.isNotEmpty) ...[
-                const SizedBox(height: 4),
-                MarkdownText(
-                  data: group.description!,
-                  enabled: true,
-                  baseStyle: theme.textTheme.bodyLarge?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-              if (hasColor) ...[
-                const SizedBox(height: 8),
-                Container(
-                  width: 24,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    color: accentColor,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: theme.colorScheme.outline.withValues(alpha: 0.3),
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
@@ -539,10 +531,14 @@ class _SubGroupsSection extends ConsumerWidget {
   const _SubGroupsSection({
     required this.groupId,
     required this.settingsBranch,
+    required this.canAddSubGroup,
+    required this.onAddSubGroup,
   });
 
   final String groupId;
   final bool settingsBranch;
+  final bool canAddSubGroup;
+  final VoidCallback onAddSubGroup;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -550,51 +546,65 @@ class _SubGroupsSection extends ConsumerWidget {
     final l10n = context.l10n;
     final children = ref.watch(childGroupsProvider(groupId));
 
-    if (children.isEmpty) return const SizedBox.shrink();
+    if (children.isEmpty && !canAddSubGroup) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Icon(
-              AppIcons.folderOutlined,
-              size: 18,
-              color: theme.colorScheme.primary,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              l10n.memberGroupSubGroupsLabel,
-              style: theme.textTheme.labelLarge?.copyWith(
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 8, 0),
+          child: Row(
+            children: [
+              Icon(
+                AppIcons.folderOutlined,
+                size: 18,
                 color: theme.colorScheme.primary,
-                fontWeight: FontWeight.w600,
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: children.length,
-          itemBuilder: (context, index) {
-            final group = children[index];
-            final count = ref.watch(
-              groupMemberCountsProvider.select((m) => m[group.id] ?? 0),
-            );
-            return MemberGroupRow(
-              group: group,
-              memberCount: count,
-              margin: EdgeInsets.zero.copyWith(top: 4, bottom: 4),
-              onTap: () => context.push(
-                settingsBranch
-                    ? AppRoutePaths.settingsGroup(group.id)
-                    : AppRoutePaths.memberGroup(group.id),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  l10n.memberGroupSubGroupsLabel,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
-            );
-          },
+              if (canAddSubGroup)
+                PrismInlineIconButton(
+                  icon: AppIcons.add,
+                  tooltip: l10n.memberGroupAddSubGroup,
+                  size: 32,
+                  iconSize: 20,
+                  color: theme.colorScheme.primary,
+                  onPressed: onAddSubGroup,
+                ),
+            ],
+          ),
         ),
-        const SizedBox(height: 24),
+        if (children.isNotEmpty)
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: EdgeInsets.zero,
+            itemCount: children.length,
+            itemBuilder: (context, index) {
+              final group = children[index];
+              final count = ref.watch(
+                groupMemberCountsProvider.select((m) => m[group.id] ?? 0),
+              );
+              return MemberGroupRow(
+                group: group,
+                memberCount: count,
+                onTap: () => context.push(
+                  settingsBranch
+                      ? AppRoutePaths.settingsGroup(group.id)
+                      : AppRoutePaths.memberGroup(group.id),
+                ),
+              );
+            },
+          ),
+        const SizedBox(height: 20),
       ],
     );
   }

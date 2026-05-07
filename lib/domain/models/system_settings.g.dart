@@ -139,6 +139,13 @@ _SystemSettings _$SystemSettingsFromJson(
         json['membersFolderMemberVisibility'],
       ) ??
       MembersFolderMemberVisibility.allMembers,
+  membersShowFrontButtons: json['membersShowFrontButtons'] as bool? ?? false,
+  membersFrontButtonBehavior:
+      $enumDecodeNullable(
+        _$FrontStartBehaviorEnumMap,
+        json['membersFrontButtonBehavior'],
+      ) ??
+      FrontStartBehavior.additive,
 );
 
 Map<String, dynamic> _$SystemSettingsToJson(
@@ -214,6 +221,9 @@ Map<String, dynamic> _$SystemSettingsToJson(
   'membersFolderMemberVisibility':
       _$MembersFolderMemberVisibilityEnumMap[instance
           .membersFolderMemberVisibility]!,
+  'membersShowFrontButtons': instance.membersShowFrontButtons,
+  'membersFrontButtonBehavior':
+      _$FrontStartBehaviorEnumMap[instance.membersFrontButtonBehavior]!,
 };
 
 const _$SystemTerminologyEnumMap = {

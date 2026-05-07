@@ -2497,7 +2497,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String memberFrontingHistoryTitle(String member) {
-    return '$member Fronting';
+    return '$member\'s Sessions';
   }
 
   @override
@@ -2949,6 +2949,39 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get memberFolderVisibilityUngrouped => 'Ungrouped';
+
+  @override
+  String get memberFrontButtonsLabel => 'Front buttons';
+
+  @override
+  String get memberFrontButtonsDescription =>
+      'Show a direct front action next to each member in the list.';
+
+  @override
+  String get memberFrontButtonsToggle => 'Show front buttons';
+
+  @override
+  String get memberFrontButtonsToggleDescription =>
+      'Adds a front button to non-fronting member rows.';
+
+  @override
+  String get memberFrontButtonBehaviorLabel => 'Behavior';
+
+  @override
+  String get memberFrontButtonBehaviorAdd => 'Add';
+
+  @override
+  String get memberFrontButtonBehaviorReplace => 'Replace';
+
+  @override
+  String memberFrontButtonAddSemantic(String memberName) {
+    return 'Add $memberName to front';
+  }
+
+  @override
+  String memberFrontButtonReplaceSemantic(String memberName) {
+    return 'Replace front with $memberName';
+  }
 
   @override
   String get memberGroupSubGroupSemantic => 'sub-group';

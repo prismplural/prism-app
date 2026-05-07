@@ -76,6 +76,8 @@ void main() {
       membersListViewMode: 0,
       membersGroupedDefaultState: 0,
       membersFolderMemberVisibility: 0,
+      membersShowFrontButtons: false,
+      membersFrontButtonBehavior: 0,
     );
   }
 

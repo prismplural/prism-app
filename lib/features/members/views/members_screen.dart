@@ -693,6 +693,16 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
   Widget _buildMemberTile(Member member, bool isFronting, {int? reorderIndex}) {
     final theme = Theme.of(context);
     final actions = _memberContextActions(member, isFronting);
+    final showFrontButtons = ref.watch(membersShowFrontButtonsProvider);
+    final frontButtonBehavior = ref.watch(membersFrontButtonBehaviorProvider);
+    final frontingActionBusy = ref.watch(frontingNotifierProvider).isLoading;
+    final frontButtonLabel = switch (frontButtonBehavior) {
+      FrontStartBehavior.additive => context.l10n.memberFrontButtonAddSemantic(
+        member.name,
+      ),
+      FrontStartBehavior.replace =>
+        context.l10n.memberFrontButtonReplaceSemantic(member.name),
+    };
 
     return BlurPopupAnchor(
       key: reorderIndex != null ? ValueKey(member.id) : null,
@@ -727,6 +737,19 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                 icon: AppIcons.flashOn,
                 color: AppColors.fronting(theme.brightness),
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              ),
+              const SizedBox(width: 4),
+            ],
+            if (showFrontButtons && !isFronting) ...[
+              IconButton(
+                tooltip: frontButtonLabel,
+                icon: Icon(AppIcons.add),
+                onPressed: frontingActionBusy
+                    ? null
+                    : () {
+                        Haptics.selection();
+                        unawaited(_startFronting(member));
+                      },
               ),
               const SizedBox(width: 4),
             ],
@@ -800,9 +823,14 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
 
   Future<void> _startFronting(Member member) async {
     try {
-      await ref.read(frontingNotifierProvider.notifier).startFronting([
-        member.id,
-      ]);
+      final behavior = ref.read(membersFrontButtonBehaviorProvider);
+      final notifier = ref.read(frontingNotifierProvider.notifier);
+      switch (behavior) {
+        case FrontStartBehavior.additive:
+          await notifier.startFronting([member.id]);
+        case FrontStartBehavior.replace:
+          await notifier.replaceFronting([member.id]);
+      }
       if (!mounted) return;
       PrismToast.show(
         context,

@@ -124,7 +124,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Add sub-group'), findsNothing);
+    expect(find.byTooltip('Add sub-group'), findsNothing);
   });
 
   testWidgets('allows adding a subgroup at depth 4', (tester) async {
@@ -157,7 +157,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Add sub-group'), findsOneWidget);
+    expect(find.byTooltip('Add sub-group'), findsOneWidget);
   });
 
   testWidgets('hides the subgroup button at depth 5', (tester) async {
@@ -195,7 +195,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Add sub-group'), findsNothing);
+    expect(find.byTooltip('Add sub-group'), findsNothing);
   });
 
   testWidgets(
@@ -229,9 +229,9 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Default terminology is `headmates`; the button reads
+      // Default terminology is `headmates`; the icon button tooltip reads
       // "Add {termSingularLower}" → "Add headmate".
-      await tester.tap(find.text('Add headmate'));
+      await tester.tap(find.byTooltip('Add headmate'));
       await tester.pumpAndSettle();
 
       expect(find.byType(MemberSearchSheet), findsOneWidget);

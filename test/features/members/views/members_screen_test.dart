@@ -39,6 +39,8 @@ Widget _buildSubject({
   required List<MemberGroup> groups,
   required List<MemberGroupEntry> entries,
   SystemSettings settings = const SystemSettings(),
+  List<FrontingSession> activeSessions = const [],
+  _FakeFrontingNotifier? frontingNotifier,
   bool withRouter = false,
 }) {
   final child = withRouter
@@ -80,8 +82,10 @@ Widget _buildSubject({
       activeMembersProvider.overrideWith((ref) => Stream.value(members)),
       allMembersProvider.overrideWith((ref) => Stream.value(members)),
       activeSessionsProvider.overrideWith(
-        (ref) => Stream.value(const <FrontingSession>[]),
+        (ref) => Stream.value(activeSessions),
       ),
+      if (frontingNotifier != null)
+        frontingNotifierProvider.overrideWith(() => frontingNotifier),
       allGroupsProvider.overrideWith((ref) => Stream.value(groups)),
       allGroupEntriesProvider.overrideWith((ref) => Stream.value(entries)),
       memberGroupsProvider.overrideWith((ref, memberId) {
@@ -96,6 +100,33 @@ Widget _buildSubject({
     ],
     child: child,
   );
+}
+
+class _FakeFrontingNotifier extends FrontingNotifier {
+  final startFrontingCalls = <List<String>>[];
+  final replaceFrontingCalls = <List<String>>[];
+
+  @override
+  Future<void> build() async {}
+
+  @override
+  Future<void> startFronting(
+    List<String> memberIds, {
+    FrontConfidence? confidence,
+    String? notes,
+    DateTime? startTime,
+  }) async {
+    startFrontingCalls.add(memberIds);
+  }
+
+  @override
+  Future<void> replaceFronting(
+    List<String> memberIds, {
+    FrontConfidence? confidence,
+    String? notes,
+  }) async {
+    replaceFrontingCalls.add(memberIds);
+  }
 }
 
 void main() {
@@ -217,6 +248,35 @@ void main() {
     expect(find.text('View'), findsOneWidget);
     expect(find.text('Sections'), findsOneWidget);
     expect(find.text('Folders'), findsOneWidget);
+    expect(find.text('Front buttons'), findsOneWidget);
+    expect(find.text('Show front buttons'), findsOneWidget);
+    expect(find.text('Add'), findsNothing);
+    expect(find.text('Replace'), findsNothing);
+  });
+
+  testWidgets('view settings shows front button behavior when enabled', (
+    tester,
+  ) async {
+    final members = [_member('alice')];
+
+    await tester.pumpWidget(
+      _buildSubject(
+        settings: const SystemSettings(membersShowFrontButtons: true),
+        members: members,
+        groups: const [],
+        entries: const [],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(AppIcons.moreVert));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('View settings'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Front buttons'), findsOneWidget);
+    expect(find.text('Add'), findsOneWidget);
+    expect(find.text('Replace'), findsOneWidget);
   });
 
   testWidgets('folder view shows groups first and opens group detail', (
@@ -283,6 +343,116 @@ void main() {
     expect(find.text('Crew'), findsOneWidget);
     expect(find.text('Member alice'), findsNothing);
     expect(find.text('Member bob'), findsOneWidget);
+  });
+
+  testWidgets('front button starts member in additive mode', (tester) async {
+    final notifier = _FakeFrontingNotifier();
+    final members = [_member('alice')];
+
+    await tester.pumpWidget(
+      _buildSubject(
+        settings: const SystemSettings(membersShowFrontButtons: true),
+        members: members,
+        groups: const [],
+        entries: const [],
+        frontingNotifier: notifier,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Add Member alice to front'));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 3));
+
+    expect(notifier.startFrontingCalls, [
+      ['alice'],
+    ]);
+    expect(notifier.replaceFrontingCalls, isEmpty);
+  });
+
+  testWidgets('front button replaces front in replace mode', (tester) async {
+    final notifier = _FakeFrontingNotifier();
+    final members = [_member('alice')];
+
+    await tester.pumpWidget(
+      _buildSubject(
+        settings: const SystemSettings(
+          membersShowFrontButtons: true,
+          membersFrontButtonBehavior: FrontStartBehavior.replace,
+        ),
+        members: members,
+        groups: const [],
+        entries: const [],
+        frontingNotifier: notifier,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Replace front with Member alice'));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 3));
+
+    expect(notifier.startFrontingCalls, isEmpty);
+    expect(notifier.replaceFrontingCalls, [
+      ['alice'],
+    ]);
+  });
+
+  testWidgets('fronting member shows pill instead of front button', (
+    tester,
+  ) async {
+    final members = [_member('alice')];
+
+    await tester.pumpWidget(
+      _buildSubject(
+        settings: const SystemSettings(membersShowFrontButtons: true),
+        members: members,
+        groups: const [],
+        entries: const [],
+        activeSessions: [
+          FrontingSession(
+            id: 'session-alice',
+            memberId: 'alice',
+            startTime: DateTime(2024),
+          ),
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Fronting'), findsOneWidget);
+    expect(find.byTooltip('Add Member alice to front'), findsNothing);
+  });
+
+  testWidgets('long-press set as fronter follows replace preference', (
+    tester,
+  ) async {
+    final notifier = _FakeFrontingNotifier();
+    final members = [_member('alice')];
+
+    await tester.pumpWidget(
+      _buildSubject(
+        settings: const SystemSettings(
+          membersFrontButtonBehavior: FrontStartBehavior.replace,
+        ),
+        members: members,
+        groups: const [],
+        entries: const [],
+        frontingNotifier: notifier,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.longPress(find.text('Member alice'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Set as fronter'));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 3));
+
+    expect(notifier.startFrontingCalls, isEmpty);
+    expect(notifier.replaceFrontingCalls, [
+      ['alice'],
+    ]);
   });
 
   testWidgets('member rows expose actions from long-press menu', (

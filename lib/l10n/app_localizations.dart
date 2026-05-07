@@ -4396,10 +4396,10 @@ abstract class AppLocalizations {
   /// **'View All'**
   String get memberSectionFrontingSessionsViewAll;
 
-  /// Title for the full member fronting history screen
+  /// Title for the full member session history screen
   ///
   /// In en, this message translates to:
-  /// **'{member} Fronting'**
+  /// **'{member}\'s Sessions'**
   String memberFrontingHistoryTitle(String member);
 
   /// Empty state text for a member's full fronting history screen
@@ -5163,6 +5163,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Ungrouped'**
   String get memberFolderVisibilityUngrouped;
+
+  /// Label for members list direct front button settings
+  ///
+  /// In en, this message translates to:
+  /// **'Front buttons'**
+  String get memberFrontButtonsLabel;
+
+  /// Helper text explaining member row front buttons
+  ///
+  /// In en, this message translates to:
+  /// **'Show a direct front action next to each member in the list.'**
+  String get memberFrontButtonsDescription;
+
+  /// Toggle label for showing direct member row front buttons
+  ///
+  /// In en, this message translates to:
+  /// **'Show front buttons'**
+  String get memberFrontButtonsToggle;
+
+  /// Toggle helper text for direct member row front buttons
+  ///
+  /// In en, this message translates to:
+  /// **'Adds a front button to non-fronting member rows.'**
+  String get memberFrontButtonsToggleDescription;
+
+  /// Label for choosing what direct member row front buttons do
+  ///
+  /// In en, this message translates to:
+  /// **'Behavior'**
+  String get memberFrontButtonBehaviorLabel;
+
+  /// Segment label for adding a member to front
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get memberFrontButtonBehaviorAdd;
+
+  /// Segment label for replacing current fronters with a member
+  ///
+  /// In en, this message translates to:
+  /// **'Replace'**
+  String get memberFrontButtonBehaviorReplace;
+
+  /// Accessibility label for a member row button that adds a member to front
+  ///
+  /// In en, this message translates to:
+  /// **'Add {memberName} to front'**
+  String memberFrontButtonAddSemantic(String memberName);
+
+  /// Accessibility label for a member row button that replaces current fronters with a member
+  ///
+  /// In en, this message translates to:
+  /// **'Replace front with {memberName}'**
+  String memberFrontButtonReplaceSemantic(String memberName);
 
   /// Accessibility term for a nested member group
   ///

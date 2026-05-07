@@ -236,6 +236,15 @@ class SystemSettingsTable extends Table {
   IntColumn get membersFolderMemberVisibility =>
       integer().withDefault(const Constant(0))();
 
+  /// Whether visible member rows show direct front action buttons.
+  BoolColumn get membersShowFrontButtons =>
+      boolean().withDefault(const Constant(false))();
+
+  /// `FrontStartBehavior` index for member row front action buttons.
+  /// 0 = additive (default), 1 = replace.
+  IntColumn get membersFrontButtonBehavior =>
+      integer().withDefault(const Constant(0))();
+
   @override
   String get tableName => 'system_settings';
 

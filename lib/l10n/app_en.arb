@@ -3384,9 +3384,9 @@
   "@memberSectionFrontingSessionsViewAll": {
     "description": "Button label on the member detail fronting sessions section that opens full history"
   },
-  "memberFrontingHistoryTitle": "{member} Fronting",
+  "memberFrontingHistoryTitle": "{member}'s Sessions",
   "@memberFrontingHistoryTitle": {
-    "description": "Title for the full member fronting history screen",
+    "description": "Title for the full member session history screen",
     "placeholders": {
       "member": {
         "type": "String",
@@ -4049,6 +4049,54 @@
   "memberFolderVisibilityUngrouped": "Ungrouped",
   "@memberFolderVisibilityUngrouped": {
     "description": "Segment label for showing only ungrouped members below folders"
+  },
+  "memberFrontButtonsLabel": "Front buttons",
+  "@memberFrontButtonsLabel": {
+    "description": "Label for members list direct front button settings"
+  },
+  "memberFrontButtonsDescription": "Show a direct front action next to each member in the list.",
+  "@memberFrontButtonsDescription": {
+    "description": "Helper text explaining member row front buttons"
+  },
+  "memberFrontButtonsToggle": "Show front buttons",
+  "@memberFrontButtonsToggle": {
+    "description": "Toggle label for showing direct member row front buttons"
+  },
+  "memberFrontButtonsToggleDescription": "Adds a front button to non-fronting member rows.",
+  "@memberFrontButtonsToggleDescription": {
+    "description": "Toggle helper text for direct member row front buttons"
+  },
+  "memberFrontButtonBehaviorLabel": "Behavior",
+  "@memberFrontButtonBehaviorLabel": {
+    "description": "Label for choosing what direct member row front buttons do"
+  },
+  "memberFrontButtonBehaviorAdd": "Add",
+  "@memberFrontButtonBehaviorAdd": {
+    "description": "Segment label for adding a member to front"
+  },
+  "memberFrontButtonBehaviorReplace": "Replace",
+  "@memberFrontButtonBehaviorReplace": {
+    "description": "Segment label for replacing current fronters with a member"
+  },
+  "memberFrontButtonAddSemantic": "Add {memberName} to front",
+  "@memberFrontButtonAddSemantic": {
+    "description": "Accessibility label for a member row button that adds a member to front",
+    "placeholders": {
+      "memberName": {
+        "type": "String",
+        "example": "Alex"
+      }
+    }
+  },
+  "memberFrontButtonReplaceSemantic": "Replace front with {memberName}",
+  "@memberFrontButtonReplaceSemantic": {
+    "description": "Accessibility label for a member row button that replaces current fronters with a member",
+    "placeholders": {
+      "memberName": {
+        "type": "String",
+        "example": "Alex"
+      }
+    }
   },
   "memberGroupSubGroupSemantic": "sub-group",
   "@memberGroupSubGroupSemantic": {

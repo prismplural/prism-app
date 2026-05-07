@@ -9,6 +9,7 @@ import 'package:prism_plurality/features/settings/providers/terminology_provider
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/extensions/datetime_extensions.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
@@ -107,7 +108,10 @@ class _MemberFrontingHistoryScreenState
 
         return PrismPageScaffold(
           topBar: PrismTopBar(
-            title: context.l10n.memberFrontingHistoryTitle(member.name),
+            title: memberFrontingHistoryTitleForWidth(
+              context: context,
+              memberName: member.name,
+            ),
             showBackButton: true,
             actions: [
               Builder(
@@ -235,4 +239,38 @@ class _MemberFrontingHistoryScreenState
       message: context.l10n.memberFrontingHistoryNoSessionsOnDate,
     );
   }
+}
+
+@visibleForTesting
+String memberFrontingHistoryTitleForWidth({
+  required BuildContext context,
+  required String memberName,
+}) {
+  final fullTitle = context.l10n.memberFrontingHistoryTitle(memberName);
+  final width = MediaQuery.sizeOf(context).width;
+  final maxTitleWidth =
+      width -
+      PrismTokens.topBarPadding.horizontal -
+      (PrismTokens.topBarActionSize * 2) -
+      24;
+
+  if (maxTitleWidth <= 0) return memberName;
+
+  final theme = Theme.of(context);
+  final isDesktop = width >= PrismTokens.desktopBreakpoint;
+  final style =
+      theme.textTheme.headlineLarge?.copyWith(
+        fontSize: isDesktop ? 18 : 22,
+        height: 1,
+      ) ??
+      TextStyle(fontSize: isDesktop ? 18 : 22, height: 1);
+
+  final painter = TextPainter(
+    text: TextSpan(text: fullTitle, style: style),
+    maxLines: 1,
+    textDirection: Directionality.of(context),
+    textScaler: MediaQuery.textScalerOf(context),
+  )..layout(maxWidth: double.infinity);
+
+  return painter.width <= maxTitleWidth ? fullTitle : memberName;
 }

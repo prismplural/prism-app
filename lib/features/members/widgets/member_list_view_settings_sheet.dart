@@ -7,6 +7,7 @@ import 'package:prism_plurality/features/settings/providers/settings_providers.d
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
+import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 
 class MemberListViewSettingsSheet extends ConsumerWidget {
   const MemberListViewSettingsSheet({
@@ -22,6 +23,8 @@ class MemberListViewSettingsSheet extends ConsumerWidget {
     final viewMode = ref.watch(membersListViewModeProvider);
     final groupedDefault = ref.watch(membersGroupedDefaultStateProvider);
     final folderVisibility = ref.watch(membersFolderMemberVisibilityProvider);
+    final showFrontButtons = ref.watch(membersShowFrontButtonsProvider);
+    final frontButtonBehavior = ref.watch(membersFrontButtonBehaviorProvider);
 
     return Column(
       children: [
@@ -109,9 +112,92 @@ class MemberListViewSettingsSheet extends ConsumerWidget {
                     ],
                   ),
                 ),
+              const SizedBox(height: 24),
+              _SettingsSection(
+                title: l10n.memberFrontButtonsLabel,
+                description: l10n.memberFrontButtonsDescription,
+                child: Column(
+                  children: [
+                    PrismSwitchRow(
+                      title: l10n.memberFrontButtonsToggle,
+                      subtitle: l10n.memberFrontButtonsToggleDescription,
+                      value: showFrontButtons,
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      onChanged: (value) {
+                        ref
+                            .read(settingsNotifierProvider.notifier)
+                            .updateMembersShowFrontButtons(value);
+                      },
+                    ),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 180),
+                      child: showFrontButtons
+                          ? Padding(
+                              key: const ValueKey('member-front-behavior'),
+                              padding: const EdgeInsets.only(top: 12),
+                              child: _LabeledControl(
+                                label: l10n.memberFrontButtonBehaviorLabel,
+                                child:
+                                    PrismSegmentedControl<FrontStartBehavior>(
+                                      selected: frontButtonBehavior,
+                                      onChanged: (behavior) {
+                                        ref
+                                            .read(
+                                              settingsNotifierProvider.notifier,
+                                            )
+                                            .updateMembersFrontButtonBehavior(
+                                              behavior,
+                                            );
+                                      },
+                                      segments: [
+                                        PrismSegment(
+                                          value: FrontStartBehavior.additive,
+                                          label:
+                                              l10n.memberFrontButtonBehaviorAdd,
+                                        ),
+                                        PrismSegment(
+                                          value: FrontStartBehavior.replace,
+                                          label: l10n
+                                              .memberFrontButtonBehaviorReplace,
+                                        ),
+                                      ],
+                                    ),
+                              ),
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
+      ],
+    );
+  }
+}
+
+class _LabeledControl extends StatelessWidget {
+  const _LabeledControl({required this.label, required this.child});
+
+  final String label;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: theme.textTheme.labelMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 8),
+        child,
       ],
     );
   }

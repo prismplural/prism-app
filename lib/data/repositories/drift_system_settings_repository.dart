@@ -311,6 +311,18 @@ class DriftSystemSettingsRepository
     await _dao.updateMembersFolderMemberVisibility(value.index);
   }
 
+  @override
+  Future<void> updateMembersShowFrontButtons(bool value) async {
+    await _dao.updateMembersShowFrontButtons(value);
+  }
+
+  @override
+  Future<void> updateMembersFrontButtonBehavior(
+    domain.FrontStartBehavior value,
+  ) async {
+    await _dao.updateMembersFrontButtonBehavior(value.index);
+  }
+
   // Int fields
 
   @override
