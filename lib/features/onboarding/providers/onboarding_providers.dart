@@ -127,6 +127,7 @@ class OnboardingState {
   final bool remindersEnabled;
   final List<String> navBarItems;
   final List<String> navBarOverflowItems;
+  final FrontingListViewMode? frontingListViewMode;
   final FrontStartBehavior? addFrontDefaultBehavior;
   final FrontStartBehavior? quickFrontDefaultBehavior;
   final String? selectedFronterId;
@@ -170,6 +171,7 @@ class OnboardingState {
     this.remindersEnabled = true,
     this.navBarItems = const [],
     this.navBarOverflowItems = const [],
+    this.frontingListViewMode,
     this.addFrontDefaultBehavior,
     this.quickFrontDefaultBehavior,
     this.selectedFronterId,
@@ -207,6 +209,7 @@ class OnboardingState {
     bool? remindersEnabled,
     List<String>? navBarItems,
     List<String>? navBarOverflowItems,
+    Object? frontingListViewMode = _sentinel,
     Object? addFrontDefaultBehavior = _sentinel,
     Object? quickFrontDefaultBehavior = _sentinel,
     String? selectedFronterId,
@@ -242,6 +245,9 @@ class OnboardingState {
       remindersEnabled: remindersEnabled ?? this.remindersEnabled,
       navBarItems: navBarItems ?? this.navBarItems,
       navBarOverflowItems: navBarOverflowItems ?? this.navBarOverflowItems,
+      frontingListViewMode: frontingListViewMode == _sentinel
+          ? this.frontingListViewMode
+          : frontingListViewMode as FrontingListViewMode?,
       addFrontDefaultBehavior: addFrontDefaultBehavior == _sentinel
           ? this.addFrontDefaultBehavior
           : addFrontDefaultBehavior as FrontStartBehavior?,
@@ -736,6 +742,10 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
 
   void setUsePerMemberColors(bool value) {
     state = state.copyWith(usePerMemberColors: value);
+  }
+
+  void setFrontingListViewMode(FrontingListViewMode value) {
+    state = state.copyWith(frontingListViewMode: value);
   }
 
   void setAddFrontDefaultBehavior(FrontStartBehavior value) {

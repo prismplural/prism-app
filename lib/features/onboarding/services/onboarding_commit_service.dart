@@ -98,6 +98,9 @@ class OnboardingCommitService {
           notesEnabled: onboarding.notesEnabled,
           boardsEnabled: onboarding.boardsEnabled,
           remindersEnabled: onboarding.remindersEnabled,
+          frontingListViewMode:
+              onboarding.frontingListViewMode ??
+              currentSettings.frontingListViewMode,
           addFrontDefaultBehavior:
               onboarding.addFrontDefaultBehavior ??
               currentSettings.addFrontDefaultBehavior,

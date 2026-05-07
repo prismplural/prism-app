@@ -191,7 +191,7 @@ void main() {
       expect(state.allMembersChannelKey, 'All Members');
     });
 
-    test('fronting behavior setters update onboarding state independently', () {
+    test('fronting default setters update onboarding state independently', () {
       final container = ProviderContainer(
         overrides: [
           memberRepositoryProvider.overrideWithValue(FakeMemberRepository()),
@@ -200,6 +200,16 @@ void main() {
       addTearDown(container.dispose);
 
       final notifier = container.read(onboardingProvider.notifier);
+
+      notifier.setFrontingListViewMode(FrontingListViewMode.timeline);
+      expect(
+        container.read(onboardingProvider).frontingListViewMode,
+        FrontingListViewMode.timeline,
+      );
+      expect(
+        container.read(onboardingProvider).addFrontDefaultBehavior,
+        isNull,
+      );
 
       notifier.setAddFrontDefaultBehavior(FrontStartBehavior.replace);
       expect(
@@ -342,7 +352,7 @@ void main() {
       },
     );
 
-    test('complete writes onboarding front behavior choices', () async {
+    test('complete writes onboarding fronting default choices', () async {
       final settingsRepository = FakeSystemSettingsRepository();
       final db = AppDatabase(NativeDatabase.memory());
       addTearDown(db.close);
@@ -368,11 +378,16 @@ void main() {
           .complete(
             const OnboardingState(
               systemName: 'Prism Collective',
+              frontingListViewMode: FrontingListViewMode.timeline,
               addFrontDefaultBehavior: FrontStartBehavior.replace,
               quickFrontDefaultBehavior: FrontStartBehavior.replace,
             ),
           );
 
+      expect(
+        settingsRepository.settings.frontingListViewMode,
+        FrontingListViewMode.timeline,
+      );
       expect(
         settingsRepository.settings.addFrontDefaultBehavior,
         FrontStartBehavior.replace,
@@ -384,10 +399,11 @@ void main() {
     });
 
     test(
-      'complete preserves existing front behavior choices when untouched',
+      'complete preserves existing fronting defaults when untouched',
       () async {
         final settingsRepository = FakeSystemSettingsRepository()
           ..settings = const SystemSettings(
+            frontingListViewMode: FrontingListViewMode.timeline,
             addFrontDefaultBehavior: FrontStartBehavior.replace,
             quickFrontDefaultBehavior: FrontStartBehavior.replace,
           );
@@ -414,6 +430,10 @@ void main() {
             .read(onboardingCommitServiceProvider)
             .complete(const OnboardingState(systemName: 'Prism Collective'));
 
+        expect(
+          settingsRepository.settings.frontingListViewMode,
+          FrontingListViewMode.timeline,
+        );
         expect(
           settingsRepository.settings.addFrontDefaultBehavior,
           FrontStartBehavior.replace,
