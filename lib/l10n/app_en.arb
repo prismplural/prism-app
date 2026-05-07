@@ -5417,6 +5417,10 @@
       }
     }
   },
+  "onboardingFeaturesChatImportedDescription": "Imported Simply Plural chats are already in Prism and stay enabled.",
+  "@onboardingFeaturesChatImportedDescription": {
+    "description": "Feature toggle description when Simply Plural chats were imported and chat cannot be disabled"
+  },
   "onboardingFeaturesPolls": "Polls",
   "@onboardingFeaturesPolls": {
     "description": "Feature toggle title for polls in features step"
@@ -5456,6 +5460,10 @@
   "onboardingFeaturesBoardsDescription": "Short messages between headmates — public timeline plus private inbox.",
   "@onboardingFeaturesBoardsDescription": {
     "description": "Feature toggle description for message boards in features step"
+  },
+  "onboardingFeaturesBoardsImportedDescription": "Imported Simply Plural message-board posts are already in Prism and stay enabled.",
+  "@onboardingFeaturesBoardsImportedDescription": {
+    "description": "Feature toggle description when Simply Plural board posts were imported and boards cannot be disabled"
   },
   "onboardingFeaturesReminders": "Reminders",
   "@onboardingFeaturesReminders": {
@@ -5844,6 +5852,14 @@
   "onboardingChatChannelNameHint": "Channel name",
   "@onboardingChatChannelNameHint": {
     "description": "Hint text for the custom channel name field"
+  },
+  "onboardingChatImportedSimplyPluralTitle": "Imported from Simply Plural",
+  "@onboardingChatImportedSimplyPluralTitle": {
+    "description": "Title for locked imported Simply Plural chats in chat setup step"
+  },
+  "onboardingChatImportedSimplyPluralDescription": "These chats are already in Prism and stay enabled.",
+  "@onboardingChatImportedSimplyPluralDescription": {
+    "description": "Description for locked imported Simply Plural chats in chat setup step"
   },
   "onboardingChatChannelAllMembers": "All {termPlural}",
   "@onboardingChatChannelAllMembers": {

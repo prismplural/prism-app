@@ -3988,6 +3988,10 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String get onboardingFeaturesChatImportedDescription =>
+      'Los chats importados desde Simply Plural ya están en Prism y permanecerán activados.';
+
+  @override
   String get onboardingFeaturesPolls => 'Encuestas';
 
   @override
@@ -4021,6 +4025,10 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get onboardingFeaturesBoardsDescription =>
       'Mensajes cortos entre compañeros del sistema — línea de tiempo pública más bandeja de entrada privada.';
+
+  @override
+  String get onboardingFeaturesBoardsImportedDescription =>
+      'Las publicaciones de tableros importadas desde Simply Plural ya están en Prism y permanecerán activadas.';
 
   @override
   String get onboardingFeaturesReminders => 'Recordatorios';
@@ -4339,6 +4347,14 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get onboardingChatChannelNameHint => 'Nombre del canal';
+
+  @override
+  String get onboardingChatImportedSimplyPluralTitle =>
+      'Importados desde Simply Plural';
+
+  @override
+  String get onboardingChatImportedSimplyPluralDescription =>
+      'Estos chats ya están en Prism y permanecerán activados.';
 
   @override
   String onboardingChatChannelAllMembers(

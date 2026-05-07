@@ -1849,6 +1849,9 @@ class _SimplyPluralImportFlowState
           .setWasImportedFromSimplyPlural(
             true,
             boardPostsImported: (next.result?.boardPostsImported ?? 0) > 0,
+            conversationCount: next.result?.conversationsImported,
+            messageCount: next.result?.messagesImported,
+            boardPostCount: next.result?.boardPostsImported,
           );
       final name = next.exportData?.systemName?.trim();
       if (name != null && name.isNotEmpty) {

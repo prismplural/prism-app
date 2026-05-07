@@ -24,6 +24,10 @@ class FeaturesStep extends ConsumerWidget {
       customPlural: onboarding.customTermPlural,
       useEnglish: onboarding.terminologyUseEnglish,
     );
+    final hasImportedSimplyPluralChats =
+        onboarding.hasImportedSimplyPluralChats;
+    final hasImportedSimplyPluralBoardPosts =
+        onboarding.hasImportedSimplyPluralBoardPosts;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -39,11 +43,17 @@ class FeaturesStep extends ConsumerWidget {
                   isDark: isDark,
                   primary: primary,
                   title: context.l10n.onboardingFeaturesChat,
-                  description: context.l10n.onboardingFeaturesChatDescription(
-                    terms.pluralLower,
-                  ),
-                  value: onboarding.chatEnabled,
-                  onChanged: (v) => notifier.setFeatureToggle(chatEnabled: v),
+                  description: hasImportedSimplyPluralChats
+                      ? context.l10n.onboardingFeaturesChatImportedDescription
+                      : context.l10n.onboardingFeaturesChatDescription(
+                          terms.pluralLower,
+                        ),
+                  value: hasImportedSimplyPluralChats
+                      ? true
+                      : onboarding.chatEnabled,
+                  onChanged: hasImportedSimplyPluralChats
+                      ? null
+                      : (v) => notifier.setFeatureToggle(chatEnabled: v),
                 ),
                 const SizedBox(height: 12),
                 _FeatureToggle(
@@ -93,11 +103,15 @@ class FeaturesStep extends ConsumerWidget {
                   isDark: isDark,
                   primary: primary,
                   title: context.l10n.onboardingFeaturesBoards,
-                  description:
-                      context.l10n.onboardingFeaturesBoardsDescription,
-                  value: onboarding.boardsEnabled,
-                  onChanged: (v) =>
-                      notifier.setFeatureToggle(boardsEnabled: v),
+                  description: hasImportedSimplyPluralBoardPosts
+                      ? context.l10n.onboardingFeaturesBoardsImportedDescription
+                      : context.l10n.onboardingFeaturesBoardsDescription,
+                  value: hasImportedSimplyPluralBoardPosts
+                      ? true
+                      : onboarding.boardsEnabled,
+                  onChanged: hasImportedSimplyPluralBoardPosts
+                      ? null
+                      : (v) => notifier.setFeatureToggle(boardsEnabled: v),
                 ),
                 const SizedBox(height: 12),
                 _FeatureToggle(
@@ -130,7 +144,7 @@ class _FeatureToggle extends StatelessWidget {
     required this.title,
     required this.description,
     required this.value,
-    required this.onChanged,
+    this.onChanged,
   });
 
   final PhosphorIconData icon;
@@ -139,7 +153,7 @@ class _FeatureToggle extends StatelessWidget {
   final String title;
   final String description;
   final bool value;
-  final ValueChanged<bool> onChanged;
+  final ValueChanged<bool>? onChanged;
 
   @override
   Widget build(BuildContext context) {

@@ -6738,6 +6738,12 @@ abstract class AppLocalizations {
   /// **'Internal messaging between system {termPluralLower}'**
   String onboardingFeaturesChatDescription(String termPluralLower);
 
+  /// Feature toggle description when Simply Plural chats were imported and chat cannot be disabled
+  ///
+  /// In en, this message translates to:
+  /// **'Imported Simply Plural chats are already in Prism and stay enabled.'**
+  String get onboardingFeaturesChatImportedDescription;
+
   /// Feature toggle title for polls in features step
   ///
   /// In en, this message translates to:
@@ -6797,6 +6803,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Short messages between headmates — public timeline plus private inbox.'**
   String get onboardingFeaturesBoardsDescription;
+
+  /// Feature toggle description when Simply Plural board posts were imported and boards cannot be disabled
+  ///
+  /// In en, this message translates to:
+  /// **'Imported Simply Plural message-board posts are already in Prism and stay enabled.'**
+  String get onboardingFeaturesBoardsImportedDescription;
 
   /// Feature toggle label for reminders in features step
   ///
@@ -7337,6 +7349,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Channel name'**
   String get onboardingChatChannelNameHint;
+
+  /// Title for locked imported Simply Plural chats in chat setup step
+  ///
+  /// In en, this message translates to:
+  /// **'Imported from Simply Plural'**
+  String get onboardingChatImportedSimplyPluralTitle;
+
+  /// Description for locked imported Simply Plural chats in chat setup step
+  ///
+  /// In en, this message translates to:
+  /// **'These chats are already in Prism and stay enabled.'**
+  String get onboardingChatImportedSimplyPluralDescription;
 
   /// Default onboarding channel: group chat visible to all members (cannot be removed)
   ///

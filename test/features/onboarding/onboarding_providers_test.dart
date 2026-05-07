@@ -131,11 +131,64 @@ void main() {
       notifier.setWasImportedFromSimplyPlural(
         true,
         boardPostsImported: true,
+        boardPostCount: 9,
       );
+      notifier.setFeatureToggle(boardsEnabled: false);
 
       final state = container.read(onboardingProvider);
       expect(state.wasImportedFromSimplyPlural, isTrue);
+      expect(state.hasImportedSimplyPluralBoardPosts, isTrue);
+      expect(state.importedSimplyPluralBoardPostCount, 9);
       expect(state.boardsEnabled, isTrue);
+    });
+
+    test('Simply Plural chat imports keep chat enabled', () {
+      final container = ProviderContainer(
+        overrides: [
+          memberRepositoryProvider.overrideWithValue(FakeMemberRepository()),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final notifier = container.read(onboardingProvider.notifier);
+      notifier.setFeatureToggle(chatEnabled: false);
+      notifier.setWasImportedFromSimplyPlural(
+        true,
+        conversationCount: 2,
+        messageCount: 12,
+      );
+      notifier.setFeatureToggle(chatEnabled: false);
+
+      final state = container.read(onboardingProvider);
+      expect(state.wasImportedFromSimplyPlural, isTrue);
+      expect(state.hasImportedSimplyPluralChats, isTrue);
+      expect(state.importedSimplyPluralConversationCount, 2);
+      expect(state.importedSimplyPluralMessageCount, 12);
+      expect(state.chatEnabled, isTrue);
+    });
+
+    test('default channel seeding skips new channels after SP chat import', () {
+      final container = ProviderContainer(
+        overrides: [
+          memberRepositoryProvider.overrideWithValue(FakeMemberRepository()),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final notifier = container.read(onboardingProvider.notifier);
+      notifier.setWasImportedFromSimplyPlural(
+        true,
+        conversationCount: 1,
+        messageCount: 4,
+      );
+      notifier.seedDefaultChannels(
+        allMembersName: 'All Members',
+        ventingName: 'Venting',
+      );
+
+      final state = container.read(onboardingProvider);
+      expect(state.selectedChannels, isEmpty);
+      expect(state.allMembersChannelKey, 'All Members');
     });
 
     test('fronting behavior setters update onboarding state independently', () {

@@ -26,9 +26,6 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
         '\u{1F465}',
     l10n.onboardingChatChannelVenting: '\u{1F62E}\u200D\u{1F4A8}',
     l10n.onboardingChatChannelPlanning: '\u{1F4CB}',
-    l10n.onboardingChatChannelJournal: '\u{1F4D3}',
-    l10n.onboardingChatChannelUpdates: '\u{1F4E2}',
-    l10n.onboardingChatChannelRandom: '\u{1F3B2}',
   };
 
   @override
@@ -80,11 +77,21 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
       useEnglish: onboarding.terminologyUseEnglish,
     );
     final suggestedChannels = _buildSuggestedChannels(context.l10n, terms);
+    final hasImportedSimplyPluralChats =
+        onboarding.hasImportedSimplyPluralChats;
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (hasImportedSimplyPluralChats) ...[
+            _ImportedSimplyPluralChatsCard(
+              conversationCount:
+                  onboarding.importedSimplyPluralConversationCount,
+              messageCount: onboarding.importedSimplyPluralMessageCount,
+            ),
+            const SizedBox(height: 20),
+          ],
           Text(
             context.l10n.onboardingChatSuggestedChannels,
             style: theme.textTheme.labelLarge?.copyWith(
@@ -300,6 +307,108 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
                 ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _ImportedSimplyPluralChatsCard extends StatelessWidget {
+  const _ImportedSimplyPluralChatsCard({
+    required this.conversationCount,
+    required this.messageCount,
+  });
+
+  final int conversationCount;
+  final int messageCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final primary = theme.colorScheme.primary;
+    final textColor = isDark ? AppColors.warmWhite : AppColors.warmBlack;
+    final mutedColor = isDark
+        ? AppColors.mutedTextDark
+        : AppColors.mutedTextLight;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isDark
+            ? AppColors.warmWhite.withValues(alpha: 0.12)
+            : AppColors.parchmentElevated,
+        borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
+        border: Border.all(color: primary.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        children: [
+          Icon(AppIcons.checkCircle, color: primary, size: 24),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  context.l10n.onboardingChatImportedSimplyPluralTitle,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: textColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  context.l10n.onboardingChatImportedSimplyPluralDescription,
+                  style: theme.textTheme.bodySmall?.copyWith(color: mutedColor),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 4,
+                  children: [
+                    _ImportedCountChip(
+                      label: context.l10n.onboardingDataReadyConversations,
+                      count: conversationCount,
+                    ),
+                    _ImportedCountChip(
+                      label: context.l10n.onboardingDataReadyMessages,
+                      count: messageCount,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Icon(
+            AppIcons.lock,
+            size: 16,
+            color: isDark
+                ? AppColors.warmWhite.withValues(alpha: 0.5)
+                : AppColors.warmBlack.withValues(alpha: 0.5),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ImportedCountChip extends StatelessWidget {
+  const _ImportedCountChip({required this.label, required this.count});
+
+  final String label;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final textColor = isDark ? AppColors.warmWhite : AppColors.warmBlack;
+
+    return Text(
+      '$label: $count',
+      style: theme.textTheme.labelSmall?.copyWith(
+        color: textColor.withValues(alpha: 0.78),
+        fontWeight: FontWeight.w600,
       ),
     );
   }

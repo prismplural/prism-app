@@ -132,6 +132,9 @@ class OnboardingState {
   final String? selectedFronterId;
   final bool wasImportedFromPluralKit;
   final bool wasImportedFromSimplyPlural;
+  final int importedSimplyPluralConversationCount;
+  final int importedSimplyPluralMessageCount;
+  final int importedSimplyPluralBoardPostCount;
   final OnboardingDataCounts? importedDataCounts;
   final String? customTermSingular;
   final String? customTermPlural;
@@ -172,6 +175,9 @@ class OnboardingState {
     this.selectedFronterId,
     this.wasImportedFromPluralKit = false,
     this.wasImportedFromSimplyPlural = false,
+    this.importedSimplyPluralConversationCount = 0,
+    this.importedSimplyPluralMessageCount = 0,
+    this.importedSimplyPluralBoardPostCount = 0,
     this.importedDataCounts,
     this.customTermSingular,
     this.customTermPlural,
@@ -206,6 +212,9 @@ class OnboardingState {
     String? selectedFronterId,
     bool? wasImportedFromPluralKit,
     bool? wasImportedFromSimplyPlural,
+    int? importedSimplyPluralConversationCount,
+    int? importedSimplyPluralMessageCount,
+    int? importedSimplyPluralBoardPostCount,
     Object? importedDataCounts = _sentinel,
     Object? customTermSingular = _sentinel,
     Object? customTermPlural = _sentinel,
@@ -246,6 +255,15 @@ class OnboardingState {
           wasImportedFromPluralKit ?? this.wasImportedFromPluralKit,
       wasImportedFromSimplyPlural:
           wasImportedFromSimplyPlural ?? this.wasImportedFromSimplyPlural,
+      importedSimplyPluralConversationCount:
+          importedSimplyPluralConversationCount ??
+          this.importedSimplyPluralConversationCount,
+      importedSimplyPluralMessageCount:
+          importedSimplyPluralMessageCount ??
+          this.importedSimplyPluralMessageCount,
+      importedSimplyPluralBoardPostCount:
+          importedSimplyPluralBoardPostCount ??
+          this.importedSimplyPluralBoardPostCount,
       importedDataCounts: importedDataCounts == _sentinel
           ? this.importedDataCounts
           : importedDataCounts as OnboardingDataCounts?,
@@ -263,6 +281,14 @@ class OnboardingState {
       dekBytes: dekBytes == _sentinel ? this.dekBytes : dekBytes as Uint8List?,
     );
   }
+
+  bool get hasImportedSimplyPluralChats =>
+      wasImportedFromSimplyPlural &&
+      (importedSimplyPluralConversationCount > 0 ||
+          importedSimplyPluralMessageCount > 0);
+
+  bool get hasImportedSimplyPluralBoardPosts =>
+      wasImportedFromSimplyPlural && importedSimplyPluralBoardPostCount > 0;
 }
 
 ({
@@ -556,11 +582,35 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
   void setWasImportedFromSimplyPlural(
     bool value, {
     bool boardPostsImported = false,
+    int? conversationCount,
+    int? messageCount,
+    int? boardPostCount,
   }) {
-    state = state.copyWith(wasImportedFromSimplyPlural: value);
-    if (value && boardPostsImported) {
-      setFeatureToggle(boardsEnabled: true);
-    }
+    final nextConversationCount = value
+        ? conversationCount ?? state.importedSimplyPluralConversationCount
+        : 0;
+    final nextMessageCount = value
+        ? messageCount ?? state.importedSimplyPluralMessageCount
+        : 0;
+    final nextBoardPostCount = value
+        ? boardPostCount ??
+              (boardPostsImported
+                  ? state.importedSimplyPluralBoardPostCount > 0
+                        ? state.importedSimplyPluralBoardPostCount
+                        : 1
+                  : state.importedSimplyPluralBoardPostCount)
+        : 0;
+    final hasImportedChats =
+        value && (nextConversationCount > 0 || nextMessageCount > 0);
+    final hasImportedBoardPosts = value && nextBoardPostCount > 0;
+    state = state.copyWith(
+      wasImportedFromSimplyPlural: value,
+      importedSimplyPluralConversationCount: nextConversationCount,
+      importedSimplyPluralMessageCount: nextMessageCount,
+      importedSimplyPluralBoardPostCount: nextBoardPostCount,
+      chatEnabled: hasImportedChats ? true : null,
+      boardsEnabled: hasImportedBoardPosts ? true : null,
+    );
   }
 
   void showImportedDataReady(OnboardingDataCounts counts) {
@@ -622,6 +672,13 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
   }) {
     // Only seed if channels haven't been initialized yet.
     if (state.allMembersChannelKey != null) return;
+    if (state.hasImportedSimplyPluralChats) {
+      state = state.copyWith(
+        selectedChannels: const {},
+        allMembersChannelKey: allMembersName,
+      );
+      return;
+    }
     state = state.copyWith(
       selectedChannels: {
         allMembersName: '\u{1F465}',
@@ -698,13 +755,21 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
     bool? boardsEnabled,
     bool? remindersEnabled,
   }) {
+    final lockedChatEnabled =
+        state.hasImportedSimplyPluralChats && chatEnabled == false
+        ? true
+        : chatEnabled;
+    final lockedBoardsEnabled =
+        state.hasImportedSimplyPluralBoardPosts && boardsEnabled == false
+        ? true
+        : boardsEnabled;
     var nextState = state.copyWith(
-      chatEnabled: chatEnabled,
+      chatEnabled: lockedChatEnabled,
       pollsEnabled: pollsEnabled,
       habitsEnabled: habitsEnabled,
       sleepTrackingEnabled: sleepTrackingEnabled,
       notesEnabled: notesEnabled,
-      boardsEnabled: boardsEnabled,
+      boardsEnabled: lockedBoardsEnabled,
       remindersEnabled: remindersEnabled,
     );
     if (nextState.navBarItems.isNotEmpty ||
