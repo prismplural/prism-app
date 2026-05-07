@@ -286,8 +286,9 @@ class _SessionDetailBody extends ConsumerWidget {
 
     // Pre-resolve active sessions so the value is available synchronously
     // when the end-session button is tapped.
-    final activeSessions =
-        showPill ? ref.watch(activeSessionsProvider).value : null;
+    final activeSessions = showPill
+        ? ref.watch(activeSessionsProvider).value
+        : null;
 
     final list = ListView(
       padding: EdgeInsets.fromLTRB(24, 24, 24, bottomReserve),
@@ -406,7 +407,8 @@ class _SessionDetailBody extends ConsumerWidget {
 
     if (!showPill) return list;
 
-    final tint = (member != null &&
+    final tint =
+        (member != null &&
             member.customColorEnabled &&
             member.customColorHex != null)
         ? AppColors.fromHex(member.customColorHex!)
@@ -654,8 +656,7 @@ Future<_NextFronterChoice?> _showNextFronterDialog(BuildContext context) {
         PrismButton(
           label: l10n.frontingNextFronterUnknown,
           tone: PrismButtonTone.outlined,
-          onPressed: () =>
-              Navigator.of(ctx).pop(_NextFronterChoice.unknown),
+          onPressed: () => Navigator.of(ctx).pop(_NextFronterChoice.unknown),
         ),
         PrismButton(
           label: l10n.frontingNextFronterEnd,
@@ -798,7 +799,7 @@ class _FloatingEndSessionButton extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    AppIcons.stopRounded,
+                    AppIcons.exitToApp,
                     size: 18,
                     color: theme.colorScheme.onSurface,
                   ),

@@ -563,7 +563,7 @@ class _CoFronterRow extends ConsumerWidget {
       if (session.isActive)
         _ContextAction(
           label: context.l10n.frontingEndSessionButton,
-          icon: AppIcons.stopRounded,
+          icon: AppIcons.exitToApp,
           onSelected: () => _endFronting(context, ref),
         ),
       _ContextAction(

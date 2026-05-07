@@ -828,7 +828,7 @@ class _PeriodTile extends ConsumerWidget {
       if (slice.isLiveOpenEnded)
         _TileContextAction(
           label: context.l10n.frontingEndSessionButton,
-          icon: AppIcons.stopRounded,
+          icon: AppIcons.exitToApp,
           onSelected: () => _endFronting(context, ref),
         ),
       if (!isMultiContributor)
