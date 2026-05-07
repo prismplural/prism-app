@@ -85,4 +85,75 @@ void main() {
       AppShellTabId.settings,
     ]);
   });
+
+  testWidgets('Simply Plural import ignores sparse imported nav config', (
+    tester,
+  ) async {
+    final container = ProviderContainer(
+      overrides: [
+        systemSettingsProvider.overrideWithValue(
+          const AsyncValue.data(
+            SystemSettings(
+              boardsEnabled: true,
+              navBarOverflowItems: ['boards'],
+            ),
+          ),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    container
+        .read(onboardingProvider.notifier)
+        .setWasImportedFromSimplyPlural(true, boardPostsImported: true);
+
+    await tester.pumpWidget(buildSubject(container));
+    await tester.pumpAndSettle();
+
+    final state = container.read(onboardingProvider);
+    expect(state.navBarItems, ['home', 'chat', 'habits', 'polls', 'settings']);
+    expect(state.navBarOverflowItems, [
+      'members',
+      'notes',
+      'reminders',
+      'statistics',
+      'timeline',
+      'sleep',
+      'boards',
+    ]);
+  });
+
+  testWidgets('PluralKit import ignores persisted third-party nav config', (
+    tester,
+  ) async {
+    final container = ProviderContainer(
+      overrides: [
+        systemSettingsProvider.overrideWithValue(
+          const AsyncValue.data(
+            SystemSettings(
+              navBarItems: ['home', 'members', 'settings'],
+              navBarOverflowItems: ['timeline'],
+            ),
+          ),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    container
+        .read(onboardingProvider.notifier)
+        .setWasImportedFromPluralKit(true);
+
+    await tester.pumpWidget(buildSubject(container));
+    await tester.pumpAndSettle();
+
+    final state = container.read(onboardingProvider);
+    expect(state.navBarItems, ['home', 'chat', 'habits', 'polls', 'settings']);
+    expect(state.navBarOverflowItems, [
+      'members',
+      'notes',
+      'reminders',
+      'statistics',
+      'timeline',
+      'sleep',
+    ]);
+  });
 }

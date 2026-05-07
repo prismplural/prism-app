@@ -30,13 +30,18 @@ class NavigationStep extends ConsumerWidget {
         final settingsHasNav =
             (settings?.navBarItems.isNotEmpty ?? false) ||
             (settings?.navBarOverflowItems.isNotEmpty ?? false);
+        final seedFromSettings =
+            settingsHasNav &&
+            !latest.wasImportedFromPluralKit &&
+            !latest.wasImportedFromSimplyPlural;
+        final latestLayout = onboardingNavLayout(latest);
         notifier.seedNavLayoutIfUnset(
-          primary: settingsHasNav
+          primary: seedFromSettings
               ? settings!.navBarItems
-              : layout.primary.map((tab) => tab.id.name).toList(),
-          overflow: settingsHasNav
+              : latestLayout.primary.map((tab) => tab.id.name).toList(),
+          overflow: seedFromSettings
               ? settings!.navBarOverflowItems
-              : layout.overflow.map((tab) => tab.id.name).toList(),
+              : latestLayout.overflow.map((tab) => tab.id.name).toList(),
         );
       });
     }
