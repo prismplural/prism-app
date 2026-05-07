@@ -62,7 +62,8 @@ class SessionDetailScreen extends ConsumerWidget {
                   tooltip: context.l10n.frontingSessionDetailEditTooltip,
                   onPressed: isSleep
                       ? () => _editSleep(context, session)
-                      : () => context.go(AppRoutePaths.sessionEdit(sessionId)),
+                      : () =>
+                            context.push(AppRoutePaths.sessionEdit(sessionId)),
                 ),
                 PrismTopBarAction(
                   icon: AppIcons.deleteOutline,

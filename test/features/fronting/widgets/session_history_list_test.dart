@@ -742,6 +742,9 @@ void main() {
       );
       // Must NOT have navigated to an individual session route.
       expect(find.textContaining('routed-'), findsNothing);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 1));
     });
   });
 

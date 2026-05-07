@@ -576,7 +576,7 @@ class _PerMemberSessionTile extends ConsumerWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => context.go(AppRoutePaths.session(session.id)),
+        onTap: () => context.push(AppRoutePaths.session(session.id)),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
@@ -812,7 +812,7 @@ class _PeriodTile extends ConsumerWidget {
 
   void _editSession(BuildContext context) {
     if (period.sessionIds.isEmpty) return;
-    context.go(AppRoutePaths.sessionEdit(period.sessionIds.first));
+    context.push(AppRoutePaths.sessionEdit(period.sessionIds.first));
   }
 
   List<_TileContextAction> _contextActions(
@@ -993,10 +993,10 @@ class _PeriodTile extends ConsumerWidget {
           // shows its complete extent on the detail view.
           if (period.sessionIds.isEmpty) return;
           if (period.sessionIds.length == 1) {
-            context.go(AppRoutePaths.session(period.sessionIds.first));
+            context.push(AppRoutePaths.session(period.sessionIds.first));
             return;
           }
-          context.go(
+          context.push(
             AppRoutePaths.period(period.sessionIds),
             extra: PeriodDetailArgs(
               activeMembers: activeMemberObjs,
@@ -1157,8 +1157,8 @@ class _PeriodTitleBlock extends StatelessWidget {
         ),
         const SizedBox(height: 2),
         DefaultTextStyle(style: subtitleStyle, child: subtitle),
-        if (briefChips != null) briefChips!,
-        if (alwaysPresentLine != null) alwaysPresentLine!,
+        ?briefChips,
+        ?alwaysPresentLine,
       ],
     );
   }
@@ -1452,7 +1452,7 @@ class _InlineSleepTile extends ConsumerWidget {
   }
 
   void _editSession(BuildContext context) {
-    context.go(AppRoutePaths.sessionEdit(session.id));
+    context.push(AppRoutePaths.sessionEdit(session.id));
   }
 
   List<_TileContextAction> _contextActions(
@@ -1508,7 +1508,7 @@ class _InlineSleepTile extends ConsumerWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () => context.go(AppRoutePaths.session(session.id)),
+          onTap: () => context.push(AppRoutePaths.session(session.id)),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
