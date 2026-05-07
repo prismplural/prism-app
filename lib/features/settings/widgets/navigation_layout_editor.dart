@@ -40,7 +40,6 @@ typedef NavigationFeatureFlags = ({
 typedef NavigationLayoutChanged =
     void Function(List<AppShellTab> primary, List<AppShellTab> overflow);
 
-@visibleForTesting
 AppShellMobileNavLayout computeAdaptiveNavLayoutForCurrentDevice(
   BuildContext context, {
   required List<AppShellTab> primary,

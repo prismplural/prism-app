@@ -76,7 +76,7 @@ Widget _buildSubject({
   required List<Member> members,
   FrontingSession? activeSleepSession,
 }) {
-  final settings = const SystemSettings(
+  const settings = SystemSettings(
     systemName: 'Test System',
     showQuickFront: false,
     frontingListViewMode: FrontingListViewMode.combinedPeriods,
@@ -119,10 +119,10 @@ Widget _buildSubject({
       ),
       pluralKitSyncProvider.overrideWith(_FakePluralKitSyncNotifier.new),
     ],
-    child: MaterialApp(
+    child: const MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: const [Locale('en')],
-      home: const FrontingScreen(),
+      supportedLocales: [Locale('en')],
+      home: FrontingScreen(),
     ),
   );
 }

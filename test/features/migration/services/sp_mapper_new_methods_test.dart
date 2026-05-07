@@ -796,13 +796,13 @@ void main() {
       final data = _makeExportData(
         members: [_memberA],
         polls: [
-          SpPoll(
+          const SpPoll(
             id: 'p1',
             question: 'Test poll',
             isCustom: false,
             allowAbstain: true,
             allowVeto: true,
-            votes: const [SpPollVote(memberId: 'sp-a', optionName: 'yes')],
+            votes: [SpPollVote(memberId: 'sp-a', optionName: 'yes')],
           ),
         ],
       );

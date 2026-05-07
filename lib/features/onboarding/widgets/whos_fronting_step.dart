@@ -13,6 +13,7 @@ import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
+import 'package:prism_plurality/shared/widgets/prism_button.dart';
 
 const int _kOnboardingFrontingSearchThreshold = 15;
 
@@ -297,9 +298,10 @@ class _SkipButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return TextButton(
+    return PrismButton(
+      label: context.l10n.onboardingWhosFrontingSkip,
       onPressed: onPressed,
-      child: Text(context.l10n.onboardingWhosFrontingSkip),
+      density: PrismControlDensity.compact,
     );
   }
 }

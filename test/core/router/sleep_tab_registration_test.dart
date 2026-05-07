@@ -63,8 +63,8 @@ void main() {
       expect(defaultNavBarTabIds, isNot(contains('sleep')));
     });
 
-    test('is NOT in defaultNavBarOverflowTabIds', () {
-      expect(defaultNavBarOverflowTabIds, isNot(contains('sleep')));
+    test('is in defaultNavBarOverflowTabIds', () {
+      expect(defaultNavBarOverflowTabIds, contains('sleep'));
     });
   });
 

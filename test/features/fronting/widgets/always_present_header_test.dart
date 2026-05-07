@@ -49,11 +49,11 @@ Future<void> _pumpHeader(
           useEnglish: false,
         )),
       ],
-      child: MaterialApp(
+      child: const MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: const [Locale('en'), Locale('es')],
-        locale: const Locale('en'),
-        home: const Scaffold(body: AlwaysPresentHeader()),
+        supportedLocales: [Locale('en'), Locale('es')],
+        locale: Locale('en'),
+        home: Scaffold(body: AlwaysPresentHeader()),
       ),
     ),
   );
