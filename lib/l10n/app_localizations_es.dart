@@ -4061,6 +4061,9 @@ class AppLocalizationsEs extends AppLocalizations {
       'Encuestas, votos — la democracia que tu sistema merece.';
 
   @override
+  String get onboardingCompleteWelcomeTitle => 'Bienvenida a Prism';
+
+  @override
   String get onboardingImportDataSourcePickerIntro =>
       'Puedes importar tus datos existentes o saltarte este paso para comenzar desde cero.';
 
@@ -4346,15 +4349,15 @@ class AppLocalizationsEs extends AppLocalizations {
   String get onboardingChatCustomChannel => 'Canal personalizado';
 
   @override
-  String get onboardingChatChannelNameHint => 'Nombre del canal';
-
-  @override
   String get onboardingChatImportedSimplyPluralTitle =>
       'Importados desde Simply Plural';
 
   @override
   String get onboardingChatImportedSimplyPluralDescription =>
       'Estos chats ya están en Prism y permanecerán activados.';
+
+  @override
+  String get onboardingChatChannelNameHint => 'Nombre del canal';
 
   @override
   String onboardingChatChannelAllMembers(
@@ -4380,10 +4383,39 @@ class AppLocalizationsEs extends AppLocalizations {
   String get onboardingChatChannelRandom => 'Aleatorio';
 
   @override
-  String get onboardingPreferencesTerminology => 'Terminología';
+  String get onboardingFrontingDefaultsHomeViewSection => 'Vista de inicio';
 
   @override
-  String get onboardingFrontBehaviorSection => 'Comportamiento al frente';
+  String get onboardingFrontingDefaultsHomeViewTitle =>
+      'Vista de frente en Inicio';
+
+  @override
+  String get onboardingFrontingDefaultsHomeViewDescription =>
+      'Elige la vista que Inicio usa para el historial de frente.';
+
+  @override
+  String get onboardingFrontingViewCombined => 'Combinada';
+
+  @override
+  String get onboardingFrontingViewIndividual => 'Individual';
+
+  @override
+  String get onboardingFrontingViewTimeline => 'Cronología';
+
+  @override
+  String get onboardingFrontingViewCombinedDescription =>
+      'Agrupa cofrentes coincidentes en un período combinado.';
+
+  @override
+  String get onboardingFrontingViewIndividualDescription =>
+      'Muestra cada sesión al frente como su propia fila.';
+
+  @override
+  String get onboardingFrontingViewTimelineDescription =>
+      'Muestra el frente como una cronología visual a lo largo del tiempo.';
+
+  @override
+  String get onboardingFrontingDefaultsStartingSection => 'Iniciar frentes';
 
   @override
   String get onboardingAddFrontBehaviorTitle => 'Al agregar un nuevo frente';
@@ -4396,8 +4428,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get onboardingQuickFrontBehaviorTitle => 'Al usar frente rápido';
 
   @override
-  String get onboardingQuickFrontBehaviorDescription =>
-      'Elige qué pasa cuando mantienes presionado un botón de frente rápido para alguien que aún no está al frente.';
+  String onboardingQuickFrontBehaviorDescription(String termSingularLower) {
+    return 'Elige qué pasa cuando mantienes presionado un botón de frente rápido para un $termSingularLower que aún no está al frente.';
+  }
 
   @override
   String get onboardingFrontBehaviorAdditive => 'Agregar';
@@ -4412,6 +4445,9 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get onboardingFrontBehaviorReplaceDescription =>
       'Termina el frente actual primero y luego inicia al nuevo integrante.';
+
+  @override
+  String get onboardingPreferencesTerminology => 'Terminología';
 
   @override
   String get onboardingPreferencesCustomTerminology => 'Personalizado';
@@ -7544,6 +7580,14 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get onboardingNavigationMoreHint =>
       'Mueve los elementos menos usados a Más,\nel botón de tres puntos abre ese menú.';
+
+  @override
+  String get onboardingFrontingDefaultsTitle =>
+      'Valores predeterminados de frente';
+
+  @override
+  String get onboardingFrontingDefaultsSubtitle =>
+      'Elige cómo Inicio muestra e inicia frentes.';
 
   @override
   String get onboardingChatSetupTitle => 'Configura el chat';

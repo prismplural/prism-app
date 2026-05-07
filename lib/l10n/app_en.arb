@@ -5502,6 +5502,10 @@
   "@onboardingCompletePollsDescription": {
     "description": "Next step row description in complete step"
   },
+  "onboardingCompleteWelcomeTitle": "Welcome to Prism",
+  "@onboardingCompleteWelcomeTitle": {
+    "description": "Large display text on the final onboarding step"
+  },
   "onboardingImportDataSourcePickerIntro": "You can import your existing data or skip this step to start fresh.",
   "@onboardingImportDataSourcePickerIntro": {
     "description": "Intro text on the import data source picker screen"
@@ -5849,10 +5853,6 @@
   "@onboardingChatCustomChannel": {
     "description": "Section header for custom channel input in chat setup step"
   },
-  "onboardingChatChannelNameHint": "Channel name",
-  "@onboardingChatChannelNameHint": {
-    "description": "Hint text for the custom channel name field"
-  },
   "onboardingChatImportedSimplyPluralTitle": "Imported from Simply Plural",
   "@onboardingChatImportedSimplyPluralTitle": {
     "description": "Title for locked imported Simply Plural chats in chat setup step"
@@ -5860,6 +5860,10 @@
   "onboardingChatImportedSimplyPluralDescription": "These chats are already in Prism and stay enabled.",
   "@onboardingChatImportedSimplyPluralDescription": {
     "description": "Description for locked imported Simply Plural chats in chat setup step"
+  },
+  "onboardingChatChannelNameHint": "Channel name",
+  "@onboardingChatChannelNameHint": {
+    "description": "Hint text for the custom channel name field"
   },
   "onboardingChatChannelAllMembers": "All {termPlural}",
   "@onboardingChatChannelAllMembers": {
@@ -5888,13 +5892,45 @@
   "@onboardingChatChannelRandom": {
     "description": "Default onboarding channel suggestion: random/miscellaneous channel"
   },
-  "onboardingPreferencesTerminology": "Terminology",
-  "@onboardingPreferencesTerminology": {
-    "description": "Section header for terminology section in preferences step"
+  "onboardingFrontingDefaultsHomeViewSection": "Home view",
+  "@onboardingFrontingDefaultsHomeViewSection": {
+    "description": "Section header for the onboarding screen that configures how the Home fronting view is displayed"
   },
-  "onboardingFrontBehaviorSection": "Fronting behavior",
-  "@onboardingFrontBehaviorSection": {
-    "description": "Section header for fronting behavior preferences in onboarding"
+  "onboardingFrontingDefaultsHomeViewTitle": "Home fronting view",
+  "@onboardingFrontingDefaultsHomeViewTitle": {
+    "description": "Title for the onboarding preference that controls the default Home fronting view mode"
+  },
+  "onboardingFrontingDefaultsHomeViewDescription": "Choose the view Home uses for fronting history.",
+  "@onboardingFrontingDefaultsHomeViewDescription": {
+    "description": "Description for the onboarding preference that controls the default Home fronting view mode"
+  },
+  "onboardingFrontingViewCombined": "Combined",
+  "@onboardingFrontingViewCombined": {
+    "description": "Segment label for showing fronting history as combined periods"
+  },
+  "onboardingFrontingViewIndividual": "Individual",
+  "@onboardingFrontingViewIndividual": {
+    "description": "Segment label for showing fronting history as individual per-member rows"
+  },
+  "onboardingFrontingViewTimeline": "Timeline",
+  "@onboardingFrontingViewTimeline": {
+    "description": "Segment label for showing fronting history as a timeline"
+  },
+  "onboardingFrontingViewCombinedDescription": "Groups matching co-fronts into one combined period.",
+  "@onboardingFrontingViewCombinedDescription": {
+    "description": "Selected-state explanation for the combined Home fronting view mode"
+  },
+  "onboardingFrontingViewIndividualDescription": "Shows each fronting session as its own row.",
+  "@onboardingFrontingViewIndividualDescription": {
+    "description": "Selected-state explanation for the individual Home fronting view mode"
+  },
+  "onboardingFrontingViewTimelineDescription": "Shows fronting as a visual timeline over time.",
+  "@onboardingFrontingViewTimelineDescription": {
+    "description": "Selected-state explanation for the timeline Home fronting view mode"
+  },
+  "onboardingFrontingDefaultsStartingSection": "Starting fronts",
+  "@onboardingFrontingDefaultsStartingSection": {
+    "description": "Section header for onboarding controls that configure how fronting starts"
   },
   "onboardingAddFrontBehaviorTitle": "When adding a new front",
   "@onboardingAddFrontBehaviorTitle": {
@@ -5908,9 +5944,12 @@
   "@onboardingQuickFrontBehaviorTitle": {
     "description": "Title for onboarding preference that controls the quick-front shortcut default behavior"
   },
-  "onboardingQuickFrontBehaviorDescription": "Choose what happens when you hold a quick-front button for someone not already fronting.",
+  "onboardingQuickFrontBehaviorDescription": "Choose what happens when you hold a quick-front button for a {termSingularLower} who is not already fronting.",
   "@onboardingQuickFrontBehaviorDescription": {
-    "description": "Description for onboarding preference that controls the quick-front shortcut default behavior"
+    "description": "Description for onboarding preference that controls the quick-front shortcut default behavior",
+    "placeholders": {
+      "termSingularLower": { "type": "String" }
+    }
   },
   "onboardingFrontBehaviorAdditive": "Add",
   "@onboardingFrontBehaviorAdditive": {
@@ -5927,6 +5966,10 @@
   "onboardingFrontBehaviorReplaceDescription": "Ends the current front first, then starts the new member.",
   "@onboardingFrontBehaviorReplaceDescription": {
     "description": "Selected-state explanation for replace fronting behavior"
+  },
+  "onboardingPreferencesTerminology": "Terminology",
+  "@onboardingPreferencesTerminology": {
+    "description": "Section header for terminology section in preferences step"
   },
   "onboardingPreferencesCustomTerminology": "Custom",
   "@onboardingPreferencesCustomTerminology": {
@@ -8179,6 +8222,10 @@
   "@onboardingNavigationTitle": { "description": "Header title for the onboarding navigation step" },
   "onboardingNavigationMoreHint": "Move less-used items into More,\nthe three-dot button opens that menu.",
   "@onboardingNavigationMoreHint": { "description": "Inline hint explaining the onboarding navigation More menu" },
+  "onboardingFrontingDefaultsTitle": "Fronting defaults",
+  "@onboardingFrontingDefaultsTitle": { "description": "Header title for the onboarding fronting defaults step" },
+  "onboardingFrontingDefaultsSubtitle": "Choose how Home shows and starts fronts.",
+  "@onboardingFrontingDefaultsSubtitle": { "description": "Header subtitle for the onboarding fronting defaults step" },
   "onboardingChatSetupTitle": "Set up chat",
   "@onboardingChatSetupTitle": { "description": "Header title for the onboarding chat-setup step" },
   "onboardingChatSetupSubtitle": "Channels for your system to talk.",

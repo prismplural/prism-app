@@ -6858,6 +6858,12 @@ abstract class AppLocalizations {
   /// **'Polls, votes — the democracy your system deserves.'**
   String get onboardingCompletePollsDescription;
 
+  /// Large display text on the final onboarding step
+  ///
+  /// In en, this message translates to:
+  /// **'Welcome to Prism'**
+  String get onboardingCompleteWelcomeTitle;
+
   /// Intro text on the import data source picker screen
   ///
   /// In en, this message translates to:
@@ -7344,12 +7350,6 @@ abstract class AppLocalizations {
   /// **'Custom Channel'**
   String get onboardingChatCustomChannel;
 
-  /// Hint text for the custom channel name field
-  ///
-  /// In en, this message translates to:
-  /// **'Channel name'**
-  String get onboardingChatChannelNameHint;
-
   /// Title for locked imported Simply Plural chats in chat setup step
   ///
   /// In en, this message translates to:
@@ -7361,6 +7361,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'These chats are already in Prism and stay enabled.'**
   String get onboardingChatImportedSimplyPluralDescription;
+
+  /// Hint text for the custom channel name field
+  ///
+  /// In en, this message translates to:
+  /// **'Channel name'**
+  String get onboardingChatChannelNameHint;
 
   /// Default onboarding channel: group chat visible to all members (cannot be removed)
   ///
@@ -7401,17 +7407,65 @@ abstract class AppLocalizations {
   /// **'Random'**
   String get onboardingChatChannelRandom;
 
-  /// Section header for terminology section in preferences step
+  /// Section header for the onboarding screen that configures how the Home fronting view is displayed
   ///
   /// In en, this message translates to:
-  /// **'Terminology'**
-  String get onboardingPreferencesTerminology;
+  /// **'Home view'**
+  String get onboardingFrontingDefaultsHomeViewSection;
 
-  /// Section header for fronting behavior preferences in onboarding
+  /// Title for the onboarding preference that controls the default Home fronting view mode
   ///
   /// In en, this message translates to:
-  /// **'Fronting behavior'**
-  String get onboardingFrontBehaviorSection;
+  /// **'Home fronting view'**
+  String get onboardingFrontingDefaultsHomeViewTitle;
+
+  /// Description for the onboarding preference that controls the default Home fronting view mode
+  ///
+  /// In en, this message translates to:
+  /// **'Choose the view Home uses for fronting history.'**
+  String get onboardingFrontingDefaultsHomeViewDescription;
+
+  /// Segment label for showing fronting history as combined periods
+  ///
+  /// In en, this message translates to:
+  /// **'Combined'**
+  String get onboardingFrontingViewCombined;
+
+  /// Segment label for showing fronting history as individual per-member rows
+  ///
+  /// In en, this message translates to:
+  /// **'Individual'**
+  String get onboardingFrontingViewIndividual;
+
+  /// Segment label for showing fronting history as a timeline
+  ///
+  /// In en, this message translates to:
+  /// **'Timeline'**
+  String get onboardingFrontingViewTimeline;
+
+  /// Selected-state explanation for the combined Home fronting view mode
+  ///
+  /// In en, this message translates to:
+  /// **'Groups matching co-fronts into one combined period.'**
+  String get onboardingFrontingViewCombinedDescription;
+
+  /// Selected-state explanation for the individual Home fronting view mode
+  ///
+  /// In en, this message translates to:
+  /// **'Shows each fronting session as its own row.'**
+  String get onboardingFrontingViewIndividualDescription;
+
+  /// Selected-state explanation for the timeline Home fronting view mode
+  ///
+  /// In en, this message translates to:
+  /// **'Shows fronting as a visual timeline over time.'**
+  String get onboardingFrontingViewTimelineDescription;
+
+  /// Section header for onboarding controls that configure how fronting starts
+  ///
+  /// In en, this message translates to:
+  /// **'Starting fronts'**
+  String get onboardingFrontingDefaultsStartingSection;
 
   /// Title for onboarding preference that controls the Add Front sheet default behavior
   ///
@@ -7434,8 +7488,8 @@ abstract class AppLocalizations {
   /// Description for onboarding preference that controls the quick-front shortcut default behavior
   ///
   /// In en, this message translates to:
-  /// **'Choose what happens when you hold a quick-front button for someone not already fronting.'**
-  String get onboardingQuickFrontBehaviorDescription;
+  /// **'Choose what happens when you hold a quick-front button for a {termSingularLower} who is not already fronting.'**
+  String onboardingQuickFrontBehaviorDescription(String termSingularLower);
 
   /// Segment label for adding a member while keeping current fronters active
   ///
@@ -7460,6 +7514,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Ends the current front first, then starts the new member.'**
   String get onboardingFrontBehaviorReplaceDescription;
+
+  /// Section header for terminology section in preferences step
+  ///
+  /// In en, this message translates to:
+  /// **'Terminology'**
+  String get onboardingPreferencesTerminology;
 
   /// Label for the custom terminology option in preferences grid
   ///
@@ -12239,6 +12299,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Move less-used items into More,\nthe three-dot button opens that menu.'**
   String get onboardingNavigationMoreHint;
+
+  /// Header title for the onboarding fronting defaults step
+  ///
+  /// In en, this message translates to:
+  /// **'Fronting defaults'**
+  String get onboardingFrontingDefaultsTitle;
+
+  /// Header subtitle for the onboarding fronting defaults step
+  ///
+  /// In en, this message translates to:
+  /// **'Choose how Home shows and starts fronts.'**
+  String get onboardingFrontingDefaultsSubtitle;
 
   /// Header title for the onboarding chat-setup step
   ///

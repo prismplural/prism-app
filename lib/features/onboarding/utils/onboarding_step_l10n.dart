@@ -21,6 +21,8 @@ extension OnboardingStepL10n on OnboardingStep {
     OnboardingStep.addMembers => context.l10n.onboardingAddMembersTitle,
     OnboardingStep.features => context.l10n.onboardingFeaturesTitle,
     OnboardingStep.navigation => context.l10n.onboardingNavigationTitle,
+    OnboardingStep.frontingDefaults =>
+      context.l10n.onboardingFrontingDefaultsTitle,
     OnboardingStep.chatSetup => context.l10n.onboardingChatSetupTitle,
     OnboardingStep.preferences => context.l10n.onboardingPreferencesTitle,
     OnboardingStep.permissions => context.l10n.onboardingPermissionsTitle,
@@ -42,6 +44,8 @@ extension OnboardingStepL10n on OnboardingStep {
     OnboardingStep.addMembers => context.l10n.onboardingAddMembersSubtitle,
     OnboardingStep.features => context.l10n.onboardingFeaturesSubtitle,
     OnboardingStep.navigation => null,
+    OnboardingStep.frontingDefaults =>
+      context.l10n.onboardingFrontingDefaultsSubtitle,
     OnboardingStep.chatSetup => context.l10n.onboardingChatSetupSubtitle,
     OnboardingStep.preferences => context.l10n.onboardingPreferencesSubtitle,
     OnboardingStep.permissions => context.l10n.onboardingPermissionsSubtitle,
