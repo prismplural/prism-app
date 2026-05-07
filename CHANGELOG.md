@@ -2,6 +2,42 @@
 
 All notable changes to Prism will be documented in this file.
 
+## [0.8.0] - 2026-05-07
+
+### Added
+- Expanded onboarding with appearance, terminology, navigation, and fronting-default setup.
+- Navigation setup now adapts the default tab layout to the current device before saving.
+- Simply Plural custom-front handling is available from onboarding import.
+- Per-member fronting history from member detail screens.
+- Member folder view settings for choosing how groups display.
+- Optional member-list front buttons for adding or replacing current fronters directly from member rows.
+- Optional member pronoun visibility in member lists.
+- Deeper member group nesting, now up to five levels.
+- Ancestor breadcrumbs in group detail headers for nested groups.
+
+### Changed
+- Redesigned onboarding welcome and completion screens with Prism branding and clearer finish-state copy.
+- Split fronting behavior choices out of generic preferences into a dedicated onboarding step.
+- Member reordering is faster on large systems.
+- Member view settings copy is clearer and hides unavailable front-button details when the setting is off.
+- Removed the internal feedback tracker service.
+
+### Fixed
+- Custom field edits on member profiles are saved reliably, including focused fields when saving.
+- Reminder notifications no longer schedule duplicate or stale reminder alerts.
+- Conversation emoji edits can be preserved and cleared correctly.
+- DM participants can delete DMs they are part of.
+- Member pickers in note editing respect custom terminology instead of falling back to default wording.
+- Crowded fronting history rows adapt instead of overflowing.
+- Quick-front names fit the available slot width.
+- Per-member fronting history keeps the expected back stack after opening session detail.
+- Lazy-loaded fronting history stays stable while older rows load.
+- Imported Simply Plural chat features stay locked during onboarding unless explicitly enabled.
+- Onboarding ignores third-party navigation config from imports and seeds safe local defaults.
+- Onboarding appearance choices update the live preview correctly.
+- Onboarding skip and Material You gating no longer leave release builds in the wrong state.
+- Ending a fronting session uses the intended exit icon.
+
 ## [0.7.6] - 2026-05-06
 
 ### Added
