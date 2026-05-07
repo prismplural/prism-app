@@ -13988,12 +13988,6 @@ abstract class AppLocalizations {
   /// **'Post to {name}'**
   String memberBoardAddPost(String name);
 
-  /// Disclosure shown after an SP import that contained board messages, informing the user that Message Boards have been auto-enabled.
-  ///
-  /// In en, this message translates to:
-  /// **'Message Boards enabled — your imported posts are in the Inbox.'**
-  String get importDisclosureBoardsEnabled;
-
   /// Top bar title on the full-screen board post detail view.
   ///
   /// In en, this message translates to:

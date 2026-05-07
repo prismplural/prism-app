@@ -494,14 +494,6 @@ class SpImporter {
       if (!alreadyPresent) {
         await settingsRepo.updateNavBarOverflowItems([...overflowIds, 'boards']);
       }
-      // Surface a disclosure in the import result. The migration screen
-      // renders this in the warnings section; a future UI pass can detect
-      // the sentinel prefix and substitute the localized
-      // `importDisclosureBoardsEnabled` string.
-      warnings.add(
-        'importDisclosureBoardsEnabled: '
-        'Message Boards enabled — your imported posts are in the Inbox.',
-      );
     }
 
     stopwatch.stop();

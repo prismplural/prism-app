@@ -1846,7 +1846,10 @@ class _SimplyPluralImportFlowState
       if (!justCompleted) return;
       ref
           .read(onboardingProvider.notifier)
-          .setWasImportedFromSimplyPlural(true);
+          .setWasImportedFromSimplyPlural(
+            true,
+            boardPostsImported: (next.result?.boardPostsImported ?? 0) > 0,
+          );
       final name = next.exportData?.systemName?.trim();
       if (name != null && name.isNotEmpty) {
         ref.read(onboardingProvider.notifier).setSystemName(name);

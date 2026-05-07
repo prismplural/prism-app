@@ -2696,10 +2696,6 @@
       }
     }
   },
-  "importDisclosureBoardsEnabled": "Tableros de mensajes activados — tus mensajes importados están en el Buzón.",
-  "@importDisclosureBoardsEnabled": {
-    "description": "Disclosure shown after an SP import that contained board messages, informing the user that Message Boards have been auto-enabled."
-  },
   "boardsPostDetailTitle": "Publicación",
   "@boardsPostDetailTitle": {
     "description": "Top bar title on the full-screen board post detail view."

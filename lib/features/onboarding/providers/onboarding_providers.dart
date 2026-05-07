@@ -553,8 +553,14 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
     state = state.copyWith(wasImportedFromPluralKit: value);
   }
 
-  void setWasImportedFromSimplyPlural(bool value) {
+  void setWasImportedFromSimplyPlural(
+    bool value, {
+    bool boardPostsImported = false,
+  }) {
     state = state.copyWith(wasImportedFromSimplyPlural: value);
+    if (value && boardPostsImported) {
+      setFeatureToggle(boardsEnabled: true);
+    }
   }
 
   void showImportedDataReady(OnboardingDataCounts counts) {

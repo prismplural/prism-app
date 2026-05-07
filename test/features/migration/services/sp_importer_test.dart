@@ -7,6 +7,7 @@ import 'package:prism_plurality/core/database/app_database.dart' show AppDatabas
 import 'package:prism_plurality/data/repositories/drift_conversation_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_fronting_session_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
+import 'package:prism_plurality/data/repositories/drift_member_board_posts_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_poll_repository.dart';
 import 'package:prism_plurality/domain/models/chat_message.dart' as domain;
 import 'package:prism_plurality/domain/models/conversation.dart' as domain;
@@ -643,6 +644,64 @@ void main() {
       expect(result.messagesImported, 0);
       expect(result.pollsImported, 0);
       expect(result.warnings, isEmpty);
+    });
+
+    test('board imports auto-enable boards without leaking disclosure key',
+        () async {
+      final db = _makeDb();
+      final settingsRepo = FakeSystemSettingsRepository();
+      final importer = SpImporter(httpClient: _FakeHttpClient());
+      final data = SpExportData(
+        members: const [
+          SpMember(id: 'sp-a', name: 'Alice'),
+          SpMember(id: 'sp-b', name: 'Bob'),
+        ],
+        customFronts: const [],
+        frontHistory: const [],
+        groups: const [],
+        channels: const [],
+        messages: const [],
+        polls: const [],
+        boardMessages: [
+          SpBoardMessage(
+            id: 'board-1',
+            writtenBy: 'sp-a',
+            writtenFor: 'sp-b',
+            message: 'Imported board post',
+            writtenAt: DateTime(2025, 1, 1),
+          ),
+        ],
+      );
+
+      final repos = _makeFakeRepos();
+
+      final result = await importer.executeImport(
+        db: db,
+        data: data,
+        memberRepo: DriftMemberRepository(db.membersDao, null),
+        sessionRepo: repos.sessionRepo,
+        conversationRepo: repos.conversationRepo,
+        messageRepo: repos.messageRepo,
+        pollRepo: repos.pollRepo,
+        settingsRepo: settingsRepo,
+        boardPostsRepo: DriftMemberBoardPostsRepository(
+          db.memberBoardPostsDao,
+          db.membersDao,
+          null,
+        ),
+        downloadAvatars: false,
+      );
+
+      expect(result.boardPostsImported, 1);
+      expect(settingsRepo.settings.boardsEnabled, isTrue);
+      expect(
+        settingsRepo.settings.navBarOverflowItems.contains('boards'),
+        isTrue,
+      );
+      expect(
+        result.warnings.any((w) => w.contains('importDisclosureBoardsEnabled')),
+        isFalse,
+      );
     });
 
     test('unknown member in front history produces a warning', () async {

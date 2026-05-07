@@ -119,6 +119,25 @@ void main() {
       expect(state.importedDataCounts!.notes, 5);
     });
 
+    test('Simply Plural board imports enable boards in onboarding state', () {
+      final container = ProviderContainer(
+        overrides: [
+          memberRepositoryProvider.overrideWithValue(FakeMemberRepository()),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final notifier = container.read(onboardingProvider.notifier);
+      notifier.setWasImportedFromSimplyPlural(
+        true,
+        boardPostsImported: true,
+      );
+
+      final state = container.read(onboardingProvider);
+      expect(state.wasImportedFromSimplyPlural, isTrue);
+      expect(state.boardsEnabled, isTrue);
+    });
+
     test('fronting behavior setters update onboarding state independently', () {
       final container = ProviderContainer(
         overrides: [
