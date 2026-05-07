@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/note.dart';
+import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/providers/notes_providers.dart';
 import 'package:prism_plurality/features/members/widgets/member_select_sheet.dart';
@@ -16,6 +18,7 @@ import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
@@ -252,7 +255,7 @@ class _BottomToolbar extends ConsumerWidget {
     final theme = Theme.of(context);
     final l10n = context.l10n;
     final dateFormat = DateFormat.MMMd(context.dateLocale);
-    final terminology = watchTerminology(context, ref);
+    final settingsAsync = ref.watch(systemSettingsProvider);
     final bottomInset = modalBottomInsetOf(context);
     final mutedColor = theme.colorScheme.onSurfaceVariant;
 
@@ -291,36 +294,72 @@ class _BottomToolbar extends ConsumerWidget {
           ),
           const SizedBox(width: 8),
           // Member chip.
-          if (member != null)
-            _ToolbarChip(
-              icon: null,
-              label: member.name,
-              color: mutedColor,
-              onTap: onPickMember,
-              leading: MemberAvatar(
-                avatarImageData: member.avatarImageData,
-                memberName: member.name,
-                emoji: member.emoji,
-                customColorEnabled: member.customColorEnabled,
-                customColorHex: member.customColorHex,
-                size: 20,
-              ),
-              semanticLabel: l10n.memberNoteMemberSemantics(
-                terminology.singular,
-                member.name,
-              ),
-            )
-          else
-            _ToolbarChip(
-              icon: AppIcons.personOutline,
-              label: l10n.memberNoteAddHeadmate(terminology.singularLower),
-              color: mutedColor.withValues(alpha: 0.6),
-              onTap: onPickMember,
-              semanticLabel: l10n.memberNoteNoHeadmateSemantics(
-                terminology.singularLower,
-              ),
+          if (settingsAsync.hasValue)
+            _MemberToolbarChip(
+              member: member,
+              settings: settingsAsync.requireValue,
+              mutedColor: mutedColor,
+              onPickMember: onPickMember,
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _MemberToolbarChip extends StatelessWidget {
+  const _MemberToolbarChip({
+    required this.member,
+    required this.settings,
+    required this.mutedColor,
+    required this.onPickMember,
+  });
+
+  final Member? member;
+  final SystemSettings settings;
+  final Color mutedColor;
+  final VoidCallback onPickMember;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final terminology = resolveTerminology(
+      l10n,
+      settings.terminology,
+      customSingular: settings.customTerminology,
+      customPlural: settings.customPluralTerminology,
+      useEnglish: settings.terminologyUseEnglish,
+    );
+
+    final selectedMember = member;
+    if (selectedMember != null) {
+      return _ToolbarChip(
+        icon: null,
+        label: selectedMember.name,
+        color: mutedColor,
+        onTap: onPickMember,
+        leading: MemberAvatar(
+          avatarImageData: selectedMember.avatarImageData,
+          memberName: selectedMember.name,
+          emoji: selectedMember.emoji,
+          customColorEnabled: selectedMember.customColorEnabled,
+          customColorHex: selectedMember.customColorHex,
+          size: 20,
+        ),
+        semanticLabel: l10n.memberNoteMemberSemantics(
+          terminology.singular,
+          selectedMember.name,
+        ),
+      );
+    }
+
+    return _ToolbarChip(
+      icon: AppIcons.personOutline,
+      label: l10n.memberNoteAddHeadmate(terminology.singularLower),
+      color: mutedColor.withValues(alpha: 0.6),
+      onTap: onPickMember,
+      semanticLabel: l10n.memberNoteNoHeadmateSemantics(
+        terminology.singularLower,
       ),
     );
   }

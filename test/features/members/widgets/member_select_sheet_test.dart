@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -180,6 +181,54 @@ void main() {
 
       expect(find.text('Alice'), findsOneWidget);
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('show() waits for terminology settings before showing title', (
+      tester,
+    ) async {
+      final settings = StreamController<SystemSettings>();
+      addTearDown(settings.close);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            activeMembersProvider.overrideWith((ref) => Stream.value(members)),
+            allGroupsProvider.overrideWith(
+              (ref) => Stream.value(const <MemberGroup>[]),
+            ),
+            allGroupEntriesProvider.overrideWith(
+              (ref) => Stream.value(const <MemberGroupEntry>[]),
+            ),
+            systemSettingsProvider.overrideWith((ref) => settings.stream),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: const [Locale('en')],
+            home: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () => MemberSelectSheet.show(context),
+                child: const Text('Open'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.text('Choose headmate'), findsNothing);
+      expect(find.text('Choose member'), findsNothing);
+      expect(find.byType(PrismLoadingState), findsOneWidget);
+
+      settings.add(
+        const SystemSettings(terminology: SystemTerminology.members),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(find.text('Choose member'), findsOneWidget);
+      expect(find.text('Choose headmate'), findsNothing);
     });
 
     testWidgets('None row does NOT use close/X icon', (tester) async {

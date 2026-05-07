@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/utils/member_search_groups.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
@@ -33,24 +34,40 @@ class MemberSelectSheet extends ConsumerWidget {
   /// The sheet opens with a fixed-height scrolling body so longer lists stay
   /// scrollable without becoming full-screen.
   static Future<String?> show(BuildContext context, {String? currentMemberId}) {
-    final rawTerms = ProviderScope.containerOf(
-      context,
-      listen: false,
-    ).read(terminologySettingProvider);
-    final terms = resolveTerminology(
-      context.l10n,
-      rawTerms.term,
-      customSingular: rawTerms.customSingular,
-      customPlural: rawTerms.customPlural,
-      useEnglish: rawTerms.useEnglish,
-    );
     return PrismSheet.show<String>(
       context: context,
-      title: context.l10n.memberNoteChooseHeadmate(terms.singular),
-      builder: (sheetContext) => SizedBox(
-        height:
-            MediaQuery.sizeOf(sheetContext).height * _kSheetBodyHeightFactor,
-        child: MemberSelectSheet(currentMemberId: currentMemberId),
+      builder: (sheetContext) => Consumer(
+        builder: (context, ref, _) {
+          final height =
+              MediaQuery.sizeOf(sheetContext).height * _kSheetBodyHeightFactor;
+          final settingsAsync = ref.watch(systemSettingsProvider);
+
+          return settingsAsync.when(
+            loading: () =>
+                SizedBox(height: height, child: const PrismLoadingState()),
+            error: (_, _) => SizedBox(
+              height: height,
+              child: Center(child: Text(context.l10n.syncUnableToLoad)),
+            ),
+            data: (settings) {
+              final terms = resolveTerminology(
+                context.l10n,
+                settings.terminology,
+                customSingular: settings.customTerminology,
+                customPlural: settings.customPluralTerminology,
+                useEnglish: settings.terminologyUseEnglish,
+              );
+
+              return PrismSheet(
+                title: context.l10n.memberNoteChooseHeadmate(terms.singular),
+                child: SizedBox(
+                  height: height,
+                  child: MemberSelectSheet(currentMemberId: currentMemberId),
+                ),
+              );
+            },
+          );
+        },
       ),
     );
   }
@@ -60,118 +77,135 @@ class MemberSelectSheet extends ConsumerWidget {
     // Non-fronting picker: hide the Unknown sentinel — it's a system-internal
     // placeholder, not a selectable headmate.
     final membersAsync = ref.watch(userVisibleMembersProvider);
-    final terminology = watchTerminology(context, ref);
+    final settingsAsync = ref.watch(systemSettingsProvider);
     final l10n = context.l10n;
 
-    return membersAsync.when(
+    return settingsAsync.when(
       loading: () => const PrismLoadingState(),
-      error: (_, _) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Text(l10n.memberSelectLoadFailed(terminology.pluralLower)),
-        ),
-      ),
-      data: (members) {
-        if (members.isEmpty) {
-          return EmptyState(
-            icon: Icon(AppIcons.people),
-            title: l10n.noMembersFound(terminology.pluralLower),
-            subtitle: l10n.terminologyAddFirstSubtitle(
-              terminology.singularLower,
+      error: (_, _) => Center(child: Text(l10n.syncUnableToLoad)),
+      data: (settings) {
+        final terminology = resolveTerminology(
+          l10n,
+          settings.terminology,
+          customSingular: settings.customTerminology,
+          customPlural: settings.customPluralTerminology,
+          useEnglish: settings.terminologyUseEnglish,
+        );
+
+        return membersAsync.when(
+          loading: () => const PrismLoadingState(),
+          error: (_, _) => Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Text(l10n.memberSelectLoadFailed(terminology.pluralLower)),
             ),
-          );
-        }
-
-        final searchGroups = watchMemberSearchGroups(ref, members);
-
-        return Column(
-          children: [
-            // Search action in top-right corner — opens the shared search sheet.
-            Align(
-              alignment: Alignment.centerRight,
-              child: IconButton(
-                icon: Icon(AppIcons.search),
-                tooltip: l10n.search,
-                onPressed: () async {
-                  final result = await MemberSearchSheet.showSingle(
-                    context,
-                    members: members,
-                    termPlural: terminology.plural,
-                    groups: searchGroups,
-                    specialRows: [
-                      MemberSearchSpecialRow(
-                        rowKey: 'none',
-                        title: l10n.memberSelectNone,
-                        leading: Icon(AppIcons.removeCircleOutline),
-                        result: const MemberSearchResultCleared(),
-                      ),
-                    ],
-                  );
-
-                  if (!context.mounted) return;
-                  switch (result) {
-                    case MemberSearchResultSelected(:final memberId):
-                      Navigator.of(context).pop(memberId);
-                    case MemberSearchResultCleared():
-                      Navigator.of(context).pop('');
-                    case MemberSearchResultDismissed():
-                    case MemberSearchResultUnknown():
-                      // User cancelled — remain in MemberSelectSheet.
-                      break;
-                  }
-                },
-              ),
-            ),
-
-            // "None" row + one row per member — no shrinkWrap; height is bounded
-            // by the explicit body height in show().
-            Expanded(
-              child: PrismSectionCard(
-                padding: EdgeInsets.zero,
-                child: ListView.builder(
-                  itemCount: members.length + 1,
-                  itemBuilder: (context, index) {
-                    if (index == 0) {
-                      final noneSelected =
-                          currentMemberId == null || currentMemberId!.isEmpty;
-                      return PrismListRow(
-                        selected: noneSelected,
-                        leading: SizedBox(
-                          width: 36,
-                          height: 36,
-                          child: Icon(AppIcons.removeCircleOutline),
-                        ),
-                        title: Text(l10n.memberSelectNone),
-                        trailing: noneSelected ? Icon(AppIcons.check) : null,
-                        onTap: () => Navigator.of(context).pop(''),
-                      );
-                    }
-
-                    final member = members[index - 1];
-                    final isSelected = member.id == currentMemberId;
-
-                    return PrismListRow(
-                      selected: isSelected,
-                      leading: MemberAvatar(
-                        avatarImageData: member.avatarImageData,
-                        memberName: member.name,
-                        emoji: member.emoji,
-                        customColorEnabled: member.customColorEnabled,
-                        customColorHex: member.customColorHex,
-                        size: 36,
-                      ),
-                      title: Text(member.name),
-                      subtitle: member.pronouns != null
-                          ? Text(member.pronouns!)
-                          : null,
-                      trailing: isSelected ? Icon(AppIcons.check) : null,
-                      onTap: () => Navigator.of(context).pop(member.id),
-                    );
-                  },
+          ),
+          data: (members) {
+            if (members.isEmpty) {
+              return EmptyState(
+                icon: Icon(AppIcons.people),
+                title: l10n.noMembersFound(terminology.pluralLower),
+                subtitle: l10n.terminologyAddFirstSubtitle(
+                  terminology.singularLower,
                 ),
-              ),
-            ),
-          ],
+              );
+            }
+
+            final searchGroups = watchMemberSearchGroups(ref, members);
+
+            return Column(
+              children: [
+                // Search action in top-right corner — opens the shared search sheet.
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: IconButton(
+                    icon: Icon(AppIcons.search),
+                    tooltip: l10n.search,
+                    onPressed: () async {
+                      final result = await MemberSearchSheet.showSingle(
+                        context,
+                        members: members,
+                        termPlural: terminology.plural,
+                        groups: searchGroups,
+                        specialRows: [
+                          MemberSearchSpecialRow(
+                            rowKey: 'none',
+                            title: l10n.memberSelectNone,
+                            leading: Icon(AppIcons.removeCircleOutline),
+                            result: const MemberSearchResultCleared(),
+                          ),
+                        ],
+                      );
+
+                      if (!context.mounted) return;
+                      switch (result) {
+                        case MemberSearchResultSelected(:final memberId):
+                          Navigator.of(context).pop(memberId);
+                        case MemberSearchResultCleared():
+                          Navigator.of(context).pop('');
+                        case MemberSearchResultDismissed():
+                        case MemberSearchResultUnknown():
+                          // User cancelled — remain in MemberSelectSheet.
+                          break;
+                      }
+                    },
+                  ),
+                ),
+
+                // "None" row + one row per member — no shrinkWrap; height is bounded
+                // by the explicit body height in show().
+                Expanded(
+                  child: PrismSectionCard(
+                    padding: EdgeInsets.zero,
+                    child: ListView.builder(
+                      itemCount: members.length + 1,
+                      itemBuilder: (context, index) {
+                        if (index == 0) {
+                          final noneSelected =
+                              currentMemberId == null ||
+                              currentMemberId!.isEmpty;
+                          return PrismListRow(
+                            selected: noneSelected,
+                            leading: SizedBox(
+                              width: 36,
+                              height: 36,
+                              child: Icon(AppIcons.removeCircleOutline),
+                            ),
+                            title: Text(l10n.memberSelectNone),
+                            trailing: noneSelected
+                                ? Icon(AppIcons.check)
+                                : null,
+                            onTap: () => Navigator.of(context).pop(''),
+                          );
+                        }
+
+                        final member = members[index - 1];
+                        final isSelected = member.id == currentMemberId;
+
+                        return PrismListRow(
+                          selected: isSelected,
+                          leading: MemberAvatar(
+                            avatarImageData: member.avatarImageData,
+                            memberName: member.name,
+                            emoji: member.emoji,
+                            customColorEnabled: member.customColorEnabled,
+                            customColorHex: member.customColorHex,
+                            size: 36,
+                          ),
+                          title: Text(member.name),
+                          subtitle: member.pronouns != null
+                              ? Text(member.pronouns!)
+                              : null,
+                          trailing: isSelected ? Icon(AppIcons.check) : null,
+                          onTap: () => Navigator.of(context).pop(member.id),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
         );
       },
     );
