@@ -12,6 +12,7 @@ import 'package:prism_plurality/features/fronting/widgets/timeline_painter.dart'
 import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
 import 'package:prism_plurality/shared/extensions/datetime_extensions.dart';
 import 'package:prism_plurality/shared/extensions/duration_extensions.dart';
+import 'package:prism_plurality/shared/utils/modal_insets.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
@@ -473,6 +474,7 @@ class _SessionPreviewSheet extends ConsumerWidget {
     final durationLabel = session.isActive
         ? 'Active'
         : duration.toRoundedString();
+    final bottomInset = modalBottomInsetOf(context);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -518,7 +520,7 @@ class _SessionPreviewSheet extends ConsumerWidget {
         const SizedBox(height: 16),
         // Action button
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
+          padding: EdgeInsets.fromLTRB(20, 0, 20, 4 + bottomInset),
           child: PrismButton(
             label: 'View Details',
             icon: AppIcons.chevronRightRounded,

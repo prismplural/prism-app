@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/domain/models/conversation_category.dart';
 import 'package:prism_plurality/features/chat/providers/category_providers.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
+import 'package:prism_plurality/shared/utils/modal_insets.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
@@ -12,6 +14,7 @@ import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
+import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 /// A sheet for managing conversation categories (create, rename, reorder, delete).
@@ -40,6 +43,7 @@ class _CategoryManagementSheetState
   final _newCategoryController = TextEditingController();
   String? _editingId;
   final _editController = TextEditingController();
+  List<ConversationCategory>? _optimisticCategories;
 
   @override
   void dispose() {
@@ -58,7 +62,10 @@ class _CategoryManagementSheetState
       Haptics.success();
     } catch (e) {
       if (mounted) {
-        PrismToast.error(context, message: context.l10n.chatCategoriesCreateFailed(e));
+        PrismToast.error(
+          context,
+          message: context.l10n.chatCategoriesCreateFailed(e),
+        );
       }
     }
   }
@@ -77,7 +84,10 @@ class _CategoryManagementSheetState
       setState(() => _editingId = null);
     } catch (e) {
       if (mounted) {
-        PrismToast.error(context, message: context.l10n.chatCategoriesRenameFailed(e));
+        PrismToast.error(
+          context,
+          message: context.l10n.chatCategoriesRenameFailed(e),
+        );
       }
     }
   }
@@ -99,17 +109,85 @@ class _CategoryManagementSheetState
           .deleteCategory(category.id);
     } catch (e) {
       if (mounted) {
-        PrismToast.error(context, message: context.l10n.chatCategoriesDeleteFailed(e));
+        PrismToast.error(
+          context,
+          message: context.l10n.chatCategoriesDeleteFailed(e),
+        );
       }
     }
+  }
+
+  Future<void> _reorderCategories(
+    List<ConversationCategory> categories,
+    int oldIndex,
+    int newIndex,
+  ) async {
+    if (newIndex > oldIndex) newIndex--;
+    final reordered = List<ConversationCategory>.from(categories);
+    final item = reordered.removeAt(oldIndex);
+    reordered.insert(newIndex, item);
+
+    setState(() => _optimisticCategories = reordered);
+    await ref.read(categoryNotifierProvider.notifier).reorder(reordered);
+
+    if (!mounted) return;
+    final reorderState = ref.read(categoryNotifierProvider);
+    if (reorderState.hasError) {
+      setState(() => _optimisticCategories = null);
+    }
+  }
+
+  List<ConversationCategory> _visibleCategories(
+    List<ConversationCategory> categories,
+  ) {
+    final optimistic = _optimisticCategories;
+    if (optimistic == null) return categories;
+
+    if (!_hasSameCategorySet(optimistic, categories)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _optimisticCategories = null);
+      });
+      return categories;
+    }
+
+    if (_sameCategoryOrder(optimistic, categories)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _optimisticCategories = null);
+      });
+    }
+
+    return optimistic;
+  }
+
+  bool _hasSameCategorySet(
+    List<ConversationCategory> left,
+    List<ConversationCategory> right,
+  ) {
+    if (left.length != right.length) return false;
+    final leftIds = left.map((category) => category.id).toSet();
+    final rightIds = right.map((category) => category.id).toSet();
+    return leftIds.length == rightIds.length && leftIds.containsAll(rightIds);
+  }
+
+  bool _sameCategoryOrder(
+    List<ConversationCategory> left,
+    List<ConversationCategory> right,
+  ) {
+    if (left.length != right.length) return false;
+    for (var i = 0; i < left.length; i++) {
+      if (left[i].id != right[i].id) return false;
+    }
+    return true;
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final categoriesAsync = ref.watch(conversationCategoriesProvider);
+    final bottomInset = modalBottomInsetOf(context);
 
     return SafeArea(
+      bottom: false,
       child: Column(
         children: [
           PrismSheetTopBar(title: context.l10n.chatCategoriesTitle),
@@ -123,12 +201,19 @@ class _CategoryManagementSheetState
                 child: Center(child: Text('Error: $e')),
               ),
               data: (categories) {
+                final visibleCategories = _visibleCategories(categories);
+
                 return ListView(
                   controller: widget.scrollController,
+                  padding: EdgeInsets.fromLTRB(
+                    PrismTokens.pageHorizontalPadding,
+                    0,
+                    PrismTokens.pageHorizontalPadding,
+                    8 + bottomInset,
+                  ),
                   children: [
-                    if (categories.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 24),
+                    if (visibleCategories.isEmpty)
+                      PrismSectionCard(
                         child: Text(
                           context.l10n.chatCategoriesNone,
                           style: theme.textTheme.bodyMedium?.copyWith(
@@ -137,94 +222,116 @@ class _CategoryManagementSheetState
                         ),
                       )
                     else
-                      ConstrainedBox(
-                        constraints: BoxConstraints(
-                          maxHeight: MediaQuery.of(context).size.height * 0.4,
-                        ),
+                      PrismSectionCard(
+                        padding: EdgeInsets.zero,
                         child: ReorderableListView.builder(
                           shrinkWrap: true,
-                          itemCount: categories.length,
+                          physics: const NeverScrollableScrollPhysics(),
+                          buildDefaultDragHandles: false,
+                          itemCount: visibleCategories.length,
                           onReorder: (oldIndex, newIndex) {
-                            if (newIndex > oldIndex) newIndex--;
-                            final reordered = List<ConversationCategory>.from(
-                              categories,
+                            _reorderCategories(
+                              visibleCategories,
+                              oldIndex,
+                              newIndex,
                             );
-                            final item = reordered.removeAt(oldIndex);
-                            reordered.insert(newIndex, item);
-                            ref
-                                .read(categoryNotifierProvider.notifier)
-                                .reorder(reordered);
                           },
                           itemBuilder: (context, index) {
-                            final category = categories[index];
+                            final category = visibleCategories[index];
                             final isEditing = _editingId == category.id;
+                            final isLast =
+                                index == visibleCategories.length - 1;
 
-                            return PrismListRow(
+                            return DecoratedBox(
                               key: ValueKey(category.id),
-                              padding: EdgeInsets.zero,
-                              leading: ReorderableDragStartListener(
-                                index: index,
-                                child: Icon(AppIcons.dragHandle),
+                              decoration: BoxDecoration(
+                                border: isLast
+                                    ? null
+                                    : Border(
+                                        bottom: BorderSide(
+                                          color: theme.colorScheme.outline
+                                              .withValues(alpha: 0.08),
+                                        ),
+                                      ),
                               ),
-                              title: isEditing
-                                  ? PrismTextField(
-                                      controller: _editController,
-                                      autofocus: true,
-                                      hintText: context.l10n.chatCategoriesCategoryNameHint,
-                                      onSubmitted: (_) => _saveEdit(category),
-                                    )
-                                  : GestureDetector(
-                                      onTap: () {
+                              child: PrismListRow(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 12,
+                                ),
+                                leading: ReorderableDragStartListener(
+                                  index: index,
+                                  child: Icon(
+                                    AppIcons.dragHandle,
+                                    color: theme.colorScheme.onSurfaceVariant
+                                        .withValues(alpha: 0.55),
+                                  ),
+                                ),
+                                title: isEditing
+                                    ? PrismTextField(
+                                        controller: _editController,
+                                        autofocus: true,
+                                        hintText: context
+                                            .l10n
+                                            .chatCategoriesCategoryNameHint,
+                                        onSubmitted: (_) => _saveEdit(category),
+                                      )
+                                    : Text(category.name),
+                                onTap: isEditing
+                                    ? null
+                                    : () {
                                         _editController.text = category.name;
                                         setState(
                                           () => _editingId = category.id,
                                         );
                                       },
-                                      child: Text(category.name),
-                                    ),
-                              trailing: isEditing
-                                  ? PrismIconButton(
-                                      icon: AppIcons.check,
-                                      size: 32,
-                                      iconSize: 18,
-                                      onPressed: () => _saveEdit(category),
-                                    )
-                                  : PrismIconButton(
-                                      icon: AppIcons.deleteOutline,
-                                      size: 32,
-                                      iconSize: 18,
-                                      color: theme.colorScheme.error,
-                                      onPressed: () => _confirmDelete(category),
-                                    ),
+                                trailing: isEditing
+                                    ? PrismIconButton(
+                                        icon: AppIcons.check,
+                                        size: 36,
+                                        iconSize: 18,
+                                        onPressed: () => _saveEdit(category),
+                                      )
+                                    : PrismIconButton(
+                                        icon: AppIcons.deleteOutline,
+                                        size: 36,
+                                        iconSize: 18,
+                                        color: theme.colorScheme.error,
+                                        onPressed: () =>
+                                            _confirmDelete(category),
+                                      ),
+                              ),
                             );
                           },
                         ),
                       ),
 
                     // Inline create field
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: PrismTextField(
-                            controller: _newCategoryController,
-                            hintText: context.l10n.chatCategoriesNewHint,
-                            textCapitalization: TextCapitalization.sentences,
-                            onSubmitted: (_) => _createCategory(),
+                    const SizedBox(height: 14),
+                    PrismSectionCard(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: PrismTextField(
+                              controller: _newCategoryController,
+                              hintText: context.l10n.chatCategoriesNewHint,
+                              textCapitalization: TextCapitalization.sentences,
+                              onSubmitted: (_) => _createCategory(),
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        PrismIconButton(
-                          icon: AppIcons.addCircle,
-                          color: theme.colorScheme.primary,
-                          size: 40,
-                          iconSize: 20,
-                          onPressed: _createCategory,
-                          tooltip: context.l10n.chatCategoriesAddTooltip,
-                        ),
-                      ],
+                          const SizedBox(width: 10),
+                          PrismIconButton(
+                            icon: AppIcons.addCircle,
+                            color: theme.colorScheme.primary,
+                            size: 40,
+                            iconSize: 20,
+                            onPressed: _createCategory,
+                            tooltip: context.l10n.chatCategoriesAddTooltip,
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 8),
                   ],
                 );
               },
