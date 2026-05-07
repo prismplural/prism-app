@@ -174,8 +174,7 @@ class SpeakingAsNotifier extends Notifier<String?> {
     // With zero or multiple fronters the caller must make an explicit choice.
     final activeSessions = ref.watch(activeSessionsProvider);
     final sessions = activeSessions.value ?? [];
-    final fronterId =
-        sessions.length == 1 ? sessions.first.memberId : null;
+    final fronterId = sessions.length == 1 ? sessions.first.memberId : null;
 
     return _explicitSelection ?? fronterId;
   }
@@ -530,6 +529,7 @@ class ChatNotifier extends AsyncNotifier<void> {
     String? title,
     String? emoji,
     String? categoryId,
+    bool clearEmoji = false,
     bool clearCategory = false,
   }) async {
     state = await AsyncValue.guard(() async {
@@ -548,7 +548,7 @@ class ChatNotifier extends AsyncNotifier<void> {
         );
         final updated = conv.copyWith(
           title: title ?? conv.title,
-          emoji: emoji,
+          emoji: clearEmoji ? null : (emoji ?? conv.emoji),
           categoryId: clearCategory ? null : (categoryId ?? conv.categoryId),
         );
         await repo.updateConversation(updated);

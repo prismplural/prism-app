@@ -3652,6 +3652,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get chatInfoEditEmoji => 'Editar emoji de la conversación';
 
   @override
+  String get chatInfoClearEmoji => 'Borrar emoji de la conversación';
+
+  @override
   String get chatInfoEditTitle => 'Editar título de la conversación';
 
   @override

@@ -1015,6 +1015,7 @@
   "chatRemoveAttachment": "Eliminar archivo adjunto",
   "chatSearchClear": "Borrar búsqueda",
   "chatInfoEditEmoji": "Editar emoji de la conversación",
+  "chatInfoClearEmoji": "Borrar emoji de la conversación",
   "chatInfoEditTitle": "Editar título de la conversación",
   "chatImageAttachment": "Adjunto de imagen",
   "chatImageLoading": "Cargando adjunto de imagen.",

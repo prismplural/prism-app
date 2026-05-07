@@ -4972,6 +4972,10 @@
   "@chatInfoEditEmoji": {
     "description": "Semantics label for editing a conversation emoji"
   },
+  "chatInfoClearEmoji": "Clear conversation emoji",
+  "@chatInfoClearEmoji": {
+    "description": "Tooltip and semantics label for removing a conversation emoji"
+  },
   "chatInfoEditTitle": "Edit conversation title",
   "@chatInfoEditTitle": {
     "description": "Semantics label for editing a conversation title"

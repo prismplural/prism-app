@@ -128,6 +128,28 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
     }
   }
 
+  Future<void> _clearEmoji(String conversationId, String? currentTitle) async {
+    setState(() => _saving = true);
+    try {
+      await ref
+          .read(chatNotifierProvider.notifier)
+          .updateConversation(
+            conversationId,
+            title: currentTitle,
+            clearEmoji: true,
+          );
+    } catch (e) {
+      if (mounted) {
+        PrismToast.error(
+          context,
+          message: context.l10n.chatInfoFailedSaveEmoji(e),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
   Future<void> _archive(
     String conversationId,
     String? speakingAsMemberId,
@@ -392,24 +414,62 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
     ThemeData theme,
   ) {
     final isDirectMessage = permissions.isDirectMessage;
+    final canEditEmoji = _isEditing && permissions.canEditTitleEmoji;
+    final hasEmoji =
+        conversation.emoji != null && conversation.emoji!.trim().isNotEmpty;
     return Column(
       children: [
         const SizedBox(height: 8),
 
         // Emoji
-        Semantics(
-          button: true,
-          label: context.l10n.chatInfoEditEmoji,
-          child: GestureDetector(
-            onTap: _isEditing && permissions.canEditTitleEmoji
-                ? () => _pickEmoji(conversation.id, conversation.title)
-                : null,
+        if (canEditEmoji)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (hasEmoji)
+                Semantics(
+                  button: true,
+                  label: context.l10n.chatInfoEditEmoji,
+                  child: GestureDetector(
+                    onTap: () =>
+                        _pickEmoji(conversation.id, conversation.title),
+                    child: Text(
+                      conversation.emoji!,
+                      style: const TextStyle(fontSize: 64),
+                    ),
+                  ),
+                )
+              else
+                PrismIconButton(
+                  icon: AppIcons.addCircleOutline,
+                  size: 64,
+                  iconSize: 32,
+                  tooltip: context.l10n.chatInfoEditEmoji,
+                  onPressed: () =>
+                      _pickEmoji(conversation.id, conversation.title),
+                ),
+              if (hasEmoji) ...[
+                const SizedBox(width: 12),
+                PrismIconButton(
+                  icon: AppIcons.removeCircleOutline,
+                  size: 40,
+                  iconSize: 22,
+                  tooltip: context.l10n.chatInfoClearEmoji,
+                  onPressed: () =>
+                      _clearEmoji(conversation.id, conversation.title),
+                ),
+              ],
+            ],
+          )
+        else
+          Semantics(
+            button: true,
+            label: context.l10n.chatInfoEditEmoji,
             child: Text(
               conversation.emoji ?? (isDirectMessage ? '' : ''),
               style: const TextStyle(fontSize: 64),
             ),
           ),
-        ),
         const SizedBox(height: 12),
 
         // Title: editable when in edit mode, otherwise display

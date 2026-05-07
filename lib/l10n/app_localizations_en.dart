@@ -3587,6 +3587,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chatInfoEditEmoji => 'Edit conversation emoji';
 
   @override
+  String get chatInfoClearEmoji => 'Clear conversation emoji';
+
+  @override
   String get chatInfoEditTitle => 'Edit conversation title';
 
   @override

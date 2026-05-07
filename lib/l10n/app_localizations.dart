@@ -6209,6 +6209,12 @@ abstract class AppLocalizations {
   /// **'Edit conversation emoji'**
   String get chatInfoEditEmoji;
 
+  /// Tooltip and semantics label for removing a conversation emoji
+  ///
+  /// In en, this message translates to:
+  /// **'Clear conversation emoji'**
+  String get chatInfoClearEmoji;
+
   /// Semantics label for editing a conversation title
   ///
   /// In en, this message translates to:
