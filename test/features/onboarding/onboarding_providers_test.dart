@@ -228,6 +228,27 @@ void main() {
       );
     });
 
+    test('appearance setters update onboarding state independently', () {
+      final container = ProviderContainer(
+        overrides: [
+          memberRepositoryProvider.overrideWithValue(FakeMemberRepository()),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final notifier = container.read(onboardingProvider.notifier);
+
+      notifier.setThemeBrightness(ThemeBrightness.dark);
+      notifier.setThemeStyle(ThemeStyle.oled);
+      notifier.setCornerStyle(CornerStyle.angular);
+
+      final state = container.read(onboardingProvider);
+      expect(state.themeBrightness, ThemeBrightness.dark);
+      expect(state.themeStyle, ThemeStyle.oled);
+      expect(state.cornerStyle, CornerStyle.angular);
+      expect(state.accentColorHex, '#AF8EE9');
+    });
+
     test('onboarding nav layout filters disabled feature tabs', () {
       final layout = onboardingNavLayout(
         const OnboardingState(chatEnabled: false, pollsEnabled: false),
@@ -398,6 +419,43 @@ void main() {
       );
     });
 
+    test('complete writes onboarding appearance choices', () async {
+      final settingsRepository = FakeSystemSettingsRepository();
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final container = ProviderContainer(
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          memberRepositoryProvider.overrideWithValue(FakeMemberRepository()),
+          systemSettingsRepositoryProvider.overrideWithValue(
+            settingsRepository,
+          ),
+          conversationRepositoryProvider.overrideWithValue(
+            FakeConversationRepository(),
+          ),
+          frontingSessionRepositoryProvider.overrideWithValue(
+            FakeFrontingSessionRepository(),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container
+          .read(onboardingCommitServiceProvider)
+          .complete(
+            const OnboardingState(
+              systemName: 'Prism Collective',
+              themeBrightness: ThemeBrightness.dark,
+              themeStyle: ThemeStyle.oled,
+              cornerStyle: CornerStyle.angular,
+            ),
+          );
+
+      expect(settingsRepository.settings.themeBrightness, ThemeBrightness.dark);
+      expect(settingsRepository.settings.themeStyle, ThemeStyle.oled);
+      expect(settingsRepository.settings.cornerStyle, CornerStyle.angular);
+    });
+
     test(
       'complete preserves existing fronting defaults when untouched',
       () async {
@@ -442,6 +500,47 @@ void main() {
           settingsRepository.settings.quickFrontDefaultBehavior,
           FrontStartBehavior.replace,
         );
+      },
+    );
+
+    test(
+      'complete preserves existing appearance choices when untouched',
+      () async {
+        final settingsRepository = FakeSystemSettingsRepository()
+          ..settings = const SystemSettings(
+            themeBrightness: ThemeBrightness.dark,
+            themeStyle: ThemeStyle.oled,
+            cornerStyle: CornerStyle.angular,
+          );
+        final db = AppDatabase(NativeDatabase.memory());
+        addTearDown(db.close);
+        final container = ProviderContainer(
+          overrides: [
+            databaseProvider.overrideWithValue(db),
+            memberRepositoryProvider.overrideWithValue(FakeMemberRepository()),
+            systemSettingsRepositoryProvider.overrideWithValue(
+              settingsRepository,
+            ),
+            conversationRepositoryProvider.overrideWithValue(
+              FakeConversationRepository(),
+            ),
+            frontingSessionRepositoryProvider.overrideWithValue(
+              FakeFrontingSessionRepository(),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        await container
+            .read(onboardingCommitServiceProvider)
+            .complete(const OnboardingState(systemName: 'Prism Collective'));
+
+        expect(
+          settingsRepository.settings.themeBrightness,
+          ThemeBrightness.dark,
+        );
+        expect(settingsRepository.settings.themeStyle, ThemeStyle.oled);
+        expect(settingsRepository.settings.cornerStyle, CornerStyle.angular);
       },
     );
 

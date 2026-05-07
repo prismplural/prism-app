@@ -43,12 +43,13 @@ enum OnboardingStep {
   importedDataReady,
   importData,
   systemName,
+  terminology,
   addMembers,
   features,
   navigation,
   frontingDefaults,
   chatSetup,
-  preferences,
+  appearance,
   permissions,
   whosFronting,
   complete;
@@ -62,12 +63,13 @@ enum OnboardingStep {
     importedDataReady => 'Data Ready',
     importData => 'Already have data?',
     systemName => 'Name your system',
+    terminology => 'Choose your words',
     addMembers => "Who's here?",
     features => 'Pick your tools',
     navigation => 'Arrange navigation',
     frontingDefaults => 'Fronting defaults',
     chatSetup => 'Set up chat',
-    preferences => 'Make it yours',
+    appearance => 'Make it yours',
     permissions => 'One more thing',
     whosFronting => "Who's fronting?",
     complete => 'Ready when you are',
@@ -82,12 +84,13 @@ enum OnboardingStep {
     importedDataReady => 'Your imported system is ready to use',
     importData => 'Bring your system with you.',
     systemName => 'Whatever feels right.',
+    terminology => 'This changes labels throughout Prism.',
     addMembers => 'Add the people in your system.',
     features => 'Turn on what you need. Change anytime.',
     navigation => '',
     frontingDefaults => 'Choose how Home shows and starts fronts.',
     chatSetup => 'Channels for your system to talk.',
-    preferences => 'Colors, language, the small things.',
+    appearance => 'Colors, theme, the small things.',
     permissions => 'Optional permissions for the best experience.',
     whosFronting => "Tap whoever's here right now.",
     complete => "Your system is set up. Here's what to explore.",
@@ -102,12 +105,13 @@ enum OnboardingStep {
     importedDataReady => AppIcons.duotoneSuccess,
     importData => AppIcons.duotoneImport,
     systemName => AppIcons.label,
+    terminology => AppIcons.duotoneChat,
     addMembers => AppIcons.duotoneMembers,
     features => AppIcons.duotoneSettings,
     navigation => AppIcons.navHome,
     frontingDefaults => AppIcons.duotoneFronting,
     chatSetup => AppIcons.duotoneChat,
-    preferences => AppIcons.duotoneTheme,
+    appearance => AppIcons.duotoneTheme,
     permissions => AppIcons.duotoneNotifications,
     whosFronting => AppIcons.duotoneFronting,
     complete => AppIcons.duotoneSuccess,
@@ -122,6 +126,9 @@ class OnboardingState {
   final SystemTerminology selectedTerminology;
   final String accentColorHex;
   final bool usePerMemberColors;
+  final ThemeBrightness? themeBrightness;
+  final ThemeStyle? themeStyle;
+  final CornerStyle? cornerStyle;
   final bool chatEnabled;
   final bool pollsEnabled;
   final bool habitsEnabled;
@@ -166,6 +173,9 @@ class OnboardingState {
     this.selectedTerminology = SystemTerminology.headmates,
     this.accentColorHex = '#AF8EE9',
     this.usePerMemberColors = true,
+    this.themeBrightness,
+    this.themeStyle,
+    this.cornerStyle,
     this.chatEnabled = true,
     this.pollsEnabled = true,
     this.habitsEnabled = true,
@@ -204,6 +214,9 @@ class OnboardingState {
     SystemTerminology? selectedTerminology,
     String? accentColorHex,
     bool? usePerMemberColors,
+    Object? themeBrightness = _sentinel,
+    Object? themeStyle = _sentinel,
+    Object? cornerStyle = _sentinel,
     bool? chatEnabled,
     bool? pollsEnabled,
     bool? habitsEnabled,
@@ -240,6 +253,15 @@ class OnboardingState {
       selectedTerminology: selectedTerminology ?? this.selectedTerminology,
       accentColorHex: accentColorHex ?? this.accentColorHex,
       usePerMemberColors: usePerMemberColors ?? this.usePerMemberColors,
+      themeBrightness: themeBrightness == _sentinel
+          ? this.themeBrightness
+          : themeBrightness as ThemeBrightness?,
+      themeStyle: themeStyle == _sentinel
+          ? this.themeStyle
+          : themeStyle as ThemeStyle?,
+      cornerStyle: cornerStyle == _sentinel
+          ? this.cornerStyle
+          : cornerStyle as CornerStyle?,
       chatEnabled: chatEnabled ?? this.chatEnabled,
       pollsEnabled: pollsEnabled ?? this.pollsEnabled,
       habitsEnabled: habitsEnabled ?? this.habitsEnabled,
@@ -562,12 +584,13 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
       OnboardingStep.importedDataReady => false,
       OnboardingStep.importData => true,
       OnboardingStep.systemName => state.systemName.trim().isNotEmpty,
+      OnboardingStep.terminology => true,
       OnboardingStep.addMembers => true,
       OnboardingStep.features => true,
       OnboardingStep.navigation => true,
       OnboardingStep.frontingDefaults => true,
       OnboardingStep.chatSetup => true,
-      OnboardingStep.preferences => true,
+      OnboardingStep.appearance => true,
       OnboardingStep.permissions => true,
       OnboardingStep.whosFronting => true,
       OnboardingStep.complete => true,
@@ -747,6 +770,18 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
 
   void setUsePerMemberColors(bool value) {
     state = state.copyWith(usePerMemberColors: value);
+  }
+
+  void setThemeBrightness(ThemeBrightness value) {
+    state = state.copyWith(themeBrightness: value);
+  }
+
+  void setThemeStyle(ThemeStyle value) {
+    state = state.copyWith(themeStyle: value);
+  }
+
+  void setCornerStyle(CornerStyle value) {
+    state = state.copyWith(cornerStyle: value);
   }
 
   void setFrontingListViewMode(FrontingListViewMode value) {

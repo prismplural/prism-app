@@ -91,6 +91,10 @@ class OnboardingCommitService {
           terminologyUseEnglish: onboarding.terminologyUseEnglish,
           accentColorHex: onboarding.accentColorHex,
           perMemberAccentColors: onboarding.usePerMemberColors,
+          themeBrightness:
+              onboarding.themeBrightness ?? currentSettings.themeBrightness,
+          themeStyle: onboarding.themeStyle ?? currentSettings.themeStyle,
+          cornerStyle: onboarding.cornerStyle ?? currentSettings.cornerStyle,
           chatEnabled: onboarding.chatEnabled,
           pollsEnabled: onboarding.pollsEnabled,
           habitsEnabled: onboarding.habitsEnabled,

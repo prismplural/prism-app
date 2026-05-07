@@ -476,16 +476,16 @@ abstract class AppLocalizations {
   /// **'Rounded'**
   String get appearanceCornerStyleRounded;
 
-  /// Corner style option: Angular
+  /// Corner style option: Square
   ///
   /// In en, this message translates to:
-  /// **'Angular'**
+  /// **'Square'**
   String get appearanceCornerStyleAngular;
 
   /// Description text for the corner style picker
   ///
   /// In en, this message translates to:
-  /// **'Choose between rounded or angular corners throughout the app.'**
+  /// **'Choose between rounded or square corners throughout the app.'**
   String get appearanceCornerStyleDescription;
 
   /// Appearance settings section: Accent Color
@@ -7332,6 +7332,18 @@ abstract class AppLocalizations {
   /// **'Tap to select who is currently fronting'**
   String get onboardingWhosFrontingSelectHint;
 
+  /// Message shown on onboarding when an import already created active current fronting sessions
+  ///
+  /// In en, this message translates to:
+  /// **'Imported current front: {names}'**
+  String onboardingWhosFrontingImportedCurrent(String names);
+
+  /// Secondary action on the onboarding who's-fronting step that continues without setting a new current fronter
+  ///
+  /// In en, this message translates to:
+  /// **'Skip for now'**
+  String get onboardingWhosFrontingSkip;
+
   /// Empty state message in whos fronting step
   ///
   /// In en, this message translates to:
@@ -7514,6 +7526,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Ends the current front first, then starts the new member.'**
   String get onboardingFrontBehaviorReplaceDescription;
+
+  /// Section header for theme brightness and OLED appearance choices in onboarding
+  ///
+  /// In en, this message translates to:
+  /// **'Theme'**
+  String get onboardingAppearanceTheme;
 
   /// Section header for terminology section in preferences step
   ///
@@ -12264,6 +12282,18 @@ abstract class AppLocalizations {
   /// **'Whatever feels right.'**
   String get onboardingSystemNameSubtitle;
 
+  /// Header title for the onboarding terminology step
+  ///
+  /// In en, this message translates to:
+  /// **'Choose your words'**
+  String get onboardingTerminologyTitle;
+
+  /// Header subtitle for the onboarding terminology step
+  ///
+  /// In en, this message translates to:
+  /// **'This changes labels throughout Prism.'**
+  String get onboardingTerminologySubtitle;
+
   /// Header title for the onboarding add-members step
   ///
   /// In en, this message translates to:
@@ -12324,17 +12354,17 @@ abstract class AppLocalizations {
   /// **'Channels for your system to talk.'**
   String get onboardingChatSetupSubtitle;
 
-  /// Header title for the onboarding preferences step
+  /// Header title for the onboarding appearance step
   ///
   /// In en, this message translates to:
   /// **'Make it yours'**
-  String get onboardingPreferencesTitle;
+  String get onboardingAppearanceTitle;
 
-  /// Header subtitle for the onboarding preferences step
+  /// Header subtitle for the onboarding appearance step
   ///
   /// In en, this message translates to:
-  /// **'Colors, language, the small things.'**
-  String get onboardingPreferencesSubtitle;
+  /// **'Colors, theme, the small things.'**
+  String get onboardingAppearanceSubtitle;
 
   /// Header title for the onboarding permissions step
   ///

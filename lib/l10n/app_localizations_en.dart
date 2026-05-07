@@ -212,11 +212,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appearanceCornerStyleRounded => 'Rounded';
 
   @override
-  String get appearanceCornerStyleAngular => 'Angular';
+  String get appearanceCornerStyleAngular => 'Square';
 
   @override
   String get appearanceCornerStyleDescription =>
-      'Choose between rounded or angular corners throughout the app.';
+      'Choose between rounded or square corners throughout the app.';
 
   @override
   String get appearanceAccentColor => 'Accent Color';
@@ -4258,6 +4258,14 @@ class AppLocalizationsEn extends AppLocalizations {
       'Tap to select who is currently fronting';
 
   @override
+  String onboardingWhosFrontingImportedCurrent(String names) {
+    return 'Imported current front: $names';
+  }
+
+  @override
+  String get onboardingWhosFrontingSkip => 'Skip for now';
+
+  @override
   String onboardingWhosFrontingNoMembers(String termPluralLower) {
     return 'No $termPluralLower added yet.\nGo back to add $termPluralLower first.';
   }
@@ -4364,6 +4372,9 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get onboardingFrontBehaviorReplaceDescription =>
       'Ends the current front first, then starts the new member.';
+
+  @override
+  String get onboardingAppearanceTheme => 'Theme';
 
   @override
   String get onboardingPreferencesTerminology => 'Terminology';
@@ -7432,6 +7443,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get onboardingSystemNameSubtitle => 'Whatever feels right.';
 
   @override
+  String get onboardingTerminologyTitle => 'Choose your words';
+
+  @override
+  String get onboardingTerminologySubtitle =>
+      'This changes labels throughout Prism.';
+
+  @override
   String get onboardingAddMembersTitle => 'Who\'s here?';
 
   @override
@@ -7465,11 +7483,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get onboardingChatSetupSubtitle => 'Channels for your system to talk.';
 
   @override
-  String get onboardingPreferencesTitle => 'Make it yours';
+  String get onboardingAppearanceTitle => 'Make it yours';
 
   @override
-  String get onboardingPreferencesSubtitle =>
-      'Colors, language, the small things.';
+  String get onboardingAppearanceSubtitle => 'Colors, theme, the small things.';
 
   @override
   String get onboardingPermissionsTitle => 'One more thing';

@@ -214,11 +214,11 @@ class AppLocalizationsEs extends AppLocalizations {
   String get appearanceCornerStyleRounded => 'Redondeadas';
 
   @override
-  String get appearanceCornerStyleAngular => 'Angulares';
+  String get appearanceCornerStyleAngular => 'Cuadradas';
 
   @override
   String get appearanceCornerStyleDescription =>
-      'Elige entre esquinas redondeadas o angulares en toda la app.';
+      'Elige entre esquinas redondeadas o cuadradas en toda la app.';
 
   @override
   String get appearanceAccentColor => 'Color de acento';
@@ -4338,6 +4338,14 @@ class AppLocalizationsEs extends AppLocalizations {
       'Toca para seleccionar quién está al frente ahora';
 
   @override
+  String onboardingWhosFrontingImportedCurrent(String names) {
+    return 'Frente actual importado: $names';
+  }
+
+  @override
+  String get onboardingWhosFrontingSkip => 'Omitir por ahora';
+
+  @override
   String onboardingWhosFrontingNoMembers(String termPluralLower) {
     return 'Aún no hay $termPluralLower.\nVuelve atrás para agregar $termPluralLower primero.';
   }
@@ -4445,6 +4453,9 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get onboardingFrontBehaviorReplaceDescription =>
       'Termina el frente actual primero y luego inicia al nuevo integrante.';
+
+  @override
+  String get onboardingAppearanceTheme => 'Tema';
 
   @override
   String get onboardingPreferencesTerminology => 'Terminología';
@@ -7561,6 +7572,13 @@ class AppLocalizationsEs extends AppLocalizations {
   String get onboardingSystemNameSubtitle => 'Lo que se sienta bien.';
 
   @override
+  String get onboardingTerminologyTitle => 'Elige tus palabras';
+
+  @override
+  String get onboardingTerminologySubtitle =>
+      'Esto cambia las etiquetas en todo Prism.';
+
+  @override
   String get onboardingAddMembersTitle => '¿Quién está aquí?';
 
   @override
@@ -7597,11 +7615,11 @@ class AppLocalizationsEs extends AppLocalizations {
       'Canales para que tu sistema pueda hablar.';
 
   @override
-  String get onboardingPreferencesTitle => 'Hazlo tuyo';
+  String get onboardingAppearanceTitle => 'Hazlo tuyo';
 
   @override
-  String get onboardingPreferencesSubtitle =>
-      'Colores, idioma, los pequeños detalles.';
+  String get onboardingAppearanceSubtitle =>
+      'Colores, tema, los pequeños detalles.';
 
   @override
   String get onboardingPermissionsTitle => 'Una cosa más';

@@ -3,6 +3,7 @@ import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/utils/member_search_groups.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
@@ -23,6 +24,11 @@ class WhosFrontingStep extends ConsumerWidget {
     // Onboarding picker: hide the Unknown sentinel — users are picking their
     // own members, not the system placeholder.
     final membersAsync = ref.watch(userVisibleAllMembersProvider);
+    final activeSessions =
+        ref
+            .watch(activeSessionsProvider)
+            .whenOrNull(data: (sessions) => sessions) ??
+        const [];
     final onboarding = ref.watch(onboardingProvider);
     final notifier = ref.read(onboardingProvider.notifier);
     final terms = resolveTerminology(
@@ -48,6 +54,18 @@ class WhosFrontingStep extends ConsumerWidget {
       data: (members) {
         final isDark = Theme.of(context).brightness == Brightness.dark;
         final primary = Theme.of(context).colorScheme.primary;
+        final importedActiveIds = onboarding.selectedFronterId == null
+            ? activeSessions
+                  .where(
+                    (session) => !session.isSleep && session.memberId != null,
+                  )
+                  .map((session) => session.memberId!)
+                  .toSet()
+            : <String>{};
+        final importedActiveNames = [
+          for (final member in members)
+            if (importedActiveIds.contains(member.id)) member.name,
+        ];
 
         if (members.isEmpty) {
           return Center(
@@ -70,14 +88,9 @@ class WhosFrontingStep extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Column(
               children: [
-                Text(
-                  context.l10n.onboardingWhosFrontingSelectHint,
-                  style: TextStyle(
-                    color: isDark
-                        ? AppColors.mutedTextDark
-                        : AppColors.mutedTextLight,
-                    fontSize: 14,
-                  ),
+                _StepIntro(
+                  importedActiveNames: importedActiveNames,
+                  isDark: isDark,
                 ),
                 const SizedBox(height: 16),
                 Expanded(
@@ -87,6 +100,7 @@ class WhosFrontingStep extends ConsumerWidget {
                       child: _LargeSystemSearchTrigger(
                         members: members,
                         selectedFronterId: onboarding.selectedFronterId,
+                        importedActiveNames: importedActiveNames,
                         termPlural: terms.plural,
                         onTap: () => _openSearchSheet(
                           context,
@@ -99,6 +113,8 @@ class WhosFrontingStep extends ConsumerWidget {
                     ),
                   ),
                 ),
+                const SizedBox(height: 12),
+                _SkipButton(onPressed: notifier.next),
               ],
             ),
           );
@@ -108,14 +124,9 @@ class WhosFrontingStep extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Column(
             children: [
-              Text(
-                context.l10n.onboardingWhosFrontingSelectHint,
-                style: TextStyle(
-                  color: isDark
-                      ? AppColors.mutedTextDark
-                      : AppColors.mutedTextLight,
-                  fontSize: 14,
-                ),
+              _StepIntro(
+                importedActiveNames: importedActiveNames,
+                isDark: isDark,
               ),
               const SizedBox(height: 16),
               Expanded(
@@ -130,7 +141,8 @@ class WhosFrontingStep extends ConsumerWidget {
                   itemBuilder: (context, index) {
                     final member = members[index];
                     final isSelected =
-                        onboarding.selectedFronterId == member.id;
+                        onboarding.selectedFronterId == member.id ||
+                        importedActiveIds.contains(member.id);
 
                     return GestureDetector(
                       onTap: () => notifier.setSelectedFronter(member.id),
@@ -212,6 +224,8 @@ class WhosFrontingStep extends ConsumerWidget {
                   },
                 ),
               ),
+              const SizedBox(height: 12),
+              _SkipButton(onPressed: notifier.next),
             ],
           ),
         );
@@ -239,16 +253,69 @@ class WhosFrontingStep extends ConsumerWidget {
   }
 }
 
+class _StepIntro extends StatelessWidget {
+  const _StepIntro({required this.importedActiveNames, required this.isDark});
+
+  final List<String> importedActiveNames;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final hintColor = isDark
+        ? AppColors.mutedTextDark
+        : AppColors.mutedTextLight;
+    return Column(
+      children: [
+        if (importedActiveNames.isNotEmpty) ...[
+          Text(
+            context.l10n.onboardingWhosFrontingImportedCurrent(
+              importedActiveNames.join(', '),
+            ),
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.primary,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 6),
+        ],
+        Text(
+          context.l10n.onboardingWhosFrontingSelectHint,
+          textAlign: TextAlign.center,
+          style: TextStyle(color: hintColor, fontSize: 14),
+        ),
+      ],
+    );
+  }
+}
+
+class _SkipButton extends StatelessWidget {
+  const _SkipButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton(
+      onPressed: onPressed,
+      child: Text(context.l10n.onboardingWhosFrontingSkip),
+    );
+  }
+}
+
 class _LargeSystemSearchTrigger extends StatelessWidget {
   const _LargeSystemSearchTrigger({
     required this.members,
     required this.selectedFronterId,
+    required this.importedActiveNames,
     required this.termPlural,
     required this.onTap,
   });
 
   final List<Member> members;
   final String? selectedFronterId;
+  final List<String> importedActiveNames;
   final String termPlural;
   final VoidCallback onTap;
 
@@ -292,6 +359,9 @@ class _LargeSystemSearchTrigger extends StatelessWidget {
               Expanded(
                 child: Text(
                   selectedMember?.name ??
+                      (importedActiveNames.isNotEmpty
+                          ? importedActiveNames.join(', ')
+                          : null) ??
                       context.l10n.frontingSearchMembersHint(termPlural),
                   style: theme.textTheme.bodyMedium,
                 ),

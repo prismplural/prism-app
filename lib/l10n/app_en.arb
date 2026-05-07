@@ -293,11 +293,11 @@
   "@appearanceCornerStyleRounded": {
     "description": "Corner style option: Rounded"
   },
-  "appearanceCornerStyleAngular": "Angular",
+  "appearanceCornerStyleAngular": "Square",
   "@appearanceCornerStyleAngular": {
-    "description": "Corner style option: Angular"
+    "description": "Corner style option: Square"
   },
-  "appearanceCornerStyleDescription": "Choose between rounded or angular corners throughout the app.",
+  "appearanceCornerStyleDescription": "Choose between rounded or square corners throughout the app.",
   "@appearanceCornerStyleDescription": {
     "description": "Description text for the corner style picker"
   },
@@ -5836,6 +5836,17 @@
   "@onboardingWhosFrontingSelectHint": {
     "description": "Hint text above the fronter grid in whos fronting step"
   },
+  "onboardingWhosFrontingImportedCurrent": "Imported current front: {names}",
+  "@onboardingWhosFrontingImportedCurrent": {
+    "description": "Message shown on onboarding when an import already created active current fronting sessions",
+    "placeholders": {
+      "names": { "type": "String" }
+    }
+  },
+  "onboardingWhosFrontingSkip": "Skip for now",
+  "@onboardingWhosFrontingSkip": {
+    "description": "Secondary action on the onboarding who's-fronting step that continues without setting a new current fronter"
+  },
   "onboardingWhosFrontingNoMembers": "No {termPluralLower} added yet.\nGo back to add {termPluralLower} first.",
   "@onboardingWhosFrontingNoMembers": {
     "description": "Empty state message in whos fronting step",
@@ -5966,6 +5977,10 @@
   "onboardingFrontBehaviorReplaceDescription": "Ends the current front first, then starts the new member.",
   "@onboardingFrontBehaviorReplaceDescription": {
     "description": "Selected-state explanation for replace fronting behavior"
+  },
+  "onboardingAppearanceTheme": "Theme",
+  "@onboardingAppearanceTheme": {
+    "description": "Section header for theme brightness and OLED appearance choices in onboarding"
   },
   "onboardingPreferencesTerminology": "Terminology",
   "@onboardingPreferencesTerminology": {
@@ -8210,6 +8225,10 @@
   "@onboardingSystemNameTitle": { "description": "Header title for the onboarding system-name step" },
   "onboardingSystemNameSubtitle": "Whatever feels right.",
   "@onboardingSystemNameSubtitle": { "description": "Header subtitle for the onboarding system-name step" },
+  "onboardingTerminologyTitle": "Choose your words",
+  "@onboardingTerminologyTitle": { "description": "Header title for the onboarding terminology step" },
+  "onboardingTerminologySubtitle": "This changes labels throughout Prism.",
+  "@onboardingTerminologySubtitle": { "description": "Header subtitle for the onboarding terminology step" },
   "onboardingAddMembersTitle": "Who's here?",
   "@onboardingAddMembersTitle": { "description": "Header title for the onboarding add-members step" },
   "onboardingAddMembersSubtitle": "Add the people in your system.",
@@ -8230,10 +8249,10 @@
   "@onboardingChatSetupTitle": { "description": "Header title for the onboarding chat-setup step" },
   "onboardingChatSetupSubtitle": "Channels for your system to talk.",
   "@onboardingChatSetupSubtitle": { "description": "Header subtitle for the onboarding chat-setup step" },
-  "onboardingPreferencesTitle": "Make it yours",
-  "@onboardingPreferencesTitle": { "description": "Header title for the onboarding preferences step" },
-  "onboardingPreferencesSubtitle": "Colors, language, the small things.",
-  "@onboardingPreferencesSubtitle": { "description": "Header subtitle for the onboarding preferences step" },
+  "onboardingAppearanceTitle": "Make it yours",
+  "@onboardingAppearanceTitle": { "description": "Header title for the onboarding appearance step" },
+  "onboardingAppearanceSubtitle": "Colors, theme, the small things.",
+  "@onboardingAppearanceSubtitle": { "description": "Header subtitle for the onboarding appearance step" },
   "onboardingPermissionsTitle": "One more thing",
   "@onboardingPermissionsTitle": { "description": "Header title for the onboarding permissions step" },
   "onboardingPermissionsSubtitle": "Optional permissions for the best experience.",

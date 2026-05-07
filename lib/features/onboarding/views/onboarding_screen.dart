@@ -10,12 +10,13 @@ import 'package:prism_plurality/features/onboarding/providers/onboarding_provide
 import 'package:prism_plurality/features/onboarding/widgets/welcome_step.dart';
 import 'package:prism_plurality/features/onboarding/widgets/import_data_step.dart';
 import 'package:prism_plurality/features/onboarding/widgets/system_name_step.dart';
+import 'package:prism_plurality/features/onboarding/widgets/terminology_step.dart';
 import 'package:prism_plurality/features/onboarding/widgets/add_members_step.dart';
 import 'package:prism_plurality/features/onboarding/widgets/features_step.dart';
 import 'package:prism_plurality/features/onboarding/widgets/navigation_step.dart';
 import 'package:prism_plurality/features/onboarding/widgets/fronting_defaults_step.dart';
 import 'package:prism_plurality/features/onboarding/widgets/chat_setup_step.dart';
-import 'package:prism_plurality/features/onboarding/widgets/preferences_step.dart';
+import 'package:prism_plurality/features/onboarding/widgets/appearance_step.dart';
 import 'package:prism_plurality/features/onboarding/widgets/permissions_step.dart';
 import 'package:prism_plurality/features/onboarding/widgets/onboarding_data_ready_view.dart';
 import 'package:prism_plurality/features/onboarding/widgets/whos_fronting_step.dart';
@@ -53,12 +54,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     OnboardingStep.biometricSetup,
     OnboardingStep.importData,
     OnboardingStep.systemName,
+    OnboardingStep.terminology,
     OnboardingStep.addMembers,
     OnboardingStep.features,
     OnboardingStep.navigation,
     OnboardingStep.frontingDefaults,
     OnboardingStep.chatSetup,
-    OnboardingStep.preferences,
+    OnboardingStep.appearance,
     OnboardingStep.permissions,
     OnboardingStep.whosFronting,
   ];
@@ -357,6 +359,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
         key: ValueKey('import'),
       ),
       OnboardingStep.systemName => const SystemNameStep(key: ValueKey('name')),
+      OnboardingStep.terminology => const TerminologyStep(
+        key: ValueKey('terminology'),
+      ),
       OnboardingStep.addMembers => const AddMembersStep(
         key: ValueKey('members'),
       ),
@@ -368,8 +373,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
         key: ValueKey('fronting-defaults'),
       ),
       OnboardingStep.chatSetup => const ChatSetupStep(key: ValueKey('chat')),
-      OnboardingStep.preferences => const PreferencesStep(
-        key: ValueKey('prefs'),
+      OnboardingStep.appearance => const AppearanceStep(
+        key: ValueKey('appearance'),
       ),
       OnboardingStep.permissions => const PermissionsStep(
         key: ValueKey('permissions'),

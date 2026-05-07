@@ -5,9 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/domain/models/member_group_entry.dart';
+import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/onboarding/widgets/whos_fronting_step.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
@@ -33,14 +35,18 @@ Member _member({
 Future<void> _pumpStep(
   WidgetTester tester, {
   required List<Member> members,
+  List<FrontingSession> activeSessions = const [],
   Locale locale = const Locale('en'),
 }) async {
   final repo = FakeMemberRepository()..seed(members);
+  final frontingRepo = FakeFrontingSessionRepository()
+    ..sessions.addAll(activeSessions);
 
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
         memberRepositoryProvider.overrideWithValue(repo),
+        frontingSessionRepositoryProvider.overrideWithValue(frontingRepo),
         allGroupsProvider.overrideWith(
           (ref) => Stream.value(const <MemberGroup>[]),
         ),
@@ -124,5 +130,78 @@ void main() {
     );
 
     expect(semanticsWithLabel('Avatar de Alex'), findsOneWidget);
+  });
+
+  testWidgets('reflects imported active fronters as already selected', (
+    tester,
+  ) async {
+    await _pumpStep(
+      tester,
+      members: [
+        _member(id: 'alex', name: 'Alex'),
+        _member(id: 'bea', name: 'Bea'),
+      ],
+      activeSessions: [
+        FrontingSession(
+          id: 'active-alex',
+          memberId: 'alex',
+          startTime: DateTime(2026, 5, 6, 8),
+        ),
+        FrontingSession(
+          id: 'active-bea',
+          memberId: 'bea',
+          startTime: DateTime(2026, 5, 6, 8),
+        ),
+      ],
+    );
+
+    expect(find.text('Imported current front: Alex, Bea'), findsOneWidget);
+    expect(find.text('Skip for now'), findsOneWidget);
+  });
+
+  testWidgets('skip button advances without choosing a replacement fronter', (
+    tester,
+  ) async {
+    final container = ProviderContainer(
+      overrides: [
+        memberRepositoryProvider.overrideWithValue(
+          FakeMemberRepository()..seed([_member(id: 'alex', name: 'Alex')]),
+        ),
+        frontingSessionRepositoryProvider.overrideWithValue(
+          FakeFrontingSessionRepository(),
+        ),
+        allGroupsProvider.overrideWith(
+          (ref) => Stream.value(const <MemberGroup>[]),
+        ),
+        allGroupEntriesProvider.overrideWith(
+          (ref) => Stream.value(const <MemberGroupEntry>[]),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    container.read(onboardingProvider.notifier).state = const OnboardingState(
+      currentStep: OnboardingStep.whosFronting,
+    );
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: [Locale('en'), Locale('es')],
+          home: Scaffold(body: WhosFrontingStep()),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Skip for now'));
+    await tester.pumpAndSettle();
+
+    expect(container.read(onboardingProvider).selectedFronterId, isNull);
+    expect(
+      container.read(onboardingProvider).currentStep,
+      OnboardingStep.complete,
+    );
   });
 }

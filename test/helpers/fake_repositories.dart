@@ -651,10 +651,14 @@ class FakeFrontingSessionRepository implements FrontingSessionRepository {
   }
 
   @override
-  Stream<FrontingSession?> watchActiveSession() => Stream.value(null);
+  Stream<FrontingSession?> watchActiveSession() async* {
+    yield await getActiveSession();
+  }
 
   @override
-  Stream<List<FrontingSession>> watchActiveSessions() => Stream.value(const []);
+  Stream<List<FrontingSession>> watchActiveSessions() async* {
+    yield await getActiveSessions();
+  }
 
   @override
   Stream<List<FrontingSession>> watchAllSessions() =>
