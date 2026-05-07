@@ -96,7 +96,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 20;
+  int get schemaVersion => 18;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -502,6 +502,9 @@ class AppDatabase extends _$AppDatabase {
         current = 17;
       }
       if (current == 17 && to >= 18) {
+        // Members tab display preferences. Collapsed before the 0.8.0 release:
+        // these were briefly developed as v18-v20, but no public build shipped
+        // with those intermediate schema versions.
         await migrator.addColumn(
           systemSettingsTable,
           systemSettingsTable.membersListViewMode,
@@ -514,9 +517,6 @@ class AppDatabase extends _$AppDatabase {
           systemSettingsTable,
           systemSettingsTable.membersFolderMemberVisibility,
         );
-        current = 18;
-      }
-      if (current == 18 && to >= 19) {
         await migrator.addColumn(
           systemSettingsTable,
           systemSettingsTable.membersShowFrontButtons,
@@ -525,14 +525,11 @@ class AppDatabase extends _$AppDatabase {
           systemSettingsTable,
           systemSettingsTable.membersFrontButtonBehavior,
         );
-        current = 19;
-      }
-      if (current == 19 && to >= 20) {
         await migrator.addColumn(
           systemSettingsTable,
           systemSettingsTable.membersShowPronouns,
         );
-        current = 20;
+        current = 18;
       }
       if (current != to) {
         throw UnsupportedError(

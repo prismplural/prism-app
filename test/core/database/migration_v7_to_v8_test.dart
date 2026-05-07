@@ -20,7 +20,11 @@ Future<void> _seedV7Db(File dbFile) async {
 
   final rawDb = raw.sqlite3.open(dbFile.path);
   try {
-    // v19 (member list front buttons) — drop columns added by v18→v19.
+    // v18 (members tab preferences) — drop columns added by v17→v18.
+    rawDb.execute(
+      'ALTER TABLE system_settings DROP COLUMN members_show_pronouns',
+    );
+
     rawDb.execute(
       'ALTER TABLE system_settings DROP COLUMN members_show_front_buttons',
     );
@@ -28,7 +32,6 @@ Future<void> _seedV7Db(File dbFile) async {
       'ALTER TABLE system_settings DROP COLUMN members_front_button_behavior',
     );
 
-    // v18 (member list display preferences) — drop columns added by v17→v18.
     rawDb.execute(
       'ALTER TABLE system_settings DROP COLUMN members_list_view_mode',
     );
@@ -187,7 +190,7 @@ void main() {
         final version = await upgraded
             .customSelect('PRAGMA user_version')
             .get();
-        expect(version.first.read<int>('user_version'), 19);
+        expect(version.first.read<int>('user_version'), 18);
       },
     );
   });
