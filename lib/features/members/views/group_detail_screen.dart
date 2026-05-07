@@ -87,11 +87,12 @@ class _GroupDetailBody extends ConsumerWidget {
     final terms = watchTerminology(context, ref);
     final entriesAsync = ref.watch(groupEntriesProvider(group.id));
     ref.watch(activeMembersProvider);
-    ref.watch(allGroupsProvider);
+    final allGroupsAsync = ref.watch(allGroupsProvider);
     ref.watch(allGroupEntriesProvider);
     final tree = ref.watch(groupTreeProvider);
     final groupDepth = GroupTreeUtils.getGroupDepth(group.id, tree);
-    final canAddSubGroup = groupDepth < 3;
+    final canAddSubGroup =
+        allGroupsAsync.hasValue && groupDepth < GroupTreeUtils.maxGroupDepth;
 
     return PrismPageScaffold(
       topBar: PrismTopBar(

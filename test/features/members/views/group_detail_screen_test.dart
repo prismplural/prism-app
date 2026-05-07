@@ -8,6 +8,7 @@ import 'package:prism_plurality/domain/models/member_group_entry.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/members/utils/group_tree_utils.dart';
 import 'package:prism_plurality/features/members/views/group_detail_screen.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
@@ -33,6 +34,7 @@ Member _member({required String id, required String name}) =>
 MemberGroup _group({
   required String id,
   required String name,
+  String? parentGroupId,
   String? colorHex,
   String? emoji,
 }) => MemberGroup(
@@ -40,6 +42,7 @@ MemberGroup _group({
   name: name,
   colorHex: colorHex,
   emoji: emoji,
+  parentGroupId: parentGroupId,
   createdAt: DateTime(2024),
 );
 
@@ -68,7 +71,9 @@ Widget _buildSubject({
               : allEntries.where((entry) => entry.groupId == groupId).toList(),
         ),
       ),
-      groupTreeProvider.overrideWith((ref) => {null: allGroups}),
+      groupTreeProvider.overrideWith(
+        (ref) => GroupTreeUtils.buildGroupTree(allGroups),
+      ),
       groupNotifierProvider.overrideWith(() => notifier),
     ],
     child: MaterialApp(
@@ -80,6 +85,119 @@ Widget _buildSubject({
 }
 
 void main() {
+  testWidgets('hides subgroup button until the group list has loaded', (
+    tester,
+  ) async {
+    final group = _group(id: 'group-target', name: 'Target Group');
+    final notifier = _FakeGroupNotifier();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          systemSettingsProvider.overrideWith(
+            (ref) => Stream.value(const SystemSettings()),
+          ),
+          activeMembersProvider.overrideWith(
+            (ref) => Stream.value(const <Member>[]),
+          ),
+          allGroupsProvider.overrideWith((ref) => const Stream.empty()),
+          allGroupEntriesProvider.overrideWith(
+            (ref) => Stream.value(const <MemberGroupEntry>[]),
+          ),
+          groupByIdProvider.overrideWith(
+            (ref, groupId) => Stream.value(groupId == group.id ? group : null),
+          ),
+          groupEntriesProvider.overrideWith(
+            (ref, groupId) => Stream.value(const <MemberGroupEntry>[]),
+          ),
+          groupTreeProvider.overrideWith(
+            (ref) => const <String?, List<MemberGroup>>{},
+          ),
+          groupNotifierProvider.overrideWith(() => notifier),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: const [Locale('en')],
+          home: GroupDetailScreen(groupId: group.id),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Add sub-group'), findsNothing);
+  });
+
+  testWidgets('allows adding a subgroup at depth 4', (tester) async {
+    final root = _group(id: 'root', name: 'Root');
+    final level2 = _group(
+      id: 'level-2',
+      name: 'Level 2',
+      parentGroupId: 'root',
+    );
+    final level3 = _group(
+      id: 'level-3',
+      name: 'Level 3',
+      parentGroupId: 'level-2',
+    );
+    final level4 = _group(
+      id: 'level-4',
+      name: 'Level 4',
+      parentGroupId: 'level-3',
+    );
+    final notifier = _FakeGroupNotifier();
+
+    await tester.pumpWidget(
+      _buildSubject(
+        group: level4,
+        allGroups: [root, level2, level3, level4],
+        allEntries: const [],
+        activeMembers: const [],
+        notifier: notifier,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Add sub-group'), findsOneWidget);
+  });
+
+  testWidgets('hides the subgroup button at depth 5', (tester) async {
+    final root = _group(id: 'root', name: 'Root');
+    final level2 = _group(
+      id: 'level-2',
+      name: 'Level 2',
+      parentGroupId: 'root',
+    );
+    final level3 = _group(
+      id: 'level-3',
+      name: 'Level 3',
+      parentGroupId: 'level-2',
+    );
+    final level4 = _group(
+      id: 'level-4',
+      name: 'Level 4',
+      parentGroupId: 'level-3',
+    );
+    final level5 = _group(
+      id: 'level-5',
+      name: 'Level 5',
+      parentGroupId: 'level-4',
+    );
+    final notifier = _FakeGroupNotifier();
+
+    await tester.pumpWidget(
+      _buildSubject(
+        group: level5,
+        allGroups: [root, level2, level3, level4, level5],
+        allEntries: const [],
+        activeMembers: const [],
+        notifier: notifier,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Add sub-group'), findsNothing);
+  });
+
   testWidgets(
     'add member uses shared multi-select sheet and keeps group chips',
     (tester) async {

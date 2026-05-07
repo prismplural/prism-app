@@ -6,13 +6,12 @@ MemberGroup _group({
   required String id,
   String? parentGroupId,
   DateTime? createdAt,
-}) =>
-    MemberGroup(
-      id: id,
-      name: id,
-      createdAt: createdAt ?? DateTime(2024, 1, 1),
-      parentGroupId: parentGroupId,
-    );
+}) => MemberGroup(
+  id: id,
+  name: id,
+  createdAt: createdAt ?? DateTime(2024, 1, 1),
+  parentGroupId: parentGroupId,
+);
 
 void main() {
   // ── buildGroupTree ──────────────────────────────────────────────────────────
@@ -65,7 +64,18 @@ void main() {
       final root = _group(id: 'root');
       final sub = _group(id: 'sub', parentGroupId: 'root');
       final subsub = _group(id: 'subsub', parentGroupId: 'sub');
-      tree = GroupTreeUtils.buildGroupTree([root, sub, subsub]);
+      final subsubsub = _group(id: 'subsubsub', parentGroupId: 'subsub');
+      final subsubsubsub = _group(
+        id: 'subsubsubsub',
+        parentGroupId: 'subsubsub',
+      );
+      tree = GroupTreeUtils.buildGroupTree([
+        root,
+        sub,
+        subsub,
+        subsubsub,
+        subsubsubsub,
+      ]);
     });
 
     test('root group has depth 1', () {
@@ -80,8 +90,12 @@ void main() {
       expect(GroupTreeUtils.getGroupDepth('subsub', tree), 3);
     });
 
-    test('depth 3 is allowed (exactly 3 levels)', () {
-      expect(GroupTreeUtils.getGroupDepth('subsub', tree), equals(3));
+    test('great-grandchild has depth 4', () {
+      expect(GroupTreeUtils.getGroupDepth('subsubsub', tree), 4);
+    });
+
+    test('great-great-grandchild has depth 5', () {
+      expect(GroupTreeUtils.getGroupDepth('subsubsubsub', tree), 5);
     });
 
     test('unknown group id returns depth 1', () {
@@ -92,6 +106,30 @@ void main() {
       final orphan = _group(id: 'orphan', parentGroupId: 'ghost');
       final t = GroupTreeUtils.buildGroupTree([orphan]);
       expect(GroupTreeUtils.getGroupDepth('orphan', t), 1);
+    });
+
+    test('depth is clamped at 5 for deeper trees', () {
+      final root = _group(id: 'root');
+      final sub = _group(id: 'sub', parentGroupId: 'root');
+      final subsub = _group(id: 'subsub', parentGroupId: 'sub');
+      final subsubsub = _group(id: 'subsubsub', parentGroupId: 'subsub');
+      final subsubsubsub = _group(
+        id: 'subsubsubsub',
+        parentGroupId: 'subsubsub',
+      );
+      final subsubsubsubsub = _group(
+        id: 'subsubsubsubsub',
+        parentGroupId: 'subsubsubsub',
+      );
+      final t = GroupTreeUtils.buildGroupTree([
+        root,
+        sub,
+        subsub,
+        subsubsub,
+        subsubsubsub,
+        subsubsubsubsub,
+      ]);
+      expect(GroupTreeUtils.getGroupDepth('subsubsubsubsub', t), 5);
     });
   });
 
@@ -116,16 +154,20 @@ void main() {
       final sub = _group(id: 'sub', parentGroupId: 'root');
       final subsub = _group(id: 'subsub', parentGroupId: 'sub');
       final tree = GroupTreeUtils.buildGroupTree([root, sub, subsub]);
-      expect(GroupTreeUtils.getDescendantGroupIds('root', tree),
-          {'sub', 'subsub'});
+      expect(GroupTreeUtils.getDescendantGroupIds('root', tree), {
+        'sub',
+        'subsub',
+      });
     });
 
     test('does not include the group itself', () {
       final root = _group(id: 'root');
       final child = _group(id: 'child', parentGroupId: 'root');
       final tree = GroupTreeUtils.buildGroupTree([root, child]);
-      expect(GroupTreeUtils.getDescendantGroupIds('root', tree),
-          isNot(contains('root')));
+      expect(
+        GroupTreeUtils.getDescendantGroupIds('root', tree),
+        isNot(contains('root')),
+      );
     });
   });
 
@@ -186,11 +228,13 @@ void main() {
     test('A→B→A: newer group becomes root', () {
       final older = _group(id: 'a', createdAt: DateTime(2024, 1, 1));
       final newer = _group(
-          id: 'b', parentGroupId: 'a', createdAt: DateTime(2024, 6, 1));
+        id: 'b',
+        parentGroupId: 'a',
+        createdAt: DateTime(2024, 6, 1),
+      );
       // Also wire a→b so there's a cycle: b.parentGroupId='a', a.parentGroupId='b'
       final aWithParent = older.copyWith(parentGroupId: 'b');
-      final result =
-          GroupTreeUtils.resolveSyncCycles([aWithParent, newer]);
+      final result = GroupTreeUtils.resolveSyncCycles([aWithParent, newer]);
       // 'a' is older (Jan) and 'b' is newer (Jun)
       // 'b' has a as parent; 'a' has b as parent → cycle
       // The newer one (b, Jun) should become root.
@@ -200,9 +244,15 @@ void main() {
 
     test('cycle broken by createdAt — older group keeps its parent', () {
       final older = _group(
-          id: 'a', parentGroupId: 'b', createdAt: DateTime(2024, 1, 1));
+        id: 'a',
+        parentGroupId: 'b',
+        createdAt: DateTime(2024, 1, 1),
+      );
       final newer = _group(
-          id: 'b', parentGroupId: 'a', createdAt: DateTime(2024, 6, 1));
+        id: 'b',
+        parentGroupId: 'a',
+        createdAt: DateTime(2024, 6, 1),
+      );
       final result = GroupTreeUtils.resolveSyncCycles([older, newer]);
       // 'a' is older → keeps its parent (though it will be resolved by buildGroupTree
       // since 'b' will become root, not a child of 'a').
@@ -230,9 +280,15 @@ void main() {
     test('newer group promoted regardless of input order', () {
       // Same cycle as A→B→A but with newer group appearing first in the list.
       final newer = _group(
-          id: 'b', parentGroupId: 'a', createdAt: DateTime(2024, 6, 1));
+        id: 'b',
+        parentGroupId: 'a',
+        createdAt: DateTime(2024, 6, 1),
+      );
       final older = _group(
-          id: 'a', parentGroupId: 'b', createdAt: DateTime(2024, 1, 1));
+        id: 'a',
+        parentGroupId: 'b',
+        createdAt: DateTime(2024, 1, 1),
+      );
       final result = GroupTreeUtils.resolveSyncCycles([newer, older]);
       final bResult = result.firstWhere((g) => g.id == 'b');
       expect(bResult.parentGroupId, isNull);
@@ -251,9 +307,21 @@ void main() {
 
     test('3-way cycle resolves to an acyclic tree', () {
       // A→B, B→C, C→A  (A oldest, B middle, C newest)
-      final a = _group(id: 'a', parentGroupId: 'b', createdAt: DateTime(2024, 1, 1));
-      final b = _group(id: 'b', parentGroupId: 'c', createdAt: DateTime(2024, 4, 1));
-      final c = _group(id: 'c', parentGroupId: 'a', createdAt: DateTime(2024, 7, 1));
+      final a = _group(
+        id: 'a',
+        parentGroupId: 'b',
+        createdAt: DateTime(2024, 1, 1),
+      );
+      final b = _group(
+        id: 'b',
+        parentGroupId: 'c',
+        createdAt: DateTime(2024, 4, 1),
+      );
+      final c = _group(
+        id: 'c',
+        parentGroupId: 'a',
+        createdAt: DateTime(2024, 7, 1),
+      );
       final result = GroupTreeUtils.resolveSyncCycles([a, b, c]);
       final tree = GroupTreeUtils.buildGroupTree(result);
       // Tree must have a root and no groups should be invisible.
@@ -309,23 +377,25 @@ void main() {
       expect(flat.map((e) => e.depth), [0, 1, 0, 1]);
     });
 
-    test('cycle guard: malformed tree map with a cycle does not infinite loop',
-        () {
-      // Hand-craft a malformed tree map that bypasses buildGroupTree's
-      // resolveSyncCycles step — direct cycle A's children include B, B's
-      // children include A, and both are roots.
-      final a = _group(id: 'a');
-      final b = _group(id: 'b');
-      final tree = <String?, List<MemberGroup>>{
-        null: [a],
-        'a': [b],
-        'b': [a], // cycle
-      };
-      final flat = GroupTreeUtils.flattenTree(tree);
-      // Each group appears at most once.
-      final ids = flat.map((e) => e.group.id).toList();
-      expect(ids.toSet().length, ids.length);
-      expect(ids, containsAll(['a', 'b']));
-    });
+    test(
+      'cycle guard: malformed tree map with a cycle does not infinite loop',
+      () {
+        // Hand-craft a malformed tree map that bypasses buildGroupTree's
+        // resolveSyncCycles step — direct cycle A's children include B, B's
+        // children include A, and both are roots.
+        final a = _group(id: 'a');
+        final b = _group(id: 'b');
+        final tree = <String?, List<MemberGroup>>{
+          null: [a],
+          'a': [b],
+          'b': [a], // cycle
+        };
+        final flat = GroupTreeUtils.flattenTree(tree);
+        // Each group appears at most once.
+        final ids = flat.map((e) => e.group.id).toList();
+        expect(ids.toSet().length, ids.length);
+        expect(ids, containsAll(['a', 'b']));
+      },
+    );
   });
 }

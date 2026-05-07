@@ -21,7 +21,7 @@ class GroupSectionHeader extends StatelessWidget {
   /// The group this header represents. `null` indicates the ungrouped section.
   final MemberGroup? group;
 
-  /// Depth level: 0 = root, 1 = sub-group, 2 = sub-sub-group.
+  /// Depth level: 0 = root, then increases by 1 per nested level.
   final int depth;
   final int memberCount;
   final bool isCollapsed;
@@ -52,14 +52,14 @@ class GroupSectionHeader extends StatelessWidget {
       );
     }
 
-    final titleStyle = (depth == 0
-            ? theme.textTheme.labelLarge
-            : theme.textTheme.labelMedium)
-        ?.copyWith(fontWeight: FontWeight.w600);
+    final titleStyle =
+        (depth == 0 ? theme.textTheme.labelLarge : theme.textTheme.labelMedium)
+            ?.copyWith(fontWeight: FontWeight.w600);
 
     return Semantics(
       button: canCollapse,
-      label: '$name, $memberCount members, '
+      label:
+          '$name, $memberCount members, '
           '${isCollapsed ? 'collapsed' : 'expanded'}'
           '${canCollapse ? ', double-tap to toggle' : ''}',
       excludeSemantics: true,
@@ -90,11 +90,14 @@ class GroupSectionHeader extends StatelessWidget {
                 if (memberCount > 0)
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 2),
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: theme.colorScheme.primaryContainer,
                       borderRadius: BorderRadius.circular(
-                          PrismShapes.of(context).radius(12)),
+                        PrismShapes.of(context).radius(12),
+                      ),
                     ),
                     child: Text(
                       '$memberCount',

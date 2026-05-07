@@ -7,33 +7,42 @@ import 'package:prism_plurality/domain/models/member_group.dart';
 class GroupTreeUtils {
   GroupTreeUtils._();
 
+  /// Maximum allowed total nesting depth for groups.
+  ///
+  /// Depth is 1-based: root = 1, child = 2, grandchild = 3, etc.
+  static const int maxGroupDepth = 5;
+
   /// Build an O(n) adjacency map from a flat list.
   ///
   /// Groups whose `parentGroupId` does not exist in the list are treated as
   /// roots (dangling parent → null key).
   static Map<String?, List<MemberGroup>> buildGroupTree(
-      List<MemberGroup> groups) {
+    List<MemberGroup> groups,
+  ) {
     final ids = {for (final g in groups) g.id};
     final tree = <String?, List<MemberGroup>>{};
     for (final g in groups) {
       final parentKey =
           (g.parentGroupId != null && ids.contains(g.parentGroupId))
-              ? g.parentGroupId
-              : null;
+          ? g.parentGroupId
+          : null;
       tree.putIfAbsent(parentKey, () => []).add(g);
     }
     return tree;
   }
 
-  /// Walk up the `parentGroupId` chain up to 3 hops. Returns 1 for root groups.
+  /// Walk up the `parentGroupId` chain up to the configured depth ceiling.
+  /// Returns 1 for root groups.
   ///
-  /// Groups deeper than 3 (from sync) are clamped and reported as depth 3.
+  /// Groups deeper than [maxGroupDepth] are clamped and reported as depth 5.
   static int getGroupDepth(
-      String groupId, Map<String?, List<MemberGroup>> tree) {
+    String groupId,
+    Map<String?, List<MemberGroup>> tree,
+  ) {
     final idMap = _buildIdMap(tree);
     int depth = 1;
     String? currentId = groupId;
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < maxGroupDepth - 1; i++) {
       final group = idMap[currentId];
       if (group == null || group.parentGroupId == null) break;
       final parent = idMap[group.parentGroupId!];
@@ -46,10 +55,11 @@ class GroupTreeUtils {
 
   /// DFS-collect all descendant group IDs (children, grandchildren, etc.).
   ///
-  /// Does not include [groupId] itself. Respects the 3-level cap implicitly
-  /// because the tree was built from validated/clamped data.
+  /// Does not include [groupId] itself.
   static Set<String> getDescendantGroupIds(
-      String groupId, Map<String?, List<MemberGroup>> tree) {
+    String groupId,
+    Map<String?, List<MemberGroup>> tree,
+  ) {
     final result = <String>{};
     final queue = <String>[groupId];
     while (queue.isNotEmpty) {
@@ -66,10 +76,29 @@ class GroupTreeUtils {
 
   /// Returns `true` if setting [proposedParentId] as the parent of [groupId]
   /// would create a cycle (i.e. [proposedParentId] is already a descendant).
-  static bool wouldCreateCycle(String groupId, String proposedParentId,
-      Map<String?, List<MemberGroup>> tree) {
+  static bool wouldCreateCycle(
+    String groupId,
+    String proposedParentId,
+    Map<String?, List<MemberGroup>> tree,
+  ) {
     if (groupId == proposedParentId) return true;
     return getDescendantGroupIds(groupId, tree).contains(proposedParentId);
+  }
+
+  /// Returns `true` if attaching [movingGroupId] under [proposedParentId]
+  /// would exceed [maxGroupDepth].
+  static bool wouldExceedMaxDepth({
+    required String? movingGroupId,
+    required String? proposedParentId,
+    required Map<String?, List<MemberGroup>> tree,
+  }) {
+    if (proposedParentId == null) return false;
+
+    final movingSubtreeHeight = movingGroupId == null
+        ? 1
+        : getSubtreeHeight(movingGroupId, tree);
+    final parentDepth = getGroupDepth(proposedParentId, tree);
+    return parentDepth + movingSubtreeHeight > maxGroupDepth;
   }
 
   /// Break any cycles present in a synced flat list.
@@ -85,7 +114,9 @@ class GroupTreeUtils {
     for (int i = 0; i < result.length; i++) {
       final g = result[i];
       if (g.parentGroupId == null) continue;
-      if (!idMap.containsKey(g.parentGroupId)) continue; // dangling, not a cycle
+      if (!idMap.containsKey(g.parentGroupId)) {
+        continue; // dangling, not a cycle
+      }
 
       // Walk up to detect a cycle involving g.
       final visited = <String>{g.id};
@@ -102,8 +133,10 @@ class GroupTreeUtils {
 
       if (hasCycle) {
         final parent = idMap[g.parentGroupId!];
-        final winsOnTime = parent != null && g.createdAt.isAfter(parent.createdAt);
-        final winsOnId = parent != null &&
+        final winsOnTime =
+            parent != null && g.createdAt.isAfter(parent.createdAt);
+        final winsOnId =
+            parent != null &&
             !g.createdAt.isBefore(parent.createdAt) &&
             g.id.compareTo(parent.id) > 0;
         if (winsOnTime || winsOnId) {
@@ -123,7 +156,8 @@ class GroupTreeUtils {
   /// Includes a visited-set guard to prevent infinite recursion from malformed
   /// trees (e.g. cycles slipping past `resolveSyncCycles`).
   static List<({MemberGroup group, int depth})> flattenTree(
-      Map<String?, List<MemberGroup>> tree) {
+    Map<String?, List<MemberGroup>> tree,
+  ) {
     final result = <({MemberGroup group, int depth})>[];
     final visited = <String>{};
     void visit(MemberGroup g, int d) {
@@ -133,16 +167,18 @@ class GroupTreeUtils {
         visit(child, d + 1);
       }
     }
+
     for (final root in tree[null] ?? []) {
       visit(root, 0);
     }
     return result;
   }
 
-  /// Returns the height of the subtree rooted at [groupId]:
-  /// 1 if the group has no children, 2 if it has children, 3 if it has grandchildren.
+  /// Returns the height of the subtree rooted at [groupId].
   static int getSubtreeHeight(
-      String groupId, Map<String?, List<MemberGroup>> tree) {
+    String groupId,
+    Map<String?, List<MemberGroup>> tree,
+  ) {
     final children = tree[groupId] ?? [];
     if (children.isEmpty) return 1;
     int maxChildHeight = 0;
@@ -156,7 +192,8 @@ class GroupTreeUtils {
   // ── Internal helpers ────────────────────────────────────────────────────────
 
   static Map<String, MemberGroup> _buildIdMap(
-      Map<String?, List<MemberGroup>> tree) {
+    Map<String?, List<MemberGroup>> tree,
+  ) {
     final map = <String, MemberGroup>{};
     for (final groups in tree.values) {
       for (final g in groups) {

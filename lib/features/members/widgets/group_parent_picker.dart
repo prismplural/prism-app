@@ -16,7 +16,7 @@ import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 /// be assigned as the parent of the group being created or edited, filtering out:
 /// - The group itself (can't be its own parent)
 /// - Any descendant of the group (cycle prevention)
-/// - Groups at depth ≥ 3 (would exceed the three-level nesting limit) — shown
+/// - Groups that would exceed the nesting limit of 5 total levels — shown
 ///   grayed out so the user understands why they are unavailable.
 ///
 /// Always includes a "None (top level)" option at the top.
@@ -51,11 +51,6 @@ class GroupParentPicker extends ConsumerWidget {
       error: (e, _) =>
           Padding(padding: const EdgeInsets.all(16), child: Text(l10n.error)),
       data: (allGroups) {
-        // How tall is the group being edited (1 = leaf, 2 = has children, 3 = has grandchildren)?
-        final editedSubtreeHeight = excludeGroupId != null
-            ? GroupTreeUtils.getSubtreeHeight(excludeGroupId!, tree)
-            : 1;
-
         // Build the candidate list, filtering out illegal choices.
         final candidates = <_GroupPickerItem>[];
 
@@ -139,7 +134,7 @@ class GroupParentPicker extends ConsumerWidget {
                       candidates[index - 2],
                       theme,
                       l10n,
-                      editedSubtreeHeight,
+                      tree,
                     );
                   },
                 ),
@@ -156,10 +151,14 @@ class GroupParentPicker extends ConsumerWidget {
     _GroupPickerItem item,
     ThemeData theme,
     AppLocalizations l10n,
-    int editedSubtreeHeight,
+    Map<String?, List<MemberGroup>> tree,
   ) {
     final group = item.group;
-    final isAtDepthLimit = item.depth + editedSubtreeHeight > 3;
+    final isAtDepthLimit = GroupTreeUtils.wouldExceedMaxDepth(
+      movingGroupId: excludeGroupId,
+      proposedParentId: group.id,
+      tree: tree,
+    );
     final isSelected = group.id == currentParentId;
 
     Color? groupColor;
@@ -203,11 +202,7 @@ class GroupParentPicker extends ConsumerWidget {
       );
     }
 
-    final depthLabel = item.depth == 1
-        ? 'top level group'
-        : item.depth == 2
-        ? 'sub-group'
-        : 'sub-sub-group';
+    final depthLabel = item.depth == 1 ? 'top level group' : 'nested group';
     return Semantics(
       button: true,
       label: '${group.name}, $depthLabel${isSelected ? ', selected' : ''}',

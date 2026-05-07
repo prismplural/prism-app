@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 
 import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
+import 'package:prism_plurality/features/members/utils/group_tree_utils.dart';
 import 'package:prism_plurality/features/members/widgets/group_parent_picker.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
@@ -85,7 +86,9 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
     super.initState();
     final g = widget.group;
     _nameController = TextEditingController(text: g?.name ?? '');
-    _descriptionController = MarkdownEditingController(text: g?.description ?? '');
+    _descriptionController = MarkdownEditingController(
+      text: g?.description ?? '',
+    );
     if (g?.colorHex != null) {
       _selectedColor = AppColors.fromHex(g!.colorHex!);
     }
@@ -176,6 +179,26 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
         : null;
 
     try {
+      final allGroupsAsync = ref.read(allGroupsProvider);
+      final hierarchyValidationNeeded =
+          _parentGroupId != null &&
+          _parentGroupId != widget.group?.parentGroupId;
+      if (hierarchyValidationNeeded && !allGroupsAsync.hasValue) {
+        throw StateError('group hierarchy is still loading');
+      }
+
+      final tree = GroupTreeUtils.buildGroupTree(
+        GroupTreeUtils.resolveSyncCycles(allGroupsAsync.value ?? const []),
+      );
+      if (hierarchyValidationNeeded &&
+          GroupTreeUtils.wouldExceedMaxDepth(
+            movingGroupId: widget.group?.id,
+            proposedParentId: _parentGroupId,
+            tree: tree,
+          )) {
+        throw StateError('selected parent would exceed nesting limit');
+      }
+
       final notifier = ref.read(groupNotifierProvider.notifier);
 
       if (widget.isEditing) {

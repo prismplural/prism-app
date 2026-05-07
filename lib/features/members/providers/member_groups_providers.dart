@@ -183,7 +183,7 @@ class GroupSectionItem extends GroupedMemberListItem {
 
   final MemberGroup group;
 
-  /// 0 = root, 1 = sub-group, 2 = sub-sub-group.
+  /// 0 = root, then increases by 1 per nested level.
   final int depth;
   final bool isCollapsed;
 }
