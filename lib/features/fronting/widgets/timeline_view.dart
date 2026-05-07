@@ -40,15 +40,15 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
   bool _hasAutoScrolled = false;
   DateTime? _viewStart;
   bool _isLoadingMore = false;
-  // Last successfully loaded data, kept so the timeline stays visible while
-  // load-more refetches with a higher limit. Without this, every limit bump
-  // creates a fresh `frontingHistoryProvider(N)` family instance whose initial
-  // AsyncLoading has no `previous` attached, and the view blanks out into a
-  // spinner — which is what the user saw past ~1–2 weeks of history.
+  // Last successfully loaded data, kept as a fallback so first-frame reloads
+  // never blank the timeline into a spinner.
   TimelineData? _lastData;
-  final ValueNotifier<DateTime> _nowNotifier =
-      ValueNotifier<DateTime>(DateTime.now());
-  final ValueNotifier<double> _scrollOffsetNotifier = ValueNotifier<double>(0.0);
+  final ValueNotifier<DateTime> _nowNotifier = ValueNotifier<DateTime>(
+    DateTime.now(),
+  );
+  final ValueNotifier<double> _scrollOffsetNotifier = ValueNotifier<double>(
+    0.0,
+  );
 
   static const double _headerRowHeight = 56.0;
   static const double _minColumnWidth = 36.0;
@@ -88,11 +88,17 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
     _scrollOffsetNotifier.value = _verticalController.offset;
 
     if (_isLoadingMore) return;
+    if (ref.read(timelineFrontingHistoryProvider).isLoading ||
+        ref.read(timelineRowsProvider).isLoading) {
+      return;
+    }
 
     // Load more when near the top (scrolling back in time)
     if (_verticalController.offset < _loadMoreThreshold) {
       _isLoadingMore = true;
-      ref.read(timelineSessionLimitProvider.notifier).increase(100);
+      ref
+          .read(timelineSessionLimitProvider.notifier)
+          .increase(timelineSessionPageSize);
       // Brief cooldown to prevent rapid re-triggers
       Future.delayed(const Duration(milliseconds: 500), () {
         if (mounted) _isLoadingMore = false;
@@ -122,12 +128,14 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
     // provider emits a bare AsyncLoading with no previous-data attached, so
     // we fall back to the last data we rendered. First load (no cache yet)
     // still shows the spinner.
-    final TimelineData? data = rowsAsync.whenOrNull(
-      data: (d) {
-        _lastData = d;
-        return d;
-      },
-    ) ?? _lastData;
+    final TimelineData? data =
+        rowsAsync.whenOrNull(
+          data: (d) {
+            _lastData = d;
+            return d;
+          },
+        ) ??
+        _lastData;
 
     if (rowsAsync is AsyncError && _lastData == null) {
       return Padding(
@@ -166,8 +174,7 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
             : _maxColumnWidth;
         // Viewport height for the scrollable area:
         // total height minus header row and divider.
-        final scrollableHeight =
-            constraints.maxHeight - _headerRowHeight - 1;
+        final scrollableHeight = constraints.maxHeight - _headerRowHeight - 1;
         return _buildTimeline(
           context,
           theme,
@@ -279,10 +286,7 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
         behavior: HitTestBehavior.opaque,
         onTapUp: (details) =>
             _onTimelineTap(context, details.localPosition, painter, canvasSize),
-        child: CustomPaint(
-          size: canvasSize,
-          painter: painter,
-        ),
+        child: CustomPaint(size: canvasSize, painter: painter),
       );
     }
 
@@ -446,15 +450,15 @@ class _SessionPreviewSheet extends ConsumerWidget {
     // Each session bar represents one member's continuous presence.
     // TODO(§2.4): Phase 3 — rewrite to show the per-member session directly
     // and offer "see this period" to open the period-detail screen (§3.1).
-    final memberIds = <String>{
-      if (session.memberId != null) session.memberId!,
-    };
-    final membersAsync =
-        ref.watch(membersByIdsProvider(memberIdsKey(memberIds)));
+    final memberIds = <String>{if (session.memberId != null) session.memberId!};
+    final membersAsync = ref.watch(
+      membersByIdsProvider(memberIdsKey(memberIds)),
+    );
     final membersMap = membersAsync.whenOrNull(data: (m) => m) ?? {};
 
-    final member =
-        session.memberId != null ? membersMap[session.memberId] : null;
+    final member = session.memberId != null
+        ? membersMap[session.memberId]
+        : null;
 
     final String displayName;
     if (session.memberId == null) {
@@ -466,8 +470,9 @@ class _SessionPreviewSheet extends ConsumerWidget {
     final startLabel = session.startTime.toTimeString();
     final dateLabel = session.startTime.toDateString();
     final duration = (session.endTime ?? now).difference(session.startTime);
-    final durationLabel =
-        session.isActive ? 'Active' : duration.toRoundedString();
+    final durationLabel = session.isActive
+        ? 'Active'
+        : duration.toRoundedString();
 
     return Column(
       mainAxisSize: MainAxisSize.min,

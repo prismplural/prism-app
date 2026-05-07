@@ -20,15 +20,19 @@ import 'package:prism_plurality/features/members/providers/members_providers.dar
 /// fronting.
 final derivedPeriodsProvider =
     Provider.autoDispose<AsyncValue<List<FrontingPeriod>>>((ref) {
-  final bundleAsync = ref.watch(unifiedHistoryOverlapProvider);
-  final membersAsync = ref.watch(allMembersProvider);
+      final bundleAsync = ref.watch(unifiedHistoryOverlapProvider);
+      final membersAsync = ref.watch(allMembersProvider);
 
-  return bundleAsync.when(
-    loading: () => const AsyncValue.loading(),
-    error: AsyncValue.error,
-    data: (bundle) {
-      final members =
-          membersAsync.whenOrNull(data: (list) => list) ?? const <Member>[];
+      final bundle = bundleAsync.value;
+      if (bundle == null) {
+        return bundleAsync.when(
+          loading: () => const AsyncValue.loading(),
+          error: AsyncValue.error,
+          data: (_) => const AsyncValue.loading(),
+        );
+      }
+
+      final members = membersAsync.value ?? const <Member>[];
       // Thread the provider's `rangeStart` through. Without this, a
       // 400-day continuous host (whose start was clamped by the DAO
       // query) would push the sweep's `rangeStart` 400 days back,
@@ -46,10 +50,9 @@ final derivedPeriodsProvider =
         now: DateTime.now(),
         rangeStart: bundle.rangeStart,
       );
+
       return AsyncValue.data(periods);
-    },
-  );
-});
+    });
 
 /// Pure derivation entrypoint. Exposed for tests and for any future
 /// surface that wants periods without going through the provider graph.
@@ -85,11 +88,13 @@ List<FrontingPeriod> computeDerivedPeriods(
     effectiveRangeStart = earliest;
   }
 
-  return deriveMaximalPeriods(DerivePeriodsInput(
-    sessions: sessions,
-    members: memberMap,
-    rangeStart: effectiveRangeStart,
-    now: nowAt,
-    ephemeralThreshold: ephemeralThreshold,
-  ));
+  return deriveMaximalPeriods(
+    DerivePeriodsInput(
+      sessions: sessions,
+      members: memberMap,
+      rangeStart: effectiveRangeStart,
+      now: nowAt,
+      ephemeralThreshold: ephemeralThreshold,
+    ),
+  );
 }

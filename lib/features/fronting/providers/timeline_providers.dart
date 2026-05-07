@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/models.dart';
-import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
@@ -16,8 +16,9 @@ class TimelineViewNotifier extends Notifier<bool> {
   void setActive(bool value) => state = value;
 }
 
-final timelineViewActiveProvider =
-    NotifierProvider<TimelineViewNotifier, bool>(TimelineViewNotifier.new);
+final timelineViewActiveProvider = NotifierProvider<TimelineViewNotifier, bool>(
+  TimelineViewNotifier.new,
+);
 
 /// Controls the timeline zoom level.
 class TimelineState {
@@ -30,9 +31,7 @@ class TimelineState {
   static const double maxPixelsPerHour = 200.0;
 
   TimelineState copyWith({double? pixelsPerHour}) {
-    return TimelineState(
-      pixelsPerHour: pixelsPerHour ?? this.pixelsPerHour,
-    );
+    return TimelineState(pixelsPerHour: pixelsPerHour ?? this.pixelsPerHour);
   }
 }
 
@@ -61,21 +60,23 @@ class TimelineStateNotifier extends Notifier<TimelineState> {
 
 final timelineStateProvider =
     NotifierProvider<TimelineStateNotifier, TimelineState>(
-  TimelineStateNotifier.new,
-);
+      TimelineStateNotifier.new,
+    );
 
 /// How many sessions to load. Increases as the user scrolls back in time.
+const timelineSessionPageSize = 100;
+
 class TimelineSessionLimitNotifier extends Notifier<int> {
   @override
-  int build() => 100;
+  int build() => timelineSessionPageSize;
 
   void increase(int amount) => state = state + amount;
 }
 
 final timelineSessionLimitProvider =
     NotifierProvider<TimelineSessionLimitNotifier, int>(
-  TimelineSessionLimitNotifier.new,
-);
+      TimelineSessionLimitNotifier.new,
+    );
 
 /// Target date to scroll to (set by controls, consumed by view).
 class TimelineJumpTargetNotifier extends Notifier<DateTime?> {
@@ -88,15 +89,25 @@ class TimelineJumpTargetNotifier extends Notifier<DateTime?> {
 
 final timelineJumpTargetProvider =
     NotifierProvider<TimelineJumpTargetNotifier, DateTime?>(
-  TimelineJumpTargetNotifier.new,
-);
+      TimelineJumpTargetNotifier.new,
+    );
+
+/// Timeline session history, paginated by [timelineSessionLimitProvider].
+///
+/// Keep this as one provider whose limit is an internal dependency rather than
+/// watching `frontingHistoryProvider(limit)` from timelineRowsProvider. A limit
+/// bump then reloads this provider with previous rows attached instead of
+/// swapping the timeline to a brand-new family instance with no stale data.
+final timelineFrontingHistoryProvider =
+    StreamProvider.autoDispose<List<FrontingSession>>((ref) {
+      final limit = ref.watch(timelineSessionLimitProvider);
+      final repo = ref.watch(frontingSessionRepositoryProvider);
+      return repo.watchRecentSessions(limit: limit);
+    });
 
 /// A row in the timeline: one member with their sessions.
 class TimelineMemberRow {
-  const TimelineMemberRow({
-    required this.member,
-    required this.sessions,
-  });
+  const TimelineMemberRow({required this.member, required this.sessions});
 
   final Member member;
   final List<FrontingSession> sessions;
@@ -114,10 +125,7 @@ class TimelineMemberRow {
 }
 
 class TimelineData {
-  const TimelineData({
-    required this.memberRows,
-    required this.sleepSessions,
-  });
+  const TimelineData({required this.memberRows, required this.sleepSessions});
 
   final List<TimelineMemberRow> memberRows;
   final List<FrontingSession> sleepSessions;
@@ -132,61 +140,65 @@ class TimelineData {
 /// TODO(§4.6): Phase 3 will replace this with the derived-period algorithm
 /// from spec §4.6 so the timeline surfaces computed overlap periods.  For now
 /// the view receives raw per-member sessions and does its own grouping.
-final timelineRowsProvider =
-    Provider.autoDispose<AsyncValue<TimelineData>>((ref) {
-  final limit = ref.watch(timelineSessionLimitProvider);
-  final sessionsAsync = ref.watch(frontingHistoryProvider(limit));
-  final sleepSessionsAsync = ref.watch(recentSleepSessionsPaginatedProvider(20));
+final timelineRowsProvider = Provider.autoDispose<AsyncValue<TimelineData>>((
+  ref,
+) {
+  final sessionsAsync = ref.watch(timelineFrontingHistoryProvider);
+  final sleepSessionsAsync = ref.watch(
+    recentSleepSessionsPaginatedProvider(20),
+  );
   // History view: include inactive (but not hard-deleted) members so their
   // past sessions still render. `activeMembersProvider` would silently drop
   // any session whose member has since been set inactive, leaving phantom
   // gaps in the historical timeline.
   final membersAsync = ref.watch(allMembersProvider);
 
-  return sessionsAsync.when(
-    loading: () => const AsyncValue.loading(),
-    error: AsyncValue.error,
-    data: (sessions) {
-      return sleepSessionsAsync.when(
-        loading: () => const AsyncValue.loading(),
-        error: AsyncValue.error,
-        data: (sleepSessions) {
-          return membersAsync.when(
-            loading: () => const AsyncValue.loading(),
-            error: AsyncValue.error,
-            data: (members) {
-              // Group per-member sessions by memberId.  No co-fronter
-              // expansion needed — each row is already scoped to one member.
-              final rowMap = <String, List<FrontingSession>>{};
+  final sessions = sessionsAsync.value;
+  if (sessions == null) {
+    return sessionsAsync.when(
+      loading: () => const AsyncValue.loading(),
+      error: AsyncValue.error,
+      data: (_) => const AsyncValue.loading(),
+    );
+  }
 
-              for (final session in sessions) {
-                final memberId = session.memberId;
-                if (memberId != null) {
-                  rowMap.putIfAbsent(memberId, () => []).add(session);
-                }
-              }
+  final sleepSessions = sleepSessionsAsync.value;
+  if (sleepSessions == null) {
+    return sleepSessionsAsync.when(
+      loading: () => const AsyncValue.loading(),
+      error: AsyncValue.error,
+      data: (_) => const AsyncValue.loading(),
+    );
+  }
 
-              final rows = <TimelineMemberRow>[];
-              for (final member in members) {
-                final memberSessions = rowMap[member.id];
-                if (memberSessions != null && memberSessions.isNotEmpty) {
-                  rows.add(TimelineMemberRow(
-                    member: member,
-                    sessions: memberSessions,
-                  ));
-                }
-              }
+  final members = membersAsync.value;
+  if (members == null) {
+    return membersAsync.when(
+      loading: () => const AsyncValue.loading(),
+      error: AsyncValue.error,
+      data: (_) => const AsyncValue.loading(),
+    );
+  }
 
-              return AsyncValue.data(
-                TimelineData(
-                  memberRows: rows,
-                  sleepSessions: sleepSessions,
-                ),
-              );
-            },
-          );
-        },
-      );
-    },
-  );
+  // Group per-member sessions by memberId. No co-fronter expansion needed;
+  // each row is already scoped to one member.
+  final rowMap = <String, List<FrontingSession>>{};
+
+  for (final session in sessions) {
+    final memberId = session.memberId;
+    if (memberId != null) {
+      rowMap.putIfAbsent(memberId, () => []).add(session);
+    }
+  }
+
+  final rows = <TimelineMemberRow>[];
+  for (final member in members) {
+    final memberSessions = rowMap[member.id];
+    if (memberSessions != null && memberSessions.isNotEmpty) {
+      rows.add(TimelineMemberRow(member: member, sessions: memberSessions));
+    }
+  }
+
+  final data = TimelineData(memberRows: rows, sleepSessions: sleepSessions);
+  return AsyncValue.data(data);
 });

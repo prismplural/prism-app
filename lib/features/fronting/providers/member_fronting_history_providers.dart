@@ -72,59 +72,59 @@ final memberFrontingHistoryProvider = Provider.autoDispose
           ref.watch(allMembersProvider).whenOrNull(data: (list) => list) ??
           const <Member>[];
 
-      return targetAsync.when(
-        loading: () => const AsyncValue.loading(),
-        error: AsyncValue.error,
-        data: (targetSessions) {
-          final hasMore = targetSessions.length >= limit;
-          if (targetSessions.isEmpty) {
-            return const AsyncValue.data(
-              MemberFrontingHistoryData(
-                periods: [],
-                targetSessions: [],
-                hasMore: false,
-              ),
-            );
-          }
+      final targetSessions = targetAsync.value;
+      if (targetSessions == null) {
+        return targetAsync.when(
+          loading: () => const AsyncValue.loading(),
+          error: AsyncValue.error,
+          data: (_) => const AsyncValue.loading(),
+        );
+      }
 
-          final rangeStart = targetSessions
-              .map((session) => session.startTime)
-              .reduce((a, b) => a.isBefore(b) ? a : b);
-          final allSessionsAsync = ref.watch(
-            _frontingSessionsOverlappingRangeProvider((
-              start: rangeStart,
-              // Keep this value stable across provider rebuilds. Future-dated
-              // rows are still filtered by computeDerivedPeriods(now: ...).
-              end: DateTime(9999),
-            )),
-          );
+      final hasMore = targetSessions.length >= limit;
+      if (targetSessions.isEmpty) {
+        return const AsyncValue.data(
+          MemberFrontingHistoryData(
+            periods: [],
+            targetSessions: [],
+            hasMore: false,
+          ),
+        );
+      }
 
-          return allSessionsAsync.when(
-            loading: () => const AsyncValue.loading(),
-            error: AsyncValue.error,
-            data: (allSessions) {
-              final periods =
-                  computeDerivedPeriods(
-                        allSessions,
-                        members,
-                        now: DateTime.now(),
-                        rangeStart: rangeStart,
-                      )
-                      .where(
-                        (period) => _periodIncludesMember(period, memberId),
-                      )
-                      .toList();
+      final rangeStart = targetSessions
+          .map((session) => session.startTime)
+          .reduce((a, b) => a.isBefore(b) ? a : b);
+      final allSessionsAsync = ref.watch(
+        _frontingSessionsOverlappingRangeProvider((
+          start: rangeStart,
+          // Keep this value stable across provider rebuilds. Future-dated
+          // rows are still filtered by computeDerivedPeriods(now: ...).
+          end: DateTime(9999),
+        )),
+      );
+      final allSessions = allSessionsAsync.value;
+      if (allSessions == null) {
+        return allSessionsAsync.when(
+          loading: () => const AsyncValue.loading(),
+          error: AsyncValue.error,
+          data: (_) => const AsyncValue.loading(),
+        );
+      }
 
-              return AsyncValue.data(
-                MemberFrontingHistoryData(
-                  periods: periods,
-                  targetSessions: targetSessions,
-                  hasMore: hasMore,
-                ),
-              );
-            },
-          );
-        },
+      final periods = computeDerivedPeriods(
+        allSessions,
+        members,
+        now: DateTime.now(),
+        rangeStart: rangeStart,
+      ).where((period) => _periodIncludesMember(period, memberId)).toList();
+
+      return AsyncValue.data(
+        MemberFrontingHistoryData(
+          periods: periods,
+          targetSessions: targetSessions,
+          hasMore: hasMore,
+        ),
       );
     });
 

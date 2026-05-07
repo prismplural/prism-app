@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -53,6 +55,7 @@ class _MemberFrontingHistoryScreenState
     if (position.pixels < position.maxScrollExtent - 300) return;
 
     final history = ref.read(memberFrontingHistoryProvider(widget.memberId));
+    if (history.isLoading) return;
     if (history.value?.hasMore != true) return;
     _loadMore(announce: true);
   }
@@ -150,8 +153,11 @@ class _MemberFrontingHistoryScreenState
                   );
                 },
               ),
-              SliverPadding(
-                padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  key: const ValueKey('member-history-bottom-spacer'),
+                  height: memberFrontingHistoryBottomSpacerHeight(context),
+                ),
               ),
             ],
           ),
@@ -239,6 +245,15 @@ class _MemberFrontingHistoryScreenState
       message: context.l10n.memberFrontingHistoryNoSessionsOnDate,
     );
   }
+}
+
+@visibleForTesting
+double memberFrontingHistoryBottomSpacerHeight(BuildContext context) {
+  return math.max(
+        NavBarInset.of(context),
+        MediaQuery.viewPaddingOf(context).bottom,
+      ) +
+      16;
 }
 
 @visibleForTesting

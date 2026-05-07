@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/features/members/views/member_fronting_history_screen.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/widgets/app_shell.dart';
 
 Widget _buildSubject({
   required double width,
@@ -61,5 +62,25 @@ void main() {
     );
 
     expect(title, longName);
+  });
+
+  testWidgets('bottom spacer accounts for nav inset', (tester) async {
+    double? height;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: NavBarInset(
+          bottomInset: 72,
+          child: Builder(
+            builder: (context) {
+              height = memberFrontingHistoryBottomSpacerHeight(context);
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      ),
+    );
+
+    expect(height, 88);
   });
 }

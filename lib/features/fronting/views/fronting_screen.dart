@@ -100,7 +100,9 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
     final pos = _scrollController.position;
     if (pos.pixels >= pos.maxScrollExtent - 300) {
       final currentLimit = ref.read(sessionLimitProvider);
-      final sessions = ref.read(unifiedHistoryProvider).value;
+      final history = ref.read(unifiedHistoryProvider);
+      if (history.isLoading) return;
+      final sessions = history.value;
       if (sessions != null && sessions.length >= currentLimit) {
         ref.read(sessionLimitProvider.notifier).loadMore();
         SemanticsService.sendAnnouncement(

@@ -29,12 +29,17 @@ Future<void> _insert(AppDatabase db, FrontingSession session) {
 
 Future<MemberFrontingHistoryData> _readHistory(
   ProviderContainer container,
-  String memberId,
-) async {
+  String memberId, {
+  int? targetSessionCount,
+}) async {
   for (var i = 0; i < 20; i++) {
     final value = container.read(memberFrontingHistoryProvider(memberId));
     final data = value.whenOrNull(data: (data) => data);
-    if (data != null) return data;
+    if (data != null &&
+        (targetSessionCount == null ||
+            data.targetSessions.length == targetSessionCount)) {
+      return data;
+    }
 
     final error = value.whenOrNull(error: (error, _) => error);
     if (error != null) throw error;
@@ -148,7 +153,18 @@ void main() {
       container
           .read(memberFrontingHistoryLimitProvider('a').notifier)
           .loadMore();
-      final secondPage = await _readHistory(container, 'a');
+      final reloadingPage = container.read(memberFrontingHistoryProvider('a'));
+      expect(
+        reloadingPage.value?.targetSessions,
+        hasLength(memberFrontingHistoryPageSize),
+        reason: 'lazy-load reloads must keep the old page visible',
+      );
+
+      final secondPage = await _readHistory(
+        container,
+        'a',
+        targetSessionCount: memberFrontingHistoryPageSize + 1,
+      );
       expect(
         secondPage.targetSessions,
         hasLength(memberFrontingHistoryPageSize + 1),

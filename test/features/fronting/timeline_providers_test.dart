@@ -1,9 +1,35 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:prism_plurality/features/fronting/providers/timeline_providers.dart';
+import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart';
+import 'package:prism_plurality/features/fronting/providers/timeline_providers.dart';
+import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+
+import '../../helpers/fake_repositories.dart';
+
+Future<TimelineData> _readTimelineRows(
+  ProviderContainer container, {
+  required int targetSessionCount,
+}) async {
+  for (var i = 0; i < 20; i++) {
+    final value = container.read(timelineRowsProvider);
+    final data = value.value;
+    if (data != null &&
+        data.memberRows.single.sessions.length == targetSessionCount) {
+      return data;
+    }
+
+    final error = value.whenOrNull(error: (error, _) => error);
+    if (error != null) throw error;
+
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+  }
+  fail('Timed out waiting for timeline rows');
+}
 
 void main() {
   // ══════════════════════════════════════════════════════════════════════════
@@ -69,6 +95,68 @@ void main() {
     });
   });
 
+  group('timelineRowsProvider', () {
+    test('keeps the previous page visible while loading more rows', () async {
+      final member = Member(
+        id: 'm-1',
+        name: 'Alice',
+        createdAt: DateTime(2026, 1, 1),
+      );
+      final repo = FakeFrontingSessionRepository();
+      final now = DateTime(2026, 4, 30, 12);
+      for (var i = 0; i < timelineSessionPageSize + 1; i++) {
+        final start = now.subtract(Duration(days: i));
+        repo.sessions.add(
+          FrontingSession(
+            id: 's-$i',
+            startTime: start,
+            endTime: start.add(const Duration(hours: 1)),
+            memberId: member.id,
+          ),
+        );
+      }
+
+      final container = ProviderContainer(
+        overrides: [
+          frontingSessionRepositoryProvider.overrideWithValue(repo),
+          allMembersProvider.overrideWith((ref) => Stream.value([member])),
+          recentSleepSessionsPaginatedProvider.overrideWith(
+            (ref, limit) => Stream.value(const <FrontingSession>[]),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      container.listen<AsyncValue<TimelineData>>(
+        timelineRowsProvider,
+        (_, _) {},
+        fireImmediately: true,
+      );
+
+      final firstPage = await _readTimelineRows(
+        container,
+        targetSessionCount: timelineSessionPageSize,
+      );
+      expect(firstPage.memberRows.single.sessions, hasLength(100));
+
+      container
+          .read(timelineSessionLimitProvider.notifier)
+          .increase(timelineSessionPageSize);
+      final reloadingPage = container.read(timelineRowsProvider);
+      expect(container.read(timelineFrontingHistoryProvider).isLoading, isTrue);
+      expect(
+        reloadingPage.value?.memberRows.single.sessions,
+        hasLength(timelineSessionPageSize),
+        reason: 'timeline lazy-load reloads must keep old rows visible',
+      );
+
+      final secondPage = await _readTimelineRows(
+        container,
+        targetSessionCount: timelineSessionPageSize + 1,
+      );
+      expect(secondPage.memberRows.single.sessions, hasLength(101));
+    });
+  });
+
   // ══════════════════════════════════════════════════════════════════════════
   // Per-member session grouping (extracted from timelineRowsProvider)
   //
@@ -105,31 +193,34 @@ void main() {
       expect(grouped['alice']!.first.id, 's-1');
     });
 
-    test('overlapping sessions for different members each get their own entry', () {
-      // Per-member model: co-fronting is two overlapping sessions, one per member.
-      final sessions = [
-        FrontingSession(
-          id: 's-1',
-          startTime: DateTime(2026, 3, 20, 10, 0),
-          memberId: 'alice',
-        ),
-        FrontingSession(
-          id: 's-2',
-          startTime: DateTime(2026, 3, 20, 10, 0),
-          memberId: 'bob',
-        ),
-        FrontingSession(
-          id: 's-3',
-          startTime: DateTime(2026, 3, 20, 10, 0),
-          memberId: 'charlie',
-        ),
-      ];
+    test(
+      'overlapping sessions for different members each get their own entry',
+      () {
+        // Per-member model: co-fronting is two overlapping sessions, one per member.
+        final sessions = [
+          FrontingSession(
+            id: 's-1',
+            startTime: DateTime(2026, 3, 20, 10, 0),
+            memberId: 'alice',
+          ),
+          FrontingSession(
+            id: 's-2',
+            startTime: DateTime(2026, 3, 20, 10, 0),
+            memberId: 'bob',
+          ),
+          FrontingSession(
+            id: 's-3',
+            startTime: DateTime(2026, 3, 20, 10, 0),
+            memberId: 'charlie',
+          ),
+        ];
 
-      final grouped = groupSessionsByMember(sessions);
-      expect(grouped['alice'], hasLength(1));
-      expect(grouped['bob'], hasLength(1));
-      expect(grouped['charlie'], hasLength(1));
-    });
+        final grouped = groupSessionsByMember(sessions);
+        expect(grouped['alice'], hasLength(1));
+        expect(grouped['bob'], hasLength(1));
+        expect(grouped['charlie'], hasLength(1));
+      },
+    );
 
     test('member with multiple sessions gets all of them', () {
       final sessions = [
