@@ -2490,7 +2490,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memberSectionFrontingStats => 'Fronting Stats';
 
   @override
-  String get memberSectionRecentSessions => 'Recent Sessions';
+  String get memberSectionRecentSessions => 'Fronting Sessions';
+
+  @override
+  String get memberSectionFrontingSessionsViewAll => 'View All';
+
+  @override
+  String memberFrontingHistoryTitle(String member) {
+    return '$member Fronting';
+  }
+
+  @override
+  String get memberFrontingHistoryEmpty => 'No fronting sessions yet.';
+
+  @override
+  String get memberFrontingHistoryNoSessionsOnDate =>
+      'No fronting sessions found for that day.';
 
   @override
   String get memberSectionConversations => 'Conversations';

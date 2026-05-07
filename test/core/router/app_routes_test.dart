@@ -229,16 +229,36 @@ void main() {
     });
 
     test('timeline tab isLocked = false', () {
-      final tab = appShellTabs.firstWhere((t) => t.id == AppShellTabId.timeline);
+      final tab = appShellTabs.firstWhere(
+        (t) => t.id == AppShellTabId.timeline,
+      );
       expect(tab.isLocked, isFalse);
     });
 
     test('timeline tab isEnabled regardless of feature flags', () {
-      const allOff = (chat: false, polls: false, habits: false, sleep: false, notes: false, reminders: false, boards: false);
-      const allOn  = (chat: true,  polls: true,  habits: true,  sleep: true,  notes: true,  reminders: true,  boards: true);
-      final tab = appShellTabs.firstWhere((t) => t.id == AppShellTabId.timeline);
+      const allOff = (
+        chat: false,
+        polls: false,
+        habits: false,
+        sleep: false,
+        notes: false,
+        reminders: false,
+        boards: false,
+      );
+      const allOn = (
+        chat: true,
+        polls: true,
+        habits: true,
+        sleep: true,
+        notes: true,
+        reminders: true,
+        boards: true,
+      );
+      final tab = appShellTabs.firstWhere(
+        (t) => t.id == AppShellTabId.timeline,
+      );
       expect(tab.isEnabled(allOff), isTrue);
-      expect(tab.isEnabled(allOn),  isTrue);
+      expect(tab.isEnabled(allOn), isTrue);
     });
 
     test('branch indices are consecutive 0..n-1', () {
@@ -260,6 +280,16 @@ void main() {
 
     test('has 5 entries', () {
       expect(defaultNavBarTabIds, hasLength(5));
+    });
+  });
+
+  group('member fronting history routes', () {
+    test('builds member and settings member history paths', () {
+      expect(AppRoutePaths.memberFrontingHistory('m1'), '/members/m1/fronting');
+      expect(
+        AppRoutePaths.settingsMemberFrontingHistory('m1'),
+        '/settings/members/m1/fronting',
+      );
     });
   });
 }

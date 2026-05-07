@@ -4387,8 +4387,32 @@ abstract class AppLocalizations {
   /// Section header for recent fronting sessions on member detail screen
   ///
   /// In en, this message translates to:
-  /// **'Recent Sessions'**
+  /// **'Fronting Sessions'**
   String get memberSectionRecentSessions;
+
+  /// Button label on the member detail fronting sessions section that opens full history
+  ///
+  /// In en, this message translates to:
+  /// **'View All'**
+  String get memberSectionFrontingSessionsViewAll;
+
+  /// Title for the full member fronting history screen
+  ///
+  /// In en, this message translates to:
+  /// **'{member} Fronting'**
+  String memberFrontingHistoryTitle(String member);
+
+  /// Empty state text for a member's full fronting history screen
+  ///
+  /// In en, this message translates to:
+  /// **'No fronting sessions yet.'**
+  String get memberFrontingHistoryEmpty;
+
+  /// Toast shown when the member history go-to-day action cannot find sessions on the selected date
+  ///
+  /// In en, this message translates to:
+  /// **'No fronting sessions found for that day.'**
+  String get memberFrontingHistoryNoSessionsOnDate;
 
   /// Section header for conversations on member detail screen
   ///

@@ -3376,9 +3376,31 @@
   "@memberSectionFrontingStats": {
     "description": "Section header for fronting statistics on member detail screen"
   },
-  "memberSectionRecentSessions": "Recent Sessions",
+  "memberSectionRecentSessions": "Fronting Sessions",
   "@memberSectionRecentSessions": {
     "description": "Section header for recent fronting sessions on member detail screen"
+  },
+  "memberSectionFrontingSessionsViewAll": "View All",
+  "@memberSectionFrontingSessionsViewAll": {
+    "description": "Button label on the member detail fronting sessions section that opens full history"
+  },
+  "memberFrontingHistoryTitle": "{member} Fronting",
+  "@memberFrontingHistoryTitle": {
+    "description": "Title for the full member fronting history screen",
+    "placeholders": {
+      "member": {
+        "type": "String",
+        "example": "Alex"
+      }
+    }
+  },
+  "memberFrontingHistoryEmpty": "No fronting sessions yet.",
+  "@memberFrontingHistoryEmpty": {
+    "description": "Empty state text for a member's full fronting history screen"
+  },
+  "memberFrontingHistoryNoSessionsOnDate": "No fronting sessions found for that day.",
+  "@memberFrontingHistoryNoSessionsOnDate": {
+    "description": "Toast shown when the member history go-to-day action cannot find sessions on the selected date"
   },
   "memberSectionConversations": "Conversations",
   "@memberSectionConversations": {

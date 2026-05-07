@@ -23,6 +23,7 @@ import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
+import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
@@ -327,6 +328,11 @@ class _RecentSessionsSection extends ConsumerWidget {
           icon: AppIcons.historyOutlined,
           title: context.l10n.memberSectionRecentSessions,
           theme: theme,
+          trailing: PrismButton(
+            label: context.l10n.memberSectionFrontingSessionsViewAll,
+            onPressed: () => context.go(_frontingHistoryPath(context)),
+            density: PrismControlDensity.compact,
+          ),
           child: Column(
             children: [
               for (var i = 0; i < sessions.length; i++) ...[
@@ -338,6 +344,14 @@ class _RecentSessionsSection extends ConsumerWidget {
         );
       },
     );
+  }
+
+  String _frontingHistoryPath(BuildContext context) {
+    final path = GoRouterState.of(context).uri.path;
+    if (path.startsWith(AppRoutePaths.settingsMembers)) {
+      return AppRoutePaths.settingsMemberFrontingHistory(memberId);
+    }
+    return AppRoutePaths.memberFrontingHistory(memberId);
   }
 }
 
@@ -541,12 +555,14 @@ class _SectionCard extends StatelessWidget {
     required this.title,
     required this.theme,
     required this.child,
+    this.trailing,
   });
 
   final IconData icon;
   final String title;
   final ThemeData theme;
   final Widget child;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -559,13 +575,16 @@ class _SectionCard extends StatelessWidget {
             children: [
               Icon(icon, size: 18, color: theme.colorScheme.primary),
               const SizedBox(width: 8),
-              Text(
-                title,
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: theme.colorScheme.primary,
-                  fontWeight: FontWeight.w600,
+              Expanded(
+                child: Text(
+                  title,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
+              if (trailing != null) ...[const SizedBox(width: 8), trailing!],
             ],
           ),
           const SizedBox(height: 8),

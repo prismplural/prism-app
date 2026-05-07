@@ -13,6 +13,7 @@ import 'package:prism_plurality/features/fronting/providers/always_present_membe
 import 'package:prism_plurality/features/fronting/providers/derived_periods_provider.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_editing_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
+import 'package:prism_plurality/features/fronting/providers/member_fronting_history_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart';
 import 'package:prism_plurality/features/fronting/services/derive_periods.dart';
 import 'package:prism_plurality/features/fronting/validation/fronting_validation_models.dart';
@@ -59,9 +60,10 @@ class SessionHistoryList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final viewMode = ref.watch(systemSettingsProvider).whenOrNull(
-              data: (s) => s.frontingListViewMode,
-            ) ??
+    final viewMode =
+        ref
+            .watch(systemSettingsProvider)
+            .whenOrNull(data: (s) => s.frontingListViewMode) ??
         FrontingListViewMode.combinedPeriods;
 
     switch (viewMode) {
@@ -71,6 +73,108 @@ class SessionHistoryList extends ConsumerWidget {
       case FrontingListViewMode.perMemberRows:
         return const _PerMemberRowsList();
     }
+  }
+}
+
+class MemberFrontingHistoryList extends ConsumerWidget {
+  const MemberFrontingHistoryList({
+    super.key,
+    required this.memberId,
+    this.dayAnchors,
+    this.onDayKeysChanged,
+  });
+
+  final String memberId;
+  final Map<String, GlobalKey>? dayAnchors;
+  final ValueChanged<List<String>>? onDayKeysChanged;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final historyAsync = ref.watch(memberFrontingHistoryProvider(memberId));
+
+    return historyAsync.when(
+      skipLoadingOnReload: true,
+      loading: () => const SliverToBoxAdapter(
+        child: Padding(padding: EdgeInsets.all(24), child: PrismLoadingState()),
+      ),
+      error: (e, _) => SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(context.l10n.frontingErrorLoadingHistory(e)),
+        ),
+      ),
+      data: (history) {
+        if (history.periods.isEmpty) {
+          _notifyDayKeys(const <String>[]);
+          return SliverFillRemaining(
+            hasScrollBody: false,
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    AppIcons.historyOutlined,
+                    size: 48,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withValues(alpha: 0.2),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    context.l10n.memberFrontingHistoryEmpty,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.5),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        final allMemberIds = <String>{};
+        for (final p in history.periods) {
+          allMemberIds.addAll(p.activeMembers);
+          allMemberIds.addAll(p.alwaysPresentMembers);
+          for (final v in p.briefVisitors) {
+            allMemberIds.add(v.memberId);
+          }
+        }
+        final key = memberIdsKey(allMemberIds);
+        final membersAsync = ref.watch(membersByIdsProvider(key));
+        final membersMap = membersAsync.whenOrNull(data: (m) => m) ?? {};
+
+        final grouped = groupHistoryByDay(
+          periods: history.periods,
+          sleepSessions: const <FrontingSession>[],
+        );
+        _notifyDayKeys(grouped.map((group) => group.dayKey).toList());
+
+        return SliverList.builder(
+          itemCount: grouped.length,
+          itemBuilder: (context, index) {
+            final group = grouped[index];
+            final anchor = dayAnchors?.putIfAbsent(group.dayKey, GlobalKey.new);
+            final child = _DayGroupWidget(
+              group: group,
+              isFirstGroup: index == 0,
+              membersMap: membersMap,
+            );
+            return anchor == null
+                ? child
+                : KeyedSubtree(key: anchor, child: child);
+          },
+        );
+      },
+    );
+  }
+
+  void _notifyDayKeys(List<String> dayKeys) {
+    final callback = onDayKeysChanged;
+    if (callback == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) => callback(dayKeys));
   }
 }
 
@@ -87,10 +191,7 @@ class _CombinedPeriodsList extends ConsumerWidget {
     return periodsAsync.when(
       skipLoadingOnReload: true,
       loading: () => const SliverToBoxAdapter(
-        child: Padding(
-          padding: EdgeInsets.all(24),
-          child: PrismLoadingState(),
-        ),
+        child: Padding(padding: EdgeInsets.all(24), child: PrismLoadingState()),
       ),
       error: (e, _) => SliverToBoxAdapter(
         child: Padding(
@@ -103,8 +204,10 @@ class _CombinedPeriodsList extends ConsumerWidget {
         // periods only cover fronting (sleep is rendered as its own kind
         // of row). We pull sleep sessions out of the same upstream list
         // that fed the derivation.
-        final sleepSessions = sessionsAsync
-                .whenOrNull(data: (list) => list.where((s) => s.isSleep).toList()) ??
+        final sleepSessions =
+            sessionsAsync.whenOrNull(
+              data: (list) => list.where((s) => s.isSleep).toList(),
+            ) ??
             const <FrontingSession>[];
 
         if (periods.isEmpty && sleepSessions.isEmpty) {
@@ -117,20 +220,18 @@ class _CombinedPeriodsList extends ConsumerWidget {
                   Icon(
                     AppIcons.historyOutlined,
                     size: 48,
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withValues(alpha: 0.2),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withValues(alpha: 0.2),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     context.l10n.frontingNoSessionHistory,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withValues(alpha: 0.5),
-                        ),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.5),
+                    ),
                   ),
                 ],
               ),
@@ -197,10 +298,7 @@ class _PerMemberRowsList extends ConsumerWidget {
     return bundleAsync.when(
       skipLoadingOnReload: true,
       loading: () => const SliverToBoxAdapter(
-        child: Padding(
-          padding: EdgeInsets.all(24),
-          child: PrismLoadingState(),
-        ),
+        child: Padding(padding: EdgeInsets.all(24), child: PrismLoadingState()),
       ),
       error: (e, _) => SliverToBoxAdapter(
         child: Padding(
@@ -243,8 +341,10 @@ class _PerMemberRowsList extends ConsumerWidget {
           frontingSessions.add(s);
         }
 
-        final sleepSessions = unifiedAsync
-                .whenOrNull(data: (list) => list.where((s) => s.isSleep).toList()) ??
+        final sleepSessions =
+            unifiedAsync.whenOrNull(
+              data: (list) => list.where((s) => s.isSleep).toList(),
+            ) ??
             const <FrontingSession>[];
 
         if (frontingSessions.isEmpty && sleepSessions.isEmpty) {
@@ -257,20 +357,18 @@ class _PerMemberRowsList extends ConsumerWidget {
                   Icon(
                     AppIcons.historyOutlined,
                     size: 48,
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withValues(alpha: 0.2),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withValues(alpha: 0.2),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     context.l10n.frontingNoSessionHistory,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withValues(alpha: 0.5),
-                        ),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.5),
+                    ),
                   ),
                 ],
               ),
@@ -330,10 +428,7 @@ class _PerMemberRowsList extends ConsumerWidget {
 /// One day's worth of per-member rows, fronting and sleep interleaved
 /// in chronological order (newest first).
 class _PerMemberDayGroup {
-  const _PerMemberDayGroup({
-    required this.dayKey,
-    required this.entries,
-  });
+  const _PerMemberDayGroup({required this.dayKey, required this.entries});
 
   final String dayKey;
   final List<DisplaySession> entries;
@@ -381,8 +476,9 @@ class _PerMemberDayGroupWidget extends StatelessWidget {
                       height: 1,
                       indent: group.entries[i].session.isSleep ? 16 : 64,
                       endIndent: 12,
-                      color: theme.colorScheme.onSurface
-                          .withValues(alpha: 0.08),
+                      color: theme.colorScheme.onSurface.withValues(
+                        alpha: 0.08,
+                      ),
                     ),
                 ],
               ],
@@ -418,9 +514,11 @@ class _PerMemberSessionTile extends ConsumerWidget {
     final isUnknown = member == null;
 
     final accentColor =
-        member != null && member.customColorEnabled && member.customColorHex != null
-            ? AppColors.fromHex(member.customColorHex!)
-            : theme.colorScheme.primary;
+        member != null &&
+            member.customColorEnabled &&
+            member.customColorHex != null
+        ? AppColors.fromHex(member.customColorHex!)
+        : theme.colorScheme.primary;
 
     final timeRange = slice.timeRangeString(context.dateLocale);
     final name = member?.name ?? 'Unknown';
@@ -468,9 +566,7 @@ class _PerMemberSessionTile extends ConsumerWidget {
                 ),
                 TextSpan(
                   text: '  ·  $timeRange',
-                  style: TextStyle(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+                  style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
                 ),
               ],
             ),
@@ -498,8 +594,9 @@ class _PerMemberSessionTile extends ConsumerWidget {
                           ? theme.textTheme.bodyLarge?.copyWith(
                               fontStyle: FontStyle.italic,
                               fontWeight: FontWeight.w300,
-                              color: theme.colorScheme.onSurface
-                                  .withValues(alpha: dimAlpha),
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: dimAlpha,
+                              ),
                             )
                           : theme.textTheme.bodyLarge?.copyWith(
                               fontWeight: FontWeight.w600,
@@ -509,11 +606,12 @@ class _PerMemberSessionTile extends ConsumerWidget {
                     DefaultTextStyle(
                       style: (theme.textTheme.bodySmall ?? const TextStyle())
                           .copyWith(
-                        color: isUnknown
-                            ? theme.colorScheme.onSurface
-                                .withValues(alpha: dimAlpha)
-                            : null,
-                      ),
+                            color: isUnknown
+                                ? theme.colorScheme.onSurface.withValues(
+                                    alpha: dimAlpha,
+                                  )
+                                : null,
+                          ),
                       child: subtitleWidget,
                     ),
                   ],
@@ -567,13 +665,15 @@ class _DayGroupWidget extends StatelessWidget {
                   if (i < group.items.length - 1)
                     Divider(
                       height: 1,
-                      indent: _isSleep(group.items[i]) ||
+                      indent:
+                          _isSleep(group.items[i]) ||
                               _isSleep(group.items[i + 1])
                           ? 16
                           : 64,
                       endIndent: 12,
-                      color: theme.colorScheme.onSurface
-                          .withValues(alpha: 0.08),
+                      color: theme.colorScheme.onSurface.withValues(
+                        alpha: 0.08,
+                      ),
                     ),
                 ],
               ],
@@ -668,14 +768,12 @@ class _PeriodTile extends ConsumerWidget {
     if (session == null || !context.mounted) return;
     final allSessions = await repo.getAllSessions();
     final editGuard = ref.read(frontingEditGuardProvider);
-    final resolutionService =
-        ref.read(frontingEditResolutionServiceProvider);
+    final resolutionService = ref.read(frontingEditResolutionServiceProvider);
     final changeExecutor = ref.read(frontingChangeExecutorProvider);
 
     final sessionSnapshot = session.toSnapshot();
     final allSnapshots = allSessions.map((s) => s.toSnapshot()).toList();
-    final deleteCtx =
-        editGuard.getDeleteContext(sessionSnapshot, allSnapshots);
+    final deleteCtx = editGuard.getDeleteContext(sessionSnapshot, allSnapshots);
 
     if (!context.mounted) return;
     final strategy = await showDeleteStrategyDialog(
@@ -721,7 +819,10 @@ class _PeriodTile extends ConsumerWidget {
     context.go(AppRoutePaths.sessionEdit(period.sessionIds.first));
   }
 
-  List<_TileContextAction> _contextActions(BuildContext context, WidgetRef ref) {
+  List<_TileContextAction> _contextActions(
+    BuildContext context,
+    WidgetRef ref,
+  ) {
     // Edit hidden on multi-contributor periods: there's no period-level edit
     // UI today, so an Edit action would silently route to sessionIds.first —
     // the same first-of-N silent-drop bug Delete was fixed for. Long-press
@@ -759,7 +860,8 @@ class _PeriodTile extends ConsumerWidget {
         .toList();
     final isUnknown = period.activeMembers.isEmpty;
 
-    final accentColor = activeMemberObjs.isNotEmpty &&
+    final accentColor =
+        activeMemberObjs.isNotEmpty &&
             activeMemberObjs.first.customColorEnabled &&
             activeMemberObjs.first.customColorHex != null
         ? AppColors.fromHex(activeMemberObjs.first.customColorHex!)
@@ -815,9 +917,7 @@ class _PeriodTile extends ConsumerWidget {
                 ),
                 TextSpan(
                   text: '  ·  $timeRange',
-                  style: TextStyle(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+                  style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
                 ),
               ],
             ),
@@ -849,15 +949,20 @@ class _PeriodTile extends ConsumerWidget {
     final alwaysPresentLine = period.alwaysPresentMembers.isEmpty
         ? null
         : Padding(
-            padding:
-                const EdgeInsets.only(top: 4, left: 0, right: 0, bottom: 0),
+            padding: const EdgeInsets.only(
+              top: 4,
+              left: 0,
+              right: 0,
+              bottom: 0,
+            ),
             child: Row(
               children: [
                 Icon(
                   AppIcons.helpOutline,
                   size: 12,
-                  color: theme.colorScheme.onSurfaceVariant
-                      .withValues(alpha: 0.7),
+                  color: theme.colorScheme.onSurfaceVariant.withValues(
+                    alpha: 0.7,
+                  ),
                 ),
                 const SizedBox(width: 4),
                 Expanded(
@@ -923,8 +1028,9 @@ class _PeriodTile extends ConsumerWidget {
                           ? theme.textTheme.bodyLarge?.copyWith(
                               fontStyle: FontStyle.italic,
                               fontWeight: FontWeight.w300,
-                              color: theme.colorScheme.onSurface
-                                  .withValues(alpha: dimAlpha),
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: dimAlpha,
+                              ),
                             )
                           : theme.textTheme.bodyLarge?.copyWith(
                               fontWeight: FontWeight.w600,
@@ -932,14 +1038,14 @@ class _PeriodTile extends ConsumerWidget {
                     ),
                     const SizedBox(height: 2),
                     DefaultTextStyle(
-                      style:
-                          (theme.textTheme.bodySmall ?? const TextStyle())
-                              .copyWith(
-                        color: isUnknown
-                            ? theme.colorScheme.onSurface
-                                .withValues(alpha: dimAlpha)
-                            : null,
-                      ),
+                      style: (theme.textTheme.bodySmall ?? const TextStyle())
+                          .copyWith(
+                            color: isUnknown
+                                ? theme.colorScheme.onSurface.withValues(
+                                    alpha: dimAlpha,
+                                  )
+                                : null,
+                          ),
                       child: subtitleWidget,
                     ),
                     ?briefChips,
@@ -1133,64 +1239,64 @@ class _InlineSleepTile extends ConsumerWidget {
         child: InkWell(
           onTap: () => context.go(AppRoutePaths.session(session.id)),
           child: Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: AppColors.sleep(theme.brightness)
-                          .withValues(alpha: 0.2),
-                    ),
-                    child: PhosphorIcon(
-                      AppIcons.duotoneSleep,
-                      size: 20,
-                      color: AppColors.sleep(theme.brightness),
-                      semanticLabel: context.l10n.frontingSleeping,
-                    ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppColors.sleep(
+                      theme.brightness,
+                    ).withValues(alpha: 0.2),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          context.l10n.frontingSleeping,
-                          style: theme.textTheme.bodyLarge?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text.rich(
-                          TextSpan(
-                            children: [
-                              TextSpan(
-                                text: displaySession.displayDuration
-                                    .toRoundedString(),
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              TextSpan(
-                                text: '  ·  $timeRange',
-                                style: TextStyle(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
-                          ),
-                          style: theme.textTheme.bodySmall,
-                        ),
-                      ],
-                    ),
+                  child: PhosphorIcon(
+                    AppIcons.duotoneSleep,
+                    size: 20,
+                    color: AppColors.sleep(theme.brightness),
+                    semanticLabel: context.l10n.frontingSleeping,
                   ),
-                  const SizedBox(width: 8),
-                  trailing,
-                ],
-              ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        context.l10n.frontingSleeping,
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: displaySession.displayDuration
+                                  .toRoundedString(),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            TextSpan(
+                              text: '  ·  $timeRange',
+                              style: TextStyle(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                        style: theme.textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                trailing,
+              ],
+            ),
           ),
         ),
       ),
@@ -1198,7 +1304,9 @@ class _InlineSleepTile extends ConsumerWidget {
 
     return Semantics(
       label: context.l10n.frontingSleepSessionSemantics(
-          displaySession.displayDuration.toRoundedString(), timeRange),
+        displaySession.displayDuration.toRoundedString(),
+        timeRange,
+      ),
       child: BlurPopupAnchor(
         trigger: BlurPopupTrigger.longPress,
         width: 220,

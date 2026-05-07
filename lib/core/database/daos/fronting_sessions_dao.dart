@@ -24,10 +24,9 @@ class FrontingSessionsDao extends DatabaseAccessor<AppDatabase>
   /// `idx_fronting_sessions_pluralkit_uuid` covers tombstones (no
   /// `is_deleted = 0` clause), so dedup off the active-only
   /// `getAllSessions` set is unsafe.
-  Future<List<FrontingSession>> getAllSessionsIncludingDeleted() =>
-      (select(frontingSessions)
-            ..orderBy([(s) => OrderingTerm.desc(s.startTime)]))
-          .get();
+  Future<List<FrontingSession>> getAllSessionsIncludingDeleted() => (select(
+    frontingSessions,
+  )..orderBy([(s) => OrderingTerm.desc(s.startTime)])).get();
 
   Stream<List<FrontingSession>> watchAllSessions() =>
       (select(frontingSessions)
@@ -81,6 +80,21 @@ class FrontingSessionsDao extends DatabaseAccessor<AppDatabase>
             )
             ..orderBy([(s) => OrderingTerm.desc(s.startTime)]))
           .get();
+
+  Stream<List<FrontingSession>> watchRecentSessionsForMember(
+    String memberId, {
+    int limit = 30,
+  }) =>
+      (select(frontingSessions)
+            ..where(
+              (s) =>
+                  s.sessionType.equals(_normalSessionType) &
+                  s.memberId.equals(memberId) &
+                  s.isDeleted.equals(false),
+            )
+            ..orderBy([(s) => OrderingTerm.desc(s.startTime)])
+            ..limit(limit))
+          .watch();
 
   Future<List<FrontingSession>> getRecentSessions({int limit = 20}) =>
       (select(frontingSessions)
@@ -206,11 +220,12 @@ class FrontingSessionsDao extends DatabaseAccessor<AppDatabase>
   /// delete intent epoch. See `MembersDao.getDeletedLinkedMembers` for the
   /// epoch-gated guard that callers must still apply before pushing.
   Future<List<FrontingSession>> getDeletedLinkedSessions() =>
-      (select(frontingSessions)
-            ..where((s) =>
+      (select(frontingSessions)..where(
+            (s) =>
                 s.isDeleted.equals(true) &
                 s.pluralkitUuid.isNotNull() &
-                s.deleteIntentEpoch.isNotNull()))
+                s.deleteIntentEpoch.isNotNull(),
+          ))
           .get();
 
   /// Plan 02 R3: clear the PK link on a tombstone. Bypasses the
@@ -335,7 +350,8 @@ class FrontingSessionsDao extends DatabaseAccessor<AppDatabase>
       untilClause = ' AND end_time < ?';
       variables.add(Variable.withInt(until.millisecondsSinceEpoch ~/ 1000));
     }
-    final sql = 'SELECT COUNT(*) AS c, AVG(end_time - start_time) AS avg_secs '
+    final sql =
+        'SELECT COUNT(*) AS c, AVG(end_time - start_time) AS avg_secs '
         'FROM fronting_sessions '
         'WHERE session_type = $_sleepSessionType '
         'AND end_time IS NOT NULL '
@@ -397,12 +413,14 @@ class FrontingSessionsDao extends DatabaseAccessor<AppDatabase>
     final String sql;
     if (withinDays != null) {
       // Date-range mode: no LIMIT subquery, count all matching sessions
-      sql = 'SELECT member_id, COUNT(*) AS cnt '
+      sql =
+          'SELECT member_id, COUNT(*) AS cnt '
           'FROM fronting_sessions WHERE $where '
           'GROUP BY member_id';
     } else {
       // Recent-limit mode: existing behavior with subquery
-      sql = 'SELECT member_id, COUNT(*) AS cnt '
+      sql =
+          'SELECT member_id, COUNT(*) AS cnt '
           'FROM (SELECT member_id FROM fronting_sessions '
           'WHERE $where ORDER BY start_time DESC LIMIT ?) '
           'GROUP BY member_id';

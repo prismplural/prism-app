@@ -2547,7 +2547,22 @@ class AppLocalizationsEs extends AppLocalizations {
   String get memberSectionFrontingStats => 'Estadísticas de frente';
 
   @override
-  String get memberSectionRecentSessions => 'Sesiones recientes';
+  String get memberSectionRecentSessions => 'Sesiones al frente';
+
+  @override
+  String get memberSectionFrontingSessionsViewAll => 'Ver todo';
+
+  @override
+  String memberFrontingHistoryTitle(String member) {
+    return 'Frente de $member';
+  }
+
+  @override
+  String get memberFrontingHistoryEmpty => 'Aún no hay sesiones al frente.';
+
+  @override
+  String get memberFrontingHistoryNoSessionsOnDate =>
+      'No se encontraron sesiones al frente para ese día.';
 
   @override
   String get memberSectionConversations => 'Conversaciones';

@@ -16,6 +16,7 @@ import '../../features/fronting/views/sleep_screen.dart';
 import '../../features/fronting/views/timeline_screen.dart';
 import '../../features/members/views/members_screen.dart';
 import '../../features/members/views/member_detail_screen.dart';
+import '../../features/members/views/member_fronting_history_screen.dart';
 import '../../features/chat/views/chat_screen.dart';
 import '../../features/chat/views/chat_search_screen.dart';
 import '../../features/chat/views/conversation_screen.dart';
@@ -427,6 +428,15 @@ final routerProvider = Provider<GoRouter>((ref) {
                         builder: (context, state) => MemberDetailScreen(
                           memberId: state.pathParameters['id']!,
                         ),
+                        routes: [
+                          GoRoute(
+                            path: 'fronting',
+                            builder: (context, state) =>
+                                MemberFrontingHistoryScreen(
+                                  memberId: state.pathParameters['id']!,
+                                ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -648,6 +658,15 @@ final routerProvider = Provider<GoRouter>((ref) {
                     builder: (context, state) => MemberDetailScreen(
                       memberId: state.pathParameters['id']!,
                     ),
+                    routes: [
+                      GoRoute(
+                        path: 'fronting',
+                        builder: (context, state) =>
+                            MemberFrontingHistoryScreen(
+                              memberId: state.pathParameters['id']!,
+                            ),
+                      ),
+                    ],
                   ),
                 ],
               ),
