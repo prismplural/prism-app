@@ -10,11 +10,13 @@ import 'core/services/reminder_scheduler_service.dart';
 import 'core/sync/prism_sync_providers.dart';
 import 'features/fronting/migration/providers/fronting_migration_providers.dart';
 import 'features/habits/providers/habit_providers.dart';
+import 'features/onboarding/providers/onboarding_providers.dart';
 import 'features/pluralkit/providers/pk_group_repair_provider.dart';
 import 'domain/models/system_settings.dart';
 import 'features/settings/providers/settings_providers.dart';
 import 'shared/theme/app_colors.dart';
 import 'shared/theme/app_theme.dart';
+import 'shared/theme/prism_shapes.dart' as ui_shapes;
 import 'shared/widgets/prism_toast.dart';
 
 class PrismApp extends ConsumerStatefulWidget {
@@ -102,12 +104,42 @@ class _PrismAppState extends ConsumerState<PrismApp> {
     ref.listen(spBoardsBackfillProvider, (_, _) {});
 
     final router = ref.watch(routerProvider);
-    final brightness = ref.watch(themeBrightnessProvider);
-    final style = ref.watch(effectiveThemeStyleProvider);
-    final cornerStyle = ref.watch(cornerStyleProvider);
+    var brightness = ref.watch(themeBrightnessProvider);
+    var style = ref.watch(effectiveThemeStyleProvider);
+    var cornerStyle = ref.watch(cornerStyleProvider);
 
     // Resolve the user's accent color and font settings from narrow providers.
-    final accentHex = ref.watch(accentColorHexProvider);
+    var accentHex = ref.watch(accentColorHexProvider);
+    final onboardingAppearance = ref.watch(
+      onboardingProvider.select(
+        (state) => (
+          active: state.hasAppearancePreview,
+          accentColorHex: state.hasAccentColorPreview
+              ? state.accentColorHex
+              : null,
+          brightness: state.hasThemeBrightnessPreview
+              ? state.themeBrightness
+              : null,
+          style: state.hasThemeStylePreview ? state.themeStyle : null,
+          cornerStyle: state.hasCornerStylePreview ? state.cornerStyle : null,
+        ),
+      ),
+    );
+    if (onboardingAppearance.active) {
+      accentHex = onboardingAppearance.accentColorHex ?? accentHex;
+      brightness = onboardingAppearance.brightness ?? brightness;
+      final draftStyle = onboardingAppearance.style;
+      if (draftStyle != null) {
+        style = effectiveThemeStyleForPlatform(
+          draftStyle,
+          ref.watch(targetPlatformProvider),
+        );
+      }
+      final draftCornerStyle = onboardingAppearance.cornerStyle;
+      if (draftCornerStyle != null) {
+        cornerStyle = ui_shapes.CornerStyle.values[draftCornerStyle.index];
+      }
+    }
     final accentColor = accentHex != null
         ? AppColors.fromHex(accentHex)
         : AppColors.prismPurple;

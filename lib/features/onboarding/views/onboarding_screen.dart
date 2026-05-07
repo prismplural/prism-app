@@ -90,6 +90,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     return PopScope(
       canPop: hasExistingData,
       onPopInvokedWithResult: (didPop, _) {
+        if (didPop) {
+          notifier.clearAppearancePreview();
+          return;
+        }
         if (!didPop &&
             !isFirstStep &&
             !isFullScreenStep &&
@@ -152,7 +156,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                         children: [
                           if (hasExistingData)
                             PrismInlineIconButton(
-                              onPressed: () => context.go(AppRoutePaths.home),
+                              onPressed: () {
+                                notifier.clearAppearancePreview();
+                                context.go(AppRoutePaths.home);
+                              },
                               icon: AppIcons.close,
                               color: isDark
                                   ? AppColors.warmWhite.withValues(alpha: 0.8)
@@ -395,6 +402,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
       await ref.read(onboardingCommitServiceProvider).complete(onboarding);
 
       if (mounted) {
+        ref.read(onboardingProvider.notifier).clearAppearancePreview();
         context.go(AppRoutePaths.home);
       }
     } catch (e) {

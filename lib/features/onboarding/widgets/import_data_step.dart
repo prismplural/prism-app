@@ -21,6 +21,7 @@ import 'package:prism_plurality/features/migration/providers/migration_providers
 import 'package:prism_plurality/features/migration/services/sp_importer.dart'
     as sp_importer;
 import 'package:prism_plurality/features/migration/widgets/custom_front_disposition_step.dart';
+import 'package:prism_plurality/shared/theme/accent_legibility.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_field_icon_button.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -1860,7 +1861,9 @@ class _SimplyPluralImportFlowState
       final color = next.exportData?.systemColor?.trim();
       if (color != null && color.isNotEmpty) {
         final normalized = color.startsWith('#') ? color : '#$color';
-        ref.read(onboardingProvider.notifier).setAccentColor(normalized);
+        ref
+            .read(onboardingProvider.notifier)
+            .setImportedAccentColor(normalized);
       }
     });
 
@@ -2085,6 +2088,16 @@ class _SimplyPluralImportFlowState
 
           // Complete
           if (migration.step == sp_importer.ImportState.complete) ...[
+            if (_importedAccentLegibility(migration.exportData?.systemColor)
+                case final accentLegibility?
+                when accentLegibility != AccentLegibility.ok) ...[
+              _AccentLegibilityNotice(
+                kind: accentLegibility,
+                textColor: textColor,
+                theme: theme,
+              ),
+              const SizedBox(height: 12),
+            ],
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -2327,6 +2340,60 @@ class _InstructionRow extends StatelessWidget {
                 color: isDark
                     ? AppColors.warmWhite.withValues(alpha: 0.8)
                     : AppColors.warmBlack.withValues(alpha: 0.8),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+AccentLegibility? _importedAccentLegibility(String? rawColor) {
+  final color = rawColor?.trim();
+  if (color == null || color.isEmpty) return null;
+  final normalized = color.startsWith('#') ? color : '#$color';
+  return classifyAccentLegibility(AppColors.fromHex(normalized));
+}
+
+class _AccentLegibilityNotice extends StatelessWidget {
+  const _AccentLegibilityNotice({
+    required this.kind,
+    required this.textColor,
+    required this.theme,
+  });
+
+  final AccentLegibility kind;
+  final Color textColor;
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    final message = switch (kind) {
+      AccentLegibility.tooDark => context.l10n.accentLegibilityTooDark,
+      AccentLegibility.tooLight => context.l10n.accentLegibilityTooLight,
+      AccentLegibility.tooDesaturated =>
+        context.l10n.accentLegibilityTooDesaturated,
+      AccentLegibility.ok => '',
+    };
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.amber.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(AppIcons.warningRounded, color: Colors.amber.shade700),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              message,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: textColor,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),

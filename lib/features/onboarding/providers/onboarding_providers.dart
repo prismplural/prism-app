@@ -13,6 +13,8 @@ import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/onboarding/models/onboarding_data_counts.dart';
 import 'package:prism_plurality/features/onboarding/providers/device_pairing_provider.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
+import 'package:prism_plurality/shared/theme/accent_legibility.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:uuid/uuid.dart';
@@ -129,6 +131,10 @@ class OnboardingState {
   final ThemeBrightness? themeBrightness;
   final ThemeStyle? themeStyle;
   final CornerStyle? cornerStyle;
+  final bool hasAccentColorPreview;
+  final bool hasThemeBrightnessPreview;
+  final bool hasThemeStylePreview;
+  final bool hasCornerStylePreview;
   final bool chatEnabled;
   final bool pollsEnabled;
   final bool habitsEnabled;
@@ -176,6 +182,10 @@ class OnboardingState {
     this.themeBrightness,
     this.themeStyle,
     this.cornerStyle,
+    this.hasAccentColorPreview = false,
+    this.hasThemeBrightnessPreview = false,
+    this.hasThemeStylePreview = false,
+    this.hasCornerStylePreview = false,
     this.chatEnabled = true,
     this.pollsEnabled = true,
     this.habitsEnabled = true,
@@ -217,6 +227,10 @@ class OnboardingState {
     Object? themeBrightness = _sentinel,
     Object? themeStyle = _sentinel,
     Object? cornerStyle = _sentinel,
+    bool? hasAccentColorPreview,
+    bool? hasThemeBrightnessPreview,
+    bool? hasThemeStylePreview,
+    bool? hasCornerStylePreview,
     bool? chatEnabled,
     bool? pollsEnabled,
     bool? habitsEnabled,
@@ -262,6 +276,13 @@ class OnboardingState {
       cornerStyle: cornerStyle == _sentinel
           ? this.cornerStyle
           : cornerStyle as CornerStyle?,
+      hasAccentColorPreview:
+          hasAccentColorPreview ?? this.hasAccentColorPreview,
+      hasThemeBrightnessPreview:
+          hasThemeBrightnessPreview ?? this.hasThemeBrightnessPreview,
+      hasThemeStylePreview: hasThemeStylePreview ?? this.hasThemeStylePreview,
+      hasCornerStylePreview:
+          hasCornerStylePreview ?? this.hasCornerStylePreview,
       chatEnabled: chatEnabled ?? this.chatEnabled,
       pollsEnabled: pollsEnabled ?? this.pollsEnabled,
       habitsEnabled: habitsEnabled ?? this.habitsEnabled,
@@ -321,6 +342,12 @@ class OnboardingState {
 
   bool get hasImportedSimplyPluralBoardPosts =>
       wasImportedFromSimplyPlural && importedSimplyPluralBoardPostCount > 0;
+
+  bool get hasAppearancePreview =>
+      hasAccentColorPreview ||
+      hasThemeBrightnessPreview ||
+      hasThemeStylePreview ||
+      hasCornerStylePreview;
 }
 
 ({
@@ -770,7 +797,15 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
   }
 
   void setAccentColor(String hex) {
-    state = state.copyWith(accentColorHex: hex);
+    state = state.copyWith(accentColorHex: hex, hasAccentColorPreview: true);
+  }
+
+  void setImportedAccentColor(String hex) {
+    final legibility = classifyAccentLegibility(AppColors.fromHex(hex));
+    state = state.copyWith(
+      accentColorHex: hex,
+      hasAccentColorPreview: legibility == AccentLegibility.ok,
+    );
   }
 
   void setUsePerMemberColors(bool value) {
@@ -778,15 +813,37 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
   }
 
   void setThemeBrightness(ThemeBrightness value) {
-    state = state.copyWith(themeBrightness: value);
+    state = state.copyWith(
+      themeBrightness: value,
+      hasThemeBrightnessPreview: true,
+    );
   }
 
   void setThemeStyle(ThemeStyle value) {
-    state = state.copyWith(themeStyle: value);
+    if (value == ThemeStyle.oled) {
+      state = state.copyWith(
+        themeStyle: value,
+        hasThemeStylePreview: true,
+        themeBrightness: ThemeBrightness.dark,
+        hasThemeBrightnessPreview: true,
+      );
+      return;
+    }
+    state = state.copyWith(themeStyle: value, hasThemeStylePreview: true);
   }
 
   void setCornerStyle(CornerStyle value) {
-    state = state.copyWith(cornerStyle: value);
+    state = state.copyWith(cornerStyle: value, hasCornerStylePreview: true);
+  }
+
+  void clearAppearancePreview() {
+    if (!state.hasAppearancePreview) return;
+    state = state.copyWith(
+      hasAccentColorPreview: false,
+      hasThemeBrightnessPreview: false,
+      hasThemeStylePreview: false,
+      hasCornerStylePreview: false,
+    );
   }
 
   void setFrontingListViewMode(FrontingListViewMode value) {

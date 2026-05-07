@@ -247,6 +247,80 @@ void main() {
       expect(state.themeStyle, ThemeStyle.oled);
       expect(state.cornerStyle, CornerStyle.angular);
       expect(state.accentColorHex, '#AF8EE9');
+      expect(state.hasThemeBrightnessPreview, isTrue);
+      expect(state.hasThemeStylePreview, isTrue);
+      expect(state.hasCornerStylePreview, isTrue);
+      expect(state.hasAccentColorPreview, isFalse);
+      expect(state.hasAppearancePreview, isTrue);
+    });
+
+    test('selecting OLED previews dark brightness in onboarding', () {
+      final container = ProviderContainer(
+        overrides: [
+          memberRepositoryProvider.overrideWithValue(FakeMemberRepository()),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final notifier = container.read(onboardingProvider.notifier);
+
+      notifier.setThemeStyle(ThemeStyle.oled);
+
+      final state = container.read(onboardingProvider);
+      expect(state.themeStyle, ThemeStyle.oled);
+      expect(state.themeBrightness, ThemeBrightness.dark);
+      expect(state.hasThemeStylePreview, isTrue);
+      expect(state.hasThemeBrightnessPreview, isTrue);
+    });
+
+    test('appearance preview only activates for visual theme setters', () {
+      final container = ProviderContainer(
+        overrides: [
+          memberRepositoryProvider.overrideWithValue(FakeMemberRepository()),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final notifier = container.read(onboardingProvider.notifier);
+
+      notifier.setUsePerMemberColors(false);
+      expect(container.read(onboardingProvider).hasAppearancePreview, isFalse);
+
+      notifier.setAccentColor('#4AA3A1');
+
+      final state = container.read(onboardingProvider);
+      expect(state.accentColorHex, '#4AA3A1');
+      expect(state.hasAccentColorPreview, isTrue);
+      expect(state.hasAppearancePreview, isTrue);
+
+      notifier.clearAppearancePreview();
+      final cleared = container.read(onboardingProvider);
+      expect(cleared.accentColorHex, '#4AA3A1');
+      expect(cleared.hasAccentColorPreview, isFalse);
+      expect(cleared.hasAppearancePreview, isFalse);
+    });
+
+    test('imported poor-contrast accent is stored but not previewed early', () {
+      final container = ProviderContainer(
+        overrides: [
+          memberRepositoryProvider.overrideWithValue(FakeMemberRepository()),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final notifier = container.read(onboardingProvider.notifier);
+
+      notifier.setImportedAccentColor('#FFFFFF');
+      var state = container.read(onboardingProvider);
+      expect(state.accentColorHex, '#FFFFFF');
+      expect(state.hasAccentColorPreview, isFalse);
+      expect(state.hasAppearancePreview, isFalse);
+
+      notifier.setImportedAccentColor('#16A34A');
+      state = container.read(onboardingProvider);
+      expect(state.accentColorHex, '#16A34A');
+      expect(state.hasAccentColorPreview, isTrue);
+      expect(state.hasAppearancePreview, isTrue);
     });
 
     test('onboarding nav layout filters disabled feature tabs', () {
