@@ -12,18 +12,18 @@ final customFieldsProvider = StreamProvider<List<CustomField>>((ref) {
 });
 
 /// Watches a single custom field by ID.
-final customFieldByIdProvider =
-    StreamProvider.autoDispose.family<CustomField?, String>((ref, id) {
-  final repo = ref.watch(customFieldsRepositoryProvider);
-  return repo.watchFieldById(id);
-});
+final customFieldByIdProvider = StreamProvider.autoDispose
+    .family<CustomField?, String>((ref, id) {
+      final repo = ref.watch(customFieldsRepositoryProvider);
+      return repo.watchFieldById(id);
+    });
 
 /// Watches all custom field values for a given member.
-final memberCustomFieldValuesProvider =
-    StreamProvider.autoDispose.family<List<CustomFieldValue>, String>((ref, memberId) {
-  final repo = ref.watch(customFieldsRepositoryProvider);
-  return repo.watchValuesForMember(memberId);
-});
+final memberCustomFieldValuesProvider = StreamProvider.autoDispose
+    .family<List<CustomFieldValue>, String>((ref, memberId) {
+      final repo = ref.watch(customFieldsRepositoryProvider);
+      return repo.watchValuesForMember(memberId);
+    });
 
 /// Notifier for custom field CRUD operations.
 class CustomFieldNotifier extends AsyncNotifier<void> {
@@ -94,8 +94,11 @@ class CustomFieldValueNotifier extends AsyncNotifier<void> {
   }) async {
     state = await AsyncValue.guard(() async {
       final repo = ref.read(customFieldsRepositoryProvider);
+      final existing = existingId == null
+          ? await repo.getValueForField(customFieldId, memberId)
+          : null;
       final fieldValue = CustomFieldValue(
-        id: existingId ?? _uuid.v4(),
+        id: existingId ?? existing?.id ?? _uuid.v4(),
         customFieldId: customFieldId,
         memberId: memberId,
         value: value,
@@ -121,4 +124,5 @@ class CustomFieldValueNotifier extends AsyncNotifier<void> {
 
 final customFieldValueNotifierProvider =
     AsyncNotifierProvider<CustomFieldValueNotifier, void>(
-        CustomFieldValueNotifier.new);
+      CustomFieldValueNotifier.new,
+    );

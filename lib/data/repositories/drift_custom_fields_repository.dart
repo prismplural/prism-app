@@ -4,7 +4,8 @@ import 'package:prism_plurality/data/mappers/custom_field_mapper.dart';
 import 'package:prism_plurality/data/mappers/custom_field_value_mapper.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart' as domain;
-import 'package:prism_plurality/domain/models/custom_field_value.dart' as domain;
+import 'package:prism_plurality/domain/models/custom_field_value.dart'
+    as domain;
 import 'package:prism_plurality/domain/repositories/custom_fields_repository.dart';
 
 class DriftCustomFieldsRepository
@@ -25,15 +26,16 @@ class DriftCustomFieldsRepository
 
   @override
   Stream<List<domain.CustomField>> watchAllFields() {
-    return _dao
-        .watchAllFields()
-        .map((rows) => rows.map(CustomFieldMapper.toDomain).toList());
+    return _dao.watchAllFields().map(
+      (rows) => rows.map(CustomFieldMapper.toDomain).toList(),
+    );
   }
 
   @override
   Stream<domain.CustomField?> watchFieldById(String id) {
-    return _dao.watchFieldById(id).map(
-        (row) => row != null ? CustomFieldMapper.toDomain(row) : null);
+    return _dao
+        .watchFieldById(id)
+        .map((row) => row != null ? CustomFieldMapper.toDomain(row) : null);
   }
 
   @override
@@ -70,8 +72,7 @@ class DriftCustomFieldsRepository
   // ── Values ─────────────────────────────────────────────────────────
 
   @override
-  Stream<List<domain.CustomFieldValue>> watchValuesForMember(
-      String memberId) {
+  Stream<List<domain.CustomFieldValue>> watchValuesForMember(String memberId) {
     return _dao
         .watchValuesForMember(memberId)
         .map((rows) => rows.map(CustomFieldValueMapper.toDomain).toList());
@@ -85,7 +86,9 @@ class DriftCustomFieldsRepository
 
   @override
   Future<domain.CustomFieldValue?> getValueForField(
-      String fieldId, String memberId) async {
+    String fieldId,
+    String memberId,
+  ) async {
     final row = await _dao.getValueForField(fieldId, memberId);
     return row != null ? CustomFieldValueMapper.toDomain(row) : null;
   }
@@ -105,12 +108,20 @@ class DriftCustomFieldsRepository
 
   @override
   Future<void> deleteValuesForField(String fieldId) async {
+    final values = await _dao.watchValuesForField(fieldId).first;
     await _dao.deleteValuesForField(fieldId);
+    for (final value in values) {
+      await syncRecordDelete(_valuesTable, value.id);
+    }
   }
 
   @override
   Future<void> deleteValuesForMember(String memberId) async {
+    final values = await _dao.watchValuesForMember(memberId).first;
     await _dao.deleteValuesForMember(memberId);
+    for (final value in values) {
+      await syncRecordDelete(_valuesTable, value.id);
+    }
   }
 
   // ── Sync field maps ────────────────────────────────────────────────
