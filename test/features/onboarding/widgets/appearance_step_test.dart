@@ -5,6 +5,7 @@ import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
 import 'package:prism_plurality/features/onboarding/widgets/appearance_step.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 
 import '../../../helpers/fake_repositories.dart';
@@ -97,5 +98,47 @@ void main() {
     expect(container.read(onboardingProvider).themeBrightness, isNull);
     expect(find.text('Theme'), findsOneWidget);
     expect(find.text('Corner style'), findsOneWidget);
+  });
+
+  testWidgets('hides and normalizes Material You off Android', (tester) async {
+    final container = ProviderContainer(
+      overrides: [
+        systemSettingsRepositoryProvider.overrideWithValue(
+          FakeSystemSettingsRepository()
+            ..settings = const SystemSettings(
+              themeStyle: ThemeStyle.materialYou,
+            ),
+        ),
+        targetPlatformProvider.overrideWithValue(TargetPlatform.iOS),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(buildSubject(container));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Material You'), findsNothing);
+    expect(container.read(onboardingProvider).themeStyle, ThemeStyle.standard);
+  });
+
+  testWidgets('shows Material You on Android', (tester) async {
+    final container = ProviderContainer(
+      overrides: [
+        systemSettingsRepositoryProvider.overrideWithValue(
+          FakeSystemSettingsRepository()
+            ..settings = const SystemSettings(
+              themeStyle: ThemeStyle.materialYou,
+            ),
+        ),
+        targetPlatformProvider.overrideWithValue(TargetPlatform.android),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(buildSubject(container));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Material You'), findsOneWidget);
+    expect(container.read(onboardingProvider).themeStyle, isNull);
   });
 }

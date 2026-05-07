@@ -38,9 +38,11 @@ class AppearanceStep extends ConsumerWidget {
     final settings = ref
         .watch(systemSettingsProvider)
         .whenOrNull(data: (settings) => settings);
+    final platform = ref.watch(targetPlatformProvider);
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final primary = theme.colorScheme.primary;
+    final supportsMaterialYou = platform == TargetPlatform.android;
     final terms = resolveTerminology(
       context.l10n,
       onboarding.selectedTerminology,
@@ -52,10 +54,18 @@ class AppearanceStep extends ConsumerWidget {
         onboarding.themeBrightness ??
         settings?.themeBrightness ??
         ThemeBrightness.system;
-    final themeStyle =
+    final rawThemeStyle =
         onboarding.themeStyle ?? settings?.themeStyle ?? ThemeStyle.standard;
+    final themeStyle = effectiveThemeStyleForPlatform(rawThemeStyle, platform);
     final cornerStyle =
         onboarding.cornerStyle ?? settings?.cornerStyle ?? CornerStyle.rounded;
+
+    if (rawThemeStyle != themeStyle && onboarding.themeStyle != themeStyle) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!context.mounted) return;
+        notifier.setThemeStyle(themeStyle);
+      });
+    }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -81,15 +91,18 @@ class AppearanceStep extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
           PrismSegmentedControl<ThemeStyle>(
-            segments: [ThemeStyle.standard, ThemeStyle.oled]
-                .map(
-                  (value) =>
-                      PrismSegment(value: value, label: _styleLabel(value)),
-                )
-                .toList(),
-            selected: themeStyle == ThemeStyle.materialYou
-                ? ThemeStyle.standard
-                : themeStyle,
+            segments:
+                [
+                      ThemeStyle.standard,
+                      ThemeStyle.oled,
+                      if (supportsMaterialYou) ThemeStyle.materialYou,
+                    ]
+                    .map(
+                      (value) =>
+                          PrismSegment(value: value, label: _styleLabel(value)),
+                    )
+                    .toList(),
+            selected: themeStyle,
             onChanged: notifier.setThemeStyle,
           ),
           const SizedBox(height: 24),

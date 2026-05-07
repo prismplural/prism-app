@@ -195,6 +195,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.tap(find.text('Alex'));
+    await tester.pumpAndSettle();
+    expect(container.read(onboardingProvider).selectedFronterId, 'alex');
+
     await tester.tap(find.text('Skip for now'));
     await tester.pumpAndSettle();
 

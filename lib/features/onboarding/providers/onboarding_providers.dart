@@ -609,6 +609,11 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
     }
   }
 
+  void skipFronterSelection() {
+    state = state.copyWith(clearFronterId: true);
+    next();
+  }
+
   void setWasImportedFromPluralKit(bool value) {
     state = state.copyWith(wasImportedFromPluralKit: value);
   }

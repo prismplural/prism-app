@@ -114,7 +114,7 @@ class WhosFrontingStep extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 12),
-                _SkipButton(onPressed: notifier.next),
+                _SkipButton(onPressed: notifier.skipFronterSelection),
               ],
             ),
           );
@@ -225,7 +225,7 @@ class WhosFrontingStep extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              _SkipButton(onPressed: notifier.next),
+              _SkipButton(onPressed: notifier.skipFronterSelection),
             ],
           ),
         );
