@@ -87,12 +87,13 @@ void main() {
       expect(find.byIcon(AppIcons.lockOutline), findsOneWidget);
     });
 
-    testWidgets('non-locked tabs show remove button', (tester) async {
+    testWidgets('non-required tabs show remove button', (tester) async {
       await tester.pumpWidget(buildSubjectWithMedia());
       await tester.pumpAndSettle();
 
-      // Chat, Habits, Polls, Settings are not locked — each gets a remove button.
-      expect(find.byIcon(AppIcons.removeCircleOutline), findsNWidgets(4));
+      // Chat, Habits, and Polls can be hidden. Settings is required but movable.
+      expect(find.byIcon(AppIcons.removeCircleOutline), findsNWidgets(3));
+      expect(findRowSemantics('Settings', 'Remove'), findsNothing);
     });
 
     testWidgets('available tabs section shows tabs not in current nav', (
@@ -279,7 +280,7 @@ void main() {
     });
 
     testWidgets(
-      'preview no longer loses an extra inner gutter width inside the card',
+      'preview uses the available section width outside the options card',
       (tester) async {
         await tester.binding.setSurfaceSize(const Size(390, 800));
         addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -291,7 +292,7 @@ void main() {
 
         expect(
           tester.getSize(find.byKey(const Key('navigation_preview'))).width,
-          closeTo(390 - (kFloatingNavBarSideMargin * 2) - 2, 0.01),
+          closeTo(390 - (kFloatingNavBarSideMargin * 2), 0.01),
         );
       },
     );

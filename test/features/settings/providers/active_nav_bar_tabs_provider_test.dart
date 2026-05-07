@@ -13,8 +13,9 @@ void main() {
     ProviderContainer makeContainer({SystemSettings? settings}) {
       final container = ProviderContainer(
         overrides: [
-          systemSettingsProvider
-              .overrideWithValue(AsyncValue.data(settings ?? const SystemSettings())),
+          systemSettingsProvider.overrideWithValue(
+            AsyncValue.data(settings ?? const SystemSettings()),
+          ),
         ],
       );
       return container;
@@ -150,40 +151,41 @@ void main() {
     });
 
     test(
-        'regression: 6 primary ids + non-empty overflow still clamps to 5 '
-        '(user moved a tab to overflow; the old render-time auto-split only '
-        'fired when overflow was empty, so >5 primary would have rendered)',
-        () {
-      final container = makeContainer(
-        settings: const SystemSettings(
-          navBarItems: [
-            'home',
-            'chat',
-            'habits',
-            'polls',
-            'members',
-            'settings',
-          ],
-          navBarOverflowItems: ['notes'],
-        ),
-      );
-      addTearDown(container.dispose);
+      'regression: 6 primary ids + non-empty overflow still clamps to 5 '
+      '(user moved a tab to overflow; the old render-time auto-split only '
+      'fired when overflow was empty, so >5 primary would have rendered)',
+      () {
+        final container = makeContainer(
+          settings: const SystemSettings(
+            navBarItems: [
+              'home',
+              'chat',
+              'habits',
+              'polls',
+              'members',
+              'settings',
+            ],
+            navBarOverflowItems: ['notes'],
+          ),
+        );
+        addTearDown(container.dispose);
 
-      final primary = container.read(activeNavBarTabsProvider);
-      final overflow = container.read(navBarOverflowTabsProvider);
+        final primary = container.read(activeNavBarTabsProvider);
+        final overflow = container.read(navBarOverflowTabsProvider);
 
-      expect(primary, hasLength(5));
-      expect(tabIds(primary), [
-        AppShellTabId.home,
-        AppShellTabId.chat,
-        AppShellTabId.habits,
-        AppShellTabId.polls,
-        AppShellTabId.members,
-      ]);
-      // Excess primary (settings) spills to the front of overflow,
-      // preserving order relative to the existing overflow items.
-      expect(tabIds(overflow), [AppShellTabId.settings, AppShellTabId.notes]);
-    });
+        expect(primary, hasLength(5));
+        expect(tabIds(primary), [
+          AppShellTabId.home,
+          AppShellTabId.chat,
+          AppShellTabId.habits,
+          AppShellTabId.polls,
+          AppShellTabId.members,
+        ]);
+        // Excess primary (settings) spills to the front of overflow,
+        // preserving order relative to the existing overflow items.
+        expect(tabIds(overflow), [AppShellTabId.settings, AppShellTabId.notes]);
+      },
+    );
 
     test('tabs in configured overflow do not duplicate into primary', () {
       final container = makeContainer(
@@ -205,17 +207,43 @@ void main() {
       expect(tabIds(overflow), [AppShellTabId.polls, AppShellTabId.habits]);
     });
 
+    test('settings is reinserted into overflow when missing from config', () {
+      final container = makeContainer(
+        settings: const SystemSettings(navBarItems: ['home', 'chat']),
+      );
+      addTearDown(container.dispose);
+
+      final primary = container.read(activeNavBarTabsProvider);
+      final overflow = container.read(navBarOverflowTabsProvider);
+
+      expect(tabIds(primary), [AppShellTabId.home, AppShellTabId.chat]);
+      expect(tabIds(overflow), [AppShellTabId.settings]);
+    });
+
+    test('home configured in overflow is not duplicated', () {
+      final container = makeContainer(
+        settings: const SystemSettings(
+          navBarItems: ['chat', 'settings'],
+          navBarOverflowItems: ['home', 'polls'],
+        ),
+      );
+      addTearDown(container.dispose);
+
+      final primary = container.read(activeNavBarTabsProvider);
+      final overflow = container.read(navBarOverflowTabsProvider);
+
+      expect(tabIds(primary), [
+        AppShellTabId.home,
+        AppShellTabId.chat,
+        AppShellTabId.settings,
+      ]);
+      expect(tabIds(overflow), [AppShellTabId.polls]);
+    });
+
     test('duplicate IDs in config are deduplicated', () {
       final container = makeContainer(
         settings: const SystemSettings(
-          navBarItems: [
-            'home',
-            'chat',
-            'chat',
-            'polls',
-            'polls',
-            'settings',
-          ],
+          navBarItems: ['home', 'chat', 'chat', 'polls', 'polls', 'settings'],
         ),
       );
       addTearDown(container.dispose);
@@ -233,13 +261,7 @@ void main() {
     test('adding members/reminders/notes tabs works', () {
       final container = makeContainer(
         settings: const SystemSettings(
-          navBarItems: [
-            'home',
-            'members',
-            'reminders',
-            'notes',
-            'settings',
-          ],
+          navBarItems: ['home', 'members', 'reminders', 'notes', 'settings'],
         ),
       );
       addTearDown(container.dispose);
@@ -279,6 +301,14 @@ void main() {
 
       final tabs = container.read(activeNavBarTabsProvider);
       expect(tabIds(tabs), isNot(contains(AppShellTabId.timeline)));
+    });
+
+    test('sleep is shown in default overflow when enabled', () {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+
+      final overflow = container.read(navBarOverflowTabsProvider);
+      expect(tabIds(overflow), contains(AppShellTabId.sleep));
     });
 
     test('timeline shown when added to navBarItems', () {

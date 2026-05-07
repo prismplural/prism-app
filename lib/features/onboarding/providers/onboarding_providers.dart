@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/core/constants/app_constants.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/core/security/secret_bytes.dart';
 import 'package:prism_plurality/core/services/auth_policy_provider.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
@@ -11,6 +12,7 @@ import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/onboarding/models/onboarding_data_counts.dart';
 import 'package:prism_plurality/features/onboarding/providers/device_pairing_provider.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:uuid/uuid.dart';
@@ -43,6 +45,7 @@ enum OnboardingStep {
   systemName,
   addMembers,
   features,
+  navigation,
   chatSetup,
   preferences,
   permissions,
@@ -60,6 +63,7 @@ enum OnboardingStep {
     systemName => 'Name your system',
     addMembers => "Who's here?",
     features => 'Pick your tools',
+    navigation => 'Arrange navigation',
     chatSetup => 'Set up chat',
     preferences => 'Make it yours',
     permissions => 'One more thing',
@@ -78,6 +82,7 @@ enum OnboardingStep {
     systemName => 'Whatever feels right.',
     addMembers => 'Add the people in your system.',
     features => 'Turn on what you need. Change anytime.',
+    navigation => '',
     chatSetup => 'Channels for your system to talk.',
     preferences => 'Colors, language, the small things.',
     permissions => 'Optional permissions for the best experience.',
@@ -96,6 +101,7 @@ enum OnboardingStep {
     systemName => AppIcons.label,
     addMembers => AppIcons.duotoneMembers,
     features => AppIcons.duotoneSettings,
+    navigation => AppIcons.navHome,
     chatSetup => AppIcons.duotoneChat,
     preferences => AppIcons.duotoneTheme,
     permissions => AppIcons.duotoneNotifications,
@@ -119,6 +125,8 @@ class OnboardingState {
   final bool notesEnabled;
   final bool boardsEnabled;
   final bool remindersEnabled;
+  final List<String> navBarItems;
+  final List<String> navBarOverflowItems;
   final FrontStartBehavior? addFrontDefaultBehavior;
   final FrontStartBehavior? quickFrontDefaultBehavior;
   final String? selectedFronterId;
@@ -157,6 +165,8 @@ class OnboardingState {
     this.notesEnabled = true,
     this.boardsEnabled = false,
     this.remindersEnabled = true,
+    this.navBarItems = const [],
+    this.navBarOverflowItems = const [],
     this.addFrontDefaultBehavior,
     this.quickFrontDefaultBehavior,
     this.selectedFronterId,
@@ -189,6 +199,8 @@ class OnboardingState {
     bool? notesEnabled,
     bool? boardsEnabled,
     bool? remindersEnabled,
+    List<String>? navBarItems,
+    List<String>? navBarOverflowItems,
     Object? addFrontDefaultBehavior = _sentinel,
     Object? quickFrontDefaultBehavior = _sentinel,
     String? selectedFronterId,
@@ -219,6 +231,8 @@ class OnboardingState {
       notesEnabled: notesEnabled ?? this.notesEnabled,
       boardsEnabled: boardsEnabled ?? this.boardsEnabled,
       remindersEnabled: remindersEnabled ?? this.remindersEnabled,
+      navBarItems: navBarItems ?? this.navBarItems,
+      navBarOverflowItems: navBarOverflowItems ?? this.navBarOverflowItems,
       addFrontDefaultBehavior: addFrontDefaultBehavior == _sentinel
           ? this.addFrontDefaultBehavior
           : addFrontDefaultBehavior as FrontStartBehavior?,
@@ -249,6 +263,39 @@ class OnboardingState {
       dekBytes: dekBytes == _sentinel ? this.dekBytes : dekBytes as Uint8List?,
     );
   }
+}
+
+({
+  bool chat,
+  bool polls,
+  bool habits,
+  bool sleep,
+  bool notes,
+  bool reminders,
+  bool boards,
+})
+onboardingFeatureFlags(OnboardingState state) {
+  return (
+    chat: state.chatEnabled,
+    polls: state.pollsEnabled,
+    habits: state.habitsEnabled,
+    sleep: state.sleepTrackingEnabled,
+    notes: state.notesEnabled,
+    reminders: state.remindersEnabled,
+    boards: state.boardsEnabled,
+  );
+}
+
+NavLayout onboardingNavLayout(OnboardingState state) {
+  final hasDraftLayout =
+      state.navBarItems.isNotEmpty || state.navBarOverflowItems.isNotEmpty;
+  return normalizeNavLayout(
+    primaryIds: hasDraftLayout ? state.navBarItems : defaultNavBarTabIds,
+    overflowIds: hasDraftLayout
+        ? state.navBarOverflowItems
+        : defaultNavBarOverflowTabIds,
+    flags: onboardingFeatureFlags(state),
+  );
 }
 
 class OnboardingNotifier extends Notifier<OnboardingState> {
@@ -481,6 +528,7 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
       OnboardingStep.systemName => state.systemName.trim().isNotEmpty,
       OnboardingStep.addMembers => true,
       OnboardingStep.features => true,
+      OnboardingStep.navigation => true,
       OnboardingStep.chatSetup => true,
       OnboardingStep.preferences => true,
       OnboardingStep.permissions => true,
@@ -644,7 +692,7 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
     bool? boardsEnabled,
     bool? remindersEnabled,
   }) {
-    state = state.copyWith(
+    var nextState = state.copyWith(
       chatEnabled: chatEnabled,
       pollsEnabled: pollsEnabled,
       habitsEnabled: habitsEnabled,
@@ -653,6 +701,40 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
       boardsEnabled: boardsEnabled,
       remindersEnabled: remindersEnabled,
     );
+    if (nextState.navBarItems.isNotEmpty ||
+        nextState.navBarOverflowItems.isNotEmpty) {
+      final layout = onboardingNavLayout(nextState);
+      nextState = nextState.copyWith(
+        navBarItems: layout.primary.map((tab) => tab.id.name).toList(),
+        navBarOverflowItems: layout.overflow.map((tab) => tab.id.name).toList(),
+      );
+    }
+    state = nextState;
+  }
+
+  void setNavLayout({
+    required List<String> primary,
+    required List<String> overflow,
+  }) {
+    final layout = normalizeNavLayout(
+      primaryIds: primary,
+      overflowIds: overflow,
+      flags: onboardingFeatureFlags(state),
+    );
+    state = state.copyWith(
+      navBarItems: layout.primary.map((tab) => tab.id.name).toList(),
+      navBarOverflowItems: layout.overflow.map((tab) => tab.id.name).toList(),
+    );
+  }
+
+  void seedNavLayoutIfUnset({
+    required List<String> primary,
+    required List<String> overflow,
+  }) {
+    if (state.navBarItems.isNotEmpty || state.navBarOverflowItems.isNotEmpty) {
+      return;
+    }
+    setNavLayout(primary: primary, overflow: overflow);
   }
 }
 

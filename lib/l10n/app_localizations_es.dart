@@ -7520,6 +7520,13 @@ class AppLocalizationsEs extends AppLocalizations {
       'Activa lo que necesitas. Cambia cuando quieras.';
 
   @override
+  String get onboardingNavigationTitle => 'Organiza la navegación';
+
+  @override
+  String get onboardingNavigationMoreHint =>
+      'Mueve los elementos menos usados a Más,\nel botón de tres puntos abre ese menú.';
+
+  @override
   String get onboardingChatSetupTitle => 'Configura el chat';
 
   @override

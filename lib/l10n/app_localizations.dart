@@ -12198,6 +12198,18 @@ abstract class AppLocalizations {
   /// **'Turn on what you need. Change anytime.'**
   String get onboardingFeaturesSubtitle;
 
+  /// Header title for the onboarding navigation step
+  ///
+  /// In en, this message translates to:
+  /// **'Arrange navigation'**
+  String get onboardingNavigationTitle;
+
+  /// Inline hint explaining the onboarding navigation More menu
+  ///
+  /// In en, this message translates to:
+  /// **'Move less-used items into More,\nthe three-dot button opens that menu.'**
+  String get onboardingNavigationMoreHint;
+
   /// Header title for the onboarding chat-setup step
   ///
   /// In en, this message translates to:

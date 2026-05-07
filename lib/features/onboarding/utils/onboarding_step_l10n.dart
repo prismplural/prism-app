@@ -20,6 +20,7 @@ extension OnboardingStepL10n on OnboardingStep {
     OnboardingStep.systemName => context.l10n.onboardingSystemNameTitle,
     OnboardingStep.addMembers => context.l10n.onboardingAddMembersTitle,
     OnboardingStep.features => context.l10n.onboardingFeaturesTitle,
+    OnboardingStep.navigation => context.l10n.onboardingNavigationTitle,
     OnboardingStep.chatSetup => context.l10n.onboardingChatSetupTitle,
     OnboardingStep.preferences => context.l10n.onboardingPreferencesTitle,
     OnboardingStep.permissions => context.l10n.onboardingPermissionsTitle,
@@ -31,7 +32,8 @@ extension OnboardingStepL10n on OnboardingStep {
     OnboardingStep.welcome => context.l10n.onboardingWelcomeSubtitle,
     OnboardingStep.pinSetup => context.l10n.onboardingPinSetupSubtitle,
     OnboardingStep.recoveryPhrase => null,
-    OnboardingStep.biometricSetup => context.l10n.onboardingBiometricSetupSubtitle,
+    OnboardingStep.biometricSetup =>
+      context.l10n.onboardingBiometricSetupSubtitle,
     OnboardingStep.syncDevice => context.l10n.onboardingSyncDeviceSubtitle,
     OnboardingStep.importedDataReady =>
       context.l10n.onboardingImportedDataReadySubtitle,
@@ -39,6 +41,7 @@ extension OnboardingStepL10n on OnboardingStep {
     OnboardingStep.systemName => context.l10n.onboardingSystemNameSubtitle,
     OnboardingStep.addMembers => context.l10n.onboardingAddMembersSubtitle,
     OnboardingStep.features => context.l10n.onboardingFeaturesSubtitle,
+    OnboardingStep.navigation => null,
     OnboardingStep.chatSetup => context.l10n.onboardingChatSetupSubtitle,
     OnboardingStep.preferences => context.l10n.onboardingPreferencesSubtitle,
     OnboardingStep.permissions => context.l10n.onboardingPermissionsSubtitle,

@@ -12,6 +12,7 @@ import 'package:prism_plurality/features/onboarding/widgets/import_data_step.dar
 import 'package:prism_plurality/features/onboarding/widgets/system_name_step.dart';
 import 'package:prism_plurality/features/onboarding/widgets/add_members_step.dart';
 import 'package:prism_plurality/features/onboarding/widgets/features_step.dart';
+import 'package:prism_plurality/features/onboarding/widgets/navigation_step.dart';
 import 'package:prism_plurality/features/onboarding/widgets/chat_setup_step.dart';
 import 'package:prism_plurality/features/onboarding/widgets/preferences_step.dart';
 import 'package:prism_plurality/features/onboarding/widgets/permissions_step.dart';
@@ -51,6 +52,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     OnboardingStep.systemName,
     OnboardingStep.addMembers,
     OnboardingStep.features,
+    OnboardingStep.navigation,
     OnboardingStep.chatSetup,
     OnboardingStep.preferences,
     OnboardingStep.permissions,
@@ -345,6 +347,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
         key: ValueKey('members'),
       ),
       OnboardingStep.features => const FeaturesStep(key: ValueKey('features')),
+      OnboardingStep.navigation => const NavigationStep(
+        key: ValueKey('navigation'),
+      ),
       OnboardingStep.chatSetup => const ChatSetupStep(key: ValueKey('chat')),
       OnboardingStep.preferences => const PreferencesStep(
         key: ValueKey('prefs'),

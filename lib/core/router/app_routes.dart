@@ -82,7 +82,9 @@ abstract final class AppRoutePaths {
   static String boardPost(String id) => '/boards/post/$id';
   static String period(List<String> sessionIds) {
     final sorted = [...sessionIds]..sort();
-    final qs = sorted.map((id) => 'id=${Uri.encodeQueryComponent(id)}').join('&');
+    final qs = sorted
+        .map((id) => 'id=${Uri.encodeQueryComponent(id)}')
+        .join('&');
     return '/period?$qs';
   }
 }
@@ -147,6 +149,11 @@ class AppShellTab {
   /// Whether this tab is locked in the nav bar (cannot be removed/reordered).
   /// Only Home is locked — it must always be the first primary tab.
   bool get isLocked => id == AppShellTabId.home;
+
+  /// Whether this tab must remain reachable from either the nav bar or More.
+  /// Settings is required so users cannot softlock themselves out of config.
+  bool get isRequired =>
+      id == AppShellTabId.home || id == AppShellTabId.settings;
 
   /// Display label, substituting user's terminology for the Members tab.
   String displayLabel({String? terminologyPlural}) {
@@ -321,6 +328,7 @@ const defaultNavBarOverflowTabIds = [
   'reminders',
   'statistics',
   'timeline',
+  'sleep',
   'boards',
 ];
 

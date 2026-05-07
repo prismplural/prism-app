@@ -602,6 +602,7 @@ typedef NavLayout = ({List<AppShellTab> primary, List<AppShellTab> overflow});
 ///
 /// Invariants:
 /// - Home is always the first primary tab.
+/// - Settings is always present in either primary or overflow.
 /// - Primary never exceeds [kMaxPrimaryNavTabs]; excess spills to the front
 ///   of overflow preserving order.
 /// - A tab never appears in both primary and overflow.
@@ -627,11 +628,18 @@ NavLayout normalizeNavLayout({
 
   // Force Home to position 0 (always-enabled).
   primary.removeWhere((t) => t.id == AppShellTabId.home);
+  final overflow = _resolveTabIds(overflowIds, flags, tabById, seen);
+  overflow.removeWhere((t) => t.id == AppShellTabId.home);
+
   final homeTab = tabById[AppShellTabId.home.name]!;
   primary.insert(0, homeTab);
   seen.add(AppShellTabId.home.name);
 
-  final overflow = _resolveTabIds(overflowIds, flags, tabById, seen);
+  // Settings must stay reachable so users can always return to configuration.
+  if (!primary.any((t) => t.id == AppShellTabId.settings) &&
+      !overflow.any((t) => t.id == AppShellTabId.settings)) {
+    overflow.add(tabById[AppShellTabId.settings.name]!);
+  }
 
   // Enforce the primary cap: excess spills to the front of overflow in order.
   if (primary.length > kMaxPrimaryNavTabs) {

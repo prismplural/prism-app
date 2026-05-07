@@ -2010,6 +2010,8 @@
   "onboardingAddMembersSubtitle": "Agrega a las personas en tu sistema.",
   "onboardingFeaturesTitle": "Elige tus herramientas",
   "onboardingFeaturesSubtitle": "Activa lo que necesitas. Cambia cuando quieras.",
+  "onboardingNavigationTitle": "Organiza la navegación",
+  "onboardingNavigationMoreHint": "Mueve los elementos menos usados a Más,\nel botón de tres puntos abre ese menú.",
   "onboardingChatSetupTitle": "Configura el chat",
   "onboardingChatSetupSubtitle": "Canales para que tu sistema pueda hablar.",
   "onboardingPreferencesTitle": "Hazlo tuyo",

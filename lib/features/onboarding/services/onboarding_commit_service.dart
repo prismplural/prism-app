@@ -79,6 +79,9 @@ class OnboardingCommitService {
   Future<void> complete(OnboardingState onboarding) async {
     await _database.transaction(() async {
       final currentSettings = await _settingsRepository.getSettings();
+      final hasDraftNavLayout =
+          onboarding.navBarItems.isNotEmpty ||
+          onboarding.navBarOverflowItems.isNotEmpty;
       await _settingsRepository.updateSettings(
         currentSettings.copyWith(
           systemName: onboarding.systemName,
@@ -106,7 +109,12 @@ class OnboardingCommitService {
           // enabled the feature during onboarding. Only appended if
           // 'boards' is not already in either nav list. Toast fires only
           // when the user later toggles on via Settings (C1' owns that).
-          navBarOverflowItems: onboarding.boardsEnabled
+          navBarItems: hasDraftNavLayout
+              ? onboarding.navBarItems
+              : currentSettings.navBarItems,
+          navBarOverflowItems: hasDraftNavLayout
+              ? onboarding.navBarOverflowItems
+              : onboarding.boardsEnabled
               ? _ensureBoardsInOverflow(
                   currentSettings.navBarItems,
                   currentSettings.navBarOverflowItems,

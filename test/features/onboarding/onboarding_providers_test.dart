@@ -5,6 +5,7 @@ import 'package:prism_plurality/core/database/app_database.dart'
     hide Conversation, FrontingSession, Member;
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/onboarding/models/onboarding_data_counts.dart';
@@ -143,6 +144,64 @@ void main() {
         container.read(onboardingProvider).quickFrontDefaultBehavior,
         FrontStartBehavior.replace,
       );
+    });
+
+    test('onboarding nav layout filters disabled feature tabs', () {
+      final layout = onboardingNavLayout(
+        const OnboardingState(chatEnabled: false, pollsEnabled: false),
+      );
+      final primaryIds = layout.primary.map((tab) => tab.id).toList();
+      final overflowIds = layout.overflow.map((tab) => tab.id).toList();
+
+      expect(primaryIds, [
+        AppShellTabId.home,
+        AppShellTabId.habits,
+        AppShellTabId.settings,
+      ]);
+      expect(overflowIds, [
+        AppShellTabId.members,
+        AppShellTabId.notes,
+        AppShellTabId.reminders,
+        AppShellTabId.statistics,
+        AppShellTabId.timeline,
+        AppShellTabId.sleep,
+      ]);
+    });
+
+    test('setNavLayout reinserts settings when hidden', () {
+      final container = ProviderContainer(
+        overrides: [
+          memberRepositoryProvider.overrideWithValue(FakeMemberRepository()),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final notifier = container.read(onboardingProvider.notifier);
+      notifier.setNavLayout(primary: ['home'], overflow: const []);
+
+      final state = container.read(onboardingProvider);
+      expect(state.navBarItems, ['home']);
+      expect(state.navBarOverflowItems, ['settings']);
+    });
+
+    test('disabling a feature removes its drafted nav item', () {
+      final container = ProviderContainer(
+        overrides: [
+          memberRepositoryProvider.overrideWithValue(FakeMemberRepository()),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final notifier = container.read(onboardingProvider.notifier);
+      notifier.setNavLayout(
+        primary: ['home', 'notes', 'settings'],
+        overflow: const [],
+      );
+      notifier.setFeatureToggle(notesEnabled: false);
+
+      final state = container.read(onboardingProvider);
+      expect(state.navBarItems, ['home', 'settings']);
+      expect(state.navBarOverflowItems, isEmpty);
     });
   });
 
@@ -293,6 +352,42 @@ void main() {
         );
       },
     );
+
+    test('complete writes drafted onboarding navigation layout', () async {
+      final settingsRepository = FakeSystemSettingsRepository();
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final container = ProviderContainer(
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          memberRepositoryProvider.overrideWithValue(FakeMemberRepository()),
+          systemSettingsRepositoryProvider.overrideWithValue(
+            settingsRepository,
+          ),
+          conversationRepositoryProvider.overrideWithValue(
+            FakeConversationRepository(),
+          ),
+          frontingSessionRepositoryProvider.overrideWithValue(
+            FakeFrontingSessionRepository(),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container
+          .read(onboardingCommitServiceProvider)
+          .complete(
+            const OnboardingState(
+              systemName: 'Prism Collective',
+              boardsEnabled: true,
+              navBarItems: ['home', 'settings'],
+              navBarOverflowItems: ['members'],
+            ),
+          );
+
+      expect(settingsRepository.settings.navBarItems, ['home', 'settings']);
+      expect(settingsRepository.settings.navBarOverflowItems, ['members']);
+    });
 
     test(
       'completes imported bootstrap without overwriting imported settings',
