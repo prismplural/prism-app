@@ -33,6 +33,7 @@ class MemberListViewSettingsSheet extends ConsumerWidget {
             children: [
               _SettingsSection(
                 title: l10n.memberListViewModeLabel,
+                description: l10n.memberListViewModeDescription,
                 child: PrismSegmentedControl<MembersListViewMode>(
                   selected: viewMode,
                   onChanged: (mode) {
@@ -56,6 +57,7 @@ class MemberListViewSettingsSheet extends ConsumerWidget {
               if (viewMode == MembersListViewMode.groupedSections)
                 _SettingsSection(
                   title: l10n.memberGroupedDefaultStateLabel,
+                  description: l10n.memberGroupedDefaultStateDescription,
                   child: PrismSegmentedControl<MembersGroupedDefaultState>(
                     selected: groupedDefault,
                     onChanged: (state) {
@@ -87,6 +89,7 @@ class MemberListViewSettingsSheet extends ConsumerWidget {
               else
                 _SettingsSection(
                   title: l10n.memberFolderVisibilityLabel,
+                  description: l10n.memberFolderVisibilityDescription,
                   child: PrismSegmentedControl<MembersFolderMemberVisibility>(
                     selected: folderVisibility,
                     onChanged: (visibility) {
@@ -115,9 +118,14 @@ class MemberListViewSettingsSheet extends ConsumerWidget {
 }
 
 class _SettingsSection extends StatelessWidget {
-  const _SettingsSection({required this.title, required this.child});
+  const _SettingsSection({
+    required this.title,
+    required this.child,
+    this.description,
+  });
 
   final String title;
+  final String? description;
   final Widget child;
 
   @override
@@ -135,6 +143,15 @@ class _SettingsSection extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         child,
+        if (description != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            description!,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
       ],
     );
   }

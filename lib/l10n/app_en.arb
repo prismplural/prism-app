@@ -4006,6 +4006,10 @@
   "@memberListViewModeLabel": {
     "description": "Label for choosing how the members list is displayed"
   },
+  "memberListViewModeDescription": "Sections shows groups expanded inline. Folders shows groups as rows you can open.",
+  "@memberListViewModeDescription": {
+    "description": "Helper text explaining the members list sections/folders view mode choice"
+  },
   "memberListViewModeGroupedSections": "Sections",
   "@memberListViewModeGroupedSections": {
     "description": "Segment label for the grouped section members list view"
@@ -4018,6 +4022,10 @@
   "@memberGroupedDefaultStateLabel": {
     "description": "Label for choosing whether grouped sections start open or closed"
   },
+  "memberGroupedDefaultStateDescription": "Choose whether group sections are expanded or collapsed when the members list opens.",
+  "@memberGroupedDefaultStateDescription": {
+    "description": "Helper text explaining the open/closed default section state choice"
+  },
   "memberGroupedDefaultStateOpen": "Open",
   "@memberGroupedDefaultStateOpen": {
     "description": "Segment label for grouped sections starting open"
@@ -4029,6 +4037,10 @@
   "memberFolderVisibilityLabel": "Main list",
   "@memberFolderVisibilityLabel": {
     "description": "Label for choosing which members appear below folders"
+  },
+  "memberFolderVisibilityDescription": "All repeats every member below the folders. Ungrouped only shows members not in a folder.",
+  "@memberFolderVisibilityDescription": {
+    "description": "Helper text explaining the all/ungrouped folder visibility choice"
   },
   "memberFolderVisibilityAll": "All",
   "@memberFolderVisibilityAll": {

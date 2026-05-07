@@ -2915,6 +2915,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memberListViewModeLabel => 'View';
 
   @override
+  String get memberListViewModeDescription =>
+      'Sections shows groups expanded inline. Folders shows groups as rows you can open.';
+
+  @override
   String get memberListViewModeGroupedSections => 'Sections';
 
   @override
@@ -2924,6 +2928,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memberGroupedDefaultStateLabel => 'Default section state';
 
   @override
+  String get memberGroupedDefaultStateDescription =>
+      'Choose whether group sections are expanded or collapsed when the members list opens.';
+
+  @override
   String get memberGroupedDefaultStateOpen => 'Open';
 
   @override
@@ -2931,6 +2939,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get memberFolderVisibilityLabel => 'Main list';
+
+  @override
+  String get memberFolderVisibilityDescription =>
+      'All repeats every member below the folders. Ungrouped only shows members not in a folder.';
 
   @override
   String get memberFolderVisibilityAll => 'All';

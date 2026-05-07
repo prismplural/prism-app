@@ -5098,6 +5098,12 @@ abstract class AppLocalizations {
   /// **'View'**
   String get memberListViewModeLabel;
 
+  /// Helper text explaining the members list sections/folders view mode choice
+  ///
+  /// In en, this message translates to:
+  /// **'Sections shows groups expanded inline. Folders shows groups as rows you can open.'**
+  String get memberListViewModeDescription;
+
   /// Segment label for the grouped section members list view
   ///
   /// In en, this message translates to:
@@ -5116,6 +5122,12 @@ abstract class AppLocalizations {
   /// **'Default section state'**
   String get memberGroupedDefaultStateLabel;
 
+  /// Helper text explaining the open/closed default section state choice
+  ///
+  /// In en, this message translates to:
+  /// **'Choose whether group sections are expanded or collapsed when the members list opens.'**
+  String get memberGroupedDefaultStateDescription;
+
   /// Segment label for grouped sections starting open
   ///
   /// In en, this message translates to:
@@ -5133,6 +5145,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Main list'**
   String get memberFolderVisibilityLabel;
+
+  /// Helper text explaining the all/ungrouped folder visibility choice
+  ///
+  /// In en, this message translates to:
+  /// **'All repeats every member below the folders. Ungrouped only shows members not in a folder.'**
+  String get memberFolderVisibilityDescription;
 
   /// Segment label for showing all members below folders
   ///

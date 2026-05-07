@@ -2978,6 +2978,10 @@ class AppLocalizationsEs extends AppLocalizations {
   String get memberListViewModeLabel => 'Vista';
 
   @override
+  String get memberListViewModeDescription =>
+      'Secciones muestra los grupos expandidos en la lista. Carpetas muestra los grupos como filas que puedes abrir.';
+
+  @override
   String get memberListViewModeGroupedSections => 'Secciones';
 
   @override
@@ -2987,6 +2991,10 @@ class AppLocalizationsEs extends AppLocalizations {
   String get memberGroupedDefaultStateLabel => 'Estado inicial';
 
   @override
+  String get memberGroupedDefaultStateDescription =>
+      'Elige si las secciones de grupo aparecen expandidas o contraídas al abrir la lista.';
+
+  @override
   String get memberGroupedDefaultStateOpen => 'Abiertas';
 
   @override
@@ -2994,6 +3002,10 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get memberFolderVisibilityLabel => 'Lista principal';
+
+  @override
+  String get memberFolderVisibilityDescription =>
+      'Todos repite cada miembro debajo de las carpetas. Sin grupo solo muestra miembros que no están en una carpeta.';
 
   @override
   String get memberFolderVisibilityAll => 'Todos';
