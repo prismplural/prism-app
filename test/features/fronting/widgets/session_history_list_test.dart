@@ -465,6 +465,100 @@ void main() {
       },
     );
 
+    testWidgets('collapses excess fronters into a chip on narrow layouts', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(180, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final t0 = DateTime(2026, 4, 1, 10);
+      final t1 = DateTime(2026, 4, 1, 11);
+
+      final periods = [
+        FrontingPeriod(
+          start: t0,
+          end: t1,
+          activeMembers: const ['a', 'b', 'c', 'd', 'e'],
+          briefVisitors: const [],
+          sessionIds: const ['s-a', 's-b', 's-c', 's-d', 's-e'],
+          alwaysPresentMembers: const [],
+          isOpenEnded: false,
+        ),
+      ];
+
+      await tester.pumpWidget(
+        _buildSubject(
+          sessions: [
+            _s(id: 's-a', memberId: 'a', start: t0, end: t1),
+            _s(id: 's-b', memberId: 'b', start: t0, end: t1),
+            _s(id: 's-c', memberId: 'c', start: t0, end: t1),
+            _s(id: 's-d', memberId: 'd', start: t0, end: t1),
+            _s(id: 's-e', memberId: 'e', start: t0, end: t1),
+          ],
+          periods: periods,
+          members: {
+            'a': _member('a', 'Alexandria'),
+            'b': _member('b', 'Benedict'),
+            'c': _member('c', 'Catherine'),
+            'd': _member('d', 'Dominique'),
+            'e': _member('e', 'Evangeline'),
+          },
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('+'), findsOneWidget);
+    });
+
+    testWidgets('shows the full roster when the layout has room', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final t0 = DateTime(2026, 4, 1, 10);
+      final t1 = DateTime(2026, 4, 1, 11);
+
+      final periods = [
+        FrontingPeriod(
+          start: t0,
+          end: t1,
+          activeMembers: const ['a', 'b', 'c', 'd', 'e'],
+          briefVisitors: const [],
+          sessionIds: const ['s-a', 's-b', 's-c', 's-d', 's-e'],
+          alwaysPresentMembers: const [],
+          isOpenEnded: false,
+        ),
+      ];
+
+      await tester.pumpWidget(
+        _buildSubject(
+          sessions: [
+            _s(id: 's-a', memberId: 'a', start: t0, end: t1),
+            _s(id: 's-b', memberId: 'b', start: t0, end: t1),
+            _s(id: 's-c', memberId: 'c', start: t0, end: t1),
+            _s(id: 's-d', memberId: 'd', start: t0, end: t1),
+            _s(id: 's-e', memberId: 'e', start: t0, end: t1),
+          ],
+          periods: periods,
+          members: {
+            'a': _member('a', 'Alexandria'),
+            'b': _member('b', 'Benedict'),
+            'c': _member('c', 'Catherine'),
+            'd': _member('d', 'Dominique'),
+            'e': _member('e', 'Evangeline'),
+          },
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('+'), findsNothing);
+      expect(
+        find.text('Alexandria, Benedict, Catherine, Dominique & Evangeline'),
+        findsOneWidget,
+      );
+    });
+
     test('open current front produces a single midnight slice (not 30+) when '
         'rangeEnd is bounded at now', () {
       // Regression: when the provider conflated the SQL
@@ -518,144 +612,137 @@ void main() {
       }
     });
 
-    testWidgets(
-      'tap routing through actual provider chain (real Drift) routes '
-      'co-front period to /period screen',
-      (tester) async {
-        // Regression / contract test: instead of overriding `derivedPeriodsProvider`
-        // with hand-built periods, drive the render through the real
-        // `unifiedHistoryOverlapProvider` → `derivedPeriodsProvider`
-        // chain backed by an in-memory Drift DB. Tap a co-front middle
-        // period and assert it routes to the /period screen (Task 10 behavior),
-        // not to a single session's detail.
-        final db = AppDatabase(NativeDatabase.memory());
-        addTearDown(db.close);
+    testWidgets('tap routing through actual provider chain (real Drift) routes '
+        'co-front period to /period screen', (tester) async {
+      // Regression / contract test: instead of overriding `derivedPeriodsProvider`
+      // with hand-built periods, drive the render through the real
+      // `unifiedHistoryOverlapProvider` → `derivedPeriodsProvider`
+      // chain backed by an in-memory Drift DB. Tap a co-front middle
+      // period and assert it routes to the /period screen (Task 10 behavior),
+      // not to a single session's detail.
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
 
-        final repo = DriftFrontingSessionRepository(
-          db.frontingSessionsDao,
-          null,
-        );
+      final repo = DriftFrontingSessionRepository(db.frontingSessionsDao, null);
 
-        // A → A+B → A pattern, recent enough to fall inside the 90-day
-        // lookback window.
-        final t0 = DateTime.now().subtract(const Duration(hours: 4));
-        final t1 = DateTime.now().subtract(const Duration(hours: 3));
-        final t2 = DateTime.now().subtract(const Duration(hours: 2));
-        final t3 = DateTime.now().subtract(const Duration(hours: 1));
+      // A → A+B → A pattern, recent enough to fall inside the 90-day
+      // lookback window.
+      final t0 = DateTime.now().subtract(const Duration(hours: 4));
+      final t1 = DateTime.now().subtract(const Duration(hours: 3));
+      final t2 = DateTime.now().subtract(const Duration(hours: 2));
+      final t3 = DateTime.now().subtract(const Duration(hours: 1));
 
-        await db.frontingSessionsDao.insertSession(
-          FrontingSessionMapper.toCompanion(
-            FrontingSession(
-              id: 'session-a',
-              memberId: 'a',
-              startTime: t0,
-              endTime: t3,
+      await db.frontingSessionsDao.insertSession(
+        FrontingSessionMapper.toCompanion(
+          FrontingSession(
+            id: 'session-a',
+            memberId: 'a',
+            startTime: t0,
+            endTime: t3,
+          ),
+        ),
+      );
+      await db.frontingSessionsDao.insertSession(
+        FrontingSessionMapper.toCompanion(
+          FrontingSession(
+            id: 'session-b',
+            memberId: 'b',
+            startTime: t1,
+            endTime: t2,
+          ),
+        ),
+      );
+
+      final router = GoRouter(
+        routes: [
+          GoRoute(
+            path: '/',
+            builder: (_, _) => const Scaffold(
+              body: CustomScrollView(slivers: [SessionHistoryList()]),
             ),
           ),
-        );
-        await db.frontingSessionsDao.insertSession(
-          FrontingSessionMapper.toCompanion(
-            FrontingSession(
-              id: 'session-b',
-              memberId: 'b',
-              startTime: t1,
-              endTime: t2,
-            ),
+          GoRoute(
+            path: '/session/:id',
+            builder: (_, state) =>
+                Scaffold(body: Text('routed-${state.pathParameters['id']}')),
           ),
-        );
+          GoRoute(
+            path: '/period',
+            builder: (_, _) => const Scaffold(body: Text('period-screen')),
+          ),
+        ],
+      );
 
-        final router = GoRouter(
-          routes: [
-            GoRoute(
-              path: '/',
-              builder: (_, _) => const Scaffold(
-                body: CustomScrollView(slivers: [SessionHistoryList()]),
+      final widget = ProviderScope(
+        overrides: [
+          // Real repository → exercises the real overlap query and
+          // the real derivation through the provider chain.
+          frontingSessionRepositoryProvider.overrideWith(
+            (ref) => repo as FrontingSessionRepository,
+          ),
+          // 1B: SessionHistoryList now reads `systemSettingsProvider`
+          // to pick the inline view mode. Pin to combinedPeriods so
+          // this test continues to exercise the derived-period path
+          // through the real Drift chain.
+          systemSettingsProvider.overrideWith(
+            (ref) => Stream.value(const SystemSettings()),
+          ),
+          // Members are looked up by the widget for avatars/names —
+          // we override these two streams (not the repository) so we
+          // don't have to wire the full member repo.
+          allMembersProvider.overrideWith(
+            (ref) => Stream.value([
+              Member(id: 'a', name: 'Alice', createdAt: DateTime(2026, 1, 1)),
+              Member(id: 'b', name: 'Bob', createdAt: DateTime(2026, 1, 1)),
+            ]),
+          ),
+          membersByIdsProvider.overrideWith(
+            (ref, _) => Stream.value({
+              'a': Member(
+                id: 'a',
+                name: 'Alice',
+                createdAt: DateTime(2026, 1, 1),
               ),
-            ),
-            GoRoute(
-              path: '/session/:id',
-              builder: (_, state) =>
-                  Scaffold(body: Text('routed-${state.pathParameters['id']}')),
-            ),
-            GoRoute(
-              path: '/period',
-              builder: (_, _) => const Scaffold(body: Text('period-screen')),
-            ),
-          ],
-        );
-
-        final widget = ProviderScope(
-          overrides: [
-            // Real repository → exercises the real overlap query and
-            // the real derivation through the provider chain.
-            frontingSessionRepositoryProvider.overrideWith(
-              (ref) => repo as FrontingSessionRepository,
-            ),
-            // 1B: SessionHistoryList now reads `systemSettingsProvider`
-            // to pick the inline view mode. Pin to combinedPeriods so
-            // this test continues to exercise the derived-period path
-            // through the real Drift chain.
-            systemSettingsProvider.overrideWith(
-              (ref) => Stream.value(const SystemSettings()),
-            ),
-            // Members are looked up by the widget for avatars/names —
-            // we override these two streams (not the repository) so we
-            // don't have to wire the full member repo.
-            allMembersProvider.overrideWith(
-              (ref) => Stream.value([
-                Member(id: 'a', name: 'Alice', createdAt: DateTime(2026, 1, 1)),
-                Member(id: 'b', name: 'Bob', createdAt: DateTime(2026, 1, 1)),
-              ]),
-            ),
-            membersByIdsProvider.overrideWith(
-              (ref, _) => Stream.value({
-                'a': Member(
-                  id: 'a',
-                  name: 'Alice',
-                  createdAt: DateTime(2026, 1, 1),
-                ),
-                'b': Member(
-                  id: 'b',
-                  name: 'Bob',
-                  createdAt: DateTime(2026, 1, 1),
-                ),
-              }),
-            ),
-          ],
-          child: MaterialApp.router(
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
-            supportedLocales: const [Locale('en')],
-            routerConfig: router,
+              'b': Member(
+                id: 'b',
+                name: 'Bob',
+                createdAt: DateTime(2026, 1, 1),
+              ),
+            }),
           ),
-        );
+        ],
+        child: MaterialApp.router(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: const [Locale('en')],
+          routerConfig: router,
+        ),
+      );
 
-        await tester.pumpWidget(widget);
-        // Pump enough times for the overlap stream + derivation to settle.
-        await tester.pumpAndSettle(const Duration(seconds: 1));
+      await tester.pumpWidget(widget);
+      // Pump enough times for the overlap stream + derivation to settle.
+      await tester.pumpAndSettle(const Duration(seconds: 1));
 
-        // Tap the co-front row. The middle period's sessionIds must
-        // include both contributors (the algorithm guarantees this);
-        // the route now goes to /period for any 2+ contributor period.
-        final cofront = find.text('Alice & Bob');
-        expect(
-          cofront,
-          findsOneWidget,
-          reason:
-              'real Drift chain must produce a co-front period for A → A+B → A',
-        );
-        await tester.tap(cofront);
-        await tester.pumpAndSettle();
+      // Tap the co-front row. The middle period's sessionIds must
+      // include both contributors (the algorithm guarantees this);
+      // the route now goes to /period for any 2+ contributor period.
+      final cofront = find.text('Alice & Bob');
+      expect(
+        cofront,
+        findsOneWidget,
+        reason:
+            'real Drift chain must produce a co-front period for A → A+B → A',
+      );
+      await tester.tap(cofront);
+      await tester.pumpAndSettle();
 
-        expect(
-          find.text('period-screen'),
-          findsOneWidget,
-          reason:
-              'tap on co-front period must route to the period detail screen',
-        );
-        // Must NOT have navigated to an individual session route.
-        expect(find.textContaining('routed-'), findsNothing);
-      },
-    );
+      expect(
+        find.text('period-screen'),
+        findsOneWidget,
+        reason: 'tap on co-front period must route to the period detail screen',
+      );
+      // Must NOT have navigated to an individual session route.
+      expect(find.textContaining('routed-'), findsNothing);
+    });
   });
 
   // ─────────────────────────────────────────────────────────────────────
@@ -934,89 +1021,86 @@ void main() {
   // ─────────────────────────────────────────────────────────────────────
 
   group('SessionHistoryList – long-press delete', () {
-    testWidgets(
-      'long-press a 2-contributor period → Delete → confirm → '
-      'both sessions deleted via repo',
-      (tester) async {
-        final t0 = DateTime(2026, 4, 1, 10);
-        final t1 = DateTime(2026, 4, 1, 12);
+    testWidgets('long-press a 2-contributor period → Delete → confirm → '
+        'both sessions deleted via repo', (tester) async {
+      final t0 = DateTime(2026, 4, 1, 10);
+      final t1 = DateTime(2026, 4, 1, 12);
 
-        final repo = FakeFrontingSessionRepository();
-        repo.sessions.addAll([
-          _s(id: 's1', memberId: 'a', start: t0, end: t1),
-          _s(id: 's2', memberId: 'b', start: t0, end: t1),
-        ]);
+      final repo = FakeFrontingSessionRepository();
+      repo.sessions.addAll([
+        _s(id: 's1', memberId: 'a', start: t0, end: t1),
+        _s(id: 's2', memberId: 'b', start: t0, end: t1),
+      ]);
 
-        final period = FrontingPeriod(
-          start: t0,
-          end: t1,
-          activeMembers: const ['a', 'b'],
-          briefVisitors: const [],
-          sessionIds: const ['s1', 's2'],
-          alwaysPresentMembers: const [],
-          isOpenEnded: false,
-        );
+      final period = FrontingPeriod(
+        start: t0,
+        end: t1,
+        activeMembers: const ['a', 'b'],
+        briefVisitors: const [],
+        sessionIds: const ['s1', 's2'],
+        alwaysPresentMembers: const [],
+        isOpenEnded: false,
+      );
 
-        final widget = ProviderScope(
-          overrides: [
-            frontingSessionRepositoryProvider.overrideWithValue(
-              repo as FrontingSessionRepository,
-            ),
-            unifiedHistoryProvider.overrideWith(
-              (ref) => Stream.value(repo.sessions),
-            ),
-            derivedPeriodsProvider.overrideWith(
-              (ref) => AsyncValue.data([period]),
-            ),
-            membersByIdsProvider.overrideWith(
-              (ref, _) => Stream.value({
-                'a': _member('a', 'Alice'),
-                'b': _member('b', 'Bob'),
-              }),
-            ),
-            systemSettingsProvider.overrideWith(
-              (ref) => Stream.value(const SystemSettings()),
-            ),
-          ],
-          child: const MaterialApp(
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
-            supportedLocales: [Locale('en')],
-            home: Scaffold(
-              body: CustomScrollView(slivers: [SessionHistoryList()]),
-            ),
+      final widget = ProviderScope(
+        overrides: [
+          frontingSessionRepositoryProvider.overrideWithValue(
+            repo as FrontingSessionRepository,
           ),
-        );
+          unifiedHistoryProvider.overrideWith(
+            (ref) => Stream.value(repo.sessions),
+          ),
+          derivedPeriodsProvider.overrideWith(
+            (ref) => AsyncValue.data([period]),
+          ),
+          membersByIdsProvider.overrideWith(
+            (ref, _) => Stream.value({
+              'a': _member('a', 'Alice'),
+              'b': _member('b', 'Bob'),
+            }),
+          ),
+          systemSettingsProvider.overrideWith(
+            (ref) => Stream.value(const SystemSettings()),
+          ),
+        ],
+        child: const MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: [Locale('en')],
+          home: Scaffold(
+            body: CustomScrollView(slivers: [SessionHistoryList()]),
+          ),
+        ),
+      );
 
-        await tester.pumpWidget(widget);
-        await tester.pumpAndSettle();
+      await tester.pumpWidget(widget);
+      await tester.pumpAndSettle();
 
-        // Confirm the row is visible.
-        expect(find.text('Alice & Bob'), findsOneWidget);
+      // Confirm the row is visible.
+      expect(find.text('Alice & Bob'), findsOneWidget);
 
-        // Long-press the row to open the context menu.
-        await tester.longPress(find.text('Alice & Bob'));
-        await tester.pumpAndSettle();
+      // Long-press the row to open the context menu.
+      await tester.longPress(find.text('Alice & Bob'));
+      await tester.pumpAndSettle();
 
-        // The context popup should contain a "Delete" item.
-        expect(find.text('Delete'), findsOneWidget);
+      // The context popup should contain a "Delete" item.
+      expect(find.text('Delete'), findsOneWidget);
 
-        // Tap "Delete" in the popup.
-        await tester.tap(find.text('Delete'));
-        await tester.pumpAndSettle();
+      // Tap "Delete" in the popup.
+      await tester.tap(find.text('Delete'));
+      await tester.pumpAndSettle();
 
-        // The period-level confirm dialog should now be visible.
-        expect(find.text('Delete period?'), findsOneWidget);
+      // The period-level confirm dialog should now be visible.
+      expect(find.text('Delete period?'), findsOneWidget);
 
-        // There are two "Delete" texts: the dialog confirm button.
-        // Use findsWidgets to handle the confirm button alongside any other
-        // rendered text.
-        await tester.tap(find.text('Delete').last);
-        await tester.pumpAndSettle();
+      // There are two "Delete" texts: the dialog confirm button.
+      // Use findsWidgets to handle the confirm button alongside any other
+      // rendered text.
+      await tester.tap(find.text('Delete').last);
+      await tester.pumpAndSettle();
 
-        // Both sessions must have been deleted via the repository.
-        expect(repo.deletedIds, containsAll(['s1', 's2']));
-        expect(repo.deletedIds.length, 2);
-      },
-    );
+      // Both sessions must have been deleted via the repository.
+      expect(repo.deletedIds, containsAll(['s1', 's2']));
+      expect(repo.deletedIds.length, 2);
+    });
   });
 }

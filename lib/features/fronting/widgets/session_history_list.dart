@@ -1,5 +1,4 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -726,16 +725,13 @@ class _PeriodTile extends ConsumerWidget {
     return '$startStr – ${slice.displayEnd.toTimeString(locale)}';
   }
 
-  String _namesString(BuildContext context) {
+  String _fullRosterLabel() {
     final names = period.activeMembers
         .map((id) => membersMap[id]?.name ?? 'Unknown')
         .toList();
     if (names.isEmpty) return 'Unknown';
-    if (names.length == 1) return names[0];
-    if (names.length == 2) return '${names[0]} & ${names[1]}';
-    if (names.length == 3) return '${names[0]}, ${names[1]} & ${names[2]}';
-    // 4+: show first two, then "+N"
-    return '${names[0]}, ${names[1]} +${names.length - 2}';
+    if (names.length == 1) return names.first;
+    return names.join(', ');
   }
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
@@ -868,7 +864,9 @@ class _PeriodTile extends ConsumerWidget {
         : theme.colorScheme.primary;
 
     final timeRange = _timeRange(context.dateLocale, context);
-    final name = _namesString(context);
+    final rosterNames = period.activeMembers
+        .map((id) => membersMap[id]?.name ?? 'Unknown')
+        .toList();
 
     final leadingWidget = isUnknown
         ? Container(
@@ -1019,38 +1017,35 @@ class _PeriodTile extends ConsumerWidget {
               leadingWidget,
               const SizedBox(width: 12),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      name,
-                      style: isUnknown
-                          ? theme.textTheme.bodyLarge?.copyWith(
-                              fontStyle: FontStyle.italic,
-                              fontWeight: FontWeight.w300,
-                              color: theme.colorScheme.onSurface.withValues(
-                                alpha: dimAlpha,
-                              ),
-                            )
-                          : theme.textTheme.bodyLarge?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                    ),
-                    const SizedBox(height: 2),
-                    DefaultTextStyle(
-                      style: (theme.textTheme.bodySmall ?? const TextStyle())
-                          .copyWith(
-                            color: isUnknown
-                                ? theme.colorScheme.onSurface.withValues(
-                                    alpha: dimAlpha,
-                                  )
-                                : null,
+                child: _PeriodTitleBlock(
+                  names: rosterNames,
+                  titleStyle: isUnknown
+                      ? theme.textTheme.bodyLarge?.copyWith(
+                          fontStyle: FontStyle.italic,
+                          fontWeight: FontWeight.w300,
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: dimAlpha,
                           ),
-                      child: subtitleWidget,
-                    ),
-                    ?briefChips,
-                    ?alwaysPresentLine,
-                  ],
+                        )
+                      : theme.textTheme.bodyLarge?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                  subtitleStyle:
+                      (theme.textTheme.bodySmall ?? const TextStyle()).copyWith(
+                        color: isUnknown
+                            ? theme.colorScheme.onSurface.withValues(
+                                alpha: dimAlpha,
+                              )
+                            : null,
+                      ),
+                  subtitle: subtitleWidget,
+                  briefChips: briefChips,
+                  alwaysPresentLine: alwaysPresentLine,
+                  overflowChipColor: theme.colorScheme.secondaryContainer
+                      .withValues(alpha: 0.5),
+                  overflowChipForeground:
+                      theme.colorScheme.onSecondaryContainer,
+                  semanticsLabel: _fullRosterLabel(),
                 ),
               ),
               const SizedBox(width: 8),
@@ -1108,6 +1103,282 @@ class _PeriodTile extends ConsumerWidget {
       child: wrappedContent,
     );
   }
+}
+
+class _PeriodTitleBlock extends StatelessWidget {
+  const _PeriodTitleBlock({
+    required this.names,
+    required this.titleStyle,
+    required this.subtitleStyle,
+    required this.subtitle,
+    required this.briefChips,
+    required this.alwaysPresentLine,
+    required this.overflowChipColor,
+    required this.overflowChipForeground,
+    required this.semanticsLabel,
+  });
+
+  final List<String> names;
+  final TextStyle? titleStyle;
+  final TextStyle subtitleStyle;
+  final Widget subtitle;
+  final Widget? briefChips;
+  final Widget? alwaysPresentLine;
+  final Color overflowChipColor;
+  final Color overflowChipForeground;
+  final String semanticsLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final effectiveTitleStyle =
+        titleStyle ??
+        Theme.of(
+          context,
+        ).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600) ??
+        const TextStyle(fontWeight: FontWeight.w600);
+
+    final overflowChipTextStyle =
+        Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: overflowChipForeground,
+          fontWeight: FontWeight.w600,
+        ) ??
+        TextStyle(color: overflowChipForeground, fontWeight: FontWeight.w600);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _AdaptiveRosterSummary(
+          names: names,
+          titleStyle: effectiveTitleStyle,
+          overflowChipColor: overflowChipColor,
+          overflowChipForeground: overflowChipForeground,
+          overflowChipTextStyle: overflowChipTextStyle,
+          semanticsLabel: semanticsLabel,
+        ),
+        const SizedBox(height: 2),
+        DefaultTextStyle(style: subtitleStyle, child: subtitle),
+        if (briefChips != null) briefChips!,
+        if (alwaysPresentLine != null) alwaysPresentLine!,
+      ],
+    );
+  }
+}
+
+class _AdaptiveRosterSummary extends StatelessWidget {
+  const _AdaptiveRosterSummary({
+    required this.names,
+    required this.titleStyle,
+    required this.overflowChipColor,
+    required this.overflowChipForeground,
+    required this.overflowChipTextStyle,
+    required this.semanticsLabel,
+  });
+
+  final List<String> names;
+  final TextStyle titleStyle;
+  final Color overflowChipColor;
+  final Color overflowChipForeground;
+  final TextStyle overflowChipTextStyle;
+  final String semanticsLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    if (names.isEmpty) {
+      return Text('Unknown', style: titleStyle);
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final textDirection = Directionality.of(context);
+        final textScaler = MediaQuery.textScalerOf(context);
+        final locale = Localizations.maybeLocaleOf(context);
+        final maxWidth = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : double.infinity;
+        final visibleCount = _visibleNameCountForWidth(
+          names: names,
+          maxWidth: maxWidth,
+          titleStyle: titleStyle,
+          overflowChipTextStyle: overflowChipTextStyle,
+          textDirection: textDirection,
+          textScaler: textScaler,
+          locale: locale,
+        );
+        final visibleNames = names.take(visibleCount).toList();
+        final hiddenCount = names.length - visibleCount;
+
+        return Text.rich(
+          TextSpan(
+            style: titleStyle,
+            children: [
+              TextSpan(text: _formatRosterNames(visibleNames)),
+              if (hiddenCount > 0) ...[
+                const TextSpan(text: ' '),
+                WidgetSpan(
+                  alignment: PlaceholderAlignment.middle,
+                  child: _OverflowRosterChip(
+                    label: '+$hiddenCount',
+                    foregroundColor: overflowChipForeground,
+                    backgroundColor: overflowChipColor,
+                    textStyle: overflowChipTextStyle,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          style: titleStyle,
+          softWrap: true,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          semanticsLabel: semanticsLabel,
+        );
+      },
+    );
+  }
+}
+
+class _OverflowRosterChip extends StatelessWidget {
+  const _OverflowRosterChip({
+    required this.label,
+    required this.foregroundColor,
+    required this.backgroundColor,
+    required this.textStyle,
+  });
+
+  final String label;
+  final Color foregroundColor;
+  final Color backgroundColor;
+  final TextStyle textStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(label, style: textStyle.copyWith(color: foregroundColor)),
+    );
+  }
+}
+
+int _visibleNameCountForWidth({
+  required List<String> names,
+  required double maxWidth,
+  required TextStyle titleStyle,
+  required TextStyle overflowChipTextStyle,
+  required TextDirection textDirection,
+  required TextScaler textScaler,
+  required Locale? locale,
+}) {
+  if (names.isEmpty) return 0;
+  if (!maxWidth.isFinite || maxWidth <= 0) return names.length;
+
+  var low = 1;
+  var high = names.length;
+  var best = 1;
+
+  while (low <= high) {
+    final mid = (low + high) >> 1;
+    if (_rosterFits(
+      names: names,
+      visibleCount: mid,
+      maxWidth: maxWidth,
+      titleStyle: titleStyle,
+      overflowChipTextStyle: overflowChipTextStyle,
+      textDirection: textDirection,
+      textScaler: textScaler,
+      locale: locale,
+    )) {
+      best = mid;
+      low = mid + 1;
+    } else {
+      high = mid - 1;
+    }
+  }
+
+  return best;
+}
+
+double _overflowChipWidth({
+  required String label,
+  required TextStyle style,
+  required TextScaler textScaler,
+}) {
+  final painter = TextPainter(
+    text: TextSpan(text: label, style: style),
+    textDirection: TextDirection.ltr,
+    textScaler: textScaler,
+    maxLines: 1,
+  )..layout();
+
+  return painter.width + 12;
+}
+
+bool _rosterFits({
+  required List<String> names,
+  required int visibleCount,
+  required double maxWidth,
+  required TextStyle titleStyle,
+  required TextStyle overflowChipTextStyle,
+  required TextDirection textDirection,
+  required TextScaler textScaler,
+  required Locale? locale,
+}) {
+  final hiddenCount = names.length - visibleCount;
+  final candidate = _formatRosterNames(names.take(visibleCount).toList());
+  final reservedWidth = hiddenCount > 0
+      ? _overflowChipWidth(
+              label: '+$hiddenCount',
+              style: overflowChipTextStyle,
+              textScaler: textScaler,
+            ) +
+            _textWidth(
+              ' ',
+              style: titleStyle,
+              textDirection: textDirection,
+              textScaler: textScaler,
+              locale: locale,
+            )
+      : 0.0;
+  final availableWidth = maxWidth - reservedWidth;
+  if (availableWidth <= 0) return false;
+
+  final painter = TextPainter(
+    text: TextSpan(text: candidate, style: titleStyle),
+    textDirection: textDirection,
+    textScaler: textScaler,
+    locale: locale,
+    maxLines: 2,
+  )..layout(maxWidth: availableWidth);
+
+  return !painter.didExceedMaxLines;
+}
+
+double _textWidth(
+  String text, {
+  required TextStyle style,
+  required TextDirection textDirection,
+  required TextScaler textScaler,
+  required Locale? locale,
+}) {
+  final painter = TextPainter(
+    text: TextSpan(text: text, style: style),
+    textDirection: textDirection,
+    textScaler: textScaler,
+    locale: locale,
+    maxLines: 1,
+  )..layout();
+
+  return painter.width;
+}
+
+String _formatRosterNames(List<String> names) {
+  if (names.isEmpty) return 'Unknown';
+  if (names.length == 1) return names.first;
+  if (names.length == 2) return '${names[0]} & ${names[1]}';
+  return '${names.take(names.length - 1).join(', ')} & ${names.last}';
 }
 
 class _TileContextAction {
