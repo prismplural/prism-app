@@ -193,6 +193,7 @@ void main() {
   group('DM conversation permissions', () {
     late ConversationPermissions permsAlice;
     late ConversationPermissions permsCarol;
+    late ConversationPermissions permsAdminObserver;
 
     setUp(() {
       permsAlice = makePerms(
@@ -204,6 +205,11 @@ void main() {
         conversation: dmConversation,
         memberId: 'carol',
         member: regular,
+      );
+      permsAdminObserver = makePerms(
+        conversation: dmConversation,
+        memberId: 'bob',
+        member: admin,
       );
     });
 
@@ -225,10 +231,12 @@ void main() {
     test('alice canLeave is false for DM', () => expect(permsAlice.canLeave, isFalse));
     test('carol canLeave is false for DM', () => expect(permsCarol.canLeave, isFalse));
 
-    test('alice canDeleteConversation is false for DM', () =>
-        expect(permsAlice.canDeleteConversation, isFalse));
-    test('carol canDeleteConversation is false for DM', () =>
-        expect(permsCarol.canDeleteConversation, isFalse));
+    test('alice canDeleteConversation is true for DM', () =>
+        expect(permsAlice.canDeleteConversation, isTrue));
+    test('carol canDeleteConversation is true for DM', () =>
+        expect(permsCarol.canDeleteConversation, isTrue));
+    test('admin non-participant canDeleteConversation is false for DM', () =>
+        expect(permsAdminObserver.canDeleteConversation, isFalse));
 
     test('alice canArchive is true for DM', () => expect(permsAlice.canArchive, isTrue));
     test('carol canArchive is true for DM', () => expect(permsCarol.canArchive, isTrue));

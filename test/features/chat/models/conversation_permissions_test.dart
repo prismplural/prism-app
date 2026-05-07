@@ -239,13 +239,13 @@ void main() {
     );
     test('canLeave is false for DM', () => expect(permsA.canLeave, isFalse));
     test(
-      'canDeleteConversation is false for DM',
-      () => expect(permsA.canDeleteConversation, isFalse),
+      'canDeleteConversation is true for DM participant',
+      () => expect(permsA.canDeleteConversation, isTrue),
     );
     test('canArchive is true for DM', () => expect(permsA.canArchive, isTrue));
     test(
-      'admin non-participant canView is true',
-      () => expect(permsAdmin.canView, isTrue),
+      'admin non-participant canView is false',
+      () => expect(permsAdmin.canView, isFalse),
     );
     test(
       'admin non-participant canWrite is false',
@@ -270,6 +270,10 @@ void main() {
     test(
       'admin non-participant cannot delete DM messages',
       () => expect(permsAdmin.canDeleteMessage('member1'), isFalse),
+    );
+    test(
+      'admin non-participant cannot delete DM conversation',
+      () => expect(permsAdmin.canDeleteConversation, isFalse),
     );
   });
 

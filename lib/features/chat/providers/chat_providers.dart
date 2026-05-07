@@ -742,9 +742,9 @@ final allUnreadCountsProvider = StreamProvider<Map<String, int>>((ref) {
 
   final conversationSince = <String, DateTime>{};
   for (final conv in conversations) {
-    // Observers (e.g. admins viewing a DM they aren't part of) don't track
-    // unread state — they have no last-read timestamp, so falling back to
-    // createdAt would mark every message in the conversation unread forever.
+    // Non-participants don't track unread state — they have no last-read
+    // timestamp, so falling back to createdAt would mark every message in the
+    // conversation unread forever.
     if (!conv.participantIds.contains(speakingAs)) continue;
     final lastRead = conv.lastReadTimestamps[speakingAs];
     conversationSince[conv.id] = lastRead ?? conv.createdAt;
@@ -936,8 +936,7 @@ class ConversationTileData {
 
   bool get hasUnread {
     if (speakingAs == null) return false;
-    // Non-participants (e.g. admins viewing others' DMs) are observers, not
-    // participants — they have no read state to track.
+    // Non-participants have no read state to track.
     if (!conversation.participantIds.contains(speakingAs)) return false;
     final lastRead = conversation.lastReadTimestamps[speakingAs];
     if (lastRead == null) {

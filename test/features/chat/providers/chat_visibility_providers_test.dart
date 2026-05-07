@@ -87,7 +87,7 @@ void main() {
     expect(conversations.map((c) => c.id), ['group-1']);
   });
 
-  test('admin can see DM in conversation list', () async {
+  test('admin non-participant does not see DM in conversation list', () async {
     final container = buildContainer('admin');
     addTearDown(container.dispose);
     final sub = container.listen(conversationsProvider, (_, _) {});
@@ -96,7 +96,7 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     final conversations = sub.read().value!;
 
-    expect(conversations.map((c) => c.id), ['dm-1', 'legacy-dm-1', 'group-1']);
+    expect(conversations.map((c) => c.id), ['group-1']);
   });
 
   test('non-participant cannot open DM by id', () async {
@@ -111,7 +111,7 @@ void main() {
     expect(conversation, isNull);
   });
 
-  test('admin can open DM by id in read-only mode', () async {
+  test('admin non-participant cannot open DM by id', () async {
     final container = buildContainer('admin');
     addTearDown(container.dispose);
     final sub = container.listen(conversationByIdProvider('dm-1'), (_, _) {});
@@ -120,7 +120,7 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     final conversation = sub.read().value;
 
-    expect(conversation?.id, 'dm-1');
+    expect(conversation, isNull);
   });
 
   test('non-participant cannot open legacy DM by id', () async {

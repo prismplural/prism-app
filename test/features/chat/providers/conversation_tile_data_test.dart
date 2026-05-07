@@ -116,10 +116,10 @@ void main() {
       expect(tile.hasUnread, isFalse);
     });
 
-    test('returns false for a non-participant viewer (admin observing others\' DM)', () {
-      // Repro of the bug where admins saw permanent unread badges on DMs they
-      // weren't part of: hasUnread should be false because the viewer has no
-      // read state in a conversation they don't participate in.
+    test('returns false for a non-participant viewer', () {
+      // Repro of the bug where non-participants saw permanent unread badges:
+      // hasUnread should be false because the viewer has no read state in a
+      // conversation they don't participate in.
       final tile = makeTileData(
         conversation: makeConversation(
           createdAt: now,

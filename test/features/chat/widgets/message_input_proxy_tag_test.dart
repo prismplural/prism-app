@@ -156,7 +156,7 @@ void main() {
       expect(find.textContaining('Posting as Bob'), findsOneWidget);
     });
 
-    testWidgets('admin read-only DM access keeps send disabled', (
+    testWidgets('non-participant DM access keeps send disabled', (
       tester,
     ) async {
       await tester.pumpWidget(

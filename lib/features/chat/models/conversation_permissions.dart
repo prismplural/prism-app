@@ -42,7 +42,7 @@ class ConversationPermissions {
   bool get _isUnscopedDirectMessage =>
       isDirectMessage && conversation.participantIds.isEmpty;
   bool get canView =>
-      !isDirectMessage || _isUnscopedDirectMessage || isParticipant || isAdmin;
+      !isDirectMessage || _isUnscopedDirectMessage || isParticipant;
   bool get canWrite =>
       !isDirectMessage || _isUnscopedDirectMessage || isParticipant;
   bool get canManage => canWrite && (isCreator || isAdmin);
@@ -50,7 +50,7 @@ class ConversationPermissions {
   bool get canEditTitleEmoji => isDirectMessage ? isParticipant : canManage;
   bool get canAddMembers => !isDirectMessage && canManage;
   bool get canRemoveMembers => !isDirectMessage && canManage;
-  bool get canDeleteConversation => !isDirectMessage && canManage;
+  bool get canDeleteConversation => isDirectMessage ? canWrite : canManage;
   bool get canLeave => !isDirectMessage && isParticipant;
   bool get canArchive => canWrite;
   bool get canMute => canWrite;
