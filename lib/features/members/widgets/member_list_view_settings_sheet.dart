@@ -127,7 +127,9 @@ class MemberListViewSettingsSheet extends ConsumerWidget {
                   const SizedBox(height: 24),
                   _SettingsSection(
                     title: l10n.memberFrontButtonsLabel,
-                    description: l10n.memberFrontButtonsDescription,
+                    description: showFrontButtons
+                        ? l10n.memberFrontButtonsDescription
+                        : null,
                     child: Column(
                       children: [
                         PrismSwitchRow(

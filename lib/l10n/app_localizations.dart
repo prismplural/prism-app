@@ -5089,7 +5089,7 @@ abstract class AppLocalizations {
   /// Title for the members list view settings sheet and menu row
   ///
   /// In en, this message translates to:
-  /// **'View settings'**
+  /// **'View Settings'**
   String get memberListViewSettingsTitle;
 
   /// Label for choosing how the members list is displayed

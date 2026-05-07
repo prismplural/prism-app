@@ -3998,7 +3998,7 @@
   "@memberGroupFilterUngrouped": {
     "description": "Filter chip label to show only members not in any group"
   },
-  "memberListViewSettingsTitle": "View settings",
+  "memberListViewSettingsTitle": "View Settings",
   "@memberListViewSettingsTitle": {
     "description": "Title for the members list view settings sheet and menu row"
   },

@@ -154,7 +154,7 @@ void main() {
   );
 
   testWidgets('quick front member names can wrap to two lines', (tester) async {
-    final longName = 'Alexandria North Harbor';
+    const longName = 'Alexandria North Harbor';
     final members = [_m('a', longName), _m('b', 'Bea')];
     final controller = StreamController<List<FrontingSession>>.broadcast();
     addTearDown(controller.close);
@@ -184,7 +184,7 @@ void main() {
   testWidgets('quick front shrinks circles to fit narrow screens', (
     tester,
   ) async {
-    final longName = 'Alexandria North Harbor';
+    const longName = 'Alexandria North Harbor';
     final members = [_m('a', longName), _m('b', 'Bea')];
     final controller = StreamController<List<FrontingSession>>.broadcast();
     addTearDown(controller.close);

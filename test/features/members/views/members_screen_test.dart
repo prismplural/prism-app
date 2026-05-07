@@ -243,7 +243,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Search headmates...'), findsOneWidget);
-    await tester.tap(find.text('View settings'));
+    await tester.tap(find.text('View Settings'));
     await tester.pumpAndSettle();
 
     expect(find.text('View'), findsOneWidget);
@@ -253,6 +253,10 @@ void main() {
     expect(find.text('Show pronouns'), findsOneWidget);
     expect(find.text('Front buttons'), findsOneWidget);
     expect(find.text('Show front buttons'), findsOneWidget);
+    expect(
+      find.text('Show a direct front action next to each member in the list.'),
+      findsNothing,
+    );
     expect(find.text('Add'), findsNothing);
     expect(find.text('Replace'), findsNothing);
   });
@@ -274,10 +278,14 @@ void main() {
 
     await tester.tap(find.byIcon(AppIcons.moreVert));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('View settings'));
+    await tester.tap(find.text('View Settings'));
     await tester.pumpAndSettle();
 
     expect(find.text('Front buttons'), findsOneWidget);
+    expect(
+      find.text('Show a direct front action next to each member in the list.'),
+      findsOneWidget,
+    );
     expect(find.text('Add'), findsOneWidget);
     expect(find.text('Replace'), findsOneWidget);
   });

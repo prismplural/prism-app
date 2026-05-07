@@ -2909,7 +2909,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memberGroupFilterUngrouped => 'Ungrouped';
 
   @override
-  String get memberListViewSettingsTitle => 'View settings';
+  String get memberListViewSettingsTitle => 'View Settings';
 
   @override
   String get memberListViewModeLabel => 'View';
