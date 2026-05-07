@@ -41,6 +41,8 @@ class OnboardingScreen extends ConsumerStatefulWidget {
 
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     with SingleTickerProviderStateMixin {
+  static const _prismLogoAsset = 'assets/icon_layers/Prism-Logo-Foreground.png';
+
   bool _isCompleting = false;
 
   /// Steps that have progress capsules (all except complete and full-screen steps).
@@ -173,21 +175,31 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                   // Step header
                   if (!isCompleteStep && !isFullScreenStep) ...[
                     const SizedBox(height: 8),
-                    Container(
-                      width: 56,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: primary.withValues(alpha: 0.15),
-                      ),
-                      child: Center(
-                        child: PhosphorIcon(
-                          step.icon as PhosphorIconData,
-                          size: 28,
-                          color: primary,
+                    if (step == OnboardingStep.welcome)
+                      ClipOval(
+                        child: Image.asset(
+                          _prismLogoAsset,
+                          width: 56,
+                          height: 56,
+                          fit: BoxFit.cover,
+                        ),
+                      )
+                    else
+                      Container(
+                        width: 56,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: primary.withValues(alpha: 0.15),
+                        ),
+                        child: Center(
+                          child: PhosphorIcon(
+                            step.icon as PhosphorIconData,
+                            size: 28,
+                            color: primary,
+                          ),
                         ),
                       ),
-                    ),
                     const SizedBox(height: 12),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 24),
