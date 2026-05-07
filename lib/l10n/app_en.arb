@@ -5315,27 +5315,27 @@
   "@onboardingImportedDataLabel": {
     "description": "Summary label on the imported data ready view"
   },
-  "onboardingWelcomePrivateTitle": "Private by default",
+  "onboardingWelcomePrivateTitle": "Your system is yours",
   "@onboardingWelcomePrivateTitle": {
     "description": "Feature row title in welcome step"
   },
-  "onboardingWelcomePrivateDescription": "Not even we can read your data. Everything stays on your device unless you choose to sync.",
+  "onboardingWelcomePrivateDescription": "Everything starts on this device. Sync is optional, encrypted end-to-end, and we can't read it.",
   "@onboardingWelcomePrivateDescription": {
     "description": "Feature row description in welcome step"
   },
-  "onboardingWelcomeSyncTitle": "Sync across devices",
+  "onboardingWelcomeSyncTitle": "Bring your setup with you",
   "@onboardingWelcomeSyncTitle": {
     "description": "Feature row title in welcome step"
   },
-  "onboardingWelcomeSyncDescription": "End-to-end encrypted. The server only sees noise.",
+  "onboardingWelcomeSyncDescription": "Import from Simply Plural, connect PluralKit, or pair an existing Prism device before setup.",
   "@onboardingWelcomeSyncDescription": {
     "description": "Feature row description in welcome step"
   },
-  "onboardingWelcomeBuiltForYouTitle": "Built for you",
+  "onboardingWelcomeBuiltForYouTitle": "Make yourself at home",
   "@onboardingWelcomeBuiltForYouTitle": {
     "description": "Feature row title in welcome step"
   },
-  "onboardingWelcomeBuiltForYouDescription": "Your words, your colors, your features. Prism adapts to how your system works.",
+  "onboardingWelcomeBuiltForYouDescription": "Choose your words, colors, fronting defaults, chat, routines, and the features you actually want.",
   "@onboardingWelcomeBuiltForYouDescription": {
     "description": "Feature row description in welcome step"
   },
@@ -8197,9 +8197,9 @@
   "cancelHistoricalSleep": "Cancel",
   "@cancelHistoricalSleep": { "description": "Link in StartSleepSheet to cancel historical-logging mode and return to start-now defaults" },
 
-  "onboardingWelcomeTitle": "Welcome to Prism",
+  "onboardingWelcomeTitle": "Your system, together.",
   "@onboardingWelcomeTitle": { "description": "Header title for the onboarding welcome step" },
-  "onboardingWelcomeSubtitle": "Your system, your way.",
+  "onboardingWelcomeSubtitle": "Fronting, chat, notes, habits, and decisions in one private place.",
   "@onboardingWelcomeSubtitle": { "description": "Header subtitle for the onboarding welcome step" },
   "onboardingWelcomeSyncLink": "I already use Prism on another device",
   "@onboardingWelcomeSyncLink": {

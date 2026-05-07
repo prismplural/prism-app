@@ -6605,37 +6605,37 @@ abstract class AppLocalizations {
   /// Feature row title in welcome step
   ///
   /// In en, this message translates to:
-  /// **'Private by default'**
+  /// **'Your system is yours'**
   String get onboardingWelcomePrivateTitle;
 
   /// Feature row description in welcome step
   ///
   /// In en, this message translates to:
-  /// **'Not even we can read your data. Everything stays on your device unless you choose to sync.'**
+  /// **'Everything starts on this device. Sync is optional, encrypted end-to-end, and we can\'t read it.'**
   String get onboardingWelcomePrivateDescription;
 
   /// Feature row title in welcome step
   ///
   /// In en, this message translates to:
-  /// **'Sync across devices'**
+  /// **'Bring your setup with you'**
   String get onboardingWelcomeSyncTitle;
 
   /// Feature row description in welcome step
   ///
   /// In en, this message translates to:
-  /// **'End-to-end encrypted. The server only sees noise.'**
+  /// **'Import from Simply Plural, connect PluralKit, or pair an existing Prism device before setup.'**
   String get onboardingWelcomeSyncDescription;
 
   /// Feature row title in welcome step
   ///
   /// In en, this message translates to:
-  /// **'Built for you'**
+  /// **'Make yourself at home'**
   String get onboardingWelcomeBuiltForYouTitle;
 
   /// Feature row description in welcome step
   ///
   /// In en, this message translates to:
-  /// **'Your words, your colors, your features. Prism adapts to how your system works.'**
+  /// **'Choose your words, colors, fronting defaults, chat, routines, and the features you actually want.'**
   String get onboardingWelcomeBuiltForYouDescription;
 
   /// Empty state text in add members step
@@ -12207,13 +12207,13 @@ abstract class AppLocalizations {
   /// Header title for the onboarding welcome step
   ///
   /// In en, this message translates to:
-  /// **'Welcome to Prism'**
+  /// **'Your system, together.'**
   String get onboardingWelcomeTitle;
 
   /// Header subtitle for the onboarding welcome step
   ///
   /// In en, this message translates to:
-  /// **'Your system, your way.'**
+  /// **'Fronting, chat, notes, habits, and decisions in one private place.'**
   String get onboardingWelcomeSubtitle;
 
   /// Link on welcome step to enter sync-from-device flow before PIN setup

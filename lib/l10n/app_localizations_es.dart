@@ -3901,25 +3901,25 @@ class AppLocalizationsEs extends AppLocalizations {
   String get onboardingImportedDataLabel => 'Datos importados';
 
   @override
-  String get onboardingWelcomePrivateTitle => 'Privado por defecto';
+  String get onboardingWelcomePrivateTitle => 'Tu sistema es tuyo';
 
   @override
   String get onboardingWelcomePrivateDescription =>
-      'Ni siquiera nosotros podemos leer tus datos. Todo permanece en tu dispositivo a menos que elijas sincronizar.';
+      'Todo empieza en este dispositivo. La sincronización es opcional, cifrada de extremo a extremo, y no podemos leerla.';
 
   @override
-  String get onboardingWelcomeSyncTitle => 'Sincroniza entre dispositivos';
+  String get onboardingWelcomeSyncTitle => 'Trae tu configuración contigo';
 
   @override
   String get onboardingWelcomeSyncDescription =>
-      'Cifrado de extremo a extremo. El servidor solo ve ruido.';
+      'Importa desde Simply Plural, conecta PluralKit o empareja un dispositivo Prism existente antes de configurar.';
 
   @override
-  String get onboardingWelcomeBuiltForYouTitle => 'Hecho para ti';
+  String get onboardingWelcomeBuiltForYouTitle => 'Ponte cómode';
 
   @override
   String get onboardingWelcomeBuiltForYouDescription =>
-      'Tus palabras, tus colores, tus funciones. Prism se adapta a cómo funciona tu sistema.';
+      'Elige tus palabras, colores, ajustes de fronting, chat, rutinas y las funciones que de verdad quieres.';
 
   @override
   String onboardingAddMembersNoMembers(
@@ -7530,10 +7530,11 @@ class AppLocalizationsEs extends AppLocalizations {
   String get cancelHistoricalSleep => 'Cancelar';
 
   @override
-  String get onboardingWelcomeTitle => 'Bienvenide a Prism';
+  String get onboardingWelcomeTitle => 'Tu sistema, juntes.';
 
   @override
-  String get onboardingWelcomeSubtitle => 'Tu sistema, a tu manera.';
+  String get onboardingWelcomeSubtitle =>
+      'Fronting, chat, notas, hábitos y decisiones en un solo lugar privado.';
 
   @override
   String get onboardingWelcomeSyncLink => 'Ya uso Prism en otro dispositivo';

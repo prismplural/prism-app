@@ -3830,25 +3830,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get onboardingImportedDataLabel => 'Imported data';
 
   @override
-  String get onboardingWelcomePrivateTitle => 'Private by default';
+  String get onboardingWelcomePrivateTitle => 'Your system is yours';
 
   @override
   String get onboardingWelcomePrivateDescription =>
-      'Not even we can read your data. Everything stays on your device unless you choose to sync.';
+      'Everything starts on this device. Sync is optional, encrypted end-to-end, and we can\'t read it.';
 
   @override
-  String get onboardingWelcomeSyncTitle => 'Sync across devices';
+  String get onboardingWelcomeSyncTitle => 'Bring your setup with you';
 
   @override
   String get onboardingWelcomeSyncDescription =>
-      'End-to-end encrypted. The server only sees noise.';
+      'Import from Simply Plural, connect PluralKit, or pair an existing Prism device before setup.';
 
   @override
-  String get onboardingWelcomeBuiltForYouTitle => 'Built for you';
+  String get onboardingWelcomeBuiltForYouTitle => 'Make yourself at home';
 
   @override
   String get onboardingWelcomeBuiltForYouDescription =>
-      'Your words, your colors, your features. Prism adapts to how your system works.';
+      'Choose your words, colors, fronting defaults, chat, routines, and the features you actually want.';
 
   @override
   String onboardingAddMembersNoMembers(
@@ -7401,10 +7401,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cancelHistoricalSleep => 'Cancel';
 
   @override
-  String get onboardingWelcomeTitle => 'Welcome to Prism';
+  String get onboardingWelcomeTitle => 'Your system, together.';
 
   @override
-  String get onboardingWelcomeSubtitle => 'Your system, your way.';
+  String get onboardingWelcomeSubtitle =>
+      'Fronting, chat, notes, habits, and decisions in one private place.';
 
   @override
   String get onboardingWelcomeSyncLink =>
