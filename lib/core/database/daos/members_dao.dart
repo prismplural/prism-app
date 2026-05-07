@@ -8,10 +8,11 @@ part 'members_dao.g.dart';
 class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
   MembersDao(super.db);
 
-  Future<List<Member>> getAllMembers() => (select(members)
-        ..where((m) => m.isDeleted.equals(false))
-        ..orderBy([(m) => OrderingTerm.asc(m.displayOrder)]))
-      .get();
+  Future<List<Member>> getAllMembers() =>
+      (select(members)
+            ..where((m) => m.isDeleted.equals(false))
+            ..orderBy([(m) => OrderingTerm.asc(m.displayOrder)]))
+          .get();
 
   /// Like [getAllMembers] but includes soft-deleted tombstones. Used by
   /// the export importer to detect unique-constraint collisions on
@@ -19,19 +20,19 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
   /// unique indexes `idx_members_pluralkit_uuid` /
   /// `idx_members_pluralkit_id` cover tombstones (no `is_deleted = 0`
   /// clause), so dedup off the active-only `getAllMembers` set is unsafe.
-  Future<List<Member>> getAllMembersIncludingDeleted() =>
-      select(members).get();
+  Future<List<Member>> getAllMembersIncludingDeleted() => select(members).get();
 
-  Stream<List<Member>> watchAllMembers() => (select(members)
-        ..where((m) => m.isDeleted.equals(false))
-        ..orderBy([(m) => OrderingTerm.asc(m.displayOrder)]))
-      .watch();
+  Stream<List<Member>> watchAllMembers() =>
+      (select(members)
+            ..where((m) => m.isDeleted.equals(false))
+            ..orderBy([(m) => OrderingTerm.asc(m.displayOrder)]))
+          .watch();
 
-  Stream<List<Member>> watchActiveMembers() => (select(members)
-        ..where(
-            (m) => m.isActive.equals(true) & m.isDeleted.equals(false))
-        ..orderBy([(m) => OrderingTerm.asc(m.displayOrder)]))
-      .watch();
+  Stream<List<Member>> watchActiveMembers() =>
+      (select(members)
+            ..where((m) => m.isActive.equals(true) & m.isDeleted.equals(false))
+            ..orderBy([(m) => OrderingTerm.asc(m.displayOrder)]))
+          .watch();
 
   Future<Member?> getMemberById(String id) =>
       (select(members)..where((m) => m.id.equals(id))).getSingleOrNull();
@@ -44,8 +45,43 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
 
   Future<void> updateMember(MembersCompanion member) {
     assert(member.id.present, 'Member id is required for update');
-    return (update(members)..where((m) => m.id.equals(member.id.value)))
-        .write(member);
+    return (update(
+      members,
+    )..where((m) => m.id.equals(member.id.value))).write(member);
+  }
+
+  /// Bulk-update display orders in one SQL statement.
+  ///
+  /// Reordering can touch many rows in large systems; updating them one at a
+  /// time forces repeated Drift write plumbing and makes drag/drop feel laggy.
+  /// This keeps the database work to a single statement while callers still
+  /// emit the corresponding sync ops per changed member.
+  Future<void> bulkUpdateDisplayOrders(Map<String, int> displayOrders) async {
+    if (displayOrders.isEmpty) return;
+
+    final ids = displayOrders.keys.toList(growable: false);
+    final whenClauses = ids.map((_) => 'WHEN ? THEN ?').join(' ');
+    final wherePlaceholders = List.filled(ids.length, '?').join(', ');
+    final variables = <Variable>[];
+
+    for (final entry in displayOrders.entries) {
+      variables.add(Variable.withString(entry.key));
+      variables.add(Variable.withInt(entry.value));
+    }
+    variables.addAll(ids.map(Variable.withString));
+
+    await customUpdate(
+      '''
+      UPDATE members
+      SET display_order = CASE id
+        $whenClauses
+        ELSE display_order
+      END
+      WHERE id IN ($wherePlaceholders)
+      ''',
+      variables: variables,
+      updates: {members},
+    );
   }
 
   Future<void> upsertMember(MembersCompanion member) =>
@@ -53,30 +89,35 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
 
   Future<void> softDeleteMember(String id) =>
       (update(members)..where((m) => m.id.equals(id))).write(
-          const MembersCompanion(isDeleted: Value(true)));
+        const MembersCompanion(isDeleted: Value(true)),
+      );
 
   /// Tombstoned members that still carry a PK link and a delete
   /// intent stamped under some link epoch. Callers must additionally gate
   /// by `deleteIntentEpoch == state.linkEpoch` at push time — this
   /// query surfaces the candidate set only.
-  Future<List<Member>> getDeletedLinkedMembers() => (select(members)
-        ..where((m) =>
-            m.isDeleted.equals(true) &
-            m.pluralkitId.isNotNull() &
-            m.deleteIntentEpoch.isNotNull()))
-      .get();
+  Future<List<Member>> getDeletedLinkedMembers() =>
+      (select(members)..where(
+            (m) =>
+                m.isDeleted.equals(true) &
+                m.pluralkitId.isNotNull() &
+                m.deleteIntentEpoch.isNotNull(),
+          ))
+          .get();
 
   /// Live local sessions for a member that still point at PK. Used
   /// by the cascade guard: if any exist when we want to push a member
   /// DELETE, we skip the member DELETE this pass to keep PK's cascade from
   /// silently deleting switches Prism still considers live.
   Future<List<FrontingSession>> _getLiveLinkedSessionsForMember(
-          String memberId) =>
-      (select(attachedDatabase.frontingSessions)
-            ..where((s) =>
+    String memberId,
+  ) =>
+      (select(attachedDatabase.frontingSessions)..where(
+            (s) =>
                 s.memberId.equals(memberId) &
                 s.isDeleted.equals(false) &
-                s.pluralkitUuid.isNotNull()))
+                s.pluralkitUuid.isNotNull(),
+          ))
           .get();
 
   /// Plan 02 R5 hook — convenience wrapper.
@@ -91,23 +132,26 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
   /// via the repository's `clearPluralKitLink` so a CRDT op is also emitted.
   Future<void> clearPluralKitLinkRaw(String id) =>
       (update(members)..where((m) => m.id.equals(id))).write(
-          const MembersCompanion(
-            pluralkitId: Value(null),
-            pluralkitUuid: Value(null),
-          ));
+        const MembersCompanion(
+          pluralkitId: Value(null),
+          pluralkitUuid: Value(null),
+        ),
+      );
 
   /// Plan 02 R1: stamp delete intent on a member tombstone. Called in the
   /// same transaction as `softDeleteMember` by the repository.
   Future<void> stampDeleteIntent(String id, int epoch) =>
       (update(members)..where((m) => m.id.equals(id))).write(
-          MembersCompanion(deleteIntentEpoch: Value(epoch)));
+        MembersCompanion(deleteIntentEpoch: Value(epoch)),
+      );
 
   /// Plan 02 R6: stamp the cross-device coordination timestamp. Callers
   /// should route this through `syncRecordUpdate` as well so other devices
   /// see it. The DAO-level write is the local half.
   Future<void> stampDeletePushStartedAt(String id, int timestampMs) =>
       (update(members)..where((m) => m.id.equals(id))).write(
-          MembersCompanion(deletePushStartedAt: Value(timestampMs)));
+        MembersCompanion(deletePushStartedAt: Value(timestampMs)),
+      );
 
   Future<List<Member>> getMembersByIds(List<String> ids) =>
       (select(members)..where((m) => m.id.isIn(ids))).get();
@@ -116,10 +160,10 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
       (select(members)..where((m) => m.id.isIn(ids))).watch();
 
   Future<List<Member>> getSubsystemMembers(String parentId) =>
-      (select(members)
-            ..where((m) =>
-                m.parentSystemId.equals(parentId) &
-                m.isDeleted.equals(false)))
+      (select(members)..where(
+            (m) =>
+                m.parentSystemId.equals(parentId) & m.isDeleted.equals(false),
+          ))
           .get();
 
   Future<int> getCount() async {

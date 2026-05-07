@@ -93,6 +93,30 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
     );
   }
 
+  /// Reorder members with one database write, then emit the corresponding
+  /// sync updates for the rows whose `displayOrder` changed.
+  Future<void> reorderMembers(List<domain.Member> members) async {
+    final changedMembers = <domain.Member>[];
+    final displayOrders = <String, int>{};
+
+    for (var i = 0; i < members.length; i++) {
+      final member = members[i];
+      if (member.displayOrder == i) continue;
+      final updated = member.copyWith(displayOrder: i);
+      changedMembers.add(updated);
+      displayOrders[updated.id] = i;
+    }
+
+    if (changedMembers.isEmpty) return;
+
+    await _dao.bulkUpdateDisplayOrders(displayOrders);
+    for (final member in changedMembers) {
+      await syncRecordUpdate(_table, member.id, {
+        'display_order': member.displayOrder,
+      });
+    }
+  }
+
   @override
   Future<void> deleteMember(String id) async {
     // Refuse to delete the Unknown sentinel — it backs orphan-classified

@@ -1,16 +1,42 @@
+import 'package:drift/drift.dart';
+import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
-import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/core/database/app_database.dart';
+import 'package:prism_plurality/core/database/daos/members_dao.dart';
+import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
+import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 
-Member _member({required String id, bool isActive = true}) => Member(
+domain.Member _member({required String id, bool isActive = true}) =>
+    domain.Member(
       id: id,
       name: id,
       createdAt: DateTime(2024, 1, 1),
       isActive: isActive,
     );
+
+class _RecordingMembersDao extends MembersDao {
+  _RecordingMembersDao(super.db);
+
+  var bulkUpdateCalls = 0;
+  var rowUpdateCalls = 0;
+
+  @override
+  Future<void> bulkUpdateDisplayOrders(Map<String, int> displayOrders) async {
+    bulkUpdateCalls++;
+    await super.bulkUpdateDisplayOrders(displayOrders);
+  }
+
+  @override
+  Future<void> updateMember(MembersCompanion member) async {
+    rowUpdateCalls++;
+    await super.updateMember(member);
+  }
+}
 
 void main() {
   group('userVisibleMembersProvider', () {
@@ -38,8 +64,7 @@ void main() {
       );
     });
 
-    test(
-        'unfiltered activeMembersProvider still includes the sentinel '
+    test('unfiltered activeMembersProvider still includes the sentinel '
         '(fronting/analytics paths can resolve it)', () {
       final c = ProviderContainer(
         overrides: [
@@ -82,10 +107,7 @@ void main() {
         ],
       );
       addTearDown(errorContainer.dispose);
-      expect(
-        errorContainer.read(userVisibleMembersProvider).hasError,
-        isTrue,
-      );
+      expect(errorContainer.read(userVisibleMembersProvider).hasError, isTrue);
     });
   });
 
@@ -105,14 +127,42 @@ void main() {
       addTearDown(c.dispose);
 
       final members = c.read(userVisibleAllMembersProvider).value!;
-      expect(
-        members.map((m) => m.id),
-        containsAll(['alice', 'inactive']),
-      );
-      expect(
-        members.any((m) => m.id == unknownSentinelMemberId),
-        isFalse,
-      );
+      expect(members.map((m) => m.id), containsAll(['alice', 'inactive']));
+      expect(members.any((m) => m.id == unknownSentinelMemberId), isFalse);
     });
   });
+
+  test(
+    'members notifier reorders via a bulk display-order update path',
+    () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+
+      final dao = _RecordingMembersDao(db);
+      final repo = DriftMemberRepository(dao, null);
+
+      await repo.createMember(_member(id: 'alice').copyWith(displayOrder: 0));
+      await repo.createMember(_member(id: 'bob').copyWith(displayOrder: 1));
+      await repo.createMember(_member(id: 'carol').copyWith(displayOrder: 2));
+
+      final container = ProviderContainer(
+        overrides: [memberRepositoryProvider.overrideWithValue(repo)],
+      );
+      addTearDown(container.dispose);
+
+      final initial = await repo.getAllMembers();
+      final reordered = [initial[2], initial[0], initial[1]];
+
+      await container
+          .read(membersNotifierProvider.notifier)
+          .reorderMembers(reordered);
+
+      expect(dao.bulkUpdateCalls, 1);
+      expect(dao.rowUpdateCalls, 0);
+
+      final updated = await repo.getAllMembers();
+      expect(updated.map((m) => m.id), ['carol', 'alice', 'bob']);
+      expect(updated.map((m) => m.displayOrder), [0, 1, 2]);
+    },
+  );
 }

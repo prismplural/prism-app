@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
+import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
@@ -161,6 +162,10 @@ class MembersNotifier extends AsyncNotifier<void> {
   Future<void> reorderMembers(List<Member> members) async {
     state = await AsyncValue.guard(() async {
       final repo = ref.read(memberRepositoryProvider);
+      if (repo is DriftMemberRepository) {
+        await repo.reorderMembers(members);
+        return;
+      }
       final db = ref.read(databaseProvider);
       await db.transaction(() async {
         for (var i = 0; i < members.length; i++) {
