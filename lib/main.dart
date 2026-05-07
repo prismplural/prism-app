@@ -49,7 +49,13 @@ void main() async {
   }
 
   // iOS Keychain survives app uninstall — clear stale data on fresh install.
-  await clearKeychainIfFreshInstall();
+  // Only fires in release builds: dev workflows (Xcode `flutter run`, profile
+  // mode) reinstall too often for the guard to be useful, and the threat model
+  // (different user installs on same phone) only applies to shipped binaries.
+  // See docs/plans/skip-fresh-install-guard-in-non-release-builds.md.
+  if (kReleaseMode) {
+    await clearKeychainIfFreshInstall();
+  }
   await migrateRelayUrl();
 
   // On iOS/macOS, the Rust library is statically linked via -force_load in the

@@ -67,7 +67,7 @@ Runtime DEK wrapping uses AAD `sync_id|device_id|1`. Android uses a non-exportab
 - Android: default Keystore (`resetOnError: true`)
 - **Never use bare `FlutterSecureStorage()`** — always use the `secureStorage` constant from `secure_storage.dart`
 
-**iOS fresh-install guard:** `clearKeychainIfFreshInstall()` in `main.dart` uses `SharedPreferences` to detect reinstalls and wipe stale keychain data (iOS Keychain persists across uninstall/reinstall).
+**iOS fresh-install guard:** `clearKeychainIfFreshInstall()` in `main.dart` uses `SharedPreferences` to detect reinstalls and wipe stale keychain data (iOS Keychain persists across uninstall/reinstall). **Gated on `kReleaseMode`** — debug and profile builds skip the wipe so `flutter run` reinstalls don't lose the developer's working sync credentials. The guard fires on TestFlight and App Store builds where the threat model (different user installs on same phone) actually applies. Source-level invariant test at `test/main_release_mode_keychain_guard_test.dart` keeps the gate from regressing. See `docs/plans/skip-fresh-install-guard-in-non-release-builds.md`.
 
 ### Keychain Keys (all prefixed `prism_sync.`)
 | Key | Content | Written by |
@@ -107,7 +107,7 @@ Runtime DEK wrapping uses AAD `sync_id|device_id|1`. Android uses a non-exportab
 
 ### Second-Boot Startup Flow
 ```
-main() → clearKeychainIfFreshInstall() → RustLib.init()
+main() → if (kReleaseMode) clearKeychainIfFreshInstall() → RustLib.init()
   ↓
 PrismSyncHandleNotifier.build()
   ├─ Read sync_id + relay_url from keychain

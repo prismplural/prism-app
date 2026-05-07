@@ -51,7 +51,7 @@ Future<Map<String, String>> readPrefixed(String prefix) async {
   return Map.fromEntries(all.entries.where((e) => e.key.startsWith(prefix)));
 }
 
-/// Clears stale keychain data on fresh iOS installs.
+/// Clears stale keychain data on fresh iOS installs in release builds.
 ///
 /// iOS Keychain persists across app uninstall/reinstall (unlike Android).
 /// Without this check, a reinstalled app could find orphaned sync credentials
@@ -59,6 +59,11 @@ Future<Map<String, String>> readPrefixed(String prefix) async {
 ///
 /// Uses SharedPreferences (which IS deleted on uninstall) to detect
 /// whether this is a fresh install.
+///
+/// Caller is responsible for gating this on `kReleaseMode` — debug/profile
+/// reinstalls (Xcode `flutter run`) are not the threat model and would
+/// otherwise wipe the developer's working sync credentials. See
+/// `docs/plans/skip-fresh-install-guard-in-non-release-builds.md`.
 Future<void> clearKeychainIfFreshInstall() async {
   final prefs = await SharedPreferences.getInstance();
   const key = 'has_launched_before';
