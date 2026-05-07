@@ -19,9 +19,10 @@ import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 
-Member _member(String id, {int displayOrder = 0}) => Member(
+Member _member(String id, {int displayOrder = 0, String? pronouns}) => Member(
   id: id,
   name: 'Member $id',
+  pronouns: pronouns,
   displayOrder: displayOrder,
   createdAt: DateTime(2024),
 );
@@ -248,6 +249,8 @@ void main() {
     expect(find.text('View'), findsOneWidget);
     expect(find.text('Sections'), findsOneWidget);
     expect(find.text('Folders'), findsOneWidget);
+    expect(find.text('Display'), findsOneWidget);
+    expect(find.text('Show pronouns'), findsOneWidget);
     expect(find.text('Front buttons'), findsOneWidget);
     expect(find.text('Show front buttons'), findsOneWidget);
     expect(find.text('Add'), findsNothing);
@@ -277,6 +280,25 @@ void main() {
     expect(find.text('Front buttons'), findsOneWidget);
     expect(find.text('Add'), findsOneWidget);
     expect(find.text('Replace'), findsOneWidget);
+  });
+
+  testWidgets('member rows hide pronouns when disabled in view settings', (
+    tester,
+  ) async {
+    final members = [_member('alice', pronouns: 'she/her')];
+
+    await tester.pumpWidget(
+      _buildSubject(
+        settings: const SystemSettings(membersShowPronouns: false),
+        members: members,
+        groups: const [],
+        entries: const [],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Member alice'), findsOneWidget);
+    expect(find.text('she/her'), findsNothing);
   });
 
   testWidgets('folder view shows groups first and opens group detail', (

@@ -13,11 +13,13 @@ class MemberCard extends StatelessWidget {
   const MemberCard({
     super.key,
     required this.member,
+    this.showPronouns = true,
     this.trailing,
     this.onTap,
   });
 
   final Member member;
+  final bool showPronouns;
   final Widget? trailing;
   final VoidCallback? onTap;
 
@@ -26,10 +28,13 @@ class MemberCard extends StatelessWidget {
     final theme = Theme.of(context);
     final hasCustomColor =
         member.customColorEnabled && member.customColorHex != null;
-    final accentColor =
-        hasCustomColor ? AppColors.fromHex(member.customColorHex!) : null;
+    final accentColor = hasCustomColor
+        ? AppColors.fromHex(member.customColorHex!)
+        : null;
 
-    final radius = BorderRadius.all(Radius.circular(PrismShapes.of(context).radius(14)));
+    final radius = BorderRadius.all(
+      Radius.circular(PrismShapes.of(context).radius(14)),
+    );
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Material(
@@ -47,11 +52,7 @@ class MemberCard extends StatelessWidget {
               children: [
                 // Custom color accent strip
                 if (hasCustomColor)
-                  Container(
-                    width: 4,
-                    height: 64,
-                    color: accentColor,
-                  ),
+                  Container(width: 4, height: 64, color: accentColor),
                 Expanded(
                   child: Padding(
                     padding: EdgeInsets.only(
@@ -81,26 +82,29 @@ class MemberCard extends StatelessWidget {
                                   Flexible(
                                     child: Text(
                                       member.name,
-                                      style:
-                                          theme.textTheme.titleMedium?.copyWith(
-                                        fontWeight: FontWeight.w600,
-                                      ),
+                                      style: theme.textTheme.titleMedium
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w600,
+                                          ),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
                                   if (member.displayName != null &&
-                                      member.displayName!.trim().isNotEmpty) ...[
+                                      member.displayName!
+                                          .trim()
+                                          .isNotEmpty) ...[
                                     const SizedBox(width: 6),
                                     Flexible(
                                       child: Text(
                                         member.displayName!.trim(),
-                                        style:
-                                            theme.textTheme.bodySmall?.copyWith(
-                                          color:
-                                              theme.colorScheme.onSurfaceVariant,
-                                          fontStyle: FontStyle.italic,
-                                        ),
+                                        style: theme.textTheme.bodySmall
+                                            ?.copyWith(
+                                              color: theme
+                                                  .colorScheme
+                                                  .onSurfaceVariant,
+                                              fontStyle: FontStyle.italic,
+                                            ),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                       ),
@@ -108,7 +112,8 @@ class MemberCard extends StatelessWidget {
                                   ],
                                 ],
                               ),
-                              if (member.pronouns != null &&
+                              if (showPronouns &&
+                                  member.pronouns != null &&
                                   member.pronouns!.isNotEmpty)
                                 Text(
                                   member.pronouns!,

@@ -693,6 +693,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
   Widget _buildMemberTile(Member member, bool isFronting, {int? reorderIndex}) {
     final theme = Theme.of(context);
     final actions = _memberContextActions(member, isFronting);
+    final showPronouns = ref.watch(membersShowPronounsProvider);
     final showFrontButtons = ref.watch(membersShowFrontButtonsProvider);
     final frontButtonBehavior = ref.watch(membersFrontButtonBehaviorProvider);
     final frontingActionBusy = ref.watch(frontingNotifierProvider).isLoading;
@@ -727,6 +728,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
       },
       child: MemberCard(
         member: member,
+        showPronouns: showPronouns,
         onTap: () => context.push(_memberPath(context, member.id)),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,

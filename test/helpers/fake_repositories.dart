@@ -260,6 +260,9 @@ class FakeSystemSettingsRepository implements SystemSettingsRepository {
   ) async =>
       updateSettings(settings.copyWith(membersFolderMemberVisibility: value));
   @override
+  Future<void> updateMembersShowPronouns(bool value) async =>
+      updateSettings(settings.copyWith(membersShowPronouns: value));
+  @override
   Future<void> updateMembersShowFrontButtons(bool value) async =>
       updateSettings(settings.copyWith(membersShowFrontButtons: value));
   @override

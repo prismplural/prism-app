@@ -5164,6 +5164,24 @@ abstract class AppLocalizations {
   /// **'Ungrouped'**
   String get memberFolderVisibilityUngrouped;
 
+  /// Section label for member list display preferences
+  ///
+  /// In en, this message translates to:
+  /// **'Display'**
+  String get memberListDisplayLabel;
+
+  /// Toggle label for showing pronouns in member rows
+  ///
+  /// In en, this message translates to:
+  /// **'Show pronouns'**
+  String get memberShowPronounsToggle;
+
+  /// Description for the member pronouns visibility toggle
+  ///
+  /// In en, this message translates to:
+  /// **'Shows pronouns under names in member rows.'**
+  String get memberShowPronounsToggleDescription;
+
   /// Label for members list direct front button settings
   ///
   /// In en, this message translates to:

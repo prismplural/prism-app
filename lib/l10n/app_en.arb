@@ -4050,6 +4050,18 @@
   "@memberFolderVisibilityUngrouped": {
     "description": "Segment label for showing only ungrouped members below folders"
   },
+  "memberListDisplayLabel": "Display",
+  "@memberListDisplayLabel": {
+    "description": "Section label for member list display preferences"
+  },
+  "memberShowPronounsToggle": "Show pronouns",
+  "@memberShowPronounsToggle": {
+    "description": "Toggle label for showing pronouns in member rows"
+  },
+  "memberShowPronounsToggleDescription": "Shows pronouns under names in member rows.",
+  "@memberShowPronounsToggleDescription": {
+    "description": "Description for the member pronouns visibility toggle"
+  },
   "memberFrontButtonsLabel": "Front buttons",
   "@memberFrontButtonsLabel": {
     "description": "Label for members list direct front button settings"

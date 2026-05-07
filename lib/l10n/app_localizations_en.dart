@@ -2951,6 +2951,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memberFolderVisibilityUngrouped => 'Ungrouped';
 
   @override
+  String get memberListDisplayLabel => 'Display';
+
+  @override
+  String get memberShowPronounsToggle => 'Show pronouns';
+
+  @override
+  String get memberShowPronounsToggleDescription =>
+      'Shows pronouns under names in member rows.';
+
+  @override
   String get memberFrontButtonsLabel => 'Front buttons';
 
   @override

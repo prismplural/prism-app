@@ -254,6 +254,13 @@ class SettingsNotifier extends AsyncNotifier<void> {
     });
   }
 
+  Future<void> updateMembersShowPronouns(bool value) async {
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateMembersShowPronouns(value);
+    });
+  }
+
   Future<void> updateMembersShowFrontButtons(bool value) async {
     state = await AsyncValue.guard(() async {
       final repo = ref.read(systemSettingsRepositoryProvider);
@@ -829,6 +836,14 @@ final membersFolderMemberVisibilityProvider =
               .whenOrNull(data: (s) => s.membersFolderMemberVisibility) ??
           MembersFolderMemberVisibility.allMembers;
     });
+
+/// Device-local visibility of member pronouns in member rows.
+final membersShowPronounsProvider = Provider<bool>((ref) {
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.membersShowPronouns) ??
+      true;
+});
 
 /// Device-local visibility of direct front buttons in member rows.
 final membersShowFrontButtonsProvider = Provider<bool>((ref) {

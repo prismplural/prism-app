@@ -3014,6 +3014,16 @@ class AppLocalizationsEs extends AppLocalizations {
   String get memberFolderVisibilityUngrouped => 'Sin grupo';
 
   @override
+  String get memberListDisplayLabel => 'Visualización';
+
+  @override
+  String get memberShowPronounsToggle => 'Mostrar pronombres';
+
+  @override
+  String get memberShowPronounsToggleDescription =>
+      'Muestra los pronombres debajo de los nombres en las filas de miembros.';
+
+  @override
   String get memberFrontButtonsLabel => 'Botones de frente';
 
   @override

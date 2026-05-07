@@ -236,6 +236,10 @@ class SystemSettingsTable extends Table {
   IntColumn get membersFolderMemberVisibility =>
       integer().withDefault(const Constant(0))();
 
+  /// Whether visible member rows show pronouns.
+  BoolColumn get membersShowPronouns =>
+      boolean().withDefault(const Constant(true))();
+
   /// Whether visible member rows show direct front action buttons.
   BoolColumn get membersShowFrontButtons =>
       boolean().withDefault(const Constant(false))();

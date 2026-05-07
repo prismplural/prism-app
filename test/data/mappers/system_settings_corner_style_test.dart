@@ -76,6 +76,7 @@ void main() {
       membersListViewMode: 0,
       membersGroupedDefaultState: 0,
       membersFolderMemberVisibility: 0,
+      membersShowPronouns: true,
       membersShowFrontButtons: false,
       membersFrontButtonBehavior: 0,
     );

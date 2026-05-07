@@ -139,6 +139,7 @@ _SystemSettings _$SystemSettingsFromJson(
         json['membersFolderMemberVisibility'],
       ) ??
       MembersFolderMemberVisibility.allMembers,
+  membersShowPronouns: json['membersShowPronouns'] as bool? ?? true,
   membersShowFrontButtons: json['membersShowFrontButtons'] as bool? ?? false,
   membersFrontButtonBehavior:
       $enumDecodeNullable(
@@ -221,6 +222,7 @@ Map<String, dynamic> _$SystemSettingsToJson(
   'membersFolderMemberVisibility':
       _$MembersFolderMemberVisibilityEnumMap[instance
           .membersFolderMemberVisibility]!,
+  'membersShowPronouns': instance.membersShowPronouns,
   'membersShowFrontButtons': instance.membersShowFrontButtons,
   'membersFrontButtonBehavior':
       _$FrontStartBehaviorEnumMap[instance.membersFrontButtonBehavior]!,

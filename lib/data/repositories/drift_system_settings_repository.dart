@@ -312,6 +312,11 @@ class DriftSystemSettingsRepository
   }
 
   @override
+  Future<void> updateMembersShowPronouns(bool value) async {
+    await _dao.updateMembersShowPronouns(value);
+  }
+
+  @override
   Future<void> updateMembersShowFrontButtons(bool value) async {
     await _dao.updateMembersShowFrontButtons(value);
   }

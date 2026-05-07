@@ -223,6 +223,7 @@ abstract class SystemSettings with _$SystemSettings {
     MembersGroupedDefaultState membersGroupedDefaultState,
     @Default(MembersFolderMemberVisibility.allMembers)
     MembersFolderMemberVisibility membersFolderMemberVisibility,
+    @Default(true) bool membersShowPronouns,
     @Default(false) bool membersShowFrontButtons,
     @Default(FrontStartBehavior.additive)
     FrontStartBehavior membersFrontButtonBehavior,

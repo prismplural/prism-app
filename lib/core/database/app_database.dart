@@ -96,7 +96,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 19;
+  int get schemaVersion => 20;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -526,6 +526,13 @@ class AppDatabase extends _$AppDatabase {
           systemSettingsTable.membersFrontButtonBehavior,
         );
         current = 19;
+      }
+      if (current == 19 && to >= 20) {
+        await migrator.addColumn(
+          systemSettingsTable,
+          systemSettingsTable.membersShowPronouns,
+        );
+        current = 20;
       }
       if (current != to) {
         throw UnsupportedError(

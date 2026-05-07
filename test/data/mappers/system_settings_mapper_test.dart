@@ -18,6 +18,7 @@ void main() {
     int membersListViewMode = 0,
     int membersGroupedDefaultState = 0,
     int membersFolderMemberVisibility = 0,
+    bool membersShowPronouns = true,
     bool membersShowFrontButtons = false,
     int membersFrontButtonBehavior = 0,
   }) {
@@ -88,6 +89,7 @@ void main() {
       membersListViewMode: membersListViewMode,
       membersGroupedDefaultState: membersGroupedDefaultState,
       membersFolderMemberVisibility: membersFolderMemberVisibility,
+      membersShowPronouns: membersShowPronouns,
       membersShowFrontButtons: membersShowFrontButtons,
       membersFrontButtonBehavior: membersFrontButtonBehavior,
     );
@@ -318,6 +320,7 @@ void main() {
         settings.membersFolderMemberVisibility,
         MembersFolderMemberVisibility.allMembers,
       );
+      expect(settings.membersShowPronouns, isTrue);
       expect(settings.membersShowFrontButtons, isFalse);
       expect(settings.membersFrontButtonBehavior, FrontStartBehavior.additive);
     });
@@ -328,6 +331,7 @@ void main() {
           membersListViewMode: 1,
           membersGroupedDefaultState: 1,
           membersFolderMemberVisibility: 1,
+          membersShowPronouns: false,
           membersShowFrontButtons: true,
           membersFrontButtonBehavior: 1,
         ),
@@ -342,6 +346,7 @@ void main() {
         settings.membersFolderMemberVisibility,
         MembersFolderMemberVisibility.ungroupedOnly,
       );
+      expect(settings.membersShowPronouns, isFalse);
       expect(settings.membersShowFrontButtons, isTrue);
       expect(settings.membersFrontButtonBehavior, FrontStartBehavior.replace);
     });
@@ -374,6 +379,7 @@ void main() {
         membersGroupedDefaultState: MembersGroupedDefaultState.closed,
         membersFolderMemberVisibility:
             MembersFolderMemberVisibility.ungroupedOnly,
+        membersShowPronouns: false,
         membersShowFrontButtons: true,
         membersFrontButtonBehavior: FrontStartBehavior.replace,
       );
@@ -391,6 +397,7 @@ void main() {
         companion.membersFolderMemberVisibility.value,
         MembersFolderMemberVisibility.ungroupedOnly.index,
       );
+      expect(companion.membersShowPronouns.value, isFalse);
       expect(companion.membersShowFrontButtons.value, isTrue);
       expect(
         companion.membersFrontButtonBehavior.value,

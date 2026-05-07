@@ -324,6 +324,10 @@ class SystemSettingsDao extends DatabaseAccessor<AppDatabase>
     SystemSettingsTableCompanion(membersFolderMemberVisibility: Value(value)),
   );
 
+  Future<void> updateMembersShowPronouns(bool value) => _updateField(
+    SystemSettingsTableCompanion(membersShowPronouns: Value(value)),
+  );
+
   Future<void> updateMembersShowFrontButtons(bool value) => _updateField(
     SystemSettingsTableCompanion(membersShowFrontButtons: Value(value)),
   );
