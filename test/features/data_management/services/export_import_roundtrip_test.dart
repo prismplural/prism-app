@@ -271,42 +271,154 @@ void main() {
       expect(c2.rating, isNull);
     });
 
-    test(
-      'all 5 previously-missing SystemSettings fields survive roundtrip',
-      () async {
-        // Arrange: update settings with non-default values for the 5 new fields
-        await sourceSettingsRepo.updateSettings(
-          const SystemSettings(
-            systemName: 'Test System',
-            themeBrightness: ThemeBrightness.dark,
-            themeStyle: ThemeStyle.oled,
-            quickSwitchThresholdSeconds: 45,
-            chatLogsFront: true,
-            syncThemeEnabled: true,
-          ),
-        );
+    test('current SystemSettings fields survive roundtrip', () async {
+      final backfilledAt = DateTime.utc(2026, 4, 15, 12, 30);
+      await sourceSettingsRepo.updateSettings(
+        SystemSettings(
+          systemName: 'Test System',
+          sharingId: 'share-1',
+          themeBrightness: ThemeBrightness.dark,
+          themeStyle: ThemeStyle.oled,
+          cornerStyle: CornerStyle.angular,
+          quickSwitchThresholdSeconds: 45,
+          chatLogsFront: true,
+          syncThemeEnabled: true,
+          gifSearchEnabled: false,
+          voiceNotesEnabled: false,
+          sleepSuggestionEnabled: true,
+          sleepSuggestionHour: 21,
+          sleepSuggestionMinute: 15,
+          wakeSuggestionEnabled: true,
+          wakeSuggestionAfterHours: 7.5,
+          systemColor: '#123456',
+          pkGroupSyncV2Enabled: true,
+          systemTag: 'sys',
+          localeOverride: 'es',
+          gifConsentState: GifConsentState.declined,
+          displayFontInAppBar: false,
+          defaultSleepQuality: SleepQuality.good,
+          frontingListViewMode: FrontingListViewMode.timeline,
+          addFrontDefaultBehavior: FrontStartBehavior.replace,
+          quickFrontDefaultBehavior: FrontStartBehavior.replace,
+          autoPromoteLongFrontingSessions: false,
+          boardsEnabled: true,
+          spBoardsBackfilledAt: backfilledAt,
+          membersListViewMode: MembersListViewMode.folders,
+          membersGroupedDefaultState: MembersGroupedDefaultState.closed,
+          membersFolderMemberVisibility:
+              MembersFolderMemberVisibility.ungroupedOnly,
+          membersShowPronouns: false,
+          membersShowFrontButtons: true,
+          membersFrontButtonBehavior: FrontStartBehavior.replace,
+        ),
+      );
 
-        // Act
-        final result = await _roundtrip(exportService, importService);
+      final result = await _roundtrip(exportService, importService);
 
-        // Assert: import succeeded
+      expect(result.settingsUpdated, true);
 
-        expect(result.settingsUpdated, true);
+      final targetSettingsRepo = DriftSystemSettingsRepository(
+        targetDb.systemSettingsDao,
+        null,
+      );
+      final imported = await targetSettingsRepo.getSettings();
+      expect(imported.systemName, 'Test System');
+      expect(imported.sharingId, 'share-1');
+      expect(imported.themeBrightness, ThemeBrightness.dark);
+      expect(imported.themeStyle, ThemeStyle.oled);
+      expect(imported.cornerStyle, CornerStyle.angular);
+      expect(imported.quickSwitchThresholdSeconds, 45);
+      expect(imported.chatLogsFront, true);
+      expect(imported.syncThemeEnabled, true);
+      expect(imported.gifSearchEnabled, false);
+      expect(imported.voiceNotesEnabled, false);
+      expect(imported.sleepSuggestionEnabled, true);
+      expect(imported.sleepSuggestionHour, 21);
+      expect(imported.sleepSuggestionMinute, 15);
+      expect(imported.wakeSuggestionEnabled, true);
+      expect(imported.wakeSuggestionAfterHours, 7.5);
+      expect(imported.systemColor, '#123456');
+      expect(imported.pkGroupSyncV2Enabled, true);
+      expect(imported.systemTag, 'sys');
+      expect(imported.localeOverride, 'es');
+      expect(imported.gifConsentState, GifConsentState.declined);
+      expect(imported.displayFontInAppBar, false);
+      expect(imported.defaultSleepQuality, SleepQuality.good);
+      expect(imported.frontingListViewMode, FrontingListViewMode.timeline);
+      expect(imported.addFrontDefaultBehavior, FrontStartBehavior.replace);
+      expect(imported.quickFrontDefaultBehavior, FrontStartBehavior.replace);
+      expect(imported.autoPromoteLongFrontingSessions, false);
+      expect(imported.boardsEnabled, true);
+      expect(imported.spBoardsBackfilledAt?.toUtc(), backfilledAt);
+      expect(imported.membersListViewMode, MembersListViewMode.folders);
+      expect(
+        imported.membersGroupedDefaultState,
+        MembersGroupedDefaultState.closed,
+      );
+      expect(
+        imported.membersFolderMemberVisibility,
+        MembersFolderMemberVisibility.ungroupedOnly,
+      );
+      expect(imported.membersShowPronouns, false);
+      expect(imported.membersShowFrontButtons, true);
+      expect(imported.membersFrontButtonBehavior, FrontStartBehavior.replace);
+    });
 
-        // Assert: all 5 fields restored
-        final targetSettingsRepo = DriftSystemSettingsRepository(
-          targetDb.systemSettingsDao,
-          null,
-        );
-        final imported = await targetSettingsRepo.getSettings();
-        expect(imported.themeBrightness, ThemeBrightness.dark);
-        expect(imported.themeStyle, ThemeStyle.oled);
-        expect(imported.quickSwitchThresholdSeconds, 45);
-        expect(imported.chatLogsFront, true);
-        expect(imported.syncThemeEnabled, true);
-        expect(imported.systemName, 'Test System');
-      },
-    );
+    test('member board posts survive export -> import', () async {
+      final now = DateTime.utc(2026, 4, 16, 9, 0);
+      await sourceDb.memberBoardPostsDao.createPost(
+        MemberBoardPostsCompanion(
+          id: const drift.Value('post-1'),
+          targetMemberId: const drift.Value('member-target'),
+          authorId: const drift.Value('member-author'),
+          audience: const drift.Value('private'),
+          title: const drift.Value('Checking in'),
+          body: const drift.Value('How are we doing today?'),
+          createdAt: drift.Value(now),
+          writtenAt: drift.Value(now.subtract(const Duration(hours: 2))),
+          editedAt: drift.Value(now.add(const Duration(minutes: 5))),
+          isDeleted: const drift.Value(false),
+        ),
+      );
+      await sourceDb.memberBoardPostsDao.createPost(
+        MemberBoardPostsCompanion(
+          id: const drift.Value('post-deleted'),
+          targetMemberId: const drift.Value(null),
+          authorId: const drift.Value(null),
+          audience: const drift.Value('public'),
+          title: const drift.Value(null),
+          body: const drift.Value('Deleted public post'),
+          createdAt: drift.Value(now),
+          writtenAt: drift.Value(now),
+          editedAt: const drift.Value(null),
+          isDeleted: const drift.Value(true),
+        ),
+      );
+
+      final export = await exportService.buildExport();
+      expect(export.memberBoardPosts, hasLength(2));
+
+      final result = await importService.importData(
+        const JsonEncoder().convert(export.toJson()),
+      );
+
+      expect(result.memberBoardPostsCreated, 2);
+      final imported = await targetDb.select(targetDb.memberBoardPosts).get();
+      expect(imported, hasLength(2));
+      final post = imported.singleWhere((p) => p.id == 'post-1');
+      expect(post.targetMemberId, 'member-target');
+      expect(post.authorId, 'member-author');
+      expect(post.audience, 'private');
+      expect(post.title, 'Checking in');
+      expect(post.body, 'How are we doing today?');
+      expect(post.writtenAt.toUtc(), now.subtract(const Duration(hours: 2)));
+      expect(post.editedAt?.toUtc(), now.add(const Duration(minutes: 5)));
+
+      final deleted = imported.singleWhere((p) => p.id == 'post-deleted');
+      expect(deleted.isDeleted, isTrue);
+      expect(deleted.targetMemberId, isNull);
+      expect(deleted.authorId, isNull);
+    });
 
     test('member profile header fields survive export -> import', () async {
       final createdAt = DateTime(2026, 4, 2, 9, 30).toUtc();

@@ -6,7 +6,11 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/app_database.dart'
-    show AppDatabase, MediaAttachmentsCompanion, PluralKitSyncStateCompanion;
+    show
+        AppDatabase,
+        MediaAttachmentsCompanion,
+        MemberBoardPostsCompanion,
+        PluralKitSyncStateCompanion;
 import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
 import 'package:prism_plurality/core/database/sqlite_constraint.dart';
 import 'package:prism_plurality/data/repositories/drift_fronting_session_repository.dart';
@@ -53,6 +57,7 @@ class ImportPreview {
     this.reminders = 0,
     this.friends = 0,
     this.mediaAttachments = 0,
+    this.memberBoardPosts = 0,
     this.formatVersion = '',
     this.exportDate = '',
   });
@@ -77,6 +82,7 @@ class ImportPreview {
   final int reminders;
   final int friends;
   final int mediaAttachments;
+  final int memberBoardPosts;
   final String formatVersion;
   final String exportDate;
 
@@ -100,7 +106,8 @@ class ImportPreview {
       conversationCategories +
       reminders +
       friends +
-      mediaAttachments;
+      mediaAttachments +
+      memberBoardPosts;
 }
 
 /// Result of a completed import operation.
@@ -126,6 +133,7 @@ class ImportResult {
     this.remindersCreated = 0,
     this.friendsCreated = 0,
     this.mediaAttachmentsCreated = 0,
+    this.memberBoardPostsCreated = 0,
     this.legacyPkShortIdsSkipped = 0,
     this.legacyCorruptCoFronterRows = const [],
     this.unknownSentinelCreated = false,
@@ -154,6 +162,7 @@ class ImportResult {
   final int remindersCreated;
   final int friendsCreated;
   final int mediaAttachmentsCreated;
+  final int memberBoardPostsCreated;
 
   // -- PRISM1 rescue-importer diagnostics (Phase 5D, spec §4.7) ---------
   //
@@ -205,7 +214,8 @@ class ImportResult {
       conversationCategoriesCreated +
       remindersCreated +
       friendsCreated +
-      mediaAttachmentsCreated;
+      mediaAttachmentsCreated +
+      memberBoardPostsCreated;
 }
 
 class DataImportService {
@@ -386,6 +396,7 @@ class DataImportService {
       reminders: export.reminders.length,
       friends: export.friends.length,
       mediaAttachments: export.mediaAttachments.length,
+      memberBoardPosts: export.memberBoardPosts.length,
       formatVersion: export.formatVersion,
       exportDate: export.exportDate,
     );
@@ -1495,10 +1506,22 @@ class DataImportService {
                   s.themeStyle >= 0 && s.themeStyle < ThemeStyle.values.length
                   ? ThemeStyle.values[s.themeStyle]
                   : ThemeStyle.standard,
+              cornerStyle:
+                  s.themeCornerStyle >= 0 &&
+                      s.themeCornerStyle < CornerStyle.values.length
+                  ? CornerStyle.values[s.themeCornerStyle]
+                  : CornerStyle.rounded,
               chatEnabled: s.chatEnabled,
               pollsEnabled: s.pollsEnabled,
               habitsEnabled: s.habitsEnabled,
               sleepTrackingEnabled: s.sleepTrackingEnabled,
+              gifSearchEnabled: s.gifSearchEnabled,
+              voiceNotesEnabled: s.voiceNotesEnabled,
+              sleepSuggestionEnabled: s.sleepSuggestionEnabled,
+              sleepSuggestionHour: s.sleepSuggestionHour,
+              sleepSuggestionMinute: s.sleepSuggestionMinute,
+              wakeSuggestionEnabled: s.wakeSuggestionEnabled,
+              wakeSuggestionAfterHours: s.wakeSuggestionAfterHours,
               quickSwitchThresholdSeconds: s.quickSwitchThresholdSeconds,
               identityGeneration: s.identityGeneration,
               chatLogsFront: s.chatLogsFront,
@@ -1515,10 +1538,19 @@ class DataImportService {
               notesEnabled: s.notesEnabled,
               previousAccentColorHex: s.previousAccentColorHex,
               systemDescription: s.systemDescription,
+              systemColor: s.systemColor,
+              pkGroupSyncV2Enabled: s.pkGroupSyncV2Enabled,
+              systemTag: s.systemTag,
               systemAvatarData: s.systemAvatarData != null
                   ? base64Decode(s.systemAvatarData!)
                   : null,
               remindersEnabled: s.remindersEnabled,
+              localeOverride: s.localeOverride,
+              gifConsentState:
+                  s.gifConsentState >= 0 &&
+                      s.gifConsentState < GifConsentState.values.length
+                  ? GifConsentState.values[s.gifConsentState]
+                  : GifConsentState.unknown,
               fontScale: s.fontScale,
               fontFamily:
                   s.fontFamily >= 0 && s.fontFamily < FontFamily.values.length
@@ -1530,10 +1562,68 @@ class DataImportService {
               pinLockEnabled: false,
               biometricLockEnabled: false,
               autoLockDelaySeconds: s.autoLockDelaySeconds,
+              displayFontInAppBar: s.displayFontInAppBar,
               navBarItems: s.navBarItems,
               navBarOverflowItems: s.navBarOverflowItems,
               syncNavigationEnabled: s.syncNavigationEnabled,
               chatBadgePreferences: s.chatBadgePreferences,
+              defaultSleepQuality:
+                  s.defaultSleepQuality != null &&
+                      s.defaultSleepQuality! >= 0 &&
+                      s.defaultSleepQuality! < SleepQuality.values.length
+                  ? SleepQuality.values[s.defaultSleepQuality!]
+                  : null,
+              frontingListViewMode:
+                  s.frontingListViewMode >= 0 &&
+                      s.frontingListViewMode <
+                          FrontingListViewMode.values.length
+                  ? FrontingListViewMode.values[s.frontingListViewMode]
+                  : FrontingListViewMode.combinedPeriods,
+              addFrontDefaultBehavior:
+                  s.addFrontDefaultBehavior >= 0 &&
+                      s.addFrontDefaultBehavior <
+                          FrontStartBehavior.values.length
+                  ? FrontStartBehavior.values[s.addFrontDefaultBehavior]
+                  : FrontStartBehavior.additive,
+              quickFrontDefaultBehavior:
+                  s.quickFrontDefaultBehavior >= 0 &&
+                      s.quickFrontDefaultBehavior <
+                          FrontStartBehavior.values.length
+                  ? FrontStartBehavior.values[s.quickFrontDefaultBehavior]
+                  : FrontStartBehavior.additive,
+              autoPromoteLongFrontingSessions:
+                  s.autoPromoteLongFrontingSessions,
+              boardsEnabled: s.boardsEnabled,
+              spBoardsBackfilledAt: s.spBoardsBackfilledAt != null
+                  ? DateTime.parse(s.spBoardsBackfilledAt!)
+                  : null,
+              membersListViewMode:
+                  s.membersListViewMode >= 0 &&
+                      s.membersListViewMode < MembersListViewMode.values.length
+                  ? MembersListViewMode.values[s.membersListViewMode]
+                  : MembersListViewMode.groupedSections,
+              membersGroupedDefaultState:
+                  s.membersGroupedDefaultState >= 0 &&
+                      s.membersGroupedDefaultState <
+                          MembersGroupedDefaultState.values.length
+                  ? MembersGroupedDefaultState.values[s
+                        .membersGroupedDefaultState]
+                  : MembersGroupedDefaultState.open,
+              membersFolderMemberVisibility:
+                  s.membersFolderMemberVisibility >= 0 &&
+                      s.membersFolderMemberVisibility <
+                          MembersFolderMemberVisibility.values.length
+                  ? MembersFolderMemberVisibility.values[s
+                        .membersFolderMemberVisibility]
+                  : MembersFolderMemberVisibility.allMembers,
+              membersShowPronouns: s.membersShowPronouns,
+              membersShowFrontButtons: s.membersShowFrontButtons,
+              membersFrontButtonBehavior:
+                  s.membersFrontButtonBehavior >= 0 &&
+                      s.membersFrontButtonBehavior <
+                          FrontStartBehavior.values.length
+                  ? FrontStartBehavior.values[s.membersFrontButtonBehavior]
+                  : FrontStartBehavior.additive,
             ),
           );
           settingsUpdated = true;
@@ -1902,6 +1992,32 @@ class DataImportService {
           mediaAttachmentsCreated++;
         }
 
+        // 21. Import member board posts
+        var memberBoardPostsCreated = 0;
+        final existingBoardPosts = await db.select(db.memberBoardPosts).get();
+        final existingBoardPostIds = {for (final p in existingBoardPosts) p.id};
+        for (final p in export.memberBoardPosts) {
+          if (existingBoardPostIds.contains(p.id)) continue;
+          await db.memberBoardPostsDao.createPost(
+            MemberBoardPostsCompanion(
+              id: Value(p.id),
+              targetMemberId: Value(p.targetMemberId),
+              authorId: Value(p.authorId),
+              audience: Value(p.audience),
+              title: Value(p.title),
+              body: Value(p.body),
+              createdAt: Value(DateTime.parse(p.createdAt)),
+              writtenAt: Value(DateTime.parse(p.writtenAt)),
+              editedAt: Value(
+                p.editedAt != null ? DateTime.parse(p.editedAt!) : null,
+              ),
+              isDeleted: Value(p.isDeleted),
+            ),
+          );
+          memberBoardPostsCreated++;
+          existingBoardPostIds.add(p.id);
+        }
+
         return ImportResult(
           membersCreated: membersCreated,
           frontSessionsCreated: frontSessionsCreated,
@@ -1923,6 +2039,7 @@ class DataImportService {
           remindersCreated: remindersCreated,
           friendsCreated: friendsCreated,
           mediaAttachmentsCreated: mediaAttachmentsCreated,
+          memberBoardPostsCreated: memberBoardPostsCreated,
           legacyPkShortIdsSkipped: legacyPkShortIdsSkipped,
           legacyCorruptCoFronterRows: List.unmodifiable(
             legacyCorruptCoFronterRows,

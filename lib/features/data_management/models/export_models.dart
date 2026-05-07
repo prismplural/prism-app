@@ -72,6 +72,7 @@ class V1Export {
     this.reminders = const [],
     this.friends = const [],
     this.mediaAttachments = const [],
+    this.memberBoardPosts = const [],
     this.rescueLegacyFields = false,
   });
 
@@ -101,6 +102,7 @@ class V1Export {
   final List<V1Reminder> reminders;
   final List<V1Friend> friends;
   final List<V1MediaAttachment> mediaAttachments;
+  final List<V1MemberBoardPost> memberBoardPosts;
 
   /// Envelope-level marker for the PRISM1 rescue importer (§4.7).
   ///
@@ -164,6 +166,8 @@ class V1Export {
     if (friends.isNotEmpty) 'friends': friends.map((e) => e.toJson()).toList(),
     if (mediaAttachments.isNotEmpty)
       'mediaAttachments': mediaAttachments.map((e) => e.toJson()).toList(),
+    if (memberBoardPosts.isNotEmpty)
+      'memberBoardPosts': memberBoardPosts.map((e) => e.toJson()).toList(),
     // Envelope-level rescue marker (§4.7). Only emitted when true so
     // post-migration exports stay byte-identical to pre-marker files.
     if (rescueLegacyFields) 'rescueLegacyFields': true,
@@ -334,6 +338,13 @@ class V1Export {
           (json['mediaAttachments'] as List<dynamic>?)
               ?.map(
                 (e) => V1MediaAttachment.fromJson(e as Map<String, dynamic>),
+              )
+              .toList() ??
+          [],
+      memberBoardPosts:
+          (json['memberBoardPosts'] as List<dynamic>?)
+              ?.map(
+                (e) => V1MemberBoardPost.fromJson(e as Map<String, dynamic>),
               )
               .toList() ??
           [],
@@ -1107,10 +1118,18 @@ class V1SystemSettings {
     this.themeMode = 0,
     this.themeBrightness = 0,
     this.themeStyle = 0,
+    this.themeCornerStyle = 0,
     this.chatEnabled = true,
     this.pollsEnabled = true,
     this.habitsEnabled = true,
     this.sleepTrackingEnabled = true,
+    this.gifSearchEnabled = true,
+    this.voiceNotesEnabled = true,
+    this.sleepSuggestionEnabled = false,
+    this.sleepSuggestionHour = 22,
+    this.sleepSuggestionMinute = 0,
+    this.wakeSuggestionEnabled = false,
+    this.wakeSuggestionAfterHours = 8.0,
     this.quickSwitchThresholdSeconds = 30,
     this.identityGeneration = 0,
     this.chatLogsFront = false,
@@ -1121,17 +1140,36 @@ class V1SystemSettings {
     this.notesEnabled = true,
     this.previousAccentColorHex = '',
     this.systemDescription,
+    this.systemColor,
+    this.pkGroupSyncV2Enabled = false,
+    this.systemTag,
     this.systemAvatarData, // base64
     this.remindersEnabled = true,
+    this.localeOverride,
+    this.gifConsentState = 0,
     this.fontScale = 1.0,
     this.fontFamily = 0,
     this.pinLockEnabled = false,
     this.biometricLockEnabled = false,
     this.autoLockDelaySeconds = 0,
+    this.displayFontInAppBar = true,
     this.navBarItems = const [],
     this.navBarOverflowItems = const [],
     this.syncNavigationEnabled = true,
     this.chatBadgePreferences = const {},
+    this.defaultSleepQuality,
+    this.frontingListViewMode = 0,
+    this.addFrontDefaultBehavior = 0,
+    this.quickFrontDefaultBehavior = 0,
+    this.autoPromoteLongFrontingSessions = true,
+    this.boardsEnabled = false,
+    this.spBoardsBackfilledAt,
+    this.membersListViewMode = 0,
+    this.membersGroupedDefaultState = 0,
+    this.membersFolderMemberVisibility = 0,
+    this.membersShowPronouns = true,
+    this.membersShowFrontButtons = false,
+    this.membersFrontButtonBehavior = 0,
   });
 
   final String? systemName;
@@ -1148,10 +1186,18 @@ class V1SystemSettings {
   final int themeMode;
   final int themeBrightness; // ThemeBrightness enum index
   final int themeStyle; // ThemeStyle enum index
+  final int themeCornerStyle; // CornerStyle enum index
   final bool chatEnabled;
   final bool pollsEnabled;
   final bool habitsEnabled;
   final bool sleepTrackingEnabled;
+  final bool gifSearchEnabled;
+  final bool voiceNotesEnabled;
+  final bool sleepSuggestionEnabled;
+  final int sleepSuggestionHour;
+  final int sleepSuggestionMinute;
+  final bool wakeSuggestionEnabled;
+  final double wakeSuggestionAfterHours;
   final int quickSwitchThresholdSeconds;
   final int identityGeneration;
   final bool chatLogsFront;
@@ -1162,17 +1208,37 @@ class V1SystemSettings {
   final bool notesEnabled;
   final String previousAccentColorHex;
   final String? systemDescription;
+  final String? systemColor;
+  final bool pkGroupSyncV2Enabled;
+  final String? systemTag;
   final String? systemAvatarData; // base64
   final bool remindersEnabled;
+  final String? localeOverride;
+  final int gifConsentState; // GifConsentState enum index
   final double fontScale;
   final int fontFamily; // FontFamily enum index
   final bool pinLockEnabled;
   final bool biometricLockEnabled;
   final int autoLockDelaySeconds;
+  final bool displayFontInAppBar;
   final List<String> navBarItems;
   final List<String> navBarOverflowItems;
   final bool syncNavigationEnabled;
   final Map<String, String> chatBadgePreferences;
+  final int? defaultSleepQuality; // SleepQuality enum index
+  final int frontingListViewMode; // FrontingListViewMode enum index
+  final int addFrontDefaultBehavior; // FrontStartBehavior enum index
+  final int quickFrontDefaultBehavior; // FrontStartBehavior enum index
+  final bool autoPromoteLongFrontingSessions;
+  final bool boardsEnabled;
+  final String? spBoardsBackfilledAt;
+  final int membersListViewMode; // MembersListViewMode enum index
+  final int membersGroupedDefaultState; // MembersGroupedDefaultState enum index
+  final int
+  membersFolderMemberVisibility; // MembersFolderMemberVisibility index
+  final bool membersShowPronouns;
+  final bool membersShowFrontButtons;
+  final int membersFrontButtonBehavior; // FrontStartBehavior enum index
 
   Map<String, dynamic> toJson() => {
     if (systemName != null) 'systemName': systemName,
@@ -1190,10 +1256,18 @@ class V1SystemSettings {
     'themeMode': themeMode,
     'themeBrightness': themeBrightness,
     'themeStyle': themeStyle,
+    'themeCornerStyle': themeCornerStyle,
     'chatEnabled': chatEnabled,
     'pollsEnabled': pollsEnabled,
     'habitsEnabled': habitsEnabled,
     'sleepTrackingEnabled': sleepTrackingEnabled,
+    'gifSearchEnabled': gifSearchEnabled,
+    'voiceNotesEnabled': voiceNotesEnabled,
+    'sleepSuggestionEnabled': sleepSuggestionEnabled,
+    'sleepSuggestionHour': sleepSuggestionHour,
+    'sleepSuggestionMinute': sleepSuggestionMinute,
+    'wakeSuggestionEnabled': wakeSuggestionEnabled,
+    'wakeSuggestionAfterHours': wakeSuggestionAfterHours,
     'quickSwitchThresholdSeconds': quickSwitchThresholdSeconds,
     'identityGeneration': identityGeneration,
     'chatLogsFront': chatLogsFront,
@@ -1204,19 +1278,39 @@ class V1SystemSettings {
     'notesEnabled': notesEnabled,
     'previousAccentColorHex': previousAccentColorHex,
     if (systemDescription != null) 'systemDescription': systemDescription,
+    if (systemColor != null) 'systemColor': systemColor,
+    'pkGroupSyncV2Enabled': pkGroupSyncV2Enabled,
+    if (systemTag != null) 'systemTag': systemTag,
     if (systemAvatarData != null) 'systemAvatarData': systemAvatarData,
     'remindersEnabled': remindersEnabled,
+    if (localeOverride != null) 'localeOverride': localeOverride,
+    'gifConsentState': gifConsentState,
     'fontScale': fontScale,
     'fontFamily': fontFamily,
     'pinLockEnabled': pinLockEnabled,
     'biometricLockEnabled': biometricLockEnabled,
     'autoLockDelaySeconds': autoLockDelaySeconds,
+    'displayFontInAppBar': displayFontInAppBar,
     if (navBarItems.isNotEmpty) 'navBarItems': navBarItems,
     if (navBarOverflowItems.isNotEmpty)
       'navBarOverflowItems': navBarOverflowItems,
     'syncNavigationEnabled': syncNavigationEnabled,
     if (chatBadgePreferences.isNotEmpty)
       'chatBadgePreferences': chatBadgePreferences,
+    if (defaultSleepQuality != null) 'defaultSleepQuality': defaultSleepQuality,
+    'frontingListViewMode': frontingListViewMode,
+    'addFrontDefaultBehavior': addFrontDefaultBehavior,
+    'quickFrontDefaultBehavior': quickFrontDefaultBehavior,
+    'autoPromoteLongFrontingSessions': autoPromoteLongFrontingSessions,
+    'boardsEnabled': boardsEnabled,
+    if (spBoardsBackfilledAt != null)
+      'spBoardsBackfilledAt': spBoardsBackfilledAt,
+    'membersListViewMode': membersListViewMode,
+    'membersGroupedDefaultState': membersGroupedDefaultState,
+    'membersFolderMemberVisibility': membersFolderMemberVisibility,
+    'membersShowPronouns': membersShowPronouns,
+    'membersShowFrontButtons': membersShowFrontButtons,
+    'membersFrontButtonBehavior': membersFrontButtonBehavior,
   };
 
   factory V1SystemSettings.fromJson(
@@ -1238,10 +1332,19 @@ class V1SystemSettings {
     themeMode: json['themeMode'] as int? ?? 0,
     themeBrightness: json['themeBrightness'] as int? ?? 0,
     themeStyle: json['themeStyle'] as int? ?? 0,
+    themeCornerStyle: json['themeCornerStyle'] as int? ?? 0,
     chatEnabled: json['chatEnabled'] as bool? ?? true,
     pollsEnabled: json['pollsEnabled'] as bool? ?? true,
     habitsEnabled: json['habitsEnabled'] as bool? ?? true,
     sleepTrackingEnabled: json['sleepTrackingEnabled'] as bool? ?? true,
+    gifSearchEnabled: json['gifSearchEnabled'] as bool? ?? true,
+    voiceNotesEnabled: json['voiceNotesEnabled'] as bool? ?? true,
+    sleepSuggestionEnabled: json['sleepSuggestionEnabled'] as bool? ?? false,
+    sleepSuggestionHour: json['sleepSuggestionHour'] as int? ?? 22,
+    sleepSuggestionMinute: json['sleepSuggestionMinute'] as int? ?? 0,
+    wakeSuggestionEnabled: json['wakeSuggestionEnabled'] as bool? ?? false,
+    wakeSuggestionAfterHours:
+        (json['wakeSuggestionAfterHours'] as num?)?.toDouble() ?? 8.0,
     quickSwitchThresholdSeconds:
         json['quickSwitchThresholdSeconds'] as int? ?? 30,
     identityGeneration: json['identityGeneration'] as int? ?? 0,
@@ -1253,13 +1356,19 @@ class V1SystemSettings {
     notesEnabled: json['notesEnabled'] as bool? ?? true,
     previousAccentColorHex: json['previousAccentColorHex'] as String? ?? '',
     systemDescription: json['systemDescription'] as String?,
+    systemColor: json['systemColor'] as String?,
+    pkGroupSyncV2Enabled: json['pkGroupSyncV2Enabled'] as bool? ?? false,
+    systemTag: json['systemTag'] as String?,
     systemAvatarData: json['systemAvatarData'] as String?,
     remindersEnabled: json['remindersEnabled'] as bool? ?? true,
+    localeOverride: json['localeOverride'] as String?,
+    gifConsentState: json['gifConsentState'] as int? ?? 0,
     fontScale: (json['fontScale'] as num?)?.toDouble() ?? 1.0,
     fontFamily: json['fontFamily'] as int? ?? 0,
     pinLockEnabled: json['pinLockEnabled'] as bool? ?? false,
     biometricLockEnabled: json['biometricLockEnabled'] as bool? ?? false,
     autoLockDelaySeconds: json['autoLockDelaySeconds'] as int? ?? 0,
+    displayFontInAppBar: json['displayFontInAppBar'] as bool? ?? true,
     navBarItems: (json['navBarItems'] as List<dynamic>?)?.cast<String>() ?? [],
     navBarOverflowItems:
         (json['navBarOverflowItems'] as List<dynamic>?)?.cast<String>() ?? [],
@@ -1269,6 +1378,21 @@ class V1SystemSettings {
           (k, v) => MapEntry(k, v.toString()),
         ) ??
         {},
+    defaultSleepQuality: json['defaultSleepQuality'] as int?,
+    frontingListViewMode: json['frontingListViewMode'] as int? ?? 0,
+    addFrontDefaultBehavior: json['addFrontDefaultBehavior'] as int? ?? 0,
+    quickFrontDefaultBehavior: json['quickFrontDefaultBehavior'] as int? ?? 0,
+    autoPromoteLongFrontingSessions:
+        json['autoPromoteLongFrontingSessions'] as bool? ?? true,
+    boardsEnabled: json['boardsEnabled'] as bool? ?? false,
+    spBoardsBackfilledAt: json['spBoardsBackfilledAt'] as String?,
+    membersListViewMode: json['membersListViewMode'] as int? ?? 0,
+    membersGroupedDefaultState: json['membersGroupedDefaultState'] as int? ?? 0,
+    membersFolderMemberVisibility:
+        json['membersFolderMemberVisibility'] as int? ?? 0,
+    membersShowPronouns: json['membersShowPronouns'] as bool? ?? true,
+    membersShowFrontButtons: json['membersShowFrontButtons'] as bool? ?? false,
+    membersFrontButtonBehavior: json['membersFrontButtonBehavior'] as int? ?? 0,
   );
 }
 
@@ -1978,6 +2102,63 @@ class V1MediaAttachment {
         blurhash: json['blurhash'] as String? ?? '',
         waveformB64: json['waveformB64'] as String? ?? '',
         thumbnailMediaId: json['thumbnailMediaId'] as String? ?? '',
+        isDeleted: json['isDeleted'] as bool? ?? false,
+      );
+}
+
+// ---------------------------------------------------------------------------
+// V1MemberBoardPost
+// ---------------------------------------------------------------------------
+
+class V1MemberBoardPost {
+  V1MemberBoardPost({
+    required this.id,
+    this.targetMemberId,
+    this.authorId,
+    required this.audience,
+    this.title,
+    required this.body,
+    required this.createdAt,
+    required this.writtenAt,
+    this.editedAt,
+    this.isDeleted = false,
+  });
+
+  final String id;
+  final String? targetMemberId;
+  final String? authorId;
+  final String audience;
+  final String? title;
+  final String body;
+  final String createdAt;
+  final String writtenAt;
+  final String? editedAt;
+  final bool isDeleted;
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    if (targetMemberId != null) 'targetMemberId': targetMemberId,
+    if (authorId != null) 'authorId': authorId,
+    'audience': audience,
+    if (title != null) 'title': title,
+    'body': body,
+    'createdAt': createdAt,
+    'writtenAt': writtenAt,
+    if (editedAt != null) 'editedAt': editedAt,
+    'isDeleted': isDeleted,
+  };
+
+  factory V1MemberBoardPost.fromJson(Map<String, dynamic> json) =>
+      V1MemberBoardPost(
+        id: json['id'] as String,
+        targetMemberId: json['targetMemberId'] as String?,
+        authorId: json['authorId'] as String?,
+        audience: json['audience'] as String? ?? 'public',
+        title: json['title'] as String?,
+        body: json['body'] as String? ?? '',
+        createdAt: json['createdAt'] as String,
+        writtenAt: json['writtenAt'] as String,
+        editedAt: json['editedAt'] as String?,
         isDeleted: json['isDeleted'] as bool? ?? false,
       );
 }

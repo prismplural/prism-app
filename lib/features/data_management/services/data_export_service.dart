@@ -195,6 +195,26 @@ class DataExportService {
     final friends = await friendsRepository.watchAll().first;
     final v1Friends = friends.map(_mapFriend).toList();
 
+    // Fetch member board posts, including soft-deleted tombstones so a restore
+    // preserves the user's current board state.
+    final boardPosts = await db.select(db.memberBoardPosts).get();
+    final v1MemberBoardPosts = boardPosts
+        .map(
+          (p) => V1MemberBoardPost(
+            id: p.id,
+            targetMemberId: p.targetMemberId,
+            authorId: p.authorId,
+            audience: p.audience,
+            title: p.title,
+            body: p.body,
+            createdAt: p.createdAt.toUtc().toIso8601String(),
+            writtenAt: p.writtenAt.toUtc().toIso8601String(),
+            editedAt: p.editedAt?.toUtc().toIso8601String(),
+            isDeleted: p.isDeleted,
+          ),
+        )
+        .toList();
+
     // Fetch media attachments
     final allMediaAttachments = await mediaAttachmentsDao.getAll();
     final v1MediaAttachments = allMediaAttachments
@@ -249,6 +269,7 @@ class DataExportService {
         v1ConversationCategories.length +
         v1Reminders.length +
         v1Friends.length +
+        v1MemberBoardPosts.length +
         v1MediaAttachments.length;
 
     return V1Export(
@@ -278,6 +299,7 @@ class DataExportService {
       reminders: v1Reminders,
       friends: v1Friends,
       mediaAttachments: v1MediaAttachments,
+      memberBoardPosts: v1MemberBoardPosts,
       // Envelope-level marker for the PRISM1 rescue importer (§4.7).
       // The empty-list / null-keys problem on individual rows
       // (`coFronterIds: []`, `pkMemberIdsJson: null`) means per-row
@@ -522,10 +544,18 @@ class DataExportService {
     themeMode: s.themeMode.index,
     themeBrightness: s.themeBrightness.index,
     themeStyle: s.themeStyle.index,
+    themeCornerStyle: s.cornerStyle.index,
     chatEnabled: s.chatEnabled,
     pollsEnabled: s.pollsEnabled,
     habitsEnabled: s.habitsEnabled,
     sleepTrackingEnabled: s.sleepTrackingEnabled,
+    gifSearchEnabled: s.gifSearchEnabled,
+    voiceNotesEnabled: s.voiceNotesEnabled,
+    sleepSuggestionEnabled: s.sleepSuggestionEnabled,
+    sleepSuggestionHour: s.sleepSuggestionHour,
+    sleepSuggestionMinute: s.sleepSuggestionMinute,
+    wakeSuggestionEnabled: s.wakeSuggestionEnabled,
+    wakeSuggestionAfterHours: s.wakeSuggestionAfterHours,
     quickSwitchThresholdSeconds: s.quickSwitchThresholdSeconds,
     identityGeneration: s.identityGeneration,
     chatLogsFront: s.chatLogsFront,
@@ -536,19 +566,38 @@ class DataExportService {
     notesEnabled: s.notesEnabled,
     previousAccentColorHex: s.previousAccentColorHex,
     systemDescription: s.systemDescription,
+    systemColor: s.systemColor,
+    pkGroupSyncV2Enabled: s.pkGroupSyncV2Enabled,
+    systemTag: s.systemTag,
     systemAvatarData: s.systemAvatarData != null
         ? base64Encode(s.systemAvatarData!)
         : null,
     remindersEnabled: s.remindersEnabled,
+    localeOverride: s.localeOverride,
+    gifConsentState: s.gifConsentState.index,
     fontScale: s.fontScale,
     fontFamily: s.fontFamily.index,
     pinLockEnabled: s.pinLockEnabled,
     biometricLockEnabled: s.biometricLockEnabled,
     autoLockDelaySeconds: s.autoLockDelaySeconds,
+    displayFontInAppBar: s.displayFontInAppBar,
     navBarItems: s.navBarItems,
     navBarOverflowItems: s.navBarOverflowItems,
     syncNavigationEnabled: s.syncNavigationEnabled,
     chatBadgePreferences: s.chatBadgePreferences,
+    defaultSleepQuality: s.defaultSleepQuality?.index,
+    frontingListViewMode: s.frontingListViewMode.index,
+    addFrontDefaultBehavior: s.addFrontDefaultBehavior.index,
+    quickFrontDefaultBehavior: s.quickFrontDefaultBehavior.index,
+    autoPromoteLongFrontingSessions: s.autoPromoteLongFrontingSessions,
+    boardsEnabled: s.boardsEnabled,
+    spBoardsBackfilledAt: s.spBoardsBackfilledAt?.toUtc().toIso8601String(),
+    membersListViewMode: s.membersListViewMode.index,
+    membersGroupedDefaultState: s.membersGroupedDefaultState.index,
+    membersFolderMemberVisibility: s.membersFolderMemberVisibility.index,
+    membersShowPronouns: s.membersShowPronouns,
+    membersShowFrontButtons: s.membersShowFrontButtons,
+    membersFrontButtonBehavior: s.membersFrontButtonBehavior.index,
   );
 
   V1Habit _mapHabit(Habit h) => V1Habit(
