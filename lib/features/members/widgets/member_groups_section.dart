@@ -28,14 +28,22 @@ class MemberGroupsSection extends ConsumerWidget {
   final String memberId;
   final String memberName;
 
+  String _groupPath(BuildContext context, String id) {
+    final location = GoRouterState.of(context).uri.path;
+    final topLevel =
+        location.startsWith(AppRoutePaths.members) &&
+        !location.startsWith(AppRoutePaths.settings);
+    return topLevel
+        ? AppRoutePaths.memberGroup(id)
+        : AppRoutePaths.settingsGroup(id);
+  }
+
   void _openManageGroupsSheet(BuildContext context) {
     PrismSheet.show(
       context: context,
       title: context.l10n.memberGroupManageTitle,
-      builder: (_) => ManageGroupsSheet(
-        memberId: memberId,
-        memberName: memberName,
-      ),
+      builder: (_) =>
+          ManageGroupsSheet(memberId: memberId, memberName: memberName),
     );
   }
 
@@ -108,17 +116,20 @@ class MemberGroupsSection extends ConsumerWidget {
                           PrismChip(
                             label: group.name,
                             selected: false,
-                            onTap: () => context
-                                .push(AppRoutePaths.settingsGroup(group.id)),
-                            avatar: group.emoji != null &&
-                                    group.emoji!.isNotEmpty
-                                ? Text(group.emoji!,
-                                    style: const TextStyle(fontSize: 12))
+                            avatar:
+                                group.emoji != null && group.emoji!.isNotEmpty
+                                ? Text(
+                                    group.emoji!,
+                                    style: const TextStyle(fontSize: 12),
+                                  )
                                 : null,
-                            tintColor: group.colorHex != null &&
+                            tintColor:
+                                group.colorHex != null &&
                                     group.colorHex!.isNotEmpty
                                 ? AppColors.fromHex(group.colorHex!)
                                 : null,
+                            onTap: () =>
+                                context.push(_groupPath(context, group.id)),
                           ),
                       ],
                     ),

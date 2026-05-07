@@ -15,6 +15,9 @@ void main() {
     int addFrontDefaultBehavior = 0,
     int quickFrontDefaultBehavior = 0,
     bool autoPromoteLongFrontingSessions = true,
+    int membersListViewMode = 0,
+    int membersGroupedDefaultState = 0,
+    int membersFolderMemberVisibility = 0,
   }) {
     return SystemSettingsData(
       id: 'singleton',
@@ -80,6 +83,9 @@ void main() {
       autoPromoteLongFrontingSessions: autoPromoteLongFrontingSessions,
       boardsEnabled: false,
       spBoardsBackfilledAt: null,
+      membersListViewMode: membersListViewMode,
+      membersGroupedDefaultState: membersGroupedDefaultState,
+      membersFolderMemberVisibility: membersFolderMemberVisibility,
     );
   }
 
@@ -295,4 +301,82 @@ void main() {
       );
     },
   );
+
+  group('SystemSettingsMapper — members list view preferences', () {
+    test('default SystemSettings keeps grouped sections open', () {
+      const settings = SystemSettings();
+      expect(settings.membersListViewMode, MembersListViewMode.groupedSections);
+      expect(
+        settings.membersGroupedDefaultState,
+        MembersGroupedDefaultState.open,
+      );
+      expect(
+        settings.membersFolderMemberVisibility,
+        MembersFolderMemberVisibility.allMembers,
+      );
+    });
+
+    test('stored enum indices map to domain values', () {
+      final settings = SystemSettingsMapper.toDomain(
+        makeDbRow(
+          membersListViewMode: 1,
+          membersGroupedDefaultState: 1,
+          membersFolderMemberVisibility: 1,
+        ),
+      );
+
+      expect(settings.membersListViewMode, MembersListViewMode.folders);
+      expect(
+        settings.membersGroupedDefaultState,
+        MembersGroupedDefaultState.closed,
+      );
+      expect(
+        settings.membersFolderMemberVisibility,
+        MembersFolderMemberVisibility.ungroupedOnly,
+      );
+    });
+
+    test('invalid stored indices fall back to defaults', () {
+      final settings = SystemSettingsMapper.toDomain(
+        makeDbRow(
+          membersListViewMode: 99,
+          membersGroupedDefaultState: -1,
+          membersFolderMemberVisibility: 99,
+        ),
+      );
+
+      expect(settings.membersListViewMode, MembersListViewMode.groupedSections);
+      expect(
+        settings.membersGroupedDefaultState,
+        MembersGroupedDefaultState.open,
+      );
+      expect(
+        settings.membersFolderMemberVisibility,
+        MembersFolderMemberVisibility.allMembers,
+      );
+    });
+
+    test('toCompanion stores enum indices', () {
+      final settings = const SystemSettings().copyWith(
+        membersListViewMode: MembersListViewMode.folders,
+        membersGroupedDefaultState: MembersGroupedDefaultState.closed,
+        membersFolderMemberVisibility:
+            MembersFolderMemberVisibility.ungroupedOnly,
+      );
+      final companion = SystemSettingsMapper.toCompanion(settings);
+
+      expect(
+        companion.membersListViewMode.value,
+        MembersListViewMode.folders.index,
+      );
+      expect(
+        companion.membersGroupedDefaultState.value,
+        MembersGroupedDefaultState.closed.index,
+      );
+      expect(
+        companion.membersFolderMemberVisibility.value,
+        MembersFolderMemberVisibility.ungroupedOnly.index,
+      );
+    });
+  });
 }

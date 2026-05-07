@@ -121,6 +121,24 @@ _SystemSettings _$SystemSettingsFromJson(
   spBoardsBackfilledAt: json['spBoardsBackfilledAt'] == null
       ? null
       : DateTime.parse(json['spBoardsBackfilledAt'] as String),
+  membersListViewMode:
+      $enumDecodeNullable(
+        _$MembersListViewModeEnumMap,
+        json['membersListViewMode'],
+      ) ??
+      MembersListViewMode.groupedSections,
+  membersGroupedDefaultState:
+      $enumDecodeNullable(
+        _$MembersGroupedDefaultStateEnumMap,
+        json['membersGroupedDefaultState'],
+      ) ??
+      MembersGroupedDefaultState.open,
+  membersFolderMemberVisibility:
+      $enumDecodeNullable(
+        _$MembersFolderMemberVisibilityEnumMap,
+        json['membersFolderMemberVisibility'],
+      ) ??
+      MembersFolderMemberVisibility.allMembers,
 );
 
 Map<String, dynamic> _$SystemSettingsToJson(
@@ -189,6 +207,13 @@ Map<String, dynamic> _$SystemSettingsToJson(
   'autoPromoteLongFrontingSessions': instance.autoPromoteLongFrontingSessions,
   'boardsEnabled': instance.boardsEnabled,
   'spBoardsBackfilledAt': instance.spBoardsBackfilledAt?.toIso8601String(),
+  'membersListViewMode':
+      _$MembersListViewModeEnumMap[instance.membersListViewMode]!,
+  'membersGroupedDefaultState':
+      _$MembersGroupedDefaultStateEnumMap[instance.membersGroupedDefaultState]!,
+  'membersFolderMemberVisibility':
+      _$MembersFolderMemberVisibilityEnumMap[instance
+          .membersFolderMemberVisibility]!,
 };
 
 const _$SystemTerminologyEnumMap = {
@@ -259,4 +284,19 @@ const _$FrontingListViewModeEnumMap = {
 const _$FrontStartBehaviorEnumMap = {
   FrontStartBehavior.additive: 'additive',
   FrontStartBehavior.replace: 'replace',
+};
+
+const _$MembersListViewModeEnumMap = {
+  MembersListViewMode.groupedSections: 'groupedSections',
+  MembersListViewMode.folders: 'folders',
+};
+
+const _$MembersGroupedDefaultStateEnumMap = {
+  MembersGroupedDefaultState.open: 'open',
+  MembersGroupedDefaultState.closed: 'closed',
+};
+
+const _$MembersFolderMemberVisibilityEnumMap = {
+  MembersFolderMemberVisibility.allMembers: 'allMembers',
+  MembersFolderMemberVisibility.ungroupedOnly: 'ungroupedOnly',
 };

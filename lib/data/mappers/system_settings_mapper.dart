@@ -88,6 +88,21 @@ class SystemSettingsMapper {
       autoPromoteLongFrontingSessions: row.autoPromoteLongFrontingSessions,
       boardsEnabled: row.boardsEnabled,
       spBoardsBackfilledAt: row.spBoardsBackfilledAt,
+      membersListViewMode: enumByIndex(
+        row.membersListViewMode,
+        domain.MembersListViewMode.values,
+        domain.MembersListViewMode.groupedSections,
+      ),
+      membersGroupedDefaultState: enumByIndex(
+        row.membersGroupedDefaultState,
+        domain.MembersGroupedDefaultState.values,
+        domain.MembersGroupedDefaultState.open,
+      ),
+      membersFolderMemberVisibility: enumByIndex(
+        row.membersFolderMemberVisibility,
+        domain.MembersFolderMemberVisibility.values,
+        domain.MembersFolderMemberVisibility.allMembers,
+      ),
     );
   }
 
@@ -158,6 +173,11 @@ class SystemSettingsMapper {
       ),
       boardsEnabled: Value(model.boardsEnabled),
       spBoardsBackfilledAt: Value(model.spBoardsBackfilledAt),
+      membersListViewMode: Value(model.membersListViewMode.index),
+      membersGroupedDefaultState: Value(model.membersGroupedDefaultState.index),
+      membersFolderMemberVisibility: Value(
+        model.membersFolderMemberVisibility.index,
+      ),
     );
   }
 

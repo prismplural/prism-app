@@ -2972,6 +2972,57 @@ class AppLocalizationsEs extends AppLocalizations {
   String get memberGroupFilterUngrouped => 'Sin grupo';
 
   @override
+  String get memberListViewSettingsTitle => 'Ajustes de vista';
+
+  @override
+  String get memberListViewModeLabel => 'Vista';
+
+  @override
+  String get memberListViewModeGroupedSections => 'Secciones';
+
+  @override
+  String get memberListViewModeFolders => 'Carpetas';
+
+  @override
+  String get memberGroupedDefaultStateLabel => 'Estado inicial';
+
+  @override
+  String get memberGroupedDefaultStateOpen => 'Abiertas';
+
+  @override
+  String get memberGroupedDefaultStateClosed => 'Cerradas';
+
+  @override
+  String get memberFolderVisibilityLabel => 'Lista principal';
+
+  @override
+  String get memberFolderVisibilityAll => 'Todos';
+
+  @override
+  String get memberFolderVisibilityUngrouped => 'Sin grupo';
+
+  @override
+  String get memberGroupSubGroupSemantic => 'subgrupo';
+
+  @override
+  String memberGroupMemberCountSemantic(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count miembros',
+      one: '1 miembro',
+      zero: 'sin miembros',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get memberGroupOpenSemantic => 'abre el grupo';
+
+  @override
+  String get reorder => 'Reordenar';
+
+  @override
   String memberGroupFrontAllAlreadyFronting(
     String termPluralLower,
     Object termPlural,

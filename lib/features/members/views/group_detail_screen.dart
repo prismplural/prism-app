@@ -16,9 +16,9 @@ import 'package:prism_plurality/features/members/utils/group_tree_utils.dart';
 import 'package:prism_plurality/features/members/utils/member_search_groups.dart';
 import 'package:prism_plurality/features/members/widgets/create_edit_group_sheet.dart';
 import 'package:prism_plurality/features/members/widgets/delete_group_sheet.dart';
+import 'package:prism_plurality/features/members/widgets/member_group_row.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
-import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/member_card.dart';
@@ -38,9 +38,14 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 
 /// Detail screen for a single member group.
 class GroupDetailScreen extends ConsumerWidget {
-  const GroupDetailScreen({super.key, required this.groupId});
+  const GroupDetailScreen({
+    super.key,
+    required this.groupId,
+    this.settingsBranch = true,
+  });
 
   final String groupId;
+  final bool settingsBranch;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -63,16 +68,17 @@ class GroupDetailScreen extends ConsumerWidget {
             body: Center(child: Text(l10n.memberGroupNotFound)),
           );
         }
-        return _GroupDetailBody(group: group);
+        return _GroupDetailBody(group: group, settingsBranch: settingsBranch);
       },
     );
   }
 }
 
 class _GroupDetailBody extends ConsumerWidget {
-  const _GroupDetailBody({required this.group});
+  const _GroupDetailBody({required this.group, required this.settingsBranch});
 
   final MemberGroup group;
+  final bool settingsBranch;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -155,7 +161,10 @@ class _GroupDetailBody extends ConsumerWidget {
                 ) ??
                 const SizedBox.shrink(),
 
-            _SubGroupsSection(groupId: group.id),
+            _SubGroupsSection(
+              groupId: group.id,
+              settingsBranch: settingsBranch,
+            ),
 
             Row(
               children: [
@@ -200,6 +209,7 @@ class _GroupDetailBody extends ConsumerWidget {
                   itemBuilder: (context, index) => _GroupMemberTile(
                     entry: entries[index],
                     groupId: group.id,
+                    settingsBranch: settingsBranch,
                   ),
                 );
               },
@@ -525,9 +535,13 @@ class _GroupInfoHeader extends StatelessWidget {
 }
 
 class _SubGroupsSection extends ConsumerWidget {
-  const _SubGroupsSection({required this.groupId});
+  const _SubGroupsSection({
+    required this.groupId,
+    required this.settingsBranch,
+  });
 
   final String groupId;
+  final bool settingsBranch;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -562,8 +576,22 @@ class _SubGroupsSection extends ConsumerWidget {
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           itemCount: children.length,
-          itemBuilder: (context, index) =>
-              _SubGroupTile(group: children[index]),
+          itemBuilder: (context, index) {
+            final group = children[index];
+            final count = ref.watch(
+              groupMemberCountsProvider.select((m) => m[group.id] ?? 0),
+            );
+            return MemberGroupRow(
+              group: group,
+              memberCount: count,
+              margin: EdgeInsets.zero.copyWith(top: 4, bottom: 4),
+              onTap: () => context.push(
+                settingsBranch
+                    ? AppRoutePaths.settingsGroup(group.id)
+                    : AppRoutePaths.memberGroup(group.id),
+              ),
+            );
+          },
         ),
         const SizedBox(height: 24),
       ],
@@ -571,130 +599,16 @@ class _SubGroupsSection extends ConsumerWidget {
   }
 }
 
-class _SubGroupTile extends ConsumerWidget {
-  const _SubGroupTile({required this.group});
-
-  final MemberGroup group;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final count = ref.watch(
-      groupMemberCountsProvider.select((m) => m[group.id] ?? 0),
-    );
-    final hasColor = group.colorHex != null && group.colorHex!.isNotEmpty;
-    final accentColor = hasColor ? AppColors.fromHex(group.colorHex!) : null;
-    final tileRadius = BorderRadius.circular(
-      PrismShapes.of(context).radius(14),
-    );
-
-    return Semantics(
-      label: '${group.name}, sub-group, $count members, navigate',
-      excludeSemantics: true,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: InkWell(
-          onTap: () => context.push(AppRoutePaths.settingsGroup(group.id)),
-          borderRadius: tileRadius,
-          child: Container(
-            decoration: BoxDecoration(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.06),
-              borderRadius: tileRadius,
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Row(
-              children: [
-                if (hasColor)
-                  Container(width: 4, height: 56, color: accentColor),
-                Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.only(
-                      left: hasColor ? 12 : 16,
-                      right: 16,
-                      top: 12,
-                      bottom: 12,
-                    ),
-                    child: Row(
-                      children: [
-                        if (group.emoji != null && group.emoji!.isNotEmpty)
-                          SizedBox(
-                            width: 32,
-                            height: 32,
-                            child: Center(
-                              child: Text(
-                                group.emoji!,
-                                style: const TextStyle(fontSize: 20),
-                              ),
-                            ),
-                          )
-                        else
-                          Container(
-                            width: 32,
-                            height: 32,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color:
-                                  accentColor ??
-                                  theme.colorScheme.primaryContainer,
-                            ),
-                            child: Icon(
-                              AppIcons.folderOutlined,
-                              size: 16,
-                              color: accentColor != null
-                                  ? AppColors.warmWhite
-                                  : theme.colorScheme.onPrimaryContainer,
-                            ),
-                          ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            group.name,
-                            style: theme.textTheme.bodyLarge?.copyWith(
-                              fontWeight: FontWeight.w500,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        if (count > 0)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.primaryContainer,
-                              borderRadius: BorderRadius.circular(
-                                PrismShapes.of(context).radius(12),
-                              ),
-                            ),
-                            child: Text(
-                              '$count',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: theme.colorScheme.onPrimaryContainer,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _GroupMemberTile extends ConsumerWidget {
-  const _GroupMemberTile({required this.entry, required this.groupId});
+  const _GroupMemberTile({
+    required this.entry,
+    required this.groupId,
+    required this.settingsBranch,
+  });
 
   final MemberGroupEntry entry;
   final String groupId;
+  final bool settingsBranch;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -722,7 +636,11 @@ class _GroupMemberTile extends ConsumerWidget {
           confirmDismiss: (_) => _confirmRemove(context, ref, member),
           child: MemberCard(
             member: member,
-            onTap: () => context.push(AppRoutePaths.settingsMember(member.id)),
+            onTap: () => context.push(
+              settingsBranch
+                  ? AppRoutePaths.settingsMember(member.id)
+                  : AppRoutePaths.member(member.id),
+            ),
           ),
         );
       },

@@ -290,6 +290,27 @@ class DriftSystemSettingsRepository
     await _syncField('quick_front_default_behavior', value.index);
   }
 
+  @override
+  Future<void> updateMembersListViewMode(
+    domain.MembersListViewMode value,
+  ) async {
+    await _dao.updateMembersListViewMode(value.index);
+  }
+
+  @override
+  Future<void> updateMembersGroupedDefaultState(
+    domain.MembersGroupedDefaultState value,
+  ) async {
+    await _dao.updateMembersGroupedDefaultState(value.index);
+  }
+
+  @override
+  Future<void> updateMembersFolderMemberVisibility(
+    domain.MembersFolderMemberVisibility value,
+  ) async {
+    await _dao.updateMembersFolderMemberVisibility(value.index);
+  }
+
   // Int fields
 
   @override

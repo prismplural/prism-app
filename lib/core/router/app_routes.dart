@@ -59,6 +59,7 @@ abstract final class AppRoutePaths {
   static const timeline = '/timeline';
 
   // Parameterized helpers — groups
+  static String memberGroup(String id) => '/members/groups/$id';
   static String settingsGroup(String id) => '/settings/members/groups/$id';
 
   // Full-screen routes

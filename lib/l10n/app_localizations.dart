@@ -5086,6 +5086,90 @@ abstract class AppLocalizations {
   /// **'Ungrouped'**
   String get memberGroupFilterUngrouped;
 
+  /// Title for the members list view settings sheet and menu row
+  ///
+  /// In en, this message translates to:
+  /// **'View settings'**
+  String get memberListViewSettingsTitle;
+
+  /// Label for choosing how the members list is displayed
+  ///
+  /// In en, this message translates to:
+  /// **'View'**
+  String get memberListViewModeLabel;
+
+  /// Segment label for the grouped section members list view
+  ///
+  /// In en, this message translates to:
+  /// **'Sections'**
+  String get memberListViewModeGroupedSections;
+
+  /// Segment label for the folder-style members list view
+  ///
+  /// In en, this message translates to:
+  /// **'Folders'**
+  String get memberListViewModeFolders;
+
+  /// Label for choosing whether grouped sections start open or closed
+  ///
+  /// In en, this message translates to:
+  /// **'Default section state'**
+  String get memberGroupedDefaultStateLabel;
+
+  /// Segment label for grouped sections starting open
+  ///
+  /// In en, this message translates to:
+  /// **'Open'**
+  String get memberGroupedDefaultStateOpen;
+
+  /// Segment label for grouped sections starting closed
+  ///
+  /// In en, this message translates to:
+  /// **'Closed'**
+  String get memberGroupedDefaultStateClosed;
+
+  /// Label for choosing which members appear below folders
+  ///
+  /// In en, this message translates to:
+  /// **'Main list'**
+  String get memberFolderVisibilityLabel;
+
+  /// Segment label for showing all members below folders
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get memberFolderVisibilityAll;
+
+  /// Segment label for showing only ungrouped members below folders
+  ///
+  /// In en, this message translates to:
+  /// **'Ungrouped'**
+  String get memberFolderVisibilityUngrouped;
+
+  /// Accessibility term for a nested member group
+  ///
+  /// In en, this message translates to:
+  /// **'sub-group'**
+  String get memberGroupSubGroupSemantic;
+
+  /// Accessibility phrase for a group member count
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0 {no members} =1 {1 member} other {{count} members}}'**
+  String memberGroupMemberCountSemantic(int count);
+
+  /// Accessibility phrase for group rows that navigate into a group
+  ///
+  /// In en, this message translates to:
+  /// **'opens group'**
+  String get memberGroupOpenSemantic;
+
+  /// Tooltip for a drag handle that reorders list items
+  ///
+  /// In en, this message translates to:
+  /// **'Reorder'**
+  String get reorder;
+
   /// Toast shown when all group members are already fronting
   ///
   /// In en, this message translates to:

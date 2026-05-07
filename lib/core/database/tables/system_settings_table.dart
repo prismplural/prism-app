@@ -216,6 +216,26 @@ class SystemSettingsTable extends Table {
   // CRDT LWW so the sentinel propagates to peers.
   DateTimeColumn get spBoardsBackfilledAt => dateTime().nullable()();
 
+  // -- Members tab display preferences --
+  //
+  // Device-local: these are presentation choices for the local members list,
+  // not system data. Stored as enum indices.
+
+  /// `MembersListViewMode` index.
+  /// 0 = groupedSections (default), 1 = folders.
+  IntColumn get membersListViewMode =>
+      integer().withDefault(const Constant(0))();
+
+  /// `MembersGroupedDefaultState` index.
+  /// 0 = open (default), 1 = closed.
+  IntColumn get membersGroupedDefaultState =>
+      integer().withDefault(const Constant(0))();
+
+  /// `MembersFolderMemberVisibility` index.
+  /// 0 = allMembers (default), 1 = ungroupedOnly.
+  IntColumn get membersFolderMemberVisibility =>
+      integer().withDefault(const Constant(0))();
+
   @override
   String get tableName => 'system_settings';
 

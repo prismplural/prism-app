@@ -38,6 +38,7 @@ Widget _buildSubject({
   required List<Member> members,
   required List<MemberGroup> groups,
   required List<MemberGroupEntry> entries,
+  SystemSettings settings = const SystemSettings(),
   bool withRouter = false,
 }) {
   final child = withRouter
@@ -51,11 +52,18 @@ Widget _buildSubject({
                 path: AppRoutePaths.members,
                 builder: (context, state) =>
                     const MembersScreen(showBackButton: false),
-              ),
-              GoRoute(
-                path: '/members/:id',
-                builder: (context, state) =>
-                    Text('Member detail ${state.pathParameters['id']}'),
+                routes: [
+                  GoRoute(
+                    path: 'groups/:id',
+                    builder: (context, state) =>
+                        Text('Group detail ${state.pathParameters['id']}'),
+                  ),
+                  GoRoute(
+                    path: ':id',
+                    builder: (context, state) =>
+                        Text('Member detail ${state.pathParameters['id']}'),
+                  ),
+                ],
               ),
             ],
           ),
@@ -68,9 +76,7 @@ Widget _buildSubject({
 
   return ProviderScope(
     overrides: [
-      systemSettingsProvider.overrideWith(
-        (ref) => Stream.value(const SystemSettings()),
-      ),
+      systemSettingsProvider.overrideWith((ref) => Stream.value(settings)),
       activeMembersProvider.overrideWith((ref) => Stream.value(members)),
       allMembersProvider.overrideWith((ref) => Stream.value(members)),
       activeSessionsProvider.overrideWith(
@@ -189,6 +195,94 @@ void main() {
 
     expect(find.byType(MemberSearchSheet), findsNothing);
     expect(find.text('Member detail bob'), findsOneWidget);
+  });
+
+  testWidgets('options menu opens view settings sheet without moving search', (
+    tester,
+  ) async {
+    final members = [_member('alice')];
+
+    await tester.pumpWidget(
+      _buildSubject(members: members, groups: const [], entries: const []),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(AppIcons.moreVert));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Search headmates...'), findsOneWidget);
+    await tester.tap(find.text('View settings'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('View'), findsOneWidget);
+    expect(find.text('Sections'), findsOneWidget);
+    expect(find.text('Folders'), findsOneWidget);
+  });
+
+  testWidgets('folder view shows groups first and opens group detail', (
+    tester,
+  ) async {
+    final group = _group('crew', 'Crew');
+    final members = [_member('alice'), _member('bob', displayOrder: 1)];
+
+    await tester.pumpWidget(
+      _buildSubject(
+        settings: const SystemSettings(
+          membersListViewMode: MembersListViewMode.folders,
+        ),
+        members: members,
+        groups: [group],
+        entries: const [
+          MemberGroupEntry(
+            id: 'entry-alice',
+            groupId: 'crew',
+            memberId: 'alice',
+          ),
+        ],
+        withRouter: true,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Crew'), findsOneWidget);
+    expect(find.text('Member alice'), findsOneWidget);
+    expect(find.text('Member bob'), findsOneWidget);
+
+    await tester.tap(find.text('Crew'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Group detail crew'), findsOneWidget);
+  });
+
+  testWidgets('folder view can show only ungrouped members below groups', (
+    tester,
+  ) async {
+    final group = _group('crew', 'Crew');
+    final members = [_member('alice'), _member('bob', displayOrder: 1)];
+
+    await tester.pumpWidget(
+      _buildSubject(
+        settings: const SystemSettings(
+          membersListViewMode: MembersListViewMode.folders,
+          membersFolderMemberVisibility:
+              MembersFolderMemberVisibility.ungroupedOnly,
+        ),
+        members: members,
+        groups: [group],
+        entries: const [
+          MemberGroupEntry(
+            id: 'entry-alice',
+            groupId: 'crew',
+            memberId: 'alice',
+          ),
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Crew'), findsOneWidget);
+    expect(find.text('Member alice'), findsNothing);
+    expect(find.text('Member bob'), findsOneWidget);
   });
 
   testWidgets('member rows expose actions from long-press menu', (

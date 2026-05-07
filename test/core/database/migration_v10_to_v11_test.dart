@@ -22,6 +22,17 @@ Future<void> _seedV10Db(File dbFile) async {
 
   final rawDb = raw.sqlite3.open(dbFile.path);
   try {
+    // v18 (member list display preferences) — drop columns added by v17→v18.
+    rawDb.execute(
+      'ALTER TABLE system_settings DROP COLUMN members_list_view_mode',
+    );
+    rawDb.execute(
+      'ALTER TABLE system_settings DROP COLUMN members_grouped_default_state',
+    );
+    rawDb.execute(
+      'ALTER TABLE system_settings DROP COLUMN members_folder_member_visibility',
+    );
+
     // v17 (fronting auto-promotion) — drop column added by v16→v17.
     rawDb.execute(
       'ALTER TABLE system_settings DROP COLUMN auto_promote_long_fronting_sessions',
@@ -35,9 +46,7 @@ Future<void> _seedV10Db(File dbFile) async {
     rawDb.execute('ALTER TABLE members DROP COLUMN name_style_color_hex');
     // v15 (Member Boards) — drop columns added by v14→v15 to simulate older state.
     rawDb.execute('ALTER TABLE members DROP COLUMN board_last_read_at');
-    rawDb.execute(
-      'ALTER TABLE system_settings DROP COLUMN boards_enabled',
-    );
+    rawDb.execute('ALTER TABLE system_settings DROP COLUMN boards_enabled');
     rawDb.execute(
       'ALTER TABLE system_settings DROP COLUMN sp_boards_backfilled_at',
     );
@@ -82,7 +91,7 @@ void main() {
       expect(member.profileHeaderVisible, isTrue);
 
       final version = await upgraded.customSelect('PRAGMA user_version').get();
-      expect(version.first.read<int>('user_version'), 17);
+      expect(version.first.read<int>('user_version'), 18);
     });
   });
 }

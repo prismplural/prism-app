@@ -96,7 +96,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 17;
+  int get schemaVersion => 18;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -500,6 +500,21 @@ class AppDatabase extends _$AppDatabase {
           systemSettingsTable.autoPromoteLongFrontingSessions,
         );
         current = 17;
+      }
+      if (current == 17 && to >= 18) {
+        await migrator.addColumn(
+          systemSettingsTable,
+          systemSettingsTable.membersListViewMode,
+        );
+        await migrator.addColumn(
+          systemSettingsTable,
+          systemSettingsTable.membersGroupedDefaultState,
+        );
+        await migrator.addColumn(
+          systemSettingsTable,
+          systemSettingsTable.membersFolderMemberVisibility,
+        );
+        current = 18;
       }
       if (current != to) {
         throw UnsupportedError(

@@ -3998,6 +3998,67 @@
   "@memberGroupFilterUngrouped": {
     "description": "Filter chip label to show only members not in any group"
   },
+  "memberListViewSettingsTitle": "View settings",
+  "@memberListViewSettingsTitle": {
+    "description": "Title for the members list view settings sheet and menu row"
+  },
+  "memberListViewModeLabel": "View",
+  "@memberListViewModeLabel": {
+    "description": "Label for choosing how the members list is displayed"
+  },
+  "memberListViewModeGroupedSections": "Sections",
+  "@memberListViewModeGroupedSections": {
+    "description": "Segment label for the grouped section members list view"
+  },
+  "memberListViewModeFolders": "Folders",
+  "@memberListViewModeFolders": {
+    "description": "Segment label for the folder-style members list view"
+  },
+  "memberGroupedDefaultStateLabel": "Default section state",
+  "@memberGroupedDefaultStateLabel": {
+    "description": "Label for choosing whether grouped sections start open or closed"
+  },
+  "memberGroupedDefaultStateOpen": "Open",
+  "@memberGroupedDefaultStateOpen": {
+    "description": "Segment label for grouped sections starting open"
+  },
+  "memberGroupedDefaultStateClosed": "Closed",
+  "@memberGroupedDefaultStateClosed": {
+    "description": "Segment label for grouped sections starting closed"
+  },
+  "memberFolderVisibilityLabel": "Main list",
+  "@memberFolderVisibilityLabel": {
+    "description": "Label for choosing which members appear below folders"
+  },
+  "memberFolderVisibilityAll": "All",
+  "@memberFolderVisibilityAll": {
+    "description": "Segment label for showing all members below folders"
+  },
+  "memberFolderVisibilityUngrouped": "Ungrouped",
+  "@memberFolderVisibilityUngrouped": {
+    "description": "Segment label for showing only ungrouped members below folders"
+  },
+  "memberGroupSubGroupSemantic": "sub-group",
+  "@memberGroupSubGroupSemantic": {
+    "description": "Accessibility term for a nested member group"
+  },
+  "memberGroupMemberCountSemantic": "{count, plural, =0 {no members} =1 {1 member} other {{count} members}}",
+  "@memberGroupMemberCountSemantic": {
+    "description": "Accessibility phrase for a group member count",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "memberGroupOpenSemantic": "opens group",
+  "@memberGroupOpenSemantic": {
+    "description": "Accessibility phrase for group rows that navigate into a group"
+  },
+  "reorder": "Reorder",
+  "@reorder": {
+    "description": "Tooltip for a drag handle that reorders list items"
+  },
   "memberGroupFrontAllAlreadyFronting": "All {termPluralLower} are already fronting",
   "@memberGroupFrontAllAlreadyFronting": {
     "description": "Toast shown when all group members are already fronting",

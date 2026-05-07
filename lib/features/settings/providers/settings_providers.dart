@@ -229,6 +229,31 @@ class SettingsNotifier extends AsyncNotifier<void> {
     });
   }
 
+  Future<void> updateMembersListViewMode(MembersListViewMode mode) async {
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateMembersListViewMode(mode);
+    });
+  }
+
+  Future<void> updateMembersGroupedDefaultState(
+    MembersGroupedDefaultState defaultState,
+  ) async {
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateMembersGroupedDefaultState(defaultState);
+    });
+  }
+
+  Future<void> updateMembersFolderMemberVisibility(
+    MembersFolderMemberVisibility visibility,
+  ) async {
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateMembersFolderMemberVisibility(visibility);
+    });
+  }
+
   Future<void> updateHabitsBadgeEnabled(bool value) async {
     state = await AsyncValue.guard(() async {
       final repo = ref.read(systemSettingsRepositoryProvider);
@@ -761,6 +786,33 @@ final autoPromoteLongFrontingSessionsProvider = Provider<bool>((ref) {
           .whenOrNull(data: (s) => s.autoPromoteLongFrontingSessions) ??
       true;
 });
+
+/// Device-local members tab display mode.
+final membersListViewModeProvider = Provider<MembersListViewMode>((ref) {
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.membersListViewMode) ??
+      MembersListViewMode.groupedSections;
+});
+
+/// Device-local default expansion state for grouped member sections.
+final membersGroupedDefaultStateProvider = Provider<MembersGroupedDefaultState>(
+  (ref) {
+    return ref
+            .watch(systemSettingsProvider)
+            .whenOrNull(data: (s) => s.membersGroupedDefaultState) ??
+        MembersGroupedDefaultState.open;
+  },
+);
+
+/// Device-local member visibility below folders in folder view.
+final membersFolderMemberVisibilityProvider =
+    Provider<MembersFolderMemberVisibility>((ref) {
+      return ref
+              .watch(systemSettingsProvider)
+              .whenOrNull(data: (s) => s.membersFolderMemberVisibility) ??
+          MembersFolderMemberVisibility.allMembers;
+    });
 
 /// Narrow provider for `hasCompletedOnboarding` flag.
 final hasCompletedOnboardingProvider = Provider<bool>((ref) {

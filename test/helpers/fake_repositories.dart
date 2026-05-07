@@ -247,6 +247,19 @@ class FakeSystemSettingsRepository implements SystemSettingsRepository {
   ) async =>
       updateSettings(settings.copyWith(quickFrontDefaultBehavior: value));
   @override
+  Future<void> updateMembersListViewMode(MembersListViewMode value) async =>
+      updateSettings(settings.copyWith(membersListViewMode: value));
+  @override
+  Future<void> updateMembersGroupedDefaultState(
+    MembersGroupedDefaultState value,
+  ) async =>
+      updateSettings(settings.copyWith(membersGroupedDefaultState: value));
+  @override
+  Future<void> updateMembersFolderMemberVisibility(
+    MembersFolderMemberVisibility value,
+  ) async =>
+      updateSettings(settings.copyWith(membersFolderMemberVisibility: value));
+  @override
   Future<void> updateFrontingReminderIntervalMinutes(int value) async =>
       updateSettings(settings.copyWith(frontingReminderIntervalMinutes: value));
   @override

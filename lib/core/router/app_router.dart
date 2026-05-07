@@ -654,6 +654,13 @@ final routerProvider = Provider<GoRouter>((ref) {
                     const MembersScreen(showBackButton: false),
                 routes: [
                   GoRoute(
+                    path: 'groups/:id',
+                    builder: (context, state) => GroupDetailScreen(
+                      groupId: state.pathParameters['id']!,
+                      settingsBranch: false,
+                    ),
+                  ),
+                  GoRoute(
                     path: ':id',
                     builder: (context, state) => MemberDetailScreen(
                       memberId: state.pathParameters['id']!,

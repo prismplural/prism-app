@@ -5633,6 +5633,41 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         type: DriftSqlType.dateTime,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _membersListViewModeMeta =
+      const VerificationMeta('membersListViewMode');
+  @override
+  late final GeneratedColumn<int> membersListViewMode = GeneratedColumn<int>(
+    'members_list_view_mode',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _membersGroupedDefaultStateMeta =
+      const VerificationMeta('membersGroupedDefaultState');
+  @override
+  late final GeneratedColumn<int> membersGroupedDefaultState =
+      GeneratedColumn<int>(
+        'members_grouped_default_state',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(0),
+      );
+  static const VerificationMeta _membersFolderMemberVisibilityMeta =
+      const VerificationMeta('membersFolderMemberVisibility');
+  @override
+  late final GeneratedColumn<int> membersFolderMemberVisibility =
+      GeneratedColumn<int>(
+        'members_folder_member_visibility',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(0),
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -5699,6 +5734,9 @@ class $SystemSettingsTableTable extends SystemSettingsTable
     pendingFrontingMigrationCleanupSubstate,
     boardsEnabled,
     spBoardsBackfilledAt,
+    membersListViewMode,
+    membersGroupedDefaultState,
+    membersFolderMemberVisibility,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -6255,6 +6293,33 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         ),
       );
     }
+    if (data.containsKey('members_list_view_mode')) {
+      context.handle(
+        _membersListViewModeMeta,
+        membersListViewMode.isAcceptableOrUnknown(
+          data['members_list_view_mode']!,
+          _membersListViewModeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('members_grouped_default_state')) {
+      context.handle(
+        _membersGroupedDefaultStateMeta,
+        membersGroupedDefaultState.isAcceptableOrUnknown(
+          data['members_grouped_default_state']!,
+          _membersGroupedDefaultStateMeta,
+        ),
+      );
+    }
+    if (data.containsKey('members_folder_member_visibility')) {
+      context.handle(
+        _membersFolderMemberVisibilityMeta,
+        membersFolderMemberVisibility.isAcceptableOrUnknown(
+          data['members_folder_member_visibility']!,
+          _membersFolderMemberVisibilityMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -6520,6 +6585,18 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         DriftSqlType.dateTime,
         data['${effectivePrefix}sp_boards_backfilled_at'],
       ),
+      membersListViewMode: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}members_list_view_mode'],
+      )!,
+      membersGroupedDefaultState: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}members_grouped_default_state'],
+      )!,
+      membersFolderMemberVisibility: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}members_folder_member_visibility'],
+      )!,
     );
   }
 
@@ -6607,6 +6684,18 @@ class SystemSettingsData extends DataClass
   final String pendingFrontingMigrationCleanupSubstate;
   final bool boardsEnabled;
   final DateTime? spBoardsBackfilledAt;
+
+  /// `MembersListViewMode` index.
+  /// 0 = groupedSections (default), 1 = folders.
+  final int membersListViewMode;
+
+  /// `MembersGroupedDefaultState` index.
+  /// 0 = open (default), 1 = closed.
+  final int membersGroupedDefaultState;
+
+  /// `MembersFolderMemberVisibility` index.
+  /// 0 = allMembers (default), 1 = ungroupedOnly.
+  final int membersFolderMemberVisibility;
   const SystemSettingsData({
     required this.id,
     this.systemName,
@@ -6672,6 +6761,9 @@ class SystemSettingsData extends DataClass
     required this.pendingFrontingMigrationCleanupSubstate,
     required this.boardsEnabled,
     this.spBoardsBackfilledAt,
+    required this.membersListViewMode,
+    required this.membersGroupedDefaultState,
+    required this.membersFolderMemberVisibility,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -6780,6 +6872,13 @@ class SystemSettingsData extends DataClass
     if (!nullToAbsent || spBoardsBackfilledAt != null) {
       map['sp_boards_backfilled_at'] = Variable<DateTime>(spBoardsBackfilledAt);
     }
+    map['members_list_view_mode'] = Variable<int>(membersListViewMode);
+    map['members_grouped_default_state'] = Variable<int>(
+      membersGroupedDefaultState,
+    );
+    map['members_folder_member_visibility'] = Variable<int>(
+      membersFolderMemberVisibility,
+    );
     return map;
   }
 
@@ -6873,6 +6972,9 @@ class SystemSettingsData extends DataClass
       spBoardsBackfilledAt: spBoardsBackfilledAt == null && nullToAbsent
           ? const Value.absent()
           : Value(spBoardsBackfilledAt),
+      membersListViewMode: Value(membersListViewMode),
+      membersGroupedDefaultState: Value(membersGroupedDefaultState),
+      membersFolderMemberVisibility: Value(membersFolderMemberVisibility),
     );
   }
 
@@ -7010,6 +7112,15 @@ class SystemSettingsData extends DataClass
       spBoardsBackfilledAt: serializer.fromJson<DateTime?>(
         json['spBoardsBackfilledAt'],
       ),
+      membersListViewMode: serializer.fromJson<int>(
+        json['membersListViewMode'],
+      ),
+      membersGroupedDefaultState: serializer.fromJson<int>(
+        json['membersGroupedDefaultState'],
+      ),
+      membersFolderMemberVisibility: serializer.fromJson<int>(
+        json['membersFolderMemberVisibility'],
+      ),
     );
   }
   @override
@@ -7104,6 +7215,13 @@ class SystemSettingsData extends DataClass
       'spBoardsBackfilledAt': serializer.toJson<DateTime?>(
         spBoardsBackfilledAt,
       ),
+      'membersListViewMode': serializer.toJson<int>(membersListViewMode),
+      'membersGroupedDefaultState': serializer.toJson<int>(
+        membersGroupedDefaultState,
+      ),
+      'membersFolderMemberVisibility': serializer.toJson<int>(
+        membersFolderMemberVisibility,
+      ),
     };
   }
 
@@ -7172,6 +7290,9 @@ class SystemSettingsData extends DataClass
     String? pendingFrontingMigrationCleanupSubstate,
     bool? boardsEnabled,
     Value<DateTime?> spBoardsBackfilledAt = const Value.absent(),
+    int? membersListViewMode,
+    int? membersGroupedDefaultState,
+    int? membersFolderMemberVisibility,
   }) => SystemSettingsData(
     id: id ?? this.id,
     systemName: systemName.present ? systemName.value : this.systemName,
@@ -7264,6 +7385,11 @@ class SystemSettingsData extends DataClass
     spBoardsBackfilledAt: spBoardsBackfilledAt.present
         ? spBoardsBackfilledAt.value
         : this.spBoardsBackfilledAt,
+    membersListViewMode: membersListViewMode ?? this.membersListViewMode,
+    membersGroupedDefaultState:
+        membersGroupedDefaultState ?? this.membersGroupedDefaultState,
+    membersFolderMemberVisibility:
+        membersFolderMemberVisibility ?? this.membersFolderMemberVisibility,
   );
   SystemSettingsData copyWithCompanion(SystemSettingsTableCompanion data) {
     return SystemSettingsData(
@@ -7450,6 +7576,15 @@ class SystemSettingsData extends DataClass
       spBoardsBackfilledAt: data.spBoardsBackfilledAt.present
           ? data.spBoardsBackfilledAt.value
           : this.spBoardsBackfilledAt,
+      membersListViewMode: data.membersListViewMode.present
+          ? data.membersListViewMode.value
+          : this.membersListViewMode,
+      membersGroupedDefaultState: data.membersGroupedDefaultState.present
+          ? data.membersGroupedDefaultState.value
+          : this.membersGroupedDefaultState,
+      membersFolderMemberVisibility: data.membersFolderMemberVisibility.present
+          ? data.membersFolderMemberVisibility.value
+          : this.membersFolderMemberVisibility,
     );
   }
 
@@ -7527,7 +7662,12 @@ class SystemSettingsData extends DataClass
             'pendingFrontingMigrationCleanupSubstate: $pendingFrontingMigrationCleanupSubstate, ',
           )
           ..write('boardsEnabled: $boardsEnabled, ')
-          ..write('spBoardsBackfilledAt: $spBoardsBackfilledAt')
+          ..write('spBoardsBackfilledAt: $spBoardsBackfilledAt, ')
+          ..write('membersListViewMode: $membersListViewMode, ')
+          ..write('membersGroupedDefaultState: $membersGroupedDefaultState, ')
+          ..write(
+            'membersFolderMemberVisibility: $membersFolderMemberVisibility',
+          )
           ..write(')'))
         .toString();
   }
@@ -7598,6 +7738,9 @@ class SystemSettingsData extends DataClass
     pendingFrontingMigrationCleanupSubstate,
     boardsEnabled,
     spBoardsBackfilledAt,
+    membersListViewMode,
+    membersGroupedDefaultState,
+    membersFolderMemberVisibility,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -7674,7 +7817,11 @@ class SystemSettingsData extends DataClass
           other.pendingFrontingMigrationCleanupSubstate ==
               this.pendingFrontingMigrationCleanupSubstate &&
           other.boardsEnabled == this.boardsEnabled &&
-          other.spBoardsBackfilledAt == this.spBoardsBackfilledAt);
+          other.spBoardsBackfilledAt == this.spBoardsBackfilledAt &&
+          other.membersListViewMode == this.membersListViewMode &&
+          other.membersGroupedDefaultState == this.membersGroupedDefaultState &&
+          other.membersFolderMemberVisibility ==
+              this.membersFolderMemberVisibility);
 }
 
 class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
@@ -7742,6 +7889,9 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
   final Value<String> pendingFrontingMigrationCleanupSubstate;
   final Value<bool> boardsEnabled;
   final Value<DateTime?> spBoardsBackfilledAt;
+  final Value<int> membersListViewMode;
+  final Value<int> membersGroupedDefaultState;
+  final Value<int> membersFolderMemberVisibility;
   final Value<int> rowid;
   const SystemSettingsTableCompanion({
     this.id = const Value.absent(),
@@ -7808,6 +7958,9 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.pendingFrontingMigrationCleanupSubstate = const Value.absent(),
     this.boardsEnabled = const Value.absent(),
     this.spBoardsBackfilledAt = const Value.absent(),
+    this.membersListViewMode = const Value.absent(),
+    this.membersGroupedDefaultState = const Value.absent(),
+    this.membersFolderMemberVisibility = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   SystemSettingsTableCompanion.insert({
@@ -7875,6 +8028,9 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.pendingFrontingMigrationCleanupSubstate = const Value.absent(),
     this.boardsEnabled = const Value.absent(),
     this.spBoardsBackfilledAt = const Value.absent(),
+    this.membersListViewMode = const Value.absent(),
+    this.membersGroupedDefaultState = const Value.absent(),
+    this.membersFolderMemberVisibility = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   static Insertable<SystemSettingsData> custom({
@@ -7942,6 +8098,9 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Expression<String>? pendingFrontingMigrationCleanupSubstate,
     Expression<bool>? boardsEnabled,
     Expression<DateTime>? spBoardsBackfilledAt,
+    Expression<int>? membersListViewMode,
+    Expression<int>? membersGroupedDefaultState,
+    Expression<int>? membersFolderMemberVisibility,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -8040,6 +8199,12 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
       if (boardsEnabled != null) 'boards_enabled': boardsEnabled,
       if (spBoardsBackfilledAt != null)
         'sp_boards_backfilled_at': spBoardsBackfilledAt,
+      if (membersListViewMode != null)
+        'members_list_view_mode': membersListViewMode,
+      if (membersGroupedDefaultState != null)
+        'members_grouped_default_state': membersGroupedDefaultState,
+      if (membersFolderMemberVisibility != null)
+        'members_folder_member_visibility': membersFolderMemberVisibility,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -8109,6 +8274,9 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Value<String>? pendingFrontingMigrationCleanupSubstate,
     Value<bool>? boardsEnabled,
     Value<DateTime?>? spBoardsBackfilledAt,
+    Value<int>? membersListViewMode,
+    Value<int>? membersGroupedDefaultState,
+    Value<int>? membersFolderMemberVisibility,
     Value<int>? rowid,
   }) {
     return SystemSettingsTableCompanion(
@@ -8197,6 +8365,11 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
           this.pendingFrontingMigrationCleanupSubstate,
       boardsEnabled: boardsEnabled ?? this.boardsEnabled,
       spBoardsBackfilledAt: spBoardsBackfilledAt ?? this.spBoardsBackfilledAt,
+      membersListViewMode: membersListViewMode ?? this.membersListViewMode,
+      membersGroupedDefaultState:
+          membersGroupedDefaultState ?? this.membersGroupedDefaultState,
+      membersFolderMemberVisibility:
+          membersFolderMemberVisibility ?? this.membersFolderMemberVisibility,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -8452,6 +8625,19 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
         spBoardsBackfilledAt.value,
       );
     }
+    if (membersListViewMode.present) {
+      map['members_list_view_mode'] = Variable<int>(membersListViewMode.value);
+    }
+    if (membersGroupedDefaultState.present) {
+      map['members_grouped_default_state'] = Variable<int>(
+        membersGroupedDefaultState.value,
+      );
+    }
+    if (membersFolderMemberVisibility.present) {
+      map['members_folder_member_visibility'] = Variable<int>(
+        membersFolderMemberVisibility.value,
+      );
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -8533,6 +8719,11 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
           )
           ..write('boardsEnabled: $boardsEnabled, ')
           ..write('spBoardsBackfilledAt: $spBoardsBackfilledAt, ')
+          ..write('membersListViewMode: $membersListViewMode, ')
+          ..write('membersGroupedDefaultState: $membersGroupedDefaultState, ')
+          ..write(
+            'membersFolderMemberVisibility: $membersFolderMemberVisibility, ',
+          )
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -25897,6 +26088,9 @@ typedef $$SystemSettingsTableTableCreateCompanionBuilder =
       Value<String> pendingFrontingMigrationCleanupSubstate,
       Value<bool> boardsEnabled,
       Value<DateTime?> spBoardsBackfilledAt,
+      Value<int> membersListViewMode,
+      Value<int> membersGroupedDefaultState,
+      Value<int> membersFolderMemberVisibility,
       Value<int> rowid,
     });
 typedef $$SystemSettingsTableTableUpdateCompanionBuilder =
@@ -25965,6 +26159,9 @@ typedef $$SystemSettingsTableTableUpdateCompanionBuilder =
       Value<String> pendingFrontingMigrationCleanupSubstate,
       Value<bool> boardsEnabled,
       Value<DateTime?> spBoardsBackfilledAt,
+      Value<int> membersListViewMode,
+      Value<int> membersGroupedDefaultState,
+      Value<int> membersFolderMemberVisibility,
       Value<int> rowid,
     });
 
@@ -26295,6 +26492,21 @@ class $$SystemSettingsTableTableFilterComposer
 
   ColumnFilters<DateTime> get spBoardsBackfilledAt => $composableBuilder(
     column: $table.spBoardsBackfilledAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get membersListViewMode => $composableBuilder(
+    column: $table.membersListViewMode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get membersGroupedDefaultState => $composableBuilder(
+    column: $table.membersGroupedDefaultState,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get membersFolderMemberVisibility => $composableBuilder(
+    column: $table.membersFolderMemberVisibility,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -26631,6 +26843,21 @@ class $$SystemSettingsTableTableOrderingComposer
     column: $table.spBoardsBackfilledAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get membersListViewMode => $composableBuilder(
+    column: $table.membersListViewMode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get membersGroupedDefaultState => $composableBuilder(
+    column: $table.membersGroupedDefaultState,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get membersFolderMemberVisibility => $composableBuilder(
+    column: $table.membersFolderMemberVisibility,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$SystemSettingsTableTableAnnotationComposer
@@ -26953,6 +27180,21 @@ class $$SystemSettingsTableTableAnnotationComposer
     column: $table.spBoardsBackfilledAt,
     builder: (column) => column,
   );
+
+  GeneratedColumn<int> get membersListViewMode => $composableBuilder(
+    column: $table.membersListViewMode,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get membersGroupedDefaultState => $composableBuilder(
+    column: $table.membersGroupedDefaultState,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get membersFolderMemberVisibility => $composableBuilder(
+    column: $table.membersFolderMemberVisibility,
+    builder: (column) => column,
+  );
 }
 
 class $$SystemSettingsTableTableTableManager
@@ -27066,6 +27308,9 @@ class $$SystemSettingsTableTableTableManager
                     const Value.absent(),
                 Value<bool> boardsEnabled = const Value.absent(),
                 Value<DateTime?> spBoardsBackfilledAt = const Value.absent(),
+                Value<int> membersListViewMode = const Value.absent(),
+                Value<int> membersGroupedDefaultState = const Value.absent(),
+                Value<int> membersFolderMemberVisibility = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SystemSettingsTableCompanion(
                 id: id,
@@ -27135,6 +27380,9 @@ class $$SystemSettingsTableTableTableManager
                     pendingFrontingMigrationCleanupSubstate,
                 boardsEnabled: boardsEnabled,
                 spBoardsBackfilledAt: spBoardsBackfilledAt,
+                membersListViewMode: membersListViewMode,
+                membersGroupedDefaultState: membersGroupedDefaultState,
+                membersFolderMemberVisibility: membersFolderMemberVisibility,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -27207,6 +27455,9 @@ class $$SystemSettingsTableTableTableManager
                     const Value.absent(),
                 Value<bool> boardsEnabled = const Value.absent(),
                 Value<DateTime?> spBoardsBackfilledAt = const Value.absent(),
+                Value<int> membersListViewMode = const Value.absent(),
+                Value<int> membersGroupedDefaultState = const Value.absent(),
+                Value<int> membersFolderMemberVisibility = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SystemSettingsTableCompanion.insert(
                 id: id,
@@ -27276,6 +27527,9 @@ class $$SystemSettingsTableTableTableManager
                     pendingFrontingMigrationCleanupSubstate,
                 boardsEnabled: boardsEnabled,
                 spBoardsBackfilledAt: spBoardsBackfilledAt,
+                membersListViewMode: membersListViewMode,
+                membersGroupedDefaultState: membersGroupedDefaultState,
+                membersFolderMemberVisibility: membersFolderMemberVisibility,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

@@ -72,6 +72,9 @@ void main() {
         autoPromoteLongFrontingSessions: true,
         boardsEnabled: false,
         spBoardsBackfilledAt: null,
+        membersListViewMode: 0,
+        membersGroupedDefaultState: 0,
+        membersFolderMemberVisibility: 0,
       );
     }
 

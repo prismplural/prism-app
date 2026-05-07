@@ -49,6 +49,13 @@ abstract class SystemSettingsRepository {
   Future<void> updateFrontingListViewMode(domain.FrontingListViewMode value);
   Future<void> updateAddFrontDefaultBehavior(domain.FrontStartBehavior value);
   Future<void> updateQuickFrontDefaultBehavior(domain.FrontStartBehavior value);
+  Future<void> updateMembersListViewMode(domain.MembersListViewMode value);
+  Future<void> updateMembersGroupedDefaultState(
+    domain.MembersGroupedDefaultState value,
+  );
+  Future<void> updateMembersFolderMemberVisibility(
+    domain.MembersFolderMemberVisibility value,
+  );
 
   // Int fields
   Future<void> updateFrontingReminderIntervalMinutes(int value);

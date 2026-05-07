@@ -15,6 +15,17 @@ Future<void> _seedV15TimestampCommentShapeDb(File dbFile) async {
 
   final rawDb = raw.sqlite3.open(dbFile.path);
   try {
+    // v18 (member list display preferences) — drop columns added by v17→v18.
+    rawDb.execute(
+      'ALTER TABLE system_settings DROP COLUMN members_list_view_mode',
+    );
+    rawDb.execute(
+      'ALTER TABLE system_settings DROP COLUMN members_grouped_default_state',
+    );
+    rawDb.execute(
+      'ALTER TABLE system_settings DROP COLUMN members_folder_member_visibility',
+    );
+
     // v17 (fronting auto-promotion) — drop column added by v16→v17.
     rawDb.execute(
       'ALTER TABLE system_settings DROP COLUMN auto_promote_long_fronting_sessions',
@@ -89,73 +100,68 @@ Future<void> _seedV15TimestampCommentShapeDb(File dbFile) async {
 
 void main() {
   group('schema v15 -> v16 front_session_comments cleanup', () {
-    test(
-      'preserves session-attached rows, drops blank timestamp-shaped rows, '
-      'and removes abandoned columns/index',
-      () async {
-        final tempDir = Directory.systemTemp.createTempSync(
-          'prism_migration_v15_to_v16_',
-        );
-        addTearDown(() {
-          if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
-        });
+    test('preserves session-attached rows, drops blank timestamp-shaped rows, '
+        'and removes abandoned columns/index', () async {
+      final tempDir = Directory.systemTemp.createTempSync(
+        'prism_migration_v15_to_v16_',
+      );
+      addTearDown(() {
+        if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
+      });
 
-        final dbFile = File('${tempDir.path}/v15_to_v16.db');
-        await _seedV15TimestampCommentShapeDb(dbFile);
+      final dbFile = File('${tempDir.path}/v15_to_v16.db');
+      await _seedV15TimestampCommentShapeDb(dbFile);
 
-        final upgraded = AppDatabase(NativeDatabase(dbFile));
-        addTearDown(upgraded.close);
-        await upgraded.customSelect('SELECT 1').get();
+      final upgraded = AppDatabase(NativeDatabase(dbFile));
+      addTearDown(upgraded.close);
+      await upgraded.customSelect('SELECT 1').get();
 
-        final version = await upgraded
-            .customSelect('PRAGMA user_version')
-            .getSingle();
-        expect(version.read<int>('user_version'), 17);
+      final version = await upgraded
+          .customSelect('PRAGMA user_version')
+          .getSingle();
+      expect(version.read<int>('user_version'), 18);
 
-        final cols = await upgraded
-            .customSelect("PRAGMA table_info('front_session_comments')")
-            .get();
-        final colNames = cols.map((row) => row.read<String>('name')).toSet();
-        expect(colNames, contains('session_id'));
-        expect(colNames, contains('timestamp'));
-        expect(colNames, contains('created_at'));
-        expect(colNames, isNot(contains('target_time')));
-        expect(colNames, isNot(contains('author_member_id')));
+      final cols = await upgraded
+          .customSelect("PRAGMA table_info('front_session_comments')")
+          .get();
+      final colNames = cols.map((row) => row.read<String>('name')).toSet();
+      expect(colNames, contains('session_id'));
+      expect(colNames, contains('timestamp'));
+      expect(colNames, contains('created_at'));
+      expect(colNames, isNot(contains('target_time')));
+      expect(colNames, isNot(contains('author_member_id')));
 
-        final indexes = await upgraded
-            .customSelect("PRAGMA index_list('front_session_comments')")
-            .get();
-        final indexNames = indexes
-            .map((row) => row.read<String>('name'))
-            .toSet();
-        expect(indexNames, contains('idx_comments_session'));
-        expect(indexNames, isNot(contains('idx_comments_target_time')));
+      final indexes = await upgraded
+          .customSelect("PRAGMA index_list('front_session_comments')")
+          .get();
+      final indexNames = indexes.map((row) => row.read<String>('name')).toSet();
+      expect(indexNames, contains('idx_comments_session'));
+      expect(indexNames, isNot(contains('idx_comments_target_time')));
 
-        final rows = await upgraded.select(upgraded.frontSessionComments).get();
-        final rowsById = {for (final row in rows) row.id: row};
-        expect(
-          rowsById.keys,
-          unorderedEquals(['valid-session-comment', 'deleted-session-comment']),
-        );
-        expect(
-          rowsById,
-          isNot(containsPair('blank-timestamp-comment', anything)),
-        );
+      final rows = await upgraded.select(upgraded.frontSessionComments).get();
+      final rowsById = {for (final row in rows) row.id: row};
+      expect(
+        rowsById.keys,
+        unorderedEquals(['valid-session-comment', 'deleted-session-comment']),
+      );
+      expect(
+        rowsById,
+        isNot(containsPair('blank-timestamp-comment', anything)),
+      );
 
-        final valid = rowsById['valid-session-comment']!;
-        expect(valid.sessionId, 'session-parent');
-        expect(valid.body, 'kept');
-        expect(valid.timestamp.toUtc(), DateTime.utc(2026, 4, 30, 10, 15));
-        expect(valid.createdAt.toUtc(), DateTime.utc(2026, 4, 30, 10, 20));
-        expect(valid.isDeleted, isFalse);
+      final valid = rowsById['valid-session-comment']!;
+      expect(valid.sessionId, 'session-parent');
+      expect(valid.body, 'kept');
+      expect(valid.timestamp.toUtc(), DateTime.utc(2026, 4, 30, 10, 15));
+      expect(valid.createdAt.toUtc(), DateTime.utc(2026, 4, 30, 10, 20));
+      expect(valid.isDeleted, isFalse);
 
-        final deleted = rowsById['deleted-session-comment']!;
-        expect(deleted.sessionId, 'session-parent');
-        expect(deleted.body, 'deleted tombstone kept');
-        expect(deleted.timestamp.toUtc(), DateTime.utc(2026, 4, 30, 10, 30));
-        expect(deleted.createdAt.toUtc(), DateTime.utc(2026, 4, 30, 10, 35));
-        expect(deleted.isDeleted, isTrue);
-      },
-    );
+      final deleted = rowsById['deleted-session-comment']!;
+      expect(deleted.sessionId, 'session-parent');
+      expect(deleted.body, 'deleted tombstone kept');
+      expect(deleted.timestamp.toUtc(), DateTime.utc(2026, 4, 30, 10, 30));
+      expect(deleted.createdAt.toUtc(), DateTime.utc(2026, 4, 30, 10, 35));
+      expect(deleted.isDeleted, isTrue);
+    });
   });
 }

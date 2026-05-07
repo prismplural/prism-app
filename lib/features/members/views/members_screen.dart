@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:prism_plurality/core/router/app_routes.dart';
+import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/providers/member_stats_providers.dart';
@@ -15,6 +16,8 @@ import 'package:prism_plurality/features/members/utils/member_search_groups.dart
 import 'package:prism_plurality/features/members/widgets/member_group_filter_bar.dart';
 import 'package:prism_plurality/features/members/widgets/group_section_header.dart';
 import 'package:prism_plurality/features/members/widgets/manage_groups_sheet.dart';
+import 'package:prism_plurality/features/members/widgets/member_group_row.dart';
+import 'package:prism_plurality/features/members/widgets/member_list_view_settings_sheet.dart';
 import 'package:prism_plurality/features/members/views/add_edit_member_sheet.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -32,6 +35,7 @@ import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/utils/animations.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
@@ -74,6 +78,12 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     return _isTopLevelBranch
         ? AppRoutePaths.member(id)
         : AppRoutePaths.settingsMember(id);
+  }
+
+  String _groupPath(BuildContext context, String id) {
+    return _isTopLevelBranch
+        ? AppRoutePaths.memberGroup(id)
+        : AppRoutePaths.settingsGroup(id);
   }
 
   Widget _buildOptionsMenuAction(List<Member>? members, Terminology terms) {
@@ -128,6 +138,23 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
             ref
                 .read(showInactiveInGroupedListProvider.notifier)
                 .set(_showInactive);
+          },
+        );
+      },
+      (_, _) => const Divider(height: 1),
+      (ctx, close) {
+        final theme = Theme.of(ctx);
+        return PrismListRow(
+          dense: true,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          leading: Icon(AppIcons.tuneOutlined, size: 20),
+          title: Text(
+            ctx.l10n.memberListViewSettingsTitle,
+            style: theme.textTheme.bodyMedium,
+          ),
+          onTap: () {
+            close();
+            _openViewSettingsSheet();
           },
         );
       },
@@ -244,6 +271,14 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
       context: context,
       builder: (context, scrollController) =>
           AddEditMemberSheet(scrollController: scrollController),
+    );
+  }
+
+  void _openViewSettingsSheet() {
+    PrismSheet.showFullScreen(
+      context: context,
+      builder: (context, scrollController) =>
+          MemberListViewSettingsSheet(scrollController: scrollController),
     );
   }
 
@@ -426,6 +461,8 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
 
     final groups = ref.watch(allGroupsProvider).value ?? [];
     final hasGroups = groups.isNotEmpty;
+    final viewMode = ref.watch(membersListViewModeProvider);
+    final showGroupedSections = viewMode == MembersListViewMode.groupedSections;
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
@@ -443,12 +480,13 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
       bodyPadding: EdgeInsets.zero,
       body: Column(
         children: [
-          MemberGroupFilterBar(onChipTap: hasGroups ? _scrollToGroup : null),
+          if (showGroupedSections)
+            MemberGroupFilterBar(onChipTap: hasGroups ? _scrollToGroup : null),
           Expanded(
             child: AnimatedSwitcher(
               duration: Anim.md,
               child: KeyedSubtree(
-                key: ValueKey(_showInactive),
+                key: ValueKey((_showInactive, viewMode)),
                 child: membersAsync.when(
                   loading: () => const PrismLoadingState(),
                   error: (e, _) => Center(
@@ -488,6 +526,10 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                       return _buildFlatList(rawMembers, frontingIds);
                     }
 
+                    if (viewMode == MembersListViewMode.folders) {
+                      return _buildFolderList(rawMembers, frontingIds);
+                    }
+
                     final groupedItems = ref.watch(groupedMemberListProvider);
                     final counts = ref.watch(groupMemberCountsProvider);
                     return _buildGroupedList(groupedItems, counts, frontingIds);
@@ -498,6 +540,51 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildFolderList(List<Member> members, Set<String> frontingIds) {
+    final terms = watchTerminology(context, ref);
+    final rootGroups = ref.watch(childGroupsProvider(null));
+    final counts = ref.watch(groupMemberCountsProvider);
+    final entries = ref.watch(allGroupEntriesProvider).value ?? [];
+    final visibility = ref.watch(membersFolderMemberVisibilityProvider);
+    final groupedMemberIds = entries.map((entry) => entry.memberId).toSet();
+    final visibleMembers =
+        visibility == MembersFolderMemberVisibility.ungroupedOnly
+        ? members
+              .where((member) => !groupedMemberIds.contains(member.id))
+              .toList()
+        : members;
+
+    return CustomScrollView(
+      slivers: [
+        SliverPadding(
+          padding: EdgeInsets.only(top: 4, bottom: NavBarInset.of(context)),
+          sliver: SliverList(
+            delegate: SliverChildListDelegate([
+              for (final group in rootGroups)
+                MemberGroupRow(
+                  key: ValueKey('folder_${group.id}'),
+                  group: group,
+                  memberCount: counts[group.id] ?? 0,
+                  onTap: () => context.push(_groupPath(context, group.id)),
+                ),
+              if (visibleMembers.isNotEmpty) ...[
+                const Divider(height: 24, indent: 16, endIndent: 16),
+                _MemberListSectionHeader(
+                  label:
+                      visibility == MembersFolderMemberVisibility.ungroupedOnly
+                      ? context.l10n.memberGroupFilterUngrouped
+                      : terms.plural,
+                ),
+                for (final member in visibleMembers)
+                  _buildMemberTile(member, frontingIds.contains(member.id)),
+              ],
+            ]),
+          ),
+        ),
+      ],
     );
   }
 
@@ -736,6 +823,27 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
       title: context.l10n.memberGroupManageTitle,
       builder: (_) =>
           ManageGroupsSheet(memberId: member.id, memberName: member.name),
+    );
+  }
+}
+
+class _MemberListSectionHeader extends StatelessWidget {
+  const _MemberListSectionHeader({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+      child: Text(
+        label,
+        style: theme.textTheme.labelLarge?.copyWith(
+          color: theme.colorScheme.primary,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
     );
   }
 }

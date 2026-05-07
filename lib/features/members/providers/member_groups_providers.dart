@@ -4,9 +4,11 @@ import 'package:uuid/uuid.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/domain/models/member_group_entry.dart';
+import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/utils/group_tree_utils.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 
 // ── Stream providers ──────────────────────────────────────────────────────────
 
@@ -17,25 +19,25 @@ final allGroupsProvider = StreamProvider<List<MemberGroup>>((ref) {
 });
 
 /// Watches groups that a specific member belongs to.
-final memberGroupsProvider =
-    StreamProvider.autoDispose.family<List<MemberGroup>, String>((ref, memberId) {
-  final repo = ref.watch(memberGroupsRepositoryProvider);
-  return repo.watchGroupsForMember(memberId);
-});
+final memberGroupsProvider = StreamProvider.autoDispose
+    .family<List<MemberGroup>, String>((ref, memberId) {
+      final repo = ref.watch(memberGroupsRepositoryProvider);
+      return repo.watchGroupsForMember(memberId);
+    });
 
 /// Watches entries (group–member links) for a specific group.
-final groupEntriesProvider =
-    StreamProvider.autoDispose.family<List<MemberGroupEntry>, String>((ref, groupId) {
-  final repo = ref.watch(memberGroupsRepositoryProvider);
-  return repo.watchGroupEntries(groupId);
-});
+final groupEntriesProvider = StreamProvider.autoDispose
+    .family<List<MemberGroupEntry>, String>((ref, groupId) {
+      final repo = ref.watch(memberGroupsRepositoryProvider);
+      return repo.watchGroupEntries(groupId);
+    });
 
 /// Watches a single group by ID.
-final groupByIdProvider =
-    StreamProvider.autoDispose.family<MemberGroup?, String>((ref, id) {
-  final repo = ref.watch(memberGroupsRepositoryProvider);
-  return repo.watchGroupById(id);
-});
+final groupByIdProvider = StreamProvider.autoDispose
+    .family<MemberGroup?, String>((ref, id) {
+      final repo = ref.watch(memberGroupsRepositoryProvider);
+      return repo.watchGroupById(id);
+    });
 
 /// Watches all non-deleted group entries across every group.
 final allGroupEntriesProvider = StreamProvider<List<MemberGroupEntry>>((ref) {
@@ -55,30 +57,38 @@ final groupTreeProvider = Provider<Map<String?, List<MemberGroup>>>((ref) {
 
 /// Memoized DFS flattening of [groupTreeProvider] into a depth-annotated list.
 /// Recomputes only when the group tree changes — not on every widget rebuild.
-final flatGroupListProvider =
-    Provider<List<({MemberGroup group, int depth})>>((ref) {
+final flatGroupListProvider = Provider<List<({MemberGroup group, int depth})>>((
+  ref,
+) {
   final tree = ref.watch(groupTreeProvider);
   return GroupTreeUtils.flattenTree(tree);
 });
 
 /// Direct children of a group (or root groups when [parentId] is null).
 /// Derived from [groupTreeProvider] — no extra DB watch.
-final childGroupsProvider =
-    Provider.family<List<MemberGroup>, String?>((ref, parentId) {
+final childGroupsProvider = Provider.family<List<MemberGroup>, String?>((
+  ref,
+  parentId,
+) {
   final tree = ref.watch(groupTreeProvider);
   return tree[parentId] ?? [];
 });
 
 /// All unique member IDs across a group and all its descendants.
-final transitiveGroupMemberIdsProvider =
-    Provider.family<Set<String>, String>((ref, groupId) {
+final transitiveGroupMemberIdsProvider = Provider.family<Set<String>, String>((
+  ref,
+  groupId,
+) {
   final tree = ref.watch(groupTreeProvider);
-  final descendantGroupIds =
-      GroupTreeUtils.getDescendantGroupIds(groupId, tree);
+  final descendantGroupIds = GroupTreeUtils.getDescendantGroupIds(
+    groupId,
+    tree,
+  );
   final allEntries = ref.watch(allGroupEntriesProvider).value ?? [];
   return allEntries
-      .where((e) =>
-          e.groupId == groupId || descendantGroupIds.contains(e.groupId))
+      .where(
+        (e) => e.groupId == groupId || descendantGroupIds.contains(e.groupId),
+      )
       .map((e) => e.memberId)
       .toSet();
 });
@@ -113,7 +123,14 @@ final groupMemberCountsProvider = Provider<Map<String, int>>((ref) {
 /// Resets to empty (all expanded) on app restart.
 class CollapsedGroupsNotifier extends Notifier<Set<String>> {
   @override
-  Set<String> build() => <String>{};
+  Set<String> build() {
+    final defaultState = ref.watch(membersGroupedDefaultStateProvider);
+    if (defaultState == MembersGroupedDefaultState.open) return <String>{};
+    return {
+      for (final group in ref.watch(allGroupsProvider).value ?? <MemberGroup>[])
+        group.id,
+    };
+  }
 
   void toggle(String groupId) {
     state = state.contains(groupId)
@@ -122,11 +139,19 @@ class CollapsedGroupsNotifier extends Notifier<Set<String>> {
   }
 
   void expandAll() => state = <String>{};
+
+  void collapseAll() {
+    state = {
+      for (final group in ref.read(allGroupsProvider).value ?? <MemberGroup>[])
+        group.id,
+    };
+  }
 }
 
 final collapsedGroupsProvider =
     NotifierProvider<CollapsedGroupsNotifier, Set<String>>(
-        CollapsedGroupsNotifier.new);
+      CollapsedGroupsNotifier.new,
+    );
 
 /// When true, the grouped member list includes inactive members.
 /// Kept in sync with the show-inactive toggle in MembersScreen.
@@ -139,7 +164,8 @@ class ShowInactiveInGroupedListNotifier extends Notifier<bool> {
 
 final showInactiveInGroupedListProvider =
     NotifierProvider<ShowInactiveInGroupedListNotifier, bool>(
-        ShowInactiveInGroupedListNotifier.new);
+      ShowInactiveInGroupedListNotifier.new,
+    );
 
 // ── Grouped member list ───────────────────────────────────────────────────────
 
@@ -177,8 +203,9 @@ class UngroupedSectionItem extends GroupedMemberListItem {
 
 /// Fully-expanded structural list (no collapse applied).
 /// Rebuilds only when tree, entries, or members change — not on every toggle.
-final _groupedMemberListStructureProvider =
-    Provider<List<GroupedMemberListItem>>((ref) {
+final _groupedMemberListStructureProvider = Provider<List<GroupedMemberListItem>>((
+  ref,
+) {
   final tree = ref.watch(groupTreeProvider);
   final allEntries = ref.watch(allGroupEntriesProvider).value ?? [];
   // Member-management surface: hide the Unknown sentinel from the grouped list.
@@ -201,7 +228,9 @@ final _groupedMemberListStructureProvider =
   final result = <GroupedMemberListItem>[];
 
   void visitGroup(MemberGroup group, int depth) {
-    result.add(GroupSectionItem(group: group, depth: depth, isCollapsed: false));
+    result.add(
+      GroupSectionItem(group: group, depth: depth, isCollapsed: false),
+    );
     for (final child in tree[group.id] ?? []) {
       visitGroup(child, depth + 1);
     }
@@ -215,8 +244,9 @@ final _groupedMemberListStructureProvider =
   }
 
   final ungrouped = allMembers
-      .where((m) =>
-          (showInactive || m.isActive) && !groupedMemberIds.contains(m.id))
+      .where(
+        (m) => (showInactive || m.isActive) && !groupedMemberIds.contains(m.id),
+      )
       .toList();
   if (ungrouped.isNotEmpty) {
     result.add(const UngroupedSectionItem());
@@ -235,8 +265,7 @@ final _groupedMemberListStructureProvider =
 ///
 /// Derived from [_groupedMemberListStructureProvider] by applying collapse
 /// state in a single linear pass — avoids a full DFS rebuild on every toggle.
-final groupedMemberListProvider =
-    Provider<List<GroupedMemberListItem>>((ref) {
+final groupedMemberListProvider = Provider<List<GroupedMemberListItem>>((ref) {
   final structure = ref.watch(_groupedMemberListStructureProvider);
   final collapsed = ref.watch(collapsedGroupsProvider);
 
@@ -253,8 +282,13 @@ final groupedMemberListProvider =
         hiddenAtDepth = null; // resurfaced to same or shallower depth
       }
       final isCollapsed = collapsed.contains(item.group.id);
-      result.add(GroupSectionItem(
-          group: item.group, depth: item.depth, isCollapsed: isCollapsed));
+      result.add(
+        GroupSectionItem(
+          group: item.group,
+          depth: item.depth,
+          isCollapsed: isCollapsed,
+        ),
+      );
       if (isCollapsed) hiddenAtDepth = item.depth;
     } else if (item is MemberRowItem) {
       if (hiddenAtDepth != null) {
@@ -339,8 +373,7 @@ class GroupNotifier extends AsyncNotifier<void> {
     });
   }
 
-  Future<void> removeMemberFromGroup(
-      String groupId, String memberId) async {
+  Future<void> removeMemberFromGroup(String groupId, String memberId) async {
     state = await AsyncValue.guard(() async {
       final repo = ref.read(memberGroupsRepositoryProvider);
       await repo.removeMemberFromGroup(groupId, memberId);
@@ -348,8 +381,9 @@ class GroupNotifier extends AsyncNotifier<void> {
   }
 }
 
-final groupNotifierProvider =
-    AsyncNotifierProvider<GroupNotifier, void>(GroupNotifier.new);
+final groupNotifierProvider = AsyncNotifierProvider<GroupNotifier, void>(
+  GroupNotifier.new,
+);
 
 /// Notifier for the active group filter selection.
 /// null = show all, '__ungrouped__' = ungrouped members, any other value = group ID.
@@ -362,7 +396,8 @@ class ActiveGroupFilterNotifier extends Notifier<String?> {
 
 final activeGroupFilterProvider =
     NotifierProvider.autoDispose<ActiveGroupFilterNotifier, String?>(
-        ActiveGroupFilterNotifier.new);
+      ActiveGroupFilterNotifier.new,
+    );
 
 /// True when at least one active member has no group entry.
 final ungroupedMembersExistProvider = Provider.autoDispose<bool>((ref) {

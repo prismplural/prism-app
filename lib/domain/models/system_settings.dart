@@ -124,6 +124,15 @@ enum FrontingListViewMode { combinedPeriods, perMemberRows, timeline }
 /// before starting the new one (single atomic transaction).
 enum FrontStartBehavior { additive, replace }
 
+/// Device-local display mode for the members tab.
+enum MembersListViewMode { groupedSections, folders }
+
+/// Device-local initial expansion state for grouped member sections.
+enum MembersGroupedDefaultState { open, closed }
+
+/// Device-local member visibility below folder rows in folder view.
+enum MembersFolderMemberVisibility { allMembers, ungroupedOnly }
+
 @freezed
 abstract class SystemSettings with _$SystemSettings {
   const factory SystemSettings({
@@ -207,6 +216,13 @@ abstract class SystemSettings with _$SystemSettings {
     // Timestamp written by [SpBoardsBackfillService] when SP boards migration
     // completes. Null means the backfill has not yet run.
     DateTime? spBoardsBackfilledAt,
+    // Members tab display preferences (device-local).
+    @Default(MembersListViewMode.groupedSections)
+    MembersListViewMode membersListViewMode,
+    @Default(MembersGroupedDefaultState.open)
+    MembersGroupedDefaultState membersGroupedDefaultState,
+    @Default(MembersFolderMemberVisibility.allMembers)
+    MembersFolderMemberVisibility membersFolderMemberVisibility,
   }) = _SystemSettings;
 
   factory SystemSettings.fromJson(Map<String, dynamic> json) =>
