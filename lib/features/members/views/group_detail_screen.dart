@@ -96,6 +96,9 @@ class _GroupDetailBody extends ConsumerWidget {
     final groupDepth = GroupTreeUtils.getGroupDepth(group.id, tree);
     final canAddSubGroup =
         allGroupsAsync.hasValue && groupDepth < GroupTreeUtils.maxGroupDepth;
+    final allGroups =
+        allGroupsAsync.whenOrNull(data: (g) => g) ?? const <MemberGroup>[];
+    final ancestors = _resolveAncestors(group, allGroups);
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
@@ -124,7 +127,7 @@ class _GroupDetailBody extends ConsumerWidget {
 
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _GroupInfoHeader(group: group),
+              child: _GroupInfoHeader(group: group, ancestors: ancestors),
             ),
 
             const SizedBox(height: 24),
@@ -445,9 +448,10 @@ class _GroupDetailBody extends ConsumerWidget {
 }
 
 class _GroupInfoHeader extends StatelessWidget {
-  const _GroupInfoHeader({required this.group});
+  const _GroupInfoHeader({required this.group, required this.ancestors});
 
   final MemberGroup group;
+  final List<MemberGroup> ancestors;
 
   @override
   Widget build(BuildContext context) {
@@ -493,6 +497,10 @@ class _GroupInfoHeader extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          if (ancestors.isNotEmpty) ...[
+                            _AncestorBreadcrumb(ancestors: ancestors),
+                            const SizedBox(height: 2),
+                          ],
                           Padding(
                             padding: const EdgeInsets.only(top: 2),
                             child: Text(
@@ -690,5 +698,70 @@ class _GroupMemberTile extends ConsumerWidget {
       }
     }
     return false; // Don't auto-dismiss; provider stream will update
+  }
+}
+
+List<MemberGroup> _resolveAncestors(MemberGroup group, List<MemberGroup> all) {
+  final byId = {for (final g in all) g.id: g};
+  final chain = <MemberGroup>[];
+  final visited = <String>{group.id};
+  String? cur = group.parentGroupId;
+  while (cur != null &&
+      !visited.contains(cur) &&
+      chain.length < GroupTreeUtils.maxGroupDepth) {
+    final parent = byId[cur];
+    if (parent == null) break;
+    chain.insert(0, parent);
+    visited.add(cur);
+    cur = parent.parentGroupId;
+  }
+  return chain;
+}
+
+class _AncestorBreadcrumb extends StatelessWidget {
+  const _AncestorBreadcrumb({required this.ancestors});
+
+  final List<MemberGroup> ancestors;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final style = theme.textTheme.labelSmall?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+      fontWeight: FontWeight.w500,
+    );
+    final separatorColor = theme.colorScheme.onSurfaceVariant.withValues(
+      alpha: 0.5,
+    );
+
+    final children = <Widget>[];
+    for (var i = 0; i < ancestors.length; i++) {
+      final ancestor = ancestors[i];
+      if (ancestor.emoji != null && ancestor.emoji!.isNotEmpty) {
+        children.add(
+          Text(ancestor.emoji!, style: const TextStyle(fontSize: 12)),
+        );
+        children.add(const SizedBox(width: 4));
+      }
+      children.add(
+        Flexible(
+          child: Text(
+            ancestor.name,
+            style: style,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      );
+      children.add(const SizedBox(width: 6));
+      children.add(
+        Icon(AppIcons.chevronRight, size: 12, color: separatorColor),
+      );
+      if (i < ancestors.length - 1) {
+        children.add(const SizedBox(width: 6));
+      }
+    }
+
+    return Row(mainAxisSize: MainAxisSize.min, children: children);
   }
 }
