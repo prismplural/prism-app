@@ -301,6 +301,7 @@ class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
     final bottomInset = modalBottomInsetOf(context);
 
     return SecureScope(
+      allowAndroidScreenCapture: _step == _SyncPinStep.enterMnemonic,
       child: SingleChildScrollView(
         padding: EdgeInsets.only(
           left: 20,

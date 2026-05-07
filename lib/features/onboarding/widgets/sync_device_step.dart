@@ -185,6 +185,9 @@ class _SyncDeviceStepState extends ConsumerState<SyncDeviceStep> {
     }
 
     return SecureScope(
+      allowAndroidScreenCapture:
+          pairingState.step == PairingStep.showingRequest ||
+          pairingState.step == PairingStep.showingSas,
       child: AnimatedSwitcher(
         duration: const Duration(milliseconds: 300),
         child: child,

@@ -50,6 +50,7 @@ class _SecretKeyRevealContentState extends State<SecretKeyRevealContent> {
     final words = widget.mnemonic.split(' ');
 
     return SecureScope(
+      allowAndroidScreenCapture: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -57,7 +58,9 @@ class _SecretKeyRevealContentState extends State<SecretKeyRevealContent> {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: theme.colorScheme.secondaryContainer,
-              borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
+              borderRadius: BorderRadius.circular(
+                PrismShapes.of(context).radius(12),
+              ),
             ),
             child: Row(
               children: [
@@ -82,7 +85,9 @@ class _SecretKeyRevealContentState extends State<SecretKeyRevealContent> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: theme.colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
+              borderRadius: BorderRadius.circular(
+                PrismShapes.of(context).radius(12),
+              ),
               border: Border.all(
                 color: theme.colorScheme.outline.withValues(alpha: 0.3),
               ),
@@ -136,7 +141,9 @@ class _SecretKeyRevealContentState extends State<SecretKeyRevealContent> {
               if (_showQr && !_hasInteracted) _hasInteracted = true;
             }),
             icon: _showQr ? AppIcons.visibilityOff : AppIcons.qrCode,
-            label: _showQr ? l10n.secretKeyHideQrButton : l10n.secretKeyShowQrButton,
+            label: _showQr
+                ? l10n.secretKeyHideQrButton
+                : l10n.secretKeyShowQrButton,
             tone: PrismButtonTone.subtle,
           ),
           if (_showQr) ...[
@@ -146,7 +153,9 @@ class _SecretKeyRevealContentState extends State<SecretKeyRevealContent> {
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: AppColors.warmWhite,
-                  borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
+                  borderRadius: BorderRadius.circular(
+                    PrismShapes.of(context).radius(12),
+                  ),
                 ),
                 child: QrImageView(
                   data: widget.mnemonic,
@@ -182,10 +191,7 @@ class _SecretKeyRevealContentState extends State<SecretKeyRevealContent> {
     await SensitiveClipboard.copy(widget.mnemonic);
     if (!_hasInteracted) setState(() => _hasInteracted = true);
     if (mounted) {
-      PrismToast.show(
-        context,
-        message: context.l10n.secretKeyCopiedToast,
-      );
+      PrismToast.show(context, message: context.l10n.secretKeyCopiedToast);
     }
   }
 

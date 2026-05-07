@@ -15,9 +15,9 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 /// - Android API 34+: `Activity.registerScreenCaptureCallback`
 /// - Android API < 34: `ContentObserver` on `MediaStore.Images.Media`
 ///
-/// Screenshots are NOT blocked — users may need to capture QR codes or
-/// the 12-word phrase for legitimate purposes (e.g. remote pairing,
-/// offline storage). The warning informs them after the fact.
+/// Screenshots are not blocked on key-display flows where users may need to
+/// capture QR codes or the 12-word phrase for legitimate purposes (e.g.
+/// remote pairing, offline storage). The warning informs them after the fact.
 class ScreenshotDetector {
   static const _channel = EventChannel(
     'com.prism.prism_plurality/screenshot_events',

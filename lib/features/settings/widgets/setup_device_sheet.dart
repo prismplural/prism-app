@@ -364,6 +364,7 @@ class _SetupDeviceSheetContentState
   @override
   Widget build(BuildContext context) {
     return SecureScope(
+      allowAndroidScreenCapture: _step == _InitiatorStep.enterMnemonic,
       child: Column(
         children: [
           PrismSheetTopBar(title: context.l10n.syncSetUpAnotherDevice),

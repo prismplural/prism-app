@@ -585,6 +585,7 @@ class _MnemonicQrDialog extends StatelessWidget {
     final viewportHeight = MediaQuery.sizeOf(context).height;
 
     return SecureScope(
+      allowAndroidScreenCapture: true,
       child: Dialog(
         child: ConstrainedBox(
           constraints: BoxConstraints(maxHeight: viewportHeight * 0.9),

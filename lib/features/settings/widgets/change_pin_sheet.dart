@@ -488,6 +488,7 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
     }
 
     return SecureScope(
+      allowAndroidScreenCapture: _step == _Step.enterMnemonic,
       child: SafeArea(
         child: Column(
           children: [
