@@ -12,9 +12,9 @@ const int kMaxPrimaryNavTabs = 5;
 /// wrapping or clipping.
 const int kMinAdaptivePrimaryNavTabs = 2;
 
-/// When the More trigger is visible, prefer the native-feeling 4+More shape
-/// and only drop lower if labeled tabs still do not fit.
-const int kPreferredPrimaryTabsWithOverflow = 4;
+/// When the More trigger is visible, use as many configured primary tabs as
+/// can fit beside it, up to the persisted primary-tab ceiling.
+const int kPreferredPrimaryTabsWithOverflow = kMaxPrimaryNavTabs;
 
 /// Expanded overflow menu uses up to 5 columns and can fall back to 2 when
 /// larger text or localized labels need more width to preserve one-line labels.

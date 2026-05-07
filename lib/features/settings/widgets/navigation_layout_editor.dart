@@ -14,7 +14,9 @@ import 'package:prism_plurality/shared/utils/nav_bar_layout.dart'
         kNavBarItemIconHeight,
         kNavBarItemIconSize,
         kNavBarItemWidth,
+        kMaxAdaptiveOverflowColumns,
         kNavBarMoreTriggerIconSize,
+        NavBarLayoutSpec,
         navBarLabelTextStyle;
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
@@ -79,6 +81,8 @@ class NavigationLayoutEditor extends StatelessWidget {
     this.intro,
     this.sectionPadding = PrismTokens.sectionPadding,
     this.showLayoutTitle = true,
+    this.adaptPreviewToDeviceWidth = true,
+    this.adaptSavedLayoutToDeviceWidth = true,
   });
 
   final List<AppShellTab> primaryTabs;
@@ -91,6 +95,8 @@ class NavigationLayoutEditor extends StatelessWidget {
   final Widget? intro;
   final EdgeInsets sectionPadding;
   final bool showLayoutTitle;
+  final bool adaptPreviewToDeviceWidth;
+  final bool adaptSavedLayoutToDeviceWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -127,6 +133,7 @@ class NavigationLayoutEditor extends StatelessWidget {
                 primaryTabs: primaryTabs,
                 overflowTabs: overflowTabs,
                 terminologyPlural: terminologyPlural,
+                adaptToDeviceWidth: adaptPreviewToDeviceWidth,
               ),
               const SizedBox(height: 12),
               PrismSectionCard(
@@ -359,13 +366,18 @@ class NavigationLayoutEditor extends StatelessWidget {
       overflowIds: overflow.map((tab) => tab.id.name).toList(),
       flags: flags,
     );
-    final adaptiveLayout = computeAdaptiveNavLayoutForCurrentDevice(
-      context,
-      primary: normalized.primary,
-      overflow: normalized.overflow,
-      terminologyPlural: terminologyPlural,
-    );
-    onLayoutChanged(adaptiveLayout.primaryTabs, adaptiveLayout.overflowTabs);
+    if (adaptSavedLayoutToDeviceWidth) {
+      final adaptiveLayout = computeAdaptiveNavLayoutForCurrentDevice(
+        context,
+        primary: normalized.primary,
+        overflow: normalized.overflow,
+        terminologyPlural: terminologyPlural,
+      );
+      onLayoutChanged(adaptiveLayout.primaryTabs, adaptiveLayout.overflowTabs);
+      return;
+    }
+
+    onLayoutChanged(normalized.primary, normalized.overflow);
   }
 
   bool _canAddToPrimary(BuildContext context, AppShellTab tab) {
@@ -615,11 +627,13 @@ class _NavigationBarPreview extends StatelessWidget {
     required this.primaryTabs,
     required this.overflowTabs,
     required this.terminologyPlural,
+    required this.adaptToDeviceWidth,
   });
 
   final List<AppShellTab> primaryTabs;
   final List<AppShellTab> overflowTabs;
   final String terminologyPlural;
+  final bool adaptToDeviceWidth;
 
   Widget _buildOverflowRow(
     BuildContext context, {
@@ -646,6 +660,7 @@ class _NavigationBarPreview extends StatelessWidget {
               SizedBox(
                 width: slotWidth,
                 child: _PreviewNavBarItem(
+                  key: ValueKey('navigation_preview_overflow_${tab.id.name}'),
                   tab: tab,
                   label: tab.localizedLabel(
                     context,
@@ -683,16 +698,18 @@ class _NavigationBarPreview extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final previewWidth = math.min(constraints.maxWidth, targetBarWidth);
-        final layout = computeAdaptiveMobileNavLayout(
-          barWidth: previewWidth,
-          primaryTabs: primaryTabs,
-          overflowTabs: overflowTabs,
-          primaryLabels: primaryLabels,
-          overflowLabels: overflowLabels,
-          labelStyle: navBarLabelTextStyle(context, isSelected: true),
-          textScaler: MediaQuery.textScalerOf(context),
-          textDirection: Directionality.of(context),
-        );
+        final layout = adaptToDeviceWidth
+            ? computeAdaptiveMobileNavLayout(
+                barWidth: previewWidth,
+                primaryTabs: primaryTabs,
+                overflowTabs: overflowTabs,
+                primaryLabels: primaryLabels,
+                overflowLabels: overflowLabels,
+                labelStyle: navBarLabelTextStyle(context, isSelected: true),
+                textScaler: MediaQuery.textScalerOf(context),
+                textDirection: Directionality.of(context),
+              )
+            : _fixedPreviewLayout(primaryTabs, overflowTabs);
         final selectedTabId = layout.primaryTabs.isNotEmpty
             ? layout.primaryTabs.first.id
             : null;
@@ -782,6 +799,9 @@ class _NavigationBarPreview extends StatelessWidget {
                             for (final tab in layout.primaryTabs)
                               Expanded(
                                 child: _PreviewNavBarItem(
+                                  key: ValueKey(
+                                    'navigation_preview_primary_${tab.id.name}',
+                                  ),
                                   tab: tab,
                                   label: tab.localizedLabel(
                                     context,
@@ -816,10 +836,36 @@ class _NavigationBarPreview extends StatelessWidget {
       },
     );
   }
+
+  AppShellMobileNavLayout _fixedPreviewLayout(
+    List<AppShellTab> primaryTabs,
+    List<AppShellTab> overflowTabs,
+  ) {
+    final overflowColumns = overflowTabs.isEmpty
+        ? 0
+        : math.min(overflowTabs.length, kMaxAdaptiveOverflowColumns);
+    final overflowRows = overflowColumns == 0
+        ? 0
+        : (overflowTabs.length / overflowColumns).ceil();
+
+    return AppShellMobileNavLayout(
+      spec: NavBarLayoutSpec(
+        collapsedPrimaryCount: primaryTabs.length,
+        usesOverflowMenu: overflowTabs.isNotEmpty,
+        overflowColumns: overflowColumns,
+        overflowRows: overflowRows,
+      ),
+      primaryTabs: primaryTabs,
+      overflowTabs: overflowTabs,
+      rowHeight: kFloatingNavBarHeight,
+      overflowRowHeight: kFloatingNavBarHeight,
+    );
+  }
 }
 
 class _PreviewNavBarItem extends StatelessWidget {
   const _PreviewNavBarItem({
+    super.key,
     required this.tab,
     required this.label,
     required this.isSelected,
