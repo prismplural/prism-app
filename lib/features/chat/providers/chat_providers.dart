@@ -173,18 +173,44 @@ class SpeakingAsNotifier extends Notifier<String?> {
     // Only default to the fronter when exactly one person is fronting.
     // With zero or multiple fronters the caller must make an explicit choice.
     final activeSessions = ref.watch(activeSessionsProvider);
+    final activeMembers = ref.watch(activeMembersProvider);
     final sessions = activeSessions.value ?? [];
     final fronterId = sessions.length == 1 ? sessions.first.memberId : null;
+    final activeMemberIds = activeMembers.value?.map((m) => m.id).toSet();
 
-    return _explicitSelection ?? fronterId;
+    final explicitSelection = _explicitSelection;
+    if (explicitSelection != null) {
+      if (activeMemberIds == null ||
+          activeMemberIds.contains(explicitSelection)) {
+        return explicitSelection;
+      }
+      _explicitSelection = null;
+    }
+
+    if (fronterId == null) return null;
+    if (activeMemberIds == null || activeMemberIds.contains(fronterId)) {
+      return fronterId;
+    }
+    return null;
   }
 
   void setMember(String? memberId) {
-    _explicitSelection = memberId;
+    final activeMemberIds = ref
+        .read(activeMembersProvider)
+        .value
+        ?.map((m) => m.id)
+        .toSet();
+    final selectedMemberId =
+        memberId == null ||
+            activeMemberIds == null ||
+            activeMemberIds.contains(memberId)
+        ? memberId
+        : null;
+    _explicitSelection = selectedMemberId;
     ref.invalidateSelf();
 
     // Optionally log a front when switching the speaking member.
-    if (memberId != null) {
+    if (selectedMemberId != null) {
       final chatLogsFront = ref.read(chatLogsFrontProvider);
       if (chatLogsFront) {
         // TODO(spec §2.5): verify this matches user intent — old switchFronter
@@ -193,7 +219,7 @@ class SpeakingAsNotifier extends Notifier<String?> {
         unawaited(
           ref
               .read(frontingNotifierProvider.notifier)
-              .startFronting([memberId])
+              .startFronting([selectedMemberId])
               .catchError((Object e) {
                 debugPrint('[Chat] Auto-front on member switch failed: $e');
               }),
