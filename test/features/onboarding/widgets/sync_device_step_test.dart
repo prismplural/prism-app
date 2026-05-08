@@ -67,7 +67,7 @@ void main() {
     expect(completed, isFalse);
   });
 
-  testWidgets('self-hosted relay fields can be expanded from the join prompt', (
+  testWidgets('self-hosted relay expansion does not show token before URL', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -86,6 +86,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Relay URL'), findsOneWidget);
+    expect(find.text('Registration token'), findsNothing);
+
+    await tester.enterText(find.byType(TextField).first, 'https://relay.test');
+    await tester.pumpAndSettle();
+
     expect(find.text('Registration token'), findsOneWidget);
   });
 

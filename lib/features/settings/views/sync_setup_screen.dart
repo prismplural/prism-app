@@ -37,6 +37,7 @@ class _SyncSetupScreenState extends ConsumerState<SyncSetupScreen> {
     // binary at build time (see BuildInfo.betaRegistrationToken). Empty when
     // unset, which leaves the field blank for open-source / self-host builds.
     _registrationTokenController.text = BuildInfo.betaRegistrationToken;
+    _relayUrlController.addListener(_handleRelayUrlChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.invalidate(syncSetupProvider);
     });
@@ -44,10 +45,17 @@ class _SyncSetupScreenState extends ConsumerState<SyncSetupScreen> {
 
   @override
   void dispose() {
+    _relayUrlController.removeListener(_handleRelayUrlChanged);
     _relayUrlController.dispose();
     _registrationTokenController.dispose();
     _mnemonicController.dispose();
     super.dispose();
+  }
+
+  void _handleRelayUrlChanged() {
+    if (_showRelayField) {
+      setState(() {});
+    }
   }
 
   @override
@@ -57,9 +65,7 @@ class _SyncSetupScreenState extends ConsumerState<SyncSetupScreen> {
     final title = switch (setupState.step) {
       SyncSetupStep.intro => context.l10n.syncSetupIntroTitle,
       SyncSetupStep.enterPhrase =>
-        _pin == null
-            ? context.l10n.syncPinSheetTitle
-            : 'Recovery Phrase',
+        _pin == null ? context.l10n.syncPinSheetTitle : 'Recovery Phrase',
     };
 
     return PopScope(
@@ -79,6 +85,9 @@ class _SyncSetupScreenState extends ConsumerState<SyncSetupScreen> {
             SyncSetupStep.intro => _IntroStep(
               key: const ValueKey('intro'),
               showRelayField: _showRelayField,
+              showRegistrationTokenField: _relayUrlController.text
+                  .trim()
+                  .isNotEmpty,
               relayUrlController: _relayUrlController,
               registrationTokenController: _registrationTokenController,
               relayUrlError: _relayUrlError,
@@ -150,6 +159,7 @@ class _IntroStep extends StatelessWidget {
   const _IntroStep({
     super.key,
     required this.showRelayField,
+    required this.showRegistrationTokenField,
     required this.relayUrlController,
     required this.registrationTokenController,
     required this.relayUrlError,
@@ -158,6 +168,7 @@ class _IntroStep extends StatelessWidget {
   });
 
   final bool showRelayField;
+  final bool showRegistrationTokenField;
   final TextEditingController relayUrlController;
   final TextEditingController registrationTokenController;
   final String? relayUrlError;
@@ -235,20 +246,22 @@ class _IntroStep extends StatelessWidget {
                 ),
               ),
             ],
-            const SizedBox(height: 12),
-            PrismTextField(
-              controller: registrationTokenController,
-              labelText: context.l10n.syncSetupRegistrationToken,
-              hintText: context.l10n.syncSetupRegistrationTokenHint,
-              obscureText: true,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              context.l10n.syncSetupRegistrationTokenHelp,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+            if (showRegistrationTokenField) ...[
+              const SizedBox(height: 12),
+              PrismTextField(
+                controller: registrationTokenController,
+                labelText: context.l10n.syncSetupRegistrationToken,
+                hintText: context.l10n.syncSetupRegistrationTokenHint,
+                obscureText: true,
               ),
-            ),
+              const SizedBox(height: 4),
+              Text(
+                context.l10n.syncSetupRegistrationTokenHelp,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
           ],
           const SizedBox(height: 32),
           PrismButton(
@@ -307,26 +320,26 @@ class _EnterPhraseStepState extends State<_EnterPhraseStep> {
       widget.mnemonicController.text,
     );
     final words = normalized.split(' ');
-    final valid =
-        words.length == 12 &&
-        words.every((w) => w.isNotEmpty);
+    final valid = words.length == 12 && words.every((w) => w.isNotEmpty);
     if (valid != _canSubmit) {
       setState(() => _canSubmit = valid);
     }
   }
 
-  String? _progressLabel(BuildContext context) => switch (widget.currentProgress) {
-    SyncSetupProgress.creatingGroup =>
-      context.l10n.syncSetupProgressCreatingGroup,
-    SyncSetupProgress.configuringEngine =>
-      context.l10n.syncSetupProgressConfiguringEngine,
-    SyncSetupProgress.cachingKeys => context.l10n.syncSetupProgressCachingKeys,
-    SyncSetupProgress.bootstrappingData =>
-      context.l10n.syncSetupProgressBootstrapping,
-    SyncSetupProgress.measuringSnapshot =>
-      context.l10n.syncSetupProgressMeasuringSnapshot,
-    null => null,
-  };
+  String? _progressLabel(BuildContext context) =>
+      switch (widget.currentProgress) {
+        SyncSetupProgress.creatingGroup =>
+          context.l10n.syncSetupProgressCreatingGroup,
+        SyncSetupProgress.configuringEngine =>
+          context.l10n.syncSetupProgressConfiguringEngine,
+        SyncSetupProgress.cachingKeys =>
+          context.l10n.syncSetupProgressCachingKeys,
+        SyncSetupProgress.bootstrappingData =>
+          context.l10n.syncSetupProgressBootstrapping,
+        SyncSetupProgress.measuringSnapshot =>
+          context.l10n.syncSetupProgressMeasuringSnapshot,
+        null => null,
+      };
 
   @override
   Widget build(BuildContext context) {

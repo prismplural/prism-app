@@ -43,10 +43,23 @@ class _SyncDeviceStepState extends ConsumerState<SyncDeviceStep> {
   String? _relayUrlError;
 
   @override
+  void initState() {
+    super.initState();
+    _relayUrlController.addListener(_handleRelayUrlChanged);
+  }
+
+  @override
   void dispose() {
+    _relayUrlController.removeListener(_handleRelayUrlChanged);
     _relayUrlController.dispose();
     _registrationTokenController.dispose();
     super.dispose();
+  }
+
+  void _handleRelayUrlChanged() {
+    if (_showRelayConfiguration) {
+      setState(() {});
+    }
   }
 
   @override
@@ -60,6 +73,9 @@ class _SyncDeviceStepState extends ConsumerState<SyncDeviceStep> {
           key: const ValueKey('join-prompt'),
           onBack: widget.onBack,
           showRelayConfiguration: _showRelayConfiguration,
+          showRegistrationTokenField: _relayUrlController.text
+              .trim()
+              .isNotEmpty,
           relayUrlController: _relayUrlController,
           registrationTokenController: _registrationTokenController,
           relayUrlError: _relayUrlError,
@@ -232,6 +248,7 @@ class _JoinPromptView extends StatelessWidget {
     required this.onBack,
     required this.onRequestToJoin,
     required this.showRelayConfiguration,
+    required this.showRegistrationTokenField,
     required this.relayUrlController,
     required this.registrationTokenController,
     required this.relayUrlError,
@@ -241,6 +258,7 @@ class _JoinPromptView extends StatelessWidget {
   final VoidCallback onBack;
   final VoidCallback onRequestToJoin;
   final bool showRelayConfiguration;
+  final bool showRegistrationTokenField;
   final TextEditingController relayUrlController;
   final TextEditingController registrationTokenController;
   final String? relayUrlError;
@@ -338,20 +356,22 @@ class _JoinPromptView extends StatelessWidget {
                     keyboardType: TextInputType.url,
                     errorText: relayUrlError,
                   ),
-                  const SizedBox(height: 12),
-                  PrismTextField(
-                    controller: registrationTokenController,
-                    labelText: context.l10n.syncSetupRegistrationToken,
-                    hintText: context.l10n.syncSetupRegistrationTokenHint,
-                    obscureText: true,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    context.l10n.syncSetupRegistrationTokenHelp,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: AppColors.warmWhite.withValues(alpha: 0.65),
+                  if (showRegistrationTokenField) ...[
+                    const SizedBox(height: 12),
+                    PrismTextField(
+                      controller: registrationTokenController,
+                      labelText: context.l10n.syncSetupRegistrationToken,
+                      hintText: context.l10n.syncSetupRegistrationTokenHint,
+                      obscureText: true,
                     ),
-                  ),
+                    const SizedBox(height: 8),
+                    Text(
+                      context.l10n.syncSetupRegistrationTokenHelp,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: AppColors.warmWhite.withValues(alpha: 0.65),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
