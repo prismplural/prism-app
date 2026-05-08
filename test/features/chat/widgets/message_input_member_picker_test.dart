@@ -104,6 +104,14 @@ void main() {
 
     expect(find.text('Search'), findsOneWidget);
 
+    final searchTop = tester.getTopLeft(find.text('Search')).dy;
+    final firstMemberTop = tester.getTopLeft(find.text('Alice')).dy;
+    expect(
+      searchTop,
+      lessThan(firstMemberTop),
+      reason: 'Search should be the first visible popup option.',
+    );
+
     await tester.tap(find.text('Search'));
     await tester.pumpAndSettle();
 

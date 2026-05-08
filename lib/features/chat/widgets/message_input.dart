@@ -671,7 +671,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                     preferredDirection: BlurPopupDirection.up,
                     itemCount: members.length + 1,
                     itemBuilder: (popupContext, index, close) {
-                      if (index == 0) {
+                      if (index == members.length) {
                         return PrismListRow(
                           dense: true,
                           padding: const EdgeInsets.symmetric(
@@ -701,7 +701,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                         );
                       }
 
-                      final member = members[index - 1];
+                      final member = members[index];
                       final isSelected = member.id == speakingAs;
                       return PrismListRow(
                         dense: true,
