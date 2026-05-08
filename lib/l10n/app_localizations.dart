@@ -5615,6 +5615,18 @@ abstract class AppLocalizations {
   /// **'Search messages'**
   String get chatSearchMessages;
 
+  /// Chats tab segmented control option: direct messages
+  ///
+  /// In en, this message translates to:
+  /// **'Direct Messages'**
+  String get chatTabDirectMessages;
+
+  /// Chats tab segmented control option: group chats
+  ///
+  /// In en, this message translates to:
+  /// **'Group Chats'**
+  String get chatTabGroupChats;
+
   /// Empty state title when there are no conversations
   ///
   /// In en, this message translates to:
@@ -5626,6 +5638,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Start chatting with your system'**
   String get chatNoConversationsSubtitle;
+
+  /// Empty state title when the direct messages tab is empty
+  ///
+  /// In en, this message translates to:
+  /// **'No direct messages'**
+  String get chatNoDirectMessages;
+
+  /// Empty state subtitle when the direct messages tab is empty
+  ///
+  /// In en, this message translates to:
+  /// **'Start a one-on-one conversation'**
+  String get chatNoDirectMessagesSubtitle;
+
+  /// Empty state title when the group chats tab is empty
+  ///
+  /// In en, this message translates to:
+  /// **'No group chats'**
+  String get chatNoGroupChats;
+
+  /// Empty state subtitle when the group chats tab is empty
+  ///
+  /// In en, this message translates to:
+  /// **'Start a group conversation'**
+  String get chatNoGroupChatsSubtitle;
 
   /// Error message when conversations fail to load
   ///

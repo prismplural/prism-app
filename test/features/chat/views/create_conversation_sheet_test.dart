@@ -85,6 +85,7 @@ Widget _buildSheet({
   String? speakingAs,
   bool useRealSpeakingAsProvider = false,
   List<String>? initialMemberIds,
+  bool initialIsGroupChat = true,
   _FakeChatNotifier? chatNotifier,
 }) {
   final notifier = chatNotifier ?? _FakeChatNotifier();
@@ -121,6 +122,7 @@ Widget _buildSheet({
         body: CreateConversationSheet(
           scrollController: ScrollController(),
           initialMemberIds: initialMemberIds,
+          initialIsGroupChat: initialIsGroupChat,
         ),
       ),
     ),
@@ -182,6 +184,20 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Alice'), findsNothing);
+    });
+
+    testWidgets('can open directly in direct message mode', (tester) async {
+      await tester.pumpWidget(
+        _buildSheet(
+          members: [alice, bob],
+          speakingAs: 'alice',
+          initialIsGroupChat: false,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Group Name'), findsNothing);
+      expect(find.text('Message as Alice with:'), findsOneWidget);
     });
 
     testWidgets('select button opens MemberSearchSheet', (tester) async {

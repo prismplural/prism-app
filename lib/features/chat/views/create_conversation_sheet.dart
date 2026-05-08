@@ -35,6 +35,7 @@ class CreateConversationSheet extends ConsumerStatefulWidget {
     super.key,
     required this.scrollController,
     this.initialMemberIds,
+    this.initialIsGroupChat = true,
   });
 
   final ScrollController scrollController;
@@ -43,6 +44,11 @@ class CreateConversationSheet extends ConsumerStatefulWidget {
   /// When omitted, the picker starts empty.
   final List<String>? initialMemberIds;
 
+  /// Which creation mode the sheet opens on.
+  ///
+  /// Defaults to group chat to preserve the existing entrypoint behavior.
+  final bool initialIsGroupChat;
+
   @override
   ConsumerState<CreateConversationSheet> createState() =>
       _CreateConversationSheetState();
@@ -50,7 +56,7 @@ class CreateConversationSheet extends ConsumerStatefulWidget {
 
 class _CreateConversationSheetState
     extends ConsumerState<CreateConversationSheet> {
-  bool _isGroupChat = true;
+  late bool _isGroupChat = widget.initialIsGroupChat;
   final _titleController = TextEditingController();
   final _emojiController = TextEditingController();
   final Set<String> _selectedMemberIds = {};

@@ -4438,6 +4438,14 @@
   "@chatSearchMessages": {
     "description": "Tooltip for search messages button"
   },
+  "chatTabDirectMessages": "Direct Messages",
+  "@chatTabDirectMessages": {
+    "description": "Chats tab segmented control option: direct messages"
+  },
+  "chatTabGroupChats": "Group Chats",
+  "@chatTabGroupChats": {
+    "description": "Chats tab segmented control option: group chats"
+  },
   "chatNoConversations": "No conversations",
   "@chatNoConversations": {
     "description": "Empty state title when there are no conversations"
@@ -4445,6 +4453,22 @@
   "chatNoConversationsSubtitle": "Start chatting with your system",
   "@chatNoConversationsSubtitle": {
     "description": "Empty state subtitle when there are no conversations"
+  },
+  "chatNoDirectMessages": "No direct messages",
+  "@chatNoDirectMessages": {
+    "description": "Empty state title when the direct messages tab is empty"
+  },
+  "chatNoDirectMessagesSubtitle": "Start a one-on-one conversation",
+  "@chatNoDirectMessagesSubtitle": {
+    "description": "Empty state subtitle when the direct messages tab is empty"
+  },
+  "chatNoGroupChats": "No group chats",
+  "@chatNoGroupChats": {
+    "description": "Empty state title when the group chats tab is empty"
+  },
+  "chatNoGroupChatsSubtitle": "Start a group conversation",
+  "@chatNoGroupChatsSubtitle": {
+    "description": "Empty state subtitle when the group chats tab is empty"
   },
   "chatErrorLoadingConversations": "Error loading conversations",
   "@chatErrorLoadingConversations": {

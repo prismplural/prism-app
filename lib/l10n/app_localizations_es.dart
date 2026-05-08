@@ -3298,10 +3298,29 @@ class AppLocalizationsEs extends AppLocalizations {
   String get chatSearchMessages => 'Buscar mensajes';
 
   @override
+  String get chatTabDirectMessages => 'Mensajes directos';
+
+  @override
+  String get chatTabGroupChats => 'Chats grupales';
+
+  @override
   String get chatNoConversations => 'Sin conversaciones';
 
   @override
   String get chatNoConversationsSubtitle => 'Empieza a chatear con tu sistema';
+
+  @override
+  String get chatNoDirectMessages => 'Sin mensajes directos';
+
+  @override
+  String get chatNoDirectMessagesSubtitle =>
+      'Inicia una conversación uno a uno';
+
+  @override
+  String get chatNoGroupChats => 'Sin chats grupales';
+
+  @override
+  String get chatNoGroupChatsSubtitle => 'Inicia una conversación grupal';
 
   @override
   String get chatErrorLoadingConversations => 'Error al cargar conversaciones';

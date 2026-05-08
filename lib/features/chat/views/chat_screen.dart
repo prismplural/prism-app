@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/models.dart';
@@ -24,10 +25,15 @@ import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
+import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/shared/widgets/sliver_pinned_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+
+const _kLastChatSubTabKey = 'chat.last_sub_tab';
+
+enum _ChatSubTab { directMessages, groupChats }
 
 /// Main conversation list screen.
 class ChatScreen extends ConsumerStatefulWidget {
@@ -39,6 +45,49 @@ class ChatScreen extends ConsumerStatefulWidget {
 
 class _ChatScreenState extends ConsumerState<ChatScreen> {
   bool _seeded = false;
+  _ChatSubTab _activeTab = _ChatSubTab.directMessages;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedTab();
+  }
+
+  Future<void> _loadSavedTab() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedIndex = prefs.getInt(_kLastChatSubTabKey) ?? 0;
+    final tab = savedIndex == 1
+        ? _ChatSubTab.groupChats
+        : _ChatSubTab.directMessages;
+    if (mounted) {
+      setState(() => _activeTab = tab);
+    }
+  }
+
+  void _selectTab(_ChatSubTab tab) {
+    if (_activeTab == tab) return;
+    setState(() => _activeTab = tab);
+    unawaited(
+      SharedPreferences.getInstance().then(
+        (prefs) => prefs.setInt(_kLastChatSubTabKey, tab.index),
+      ),
+    );
+  }
+
+  bool _matchesActiveTab(
+    Conversation conversation,
+    String? speakingAs,
+    Member? speakingAsMember,
+  ) {
+    final permissions = conversationPermissionsForViewer(
+      conversation,
+      speakingAsMemberId: speakingAs,
+      speakingAsMember: speakingAsMember,
+    );
+    return _activeTab == _ChatSubTab.directMessages
+        ? permissions.isDirectMessage
+        : !permissions.isDirectMessage;
+  }
 
   /// Create a default "All [Members]" conversation if none exist yet.
   void _seedDefaultConversation(List<Conversation> conversations) {
@@ -278,43 +327,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         child: CustomScrollView(
           slivers: [
             SliverPinnedTopBar(
-              child: PrismTopBar(
-                title: context.l10n.chatTitle,
-                leading: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _OverflowMenuButton(speakingAs: speakingAs),
-                    const SizedBox(width: 8),
-                    PrismTopBarAction(
-                      icon: AppIcons.search,
-                      tooltip: context.l10n.chatSearchMessages,
-                      onPressed: () =>
-                          context.go('${AppRoutePaths.chat}/search'),
-                    ),
-                  ],
-                ),
-                actions: [
-                  if (hasArchived || showArchived)
-                    PrismTopBarAction(
-                      icon: showArchived
-                          ? AppIcons.inventoryRounded
-                          : AppIcons.inventoryOutlined,
-                      tooltip: showArchived
-                          ? context.l10n.chatHideArchived
-                          : context.l10n.chatShowArchived,
-                      onPressed: () =>
-                          ref.read(showArchivedProvider.notifier).toggle(),
-                    ),
-                  PrismTopBarAction(
-                    icon: AppIcons.add,
-                    tooltip: context.l10n.chatNewConversation,
-                    onPressed: () => _showCreateSheet(context),
-                  ),
-                ],
+              child: _ChatTopBar(
+                activeTab: _activeTab,
+                onTabSelected: _selectTab,
+                speakingAs: speakingAs,
+                hasArchived: hasArchived,
+                showArchived: showArchived,
+                onSearchTap: () => context.go('${AppRoutePaths.chat}/search'),
+                onArchiveTap: () =>
+                    ref.read(showArchivedProvider.notifier).toggle(),
+                onCreateTap: () => _showCreateSheet(context),
               ),
             ),
-
-            const SliverToBoxAdapter(child: SizedBox(height: 8)),
 
             // Conversation list
             ...conversationsAsync.when(
@@ -322,14 +346,28 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               data: (conversations) {
                 _seedDefaultConversation(conversations);
 
-                if (conversations.isEmpty) {
+                final visibleConversations = conversations
+                    .where(
+                      (conversation) => _matchesActiveTab(
+                        conversation,
+                        speakingAs,
+                        speakingAsMember,
+                      ),
+                    )
+                    .toList();
+
+                if (conversations.isEmpty || visibleConversations.isEmpty) {
                   return [
                     SliverFillRemaining(
                       hasScrollBody: false,
                       child: EmptyState(
                         icon: Icon(AppIcons.chatBubbleOutline),
-                        title: context.l10n.chatNoConversations,
-                        subtitle: context.l10n.chatNoConversationsSubtitle,
+                        title: _activeTab == _ChatSubTab.directMessages
+                            ? context.l10n.chatNoDirectMessages
+                            : context.l10n.chatNoGroupChats,
+                        subtitle: _activeTab == _ChatSubTab.directMessages
+                            ? context.l10n.chatNoDirectMessagesSubtitle
+                            : context.l10n.chatNoGroupChatsSubtitle,
                         actionLabel: context.l10n.chatNewConversation,
                         onAction: () => _showCreateSheet(context),
                       ),
@@ -345,7 +383,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     context: context,
                     theme: theme,
                     label: null,
-                    conversations: conversations,
+                    conversations: visibleConversations,
                     speakingAs: speakingAs,
                     speakingAsMember: speakingAsMember,
                   );
@@ -358,7 +396,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 }
                 grouped[null] = []; // uncategorized
 
-                for (final conv in conversations) {
+                for (final conv in visibleConversations) {
                   if (conv.categoryId != null &&
                       grouped.containsKey(conv.categoryId)) {
                     grouped[conv.categoryId]!.add(conv);
@@ -467,13 +505,97 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   void _showCreateSheet(BuildContext context) async {
     final conversationId = await PrismSheet.showFullScreen<String>(
       context: context,
-      builder: (context, scrollController) =>
-          CreateConversationSheet(scrollController: scrollController),
+      builder: (context, scrollController) => CreateConversationSheet(
+        scrollController: scrollController,
+        initialIsGroupChat: _activeTab == _ChatSubTab.groupChats,
+      ),
     );
 
     if (conversationId != null && context.mounted) {
       context.go(AppRoutePaths.chatConversation(conversationId));
     }
+  }
+}
+
+class _ChatTopBar extends StatelessWidget implements PreferredSizeWidget {
+  const _ChatTopBar({
+    required this.activeTab,
+    required this.onTabSelected,
+    required this.speakingAs,
+    required this.hasArchived,
+    required this.showArchived,
+    required this.onSearchTap,
+    required this.onArchiveTap,
+    required this.onCreateTap,
+  });
+
+  final _ChatSubTab activeTab;
+  final ValueChanged<_ChatSubTab> onTabSelected;
+  final String? speakingAs;
+  final bool hasArchived;
+  final bool showArchived;
+  final VoidCallback onSearchTap;
+  final VoidCallback onArchiveTap;
+  final VoidCallback onCreateTap;
+
+  @override
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight + 60);
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        PrismTopBar(
+          title: context.l10n.chatTitle,
+          leading: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _OverflowMenuButton(speakingAs: speakingAs),
+              const SizedBox(width: 8),
+              PrismTopBarAction(
+                icon: AppIcons.search,
+                tooltip: context.l10n.chatSearchMessages,
+                onPressed: onSearchTap,
+              ),
+            ],
+          ),
+          actions: [
+            if (hasArchived || showArchived)
+              PrismTopBarAction(
+                icon: showArchived
+                    ? AppIcons.inventoryRounded
+                    : AppIcons.inventoryOutlined,
+                tooltip: showArchived
+                    ? context.l10n.chatHideArchived
+                    : context.l10n.chatShowArchived,
+                onPressed: onArchiveTap,
+              ),
+            PrismTopBarAction(
+              icon: AppIcons.add,
+              tooltip: context.l10n.chatNewConversation,
+              onPressed: onCreateTap,
+            ),
+          ],
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: PrismSegmentedControl<_ChatSubTab>(
+            segments: [
+              PrismSegment(
+                value: _ChatSubTab.directMessages,
+                label: context.l10n.chatTabDirectMessages,
+              ),
+              PrismSegment(
+                value: _ChatSubTab.groupChats,
+                label: context.l10n.chatTabGroupChats,
+              ),
+            ],
+            selected: activeTab,
+            onChanged: onTabSelected,
+          ),
+        ),
+      ],
+    );
   }
 }
 
