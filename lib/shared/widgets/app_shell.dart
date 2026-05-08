@@ -78,6 +78,7 @@ double floatingNavBarExpandedHeight(
 ///
 /// Returns:
 /// - `shouldShow == false`: gate is `complete`.
+/// - `shouldShow == false`: gate is still resolving and `rawMode` is null.
 /// - `shouldShow == true, isDismissible == false`: any state where the
 ///   user must pick a recovery path before runtime new-shape work
 ///   resumes — `blocked`, `inProgress`, or `needsModal`.
@@ -94,6 +95,13 @@ FrontingUpgradeSheetDecision frontingUpgradeSheetDecision({
       // Hard read-only states — modal is the only recovery surface.
       return const FrontingUpgradeSheetDecision.show(isDismissible: false);
     case FrontingMigrationGateStatus.needsModal:
+      if (rawMode == null) {
+        // The gate provider intentionally blocks writes while the DAO stream
+        // is loading, but the UI should not surface the migration modal until
+        // the stored mode resolves. Otherwise a normal `complete` install can
+        // briefly look like "migration needed" on a slow cold start.
+        return const FrontingUpgradeSheetDecision.hidden();
+      }
       // First-time prompt, legacy deferred sentinel, or crashed-retry
       // sentinels. Present non-dismissible until the user picks a path.
       return const FrontingUpgradeSheetDecision.show(isDismissible: false);
@@ -674,6 +682,14 @@ class _AppShellState extends ConsumerState<AppShell>
     // Keep the local privacy preference loaded for app-lock decisions.
     ref.watch(hardLockSyncOnAppLockProvider);
 
+    // Watch the raw mode too, not only the collapsed gate: loading and
+    // notStarted both collapse to `needsModal`, so without this watch the
+    // shell might not rebuild when the concrete mode resolves.
+    final frontingMigrationMode = ref
+        .watch(frontingMigrationModeProvider)
+        .value;
+    final frontingMigrationGate = ref.watch(frontingMigrationGateProvider);
+
     // Keep the PK auto-poll notifier alive for its timer lifecycle.
     ref.watch(pkAutoPollProvider);
 
@@ -752,9 +768,12 @@ class _AppShellState extends ConsumerState<AppShell>
       _showFrontingUpgradeSheetIfNeeded(context, ref, next, mode);
     });
     if (!_locked && _pinCheckResolved) {
-      final gate = ref.read(frontingMigrationGateProvider);
-      final mode = ref.read(frontingMigrationModeProvider).value;
-      _showFrontingUpgradeSheetIfNeeded(context, ref, gate, mode);
+      _showFrontingUpgradeSheetIfNeeded(
+        context,
+        ref,
+        frontingMigrationGate,
+        frontingMigrationMode,
+      );
     }
 
     void onTabSelected(AppShellTab tab, {required bool useHaptics}) {
@@ -1427,7 +1446,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
     required bool showSyncBadge,
     required int dueCount,
     required int chatUnreadCount,
-  required int boardsBadge,
+    required int boardsBadge,
   }) {
     if (slot == null) return const SizedBox.shrink();
     // Stagger on the original tab index so icons animate in reading order
@@ -1471,7 +1490,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
     required bool showSyncBadge,
     required int dueCount,
     required int chatUnreadCount,
-  required int boardsBadge,
+    required int boardsBadge,
   }) {
     final populatedSlots = slots
         .whereType<({int index, AppShellTab tab})>()
@@ -1558,7 +1577,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
     required bool showSyncBadge,
     required int dueCount,
     required int chatUnreadCount,
-  required int boardsBadge,
+    required int boardsBadge,
     required bool isDark,
     required String terminologyPlural,
   }) {

@@ -77,17 +77,16 @@ void main() {
       expect(decision.isDismissible, isFalse);
     });
 
-    test('needsModal + null raw mode (loading/error) still shows the '
-        'modal — fail-safe', () {
-      // The gate provider classifies stream loading/error as `needsModal`,
-      // and at the same instant `rawMode` may still be null. The decision
-      // must err toward presenting the modal: we'd rather over-prompt than
-      // skip the migration.
+    test('needsModal + null raw mode waits for the settings row', () {
+      // The gate provider classifies stream loading/error as `needsModal`
+      // to block writes while the DAO stream is resolving. The modal must
+      // wait for a concrete raw mode so a normal `complete` install does not
+      // flash the upgrade flow during a slow cold start.
       final decision = frontingUpgradeSheetDecision(
         gate: FrontingMigrationGateStatus.needsModal,
         rawMode: null,
       );
-      expect(decision.shouldShow, isTrue);
+      expect(decision.shouldShow, isFalse);
       expect(decision.isDismissible, isFalse);
     });
   });
