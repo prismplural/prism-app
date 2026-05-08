@@ -13,6 +13,7 @@ import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/boards/providers/board_posts_providers.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
+import 'package:prism_plurality/features/fronting/migration/fronting_migration_service.dart';
 import 'package:prism_plurality/features/fronting/migration/providers/fronting_migration_providers.dart';
 import 'package:prism_plurality/features/fronting/migration/views/fronting_upgrade_sheet.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
@@ -79,6 +80,8 @@ double floatingNavBarExpandedHeight(
 /// Returns:
 /// - `shouldShow == false`: gate is `complete`.
 /// - `shouldShow == false`: gate is still resolving and `rawMode` is null.
+/// - `shouldShow == false`: gate is transiently `needsModal` from a
+///   loading/error state while `rawMode` already says `complete`.
 /// - `shouldShow == true, isDismissible == false`: any state where the
 ///   user must pick a recovery path before runtime new-shape work
 ///   resumes — `blocked`, `inProgress`, or `needsModal`.
@@ -95,11 +98,19 @@ FrontingUpgradeSheetDecision frontingUpgradeSheetDecision({
       // Hard read-only states — modal is the only recovery surface.
       return const FrontingUpgradeSheetDecision.show(isDismissible: false);
     case FrontingMigrationGateStatus.needsModal:
-      if (rawMode == null) {
+      if (rawMode == null || rawMode == FrontingMigrationService.modeComplete) {
         // The gate provider intentionally blocks writes while the DAO stream
         // is loading, but the UI should not surface the migration modal until
-        // the stored mode resolves. Otherwise a normal `complete` install can
-        // briefly look like "migration needed" on a slow cold start.
+        // the stored mode resolves to a concrete pending/retry sentinel.
+        // Riverpod reloads can keep the last concrete stream value while the
+        // collapsed gate is temporarily `needsModal`; if that value is already
+        // `complete`, a normal install must remain quiet.
+        return const FrontingUpgradeSheetDecision.hidden();
+      }
+      if (rawMode != FrontingMigrationService.modeNotStarted &&
+          rawMode != FrontingMigrationService.modeDeferred &&
+          rawMode != FrontingMigrationService.modeUpgradeAndKeep &&
+          rawMode != FrontingMigrationService.modeStartFresh) {
         return const FrontingUpgradeSheetDecision.hidden();
       }
       // First-time prompt, legacy deferred sentinel, or crashed-retry
@@ -687,6 +698,7 @@ class _AppShellState extends ConsumerState<AppShell>
     // shell might not rebuild when the concrete mode resolves.
     final frontingMigrationMode = ref
         .watch(frontingMigrationModeProvider)
+        .unwrapPrevious()
         .value;
     final frontingMigrationGate = ref.watch(frontingMigrationGateProvider);
 
@@ -764,7 +776,10 @@ class _AppShellState extends ConsumerState<AppShell>
       next,
     ) {
       if (!_pinCheckResolved || _locked) return;
-      final mode = ref.read(frontingMigrationModeProvider).value;
+      final mode = ref
+          .read(frontingMigrationModeProvider)
+          .unwrapPrevious()
+          .value;
       _showFrontingUpgradeSheetIfNeeded(context, ref, next, mode);
     });
     if (!_locked && _pinCheckResolved) {
@@ -1030,11 +1045,17 @@ class _AppShellState extends ConsumerState<AppShell>
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!context.mounted) return;
+      if (!_pinCheckResolved || _locked) return;
       if (_frontingUpgradeSheetShowing) return;
+      final latestDecision = frontingUpgradeSheetDecision(
+        gate: ref.read(frontingMigrationGateProvider),
+        rawMode: ref.read(frontingMigrationModeProvider).unwrapPrevious().value,
+      );
+      if (!latestDecision.shouldShow) return;
       _frontingUpgradeSheetShowing = true;
       showFrontingUpgradeSheet(
         context,
-        isDismissible: decision.isDismissible,
+        isDismissible: latestDecision.isDismissible,
       ).whenComplete(() {
         _frontingUpgradeSheetShowing = false;
       });

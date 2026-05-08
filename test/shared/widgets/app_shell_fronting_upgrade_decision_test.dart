@@ -89,5 +89,17 @@ void main() {
       expect(decision.shouldShow, isFalse);
       expect(decision.isDismissible, isFalse);
     });
+
+    test('needsModal + complete raw mode waits for the refreshed gate', () {
+      // Riverpod reloads can temporarily expose an AsyncLoading/AsyncError
+      // gate while keeping the last concrete stream value. If that stale
+      // value is `complete`, this is not a real migration prompt.
+      final decision = frontingUpgradeSheetDecision(
+        gate: FrontingMigrationGateStatus.needsModal,
+        rawMode: FrontingMigrationService.modeComplete,
+      );
+      expect(decision.shouldShow, isFalse);
+      expect(decision.isDismissible, isFalse);
+    });
   });
 }
