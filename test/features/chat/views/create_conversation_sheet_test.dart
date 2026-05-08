@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/domain/models/conversation.dart';
+import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/domain/models/member_group_entry.dart';
@@ -10,6 +13,7 @@ import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/chat/providers/category_providers.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/chat/views/create_conversation_sheet.dart';
+import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
@@ -17,6 +21,7 @@ import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
+import 'package:prism_plurality/shared/widgets/prism_chip.dart';
 import 'package:prism_plurality/shared/widgets/selected_member_picker.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -76,14 +81,21 @@ Member _member({required String id, required String name}) =>
 
 Widget _buildSheet({
   required List<Member> members,
+  Stream<List<Member>>? membersStream,
   String? speakingAs,
+  bool useRealSpeakingAsProvider = false,
   List<String>? initialMemberIds,
   _FakeChatNotifier? chatNotifier,
 }) {
   final notifier = chatNotifier ?? _FakeChatNotifier();
   return ProviderScope(
     overrides: [
-      activeMembersProvider.overrideWith((ref) => Stream.value(members)),
+      activeMembersProvider.overrideWith(
+        (ref) => membersStream ?? Stream.value(members),
+      ),
+      activeSessionsProvider.overrideWithValue(
+        const AsyncValue.data(<FrontingSession>[]),
+      ),
       allGroupsProvider.overrideWith(
         (ref) => Stream.value(const <MemberGroup>[]),
       ),
@@ -93,9 +105,12 @@ Widget _buildSheet({
       systemSettingsProvider.overrideWith(
         (ref) => Stream.value(const SystemSettings()),
       ),
-      speakingAsProvider.overrideWith(
-        () => _FakeSpeakingAsNotifier(speakingAs),
-      ),
+      if (useRealSpeakingAsProvider)
+        chatLogsFrontProvider.overrideWithValue(false)
+      else
+        speakingAsProvider.overrideWith(
+          () => _FakeSpeakingAsNotifier(speakingAs),
+        ),
       conversationCategoriesProvider.overrideWith((ref) => Stream.value([])),
       chatNotifierProvider.overrideWith(() => notifier),
     ],
@@ -119,6 +134,7 @@ Widget _buildSheet({
 void main() {
   final alice = _member(id: 'alice', name: 'Alice');
   final bob = _member(id: 'bob', name: 'Bob');
+  final carol = _member(id: 'carol', name: 'Carol');
 
   // Generate 30 members so the lazy-rendering assertion is meaningful.
   final manyMembers = List.generate(
@@ -338,5 +354,139 @@ void main() {
         expect(chatNotifier.createdIsDirectMessage, isTrue);
       },
     );
+
+    testWidgets('DM mode: sender can be chosen when no one is fronting', (
+      tester,
+    ) async {
+      final chatNotifier = _FakeChatNotifier();
+      await tester.pumpWidget(
+        _buildSheet(
+          members: [alice, bob],
+          useRealSpeakingAsProvider: true,
+          chatNotifier: chatNotifier,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Direct Message'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.widgetWithText(PrismChip, 'Alice'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.byKey(const Key('selectedMemberPickerSelectButton')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('alice')), findsNothing);
+
+      await tester.tap(find.byKey(const ValueKey('bob')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.widgetWithIcon(PrismGlassIconButton, AppIcons.check),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        chatNotifier.createdParticipantIds,
+        unorderedEquals(['alice', 'bob']),
+      );
+      expect(chatNotifier.createdCreatorId, 'alice');
+      expect(chatNotifier.createdIsDirectMessage, isTrue);
+    });
+
+    testWidgets(
+      'DM mode: changing sender to selected target clears the target',
+      (tester) async {
+        await tester.pumpWidget(
+          _buildSheet(members: [alice, bob], useRealSpeakingAsProvider: true),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Direct Message'));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.widgetWithText(PrismChip, 'Alice'));
+        await tester.pumpAndSettle();
+
+        await tester.tap(
+          find.byKey(const Key('selectedMemberPickerSelectButton')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('bob')));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.widgetWithText(PrismChip, 'Bob'));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const Key('selectedMemberPickerSelectButton')),
+          findsOneWidget,
+        );
+        final createButton = tester.widget<PrismGlassIconButton>(
+          find.widgetWithIcon(PrismGlassIconButton, AppIcons.check),
+        );
+        expect(createButton.onPressed, isNull);
+
+        await tester.tap(
+          find.byKey(const Key('selectedMemberPickerSelectButton')),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const ValueKey('bob')), findsNothing);
+        expect(find.byKey(const ValueKey('alice')), findsOneWidget);
+      },
+    );
+
+    testWidgets('DM mode: inactive selected target is pruned', (tester) async {
+      final membersController = StreamController<List<Member>>();
+      addTearDown(membersController.close);
+
+      await tester.pumpWidget(
+        _buildSheet(
+          members: const [],
+          membersStream: membersController.stream,
+          useRealSpeakingAsProvider: true,
+        ),
+      );
+
+      membersController.add([alice, bob, carol]);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Direct Message'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.widgetWithText(PrismChip, 'Alice'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.byKey(const Key('selectedMemberPickerSelectButton')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('bob')));
+      await tester.pumpAndSettle();
+
+      membersController.add([alice, carol]);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('selectedMemberPickerSelectButton')),
+        findsOneWidget,
+      );
+      final createButton = tester.widget<PrismGlassIconButton>(
+        find.widgetWithIcon(PrismGlassIconButton, AppIcons.check),
+      );
+      expect(createButton.onPressed, isNull);
+
+      await tester.tap(
+        find.byKey(const Key('selectedMemberPickerSelectButton')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('bob')), findsNothing);
+      expect(find.byKey(const ValueKey('carol')), findsOneWidget);
+    });
   });
 }

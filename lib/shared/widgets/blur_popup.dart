@@ -223,7 +223,6 @@ class BlurPopupAnchorState extends State<BlurPopupAnchor>
   }) async {
     final overlayEntry = _overlayEntry;
     if (overlayEntry == null) return;
-    _overlayEntry = null;
 
     final historyEntry = _historyEntry;
     if (removeHistoryEntry && historyEntry != null) {
@@ -236,9 +235,19 @@ class BlurPopupAnchorState extends State<BlurPopupAnchor>
     }
 
     if (animate && mounted) {
-      await _animController.reverse();
+      try {
+        await _animController.reverse().orCancel;
+      } catch (_) {
+        // The anchor can be disposed while a popup is closing, for example
+        // when navigation replaces the current screen. In that case dispose()
+        // performs the immediate overlay removal below.
+      }
     }
-    overlayEntry.remove();
+    final shouldRemoveOverlay = _overlayEntry == overlayEntry;
+    if (shouldRemoveOverlay) {
+      _overlayEntry = null;
+      overlayEntry.remove();
+    }
   }
 
   @override

@@ -154,4 +154,50 @@ void main() {
     expect(find.text('Popup item'), findsNothing);
     expect(find.text('Anchor'), findsOneWidget);
   });
+
+  testWidgets(
+    'BlurPopupAnchor removes overlay when disposed during animated close',
+    (tester) async {
+      var showAnchor = true;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: const [Locale('en'), Locale('es')],
+          home: StatefulBuilder(
+            builder: (context, setState) {
+              return Scaffold(
+                body: Center(
+                  child: showAnchor
+                      ? BlurPopupAnchor(
+                          itemCount: 1,
+                          itemBuilder: (context, index, close) => TextButton(
+                            onPressed: () {
+                              close();
+                              setState(() => showAnchor = false);
+                            },
+                            child: const Text('Popup item'),
+                          ),
+                          child: const Text('Anchor'),
+                        )
+                      : const Text('Anchor removed'),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Anchor'));
+      await tester.pumpAndSettle();
+      expect(find.text('Popup item'), findsOneWidget);
+
+      await tester.tap(find.text('Popup item'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Anchor removed'), findsOneWidget);
+      expect(find.text('Popup item'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

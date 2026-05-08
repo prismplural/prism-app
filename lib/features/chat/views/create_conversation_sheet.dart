@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/chat/providers/category_providers.dart';
+import 'package:prism_plurality/features/chat/widgets/speaking_as_picker.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/utils/member_search_groups.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
@@ -57,6 +58,29 @@ class _CreateConversationSheetState
   bool _isCreating = false;
   bool _didPreselect = false;
 
+  bool _normalizeDmSelectionFor(
+    String? speakingAs, {
+    Set<String>? eligibleMemberIds,
+  }) {
+    if (_isGroupChat) return false;
+    final eligibleSelectedIds = _selectedMemberIds
+        .where(
+          (id) =>
+              id != speakingAs &&
+              (eligibleMemberIds == null || eligibleMemberIds.contains(id)),
+        )
+        .take(1)
+        .toList(growable: false);
+    if (_selectedMemberIds.length == eligibleSelectedIds.length &&
+        _selectedMemberIds.every(eligibleSelectedIds.contains)) {
+      return false;
+    }
+    _selectedMemberIds
+      ..clear()
+      ..addAll(eligibleSelectedIds);
+    return true;
+  }
+
   @override
   void dispose() {
     _titleController.dispose();
@@ -71,7 +95,18 @@ class _CreateConversationSheetState
     } else {
       // DM: current fronter + one selected other member
       final speakingAs = ref.read(speakingAsProvider);
-      return speakingAs != null && _selectedMemberIds.length == 1;
+      final targetId = _selectedMemberIds.length == 1
+          ? _selectedMemberIds.first
+          : null;
+      final visibleMemberIds = ref
+          .read(userVisibleMembersProvider)
+          .value
+          ?.map((member) => member.id)
+          .toSet();
+      return speakingAs != null &&
+          targetId != null &&
+          targetId != speakingAs &&
+          (visibleMemberIds == null || visibleMemberIds.contains(targetId));
     }
   }
 
@@ -205,6 +240,28 @@ class _CreateConversationSheetState
     // placeholder member aren't a real flow.
     final membersAsync = ref.watch(userVisibleMembersProvider);
     final speakingAs = ref.watch(speakingAsProvider);
+    ref.listen<String?>(speakingAsProvider, (_, next) {
+      if (_isGroupChat) return;
+      final visibleMemberIds = ref
+          .read(userVisibleMembersProvider)
+          .value
+          ?.map((member) => member.id)
+          .toSet();
+      if (_normalizeDmSelectionFor(next, eligibleMemberIds: visibleMemberIds)) {
+        setState(() {});
+      }
+    });
+    ref.listen<AsyncValue<List<Member>>>(userVisibleMembersProvider, (_, next) {
+      if (_isGroupChat) return;
+      final visibleMemberIds = next.value?.map((member) => member.id).toSet();
+      if (visibleMemberIds == null) return;
+      if (_normalizeDmSelectionFor(
+        ref.read(speakingAsProvider),
+        eligibleMemberIds: visibleMemberIds,
+      )) {
+        setState(() {});
+      }
+    });
 
     // Pre-select members once loaded only when the caller explicitly provided
     // initial IDs.
@@ -274,6 +331,14 @@ class _CreateConversationSheetState
             onChanged: (value) {
               setState(() {
                 _isGroupChat = value;
+                _normalizeDmSelectionFor(
+                  ref.read(speakingAsProvider),
+                  eligibleMemberIds: ref
+                      .read(userVisibleMembersProvider)
+                      .value
+                      ?.map((member) => member.id)
+                      .toSet(),
+                );
               });
             },
           ),
@@ -376,6 +441,16 @@ class _CreateConversationSheetState
           ),
         ),
         const SliverToBoxAdapter(child: SizedBox(height: 16)),
+      ],
+
+      if (!_isGroupChat) ...[
+        const SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 8),
+            child: SpeakingAsPicker(autoSelectFirst: false),
+          ),
+        ),
+        const SliverToBoxAdapter(child: SizedBox(height: 12)),
       ],
 
       // ── Member selection header ──────────────────────────────
