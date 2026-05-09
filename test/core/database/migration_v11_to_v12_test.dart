@@ -63,11 +63,9 @@ Future<void> _seedV11Db(File dbFile) async {
     );
     rawDb.execute('DROP TABLE IF EXISTS member_board_posts');
 
-    // v20: drop pending_pk_op so v19→v20 onUpgrade can re-add it.
+    // Flattened v18→v19: drop pending_pk_op so onUpgrade can re-add it.
 
-    rawDb.execute(
-      'ALTER TABLE member_group_entries DROP COLUMN pending_pk_op',
-    );
+    rawDb.execute('ALTER TABLE member_group_entries DROP COLUMN pending_pk_op');
 
     rawDb.execute('PRAGMA user_version = 11;');
   } finally {
@@ -116,7 +114,7 @@ void main() {
       expect(member.nameStyleColorHex, isNull);
 
       final version = await upgraded.customSelect('PRAGMA user_version').get();
-      expect(version.first.read<int>('user_version'), 21);
+      expect(version.first.read<int>('user_version'), 19);
     });
   });
 }

@@ -96,7 +96,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 21;
+  int get schemaVersion => 19;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -532,6 +532,10 @@ class AppDatabase extends _$AppDatabase {
         current = 18;
       }
       if (current == 18 && to >= 19) {
+        // 0.8.1 production flatten: all schema additions since 0.8.0 ship as
+        // one v18→v19 migration because no public build used the intermediate
+        // dev-only versions.
+        //
         // Rebuild chat_messages_fts with prefix='2 3 4' so prefix-match
         // queries (every chat search) resolve in a single seek per term
         // instead of a dictionary range scan. Wrap in a transaction:
@@ -554,24 +558,19 @@ class AppDatabase extends _$AppDatabase {
             'SELECT content, id, conversation_id FROM chat_messages '
             "WHERE is_deleted = 0 AND is_system_message = 0 AND content != ''",
           );
+
+          // Add member_group_entries.pending_pk_op for PluralKit bidirectional
+          // group membership sync. Local-only (NOT in prismSyncSchema). Default
+          // 'none' means existing rows are treated as already-synced — correct
+          // semantic since the column tracks fresh local intent. See
+          // docs/plans/pk-group-membership-push.md.
+          await migrator.addColumn(
+            memberGroupEntries,
+            memberGroupEntries.pendingPkOp,
+          );
+          await migrator.addColumn(members, members.pluralkitDisplayName);
         });
         current = 19;
-      }
-      if (current == 19 && to >= 20) {
-        // Add member_group_entries.pending_pk_op for PluralKit bidirectional
-        // group membership sync. Local-only (NOT in prismSyncSchema). Default
-        // 'none' means existing rows are treated as already-synced — correct
-        // semantic since the column tracks fresh local intent. See
-        // docs/plans/pk-group-membership-push.md.
-        await migrator.addColumn(
-          memberGroupEntries,
-          memberGroupEntries.pendingPkOp,
-        );
-        current = 20;
-      }
-      if (current == 20 && to >= 21) {
-        await migrator.addColumn(members, members.pluralkitDisplayName);
-        current = 21;
       }
       if (current != to) {
         throw UnsupportedError(
