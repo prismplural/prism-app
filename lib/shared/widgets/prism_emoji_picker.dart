@@ -13,6 +13,7 @@ import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
 const double _kPickerHeight = 360.0;
+const double _kSearchPickerHeight = 124.0;
 
 /// A tappable glass circle that shows the selected emoji or a `+` icon.
 /// Tapping opens a themed bottom sheet with the full emoji picker.
@@ -63,7 +64,12 @@ class PrismEmojiPicker extends StatelessWidget {
     return completer.future;
   }
 
-  static Config _buildConfig(ThemeData theme, {required String hintText}) {
+  static Config _buildConfig(
+    ThemeData theme, {
+    required String hintText,
+    VoidCallback? onSearchOpened,
+    VoidCallback? onSearchClosed,
+  }) {
     final isDark = theme.brightness == Brightness.dark;
     return Config(
       height: _kPickerHeight,
@@ -85,6 +91,7 @@ class PrismEmojiPicker extends StatelessWidget {
       ),
       categoryViewConfig: CategoryViewConfig(
         initCategory: Category.SMILEYS,
+        extraTab: CategoryExtraTab.SEARCH,
         backgroundColor: Colors.transparent,
         indicatorColor: theme.colorScheme.primary,
         iconColor: theme.colorScheme.onSurfaceVariant,
@@ -104,7 +111,13 @@ class PrismEmojiPicker extends StatelessWidget {
           color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
         ),
         customSearchView: (config, state, showEmojiView) {
-          return _PrismSearchView(config, state, showEmojiView);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            onSearchOpened?.call();
+          });
+          return _PrismSearchView(config, state, () {
+            onSearchClosed?.call();
+            showEmojiView();
+          });
         },
       ),
     );
@@ -182,55 +195,64 @@ class _PrismSearchViewState extends SearchViewState<_PrismSearchView> {
         final emojiBoxSize = widget.config.emojiViewConfig.getEmojiBoxSize(
           constraints.maxWidth,
         );
+        final resultEmojiSize = emojiSize.clamp(0.0, 32.0).toDouble();
+        final resultEmojiBoxSize = emojiBoxSize.clamp(40.0, 48.0).toDouble();
 
         return Container(
           color: widget.config.searchViewConfig.backgroundColor,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Material(
-                color: Colors.transparent,
-                child: SizedBox(
-                  height: emojiBoxSize + 8.0,
-                  child: ListView.builder(
-                    padding: const EdgeInsets.symmetric(vertical: 4.0),
-                    scrollDirection: Axis.horizontal,
-                    itemCount: results.length,
-                    itemBuilder: (context, index) {
-                      return buildEmoji(
-                        results[index],
-                        emojiSize,
-                        emojiBoxSize,
-                      );
-                    },
-                  ),
-                ),
-              ),
-              Row(
-                children: [
-                  IconButton(
-                    onPressed: widget.showEmojiView,
-                    color: widget.config.searchViewConfig.buttonIconColor,
-                    icon: const Icon(Icons.arrow_back),
-                  ),
-                  Expanded(
-                    child: TextField(
-                      onChanged: onTextInputChanged,
-                      focusNode: focusNode,
-                      style: widget.config.searchViewConfig.inputTextStyle,
-                      decoration: InputDecoration(
-                        border: InputBorder.none,
-                        hintText: widget.config.searchViewConfig.hintText,
-                        hintStyle: widget.config.searchViewConfig.hintTextStyle,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                        ),
-                      ),
+          child: SizedBox(
+            height: constraints.hasBoundedHeight ? constraints.maxHeight : null,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Material(
+                  color: Colors.transparent,
+                  child: SizedBox(
+                    height: resultEmojiBoxSize + 4.0,
+                    child: ListView.builder(
+                      padding: const EdgeInsets.symmetric(vertical: 2.0),
+                      scrollDirection: Axis.horizontal,
+                      itemCount: results.length,
+                      itemBuilder: (context, index) {
+                        return buildEmoji(
+                          results[index],
+                          resultEmojiSize,
+                          resultEmojiBoxSize,
+                        );
+                      },
                     ),
                   ),
-                ],
-              ),
-            ],
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 0, 12, 8),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        onPressed: widget.showEmojiView,
+                        color: widget.config.searchViewConfig.buttonIconColor,
+                        icon: const Icon(Icons.arrow_back),
+                      ),
+                      Expanded(
+                        child: TextField(
+                          onChanged: onTextInputChanged,
+                          focusNode: focusNode,
+                          style: widget.config.searchViewConfig.inputTextStyle,
+                          decoration: InputDecoration(
+                            border: InputBorder.none,
+                            hintText: widget.config.searchViewConfig.hintText,
+                            hintStyle:
+                                widget.config.searchViewConfig.hintTextStyle,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -239,7 +261,7 @@ class _PrismSearchViewState extends SearchViewState<_PrismSearchView> {
 }
 
 /// The picker sheet body wrapped in a tinted glass surface.
-class _PickerBody extends StatelessWidget {
+class _PickerBody extends StatefulWidget {
   const _PickerBody({
     required this.theme,
     required this.hintText,
@@ -251,16 +273,39 @@ class _PickerBody extends StatelessWidget {
   final ValueChanged<String> onSelected;
 
   @override
+  State<_PickerBody> createState() => _PickerBodyState();
+}
+
+class _PickerBodyState extends State<_PickerBody> {
+  bool _isSearching = false;
+
+  void _setSearching(bool value) {
+    if (_isSearching == value || !mounted) return;
+    setState(() => _isSearching = value);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final bottomInset = modalBottomInsetOf(context);
     return Padding(
       padding: EdgeInsets.only(bottom: bottomInset),
-      child: GlassSurface(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        height: _kPickerHeight,
-        child: EmojiPicker(
-          onEmojiSelected: (category, emoji) => onSelected(emoji.emoji),
-          config: PrismEmojiPicker._buildConfig(theme, hintText: hintText),
+      child: AnimatedSize(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+        alignment: Alignment.bottomCenter,
+        child: GlassSurface(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          height: _isSearching ? _kSearchPickerHeight : _kPickerHeight,
+          child: EmojiPicker(
+            onEmojiSelected: (category, emoji) =>
+                widget.onSelected(emoji.emoji),
+            config: PrismEmojiPicker._buildConfig(
+              widget.theme,
+              hintText: widget.hintText,
+              onSearchOpened: () => _setSearching(true),
+              onSearchClosed: () => _setSearching(false),
+            ),
+          ),
         ),
       ),
     );
