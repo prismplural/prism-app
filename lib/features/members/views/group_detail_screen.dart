@@ -393,10 +393,7 @@ class _GroupDetailBody extends ConsumerWidget {
         ),
       );
       if (!confirmed || !context.mounted) return;
-      // addCoFronter is still per-member; equivalent to startFronting([id]).
-      for (final id in toAdd) {
-        await ref.read(frontingNotifierProvider.notifier).addCoFronter(id);
-      }
+      await ref.read(frontingNotifierProvider.notifier).startFronting(toAdd);
       return;
     }
 

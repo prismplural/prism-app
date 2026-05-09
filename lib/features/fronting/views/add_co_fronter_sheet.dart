@@ -67,9 +67,7 @@ class _AddCoFronterSheetState extends ConsumerState<AddCoFronterSheet> {
 
     try {
       final notifier = ref.read(frontingNotifierProvider.notifier);
-      for (final id in _selectedIds) {
-        await notifier.addCoFronter(id);
-      }
+      await notifier.startFronting(_selectedIds.toList(growable: false));
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) {

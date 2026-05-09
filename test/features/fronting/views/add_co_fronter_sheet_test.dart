@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/domain/models/member_group_entry.dart';
@@ -32,12 +33,23 @@ Finder _sheetConfirmSelectionButton() => find.descendant(
   matching: _confirmSelectionButton(),
 );
 
-// Fake notifier that records addCoFronter calls without hitting the real service.
+// Fake notifier that records fronting calls without hitting the real service.
 class _FakeFrontingNotifier extends FrontingNotifier {
   final addedIds = <String>[];
+  final startedIds = <List<String>>[];
 
   @override
   Future<void> build() async {}
+
+  @override
+  Future<void> startFronting(
+    List<String> memberIds, {
+    FrontConfidence? confidence,
+    String? notes,
+    DateTime? startTime,
+  }) async {
+    startedIds.add(List<String>.from(memberIds));
+  }
 
   @override
   Future<void> addCoFronter(String memberId) async {
@@ -226,11 +238,14 @@ void main() {
   // ══════════════════════════════════════════════════════════════════════════
 
   group('save behavior after search', () {
-    testWidgets('tapping Add after search selection calls addCoFronter', (
+    testWidgets('tapping Add after multi-select batches startFronting', (
       tester,
     ) async {
       final notifier = _FakeFrontingNotifier();
-      final members = [_member(id: 'bob', name: 'Bob')];
+      final members = [
+        _member(id: 'bob', name: 'Bob'),
+        _member(id: 'charlie', name: 'Charlie'),
+      ];
       bool? sheetResult;
 
       await tester.pumpWidget(
@@ -244,21 +259,19 @@ void main() {
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
-      // Select Bob via the search sheet.
-      await tester.tap(find.byIcon(AppIcons.search));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('Bob').last);
+      // Select two members in the sheet, then submit once.
+      await tester.tap(find.text('Bob'));
+      await tester.pump();
+      await tester.tap(find.text('Charlie'));
       await tester.pump();
 
-      await tester.tap(_sheetConfirmSelectionButton());
-      await tester.pumpAndSettle();
-
-      // Tap Add.
       await tester.tap(find.widgetWithText(PrismButton, 'Add'));
       await tester.pumpAndSettle();
 
-      expect(notifier.addedIds, contains('bob'));
+      expect(notifier.addedIds, isEmpty);
+      expect(notifier.startedIds, [
+        ['bob', 'charlie'],
+      ]);
       expect(sheetResult, isTrue);
     });
   });

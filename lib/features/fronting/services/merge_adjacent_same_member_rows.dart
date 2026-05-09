@@ -23,9 +23,23 @@ import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/repositories/front_session_comments_repository.dart';
 import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
 
+/// Maximum same-member boundary drift to treat as an accidental rapid-action
+/// split instead of a user-intended gap/overlap.
+///
+/// This catches old co-front transitions and quick edit flows that wrote
+/// adjacent per-member rows a few seconds apart while preserving larger
+/// intentional gaps.
+const kAdjacentSameMemberSnapTolerance = Duration(seconds: 30);
+
 /// Walks each [memberIds] member's normal (non-sleep) active sessions
 /// in `start_time ASC` order and, while any merge fires, collapses
-/// pairs whose `end_time == nextStartTime` into one continuous row.
+/// pairs whose boundary drift is within [snapTolerance] into one continuous
+/// row.
+///
+/// Defaults to exact boundaries only. Pass [kAdjacentSameMemberSnapTolerance]
+/// only from repair paths that have already narrowed their candidate rows to
+/// accidental rapid-action splits; applying it broadly during migration can
+/// collapse legitimate historical gaps from real datasets.
 ///
 /// Merge rules:
 ///   - The earlier row is updated in place (its id stays stable).
@@ -71,6 +85,7 @@ Future<int> mergeAdjacentSameMemberRows(
   required Iterable<String> memberIds,
   Set<String> excludeMemberIds = const {},
   FrontSessionCommentsRepository? commentsRepository,
+  Duration snapTolerance = Duration.zero,
 }) async {
   var merges = 0;
   for (final memberId in memberIds) {
@@ -95,15 +110,12 @@ Future<int> mergeAdjacentSameMemberRows(
       for (var i = 0; i < rows.length - 1; i++) {
         final a = rows[i];
         final b = rows[i + 1];
-        // Only merge on an exact boundary. A few-second tolerance
-        // would over-merge — the migration is operating on rows
-        // derived from the user's own session boundaries, so anything
-        // non-exact represents an intentional gap.
         if (a.endTime == null) continue; // open-ended earlier row → no boundary
-        if (a.endTime != b.startTime) continue;
+        final boundaryDrift = b.startTime.difference(a.endTime!);
+        if (_absDuration(boundaryDrift) > snapTolerance) continue;
         await repo.updateSession(
           a.copyWith(
-            endTime: b.endTime,
+            endTime: _mergeEnd(a.endTime, b.endTime),
             notes: _mergeNotes(a.notes, b.notes),
             confidence: _mergeConfidence(a.confidence, b.confidence),
           ),
@@ -133,6 +145,14 @@ String? _mergeNotes(String? a, String? b) {
   if (bFilled) return b;
   return null;
 }
+
+DateTime? _mergeEnd(DateTime? a, DateTime? b) {
+  if (a == null || b == null) return null;
+  return a.isAfter(b) ? a : b;
+}
+
+Duration _absDuration(Duration duration) =>
+    duration.isNegative ? -duration : duration;
 
 FrontConfidence? _mergeConfidence(FrontConfidence? a, FrontConfidence? b) {
   if (a == null) return b;
