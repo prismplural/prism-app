@@ -17,6 +17,7 @@ import 'features/settings/providers/settings_providers.dart';
 import 'shared/theme/app_colors.dart';
 import 'shared/theme/app_theme.dart';
 import 'shared/theme/prism_shapes.dart' as ui_shapes;
+import 'shared/widgets/prism_keyboard_dismiss_scope.dart';
 import 'shared/widgets/prism_toast.dart';
 
 class PrismApp extends ConsumerStatefulWidget {
@@ -237,7 +238,9 @@ class _PrismAppState extends ConsumerState<PrismApp> {
                 child: result,
               );
             }
-            return PrismToastHost(child: result);
+            return PrismKeyboardDismissScope(
+              child: PrismToastHost(child: result),
+            );
           },
           debugShowCheckedModeBanner: false,
         );
