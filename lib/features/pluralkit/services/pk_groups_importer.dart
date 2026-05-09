@@ -600,6 +600,44 @@ class PkGroupsImporter with SyncRecordMixin {
     return settings.pkGroupSyncV2Enabled;
   }
 
+  /// Atomically terminate ALL pending intents for a group whose PK side
+  /// went missing (refetch returned 404). Hard-deletes push_remove
+  /// tombstones FIRST so the guarded DELETE matches on pending_pk_op =
+  /// 'push_remove'; then clears any remaining pending (push_add rows that
+  /// stay active as local-only memberships). Returns the count of rows
+  /// hard-deleted (caller uses this for the `removed` counter).
+  ///
+  /// Called by both _refetchAndReconcileAddBucket AND
+  /// _refetchAndReconcileRemoveBucket on the 404 path. Order matters when
+  /// the same gone group appears in both buckets (codex review 2nd pass
+  /// [P3]): if the add path's clearAllPendingPkOpForGroup ran first, it
+  /// would wipe push_remove pending → the remove path's later DELETE
+  /// misses → zombie. The shared helper handles both ops atomically;
+  /// idempotent if called twice for the same group.
+  Future<int> _terminalCleanupForGoneGroup(String groupPkUuid) async {
+    final group = await _dao.findByPluralkitUuid(groupPkUuid);
+    if (group == null) return 0;
+    // Hard-delete every push_remove tombstone in the group while pending
+    // still equals push_remove (guarded by DAO method).
+    final tombstoneIds = await _db.customSelect(
+      'SELECT id FROM member_group_entries '
+      "WHERE group_id = ? AND pending_pk_op = 'push_remove' AND is_deleted = 1",
+      variables: [Variable.withString(group.id)],
+      readsFrom: {_db.memberGroupEntries},
+    ).get();
+    var removed = 0;
+    for (final row in tombstoneIds) {
+      final hits = await _dao.hardDeleteRemoveTombstoneGuarded(
+        row.read<String>('id'),
+      );
+      if (hits > 0) removed++;
+    }
+    // Clear pending on the rest (push_add rows; nothing to push to a gone
+    // PK group). Soft-deleted-pending=none rows are stable.
+    await _dao.clearAllPendingPkOpForGroup(group.id);
+    return removed;
+  }
+
   // ── Step 6: push orchestrator ──────────────────────────────────────────
 
   /// Push every pending group-membership op to PluralKit.
@@ -866,11 +904,15 @@ class PkGroupsImporter with SyncRecordMixin {
       authoritative = (await client.getGroupMembers(groupPkUuid)).toSet();
     } on PluralKitApiError catch (e) {
       if (e.statusCode == 404) {
-        // PK group is gone — terminal policy.
-        final group = await _dao.findByPluralkitUuid(groupPkUuid);
-        if (group != null) {
-          await _dao.clearAllPendingPkOpForGroup(group.id);
-        }
+        // PK group is gone — terminal policy. Codex review (2nd pass) [P3]:
+        // we have to handle BOTH push_add AND push_remove rows in the same
+        // group atomically, otherwise a later push_remove bucket for the
+        // same gone group will see its tombstones already cleared to
+        // pending=none and the guarded DELETE will miss → zombie. Use the
+        // shared helper that hard-deletes remove tombstones first, then
+        // clears the rest. push_add candidates count as stranded (no
+        // local row hard-delete needed; they stay active as local-only).
+        await _terminalCleanupForGoneGroup(groupPkUuid);
         return result.copyWith(stranded: result.stranded + candidates.length);
       }
       // Refetch failed for some other reason — leave the bucket pending.
@@ -918,21 +960,12 @@ class PkGroupsImporter with SyncRecordMixin {
     } on PluralKitApiError catch (e) {
       if (e.statusCode == 404) {
         // PK group is gone — desired remove satisfied for every candidate.
-        // Order matters per codex review [P3]: hard-delete the candidates
-        // FIRST while their pending_pk_op is still 'push_remove' (the
-        // guarded DELETE requires that value), THEN clear pending for any
-        // remaining entries in the group. Reversing the order makes the
-        // DELETE miss because the UPDATE clears the very condition the
-        // DELETE matches on.
-        var removed = 0;
-        for (final c in candidates) {
-          final hits = await _dao.hardDeleteRemoveTombstoneGuarded(c.entryId);
-          if (hits > 0) removed++;
-        }
-        final group = await _dao.findByPluralkitUuid(groupPkUuid);
-        if (group != null) {
-          await _dao.clearAllPendingPkOpForGroup(group.id);
-        }
+        // Use the shared terminal-cleanup helper which hard-deletes ALL
+        // push_remove tombstones in the group first (including any not in
+        // this bucket), then clears push_add to none. Codex review (2nd
+        // pass) [P3]: a single bucket's local hard-delete is not enough
+        // when another bucket for the same gone group runs after this one.
+        final removed = await _terminalCleanupForGoneGroup(groupPkUuid);
         return result.copyWith(removed: result.removed + removed);
       }
       debugPrint(

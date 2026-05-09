@@ -607,9 +607,13 @@ void main() {
       'push_add uses entry.pkMemberUuid snapshot when set, falls back to '
       'current member.pluralkitUuid when entry has empty stored UUID',
       () async {
-        // Two entries: one with stored UUID, one without. Both should push,
-        // with the correct UUID per row.
-        buildImporter([_member('m1', pkUuid: 'pk-current')]);
+        // Two entries: one with stored UUID (must use stored), one without
+        // any stored UUID at all (must fall back to current). Both push to
+        // the same group so we get a single bucket with two distinct refs.
+        buildImporter([
+          _member('m1', pkUuid: 'pk-m1-current'),
+          _member('m2', pkUuid: 'pk-m2-current'),
+        ]);
         await _seedGroup(db, id: 'g1', pkUuid: 'pk-g1');
         await _seedEntry(
           db,
@@ -617,7 +621,16 @@ void main() {
           groupId: 'g1',
           memberId: 'm1',
           pkGroupUuid: 'pk-g1',
-          pkMemberUuid: 'pk-stored',
+          pkMemberUuid: 'pk-m1-stored', // stored set, current differs
+          pendingPkOp: 'push_add',
+        );
+        await _seedEntry(
+          db,
+          id: 'eFallback',
+          groupId: 'g1',
+          memberId: 'm2',
+          pkGroupUuid: 'pk-g1',
+          pkMemberUuid: null, // no stored snapshot — must fall back
           pendingPkOp: 'push_add',
         );
 
@@ -626,7 +639,14 @@ void main() {
           PkSyncDirection.bidirectional,
         );
 
-        expect(client.addCalls.single.refs, ['pk-stored']);
+        expect(client.addCalls, hasLength(1));
+        // Set comparison because bucket order isn't guaranteed.
+        expect(
+          client.addCalls.single.refs.toSet(),
+          {'pk-m1-stored', 'pk-m2-current'},
+          reason: 'stored entry uses stored UUID; fallback entry uses '
+              "the current member's pluralkitUuid",
+        );
       },
     );
   });
@@ -658,6 +678,68 @@ void main() {
       expect(result.stranded, 1);
       expect((await _findEntry(db, 'e1'))!.pendingPkOp, 'none');
     });
+
+    test(
+      'PK group 404 affects BOTH push_add and push_remove buckets in the '
+      'same group → push_remove tombstones still hard-delete cleanly even '
+      'when the add bucket runs first (codex review 2nd pass [P3])',
+      () async {
+        // Same gone group has both kinds of pending. Buckets are processed
+        // add-first (per implementation), so the add bucket's 404 path
+        // would clear push_remove pending first → the later remove bucket's
+        // guarded DELETE would miss → zombie. The shared terminal-cleanup
+        // helper hard-deletes push_remove tombstones BEFORE clearing.
+        buildImporter([
+          _member('m1', pkUuid: 'pk-m1'),
+          _member('m2', pkUuid: 'pk-m2'),
+        ]);
+        await _seedGroup(db, id: 'g1', pkUuid: 'pk-g1');
+        await _seedEntry(
+          db,
+          id: 'eAdd',
+          groupId: 'g1',
+          memberId: 'm1',
+          pkGroupUuid: 'pk-g1',
+          pkMemberUuid: 'pk-m1',
+          pendingPkOp: 'push_add',
+        );
+        await _seedEntry(
+          db,
+          id: 'eRem',
+          groupId: 'g1',
+          memberId: 'm2',
+          pkGroupUuid: 'pk-g1',
+          pkMemberUuid: 'pk-m2',
+          pendingPkOp: 'push_remove',
+          isDeleted: true,
+        );
+
+        client.addResponses
+            .add(const PluralKitApiError(404, 'group not found'));
+        client.removeResponses
+            .add(const PluralKitApiError(404, 'group not found'));
+        // Both refetches hit the same group, both 404.
+        client.getMembersResponses['pk-g1'] =
+            const PluralKitApiError(404, 'group gone');
+
+        await importer.pushPendingGroupOps(
+          client,
+          PkSyncDirection.bidirectional,
+        );
+
+        // The push_remove tombstone must be hard-deleted regardless of
+        // which bucket ran first. Without the cross-bucket fix, the row
+        // would be left as soft-deleted-pending=none zombie.
+        expect(await _findEntry(db, 'eRem'), isNull,
+            reason: 'tombstone must be hard-deleted, not stranded as zombie');
+        // The push_add row stays active (gone PK group, no destructive
+        // local action), pending cleared.
+        final addRow = await _findEntry(db, 'eAdd');
+        expect(addRow, isNotNull);
+        expect(addRow!.isDeleted, isFalse);
+        expect(addRow.pendingPkOp, 'none');
+      },
+    );
 
     test(
       'PK group 404 during REMOVE-bucket refetch → hard-delete the tombstone '
