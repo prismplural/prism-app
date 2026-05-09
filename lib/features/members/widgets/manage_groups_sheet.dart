@@ -7,6 +7,7 @@ import 'package:prism_plurality/features/members/providers/member_groups_provide
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_checkbox_row.dart';
+import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 
 /// Bottom sheet for managing which groups a member belongs to.
 ///
@@ -40,9 +41,12 @@ class ManageGroupsSheet extends ConsumerWidget {
     // current memberships are still loading, misleading the user into
     // thinking the member belongs to no groups.
     if (!allGroupsAsync.hasValue || !memberGroupsAsync.hasValue) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 32),
-        child: Center(child: CircularProgressIndicator()),
+      final theme = Theme.of(context);
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 32),
+        child: Center(
+          child: PrismSpinner(color: theme.colorScheme.primary),
+        ),
       );
     }
 

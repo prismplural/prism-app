@@ -9,6 +9,7 @@ import 'package:prism_plurality/features/members/providers/member_groups_provide
 import 'package:prism_plurality/features/members/widgets/manage_groups_sheet.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/widgets/prism_checkbox_row.dart';
+import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 
 MemberGroup _group(String id) =>
     MemberGroup(id: id, name: id, createdAt: DateTime(2024, 1, 1));
@@ -55,13 +56,13 @@ void main() {
       // While membership is still loading, no checkboxes render — instead a
       // loading indicator is shown.
       expect(find.byType(PrismCheckboxRow), findsNothing);
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.byType(PrismSpinner), findsOneWidget);
 
       // Once the membership stream emits, the real checked state appears.
       memberGroupsCompleter.complete([_group('gender')]);
       await tester.pumpAndSettle();
 
-      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(find.byType(PrismSpinner), findsNothing);
       expect(find.byType(PrismCheckboxRow), findsNWidgets(2));
 
       final genderRow = find.ancestor(
