@@ -126,6 +126,11 @@ Future<void> _seedV6Db(
       'CREATE UNIQUE INDEX IF NOT EXISTS idx_fronting_sessions_pluralkit_uuid '
       'ON fronting_sessions(pluralkit_uuid) WHERE pluralkit_uuid IS NOT NULL',
     );
+    // v20: pending_pk_op on member_group_entries — drop so v19→v20 onUpgrade
+    // can re-add it without "duplicate column" errors during upgrade tests.
+    rawDb.execute(
+      'ALTER TABLE member_group_entries DROP COLUMN pending_pk_op',
+    );
     // Strip the v14 CHECK from fronting_sessions so this v6 fixture can
     // hold orphan rows (member_id IS NULL on session_type = 0) for the
     // detect-and-refuse / blocked-mode-recovery paths. The schema cache

@@ -103,6 +103,12 @@ Future<void> _seedV15TimestampCommentShapeDb(File dbFile) async {
       insert.close();
     }
 
+    // v20: drop pending_pk_op so v19→v20 onUpgrade can re-add it.
+
+    rawDb.execute(
+      'ALTER TABLE member_group_entries DROP COLUMN pending_pk_op',
+    );
+
     rawDb.execute('PRAGMA user_version = 15;');
   } finally {
     rawDb.close();
@@ -130,7 +136,7 @@ void main() {
       final version = await upgraded
           .customSelect('PRAGMA user_version')
           .getSingle();
-      expect(version.read<int>('user_version'), 18);
+      expect(version.read<int>('user_version'), 20);
 
       final cols = await upgraded
           .customSelect("PRAGMA table_info('front_session_comments')")

@@ -126,6 +126,7 @@ void main() {
         groupId: 'group-1',
         memberId: 'member-1',
         isDeleted: false,
+        pendingPkOp: 'none',
       );
 
       final model = MemberGroupEntryMapper.toDomain(row);
@@ -160,6 +161,7 @@ void main() {
         groupId: companion.groupId.value,
         memberId: companion.memberId.value,
         isDeleted: false,
+        pendingPkOp: 'none',
       );
 
       final restored = MemberGroupEntryMapper.toDomain(row);

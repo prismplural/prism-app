@@ -96,7 +96,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 19;
+  int get schemaVersion => 20;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -556,6 +556,18 @@ class AppDatabase extends _$AppDatabase {
           );
         });
         current = 19;
+      }
+      if (current == 19 && to >= 20) {
+        // Add member_group_entries.pending_pk_op for PluralKit bidirectional
+        // group membership sync. Local-only (NOT in prismSyncSchema). Default
+        // 'none' means existing rows are treated as already-synced — correct
+        // semantic since the column tracks fresh local intent. See
+        // docs/plans/pk-group-membership-push.md.
+        await migrator.addColumn(
+          memberGroupEntries,
+          memberGroupEntries.pendingPkOp,
+        );
+        current = 20;
       }
       if (current != to) {
         throw UnsupportedError(

@@ -308,6 +308,10 @@ void main() {
       try {
         rawDb.execute('PRAGMA foreign_keys = OFF;');
         _dropPostV3Schema(rawDb);
+        // v20: drop pending_pk_op so v19→v20 onUpgrade can re-add it.
+        rawDb.execute(
+          'ALTER TABLE member_group_entries DROP COLUMN pending_pk_op',
+        );
         rawDb.execute('PRAGMA user_version = 3;');
         rawDb.execute('PRAGMA foreign_keys = ON;');
       } finally {
@@ -381,6 +385,10 @@ void main() {
         );
         rawDb.execute(
           'ALTER TABLE system_settings DROP COLUMN pk_group_sync_v2_enabled;',
+        );
+        // v20: drop pending_pk_op so v19→v20 onUpgrade can re-add it.
+        rawDb.execute(
+          'ALTER TABLE member_group_entries DROP COLUMN pending_pk_op',
         );
         rawDb.execute('PRAGMA user_version = 1;');
         rawDb.execute('PRAGMA foreign_keys = ON;');
@@ -495,6 +503,10 @@ void main() {
         try {
           rawDb.execute('PRAGMA foreign_keys = OFF;');
           _dropPostV3Schema(rawDb);
+          // v20: drop pending_pk_op so v19→v20 onUpgrade can re-add it.
+          rawDb.execute(
+          'ALTER TABLE member_group_entries DROP COLUMN pending_pk_op',
+        );
           rawDb.execute('PRAGMA user_version = 3;');
           rawDb.execute('PRAGMA foreign_keys = ON;');
         } finally {

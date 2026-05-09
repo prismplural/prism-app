@@ -15239,6 +15239,19 @@ class $MemberGroupEntriesTable extends MemberGroupEntries
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _pendingPkOpMeta = const VerificationMeta(
+    'pendingPkOp',
+  );
+  @override
+  late final GeneratedColumn<String> pendingPkOp = GeneratedColumn<String>(
+    'pending_pk_op',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('none'),
+    clientDefault: () => 'none',
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -15247,6 +15260,7 @@ class $MemberGroupEntriesTable extends MemberGroupEntries
     pkGroupUuid,
     pkMemberUuid,
     isDeleted,
+    pendingPkOp,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -15305,6 +15319,15 @@ class $MemberGroupEntriesTable extends MemberGroupEntries
         isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
       );
     }
+    if (data.containsKey('pending_pk_op')) {
+      context.handle(
+        _pendingPkOpMeta,
+        pendingPkOp.isAcceptableOrUnknown(
+          data['pending_pk_op']!,
+          _pendingPkOpMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -15338,6 +15361,10 @@ class $MemberGroupEntriesTable extends MemberGroupEntries
         DriftSqlType.bool,
         data['${effectivePrefix}is_deleted'],
       )!,
+      pendingPkOp: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pending_pk_op'],
+      )!,
     );
   }
 
@@ -15355,6 +15382,7 @@ class MemberGroupEntryRow extends DataClass
   final String? pkGroupUuid;
   final String? pkMemberUuid;
   final bool isDeleted;
+  final String pendingPkOp;
   const MemberGroupEntryRow({
     required this.id,
     required this.groupId,
@@ -15362,6 +15390,7 @@ class MemberGroupEntryRow extends DataClass
     this.pkGroupUuid,
     this.pkMemberUuid,
     required this.isDeleted,
+    required this.pendingPkOp,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -15376,6 +15405,7 @@ class MemberGroupEntryRow extends DataClass
       map['pk_member_uuid'] = Variable<String>(pkMemberUuid);
     }
     map['is_deleted'] = Variable<bool>(isDeleted);
+    map['pending_pk_op'] = Variable<String>(pendingPkOp);
     return map;
   }
 
@@ -15391,6 +15421,7 @@ class MemberGroupEntryRow extends DataClass
           ? const Value.absent()
           : Value(pkMemberUuid),
       isDeleted: Value(isDeleted),
+      pendingPkOp: Value(pendingPkOp),
     );
   }
 
@@ -15406,6 +15437,7 @@ class MemberGroupEntryRow extends DataClass
       pkGroupUuid: serializer.fromJson<String?>(json['pkGroupUuid']),
       pkMemberUuid: serializer.fromJson<String?>(json['pkMemberUuid']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      pendingPkOp: serializer.fromJson<String>(json['pendingPkOp']),
     );
   }
   @override
@@ -15418,6 +15450,7 @@ class MemberGroupEntryRow extends DataClass
       'pkGroupUuid': serializer.toJson<String?>(pkGroupUuid),
       'pkMemberUuid': serializer.toJson<String?>(pkMemberUuid),
       'isDeleted': serializer.toJson<bool>(isDeleted),
+      'pendingPkOp': serializer.toJson<String>(pendingPkOp),
     };
   }
 
@@ -15428,6 +15461,7 @@ class MemberGroupEntryRow extends DataClass
     Value<String?> pkGroupUuid = const Value.absent(),
     Value<String?> pkMemberUuid = const Value.absent(),
     bool? isDeleted,
+    String? pendingPkOp,
   }) => MemberGroupEntryRow(
     id: id ?? this.id,
     groupId: groupId ?? this.groupId,
@@ -15435,6 +15469,7 @@ class MemberGroupEntryRow extends DataClass
     pkGroupUuid: pkGroupUuid.present ? pkGroupUuid.value : this.pkGroupUuid,
     pkMemberUuid: pkMemberUuid.present ? pkMemberUuid.value : this.pkMemberUuid,
     isDeleted: isDeleted ?? this.isDeleted,
+    pendingPkOp: pendingPkOp ?? this.pendingPkOp,
   );
   MemberGroupEntryRow copyWithCompanion(MemberGroupEntriesCompanion data) {
     return MemberGroupEntryRow(
@@ -15448,6 +15483,9 @@ class MemberGroupEntryRow extends DataClass
           ? data.pkMemberUuid.value
           : this.pkMemberUuid,
       isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      pendingPkOp: data.pendingPkOp.present
+          ? data.pendingPkOp.value
+          : this.pendingPkOp,
     );
   }
 
@@ -15459,14 +15497,22 @@ class MemberGroupEntryRow extends DataClass
           ..write('memberId: $memberId, ')
           ..write('pkGroupUuid: $pkGroupUuid, ')
           ..write('pkMemberUuid: $pkMemberUuid, ')
-          ..write('isDeleted: $isDeleted')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('pendingPkOp: $pendingPkOp')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, groupId, memberId, pkGroupUuid, pkMemberUuid, isDeleted);
+  int get hashCode => Object.hash(
+    id,
+    groupId,
+    memberId,
+    pkGroupUuid,
+    pkMemberUuid,
+    isDeleted,
+    pendingPkOp,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -15476,7 +15522,8 @@ class MemberGroupEntryRow extends DataClass
           other.memberId == this.memberId &&
           other.pkGroupUuid == this.pkGroupUuid &&
           other.pkMemberUuid == this.pkMemberUuid &&
-          other.isDeleted == this.isDeleted);
+          other.isDeleted == this.isDeleted &&
+          other.pendingPkOp == this.pendingPkOp);
 }
 
 class MemberGroupEntriesCompanion extends UpdateCompanion<MemberGroupEntryRow> {
@@ -15486,6 +15533,7 @@ class MemberGroupEntriesCompanion extends UpdateCompanion<MemberGroupEntryRow> {
   final Value<String?> pkGroupUuid;
   final Value<String?> pkMemberUuid;
   final Value<bool> isDeleted;
+  final Value<String> pendingPkOp;
   final Value<int> rowid;
   const MemberGroupEntriesCompanion({
     this.id = const Value.absent(),
@@ -15494,6 +15542,7 @@ class MemberGroupEntriesCompanion extends UpdateCompanion<MemberGroupEntryRow> {
     this.pkGroupUuid = const Value.absent(),
     this.pkMemberUuid = const Value.absent(),
     this.isDeleted = const Value.absent(),
+    this.pendingPkOp = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   MemberGroupEntriesCompanion.insert({
@@ -15503,6 +15552,7 @@ class MemberGroupEntriesCompanion extends UpdateCompanion<MemberGroupEntryRow> {
     this.pkGroupUuid = const Value.absent(),
     this.pkMemberUuid = const Value.absent(),
     this.isDeleted = const Value.absent(),
+    this.pendingPkOp = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        groupId = Value(groupId),
@@ -15514,6 +15564,7 @@ class MemberGroupEntriesCompanion extends UpdateCompanion<MemberGroupEntryRow> {
     Expression<String>? pkGroupUuid,
     Expression<String>? pkMemberUuid,
     Expression<bool>? isDeleted,
+    Expression<String>? pendingPkOp,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -15523,6 +15574,7 @@ class MemberGroupEntriesCompanion extends UpdateCompanion<MemberGroupEntryRow> {
       if (pkGroupUuid != null) 'pk_group_uuid': pkGroupUuid,
       if (pkMemberUuid != null) 'pk_member_uuid': pkMemberUuid,
       if (isDeleted != null) 'is_deleted': isDeleted,
+      if (pendingPkOp != null) 'pending_pk_op': pendingPkOp,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -15534,6 +15586,7 @@ class MemberGroupEntriesCompanion extends UpdateCompanion<MemberGroupEntryRow> {
     Value<String?>? pkGroupUuid,
     Value<String?>? pkMemberUuid,
     Value<bool>? isDeleted,
+    Value<String>? pendingPkOp,
     Value<int>? rowid,
   }) {
     return MemberGroupEntriesCompanion(
@@ -15543,6 +15596,7 @@ class MemberGroupEntriesCompanion extends UpdateCompanion<MemberGroupEntryRow> {
       pkGroupUuid: pkGroupUuid ?? this.pkGroupUuid,
       pkMemberUuid: pkMemberUuid ?? this.pkMemberUuid,
       isDeleted: isDeleted ?? this.isDeleted,
+      pendingPkOp: pendingPkOp ?? this.pendingPkOp,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -15568,6 +15622,9 @@ class MemberGroupEntriesCompanion extends UpdateCompanion<MemberGroupEntryRow> {
     if (isDeleted.present) {
       map['is_deleted'] = Variable<bool>(isDeleted.value);
     }
+    if (pendingPkOp.present) {
+      map['pending_pk_op'] = Variable<String>(pendingPkOp.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -15583,6 +15640,7 @@ class MemberGroupEntriesCompanion extends UpdateCompanion<MemberGroupEntryRow> {
           ..write('pkGroupUuid: $pkGroupUuid, ')
           ..write('pkMemberUuid: $pkMemberUuid, ')
           ..write('isDeleted: $isDeleted, ')
+          ..write('pendingPkOp: $pendingPkOp, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -30758,6 +30816,7 @@ typedef $$MemberGroupEntriesTableCreateCompanionBuilder =
       Value<String?> pkGroupUuid,
       Value<String?> pkMemberUuid,
       Value<bool> isDeleted,
+      Value<String> pendingPkOp,
       Value<int> rowid,
     });
 typedef $$MemberGroupEntriesTableUpdateCompanionBuilder =
@@ -30768,6 +30827,7 @@ typedef $$MemberGroupEntriesTableUpdateCompanionBuilder =
       Value<String?> pkGroupUuid,
       Value<String?> pkMemberUuid,
       Value<bool> isDeleted,
+      Value<String> pendingPkOp,
       Value<int> rowid,
     });
 
@@ -30807,6 +30867,11 @@ class $$MemberGroupEntriesTableFilterComposer
 
   ColumnFilters<bool> get isDeleted => $composableBuilder(
     column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pendingPkOp => $composableBuilder(
+    column: $table.pendingPkOp,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -30849,6 +30914,11 @@ class $$MemberGroupEntriesTableOrderingComposer
     column: $table.isDeleted,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get pendingPkOp => $composableBuilder(
+    column: $table.pendingPkOp,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$MemberGroupEntriesTableAnnotationComposer
@@ -30881,6 +30951,11 @@ class $$MemberGroupEntriesTableAnnotationComposer
 
   GeneratedColumn<bool> get isDeleted =>
       $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<String> get pendingPkOp => $composableBuilder(
+    column: $table.pendingPkOp,
+    builder: (column) => column,
+  );
 }
 
 class $$MemberGroupEntriesTableTableManager
@@ -30929,6 +31004,7 @@ class $$MemberGroupEntriesTableTableManager
                 Value<String?> pkGroupUuid = const Value.absent(),
                 Value<String?> pkMemberUuid = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
+                Value<String> pendingPkOp = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => MemberGroupEntriesCompanion(
                 id: id,
@@ -30937,6 +31013,7 @@ class $$MemberGroupEntriesTableTableManager
                 pkGroupUuid: pkGroupUuid,
                 pkMemberUuid: pkMemberUuid,
                 isDeleted: isDeleted,
+                pendingPkOp: pendingPkOp,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -30947,6 +31024,7 @@ class $$MemberGroupEntriesTableTableManager
                 Value<String?> pkGroupUuid = const Value.absent(),
                 Value<String?> pkMemberUuid = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
+                Value<String> pendingPkOp = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => MemberGroupEntriesCompanion.insert(
                 id: id,
@@ -30955,6 +31033,7 @@ class $$MemberGroupEntriesTableTableManager
                 pkGroupUuid: pkGroupUuid,
                 pkMemberUuid: pkMemberUuid,
                 isDeleted: isDeleted,
+                pendingPkOp: pendingPkOp,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

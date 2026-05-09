@@ -116,6 +116,7 @@ void main() {
           isDeleted: false,
           pkGroupUuid: pkGroupUuid,
           pkMemberUuid: pkMemberUuid,
+          pendingPkOp: 'none',
         );
 
         final expected = sha256
@@ -138,6 +139,7 @@ void main() {
           groupId: 'g',
           memberId: 'm',
           isDeleted: false,
+          pendingPkOp: 'none',
         );
 
         expect(entity.entityIdFor(row), 'random-uuid');
