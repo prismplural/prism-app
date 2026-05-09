@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,10 +13,11 @@ import 'package:prism_plurality/features/habits/providers/habit_providers.dart';
 import 'package:prism_plurality/features/habits/views/add_edit_habit_sheet.dart';
 import 'package:prism_plurality/features/habits/views/complete_habit_sheet.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
-import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
+import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
+import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/glass_surface.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
@@ -86,6 +89,11 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
                         : AppIcons.visibility,
                   ),
                   PrismMenuItem(
+                    value: 'logMissed',
+                    label: context.l10n.habitsLogMissedCompletion,
+                    icon: AppIcons.history,
+                  ),
+                  PrismMenuItem(
                       value: 'delete',
                       label: context.l10n.delete,
                       icon: AppIcons.deleteOutline,
@@ -99,6 +107,17 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
                       await ref
                           .read(habitNotifierProvider.notifier)
                           .toggleActive(widget.habitId);
+                    case 'logMissed':
+                      if (context.mounted) {
+                        unawaited(PrismSheet.showFullScreen(
+                          context: context,
+                          builder: (ctx, sc) => CompleteHabitSheet(
+                            habit: habitAsync.value!,
+                            scrollController: sc,
+                            initialPastDefault: true,
+                          ),
+                        ));
+                      }
                     case 'delete':
                       await _confirmDelete(context);
                   }
@@ -194,6 +213,7 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
                         for (final c in completions.take(20))
                           _CompletionTile(
                             completion: c,
+                            habit: habit,
                             members: members,
                             today: today,
                             onDismissed: () => ref
@@ -445,15 +465,17 @@ class _StatsRow extends StatelessWidget {
 // Completion tile — shows who completed it
 // ─────────────────────────────────────────────────────────────
 
-class _CompletionTile extends StatelessWidget {
+class _CompletionTile extends ConsumerWidget {
   const _CompletionTile({
     required this.completion,
+    required this.habit,
     required this.members,
     required this.today,
     required this.onDismissed,
   });
 
   final HabitCompletion completion;
+  final Habit habit;
   final List<Member> members;
   final DateTime today;
   final VoidCallback onDismissed;
@@ -463,58 +485,119 @@ class _CompletionTile extends StatelessWidget {
     return members.firstWhereOrNull((m) => m.id == completion.completedByMemberId);
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final member = _findMember();
-
-    return Dismissible(
-      key: ValueKey(completion.id),
-      direction: DismissDirection.endToStart,
-      background: Container(
-        color: Theme.of(context).colorScheme.error,
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 16),
-        child: Icon(AppIcons.delete, color: AppColors.warmWhite),
+  List<_CompletionContextAction> _contextActions(
+    BuildContext context,
+    WidgetRef ref,
+  ) {
+    return [
+      _CompletionContextAction(
+        label: context.l10n.edit,
+        icon: AppIcons.editOutlined,
+        onSelected: () => _openEdit(context),
       ),
-      onDismissed: (_) => onDismissed(),
-      child: PrismListRow(
-        leading: member != null
-            ? MemberAvatar(
-                emoji: member.emoji,
-                memberName: member.name,
-                customColorEnabled: member.customColorEnabled,
-                customColorHex: member.customColorHex,
-                avatarImageData: member.avatarImageData,
-                size: 36,
-              )
-            : Icon(AppIcons.checkCircle, color: Colors.green),
-        title: Text(_formatDate(context, completion.completedAt)),
-        subtitle: Text(
-          [
-            if (member != null) member.name,
-            if (completion.notes != null) completion.notes!,
-          ].join(' — '),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        trailing: completion.rating != null
-            ? Semantics(
-                label: context.l10n.habitsCompletionRatedNStars(completion.rating!),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: List.generate(
-                    5,
-                    (i) => Icon(
-                      i < completion.rating!
-                          ? AppIcons.star
-                          : AppIcons.starBorder,
-                      size: 14,
-                      color: Colors.amber,
-                    ),
+      _CompletionContextAction(
+        label: context.l10n.delete,
+        icon: AppIcons.deleteOutline,
+        destructive: true,
+        onSelected: () => _confirmDelete(context, ref),
+      ),
+    ];
+  }
+
+  void _openEdit(BuildContext context) {
+    PrismSheet.showFullScreen(
+      context: context,
+      builder: (ctx, sc) => CompleteHabitSheet(
+        habit: habit,
+        scrollController: sc,
+        existingCompletion: completion,
+      ),
+    );
+  }
+
+  Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
+    final confirmed = await PrismDialog.confirm(
+      context: context,
+      title: context.l10n.habitsDeleteCompletionTitle,
+      message: context.l10n.habitsDeleteCompletionMessage,
+      confirmLabel: context.l10n.delete,
+      destructive: true,
+    );
+    if (confirmed && context.mounted) {
+      Haptics.heavy();
+      onDismissed();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final member = _findMember();
+    final actions = _contextActions(context, ref);
+
+    final tileContent = PrismListRow(
+      leading: member != null
+          ? MemberAvatar(
+              emoji: member.emoji,
+              memberName: member.name,
+              customColorEnabled: member.customColorEnabled,
+              customColorHex: member.customColorHex,
+              avatarImageData: member.avatarImageData,
+              size: 36,
+            )
+          : Icon(AppIcons.checkCircle, color: Colors.green),
+      title: Text(_formatDate(context, completion.completedAt)),
+      subtitle: Text(
+        [
+          if (member != null) member.name,
+          if (completion.notes != null) completion.notes!,
+        ].join(' — '),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      trailing: completion.rating != null
+          ? Semantics(
+              label: context.l10n.habitsCompletionRatedNStars(completion.rating!),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: List.generate(
+                  5,
+                  (i) => Icon(
+                    i < completion.rating!
+                        ? AppIcons.star
+                        : AppIcons.starBorder,
+                    size: 14,
+                    color: Colors.amber,
                   ),
                 ),
-              )
-            : null,
+              ),
+            )
+          : null,
+    );
+
+    return Semantics(
+      hint: context.l10n.longPressForOptionsHint,
+      container: false,
+      child: BlurPopupAnchor(
+        trigger: BlurPopupTrigger.longPress,
+        width: 220,
+        maxHeight: 320,
+        semanticLabel: context.l10n.moreOptions,
+        itemCount: actions.length,
+        itemBuilder: (context, index, close) {
+          final action = actions[index];
+          return PrismListRow(
+            dense: true,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            leading: Icon(action.icon, size: 20),
+            title: Text(action.label),
+            destructive: action.destructive,
+            onTap: () {
+              close();
+              unawaited(Future<void>.sync(action.onSelected));
+            },
+          );
+        },
+        child: tileContent,
       ),
     );
   }
@@ -535,6 +618,24 @@ class _CompletionTile extends StatelessWidget {
 
   String _timeString(String locale, DateTime date) =>
       DateFormat.jm(locale).format(date);
+}
+
+// ─────────────────────────────────────────────────────────────
+// Context action model for completion tile popup menu
+// ─────────────────────────────────────────────────────────────
+
+class _CompletionContextAction {
+  const _CompletionContextAction({
+    required this.label,
+    required this.icon,
+    required this.onSelected,
+    this.destructive = false,
+  });
+
+  final String label;
+  final IconData icon;
+  final FutureOr<void> Function() onSelected;
+  final bool destructive;
 }
 
 // ─────────────────────────────────────────────────────────────
