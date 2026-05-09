@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -41,6 +42,9 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
   bool _hasAutoScrolled = false;
   DateTime? _viewStart;
   bool _isLoadingMore = false;
+  bool _scrollOffsetSyncScheduled = false;
+  double _pendingContentHeight = 0;
+  double _pendingViewportHeight = 0;
   // Last successfully loaded data, kept as a fallback so first-frame reloads
   // never blank the timeline into a spinner.
   TimelineData? _lastData;
@@ -232,6 +236,10 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
         viewEnd.difference(viewStart).inMilliseconds /
         Duration.millisecondsPerHour;
     final totalHeight = totalHours * pxPerHour;
+    _scheduleScrollOffsetSync(
+      contentHeight: totalHeight,
+      viewportHeight: scrollableViewportHeight,
+    );
 
     // Preserve scroll position when viewStart changes (more data loaded)
     if (_viewStart != null && viewStart.isBefore(_viewStart!)) {
@@ -431,6 +439,39 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
     } else {
       _verticalController.jumpTo(scrollTo);
     }
+  }
+
+  void _scheduleScrollOffsetSync({
+    required double contentHeight,
+    required double viewportHeight,
+  }) {
+    _pendingContentHeight = contentHeight;
+    _pendingViewportHeight = viewportHeight;
+    if (_scrollOffsetSyncScheduled) return;
+    _scrollOffsetSyncScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollOffsetSyncScheduled = false;
+      if (!mounted || !_verticalController.hasClients) return;
+
+      final position = _verticalController.position;
+      final clampedScrollOffset = position.pixels
+          .clamp(position.minScrollExtent, position.maxScrollExtent)
+          .toDouble();
+      if ((position.pixels - clampedScrollOffset).abs() > 0.5) {
+        _verticalController.jumpTo(clampedScrollOffset);
+      }
+
+      final maxCullingOffset = math.max(
+        0.0,
+        _pendingContentHeight - _pendingViewportHeight,
+      );
+      final clampedCullingOffset = clampedScrollOffset
+          .clamp(0.0, maxCullingOffset)
+          .toDouble();
+      if ((_scrollOffsetNotifier.value - clampedCullingOffset).abs() > 0.5) {
+        _scrollOffsetNotifier.value = clampedCullingOffset;
+      }
+    });
   }
 }
 
