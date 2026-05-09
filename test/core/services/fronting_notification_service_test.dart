@@ -40,7 +40,6 @@ void main() {
 
         await service.scheduleFrontingReminder(
           interval: const Duration(minutes: 15),
-          currentFronterName: 'Aster',
         );
 
         expect(fake.cancelCalls, [1000]);
@@ -49,10 +48,7 @@ void main() {
         expect(call.id, 1000);
         expect(call.interval, const Duration(minutes: 15));
         expect(call.title, 'Fronting Reminder');
-        expect(
-          call.body,
-          'Aster is currently fronting. Is this still accurate?',
-        );
+        expect(call.body, 'Consider logging who\'s fronting right now.');
       },
     );
 
@@ -62,7 +58,6 @@ void main() {
 
       await service.scheduleFrontingReminder(
         interval: const Duration(hours: 8),
-        currentFronterName: 'your system',
       );
 
       expect(fake.scheduleRepeatingWithDurationCalls, hasLength(1));

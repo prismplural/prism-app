@@ -10,6 +10,7 @@ import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/reminder.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/reminders/providers/reminders_providers.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 
 // ── Fake LocalNotificationService ─────────────────────────────────────────────
 
@@ -18,6 +19,8 @@ import 'package:prism_plurality/features/reminders/providers/reminders_providers
 /// no platform channel is available.
 class _FakeLocalNotificationService extends LocalNotificationService {
   final List<String> methodCalls = [];
+  final Map<int, PendingNotificationRequest> pendingRequests = {};
+  final List<int> cancelCalls = [];
   final List<(int, int)> cancelRangeCalls = []; // (base, count)
   final List<(int, TimeOfDay)> scheduleExactDailyCalls = []; // (id, time)
   final List<(int, int, TimeOfDay)> scheduleExactWeeklyCalls =
@@ -29,6 +32,17 @@ class _FakeLocalNotificationService extends LocalNotificationService {
   final List<(int, String, String)> showImmediateCalls =
       []; // (id, title, body)
 
+  void resetCalls() {
+    methodCalls.clear();
+    cancelCalls.clear();
+    cancelRangeCalls.clear();
+    scheduleExactDailyCalls.clear();
+    scheduleExactWeeklyCalls.clear();
+    scheduleExactIntervalCalls.clear();
+    scheduleOneShotCalls.clear();
+    showImmediateCalls.clear();
+  }
+
   @override
   Future<void> scheduleExactDaily({
     required int id,
@@ -37,9 +51,11 @@ class _FakeLocalNotificationService extends LocalNotificationService {
     required TimeOfDay time,
     required NotificationDetails details,
     DateTime? notBefore,
+    String? payload,
   }) async {
     methodCalls.add('scheduleExactDaily');
     scheduleExactDailyCalls.add((id, time));
+    _addPending(id, title, body, payload);
   }
 
   @override
@@ -51,9 +67,11 @@ class _FakeLocalNotificationService extends LocalNotificationService {
     required int weekday,
     required NotificationDetails details,
     DateTime? notBefore,
+    String? payload,
   }) async {
     methodCalls.add('scheduleExactWeekly');
     scheduleExactWeeklyCalls.add((id, weekday, time));
+    _addPending(id, title, body, payload);
   }
 
   @override
@@ -66,6 +84,7 @@ class _FakeLocalNotificationService extends LocalNotificationService {
     required NotificationDetails details,
     int? maxOccurrences,
     DateTime? notBefore,
+    String? payload,
   }) async {
     methodCalls.add('scheduleExactInterval');
     scheduleExactIntervalCalls.add((
@@ -73,6 +92,15 @@ class _FakeLocalNotificationService extends LocalNotificationService {
       intervalDays: intervalDays,
       time: time,
     ));
+    final n =
+        maxOccurrences ??
+        (30 / intervalDays).ceil().clamp(
+          2,
+          LocalNotificationService.maxIntervalOccurrences,
+        );
+    for (var i = 0; i < n; i++) {
+      _addPending(idBase + i, title, body, payload);
+    }
   }
 
   @override
@@ -93,6 +121,7 @@ class _FakeLocalNotificationService extends LocalNotificationService {
     required String body,
     required DateTime scheduledFor,
     required NotificationDetails details,
+    String? payload,
   }) async {
     methodCalls.add('scheduleOneShot');
     scheduleOneShotCalls.add((
@@ -101,17 +130,33 @@ class _FakeLocalNotificationService extends LocalNotificationService {
       title: title,
       body: body,
     ));
+    _addPending(id, title, body, payload);
   }
 
   @override
   Future<void> cancel(int id) async {
     methodCalls.add('cancel');
+    cancelCalls.add(id);
+    pendingRequests.remove(id);
   }
 
   @override
   Future<void> cancelRange(int base, int count) async {
     methodCalls.add('cancelRange');
     cancelRangeCalls.add((base, count));
+    for (var i = 0; i < count; i++) {
+      pendingRequests.remove(base + i);
+    }
+  }
+
+  @override
+  Future<List<PendingNotificationRequest>> pendingNotificationRequests() async {
+    methodCalls.add('pendingNotificationRequests');
+    return pendingRequests.values.toList();
+  }
+
+  void _addPending(int id, String title, String body, String? payload) {
+    pendingRequests[id] = PendingNotificationRequest(id, title, body, payload);
   }
 }
 
@@ -450,6 +495,183 @@ void main() {
       // Must be at least 7 to cover all possible weekly slots.
       expect(count, greaterThanOrEqualTo(7));
     });
+
+    test(
+      'rescheduleAll cancels a scheduled reminder that is now absent',
+      () async {
+        final fake = _FakeLocalNotificationService();
+        final service = ReminderSchedulerService(fake);
+
+        await service.scheduleReminder(_reminder(id: 'deleted-reminder'));
+        final scheduledId = fake.scheduleExactDailyCalls.single.$1;
+        fake.resetCalls();
+
+        await service.rescheduleAll(const []);
+
+        expect(fake.cancelCalls, contains(scheduledId));
+        expect(fake.pendingRequests, isNot(contains(scheduledId)));
+      },
+    );
+
+    test(
+      'rescheduleAll cancels an inactive reminder instead of rescheduling',
+      () async {
+        final fake = _FakeLocalNotificationService();
+        final service = ReminderSchedulerService(fake);
+
+        await service.scheduleReminder(_reminder(id: 'inactive-reminder'));
+        final scheduledId = fake.scheduleExactDailyCalls.single.$1;
+        fake.resetCalls();
+
+        await service.rescheduleAll([
+          _reminder(id: 'inactive-reminder', isActive: false),
+        ]);
+
+        expect(fake.cancelCalls, contains(scheduledId));
+        expect(fake.cancelRangeCalls, isNotEmpty);
+        expect(fake.scheduleExactDailyCalls, isEmpty);
+      },
+    );
+
+    test(
+      'rescheduleAll cancels everything when reminders feature is disabled',
+      () async {
+        final fake = _FakeLocalNotificationService();
+        final service = ReminderSchedulerService(fake);
+
+        await service.scheduleReminder(_reminder(id: 'feature-off-reminder'));
+        final scheduledId = fake.scheduleExactDailyCalls.single.$1;
+        fake.resetCalls();
+
+        await service.rescheduleAll([
+          _reminder(id: 'feature-off-reminder'),
+        ], remindersEnabled: false);
+
+        expect(fake.cancelCalls, contains(scheduledId));
+        expect(fake.cancelRangeCalls, isNotEmpty);
+        expect(fake.scheduleExactDailyCalls, isEmpty);
+      },
+    );
+
+    test(
+      'rescheduleAll cancels old scheduled notification when trigger changes',
+      () async {
+        final fake = _FakeLocalNotificationService();
+        final service = ReminderSchedulerService(fake);
+
+        await service.rescheduleAll([_reminder(id: 'trigger-changed')]);
+        final scheduledId = fake.scheduleExactDailyCalls.single.$1;
+        fake.resetCalls();
+
+        await service.rescheduleAll([
+          _reminder(
+            id: 'trigger-changed',
+            trigger: ReminderTrigger.onFrontChange,
+          ),
+        ]);
+
+        expect(fake.cancelCalls, contains(scheduledId));
+        expect(fake.pendingRequests, isNot(contains(scheduledId)));
+        expect(fake.scheduleExactDailyCalls, isEmpty);
+
+        await service.fireFrontChangeReminders({'alex'});
+
+        expect(fake.showImmediateCalls, hasLength(1));
+      },
+    );
+
+    test(
+      'rescheduleAll cancels stale scheduled notification after fresh startup',
+      () async {
+        final fake = _FakeLocalNotificationService();
+        final oldService = ReminderSchedulerService(fake);
+
+        await oldService.rescheduleAll([_reminder(id: 'fresh-trigger')]);
+        final scheduledId = fake.scheduleExactDailyCalls.single.$1;
+        fake.pendingRequests[scheduledId] = PendingNotificationRequest(
+          scheduledId,
+          'Test',
+          'msg',
+          null,
+        );
+        fake.resetCalls();
+
+        final freshService = ReminderSchedulerService(fake);
+        await freshService.rescheduleAll([
+          _reminder(
+            id: 'fresh-trigger',
+            trigger: ReminderTrigger.onFrontChange,
+          ),
+        ]);
+
+        expect(fake.cancelCalls, contains(scheduledId));
+        expect(fake.pendingRequests, isNot(contains(scheduledId)));
+        expect(fake.scheduleExactDailyCalls, isEmpty);
+      },
+    );
+
+    test(
+      'rescheduleAll preserves unchanged delayed front-change one-shot',
+      () async {
+        final fake = _FakeLocalNotificationService();
+        final service = ReminderSchedulerService(fake);
+
+        final reminder = _reminder(
+          id: 'delayed-front-change',
+          trigger: ReminderTrigger.onFrontChange,
+          delayHours: 4,
+          message: 'old message',
+        );
+        await service.rescheduleAll([reminder]);
+        await service.fireFrontChangeReminders({'alex'});
+        final delayedId = fake.scheduleOneShotCalls.single.id;
+        fake.resetCalls();
+
+        await service.rescheduleAll([reminder]);
+
+        expect(fake.cancelCalls, isNot(contains(delayedId)));
+        expect(fake.pendingRequests, contains(delayedId));
+        expect(fake.scheduleOneShotCalls, isEmpty);
+      },
+    );
+
+    test(
+      'rescheduleAll cancels changed delayed front-change one-shot before re-arming',
+      () async {
+        final fake = _FakeLocalNotificationService();
+        final service = ReminderSchedulerService(fake);
+
+        await service.rescheduleAll([
+          _reminder(
+            id: 'delayed-front-change',
+            trigger: ReminderTrigger.onFrontChange,
+            delayHours: 4,
+            message: 'old message',
+          ),
+        ]);
+        await service.fireFrontChangeReminders({'alex'});
+        final delayedId = fake.scheduleOneShotCalls.single.id;
+        fake.resetCalls();
+
+        await service.rescheduleAll([
+          _reminder(
+            id: 'delayed-front-change',
+            trigger: ReminderTrigger.onFrontChange,
+            delayHours: 2,
+            message: 'updated message',
+          ),
+        ]);
+
+        expect(fake.cancelCalls, contains(delayedId));
+        expect(fake.pendingRequests, isNot(contains(delayedId)));
+        expect(fake.scheduleOneShotCalls, isEmpty);
+
+        await service.fireFrontChangeReminders({'alex'});
+
+        expect(fake.scheduleOneShotCalls, hasLength(1));
+        expect(fake.scheduleOneShotCalls.single.body, 'updated message');
+      },
+    );
   });
 
   // ── Inactive / onFrontChange routing guards ────────────────────────
@@ -653,10 +875,11 @@ void main() {
         overrides: [
           localNotificationServiceProvider.overrideWithValue(fake),
           activeSessionsProvider.overrideWith((ref) => sessions.stream),
+          remindersEnabledProvider.overrideWithValue(true),
           // Empty stream — we drive the on-front-change reminder by
           // registering it directly on the service to bypass the 500ms
           // rescheduleAll debounce.
-          activeRemindersProvider.overrideWith(
+          remindersProvider.overrideWith(
             (ref) => const Stream<List<Reminder>>.empty(),
           ),
         ],

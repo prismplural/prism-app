@@ -22,10 +22,7 @@ class FrontingNotificationService {
   static const _changeNotificationId = 2000;
 
   /// Schedule a repeating fronting reminder notification.
-  Future<void> scheduleFrontingReminder({
-    required Duration interval,
-    required String currentFronterName,
-  }) async {
+  Future<void> scheduleFrontingReminder({required Duration interval}) async {
     await cancelFrontingReminder();
 
     const androidDetails = AndroidNotificationDetails(
@@ -45,8 +42,7 @@ class FrontingNotificationService {
     await _localService.scheduleRepeatingWithDuration(
       id: _reminderNotificationId,
       title: 'Fronting Reminder',
-      body:
-          '$currentFronterName is currently fronting. Is this still accurate?',
+      body: 'Consider logging who\'s fronting right now.',
       interval: interval,
       details: details,
     );

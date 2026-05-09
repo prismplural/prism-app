@@ -68,6 +68,7 @@ class LocalNotificationService {
     required TimeOfDay time,
     required NotificationDetails details,
     DateTime? notBefore,
+    String? payload,
   }) async {
     if (kIsWeb) return;
     await _ensureInitialized();
@@ -80,6 +81,7 @@ class LocalNotificationService {
       notificationDetails: details,
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       matchDateTimeComponents: DateTimeComponents.time,
+      payload: payload,
     );
   }
 
@@ -98,6 +100,7 @@ class LocalNotificationService {
     required int weekday,
     required NotificationDetails details,
     DateTime? notBefore,
+    String? payload,
   }) async {
     if (kIsWeb) return;
     await _ensureInitialized();
@@ -114,6 +117,7 @@ class LocalNotificationService {
       notificationDetails: details,
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
+      payload: payload,
     );
   }
 
@@ -137,6 +141,7 @@ class LocalNotificationService {
     required NotificationDetails details,
     int? maxOccurrences,
     DateTime? notBefore,
+    String? payload,
   }) async {
     if (kIsWeb) return;
     await _ensureInitialized();
@@ -152,6 +157,7 @@ class LocalNotificationService {
         scheduledDate: next,
         notificationDetails: details,
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        payload: payload,
       );
       next = next.add(Duration(days: intervalDays));
     }
@@ -211,6 +217,7 @@ class LocalNotificationService {
     required String body,
     required DateTime scheduledFor,
     required NotificationDetails details,
+    String? payload,
   }) async {
     if (kIsWeb) return;
     await _ensureInitialized();
@@ -221,6 +228,7 @@ class LocalNotificationService {
       scheduledDate: tz.TZDateTime.from(scheduledFor, tz.local),
       notificationDetails: details,
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      payload: payload,
     );
   }
 
@@ -259,6 +267,13 @@ class LocalNotificationService {
     for (var i = 0; i < count; i++) {
       await _plugin.cancel(id: base + i);
     }
+  }
+
+  /// Returns all future notifications currently scheduled with the platform.
+  Future<List<PendingNotificationRequest>> pendingNotificationRequests() async {
+    if (kIsWeb) return const [];
+    await _ensureInitialized();
+    return _plugin.pendingNotificationRequests();
   }
 
   // ── Permissions ───────────────────────────────────────────────────

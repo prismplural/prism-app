@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show TimeOfDay;
@@ -10,6 +11,7 @@ import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/reminder.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/reminders/providers/reminders_providers.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 
 /// Service that schedules and cancels local notifications for reminders.
 ///
@@ -31,6 +33,13 @@ class ReminderSchedulerService {
   /// items, ~5% at 100) compared to the previous 10k space (~12% at 50).
   static const _idRangeStart = 20000000;
   static const _idRangeMod = 100000;
+  static const _idRangeEndExclusive =
+      _idRangeStart +
+      _idRangeMod +
+      LocalNotificationService.maxIntervalOccurrences;
+  static const _scheduledPayloadPrefix = 'prism:reminder:scheduled:';
+  static const _frontChangeDelayedPayloadPrefix =
+      'prism:reminder:front-change-delayed:';
 
   /// Active front-change reminders awaiting a front switch.
   final List<Reminder> _pendingFrontChangeReminders = [];
@@ -62,18 +71,31 @@ class ReminderSchedulerService {
     _pendingFrontChangeReminders.removeWhere((r) => r.id == id);
   }
 
-  /// Cancel all existing reminder notifications and reschedule from the
-  /// provided list. Only active reminders are scheduled.
-  Future<void> rescheduleAll(List<Reminder> reminders) async {
-    // Cancel all existing reminder notifications.
+  /// Cancel stale reminder notifications and reschedule from the provided list.
+  ///
+  /// [reminders] must include inactive reminders too, so toggling a reminder
+  /// off gives the scheduler the ID it needs to cancel old platform schedules.
+  /// Deleted reminders may already be absent from the database stream, so this
+  /// also scans pending platform notifications in Prism's reminder ID namespace
+  /// and cancels any ID that no active scheduled reminder, or unchanged active
+  /// front-change one-shot, still owns.
+  Future<void> rescheduleAll(
+    List<Reminder> reminders, {
+    bool remindersEnabled = true,
+  }) async {
     _pendingFrontChangeReminders.clear();
-    for (final r in reminders) {
-      await cancelReminder(r.id);
-    }
 
-    // Reschedule active ones.
+    final activeReminders = remindersEnabled
+        ? reminders.where((r) => r.isActive).toList()
+        : const <Reminder>[];
+    await _cancelStalePlatformNotifications(
+      _expectedNotificationIds(activeReminders),
+    );
+
     for (final reminder in reminders) {
-      if (reminder.isActive) {
+      if (!remindersEnabled || !reminder.isActive) {
+        await cancelReminder(reminder.id);
+      } else {
         await scheduleReminder(reminder);
       }
     }
@@ -145,6 +167,7 @@ class ReminderSchedulerService {
           body: reminder.message,
           time: time,
           details: details,
+          payload: _scheduledPayload(reminder.id),
         );
 
       case ReminderFrequency.weekly:
@@ -166,6 +189,7 @@ class ReminderSchedulerService {
             time: time,
             weekday: days[i],
             details: details,
+            payload: _scheduledPayload(reminder.id),
           );
         }
 
@@ -178,6 +202,7 @@ class ReminderSchedulerService {
             body: reminder.message,
             time: time,
             details: details,
+            payload: _scheduledPayload(reminder.id),
           );
         } else {
           await _localService.scheduleExactInterval(
@@ -187,6 +212,7 @@ class ReminderSchedulerService {
             time: time,
             intervalDays: intervalDays,
             details: details,
+            payload: _scheduledPayload(reminder.id),
           );
         }
     }
@@ -210,6 +236,7 @@ class ReminderSchedulerService {
       body: reminder.message,
       scheduledFor: DateTime.now().add(delay),
       details: details,
+      payload: _frontChangeDelayedPayload(reminder),
     );
   }
 
@@ -238,7 +265,71 @@ class ReminderSchedulerService {
   /// interval scheduling uses `base + i` for each occurrence. The collision
   /// space is bounded by [_idRangeMod] for [LocalNotificationService.cancelRange].
   int _notificationIdBase(String id) {
-    return _idRangeStart + (id.hashCode.abs() % _idRangeMod);
+    return _idRangeStart + (_stableStringHash(id) % _idRangeMod);
+  }
+
+  Future<void> _cancelStalePlatformNotifications(
+    _ExpectedReminderNotifications expected,
+  ) async {
+    final pending = await _localService.pendingNotificationRequests();
+    for (final request in pending) {
+      final id = request.id;
+      if (!_isReminderNotificationId(id) || expected.contains(request)) {
+        continue;
+      }
+      await _localService.cancel(id);
+    }
+  }
+
+  _ExpectedReminderNotifications _expectedNotificationIds(
+    Iterable<Reminder> activeReminders,
+  ) {
+    final scheduledIds = <int>{};
+    final frontChangePayloads = <int, String>{};
+    for (final reminder in activeReminders) {
+      final base = _notificationIdBase(reminder.id);
+      switch (reminder.trigger) {
+        case ReminderTrigger.scheduled:
+          for (
+            var i = 0;
+            i < LocalNotificationService.maxIntervalOccurrences;
+            i++
+          ) {
+            scheduledIds.add(base + i);
+          }
+        case ReminderTrigger.onFrontChange:
+          frontChangePayloads[base] = _frontChangeDelayedPayload(reminder);
+      }
+    }
+    return _ExpectedReminderNotifications(
+      scheduledIds: scheduledIds,
+      frontChangePayloads: frontChangePayloads,
+    );
+  }
+
+  bool _isReminderNotificationId(int id) =>
+      id >= _idRangeStart && id < _idRangeEndExclusive;
+
+  String _scheduledPayload(String reminderId) {
+    return '$_scheduledPayloadPrefix$reminderId';
+  }
+
+  String _frontChangeDelayedPayload(Reminder reminder) {
+    return '$_frontChangeDelayedPayloadPrefix${reminder.id}:'
+        '${jsonEncode([reminder.name, reminder.message, reminder.delayHours, reminder.targetMemberId])}';
+  }
+
+  /// FNV-1a over UTF-16 code units. Do not use [String.hashCode] for platform
+  /// notification IDs; its stability contract is process-local.
+  int _stableStringHash(String value) {
+    const fnvOffset = 0x811c9dc5;
+    const fnvPrime = 0x01000193;
+    var hash = fnvOffset;
+    for (final codeUnit in value.codeUnits) {
+      hash ^= codeUnit;
+      hash = (hash * fnvPrime) & 0xffffffff;
+    }
+    return hash & 0x7fffffff;
   }
 
   /// Parses a time string in "HH:mm" format into a [TimeOfDay].
@@ -257,6 +348,24 @@ class ReminderSchedulerService {
   }
 }
 
+class _ExpectedReminderNotifications {
+  const _ExpectedReminderNotifications({
+    required this.scheduledIds,
+    required this.frontChangePayloads,
+  });
+
+  final Set<int> scheduledIds;
+  final Map<int, String> frontChangePayloads;
+
+  bool contains(PendingNotificationRequest request) {
+    if (scheduledIds.contains(request.id)) {
+      return true;
+    }
+    final expectedPayload = frontChangePayloads[request.id];
+    return expectedPayload != null && request.payload == expectedPayload;
+  }
+}
+
 /// Provides the [ReminderSchedulerService] singleton instance.
 final reminderSchedulerServiceProvider = Provider<ReminderSchedulerService>((
   ref,
@@ -264,7 +373,7 @@ final reminderSchedulerServiceProvider = Provider<ReminderSchedulerService>((
   return ReminderSchedulerService(ref.watch(localNotificationServiceProvider));
 });
 
-/// Provider that watches active reminders and reschedules notifications
+/// Provider that watches reminders and reschedules notifications
 /// whenever the list changes (from local edits or remote sync).
 ///
 /// Also watches active fronting sessions and fires front-change reminders
@@ -281,18 +390,30 @@ final reminderSchedulerListenerProvider = Provider<void>((ref) {
   Timer? debounceTimer;
   ref.onDispose(() => debounceTimer?.cancel());
 
-  // Watch active reminders and reschedule when they change (debounced).
-  ref.listen(activeRemindersProvider, (previous, next) {
-    final reminders = next.value;
+  void scheduleReminderReschedule() {
+    final reminders = ref.read(remindersProvider).value;
     if (reminders != null) {
+      final remindersEnabled = ref.read(remindersEnabledProvider);
       debounceTimer?.cancel();
       debounceTimer = Timer(const Duration(milliseconds: 500), () {
-        service.rescheduleAll(reminders).catchError((e) {
-          debugPrint('Reminder reschedule failed (non-fatal): $e');
-        });
+        service
+            .rescheduleAll(reminders, remindersEnabled: remindersEnabled)
+            .catchError((e) {
+              debugPrint('Reminder reschedule failed (non-fatal): $e');
+            });
       });
     }
-  }, fireImmediately: true);
+  }
+
+  // Watch all non-deleted reminders, not just active reminders. Inactive rows
+  // must still reach the scheduler so their platform notifications are
+  // cancelled when a user toggles them off.
+  ref.listen(
+    remindersProvider,
+    (_, _) => scheduleReminderReschedule(),
+    fireImmediately: true,
+  );
+  ref.listen(remindersEnabledProvider, (_, _) => scheduleReminderReschedule());
 
   // Watch active fronting sessions and fire front-change reminders when
   // the active-fronter member set changes.
