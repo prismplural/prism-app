@@ -59,6 +59,11 @@ Widget _buildSubject({
         (ref) => Stream.value(const SystemSettings()),
       ),
       activeMembersProvider.overrideWith((ref) => Stream.value(activeMembers)),
+      allMembersProvider.overrideWith((ref) => Stream.value(activeMembers)),
+      memberByIdProvider.overrideWith((ref, memberId) {
+        final matching = activeMembers.where((member) => member.id == memberId);
+        return Stream.value(matching.isEmpty ? null : matching.first);
+      }),
       allGroupsProvider.overrideWith((ref) => Stream.value(allGroups)),
       allGroupEntriesProvider.overrideWith((ref) => Stream.value(allEntries)),
       groupByIdProvider.overrideWith(
@@ -66,9 +71,7 @@ Widget _buildSubject({
       ),
       groupEntriesProvider.overrideWith(
         (ref, groupId) => Stream.value(
-          groupId == group.id
-              ? const <MemberGroupEntry>[]
-              : allEntries.where((entry) => entry.groupId == groupId).toList(),
+          allEntries.where((entry) => entry.groupId == groupId).toList(),
         ),
       ),
       groupTreeProvider.overrideWith(
@@ -127,7 +130,7 @@ void main() {
     expect(find.byTooltip('Add sub-group'), findsNothing);
   });
 
-  testWidgets('allows adding a subgroup at depth 4', (tester) async {
+  testWidgets('shows add subgroup in the menu at depth 4', (tester) async {
     final root = _group(id: 'root', name: 'Root');
     final level2 = _group(
       id: 'level-2',
@@ -157,10 +160,15 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byTooltip('Add sub-group'), findsOneWidget);
+    expect(find.text('Sub-groups'), findsNothing);
+
+    await tester.tap(find.byTooltip('More options'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Add sub-group'), findsOneWidget);
   });
 
-  testWidgets('hides the subgroup button at depth 5', (tester) async {
+  testWidgets('hides add subgroup from the menu at depth 5', (tester) async {
     final root = _group(id: 'root', name: 'Root');
     final level2 = _group(
       id: 'level-2',
@@ -195,7 +203,91 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byTooltip('Add sub-group'), findsNothing);
+    await tester.tap(find.byTooltip('More options'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Add sub-group'), findsNothing);
+  });
+
+  testWidgets('keeps the inline add button when subgroups are visible', (
+    tester,
+  ) async {
+    final parent = _group(id: 'parent', name: 'Parent');
+    final child = _group(id: 'child', name: 'Child', parentGroupId: 'parent');
+    final notifier = _FakeGroupNotifier();
+
+    await tester.pumpWidget(
+      _buildSubject(
+        group: parent,
+        allGroups: [parent, child],
+        allEntries: const [],
+        activeMembers: const [],
+        notifier: notifier,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sub-groups'), findsOneWidget);
+    expect(find.text('Child'), findsOneWidget);
+    expect(find.byTooltip('Add sub-group'), findsOneWidget);
+  });
+
+  testWidgets('moves group member actions into the overflow menu', (
+    tester,
+  ) async {
+    final group = _group(id: 'group-target', name: 'Target Group');
+    final alice = _member(id: 'alice', name: 'Alice');
+    final notifier = _FakeGroupNotifier();
+
+    await tester.pumpWidget(
+      _buildSubject(
+        group: group,
+        allGroups: [group],
+        allEntries: const [
+          MemberGroupEntry(
+            id: 'entry-alice',
+            groupId: 'group-target',
+            memberId: 'alice',
+          ),
+        ],
+        activeMembers: [alice],
+        notifier: notifier,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Front as Group'), findsNothing);
+    expect(find.text('Start chat'), findsNothing);
+
+    await tester.tap(find.byTooltip('More options'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Front as Group'), findsOneWidget);
+    expect(find.text('Start chat'), findsOneWidget);
+  });
+
+  testWidgets('hides group member actions when the group is empty', (
+    tester,
+  ) async {
+    final group = _group(id: 'group-target', name: 'Target Group');
+    final notifier = _FakeGroupNotifier();
+
+    await tester.pumpWidget(
+      _buildSubject(
+        group: group,
+        allGroups: [group],
+        allEntries: const [],
+        activeMembers: const [],
+        notifier: notifier,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('More options'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Front as Group'), findsNothing);
+    expect(find.text('Start chat'), findsNothing);
   });
 
   testWidgets(

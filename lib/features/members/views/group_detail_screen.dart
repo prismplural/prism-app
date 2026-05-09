@@ -27,8 +27,8 @@ import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
-import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_popup_menu.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
@@ -99,6 +99,8 @@ class _GroupDetailBody extends ConsumerWidget {
     final allGroups =
         allGroupsAsync.whenOrNull(data: (g) => g) ?? const <MemberGroup>[];
     final ancestors = _resolveAncestors(group, allGroups);
+    final entries = entriesAsync.whenOrNull(data: (entries) => entries);
+    final hasMembers = entries?.isNotEmpty ?? false;
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
@@ -110,10 +112,40 @@ class _GroupDetailBody extends ConsumerWidget {
             tooltip: l10n.edit,
             onPressed: () => _openEditSheet(context),
           ),
-          PrismTopBarAction(
-            icon: AppIcons.deleteOutline,
-            tooltip: l10n.delete,
-            onPressed: () => _confirmDelete(context, ref),
+          PrismPopupMenu<_GroupMenuAction>(
+            tooltip: l10n.moreOptions,
+            items: [
+              if (hasMembers) ...[
+                PrismMenuItem(
+                  value: _GroupMenuAction.frontGroup,
+                  label: l10n.memberGroupFrontGroup,
+                  icon: Icons.group_outlined,
+                ),
+                PrismMenuItem(
+                  value: _GroupMenuAction.startChat,
+                  label: l10n.memberGroupStartChat,
+                  icon: Icons.chat_bubble_outline,
+                ),
+              ],
+              if (canAddSubGroup)
+                PrismMenuItem(
+                  value: _GroupMenuAction.addSubGroup,
+                  label: l10n.memberGroupAddSubGroup,
+                  icon: AppIcons.add,
+                ),
+              PrismMenuItem(
+                value: _GroupMenuAction.delete,
+                label: l10n.delete,
+                icon: AppIcons.deleteOutline,
+                destructive: true,
+              ),
+            ],
+            onSelected: (action) => _handleMenuAction(
+              context,
+              ref,
+              action,
+              entries ?? const <MemberGroupEntry>[],
+            ),
           ),
         ],
       ),
@@ -131,45 +163,6 @@ class _GroupDetailBody extends ConsumerWidget {
             ),
 
             const SizedBox(height: 24),
-
-            entriesAsync.whenOrNull(
-                  data: (entries) {
-                    if (entries.isEmpty) return null;
-                    return Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: PrismButton(
-                              label: l10n.memberGroupFrontGroup,
-                              icon: Icons.group_outlined,
-                              tone: PrismButtonTone.subtle,
-                              expanded: true,
-                              semanticLabel: l10n
-                                  .memberGroupFrontGroupSemantics(
-                                    group.name,
-                                    terms.pluralLower,
-                                  ),
-                              onPressed: () =>
-                                  _onFrontGroup(context, ref, group, entries),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: PrismButton(
-                              label: l10n.memberGroupStartChat,
-                              icon: Icons.chat_bubble_outline,
-                              tone: PrismButtonTone.subtle,
-                              expanded: true,
-                              onPressed: () => _onStartChat(context, entries),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ) ??
-                const SizedBox.shrink(),
 
             _SubGroupsSection(
               groupId: group.id,
@@ -261,6 +254,24 @@ class _GroupDetailBody extends ConsumerWidget {
         group: group,
       ),
     );
+  }
+
+  Future<void> _handleMenuAction(
+    BuildContext context,
+    WidgetRef ref,
+    _GroupMenuAction action,
+    List<MemberGroupEntry> entries,
+  ) async {
+    switch (action) {
+      case _GroupMenuAction.frontGroup:
+        await _onFrontGroup(context, ref, group, entries);
+      case _GroupMenuAction.startChat:
+        _onStartChat(context, entries);
+      case _GroupMenuAction.addSubGroup:
+        _addSubGroup(context);
+      case _GroupMenuAction.delete:
+        await _confirmDelete(context, ref);
+    }
   }
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
@@ -551,7 +562,7 @@ class _SubGroupsSection extends ConsumerWidget {
     final l10n = context.l10n;
     final children = ref.watch(childGroupsProvider(groupId));
 
-    if (children.isEmpty && !canAddSubGroup) return const SizedBox.shrink();
+    if (children.isEmpty) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -697,6 +708,8 @@ class _GroupMemberTile extends ConsumerWidget {
     return false; // Don't auto-dismiss; provider stream will update
   }
 }
+
+enum _GroupMenuAction { frontGroup, startChat, addSubGroup, delete }
 
 List<MemberGroup> _resolveAncestors(MemberGroup group, List<MemberGroup> all) {
   final byId = {for (final g in all) g.id: g};
