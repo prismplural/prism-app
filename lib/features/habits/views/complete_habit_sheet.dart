@@ -133,8 +133,8 @@ class CompleteHabitSheetState extends ConsumerState<CompleteHabitSheet> {
 
   @override
   Widget build(BuildContext context) {
-    // Async fronter prefill is only active in create-now mode.
-    if (!_isEditMode) {
+    // Async fronter prefill is only active in create-now mode (not past-create).
+    if (!_isEditMode && !widget.initialPastDefault) {
       ref.listen(currentFronterProvider, (_, next) {
         final currentFronter = next.value;
         if (_completedByMemberWasEdited ||
@@ -290,7 +290,7 @@ class CompleteHabitSheetState extends ConsumerState<CompleteHabitSheet> {
       if (_completedByMemberId != _initialMemberId) {
         changedFields['completed_by_member_id'] = _completedByMemberId;
       }
-      if (notes != _initialNotes) {
+      if (_notesController.text != _initialNotes) {
         changedFields['notes'] = notes;
       }
       if (_rating != _initialRating) {

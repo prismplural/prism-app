@@ -106,6 +106,48 @@ void main() {
     },
   );
 
+  // ── Test 3b: null notes → save with no edits emits empty patch ───────────
+  // Regression test for the null/empty mismatch bug: when notes is null the
+  // controller initialises to '', and the old code compared `null != ''` (true)
+  // and falsely emitted notes: null on every untouched save.
+
+  testWidgets(
+    'edit mode: null notes — save with no edits emits empty changedFields',
+    (tester) async {
+      final spy = _SpyHabitNotifier();
+
+      final nullNotesCompletion = HabitCompletion(
+        id: 'completion-null-notes',
+        habitId: 'habit-1',
+        completedAt: DateTime(2026, 4, 5, 10, 30),
+        completedByMemberId: 'm1',
+        notes: null, // <-- null notes
+        rating: 3,
+        wasFronting: true,
+        createdAt: DateTime(2026, 4, 5, 10, 30),
+        modifiedAt: DateTime(2026, 4, 5, 10, 30),
+      );
+
+      await tester.pumpWidget(
+        _buildSubject(
+          habit: sampleHabit,
+          existingCompletion: nullNotesCompletion,
+          habitNotifierOverride: spy,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Tap save without making any changes.
+      await tester.tap(find.byTooltip('Save'));
+      await tester.pumpAndSettle();
+
+      expect(spy.updateCompletionCalls, hasLength(1));
+      // notes was null → controller starts as '' → no edit → must NOT appear in patch.
+      expect(spy.updateCompletionCalls.first.changedFields.containsKey('notes'), isFalse);
+      expect(spy.updateCompletionCalls.first.changedFields, isEmpty);
+    },
+  );
+
   // ── Test 4: mutate notes → save calls updateCompletion with new notes ─────
 
   testWidgets(

@@ -270,11 +270,13 @@ void main() {
         changedFields: {'notes': 'Updated notes'},
       );
 
-      final updatedHabit = repo.updateHabitCalls.last;
-      // Streak should still be 3 (days: today, yesterday, 2 days ago)
-      expect(updatedHabit.currentStreak, 3);
-      // bestStreak should remain at max(computed, persisted)=5
-      expect(updatedHabit.bestStreak, 5);
+      // Streak fields are unchanged (currentStreak=3 == 3, bestStreak=5 == 5),
+      // so updateHabit must NOT be called (Fix 3: skip habit write when unchanged).
+      expect(repo.updateHabitCalls, isEmpty);
+      // The habit in the repo still has the original streak values.
+      final currentHabit = await repo.getHabitById('h1');
+      expect(currentHabit!.currentStreak, 3);
+      expect(currentHabit.bestStreak, 5);
     });
 
     test(
@@ -423,6 +425,97 @@ void main() {
       expect(repo.updateHabitCalls, isEmpty);
       // No notification scheduling
       expect(spy.scheduleForHabitCalls, isEmpty);
+    });
+
+    test('notes-only edit does NOT call repo.updateHabit', () async {
+      final today = _daysAgo(0);
+      final habit = Habit(
+        id: 'h1',
+        name: 'Read',
+        createdAt: _daysAgo(10),
+        modifiedAt: _daysAgo(10),
+        frequency: HabitFrequency.daily,
+        currentStreak: 3,
+        bestStreak: 5,
+      );
+
+      // Three consecutive completions producing streak=3, best=5 unchanged.
+      final completions = [
+        _completion(id: 'c1', habitId: 'h1', completedAt: _daysAgo(2)),
+        _completion(id: 'c2', habitId: 'h1', completedAt: _daysAgo(1)),
+        _completion(id: 'c3', habitId: 'h1', completedAt: today),
+      ];
+
+      final repo = _MutableFakeHabitRepository(habit: habit, completions: completions);
+      final spy = _SpyHabitNotificationService();
+
+      final container = ProviderContainer(
+        overrides: [
+          habitRepositoryProvider.overrideWithValue(repo),
+          habitNotificationServiceProvider.overrideWith((ref) => spy),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final notifier = container.read(habitNotifierProvider.notifier);
+
+      // Notes-only edit: streaks are unchanged (currentStreak=3 == habit.currentStreak=3,
+      // bestStreak=5 == habit.bestStreak=5).
+      await notifier.updateCompletion(
+        completionId: completions[2].id,
+        habitId: 'h1',
+        changedFields: {'notes': 'just a note'},
+      );
+
+      // updateHabit must NOT have been called — streaks unchanged.
+      expect(repo.updateHabitCalls, isEmpty);
+      // But notification reschedule must still have fired.
+      expect(spy.scheduleForHabitCalls, hasLength(1));
+    });
+
+    test('day-boundary move DOES call repo.updateHabit', () async {
+      final today = _daysAgo(0);
+      final habit = Habit(
+        id: 'h1',
+        name: 'Run',
+        createdAt: _daysAgo(10),
+        modifiedAt: _daysAgo(10),
+        frequency: HabitFrequency.daily,
+        currentStreak: 3,
+        bestStreak: 3,
+      );
+
+      // Three consecutive completions: streak=3.
+      final completions = [
+        _completion(id: 'c1', habitId: 'h1', completedAt: _daysAgo(2)),
+        _completion(id: 'c2', habitId: 'h1', completedAt: _daysAgo(1)),
+        _completion(id: 'c3', habitId: 'h1', completedAt: today),
+      ];
+
+      final repo = _MutableFakeHabitRepository(habit: habit, completions: completions);
+      final spy = _SpyHabitNotificationService();
+
+      final container = ProviderContainer(
+        overrides: [
+          habitRepositoryProvider.overrideWithValue(repo),
+          habitNotificationServiceProvider.overrideWith((ref) => spy),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final notifier = container.read(habitNotifierProvider.notifier);
+
+      // Move today's completion to 4 days ago — breaks the streak (currentStreak drops to 2).
+      await notifier.updateCompletion(
+        completionId: completions[2].id,
+        habitId: 'h1',
+        changedFields: {'completed_at': _daysAgo(4).toUtc().toIso8601String()},
+      );
+
+      // Streak changed → updateHabit must have been called.
+      expect(repo.updateHabitCalls, hasLength(1));
+      // currentStreak should now be 2 (days: yesterday, 2-days-ago; today empty).
+      expect(repo.updateHabitCalls.first.currentStreak, 2);
     });
 
     test('reschedules notifications with skipCurrentPeriod recomputed',

@@ -76,6 +76,50 @@ void main() {
     },
   );
 
+  // ── Test 1b: past-create mode does NOT auto-fill fronter even if stream
+  //   resolves after sheet opens ─────────────────────────────────────────────
+  // Regression test for the async-fronter-listener bug: the listener was only
+  // gated on !_isEditMode, so a resolving stream would silently backfill
+  // _completedByMemberId in past-create mode too.
+
+  testWidgets(
+    'past-create mode: stream resolving after mount does NOT set completedByMemberId',
+    (tester) async {
+      final fronterController = StreamController<Member?>.broadcast();
+
+      await tester.pumpWidget(
+        _buildSubject(
+          habit: sampleHabit,
+          initialPastDefault: true,
+          currentFronterStream: fronterController.stream,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final state = tester.state<CompleteHabitSheetState>(
+        find.byType(CompleteHabitSheet),
+      );
+      // Initially null — no fronter.
+      expect(state.completedByMemberId, isNull);
+
+      // Emit a member after sheet is mounted.
+      fronterController.add(
+        Member(
+          id: 'should-not-fill',
+          name: 'Jordan',
+          isActive: true,
+          createdAt: DateTime(2026, 4, 1),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Must remain null — listener must not have fired in past-create mode.
+      expect(state.completedByMemberId, isNull);
+
+      await fronterController.close();
+    },
+  );
+
   // ── Test 2: save with initialPastDefault calls completeHabit with
   //   wasFronting: false even when currentFronterProvider has a value ────────
 

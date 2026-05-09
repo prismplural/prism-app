@@ -390,12 +390,18 @@ class HabitNotifier extends AsyncNotifier<void> {
       final bestAllTime = _calculateBestStreakAllTime(habit, completions);
       final bestStreak = bestAllTime > habit.bestStreak ? bestAllTime : habit.bestStreak;
 
-      final updatedHabit = habit.copyWith(
-        currentStreak: currentStreak,
-        bestStreak: bestStreak,
-        modifiedAt: DateTime.now(),
-      );
-      await repo.updateHabit(updatedHabit);
+      final habitChanged =
+          currentStreak != habit.currentStreak || bestStreak != habit.bestStreak;
+      final updatedHabit = habitChanged
+          ? habit.copyWith(
+              currentStreak: currentStreak,
+              bestStreak: bestStreak,
+              modifiedAt: DateTime.now(),
+            )
+          : habit;
+      if (habitChanged) {
+        await repo.updateHabit(updatedHabit);
+      }
 
       final notifService = ref.read(habitNotificationServiceProvider);
       final now = DateTime.now();
