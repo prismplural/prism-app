@@ -11,6 +11,17 @@ FrontingSession _s({
 }) =>
     FrontingSession(id: id, memberId: memberId, startTime: start, endTime: end);
 
+FrontingSession _sleep({
+  required String id,
+  required DateTime start,
+  DateTime? end,
+}) => FrontingSession(
+  id: id,
+  startTime: start,
+  endTime: end,
+  sessionType: SessionType.sleep,
+);
+
 Member _m(String id, {bool isAlwaysFronting = false}) => Member(
   id: id,
   name: id,
@@ -143,6 +154,48 @@ void main() {
         );
       }
     });
+
+    test(
+      'same member sessions separated by sleep gap stay separate periods',
+      () {
+        final firstStart = DateTime(2026, 4, 1, 1, 38);
+        final sleepStart = DateTime(2026, 4, 1, 2, 50);
+        final wakeTime = DateTime(2026, 4, 1, 7, 53);
+        final secondEnd = DateTime(2026, 4, 1, 9);
+
+        final result = deriveMaximalPeriods(
+          _input(
+            sessions: [
+              _s(
+                id: 'ethan-before-sleep',
+                memberId: 'ethan',
+                start: firstStart,
+                end: sleepStart,
+              ),
+              _sleep(id: 'sleep', start: sleepStart, end: wakeTime),
+              _s(
+                id: 'ethan-after-wake',
+                memberId: 'ethan',
+                start: wakeTime,
+                end: secondEnd,
+              ),
+            ],
+            rangeStart: DateTime(2026, 4, 1),
+            now: secondEnd,
+          ),
+        );
+
+        expect(result, hasLength(2));
+        expect(result[0].activeMembers, ['ethan']);
+        expect(result[0].start, firstStart);
+        expect(result[0].end, sleepStart);
+        expect(result[0].sessionIds, ['ethan-before-sleep']);
+        expect(result[1].activeMembers, ['ethan']);
+        expect(result[1].start, wakeTime);
+        expect(result[1].end, secondEnd);
+        expect(result[1].sessionIds, ['ethan-after-wake']);
+      },
+    );
 
     test('ephemeral visitor in 2-hour period collapses to brief', () {
       // Default `ephemeralThreshold` is `Duration.zero` post-1B

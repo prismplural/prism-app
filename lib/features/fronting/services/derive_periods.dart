@@ -614,6 +614,7 @@ List<FrontingPeriod> _collapseAndAnnotate(
     // closed-short → open-short same-member handoff would otherwise
     // render the active member as a "brief visitor" of their own
     // active period.
+    final hadCollapsedBridge = pendingSessionIds.isNotEmpty;
     final allSessionIds = <String>{...p.sessionIds, ...pendingSessionIds};
     final activeMemberSet = p.activeMembers.toSet();
     final brief = <EphemeralVisit>[
@@ -626,11 +627,13 @@ List<FrontingPeriod> _collapseAndAnnotate(
     final alwaysPresent = _alwaysPresentDuring(background, p.start, p.end);
     final isOpen = p.hasOpenSession && !p.end.isBefore(effectiveRangeEnd);
 
-    // Merge with previous result if same active set: a short period
-    // sandwiched between two same-set periods was just collapsed, so the
-    // two surrounding ones should now be one continuous row.
+    // Merge with previous result if the same active set is truly continuous:
+    // either the rows touch/overlap, or a short period between them was just
+    // collapsed into a brief visitor. Empty no-fronting gaps are skipped
+    // earlier, so same-member rows separated by real downtime must stay split.
     if (result.isNotEmpty &&
-        _listEquals(result.last.activeMembers, p.activeMembers)) {
+        _listEquals(result.last.activeMembers, p.activeMembers) &&
+        (hadCollapsedBridge || !p.start.isAfter(result.last.end))) {
       final prev = result.removeLast();
       result.add(
         FrontingPeriod(
