@@ -30,6 +30,10 @@ class PrismTokens {
   // Tinted (faux) glass tokens
   static const double tintedFillAlphaLight = 0.75;
   static const double tintedFillAlphaDark = 0.10;
+  static const double tintedTintAlpha = 0.15;
+  static const double avatarTintAlpha = 0.28;
+  static const double avatarAccentBorderAlphaLight = 0.42;
+  static const double avatarAccentBorderAlphaDark = 0.56;
   static const double tintedBorderAlphaLight = 0.10;
   static const double tintedBorderAlphaDark = 0.12;
   static const double tintedHighlightAlpha = 0.06;
@@ -38,6 +42,12 @@ class PrismTokens {
   static const double tintedShadowAlphaDark = 0.25;
   static const double tintedNoiseOpacityLight = 0.03;
   static const double tintedNoiseOpacityDark = 0.06;
+
+  // Button glass tokens
+  static const double buttonFilledAlphaLight = 0.80;
+  static const double buttonFilledPressedAlphaLight = 0.86;
+  static const double buttonFilledAlphaDark = 0.96;
+  static const double buttonFilledPressedAlphaDark = 1.0;
 
   static const EdgeInsets pagePadding = EdgeInsets.symmetric(
     horizontal: pageHorizontalPadding,

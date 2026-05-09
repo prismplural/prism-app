@@ -4853,7 +4853,7 @@ class $SystemSettingsTableTable extends SystemSettingsTable
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
-    defaultValue: const Constant('#AF8EE9'),
+    defaultValue: const Constant('#9070A0'),
   );
   static const VerificationMeta _perMemberAccentColorsMeta =
       const VerificationMeta('perMemberAccentColors');

@@ -5,21 +5,21 @@ class AppColors {
 
   // Brand
   static const Color prismPurple = Color(0xFFB498C2);
-  static const Color prismPurpleLight = Color(0xFFA384B0);
+  static const Color prismPurpleLight = Color(0xFF9070A0);
 
   // Semantic warm palette
   static const Color warmWhite = Color(0xFFF0EDE6);
   static const Color warmBlack = Color(0xFF4A4540);
-  static const Color warmOffWhite = Color(0xFFFDFBF6);
+  static const Color warmOffWhite = Color(0xFFFAF4EA);
 
   // Muted text (guide-specified alpha values)
   static Color mutedTextDark = warmWhite.withValues(alpha: 0.68);
   static Color mutedTextLight = warmBlack.withValues(alpha: 0.74);
 
   // Warm surfaces — light mode (parchment)
-  static const Color parchment = Color(0xFFF5F0E6);
-  static const Color parchmentElevated = Color(0xFFEDE8DC);
-  static const Color parchmentStrong = Color(0xFFE2DCD0);
+  static const Color parchment = Color(0xFFF1E7D6);
+  static const Color parchmentElevated = Color(0xFFE7DAC8);
+  static const Color parchmentStrong = Color(0xFFD9CAB6);
 
   // Warm surfaces — dark mode (charcoal)
   static const Color charcoal = Color(0xFF33302B);
@@ -67,8 +67,9 @@ class AppColors {
       brightness == Brightness.dark ? accentRoseDark : accentRoseLight;
   static Color nearby(Brightness brightness) =>
       brightness == Brightness.dark ? accentSageDark : accentSageLight;
-  static Color sleep(Brightness brightness) =>
-      brightness == Brightness.dark ? const Color(0xFF7986CB) : const Color(0xFF3949AB);
+  static Color sleep(Brightness brightness) => brightness == Brightness.dark
+      ? const Color(0xFF7986CB)
+      : const Color(0xFF3949AB);
   static const Color dormant = Color(0xFF94A3B8);
 
   /// Generate a distinct color for a member at [index] in a list.
@@ -76,7 +77,10 @@ class AppColors {
   /// Distributes hues evenly around the color wheel, starting opposite
   /// the accent color so generated colors contrast with the brand palette.
   static Color generatedColor(
-      int index, Color accentColor, Brightness brightness) {
+    int index,
+    Color accentColor,
+    Brightness brightness,
+  ) {
     // Start 180° from the accent so the first generated color contrasts well,
     // then space subsequent colors by the golden angle for max separation.
     final accentHue = HSLColor.fromColor(accentColor).hue;

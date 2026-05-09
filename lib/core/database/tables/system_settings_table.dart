@@ -18,7 +18,7 @@ class SystemSettingsTable extends Table {
   BoolColumn get showQuickFront =>
       boolean().withDefault(const Constant(true))();
   TextColumn get accentColorHex =>
-      text().withDefault(const Constant('#AF8EE9'))();
+      text().withDefault(const Constant('#9070A0'))();
   BoolColumn get perMemberAccentColors =>
       boolean().withDefault(const Constant(false))();
   IntColumn get terminology =>

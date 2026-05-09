@@ -25,6 +25,7 @@ import 'package:prism_plurality/features/members/providers/members_batch_provide
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/extensions/datetime_extensions.dart';
 import 'package:prism_plurality/shared/extensions/duration_extensions.dart';
+import 'package:prism_plurality/shared/theme/accent_legibility.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/utils/animations.dart';
@@ -518,6 +519,7 @@ class _PerMemberSessionTile extends ConsumerWidget {
             member.customColorHex != null
         ? AppColors.fromHex(member.customColorHex!)
         : theme.colorScheme.primary;
+    final durationAccentColor = _durationAccentColor(context, accentColor);
 
     final timeRange = slice.timeRangeString(context.dateLocale);
     final name = member?.name ?? 'Unknown';
@@ -546,12 +548,12 @@ class _PerMemberSessionTile extends ConsumerWidget {
           );
 
     final showLiveTimer = slice.isActive && !slice.continuesNextDay;
-    final durationColor = isLatest ? accentColor : null;
+    final durationColor = isLatest ? durationAccentColor : null;
     final subtitleWidget = showLiveTimer
         ? _ActiveSubtitle(
             startTime: slice.displayStart,
             timeRange: timeRange,
-            accentColor: accentColor,
+            accentColor: durationAccentColor,
           )
         : Text.rich(
             TextSpan(
@@ -862,6 +864,7 @@ class _PeriodTile extends ConsumerWidget {
             activeMemberObjs.first.customColorHex != null
         ? AppColors.fromHex(activeMemberObjs.first.customColorHex!)
         : theme.colorScheme.primary;
+    final durationAccentColor = _durationAccentColor(context, accentColor);
 
     final timeRange = _timeRange(context.dateLocale, context);
     final rosterNames = period.activeMembers
@@ -896,12 +899,12 @@ class _PeriodTile extends ConsumerWidget {
           );
 
     final showLiveTimer = slice.isLiveOpenEnded;
-    final durationColor = isLatest ? accentColor : null;
+    final durationColor = isLatest ? durationAccentColor : null;
     final subtitleWidget = showLiveTimer
         ? _ActiveSubtitle(
             startTime: slice.displayStart,
             timeRange: timeRange,
-            accentColor: accentColor,
+            accentColor: durationAccentColor,
           )
         : Text.rich(
             TextSpan(
@@ -1602,6 +1605,11 @@ class _InlineSleepTile extends ConsumerWidget {
       ),
     );
   }
+}
+
+Color _durationAccentColor(BuildContext context, Color rawAccent) {
+  final theme = Theme.of(context);
+  return contrastAdjustedAccent(rawAccent, theme.scaffoldBackgroundColor);
 }
 
 /// Subtitle for active periods with live-updating duration.

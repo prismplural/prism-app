@@ -34,8 +34,7 @@ class PrismSegmentedControl<T> extends StatefulWidget {
       _PrismSegmentedControlState<T>();
 }
 
-class _PrismSegmentedControlState<T>
-    extends State<PrismSegmentedControl<T>>
+class _PrismSegmentedControlState<T> extends State<PrismSegmentedControl<T>>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   int _previousIndex = 0;
@@ -105,13 +104,15 @@ class _PrismSegmentedControlState<T>
         : PrismTokens.tintedFillAlphaLight + (isAccessible ? 0.15 : 0.0);
     final trackColor = isDark
         ? AppColors.warmWhite.withValues(alpha: trackFillAlpha * 0.5)
-        : AppColors.warmBlack.withValues(alpha: trackFillAlpha * 0.15);
+        : AppColors.parchmentStrong.withValues(
+            alpha: isAccessible ? 0.9 : 0.72,
+          );
     final trackBorderAlpha = isDark
         ? PrismTokens.tintedBorderAlphaDark
         : PrismTokens.tintedBorderAlphaLight;
     final trackBorderColor = isDark
         ? AppColors.warmWhite.withValues(alpha: trackBorderAlpha)
-        : AppColors.warmBlack.withValues(alpha: trackBorderAlpha);
+        : AppColors.warmBlack.withValues(alpha: 0.12);
 
     // --- Pill (selected indicator) colors ---
     final pillFillAlpha = isDark
@@ -119,10 +120,10 @@ class _PrismSegmentedControlState<T>
         : PrismTokens.tintedFillAlphaLight + (isAccessible ? 0.15 : 0.0);
     final pillColor = isDark
         ? AppColors.warmWhite.withValues(alpha: pillFillAlpha)
-        : AppColors.warmWhite.withValues(alpha: pillFillAlpha);
+        : AppColors.warmOffWhite.withValues(alpha: 0.92);
     final pillBorderColor = isDark
         ? AppColors.warmWhite.withValues(alpha: trackBorderAlpha + 0.05)
-        : AppColors.warmBlack.withValues(alpha: trackBorderAlpha + 0.05);
+        : AppColors.warmBlack.withValues(alpha: 0.10);
 
     // --- Shadow ---
     final shadowAlpha = isDark
@@ -194,19 +195,23 @@ class _PrismSegmentedControlState<T>
                             }
                           },
                           child: Semantics(
-                            selected: widget.segments[i].value == widget.selected,
+                            selected:
+                                widget.segments[i].value == widget.selected,
                             button: true,
                             child: Center(
                               child: Text(
                                 widget.segments[i].label,
                                 style: theme.textTheme.labelLarge?.copyWith(
-                                  color: widget.segments[i].value == widget.selected
+                                  color:
+                                      widget.segments[i].value ==
+                                          widget.selected
                                       ? theme.colorScheme.onSurface
                                       : theme.colorScheme.onSurfaceVariant,
                                   fontWeight:
-                                      widget.segments[i].value == widget.selected
-                                          ? FontWeight.w600
-                                          : FontWeight.w500,
+                                      widget.segments[i].value ==
+                                          widget.selected
+                                      ? FontWeight.w600
+                                      : FontWeight.w500,
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,

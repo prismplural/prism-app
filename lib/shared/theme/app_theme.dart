@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'accent_legibility.dart';
 import 'app_colors.dart';
 import 'prism_shapes.dart';
 import 'prism_tokens.dart';
@@ -256,19 +257,23 @@ class AppTheme {
         if (states.contains(WidgetState.selected)) {
           return AppColors.warmWhite;
         }
-        return onSurface.withValues(alpha: isDark ? 0.6 : 0.3);
+        return isDark
+            ? onSurface.withValues(alpha: 0.6)
+            : AppColors.parchmentElevated;
       }),
       trackColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) {
           return accent;
         }
-        return onSurface.withValues(alpha: 0.08);
+        return isDark
+            ? onSurface.withValues(alpha: 0.08)
+            : AppColors.parchmentStrong.withValues(alpha: 0.72);
       }),
       trackOutlineColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) {
           return Colors.transparent;
         }
-        return onSurface.withValues(alpha: 0.1);
+        return onSurface.withValues(alpha: isDark ? 0.1 : 0.12);
       }),
     );
   }
@@ -453,19 +458,21 @@ class AppTheme {
     Color? accentColor,
     CornerStyle cornerStyle = CornerStyle.rounded,
   }) {
-    final accent = accentColor ?? AppColors.prismPurpleLight;
+    final requestedAccent = accentColor ?? AppColors.prismPurpleLight;
+    final accent = contrastAdjustedAccent(requestedAccent, AppColors.parchment);
     final colorScheme =
         ColorScheme.fromSeed(
-          seedColor: accent,
+          seedColor: requestedAccent,
           brightness: Brightness.light,
         ).copyWith(
           primary: accent,
+          onPrimary: highContrastForeground(accent),
           // Warm parchment surfaces.
           surfaceContainerLowest: AppColors.warmOffWhite,
           surfaceContainerLow: AppColors.parchment,
           surfaceContainer: AppColors.parchmentElevated,
           surfaceContainerHigh: AppColors.parchmentStrong,
-          surfaceContainerHighest: const Color(0xFFD9CEC0),
+          surfaceContainerHighest: const Color(0xFFD8C9B5),
           onSurface: AppColors.warmBlack,
         );
 
@@ -481,9 +488,9 @@ class AppTheme {
       popupBg: AppColors.warmOffWhite,
       snackBarBg: AppColors.charcoal,
       dragHandleColor: AppColors.warmBlack.withValues(alpha: 0.2),
-      filledButtonBg: AppColors.warmBlack.withValues(alpha: 0.06),
+      filledButtonBg: AppColors.parchmentElevated.withValues(alpha: 0.82),
       filledButtonFg: AppColors.warmBlack.withValues(alpha: 0.8),
-      iconButtonBg: AppColors.warmBlack.withValues(alpha: 0.06),
+      iconButtonBg: AppColors.parchmentElevated.withValues(alpha: 0.82),
       iconButtonFg: AppColors.warmBlack.withValues(alpha: 0.8),
       textButtonFg: AppColors.warmBlack.withValues(alpha: 0.8),
       isDark: false,
@@ -501,13 +508,15 @@ class AppTheme {
     Color? accentColor,
     CornerStyle cornerStyle = CornerStyle.rounded,
   }) {
-    final accent = accentColor ?? AppColors.prismPurple;
+    final requestedAccent = accentColor ?? AppColors.prismPurple;
+    final accent = contrastAdjustedAccent(requestedAccent, AppColors.charcoal);
     final colorScheme =
         ColorScheme.fromSeed(
-          seedColor: accent,
+          seedColor: requestedAccent,
           brightness: Brightness.dark,
         ).copyWith(
           primary: accent,
+          onPrimary: highContrastForeground(accent),
           surface: AppColors.charcoal,
           onSurface: AppColors.warmWhite,
           surfaceContainerLowest: const Color(0xFF2B2723),
@@ -550,13 +559,15 @@ class AppTheme {
     Color? accentColor,
     CornerStyle cornerStyle = CornerStyle.rounded,
   }) {
-    final accent = accentColor ?? AppColors.prismPurple;
+    final requestedAccent = accentColor ?? AppColors.prismPurple;
+    final accent = contrastAdjustedAccent(requestedAccent, Colors.black);
     final colorScheme =
         ColorScheme.fromSeed(
-          seedColor: accent,
+          seedColor: requestedAccent,
           brightness: Brightness.dark,
         ).copyWith(
           primary: accent,
+          onPrimary: highContrastForeground(accent),
           surface: Colors.black,
           onSurface: AppColors.warmWhite,
           surfaceContainerLowest: Colors.black,
@@ -603,14 +614,21 @@ class AppTheme {
     ColorScheme? dynamicScheme, {
     CornerStyle cornerStyle = CornerStyle.rounded,
   }) {
-    final colorScheme =
+    final baseColorScheme =
         dynamicScheme ??
         ColorScheme.fromSeed(
           seedColor: AppColors.prismPurple,
           brightness: Brightness.light,
         );
 
-    final accent = colorScheme.primary;
+    final accent = contrastAdjustedAccent(
+      baseColorScheme.primary,
+      baseColorScheme.surfaceContainerLowest,
+    );
+    final colorScheme = baseColorScheme.copyWith(
+      primary: accent,
+      onPrimary: highContrastForeground(accent),
+    );
 
     final colors = _ThemeColors(
       scaffold: colorScheme.surfaceContainerLowest,
@@ -644,14 +662,21 @@ class AppTheme {
     ColorScheme? dynamicScheme, {
     CornerStyle cornerStyle = CornerStyle.rounded,
   }) {
-    final colorScheme =
+    final baseColorScheme =
         dynamicScheme ??
         ColorScheme.fromSeed(
           seedColor: AppColors.prismPurple,
           brightness: Brightness.dark,
         );
 
-    final accent = colorScheme.primary;
+    final accent = contrastAdjustedAccent(
+      baseColorScheme.primary,
+      baseColorScheme.surfaceContainerLowest,
+    );
+    final colorScheme = baseColorScheme.copyWith(
+      primary: accent,
+      onPrimary: highContrastForeground(accent),
+    );
 
     final colors = _ThemeColors(
       scaffold: colorScheme.surfaceContainerLowest,

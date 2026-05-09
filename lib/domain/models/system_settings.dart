@@ -139,7 +139,7 @@ abstract class SystemSettings with _$SystemSettings {
     String? systemName,
     String? sharingId,
     @Default(true) bool showQuickFront,
-    @Default('#AF8EE9') String accentColorHex,
+    @Default('#9070A0') String accentColorHex,
     @Default(true) bool perMemberAccentColors,
     @Default(SystemTerminology.headmates) SystemTerminology terminology,
     String? customTerminology,

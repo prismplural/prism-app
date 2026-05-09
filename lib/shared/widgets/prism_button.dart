@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'package:prism_plurality/shared/theme/accent_legibility.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
+import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 
 enum PrismButtonTone { subtle, filled, destructive, outlined }
@@ -45,6 +47,7 @@ class _PrismButtonState extends State<PrismButton> {
     final canPress = widget.enabled && !widget.isLoading;
     final tone = widget.tone;
     final density = widget.density;
+    final isDark = theme.brightness == Brightness.dark;
     final color = switch (tone) {
       PrismButtonTone.destructive => theme.colorScheme.error,
       PrismButtonTone.filled => theme.colorScheme.primary,
@@ -56,26 +59,33 @@ class _PrismButtonState extends State<PrismButton> {
         ? 16.0
         : 24.0;
     final verticalPadding = density == PrismControlDensity.compact ? 8.0 : 12.0;
-    final foregroundColor = switch (tone) {
-      PrismButtonTone.filled =>
-        canPress
-            ? theme.colorScheme.onPrimary
-            : theme.colorScheme.onPrimary.withValues(alpha: 0.6),
-      _ => canPress ? color : color.withValues(alpha: 0.4),
-    };
-
+    final filledAlpha = isDark
+        ? (_pressed
+              ? PrismTokens.buttonFilledPressedAlphaDark
+              : PrismTokens.buttonFilledAlphaDark)
+        : (_pressed
+              ? PrismTokens.buttonFilledPressedAlphaLight
+              : PrismTokens.buttonFilledAlphaLight);
+    final filledColor = tone == PrismButtonTone.filled
+        ? contrastAdjustedTranslucentAccent(
+            color,
+            theme.scaffoldBackgroundColor,
+            foreground: theme.colorScheme.onPrimary,
+            alpha: filledAlpha,
+          )
+        : color;
     final backgroundColor = switch (tone) {
       PrismButtonTone.filled =>
         canPress
-            ? color.withValues(alpha: _pressed ? 0.9 : 0.8)
+            ? filledColor.withValues(alpha: filledAlpha)
             : color.withValues(alpha: 0.3),
       PrismButtonTone.destructive =>
         canPress
-            ? color.withValues(alpha: _pressed ? 0.14 : 0.1)
+            ? color.withValues(alpha: _pressed ? (isDark ? 0.16 : 0.14) : 0.10)
             : color.withValues(alpha: 0.05),
       PrismButtonTone.subtle =>
         canPress
-            ? color.withValues(alpha: _pressed ? 0.2 : 0.1)
+            ? color.withValues(alpha: _pressed ? (isDark ? 0.2 : 0.14) : 0.10)
             : color.withValues(alpha: 0.04),
       PrismButtonTone.outlined =>
         canPress
@@ -86,21 +96,35 @@ class _PrismButtonState extends State<PrismButton> {
     final borderColor = switch (tone) {
       PrismButtonTone.filled =>
         canPress
-            ? color.withValues(alpha: _pressed ? 0.4 : 0.2)
+            ? filledColor.withValues(alpha: _pressed ? 0.30 : 0.14)
             : color.withValues(alpha: 0.08),
       PrismButtonTone.destructive =>
         canPress
-            ? color.withValues(alpha: _pressed ? 0.28 : 0.18)
+            ? color.withValues(alpha: _pressed ? 0.22 : (isDark ? 0.16 : 0.18))
             : color.withValues(alpha: 0.08),
       PrismButtonTone.subtle =>
         canPress
-            ? color.withValues(alpha: _pressed ? 0.4 : 0.2)
+            ? color.withValues(
+                alpha: _pressed
+                    ? (isDark ? 0.30 : 0.22)
+                    : (isDark ? 0.16 : 0.16),
+              )
             : color.withValues(alpha: 0.05),
       PrismButtonTone.outlined =>
         canPress
-            ? color.withValues(alpha: _pressed ? 0.35 : 0.25)
+            ? color.withValues(alpha: _pressed ? 0.26 : 0.18)
             : color.withValues(alpha: 0.08),
     };
+    final foregroundColor = switch (tone) {
+      PrismButtonTone.filled =>
+        canPress
+            ? theme.colorScheme.onPrimary
+            : theme.colorScheme.onPrimary.withValues(alpha: 0.6),
+      _ => canPress ? color : color.withValues(alpha: 0.4),
+    };
+    final buttonRadius = BorderRadius.circular(
+      PrismShapes.of(context).radius(999),
+    );
 
     return Semantics(
       button: true,
@@ -120,9 +144,7 @@ class _PrismButtonState extends State<PrismButton> {
                 setState(() => _pressed = value);
               }
             },
-            borderRadius: BorderRadius.circular(
-              PrismShapes.of(context).radius(999),
-            ),
+            borderRadius: buttonRadius,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
               padding: EdgeInsets.symmetric(
@@ -130,9 +152,7 @@ class _PrismButtonState extends State<PrismButton> {
                 vertical: verticalPadding,
               ),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(
-                  PrismShapes.of(context).radius(999),
-                ),
+                borderRadius: buttonRadius,
                 color: backgroundColor,
                 border: Border.all(color: borderColor),
               ),
@@ -264,9 +284,11 @@ class _PrismIconButtonState extends State<PrismIconButton> {
     final theme = Theme.of(context);
     final color = widget.color ?? theme.colorScheme.onSurface;
     final canPress = widget.enabled;
+    final isDark = theme.brightness == Brightness.dark;
     final iconColor = canPress
         ? color.withValues(alpha: 0.82)
         : color.withValues(alpha: 0.35);
+    final fillAlpha = _pressed ? (isDark ? 0.2 : 0.18) : 0.12;
 
     Widget button = Semantics(
       button: true,
@@ -296,7 +318,7 @@ class _PrismIconButtonState extends State<PrismIconButton> {
                 shape: PrismShapes.of(context).avatarShape(),
                 borderRadius: PrismShapes.of(context).avatarBorderRadius(),
                 color: canPress
-                    ? color.withValues(alpha: _pressed ? 0.2 : 0.12)
+                    ? color.withValues(alpha: fillAlpha)
                     : color.withValues(alpha: 0.05),
               ),
               child: Icon(

@@ -177,7 +177,7 @@ class OnboardingState {
     this.selectedChannels = const {},
     this.customChannelName = '',
     this.selectedTerminology = SystemTerminology.headmates,
-    this.accentColorHex = '#AF8EE9',
+    this.accentColorHex = '#9070A0',
     this.usePerMemberColors = true,
     this.themeBrightness,
     this.themeStyle,
@@ -928,7 +928,7 @@ final onboardingProvider =
 
 /// Predefined accent color options.
 const predefinedColors = [
-  '#AF8EE9', // Prism Purple (default)
+  '#9070A0', // Prism Purple (default)
   '#FF6B6B', // Coral Red
   '#4ECDC4', // Teal
   '#45B7D1', // Sky Blue

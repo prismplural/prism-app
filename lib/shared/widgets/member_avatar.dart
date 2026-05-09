@@ -6,8 +6,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/theme/accent_legibility.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
+import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
 enum MemberAvatarShape { circle, square }
@@ -62,11 +64,19 @@ class MemberAvatar extends ConsumerWidget {
   final bool flushImage;
 
   Color _circleColor(BuildContext context) {
-    if (tintOverride != null) return tintOverride!;
-    if (customColorEnabled && customColorHex != null) {
-      return AppColors.fromHex(customColorHex!);
+    final theme = Theme.of(context);
+    final adjustmentBackground = theme.brightness == Brightness.dark
+        ? prismDarkAccentBackground
+        : prismLightAccentBackground;
+    final Color rawColor;
+    if (tintOverride != null) {
+      rawColor = tintOverride!;
+    } else if (customColorEnabled && customColorHex != null) {
+      rawColor = AppColors.fromHex(customColorHex!);
+    } else {
+      rawColor = theme.colorScheme.primary;
     }
-    return Theme.of(context).colorScheme.primary;
+    return contrastAdjustedAccent(rawColor, adjustmentBackground);
   }
 
   @override
@@ -76,9 +86,15 @@ class MemberAvatar extends ConsumerWidget {
         (PrismShapes.of(context).cornerStyle == CornerStyle.angular
             ? MemberAvatarShape.square
             : MemberAvatarShape.circle);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final color = _circleColor(context);
     final dimmed = opacity < 1.0;
     final tint = dimmed ? color.withValues(alpha: color.a * opacity) : color;
+    final accentBorderColor = color.withValues(
+      alpha: isDark
+          ? PrismTokens.avatarAccentBorderAlphaDark
+          : PrismTokens.avatarAccentBorderAlphaLight,
+    );
 
     Widget child;
     if (avatarImageData != null && avatarImageData!.isNotEmpty) {
@@ -86,9 +102,7 @@ class MemberAvatar extends ConsumerWidget {
       // Larger avatars (profile headers) look strong with a near-flush image;
       // small avatars (lists, chat rows) need more inset so the tinted ring
       // remains legible. flushImage drops the inset entirely.
-      final double insetFactor = flushImage
-          ? 0.0
-          : (size >= 64 ? 0.04 : 0.1);
+      final double insetFactor = flushImage ? 0.0 : (size >= 64 ? 0.04 : 0.1);
       final imageInset = size * insetFactor;
       final imageSize = size - imageInset * 2;
       final pixelSize = (imageSize * MediaQuery.devicePixelRatioOf(context))
@@ -124,17 +138,23 @@ class MemberAvatar extends ConsumerWidget {
           height: size,
           borderRadius: BorderRadius.zero,
           tint: tint,
+          tintStrength: PrismTokens.avatarTintAlpha,
+          borderColor: accentBorderColor,
+          borderWidth: 1,
           child: ClipRRect(borderRadius: BorderRadius.zero, child: image),
         );
       } else {
         child = TintedGlassSurface.circle(
           size: size,
           tint: tint,
+          tintStrength: PrismTokens.avatarTintAlpha,
+          borderColor: accentBorderColor,
+          borderWidth: 1,
           child: ClipOval(child: image),
         );
       }
     } else {
-      child = _emojiCircle(tint, effectiveShape);
+      child = _emojiCircle(tint, effectiveShape, accentBorderColor);
       // Emoji glyphs are platform-rendered and cannot be tinted via paint-level
       // alpha, so we fall back to Opacity for the small circle widget.
       if (dimmed) {
@@ -151,7 +171,10 @@ class MemberAvatar extends ConsumerWidget {
           borderRadius: isSquare
               ? BorderRadius.zero
               : shapes.avatarBorderRadius(),
-          border: Border.all(color: color.withValues(alpha: 0.5), width: 2),
+          border: Border.all(
+            color: color.withValues(alpha: isDark ? 0.42 : 0.30),
+            width: 2,
+          ),
         ),
         child: Padding(padding: const EdgeInsets.all(2), child: child),
       );
@@ -160,19 +183,29 @@ class MemberAvatar extends ConsumerWidget {
     return child;
   }
 
-  Widget _emojiCircle(Color color, MemberAvatarShape effectiveShape) {
+  Widget _emojiCircle(
+    Color color,
+    MemberAvatarShape effectiveShape,
+    Color accentBorderColor,
+  ) {
     if (effectiveShape == MemberAvatarShape.square) {
       return TintedGlassSurface(
         width: size,
         height: size,
         borderRadius: BorderRadius.zero,
         tint: color,
+        tintStrength: PrismTokens.avatarTintAlpha,
+        borderColor: accentBorderColor,
+        borderWidth: 1,
         child: _centeredEmoji(size),
       );
     }
     return TintedGlassSurface.circle(
       size: size,
       tint: color,
+      tintStrength: PrismTokens.avatarTintAlpha,
+      borderColor: accentBorderColor,
+      borderWidth: 1,
       child: _centeredEmoji(size),
     );
   }

@@ -23,6 +23,7 @@ import 'package:prism_plurality/features/members/providers/members_batch_provide
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/extensions/datetime_extensions.dart';
 import 'package:prism_plurality/shared/extensions/duration_extensions.dart';
+import 'package:prism_plurality/shared/theme/accent_legibility.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
@@ -594,6 +595,10 @@ class _CoFronterRow extends ConsumerWidget {
             member.customColorHex != null
         ? AppColors.fromHex(member.customColorHex!)
         : theme.colorScheme.primary;
+    final durationAccentColor = contrastAdjustedAccent(
+      accentColor,
+      theme.scaffoldBackgroundColor,
+    );
 
     final locale = context.dateLocale;
     final startStr = session.startTime.toTimeString(locale);
@@ -639,7 +644,7 @@ class _CoFronterRow extends ConsumerWidget {
                 startTime: session.startTime,
                 rounded: true,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: accentColor,
+                  color: durationAccentColor,
                   fontWeight: FontWeight.w600,
                 ),
               ),

@@ -35,6 +35,11 @@ class PrismSettingsRow extends StatelessWidget {
     final resolvedIconColor =
         iconColor ??
         (destructive ? theme.colorScheme.error : theme.colorScheme.primary);
+    final foregroundColor = enabled
+        ? (theme.brightness == Brightness.dark
+              ? AppColors.warmWhite.withValues(alpha: 0.85)
+              : AppColors.warmBlack.withValues(alpha: 0.82))
+        : theme.disabledColor.withValues(alpha: 0.5);
 
     return PrismListRow(
       title: Text(title),
@@ -50,24 +55,12 @@ class PrismSettingsRow extends StatelessWidget {
               height: 40,
               borderRadius: BorderRadius.zero,
               tint: resolvedIconColor,
-              child: Icon(
-                icon,
-                size: 20,
-                color: enabled
-                    ? AppColors.warmWhite.withValues(alpha: 0.85)
-                    : theme.disabledColor.withValues(alpha: 0.5),
-              ),
+              child: Icon(icon, size: 20, color: foregroundColor),
             )
           : TintedGlassSurface.circle(
               size: 40,
               tint: resolvedIconColor,
-              child: Icon(
-                icon,
-                size: 20,
-                color: enabled
-                    ? AppColors.warmWhite.withValues(alpha: 0.85)
-                    : theme.disabledColor.withValues(alpha: 0.5),
-              ),
+              child: Icon(icon, size: 20, color: foregroundColor),
             ),
     );
   }

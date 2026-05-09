@@ -51,6 +51,36 @@ const _kNavBarBorderWidth = 1.0;
 /// still fits after decoration insets and font metric differences.
 const _kNavBarItemVerticalPadding = 12.0;
 
+Color _navSelectedPillColor(bool isDark) {
+  if (isDark) return AppColors.warmWhite.withValues(alpha: 0.15);
+
+  return Color.alphaBlend(
+    AppColors.warmBlack.withValues(alpha: 0.06),
+    AppColors.parchmentStrong,
+  ).withValues(alpha: 0.88);
+}
+
+Color _sidebarSelectedFillColor(bool isDark) {
+  if (isDark) return AppColors.warmWhite.withValues(alpha: 0.12);
+
+  return Color.alphaBlend(
+    AppColors.warmBlack.withValues(alpha: 0.04),
+    AppColors.parchmentStrong,
+  ).withValues(alpha: 0.74);
+}
+
+Color _navInactiveIconColor(bool isDark) {
+  return isDark
+      ? AppColors.warmWhite.withValues(alpha: 0.5)
+      : AppColors.warmBlack.withValues(alpha: 0.5);
+}
+
+Color _navInactiveLabelColor(bool isDark, {double darkAlpha = 0.5}) {
+  return isDark
+      ? AppColors.warmWhite.withValues(alpha: darkAlpha)
+      : AppColors.warmBlack.withValues(alpha: 0.56);
+}
+
 @visibleForTesting
 double floatingNavBarExpandedHeight(
   int overflowRows, {
@@ -1349,7 +1379,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                             margin: const EdgeInsets.symmetric(horizontal: 20),
                             color: isDark
                                 ? AppColors.warmWhite.withValues(alpha: 0.08)
-                                : AppColors.warmBlack.withValues(alpha: 0.06),
+                                : AppColors.warmBlack.withValues(alpha: 0.05),
                           ),
                         ),
                       ),
@@ -1363,9 +1393,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                                 constraints.maxWidth - _kMoreButtonWidth;
                             final segWidth =
                                 availableForTabs / widget.primaryTabs.length;
-                            final pillColor = isDark
-                                ? AppColors.warmWhite.withValues(alpha: 0.15)
-                                : AppColors.warmBlack.withValues(alpha: 0.08);
+                            final pillColor = _navSelectedPillColor(isDark);
 
                             final pillWidth = segWidth - 16;
                             return Stack(
@@ -1574,7 +1602,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
             ? (isOled
                   ? AppColors.oledSurface1.withValues(alpha: 0.85)
                   : AppColors.warmWhite.withValues(alpha: 0.08))
-            : AppColors.warmWhite.withValues(alpha: 0.7),
+            : AppColors.parchmentElevated.withValues(alpha: 0.82),
       ),
       borderRadius: BorderRadius.circular(shapes.radius(radius)),
       border: Border.all(
@@ -1607,9 +1635,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
     final shapes = PrismShapes.of(context);
 
     // Pill colors
-    final pillColor = isDark
-        ? AppColors.warmWhite.withValues(alpha: 0.15)
-        : AppColors.warmBlack.withValues(alpha: 0.08);
+    final pillColor = _navSelectedPillColor(isDark);
 
     return Semantics(
       container: true,
@@ -1730,9 +1756,7 @@ class _MoreTrigger extends StatelessWidget {
   Widget build(BuildContext context) {
     final iconColor = isHighlighted
         ? accentColor
-        : (isDark
-              ? AppColors.warmWhite.withValues(alpha: 0.5)
-              : AppColors.warmBlack.withValues(alpha: 0.4));
+        : _navInactiveIconColor(isDark);
 
     return Semantics(
       button: true,
@@ -1803,11 +1827,7 @@ class _NavBarItem extends StatelessWidget {
     Widget iconWidget = Icon(
       itemIcon,
       size: kNavBarItemIconSize,
-      color: isSelected
-          ? accentColor
-          : (isDark
-                ? AppColors.warmWhite.withValues(alpha: 0.5)
-                : AppColors.warmBlack.withValues(alpha: 0.4)),
+      color: isSelected ? accentColor : _navInactiveIconColor(isDark),
     );
 
     iconWidget = _maybeBadge(
@@ -1846,9 +1866,7 @@ class _NavBarItem extends StatelessWidget {
                 decoration: showItemPill
                     ? BoxDecoration(
                         color: isSelected
-                            ? (isDark
-                                  ? AppColors.warmWhite.withValues(alpha: 0.15)
-                                  : AppColors.warmBlack.withValues(alpha: 0.08))
+                            ? _navSelectedPillColor(isDark)
                             : Colors.transparent,
                         borderRadius: BorderRadius.circular(
                           PrismShapes.of(context).radius(16),
@@ -1865,9 +1883,7 @@ class _NavBarItem extends StatelessWidget {
                 isSelected: isSelected,
                 color: isSelected
                     ? (isDark ? AppColors.warmWhite : AppColors.warmBlack)
-                    : (isDark
-                          ? AppColors.warmWhite.withValues(alpha: 0.5)
-                          : AppColors.warmBlack.withValues(alpha: 0.4)),
+                    : _navInactiveLabelColor(isDark),
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -1928,7 +1944,7 @@ class _FloatingSidebar extends ConsumerWidget {
                       ? (isOled
                             ? AppColors.oledSurface1.withValues(alpha: 0.50)
                             : AppColors.warmWhite.withValues(alpha: 0.06))
-                      : AppColors.warmWhite.withValues(alpha: 0.55),
+                      : AppColors.parchmentElevated.withValues(alpha: 0.70),
                 ),
                 borderRadius: BorderRadius.circular(
                   PrismShapes.of(context).radius(16),
@@ -2017,26 +2033,20 @@ class _SidebarItemState extends State<_SidebarItem> {
   @override
   Widget build(BuildContext context) {
     final fillColor = widget.isSelected
-        ? (widget.isDark
-              ? AppColors.warmWhite.withValues(alpha: 0.12)
-              : AppColors.warmBlack.withValues(alpha: 0.06))
+        ? _sidebarSelectedFillColor(widget.isDark)
         : _hovering
         ? (widget.isDark
               ? AppColors.warmWhite.withValues(alpha: 0.06)
-              : AppColors.warmBlack.withValues(alpha: 0.03))
+              : AppColors.parchmentStrong.withValues(alpha: 0.36))
         : Colors.transparent;
 
     final iconColor = widget.isSelected
         ? widget.accentColor
-        : (widget.isDark
-              ? AppColors.warmWhite.withValues(alpha: 0.5)
-              : AppColors.warmBlack.withValues(alpha: 0.4));
+        : _navInactiveIconColor(widget.isDark);
 
     final labelColor = widget.isSelected
         ? (widget.isDark ? AppColors.warmWhite : AppColors.warmBlack)
-        : (widget.isDark
-              ? AppColors.warmWhite.withValues(alpha: 0.6)
-              : AppColors.warmBlack.withValues(alpha: 0.5));
+        : _navInactiveLabelColor(widget.isDark, darkAlpha: 0.6);
 
     return Semantics(
       selected: widget.isSelected,

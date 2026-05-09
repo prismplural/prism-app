@@ -14,7 +14,7 @@ class _PresetColor {
 }
 
 const _presetColors = [
-  _PresetColor('#B498C2'),
+  _PresetColor('#9070A0'),
   _PresetColor('#2563EB'),
   _PresetColor('#16A34A'),
   _PresetColor('#DC2626'),
@@ -28,7 +28,7 @@ const _presetColors = [
 
 Color _parseHex(String hex) {
   final cleaned = hex.replaceFirst('#', '');
-  final value = int.tryParse('FF$cleaned', radix: 16) ?? 0xFFAF8EE9;
+  final value = int.tryParse('FF$cleaned', radix: 16) ?? 0xFF9070A0;
   return Color(value);
 }
 
@@ -58,7 +58,7 @@ class AccentColorPicker extends StatelessWidget {
 
   String _tooltipForPreset(BuildContext context, String hex) {
     return switch (hex.toUpperCase()) {
-      '#B498C2' => context.l10n.settingsAccentColorPrismPurple,
+      '#9070A0' => context.l10n.settingsAccentColorPrismPurple,
       '#2563EB' => context.l10n.settingsAccentColorBlue,
       '#16A34A' => context.l10n.settingsAccentColorGreen,
       '#DC2626' => context.l10n.settingsAccentColorRed,
@@ -134,7 +134,8 @@ class AccentColorPicker extends StatelessWidget {
                 color: isMaterialYou
                     ? _parseHex(preset.hex).withValues(alpha: 0.35)
                     : _parseHex(preset.hex),
-                isSelected: !isMaterialYou &&
+                isSelected:
+                    !isMaterialYou &&
                     preset.hex.toUpperCase() == currentHex.toUpperCase(),
                 onTap: isMaterialYou ? () {} : () => onChanged(preset.hex),
                 tooltip: _tooltipForPreset(context, preset.hex),
@@ -155,11 +156,10 @@ class AccentColorPicker extends StatelessWidget {
             child: Text(
               context.l10n.settingsAccentColorSystemPaletteNote,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withValues(alpha: 0.5),
-                  ),
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withValues(alpha: 0.5),
+              ),
             ),
           )
         else if (legibility != AccentLegibility.ok)
@@ -257,8 +257,8 @@ class _ColorCircle extends StatelessWidget {
                   color: theme.colorScheme.onSurfaceVariant,
                 )
               : isSelected
-                  ? Icon(AppIcons.check, size: 20, color: AppColors.warmWhite)
-                  : null,
+              ? Icon(AppIcons.check, size: 20, color: AppColors.warmWhite)
+              : null,
         ),
       ),
     );

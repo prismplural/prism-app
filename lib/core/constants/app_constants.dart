@@ -8,15 +8,10 @@ abstract final class AppConstants {
   static const String defaultEmoji = '❔';
 
   /// Default accent color (purple)
-  static const String defaultAccentColorHex = '#AF8EE9';
+  static const String defaultAccentColorHex = '#9070A0';
 
   /// Quick reactions for chat
-  static const List<String> quickReactions = [
-    '❤️',
-    '👍',
-    '😂',
-    '😮',
-  ];
+  static const List<String> quickReactions = ['❤️', '👍', '😂', '😮'];
 
   /// Max avatar image size in bytes (256KB)
   static const int maxAvatarSize = 256 * 1024;

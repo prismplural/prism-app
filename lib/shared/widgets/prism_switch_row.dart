@@ -64,17 +64,18 @@ class _IconCircle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final resolvedColor = color ?? Theme.of(context).colorScheme.primary;
+    final theme = Theme.of(context);
+    final resolvedColor = color ?? theme.colorScheme.primary;
+    final foregroundColor = enabled
+        ? (theme.brightness == Brightness.dark
+              ? AppColors.warmWhite.withValues(alpha: 0.85)
+              : AppColors.warmBlack.withValues(alpha: 0.82))
+        : theme.disabledColor.withValues(alpha: 0.5);
+
     return TintedGlassSurface.circle(
       size: 40,
       tint: resolvedColor,
-      child: Icon(
-        icon,
-        size: 20,
-        color: enabled
-            ? AppColors.warmWhite.withValues(alpha: 0.85)
-            : Theme.of(context).disabledColor.withValues(alpha: 0.5),
-      ),
+      child: Icon(icon, size: 20, color: foregroundColor),
     );
   }
 }

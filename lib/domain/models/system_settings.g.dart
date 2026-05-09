@@ -12,7 +12,7 @@ _SystemSettings _$SystemSettingsFromJson(
   systemName: json['systemName'] as String?,
   sharingId: json['sharingId'] as String?,
   showQuickFront: json['showQuickFront'] as bool? ?? true,
-  accentColorHex: json['accentColorHex'] as String? ?? '#AF8EE9',
+  accentColorHex: json['accentColorHex'] as String? ?? '#9070A0',
   perMemberAccentColors: json['perMemberAccentColors'] as bool? ?? true,
   terminology:
       $enumDecodeNullable(_$SystemTerminologyEnumMap, json['terminology']) ??

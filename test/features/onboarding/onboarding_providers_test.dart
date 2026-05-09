@@ -246,7 +246,7 @@ void main() {
       expect(state.themeBrightness, ThemeBrightness.dark);
       expect(state.themeStyle, ThemeStyle.oled);
       expect(state.cornerStyle, CornerStyle.angular);
-      expect(state.accentColorHex, '#AF8EE9');
+      expect(state.accentColorHex, '#9070A0');
       expect(state.hasThemeBrightnessPreview, isTrue);
       expect(state.hasThemeStylePreview, isTrue);
       expect(state.hasCornerStylePreview, isTrue);
@@ -316,9 +316,9 @@ void main() {
       expect(state.hasAccentColorPreview, isFalse);
       expect(state.hasAppearancePreview, isFalse);
 
-      notifier.setImportedAccentColor('#16A34A');
+      notifier.setImportedAccentColor('#0D9488');
       state = container.read(onboardingProvider);
-      expect(state.accentColorHex, '#16A34A');
+      expect(state.accentColorHex, '#0D9488');
       expect(state.hasAccentColorPreview, isTrue);
       expect(state.hasAppearancePreview, isTrue);
     });

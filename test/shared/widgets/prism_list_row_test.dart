@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/theme/app_theme.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_settings_row.dart';
+import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 
 void main() {
   testWidgets('PrismListRow handles taps', (tester) async {
@@ -47,5 +50,78 @@ void main() {
     expect(find.text('Manage app behavior'), findsOneWidget);
     expect(find.byIcon(AppIcons.navSettings), findsOneWidget);
     expect(find.byIcon(AppIcons.chevronRightRounded), findsOneWidget);
+  });
+
+  testWidgets('PrismSettingsRow icon foreground follows brightness', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          home: Theme(
+            data: AppTheme.light(),
+            child: Material(
+              child: PrismSettingsRow(
+                icon: AppIcons.navSettings,
+                title: 'Settings',
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      tester.widget<Icon>(find.byIcon(AppIcons.navSettings)).color,
+      AppColors.warmBlack.withValues(alpha: 0.82),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          home: Theme(
+            data: AppTheme.dark(),
+            child: Material(
+              child: PrismSettingsRow(
+                icon: AppIcons.navSettings,
+                title: 'Settings',
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      tester.widget<Icon>(find.byIcon(AppIcons.navSettings)).color,
+      AppColors.warmWhite.withValues(alpha: 0.85),
+    );
+  });
+
+  testWidgets('PrismSwitchRow icon foreground follows brightness', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          home: Material(
+            child: PrismSwitchRow(
+              icon: AppIcons.notificationsOutlined,
+              title: 'Notifications',
+              value: true,
+              onChanged: (_) {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      tester.widget<Icon>(find.byIcon(AppIcons.notificationsOutlined)).color,
+      AppColors.warmBlack.withValues(alpha: 0.82),
+    );
   });
 }

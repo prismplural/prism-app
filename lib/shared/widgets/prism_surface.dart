@@ -44,6 +44,7 @@ class _PrismSurfaceState extends State<PrismSurface> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final baseColor =
         widget.accentColor ?? theme.colorScheme.onSurface.withValues(alpha: 1);
     final canPress = widget.onTap != null;
@@ -52,26 +53,26 @@ class _PrismSurfaceState extends State<PrismSurface> {
         widget.fillColor ??
         switch (widget.tone) {
           PrismSurfaceTone.subtle => baseColor.withValues(
-            alpha: _pressed ? 0.12 : 0.08,
+            alpha: _pressed ? (isDark ? 0.14 : 0.12) : (isDark ? 0.10 : 0.08),
           ),
           PrismSurfaceTone.strong => baseColor.withValues(
-            alpha: _pressed ? 0.16 : 0.12,
+            alpha: _pressed ? (isDark ? 0.18 : 0.16) : (isDark ? 0.14 : 0.10),
           ),
           PrismSurfaceTone.accent => baseColor.withValues(
-            alpha: _pressed ? 0.18 : 0.13,
+            alpha: _pressed ? (isDark ? 0.22 : 0.18) : (isDark ? 0.16 : 0.12),
           ),
         };
     final borderColor =
         widget.borderColor ??
         switch (widget.tone) {
           PrismSurfaceTone.subtle => baseColor.withValues(
-            alpha: _pressed ? 0.16 : 0.1,
+            alpha: _pressed ? (isDark ? 0.16 : 0.18) : (isDark ? 0.12 : 0.14),
           ),
           PrismSurfaceTone.strong => baseColor.withValues(
-            alpha: _pressed ? 0.22 : 0.14,
+            alpha: _pressed ? (isDark ? 0.20 : 0.20) : (isDark ? 0.15 : 0.16),
           ),
           PrismSurfaceTone.accent => baseColor.withValues(
-            alpha: _pressed ? 0.24 : 0.16,
+            alpha: _pressed ? (isDark ? 0.24 : 0.24) : (isDark ? 0.17 : 0.18),
           ),
         };
 

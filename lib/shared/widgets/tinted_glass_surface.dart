@@ -24,7 +24,9 @@ class TintedGlassSurface extends ConsumerWidget {
     this.width,
     this.height,
     this.tint,
+    this.tintStrength = PrismTokens.tintedTintAlpha,
     this.padding,
+    this.borderColor,
     this.borderWidth = PrismTokens.hairlineBorderWidth,
   });
 
@@ -34,7 +36,9 @@ class TintedGlassSurface extends ConsumerWidget {
     required this.child,
     required double size,
     this.tint,
+    this.tintStrength = PrismTokens.tintedTintAlpha,
     this.padding,
+    this.borderColor,
     this.borderWidth = PrismTokens.hairlineBorderWidth,
   }) : shape = BoxShape.circle,
        borderRadius = null,
@@ -49,7 +53,9 @@ class TintedGlassSurface extends ConsumerWidget {
 
   /// Optional tint color blended into the fill. Same pattern as [GlassSurface].
   final Color? tint;
+  final double tintStrength;
   final EdgeInsets? padding;
+  final Color? borderColor;
   final double borderWidth;
 
   @override
@@ -66,10 +72,10 @@ class TintedGlassSurface extends ConsumerWidget {
 
     final Color baseColor = isDark
         ? AppColors.warmWhite.withValues(alpha: baseFillAlpha)
-        : AppColors.warmWhite.withValues(alpha: baseFillAlpha);
+        : AppColors.parchmentElevated.withValues(alpha: baseFillAlpha);
 
     final Color fillColor = tint != null
-        ? Color.alphaBlend(tint!.withValues(alpha: 0.15), baseColor)
+        ? Color.alphaBlend(tint!.withValues(alpha: tintStrength), baseColor)
         : baseColor;
 
     // --- Border color ---
@@ -77,9 +83,11 @@ class TintedGlassSurface extends ConsumerWidget {
         ? PrismTokens.tintedBorderAlphaDark + (isAccessible ? 0.10 : 0.0)
         : PrismTokens.tintedBorderAlphaLight + (isAccessible ? 0.10 : 0.0);
 
-    final Color borderColor = isDark
-        ? AppColors.warmWhite.withValues(alpha: borderAlpha)
-        : AppColors.warmBlack.withValues(alpha: borderAlpha);
+    final Color effectiveBorderColor =
+        borderColor ??
+        (isDark
+            ? AppColors.warmWhite.withValues(alpha: borderAlpha)
+            : AppColors.warmBlack.withValues(alpha: borderAlpha));
 
     // --- Shadow ---
     final double shadowAlpha = isDark
@@ -98,9 +106,9 @@ class TintedGlassSurface extends ConsumerWidget {
     final effectiveBorderRadius = shape == BoxShape.circle
         ? null
         : (borderRadius ??
-            BorderRadius.circular(
-              PrismShapes.of(context).radius(PrismTokens.radiusMedium),
-            ));
+              BorderRadius.circular(
+                PrismShapes.of(context).radius(PrismTokens.radiusMedium),
+              ));
 
     // --- Highlight gradient (suppressed in accessible mode) ---
     final Decoration? highlightDecoration = isAccessible
@@ -112,7 +120,9 @@ class TintedGlassSurface extends ConsumerWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                AppColors.warmWhite.withValues(alpha: PrismTokens.tintedHighlightAlpha),
+                AppColors.warmWhite.withValues(
+                  alpha: PrismTokens.tintedHighlightAlpha,
+                ),
                 Colors.transparent,
               ],
             ),
@@ -138,7 +148,7 @@ class TintedGlassSurface extends ConsumerWidget {
         color: fillColor,
         shape: shape,
         borderRadius: effectiveBorderRadius,
-        border: Border.all(color: borderColor, width: borderWidth),
+        border: Border.all(color: effectiveBorderColor, width: borderWidth),
         boxShadow: shadow,
         image: noiseImage,
       ),
