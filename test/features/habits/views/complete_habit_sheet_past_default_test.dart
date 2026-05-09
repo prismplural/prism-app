@@ -194,7 +194,8 @@ class _CompleteHabitArgs {
 
 class _SpyHabitNotifier extends HabitNotifier {
   final List<_CompleteHabitArgs> completeHabitCalls = [];
-  final List<HabitCompletion> updateCompletionCalls = [];
+  final List<({String completionId, String habitId, Map<String, dynamic> changedFields})>
+      updateCompletionCalls = [];
 
   @override
   Future<void> completeHabit({
@@ -218,8 +219,16 @@ class _SpyHabitNotifier extends HabitNotifier {
   }
 
   @override
-  Future<void> updateCompletion(HabitCompletion next) async {
-    updateCompletionCalls.add(next);
+  Future<void> updateCompletion({
+    required String completionId,
+    required String habitId,
+    required Map<String, dynamic> changedFields,
+  }) async {
+    updateCompletionCalls.add((
+      completionId: completionId,
+      habitId: habitId,
+      changedFields: changedFields,
+    ));
   }
 }
 
@@ -311,5 +320,5 @@ class _FakeHabitRepository implements HabitRepository {
   Future<HabitCompletion?> getCompletionById(String id) async => null;
 
   @override
-  Future<int> updateCompletion(HabitCompletion completion) async => 1;
+  Future<int> updateCompletionFields(String id, Map<String, dynamic> changedFields) async => 1;
 }

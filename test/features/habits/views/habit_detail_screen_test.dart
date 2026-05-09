@@ -263,5 +263,5 @@ class _FakeHabitRepository implements HabitRepository {
   Future<HabitCompletion?> getCompletionById(String id) async => null;
 
   @override
-  Future<int> updateCompletion(HabitCompletion completion) async => 0;
+  Future<int> updateCompletionFields(String id, Map<String, dynamic> changedFields) async => 0;
 }

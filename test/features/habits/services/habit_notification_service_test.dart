@@ -567,18 +567,21 @@ void main() {
       final notifService = HabitNotificationService(fakeLocal);
       final repo = _FakeHabitRepository(habits: [habit]);
 
+      // Use actual today so completedAt == today → skipCurrentPeriod: true.
+      final now = DateTime.now();
+      final todayAt19 = DateTime(now.year, now.month, now.day, 19, 0);
+
       final container = ProviderContainer(
         overrides: [
           habitRepositoryProvider.overrideWithValue(repo),
           habitNotificationServiceProvider.overrideWithValue(notifService),
-          currentDateProvider.overrideWith((_) => DateTime(2026, 5, 1)),
         ],
       );
       addTearDown(container.dispose);
 
       await container.read(habitNotifierProvider.notifier).completeHabit(
             habitId: habitId,
-            completedAt: DateTime(2026, 5, 1, 19, 0),
+            completedAt: todayAt19,
           );
 
       // Should have at least one daily schedule with a non-null notBefore
@@ -680,5 +683,5 @@ class _FakeHabitRepository implements HabitRepository {
   Future<HabitCompletion?> getCompletionById(String id) async => null;
 
   @override
-  Future<int> updateCompletion(HabitCompletion completion) async => 0;
+  Future<int> updateCompletionFields(String id, Map<String, dynamic> changedFields) async => 0;
 }

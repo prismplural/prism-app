@@ -327,5 +327,5 @@ class _TrackingFakeHabitRepository implements HabitRepository {
       _completions.where((c) => c.id == id).firstOrNull;
 
   @override
-  Future<int> updateCompletion(HabitCompletion completion) async => 0;
+  Future<int> updateCompletionFields(String id, Map<String, dynamic> changedFields) async => 0;
 }

@@ -23,7 +23,7 @@ class _MutableFakeHabitRepository implements HabitRepository {
   // Track updateHabit calls so tests can inspect the updated habit.
   final List<Habit> updateHabitCalls = [];
   // Allow override to simulate tombstoned completions.
-  int updateCompletionResult = 1;
+  int updateCompletionFieldsResult = 1;
 
   @override
   Future<void> createCompletion(HabitCompletion completion) async {
@@ -69,11 +69,16 @@ class _MutableFakeHabitRepository implements HabitRepository {
   }
 
   @override
-  Future<int> updateCompletion(HabitCompletion completion) async {
-    if (updateCompletionResult == 0) return 0;
-    final idx = _completions.indexWhere((c) => c.id == completion.id);
+  Future<int> updateCompletionFields(String id, Map<String, dynamic> changedFields) async {
+    if (updateCompletionFieldsResult == 0) return 0;
+    final idx = _completions.indexWhere((c) => c.id == id);
     if (idx == -1) return 0;
-    _completions[idx] = completion;
+    // Apply the patch to the in-memory completion for streak recalculation.
+    final existing = _completions[idx];
+    final completedAt = changedFields.containsKey('completed_at')
+        ? DateTime.parse(changedFields['completed_at'] as String)
+        : existing.completedAt;
+    _completions[idx] = existing.copyWith(completedAt: completedAt);
     return 1;
   }
 
@@ -215,8 +220,11 @@ void main() {
       final notifier = container.read(habitNotifierProvider.notifier);
 
       // Move c3 (yesterday) to 4 days ago — breaks the streak from today back
-      final updated = completions[2].copyWith(completedAt: _daysAgo(4));
-      await notifier.updateCompletion(updated);
+      await notifier.updateCompletion(
+        completionId: completions[2].id,
+        habitId: 'h1',
+        changedFields: {'completed_at': _daysAgo(4).toUtc().toIso8601String()},
+      );
 
       // After moving c3 to day-4, completions are: day-4, day-3, day-2 (gap at day-1), today
       // Current streak (today-backwards): today only → 1
@@ -256,8 +264,11 @@ void main() {
       final notifier = container.read(habitNotifierProvider.notifier);
 
       // Notes-only edit: completedAt unchanged
-      final updated = completions[2].copyWith(notes: 'Updated notes');
-      await notifier.updateCompletion(updated);
+      await notifier.updateCompletion(
+        completionId: completions[2].id,
+        habitId: 'h1',
+        changedFields: {'notes': 'Updated notes'},
+      );
 
       final updatedHabit = repo.updateHabitCalls.last;
       // Streak should still be 3 (days: today, yesterday, 2 days ago)
@@ -319,8 +330,11 @@ void main() {
 
       // Move today's completion to day5, filling the 5-day run
       final day5 = DateTime(lastMonth.year, lastMonth.month, 5);
-      final updated = existingCompletions.last.copyWith(completedAt: day5);
-      await notifier.updateCompletion(updated);
+      await notifier.updateCompletion(
+        completionId: existingCompletions.last.id,
+        habitId: 'h1',
+        changedFields: {'completed_at': day5.toUtc().toIso8601String()},
+      );
 
       final updatedHabit = repo.updateHabitCalls.last;
       // all-time best should now be >= 5 (days 1-5 of last month contiguous)
@@ -359,8 +373,11 @@ void main() {
       final notifier = container.read(habitNotifierProvider.notifier);
 
       // Notes-only edit: all-time best stays 2, but stored bestStreak is 100
-      final updated = completions[1].copyWith(notes: 'calm session');
-      await notifier.updateCompletion(updated);
+      await notifier.updateCompletion(
+        completionId: completions[1].id,
+        habitId: 'h1',
+        changedFields: {'notes': 'calm session'},
+      );
 
       final updatedHabit = repo.updateHabitCalls.last;
       // bestStreak must never decrease below persisted 100
@@ -382,7 +399,7 @@ void main() {
       ];
 
       final repo = _MutableFakeHabitRepository(habit: habit, completions: completions)
-        ..updateCompletionResult = 0; // simulate tombstoned
+        ..updateCompletionFieldsResult = 0; // simulate tombstoned
 
       final spy = _SpyHabitNotificationService();
 
@@ -396,8 +413,11 @@ void main() {
 
       final notifier = container.read(habitNotifierProvider.notifier);
 
-      final updated = completions[0].copyWith(notes: 'some change');
-      await notifier.updateCompletion(updated);
+      await notifier.updateCompletion(
+        completionId: completions[0].id,
+        habitId: 'h1',
+        changedFields: {'notes': 'some change'},
+      );
 
       // No habit update should have fired
       expect(repo.updateHabitCalls, isEmpty);
@@ -438,8 +458,11 @@ void main() {
       final notifier = container.read(habitNotifierProvider.notifier);
 
       // Move today's completion to yesterday → today is no longer complete
-      final updated = completions[0].copyWith(completedAt: yesterday);
-      await notifier.updateCompletion(updated);
+      await notifier.updateCompletion(
+        completionId: completions[0].id,
+        habitId: 'h1',
+        changedFields: {'completed_at': yesterday.toUtc().toIso8601String()},
+      );
 
       expect(spy.scheduleForHabitCalls, hasLength(1));
       // Today is now uncompleted → skipCurrentPeriod should be false
@@ -485,6 +508,85 @@ void main() {
       expect(spy.scheduleForHabitCalls, hasLength(1));
       // Today has no completion anymore → skipCurrentPeriod should be false
       expect(spy.scheduleForHabitCalls.first.skipCurrentPeriod, isFalse);
+    });
+  });
+
+  group('HabitNotifier.completeHabit past-date schedule fix', () {
+    test('past-dated completion does NOT skip today reminder', () async {
+      // Habit: daily, no completions today. Log a missed completion for yesterday.
+      // Today is still incomplete → skipCurrentPeriod must be false.
+      final now = DateTime.now();
+      final yesterday = DateTime(now.year, now.month, now.day)
+          .subtract(const Duration(days: 1));
+
+      final habit = Habit(
+        id: 'h1',
+        name: 'Walk',
+        createdAt: _daysAgo(10),
+        modifiedAt: _daysAgo(1),
+        frequency: HabitFrequency.daily,
+        notificationsEnabled: true,
+      );
+
+      final repo = _MutableFakeHabitRepository(habit: habit, completions: []);
+      final spy = _SpyHabitNotificationService();
+
+      final container = ProviderContainer(
+        overrides: [
+          habitRepositoryProvider.overrideWithValue(repo),
+          habitNotificationServiceProvider.overrideWith((ref) => spy),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final notifier = container.read(habitNotifierProvider.notifier);
+
+      await notifier.completeHabit(
+        habitId: 'h1',
+        completedAt: yesterday, // logging a missed completion for yesterday
+      );
+
+      expect(spy.scheduleForHabitCalls, hasLength(1));
+      // Today is still incomplete → reminder should NOT be skipped
+      expect(spy.scheduleForHabitCalls.first.skipCurrentPeriod, isFalse);
+    });
+
+    test('today completion DOES skip today reminder', () async {
+      // Habit: daily, no completions. Log for today (default path).
+      // skipCurrentPeriod must be true.
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+
+      final habit = Habit(
+        id: 'h1',
+        name: 'Meditate',
+        createdAt: _daysAgo(10),
+        modifiedAt: _daysAgo(1),
+        frequency: HabitFrequency.daily,
+        notificationsEnabled: true,
+      );
+
+      final repo = _MutableFakeHabitRepository(habit: habit, completions: []);
+      final spy = _SpyHabitNotificationService();
+
+      final container = ProviderContainer(
+        overrides: [
+          habitRepositoryProvider.overrideWithValue(repo),
+          habitNotificationServiceProvider.overrideWith((ref) => spy),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final notifier = container.read(habitNotifierProvider.notifier);
+
+      await notifier.completeHabit(
+        habitId: 'h1',
+        completedAt: today, // today's completion
+      );
+
+      expect(spy.scheduleForHabitCalls, hasLength(1));
+      // Today is completed → reminder SHOULD be skipped
+      expect(spy.scheduleForHabitCalls.first.skipCurrentPeriod, isTrue);
     });
   });
 }

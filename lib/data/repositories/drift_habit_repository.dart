@@ -1,12 +1,13 @@
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
+import 'package:drift/drift.dart' show Value;
 import 'package:prism_sync/generated/api.dart' as ffi;
+import 'package:prism_plurality/core/database/app_database.dart'
+    show HabitCompletionsCompanion;
 import 'package:prism_plurality/core/database/daos/habits_dao.dart';
 import 'package:prism_plurality/data/mappers/habit_mapper.dart';
 import 'package:prism_plurality/data/mappers/habit_completion_mapper.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
-import 'package:prism_plurality/data/sync/field_diff.dart';
 import 'package:prism_plurality/domain/models/habit.dart' as domain;
 import 'package:prism_plurality/domain/models/habit_completion.dart' as domain;
 import 'package:prism_plurality/domain/repositories/habit_repository.dart';
@@ -154,33 +155,47 @@ class DriftHabitRepository with SyncRecordMixin implements HabitRepository {
   }
 
   @override
-  Future<int> updateCompletion(domain.HabitCompletion next) async {
-    final existingRow = await _dao.getCompletionByIdRow(next.id);
-    if (existingRow == null || existingRow.isDeleted) return 0;
-    final previous = HabitCompletionMapper.toDomain(existingRow);
+  Future<int> updateCompletionFields(
+    String id,
+    Map<String, dynamic> changedFields,
+  ) async {
+    if (changedFields.isEmpty) return 1; // no-op success
 
-    final companion = HabitCompletionMapper.toCompanion(next);
-    final affected = await _dao.updateCompletionById(next.id, companion);
+    final existingRow = await _dao.getCompletionByIdRow(id);
+    if (existingRow == null || existingRow.isDeleted) return 0;
+
+    final companion = _partialCompletionCompanion(changedFields);
+    final affected = await _dao.updateCompletionById(id, companion);
     if (affected != 1) return affected;
 
-    final changed = diffSyncFields(
-      _completionFields(previous),
-      _completionFields(next),
-    );
-    if (changed.isEmpty) return affected;
-    await syncRecordUpdate(_completionTable, next.id, changed);
+    await syncRecordUpdate(_completionTable, id, changedFields);
     return affected;
   }
 
-  @visibleForTesting
-  Map<String, dynamic> debugCompletionUpdateDiff(
-    domain.HabitCompletion previous,
-    domain.HabitCompletion next,
-  ) =>
-      diffSyncFields(
-        _completionFields(previous),
-        _completionFields(next),
-      );
+  HabitCompletionsCompanion _partialCompletionCompanion(
+    Map<String, dynamic> fields,
+  ) {
+    return HabitCompletionsCompanion(
+      completedAt: fields.containsKey('completed_at')
+          ? Value(DateTime.parse(fields['completed_at'] as String))
+          : const Value.absent(),
+      completedByMemberId: fields.containsKey('completed_by_member_id')
+          ? Value(fields['completed_by_member_id'] as String?)
+          : const Value.absent(),
+      notes: fields.containsKey('notes')
+          ? Value(fields['notes'] as String?)
+          : const Value.absent(),
+      wasFronting: fields.containsKey('was_fronting')
+          ? Value(fields['was_fronting'] as bool)
+          : const Value.absent(),
+      rating: fields.containsKey('rating')
+          ? Value(fields['rating'] as int?)
+          : const Value.absent(),
+      modifiedAt: fields.containsKey('modified_at')
+          ? Value(DateTime.parse(fields['modified_at'] as String))
+          : const Value.absent(),
+    );
+  }
 
   Map<String, dynamic> _habitFields(domain.Habit h) {
     return {

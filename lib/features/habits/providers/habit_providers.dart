@@ -286,13 +286,25 @@ class HabitNotifier extends AsyncNotifier<void> {
       );
       await repo.updateHabit(updated);
 
-      // Suppress this period's reminder — fires before the listener's 500ms
-      // debounce so a same-day notification scheduled minutes from now
-      // doesn't slip through. Also clears any already-shown notification
-      // from notification center on iOS/Android (FLN.cancel removes
-      // delivered as well as pending).
+      // Schedule/suppress this period's reminder. For past-dated completions,
+      // recompute whether today is still incomplete so a missed-yesterday log
+      // doesn't silence today's reminder. For today completions, always skip
+      // (we just completed it). Fires before the listener's 500ms debounce so
+      // a same-day notification scheduled minutes from now doesn't slip through.
+      // Also clears any already-shown notification from notification center on
+      // iOS/Android (FLN.cancel removes delivered as well as pending).
       final notifService = ref.read(habitNotificationServiceProvider);
-      await notifService.scheduleForHabit(updated, skipCurrentPeriod: true);
+      final skipCurrentPeriod = isPastDated
+          ? isHabitCompletedForCurrentPeriod(
+              habit: updated,
+              todayCompletions: completions
+                  .where((c) => DateUtils.isSameDay(c.completedAt, now))
+                  .toList(),
+              allCompletions: completions,
+              now: now,
+            )
+          : true; // today-default: skip (we just completed it)
+      await notifService.scheduleForHabit(updated, skipCurrentPeriod: skipCurrentPeriod);
     });
   }
 
@@ -348,25 +360,35 @@ class HabitNotifier extends AsyncNotifier<void> {
     });
   }
 
-  /// Update an existing completion's fields. Recomputes both the current
-  /// streak (today-backwards) and the all-time best streak (full history),
-  /// and reschedules notifications based on FRESH skipCurrentPeriod state
-  /// (not the unconditional `true` that completeHabit uses on initial log).
-  Future<void> updateCompletion(HabitCompletion next) async {
+  /// Apply a patch (keyed by sync wire-format field names) to a completion.
+  /// The repo does a partial DAO write + emits a sync update with only these
+  /// fields, so concurrent edits to other fields don't clobber. The notifier
+  /// then re-reads the resulting completion to recompute streaks and
+  /// reschedule notifications.
+  ///
+  /// `modified_at` is bumped here so the caller doesn't have to.
+  Future<void> updateCompletion({
+    required String completionId,
+    required String habitId,
+    required Map<String, dynamic> changedFields,
+  }) async {
     state = await AsyncValue.guard(() async {
+      if (changedFields.isEmpty) return;
       final repo = ref.read(habitRepositoryProvider);
-      final updated = next.copyWith(modifiedAt: DateTime.now());
-      final affected = await repo.updateCompletion(updated);
+
+      final patch = Map<String, dynamic>.from(changedFields);
+      patch['modified_at'] = DateTime.now().toUtc().toIso8601String();
+
+      final affected = await repo.updateCompletionFields(completionId, patch);
       if (affected != 1) return; // tombstoned/missing — silent no-op
 
-      final habit = await repo.getHabitById(updated.habitId);
+      final habit = await repo.getHabitById(habitId);
       if (habit == null) return;
-      final completions = await repo.getCompletionsForHabit(updated.habitId);
+      final completions = await repo.getCompletionsForHabit(habitId);
 
       final currentStreak = _calculateCurrentStreak(habit, completions);
       final bestAllTime = _calculateBestStreakAllTime(habit, completions);
-      final bestStreak =
-          bestAllTime > habit.bestStreak ? bestAllTime : habit.bestStreak;
+      final bestStreak = bestAllTime > habit.bestStreak ? bestAllTime : habit.bestStreak;
 
       final updatedHabit = habit.copyWith(
         currentStreak: currentStreak,
@@ -386,10 +408,7 @@ class HabitNotifier extends AsyncNotifier<void> {
         allCompletions: completions,
         now: now,
       );
-      await notifService.scheduleForHabit(
-        updatedHabit,
-        skipCurrentPeriod: skipCurrentPeriod,
-      );
+      await notifService.scheduleForHabit(updatedHabit, skipCurrentPeriod: skipCurrentPeriod);
     });
   }
 

@@ -98,13 +98,11 @@ void main() {
       expect(spy.updateCompletionCalls, hasLength(1));
       expect(spy.completeHabitCalls, isEmpty);
 
-      // The values match the original.
+      // No fields changed → changedFields is empty; IDs are correct.
       final saved = spy.updateCompletionCalls.first;
-      expect(saved.id, existingCompletion.id);
-      expect(saved.notes, existingCompletion.notes);
-      expect(saved.rating, existingCompletion.rating);
-      expect(saved.completedByMemberId, existingCompletion.completedByMemberId);
-      expect(saved.completedAt, existingCompletion.completedAt);
+      expect(saved.completionId, existingCompletion.id);
+      expect(saved.habitId, existingCompletion.habitId);
+      expect(saved.changedFields, isEmpty);
     },
   );
 
@@ -135,7 +133,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(spy.updateCompletionCalls, hasLength(1));
-      expect(spy.updateCompletionCalls.first.notes, 'new notes');
+      expect(spy.updateCompletionCalls.first.changedFields['notes'], 'new notes');
     },
   );
 
@@ -166,7 +164,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(spy.updateCompletionCalls, hasLength(1));
-      expect(spy.updateCompletionCalls.first.wasFronting, isTrue);
+      // notes-only edit: was_fronting is unchanged (still true) so it's NOT
+      // included in changedFields, preserving the synced value.
+      expect(spy.updateCompletionCalls.first.changedFields.containsKey('was_fronting'), isFalse);
+      expect(spy.updateCompletionCalls.first.changedFields.containsKey('notes'), isTrue);
     },
   );
 
@@ -199,7 +200,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(spy.updateCompletionCalls, hasLength(1));
-      expect(spy.updateCompletionCalls.first.wasFronting, isFalse);
+      // Member changed → completed_by_member_id AND was_fronting: false in patch.
+      expect(spy.updateCompletionCalls.first.changedFields['completed_by_member_id'], 'm2');
+      expect(spy.updateCompletionCalls.first.changedFields['was_fronting'], isFalse);
     },
   );
 
@@ -232,7 +235,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(spy.updateCompletionCalls, hasLength(1));
-      expect(spy.updateCompletionCalls.first.wasFronting, isFalse);
+      // Timestamp changed → completed_at AND was_fronting: false in patch.
+      expect(spy.updateCompletionCalls.first.changedFields.containsKey('completed_at'), isTrue);
+      expect(spy.updateCompletionCalls.first.changedFields['was_fronting'], isFalse);
     },
   );
 
@@ -444,9 +449,20 @@ class _CompleteHabitArgs {
   final DateTime? completedAt;
 }
 
+class _UpdateCompletionArgs {
+  const _UpdateCompletionArgs({
+    required this.completionId,
+    required this.habitId,
+    required this.changedFields,
+  });
+  final String completionId;
+  final String habitId;
+  final Map<String, dynamic> changedFields;
+}
+
 class _SpyHabitNotifier extends HabitNotifier {
   final List<_CompleteHabitArgs> completeHabitCalls = [];
-  final List<HabitCompletion> updateCompletionCalls = [];
+  final List<_UpdateCompletionArgs> updateCompletionCalls = [];
 
   @override
   Future<void> completeHabit({
@@ -470,8 +486,18 @@ class _SpyHabitNotifier extends HabitNotifier {
   }
 
   @override
-  Future<void> updateCompletion(HabitCompletion next) async {
-    updateCompletionCalls.add(next);
+  Future<void> updateCompletion({
+    required String completionId,
+    required String habitId,
+    required Map<String, dynamic> changedFields,
+  }) async {
+    updateCompletionCalls.add(
+      _UpdateCompletionArgs(
+        completionId: completionId,
+        habitId: habitId,
+        changedFields: changedFields,
+      ),
+    );
   }
 }
 
@@ -563,5 +589,5 @@ class _FakeHabitRepository implements HabitRepository {
   Future<HabitCompletion?> getCompletionById(String id) async => null;
 
   @override
-  Future<int> updateCompletion(HabitCompletion completion) async => 1;
+  Future<int> updateCompletionFields(String id, Map<String, dynamic> changedFields) async => 1;
 }

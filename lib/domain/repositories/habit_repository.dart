@@ -29,8 +29,15 @@ abstract class HabitRepository {
   /// Returns the completion by ID, or null if it's tombstoned/missing.
   Future<domain.HabitCompletion?> getCompletionById(String id);
 
-  /// Updates an active completion. Returns the affected row count
-  /// (0 if tombstoned/missing, 1 on success). Sync emission only
-  /// fires when affected == 1, so a tombstoned row does NOT resurrect.
-  Future<int> updateCompletion(domain.HabitCompletion completion);
+  /// Updates a completion using a partial-fields patch keyed by sync wire-format
+  /// names (e.g., 'notes', 'rating', 'completed_at'). Only the keys present in
+  /// [changedFields] are written to the DAO and emitted via syncRecordUpdate.
+  /// Unspecified fields preserve whatever value is currently in the DB —
+  /// critical for field-level LWW: if another device sync-updated a different
+  /// field while the editor was open, that synced value isn't clobbered here.
+  ///
+  /// Returns affected row count (0 if tombstoned/missing, 1 on success).
+  /// Caller is responsible for including `modified_at` in [changedFields]
+  /// (so CRDT field-level LWW has a fresh HLC stamp on each updated field).
+  Future<int> updateCompletionFields(String id, Map<String, dynamic> changedFields);
 }

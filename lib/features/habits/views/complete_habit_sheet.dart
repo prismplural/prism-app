@@ -281,16 +281,30 @@ class CompleteHabitSheetState extends ConsumerState<CompleteHabitSheet> {
     final notes = trimmedNotes.isEmpty ? null : trimmedNotes;
 
     if (_isEditMode) {
-      final updated = widget.existingCompletion!.copyWith(
-        completedAt: _completedAt,
-        completedByMemberId: _completedByMemberId,
-        notes: notes,
-        rating: _rating,
-        wasFronting: wasFronting,
+      final existing = widget.existingCompletion!;
+      final changedFields = <String, dynamic>{};
+
+      if (_completedAt != _initialCompletedAt) {
+        changedFields['completed_at'] = _completedAt.toUtc().toIso8601String();
+      }
+      if (_completedByMemberId != _initialMemberId) {
+        changedFields['completed_by_member_id'] = _completedByMemberId;
+      }
+      if (notes != _initialNotes) {
+        changedFields['notes'] = notes;
+      }
+      if (_rating != _initialRating) {
+        changedFields['rating'] = _rating;
+      }
+      if (wasFronting != existing.wasFronting) {
+        changedFields['was_fronting'] = wasFronting;
+      }
+
+      await ref.read(habitNotifierProvider.notifier).updateCompletion(
+        completionId: existing.id,
+        habitId: existing.habitId,
+        changedFields: changedFields,
       );
-      await ref
-          .read(habitNotifierProvider.notifier)
-          .updateCompletion(updated);
     } else {
       await ref
           .read(habitNotifierProvider.notifier)

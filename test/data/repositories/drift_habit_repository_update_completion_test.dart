@@ -1,9 +1,9 @@
 // test/data/repositories/drift_habit_repository_update_completion_test.dart
 //
-// TDD coverage for DriftHabitRepository.updateCompletion,
-// DriftHabitRepository.getCompletionById, and the
-// debugCompletionUpdateDiff visible-for-testing helper.
+// TDD coverage for DriftHabitRepository.updateCompletionFields and
+// DriftHabitRepository.getCompletionById.
 
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
@@ -64,101 +64,22 @@ void main() {
     );
   }
 
-  // ── debugCompletionUpdateDiff ─────────────────────────────────────────────
+  // ── updateCompletionFields ────────────────────────────────────────────────
 
-  group('debugCompletionUpdateDiff', () {
-    test('returns only changed fields between two completions', () {
-      final prev = makeCompletion(notes: 'old');
-      final next = makeCompletion(notes: 'new');
-      final diff = repo.debugCompletionUpdateDiff(prev, next);
-      expect(diff, {'notes': 'new'});
-    });
-
-    test('returns empty map for identical completions', () {
-      final c = makeCompletion(notes: 'same');
-      final diff = repo.debugCompletionUpdateDiff(c, c);
-      expect(diff, isEmpty);
-    });
-
-    test('strips is_deleted from diff output', () {
-      // _completionFields always emits is_deleted: false, so two otherwise
-      // identical completions (both is_deleted false) should never include it.
-      final c = makeCompletion();
-      final diff = repo.debugCompletionUpdateDiff(c, c);
-      expect(diff.containsKey('is_deleted'), isFalse);
-    });
-
-    test('always includes modified_at when notifier bumps it', () {
-      final earlier = baseTime;
-      final later = baseTime.add(const Duration(seconds: 1));
-      final prev = makeCompletion(modifiedAt: earlier);
-      final next = makeCompletion(modifiedAt: later);
-      final diff = repo.debugCompletionUpdateDiff(prev, next);
-      expect(diff.containsKey('modified_at'), isTrue);
-      expect(diff['modified_at'], later.toUtc().toIso8601String());
-    });
-
-    test('catches changed timestamp (completedAt)', () {
-      final prev = makeCompletion(completedAt: baseTime);
-      final next = makeCompletion(
-        completedAt: baseTime.add(const Duration(hours: 1)),
-      );
-      final diff = repo.debugCompletionUpdateDiff(prev, next);
-      expect(diff.containsKey('completed_at'), isTrue);
-    });
-
-    test('catches changed member (completedByMemberId)', () {
-      final prev = makeCompletion(completedByMemberId: null);
-      final next = makeCompletion(completedByMemberId: 'member-42');
-      final diff = repo.debugCompletionUpdateDiff(prev, next);
-      expect(diff['completed_by_member_id'], 'member-42');
-    });
-
-    test('catches changed rating', () {
-      final prev = makeCompletion(rating: null);
-      final next = makeCompletion(rating: 4);
-      final diff = repo.debugCompletionUpdateDiff(prev, next);
-      expect(diff['rating'], 4);
-    });
-
-    test('catches changed wasFronting', () {
-      final prev = makeCompletion(wasFronting: false);
-      final next = makeCompletion(wasFronting: true);
-      final diff = repo.debugCompletionUpdateDiff(prev, next);
-      expect(diff['was_fronting'], isTrue);
-    });
-
-    test('catches notes set from null to value', () {
-      final prev = makeCompletion(notes: null);
-      final next = makeCompletion(notes: 'added');
-      final diff = repo.debugCompletionUpdateDiff(prev, next);
-      expect(diff['notes'], 'added');
-    });
-
-    test('catches notes set from value to null', () {
-      final prev = makeCompletion(notes: 'existing');
-      final next = makeCompletion(notes: null);
-      final diff = repo.debugCompletionUpdateDiff(prev, next);
-      expect(diff.containsKey('notes'), isTrue);
-      expect(diff['notes'], isNull);
-    });
-  });
-
-  // ── updateCompletion ─────────────────────────────────────────────────────
-
-  group('updateCompletion (in-memory db, null sync handle)', () {
-    test('returns 1 for an active row, persists changed columns', () async {
-      final original = makeCompletion(notes: null);
+  group('updateCompletionFields (in-memory db, null sync handle)', () {
+    test('writes only the specified fields, leaves others intact', () async {
+      final original = makeCompletion(notes: 'hello', rating: 3);
       await repo.createCompletion(original);
 
-      final updated = original.copyWith(notes: 'hello world');
-      final count = await repo.updateCompletion(updated);
+      final count = await repo.updateCompletionFields(original.id, {'notes': 'world'});
 
       expect(count, 1);
 
       final readBack = await repo.getCompletionById(original.id);
       expect(readBack, isNotNull);
-      expect(readBack!.notes, 'hello world');
+      expect(readBack!.notes, 'world');
+      // rating is unspecified in the patch — must be unchanged
+      expect(readBack.rating, 3);
     });
 
     test('returns 0 when row is tombstoned', () async {
@@ -166,14 +87,58 @@ void main() {
       await repo.createCompletion(c);
       await repo.deleteCompletion(c.id);
 
-      final count = await repo.updateCompletion(c.copyWith(notes: 'ghost'));
+      final count = await repo.updateCompletionFields(c.id, {'notes': 'ghost'});
       expect(count, 0);
     });
 
     test('returns 0 when row does not exist', () async {
-      final ghost = makeCompletion(id: 'nonexistent-id');
-      final count = await repo.updateCompletion(ghost);
+      final count = await repo.updateCompletionFields('nonexistent-id', {'notes': 'ghost'});
       expect(count, 0);
+    });
+
+    test('returns 1 with empty patch (no-op success)', () async {
+      final c = makeCompletion();
+      await repo.createCompletion(c);
+
+      final count = await repo.updateCompletionFields(c.id, {});
+      expect(count, 1);
+    });
+
+    test('handles null values for nullable fields (notes -> null)', () async {
+      final c = makeCompletion(notes: 'hello');
+      await repo.createCompletion(c);
+
+      final count = await repo.updateCompletionFields(c.id, {'notes': null});
+      expect(count, 1);
+
+      final readBack = await repo.getCompletionById(c.id);
+      expect(readBack, isNotNull);
+      expect(readBack!.notes, isNull);
+    });
+
+    test('CRITICAL: concurrent disjoint update does not clobber', () async {
+      // Insert with notes='original', rating=3.
+      final c = makeCompletion(notes: 'original', rating: 3);
+      await repo.createCompletion(c);
+
+      // Simulate a sync-in update: directly DAO-update notes='synced-in',
+      // bypassing the repo (as the drift_sync_adapter would do).
+      await dao.updateCompletionById(
+        c.id,
+        const HabitCompletionsCompanion(
+          notes: Value('synced-in'),
+        ),
+      );
+
+      // User's edit: only the rating changed.
+      final count = await repo.updateCompletionFields(c.id, {'rating': 5});
+      expect(count, 1);
+
+      // notes='synced-in' (preserved!), rating=5 (updated).
+      final readBack = await repo.getCompletionById(c.id);
+      expect(readBack, isNotNull);
+      expect(readBack!.notes, 'synced-in');
+      expect(readBack.rating, 5);
     });
 
     test('does not resurrect a tombstoned row', () async {
@@ -182,7 +147,7 @@ void main() {
       await repo.deleteCompletion(c.id);
 
       // Attempt to update — should be a no-op
-      await repo.updateCompletion(c.copyWith(notes: 'resurface?'));
+      await repo.updateCompletionFields(c.id, {'notes': 'resurface?'});
 
       // Raw DAO row should still be tombstoned
       final raw = await dao.getCompletionByIdRow(c.id);
