@@ -67,7 +67,7 @@ class PrismEmojiPicker extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     return Config(
       height: _kPickerHeight,
-      checkPlatformCompatibility: true,
+      checkPlatformCompatibility: false,
       viewOrderConfig: const ViewOrderConfig(
         top: EmojiPickerItem.searchBar,
         middle: EmojiPickerItem.categoryBar,
@@ -103,6 +103,9 @@ class PrismEmojiPicker extends StatelessWidget {
         hintTextStyle: theme.textTheme.bodyMedium?.copyWith(
           color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
         ),
+        customSearchView: (config, state, showEmojiView) {
+          return _PrismSearchView(config, state, showEmojiView);
+        },
       ),
     );
   }
@@ -118,18 +121,119 @@ class PrismEmojiPicker extends StatelessWidget {
     final theme = Theme.of(context);
     final hasEmoji = emoji != null && emoji!.isNotEmpty;
 
-    return GestureDetector(
-      onTap: () => _openPicker(context),
-      child: TintedGlassSurface.circle(
-        size: size,
-        child: hasEmoji
-            ? MemberAvatar.centeredEmoji(emoji!, fontSize: size * 0.5)
-            : Icon(
-                AppIcons.add,
-                size: size * 0.45,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+    return Semantics(
+      button: true,
+      label: context.l10n.onboardingAddMemberFieldEmoji,
+      child: GestureDetector(
+        onTap: () => _openPicker(context),
+        child: TintedGlassSurface.circle(
+          size: size,
+          child: hasEmoji
+              ? MemberAvatar.centeredEmoji(emoji!, fontSize: size * 0.5)
+              : Icon(
+                  AppIcons.add,
+                  size: size * 0.45,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+        ),
       ),
+    );
+  }
+}
+
+class _PrismSearchView extends SearchView {
+  const _PrismSearchView(super.config, super.state, super.showEmojiView);
+
+  @override
+  State<_PrismSearchView> createState() => _PrismSearchViewState();
+}
+
+class _PrismSearchViewState extends SearchViewState<_PrismSearchView> {
+  @override
+  void onTextInputChanged(String text) {
+    links.clear();
+    results.clear();
+    utils
+        .searchEmoji(
+          text,
+          widget.state.categoryEmoji,
+          checkPlatformCompatibility: false,
+        )
+        .then((value) {
+          if (!mounted) return;
+          setState(() {
+            results
+              ..clear()
+              ..addAll(value);
+            for (final result in results) {
+              links[result.emoji] = LayerLink();
+            }
+          });
+        });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final emojiSize = widget.config.emojiViewConfig.getEmojiSize(
+          constraints.maxWidth,
+        );
+        final emojiBoxSize = widget.config.emojiViewConfig.getEmojiBoxSize(
+          constraints.maxWidth,
+        );
+
+        return Container(
+          color: widget.config.searchViewConfig.backgroundColor,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Material(
+                color: Colors.transparent,
+                child: SizedBox(
+                  height: emojiBoxSize + 8.0,
+                  child: ListView.builder(
+                    padding: const EdgeInsets.symmetric(vertical: 4.0),
+                    scrollDirection: Axis.horizontal,
+                    itemCount: results.length,
+                    itemBuilder: (context, index) {
+                      return buildEmoji(
+                        results[index],
+                        emojiSize,
+                        emojiBoxSize,
+                      );
+                    },
+                  ),
+                ),
+              ),
+              Row(
+                children: [
+                  IconButton(
+                    onPressed: widget.showEmojiView,
+                    color: widget.config.searchViewConfig.buttonIconColor,
+                    icon: const Icon(Icons.arrow_back),
+                  ),
+                  Expanded(
+                    child: TextField(
+                      onChanged: onTextInputChanged,
+                      focusNode: focusNode,
+                      style: widget.config.searchViewConfig.inputTextStyle,
+                      decoration: InputDecoration(
+                        border: InputBorder.none,
+                        hintText: widget.config.searchViewConfig.hintText,
+                        hintStyle: widget.config.searchViewConfig.hintTextStyle,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
