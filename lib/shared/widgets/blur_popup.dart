@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
@@ -104,6 +105,8 @@ class BlurPopupAnchorState extends State<BlurPopupAnchor>
   OverlayEntry? _overlayEntry;
   LocalHistoryEntry? _historyEntry;
   bool _removingHistoryEntry = false;
+  GoRouter? _routeDismissRouter;
+  Uri? _routeUriWhenShown;
   late final AnimationController _animController;
 
   @override
@@ -200,6 +203,7 @@ class BlurPopupAnchorState extends State<BlurPopupAnchor>
     );
 
     overlay.insert(_overlayEntry!);
+    _startRouteDismissListener();
     final route = ModalRoute.of(context);
     if (route != null) {
       final historyEntry = LocalHistoryEntry(
@@ -214,6 +218,31 @@ class BlurPopupAnchorState extends State<BlurPopupAnchor>
     }
     _animController.forward(from: 0);
     return true;
+  }
+
+  void _startRouteDismissListener() {
+    _stopRouteDismissListener();
+    final router = GoRouter.maybeOf(context);
+    if (router == null) return;
+    _routeDismissRouter = router;
+    _routeUriWhenShown = router.routeInformationProvider.value.uri;
+    router.routeInformationProvider.addListener(_handleRouteChanged);
+  }
+
+  void _stopRouteDismissListener() {
+    _routeDismissRouter?.routeInformationProvider.removeListener(
+      _handleRouteChanged,
+    );
+    _routeDismissRouter = null;
+    _routeUriWhenShown = null;
+  }
+
+  void _handleRouteChanged() {
+    final router = _routeDismissRouter;
+    final shownUri = _routeUriWhenShown;
+    if (router == null || shownUri == null) return;
+    if (router.routeInformationProvider.value.uri == shownUri) return;
+    unawaited(_removeOverlay(animate: true));
   }
 
   void _handleLongPress() {
@@ -231,6 +260,7 @@ class BlurPopupAnchorState extends State<BlurPopupAnchor>
   }) async {
     final overlayEntry = _overlayEntry;
     if (overlayEntry == null) return;
+    _stopRouteDismissListener();
 
     final historyEntry = _historyEntry;
     if (removeHistoryEntry && historyEntry != null) {

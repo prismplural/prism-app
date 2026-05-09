@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 
@@ -153,6 +156,58 @@ void main() {
     expect(handled, isTrue);
     expect(find.text('Popup item'), findsNothing);
     expect(find.text('Anchor'), findsOneWidget);
+  });
+
+  testWidgets('BlurPopupAnchor dismisses when GoRouter pushes another view', (
+    tester,
+  ) async {
+    final router = GoRouter(
+      initialLocation: '/',
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (context, state) => Scaffold(
+            body: Center(
+              child: BlurPopupAnchor(
+                itemCount: 1,
+                itemBuilder: (context, index, close) => TextButton(
+                  onPressed: close,
+                  child: const Text('Popup item'),
+                ),
+                child: const Text('Anchor'),
+              ),
+            ),
+          ),
+          routes: [
+            GoRoute(
+              path: 'detail',
+              builder: (context, state) =>
+                  const Scaffold(body: Text('Detail view')),
+            ),
+          ],
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp.router(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: const [Locale('en'), Locale('es')],
+        routerConfig: router,
+      ),
+    );
+
+    await tester.tap(find.text('Anchor'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Popup item'), findsOneWidget);
+
+    unawaited(router.push('/detail'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Detail view'), findsOneWidget);
+    expect(find.text('Popup item'), findsNothing);
   });
 
   testWidgets(
