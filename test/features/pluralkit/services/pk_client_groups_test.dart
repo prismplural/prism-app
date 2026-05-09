@@ -69,4 +69,134 @@ void main() {
       expect(pk.getGroups(), throwsA(isA<PluralKitAuthError>()));
     });
   });
+
+  // ─── Step 5: bidirectional group membership push ──────────────────────────
+  // PluralKit docs: POST /groups/{ref}/members/add and /remove take a raw
+  // JSON array of member references and return 204 on success. Tests assert
+  // the wire body shape (catches the v1 plan's wrong {"members": [...]}
+  // assumption that codex flagged) and the rate-limit / error surface.
+
+  group('PluralKitClient.addMembersToGroup', () {
+    test('POSTs to /groups/<ref>/members/add with raw JSON array body',
+        () async {
+      http.Request? captured;
+      final client = http_test.MockClient((request) async {
+        captured = request;
+        return http.Response('', 204);
+      });
+      final pk = PluralKitClient(token: 't0k', httpClient: client);
+
+      await pk.addMembersToGroup('group-uuid', ['m1', 'm2']);
+
+      expect(captured, isNotNull);
+      expect(captured!.method, 'POST');
+      expect(captured!.url.path, endsWith('/groups/group-uuid/members/add'));
+      // Body must be a raw JSON array — NOT {"members": [...]} as v1 plan
+      // initially assumed. Codex catch.
+      expect(jsonDecode(captured!.body), ['m1', 'm2']);
+    });
+
+    test('returns without making a request when memberRefs is empty',
+        () async {
+      var requestCount = 0;
+      final client = http_test.MockClient((request) async {
+        requestCount++;
+        return http.Response('', 204);
+      });
+      final pk = PluralKitClient(token: 't0k', httpClient: client);
+
+      await pk.addMembersToGroup('group-uuid', const []);
+
+      expect(requestCount, 0);
+    });
+
+    test('204 with no body completes normally', () async {
+      final client = http_test.MockClient(
+        (request) async => http.Response('', 204),
+      );
+      final pk = PluralKitClient(token: 't0k', httpClient: client);
+
+      await expectLater(
+        pk.addMembersToGroup('g', ['m1']),
+        completes,
+      );
+    });
+
+    test('401 → PluralKitAuthError', () async {
+      final client = http_test.MockClient(
+        (request) async => http.Response('unauthorized', 401),
+      );
+      final pk = PluralKitClient(token: 't0k', httpClient: client);
+
+      expect(
+        pk.addMembersToGroup('g', ['m1']),
+        throwsA(isA<PluralKitAuthError>()),
+      );
+    });
+
+    test('429 → PluralKitRateLimitError surfaces retry-after', () async {
+      final client = http_test.MockClient(
+        (request) async => http.Response(
+          'rate limited',
+          429,
+          headers: {'retry-after': '5'},
+        ),
+      );
+      final pk = PluralKitClient(token: 't0k', httpClient: client);
+
+      try {
+        await pk.addMembersToGroup('g', ['m1']);
+        fail('expected PluralKitRateLimitError');
+      } on PluralKitRateLimitError catch (e) {
+        expect(e.retryAfter, const Duration(seconds: 5));
+      }
+    });
+
+    test('400 → PluralKitApiError surfaces status + body', () async {
+      final client = http_test.MockClient(
+        (request) async => http.Response('bad request', 400),
+      );
+      final pk = PluralKitClient(token: 't0k', httpClient: client);
+
+      try {
+        await pk.addMembersToGroup('g', ['m1']);
+        fail('expected PluralKitApiError');
+      } on PluralKitApiError catch (e) {
+        expect(e.statusCode, 400);
+        expect(e.message, contains('bad request'));
+      }
+    });
+  });
+
+  group('PluralKitClient.removeMembersFromGroup', () {
+    test('POSTs to /groups/<ref>/members/remove with raw JSON array body',
+        () async {
+      http.Request? captured;
+      final client = http_test.MockClient((request) async {
+        captured = request;
+        return http.Response('', 204);
+      });
+      final pk = PluralKitClient(token: 't0k', httpClient: client);
+
+      await pk.removeMembersFromGroup('group-uuid', ['m1', 'm2']);
+
+      expect(captured!.method, 'POST');
+      expect(captured!.url.path, endsWith('/groups/group-uuid/members/remove'));
+      expect(jsonDecode(captured!.body), ['m1', 'm2']);
+    });
+
+    test('returns without making a request when memberRefs is empty',
+        () async {
+      var requestCount = 0;
+      final client = http_test.MockClient((request) async {
+        requestCount++;
+        return http.Response('', 204);
+      });
+      final pk = PluralKitClient(token: 't0k', httpClient: client);
+
+      await pk.removeMembersFromGroup('group-uuid', const []);
+
+      expect(requestCount, 0);
+    });
+  });
 }

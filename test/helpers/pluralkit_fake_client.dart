@@ -61,6 +61,18 @@ class FakePluralKitClient implements PluralKitClient {
   Future<List<String>> getGroupMembers(String groupRef) async => const [];
 
   @override
+  Future<void> addMembersToGroup(
+    String groupRef,
+    List<String> memberRefs,
+  ) async => throw UnimplementedError();
+
+  @override
+  Future<void> removeMembersFromGroup(
+    String groupRef,
+    List<String> memberRefs,
+  ) async => throw UnimplementedError();
+
+  @override
   Future<List<int>> downloadBytes(String url) async => const [];
 
   @override

@@ -125,6 +125,14 @@ class PluralKitClient {
   });
 
   Future<dynamic> _post(String url, Map<String, dynamic> body) =>
+      _postRaw(url, body);
+
+  /// Internal: POST with any JSON-encodable body. Public-facing methods
+  /// type the body specifically (Map for object endpoints, List for the
+  /// group-membership /members/add and /members/remove endpoints which
+  /// PluralKit documents as taking a raw JSON array of member references).
+  /// Centralizes header/queue/timeout/error handling for both shapes.
+  Future<dynamic> _postRaw(String url, Object body) =>
       _queue.enqueue(() async {
         final response = await _http
             .post(Uri.parse(url), headers: _headers, body: jsonEncode(body))
@@ -230,6 +238,36 @@ class PluralKitClient {
       }
     }
     return out;
+  }
+
+  /// POST /groups/{ref}/members/add — bulk add members to a group.
+  ///
+  /// Body is a raw JSON array of member references (UUIDs or short IDs).
+  /// Returns 204 on success; throws on 4xx/5xx via [_handleResponse]. Used
+  /// by the bidirectional push orchestrator to ship local push_add intents
+  /// to PluralKit. Routes through [PkRequestQueue] so rate-limit handling
+  /// is shared with every other PK call.
+  Future<void> addMembersToGroup(
+    String groupRef,
+    List<String> memberRefs,
+  ) async {
+    if (memberRefs.isEmpty) return;
+    await _postRaw('$_baseUrl/groups/$groupRef/members/add', memberRefs);
+  }
+
+  /// POST /groups/{ref}/members/remove — bulk remove members from a group.
+  ///
+  /// Body is a raw JSON array of member references. Returns 204 on success.
+  /// Same shape and gates as [addMembersToGroup].
+  Future<void> removeMembersFromGroup(
+    String groupRef,
+    List<String> memberRefs,
+  ) async {
+    if (memberRefs.isEmpty) return;
+    await _postRaw(
+      '$_baseUrl/groups/$groupRef/members/remove',
+      memberRefs,
+    );
   }
 
   /// POST /members — create a new member.

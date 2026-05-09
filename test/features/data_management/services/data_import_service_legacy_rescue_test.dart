@@ -2463,6 +2463,10 @@ class _FakePkClient implements PluralKitClient {
 
   @override
   Future<List<String>> getGroupMembers(String groupRef) async => const [];
+  @override
+  Future<void> addMembersToGroup(String groupRef, List<String> memberRefs) async => throw UnimplementedError();
+  @override
+  Future<void> removeMembersFromGroup(String groupRef, List<String> memberRefs) async => throw UnimplementedError();
 
   @override
   Future<PKMember> createMember(Map<String, dynamic> data) =>
