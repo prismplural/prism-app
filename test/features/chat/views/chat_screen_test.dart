@@ -182,24 +182,38 @@ void main() {
 
     expect(find.text('Direct Messages'), findsOneWidget);
     expect(find.text('Group Chats'), findsOneWidget);
-    expect(find.text('Bob'), findsOneWidget);
-    expect(find.text('Planning'), findsNothing);
+    expect(
+      tester.getTopLeft(find.text('Group Chats')).dx,
+      lessThan(tester.getTopLeft(find.text('Direct Messages')).dx),
+    );
+    expect(find.text('Planning'), findsOneWidget);
+    expect(find.text('Bob'), findsNothing);
 
-    await tester.tap(find.text('Group Chats'));
+    await tester.tap(find.text('Direct Messages'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Bob'), findsNothing);
-    expect(find.text('Planning'), findsOneWidget);
+    expect(find.text('Planning'), findsNothing);
+    expect(find.text('Bob'), findsOneWidget);
 
     final prefs = await SharedPreferences.getInstance();
-    expect(prefs.getInt('chat.last_sub_tab'), 1);
+    expect(prefs.getInt('chat.last_sub_tab'), 0);
   });
 
-  testWidgets('restores the last selected chat list tab', (tester) async {
+  testWidgets('restores the last selected group chat list tab', (tester) async {
     await tester.pumpWidget(_buildSubject(savedTabIndex: 1));
     await tester.pumpAndSettle();
 
     expect(find.text('Planning'), findsOneWidget);
     expect(find.text('Bob'), findsNothing);
+  });
+
+  testWidgets('restores the last selected direct messages chat list tab', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_buildSubject(savedTabIndex: 0));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Bob'), findsOneWidget);
+    expect(find.text('Planning'), findsNothing);
   });
 }

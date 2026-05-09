@@ -32,6 +32,8 @@ import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 const _kLastChatSubTabKey = 'chat.last_sub_tab';
+const _kDirectMessagesTabPreferenceValue = 0;
+const _kGroupChatsTabPreferenceValue = 1;
 
 enum _ChatSubTab { directMessages, groupChats }
 
@@ -45,7 +47,7 @@ class ChatScreen extends ConsumerStatefulWidget {
 
 class _ChatScreenState extends ConsumerState<ChatScreen> {
   bool _seeded = false;
-  _ChatSubTab _activeTab = _ChatSubTab.directMessages;
+  _ChatSubTab _activeTab = _ChatSubTab.groupChats;
 
   @override
   void initState() {
@@ -55,10 +57,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   Future<void> _loadSavedTab() async {
     final prefs = await SharedPreferences.getInstance();
-    final savedIndex = prefs.getInt(_kLastChatSubTabKey) ?? 0;
-    final tab = savedIndex == 1
-        ? _ChatSubTab.groupChats
-        : _ChatSubTab.directMessages;
+    final savedIndex = prefs.getInt(_kLastChatSubTabKey);
+    final tab = savedIndex == _kDirectMessagesTabPreferenceValue
+        ? _ChatSubTab.directMessages
+        : _ChatSubTab.groupChats;
     if (mounted) {
       setState(() => _activeTab = tab);
     }
@@ -69,7 +71,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     setState(() => _activeTab = tab);
     unawaited(
       SharedPreferences.getInstance().then(
-        (prefs) => prefs.setInt(_kLastChatSubTabKey, tab.index),
+        (prefs) => prefs.setInt(
+          _kLastChatSubTabKey,
+          tab == _ChatSubTab.directMessages
+              ? _kDirectMessagesTabPreferenceValue
+              : _kGroupChatsTabPreferenceValue,
+        ),
       ),
     );
   }
@@ -582,12 +589,12 @@ class _ChatTopBar extends StatelessWidget implements PreferredSizeWidget {
           child: PrismSegmentedControl<_ChatSubTab>(
             segments: [
               PrismSegment(
-                value: _ChatSubTab.directMessages,
-                label: context.l10n.chatTabDirectMessages,
-              ),
-              PrismSegment(
                 value: _ChatSubTab.groupChats,
                 label: context.l10n.chatTabGroupChats,
+              ),
+              PrismSegment(
+                value: _ChatSubTab.directMessages,
+                label: context.l10n.chatTabDirectMessages,
               ),
             ],
             selected: activeTab,
