@@ -5,6 +5,7 @@ import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/utils/modal_insets.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
+import 'package:prism_plurality/shared/widgets/unsaved_changes_guard.dart';
 
 /// A styled bottom sheet wrapper with consistent Prism design language.
 ///
@@ -60,7 +61,10 @@ class PrismSheet extends StatelessWidget {
       isScrollControlled: true,
       useSafeArea: true,
       isDismissible: isDismissible,
-      enableDrag: isDismissible,
+      // Flutter's built-in modal drag moves the sheet before asking the route
+      // whether it can pop. That leaves dirty PopScope-guarded sheets collapsed
+      // behind an active barrier, so _SheetChrome owns drag-to-dismiss instead.
+      enableDrag: false,
       backgroundColor: Theme.of(context).bottomSheetTheme.backgroundColor,
       // Suppress the stock M3 drag handle — _SheetChrome renders its own.
       showDragHandle: false,
@@ -72,6 +76,7 @@ class PrismSheet extends StatelessWidget {
         ),
       ),
       builder: (sheetContext) {
+        final dismissController = UnsavedChangesDismissController();
         Widget content = builder(sheetContext);
 
         if (title != null || subtitle != null || actions != null) {
@@ -83,7 +88,11 @@ class PrismSheet extends StatelessWidget {
           );
         }
 
-        content = _SheetChrome(child: content);
+        content = _SheetChrome(
+          isDismissible: isDismissible,
+          dismissController: dismissController,
+          child: content,
+        );
 
         if (minHeightFactor != null || maxHeightFactor != null) {
           final screenHeight = MediaQuery.sizeOf(sheetContext).height;
@@ -96,7 +105,10 @@ class PrismSheet extends StatelessWidget {
           );
         }
 
-        return content;
+        return UnsavedChangesDismissScope(
+          controller: dismissController,
+          child: content,
+        );
       },
     );
   }
@@ -138,10 +150,17 @@ class PrismSheet extends StatelessWidget {
           ),
         ),
       ),
-      builder: (sheetContext) => _FullScreenSheetBody<T>(
-        isDismissible: isDismissible,
-        builder: builder,
-      ),
+      builder: (sheetContext) {
+        final dismissController = UnsavedChangesDismissController();
+        return UnsavedChangesDismissScope(
+          controller: dismissController,
+          child: _FullScreenSheetBody<T>(
+            isDismissible: isDismissible,
+            dismissController: dismissController,
+            builder: builder,
+          ),
+        );
+      },
     );
   }
 
@@ -206,10 +225,12 @@ class PrismSheet extends StatelessWidget {
 class _FullScreenSheetBody<T> extends StatefulWidget {
   const _FullScreenSheetBody({
     required this.isDismissible,
+    required this.dismissController,
     required this.builder,
   });
 
   final bool isDismissible;
+  final UnsavedChangesDismissController dismissController;
   final Widget Function(BuildContext, ScrollController) builder;
 
   @override
@@ -238,9 +259,20 @@ class _FullScreenSheetBodyState<T> extends State<_FullScreenSheetBody<T>> {
   }
 
   Future<void> _tryDismissFromDrag() async {
-    final didPop = await Navigator.of(context).maybePop();
-    if (!mounted || didPop) return;
+    if (widget.dismissController.hasUnsavedChanges) {
+      await _restoreSheet();
+      if (!mounted) return;
+      final shouldDiscard = await widget.dismissController
+          .confirmDiscardIfNeeded();
+      if (shouldDiscard && mounted) Navigator.of(context).pop();
+      if (mounted) _popping = false;
+      return;
+    }
 
+    Navigator.of(context).pop();
+  }
+
+  Future<void> _restoreSheet() async {
     if (_controller.isAttached) {
       await _controller.animateTo(
         1.0,
@@ -248,7 +280,6 @@ class _FullScreenSheetBodyState<T> extends State<_FullScreenSheetBody<T>> {
         curve: Curves.easeOutCubic,
       );
     }
-    if (mounted) _popping = false;
   }
 
   @override
@@ -268,38 +299,119 @@ class _FullScreenSheetBodyState<T> extends State<_FullScreenSheetBody<T>> {
       expand: false,
       snap: true,
       snapSizes: const [1.0],
+      shouldCloseOnMinExtent: false,
       builder: widget.builder,
     );
   }
 }
 
 /// Internal chrome wrapper that adds the drag handle above the sheet content.
-class _SheetChrome extends StatelessWidget {
-  const _SheetChrome({required this.child});
+class _SheetChrome extends StatefulWidget {
+  const _SheetChrome({
+    required this.isDismissible,
+    required this.dismissController,
+    required this.child,
+  });
 
+  final bool isDismissible;
+  final UnsavedChangesDismissController dismissController;
   final Widget child;
+
+  @override
+  State<_SheetChrome> createState() => _SheetChromeState();
+}
+
+class _SheetChromeState extends State<_SheetChrome> {
+  double _dragOffset = 0;
+  bool _resettingDrag = false;
+  bool _dismissAttemptInFlight = false;
+
+  bool get _canDrag => widget.isDismissible && !_dismissAttemptInFlight;
+
+  void _handleDragUpdate(DragUpdateDetails details) {
+    if (!_canDrag) return;
+
+    final delta = details.primaryDelta ?? 0;
+    final nextOffset = _dragOffset + delta;
+    setState(() {
+      _resettingDrag = false;
+      _dragOffset = nextOffset < 0 ? 0 : nextOffset;
+    });
+  }
+
+  Future<void> _handleDragEnd(DragEndDetails details) async {
+    if (!_canDrag) return;
+
+    final velocity = details.velocity.pixelsPerSecond.dy;
+    final shouldDismiss = _dragOffset > 96 || velocity > 700;
+    if (!shouldDismiss) {
+      _resetDrag();
+      return;
+    }
+
+    _dismissAttemptInFlight = true;
+    if (widget.dismissController.hasUnsavedChanges) {
+      _resetDrag();
+      if (!mounted) return;
+      final shouldDiscard = await widget.dismissController
+          .confirmDiscardIfNeeded();
+      if (shouldDiscard && mounted) Navigator.of(context).pop();
+    } else {
+      Navigator.of(context).pop();
+    }
+
+    if (!mounted) return;
+    _dismissAttemptInFlight = false;
+  }
+
+  void _resetDrag() {
+    if (!mounted) return;
+    setState(() {
+      _resettingDrag = true;
+      _dragOffset = 0;
+    });
+    Future<void>.delayed(const Duration(milliseconds: 180), () {
+      if (!mounted) return;
+      setState(() => _resettingDrag = false);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const SizedBox(height: 8),
-        ExcludeSemantics(
-          child: Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.25),
-              borderRadius: BorderRadius.circular(2),
+    final content = AnimatedContainer(
+      duration: _resettingDrag
+          ? const Duration(milliseconds: 180)
+          : Duration.zero,
+      curve: Curves.easeOutCubic,
+      transform: Matrix4.translationValues(0, _dragOffset, 0),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 8),
+          ExcludeSemantics(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.25),
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 8),
-        Flexible(child: child),
-      ],
+          const SizedBox(height: 8),
+          Flexible(child: widget.child),
+        ],
+      ),
+    );
+
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onVerticalDragUpdate: widget.isDismissible ? _handleDragUpdate : null,
+      onVerticalDragEnd: widget.isDismissible ? _handleDragEnd : null,
+      onVerticalDragCancel: widget.isDismissible ? _resetDrag : null,
+      child: content,
     );
   }
 }

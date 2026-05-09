@@ -386,4 +386,122 @@ void main() {
 
     expect(find.text('Dirty sheet'), findsNothing);
   });
+
+  testWidgets(
+    'dirty standard sheets restore before confirming swipe dismissal',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: const [Locale('en')],
+            home: Scaffold(
+              body: Builder(
+                builder: (context) => ElevatedButton(
+                  onPressed: () {
+                    PrismSheet.show<void>(
+                      context: context,
+                      builder: (context) => const UnsavedChangesGuard<void>(
+                        hasUnsavedChanges: true,
+                        child: SizedBox(
+                          height: 240,
+                          child: Center(child: Text('Dirty standard sheet')),
+                        ),
+                      ),
+                    );
+                  },
+                  child: const Text('Open'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      await tester.drag(
+        find.text('Dirty standard sheet'),
+        const Offset(0, 280),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Dirty standard sheet'), findsOneWidget);
+      expect(find.text('Discard changes?'), findsOneWidget);
+
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Dirty standard sheet'), findsOneWidget);
+      expect(find.text('Discard changes?'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'dirty full-screen sheets restore before confirming swipe dismissal',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: const [Locale('en')],
+            home: Scaffold(
+              body: Builder(
+                builder: (context) => ElevatedButton(
+                  onPressed: () {
+                    PrismSheet.showFullScreen<void>(
+                      context: context,
+                      builder: (context, scrollController) =>
+                          UnsavedChangesGuard<void>(
+                            hasUnsavedChanges: true,
+                            child: Column(
+                              children: [
+                                const PrismSheetTopBar(
+                                  title: 'Dirty full sheet',
+                                ),
+                                Expanded(
+                                  child: ListView(
+                                    controller: scrollController,
+                                    children: const [
+                                      SizedBox(
+                                        height: 900,
+                                        child: Center(
+                                          child: Text('Swipe content'),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                    );
+                  },
+                  child: const Text('Open'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      await tester.drag(find.text('Swipe content'), const Offset(0, 700));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Dirty full sheet'), findsOneWidget);
+      expect(find.text('Swipe content'), findsOneWidget);
+      expect(find.text('Discard changes?'), findsOneWidget);
+
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Dirty full sheet'), findsOneWidget);
+      expect(find.text('Swipe content'), findsOneWidget);
+      expect(find.text('Discard changes?'), findsNothing);
+    },
+  );
 }
