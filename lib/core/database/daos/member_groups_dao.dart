@@ -131,6 +131,65 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
         ),
       );
 
+  // ── Push orchestrator primitives (step 6) ───────────────────────────────
+  // These all use guarded WHERE clauses on the row's expected state so a
+  // CRDT delete or a concurrent local mutation that changes the row between
+  // snapshot and apply causes the operation to MISS rather than corrupt
+  // state. The orchestrator then re-reads on the next round and converges.
+
+  /// Guarded flip of `pending_pk_op` from one value to another. Returns the
+  /// number of affected rows (0 or 1). Used by the push orchestrator's:
+  ///   - 204 cleanup for push_add (`from='push_add'`, `to='none'`,
+  ///     `expectedIsDeleted=false`).
+  ///   - pre-push CRDT compensation flips:
+  ///     * push_add ∧ is_deleted=true → push_remove (the row was deleted
+  ///       via CRDT after we set push_add; PK might now be wrong, queue
+  ///       a remove to converge).
+  ///     * push_remove ∧ is_deleted=false → push_add (CRDT created or
+  ///       local revival flipped is_deleted; need to ensure PK has it).
+  Future<int> flipPendingPkOpGuarded(
+    String id, {
+    required String from,
+    required String to,
+    required bool expectedIsDeleted,
+  }) =>
+      (update(memberGroupEntries)..where(
+            (e) =>
+                e.id.equals(id) &
+                e.pendingPkOp.equals(from) &
+                e.isDeleted.equals(expectedIsDeleted),
+          ))
+          .write(MemberGroupEntriesCompanion(pendingPkOp: Value(to)));
+
+  /// Guarded hard-delete of a `push_remove` tombstone after PK confirmed
+  /// the remove. Returns the number of affected rows. The WHERE clause
+  /// requires `is_deleted = 1 AND pending_pk_op = 'push_remove'` so a
+  /// row revived to active+push_add via concurrent re-add is preserved
+  /// (the conditional misses, the row keeps its new state, the next push
+  /// round handles it).
+  Future<int> hardDeleteRemoveTombstoneGuarded(String id) =>
+      (delete(memberGroupEntries)..where(
+            (e) =>
+                e.id.equals(id) &
+                e.pendingPkOp.equals('push_remove') &
+                e.isDeleted.equals(true),
+          ))
+          .go();
+
+  /// Clear `pending_pk_op = 'none'` for every entry in [groupId] whose
+  /// pending op is non-'none'. Used by the push orchestrator's terminal
+  /// policy when a refetch returns 404 on the group (PK group is gone),
+  /// or when the local group lost its PK link before push could run.
+  /// Soft-deleted rows stay soft-deleted; active rows stay active. The
+  /// existing reconcile no-ops on rows with pending=none and a missing
+  /// PK group, so stranded rows do not cause future destructive churn.
+  Future<int> clearAllPendingPkOpForGroup(String groupId) => customUpdate(
+    "UPDATE member_group_entries SET pending_pk_op = 'none' "
+    "WHERE group_id = ? AND pending_pk_op != 'none'",
+    variables: [Variable.withString(groupId)],
+    updates: {memberGroupEntries},
+  );
+
   Future<void> deleteEntriesForGroup(String groupId) =>
       (update(memberGroupEntries)..where((e) => e.groupId.equals(groupId)))
           .write(const MemberGroupEntriesCompanion(isDeleted: Value(true)));

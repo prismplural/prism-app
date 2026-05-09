@@ -111,6 +111,14 @@ class PkGroupsImporter with SyncRecordMixin {
   final PkGroupSyncUpdateOverride? _recordUpdateOverride;
   final PkGroupSyncDeleteOverride? _recordDeleteOverride;
 
+  /// Push-orchestrator mutex (step 6 of the membership push plan). Mirrors
+  /// the cofronter pattern in pluralkit_sync_service: re-entrant calls await
+  /// the in-flight push and return its result. Service-instance scope is
+  /// fine because the importer is constructed once per sync service via
+  /// pluralkit_providers, and providers give us a single instance per
+  /// app session.
+  Future<PkGroupMembershipPushResult>? _pushInFlight;
+
   static const _groupTable = 'member_groups';
   static const _entryTable = 'member_group_entries';
 
@@ -591,6 +599,365 @@ class PkGroupsImporter with SyncRecordMixin {
     final settings = await _db.systemSettingsDao.getSettings();
     return settings.pkGroupSyncV2Enabled;
   }
+
+  // ── Step 6: push orchestrator ──────────────────────────────────────────
+
+  /// Push every pending group-membership op to PluralKit.
+  ///
+  /// Reads `member_group_entries WHERE pending_pk_op != 'none'`, validates
+  /// each row's current state against its intent (compensating CRDT-conflict
+  /// contradictions in flight), buckets the survivors by `(groupPkUuid, op)`,
+  /// and POSTs to PluralKit's `/groups/{ref}/members/add` and
+  /// `/members/remove` endpoints. On 204 a guarded UPDATE/DELETE clears the
+  /// pending intent (or hard-deletes the tombstone). On 4xx the importer
+  /// refetches the affected group's authoritative member list once and
+  /// reconciles each entry per its desired state. On 5xx / network the
+  /// pending intent is left in place for the next sync round.
+  ///
+  /// Re-entrant via [_pushInFlight]: parallel callers await the same Future
+  /// and get the same result. Bails immediately when [direction.pushEnabled]
+  /// is false.
+  ///
+  /// See docs/plans/pk-group-membership-push.md (step 6 + v3-patches-2 #7
+  /// + v3-patches-2 #8 + cleanup-pass refinements) for the full algorithm.
+  Future<PkGroupMembershipPushResult> pushPendingGroupOps(
+    PluralKitClient client,
+    PkSyncDirection direction,
+  ) async {
+    if (!direction.pushEnabled) {
+      return const PkGroupMembershipPushResult();
+    }
+    final existing = _pushInFlight;
+    if (existing != null) return existing;
+
+    late final Future<PkGroupMembershipPushResult> future;
+    future = _doPushPendingGroupOps(client).whenComplete(() {
+      if (identical(_pushInFlight, future)) {
+        _pushInFlight = null;
+      }
+    });
+    _pushInFlight = future;
+    return future;
+  }
+
+  Future<PkGroupMembershipPushResult> _doPushPendingGroupOps(
+    PluralKitClient client,
+  ) async {
+    var result = const PkGroupMembershipPushResult();
+    final pending = await _dao.entriesWithPendingPkOp();
+    if (pending.isEmpty) return result;
+
+    // Resolve PK linkage info for every pending row up front. We need both
+    // the group's PK UUID and the member's PK UUID to push; either being
+    // missing means the row is stranded (link gone since intent was set).
+    final groupIdsToFetch = pending.map((e) => e.groupId).toSet().toList();
+    final memberIdsToFetch = pending.map((e) => e.memberId).toSet().toList();
+    final groupRowsById = <String, MemberGroupRow>{};
+    for (final id in groupIdsToFetch) {
+      final row = await _dao.getGroupById(id);
+      if (row != null) groupRowsById[id] = row;
+    }
+    final membersById = <String, domain.Member>{
+      for (final m
+          in await _memberRepository.getMembersByIds(memberIdsToFetch))
+        m.id: m,
+    };
+
+    // Pre-push validation + stale-link terminal policy.
+    // Each entry is bucketed into one of:
+    //   - compensate: state contradicts intent → flip intent, skip push.
+    //   - strand: PK link gone → clear pending, skip push.
+    //   - push_add bucket: ready to push add.
+    //   - push_remove bucket: ready to push remove.
+    final pushAddByGroupPk = <String, List<_PushCandidate>>{};
+    final pushRemoveByGroupPk = <String, List<_PushCandidate>>{};
+    int compensated = 0;
+    int stranded = 0;
+
+    for (final entry in pending) {
+      final group = groupRowsById[entry.groupId];
+      final member = membersById[entry.memberId];
+      final groupPkUuid = group?.pluralkitUuid;
+      final memberPkUuid = member?.pluralkitUuid;
+
+      // Stale-link terminal policy (v3-patches #5): if either side lost
+      // its PK link, clear pending and move on. The row stays in its
+      // current is_deleted state; future syncs will not destructively
+      // touch it (the pull reconcile no-ops on rows with pending=none
+      // when the group has no PK UUID).
+      if (groupPkUuid == null ||
+          groupPkUuid.isEmpty ||
+          memberPkUuid == null ||
+          memberPkUuid.isEmpty) {
+        await _dao.flipPendingPkOpGuarded(
+          entry.id,
+          from: entry.pendingPkOp,
+          to: 'none',
+          expectedIsDeleted: entry.isDeleted,
+        );
+        stranded++;
+        continue;
+      }
+
+      // Pre-push CRDT-conflict compensation (v3-patches-2 #8). state
+      // disagrees with intent → flip intent, skip push this round.
+      final isAdd = entry.pendingPkOp == 'push_add';
+      final isRemove = entry.pendingPkOp == 'push_remove';
+      if (isAdd && entry.isDeleted) {
+        // CRDT delete or local revival landed after we set push_add. PK
+        // might already have it; queue a remove to converge.
+        final hits = await _dao.flipPendingPkOpGuarded(
+          entry.id,
+          from: 'push_add',
+          to: 'push_remove',
+          expectedIsDeleted: true,
+        );
+        if (hits > 0) compensated++;
+        continue;
+      }
+      if (isRemove && !entry.isDeleted) {
+        // Symmetric: tombstone got revived. Queue an add.
+        final hits = await _dao.flipPendingPkOpGuarded(
+          entry.id,
+          from: 'push_remove',
+          to: 'push_add',
+          expectedIsDeleted: false,
+        );
+        if (hits > 0) compensated++;
+        continue;
+      }
+
+      final candidate = _PushCandidate(
+        entryId: entry.id,
+        groupPkUuid: groupPkUuid,
+        memberPkUuid: memberPkUuid,
+      );
+      if (isAdd) {
+        pushAddByGroupPk
+            .putIfAbsent(groupPkUuid, () => <_PushCandidate>[])
+            .add(candidate);
+      } else if (isRemove) {
+        pushRemoveByGroupPk
+            .putIfAbsent(groupPkUuid, () => <_PushCandidate>[])
+            .add(candidate);
+      }
+    }
+
+    result = result.copyWith(compensated: compensated, stranded: stranded);
+
+    // Push each bucket. Failures are per-bucket; a bad UUID in one bucket
+    // does not poison another bucket's cleanup.
+    for (final entry in pushAddByGroupPk.entries) {
+      result = await _pushAddBucket(client, entry.key, entry.value, result);
+    }
+    for (final entry in pushRemoveByGroupPk.entries) {
+      result = await _pushRemoveBucket(client, entry.key, entry.value, result);
+    }
+
+    return result;
+  }
+
+  Future<PkGroupMembershipPushResult> _pushAddBucket(
+    PluralKitClient client,
+    String groupPkUuid,
+    List<_PushCandidate> candidates,
+    PkGroupMembershipPushResult result,
+  ) async {
+    final memberRefs = candidates.map((c) => c.memberPkUuid).toList();
+    try {
+      await client.addMembersToGroup(groupPkUuid, memberRefs);
+      // 204 — guarded cleanup per entry.
+      var added = 0;
+      for (final c in candidates) {
+        final hits = await _dao.flipPendingPkOpGuarded(
+          c.entryId,
+          from: 'push_add',
+          to: 'none',
+          expectedIsDeleted: false,
+        );
+        if (hits > 0) added++;
+      }
+      return result.copyWith(added: result.added + added);
+    } on PluralKitApiError catch (e) {
+      if (e.statusCode >= 400 && e.statusCode < 500) {
+        return _refetchAndReconcileAddBucket(
+          client,
+          groupPkUuid,
+          candidates,
+          result,
+        );
+      }
+      // 5xx — leave pending; record per-entry failures.
+      debugPrint(
+        '[PK push] addMembersToGroup($groupPkUuid) ${e.statusCode}: ${e.message}',
+      );
+      return result.copyWith(failed: result.failed + candidates.length);
+    } catch (e) {
+      // Network / typed errors that aren't PluralKitApiError (auth, rate
+      // limit, generic). Leave pending; queue handles 429 backoff.
+      debugPrint('[PK push] addMembersToGroup($groupPkUuid) failed: $e');
+      return result.copyWith(failed: result.failed + candidates.length);
+    }
+  }
+
+  Future<PkGroupMembershipPushResult> _pushRemoveBucket(
+    PluralKitClient client,
+    String groupPkUuid,
+    List<_PushCandidate> candidates,
+    PkGroupMembershipPushResult result,
+  ) async {
+    final memberRefs = candidates.map((c) => c.memberPkUuid).toList();
+    try {
+      await client.removeMembersFromGroup(groupPkUuid, memberRefs);
+      var removed = 0;
+      for (final c in candidates) {
+        final hits = await _dao.hardDeleteRemoveTombstoneGuarded(c.entryId);
+        if (hits > 0) removed++;
+      }
+      return result.copyWith(removed: result.removed + removed);
+    } on PluralKitApiError catch (e) {
+      if (e.statusCode >= 400 && e.statusCode < 500) {
+        return _refetchAndReconcileRemoveBucket(
+          client,
+          groupPkUuid,
+          candidates,
+          result,
+        );
+      }
+      debugPrint(
+        '[PK push] removeMembersFromGroup($groupPkUuid) ${e.statusCode}: ${e.message}',
+      );
+      return result.copyWith(failed: result.failed + candidates.length);
+    } catch (e) {
+      debugPrint(
+        '[PK push] removeMembersFromGroup($groupPkUuid) failed: $e',
+      );
+      return result.copyWith(failed: result.failed + candidates.length);
+    }
+  }
+
+  Future<PkGroupMembershipPushResult> _refetchAndReconcileAddBucket(
+    PluralKitClient client,
+    String groupPkUuid,
+    List<_PushCandidate> candidates,
+    PkGroupMembershipPushResult result,
+  ) async {
+    // 4xx + push_add: codex v3-patches-2 cleanup-pass narrowed the policy.
+    // Group-absence alone does NOT prove the member's UUID is stale on PK
+    // (could be auth, validation, transient). We refetch this group's
+    // authoritative member list and per-entry compare:
+    //   - member now in PK → desired state satisfied → guarded cleanup.
+    //   - member not in PK → leave pending; record failure; retry next sync.
+    //   - refetch itself 404s → terminal policy: clear pending for ALL
+    //     entries in this group (PK group is gone).
+    Set<String> authoritative;
+    try {
+      authoritative = (await client.getGroupMembers(groupPkUuid)).toSet();
+    } on PluralKitApiError catch (e) {
+      if (e.statusCode == 404) {
+        // PK group is gone — terminal policy.
+        final group = await _dao.findByPluralkitUuid(groupPkUuid);
+        if (group != null) {
+          await _dao.clearAllPendingPkOpForGroup(group.id);
+        }
+        return result.copyWith(stranded: result.stranded + candidates.length);
+      }
+      // Refetch failed for some other reason — leave the bucket pending.
+      debugPrint(
+        '[PK push] refetch /groups/$groupPkUuid/members ${e.statusCode}',
+      );
+      return result.copyWith(failed: result.failed + candidates.length);
+    } catch (e) {
+      debugPrint('[PK push] refetch /groups/$groupPkUuid/members failed: $e');
+      return result.copyWith(failed: result.failed + candidates.length);
+    }
+
+    var added = 0;
+    var failed = 0;
+    for (final c in candidates) {
+      if (authoritative.contains(c.memberPkUuid)) {
+        // Desired state already satisfied — clean up pending.
+        final hits = await _dao.flipPendingPkOpGuarded(
+          c.entryId,
+          from: 'push_add',
+          to: 'none',
+          expectedIsDeleted: false,
+        );
+        if (hits > 0) added++;
+      } else {
+        // Group-absence alone is not a terminal signal; leave pending.
+        failed++;
+      }
+    }
+    return result.copyWith(
+      added: result.added + added,
+      failed: result.failed + failed,
+    );
+  }
+
+  Future<PkGroupMembershipPushResult> _refetchAndReconcileRemoveBucket(
+    PluralKitClient client,
+    String groupPkUuid,
+    List<_PushCandidate> candidates,
+    PkGroupMembershipPushResult result,
+  ) async {
+    Set<String> authoritative;
+    try {
+      authoritative = (await client.getGroupMembers(groupPkUuid)).toSet();
+    } on PluralKitApiError catch (e) {
+      if (e.statusCode == 404) {
+        // PK group is gone — desired remove satisfied for every candidate.
+        final group = await _dao.findByPluralkitUuid(groupPkUuid);
+        if (group != null) {
+          await _dao.clearAllPendingPkOpForGroup(group.id);
+        }
+        // The rows are still soft-deleted locally; clearing pending leaves
+        // them as zombies. Hard-delete each one to converge with PK.
+        var removed = 0;
+        for (final c in candidates) {
+          final hits = await _dao.hardDeleteRemoveTombstoneGuarded(c.entryId);
+          if (hits > 0) removed++;
+        }
+        return result.copyWith(removed: result.removed + removed);
+      }
+      debugPrint(
+        '[PK push] refetch /groups/$groupPkUuid/members ${e.statusCode}',
+      );
+      return result.copyWith(failed: result.failed + candidates.length);
+    } catch (e) {
+      debugPrint('[PK push] refetch /groups/$groupPkUuid/members failed: $e');
+      return result.copyWith(failed: result.failed + candidates.length);
+    }
+
+    var removed = 0;
+    var failed = 0;
+    for (final c in candidates) {
+      if (!authoritative.contains(c.memberPkUuid)) {
+        // Member is not in PK — desired remove satisfied. Hard-delete.
+        final hits = await _dao.hardDeleteRemoveTombstoneGuarded(c.entryId);
+        if (hits > 0) removed++;
+      } else {
+        // PK still has the member — leave pending for retry.
+        failed++;
+      }
+    }
+    return result.copyWith(
+      removed: result.removed + removed,
+      failed: result.failed + failed,
+    );
+  }
+}
+
+class _PushCandidate {
+  final String entryId;
+  final String groupPkUuid;
+  final String memberPkUuid;
+
+  const _PushCandidate({
+    required this.entryId,
+    required this.groupPkUuid,
+    required this.memberPkUuid,
+  });
 }
 
 class _ReconcileDelta {
@@ -624,4 +991,51 @@ class _SyncedEntry {
     required this.pkMemberUuid,
     required this.existedBefore,
   });
+}
+
+/// Step 6 result type. Counts are best-effort; per-bucket failures may
+/// leave pending intents in the DB to retry on the next sync round.
+class PkGroupMembershipPushResult {
+  /// Successful /members/add calls × member count → cleanup UPDATE landed.
+  final int added;
+
+  /// Successful /members/remove calls → cleanup DELETE landed.
+  final int removed;
+
+  /// Per-entry failures left in pending state. Includes 4xx where refetch
+  /// did not satisfy the desired state, 5xx, and network errors.
+  final int failed;
+
+  /// Per-entry rows whose group or member lost its PK link before the
+  /// push could run. Pending was cleared (terminal local state).
+  final int stranded;
+
+  /// Compensations applied by pre-push validation (CRDT-conflict detection
+  /// flipped intent in either direction). These rows do not push this round
+  /// — the next round picks up the new intent.
+  final int compensated;
+
+  const PkGroupMembershipPushResult({
+    this.added = 0,
+    this.removed = 0,
+    this.failed = 0,
+    this.stranded = 0,
+    this.compensated = 0,
+  });
+
+  PkGroupMembershipPushResult copyWith({
+    int? added,
+    int? removed,
+    int? failed,
+    int? stranded,
+    int? compensated,
+  }) {
+    return PkGroupMembershipPushResult(
+      added: added ?? this.added,
+      removed: removed ?? this.removed,
+      failed: failed ?? this.failed,
+      stranded: stranded ?? this.stranded,
+      compensated: compensated ?? this.compensated,
+    );
+  }
 }
