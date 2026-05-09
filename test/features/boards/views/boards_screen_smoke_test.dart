@@ -15,6 +15,7 @@ import 'package:prism_plurality/features/chat/providers/chat_providers.dart'
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 
 // ---------------------------------------------------------------------------
 // Fake notifiers
@@ -43,23 +44,23 @@ class _FakeBoardPostNotifier extends MemberBoardPostNotifier {
 final _now = DateTime(2026, 5, 1, 12);
 
 MemberBoardPost _publicPost(String id) => MemberBoardPost(
-      id: id,
-      authorId: 'alice',
-      audience: 'public',
-      body: 'Hello system, this is post $id',
-      createdAt: _now,
-      writtenAt: _now,
-    );
+  id: id,
+  authorId: 'alice',
+  audience: 'public',
+  body: 'Hello system, this is post $id',
+  createdAt: _now,
+  writtenAt: _now,
+);
 
 MemberBoardPost _privatePost(String id, String targetId) => MemberBoardPost(
-      id: id,
-      authorId: 'alice',
-      targetMemberId: targetId,
-      audience: 'private',
-      body: 'Private message $id',
-      createdAt: _now,
-      writtenAt: _now,
-    );
+  id: id,
+  authorId: 'alice',
+  targetMemberId: targetId,
+  audience: 'private',
+  body: 'Private message $id',
+  createdAt: _now,
+  writtenAt: _now,
+);
 
 final _alice = Member(
   id: 'alice',
@@ -68,12 +69,7 @@ final _alice = Member(
   isActive: true,
 );
 
-final _bob = Member(
-  id: 'bob',
-  name: 'Bob',
-  createdAt: _now,
-  isActive: true,
-);
+final _bob = Member(id: 'bob', name: 'Bob', createdAt: _now, isActive: true);
 
 // ---------------------------------------------------------------------------
 // Widget builder
@@ -102,10 +98,9 @@ Widget _buildBoardsScreen({
       ),
       memberByIdProvider.overrideWith(
         (ref, id) => Stream.value(
-          [...activeMembers].cast<Member?>().firstWhere(
-                (m) => m?.id == id,
-                orElse: () => null,
-              ),
+          [
+            ...activeMembers,
+          ].cast<Member?>().firstWhere((m) => m?.id == id, orElse: () => null),
         ),
       ),
       publicBoardPostsProvider.overrideWith(
@@ -161,10 +156,7 @@ void main() {
       await tester.pumpWidget(_buildBoardsScreen());
       await tester.pumpAndSettle();
 
-      expect(
-        find.text('Nothing on the public timeline yet.'),
-        findsOneWidget,
-      );
+      expect(find.text('Nothing on the public timeline yet.'), findsOneWidget);
     });
 
     testWidgets('renders public posts when data is available', (tester) async {
@@ -179,10 +171,7 @@ void main() {
     testWidgets('tapping Inbox segment switches to inbox page', (tester) async {
       final inboxPosts = [_privatePost('i1', 'alice')];
       await tester.pumpWidget(
-        _buildBoardsScreen(
-          activeMembers: [_alice],
-          inboxPosts: inboxPosts,
-        ),
+        _buildBoardsScreen(activeMembers: [_alice], inboxPosts: inboxPosts),
       );
       await tester.pumpAndSettle();
 
@@ -194,9 +183,7 @@ void main() {
     });
 
     testWidgets('swipe left reveals Inbox page', (tester) async {
-      await tester.pumpWidget(
-        _buildBoardsScreen(activeMembers: [_alice]),
-      );
+      await tester.pumpWidget(_buildBoardsScreen(activeMembers: [_alice]));
       await tester.pumpAndSettle();
 
       // Swipe left on the page view.
@@ -206,59 +193,53 @@ void main() {
       expect(find.bySemanticsLabel(RegExp('All fronters')), findsWidgets);
     });
 
-    testWidgets('unread dot appears on Public segment when hasUnreadPublic',
-        (tester) async {
-      await tester.pumpWidget(
-        _buildBoardsScreen(hasUnreadPublic: true),
-      );
+    testWidgets('unread dot appears on Public segment when hasUnreadPublic', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_buildBoardsScreen(hasUnreadPublic: true));
       await tester.pumpAndSettle();
 
       // The Public segment Semantics node is annotated with ", unread" in its
       // semanticsLabel when hasUnreadPublic is true.
-      expect(
-        find.bySemanticsLabel(RegExp(r'Public.*unread')),
-        findsOneWidget,
-      );
+      expect(find.bySemanticsLabel(RegExp(r'Public.*unread')), findsOneWidget);
     });
 
-    testWidgets('numeric badge appears on Inbox segment when inboxBadge > 0',
-        (tester) async {
-      await tester.pumpWidget(
-        _buildBoardsScreen(inboxBadge: 3),
-      );
+    testWidgets('numeric badge appears on Inbox segment when inboxBadge > 0', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_buildBoardsScreen(inboxBadge: 3));
       await tester.pumpAndSettle();
 
       expect(find.text('3'), findsOneWidget);
     });
 
     testWidgets('inbox badge capped at 99+ when count > 99', (tester) async {
-      await tester.pumpWidget(
-        _buildBoardsScreen(inboxBadge: 150),
-      );
+      await tester.pumpWidget(_buildBoardsScreen(inboxBadge: 150));
       await tester.pumpAndSettle();
 
       expect(find.text('99+'), findsOneWidget);
     });
 
-    testWidgets('inbox empty state shows no-fronter hint when no active members',
-        (tester) async {
-      await tester.pumpWidget(
-        _buildBoardsScreen(activeMembers: const []),
-      );
-      await tester.pumpAndSettle();
+    testWidgets(
+      'inbox empty state shows no-fronter hint when no active members',
+      (tester) async {
+        await tester.pumpWidget(_buildBoardsScreen(activeMembers: const []));
+        await tester.pumpAndSettle();
 
-      // Switch to Inbox tab.
-      await tester.tap(find.text('Inbox'));
-      await tester.pumpAndSettle();
+        // Switch to Inbox tab.
+        await tester.tap(find.text('Inbox'));
+        await tester.pumpAndSettle();
 
-      expect(
-        find.textContaining("No one's fronting right now"),
-        findsOneWidget,
-      );
-    });
+        expect(
+          find.textContaining("No one's fronting right now"),
+          findsOneWidget,
+        );
+      },
+    );
 
-    testWidgets('inbox shows all-fronters filter when members are active',
-        (tester) async {
+    testWidgets('inbox shows all-fronters filter when members are active', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         _buildBoardsScreen(activeMembers: [_alice, _bob]),
       );
@@ -279,15 +260,14 @@ void main() {
       // + empty-state page heading), and the public empty state is shown
       // (not the inbox empty state), confirming Public is the default tab.
       expect(find.text('Public'), findsWidgets);
-      expect(
-        find.text('Nothing on the public timeline yet.'),
-        findsOneWidget,
-      );
+      expect(find.text('Nothing on the public timeline yet.'), findsOneWidget);
     });
   });
 
   group('BoardsScreen — filter dropdown', () {
-    testWidgets('filter dropdown chip appears when on Inbox tab', (tester) async {
+    testWidgets('filter dropdown chip appears when on Inbox tab', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         _buildBoardsScreen(activeMembers: [_alice, _bob]),
       );
@@ -310,6 +290,33 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.bySemanticsLabel(RegExp('All fronters')), findsWidgets);
+    });
+
+    testWidgets('filter dropdown starts with Search and opens member search', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _buildBoardsScreen(activeMembers: [_alice, _bob]),
+      );
+      await tester.pump();
+
+      await tester.tap(find.text('Inbox'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.bySemanticsLabel(RegExp('All fronters')).first);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Search'), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.text('Search')).dy,
+        lessThan(tester.getTopLeft(find.text('All fronters')).dy),
+        reason: 'Search should be the first visible boards filter option.',
+      );
+
+      await tester.tap(find.text('Search'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(MemberSearchSheet), findsOneWidget);
     });
   });
 }

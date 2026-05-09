@@ -11,6 +11,7 @@ import 'package:prism_plurality/features/boards/widgets/post_tile.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart'
     show speakingAsProvider;
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -20,7 +21,7 @@ import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/group_member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
-import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
+import 'package:prism_plurality/shared/widgets/member_selector_popup.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
@@ -123,17 +124,11 @@ class _BoardsScreenState extends ConsumerState<BoardsScreen> {
 
     return PrismPageScaffold(
       bodyPadding: EdgeInsets.zero,
-      topBar: _BoardsTopBar(
-        activeTab: _activeTab,
-        onComposeTap: _openCompose,
-      ),
+      topBar: _BoardsTopBar(activeTab: _activeTab, onComposeTap: _openCompose),
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 8,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: _BoardsSegmentedControl(
               activeTab: _activeTab,
               hasPublicUnread: hasUnreadDot,
@@ -168,10 +163,7 @@ class _BoardsScreenState extends ConsumerState<BoardsScreen> {
 // ---------------------------------------------------------------------------
 
 class _BoardsTopBar extends StatelessWidget implements PreferredSizeWidget {
-  const _BoardsTopBar({
-    required this.activeTab,
-    required this.onComposeTap,
-  });
+  const _BoardsTopBar({required this.activeTab, required this.onComposeTap});
 
   final _BoardsSubTab activeTab;
   final VoidCallback onComposeTap;
@@ -237,8 +229,9 @@ class _BoardsSegmentedControl extends StatelessWidget {
       height: 44,
       decoration: BoxDecoration(
         color: trackColor,
-        borderRadius:
-            BorderRadius.circular(PrismShapes.of(context).radius(999)),
+        borderRadius: BorderRadius.circular(
+          PrismShapes.of(context).radius(999),
+        ),
         border: Border.all(color: trackBorderColor, width: 0.5),
       ),
       child: Row(
@@ -348,10 +341,7 @@ class _SegmentButton extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                if (suffix != null) ...[
-                  const SizedBox(width: 4),
-                  suffix!,
-                ],
+                if (suffix != null) ...[const SizedBox(width: 4), suffix!],
               ],
             ),
           ),
@@ -372,10 +362,7 @@ class _UnreadDot extends StatelessWidget {
     return Container(
       width: 7,
       height: 7,
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-      ),
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
     );
   }
 }
@@ -435,9 +422,7 @@ class _PublicPageState extends ConsumerState<_PublicPage> {
       if (!mounted) return;
       if (!_markedViewed) {
         _markedViewed = true;
-        ref
-            .read(memberBoardPostNotifierProvider.notifier)
-            .markPublicViewed();
+        ref.read(memberBoardPostNotifierProvider.notifier).markPublicViewed();
       }
     });
   }
@@ -457,9 +442,8 @@ class _PublicPageState extends ConsumerState<_PublicPage> {
     return postsAsync.when(
       loading: () => Center(
         child: Builder(
-          builder: (context) => PrismSpinner(
-            color: Theme.of(context).colorScheme.primary,
-          ),
+          builder: (context) =>
+              PrismSpinner(color: Theme.of(context).colorScheme.primary),
         ),
       ),
       error: (e, _) => Center(child: Text('Error: $e')),
@@ -533,9 +517,7 @@ class _InboxPageState extends ConsumerState<_InboxPage> {
     // If the inbox is the initial tab, mark on first frame.
     if (widget.activeTab == _BoardsSubTab.inbox) {
       _inboxOpenedCalled = true;
-      WidgetsBinding.instance.addPostFrameCallback(
-        (_) => _markInboxOpened(),
-      );
+      WidgetsBinding.instance.addPostFrameCallback((_) => _markInboxOpened());
     }
   }
 
@@ -608,9 +590,7 @@ class _InboxPageState extends ConsumerState<_InboxPage> {
         if (filterId == null) return posts;
         return posts
             .where(
-              (p) =>
-                  p.targetMemberId == filterId ||
-                  p.authorId == filterId,
+              (p) => p.targetMemberId == filterId || p.authorId == filterId,
             )
             .toList();
       },
@@ -677,6 +657,7 @@ class _InboxFronterFilterButton extends ConsumerWidget {
     final theme = Theme.of(context);
     final fronters = ref.watch(currentFronterMembersProvider);
     final filterId = ref.watch(inboxViewFilterProvider);
+    final terms = watchTerminology(context, ref);
 
     if (fronters.isEmpty) return const SizedBox.shrink();
 
@@ -736,8 +717,9 @@ class _InboxFronterFilterButton extends ConsumerWidget {
               child: Icon(
                 Icons.arrow_drop_down,
                 size: 12,
-                color:
-                    theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.85),
+                color: theme.colorScheme.onSurfaceVariant.withValues(
+                  alpha: 0.85,
+                ),
               ),
             ),
           ),
@@ -745,7 +727,6 @@ class _InboxFronterFilterButton extends ConsumerWidget {
       ),
     );
 
-    final itemCount = 1 + fronters.length;
     final filterLabel = currentMember != null
         ? l10n.boardsViewFilterMember(currentMember.name)
         : l10n.boardsViewFilterAll;
@@ -753,84 +734,41 @@ class _InboxFronterFilterButton extends ConsumerWidget {
     return Semantics(
       label: '${l10n.boardsViewFilterAll}, $filterLabel',
       button: true,
-      child: BlurPopupAnchor(
+      child: MemberSelectorPopup(
+        preferredDirection: BlurPopupDirection.down,
         width: 260,
-        itemCount: itemCount,
+        members: fronters,
+        termPlural: terms.plural,
+        searchTitle: l10n.boardsViewFilterAll,
+        selectedMemberId: filterId,
         semanticLabel: l10n.boardsViewFilterAll,
-        itemBuilder: (ctx, index, close) {
-          if (index == 0) {
-            final isSelected = filterId == null;
-            return PrismListRow(
-              leading: SizedBox(
-                width: 32,
-                height: 32,
-                child: GroupMemberAvatar(
-                  size: 32,
-                  members: [
-                    for (final m in fronters)
-                      GroupAvatarMember(
-                        avatarImageData: m.avatarImageData,
-                        emoji: m.emoji,
-                        customColorEnabled: m.customColorEnabled,
-                        customColorHex: m.customColorHex,
-                      ),
-                  ],
-                ),
+        specialRows: [
+          MemberSelectorPopupSpecialRow(
+            title: l10n.boardsViewFilterAll,
+            selected: filterId == null,
+            selectedColor: theme.colorScheme.primary,
+            leading: SizedBox(
+              width: 32,
+              height: 32,
+              child: GroupMemberAvatar(
+                size: 32,
+                members: [
+                  for (final m in fronters)
+                    GroupAvatarMember(
+                      avatarImageData: m.avatarImageData,
+                      emoji: m.emoji,
+                      customColorEnabled: m.customColorEnabled,
+                      customColorHex: m.customColorHex,
+                    ),
+                ],
               ),
-              title: Text(
-                l10n.boardsViewFilterAll,
-                style: isSelected
-                    ? TextStyle(
-                        color: theme.colorScheme.primary,
-                        fontWeight: FontWeight.w600,
-                      )
-                    : null,
-              ),
-              trailing: isSelected
-                  ? Icon(Icons.check, color: theme.colorScheme.primary)
-                  : null,
-              onTap: () {
-                close();
-                ref.read(inboxViewFilterProvider.notifier).setFilter(null);
-              },
-            );
-          }
-          final member = fronters[index - 1];
-          final isSelected = filterId == member.id;
-          final memberColor =
-              (member.customColorEnabled && member.customColorHex != null)
-              ? AppColors.fromHex(member.customColorHex!)
-              : null;
-          return PrismListRow(
-            leading: MemberAvatar(
-              avatarImageData: member.avatarImageData,
-              memberName: member.name,
-              emoji: member.emoji,
-              customColorEnabled: member.customColorEnabled,
-              customColorHex: member.customColorHex,
-              size: 32,
             ),
-            title: Text(
-              member.name,
-              style: isSelected
-                  ? TextStyle(
-                      color: memberColor ?? theme.colorScheme.primary,
-                      fontWeight: FontWeight.w600,
-                    )
-                  : null,
-            ),
-            trailing: isSelected
-                ? Icon(
-                    Icons.check,
-                    color: memberColor ?? theme.colorScheme.primary,
-                  )
-                : null,
-            onTap: () {
-              close();
-              ref.read(inboxViewFilterProvider.notifier).setFilter(member.id);
-            },
-          );
-        },
+            onSelected: () =>
+                ref.read(inboxViewFilterProvider.notifier).setFilter(null),
+          ),
+        ],
+        onMemberSelected: (memberId) =>
+            ref.read(inboxViewFilterProvider.notifier).setFilter(memberId),
         child: trigger,
       ),
     );

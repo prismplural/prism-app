@@ -270,12 +270,33 @@ void main() {
     await tester.tap(find.byKey(const Key('chatSpeakingAsAppBarSelector')));
     await tester.pumpAndSettle();
 
-    expect(find.byType(MemberSearchSheet), findsOneWidget);
+    expect(find.byType(MemberSearchSheet), findsNothing);
+    expect(find.text('Search'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('Search')).dy,
+      lessThan(tester.getTopLeft(find.text('Alice')).dy),
+      reason: 'Search should be the first visible appbar picker option.',
+    );
 
     await tester.tap(find.text('Carol'));
     await tester.pumpAndSettle();
 
     expect(find.text('Bob'), findsNothing);
     expect(find.text('Dave'), findsOneWidget);
+  });
+
+  testWidgets('appbar member picker Search row opens full member search', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_buildSubject(savedTabIndex: 0));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('chatSpeakingAsAppBarSelector')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Search'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(MemberSearchSheet), findsOneWidget);
   });
 }

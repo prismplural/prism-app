@@ -37,11 +37,11 @@ import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
-import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
+import 'package:prism_plurality/shared/widgets/member_selector_popup.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
-import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
@@ -574,7 +574,6 @@ class _MessageInputState extends ConsumerState<MessageInput> {
             .whenOrNull(data: (v) => v) ??
         false;
     final terms = watchTerminology(context, ref);
-    final parentContext = context;
 
     final members = membersAsync.value ?? [];
     final mentionCandidates = _getMentionCandidates(
@@ -676,82 +675,16 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                           terms.singularLower,
                         ),
                   button: true,
-                  child: BlurPopupAnchor(
+                  child: MemberSelectorPopup(
                     preferredDirection: BlurPopupDirection.up,
                     onBeforeShow: _unfocusComposerIfKeyboardClosed,
-                    itemCount: members.length + 1,
-                    itemBuilder: (popupContext, index, close) {
-                      if (index == members.length) {
-                        return PrismListRow(
-                          dense: true,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 10,
-                          ),
-                          leading: Icon(AppIcons.search, size: 20),
-                          title: Text(popupContext.l10n.search),
-                          onTap: () async {
-                            close();
-                            await Future<void>.delayed(Duration.zero);
-                            if (!mounted || !parentContext.mounted) return;
-                            final result = await MemberSearchSheet.showSingle(
-                              parentContext,
-                              members: members,
-                              termPlural: terms.plural,
-                              groups: memberSearchGroups,
-                            );
-                            if (!mounted ||
-                                result is! MemberSearchResultSelected) {
-                              return;
-                            }
-                            ref
-                                .read(speakingAsProvider.notifier)
-                                .setMember(result.memberId);
-                          },
-                        );
-                      }
-
-                      final member = members[index];
-                      final isSelected = member.id == speakingAs;
-                      return PrismListRow(
-                        dense: true,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
-                        ),
-                        leading: MemberAvatar(
-                          avatarImageData: member.avatarImageData,
-                          memberName: member.name,
-                          emoji: member.emoji,
-                          customColorEnabled: member.customColorEnabled,
-                          customColorHex: member.customColorHex,
-                          size: 32,
-                        ),
-                        title: Text(
-                          member.name,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: isSelected
-                                ? FontWeight.w600
-                                : FontWeight.normal,
-                            color: theme.colorScheme.onSurface,
-                          ),
-                        ),
-                        trailing: isSelected
-                            ? Icon(
-                                AppIcons.check,
-                                size: 18,
-                                color: theme.colorScheme.primary,
-                              )
-                            : null,
-                        onTap: () {
-                          ref
-                              .read(speakingAsProvider.notifier)
-                              .setMember(member.id);
-                          close();
-                        },
-                      );
-                    },
+                    members: members,
+                    termPlural: terms.plural,
+                    selectedMemberId: speakingAs,
+                    groups: memberSearchGroups,
+                    onMemberSelected: (memberId) => ref
+                        .read(speakingAsProvider.notifier)
+                        .setMember(memberId),
                     child: currentMember != null
                         ? MemberAvatar(
                             avatarImageData: currentMember.avatarImageData,

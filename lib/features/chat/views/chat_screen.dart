@@ -25,7 +25,7 @@ import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
-import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
+import 'package:prism_plurality/shared/widgets/member_selector_popup.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
@@ -623,19 +623,17 @@ class _ChatMemberSelectorButton extends ConsumerWidget {
           enabled: members.isNotEmpty,
           child: Tooltip(
             message: semanticLabel,
-            child: GestureDetector(
+            child: MemberSelectorPopup(
               key: _selectorKey,
-              behavior: HitTestBehavior.opaque,
-              onTap: members.isEmpty
-                  ? null
-                  : () => _openSearchSheet(
-                      context,
-                      ref,
-                      members,
-                      terms.singular,
-                      terms.plural,
-                      groups,
-                    ),
+              preferredDirection: BlurPopupDirection.down,
+              enabled: members.isNotEmpty,
+              members: members,
+              termPlural: terms.plural,
+              searchTitle: context.l10n.selectMember(terms.singular),
+              selectedMemberId: speakingAs,
+              groups: groups,
+              onMemberSelected: (memberId) =>
+                  ref.read(speakingAsProvider.notifier).setMember(memberId),
               child: _ChatMemberSelectorTrigger(
                 selectedMember: selected,
                 enabled: members.isNotEmpty,
@@ -647,27 +645,6 @@ class _ChatMemberSelectorButton extends ConsumerWidget {
       loading: () => const _ChatMemberSelectorTrigger(enabled: false),
       error: (_, _) => const _ChatMemberSelectorTrigger(enabled: false),
     );
-  }
-
-  Future<void> _openSearchSheet(
-    BuildContext context,
-    WidgetRef ref,
-    List<Member> members,
-    String termSingular,
-    String termPlural,
-    List<MemberSearchGroup> groups,
-  ) async {
-    final result = await MemberSearchSheet.showSingle(
-      context,
-      members: members,
-      termPlural: termPlural,
-      title: context.l10n.selectMember(termSingular),
-      groups: groups,
-    );
-    if (!context.mounted) return;
-    if (result is MemberSearchResultSelected) {
-      ref.read(speakingAsProvider.notifier).setMember(result.memberId);
-    }
   }
 }
 
@@ -783,9 +760,7 @@ class _OverflowMenuButton extends ConsumerWidget {
         if (hasArchived || showArchived)
           PrismMenuItem(
             value: _ChatMenuAction.toggleArchived,
-            label: showArchived
-                ? l10n.chatHideArchived
-                : l10n.chatShowArchived,
+            label: showArchived ? l10n.chatHideArchived : l10n.chatShowArchived,
             icon: showArchived
                 ? AppIcons.inventoryRounded
                 : AppIcons.inventoryOutlined,
