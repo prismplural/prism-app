@@ -268,70 +268,82 @@ void main() {
   });
 
   group('avatar image round-trip', () {
-    test('stores picker-style avatar bytes as decodable normalized image', () async {
-      final source = img.Image(width: 900, height: 600);
-      img.fill(source, color: img.ColorRgb8(20, 30, 40));
-      img.fillRect(
-        source,
-        x1: 200,
-        y1: 100,
-        x2: 699,
-        y2: 499,
-        color: img.ColorRgb8(220, 180, 40),
-      );
-      final avatarBytes = encodeAvatarOutputForStorage(
-        Uint8List.fromList(img.encodePng(source)),
-      );
-      final member = domain.Member(
-        id: 'avatar-1',
-        name: 'Avatar',
-        createdAt: DateTime.now().toUtc(),
-        avatarImageData: avatarBytes,
-      );
+    test(
+      'stores picker-style avatar bytes as decodable normalized image',
+      () async {
+        final source = img.Image(width: 900, height: 600);
+        img.fill(source, color: img.ColorRgb8(20, 30, 40));
+        img.fillRect(
+          source,
+          x1: 200,
+          y1: 100,
+          x2: 699,
+          y2: 499,
+          color: img.ColorRgb8(220, 180, 40),
+        );
+        final avatarBytes = encodeAvatarOutputForStorage(
+          Uint8List.fromList(img.encodePng(source)),
+        );
+        final member = domain.Member(
+          id: 'avatar-1',
+          name: 'Avatar',
+          createdAt: DateTime.now().toUtc(),
+          avatarImageData: avatarBytes,
+        );
 
-      await repo.createMember(member);
+        await repo.createMember(member);
 
-      final fetched = await repo.getMemberById('avatar-1');
-      expect(fetched, isNotNull);
-      expect(fetched!.avatarImageData, isNotNull);
+        final fetched = await repo.getMemberById('avatar-1');
+        expect(fetched, isNotNull);
+        expect(fetched!.avatarImageData, isNotNull);
 
-      final decoded = img.decodeJpg(fetched.avatarImageData!);
-      expect(decoded, isNotNull);
-      expect(decoded!.width, lessThanOrEqualTo(AvatarNormalizer.maxDimension));
-      expect(decoded.height, lessThanOrEqualTo(AvatarNormalizer.maxDimension));
-      expect(
-        fetched.avatarImageData!.length,
-        lessThanOrEqualTo(AvatarNormalizer.targetMaxBytes),
-      );
-    });
+        final decoded = img.decodeJpg(fetched.avatarImageData!);
+        expect(decoded, isNotNull);
+        expect(decoded!.width, AvatarNormalizer.maxDimension);
+        expect(decoded.height, AvatarNormalizer.maxDimension);
+        expect(
+          fetched.avatarImageData!.length,
+          lessThanOrEqualTo(AvatarNormalizer.targetMaxBytes),
+        );
+      },
+    );
 
-    test('keeps stored avatar bytes decodable after unrelated update', () async {
-      final source = img.Image(width: 900, height: 600);
-      img.fill(source, color: img.ColorRgb8(80, 60, 40));
-      final avatarBytes = encodeAvatarOutputForStorage(
-        Uint8List.fromList(img.encodePng(source)),
-      );
-      final member = domain.Member(
-        id: 'avatar-2',
-        name: 'Avatar 2',
-        createdAt: DateTime.now().toUtc(),
-        avatarImageData: avatarBytes,
-      );
+    test(
+      'keeps stored avatar bytes decodable after unrelated update',
+      () async {
+        final source = img.Image(width: 900, height: 600);
+        img.fill(source, color: img.ColorRgb8(80, 60, 40));
+        final avatarBytes = encodeAvatarOutputForStorage(
+          Uint8List.fromList(img.encodePng(source)),
+        );
+        final member = domain.Member(
+          id: 'avatar-2',
+          name: 'Avatar 2',
+          createdAt: DateTime.now().toUtc(),
+          avatarImageData: avatarBytes,
+        );
 
-      await repo.createMember(member);
-      final initial = await repo.getMemberById('avatar-2');
-      expect(initial, isNotNull);
+        await repo.createMember(member);
+        final initial = await repo.getMemberById('avatar-2');
+        expect(initial, isNotNull);
 
-      await repo.updateMember(initial!.copyWith(pronouns: 'they/them'));
+        await repo.updateMember(initial!.copyWith(pronouns: 'they/them'));
 
-      final updated = await repo.getMemberById('avatar-2');
-      expect(updated, isNotNull);
-      expect(updated!.avatarImageData, isNotNull);
+        final updated = await repo.getMemberById('avatar-2');
+        expect(updated, isNotNull);
+        expect(updated!.avatarImageData, isNotNull);
 
-      final decoded = img.decodeJpg(updated.avatarImageData!);
-      expect(decoded, isNotNull);
-      expect(decoded!.width, lessThanOrEqualTo(AvatarNormalizer.maxDimension));
-      expect(decoded.height, lessThanOrEqualTo(AvatarNormalizer.maxDimension));
-    });
+        final decoded = img.decodeJpg(updated.avatarImageData!);
+        expect(decoded, isNotNull);
+        expect(
+          decoded!.width,
+          lessThanOrEqualTo(AvatarNormalizer.maxDimension),
+        );
+        expect(
+          decoded.height,
+          lessThanOrEqualTo(AvatarNormalizer.maxDimension),
+        );
+      },
+    );
   });
 }

@@ -6,9 +6,13 @@ import 'package:image/image.dart' as img;
 class AvatarNormalizer {
   AvatarNormalizer._();
 
-  static const maxDimension = 256;
-  static const targetMaxBytes = 96 * 1024;
-  static const _jpegQualities = <int>[82, 74, 66, 58, 50];
+  // Profile avatars render as large as 96 logical pixels in member headers.
+  // On 3x/4x mobile screens, a 256px source has to upscale there. Match the
+  // cropper output so newly cropped avatars stay crisp while still enforcing a
+  // byte budget for sync.
+  static const maxDimension = 512;
+  static const targetMaxBytes = 256 * 1024;
+  static const _jpegQualities = <int>[85, 82, 78, 74, 68, 62, 56, 50];
 
   static Uint8List? normalize(Uint8List? bytes) {
     if (bytes == null || bytes.isEmpty) return bytes;

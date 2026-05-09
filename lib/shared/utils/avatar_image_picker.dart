@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/utils/avatar_normalizer.dart';
 import 'package:prism_plurality/shared/utils/prism_cropped_bitmap_encoder.dart';
 import 'package:prism_plurality/shared/widgets/prism_image_crop_screen.dart';
 
@@ -19,26 +20,26 @@ abstract interface class AvatarPickedImage {
 /// Injectable image picker. Only exists so widget tests can bypass the
 /// `image_picker` platform channel.
 @visibleForTesting
-typedef AvatarPickImageFn = Future<AvatarPickedImage?> Function(
-  ImageSource source,
-);
+typedef AvatarPickImageFn =
+    Future<AvatarPickedImage?> Function(ImageSource source);
 
 /// Injectable cropper. Only exists so widget tests can bypass the crop route.
 @visibleForTesting
-typedef AvatarCropImageFn = Future<Uint8List?> Function(
-  Uint8List sourceBytes,
-  BuildContext context, {
-  required String title,
-  required String doneButtonTitle,
-  required String cancelButtonTitle,
-});
+typedef AvatarCropImageFn =
+    Future<Uint8List?> Function(
+      Uint8List sourceBytes,
+      BuildContext context, {
+      required String title,
+      required String doneButtonTitle,
+      required String cancelButtonTitle,
+    });
 
 /// Picks an avatar image and opens the native crop UI where the cropper plugin
 /// supports the current platform.
 class AvatarImagePicker {
   AvatarImagePicker._();
 
-  static const int _cropOutputSize = 512;
+  static const int _cropOutputSize = AvatarNormalizer.maxDimension;
   static const int _quality = 85;
 
   static Future<Uint8List?> pickCroppedAvatarBytes(
@@ -119,7 +120,8 @@ Uint8List encodeAvatarOutputForStorage(Uint8List bytes) {
     throw StateError('Unable to decode cropped avatar image');
   }
 
-  final resized = decoded.width <= AvatarImagePicker._cropOutputSize &&
+  final resized =
+      decoded.width <= AvatarImagePicker._cropOutputSize &&
           decoded.height <= AvatarImagePicker._cropOutputSize
       ? decoded
       : img.copyResize(
@@ -130,10 +132,7 @@ Uint8List encodeAvatarOutputForStorage(Uint8List bytes) {
         );
 
   return Uint8List.fromList(
-    img.encodeJpg(
-      resized,
-      quality: AvatarImagePicker._quality,
-    ),
+    img.encodeJpg(resized, quality: AvatarImagePicker._quality),
   );
 }
 

@@ -38,6 +38,34 @@ void main() {
     );
   });
 
+  test('preserves picker-sized cropped JPEG avatars', () {
+    final source = img.Image(
+      width: AvatarNormalizer.maxDimension,
+      height: AvatarNormalizer.maxDimension,
+    );
+    for (var y = 0; y < source.height; y++) {
+      for (var x = 0; x < source.width; x++) {
+        source.setPixelRgb(x, y, (x * 7) % 255, (y * 5) % 255, (x + y) % 255);
+      }
+    }
+    final croppedPickerOutput = Uint8List.fromList(
+      img.encodeJpg(source, quality: 85),
+    );
+    expect(
+      croppedPickerOutput.length,
+      lessThanOrEqualTo(AvatarNormalizer.targetMaxBytes),
+      reason: 'precondition: picker output should fit the normalizer budget',
+    );
+
+    final normalized = AvatarNormalizer.normalize(croppedPickerOutput);
+
+    expect(identical(normalized, croppedPickerOutput), isTrue);
+    final decoded = img.decodeJpg(normalized!);
+    expect(decoded, isNotNull);
+    expect(decoded!.width, AvatarNormalizer.maxDimension);
+    expect(decoded.height, AvatarNormalizer.maxDimension);
+  });
+
   test('passes through null avatar data', () {
     expect(AvatarNormalizer.normalize(null), isNull);
   });
@@ -47,8 +75,7 @@ void main() {
   // loss accumulated until avatars visibly degraded — two users hit it.
   // The fast-path returns conformant input verbatim, so repeated saves are
   // byte-identical.
-  test('is idempotent on conformant input across repeated normalize calls',
-      () {
+  test('is idempotent on conformant input across repeated normalize calls', () {
     final source = img.Image(width: 1200, height: 800);
     for (var y = 0; y < source.height; y++) {
       for (var x = 0; x < source.width; x++) {
@@ -93,8 +120,11 @@ void main() {
     );
 
     final normalized = AvatarNormalizer.normalize(jpegBytes);
-    expect(identical(normalized, jpegBytes), isTrue,
-        reason: 'fast-path should return the input instance verbatim');
+    expect(
+      identical(normalized, jpegBytes),
+      isTrue,
+      reason: 'fast-path should return the input instance verbatim',
+    );
   });
 }
 
