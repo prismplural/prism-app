@@ -260,6 +260,33 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
           ))
           .getSingleOrNull();
 
+  /// Read entries for [groupId] that the PK reconcile pass needs to see:
+  /// active rows AND soft-deleted rows that still have a pending PK op
+  /// queued ('push_remove' tombstones the user wants pushed to PK on the
+  /// next sync). The vanilla [entriesForGroup] filters `is_deleted = true`
+  /// out, hiding `push_remove` rows from reconcile and letting the insert
+  /// branch revive them when PK still reports the member.
+  Future<List<MemberGroupEntryRow>> entriesForGroupForReconcile(
+    String groupId,
+  ) =>
+      (select(memberGroupEntries)..where(
+            (e) =>
+                e.groupId.equals(groupId) &
+                (e.isDeleted.equals(false) |
+                    e.pendingPkOp.equals('none').not()),
+          ))
+          .get();
+
+  /// Read every entry with a non-`'none'` pending PK op queued, regardless
+  /// of `is_deleted` state. The push orchestrator buckets these by
+  /// `(groupPkUuid, op)` and pushes to PK. `push_remove` rows are
+  /// soft-deleted by construction; `push_add` rows should be active but
+  /// can become soft-deleted via a CRDT delete from another device — the
+  /// orchestrator's pre-push validation handles that contradiction.
+  Future<List<MemberGroupEntryRow>> entriesWithPendingPkOp() => (select(
+    memberGroupEntries,
+  )..where((e) => e.pendingPkOp.equals('none').not())).get();
+
   // ── PluralKit linkage ───────────────────────────────────────────
 
   /// Look up an existing group by its PluralKit UUID. Identity is UUID-only

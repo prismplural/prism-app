@@ -287,4 +287,163 @@ void main() {
       expect(active.map((g) => g.id), isNot(contains('root')));
     });
   });
+
+  // ── pending PK op queries (push orchestrator + reconcile) ───────────────────
+
+  group('entriesForGroupForReconcile', () {
+    test('returns active entries with pending_pk_op = none', () async {
+      await db.into(db.memberGroups).insert(pkFixtureGroup(id: 'g'));
+      await db.into(db.memberGroupEntries).insert(
+            pkFixtureEntry(id: 'e1', groupId: 'g', memberId: 'm1'),
+          );
+
+      final rows =
+          await db.memberGroupsDao.entriesForGroupForReconcile('g');
+      expect(rows.map((r) => r.id), ['e1']);
+    });
+
+    test('returns active entries with push_add intent', () async {
+      await db.into(db.memberGroups).insert(pkFixtureGroup(id: 'g'));
+      await db.into(db.memberGroupEntries).insert(
+            pkFixtureEntry(
+              id: 'e1',
+              groupId: 'g',
+              memberId: 'm1',
+              pendingPkOp: 'push_add',
+            ),
+          );
+
+      final rows =
+          await db.memberGroupsDao.entriesForGroupForReconcile('g');
+      expect(rows, hasLength(1));
+      expect(rows.single.pendingPkOp, 'push_add');
+    });
+
+    test(
+      'returns soft-deleted entries with push_remove intent (so reconcile '
+      'does not revive them when PK still reports the member)',
+      () async {
+        await db.into(db.memberGroups).insert(pkFixtureGroup(id: 'g'));
+        await db.into(db.memberGroupEntries).insert(
+              pkFixtureEntry(
+                id: 'e1',
+                groupId: 'g',
+                memberId: 'm1',
+                isDeleted: true,
+                pendingPkOp: 'push_remove',
+              ),
+            );
+
+        final rows =
+            await db.memberGroupsDao.entriesForGroupForReconcile('g');
+        expect(rows, hasLength(1));
+        expect(rows.single.isDeleted, isTrue);
+        expect(rows.single.pendingPkOp, 'push_remove');
+      },
+    );
+
+    test(
+      'EXCLUDES soft-deleted entries with pending_pk_op = none (the existing '
+      'reconcile semantic — done with this row)',
+      () async {
+        await db.into(db.memberGroups).insert(pkFixtureGroup(id: 'g'));
+        await db.into(db.memberGroupEntries).insert(
+              pkFixtureEntry(
+                id: 'e1',
+                groupId: 'g',
+                memberId: 'm1',
+                isDeleted: true,
+              ),
+            );
+
+        final rows =
+            await db.memberGroupsDao.entriesForGroupForReconcile('g');
+        expect(rows, isEmpty);
+      },
+    );
+
+    test('scopes to the requested group', () async {
+      await db.into(db.memberGroups).insert(pkFixtureGroup(id: 'g1'));
+      await db.into(db.memberGroups).insert(pkFixtureGroup(id: 'g2'));
+      await db.into(db.memberGroupEntries).insert(
+            pkFixtureEntry(id: 'a', groupId: 'g1', memberId: 'm1'),
+          );
+      await db.into(db.memberGroupEntries).insert(
+            pkFixtureEntry(
+              id: 'b',
+              groupId: 'g2',
+              memberId: 'm1',
+              pendingPkOp: 'push_add',
+            ),
+          );
+
+      final rows =
+          await db.memberGroupsDao.entriesForGroupForReconcile('g1');
+      expect(rows.map((r) => r.id), ['a']);
+    });
+  });
+
+  group('entriesWithPendingPkOp', () {
+    test('returns empty when no rows have pending intent', () async {
+      await db.into(db.memberGroups).insert(pkFixtureGroup(id: 'g'));
+      await db.into(db.memberGroupEntries).insert(
+            pkFixtureEntry(id: 'e1', groupId: 'g', memberId: 'm1'),
+          );
+
+      final rows = await db.memberGroupsDao.entriesWithPendingPkOp();
+      expect(rows, isEmpty);
+    });
+
+    test('returns push_add and push_remove rows across all groups', () async {
+      await db.into(db.memberGroups).insert(pkFixtureGroup(id: 'g1'));
+      await db.into(db.memberGroups).insert(pkFixtureGroup(id: 'g2'));
+      await db.into(db.memberGroupEntries).insert(
+            pkFixtureEntry(
+              id: 'a',
+              groupId: 'g1',
+              memberId: 'm1',
+              pendingPkOp: 'push_add',
+            ),
+          );
+      await db.into(db.memberGroupEntries).insert(
+            pkFixtureEntry(
+              id: 'b',
+              groupId: 'g2',
+              memberId: 'm1',
+              isDeleted: true,
+              pendingPkOp: 'push_remove',
+            ),
+          );
+      await db.into(db.memberGroupEntries).insert(
+            pkFixtureEntry(id: 'c', groupId: 'g1', memberId: 'm2'),
+          );
+
+      final rows = await db.memberGroupsDao.entriesWithPendingPkOp();
+      expect(rows.map((r) => r.id).toSet(), {'a', 'b'});
+    });
+
+    test(
+      'returns push_add rows even when is_deleted is true — pre-push '
+      'validation must be able to see this contradiction',
+      () async {
+        // This state can arise when a CRDT delete from another device flips
+        // is_deleted on a row that locally still has push_add queued.
+        await db.into(db.memberGroups).insert(pkFixtureGroup(id: 'g'));
+        await db.into(db.memberGroupEntries).insert(
+              pkFixtureEntry(
+                id: 'a',
+                groupId: 'g',
+                memberId: 'm1',
+                isDeleted: true,
+                pendingPkOp: 'push_add',
+              ),
+            );
+
+        final rows = await db.memberGroupsDao.entriesWithPendingPkOp();
+        expect(rows, hasLength(1));
+        expect(rows.single.isDeleted, isTrue);
+        expect(rows.single.pendingPkOp, 'push_add');
+      },
+    );
+  });
 }

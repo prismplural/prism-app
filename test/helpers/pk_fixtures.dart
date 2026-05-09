@@ -53,6 +53,7 @@ MemberGroupEntriesCompanion pkFixtureEntry({
   String? pkGroupUuid,
   String? pkMemberUuid,
   bool isDeleted = false,
+  String pendingPkOp = 'none',
 }) => MemberGroupEntriesCompanion.insert(
   id: id,
   groupId: groupId,
@@ -60,6 +61,7 @@ MemberGroupEntriesCompanion pkFixtureEntry({
   pkGroupUuid: Value(pkGroupUuid),
   pkMemberUuid: Value(pkMemberUuid),
   isDeleted: Value(isDeleted),
+  pendingPkOp: Value(pendingPkOp),
 );
 
 /// `sha256(pkGroupUuid || 0x00 || pkMemberUuid)[:16]`: the canonical entry id
