@@ -29,8 +29,7 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_chip.dart';
 import 'package:prism_plurality/shared/widgets/prism_pill.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
-import 'package:prism_plurality/shared/widgets/blur_popup.dart';
-import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
+import 'package:prism_plurality/shared/widgets/prism_popup_menu.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/extensions/datetime_extensions.dart';
@@ -72,6 +71,8 @@ class PollDetailScreen extends ConsumerWidget {
     );
   }
 }
+
+enum _PollDetailMenuAction { delete }
 
 class _PollDetailBody extends ConsumerStatefulWidget {
   const _PollDetailBody({required this.poll, required this.options});
@@ -408,33 +409,18 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
               tooltip: context.l10n.pollsDetailClosePollTooltip,
               onPressed: _confirmClose,
             ),
-          BlurPopupAnchor(
-            trigger: BlurPopupTrigger.tap,
-            preferredDirection: BlurPopupDirection.down,
+          PrismPopupMenu<_PollDetailMenuAction>(
+            tooltip: context.l10n.pollsDetailMoreOptions,
             width: 180,
-            maxHeight: 120,
-            itemCount: 1,
-            itemBuilder: (context, index, close) {
-              final theme = Theme.of(context);
-              final color = theme.colorScheme.error;
-              return PrismListRow(
-                dense: true,
-                leading: Icon(AppIcons.deleteOutline, size: 20, color: color),
-                title: Text(
-                  context.l10n.delete,
-                  style: TextStyle(fontSize: 14, color: color),
-                ),
-                onTap: () {
-                  close();
-                  _confirmDelete();
-                },
-              );
-            },
-            child: PrismTopBarAction(
-              icon: AppIcons.moreVert,
-              tooltip: context.l10n.pollsDetailMoreOptions,
-              onPressed: null,
-            ),
+            items: [
+              PrismMenuItem(
+                value: _PollDetailMenuAction.delete,
+                label: context.l10n.delete,
+                icon: AppIcons.deleteOutline,
+                destructive: true,
+              ),
+            ],
+            onSelected: (_) => _confirmDelete(),
           ),
         ],
       ),
