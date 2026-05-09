@@ -7950,6 +7950,12 @@ abstract class AppLocalizations {
   /// **'Edit Habit'**
   String get habitsEditHabit;
 
+  /// Title shown in CompleteHabitSheet when editing an existing completion
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Completion'**
+  String get habitsEditCompletion;
+
   /// Section header for basic info in add/edit habit sheet
   ///
   /// In en, this message translates to:
@@ -7973,6 +7979,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Description (optional)'**
   String get habitsFieldDescription;
+
+  /// Toast shown on save when user picks a future timestamp for a habit completion
+  ///
+  /// In en, this message translates to:
+  /// **'Completion time can\'t be in the future.'**
+  String get habitsFutureCompletionError;
 
   /// Section header for schedule in add/edit habit sheet
   ///
@@ -8124,6 +8136,18 @@ abstract class AppLocalizations {
   /// **'Notes (optional)'**
   String get habitsNotesField;
 
+  /// Confirm dialog title when long-press → delete on a completion row
+  ///
+  /// In en, this message translates to:
+  /// **'Delete completion?'**
+  String get habitsDeleteCompletionTitle;
+
+  /// Confirm dialog body when deleting a habit completion
+  ///
+  /// In en, this message translates to:
+  /// **'This completion will be removed. Your streak may change.'**
+  String get habitsDeleteCompletionMessage;
+
   /// Dialog title for delete habit confirmation
   ///
   /// In en, this message translates to:
@@ -8243,6 +8267,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Habits'**
   String get habitsListTitle;
+
+  /// Habit detail popup-menu item for backdating a completion
+  ///
+  /// In en, this message translates to:
+  /// **'Log missed completion'**
+  String get habitsLogMissedCompletion;
 
   /// Tooltip for the create habit button in the habits list
   ///
@@ -12431,6 +12461,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Log past sleep'**
   String get logPastSleep;
+
+  /// Semantics hint announced on rows that open a long-press context menu
+  ///
+  /// In en, this message translates to:
+  /// **'Long-press for more options'**
+  String get longPressForOptionsHint;
 
   /// Link in StartSleepSheet to cancel historical-logging mode and return to start-now defaults
   ///

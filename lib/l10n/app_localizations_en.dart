@@ -4627,6 +4627,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get habitsEditHabit => 'Edit Habit';
 
   @override
+  String get habitsEditCompletion => 'Edit Completion';
+
+  @override
   String get habitsSectionBasicInfo => 'BASIC INFO';
 
   @override
@@ -4637,6 +4640,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get habitsFieldDescription => 'Description (optional)';
+
+  @override
+  String get habitsFutureCompletionError =>
+      'Completion time can\'t be in the future.';
 
   @override
   String get habitsSectionSchedule => 'SCHEDULE';
@@ -4724,6 +4731,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get habitsNotesField => 'Notes (optional)';
 
   @override
+  String get habitsDeleteCompletionTitle => 'Delete completion?';
+
+  @override
+  String get habitsDeleteCompletionMessage =>
+      'This completion will be removed. Your streak may change.';
+
+  @override
   String get habitsDetailDeleteTitle => 'Delete Habit';
 
   @override
@@ -4799,6 +4813,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get habitsListTitle => 'Habits';
+
+  @override
+  String get habitsLogMissedCompletion => 'Log missed completion';
 
   @override
   String get habitsCreateHabitTooltip => 'Create habit';
@@ -7535,6 +7552,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get logPastSleep => 'Log past sleep';
+
+  @override
+  String get longPressForOptionsHint => 'Long-press for more options';
 
   @override
   String get cancelHistoricalSleep => 'Cancel';

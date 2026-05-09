@@ -4711,6 +4711,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get habitsEditHabit => 'Editar hábito';
 
   @override
+  String get habitsEditCompletion => 'Editar finalización';
+
+  @override
   String get habitsSectionBasicInfo => 'INFORMACIÓN BÁSICA';
 
   @override
@@ -4721,6 +4724,10 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get habitsFieldDescription => 'Descripción (opcional)';
+
+  @override
+  String get habitsFutureCompletionError =>
+      'La hora de finalización no puede estar en el futuro.';
 
   @override
   String get habitsSectionSchedule => 'HORARIO';
@@ -4809,6 +4816,13 @@ class AppLocalizationsEs extends AppLocalizations {
   String get habitsNotesField => 'Notas (opcional)';
 
   @override
+  String get habitsDeleteCompletionTitle => '¿Eliminar finalización?';
+
+  @override
+  String get habitsDeleteCompletionMessage =>
+      'Esta finalización se eliminará. Tu racha puede cambiar.';
+
+  @override
   String get habitsDetailDeleteTitle => 'Eliminar hábito';
 
   @override
@@ -4883,6 +4897,9 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get habitsListTitle => 'Hábitos';
+
+  @override
+  String get habitsLogMissedCompletion => 'Registrar finalización olvidada';
 
   @override
   String get habitsCreateHabitTooltip => 'Crear hábito';
@@ -7665,6 +7682,9 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get logPastSleep => 'Registrar sueño pasado';
+
+  @override
+  String get longPressForOptionsHint => 'Mantén pulsado para más opciones';
 
   @override
   String get cancelHistoricalSleep => 'Cancelar';

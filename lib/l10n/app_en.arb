@@ -6287,6 +6287,10 @@
   "@habitsEditHabit": {
     "description": "Sheet title when editing an existing habit"
   },
+  "habitsEditCompletion": "Edit Completion",
+  "@habitsEditCompletion": {
+    "description": "Title shown in CompleteHabitSheet when editing an existing completion"
+  },
   "habitsSectionBasicInfo": "BASIC INFO",
   "@habitsSectionBasicInfo": {
     "description": "Section header for basic info in add/edit habit sheet"
@@ -6302,6 +6306,10 @@
   "habitsFieldDescription": "Description (optional)",
   "@habitsFieldDescription": {
     "description": "Label for the description field in add/edit habit sheet"
+  },
+  "habitsFutureCompletionError": "Completion time can't be in the future.",
+  "@habitsFutureCompletionError": {
+    "description": "Toast shown on save when user picks a future timestamp for a habit completion"
   },
   "habitsSectionSchedule": "SCHEDULE",
   "@habitsSectionSchedule": {
@@ -6428,6 +6436,14 @@
   "@habitsNotesField": {
     "description": "Label for the notes field in complete habit sheet"
   },
+  "habitsDeleteCompletionTitle": "Delete completion?",
+  "@habitsDeleteCompletionTitle": {
+    "description": "Confirm dialog title when long-press → delete on a completion row"
+  },
+  "habitsDeleteCompletionMessage": "This completion will be removed. Your streak may change.",
+  "@habitsDeleteCompletionMessage": {
+    "description": "Confirm dialog body when deleting a habit completion"
+  },
   "habitsDetailDeleteTitle": "Delete Habit",
   "@habitsDetailDeleteTitle": {
     "description": "Dialog title for delete habit confirmation"
@@ -6545,6 +6561,10 @@
   "habitsListTitle": "Habits",
   "@habitsListTitle": {
     "description": "Title in the habits list top bar"
+  },
+  "habitsLogMissedCompletion": "Log missed completion",
+  "@habitsLogMissedCompletion": {
+    "description": "Habit detail popup-menu item for backdating a completion"
   },
   "habitsCreateHabitTooltip": "Create habit",
   "@habitsCreateHabitTooltip": {
@@ -8373,6 +8393,10 @@
   "@sleepOverlapsExistingWarning": { "description": "Soft warning shown in StartSleepSheet when a historical sleep entry overlaps an existing session" },
   "logPastSleep": "Log past sleep",
   "@logPastSleep": { "description": "Disclosure link in StartSleepSheet to switch into historical-logging mode with an end-time field" },
+  "longPressForOptionsHint": "Long-press for more options",
+  "@longPressForOptionsHint": {
+    "description": "Semantics hint announced on rows that open a long-press context menu"
+  },
   "cancelHistoricalSleep": "Cancel",
   "@cancelHistoricalSleep": { "description": "Link in StartSleepSheet to cancel historical-logging mode and return to start-now defaults" },
 
