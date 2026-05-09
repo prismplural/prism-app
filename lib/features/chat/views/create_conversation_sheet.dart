@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/chat/providers/category_providers.dart';
+import 'package:prism_plurality/features/chat/widgets/conversation_category_picker_dialog.dart';
 import 'package:prism_plurality/features/chat/widgets/speaking_as_picker.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/utils/member_search_groups.dart';
@@ -419,35 +420,16 @@ class _CreateConversationSheetState
                     title: Text(context.l10n.chatInfoCategory),
                     subtitle: Text(currentName),
                     trailing: Icon(AppIcons.chevronRightRounded),
-                    onTap: () {
-                      PrismSheet.show(
-                        context: context,
-                        builder: (ctx) => Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            PrismListRow(
-                              title: Text(ctx.l10n.chatInfoCategoryNone),
-                              trailing: _selectedCategoryId == null
-                                  ? Icon(AppIcons.checkRounded)
-                                  : null,
-                              onTap: () {
-                                setState(() => _selectedCategoryId = null);
-                                Navigator.of(ctx).pop();
-                              },
-                            ),
-                            for (final cat in categories)
-                              PrismListRow(
-                                title: Text(cat.name),
-                                trailing: cat.id == _selectedCategoryId
-                                    ? Icon(AppIcons.checkRounded)
-                                    : null,
-                                onTap: () {
-                                  setState(() => _selectedCategoryId = cat.id);
-                                  Navigator.of(ctx).pop();
-                                },
-                              ),
-                          ],
-                        ),
+                    onTap: () async {
+                      final selection =
+                          await showConversationCategoryPickerDialog(
+                            context,
+                            categories: categories,
+                            currentCategoryId: _selectedCategoryId,
+                          );
+                      if (selection == null || !mounted) return;
+                      setState(
+                        () => _selectedCategoryId = selection.categoryId,
                       );
                     },
                   ),

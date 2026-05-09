@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/domain/models/conversation.dart';
+import 'package:prism_plurality/domain/models/conversation_category.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
@@ -22,6 +23,7 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_chip.dart';
+import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/selected_member_picker.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -87,6 +89,7 @@ Widget _buildSheet({
   List<String>? initialMemberIds,
   bool initialIsGroupChat = true,
   _FakeChatNotifier? chatNotifier,
+  List<ConversationCategory> categories = const [],
 }) {
   final notifier = chatNotifier ?? _FakeChatNotifier();
   return ProviderScope(
@@ -112,7 +115,9 @@ Widget _buildSheet({
         speakingAsProvider.overrideWith(
           () => _FakeSpeakingAsNotifier(speakingAs),
         ),
-      conversationCategoriesProvider.overrideWith((ref) => Stream.value([])),
+      conversationCategoriesProvider.overrideWith(
+        (ref) => Stream.value(categories),
+      ),
       chatNotifierProvider.overrideWith(() => notifier),
     ],
     child: MaterialApp(
@@ -290,6 +295,39 @@ void main() {
         );
       },
     );
+  });
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // Category picker
+  // ══════════════════════════════════════════════════════════════════════════
+
+  group('category picker', () {
+    testWidgets('opens a dialog for category assignment', (tester) async {
+      final category = ConversationCategory(
+        id: 'fandoms',
+        name: 'Fandoms',
+        displayOrder: 0,
+        createdAt: DateTime(2026),
+        modifiedAt: DateTime(2026),
+      );
+
+      await tester.pumpWidget(
+        _buildSheet(members: [alice, bob], categories: [category]),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Category'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PrismDialog), findsOneWidget);
+      expect(find.text('Fandoms'), findsOneWidget);
+
+      await tester.tap(find.text('Fandoms'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PrismDialog), findsNothing);
+      expect(find.text('Fandoms'), findsOneWidget);
+    });
   });
 
   // ══════════════════════════════════════════════════════════════════════════

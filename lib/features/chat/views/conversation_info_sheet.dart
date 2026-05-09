@@ -9,6 +9,7 @@ import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/chat/providers/category_providers.dart';
 import 'package:prism_plurality/features/chat/views/add_members_sheet.dart';
 import 'package:prism_plurality/features/chat/views/creator_transfer_picker.dart';
+import 'package:prism_plurality/features/chat/widgets/conversation_category_picker_dialog.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/utils/member_search_groups.dart';
@@ -902,51 +903,33 @@ class _CategoryPicker extends ConsumerWidget {
           title: Text(context.l10n.chatInfoCategory),
           subtitle: Text(currentName),
           trailing: Icon(AppIcons.chevronRightRounded),
-          onTap: () =>
-              _showCategorySheet(context, ref, categories, currentName),
+          onTap: () => _showCategoryDialog(context, ref, categories),
         ),
       ),
     );
   }
 
-  void _showCategorySheet(
+  Future<void> _showCategoryDialog(
     BuildContext context,
     WidgetRef ref,
     List<ConversationCategory> categories,
-    String currentName,
-  ) {
-    PrismSheet.show(
-      context: context,
-      builder: (context) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          PrismListRow(
-            title: Text(context.l10n.chatInfoCategoryNone),
-            trailing: currentCategoryId == null
-                ? Icon(AppIcons.checkRounded)
-                : null,
-            onTap: () {
-              ref
-                  .read(chatNotifierProvider.notifier)
-                  .updateConversation(conversationId, clearCategory: true);
-              Navigator.of(context).pop();
-            },
-          ),
-          for (final cat in categories)
-            PrismListRow(
-              title: Text(cat.name),
-              trailing: cat.id == currentCategoryId
-                  ? Icon(AppIcons.checkRounded)
-                  : null,
-              onTap: () {
-                ref
-                    .read(chatNotifierProvider.notifier)
-                    .updateConversation(conversationId, categoryId: cat.id);
-                Navigator.of(context).pop();
-              },
-            ),
-        ],
-      ),
+  ) async {
+    final selection = await showConversationCategoryPickerDialog(
+      context,
+      categories: categories,
+      currentCategoryId: currentCategoryId,
     );
+    if (selection == null || !context.mounted) return;
+    if (selection.categoryId == currentCategoryId) return;
+
+    final notifier = ref.read(chatNotifierProvider.notifier);
+    if (selection.categoryId == null) {
+      await notifier.updateConversation(conversationId, clearCategory: true);
+    } else {
+      await notifier.updateConversation(
+        conversationId,
+        categoryId: selection.categoryId,
+      );
+    }
   }
 }
