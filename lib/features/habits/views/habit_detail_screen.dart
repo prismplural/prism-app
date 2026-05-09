@@ -22,6 +22,7 @@ import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/glass_surface.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
+import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
@@ -59,16 +60,19 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final habitAsync = ref.watch(habitByIdProvider(widget.habitId));
-    final completionsAsync =
-        ref.watch(habitCompletionsProvider(widget.habitId));
-    final statsAsync = ref.watch(habitStatsProvider(
-        (habitId: widget.habitId, timeframe: _timeframe)));
+    final completionsAsync = ref.watch(
+      habitCompletionsProvider(widget.habitId),
+    );
+    final statsAsync = ref.watch(
+      habitStatsProvider((habitId: widget.habitId, timeframe: _timeframe)),
+    );
     final membersAsync = ref.watch(allMembersProvider);
     final today = ref.watch(currentDateProvider);
 
     final completions = completionsAsync.value ?? [];
     final isCompletedToday = completions.any(
-        (c) => DateUtils.isSameDay(c.completedAt, today));
+      (c) => DateUtils.isSameDay(c.completedAt, today),
+    );
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
@@ -78,7 +82,10 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
             ? PrismPopupMenu<String>(
                 items: [
                   PrismMenuItem(
-                      value: 'edit', label: context.l10n.edit, icon: AppIcons.edit),
+                    value: 'edit',
+                    label: context.l10n.edit,
+                    icon: AppIcons.edit,
+                  ),
                   PrismMenuItem(
                     value: 'toggle',
                     label: habitAsync.value!.isActive
@@ -94,10 +101,11 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
                     icon: AppIcons.history,
                   ),
                   PrismMenuItem(
-                      value: 'delete',
-                      label: context.l10n.delete,
-                      icon: AppIcons.deleteOutline,
-                      destructive: true),
+                    value: 'delete',
+                    label: context.l10n.delete,
+                    icon: AppIcons.deleteOutline,
+                    destructive: true,
+                  ),
                 ],
                 onSelected: (value) async {
                   switch (value) {
@@ -109,14 +117,16 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
                           .toggleActive(widget.habitId);
                     case 'logMissed':
                       if (context.mounted) {
-                        unawaited(PrismSheet.showFullScreen(
-                          context: context,
-                          builder: (ctx, sc) => CompleteHabitSheet(
-                            habit: habitAsync.value!,
-                            scrollController: sc,
-                            initialPastDefault: true,
+                        unawaited(
+                          PrismSheet.showFullScreen(
+                            context: context,
+                            builder: (ctx, sc) => CompleteHabitSheet(
+                              habit: habitAsync.value!,
+                              scrollController: sc,
+                              initialPastDefault: true,
+                            ),
                           ),
-                        ));
+                        );
                       }
                     case 'delete':
                       await _confirmDelete(context);
@@ -157,17 +167,15 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
                 // ── Timeframe Picker ───────────────────────────
                 Padding(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 8),
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   child: PrismSegmentedControl<StatisticsTimeframe>(
                     segments: StatisticsTimeframe.values
-                        .map((t) => PrismSegment(
-                              value: t,
-                              label: t.label,
-                            ))
+                        .map((t) => PrismSegment(value: t, label: t.label))
                         .toList(),
                     selected: _timeframe,
-                    onChanged: (value) =>
-                        setState(() => _timeframe = value),
+                    onChanged: (value) => setState(() => _timeframe = value),
                   ),
                 ),
 
@@ -181,10 +189,8 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
                     padding: const EdgeInsets.all(16),
                     child: Text(context.l10n.error),
                   ),
-                  data: (stats) => _StatsRow(
-                    stats: stats,
-                    habitColor: habitColor,
-                  ),
+                  data: (stats) =>
+                      _StatsRow(stats: stats, habitColor: habitColor),
                 ),
 
                 // ── Recent Completions ─────────────────────────
@@ -203,7 +209,8 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
                       return EmptyState(
                         icon: Icon(AppIcons.checkCircleOutline),
                         title: context.l10n.habitsDetailNoCompletions,
-                        subtitle: context.l10n.habitsDetailNoCompletionsSubtitle,
+                        subtitle:
+                            context.l10n.habitsDetailNoCompletionsSubtitle,
                       );
                     }
                     // Plain Column — no nested scroll view, no
@@ -303,8 +310,8 @@ class _HabitHeader extends StatelessWidget {
     final theme = Theme.of(context);
     final frequencyText =
         habit.frequency == HabitFrequency.interval && habit.intervalDays != null
-            ? context.l10n.habitsDetailFrequencyEveryNDays(habit.intervalDays!)
-            : habit.frequency.label;
+        ? context.l10n.habitsDetailFrequencyEveryNDays(habit.intervalDays!)
+        : habit.frequency.label;
 
     final semanticsLabel = [
       'Habit: ${habit.name}',
@@ -326,8 +333,11 @@ class _HabitHeader extends StatelessWidget {
               child: Center(
                 child: habit.icon != null
                     ? Text(habit.icon!, style: const TextStyle(fontSize: 24))
-                    : Icon(AppIcons.checkCircleOutline,
-                        size: 24, color: habitColor),
+                    : Icon(
+                        AppIcons.checkCircleOutline,
+                        size: 24,
+                        color: habitColor,
+                      ),
               ),
             ),
             const SizedBox(width: 16),
@@ -337,8 +347,9 @@ class _HabitHeader extends StatelessWidget {
                 children: [
                   Text(
                     habit.name,
-                    style: theme.textTheme.headlineSmall
-                        ?.copyWith(fontWeight: FontWeight.bold),
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -353,8 +364,10 @@ class _HabitHeader extends StatelessWidget {
                       habit.description!.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
-                      child: Text(habit.description!,
-                          style: theme.textTheme.bodySmall),
+                      child: Text(
+                        habit.description!,
+                        style: theme.textTheme.bodySmall,
+                      ),
                     ),
                 ],
               ),
@@ -407,8 +420,9 @@ class _StatsRow extends StatelessWidget {
                       ),
                       Text(
                         '${stats.totalCompletions}',
-                        style: theme.textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.bold),
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ],
                   ),
@@ -425,8 +439,9 @@ class _StatsRow extends StatelessWidget {
                       ),
                       Text(
                         '${stats.completionRate.toStringAsFixed(0)}%',
-                        style: theme.textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.bold),
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ],
                   ),
@@ -443,7 +458,9 @@ class _StatsRow extends StatelessWidget {
                 if (stats.currentStreak > 0)
                   PrismPill(
                     icon: AppIcons.localFireDepartment,
-                    label: context.l10n.habitsStatCurrentStreak(stats.currentStreak),
+                    label: context.l10n.habitsStatCurrentStreak(
+                      stats.currentStreak,
+                    ),
                     color: Colors.orange.shade700,
                   ),
                 if (stats.bestStreak > stats.currentStreak)
@@ -482,7 +499,9 @@ class _CompletionTile extends ConsumerWidget {
 
   Member? _findMember() {
     if (completion.completedByMemberId == null) return null;
-    return members.firstWhereOrNull((m) => m.id == completion.completedByMemberId);
+    return members.firstWhereOrNull(
+      (m) => m.id == completion.completedByMemberId,
+    );
   }
 
   List<_CompletionContextAction> _contextActions(
@@ -533,6 +552,22 @@ class _CompletionTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final member = _findMember();
     final actions = _contextActions(context, ref);
+    final rating = completion.rating != null
+        ? Semantics(
+            label: context.l10n.habitsCompletionRatedNStars(completion.rating!),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: List.generate(
+                5,
+                (i) => Icon(
+                  i < completion.rating! ? AppIcons.star : AppIcons.starBorder,
+                  size: 14,
+                  color: Colors.amber,
+                ),
+              ),
+            ),
+          )
+        : null;
 
     final tileContent = PrismListRow(
       leading: member != null
@@ -554,24 +589,13 @@ class _CompletionTile extends ConsumerWidget {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
-      trailing: completion.rating != null
-          ? Semantics(
-              label: context.l10n.habitsCompletionRatedNStars(completion.rating!),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: List.generate(
-                  5,
-                  (i) => Icon(
-                    i < completion.rating!
-                        ? AppIcons.star
-                        : AppIcons.starBorder,
-                    size: 14,
-                    color: Colors.amber,
-                  ),
-                ),
-              ),
-            )
-          : null,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (rating != null) ...[rating, const SizedBox(width: 4)],
+          _CompletionActionsPopupButton(actions: actions),
+        ],
+      ),
     );
 
     return Semantics(
@@ -585,17 +609,7 @@ class _CompletionTile extends ConsumerWidget {
         itemCount: actions.length,
         itemBuilder: (context, index, close) {
           final action = actions[index];
-          return PrismListRow(
-            dense: true,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            leading: Icon(action.icon, size: 20),
-            title: Text(action.label),
-            destructive: action.destructive,
-            onTap: () {
-              close();
-              unawaited(Future<void>.sync(action.onSelected));
-            },
-          );
+          return _CompletionContextActionRow(action: action, close: close);
         },
         child: tileContent,
       ),
@@ -618,6 +632,69 @@ class _CompletionTile extends ConsumerWidget {
 
   String _timeString(String locale, DateTime date) =>
       DateFormat.jm(locale).format(date);
+}
+
+class _CompletionActionsPopupButton extends StatefulWidget {
+  const _CompletionActionsPopupButton({required this.actions});
+
+  final List<_CompletionContextAction> actions;
+
+  @override
+  State<_CompletionActionsPopupButton> createState() =>
+      _CompletionActionsPopupButtonState();
+}
+
+class _CompletionActionsPopupButtonState
+    extends State<_CompletionActionsPopupButton> {
+  final GlobalKey<BlurPopupAnchorState> _popupKey = GlobalKey();
+
+  @override
+  Widget build(BuildContext context) {
+    return BlurPopupAnchor(
+      key: _popupKey,
+      trigger: BlurPopupTrigger.manual,
+      width: 220,
+      maxHeight: 320,
+      itemCount: widget.actions.length,
+      itemBuilder: (context, index, close) {
+        final action = widget.actions[index];
+        return _CompletionContextActionRow(action: action, close: close);
+      },
+      child: PrismInlineIconButton(
+        icon: AppIcons.moreVert,
+        tooltip: context.l10n.moreOptions,
+        semanticLabel: context.l10n.moreOptions,
+        size: 40,
+        iconSize: 18,
+        onPressed: () => _popupKey.currentState?.show(),
+      ),
+    );
+  }
+}
+
+class _CompletionContextActionRow extends StatelessWidget {
+  const _CompletionContextActionRow({
+    required this.action,
+    required this.close,
+  });
+
+  final _CompletionContextAction action;
+  final VoidCallback close;
+
+  @override
+  Widget build(BuildContext context) {
+    return PrismListRow(
+      dense: true,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      leading: Icon(action.icon, size: 20),
+      title: Text(action.label),
+      destructive: action.destructive,
+      onTap: () {
+        close();
+        unawaited(Future<void>.sync(action.onSelected));
+      },
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -707,8 +784,7 @@ class _FloatingCompleteButton extends ConsumerWidget {
             onTap: enabled ? onPressed : null,
             borderRadius: pillRadius,
             child: Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -721,13 +797,14 @@ class _FloatingCompleteButton extends ConsumerWidget {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    isCompletedToday ? context.l10n.habitsCompleted : context.l10n.habitsComplete,
+                    isCompletedToday
+                        ? context.l10n.habitsCompleted
+                        : context.l10n.habitsComplete,
                     style: theme.textTheme.labelLarge?.copyWith(
                       fontWeight: FontWeight.w700,
                       color: enabled
                           ? theme.colorScheme.onSurface
-                          : theme.colorScheme.onSurface
-                              .withValues(alpha: 0.5),
+                          : theme.colorScheme.onSurface.withValues(alpha: 0.5),
                     ),
                   ),
                 ],

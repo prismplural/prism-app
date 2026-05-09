@@ -41,18 +41,38 @@ class HabitsDao extends DatabaseAccessor<AppDatabase> with _$HabitsDaoMixin {
 
   Future<int> createHabit(HabitsCompanion habit) => into(habits).insert(habit);
 
-  Future<void> updateHabit(String id, HabitsCompanion habit) =>
-      (update(habits)..where((h) => h.id.equals(id))).write(habit);
+  Future<int> updateHabit(String id, HabitsCompanion habit) =>
+      updateHabitById(id, habit);
 
-  Future<void> deleteHabit(String id) async {
-    // Soft-delete completions first
-    await (update(habitCompletions)..where((c) => c.habitId.equals(id))).write(
-      const HabitCompletionsCompanion(isDeleted: Value(true)),
-    );
-    // Soft-delete the habit
-    await (update(habits)..where((h) => h.id.equals(id))).write(
-      const HabitsCompanion(isDeleted: Value(true)),
-    );
+  /// Update an active habit by ID. Returns affected row count (0 if the row is
+  /// tombstoned or missing, 1 on success).
+  Future<int> updateHabitById(String id, HabitsCompanion habit) => (update(
+    habits,
+  )..where((h) => h.id.equals(id) & h.isDeleted.equals(false))).write(habit);
+
+  /// Single-row read by ID, including tombstones. Repository writers use this
+  /// to guard sync emission for missing/tombstoned rows.
+  Future<Habit?> getHabitByIdRow(String id) =>
+      (select(habits)..where((h) => h.id.equals(id))).getSingleOrNull();
+
+  Future<List<HabitCompletion>> deleteHabit(String id) async {
+    return transaction(() async {
+      final habitAffected =
+          await (update(habits)
+                ..where((h) => h.id.equals(id) & h.isDeleted.equals(false)))
+              .write(const HabitsCompanion(isDeleted: Value(true)));
+      if (habitAffected != 1) return const <HabitCompletion>[];
+
+      final activeCompletions = await (select(
+        habitCompletions,
+      )..where((c) => c.habitId.equals(id) & c.isDeleted.equals(false))).get();
+
+      await (update(habitCompletions)
+            ..where((c) => c.habitId.equals(id) & c.isDeleted.equals(false)))
+          .write(const HabitCompletionsCompanion(isDeleted: Value(true)));
+
+      return activeCompletions;
+    });
   }
 
   // ── Completions ──────────────────────────────────────────────────
@@ -125,13 +145,30 @@ class HabitsDao extends DatabaseAccessor<AppDatabase> with _$HabitsDaoMixin {
         .watch();
   }
 
-  Future<int> createCompletion(HabitCompletionsCompanion completion) =>
-      into(habitCompletions).insert(completion);
+  Future<int> createCompletion(HabitCompletionsCompanion completion) async {
+    if (!completion.habitId.present) {
+      throw ArgumentError('completion.habitId is required');
+    }
 
-  Future<void> deleteCompletion(String id) =>
-      (update(habitCompletions)..where((c) => c.id.equals(id))).write(
-        const HabitCompletionsCompanion(isDeleted: Value(true)),
-      );
+    return transaction(() async {
+      final activeParent =
+          await (select(habits)..where(
+                (h) =>
+                    h.id.equals(completion.habitId.value) &
+                    h.isDeleted.equals(false),
+              ))
+              .getSingleOrNull();
+      if (activeParent == null) return 0;
+
+      await into(habitCompletions).insert(completion);
+      return 1;
+    });
+  }
+
+  Future<int> deleteCompletion(String id) =>
+      (update(habitCompletions)
+            ..where((c) => c.id.equals(id) & c.isDeleted.equals(false)))
+          .write(const HabitCompletionsCompanion(isDeleted: Value(true)));
 
   /// Update an active habit completion by ID. Returns affected row count
   /// (0 if the row is tombstoned or missing, 1 on success).
@@ -150,7 +187,7 @@ class HabitsDao extends DatabaseAccessor<AppDatabase> with _$HabitsDaoMixin {
   /// Single-row read by ID. Returns the raw Drift row (including a tombstoned
   /// row); the repository layer is responsible for filtering on `isDeleted`
   /// when mapping to the domain model.
-  Future<HabitCompletion?> getCompletionByIdRow(String id) =>
-      (select(habitCompletions)..where((c) => c.id.equals(id)))
-          .getSingleOrNull();
+  Future<HabitCompletion?> getCompletionByIdRow(String id) => (select(
+    habitCompletions,
+  )..where((c) => c.id.equals(id))).getSingleOrNull();
 }

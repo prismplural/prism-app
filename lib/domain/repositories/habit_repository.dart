@@ -9,6 +9,16 @@ abstract class HabitRepository {
   Future<List<domain.Habit>> getAllHabits();
   Future<void> createHabit(domain.Habit habit);
   Future<void> updateHabit(domain.Habit habit);
+
+  /// Updates a habit using a partial-fields patch keyed by sync wire-format
+  /// names (e.g., 'current_streak', 'total_completions', 'modified_at'). Only
+  /// the keys present in [changedFields] are written to the DAO and emitted via
+  /// syncRecordUpdate. `is_deleted` is ignored; tombstones are owned by
+  /// deleteHabit/syncRecordDelete.
+  ///
+  /// Returns affected row count (0 if tombstoned/missing, 1 on success).
+  Future<int> updateHabitFields(String id, Map<String, dynamic> changedFields);
+
   Future<void> deleteHabit(String id);
 
   Future<List<domain.HabitCompletion>> getAllCompletions();
@@ -23,8 +33,17 @@ abstract class HabitRepository {
     DateTime start,
     DateTime end,
   );
-  Future<void> createCompletion(domain.HabitCompletion completion);
-  Future<void> deleteCompletion(String id);
+
+  /// Creates a completion only when its parent habit is active.
+  ///
+  /// Returns affected row count (0 if the parent habit is tombstoned/missing,
+  /// 1 on success).
+  Future<int> createCompletion(domain.HabitCompletion completion);
+
+  /// Soft-deletes a completion.
+  ///
+  /// Returns affected row count (0 if already tombstoned/missing, 1 on success).
+  Future<int> deleteCompletion(String id);
 
   /// Returns the completion by ID, or null if it's tombstoned/missing.
   Future<domain.HabitCompletion?> getCompletionById(String id);
@@ -39,5 +58,8 @@ abstract class HabitRepository {
   /// Returns affected row count (0 if tombstoned/missing, 1 on success).
   /// Caller is responsible for including `modified_at` in [changedFields]
   /// (so CRDT field-level LWW has a fresh HLC stamp on each updated field).
-  Future<int> updateCompletionFields(String id, Map<String, dynamic> changedFields);
+  Future<int> updateCompletionFields(
+    String id,
+    Map<String, dynamic> changedFields,
+  );
 }

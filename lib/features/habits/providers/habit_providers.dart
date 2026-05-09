@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
 import 'package:flutter/material.dart' show DateUtils;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
@@ -43,7 +43,10 @@ final habitsProvider = StreamProvider<List<Habit>>((ref) {
 });
 
 /// Watches a single habit by ID.
-final habitByIdProvider = StreamProvider.autoDispose.family<Habit?, String>((ref, id) {
+final habitByIdProvider = StreamProvider.autoDispose.family<Habit?, String>((
+  ref,
+  id,
+) {
   final link = ref.keepAlive();
   Timer? timer;
   ref.onDispose(() => timer?.cancel());
@@ -56,8 +59,8 @@ final habitByIdProvider = StreamProvider.autoDispose.family<Habit?, String>((ref
 });
 
 /// Watches completions for a specific habit.
-final habitCompletionsProvider =
-    StreamProvider.autoDispose.family<List<HabitCompletion>, String>((ref, habitId) {
+final habitCompletionsProvider = StreamProvider.autoDispose
+    .family<List<HabitCompletion>, String>((ref, habitId) {
       final repo = ref.watch(habitRepositoryProvider);
       return repo.watchCompletionsForHabit(habitId);
     });
@@ -112,11 +115,11 @@ final dueHabitsCountProvider = Provider<int>((ref) {
 });
 
 /// Stats for a habit over a given timeframe.
-final habitStatsProvider =
-    FutureProvider.autoDispose.family<
-      HabitStats,
-      ({String habitId, StatisticsTimeframe timeframe})
-    >((ref, params) async {
+final habitStatsProvider = FutureProvider.autoDispose
+    .family<HabitStats, ({String habitId, StatisticsTimeframe timeframe})>((
+      ref,
+      params,
+    ) async {
       final repo = ref.watch(habitRepositoryProvider);
       final habit = await repo.getHabitById(params.habitId);
       if (habit == null) {
@@ -211,6 +214,26 @@ class HabitNotifier extends AsyncNotifier<void> {
     });
   }
 
+  Future<void> updateHabitFields({
+    required String habitId,
+    required Map<String, dynamic> changedFields,
+  }) async {
+    state = await AsyncValue.guard(() async {
+      if (changedFields.isEmpty) return;
+      final repo = ref.read(habitRepositoryProvider);
+      final patch = Map<String, dynamic>.from(changedFields);
+      patch['modified_at'] = DateTime.now().toUtc().toIso8601String();
+
+      final affected = await repo.updateHabitFields(habitId, patch);
+      if (affected != 1) return;
+
+      final habit = await repo.getHabitById(habitId);
+      if (habit == null) return;
+      final notifService = ref.read(habitNotificationServiceProvider);
+      await notifService.scheduleForHabit(habit);
+    });
+  }
+
   Future<void> deleteHabit(String id) async {
     state = await AsyncValue.guard(() async {
       final repo = ref.read(habitRepositoryProvider);
@@ -232,9 +255,12 @@ class HabitNotifier extends AsyncNotifier<void> {
         final notifService = ref.read(habitNotificationServiceProvider);
         await notifService.cancelForHabit(id);
       }
-      await repo.updateHabit(
-        habit.copyWith(isActive: !habit.isActive, modifiedAt: DateTime.now()),
-      );
+      final now = DateTime.now();
+      final affected = await repo.updateHabitFields(id, {
+        'is_active': !habit.isActive,
+        'modified_at': now.toUtc().toIso8601String(),
+      });
+      if (affected != 1) return;
     });
   }
 
@@ -250,6 +276,8 @@ class HabitNotifier extends AsyncNotifier<void> {
     state = await AsyncValue.guard(() async {
       final repo = ref.read(habitRepositoryProvider);
       final now = DateTime.now();
+      final habit = await repo.getHabitById(habitId);
+      if (habit == null) return;
 
       final completion = HabitCompletion(
         id: _uuid.v4(),
@@ -262,11 +290,8 @@ class HabitNotifier extends AsyncNotifier<void> {
         createdAt: now,
         modifiedAt: now,
       );
-      await repo.createCompletion(completion);
-
-      // Update habit stats
-      final habit = await repo.getHabitById(habitId);
-      if (habit == null) return;
+      final completionCreated = await repo.createCompletion(completion);
+      if (completionCreated != 1) return;
 
       final completions = await repo.getCompletionsForHabit(habitId);
       final currentStreak = _calculateCurrentStreak(habit, completions);
@@ -275,8 +300,9 @@ class HabitNotifier extends AsyncNotifier<void> {
       final bestAllTime = isPastDated
           ? _calculateBestStreakAllTime(habit, completions)
           : currentStreak;
-      final bestStreak =
-          bestAllTime > habit.bestStreak ? bestAllTime : habit.bestStreak;
+      final bestStreak = bestAllTime > habit.bestStreak
+          ? bestAllTime
+          : habit.bestStreak;
 
       final updated = habit.copyWith(
         totalCompletions: habit.totalCompletions + 1,
@@ -284,7 +310,16 @@ class HabitNotifier extends AsyncNotifier<void> {
         bestStreak: bestStreak,
         modifiedAt: now,
       );
-      await repo.updateHabit(updated);
+      final affected = await repo.updateHabitFields(habitId, {
+        'total_completions': updated.totalCompletions,
+        'current_streak': updated.currentStreak,
+        'best_streak': updated.bestStreak,
+        'modified_at': updated.modifiedAt.toUtc().toIso8601String(),
+      });
+      if (affected != 1) {
+        await repo.deleteCompletion(completion.id);
+        return;
+      }
 
       // Schedule/suppress this period's reminder. For past-dated completions,
       // recompute whether today is still incomplete so a missed-yesterday log
@@ -304,7 +339,10 @@ class HabitNotifier extends AsyncNotifier<void> {
               now: now,
             )
           : true; // today-default: skip (we just completed it)
-      await notifService.scheduleForHabit(updated, skipCurrentPeriod: skipCurrentPeriod);
+      await notifService.scheduleForHabit(
+        updated,
+        skipCurrentPeriod: skipCurrentPeriod,
+      );
     });
   }
 
@@ -315,7 +353,8 @@ class HabitNotifier extends AsyncNotifier<void> {
   }) async {
     state = await AsyncValue.guard(() async {
       final repo = ref.read(habitRepositoryProvider);
-      await repo.deleteCompletion(completionId);
+      final affected = await repo.deleteCompletion(completionId);
+      if (affected != 1) return;
 
       final habit = await repo.getHabitById(habitId);
       if (habit == null) return;
@@ -336,7 +375,13 @@ class HabitNotifier extends AsyncNotifier<void> {
         bestStreak: bestStreak,
         modifiedAt: DateTime.now(),
       );
-      await repo.updateHabit(updatedHabit);
+      final updateAffected = await repo.updateHabitFields(habitId, {
+        'total_completions': updatedHabit.totalCompletions,
+        'current_streak': updatedHabit.currentStreak,
+        'best_streak': updatedHabit.bestStreak,
+        'modified_at': updatedHabit.modifiedAt.toUtc().toIso8601String(),
+      });
+      if (updateAffected != 1) return;
 
       // Reschedule notifications with a fresh skipCurrentPeriod check so the
       // reminder fires again if today is no longer completed. Previously this
@@ -388,10 +433,13 @@ class HabitNotifier extends AsyncNotifier<void> {
 
       final currentStreak = _calculateCurrentStreak(habit, completions);
       final bestAllTime = _calculateBestStreakAllTime(habit, completions);
-      final bestStreak = bestAllTime > habit.bestStreak ? bestAllTime : habit.bestStreak;
+      final bestStreak = bestAllTime > habit.bestStreak
+          ? bestAllTime
+          : habit.bestStreak;
 
       final habitChanged =
-          currentStreak != habit.currentStreak || bestStreak != habit.bestStreak;
+          currentStreak != habit.currentStreak ||
+          bestStreak != habit.bestStreak;
       final updatedHabit = habitChanged
           ? habit.copyWith(
               currentStreak: currentStreak,
@@ -400,7 +448,12 @@ class HabitNotifier extends AsyncNotifier<void> {
             )
           : habit;
       if (habitChanged) {
-        await repo.updateHabit(updatedHabit);
+        final affected = await repo.updateHabitFields(habitId, {
+          'current_streak': updatedHabit.currentStreak,
+          'best_streak': updatedHabit.bestStreak,
+          'modified_at': updatedHabit.modifiedAt.toUtc().toIso8601String(),
+        });
+        if (affected != 1) return;
       }
 
       final notifService = ref.read(habitNotificationServiceProvider);
@@ -414,7 +467,10 @@ class HabitNotifier extends AsyncNotifier<void> {
         allCompletions: completions,
         now: now,
       );
-      await notifService.scheduleForHabit(updatedHabit, skipCurrentPeriod: skipCurrentPeriod);
+      await notifService.scheduleForHabit(
+        updatedHabit,
+        skipCurrentPeriod: skipCurrentPeriod,
+      );
     });
   }
 
@@ -433,29 +489,35 @@ class HabitNotifier extends AsyncNotifier<void> {
 
   /// Daily/custom: count consecutive days backward from today with >=1
   /// completion. If today has no completion, start from yesterday.
-  int _calculateDailyStreak(List<HabitCompletion> completions) {
-    final completionDays = <DateTime>{};
+  int _calculateDailyStreak(
+    List<HabitCompletion> completions, {
+    DateTime? today,
+  }) {
+    final completionDays = <int>{};
     for (final c in completions) {
-      completionDays.add(
-        DateTime(c.completedAt.year, c.completedAt.month, c.completedAt.day),
-      );
+      completionDays.add(_localDayOrdinal(c.completedAt));
     }
 
-    final today = DateTime.now();
-    var checkDate = DateTime(today.year, today.month, today.day);
+    var checkDay = _localDayOrdinal(today ?? DateTime.now());
 
     // If today is not completed, start from yesterday
-    if (!completionDays.contains(checkDate)) {
-      checkDate = checkDate.subtract(const Duration(days: 1));
+    if (!completionDays.contains(checkDay)) {
+      checkDay--;
     }
 
     int streak = 0;
-    while (completionDays.contains(checkDate)) {
+    while (completionDays.contains(checkDay)) {
       streak++;
-      checkDate = checkDate.subtract(const Duration(days: 1));
+      checkDay--;
     }
     return streak;
   }
+
+  @visibleForTesting
+  int calculateDailyStreakForTest(
+    List<HabitCompletion> completions,
+    DateTime today,
+  ) => _calculateDailyStreak(completions, today: today);
 
   /// Weekly: count consecutive weeks where ALL required weeklyDays have
   /// completions.
@@ -573,17 +635,15 @@ class HabitNotifier extends AsyncNotifier<void> {
   /// exactly prev+1, reset to 1 on any larger gap, max-track.
   int _bestDailyStreakAllTime(List<HabitCompletion> completions) {
     if (completions.isEmpty) return 0;
-    final days = <DateTime>{};
+    final days = <int>{};
     for (final c in completions) {
-      days.add(
-        DateTime(c.completedAt.year, c.completedAt.month, c.completedAt.day),
-      );
+      days.add(_localDayOrdinal(c.completedAt));
     }
     final sorted = days.toList()..sort();
     var run = 1;
     var best = 1;
     for (var i = 1; i < sorted.length; i++) {
-      final delta = sorted[i].difference(sorted[i - 1]).inDays;
+      final delta = sorted[i] - sorted[i - 1];
       if (delta == 1) {
         run++;
         if (run > best) best = run;
@@ -594,14 +654,15 @@ class HabitNotifier extends AsyncNotifier<void> {
     return best;
   }
 
+  int _localDayOrdinal(DateTime date) =>
+      DateTime.utc(date.year, date.month, date.day).millisecondsSinceEpoch ~/
+      Duration.millisecondsPerDay;
+
   /// Walk weeks chronologically from the earliest completion-bearing week
   /// to the latest. For each intermediate week (including weeks with no
   /// completions), check if `requiredDays.every(weekHasDay)`; if yes,
   /// increment run; if no, reset run to 0; track max.
-  int _bestWeeklyStreakAllTime(
-    Habit habit,
-    List<HabitCompletion> completions,
-  ) {
+  int _bestWeeklyStreakAllTime(Habit habit, List<HabitCompletion> completions) {
     final requiredDays = habit.weeklyDays;
     if (requiredDays == null || requiredDays.isEmpty) return 0;
     if (completions.isEmpty) return 0;
@@ -645,17 +706,18 @@ class HabitNotifier extends AsyncNotifier<void> {
     if (intervalDays == null || intervalDays <= 0) return 0;
     if (completions.isEmpty) return 0;
 
-    final completionDates = completions
-        .map(
-          (c) => DateTime(
-            c.completedAt.year,
-            c.completedAt.month,
-            c.completedAt.day,
-          ),
-        )
-        .toSet()
-        .toList()
-      ..sort();
+    final completionDates =
+        completions
+            .map(
+              (c) => DateTime(
+                c.completedAt.year,
+                c.completedAt.month,
+                c.completedAt.day,
+              ),
+            )
+            .toSet()
+            .toList()
+          ..sort();
     if (completionDates.isEmpty) return 0;
 
     // Anchor at the earliest completion's day.
@@ -710,7 +772,8 @@ final habitNotificationListenerProvider = Provider<void>((ref) {
     debounceTimer = Timer(const Duration(milliseconds: 500), () {
       final habits = ref.read(habitsProvider).value;
       if (habits == null) return;
-      final todayCompletions = ref.read(todayCompletionsProvider).value ?? const [];
+      final todayCompletions =
+          ref.read(todayCompletionsProvider).value ?? const [];
       final allCompletions = ref.read(allCompletionsProvider).value ?? const [];
       final now = DateTime.now();
       service
@@ -729,7 +792,11 @@ final habitNotificationListenerProvider = Provider<void>((ref) {
     });
   }
 
-  ref.listen(habitsProvider, (_, _) => scheduleReschedule(), fireImmediately: true);
+  ref.listen(
+    habitsProvider,
+    (_, _) => scheduleReschedule(),
+    fireImmediately: true,
+  );
   ref.listen(todayCompletionsProvider, (_, _) => scheduleReschedule());
   ref.listen(allCompletionsProvider, (_, _) => scheduleReschedule());
 });

@@ -55,7 +55,8 @@ void main() {
     _TrackingFakeHabitRepository? repo,
   }) {
     final resolvedHabit = habit ?? sampleHabit;
-    final resolvedRepo = repo ??
+    final resolvedRepo =
+        repo ??
         _TrackingFakeHabitRepository(
           habits: [resolvedHabit],
           completions: completions,
@@ -102,22 +103,44 @@ void main() {
 
   // ── 1. Long-press shows BlurPopupAnchor overlay with Edit + Delete ──────────
 
-  testWidgets('long-press completion tile opens popup with Edit and Delete',
-      (tester) async {
-    await tester.pumpWidget(
-      buildSubject(completions: [sampleCompletion]),
-    );
+  Future<void> openCompletionMenuByLongPress(WidgetTester tester) async {
+    await tester.longPress(find.textContaining('Yesterday'));
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> openCompletionMenuByButton(WidgetTester tester) async {
+    await tester.tap(find.byTooltip('More options').last);
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('long-press completion tile opens popup with Edit and Delete', (
+    tester,
+  ) async {
+    await tester.pumpWidget(buildSubject(completions: [sampleCompletion]));
     await tester.pumpAndSettle();
 
     // Verify we have a BlurPopupAnchor wrapping the tile.
     expect(find.byType(BlurPopupAnchor), findsWidgets);
 
-    // Long-press the last BlurPopupAnchor — the top-bar PrismPopupMenu also
-    // uses BlurPopupAnchor, so completion tile anchors come after it.
-    await tester.longPress(find.byType(BlurPopupAnchor).last);
-    await tester.pumpAndSettle();
+    await openCompletionMenuByLongPress(tester);
 
     // Popup should show Edit and Delete items.
+    expect(find.text('Edit'), findsOneWidget);
+    expect(find.text('Delete'), findsOneWidget);
+  });
+
+  testWidgets('completion tile exposes a tappable More options fallback', (
+    tester,
+  ) async {
+    await tester.pumpWidget(buildSubject(completions: [sampleCompletion]));
+    await tester.pumpAndSettle();
+
+    // The first More options tooltip belongs to the top bar; the second belongs
+    // to the completion row action button.
+    expect(find.byTooltip('More options'), findsNWidgets(2));
+
+    await openCompletionMenuByButton(tester);
+
     expect(find.text('Edit'), findsOneWidget);
     expect(find.text('Delete'), findsOneWidget);
   });
@@ -125,9 +148,7 @@ void main() {
   // ── 2. No Dismissible on completion tiles ───────────────────────────────────
 
   testWidgets('completion tile has no Dismissible', (tester) async {
-    await tester.pumpWidget(
-      buildSubject(completions: [sampleCompletion]),
-    );
+    await tester.pumpWidget(buildSubject(completions: [sampleCompletion]));
     await tester.pumpAndSettle();
 
     expect(find.byType(Dismissible), findsNothing);
@@ -135,19 +156,20 @@ void main() {
 
   // ── 3. Delete → cancel → dialog dismissed, deleteCompletion not called ──────
 
-  testWidgets('tapping cancel on delete dialog does not delete completion',
-      (tester) async {
+  testWidgets('tapping cancel on delete dialog does not delete completion', (
+    tester,
+  ) async {
     final repo = _TrackingFakeHabitRepository(
       habits: [sampleHabit],
       completions: [sampleCompletion],
     );
 
-    await tester.pumpWidget(buildSubject(completions: [sampleCompletion], repo: repo));
+    await tester.pumpWidget(
+      buildSubject(completions: [sampleCompletion], repo: repo),
+    );
     await tester.pumpAndSettle();
 
-    // Open popup (completion tile anchors come after top-bar anchor).
-    await tester.longPress(find.byType(BlurPopupAnchor).last);
-    await tester.pumpAndSettle();
+    await openCompletionMenuByButton(tester);
 
     // Tap Delete item in the popup.
     await tester.tap(find.text('Delete'));
@@ -175,12 +197,12 @@ void main() {
       completions: [sampleCompletion],
     );
 
-    await tester.pumpWidget(buildSubject(completions: [sampleCompletion], repo: repo));
+    await tester.pumpWidget(
+      buildSubject(completions: [sampleCompletion], repo: repo),
+    );
     await tester.pumpAndSettle();
 
-    // Open popup (completion tile anchors come after top-bar anchor).
-    await tester.longPress(find.byType(BlurPopupAnchor).last);
-    await tester.pumpAndSettle();
+    await openCompletionMenuByButton(tester);
 
     // Tap Delete item in the popup.
     await tester.tap(find.text('Delete'));
@@ -195,16 +217,13 @@ void main() {
 
   // ── 5. Edit → CompleteHabitSheet opens with existingCompletion ──────────────
 
-  testWidgets('tapping Edit opens CompleteHabitSheet in edit mode',
-      (tester) async {
-    await tester.pumpWidget(
-      buildSubject(completions: [sampleCompletion]),
-    );
+  testWidgets('tapping Edit opens CompleteHabitSheet in edit mode', (
+    tester,
+  ) async {
+    await tester.pumpWidget(buildSubject(completions: [sampleCompletion]));
     await tester.pumpAndSettle();
 
-    // Open popup (completion tile anchors come after top-bar anchor).
-    await tester.longPress(find.byType(BlurPopupAnchor).last);
-    await tester.pumpAndSettle();
+    await openCompletionMenuByButton(tester);
 
     // Tap Edit item.
     await tester.tap(find.text('Edit'));
@@ -226,23 +245,24 @@ class _TrackingFakeHabitRepository implements HabitRepository {
   _TrackingFakeHabitRepository({
     required List<Habit> habits,
     required List<HabitCompletion> completions,
-  })  : _habits = List.of(habits),
-        _completions = List.of(completions);
+  }) : _habits = List.of(habits),
+       _completions = List.of(completions);
 
   final List<Habit> _habits;
   final List<HabitCompletion> _completions;
   final List<String> deletedCompletionIds = [];
 
   @override
-  Future<void> createCompletion(HabitCompletion completion) async {}
+  Future<int> createCompletion(HabitCompletion completion) async => 1;
 
   @override
   Future<void> createHabit(Habit habit) async => throw UnimplementedError();
 
   @override
-  Future<void> deleteCompletion(String id) async {
+  Future<int> deleteCompletion(String id) async {
     deletedCompletionIds.add(id);
     _completions.removeWhere((c) => c.id == id);
+    return 1;
   }
 
   @override
@@ -266,11 +286,41 @@ class _TrackingFakeHabitRepository implements HabitRepository {
   }
 
   @override
-  Future<Habit?> getHabitById(String id) async =>
-      _habits.firstWhere((h) => h.id == id, orElse: () => throw StateError('not found'));
+  Future<Habit?> getHabitById(String id) async => _habits.firstWhere(
+    (h) => h.id == id,
+    orElse: () => throw StateError('not found'),
+  );
 
   @override
   Future<void> updateHabit(Habit habit) async => throw UnimplementedError();
+
+  @override
+  Future<int> updateHabitFields(
+    String id,
+    Map<String, dynamic> changedFields,
+  ) async {
+    final index = _habits.indexWhere((habit) => habit.id == id);
+    if (index == -1) return 0;
+    final habit = _habits[index];
+    _habits[index] = habit.copyWith(
+      isActive: changedFields.containsKey('is_active')
+          ? changedFields['is_active'] as bool
+          : habit.isActive,
+      modifiedAt: changedFields.containsKey('modified_at')
+          ? DateTime.parse(changedFields['modified_at'] as String)
+          : habit.modifiedAt,
+      currentStreak: changedFields.containsKey('current_streak')
+          ? changedFields['current_streak'] as int
+          : habit.currentStreak,
+      bestStreak: changedFields.containsKey('best_streak')
+          ? changedFields['best_streak'] as int
+          : habit.bestStreak,
+      totalCompletions: changedFields.containsKey('total_completions')
+          ? changedFields['total_completions'] as int
+          : habit.totalCompletions,
+    );
+    return 1;
+  }
 
   @override
   Stream<List<HabitCompletion>> watchAllCompletions() =>
@@ -306,8 +356,11 @@ class _TrackingFakeHabitRepository implements HabitRepository {
     DateTime end,
   ) {
     final rangeStart = DateTime(start.year, start.month, start.day);
-    final rangeEnd =
-        DateTime(end.year, end.month, end.day).add(const Duration(days: 1));
+    final rangeEnd = DateTime(
+      end.year,
+      end.month,
+      end.day,
+    ).add(const Duration(days: 1));
     return Stream.value(
       _completions.where((c) {
         return !c.completedAt.isBefore(rangeStart) &&
@@ -318,14 +371,15 @@ class _TrackingFakeHabitRepository implements HabitRepository {
 
   @override
   Stream<List<HabitCompletion>> watchCompletionsForHabit(String habitId) =>
-      Stream.value(
-        _completions.where((c) => c.habitId == habitId).toList(),
-      );
+      Stream.value(_completions.where((c) => c.habitId == habitId).toList());
 
   @override
   Future<HabitCompletion?> getCompletionById(String id) async =>
       _completions.where((c) => c.id == id).firstOrNull;
 
   @override
-  Future<int> updateCompletionFields(String id, Map<String, dynamic> changedFields) async => 0;
+  Future<int> updateCompletionFields(
+    String id,
+    Map<String, dynamic> changedFields,
+  ) async => 0;
 }

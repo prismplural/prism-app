@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -510,7 +512,10 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
     );
 
     if (_isEditing) {
-      await notifier.updateHabit(habit);
+      await notifier.updateHabitFields(
+        habitId: habit.id,
+        changedFields: _buildChangedFieldsForExistingHabit(habit),
+      );
     } else {
       await notifier.createHabit(habit);
     }
@@ -529,6 +534,57 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
       }
       context.pop();
     }
+  }
+
+  Map<String, dynamic> _buildChangedFieldsForExistingHabit(Habit next) {
+    final existing = widget.existingHabit!;
+    final fields = <String, dynamic>{};
+
+    void addIfChanged(String key, Object? previous, Object? current) {
+      if (previous != current) fields[key] = current;
+    }
+
+    addIfChanged('name', existing.name, next.name);
+    addIfChanged('description', existing.description, next.description);
+    addIfChanged('icon', existing.icon, next.icon);
+    addIfChanged('color_hex', existing.colorHex, next.colorHex);
+    addIfChanged('frequency', existing.frequency.name, next.frequency.name);
+    addIfChanged(
+      'weekly_days',
+      _weeklyDaysSyncValue(existing.frequency, existing.weeklyDays),
+      _weeklyDaysSyncValue(next.frequency, next.weeklyDays),
+    );
+    addIfChanged('interval_days', existing.intervalDays, next.intervalDays);
+    addIfChanged('reminder_time', existing.reminderTime, next.reminderTime);
+    addIfChanged(
+      'notifications_enabled',
+      existing.notificationsEnabled,
+      next.notificationsEnabled,
+    );
+    addIfChanged(
+      'notification_message',
+      existing.notificationMessage,
+      next.notificationMessage,
+    );
+    addIfChanged(
+      'assigned_member_id',
+      existing.assignedMemberId,
+      next.assignedMemberId,
+    );
+    addIfChanged(
+      'only_notify_when_fronting',
+      existing.onlyNotifyWhenFronting,
+      next.onlyNotifyWhenFronting,
+    );
+    addIfChanged('is_private', existing.isPrivate, next.isPrivate);
+
+    return fields;
+  }
+
+  String? _weeklyDaysSyncValue(HabitFrequency frequency, List<int>? days) {
+    if (frequency != HabitFrequency.weekly) return null;
+    final sorted = List<int>.of(days ?? const [])..sort();
+    return jsonEncode(sorted);
   }
 }
 

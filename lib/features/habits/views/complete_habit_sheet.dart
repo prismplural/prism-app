@@ -39,8 +39,7 @@ class CompleteHabitSheet extends ConsumerStatefulWidget {
   final bool initialPastDefault;
 
   @override
-  ConsumerState<CompleteHabitSheet> createState() =>
-      CompleteHabitSheetState();
+  ConsumerState<CompleteHabitSheet> createState() => CompleteHabitSheetState();
 }
 
 // State class is public so tests can access @visibleForTesting members.
@@ -59,10 +58,12 @@ class CompleteHabitSheetState extends ConsumerState<CompleteHabitSheet> {
   bool get _isEditMode => widget.existingCompletion != null;
 
   bool get _isDirty {
+    final normalizedInitialNotes = _normalizeNotes(_initialNotes);
+    final normalizedCurrentNotes = _normalizeNotes(_notesController.text);
     return _completedAt != _initialCompletedAt ||
         _completedByMemberId != _initialMemberId ||
         _rating != _initialRating ||
-        _notesController.text != _initialNotes;
+        normalizedCurrentNotes != normalizedInitialNotes;
   }
 
   // ── @visibleForTesting accessors ─────────────────────────────────────────
@@ -144,7 +145,8 @@ class CompleteHabitSheetState extends ConsumerState<CompleteHabitSheet> {
         }
         setState(() {
           _completedByMemberId = currentFronter.id;
-          _initialMemberId = currentFronter.id; // lockstep — prevents false-dirty
+          _initialMemberId =
+              currentFronter.id; // lockstep — prevents false-dirty
         });
       });
     }
@@ -272,17 +274,18 @@ class CompleteHabitSheetState extends ConsumerState<CompleteHabitSheet> {
     } else {
       // Create-now: existing logic.
       final currentFronter = ref.read(currentFronterProvider).value;
-      wasFronting = _completedByMemberId != null &&
+      wasFronting =
+          _completedByMemberId != null &&
           currentFronter != null &&
           _completedByMemberId == currentFronter.id;
     }
 
-    final trimmedNotes = _notesController.text.trim();
-    final notes = trimmedNotes.isEmpty ? null : trimmedNotes;
+    final notes = _normalizeNotes(_notesController.text);
 
     if (_isEditMode) {
       final existing = widget.existingCompletion!;
       final changedFields = <String, dynamic>{};
+      final initialNotes = _normalizeNotes(_initialNotes);
 
       if (_completedAt != _initialCompletedAt) {
         changedFields['completed_at'] = _completedAt.toUtc().toIso8601String();
@@ -290,7 +293,7 @@ class CompleteHabitSheetState extends ConsumerState<CompleteHabitSheet> {
       if (_completedByMemberId != _initialMemberId) {
         changedFields['completed_by_member_id'] = _completedByMemberId;
       }
-      if (_notesController.text != _initialNotes) {
+      if (notes != initialNotes) {
         changedFields['notes'] = notes;
       }
       if (_rating != _initialRating) {
@@ -300,11 +303,13 @@ class CompleteHabitSheetState extends ConsumerState<CompleteHabitSheet> {
         changedFields['was_fronting'] = wasFronting;
       }
 
-      await ref.read(habitNotifierProvider.notifier).updateCompletion(
-        completionId: existing.id,
-        habitId: existing.habitId,
-        changedFields: changedFields,
-      );
+      await ref
+          .read(habitNotifierProvider.notifier)
+          .updateCompletion(
+            completionId: existing.id,
+            habitId: existing.habitId,
+            changedFields: changedFields,
+          );
     } else {
       await ref
           .read(habitNotifierProvider.notifier)
@@ -319,5 +324,10 @@ class CompleteHabitSheetState extends ConsumerState<CompleteHabitSheet> {
     }
 
     if (mounted) Navigator.of(context).pop();
+  }
+
+  String? _normalizeNotes(String value) {
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? null : trimmed;
   }
 }

@@ -40,7 +40,8 @@ void main() {
     HabitStats? stats,
   }) {
     final resolvedHabit = habit ?? sampleHabit;
-    final resolvedStats = stats ??
+    final resolvedStats =
+        stats ??
         HabitStats(
           totalCompletions: resolvedHabit.totalCompletions,
           expectedCompletions: 60,
@@ -59,9 +60,7 @@ void main() {
         ),
         currentDateProvider.overrideWith((ref) => today),
         allMembersProvider.overrideWith((ref) => Stream.value(const [])),
-        habitStatsProvider.overrideWith(
-          (ref, params) async => resolvedStats,
-        ),
+        habitStatsProvider.overrideWith((ref, params) async => resolvedStats),
       ],
       child: MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -82,11 +81,10 @@ void main() {
   // label; `enabled` flips depending on whether the habit is already
   // completed for the period.
   Finder findCompleteButtonSemantics(String label) => find.byWidgetPredicate(
-        (w) => w is Semantics && w.properties.label == label,
-      );
+    (w) => w is Semantics && w.properties.label == label,
+  );
 
-  testWidgets('shows Complete button when not completed today',
-      (tester) async {
+  testWidgets('shows Complete button when not completed today', (tester) async {
     await tester.pumpWidget(buildSubject(completions: []));
     await tester.pumpAndSettle();
 
@@ -104,19 +102,15 @@ void main() {
     final scaffold = tester.widget<Scaffold>(find.byType(Scaffold).first);
     expect(scaffold.bottomNavigationBar, isNull);
     expect(
-      find.ancestor(
-        of: find.text('Complete'),
-        matching: find.byType(Stack),
-      ),
+      find.ancestor(of: find.text('Complete'), matching: find.byType(Stack)),
       findsWidgets,
     );
   });
 
-  testWidgets('shows Completed button disabled when completed today',
-      (tester) async {
-    await tester.pumpWidget(
-      buildSubject(completions: [todayCompletion]),
-    );
+  testWidgets('shows Completed button disabled when completed today', (
+    tester,
+  ) async {
+    await tester.pumpWidget(buildSubject(completions: [todayCompletion]));
     await tester.pumpAndSettle();
 
     // Floating pill copy reads 'Completed' when already done for the period.
@@ -124,9 +118,7 @@ void main() {
 
     // Semantics reports enabled: false with the inert label.
     final semantics = tester.widget<Semantics>(
-      findCompleteButtonSemantics(
-        'Habit already completed for this period',
-      ),
+      findCompleteButtonSemantics('Habit already completed for this period'),
     );
     expect(semantics.properties.enabled, isFalse);
 
@@ -160,21 +152,21 @@ class _FakeHabitRepository implements HabitRepository {
   _FakeHabitRepository({
     required List<Habit> habits,
     required List<HabitCompletion> allCompletions,
-  })  : _habits = List.unmodifiable(habits),
-        _allCompletions = List.unmodifiable(allCompletions);
+  }) : _habits = List.unmodifiable(habits),
+       _allCompletions = List.unmodifiable(allCompletions);
 
   final List<Habit> _habits;
   final List<HabitCompletion> _allCompletions;
 
   @override
-  Future<void> createCompletion(HabitCompletion completion) async =>
+  Future<int> createCompletion(HabitCompletion completion) async =>
       throw UnimplementedError();
 
   @override
   Future<void> createHabit(Habit habit) async => throw UnimplementedError();
 
   @override
-  Future<void> deleteCompletion(String id) async => throw UnimplementedError();
+  Future<int> deleteCompletion(String id) async => throw UnimplementedError();
 
   @override
   Future<void> deleteHabit(String id) async => throw UnimplementedError();
@@ -206,6 +198,12 @@ class _FakeHabitRepository implements HabitRepository {
 
   @override
   Future<void> updateHabit(Habit habit) async => throw UnimplementedError();
+
+  @override
+  Future<int> updateHabitFields(
+    String id,
+    Map<String, dynamic> changedFields,
+  ) async => _habits.any((habit) => habit.id == id) ? 1 : 0;
 
   @override
   Stream<List<HabitCompletion>> watchAllCompletions() =>
@@ -243,8 +241,11 @@ class _FakeHabitRepository implements HabitRepository {
     DateTime end,
   ) {
     final rangeStart = DateTime(start.year, start.month, start.day);
-    final rangeEnd = DateTime(end.year, end.month, end.day)
-        .add(const Duration(days: 1));
+    final rangeEnd = DateTime(
+      end.year,
+      end.month,
+      end.day,
+    ).add(const Duration(days: 1));
     return Stream.value(
       _allCompletions.where((c) {
         return !c.completedAt.isBefore(rangeStart) &&
@@ -255,13 +256,14 @@ class _FakeHabitRepository implements HabitRepository {
 
   @override
   Stream<List<HabitCompletion>> watchCompletionsForHabit(String habitId) =>
-      Stream.value(
-        _allCompletions.where((c) => c.habitId == habitId).toList(),
-      );
+      Stream.value(_allCompletions.where((c) => c.habitId == habitId).toList());
 
   @override
   Future<HabitCompletion?> getCompletionById(String id) async => null;
 
   @override
-  Future<int> updateCompletionFields(String id, Map<String, dynamic> changedFields) async => 0;
+  Future<int> updateCompletionFields(
+    String id,
+    Map<String, dynamic> changedFields,
+  ) async => 0;
 }

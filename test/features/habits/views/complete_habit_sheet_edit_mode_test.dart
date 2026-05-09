@@ -49,10 +49,7 @@ void main() {
 
   testWidgets('edit mode: top-bar shows "Edit Completion"', (tester) async {
     await tester.pumpWidget(
-      _buildSubject(
-        habit: sampleHabit,
-        existingCompletion: existingCompletion,
-      ),
+      _buildSubject(habit: sampleHabit, existingCompletion: existingCompletion),
     );
     await tester.pumpAndSettle();
 
@@ -61,13 +58,11 @@ void main() {
 
   // ── Test 2: fields prefill from existingCompletion ────────────────────────
 
-  testWidgets('edit mode: notes field prefills with existing notes',
-      (tester) async {
+  testWidgets('edit mode: notes field prefills with existing notes', (
+    tester,
+  ) async {
     await tester.pumpWidget(
-      _buildSubject(
-        habit: sampleHabit,
-        existingCompletion: existingCompletion,
-      ),
+      _buildSubject(habit: sampleHabit, existingCompletion: existingCompletion),
     );
     await tester.pumpAndSettle();
 
@@ -143,7 +138,38 @@ void main() {
 
       expect(spy.updateCompletionCalls, hasLength(1));
       // notes was null → controller starts as '' → no edit → must NOT appear in patch.
-      expect(spy.updateCompletionCalls.first.changedFields.containsKey('notes'), isFalse);
+      expect(
+        spy.updateCompletionCalls.first.changedFields.containsKey('notes'),
+        isFalse,
+      );
+      expect(spy.updateCompletionCalls.first.changedFields, isEmpty);
+    },
+  );
+
+  testWidgets(
+    'edit mode: notes whitespace-only edit emits empty changedFields',
+    (tester) async {
+      final spy = _SpyHabitNotifier();
+
+      await tester.pumpWidget(
+        _buildSubject(
+          habit: sampleHabit,
+          existingCompletion: existingCompletion,
+          habitNotifierOverride: spy,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final notesField = find.byType(TextField);
+      await tester.tap(notesField);
+      await tester.pump();
+      await tester.enterText(notesField, 'hello ');
+      await tester.pump();
+
+      await tester.tap(find.byTooltip('Save'));
+      await tester.pumpAndSettle();
+
+      expect(spy.updateCompletionCalls, hasLength(1));
       expect(spy.updateCompletionCalls.first.changedFields, isEmpty);
     },
   );
@@ -175,113 +201,129 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(spy.updateCompletionCalls, hasLength(1));
-      expect(spy.updateCompletionCalls.first.changedFields['notes'], 'new notes');
+      expect(
+        spy.updateCompletionCalls.first.changedFields['notes'],
+        'new notes',
+      );
     },
   );
 
   // ── Test 5: wasFronting preserved on notes/rating-only edits ─────────────
 
-  testWidgets(
-    'edit mode: notes-only edit preserves wasFronting: true',
-    (tester) async {
-      final spy = _SpyHabitNotifier();
+  testWidgets('edit mode: notes-only edit preserves wasFronting: true', (
+    tester,
+  ) async {
+    final spy = _SpyHabitNotifier();
 
-      await tester.pumpWidget(
-        _buildSubject(
-          habit: sampleHabit,
-          existingCompletion: existingCompletion, // wasFronting: true
-          habitNotifierOverride: spy,
-        ),
-      );
-      await tester.pumpAndSettle();
+    await tester.pumpWidget(
+      _buildSubject(
+        habit: sampleHabit,
+        existingCompletion: existingCompletion, // wasFronting: true
+        habitNotifierOverride: spy,
+      ),
+    );
+    await tester.pumpAndSettle();
 
-      // Edit notes only (member and timestamp stay the same).
-      final notesField = find.byType(TextField);
-      await tester.tap(notesField);
-      await tester.pump();
-      await tester.enterText(notesField, 'updated notes');
-      await tester.pump();
+    // Edit notes only (member and timestamp stay the same).
+    final notesField = find.byType(TextField);
+    await tester.tap(notesField);
+    await tester.pump();
+    await tester.enterText(notesField, 'updated notes');
+    await tester.pump();
 
-      await tester.tap(find.byTooltip('Save'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Save'));
+    await tester.pumpAndSettle();
 
-      expect(spy.updateCompletionCalls, hasLength(1));
-      // notes-only edit: was_fronting is unchanged (still true) so it's NOT
-      // included in changedFields, preserving the synced value.
-      expect(spy.updateCompletionCalls.first.changedFields.containsKey('was_fronting'), isFalse);
-      expect(spy.updateCompletionCalls.first.changedFields.containsKey('notes'), isTrue);
-    },
-  );
+    expect(spy.updateCompletionCalls, hasLength(1));
+    // notes-only edit: was_fronting is unchanged (still true) so it's NOT
+    // included in changedFields, preserving the synced value.
+    expect(
+      spy.updateCompletionCalls.first.changedFields.containsKey('was_fronting'),
+      isFalse,
+    );
+    expect(
+      spy.updateCompletionCalls.first.changedFields.containsKey('notes'),
+      isTrue,
+    );
+  });
 
   // ── Test 6: wasFronting cleared when member changes ──────────────────────
   // (Member-change interaction requires HeadmatePicker; we test via state
   //  accessor on the sheet state directly.)
 
-  testWidgets(
-    'edit mode: changing member clears wasFronting',
-    (tester) async {
-      final spy = _SpyHabitNotifier();
+  testWidgets('edit mode: changing member clears wasFronting', (tester) async {
+    final spy = _SpyHabitNotifier();
 
-      await tester.pumpWidget(
-        _buildSubject(
-          habit: sampleHabit,
-          existingCompletion: existingCompletion, // wasFronting: true
-          habitNotifierOverride: spy,
-        ),
-      );
-      await tester.pumpAndSettle();
+    await tester.pumpWidget(
+      _buildSubject(
+        habit: sampleHabit,
+        existingCompletion: existingCompletion, // wasFronting: true
+        habitNotifierOverride: spy,
+      ),
+    );
+    await tester.pumpAndSettle();
 
-      // Directly set the member via state mutation on the sheet.
-      final state = tester.state<CompleteHabitSheetState>(
-        find.byType(CompleteHabitSheet),
-      );
-      state.setCompletedByMemberIdForTest('m2');
-      await tester.pump();
+    // Directly set the member via state mutation on the sheet.
+    final state = tester.state<CompleteHabitSheetState>(
+      find.byType(CompleteHabitSheet),
+    );
+    state.setCompletedByMemberIdForTest('m2');
+    await tester.pump();
 
-      await tester.tap(find.byTooltip('Save'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Save'));
+    await tester.pumpAndSettle();
 
-      expect(spy.updateCompletionCalls, hasLength(1));
-      // Member changed → completed_by_member_id AND was_fronting: false in patch.
-      expect(spy.updateCompletionCalls.first.changedFields['completed_by_member_id'], 'm2');
-      expect(spy.updateCompletionCalls.first.changedFields['was_fronting'], isFalse);
-    },
-  );
+    expect(spy.updateCompletionCalls, hasLength(1));
+    // Member changed → completed_by_member_id AND was_fronting: false in patch.
+    expect(
+      spy.updateCompletionCalls.first.changedFields['completed_by_member_id'],
+      'm2',
+    );
+    expect(
+      spy.updateCompletionCalls.first.changedFields['was_fronting'],
+      isFalse,
+    );
+  });
 
   // ── Test 7: wasFronting cleared when timestamp changes ───────────────────
 
-  testWidgets(
-    'edit mode: changing timestamp clears wasFronting',
-    (tester) async {
-      final spy = _SpyHabitNotifier();
+  testWidgets('edit mode: changing timestamp clears wasFronting', (
+    tester,
+  ) async {
+    final spy = _SpyHabitNotifier();
 
-      await tester.pumpWidget(
-        _buildSubject(
-          habit: sampleHabit,
-          existingCompletion: existingCompletion, // wasFronting: true
-          habitNotifierOverride: spy,
-        ),
-      );
-      await tester.pumpAndSettle();
+    await tester.pumpWidget(
+      _buildSubject(
+        habit: sampleHabit,
+        existingCompletion: existingCompletion, // wasFronting: true
+        habitNotifierOverride: spy,
+      ),
+    );
+    await tester.pumpAndSettle();
 
-      // Directly set a different completedAt.
-      final state = tester.state<CompleteHabitSheetState>(
-        find.byType(CompleteHabitSheet),
-      );
-      state.setCompletedAtForTest(
-        existingCompletion.completedAt.subtract(const Duration(hours: 1)),
-      );
-      await tester.pump();
+    // Directly set a different completedAt.
+    final state = tester.state<CompleteHabitSheetState>(
+      find.byType(CompleteHabitSheet),
+    );
+    state.setCompletedAtForTest(
+      existingCompletion.completedAt.subtract(const Duration(hours: 1)),
+    );
+    await tester.pump();
 
-      await tester.tap(find.byTooltip('Save'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Save'));
+    await tester.pumpAndSettle();
 
-      expect(spy.updateCompletionCalls, hasLength(1));
-      // Timestamp changed → completed_at AND was_fronting: false in patch.
-      expect(spy.updateCompletionCalls.first.changedFields.containsKey('completed_at'), isTrue);
-      expect(spy.updateCompletionCalls.first.changedFields['was_fronting'], isFalse);
-    },
-  );
+    expect(spy.updateCompletionCalls, hasLength(1));
+    // Timestamp changed → completed_at AND was_fronting: false in patch.
+    expect(
+      spy.updateCompletionCalls.first.changedFields.containsKey('completed_at'),
+      isTrue,
+    );
+    expect(
+      spy.updateCompletionCalls.first.changedFields['was_fronting'],
+      isFalse,
+    );
+  });
 
   // ── Test 8: future-time validation ───────────────────────────────────────
 
@@ -303,9 +345,7 @@ void main() {
       final state = tester.state<CompleteHabitSheetState>(
         find.byType(CompleteHabitSheet),
       );
-      state.setCompletedAtForTest(
-        DateTime.now().add(const Duration(hours: 1)),
-      );
+      state.setCompletedAtForTest(DateTime.now().add(const Duration(hours: 1)));
       await tester.pump();
 
       await tester.tap(find.byTooltip('Save'));
@@ -374,42 +414,39 @@ void main() {
 
   // ── Test 10: in EDIT mode, fronter provider is ignored ───────────────────
 
-  testWidgets(
-    'edit mode: currentFronterProvider emission does NOT override '
-    'existing completion member',
-    (tester) async {
-      final fronterController = StreamController<Member?>.broadcast();
-      final spy = _SpyHabitNotifier();
+  testWidgets('edit mode: currentFronterProvider emission does NOT override '
+      'existing completion member', (tester) async {
+    final fronterController = StreamController<Member?>.broadcast();
+    final spy = _SpyHabitNotifier();
 
-      await tester.pumpWidget(
-        _buildSubject(
-          habit: sampleHabit,
-          existingCompletion: existingCompletion, // member: m1
-          currentFronterStream: fronterController.stream,
-          habitNotifierOverride: spy,
-        ),
-      );
-      await tester.pumpAndSettle();
+    await tester.pumpWidget(
+      _buildSubject(
+        habit: sampleHabit,
+        existingCompletion: existingCompletion, // member: m1
+        currentFronterStream: fronterController.stream,
+        habitNotifierOverride: spy,
+      ),
+    );
+    await tester.pumpAndSettle();
 
-      // Emit a different member.
-      final member = Member(
-        id: 'member-other',
-        name: 'Sam',
-        isActive: true,
-        createdAt: DateTime(2026, 4, 1),
-      );
-      fronterController.add(member);
-      await tester.pumpAndSettle();
+    // Emit a different member.
+    final member = Member(
+      id: 'member-other',
+      name: 'Sam',
+      isActive: true,
+      createdAt: DateTime(2026, 4, 1),
+    );
+    fronterController.add(member);
+    await tester.pumpAndSettle();
 
-      // The sheet's member should STILL be m1.
-      final state = tester.state<CompleteHabitSheetState>(
-        find.byType(CompleteHabitSheet),
-      );
-      expect(state.completedByMemberId, 'm1');
+    // The sheet's member should STILL be m1.
+    final state = tester.state<CompleteHabitSheetState>(
+      find.byType(CompleteHabitSheet),
+    );
+    expect(state.completedByMemberId, 'm1');
 
-      await fronterController.close();
-    },
-  );
+    await fronterController.close();
+  });
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -431,27 +468,17 @@ Widget _buildSubject({
       habitRepositoryProvider.overrideWithValue(repo),
       // Always stub member + fronter + settings providers so HeadmatePicker
       // and terminology don't need real data.
-      activeMembersProvider.overrideWithValue(
-        const AsyncValue.data([]),
-      ),
+      activeMembersProvider.overrideWithValue(const AsyncValue.data([])),
       // HeadmatePicker → watchMemberSearchGroups watches these two providers.
       // Override with empty lists to prevent Drift QueryStream timers.
-      allGroupsProvider.overrideWithValue(
-        const AsyncValue.data([]),
-      ),
-      allGroupEntriesProvider.overrideWithValue(
-        const AsyncValue.data([]),
-      ),
+      allGroupsProvider.overrideWithValue(const AsyncValue.data([])),
+      allGroupEntriesProvider.overrideWithValue(const AsyncValue.data([])),
       // currentFronterProvider: use a live stream when provided (tests 9 & 10),
       // otherwise a static null value.
       if (currentFronterStream != null)
-        currentFronterProvider.overrideWith(
-          (ref) => currentFronterStream,
-        )
+        currentFronterProvider.overrideWith((ref) => currentFronterStream)
       else
-        currentFronterProvider.overrideWithValue(
-          const AsyncValue.data(null),
-        ),
+        currentFronterProvider.overrideWithValue(const AsyncValue.data(null)),
       systemSettingsProvider.overrideWithValue(
         const AsyncValue.data(SystemSettings()),
       ),
@@ -549,22 +576,20 @@ class _FakeHabitRepository implements HabitRepository {
   _FakeHabitRepository({
     required List<Habit> habits,
     required List<HabitCompletion> allCompletions,
-  })  : _habits = List.unmodifiable(habits),
-        _allCompletions = List.unmodifiable(allCompletions);
+  }) : _habits = List.unmodifiable(habits),
+       _allCompletions = List.unmodifiable(allCompletions);
 
   final List<Habit> _habits;
   final List<HabitCompletion> _allCompletions;
 
   @override
-  Future<void> createCompletion(HabitCompletion completion) async {}
+  Future<int> createCompletion(HabitCompletion completion) async => 1;
 
   @override
-  Future<void> createHabit(Habit habit) async =>
-      throw UnimplementedError();
+  Future<void> createHabit(Habit habit) async => throw UnimplementedError();
 
   @override
-  Future<void> deleteCompletion(String id) async =>
-      throw UnimplementedError();
+  Future<int> deleteCompletion(String id) async => throw UnimplementedError();
 
   @override
   Future<void> deleteHabit(String id) async => throw UnimplementedError();
@@ -579,8 +604,7 @@ class _FakeHabitRepository implements HabitRepository {
   Future<List<HabitCompletion>> getCompletionsForHabit(
     String habitId, {
     DateTime? since,
-  }) async =>
-      _allCompletions.where((c) => c.habitId == habitId).toList();
+  }) async => _allCompletions.where((c) => c.habitId == habitId).toList();
 
   @override
   Future<Habit?> getHabitById(String id) async {
@@ -592,6 +616,12 @@ class _FakeHabitRepository implements HabitRepository {
 
   @override
   Future<void> updateHabit(Habit habit) async {}
+
+  @override
+  Future<int> updateHabitFields(
+    String id,
+    Map<String, dynamic> changedFields,
+  ) async => _habits.any((h) => h.id == id) ? 1 : 0;
 
   @override
   Stream<List<HabitCompletion>> watchAllCompletions() =>
@@ -620,8 +650,7 @@ class _FakeHabitRepository implements HabitRepository {
   Stream<List<HabitCompletion>> watchCompletionsForDateRange(
     DateTime start,
     DateTime end,
-  ) =>
-      Stream.value(const []);
+  ) => Stream.value(const []);
 
   @override
   Stream<List<HabitCompletion>> watchCompletionsForHabit(String habitId) =>
@@ -631,5 +660,8 @@ class _FakeHabitRepository implements HabitRepository {
   Future<HabitCompletion?> getCompletionById(String id) async => null;
 
   @override
-  Future<int> updateCompletionFields(String id, Map<String, dynamic> changedFields) async => 1;
+  Future<int> updateCompletionFields(
+    String id,
+    Map<String, dynamic> changedFields,
+  ) async => 1;
 }

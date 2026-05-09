@@ -85,8 +85,9 @@ void main() {
 
   // ── 1. Top-bar overflow menu item order ─────────────────────────────────────
 
-  testWidgets('top-bar overflow menu contains items in expected order',
-      (tester) async {
+  testWidgets('top-bar overflow menu contains items in expected order', (
+    tester,
+  ) async {
     await tester.pumpWidget(buildSubject());
     await tester.pumpAndSettle();
 
@@ -114,57 +115,59 @@ void main() {
   // ── 2. "Log missed completion" opens CompleteHabitSheet with past date ──────
 
   testWidgets(
-      'Log missed completion opens CompleteHabitSheet with date ~24h before now',
-      (tester) async {
-    await tester.pumpWidget(buildSubject());
-    await tester.pumpAndSettle();
+    'Log missed completion opens CompleteHabitSheet with date ~24h before now',
+    (tester) async {
+      await tester.pumpWidget(buildSubject());
+      await tester.pumpAndSettle();
 
-    // Open overflow menu.
-    await tester.tap(find.byTooltip('More options'));
-    await tester.pumpAndSettle();
+      // Open overflow menu.
+      await tester.tap(find.byTooltip('More options'));
+      await tester.pumpAndSettle();
 
-    // Tap "Log missed completion".
-    await tester.tap(find.text('Log missed completion'));
-    await tester.pumpAndSettle();
+      // Tap "Log missed completion".
+      await tester.tap(find.text('Log missed completion'));
+      await tester.pumpAndSettle();
 
-    // CompleteHabitSheet should be mounted.
-    expect(find.byType(CompleteHabitSheet), findsOneWidget);
+      // CompleteHabitSheet should be mounted.
+      expect(find.byType(CompleteHabitSheet), findsOneWidget);
 
-    // The sheet must have initialPastDefault == true.
-    final sheet =
-        tester.widget<CompleteHabitSheet>(find.byType(CompleteHabitSheet));
-    expect(sheet.initialPastDefault, isTrue);
-    expect(sheet.existingCompletion, isNull);
+      // The sheet must have initialPastDefault == true.
+      final sheet = tester.widget<CompleteHabitSheet>(
+        find.byType(CompleteHabitSheet),
+      );
+      expect(sheet.initialPastDefault, isTrue);
+      expect(sheet.existingCompletion, isNull);
 
-    // Via the @visibleForTesting accessor, the completedAt should be ~24h ago.
-    final state = tester.state<CompleteHabitSheetState>(
-      find.byType(CompleteHabitSheet),
-    );
-    final now = DateTime.now();
-    final expected = now.subtract(const Duration(hours: 24));
-    expect(
-      state.completedAt.difference(expected).abs(),
-      lessThan(const Duration(seconds: 10)),
-    );
-  });
+      // Via the @visibleForTesting accessor, the completedAt should be ~24h ago.
+      final state = tester.state<CompleteHabitSheetState>(
+        find.byType(CompleteHabitSheet),
+      );
+      final now = DateTime.now();
+      final expected = now.subtract(const Duration(hours: 24));
+      expect(
+        state.completedAt.difference(expected).abs(),
+        lessThan(const Duration(seconds: 10)),
+      );
+    },
+  );
 }
 
 // ── Simple fake repository ────────────────────────────────────────────────────
 
 class _SimpleFakeHabitRepository implements HabitRepository {
   _SimpleFakeHabitRepository({required List<Habit> habits})
-      : _habits = List.unmodifiable(habits);
+    : _habits = List.unmodifiable(habits);
 
   final List<Habit> _habits;
 
   @override
-  Future<void> createCompletion(HabitCompletion completion) async {}
+  Future<int> createCompletion(HabitCompletion completion) async => 1;
 
   @override
   Future<void> createHabit(Habit habit) async => throw UnimplementedError();
 
   @override
-  Future<void> deleteCompletion(String id) async {}
+  Future<int> deleteCompletion(String id) async => 0;
 
   @override
   Future<void> deleteHabit(String id) async => throw UnimplementedError();
@@ -179,8 +182,7 @@ class _SimpleFakeHabitRepository implements HabitRepository {
   Future<List<HabitCompletion>> getCompletionsForHabit(
     String habitId, {
     DateTime? since,
-  }) async =>
-      [];
+  }) async => [];
 
   @override
   Future<Habit?> getHabitById(String id) async =>
@@ -188,6 +190,12 @@ class _SimpleFakeHabitRepository implements HabitRepository {
 
   @override
   Future<void> updateHabit(Habit habit) async => throw UnimplementedError();
+
+  @override
+  Future<int> updateHabitFields(
+    String id,
+    Map<String, dynamic> changedFields,
+  ) async => _habits.any((h) => h.id == id) ? 1 : 0;
 
   @override
   Stream<List<HabitCompletion>> watchAllCompletions() => Stream.value([]);
@@ -211,8 +219,7 @@ class _SimpleFakeHabitRepository implements HabitRepository {
   Stream<List<HabitCompletion>> watchCompletionsForDateRange(
     DateTime start,
     DateTime end,
-  ) =>
-      Stream.value([]);
+  ) => Stream.value([]);
 
   @override
   Stream<List<HabitCompletion>> watchCompletionsForHabit(String habitId) =>
@@ -222,5 +229,8 @@ class _SimpleFakeHabitRepository implements HabitRepository {
   Future<HabitCompletion?> getCompletionById(String id) async => null;
 
   @override
-  Future<int> updateCompletionFields(String id, Map<String, dynamic> changedFields) async => 0;
+  Future<int> updateCompletionFields(
+    String id,
+    Map<String, dynamic> changedFields,
+  ) async => 0;
 }

@@ -89,14 +89,14 @@ class _FakeHabitRepository implements HabitRepository {
   final List<HabitCompletion> _allCompletions;
 
   @override
-  Future<void> createCompletion(HabitCompletion completion) async =>
+  Future<int> createCompletion(HabitCompletion completion) async =>
       throw UnimplementedError();
 
   @override
   Future<void> createHabit(Habit habit) async => throw UnimplementedError();
 
   @override
-  Future<void> deleteCompletion(String id) async => throw UnimplementedError();
+  Future<int> deleteCompletion(String id) async => throw UnimplementedError();
 
   @override
   Future<void> deleteHabit(String id) async => throw UnimplementedError();
@@ -128,6 +128,12 @@ class _FakeHabitRepository implements HabitRepository {
 
   @override
   Future<void> updateHabit(Habit habit) async => throw UnimplementedError();
+
+  @override
+  Future<int> updateHabitFields(
+    String id,
+    Map<String, dynamic> changedFields,
+  ) async => _habits.any((habit) => habit.id == id) ? 1 : 0;
 
   @override
   Stream<List<HabitCompletion>> watchAllCompletions() =>
@@ -191,5 +197,8 @@ class _FakeHabitRepository implements HabitRepository {
   Future<HabitCompletion?> getCompletionById(String id) async => null;
 
   @override
-  Future<int> updateCompletionFields(String id, Map<String, dynamic> changedFields) async => 0;
+  Future<int> updateCompletionFields(
+    String id,
+    Map<String, dynamic> changedFields,
+  ) async => 0;
 }

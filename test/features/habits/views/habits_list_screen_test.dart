@@ -69,9 +69,7 @@ void main() {
           path: '/habits/:id',
           builder: (context, state) {
             lastRoute.value = state.uri.path;
-            return const Scaffold(
-              body: Center(child: Text('detail')),
-            );
+            return const Scaffold(body: Center(child: Text('detail')));
           },
         ),
       ],
@@ -102,16 +100,17 @@ void main() {
       final repo = _FakeHabitRepository(
         habits: [habit],
         allCompletions: [
-          completion('h1', completedAt: yesterday.add(const Duration(hours: 9))),
+          completion(
+            'h1',
+            completedAt: yesterday.add(const Duration(hours: 9)),
+          ),
           completion('h1', completedAt: today.add(const Duration(hours: 8))),
         ],
       );
       addTearDown(repo.dispose);
 
       final lastRoute = ValueNotifier<String?>(null);
-      await tester.pumpWidget(
-        buildApp(repository: repo, lastRoute: lastRoute),
-      );
+      await tester.pumpWidget(buildApp(repository: repo, lastRoute: lastRoute));
       await tester.pumpAndSettle();
 
       // The TodayHabitsContainer is rendered.
@@ -143,21 +142,13 @@ void main() {
       addTearDown(repo.dispose);
 
       final lastRoute = ValueNotifier<String?>(null);
-      await tester.pumpWidget(
-        buildApp(repository: repo, lastRoute: lastRoute),
-      );
+      await tester.pumpWidget(buildApp(repository: repo, lastRoute: lastRoute));
       await tester.pumpAndSettle();
 
       expect(find.byType(TodayHabitsContainer), findsOneWidget);
       // Full Due container, not collapsed.
-      expect(
-        find.byKey(const ValueKey('today-due-full')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const ValueKey('today-due-collapsed')),
-        findsNothing,
-      );
+      expect(find.byKey(const ValueKey('today-due-full')), findsOneWidget);
+      expect(find.byKey(const ValueKey('today-due-collapsed')), findsNothing);
       // No Complete section header.
       expect(find.text('Complete'), findsNothing);
       expect(find.text('Meditate'), findsOneWidget);
@@ -185,9 +176,7 @@ void main() {
       addTearDown(repo.dispose);
 
       final lastRoute = ValueNotifier<String?>(null);
-      await tester.pumpWidget(
-        buildApp(repository: repo, lastRoute: lastRoute),
-      );
+      await tester.pumpWidget(buildApp(repository: repo, lastRoute: lastRoute));
       await tester.pumpAndSettle();
 
       // Sanity: full Due container rendered.
@@ -238,9 +227,7 @@ void main() {
       addTearDown(repo.dispose);
 
       final lastRoute = ValueNotifier<String?>(null);
-      await tester.pumpWidget(
-        buildApp(repository: repo, lastRoute: lastRoute),
-      );
+      await tester.pumpWidget(buildApp(repository: repo, lastRoute: lastRoute));
       await tester.pumpAndSettle();
 
       // Sanity: habit starts in the Complete section (Due is collapsed).
@@ -278,9 +265,7 @@ void main() {
       addTearDown(repo.dispose);
 
       final lastRoute = ValueNotifier<String?>(null);
-      await tester.pumpWidget(
-        buildApp(repository: repo, lastRoute: lastRoute),
-      );
+      await tester.pumpWidget(buildApp(repository: repo, lastRoute: lastRoute));
       await tester.pumpAndSettle();
 
       expect(find.byType(TodayHabitsContainer), findsOneWidget);
@@ -303,8 +288,8 @@ class _FakeHabitRepository implements HabitRepository {
   _FakeHabitRepository({
     required List<Habit> habits,
     required List<HabitCompletion> allCompletions,
-  })  : _habits = List.of(habits),
-        _allCompletions = List.of(allCompletions) {
+  }) : _habits = List.of(habits),
+       _allCompletions = List.of(allCompletions) {
     // Seed initial values so late subscribers receive the starting state.
     _allCompletionsController.add(List.unmodifiable(_allCompletions));
     _activeHabitsController.add(
@@ -342,12 +327,13 @@ class _FakeHabitRepository implements HabitRepository {
   }
 
   @override
-  Future<void> deleteCompletion(String id) async {
+  Future<int> deleteCompletion(String id) async {
     final index = _allCompletions.indexWhere((c) => c.id == id);
-    if (index == -1) return;
+    if (index == -1) return 0;
     _allCompletions.removeAt(index);
     deletedCompletionIds.add(id);
     _emitCompletions();
+    return 1;
   }
 
   @override
@@ -365,10 +351,43 @@ class _FakeHabitRepository implements HabitRepository {
     }
   }
 
+  @override
+  Future<int> updateHabitFields(
+    String id,
+    Map<String, dynamic> changedFields,
+  ) async {
+    final index = _habits.indexWhere((h) => h.id == id);
+    if (index == -1) return 0;
+    final habit = _habits[index];
+    _habits[index] = habit.copyWith(
+      isActive: changedFields.containsKey('is_active')
+          ? changedFields['is_active'] as bool
+          : habit.isActive,
+      modifiedAt: changedFields.containsKey('modified_at')
+          ? DateTime.parse(changedFields['modified_at'] as String)
+          : habit.modifiedAt,
+      currentStreak: changedFields.containsKey('current_streak')
+          ? changedFields['current_streak'] as int
+          : habit.currentStreak,
+      bestStreak: changedFields.containsKey('best_streak')
+          ? changedFields['best_streak'] as int
+          : habit.bestStreak,
+      totalCompletions: changedFields.containsKey('total_completions')
+          ? changedFields['total_completions'] as int
+          : habit.totalCompletions,
+    );
+    if (!_activeHabitsController.isClosed) {
+      _activeHabitsController.add(
+        List.unmodifiable(_habits.where((h) => h.isActive)),
+      );
+    }
+    return 1;
+  }
+
   // ── Unused write paths ───────────────────────────────────────────────────
 
   @override
-  Future<void> createCompletion(HabitCompletion completion) async =>
+  Future<int> createCompletion(HabitCompletion completion) async =>
       throw UnimplementedError();
 
   @override
@@ -431,6 +450,7 @@ class _FakeHabitRepository implements HabitRepository {
       }
       return null;
     }
+
     yield find();
     yield* _activeHabitsController.stream.map((_) => find());
   }
@@ -461,8 +481,11 @@ class _FakeHabitRepository implements HabitRepository {
     DateTime end,
   ) {
     final rangeStart = DateTime(start.year, start.month, start.day);
-    final rangeEnd = DateTime(end.year, end.month, end.day)
-        .add(const Duration(days: 1));
+    final rangeEnd = DateTime(
+      end.year,
+      end.month,
+      end.day,
+    ).add(const Duration(days: 1));
     List<HabitCompletion> filter(List<HabitCompletion> source) {
       return source.where((c) {
         return !c.completedAt.isBefore(rangeStart) &&
@@ -498,5 +521,8 @@ class _FakeHabitRepository implements HabitRepository {
   Future<HabitCompletion?> getCompletionById(String id) async => null;
 
   @override
-  Future<int> updateCompletionFields(String id, Map<String, dynamic> changedFields) async => 0;
+  Future<int> updateCompletionFields(
+    String id,
+    Map<String, dynamic> changedFields,
+  ) async => 0;
 }

@@ -39,10 +39,7 @@ void main() {
       final before = DateTime.now().subtract(const Duration(hours: 24));
 
       await tester.pumpWidget(
-        _buildSubject(
-          habit: sampleHabit,
-          initialPastDefault: true,
-        ),
+        _buildSubject(habit: sampleHabit, initialPastDefault: true),
       );
       await tester.pumpAndSettle();
 
@@ -63,15 +60,11 @@ void main() {
 
       expect(
         completedAt.millisecondsSinceEpoch,
-        greaterThanOrEqualTo(
-          expectedDate.millisecondsSinceEpoch - 5000,
-        ),
+        greaterThanOrEqualTo(expectedDate.millisecondsSinceEpoch - 5000),
       );
       expect(
         completedAt.millisecondsSinceEpoch,
-        lessThanOrEqualTo(
-          after.millisecondsSinceEpoch + 5000,
-        ),
+        lessThanOrEqualTo(after.millisecondsSinceEpoch + 5000),
       );
     },
   );
@@ -170,34 +163,21 @@ Widget _buildSubject({
   Stream<Member?>? currentFronterStream,
   _SpyHabitNotifier? habitNotifierOverride,
 }) {
-  final repo = _FakeHabitRepository(
-    habits: [habit],
-    allCompletions: const [],
-  );
+  final repo = _FakeHabitRepository(habits: [habit], allCompletions: const []);
   return ProviderScope(
     overrides: [
       habitRepositoryProvider.overrideWithValue(repo),
       // Always stub member + fronter + settings providers so HeadmatePicker
       // and terminology don't need real data.
-      activeMembersProvider.overrideWithValue(
-        const AsyncValue.data([]),
-      ),
+      activeMembersProvider.overrideWithValue(const AsyncValue.data([])),
       // HeadmatePicker → watchMemberSearchGroups watches these two providers.
       // Override with empty lists to prevent Drift QueryStream timers.
-      allGroupsProvider.overrideWithValue(
-        const AsyncValue.data([]),
-      ),
-      allGroupEntriesProvider.overrideWithValue(
-        const AsyncValue.data([]),
-      ),
+      allGroupsProvider.overrideWithValue(const AsyncValue.data([])),
+      allGroupEntriesProvider.overrideWithValue(const AsyncValue.data([])),
       if (currentFronterStream != null)
-        currentFronterProvider.overrideWith(
-          (ref) => currentFronterStream,
-        )
+        currentFronterProvider.overrideWith((ref) => currentFronterStream)
       else
-        currentFronterProvider.overrideWithValue(
-          const AsyncValue.data(null),
-        ),
+        currentFronterProvider.overrideWithValue(const AsyncValue.data(null)),
       systemSettingsProvider.overrideWithValue(
         const AsyncValue.data(SystemSettings()),
       ),
@@ -238,8 +218,10 @@ class _CompleteHabitArgs {
 
 class _SpyHabitNotifier extends HabitNotifier {
   final List<_CompleteHabitArgs> completeHabitCalls = [];
-  final List<({String completionId, String habitId, Map<String, dynamic> changedFields})>
-      updateCompletionCalls = [];
+  final List<
+    ({String completionId, String habitId, Map<String, dynamic> changedFields})
+  >
+  updateCompletionCalls = [];
 
   @override
   Future<void> completeHabit({
@@ -282,22 +264,20 @@ class _FakeHabitRepository implements HabitRepository {
   _FakeHabitRepository({
     required List<Habit> habits,
     required List<HabitCompletion> allCompletions,
-  })  : _habits = List.unmodifiable(habits),
-        _allCompletions = List.unmodifiable(allCompletions);
+  }) : _habits = List.unmodifiable(habits),
+       _allCompletions = List.unmodifiable(allCompletions);
 
   final List<Habit> _habits;
   final List<HabitCompletion> _allCompletions;
 
   @override
-  Future<void> createCompletion(HabitCompletion completion) async {}
+  Future<int> createCompletion(HabitCompletion completion) async => 1;
 
   @override
-  Future<void> createHabit(Habit habit) async =>
-      throw UnimplementedError();
+  Future<void> createHabit(Habit habit) async => throw UnimplementedError();
 
   @override
-  Future<void> deleteCompletion(String id) async =>
-      throw UnimplementedError();
+  Future<int> deleteCompletion(String id) async => throw UnimplementedError();
 
   @override
   Future<void> deleteHabit(String id) async => throw UnimplementedError();
@@ -312,8 +292,7 @@ class _FakeHabitRepository implements HabitRepository {
   Future<List<HabitCompletion>> getCompletionsForHabit(
     String habitId, {
     DateTime? since,
-  }) async =>
-      _allCompletions.where((c) => c.habitId == habitId).toList();
+  }) async => _allCompletions.where((c) => c.habitId == habitId).toList();
 
   @override
   Future<Habit?> getHabitById(String id) async {
@@ -325,6 +304,12 @@ class _FakeHabitRepository implements HabitRepository {
 
   @override
   Future<void> updateHabit(Habit habit) async {}
+
+  @override
+  Future<int> updateHabitFields(
+    String id,
+    Map<String, dynamic> changedFields,
+  ) async => _habits.any((h) => h.id == id) ? 1 : 0;
 
   @override
   Stream<List<HabitCompletion>> watchAllCompletions() =>
@@ -353,8 +338,7 @@ class _FakeHabitRepository implements HabitRepository {
   Stream<List<HabitCompletion>> watchCompletionsForDateRange(
     DateTime start,
     DateTime end,
-  ) =>
-      Stream.value(const []);
+  ) => Stream.value(const []);
 
   @override
   Stream<List<HabitCompletion>> watchCompletionsForHabit(String habitId) =>
@@ -364,5 +348,8 @@ class _FakeHabitRepository implements HabitRepository {
   Future<HabitCompletion?> getCompletionById(String id) async => null;
 
   @override
-  Future<int> updateCompletionFields(String id, Map<String, dynamic> changedFields) async => 1;
+  Future<int> updateCompletionFields(
+    String id,
+    Map<String, dynamic> changedFields,
+  ) async => 1;
 }
