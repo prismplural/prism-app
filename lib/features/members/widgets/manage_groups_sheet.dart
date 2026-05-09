@@ -34,9 +34,20 @@ class ManageGroupsSheet extends ConsumerWidget {
     final l10n = context.l10n;
     final allGroupsAsync = ref.watch(allGroupsProvider);
     final memberGroupsAsync = ref.watch(memberGroupsProvider(memberId));
-    final groups = allGroupsAsync.value ?? [];
-    final memberGroupIds =
-        (memberGroupsAsync.value ?? []).map((g) => g.id).toSet();
+
+    // Block rendering until both streams have data. Falling back to empty
+    // sets here would render every checkbox as unchecked while the member's
+    // current memberships are still loading, misleading the user into
+    // thinking the member belongs to no groups.
+    if (!allGroupsAsync.hasValue || !memberGroupsAsync.hasValue) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 32),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final groups = allGroupsAsync.value!;
+    final memberGroupIds = memberGroupsAsync.value!.map((g) => g.id).toSet();
 
     if (groups.isEmpty) {
       return Column(
