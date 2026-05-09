@@ -1228,8 +1228,21 @@ class PluralKitSyncService {
         );
       }
 
-      // -- Groups (membership reconcile only, see R5) --
-      await _importGroups(client, overwriteMetadata: false);
+      // -- Groups (membership reconcile + bidirectional push) --
+      // Step 7 of docs/plans/pk-group-membership-push.md: pass the user's
+      // actual sync direction so:
+      //   pullOnly       → reconcile only (existing behavior, now safe
+      //                    because step 4 teaches reconcile to skip
+      //                    push_add rows).
+      //   pushOnly       → drain pending_pk_op to PK; no destructive pull.
+      //   bidirectional  → reconcile then push (the case the reporter's
+      //                    bug was about — local adds now reach PK).
+      //   disabled       → noop (caller never enters this code path).
+      await _importGroups(
+        client,
+        overwriteMetadata: false,
+        direction: direction,
+      );
 
       // -- Pull recent switches via incremental diff sweep --
       //
@@ -1561,21 +1574,29 @@ class PluralKitSyncService {
   Future<PkGroupsImportResult?> _importGroups(
     PluralKitClient client, {
     required bool overwriteMetadata,
+    required PkSyncDirection direction,
   }) async {
     final importer = _groupsImporter;
     if (importer == null) return null;
     try {
-      final pkGroups = await client.getGroups(withMembers: true);
-      return await importer.importGroups(
-        pkGroups,
-        overwriteMetadata: overwriteMetadata,
-        // Step 4 of docs/plans/pk-group-membership-push.md: importer is
-        // pull-only by construction. Step 7 will replace this hardcoded
-        // pullOnly with the user's actual sync direction so push-disabled
-        // users skip the pull pass and pushOnly users skip pull entirely.
-        // Until then, hardcoded pullOnly preserves current behavior.
-        direction: PkSyncDirection.pullOnly,
-      );
+      // Pull side: only fetch + reconcile when the direction includes pull.
+      // pushOnly users skip the network round-trip entirely.
+      PkGroupsImportResult? pullResult;
+      if (direction.pullEnabled) {
+        final pkGroups = await client.getGroups(withMembers: true);
+        pullResult = await importer.importGroups(
+          pkGroups,
+          overwriteMetadata: overwriteMetadata,
+          direction: direction,
+        );
+      }
+      // Push side: drain pending_pk_op intents to PK after pull-reconcile so
+      // the snapshot push sees the user's current state. Step 7 of
+      // docs/plans/pk-group-membership-push.md.
+      if (direction.pushEnabled) {
+        await importer.pushPendingGroupOps(client, direction);
+      }
+      return pullResult;
     } catch (e) {
       // Groups are not a first-class blocker for the rest of the sync — don't
       // abort members/switches on a group-fetch failure.
@@ -1780,7 +1801,13 @@ class PluralKitSyncService {
     _emit(
       _state.copyWith(syncProgress: 0.10, syncStatus: 'Importing groups...'),
     );
-    await _importGroups(client, overwriteMetadata: true);
+    // Full import is a one-shot pull-everything flow; never push from here
+    // (per docs/plans/pk-group-membership-push.md step 7 / v3-patches-2 #6).
+    await _importGroups(
+      client,
+      overwriteMetadata: true,
+      direction: PkSyncDirection.pullOnly,
+    );
     _emit(_state.copyWith(syncProgress: 0.15));
 
     // -- Build member resolution maps (precomputed once for both the
