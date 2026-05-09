@@ -708,7 +708,7 @@ class _AppShellState extends ConsumerState<AppShell>
     // Push any pending fronting sessions to PluralKit whenever the active
     // session changes (start / end / switch fronter). Fire-and-forget —
     // the notifier no-ops when PK isn't connected or mapping is incomplete.
-    ref.listen(activeSessionProvider, (_, _) {
+    ref.listen(activeSessionsProvider, (_, _) {
       ref.read(pluralKitSyncProvider.notifier).pushPendingSwitches();
       // Prevent the next auto-poll tick from re-ingesting the switch we
       // just authored locally.

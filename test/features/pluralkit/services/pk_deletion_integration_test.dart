@@ -136,7 +136,11 @@ class _FakeClient implements PluralKitClient {
   Future<PKSwitch> createSwitch(
     List<String> memberIds, {
     DateTime? timestamp,
-  }) => throw UnimplementedError();
+  }) async => PKSwitch(
+    id: 'sw-fake',
+    timestamp: timestamp ?? DateTime.now().toUtc(),
+    members: memberIds,
+  );
   @override
   Future<PKSwitch> updateSwitch(
     String switchId, {
@@ -154,7 +158,7 @@ class _FakeClient implements PluralKitClient {
   @override
   Future<List<String>> getGroupMembers(String groupRef) async => const [];
   @override
-  Future<PKSwitch?> getCurrentFronters() => throw UnimplementedError();
+  Future<PKSwitch?> getCurrentFronters() async => null;
   @override
   void dispose() {}
 }

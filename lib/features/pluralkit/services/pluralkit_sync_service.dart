@@ -227,10 +227,12 @@ final DateTime pkPushSourceAdoptionCutoff = DateTime.utc(2026, 4, 30);
 class PkPushSwitchesResult {
   final int pushed;
   final int legacyNullSourceSkipped;
+  final int repaired;
 
   const PkPushSwitchesResult({
     this.pushed = 0,
     this.legacyNullSourceSkipped = 0,
+    this.repaired = 0,
   });
 }
 
@@ -386,6 +388,7 @@ class PluralKitSyncService {
   final PkBannerCacheService _bannerCacheService;
 
   PluralKitSyncState _state = const PluralKitSyncState();
+  Future<PkPushSwitchesResult>? _pushInFlight;
   SyncStateCallback? onStateChanged;
 
   PluralKitSyncService({
@@ -1349,7 +1352,10 @@ class PluralKitSyncService {
 
       // Phase 4: scoped push.
       final pushResult = direction.pushEnabled
-          ? await pushPendingSwitches(onStaleLink: staleLinkMessages.add)
+          ? await pushPendingSwitches(
+              onStaleLink: staleLinkMessages.add,
+              allowDuringSync: true,
+            )
           : const PkPushSwitchesResult();
       final int switchesPushed = pushResult.pushed;
 
@@ -2738,9 +2744,7 @@ class PluralKitSyncService {
       }
       final freshPkId = fresh.pluralkitId?.trim();
       final queuedPkId = member.pluralkitId?.trim();
-      if (freshPkId == null ||
-          freshPkId.isEmpty ||
-          freshPkId != queuedPkId) {
+      if (freshPkId == null || freshPkId.isEmpty || freshPkId != queuedPkId) {
         debugPrint(
           '[PK] Member ${member.id} pluralkit_id changed since dequeue; '
           'aborting DELETE.',
@@ -2778,35 +2782,51 @@ class PluralKitSyncService {
 
   /// Phase 4 scoped switch push.
   ///
-  /// Pushes local fronting sessions to PK that:
-  /// - started after `linkedAt` (no backfilling pre-link history)
-  /// - have no `pluralkitUuid` yet (never pushed)
-  /// - have a `memberId` that resolves to a member with a `pluralkitId`
-  ///
-  /// For sessions with `endTime != null`, follows up with a second "switch-
-  /// out" create — `createSwitch([], timestamp: endTime)` — which is PK's
-  /// convention for "no one is fronting." The returned PK switch UUID is
-  /// stored on the local session so subsequent syncs don't duplicate it.
-  ///
-  /// Returns a [PkPushSwitchesResult] with the number of switches pushed and
-  /// the number of legacy null-`pkImportSource` rows held back by the
-  /// adoption cutoff (see [pkPushSourceAdoptionCutoff]).
+  /// PluralKit switches are snapshots of the current fronter set. This push
+  /// path reconciles the local active set against PK's current fronters and
+  /// only creates a new switch when those sets differ.
   Future<PkPushSwitchesResult> pushPendingSwitches({
     PkPushService? pushService,
     void Function(String message)? onStaleLink,
+    bool allowDuringSync = false,
   }) async {
     if (!_state.isConnected) {
       throw StateError('Not connected — cannot push switches');
+    }
+    if (_state.needsMapping) {
+      return const PkPushSwitchesResult();
     }
     final linkedAt = _state.linkedAt;
     if (linkedAt == null) {
       return const PkPushSwitchesResult();
     }
+    if (_state.isSyncing && !allowDuringSync) {
+      return const PkPushSwitchesResult();
+    }
 
+    final existing = _pushInFlight;
+    if (existing != null) return existing;
+
+    late final Future<PkPushSwitchesResult> future;
+    future =
+        _doPushPendingSwitches(
+          pushService: pushService ?? const PkPushService(),
+          onStaleLink: onStaleLink,
+        ).whenComplete(() {
+          if (identical(_pushInFlight, future)) {
+            _pushInFlight = null;
+          }
+        });
+    _pushInFlight = future;
+    return future;
+  }
+
+  Future<PkPushSwitchesResult> _doPushPendingSwitches({
+    required PkPushService pushService,
+    void Function(String message)? onStaleLink,
+  }) async {
     final client = await _buildClient();
     if (client == null) throw StateError('Not connected');
-
-    final push = pushService ?? const PkPushService();
 
     try {
       final members = await _memberRepository.getAllMembers();
@@ -2818,97 +2838,207 @@ class PluralKitSyncService {
         }
       }
 
-      final sessions = await _frontingSessionRepository.getAllSessions();
-      int pushed = 0;
-      int legacyNullSourceSkipped = 0;
-      for (final session in sessions) {
-        // Source-aware push gate (WS3 step 10 / #38):
-        // - Explicit `pkImportSourceFile` rows: never push (came from a
-        //   token-less file import, would duplicate when the user later
-        //   connects with a token).
-        // - Null source rows: only push if `startTime` is at or after the
-        //   adoption cutoff. Older null-source rows are pre-source-tracking
-        //   and can't be safely classified as locally-authored.
-        // - Explicit `pkImportSourceFileApi` (or any other future explicit
-        //   non-file source): push as normal.
-        if (session.pkImportSource == pkImportSourceFile) continue;
-        if (session.pkImportSource == null &&
-            session.startTime.isBefore(pkPushSourceAdoptionCutoff)) {
-          legacyNullSourceSkipped++;
-          continue;
-        }
-        if ((session.pluralkitUuid ?? '').trim().isNotEmpty) continue;
-        if (!session.startTime.isAfter(linkedAt)) continue;
+      final rawActive = await _frontingSessionRepository
+          .getAllActiveSessionsUnfiltered();
+      final localActive = rawActive.where((session) {
+        if (session.isSleep || session.isDeleted) return false;
         final memberId = session.memberId;
-        if (memberId == null) continue;
-        final pkPrimary = localIdToPkId[memberId];
-        if (pkPrimary == null) continue; // fronter isn't linked
+        if (memberId == null) return false;
+        return _hasText(localIdToPkId[memberId]);
+      }).toList()..sort((a, b) => a.startTime.compareTo(b.startTime));
 
-        // Per-member sessions: push as single-member switch.
-        final pkMemberIds = <String>[pkPrimary];
+      final localPkSet = _sortedUniquePkIds(localActive, localIdToPkId);
+      final pkCurrent = await client.getCurrentFronters();
+      final pkPkSet = _sortedUniqueStrings(pkCurrent?.members ?? const []);
 
-        String? createdUuid;
-        try {
-          final created = await push.pushSwitch(
-            pkMemberIds,
-            client,
-            timestamp: session.startTime,
-          );
-          createdUuid = created.id;
-
-          if (session.endTime != null) {
-            await push.pushSwitch(const [], client, timestamp: session.endTime);
-          }
-
-          await _frontingSessionRepository.updateSession(
-            session.copyWith(pluralkitUuid: createdUuid),
-          );
-          pushed++;
-        } on PkStaleLinkException catch (e) {
-          if (createdUuid != null) {
-            try {
-              await client.deleteSwitch(createdUuid);
-            } catch (cleanupErr) {
-              debugPrint(
-                '[PK] Failed to roll back partial switch $createdUuid '
-                'after stale-link: $cleanupErr. Leaving session $memberId '
-                'retriable; a future push may create a duplicate switch.',
-              );
-            }
-          }
-          debugPrint(
-            '[PK] Stale link on switch push (pkId=${e.pkId}); skipping '
-            'session ${session.id}.',
-          );
-          onStaleLink?.call(
-            'A PluralKit switch target was removed on the server — '
-            'skipped pushing one local session. (pkId=${e.pkId})',
-          );
-        } catch (e) {
-          if (createdUuid != null) {
-            try {
-              await client.deleteSwitch(createdUuid);
-            } catch (cleanupErr) {
-              debugPrint(
-                '[PK] Failed to roll back partial switch $createdUuid '
-                'after error $e: $cleanupErr. Session ${session.id} will '
-                'be retried; expect a possible duplicate PK switch.',
-              );
-            }
-          }
-          debugPrint(
-            '[PK] Switch push failed for session ${session.id}: $e. '
-            'Leaving session pending for retry.',
-          );
-        }
+      if (_sameStringSet(localPkSet, pkPkSet)) {
+        return _repairUnstampedEntrants(
+          localActive: localActive,
+          localIdToPkId: localIdToPkId,
+          pkCurrent: pkCurrent,
+          pkPkSet: pkPkSet.toSet(),
+        );
       }
-      return PkPushSwitchesResult(
-        pushed: pushed,
-        legacyNullSourceSkipped: legacyNullSourceSkipped,
+
+      final pushTs = DateTime.now().toUtc();
+      PKSwitch newSwitch;
+      var pushedPkSet = localPkSet;
+      try {
+        newSwitch = await pushService.pushSwitch(
+          localPkSet,
+          client,
+          timestamp: pushTs,
+        );
+      } on PluralKitApiError catch (e) {
+        // PK rejects identical-set pushes with code 40004. This happens when
+        // our local snapshot of pkPkSet was stale (e.g., another device
+        // pushed concurrently). Treat as benign: PK and local are in sync.
+        if (e.statusCode == 400 && e.message.contains('40004')) {
+          debugPrint(
+            '[PK_PUSH] PK reports member set already current (40004); '
+            'skipping push and trusting PK as source of truth.',
+          );
+          return const PkPushSwitchesResult();
+        }
+        rethrow;
+      } on PkStaleLinkException catch (e) {
+        final retry = await _retrySwitchPushAfterStaleLink(
+          client: client,
+          pushService: pushService,
+          localPkSet: localPkSet,
+          timestamp: pushTs,
+          onStaleLink: onStaleLink,
+          staleError: e,
+        );
+        if (retry == null) return const PkPushSwitchesResult();
+        newSwitch = retry.$1;
+        pushedPkSet = retry.$2;
+      }
+
+      final entrantPkIds = pushedPkSet.toSet()..removeAll(pkPkSet);
+      await _stampEntrants(
+        localActive: localActive,
+        localIdToPkId: localIdToPkId,
+        entrantPkIds: entrantPkIds,
+        switchUuid: newSwitch.id,
       );
+      return const PkPushSwitchesResult(pushed: 1);
     } finally {
       client.dispose();
     }
+  }
+
+  Future<(PKSwitch, List<String>)?> _retrySwitchPushAfterStaleLink({
+    required PluralKitClient client,
+    required PkPushService pushService,
+    required List<String> localPkSet,
+    required DateTime timestamp,
+    required PkStaleLinkException staleError,
+    void Function(String message)? onStaleLink,
+  }) async {
+    debugPrint(
+      '[PK] Stale link on snapshot switch push (pkId=${staleError.pkId}); '
+      'refreshing PK members and retrying once.',
+    );
+
+    final livePkIds = (await client.getMembers())
+        .map((m) => m.id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    final filteredPkSet = localPkSet.where(livePkIds.contains).toSet().toList()
+      ..sort();
+
+    try {
+      final created = await pushService.pushSwitch(
+        filteredPkSet,
+        client,
+        timestamp: timestamp,
+      );
+      return (created, filteredPkSet);
+    } on PkStaleLinkException catch (retryError) {
+      debugPrint(
+        '[PK] Snapshot switch push failed after stale-link retry '
+        '(pkId=${retryError.pkId}).',
+      );
+      onStaleLink?.call(
+        'A PluralKit switch target was removed on the server — '
+        'skipped pushing the current front. (pkId=${retryError.pkId})',
+      );
+      return null;
+    }
+  }
+
+  Future<PkPushSwitchesResult> _repairUnstampedEntrants({
+    required List<domain.FrontingSession> localActive,
+    required Map<String, String> localIdToPkId,
+    required PKSwitch? pkCurrent,
+    required Set<String> pkPkSet,
+  }) async {
+    final switchUuid = pkCurrent?.id.trim();
+    if (switchUuid == null || switchUuid.isEmpty) {
+      return const PkPushSwitchesResult();
+    }
+
+    final unstampedPkIds = <String>{};
+    var repaired = 0;
+    for (final session in localActive) {
+      if (_hasText(session.pluralkitUuid)) continue;
+      final memberId = session.memberId;
+      if (memberId == null) continue;
+      final pkId = localIdToPkId[memberId];
+      if (pkId == null || !pkPkSet.contains(pkId)) continue;
+      unstampedPkIds.add(pkId);
+      repaired++;
+    }
+    if (unstampedPkIds.isEmpty) return const PkPushSwitchesResult();
+
+    await _stampEntrants(
+      localActive: localActive,
+      localIdToPkId: localIdToPkId,
+      entrantPkIds: unstampedPkIds,
+      switchUuid: switchUuid,
+    );
+    return PkPushSwitchesResult(repaired: repaired);
+  }
+
+  Future<void> _stampEntrants({
+    required List<domain.FrontingSession> localActive,
+    required Map<String, String> localIdToPkId,
+    required Set<String> entrantPkIds,
+    required String switchUuid,
+  }) async {
+    for (final pkId in entrantPkIds) {
+      final candidates = localActive.where((session) {
+        final memberId = session.memberId;
+        return memberId != null &&
+            localIdToPkId[memberId] == pkId &&
+            !_hasText(session.pluralkitUuid);
+      }).toList();
+      if (candidates.isEmpty) continue;
+
+      final target = candidates.first;
+      try {
+        await _frontingSessionRepository.updateSession(
+          target.copyWith(pluralkitUuid: switchUuid),
+        );
+      } catch (e) {
+        if (isUniqueConstraintViolation(e)) {
+          debugPrint(
+            '[PK_PUSH] stamp collision on ($switchUuid,${target.memberId}); '
+            'duplicates exist',
+          );
+          continue;
+        }
+        rethrow;
+      }
+    }
+  }
+
+  List<String> _sortedUniquePkIds(
+    List<domain.FrontingSession> sessions,
+    Map<String, String> localIdToPkId,
+  ) {
+    final ids = <String>{};
+    for (final session in sessions) {
+      final memberId = session.memberId;
+      if (memberId == null) continue;
+      final pkId = localIdToPkId[memberId];
+      if (pkId != null && pkId.isNotEmpty) ids.add(pkId);
+    }
+    return ids.toList()..sort();
+  }
+
+  List<String> _sortedUniqueStrings(Iterable<String> values) {
+    final ids = values.map((value) => value.trim()).where(_hasText).toSet();
+    return ids.toList()..sort();
+  }
+
+  bool _sameStringSet(List<String> left, List<String> right) {
+    if (left.length != right.length) return false;
+    for (var i = 0; i < left.length; i++) {
+      if (left[i] != right[i]) return false;
+    }
+    return true;
   }
 
   /// Push a single linked member's fields to PluralKit after a local edit.

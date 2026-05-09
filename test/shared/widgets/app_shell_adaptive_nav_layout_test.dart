@@ -217,9 +217,13 @@ void main() {
               isPinSetProvider.overrideWith((ref) async => false),
               syncStatusProvider.overrideWith(_FakeSyncStatusNotifier.new),
               pkAutoPollProvider.overrideWith(_FakePkAutoPollNotifier.new),
-              pluralKitSyncProvider.overrideWith(_FakePluralKitSyncNotifier.new),
+              pluralKitSyncProvider.overrideWith(
+                _FakePluralKitSyncNotifier.new,
+              ),
               habitsBadgeEnabledProvider.overrideWith((ref) => false),
-              activeSessionProvider.overrideWith((ref) => Stream.value(null)),
+              activeSessionsProvider.overrideWith(
+                (ref) => Stream.value(const []),
+              ),
               allMembersProvider.overrideWith((ref) => Stream.value(const [])),
               unreadConversationCountProvider.overrideWith((ref) {
                 return ref.watch(_unreadCountStateProvider);
@@ -330,9 +334,13 @@ void main() {
               isPinSetProvider.overrideWith((ref) async => false),
               syncStatusProvider.overrideWith(_FakeSyncStatusNotifier.new),
               pkAutoPollProvider.overrideWith(_FakePkAutoPollNotifier.new),
-              pluralKitSyncProvider.overrideWith(_FakePluralKitSyncNotifier.new),
+              pluralKitSyncProvider.overrideWith(
+                _FakePluralKitSyncNotifier.new,
+              ),
               habitsBadgeEnabledProvider.overrideWith((ref) => false),
-              activeSessionProvider.overrideWith((ref) => Stream.value(null)),
+              activeSessionsProvider.overrideWith(
+                (ref) => Stream.value(const []),
+              ),
               allMembersProvider.overrideWith((ref) => Stream.value(const [])),
               unreadConversationCountProvider.overrideWith((ref) => 0),
               // Pre-existing test setup didn't override this. After commit
@@ -341,8 +349,9 @@ void main() {
               // intercepts the More-tabs tap and prevents the navbar from
               // expanding. Force the gate to complete here so the modal
               // doesn't surface during the test.
-              frontingMigrationGateProvider
-                  .overrideWith((ref) => FrontingMigrationGateStatus.complete),
+              frontingMigrationGateProvider.overrideWith(
+                (ref) => FrontingMigrationGateStatus.complete,
+              ),
             ],
             child: MaterialApp.router(
               localizationsDelegates: AppLocalizations.localizationsDelegates,

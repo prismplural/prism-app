@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sqlite3/sqlite3.dart' show SqlExtendedError, SqliteException;
 
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart' as domain;
@@ -133,11 +136,25 @@ class FakePluralKitClient implements PluralKitClient {
   Future<PKMember> updateMember(String id, Map<String, dynamic> data) =>
       throw UnimplementedError();
 
+  final List<({List<String> memberIds, DateTime? timestamp})>
+  createSwitchCalls = [];
+  String Function(List<String> memberIds)? createSwitchIdGenerator;
+
   @override
   Future<PKSwitch> createSwitch(
     List<String> memberIds, {
     DateTime? timestamp,
-  }) => throw UnimplementedError();
+  }) async {
+    createSwitchCalls.add((memberIds: memberIds, timestamp: timestamp));
+    final id =
+        createSwitchIdGenerator?.call(memberIds) ??
+        'sw-${createSwitchCalls.length}';
+    return PKSwitch(
+      id: id,
+      timestamp: timestamp ?? DateTime.now().toUtc(),
+      members: memberIds,
+    );
+  }
 
   @override
   Future<PKSwitch> updateSwitch(
@@ -169,8 +186,14 @@ class FakePluralKitClient implements PluralKitClient {
   @override
   Future<List<String>> getGroupMembers(String groupRef) async => const [];
 
+  PKSwitch? currentFrontersToReturn;
+  int getCurrentFrontersCallCount = 0;
+
   @override
-  Future<PKSwitch?> getCurrentFronters() => throw UnimplementedError();
+  Future<PKSwitch?> getCurrentFronters() async {
+    getCurrentFrontersCallCount++;
+    return currentFrontersToReturn;
+  }
 
   @override
   void dispose() {
@@ -313,6 +336,21 @@ class FakeFrontingSessionRepository implements FrontingSessionRepository {
 
   @override
   Future<void> updateSession(domain.FrontingSession session) async {
+    final uuid = session.pluralkitUuid?.trim();
+    if (uuid != null && uuid.isNotEmpty && session.memberId != null) {
+      final collides = sessions.any(
+        (s) =>
+            s.id != session.id &&
+            s.memberId == session.memberId &&
+            s.pluralkitUuid == uuid,
+      );
+      if (collides) {
+        throw SqliteException(
+          extendedResultCode: SqlExtendedError.SQLITE_CONSTRAINT_UNIQUE,
+          message: 'UNIQUE constraint failed',
+        );
+      }
+    }
     final idx = sessions.indexWhere((s) => s.id == session.id);
     if (idx >= 0) sessions[idx] = session;
   }
@@ -1286,29 +1324,78 @@ void main() {
     );
   });
 
-  // ── Source-aware push gate (WS3 step 10 / #38) ──────────────────────────────
+  group('pushPendingSwitches snapshot push', () {
+    domain.Member member(String id, String? pkId) => domain.Member(
+      id: id,
+      name: id,
+      emoji: '❔',
+      isActive: true,
+      createdAt: DateTime.utc(2026, 1, 1),
+      pluralkitId: pkId,
+    );
 
-  group('pushPendingSwitches source-aware gate', () {
-    Future<({PluralKitSyncService service, _RecordingPushClient client})>
-    setupGate({required List<domain.FrontingSession> sessions}) async {
+    domain.FrontingSession session(
+      String id,
+      String? memberId, {
+      DateTime? startTime,
+      String? pluralkitUuid,
+      String? pkImportSource,
+      bool isSleep = false,
+      bool isDeleted = false,
+      DateTime? endTime,
+    }) => domain.FrontingSession(
+      id: id,
+      startTime: startTime ?? DateTime.utc(2026, 2, 1, 12),
+      endTime: endTime,
+      memberId: memberId,
+      pluralkitUuid: pluralkitUuid,
+      pkImportSource: pkImportSource,
+      sessionType: isSleep
+          ? domain.SessionType.sleep
+          : domain.SessionType.normal,
+      isDeleted: isDeleted,
+    );
+
+    PKSwitch pkSwitch(String id, List<String> members) => PKSwitch(
+      id: id,
+      timestamp: DateTime.utc(2026, 2, 1, 12),
+      members: members,
+    );
+
+    Future<
+      ({
+        PluralKitSyncService service,
+        _RecordingPushClient client,
+        FakeFrontingSessionRepository sessionRepo,
+      })
+    >
+    setupSnapshot({
+      required List<domain.Member> members,
+      required List<domain.FrontingSession> sessions,
+      PKSwitch? current,
+      _RecordingPushClient? client,
+    }) async {
       final db = _makeDb();
       addTearDown(db.close);
 
-      final memberRepo = FakeMemberRepository()
-        ..seed([
-          domain.Member(
-            id: 'local-a',
-            name: 'Alice',
-            emoji: '❔',
-            isActive: true,
-            createdAt: DateTime(2026, 1, 1),
-            pluralkitId: 'pkA',
-          ),
-        ]);
+      final memberRepo = FakeMemberRepository()..seed(members);
       final sessionRepo = FakeFrontingSessionRepository()
         ..sessions.addAll(sessions);
 
-      final fakeClient = _RecordingPushClient();
+      final fakeClient =
+          client ??
+          _RecordingPushClient(
+            current: current,
+            membersToReturn: [
+              for (final member in members)
+                if (member.pluralkitId != null)
+                  PKMember(
+                    id: member.pluralkitId!,
+                    uuid: 'uuid-${member.id}',
+                    name: member.name,
+                  ),
+            ],
+          );
       final service = PluralKitSyncService(
         memberRepository: memberRepo,
         frontingSessionRepository: sessionRepo,
@@ -1318,127 +1405,451 @@ void main() {
       );
       await service.setToken('valid-token');
       await service.acknowledgeMapping();
-      // linkedAt before all session startTimes used in these tests.
       await db.pluralKitSyncDao.upsertSyncState(
         PluralKitSyncStateCompanion(
           id: const Value('pk_config'),
-          linkedAt: Value(DateTime.utc(2024, 1, 1)),
+          linkedAt: Value(DateTime.utc(2026, 1, 15)),
           lastSyncDate: Value(DateTime.utc(2024, 1, 2)),
         ),
       );
       await service.loadState();
-      return (service: service, client: fakeClient);
+      return (service: service, client: fakeClient, sessionRepo: sessionRepo);
     }
 
-    test(
-      'null pkImportSource BEFORE adoption cutoff is skipped and counted',
-      () async {
-        // Cutoff is pkPushSourceAdoptionCutoff (2026-04-30 UTC).
-        final harness = await setupGate(
-          sessions: [
-            domain.FrontingSession(
-              id: 's-legacy',
-              startTime: DateTime.utc(2026, 4, 1, 12),
-              memberId: 'local-a',
-              // pkImportSource: null — the unclassifiable pre-source-tracking
-              // shape we don't want to push.
-            ),
-          ],
-        );
-
-        final result = await harness.service.pushPendingSwitches();
-
-        expect(result.pushed, 0);
-        expect(result.legacyNullSourceSkipped, 1);
-        expect(harness.client.createSwitchCallCount, 0);
-      },
-    );
-
-    test('null pkImportSource AFTER adoption cutoff is pushed', () async {
-      final harness = await setupGate(
+    test('pushes nothing when PK matches local', () async {
+      final harness = await setupSnapshot(
+        members: [member('a', 'pkA'), member('b', 'pkB')],
         sessions: [
-          domain.FrontingSession(
-            id: 's-new-null',
-            startTime: pkPushSourceAdoptionCutoff.add(const Duration(days: 1)),
-            memberId: 'local-a',
-          ),
+          session('s-a', 'a', pluralkitUuid: 'sw-current'),
+          session('s-b', 'b', pluralkitUuid: 'sw-current'),
         ],
-      );
-
-      final result = await harness.service.pushPendingSwitches();
-
-      expect(result.pushed, 1);
-      expect(result.legacyNullSourceSkipped, 0);
-      expect(harness.client.createSwitchCallCount, 1);
-    });
-
-    test('explicit pkImportSourceFile is NEVER pushed', () async {
-      final harness = await setupGate(
-        sessions: [
-          // Even AFTER the cutoff: file-source rows must not push, ever.
-          domain.FrontingSession(
-            id: 's-file',
-            startTime: pkPushSourceAdoptionCutoff.add(const Duration(days: 1)),
-            memberId: 'local-a',
-            pkImportSource: pkImportSourceFile,
-          ),
-        ],
+        current: pkSwitch('sw-current', const ['pkB', 'pkA']),
       );
 
       final result = await harness.service.pushPendingSwitches();
 
       expect(result.pushed, 0);
-      expect(result.legacyNullSourceSkipped, 0);
+      expect(result.repaired, 0);
       expect(harness.client.createSwitchCallCount, 0);
     });
 
-    test(
-      'explicit pkImportSourceFileApi IS pushed regardless of cutoff',
-      () async {
-        final harness = await setupGate(
-          sessions: [
-            // BEFORE the cutoff but explicitly file-API tagged: still push.
-            domain.FrontingSession(
-              id: 's-fileapi',
-              startTime: DateTime.utc(2026, 1, 15, 9),
-              memberId: 'local-a',
-              pkImportSource: pkImportSourceFileApi,
-            ),
-          ],
-        );
+    test('pushes new switch when adding co-fronter', () async {
+      final harness = await setupSnapshot(
+        members: [member('a', 'pkA'), member('b', 'pkB')],
+        sessions: [
+          session('s-a', 'a', pluralkitUuid: 'sw-old'),
+          session('s-b', 'b'),
+        ],
+        current: pkSwitch('sw-old', const ['pkA']),
+      );
 
-        final result = await harness.service.pushPendingSwitches();
+      final result = await harness.service.pushPendingSwitches();
 
-        expect(result.pushed, 1);
-        expect(result.legacyNullSourceSkipped, 0);
-        expect(harness.client.createSwitchCallCount, 1);
-      },
-    );
+      expect(result.pushed, 1);
+      expect(harness.client.createSwitchMemberIds.single, ['pkA', 'pkB']);
+      expect(
+        harness.sessionRepo.sessions
+            .firstWhere((s) => s.id == 's-a')
+            .pluralkitUuid,
+        'sw-old',
+      );
+      expect(
+        harness.sessionRepo.sessions
+            .firstWhere((s) => s.id == 's-b')
+            .pluralkitUuid,
+        'sw-1',
+      );
+    });
+
+    test('pushes new switch when removing co-fronter', () async {
+      final harness = await setupSnapshot(
+        members: [member('a', 'pkA'), member('b', 'pkB')],
+        sessions: [session('s-b', 'b', pluralkitUuid: 'sw-old')],
+        current: pkSwitch('sw-old', const ['pkA', 'pkB']),
+      );
+
+      final result = await harness.service.pushPendingSwitches();
+
+      expect(result.pushed, 1);
+      expect(harness.client.createSwitchMemberIds.single, ['pkB']);
+      expect(
+        harness.sessionRepo.sessions.single.pluralkitUuid,
+        'sw-old',
+        reason: 'Continuing members keep their entrant switch UUID.',
+      );
+    });
+
+    test('pushes empty switch when last fronter ends', () async {
+      final harness = await setupSnapshot(
+        members: [member('a', 'pkA')],
+        sessions: [
+          session(
+            's-a',
+            'a',
+            pluralkitUuid: 'sw-old',
+            endTime: DateTime.utc(2026, 2, 1, 13),
+          ),
+        ],
+        current: pkSwitch('sw-old', const ['pkA']),
+      );
+
+      final result = await harness.service.pushPendingSwitches();
+
+      expect(result.pushed, 1);
+      expect(harness.client.createSwitchMemberIds.single, isEmpty);
+    });
+
+    test('pushes initial switch when nothing on PK', () async {
+      final harness = await setupSnapshot(
+        members: [member('a', 'pkA')],
+        sessions: [session('s-a', 'a')],
+      );
+
+      final result = await harness.service.pushPendingSwitches();
+
+      expect(result.pushed, 1);
+      expect(harness.client.createSwitchMemberIds.single, ['pkA']);
+      expect(harness.sessionRepo.sessions.single.pluralkitUuid, 'sw-1');
+    });
+
+    test('excludes unlinked members from local set', () async {
+      final harness = await setupSnapshot(
+        members: [member('a', 'pkA'), member('u', null)],
+        sessions: [session('s-a', 'a'), session('s-u', 'u')],
+      );
+
+      await harness.service.pushPendingSwitches();
+
+      expect(harness.client.createSwitchMemberIds.single, ['pkA']);
+      expect(
+        harness.sessionRepo.sessions
+            .firstWhere((s) => s.id == 's-u')
+            .pluralkitUuid,
+        isNull,
+      );
+    });
+
+    test('includes file-imported active sessions in snapshot', () async {
+      final harness = await setupSnapshot(
+        members: [member('a', 'pkA'), member('b', 'pkB')],
+        sessions: [
+          session('s-a', 'a', pkImportSource: pkImportSourceFile),
+          session('s-b', 'b'),
+        ],
+        current: pkSwitch('sw-old', const ['pkA']),
+      );
+
+      await harness.service.pushPendingSwitches();
+
+      expect(harness.client.createSwitchMemberIds.single, ['pkA', 'pkB']);
+    });
+
+    test('excludes sleep sessions', () async {
+      final harness = await setupSnapshot(
+        members: [member('a', 'pkA'), member('b', 'pkB')],
+        sessions: [session('s-sleep', 'a', isSleep: true), session('s-b', 'b')],
+      );
+
+      await harness.service.pushPendingSwitches();
+
+      expect(harness.client.createSwitchMemberIds.single, ['pkB']);
+    });
+
+    test('dedups duplicate active rows for same member in snapshot', () async {
+      final harness = await setupSnapshot(
+        members: [member('a', 'pkA')],
+        sessions: [
+          session('s-a-1', 'a', startTime: DateTime.utc(2026, 2, 1, 11)),
+          session('s-a-2', 'a', startTime: DateTime.utc(2026, 2, 1, 12)),
+        ],
+      );
+
+      await harness.service.pushPendingSwitches();
+
+      expect(harness.client.createSwitchMemberIds.single, ['pkA']);
+    });
+
+    test('is idempotent under concurrent successful calls', () async {
+      final client = _RecordingPushClient()..holdCreateSwitch = true;
+      final harness = await setupSnapshot(
+        members: [member('a', 'pkA')],
+        sessions: [session('s-a', 'a')],
+        client: client,
+      );
+
+      final first = harness.service.pushPendingSwitches();
+      final second = harness.service.pushPendingSwitches();
+      await Future<void>.delayed(Duration.zero);
+      client.releaseCreateSwitch();
+
+      final results = await Future.wait([first, second]);
+      expect(harness.client.createSwitchCallCount, 1);
+      expect(results[0].pushed, 1);
+      expect(results[1].pushed, 1);
+    });
+
+    test('concurrent callers receive the same push exception', () async {
+      final client = _RecordingPushClient()
+        ..holdCreateSwitch = true
+        ..throwCreateError = Exception('boom');
+      final harness = await setupSnapshot(
+        members: [member('a', 'pkA')],
+        sessions: [session('s-a', 'a')],
+        client: client,
+      );
+
+      final first = harness.service.pushPendingSwitches();
+      final second = harness.service.pushPendingSwitches();
+      await Future<void>.delayed(Duration.zero);
+      client.releaseCreateSwitch();
+
+      await expectLater(first, throwsA(isA<Exception>()));
+      await expectLater(second, throwsA(isA<Exception>()));
+      expect(harness.client.createSwitchCallCount, 1);
+    });
+
+    test('AppShell-triggered push bails when pull is in progress', () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+      final memberRepo = FakeMemberRepository()..seed([member('a', 'pkA')]);
+      final sessionRepo = FakeFrontingSessionRepository()
+        ..sessions.add(session('s-a', 'a'));
+      final client = _RecordingPushClient()..holdGetGroups = true;
+      final service = PluralKitSyncService(
+        memberRepository: memberRepo,
+        frontingSessionRepository: sessionRepo,
+        syncDao: db.pluralKitSyncDao,
+        secureStorage: const FlutterSecureStorage(),
+        clientFactory: (_) => client,
+      );
+      await service.setToken('valid-token');
+      await service.acknowledgeMapping();
+      await db.pluralKitSyncDao.upsertSyncState(
+        PluralKitSyncStateCompanion(
+          id: const Value('pk_config'),
+          linkedAt: Value(DateTime.utc(2026, 1, 15)),
+          lastSyncDate: Value(DateTime.utc(2026, 1, 20)),
+        ),
+      );
+      await service.loadState();
+
+      final sync = service.syncRecentData(direction: PkSyncDirection.pullOnly);
+      while (!service.state.isSyncing) {
+        await Future<void>.delayed(Duration.zero);
+      }
+
+      final result = await service.pushPendingSwitches();
+      expect(result.pushed, 0);
+      expect(client.createSwitchCallCount, 0);
+
+      client.releaseGetGroups();
+      await sync;
+    });
+
+    test("pull's phase-4 push proceeds during isSyncing", () async {
+      final harness = await setupSnapshot(
+        members: [member('a', 'pkA')],
+        sessions: [session('s-a', 'a')],
+      );
+
+      final summary = await harness.service.syncRecentData(
+        direction: PkSyncDirection.pushOnly,
+      );
+
+      expect(harness.client.createSwitchCallCount, 1);
+      expect(summary!.switchesPushed, 1);
+    });
+
+    test('retries with filtered set on stale-link 404', () async {
+      final client = _RecordingPushClient(
+        membersToReturn: const [
+          PKMember(id: 'pkA', uuid: 'uuid-a', name: 'A'),
+          PKMember(id: 'pkB', uuid: 'uuid-b', name: 'B'),
+        ],
+      )..staleFailuresRemaining = 1;
+      final harness = await setupSnapshot(
+        members: [member('a', 'pkA'), member('b', 'pkB'), member('c', 'pkC')],
+        sessions: [
+          session('s-a', 'a'),
+          session('s-b', 'b'),
+          session('s-c', 'c'),
+        ],
+        client: client,
+      );
+
+      await harness.service.pushPendingSwitches();
+
+      expect(harness.client.createSwitchCallCount, 2);
+      expect(harness.client.createSwitchMemberIds[0], ['pkA', 'pkB', 'pkC']);
+      expect(harness.client.createSwitchMemberIds[1], ['pkA', 'pkB']);
+    });
+
+    test('stale-link retry fails permanently after one retry', () async {
+      final messages = <String>[];
+      final client = _RecordingPushClient(
+        membersToReturn: const [PKMember(id: 'pkA', uuid: 'uuid-a', name: 'A')],
+      )..staleFailuresRemaining = 2;
+      final harness = await setupSnapshot(
+        members: [member('a', 'pkA'), member('b', 'pkB')],
+        sessions: [session('s-a', 'a'), session('s-b', 'b')],
+        client: client,
+      );
+
+      final result = await harness.service.pushPendingSwitches(
+        onStaleLink: messages.add,
+      );
+
+      expect(result.pushed, 0);
+      expect(harness.client.createSwitchCallCount, 2);
+      expect(messages, isNotEmpty);
+    });
+
+    test('pre-link active session is included in current set', () async {
+      final harness = await setupSnapshot(
+        members: [member('a', 'pkA')],
+        sessions: [
+          session(
+            's-a',
+            'a',
+            startTime: DateTime.utc(
+              2026,
+              1,
+              15,
+            ).subtract(const Duration(hours: 1)),
+          ),
+        ],
+      );
+
+      await harness.service.pushPendingSwitches();
+
+      expect(harness.client.createSwitchMemberIds.single, ['pkA']);
+    });
+
+    test('stamp-repair on no-op path', () async {
+      final harness = await setupSnapshot(
+        members: [member('a', 'pkA')],
+        sessions: [session('s-a', 'a')],
+        current: pkSwitch('sw-current', const ['pkA']),
+      );
+
+      final result = await harness.service.pushPendingSwitches();
+
+      expect(result.pushed, 0);
+      expect(result.repaired, 1);
+      expect(harness.client.createSwitchCallCount, 0);
+      expect(harness.sessionRepo.sessions.single.pluralkitUuid, 'sw-current');
+    });
+
+    test('stamp collision on duplicate active rows', () async {
+      final harness = await setupSnapshot(
+        members: [member('a', 'pkA')],
+        sessions: [
+          session('s-a-old', 'a', startTime: DateTime.utc(2026, 2, 1, 10)),
+          session(
+            's-a-new',
+            'a',
+            startTime: DateTime.utc(2026, 2, 1, 11),
+            pluralkitUuid: 'sw-current',
+          ),
+        ],
+        current: pkSwitch('sw-current', const ['pkA']),
+      );
+
+      final result = await harness.service.pushPendingSwitches();
+
+      expect(result.repaired, 1);
+      expect(
+        harness.sessionRepo.sessions
+            .firstWhere((s) => s.id == 's-a-old')
+            .pluralkitUuid,
+        isNull,
+      );
+      expect(
+        harness.sessionRepo.sessions
+            .firstWhere((s) => s.id == 's-a-new')
+            .pluralkitUuid,
+        'sw-current',
+      );
+    });
   });
 }
 
 // Subclass that records createSwitch invocations and returns a unique switch
-// id on each call. Used by the source-aware push gate tests above.
+// id on each call. Used by the snapshot push tests above.
 class _RecordingPushClient extends FakePluralKitClient {
+  _RecordingPushClient({
+    this.current,
+    List<PKMember> membersToReturn = const [],
+  }) {
+    this.membersToReturn = membersToReturn;
+  }
+
+  PKSwitch? current;
   int createSwitchCallCount = 0;
+  final List<List<String>> createSwitchMemberIds = [];
+  bool holdCreateSwitch = false;
+  Object? throwCreateError;
+  int staleFailuresRemaining = 0;
+  Completer<void>? _createSwitchCompleter;
+
+  bool holdGetGroups = false;
+  Completer<void>? _getGroupsCompleter;
+
+  void releaseCreateSwitch() {
+    _createSwitchCompleter?.complete();
+  }
+
+  void releaseGetGroups() {
+    _getGroupsCompleter?.complete();
+  }
+
+  @override
+  Future<PKSwitch?> getCurrentFronters() async {
+    getCurrentFrontersCallCount++;
+    return current;
+  }
 
   @override
   Future<PKSwitch> createSwitch(
     List<String> memberIds, {
     DateTime? timestamp,
   }) async {
+    if (holdCreateSwitch) {
+      _createSwitchCompleter ??= Completer<void>();
+      await _createSwitchCompleter!.future;
+    }
     createSwitchCallCount++;
+    createSwitchMemberIds.add(List.unmodifiable(memberIds));
+    final error = throwCreateError;
+    if (error != null) throw error;
+    if (staleFailuresRemaining > 0) {
+      staleFailuresRemaining--;
+      throw const PluralKitApiError(404, 'stale');
+    }
     return PKSwitch(
       id: 'sw-$createSwitchCallCount',
       timestamp: timestamp ?? DateTime.now(),
       members: memberIds,
     );
   }
+
+  @override
+  Future<List<PKGroup>> getGroups({bool withMembers = true}) async {
+    getGroupsCallCount++;
+    if (holdGetGroups) {
+      _getGroupsCompleter ??= Completer<void>();
+      await _getGroupsCompleter!.future;
+    }
+    return groupsToReturn;
+  }
 }
 
 // Subclass of FakePluralKitClient that always 404s createSwitch, simulating
 // PK having deleted the member/system referenced by a pending local switch.
 class _StaleCreateSwitchClient extends FakePluralKitClient {
+  @override
+  Future<PKSwitch?> getCurrentFronters() async => null;
+
   @override
   Future<PKSwitch> createSwitch(List<String> memberIds, {DateTime? timestamp}) {
     throw const PluralKitApiError(404, 'stale');

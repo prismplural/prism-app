@@ -15,6 +15,7 @@ import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_file_parser.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_push_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
 
 void _installSecureStorageStub() {
@@ -287,8 +288,9 @@ class _ThrowingPkSyncService implements PluralKitSyncService {
 
   @override
   Future<PkPushSwitchesResult> pushPendingSwitches({
-    Object? pushService,
+    PkPushService? pushService,
     void Function(String message)? onStaleLink,
+    bool allowDuringSync = false,
   }) async {
     pushPendingCalls++;
     return PkPushSwitchesResult(pushed: pushReturn);
@@ -297,7 +299,7 @@ class _ThrowingPkSyncService implements PluralKitSyncService {
   @override
   Future<bool> pushMemberUpdate(
     domain.Member member, {
-    Object? pushService,
+    PkPushService? pushService,
   }) async {
     pushMemberCalls++;
     return false;
