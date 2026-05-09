@@ -116,6 +116,21 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
         const MemberGroupEntriesCompanion(isDeleted: Value(true)),
       );
 
+  /// Soft-delete an entry and atomically set its `pending_pk_op` intent.
+  /// Used by the repository's `removeMemberFromGroup` so a single DAO call
+  /// captures both "row is gone locally" and "row needs to be pushed to PK
+  /// as a remove" (or `'none'` for non-PK entries).
+  Future<void> softDeleteEntryWithPendingOp(
+    String id, {
+    required String pendingPkOp,
+  }) =>
+      (update(memberGroupEntries)..where((e) => e.id.equals(id))).write(
+        MemberGroupEntriesCompanion(
+          isDeleted: const Value(true),
+          pendingPkOp: Value(pendingPkOp),
+        ),
+      );
+
   Future<void> deleteEntriesForGroup(String groupId) =>
       (update(memberGroupEntries)..where((e) => e.groupId.equals(groupId)))
           .write(const MemberGroupEntriesCompanion(isDeleted: Value(true)));

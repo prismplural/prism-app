@@ -254,6 +254,13 @@ class DriftMemberGroupsRepository
     if (existing != null) return;
     final group = await _requireGroupRow(groupId);
     final member = await _memberRepository.getMemberById(memberId);
+    // PK push intent (step 3 of docs/plans/pk-group-membership-push.md): a
+    // PK-linked add (both group AND member have PK UUIDs) sets push_add so
+    // the orchestrator pushes it to PluralKit on the next sync. For
+    // non-PK-linked entries, pending_pk_op stays 'none' (nothing to push).
+    final isPkLinked = (group.pluralkitUuid ?? '').isNotEmpty &&
+        (member?.pluralkitUuid ?? '').isNotEmpty;
+    final pendingPkOp = isPkLinked ? 'push_add' : 'none';
     final resolvedEntryId = _entryEntityId(
       group: group,
       member: member,
@@ -266,9 +273,14 @@ class DriftMemberGroupsRepository
       pkGroupUuid: Value(group.pluralkitUuid),
       pkMemberUuid: Value(member?.pluralkitUuid),
       isDeleted: const Value(false),
+      pendingPkOp: Value(pendingPkOp),
     );
-    if ((group.pluralkitUuid ?? '').isNotEmpty &&
-        (member?.pluralkitUuid ?? '').isNotEmpty) {
+    if (isPkLinked) {
+      // upsertEntry on the deterministic SHA id revives a prior soft-deleted
+      // row (e.g. a tombstone with pending_pk_op = push_remove). The
+      // companion's push_add intent overwrites whatever pending was queued —
+      // the user's revival intent wins, and the next push round restores the
+      // member to PK regardless of whether the prior remove already shipped.
       await _dao.upsertEntry(companion);
     } else {
       await _dao.createEntry(companion);
@@ -286,13 +298,27 @@ class DriftMemberGroupsRepository
     final group = await _dao.getGroupById(groupId);
     if (group == null) return;
     final member = await _memberRepository.getMemberById(memberId);
+    // PK push intent (step 3 of docs/plans/pk-group-membership-push.md): a
+    // remove on a PK-linked entry queues push_remove so the orchestrator
+    // tells PluralKit on the next sync. For non-PK rows, pending stays 'none'.
+    // We always SOFT-delete (never hard-delete from this path); the orchestrator
+    // hard-deletes via guarded DELETE after a successful PK push. This is the
+    // TOCTOU-safe path: if a push_add for this row was already in flight, the
+    // soft-delete-with-push_remove queues a compensating remove that converges
+    // PK to the user's current intent regardless of when the in-flight add
+    // returned.
+    final isPkLinked = (group.pluralkitUuid ?? '').isNotEmpty &&
+        (member?.pluralkitUuid ?? '').isNotEmpty;
     final entryEntityId = _entryEntityIdForDelete(
       group: group,
       entry: entry,
       member: member,
     );
     final isSuppressed = await _dao.isGroupSyncSuppressed(groupId);
-    await _dao.deleteEntry(entry.id);
+    await _dao.softDeleteEntryWithPendingOp(
+      entry.id,
+      pendingPkOp: isPkLinked ? 'push_remove' : 'none',
+    );
     if (isSuppressed) return;
     if (!await _shouldEmitPkBackedGroupSync(group)) return;
     await syncRecordDelete(_entryTable, entryEntityId);
