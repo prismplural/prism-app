@@ -879,13 +879,14 @@ class SpMapper {
   ///
   /// Uses a two-pass approach so that reply threading is preserved:
   ///   Pass 1 — generate stable Prism UUIDs and collect (prismId → spReplyTo).
-  ///   Pass 2 — resolve spReplyTo IDs to Prism UUIDs and set replyToId.
+  ///   Pass 2 — resolve spReplyTo IDs and copy the quoted message snapshot.
   List<domain.ChatMessage> _mapMessages(
     List<SpMessage> spMessages,
     List<String> warnings,
   ) {
     // Pass 1: assign Prism UUIDs, build lookup maps.
     final spIdToPrismId = <String, String>{};
+    final prismIdToMappedMessage = <String, domain.ChatMessage>{};
     final prismIdToSpReplyTo = <String, String?>{};
     final mapped = <domain.ChatMessage>[];
 
@@ -919,25 +920,33 @@ class SpMapper {
       spIdToPrismId[msg.id] = prismId;
       prismIdToSpReplyTo[prismId] = msg.replyTo;
 
-      mapped.add(
-        domain.ChatMessage(
-          id: prismId,
-          content: msg.content,
-          timestamp: msg.timestamp,
-          editedAt: editedAt,
-          authorId: authorId,
-          conversationId: conversationId,
-        ),
+      final mappedMessage = domain.ChatMessage(
+        id: prismId,
+        content: msg.content,
+        timestamp: msg.timestamp,
+        editedAt: editedAt,
+        authorId: authorId,
+        conversationId: conversationId,
       );
+
+      prismIdToMappedMessage[prismId] = mappedMessage;
+      mapped.add(mappedMessage);
     }
 
-    // Pass 2: set replyToId where the referenced SP message was also imported.
+    // Pass 2: set reply quote fields where the referenced SP message was also
+    // imported.
     final result = mapped.map((m) {
       final spReplyTo = prismIdToSpReplyTo[m.id];
       if (spReplyTo == null) return m;
       final replyPrismId = spIdToPrismId[spReplyTo];
       if (replyPrismId == null) return m;
-      return m.copyWith(replyToId: replyPrismId);
+      final replyMessage = prismIdToMappedMessage[replyPrismId];
+      if (replyMessage == null) return m;
+      return m.copyWith(
+        replyToId: replyPrismId,
+        replyToAuthorId: replyMessage.authorId,
+        replyToContent: replyMessage.content,
+      );
     }).toList();
 
     // Update conversation lastActivityAt based on latest message.

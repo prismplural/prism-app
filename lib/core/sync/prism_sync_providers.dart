@@ -37,6 +37,7 @@ import 'package:prism_plurality/core/sync/sync_runtime_state.dart';
 import 'package:prism_plurality/core/sync/sync_schema.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_group_sync_v2_catchup_service.dart';
 import 'package:prism_plurality/features/migration/services/sp_boards_backfill_service.dart';
+import 'package:prism_plurality/features/migration/services/sp_reply_quote_backfill_service.dart';
 import 'package:prism_plurality/data/repositories/drift_member_board_posts_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_system_settings_repository.dart';
 
@@ -1061,8 +1062,7 @@ Future<Uint8List?> readCachedRuntimeDekForRestoreCore({
   final clearRecord =
       clearFailureRecord ?? RuntimeDekUnwrapFailureRegistry.clear;
 
-  String? errorCodeOf(Object? e) =>
-      e is PlatformException ? e.code : null;
+  String? errorCodeOf(Object? e) => e is PlatformException ? e.code : null;
   String? errorMessageOf(Object? e) {
     if (e == null) return null;
     if (e is PlatformException) return e.message;
@@ -1105,8 +1105,9 @@ Future<Uint8List?> readCachedRuntimeDekForRestoreCore({
         RuntimeDekUnwrapFailure(
           classification: RuntimeDekUnwrapClassification.transient,
           errorCode: errorCodeOf(secondAttempt.error ?? firstAttempt.error),
-          errorMessage:
-              errorMessageOf(secondAttempt.error ?? firstAttempt.error),
+          errorMessage: errorMessageOf(
+            secondAttempt.error ?? firstAttempt.error,
+          ),
           attempts: 2,
           cachePreserved: true,
           timestamp: DateTime.now().toUtc(),
@@ -3161,8 +3162,9 @@ final spBoardsBackfillProvider = FutureProvider<SpBoardsBackfillResult?>((
   if (settings.spBoardsBackfilledAt != null) return null;
 
   // Quick candidate check: any board-emoji DM conversations?
-  final candidates = await db.customSelect(
-    '''
+  final candidates = await db
+      .customSelect(
+        '''
     SELECT COUNT(*) AS c
     FROM conversations
     WHERE is_direct_message = 1
@@ -3171,15 +3173,19 @@ final spBoardsBackfillProvider = FutureProvider<SpBoardsBackfillResult?>((
       AND is_deleted = 0
     LIMIT 1
     ''',
-    variables: [Variable.withString('\u{1F4DD}')],
-  ).get();
+        variables: [Variable.withString('\u{1F4DD}')],
+      )
+      .get();
 
   final count = candidates.firstOrNull?.read<int>('c') ?? 0;
   if (count == 0) {
     // No candidates — mark as done without running the full service.
     debugPrint('[BOARDS_BACKFILL] No candidate DMs found; marking done.');
     await settingsRepo.updateSpBoardsBackfilledAt(DateTime.now().toUtc());
-    return const SpBoardsBackfillResult(postsConverted: 0, abortedByPeer: false);
+    return const SpBoardsBackfillResult(
+      postsConverted: 0,
+      abortedByPeer: false,
+    );
   }
 
   final boardPostsDao = db.memberBoardPostsDao;
@@ -3214,7 +3220,10 @@ final spBoardsBackfillProvider = FutureProvider<SpBoardsBackfillResult?>((
       final primaryIds = re2.navBarItems;
       final overflowIds = re2.navBarOverflowItems;
       if (!primaryIds.contains('boards') && !overflowIds.contains('boards')) {
-        await settingsRepo.updateNavBarOverflowItems([...overflowIds, 'boards']);
+        await settingsRepo.updateNavBarOverflowItems([
+          ...overflowIds,
+          'boards',
+        ]);
       }
     }
     return result;
@@ -3227,3 +3236,38 @@ final spBoardsBackfillProvider = FutureProvider<SpBoardsBackfillResult?>((
     return null;
   }
 });
+
+// ---------------------------------------------------------------------------
+// SP reply quote startup repair
+// ---------------------------------------------------------------------------
+
+/// Repairs legacy SP-imported replies that have `reply_to_id` but are missing
+/// the quoted author/content snapshot needed by the chat UI.
+///
+/// Candidate-gated so it is effectively one-time: after the local rows are
+/// repaired, later launches return before waiting on sync setup. When sync is
+/// available, the repaired fields are emitted as normal chat-message updates so
+/// paired devices can converge without reimporting.
+final spReplyQuoteBackfillProvider =
+    FutureProvider<SpReplyQuoteBackfillResult?>((ref) async {
+      final db = ref.read(databaseProvider);
+      final hasCandidates = await SpReplyQuoteBackfillService.hasCandidates(db);
+      if (!hasCandidates) return null;
+
+      final syncHandle = await ref.watch(prismSyncHandleProvider.future);
+      final service = SpReplyQuoteBackfillService(
+        db: db,
+        syncHandle: syncHandle,
+      );
+
+      try {
+        return await service.run();
+      } catch (e, st) {
+        ErrorReportingService.instance.report(
+          'SP reply quote backfill failed (non-fatal): $e',
+          severity: ErrorSeverity.warning,
+          stackTrace: st,
+        );
+        return null;
+      }
+    });

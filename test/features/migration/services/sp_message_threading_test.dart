@@ -146,6 +146,8 @@ void main() {
       );
 
       expect(reply.replyToId, original.id);
+      expect(reply.replyToAuthorId, original.authorId);
+      expect(reply.replyToContent, original.content);
       expect(original.replyToId, isNull);
     });
 
@@ -206,8 +208,12 @@ void main() {
       expect(result.messages, hasLength(3));
 
       final root = result.messages.firstWhere((m) => m.content == 'Root');
-      final child = result.messages.firstWhere((m) => m.content == 'Child of root');
-      final grandchild = result.messages.firstWhere((m) => m.content == 'Grandchild');
+      final child = result.messages.firstWhere(
+        (m) => m.content == 'Child of root',
+      );
+      final grandchild = result.messages.firstWhere(
+        (m) => m.content == 'Grandchild',
+      );
 
       expect(root.replyToId, isNull);
       expect(child.replyToId, root.id);
@@ -263,28 +269,31 @@ void main() {
       expect(result.messages.first.editedAt, edit);
     });
 
-    test('editedAt is null when updatedAt equals timestamp (within 1 second)', () {
-      final ts = DateTime(2024, 1, 1, 10, 0, 0);
+    test(
+      'editedAt is null when updatedAt equals timestamp (within 1 second)',
+      () {
+        final ts = DateTime(2024, 1, 1, 10, 0, 0);
 
-      final data = _makeData(
-        members: [_member],
-        channels: [_channel],
-        messages: [
-          SpMessage(
-            id: 'sp-msg1',
-            channelId: 'ch1',
-            senderId: 'sp-a',
-            content: 'Not edited',
-            timestamp: ts,
-            // Same time — SP sometimes sets updatedAt = writtenAt on creation.
-            updatedAt: ts,
-          ),
-        ],
-      );
+        final data = _makeData(
+          members: [_member],
+          channels: [_channel],
+          messages: [
+            SpMessage(
+              id: 'sp-msg1',
+              channelId: 'ch1',
+              senderId: 'sp-a',
+              content: 'Not edited',
+              timestamp: ts,
+              // Same time — SP sometimes sets updatedAt = writtenAt on creation.
+              updatedAt: ts,
+            ),
+          ],
+        );
 
-      final result = SpMapper().mapAll(data);
-      expect(result.messages.first.editedAt, isNull);
-    });
+        final result = SpMapper().mapAll(data);
+        expect(result.messages.first.editedAt, isNull);
+      },
+    );
 
     test('editedAt is null when updatedAt is absent', () {
       final data = _makeData(

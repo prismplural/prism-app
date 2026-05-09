@@ -102,6 +102,9 @@ class _PrismAppState extends ConsumerState<PrismApp> {
     // The provider is gated on spBoardsBackfilledAt == null and is a no-op on
     // all subsequent launches. Fire-and-forget — errors are non-fatal.
     ref.listen(spBoardsBackfillProvider, (_, _) {});
+    // Repair legacy SP-imported replies whose quote snapshot was missing.
+    // Candidate-gated; later launches no-op after affected rows are fixed.
+    ref.listen(spReplyQuoteBackfillProvider, (_, _) {});
 
     final router = ref.watch(routerProvider);
     var brightness = ref.watch(themeBrightnessProvider);

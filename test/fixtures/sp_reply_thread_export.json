@@ -1,0 +1,56 @@
+{
+  "members": [
+    {
+      "_id": "sp-member-alpha",
+      "name": "Alpha",
+      "pronouns": "they/them",
+      "archived": false
+    },
+    {
+      "_id": "sp-member-beta",
+      "name": "Beta",
+      "pronouns": "she/her",
+      "archived": false
+    },
+    {
+      "_id": "sp-member-gamma",
+      "name": "Gamma",
+      "pronouns": "he/him",
+      "archived": false
+    }
+  ],
+  "channels": [
+    {
+      "_id": "sp-channel-general",
+      "name": "General",
+      "desc": "",
+      "members": ["sp-member-alpha", "sp-member-beta", "sp-member-gamma"]
+    }
+  ],
+  "chatMessages": [
+    {
+      "_id": "sp-msg-root",
+      "channel": "sp-channel-general",
+      "writer": "sp-member-alpha",
+      "message": "Root message from SP fixture",
+      "writtenAt": 1778294000000
+    },
+    {
+      "_id": "sp-msg-reply",
+      "channel": "sp-channel-general",
+      "writer": "sp-member-beta",
+      "message": "Reply to root from SP fixture",
+      "writtenAt": 1778294060000,
+      "replyTo": "sp-msg-root"
+    },
+    {
+      "_id": "sp-msg-reply-chain",
+      "channel": "sp-channel-general",
+      "writer": "sp-member-gamma",
+      "message": "Reply to the reply from SP fixture",
+      "writtenAt": 1778294090000,
+      "updatedAt": 1778294105000,
+      "replyTo": "sp-msg-reply"
+    }
+  ]
+}
