@@ -3131,6 +3131,8 @@ Future<void> triggerSync(ffi.PrismSyncHandle handle) async {
 // SP boards backfill startup trigger
 // ---------------------------------------------------------------------------
 
+const _spBoardsBackfillStartupDelay = Duration(seconds: 5);
+
 /// Runs the SP boards backfill once after a v14→v15 schema upgrade.
 ///
 /// Gated on `system_settings.spBoardsBackfilledAt == null` so it is a
@@ -3187,6 +3189,15 @@ final spBoardsBackfillProvider = FutureProvider<SpBoardsBackfillResult?>((
       abortedByPeer: false,
     );
   }
+
+  debugPrint(
+    '[BOARDS_BACKFILL] Found $count candidate DM(s); delaying startup run '
+    'by ${_spBoardsBackfillStartupDelay.inSeconds}s.',
+  );
+  await Future<void>.delayed(_spBoardsBackfillStartupDelay);
+
+  final refreshedSettings = await settingsRepo.getSettings();
+  if (refreshedSettings.spBoardsBackfilledAt != null) return null;
 
   final boardPostsDao = db.memberBoardPostsDao;
   final membersDao = db.membersDao;

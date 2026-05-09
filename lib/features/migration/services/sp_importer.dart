@@ -156,6 +156,7 @@ class ImportResult {
 /// Handles the full SP import workflow.
 class SpImporter {
   static const _uuid = Uuid();
+  static const _uiYieldEveryItems = 20;
 
   SpImporter({http.Client? httpClient}) : _http = httpClient ?? http.Client();
 
@@ -218,6 +219,7 @@ class SpImporter {
       customFrontDispositions: customFrontDispositions,
     );
     final mapped = mapper.mapAll(data);
+    await _yieldToUi();
 
     final totalItems =
         mapped.members.length +
@@ -235,6 +237,12 @@ class SpImporter {
         mapped.reminders.length +
         mapped.boardPosts.length;
     var currentItem = 0;
+    Future<void> didImportOne() async {
+      currentItem++;
+      if (currentItem % _uiYieldEveryItems == 0) {
+        await _yieldToUi();
+      }
+    }
 
     // Import all entity data atomically. If any insert fails the entire
     // transaction is rolled back and the exception propagates to the caller.
@@ -297,13 +305,14 @@ class SpImporter {
           const TableUpdate('member_board_posts'),
           const TableUpdate('members'),
         });
+        await _yieldToUi();
       }
 
       // 1. Import members.
       for (final member in mapped.members) {
         onProgress?.call(currentItem, totalItems, 'Importing members...');
         await memberRepo.createMember(member);
-        currentItem++;
+        await didImportOne();
       }
 
       // 2. Import custom field definitions.
@@ -315,7 +324,7 @@ class SpImporter {
             'Importing custom fields...',
           );
           await customFieldsRepo.createField(field);
-          currentItem++;
+          await didImportOne();
         }
         for (final value in mapped.customFieldValues) {
           onProgress?.call(
@@ -324,7 +333,7 @@ class SpImporter {
             'Importing field values...',
           );
           await customFieldsRepo.upsertValue(value);
-          currentItem++;
+          await didImportOne();
         }
       }
 
@@ -333,7 +342,7 @@ class SpImporter {
         for (final group in mapped.groups) {
           onProgress?.call(currentItem, totalItems, 'Importing groups...');
           await groupsRepo.createGroup(group);
-          currentItem++;
+          await didImportOne();
         }
         for (final entry in mapped.groupMemberships) {
           onProgress?.call(
@@ -342,7 +351,7 @@ class SpImporter {
             'Importing group members...',
           );
           await groupsRepo.addMemberToGroup(entry.key, entry.value, _uuid.v4());
-          currentItem++;
+          await didImportOne();
         }
       }
 
@@ -350,7 +359,7 @@ class SpImporter {
       for (final session in mapped.sessions) {
         onProgress?.call(currentItem, totalItems, 'Importing front history...');
         await sessionRepo.createSession(session);
-        currentItem++;
+        await didImportOne();
       }
 
       // 5. Import notes.
@@ -358,7 +367,7 @@ class SpImporter {
         for (final note in mapped.notes) {
           onProgress?.call(currentItem, totalItems, 'Importing notes...');
           await notesRepo.createNote(note);
-          currentItem++;
+          await didImportOne();
         }
       }
 
@@ -367,7 +376,7 @@ class SpImporter {
         for (final comment in mapped.frontComments) {
           onProgress?.call(currentItem, totalItems, 'Importing comments...');
           await commentsRepo.createComment(comment);
-          currentItem++;
+          await didImportOne();
         }
       }
 
@@ -376,7 +385,7 @@ class SpImporter {
         for (final cat in mapped.conversationCategories) {
           onProgress?.call(currentItem, totalItems, 'Importing categories...');
           await categoriesRepo.create(cat);
-          currentItem++;
+          await didImportOne();
         }
       }
 
@@ -384,14 +393,14 @@ class SpImporter {
       for (final conversation in mapped.conversations) {
         onProgress?.call(currentItem, totalItems, 'Importing conversations...');
         await conversationRepo.createConversation(conversation);
-        currentItem++;
+        await didImportOne();
       }
 
       // 9. Import messages.
       for (final message in mapped.messages) {
         onProgress?.call(currentItem, totalItems, 'Importing messages...');
         await messageRepo.createMessage(message);
-        currentItem++;
+        await didImportOne();
       }
 
       // 10. Import polls.
@@ -404,7 +413,7 @@ class SpImporter {
             await pollRepo.castVote(vote, option.id);
           }
         }
-        currentItem++;
+        await didImportOne();
       }
 
       // 10. Import reminders (from SP timers).
@@ -412,7 +421,7 @@ class SpImporter {
         for (final reminder in mapped.reminders) {
           onProgress?.call(currentItem, totalItems, 'Importing reminders...');
           await remindersRepo.create(reminder);
-          currentItem++;
+          await didImportOne();
         }
       }
 
@@ -421,7 +430,7 @@ class SpImporter {
         for (final post in mapped.boardPosts) {
           onProgress?.call(currentItem, totalItems, 'Importing board posts...');
           await boardPostsRepo.createPost(post);
-          currentItem++;
+          await didImportOne();
         }
         // Propagate SP read state: set boardLastReadAt for recipients of
         // already-read messages, so the Prism inbox starts in a matching state.
@@ -444,6 +453,7 @@ class SpImporter {
               }
             }
           }
+          await _yieldToUi();
         }
       }
 
@@ -734,6 +744,8 @@ class SpImporter {
     }
     return count;
   }
+
+  Future<void> _yieldToUi() => Future<void>.delayed(Duration.zero);
 
   Future<Map<String, Map<String, String>>> _loadExistingMappings(
     SpImportDao? spImportDao,

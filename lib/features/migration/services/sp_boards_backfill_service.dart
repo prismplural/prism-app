@@ -44,7 +44,7 @@ class SpBoardsBackfillResult {
 /// 2. Identify candidate conversations:
 ///    `is_direct_message = true AND emoji = '📝' AND json_array_length(participant_ids) <= 2
 ///     AND last_activity_at < sentinel`.
-/// 3. For each candidate, in a single Drift transaction:
+/// 3. For each candidate, convert messages in small Drift transactions:
 ///    - For each chat_messages row in the conversation:
 ///      - Derive `targetMemberId`, parse optional title, compute body hash.
 ///      - Compute deterministic UUID v5 from
@@ -56,21 +56,27 @@ class SpBoardsBackfillResult {
 /// 5. On success, write the actual completion time.
 class SpBoardsBackfillService {
   static const _uuid = Uuid();
+  static const _defaultMessageBatchSize = 20;
 
   SpBoardsBackfillService({
     required AppDatabase db,
     required MemberBoardPostsRepository boardPostsRepo,
     required MemberBoardPostsDao boardPostsDao,
     required SystemSettingsRepository settingsRepo,
-  })  : _db = db,
-        _boardPostsRepo = boardPostsRepo,
-        _boardPostsDao = boardPostsDao,
-        _settingsRepo = settingsRepo;
+    int messageBatchSize = _defaultMessageBatchSize,
+  }) : _db = db,
+       _boardPostsRepo = boardPostsRepo,
+       _boardPostsDao = boardPostsDao,
+       _settingsRepo = settingsRepo,
+       _messageBatchSize = messageBatchSize {
+    assert(messageBatchSize > 0, 'messageBatchSize must be positive');
+  }
 
   final AppDatabase _db;
   final MemberBoardPostsRepository _boardPostsRepo;
   final MemberBoardPostsDao _boardPostsDao;
   final SystemSettingsRepository _settingsRepo;
+  final int _messageBatchSize;
 
   /// Run the backfill once.
   ///
@@ -91,23 +97,27 @@ class SpBoardsBackfillService {
     final afterSentinel = await _settingsRepo.getSettings();
     final confirmedSentinel = afterSentinel.spBoardsBackfilledAt;
     if (confirmedSentinel != null &&
-        confirmedSentinel.isBefore(sentinelTime.subtract(
-          const Duration(seconds: 2),
-        ))) {
+        confirmedSentinel.isBefore(
+          sentinelTime.subtract(const Duration(seconds: 2)),
+        )) {
       // A peer set the sentinel at a strictly earlier moment — it owns this run.
       debugPrint(
         '[BOARDS_BACKFILL] Peer sentinel detected '
         '($confirmedSentinel < $sentinelTime) — aborting.',
       );
-      return const SpBoardsBackfillResult(postsConverted: 0, abortedByPeer: true);
+      return const SpBoardsBackfillResult(
+        postsConverted: 0,
+        abortedByPeer: true,
+      );
     }
 
     // --- Step 2: Identify candidates ------------------------------------------
     // Candidate heuristic: synthetic board-message DMs created by the old importer.
     // They are is_direct_message=true, emoji='📝', ≤2 participants, and their
     // last_activity_at is before the sentinel (i.e. they are not still-active DMs).
-    final candidates = await _db.customSelect(
-      '''
+    final candidates = await _db
+        .customSelect(
+          '''
       SELECT id, participant_ids, last_activity_at
       FROM conversations
       WHERE is_direct_message = 1
@@ -116,17 +126,21 @@ class SpBoardsBackfillService {
         AND last_activity_at < ?
         AND is_deleted = 0
       ''',
-      variables: [
-        Variable.withString('\u{1F4DD}'), // 📝
-        Variable.withDateTime(sentinelTime),
-      ],
-    ).get();
+          variables: [
+            Variable.withString('\u{1F4DD}'), // 📝
+            Variable.withDateTime(sentinelTime),
+          ],
+        )
+        .get();
 
     if (candidates.isEmpty) {
       debugPrint('[BOARDS_BACKFILL] No candidate conversations found.');
       final completionTime = DateTime.now().toUtc();
       await _settingsRepo.updateSpBoardsBackfilledAt(completionTime);
-      return const SpBoardsBackfillResult(postsConverted: 0, abortedByPeer: false);
+      return const SpBoardsBackfillResult(
+        postsConverted: 0,
+        abortedByPeer: false,
+      );
     }
 
     debugPrint(
@@ -143,90 +157,103 @@ class SpBoardsBackfillService {
         (jsonDecode(participantIdsJson) as List),
       );
 
-      final messages = await _db.customSelect(
-        '''
+      final messages = await _db
+          .customSelect(
+            '''
         SELECT id, content, timestamp, author_id
         FROM chat_messages
         WHERE conversation_id = ?
           AND is_deleted = 0
         ORDER BY timestamp ASC
         ''',
-        variables: [Variable.withString(convId)],
-      ).get();
+            variables: [Variable.withString(convId)],
+          )
+          .get();
 
       if (messages.isEmpty) continue;
 
       var insertedInConv = 0;
 
-      await _db.transaction(() async {
-        for (final msg in messages) {
-          final rawContent = msg.read<String>('content');
-          final authorId = msg.readNullable<String>('author_id');
-          // Drift stores DateTimeColumn as Unix SECONDS by default; reading via
-          // `read<DateTime>` lets the typeMapping do the conversion correctly.
-          final writtenAt = msg.read<DateTime>('timestamp');
+      for (var start = 0; start < messages.length; start += _messageBatchSize) {
+        final end = start + _messageBatchSize > messages.length
+            ? messages.length
+            : start + _messageBatchSize;
+        final batch = messages.getRange(start, end);
 
-          // Determine targetMemberId: the participant who is NOT the author.
-          // Fall back to the first participant when author is unknown or
-          // this is a self-post.
-          final targetMemberId = participantIds.firstWhere(
-            (p) => p != authorId,
-            orElse: () => participantIds.first,
-          );
+        await _db.transaction(() async {
+          for (final msg in batch) {
+            final rawContent = msg.read<String>('content');
+            final authorId = msg.readNullable<String>('author_id');
+            // Drift stores DateTimeColumn as Unix SECONDS by default; reading via
+            // `read<DateTime>` lets the typeMapping do the conversion correctly.
+            final writtenAt = msg.read<DateTime>('timestamp');
 
-          // Parse optional title from "**title**\n…" body prefix.
-          String? title;
-          String body;
-          final boldTitlePattern = RegExp(r'^\*\*(.+?)\*\*\n([\s\S]*)$');
-          final match = boldTitlePattern.firstMatch(rawContent);
-          if (match != null) {
-            title = match.group(1);
-            body = match.group(2) ?? '';
-          } else {
-            body = rawContent;
+            // Determine targetMemberId: the participant who is NOT the author.
+            // Fall back to the first participant when author is unknown or
+            // this is a self-post.
+            final targetMemberId = participantIds.firstWhere(
+              (p) => p != authorId,
+              orElse: () => participantIds.first,
+            );
+
+            // Parse optional title from "**title**\n…" body prefix.
+            String? title;
+            String body;
+            final boldTitlePattern = RegExp(r'^\*\*(.+?)\*\*\n([\s\S]*)$');
+            final match = boldTitlePattern.firstMatch(rawContent);
+            if (match != null) {
+              title = match.group(1);
+              body = match.group(2) ?? '';
+            } else {
+              body = rawContent;
+            }
+
+            // Compute dedup tuple hash.
+            final bodyHash = sha256.convert(utf8.encode(body)).toString();
+
+            // Compute deterministic UUID v5 so two-device backfills produce
+            // identical IDs and CRDT entity-id merge deduplicates naturally.
+            final deterministicId = _uuid.v5(
+              boardsBackfillNamespace,
+              '$targetMemberId|${authorId ?? ''}|${writtenAt.millisecondsSinceEpoch}|$bodyHash',
+            );
+
+            // Skip if already exists by deterministic ID.
+            final existingById = await _boardPostsDao.getPostById(
+              deterministicId,
+            );
+            if (existingById != null) continue;
+
+            // Also skip by dedup tuple (handles posts inserted with different IDs).
+            final existingByTuple = await _boardPostsDao.findByDedupTuple(
+              targetMemberId: targetMemberId,
+              authorId: authorId,
+              writtenAt: writtenAt,
+            );
+            if (existingByTuple != null) continue;
+
+            // Insert the new board post.
+            final post = MemberBoardPost(
+              id: deterministicId,
+              targetMemberId: targetMemberId,
+              authorId: authorId,
+              audience: 'private',
+              title: title?.isEmpty == true ? null : title,
+              body: body,
+              createdAt: writtenAt,
+              writtenAt: writtenAt,
+              isDeleted: false,
+            );
+
+            await _boardPostsRepo.createPost(post);
+            insertedInConv++;
           }
+        });
 
-          // Compute dedup tuple hash.
-          final bodyHash = sha256
-              .convert(utf8.encode(body))
-              .toString();
-
-          // Compute deterministic UUID v5 so two-device backfills produce
-          // identical IDs and CRDT entity-id merge deduplicates naturally.
-          final deterministicId = _uuid.v5(
-            boardsBackfillNamespace,
-            '$targetMemberId|${authorId ?? ''}|${writtenAt.millisecondsSinceEpoch}|$bodyHash',
-          );
-
-          // Skip if already exists by deterministic ID.
-          final existingById = await _boardPostsDao.getPostById(deterministicId);
-          if (existingById != null) continue;
-
-          // Also skip by dedup tuple (handles posts inserted with different IDs).
-          final existingByTuple = await _boardPostsDao.findByDedupTuple(
-            targetMemberId: targetMemberId,
-            authorId: authorId,
-            writtenAt: writtenAt,
-          );
-          if (existingByTuple != null) continue;
-
-          // Insert the new board post.
-          final post = MemberBoardPost(
-            id: deterministicId,
-            targetMemberId: targetMemberId,
-            authorId: authorId,
-            audience: 'private',
-            title: title?.isEmpty == true ? null : title,
-            body: body,
-            createdAt: writtenAt,
-            writtenAt: writtenAt,
-            isDeleted: false,
-          );
-
-          await _boardPostsRepo.createPost(post);
-          insertedInConv++;
+        if (end < messages.length) {
+          await _yieldToUi();
         }
-      });
+      }
 
       totalInserted += insertedInConv;
     }
@@ -260,4 +287,6 @@ class SpBoardsBackfillService {
       '$targetMemberId|${authorId ?? ''}|${writtenAt.millisecondsSinceEpoch}|$bodyHash',
     );
   }
+
+  Future<void> _yieldToUi() => Future<void>.delayed(Duration.zero);
 }
