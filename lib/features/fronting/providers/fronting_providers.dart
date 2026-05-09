@@ -403,16 +403,14 @@ final unifiedHistoryProvider =
       return repo.watchRecentAllSessions(limit: limit);
     });
 
-/// How far back the derived-period sweep looks when computing periods
+/// Baseline lookback for the derived-period sweep when computing periods
 /// for the unified history list.
 ///
-/// 1A scope: load every session overlapping the last 90 days. This is
-/// the simple version of §4.6's "paginate over derived periods" — we
-/// don't yet have date-range scrubbing in the list view, so we ship a
-/// conservative window large enough to catch a long-running host.
-/// A future refactor can switch this to a scroll-driven `(rangeStart,
-/// rangeEnd)` family parameter; the overlap-query plumbing below is
-/// already shaped for that.
+/// The provider starts with this conservative window, then expands it back
+/// to the oldest closed fronting row already loaded by the raw pager. That
+/// keeps initial renders bounded, while letting infinite-scroll actually
+/// reveal older derived periods instead of showing a spinner for rows the
+/// fixed 90-day window would never include.
 const derivedPeriodsLookbackDays = 90;
 
 /// Far-future safety margin for the SQL overlap query's upper bound.
@@ -442,12 +440,11 @@ const derivedPeriodsLookaheadDays = 30;
 
 /// Inputs to the derived-period sweep.
 ///
-/// `rangeStart` is the visible window's lower bound (now − lookback),
-/// captured ONCE at subscription. It's genuinely fixed — a 90-day-back
-/// window doesn't drift forward in real time at any cadence the user
-/// perceives. If the screen is held open across midnight, the window
-/// slides a day stale, but the next external rebuild (tab switch,
-/// settings change, etc.) corrects it.
+/// `rangeStart` is the visible window's lower bound. It starts at
+/// `now - derivedPeriodsLookbackDays` and may move farther back when
+/// the raw history pager has already loaded older closed rows. Within a
+/// single provider emission it stays fixed, so derivation has one stable
+/// lower clamp.
 ///
 /// There is intentionally NO `rangeEnd` here. The derivation captures
 /// a fresh `DateTime.now()` per run and uses it as the visible upper
@@ -478,6 +475,12 @@ class DerivedPeriodsInputBundle {
 /// `start_time < sql_upper_bound AND (end_time IS NULL OR end_time > range_start)`,
 /// which a row-paged "newest N rows" query would silently drop.
 ///
+/// The lower bound starts at the 90-day baseline and expands to the oldest
+/// closed fronting row already loaded by [unifiedHistoryProvider]. Open
+/// rows are intentionally ignored for expansion: a 400-day currently-open
+/// host must be included by overlap, but must not push the visible window
+/// 400 days back and generate hundreds of day slices.
+///
 /// The SQL upper bound (`sqlUpperBound`, `now + 30d`) is internal:
 /// it's threaded into `watchSessionsOverlappingRange` so newly-inserted
 /// rows whose `start_time` is slightly after the captured "now" still
@@ -488,8 +491,10 @@ final unifiedHistoryOverlapProvider =
     StreamProvider.autoDispose<DerivedPeriodsInputBundle>((ref) {
       final repo = ref.watch(frontingSessionRepositoryProvider);
       final now = DateTime.now();
-      final rangeStart = now.subtract(
-        const Duration(days: derivedPeriodsLookbackDays),
+      final loadedRows = ref.watch(unifiedHistoryProvider).value;
+      final rangeStart = _derivedHistoryRangeStart(
+        now,
+        loadedRows ?? const <FrontingSession>[],
       );
       // SQL-only lookahead (internal, NOT exposed to the bundle). Catches
       // newly-inserted rows whose start_time may be slightly after the
@@ -506,3 +511,20 @@ final unifiedHistoryOverlapProvider =
             ),
           );
     });
+
+DateTime _derivedHistoryRangeStart(
+  DateTime now,
+  List<FrontingSession> loadedRows,
+) {
+  var rangeStart = now.subtract(
+    const Duration(days: derivedPeriodsLookbackDays),
+  );
+  for (final session in loadedRows) {
+    if (session.isDeleted || session.isSleep) continue;
+    if (session.endTime == null) continue;
+    if (session.startTime.isBefore(rangeStart)) {
+      rangeStart = session.startTime;
+    }
+  }
+  return rangeStart;
+}

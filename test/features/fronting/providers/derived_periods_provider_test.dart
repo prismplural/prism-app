@@ -325,6 +325,85 @@ void main() {
       );
     });
 
+    test('loaded older closed rows expand the overlap window beyond the '
+        'default lookback', () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+
+      final repo = DriftFrontingSessionRepository(db.frontingSessionsDao, null);
+
+      final now = DateTime.now();
+      final currentStart = now.subtract(const Duration(hours: 2));
+      final oldStart = now.subtract(
+        const Duration(days: derivedPeriodsLookbackDays + 8),
+      );
+      final oldEnd = oldStart.add(const Duration(hours: 1));
+
+      await db.frontingSessionsDao.insertSession(
+        FrontingSessionMapper.toCompanion(
+          FrontingSession(
+            id: 'current-row',
+            memberId: 'current',
+            startTime: currentStart,
+            endTime: null,
+          ),
+        ),
+      );
+      await db.frontingSessionsDao.insertSession(
+        FrontingSessionMapper.toCompanion(
+          FrontingSession(
+            id: 'old-row',
+            memberId: 'old',
+            startTime: oldStart,
+            endTime: oldEnd,
+          ),
+        ),
+      );
+
+      final container = ProviderContainer(
+        overrides: [
+          frontingSessionRepositoryProvider.overrideWith(
+            (ref) => repo as FrontingSessionRepository,
+          ),
+          allMembersProvider.overrideWith(
+            (ref) => Stream.value(const <Member>[]),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      container.listen<AsyncValue<List<FrontingPeriod>>>(
+        derivedPeriodsProvider,
+        (_, _) {},
+        fireImmediately: true,
+      );
+      container.listen<AsyncValue<List<FrontingSession>>>(
+        unifiedHistoryProvider,
+        (_, _) {},
+        fireImmediately: true,
+      );
+
+      for (var i = 0; i < 10; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+        final periods = container.read(derivedPeriodsProvider).value;
+        final active = <String>{
+          for (final period in periods ?? const <FrontingPeriod>[])
+            ...period.activeMembers,
+        };
+        if (active.contains('old')) break;
+      }
+
+      final periods = container.read(derivedPeriodsProvider).value!;
+      final active = <String>{for (final p in periods) ...p.activeMembers};
+      expect(
+        active,
+        contains('old'),
+        reason:
+            'older closed rows already loaded by the raw pager must expand '
+            'the derived-history overlap range instead of leaving a spinner',
+      );
+    });
+
     test('provider range clamps a 400-day host so the sweep stays inside the '
         'lookback window', () async {
       // Regression: computeDerivedPeriods used to infer rangeStart from
