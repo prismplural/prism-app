@@ -137,6 +137,13 @@ Finder _saveButton() => find.descendant(
   ),
 );
 
+Finder _closeButton() => find.descendant(
+  of: find.byType(AddFrontSessionSheet),
+  matching: find.byWidgetPredicate(
+    (w) => w is PrismGlassIconButton && w.icon == AppIcons.close,
+  ),
+);
+
 /// Confirms a multi-select choice in the open [MemberSearchSheet] by tapping
 /// its trailing check button. The search sheet only enables the check once at
 /// least one row is selected.
@@ -782,6 +789,85 @@ void main() {
     );
   });
 
+  group('dismiss confirmation dirty state', () {
+    testWidgets('changing add mode alone closes without discard confirmation', (
+      tester,
+    ) async {
+      final members = List.generate(3, (i) => _member(id: 'id$i', name: 'M$i'));
+      await tester.pumpWidget(_buildSheetTrigger(members: members));
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Replace current'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Add as co-fronter'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(_closeButton());
+      await tester.pumpAndSettle();
+
+      expect(find.text('Discard changes?'), findsNothing);
+      expect(find.byType(AddFrontSessionSheet), findsNothing);
+    });
+
+    testWidgets(
+      'selecting a member alone closes without discard confirmation',
+      (tester) async {
+        final members = List.generate(
+          3,
+          (i) => _member(id: 'id$i', name: 'M$i'),
+        );
+        await tester.pumpWidget(_buildSheetTrigger(members: members));
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('M0'));
+        await tester.pumpAndSettle();
+
+        await tester.tap(_closeButton());
+        await tester.pumpAndSettle();
+
+        expect(find.text('Discard changes?'), findsNothing);
+        expect(find.byType(AddFrontSessionSheet), findsNothing);
+      },
+    );
+
+    testWidgets('typed note text requires discard confirmation on close', (
+      tester,
+    ) async {
+      final members = List.generate(3, (i) => _member(id: 'id$i', name: 'M$i'));
+      await tester.pumpWidget(_buildSheetTrigger(members: members));
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(
+        find.text('Notes'),
+        200,
+        scrollable: find
+            .descendant(
+              of: find.byType(AddFrontSessionSheet),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.descendant(
+          of: find.byType(AddFrontSessionSheet),
+          matching: find.byType(TextField),
+        ),
+        'Important context',
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(_closeButton());
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AddFrontSessionSheet), findsOneWidget);
+      expect(find.text('Discard changes?'), findsOneWidget);
+    });
+  });
+
   group('historical mode', () {
     testWidgets(
       'log past session mode shows time fields and submits historical fronting',
@@ -804,10 +890,12 @@ void main() {
         await tester.scrollUntilVisible(
           find.byKey(const Key('sessionTimeSegmentedControl')),
           200,
-          scrollable: find.descendant(
-            of: find.byType(AddFrontSessionSheet),
-            matching: find.byType(Scrollable),
-          ).first,
+          scrollable: find
+              .descendant(
+                of: find.byType(AddFrontSessionSheet),
+                matching: find.byType(Scrollable),
+              )
+              .first,
         );
         await tester.pumpAndSettle();
 

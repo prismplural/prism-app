@@ -115,14 +115,7 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
   List<String> get _memberIds =>
       _selectedIds.where((id) => id != _unknownId).toList();
   bool get _canSubmit => _selectedIds.isNotEmpty;
-  bool get _isDirty =>
-      _selectedIds.isNotEmpty ||
-      _confidence != null ||
-      _notesController.text.isNotEmpty ||
-      _isHistorical != _initialIsHistorical ||
-      (_isHistorical && _startTime != _initialStartTime) ||
-      (_isHistorical && _endTime != _initialEndTime) ||
-      _modeOverride != null;
+  bool get _isDirty => _notesController.text.trim().isNotEmpty;
 
   @override
   void initState() {
