@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/domain/models/conversation.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
@@ -40,6 +41,18 @@ void main() {
     createdAt: DateTime(2025, 1, 1),
     isActive: true,
   );
+  final carol = Member(
+    id: 'carol-id',
+    name: 'Carol',
+    createdAt: DateTime(2025, 1, 1),
+    isActive: true,
+  );
+  final unknown = Member(
+    id: unknownSentinelMemberId,
+    name: 'Unknown',
+    createdAt: DateTime(2025, 1, 1),
+    isActive: true,
+  );
   final conversation = Conversation(
     id: 'conv-1',
     participantIds: const ['alice-id', 'bob-id'],
@@ -53,7 +66,13 @@ void main() {
     createdAt: DateTime(2025, 1, 1),
   );
 
-  Widget buildSubject() {
+  Widget buildSubject({
+    Conversation? conversationOverride,
+    List<Member>? activeMembersOverride,
+  }) {
+    final testConversation = conversationOverride ?? conversation;
+    final activeMembers = activeMembersOverride ?? [alice, bob];
+
     return ProviderScope(
       overrides: [
         systemSettingsProvider.overrideWith(
@@ -65,7 +84,9 @@ void main() {
         speakingAsProvider.overrideWith(
           () => _FixedSpeakingAsNotifier('alice-id'),
         ),
-        activeMembersProvider.overrideWith((ref) => Stream.value([alice, bob])),
+        activeMembersProvider.overrideWith(
+          (ref) => Stream.value(activeMembers),
+        ),
         allGroupsProvider.overrideWith((ref) => Stream.value([cluster])),
         allGroupEntriesProvider.overrideWith(
           (ref) => Stream.value(const [
@@ -78,7 +99,7 @@ void main() {
         ),
         conversationByIdProvider(
           'conv-1',
-        ).overrideWith((ref) => Stream.value(conversation)),
+        ).overrideWith((ref) => Stream.value(testConversation)),
       ],
       child: const MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -117,6 +138,52 @@ void main() {
 
     expect(find.byType(MemberSearchSheet), findsOneWidget);
     expect(find.text('Cluster'), findsOneWidget);
+  });
+
+  testWidgets('speaking-as popup in DMs only lists conversation participants', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      buildSubject(
+        conversationOverride: conversation.copyWith(isDirectMessage: true),
+        activeMembersOverride: [alice, bob, carol, unknown],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(BlurPopupAnchor).first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Alice'), findsOneWidget);
+    expect(find.text('Bob'), findsOneWidget);
+    expect(find.text('Carol'), findsNothing);
+    expect(find.text('Unknown'), findsNothing);
+
+    await tester.tap(find.text('Search'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(MemberSearchSheet), findsOneWidget);
+    expect(find.text('Alice'), findsOneWidget);
+    expect(find.text('Bob'), findsOneWidget);
+    expect(find.text('Carol'), findsNothing);
+    expect(find.text('Unknown'), findsNothing);
+  });
+
+  testWidgets('speaking-as popup in group chats keeps all active members', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      buildSubject(activeMembersOverride: [alice, bob, carol, unknown]),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(BlurPopupAnchor).first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Alice'), findsOneWidget);
+    expect(find.text('Bob'), findsOneWidget);
+    expect(find.text('Carol'), findsOneWidget);
+    expect(find.text('Unknown'), findsNothing);
   });
 
   testWidgets(

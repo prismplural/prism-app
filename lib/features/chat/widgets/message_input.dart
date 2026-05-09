@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/clipboard/app_clipboard.dart';
 import 'package:prism_plurality/core/services/media/media_providers.dart';
@@ -182,6 +183,23 @@ class _MessageInputState extends ConsumerState<MessageInput> {
     if (conversation == null || !conversation.isDirectMessage) return members;
     final participantIds = conversation.participantIds.toSet();
     return members
+        .where((member) => participantIds.contains(member.id))
+        .toList(growable: false);
+  }
+
+  List<Member> _getSpeakingAsCandidates(
+    List<Member> members,
+    Conversation? conversation,
+  ) {
+    final userVisibleMembers = members
+        .where((member) => member.id != unknownSentinelMemberId)
+        .toList(growable: false);
+    if (conversation == null || !conversation.isDirectMessage) {
+      return userVisibleMembers;
+    }
+    final participantIds = conversation.participantIds.toSet();
+    if (participantIds.isEmpty) return userVisibleMembers;
+    return userVisibleMembers
         .where((member) => participantIds.contains(member.id))
         .toList(growable: false);
   }
@@ -576,14 +594,19 @@ class _MessageInputState extends ConsumerState<MessageInput> {
     final terms = watchTerminology(context, ref);
 
     final members = membersAsync.value ?? [];
-    final mentionCandidates = _getMentionCandidates(
+    final conversation = conversationAsync.value;
+    final mentionCandidates = _getMentionCandidates(members, conversation);
+    final speakingAsCandidates = _getSpeakingAsCandidates(
       members,
-      conversationAsync.value,
+      conversation,
     );
     final showMentionOverlay =
         _mentionMenuVisible && !_isRecording && mentionCandidates.isNotEmpty;
     _syncMentionOverlayPortal(showMentionOverlay);
-    final memberSearchGroups = watchMemberSearchGroups(ref, members);
+    final memberSearchGroups = watchMemberSearchGroups(
+      ref,
+      speakingAsCandidates,
+    );
     final memberMap = {for (final m in members) m.id: m};
     _controller.updateMentionMembers(memberMap);
     final currentMember = speakingAs != null
@@ -678,7 +701,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                   child: MemberSelectorPopup(
                     preferredDirection: BlurPopupDirection.up,
                     onBeforeShow: _unfocusComposerIfKeyboardClosed,
-                    members: members,
+                    members: speakingAsCandidates,
                     termPlural: terms.plural,
                     selectedMemberId: speakingAs,
                     groups: memberSearchGroups,

@@ -19,12 +19,10 @@ import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
-import 'package:prism_plurality/shared/widgets/group_member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/member_selector_popup.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
-import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 
@@ -124,7 +122,7 @@ class _BoardsScreenState extends ConsumerState<BoardsScreen> {
 
     return PrismPageScaffold(
       bodyPadding: EdgeInsets.zero,
-      topBar: _BoardsTopBar(activeTab: _activeTab, onComposeTap: _openCompose),
+      topBar: _BoardsTopBar(onComposeTap: _openCompose),
       body: Column(
         children: [
           Padding(
@@ -163,9 +161,8 @@ class _BoardsScreenState extends ConsumerState<BoardsScreen> {
 // ---------------------------------------------------------------------------
 
 class _BoardsTopBar extends StatelessWidget implements PreferredSizeWidget {
-  const _BoardsTopBar({required this.activeTab, required this.onComposeTap});
+  const _BoardsTopBar({required this.onComposeTap});
 
-  final _BoardsSubTab activeTab;
   final VoidCallback onComposeTap;
 
   @override
@@ -175,9 +172,7 @@ class _BoardsTopBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     return PrismTopBar(
       title: context.l10n.boardsScreenTitle,
-      leading: activeTab == _BoardsSubTab.inbox
-          ? const _InboxFronterFilterButton()
-          : null,
+      leading: const _BoardsMemberFilterButton(),
       trailing: PrismTopBarAction(
         icon: AppIcons.add,
         tooltip: context.l10n.add,
@@ -431,6 +426,7 @@ class _PublicPageState extends ConsumerState<_PublicPage> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final speakingAsId = ref.watch(speakingAsProvider);
+    final filterId = ref.watch(inboxViewFilterProvider);
     final viewerAsync = speakingAsId != null
         ? ref.watch(memberByIdProvider(speakingAsId))
         : const AsyncValue<Member?>.data(null);
@@ -448,7 +444,16 @@ class _PublicPageState extends ConsumerState<_PublicPage> {
       ),
       error: (e, _) => Center(child: Text('Error: $e')),
       data: (posts) {
-        if (posts.isEmpty) {
+        final filteredPosts = filterId == null
+            ? posts
+            : posts
+                  .where(
+                    (p) =>
+                        p.targetMemberId == filterId || p.authorId == filterId,
+                  )
+                  .toList(growable: false);
+
+        if (filteredPosts.isEmpty) {
           return Center(
             child: EmptyState(
               icon: Icon(AppIcons.forum),
@@ -464,10 +469,10 @@ class _PublicPageState extends ConsumerState<_PublicPage> {
           },
           child: ListView.builder(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            itemCount: posts.length,
+            itemCount: filteredPosts.length,
             itemBuilder: (context, index) {
               return PostTile(
-                post: posts[index],
+                post: filteredPosts[index],
                 viewerMember: viewerMember,
                 showAudiencePill: true,
               );
@@ -493,8 +498,6 @@ class _InboxPage extends ConsumerStatefulWidget {
 }
 
 class _InboxPageState extends ConsumerState<_InboxPage> {
-  /// The last-known list of active member IDs — used to detect de-front events.
-  List<String> _lastActiveIds = [];
   bool _inboxOpenedCalled = false;
 
   @override
@@ -531,50 +534,11 @@ class _InboxPageState extends ConsumerState<_InboxPage> {
     );
   }
 
-  /// Check whether the currently-filtered member has de-fronted and show a
-  /// toast if so, resetting the filter.
-  void _checkFilterStillValid(
-    List<Member> activeMembers,
-    String? filterId,
-    BuildContext ctx,
-  ) {
-    if (filterId == null) return;
-
-    final newIds = activeMembers.map((m) => m.id).toSet();
-    if (!newIds.contains(filterId)) {
-      // The filtered member is no longer fronting.
-      final oldIds = _lastActiveIds.toSet();
-      if (oldIds.contains(filterId)) {
-        // Find their name from the old list if still loaded.
-        final memberName =
-            activeMembers
-                .where((m) => !oldIds.difference(newIds).contains(m.id))
-                .firstOrNull
-                ?.name ??
-            filterId;
-
-        ref.read(inboxViewFilterProvider.notifier).setFilter(null);
-
-        if (ctx.mounted) {
-          PrismToast.show(
-            ctx,
-            message: ctx.l10n.boardsToastFronterDeFronted(memberName),
-            icon: AppIcons.navBoardsActive,
-          );
-        }
-      }
-    }
-
-    _lastActiveIds = activeMembers.map((m) => m.id).toList();
-  }
-
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final fronterMembers = ref.watch(currentFronterMembersProvider);
     final filterId = ref.watch(inboxViewFilterProvider);
-
-    _checkFilterStillValid(fronterMembers, filterId, context);
 
     final speakingAsId = ref.watch(speakingAsProvider);
     final viewerAsync = speakingAsId != null
@@ -605,7 +569,7 @@ class _InboxPageState extends ConsumerState<_InboxPage> {
         final posts = filteredPosts ?? const [];
         if (posts.isEmpty) {
           return Center(
-            child: fronterMembers.isEmpty
+            child: filterId == null && fronterMembers.isEmpty
                 ? EmptyState(
                     icon: Icon(AppIcons.forum),
                     title: l10n.boardsTabInbox,
@@ -638,31 +602,35 @@ class _InboxPageState extends ConsumerState<_InboxPage> {
 // Inbox filter bar
 // ---------------------------------------------------------------------------
 
-/// Top-bar leading button that drives the inbox filter.
+/// Top-bar leading button that drives the board member filter.
 ///
 /// Displays:
-///   - filter null (All): a [GroupMemberAvatar] composed of every current
-///     fronter (1–4 visible, like fronting session rows)
+///   - filter null (All): a group icon
 ///   - filter == memberId: that member's [MemberAvatar]
 ///
-/// Tap opens a [BlurPopupAnchor] dropdown with one row per fronter plus
-/// an "All fronters" entry. Mirrors the avatar-trigger style of the chat
-/// member selector.
-class _InboxFronterFilterButton extends ConsumerWidget {
-  const _InboxFronterFilterButton();
+/// Tap opens a [BlurPopupAnchor] dropdown with one row per visible member plus
+/// an "All members" entry. Mirrors the avatar-trigger style of the chat member
+/// selector.
+class _BoardsMemberFilterButton extends ConsumerWidget {
+  const _BoardsMemberFilterButton();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final theme = Theme.of(context);
-    final fronters = ref.watch(currentFronterMembersProvider);
+    final membersAsync = ref.watch(userVisibleMembersProvider);
+    final members = membersAsync.value ?? const <Member>[];
     final filterId = ref.watch(inboxViewFilterProvider);
     final terms = watchTerminology(context, ref);
+    final allMembersLabel = l10n.onboardingChatChannelAllMembers(
+      terms.plural,
+      terms.pluralLower,
+    );
 
-    if (fronters.isEmpty) return const SizedBox.shrink();
+    if (members.isEmpty) return const SizedBox.shrink();
 
     final currentMember = filterId != null
-        ? fronters.where((m) => m.id == filterId).firstOrNull
+        ? members.where((m) => m.id == filterId).firstOrNull
         : null;
 
     // Trigger: full 44pt avatar matching the + button's circle, with a
@@ -686,17 +654,18 @@ class _InboxFronterFilterButton extends ConsumerWidget {
               size: avatarSize,
             )
           else
-            GroupMemberAvatar(
-              size: avatarSize,
-              members: [
-                for (final m in fronters)
-                  GroupAvatarMember(
-                    avatarImageData: m.avatarImageData,
-                    emoji: m.emoji,
-                    customColorEnabled: m.customColorEnabled,
-                    customColorHex: m.customColorHex,
-                  ),
-              ],
+            Container(
+              width: avatarSize,
+              height: avatarSize,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: theme.colorScheme.surfaceContainerHighest,
+              ),
+              child: Icon(
+                AppIcons.group,
+                size: 23,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
           // Down-chevron pip at the bottom-right, signaling the dropdown
           // affordance without crowding the avatar.
@@ -729,39 +698,27 @@ class _InboxFronterFilterButton extends ConsumerWidget {
 
     final filterLabel = currentMember != null
         ? l10n.boardsViewFilterMember(currentMember.name)
-        : l10n.boardsViewFilterAll;
+        : allMembersLabel;
 
     return Semantics(
-      label: '${l10n.boardsViewFilterAll}, $filterLabel',
+      label: '$allMembersLabel, $filterLabel',
       button: true,
       child: MemberSelectorPopup(
         preferredDirection: BlurPopupDirection.down,
-        width: 260,
-        members: fronters,
+        members: members,
         termPlural: terms.plural,
-        searchTitle: l10n.boardsViewFilterAll,
+        searchTitle: allMembersLabel,
         selectedMemberId: filterId,
-        semanticLabel: l10n.boardsViewFilterAll,
+        semanticLabel: allMembersLabel,
         specialRows: [
           MemberSelectorPopupSpecialRow(
-            title: l10n.boardsViewFilterAll,
+            title: allMembersLabel,
             selected: filterId == null,
             selectedColor: theme.colorScheme.primary,
             leading: SizedBox(
               width: 32,
               height: 32,
-              child: GroupMemberAvatar(
-                size: 32,
-                members: [
-                  for (final m in fronters)
-                    GroupAvatarMember(
-                      avatarImageData: m.avatarImageData,
-                      emoji: m.emoji,
-                      customColorEnabled: m.customColorEnabled,
-                      customColorHex: m.customColorHex,
-                    ),
-                ],
-              ),
+              child: Icon(AppIcons.group, size: 22),
             ),
             onSelected: () =>
                 ref.read(inboxViewFilterProvider.notifier).setFilter(null),

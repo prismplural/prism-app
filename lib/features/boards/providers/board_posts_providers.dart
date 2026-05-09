@@ -148,17 +148,20 @@ final currentFronterMembersProvider = Provider<List<Member>>((ref) {
   ];
 });
 
-/// Inbox sub-tab feed — private posts addressed to the currently-fronting
-/// members, keyset-paginated.
+/// Inbox sub-tab feed — private posts addressed to the currently-selected
+/// member, or to the currently-fronting members when no member filter is set.
 ///
 /// Watches [currentFronterMemberIdsProvider] so the feed updates when
 /// co-fronters change. Pass `BoardPagingCursor()` for the first page.
 final inboxBoardPostsProvider = StreamProvider.autoDispose
     .family<List<MemberBoardPost>, BoardPagingCursor>((ref, cursor) {
-  final fronterIds = ref.watch(currentFronterMemberIdsProvider);
+  final filterId = ref.watch(inboxViewFilterProvider);
+  final targetMemberIds = filterId != null
+      ? [filterId]
+      : ref.watch(currentFronterMemberIdsProvider);
   final repo = ref.watch(memberBoardPostsRepositoryProvider);
   return repo.watchInboxPaginated(
-    fronterIds,
+    targetMemberIds,
     afterWrittenAt: cursor.afterWrittenAt,
     afterId: cursor.afterId,
     limit: cursor.limit,
@@ -169,10 +172,11 @@ final inboxBoardPostsProvider = StreamProvider.autoDispose
 // Inbox view filter — ephemeral, not persisted
 // ---------------------------------------------------------------------------
 
-/// Inbox view-filter selection.
+/// Boards member filter selection.
 ///
-/// `null` → show posts for all fronters; non-null → filter to a single
-/// member ID. Ephemeral: reset when the tab is left (autoDispose).
+/// `null` → show all public posts / inbox posts for current fronters.
+/// non-null → filter to a single member ID. Ephemeral: reset when the Boards
+/// screen is left (autoDispose).
 ///
 /// The plan specifies `StateProvider.autoDispose<String?>` — in Riverpod 3
 /// (which removed `StateProvider`) this is the idiomatic equivalent.
@@ -457,4 +461,3 @@ final memberBoardPostNotifierProvider =
     AsyncNotifierProvider<MemberBoardPostNotifier, void>(
   MemberBoardPostNotifier.new,
 );
-

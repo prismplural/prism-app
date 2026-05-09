@@ -40,7 +40,7 @@ class MemberSelectorPopup extends StatelessWidget {
     this.searchTitle,
     this.searchLabel,
     this.preferredDirection = BlurPopupDirection.down,
-    this.width = 260,
+    this.width = 220,
     this.maxHeight = 320,
     this.avatarSize = 32,
     this.enabled = true,

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/member_board_post.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
@@ -70,6 +71,14 @@ final _alice = Member(
 );
 
 final _bob = Member(id: 'bob', name: 'Bob', createdAt: _now, isActive: true);
+final _unknown = Member(
+  id: unknownSentinelMemberId,
+  name: 'Unknown',
+  createdAt: _now,
+  isActive: true,
+);
+
+const _allMembersLabel = 'All Headmates';
 
 // ---------------------------------------------------------------------------
 // Widget builder
@@ -79,9 +88,11 @@ Widget _buildBoardsScreen({
   List<MemberBoardPost> publicPosts = const [],
   List<MemberBoardPost> inboxPosts = const [],
   List<Member> activeMembers = const [],
+  List<Member>? currentFronters,
   bool hasUnreadPublic = false,
   int inboxBadge = 0,
 }) {
+  final fronters = currentFronters ?? activeMembers;
   return ProviderScope(
     overrides: [
       systemSettingsProvider.overrideWith(
@@ -90,12 +101,9 @@ Widget _buildBoardsScreen({
       speakingAsProvider.overrideWith(_FakeSpeakingAsNotifier.new),
       activeMembersProvider.overrideWith((ref) => Stream.value(activeMembers)),
       currentFronterMemberIdsProvider.overrideWith(
-        (ref) => activeMembers.map((m) => m.id).toList(growable: false),
+        (ref) => fronters.map((m) => m.id).toList(growable: false),
       ),
-      currentFronterMembersProvider.overrideWith((ref) => activeMembers),
-      userVisibleMembersProvider.overrideWith(
-        (ref) => AsyncValue.data(activeMembers),
-      ),
+      currentFronterMembersProvider.overrideWith((ref) => fronters),
       memberByIdProvider.overrideWith(
         (ref, id) => Stream.value(
           [
@@ -179,7 +187,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Inbox page shows the avatar filter trigger with an explicit label.
-      expect(find.bySemanticsLabel(RegExp('All fronters')), findsWidgets);
+      expect(find.bySemanticsLabel(RegExp(_allMembersLabel)), findsWidgets);
     });
 
     testWidgets('swipe left reveals Inbox page', (tester) async {
@@ -190,7 +198,7 @@ void main() {
       await tester.fling(find.byType(PageView), const Offset(-400, 0), 800);
       await tester.pumpAndSettle();
 
-      expect(find.bySemanticsLabel(RegExp('All fronters')), findsWidgets);
+      expect(find.bySemanticsLabel(RegExp(_allMembersLabel)), findsWidgets);
     });
 
     testWidgets('unread dot appears on Public segment when hasUnreadPublic', (
@@ -237,7 +245,7 @@ void main() {
       },
     );
 
-    testWidgets('inbox shows all-fronters filter when members are active', (
+    testWidgets('inbox shows all-members filter when members are active', (
       tester,
     ) async {
       await tester.pumpWidget(
@@ -248,7 +256,7 @@ void main() {
       await tester.tap(find.text('Inbox'));
       await tester.pumpAndSettle();
 
-      expect(find.bySemanticsLabel(RegExp('All fronters')), findsWidgets);
+      expect(find.bySemanticsLabel(RegExp(_allMembersLabel)), findsWidgets);
     });
 
     testWidgets('default landing tab is Public', (tester) async {
@@ -265,7 +273,7 @@ void main() {
   });
 
   group('BoardsScreen — filter dropdown', () {
-    testWidgets('filter dropdown chip appears when on Inbox tab', (
+    testWidgets('filter dropdown chip appears on Public and Inbox tabs', (
       tester,
     ) async {
       await tester.pumpWidget(
@@ -273,14 +281,16 @@ void main() {
       );
       await tester.pump();
 
+      expect(find.bySemanticsLabel(RegExp(_allMembersLabel)), findsWidgets);
+
       await tester.tap(find.text('Inbox'));
       await tester.pumpAndSettle();
 
-      // The avatar trigger exposes "All fronters" to assistive tech.
-      expect(find.bySemanticsLabel(RegExp('All fronters')), findsWidgets);
+      // The avatar trigger exposes the all-members state to assistive tech.
+      expect(find.bySemanticsLabel(RegExp(_allMembersLabel)), findsWidgets);
     });
 
-    testWidgets('filter trigger starts at "All fronters"', (tester) async {
+    testWidgets('filter trigger starts at all members', (tester) async {
       await tester.pumpWidget(
         _buildBoardsScreen(activeMembers: [_alice, _bob]),
       );
@@ -289,7 +299,49 @@ void main() {
       await tester.tap(find.text('Inbox'));
       await tester.pumpAndSettle();
 
-      expect(find.bySemanticsLabel(RegExp('All fronters')), findsWidgets);
+      expect(find.bySemanticsLabel(RegExp(_allMembersLabel)), findsWidgets);
+    });
+
+    testWidgets(
+      'filter dropdown lists all visible members, not just fronters',
+      (tester) async {
+        await tester.pumpWidget(
+          _buildBoardsScreen(
+            activeMembers: [_alice, _bob, _unknown],
+            currentFronters: [_alice],
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.bySemanticsLabel(RegExp(_allMembersLabel)).first);
+        await tester.pumpAndSettle();
+
+        expect(find.text('Alice'), findsOneWidget);
+        expect(find.text('Bob'), findsOneWidget);
+        expect(find.text('Unknown'), findsNothing);
+      },
+    );
+
+    testWidgets('member filter applies on the Public tab', (tester) async {
+      final posts = [
+        _publicPost('p1'),
+        _publicPost('p2').copyWith(authorId: 'bob'),
+      ];
+      await tester.pumpWidget(
+        _buildBoardsScreen(publicPosts: posts, activeMembers: [_alice, _bob]),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('post p1'), findsOneWidget);
+      expect(find.textContaining('post p2'), findsOneWidget);
+
+      await tester.tap(find.bySemanticsLabel(RegExp(_allMembersLabel)).first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('member-selector-popup-bob')));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('post p1'), findsNothing);
+      expect(find.textContaining('post p2'), findsOneWidget);
     });
 
     testWidgets('filter dropdown starts with Search and opens member search', (
@@ -303,13 +355,13 @@ void main() {
       await tester.tap(find.text('Inbox'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.bySemanticsLabel(RegExp('All fronters')).first);
+      await tester.tap(find.bySemanticsLabel(RegExp(_allMembersLabel)).first);
       await tester.pumpAndSettle();
 
       expect(find.text('Search'), findsOneWidget);
       expect(
         tester.getTopLeft(find.text('Search')).dy,
-        lessThan(tester.getTopLeft(find.text('All fronters')).dy),
+        lessThan(tester.getTopLeft(find.text(_allMembersLabel)).dy),
         reason: 'Search should be the first visible boards filter option.',
       );
 
