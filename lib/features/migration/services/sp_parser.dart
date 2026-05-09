@@ -55,6 +55,7 @@ class SpExportData {
   final String? systemName;
   final String? systemColor;
   final String? systemDescription;
+  final String? systemId;
   final String? systemAvatarUrl;
 
   const SpExportData({
@@ -75,6 +76,7 @@ class SpExportData {
     this.systemName,
     this.systemColor,
     this.systemDescription,
+    this.systemId,
     this.systemAvatarUrl,
   });
 
@@ -846,6 +848,7 @@ class SpParser {
     String? systemName;
     String? systemColor;
     String? systemDescription;
+    String? systemId;
     String? systemAvatarUrl;
     final settings = json['settings'];
     if (settings is Map<String, dynamic>) {
@@ -870,6 +873,7 @@ class SpParser {
         // serve.apparyllis.com URL from (uid, avatarUuid). Mirrors the
         // per-member logic in sp_mapper.dart.
         final uid = user['uid'] as String? ?? user['_id'] as String?;
+        systemId = uid;
         final avatarUrl = user['avatarUrl'] as String?;
         final avatarUuid = user['avatarUuid'] as String?;
         if (avatarUrl != null && avatarUrl.isNotEmpty) {
@@ -916,6 +920,7 @@ class SpParser {
       systemName: systemName,
       systemColor: systemColor,
       systemDescription: systemDescription,
+      systemId: systemId,
       systemAvatarUrl: systemAvatarUrl,
     );
   }
@@ -931,10 +936,7 @@ class SpParser {
           .whereType<Map<String, dynamic>>()
           .map(
             (memberJson) => SpMember.fromJson(
-              normalizeSpMemberJsonInfoKeys(
-                memberJson,
-                customFieldValueKeyMap,
-              ),
+              normalizeSpMemberJsonInfoKeys(memberJson, customFieldValueKeyMap),
             ),
           )
           .toList();
@@ -945,10 +947,7 @@ class SpParser {
           .whereType<Map<String, dynamic>>()
           .map(
             (memberJson) => SpMember.fromJson(
-              normalizeSpMemberJsonInfoKeys(
-                memberJson,
-                customFieldValueKeyMap,
-              ),
+              normalizeSpMemberJsonInfoKeys(memberJson, customFieldValueKeyMap),
             ),
           )
           .toList();

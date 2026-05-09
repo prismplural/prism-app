@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
@@ -667,6 +668,7 @@ class _PreviewView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final migration = ref.watch(importerProvider);
     final hasPreviousImport = ref.watch(hasPreviousSpImportProvider);
 
     return ListView(
@@ -692,6 +694,20 @@ class _PreviewView extends StatelessWidget {
         const SizedBox(height: 24),
 
         ImportPreviewCard(data: data),
+
+        const SizedBox(height: 16),
+
+        _AvatarZipPickerCard(
+          avatarZipPath: migration.avatarZipPath,
+          onTap: () {
+            ref.read(importerProvider.notifier).selectAvatarZipFile();
+          },
+          onClear: migration.avatarZipPath == null
+              ? null
+              : () {
+                  ref.read(importerProvider.notifier).clearAvatarZipFile();
+                },
+        ),
 
         const SizedBox(height: 16),
 
@@ -721,7 +737,7 @@ class _PreviewView extends StatelessWidget {
         ),
 
         // API limitation note — reminders aren't available via the API
-        if (ref.read(importerProvider).source == ImportSource.api &&
+        if (migration.source == ImportSource.api &&
             data.automatedTimers.isEmpty &&
             data.repeatedTimers.isEmpty)
           Padding(
@@ -1010,6 +1026,11 @@ class _CompleteView extends StatelessWidget {
                   label: context.l10n.migrationResultAvatarsDownloaded,
                   count: result.avatarsDownloaded,
                 ),
+              if (result.avatarsImportedFromZip > 0)
+                _ResultRow(
+                  label: context.l10n.migrationResultAvatarZipImported,
+                  count: result.avatarsImportedFromZip,
+                ),
             ],
           ),
         ),
@@ -1041,6 +1062,19 @@ class _CompleteView extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (result.hasAvatarDownloadFailures) ...[
+                  const SizedBox(height: 12),
+                  PrismButton(
+                    onPressed: () {
+                      ref
+                          .read(importerProvider.notifier)
+                          .retryAvatarDownloads();
+                    },
+                    icon: AppIcons.refresh,
+                    label: context.l10n.dataManagementRetry,
+                    tone: PrismButtonTone.outlined,
+                  ),
+                ],
               ],
             ),
           ),
@@ -1134,6 +1168,73 @@ class _DisclosureRow extends StatelessWidget {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AvatarZipPickerCard extends StatelessWidget {
+  const _AvatarZipPickerCard({
+    required this.avatarZipPath,
+    required this.onTap,
+    this.onClear,
+  });
+
+  final String? avatarZipPath;
+  final VoidCallback onTap;
+  final VoidCallback? onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final selectedFileName = avatarZipPath == null
+        ? null
+        : p.basename(avatarZipPath!);
+
+    return PrismSurface(
+      onTap: onTap,
+      padding: const EdgeInsets.all(12),
+      child: Row(
+        children: [
+          Icon(AppIcons.photoLibrary, color: theme.colorScheme.primary),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  context.l10n.migrationAvatarZipTitle,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  selectedFileName == null
+                      ? context.l10n.migrationAvatarZipSubtitle
+                      : context.l10n.migrationAvatarZipSelected(
+                          selectedFileName,
+                        ),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (onClear != null)
+            IconButton(
+              tooltip: context.l10n.migrationAvatarZipRemove,
+              icon: Icon(AppIcons.close),
+              color: theme.colorScheme.onSurfaceVariant,
+              onPressed: onClear,
+            )
+          else
+            Icon(
+              AppIcons.chevronRight,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
         ],
       ),
     );

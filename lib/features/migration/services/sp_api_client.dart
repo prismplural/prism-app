@@ -418,6 +418,7 @@ class SpApiClient {
       systemName: profile.systemName,
       systemColor: profile.systemColor,
       systemDescription: profile.systemDescription,
+      systemId: profile.systemId,
       systemAvatarUrl: profile.systemAvatarUrl,
     );
   }

@@ -5,7 +5,11 @@ import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart';
 
 import 'package:prism_plurality/core/database/app_database.dart'
-    show AppDatabase, MembersCompanion, SpIdMapTableCompanion, SpSyncStateTableCompanion;
+    show
+        AppDatabase,
+        MembersCompanion,
+        SpIdMapTableCompanion,
+        SpSyncStateTableCompanion;
 import 'package:prism_plurality/core/database/daos/sp_import_dao.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
@@ -23,6 +27,7 @@ import 'package:prism_plurality/domain/repositories/system_settings_repository.d
 import 'package:prism_plurality/domain/repositories/member_board_posts_repository.dart';
 import 'package:prism_plurality/features/migration/services/sp_parser.dart';
 import 'package:prism_plurality/features/migration/services/sp_mapper.dart';
+import 'package:prism_plurality/features/migration/services/sp_avatar_zip_importer.dart';
 import 'package:prism_plurality/features/migration/services/sp_custom_front_disposition.dart';
 import 'package:prism_plurality/shared/utils/avatar_fetcher.dart';
 
@@ -58,6 +63,8 @@ class ImportResult {
   final int boardPostsImported;
   final int avatarsDownloaded;
   final bool systemAvatarDownloaded;
+  final int avatarsImportedFromZip;
+  final bool systemAvatarImportedFromZip;
   final List<String> warnings;
   final Duration duration;
 
@@ -75,6 +82,8 @@ class ImportResult {
     this.boardPostsImported = 0,
     required this.avatarsDownloaded,
     this.systemAvatarDownloaded = false,
+    this.avatarsImportedFromZip = 0,
+    this.systemAvatarImportedFromZip = false,
     required this.warnings,
     required this.duration,
   });
@@ -91,6 +100,57 @@ class ImportResult {
       groupsImported +
       remindersImported +
       boardPostsImported;
+
+  static bool isAvatarDownloadWarning(String warning) {
+    final normalized = warning.toLowerCase();
+    return normalized.contains('avatar') && normalized.contains('download');
+  }
+
+  bool get hasAvatarDownloadFailures => warnings.any(isAvatarDownloadWarning);
+
+  ImportResult copyWith({
+    int? membersImported,
+    int? sessionsImported,
+    int? conversationsImported,
+    int? messagesImported,
+    int? pollsImported,
+    int? notesImported,
+    int? commentsImported,
+    int? customFieldsImported,
+    int? groupsImported,
+    int? remindersImported,
+    int? boardPostsImported,
+    int? avatarsDownloaded,
+    bool? systemAvatarDownloaded,
+    int? avatarsImportedFromZip,
+    bool? systemAvatarImportedFromZip,
+    List<String>? warnings,
+    Duration? duration,
+  }) {
+    return ImportResult(
+      membersImported: membersImported ?? this.membersImported,
+      sessionsImported: sessionsImported ?? this.sessionsImported,
+      conversationsImported:
+          conversationsImported ?? this.conversationsImported,
+      messagesImported: messagesImported ?? this.messagesImported,
+      pollsImported: pollsImported ?? this.pollsImported,
+      notesImported: notesImported ?? this.notesImported,
+      commentsImported: commentsImported ?? this.commentsImported,
+      customFieldsImported: customFieldsImported ?? this.customFieldsImported,
+      groupsImported: groupsImported ?? this.groupsImported,
+      remindersImported: remindersImported ?? this.remindersImported,
+      boardPostsImported: boardPostsImported ?? this.boardPostsImported,
+      avatarsDownloaded: avatarsDownloaded ?? this.avatarsDownloaded,
+      systemAvatarDownloaded:
+          systemAvatarDownloaded ?? this.systemAvatarDownloaded,
+      avatarsImportedFromZip:
+          avatarsImportedFromZip ?? this.avatarsImportedFromZip,
+      systemAvatarImportedFromZip:
+          systemAvatarImportedFromZip ?? this.systemAvatarImportedFromZip,
+      warnings: warnings ?? this.warnings,
+      duration: duration ?? this.duration,
+    );
+  }
 }
 
 /// Handles the full SP import workflow.
@@ -143,6 +203,7 @@ class SpImporter {
     MemberBoardPostsRepository? boardPostsRepo,
     SpImportDao? spImportDao,
     bool downloadAvatars = true,
+    String? avatarZipPath,
     bool clearExistingData = false,
     Map<String, CfDisposition>? customFrontDispositions,
     void Function(int current, int total, String label)? onProgress,
@@ -150,14 +211,7 @@ class SpImporter {
     final stopwatch = Stopwatch()..start();
 
     // Load existing SP→Prism ID mappings so a re-import reuses stable UUIDs.
-    final existingMappings = <String, Map<String, String>>{};
-    if (spImportDao != null) {
-      final rows = await spImportDao.getAllMappings();
-      for (final row in rows) {
-        existingMappings.putIfAbsent(row.entityType, () => {})[row.spId] =
-            row.prismId;
-      }
-    }
+    final existingMappings = await _loadExistingMappings(spImportDao);
 
     final mapper = SpMapper(
       existingMappings: existingMappings,
@@ -165,7 +219,8 @@ class SpImporter {
     );
     final mapped = mapper.mapAll(data);
 
-    final totalItems = mapped.members.length +
+    final totalItems =
+        mapped.members.length +
         mapped.sessions.length +
         mapped.conversationCategories.length +
         mapped.conversations.length +
@@ -255,13 +310,19 @@ class SpImporter {
       if (customFieldsRepo != null) {
         for (final field in mapped.customFields) {
           onProgress?.call(
-              currentItem, totalItems, 'Importing custom fields...');
+            currentItem,
+            totalItems,
+            'Importing custom fields...',
+          );
           await customFieldsRepo.createField(field);
           currentItem++;
         }
         for (final value in mapped.customFieldValues) {
           onProgress?.call(
-              currentItem, totalItems, 'Importing field values...');
+            currentItem,
+            totalItems,
+            'Importing field values...',
+          );
           await customFieldsRepo.upsertValue(value);
           currentItem++;
         }
@@ -276,9 +337,11 @@ class SpImporter {
         }
         for (final entry in mapped.groupMemberships) {
           onProgress?.call(
-              currentItem, totalItems, 'Importing group members...');
-          await groupsRepo.addMemberToGroup(
-              entry.key, entry.value, _uuid.v4());
+            currentItem,
+            totalItems,
+            'Importing group members...',
+          );
+          await groupsRepo.addMemberToGroup(entry.key, entry.value, _uuid.v4());
           currentItem++;
         }
       }
@@ -311,8 +374,7 @@ class SpImporter {
       // 7. Import conversation categories.
       if (categoriesRepo != null) {
         for (final cat in mapped.conversationCategories) {
-          onProgress?.call(
-              currentItem, totalItems, 'Importing categories...');
+          onProgress?.call(currentItem, totalItems, 'Importing categories...');
           await categoriesRepo.create(cat);
           currentItem++;
         }
@@ -415,24 +477,30 @@ class SpImporter {
         ('board_message', mapped.boardMessageIdMap),
       ]) {
         for (final entry in idMap.entries) {
-          mappingRows.add(SpIdMapTableCompanion(
-            spId: Value(entry.key),
-            entityType: Value(type),
-            prismId: Value(entry.value),
-          ));
+          mappingRows.add(
+            SpIdMapTableCompanion(
+              spId: Value(entry.key),
+              entityType: Value(type),
+              prismId: Value(entry.value),
+            ),
+          );
         }
       }
       await spImportDao.upsertMappings(mappingRows);
-      await spImportDao.upsertSyncState(SpSyncStateTableCompanion(
-        id: const Value('singleton'),
-        lastImportAt: Value(DateTime.now()),
-      ));
+      await spImportDao.upsertSyncState(
+        SpSyncStateTableCompanion(
+          id: const Value('singleton'),
+          lastImportAt: Value(DateTime.now()),
+        ),
+      );
     }
 
     // 6. Download avatars (best-effort, outside the transaction).
     //    Network I/O cannot be rolled back; failures here are silently skipped.
     var avatarsDownloaded = 0;
     var systemAvatarDownloaded = false;
+    var avatarsImportedFromZip = 0;
+    var systemAvatarImportedFromZip = false;
     final warnings = List<String>.of(mapped.warnings);
 
     // 6a. System-level avatar. SP stores this on users[0] (separate from
@@ -474,6 +542,24 @@ class SpImporter {
       }
     }
 
+    if (avatarZipPath != null && avatarZipPath.isNotEmpty) {
+      onProgress?.call(totalItems, totalItems, 'Importing avatar ZIP...');
+      try {
+        final zipResult = await SpAvatarZipImporter().importZipFile(
+          filePath: avatarZipPath,
+          memberRepo: memberRepo,
+          settingsRepo: settingsRepo,
+          spImportDao: spImportDao,
+          exportData: data,
+        );
+        avatarsImportedFromZip = zipResult.memberAvatarsUpdated;
+        systemAvatarImportedFromZip = zipResult.systemAvatarUpdated;
+        warnings.addAll(zipResult.warnings);
+      } catch (e) {
+        warnings.add('Could not import avatar ZIP: $e');
+      }
+    }
+
     // After import: if board posts were imported and we have a settings repo,
     // auto-enable boardsEnabled and append 'boards' to the nav overflow so the
     // user can immediately navigate to their imported posts.
@@ -492,7 +578,10 @@ class SpImporter {
       final alreadyPresent =
           primaryIds.contains('boards') || overflowIds.contains('boards');
       if (!alreadyPresent) {
-        await settingsRepo.updateNavBarOverflowItems([...overflowIds, 'boards']);
+        await settingsRepo.updateNavBarOverflowItems([
+          ...overflowIds,
+          'boards',
+        ]);
       }
     }
 
@@ -511,6 +600,89 @@ class SpImporter {
       groupsImported: mapped.groups.length,
       remindersImported: mapped.reminders.length,
       boardPostsImported: boardPostsImported,
+      avatarsDownloaded: avatarsDownloaded,
+      systemAvatarDownloaded: systemAvatarDownloaded,
+      avatarsImportedFromZip: avatarsImportedFromZip,
+      systemAvatarImportedFromZip: systemAvatarImportedFromZip,
+      warnings: warnings,
+      duration: stopwatch.elapsed,
+    );
+  }
+
+  /// Re-run only the avatar download phase for an already-imported SP export.
+  ///
+  /// This depends on [spImportDao] holding the original SP→Prism ID mappings,
+  /// so it is suitable for a same-session retry after transient image/CDN
+  /// failures without re-importing or overwriting the rest of the user's data.
+  Future<ImportResult> retryAvatarDownloads({
+    required SpExportData data,
+    required MemberRepository memberRepo,
+    SystemSettingsRepository? settingsRepo,
+    SpImportDao? spImportDao,
+    Map<String, CfDisposition>? customFrontDispositions,
+    void Function(int current, int total, String label)? onProgress,
+  }) async {
+    final stopwatch = Stopwatch()..start();
+    final existingMappings = await _loadExistingMappings(spImportDao);
+    final mapper = SpMapper(
+      existingMappings: existingMappings,
+      customFrontDispositions: customFrontDispositions,
+    );
+    final mapped = mapper.mapAll(data);
+
+    var avatarsDownloaded = 0;
+    var systemAvatarDownloaded = false;
+    final warnings = <String>[];
+    final hasSystemAvatarUrl =
+        mapped.systemAvatarUrl != null && mapped.systemAvatarUrl!.isNotEmpty;
+    final totalAvatarSources =
+        mapped.avatarUrls.length + (hasSystemAvatarUrl ? 1 : 0);
+
+    if (settingsRepo != null && hasSystemAvatarUrl) {
+      onProgress?.call(0, totalAvatarSources, 'Retrying system avatar...');
+      final bytes = await fetchAvatarBytes(
+        mapped.systemAvatarUrl!,
+        client: _http,
+      );
+      if (bytes != null) {
+        await settingsRepo.updateSystemAvatarData(bytes);
+        systemAvatarDownloaded = true;
+      } else {
+        warnings.add('System avatar failed to download');
+      }
+    }
+
+    if (mapped.avatarUrls.isNotEmpty) {
+      final result = await _downloadAvatars(
+        mapped.members,
+        mapped.avatarUrls,
+        memberRepo,
+        warnings: warnings,
+        onProgress: (count) {
+          onProgress?.call(
+            count,
+            totalAvatarSources,
+            'Retrying avatars ($count/${mapped.avatarUrls.length})...',
+          );
+        },
+      );
+      avatarsDownloaded = result.downloaded;
+      if (result.failed > 0) {
+        warnings.add('${result.failed} avatar(s) failed to download');
+      }
+      avatarsDownloaded = await _countMembersWithAvatars(
+        mapped.members,
+        memberRepo,
+      );
+    }
+
+    stopwatch.stop();
+    return ImportResult(
+      membersImported: 0,
+      sessionsImported: 0,
+      conversationsImported: 0,
+      messagesImported: 0,
+      pollsImported: 0,
       avatarsDownloaded: avatarsDownloaded,
       systemAvatarDownloaded: systemAvatarDownloaded,
       warnings: warnings,
@@ -535,8 +707,9 @@ class SpImporter {
 
       final bytes = await fetchAvatarBytes(url, client: _http);
       if (bytes != null) {
+        final current = await memberRepo.getMemberById(member.id);
         await memberRepo.updateMember(
-          member.copyWith(avatarImageData: bytes),
+          (current ?? member).copyWith(avatarImageData: bytes),
         );
         downloaded++;
       } else {
@@ -548,5 +721,31 @@ class SpImporter {
     }
 
     return (downloaded: downloaded, failed: failed);
+  }
+
+  Future<int> _countMembersWithAvatars(
+    List<Member> members,
+    MemberRepository memberRepo,
+  ) async {
+    var count = 0;
+    for (final member in members) {
+      final current = await memberRepo.getMemberById(member.id);
+      if (current?.avatarImageData != null) count++;
+    }
+    return count;
+  }
+
+  Future<Map<String, Map<String, String>>> _loadExistingMappings(
+    SpImportDao? spImportDao,
+  ) async {
+    final existingMappings = <String, Map<String, String>>{};
+    if (spImportDao == null) return existingMappings;
+
+    final rows = await spImportDao.getAllMappings();
+    for (final row in rows) {
+      existingMappings.putIfAbsent(row.entityType, () => {})[row.spId] =
+          row.prismId;
+    }
+    return existingMappings;
   }
 }

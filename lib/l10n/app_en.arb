@@ -9861,5 +9861,31 @@
   "onboardingPairingCancelAndRemove": "Cancel and remove this device",
   "@onboardingPairingCancelAndRemove": {
     "description": "Destructive button that deregisters this device and aborts the pairing flow."
-  }
+  },
+  "migrationAvatarZipTitle": "Avatar ZIP (optional)",
+  "migrationAvatarZipSubtitle": "Import photos from the paired Simply Plural avatar ZIP.",
+  "migrationAvatarZipSelected": "Selected: {fileName}",
+  "migrationAvatarZipRemove": "Remove avatar ZIP",
+  "migrationResultAvatarZipImported": "Avatar ZIP images imported",
+  "onboardingSimplyPluralAddAvatarZip": "Add Avatar ZIP (optional)",
+  "onboardingSimplyPluralChangeAvatarZip": "Change Avatar ZIP",
+  "onboardingSimplyPluralRemoveAvatarZip": "Remove Avatar ZIP",
+  "onboardingSimplyPluralAvatarZipSelected": "Avatar ZIP: {fileName}",
+  "dataManagementSimplyPluralAvatarZipRowTitle": "Simply Plural Avatar ZIP",
+  "dataManagementSimplyPluralAvatarZipRowSubtitle": "Update photos for existing imported members",
+  "spAvatarZipSheetTitle": "Simply Plural Avatar ZIP",
+  "spAvatarZipUpdateTitle": "Update photos from ZIP",
+  "spAvatarZipDescription": "Select the avatar ZIP exported by Simply Plural. Prism will match images to existing imported members and update only their photos.",
+  "spAvatarZipSelect": "Select Avatar ZIP",
+  "spAvatarZipImporting": "Importing avatar ZIP...",
+  "spAvatarZipImportingDescription": "Matching ZIP images to existing Simply Plural imports.",
+  "spAvatarZipNoMatchesTitle": "No matching photos found",
+  "spAvatarZipCompleteTitle": "Photos updated",
+  "spAvatarZipNoMatchesMessage": "Run the Simply Plural JSON import first, then try this ZIP again.",
+  "spAvatarZipUpdatedMessage": "Updated {count} member photo(s).",
+  "spAvatarZipImagesFound": "Images found",
+  "spAvatarZipMemberPhotosUpdated": "Member photos updated",
+  "spAvatarZipSystemPhotoUpdated": "System photo updated",
+  "spAvatarZipUnmatchedImages": "Unmatched images",
+  "spAvatarZipFailedTitle": "Could not import avatar ZIP"
 }

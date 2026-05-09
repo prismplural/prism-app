@@ -72,9 +72,35 @@ void main() {
         'https://example.com/slow.png',
         client: client,
         timeout: const Duration(milliseconds: 20),
+        maxAttempts: 1,
       );
 
       expect(bytes, isNull);
+    });
+
+    test('retries transient failures', () async {
+      final body = Uint8List.fromList(List<int>.generate(32, (i) => i));
+      var calls = 0;
+      final client = MockClient((request) async {
+        calls++;
+        if (calls == 1) {
+          return http.Response('try again', 429);
+        }
+        return http.Response.bytes(
+          body,
+          200,
+          headers: {'content-type': 'image/jpeg'},
+        );
+      });
+
+      final bytes = await fetchAvatarBytes(
+        'https://example.com/flaky.jpg',
+        client: client,
+        initialRetryDelay: Duration.zero,
+      );
+
+      expect(bytes, body);
+      expect(calls, 2);
     });
 
     test('returns null when response exceeds maxBytes cap', () async {

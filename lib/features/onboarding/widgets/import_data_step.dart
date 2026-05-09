@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
@@ -2039,6 +2040,38 @@ class _SimplyPluralImportFlowState
               ),
             ),
             const SizedBox(height: 16),
+            _ActionButton(
+              label: migration.avatarZipPath == null
+                  ? context.l10n.onboardingSimplyPluralAddAvatarZip
+                  : context.l10n.onboardingSimplyPluralChangeAvatarZip,
+              color: primary,
+              onPressed: () {
+                ref.read(importerProvider.notifier).selectAvatarZipFile();
+              },
+            ),
+            if (migration.avatarZipPath != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                context.l10n.onboardingSimplyPluralAvatarZipSelected(
+                  p.basename(migration.avatarZipPath!),
+                ),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: isDark
+                      ? AppColors.mutedTextDark
+                      : AppColors.mutedTextLight,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              _ActionButton(
+                label: context.l10n.onboardingSimplyPluralRemoveAvatarZip,
+                color: theme.colorScheme.error,
+                onPressed: () {
+                  ref.read(importerProvider.notifier).clearAvatarZipFile();
+                },
+              ),
+            ],
+            const SizedBox(height: 12),
             _ActionButton(
               label: context.l10n.onboardingSimplyPluralImportButton,
               color: primary,

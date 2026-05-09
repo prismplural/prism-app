@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 import 'package:prism_plurality/core/router/app_routes.dart';
+import 'package:prism_plurality/features/migration/widgets/sp_avatar_zip_import_sheet.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
@@ -79,6 +80,18 @@ class ImportExportScreen extends ConsumerWidget {
                         context.l10n.dataManagementSimplyPluralRowSubtitle,
                     onTap: () => context.push(AppRoutePaths.settingsMigration),
                   ),
+                  const Divider(height: 1, indent: 60, endIndent: 12),
+                  PrismSettingsRow(
+                    icon: AppIcons.photoLibrary,
+                    iconColor: Colors.teal,
+                    title: context
+                        .l10n
+                        .dataManagementSimplyPluralAvatarZipRowTitle,
+                    subtitle: context
+                        .l10n
+                        .dataManagementSimplyPluralAvatarZipRowSubtitle,
+                    onTap: () => _showAvatarZipImportSheet(context),
+                  ),
                 ],
               ),
             ),
@@ -99,6 +112,13 @@ class ImportExportScreen extends ConsumerWidget {
     PrismSheet.showFullScreen(
       context: context,
       builder: (ctx, sc) => DataImportSheet(scrollController: sc),
+    );
+  }
+
+  void _showAvatarZipImportSheet(BuildContext context) {
+    PrismSheet.showFullScreen(
+      context: context,
+      builder: (ctx, sc) => SpAvatarZipImportSheet(scrollController: sc),
     );
   }
 }

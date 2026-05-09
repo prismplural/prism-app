@@ -29,8 +29,13 @@ import 'package:prism_plurality/features/migration/services/sp_importer.dart';
 
 const _defaultExportPath = 'test/fixtures/sp_export.json';
 
-String get _exportPath =>
-    const String.fromEnvironment('SP_EXPORT_FILE', defaultValue: _defaultExportPath);
+String get _exportPath => const String.fromEnvironment(
+  'SP_EXPORT_FILE',
+  defaultValue: _defaultExportPath,
+);
+
+String get _avatarZipPath =>
+    const String.fromEnvironment('SP_AVATAR_ZIP_FILE', defaultValue: '');
 
 void main() {
   group('SP file import — full pipeline integration', () {
@@ -47,7 +52,8 @@ void main() {
       () async {
         if (!File(_exportPath).existsSync()) {
           markTestSkipped(
-              'Export file not found at $_exportPath — set SP_EXPORT_FILE to run this test');
+            'Export file not found at $_exportPath — set SP_EXPORT_FILE to run this test',
+          );
           return;
         }
 
@@ -56,103 +62,168 @@ void main() {
         // -- 1. Parse the real export file ----------------------------------------
         final exportData = importer.parseFile(_exportPath);
 
-        expect(exportData.isEmpty, isFalse,
-            reason: 'Export file should contain at least one entity');
-        expect(exportData.members, isNotEmpty,
-            reason: 'Export should have members');
-        expect(exportData.frontHistory, isNotEmpty,
-            reason: 'Export should have front history');
-        expect(exportData.groups.length, 2,
-            reason: 'Export has 1 root group (Littles) and 1 sub-group (Children)');
+        expect(
+          exportData.isEmpty,
+          isFalse,
+          reason: 'Export file should contain at least one entity',
+        );
+        expect(
+          exportData.members,
+          isNotEmpty,
+          reason: 'Export should have members',
+        );
+        expect(
+          exportData.frontHistory,
+          isNotEmpty,
+          reason: 'Export should have front history',
+        );
+        expect(
+          exportData.groups.length,
+          2,
+          reason:
+              'Export has 1 root group (Littles) and 1 sub-group (Children)',
+        );
         // Verify "root" parent sentinel is parsed without blowing up
-        final rootGroups =
-            exportData.groups.where((g) => g.parent == 'root').toList();
-        final subGroups =
-            exportData.groups.where((g) => g.parent != null && g.parent != 'root').toList();
+        final rootGroups = exportData.groups
+            .where((g) => g.parent == 'root')
+            .toList();
+        final subGroups = exportData.groups
+            .where((g) => g.parent != null && g.parent != 'root')
+            .toList();
         expect(rootGroups.length, 1, reason: 'One root group');
-        expect(subGroups.length, 1, reason: 'One sub-group with a parent reference');
+        expect(
+          subGroups.length,
+          1,
+          reason: 'One sub-group with a parent reference',
+        );
 
         // -- 2. Import into a fresh in-memory DB -----------------------------------
         final result = await importer.executeImport(
           db: db,
           data: exportData,
           memberRepo: DriftMemberRepository(db.membersDao, null),
-          sessionRepo:
-              DriftFrontingSessionRepository(db.frontingSessionsDao, null),
-          conversationRepo:
-              DriftConversationRepository(db.conversationsDao, null),
+          sessionRepo: DriftFrontingSessionRepository(
+            db.frontingSessionsDao,
+            null,
+          ),
+          conversationRepo: DriftConversationRepository(
+            db.conversationsDao,
+            null,
+          ),
           messageRepo: DriftChatMessageRepository(db.chatMessagesDao, null),
           pollRepo: DriftPollRepository(
-              db.pollsDao, db.pollOptionsDao, db.pollVotesDao, null),
+            db.pollsDao,
+            db.pollOptionsDao,
+            db.pollVotesDao,
+            null,
+          ),
           notesRepo: DriftNotesRepository(db.notesDao, null),
           commentsRepo: DriftFrontSessionCommentsRepository(
-              db.frontSessionCommentsDao, null),
-          customFieldsRepo:
-              DriftCustomFieldsRepository(db.customFieldsDao, null),
+            db.frontSessionCommentsDao,
+            null,
+          ),
+          customFieldsRepo: DriftCustomFieldsRepository(
+            db.customFieldsDao,
+            null,
+          ),
           groupsRepo: DriftMemberGroupsRepository(db.memberGroupsDao, null),
           remindersRepo: DriftRemindersRepository(db.remindersDao, null),
-          settingsRepo:
-              DriftSystemSettingsRepository(db.systemSettingsDao, null),
+          settingsRepo: DriftSystemSettingsRepository(
+            db.systemSettingsDao,
+            null,
+          ),
           categoriesRepo: DriftConversationCategoriesRepository(
-              db.conversationCategoriesDao, null),
+            db.conversationCategoriesDao,
+            null,
+          ),
           spImportDao: db.spImportDao,
           downloadAvatars: false,
         );
 
         // -- 3. Result counts match what we know is in this export -----------------
         expect(result.membersImported, greaterThan(0));
-        expect(result.sessionsImported, equals(exportData.frontHistory.length),
-            reason: 'All front history entries should become sessions');
-        expect(result.conversationsImported, equals(exportData.channels.length),
-            reason: 'Each SP channel should become a conversation');
-        expect(result.messagesImported, greaterThan(0),
-            reason: 'This export has chat messages');
-        expect(result.groupsImported, 2,
-            reason: 'Both SP groups should be imported');
+        expect(
+          result.sessionsImported,
+          equals(exportData.frontHistory.length),
+          reason: 'All front history entries should become sessions',
+        );
+        expect(
+          result.conversationsImported,
+          equals(exportData.channels.length),
+          reason: 'Each SP channel should become a conversation',
+        );
+        expect(
+          result.messagesImported,
+          greaterThan(0),
+          reason: 'This export has chat messages',
+        );
+        expect(
+          result.groupsImported,
+          2,
+          reason: 'Both SP groups should be imported',
+        );
 
         // -- 4. DB reflects the result --------------------------------------------
         final membersInDb = await db.membersDao.getAllMembers();
-        expect(membersInDb.length, result.membersImported,
-            reason: 'DB member count should match import result');
+        expect(
+          membersInDb.length,
+          result.membersImported,
+          reason: 'DB member count should match import result',
+        );
 
-        final sessionsInDb =
-            await db.frontingSessionsDao.getAllSessions();
+        final sessionsInDb = await db.frontingSessionsDao.getAllSessions();
         expect(sessionsInDb.length, result.sessionsImported);
 
         // Groups: verify hierarchy landed correctly in the DB.
         final groupsInDb = await db.memberGroupsDao.getAllActiveGroups();
         expect(groupsInDb.length, 2);
-        final rootGroupsInDb =
-            groupsInDb.where((g) => g.parentGroupId == null).toList();
-        final childGroupsInDb =
-            groupsInDb.where((g) => g.parentGroupId != null).toList();
-        expect(rootGroupsInDb.length, 1,
-            reason: 'Littles should have no parent');
-        expect(childGroupsInDb.length, 1,
-            reason: 'Children should have Littles as parent');
+        final rootGroupsInDb = groupsInDb
+            .where((g) => g.parentGroupId == null)
+            .toList();
+        final childGroupsInDb = groupsInDb
+            .where((g) => g.parentGroupId != null)
+            .toList();
+        expect(
+          rootGroupsInDb.length,
+          1,
+          reason: 'Littles should have no parent',
+        );
+        expect(
+          childGroupsInDb.length,
+          1,
+          reason: 'Children should have Littles as parent',
+        );
         // The child's parentGroupId should match the root group's Prism ID.
-        expect(childGroupsInDb.first.parentGroupId, rootGroupsInDb.first.id,
-            reason: 'Parent reference should resolve to the imported Prism ID');
+        expect(
+          childGroupsInDb.first.parentGroupId,
+          rootGroupsInDb.first.id,
+          reason: 'Parent reference should resolve to the imported Prism ID',
+        );
         // getDirectChildrenOf returns the sub-group.
-        final directChildren = await db.memberGroupsDao
-            .getDirectChildrenOf(rootGroupsInDb.first.id);
+        final directChildren = await db.memberGroupsDao.getDirectChildrenOf(
+          rootGroupsInDb.first.id,
+        );
         expect(directChildren.length, 1);
         expect(directChildren.first.id, childGroupsInDb.first.id);
         // Each group has 1 member entry.
         final groupEntriesInDb = await db.memberGroupsDao.getAllGroupEntries();
-        expect(groupEntriesInDb.length, 2,
-            reason: 'One member per group');
+        expect(groupEntriesInDb.length, 2, reason: 'One member per group');
 
         // -- 5. ID map was persisted -----------------------------------------------
         final idMappings = await db.spImportDao.getAllMappings();
         expect(idMappings, isNotEmpty);
-        final memberMappings =
-            idMappings.where((r) => r.entityType == 'member').toList();
+        final memberMappings = idMappings
+            .where((r) => r.entityType == 'member')
+            .toList();
         expect(memberMappings.length, result.membersImported);
-        final groupMappings =
-            idMappings.where((r) => r.entityType == 'group').toList();
-        expect(groupMappings.length, 2,
-            reason: 'SP→Prism ID map should have an entry for each group');
+        final groupMappings = idMappings
+            .where((r) => r.entityType == 'group')
+            .toList();
+        expect(
+          groupMappings.length,
+          2,
+          reason: 'SP→Prism ID map should have an entry for each group',
+        );
 
         // -- 6. Sync state was written --------------------------------------------
         final syncState = await db.spImportDao.getSyncState();
@@ -163,18 +234,22 @@ void main() {
         // ignore: avoid_print
         print('\n=== SP File Integration Test Summary ===');
         // ignore: avoid_print
-        print('Parsed: ${exportData.members.length} members, '
-            '${exportData.frontHistory.length} sessions, '
-            '${exportData.channels.length} channels, '
-            '${exportData.messages.length} messages, '
-            '${exportData.groups.length} groups');
+        print(
+          'Parsed: ${exportData.members.length} members, '
+          '${exportData.frontHistory.length} sessions, '
+          '${exportData.channels.length} channels, '
+          '${exportData.messages.length} messages, '
+          '${exportData.groups.length} groups',
+        );
         // ignore: avoid_print
-        print('Imported: ${result.membersImported} members, '
-            '${result.sessionsImported} sessions, '
-            '${result.conversationsImported} conversations, '
-            '${result.messagesImported} messages, '
-            '${result.pollsImported} polls, '
-            '${result.groupsImported} groups');
+        print(
+          'Imported: ${result.membersImported} members, '
+          '${result.sessionsImported} sessions, '
+          '${result.conversationsImported} conversations, '
+          '${result.messagesImported} messages, '
+          '${result.pollsImported} polls, '
+          '${result.groupsImported} groups',
+        );
         // ignore: avoid_print
         print('Warnings (${result.warnings.length}): ${result.warnings}');
         // ignore: avoid_print
@@ -188,7 +263,8 @@ void main() {
       () async {
         if (!File(_exportPath).existsSync()) {
           markTestSkipped(
-              'Export file not found at $_exportPath — set SP_EXPORT_FILE to run this test');
+            'Export file not found at $_exportPath — set SP_EXPORT_FILE to run this test',
+          );
           return;
         }
 
@@ -200,24 +276,40 @@ void main() {
             db: db,
             data: exportData,
             memberRepo: DriftMemberRepository(db.membersDao, null),
-            sessionRepo:
-                DriftFrontingSessionRepository(db.frontingSessionsDao, null),
-            conversationRepo:
-                DriftConversationRepository(db.conversationsDao, null),
+            sessionRepo: DriftFrontingSessionRepository(
+              db.frontingSessionsDao,
+              null,
+            ),
+            conversationRepo: DriftConversationRepository(
+              db.conversationsDao,
+              null,
+            ),
             messageRepo: DriftChatMessageRepository(db.chatMessagesDao, null),
             pollRepo: DriftPollRepository(
-                db.pollsDao, db.pollOptionsDao, db.pollVotesDao, null),
+              db.pollsDao,
+              db.pollOptionsDao,
+              db.pollVotesDao,
+              null,
+            ),
             notesRepo: DriftNotesRepository(db.notesDao, null),
             commentsRepo: DriftFrontSessionCommentsRepository(
-                db.frontSessionCommentsDao, null),
-            customFieldsRepo:
-                DriftCustomFieldsRepository(db.customFieldsDao, null),
+              db.frontSessionCommentsDao,
+              null,
+            ),
+            customFieldsRepo: DriftCustomFieldsRepository(
+              db.customFieldsDao,
+              null,
+            ),
             groupsRepo: DriftMemberGroupsRepository(db.memberGroupsDao, null),
             remindersRepo: DriftRemindersRepository(db.remindersDao, null),
-            settingsRepo:
-                DriftSystemSettingsRepository(db.systemSettingsDao, null),
+            settingsRepo: DriftSystemSettingsRepository(
+              db.systemSettingsDao,
+              null,
+            ),
             categoriesRepo: DriftConversationCategoriesRepository(
-                db.conversationCategoriesDao, null),
+              db.conversationCategoriesDao,
+              null,
+            ),
             spImportDao: db.spImportDao,
             downloadAvatars: false,
             clearExistingData: clear,
@@ -228,19 +320,100 @@ void main() {
         final first = await runImport();
         final second = await runImport(clear: true);
 
-        expect(second.membersImported, first.membersImported,
-            reason: 're-import should yield the same member count');
-        expect(second.conversationsImported, first.conversationsImported,
-            reason: 're-import should yield the same conversation count');
-        expect(second.messagesImported, first.messagesImported,
-            reason: 're-import should preserve chat message count');
+        expect(
+          second.membersImported,
+          first.membersImported,
+          reason: 're-import should yield the same member count',
+        );
+        expect(
+          second.conversationsImported,
+          first.conversationsImported,
+          reason: 're-import should yield the same conversation count',
+        );
+        expect(
+          second.messagesImported,
+          first.messagesImported,
+          reason: 're-import should preserve chat message count',
+        );
 
         final membersInDb = await db.membersDao.getAllMembers();
         expect(membersInDb.length, second.membersImported);
-        final conversationsInDb = await db.conversationsDao.getAllConversations();
+        final conversationsInDb = await db.conversationsDao
+            .getAllConversations();
         expect(conversationsInDb.length, second.conversationsImported);
         final messagesInDb = await db.chatMessagesDao.getAllMessages();
         expect(messagesInDb.length, second.messagesImported);
+      },
+      timeout: const Timeout(Duration(minutes: 2)),
+    );
+
+    test(
+      'paired avatar ZIP imports member photos',
+      () async {
+        if (!File(_exportPath).existsSync()) {
+          markTestSkipped(
+            'Export file not found at $_exportPath — set SP_EXPORT_FILE to run this test',
+          );
+          return;
+        }
+        if (_avatarZipPath.isEmpty || !File(_avatarZipPath).existsSync()) {
+          markTestSkipped(
+            'Avatar ZIP not found — set SP_AVATAR_ZIP_FILE to run this test',
+          );
+          return;
+        }
+
+        final importer = SpImporter();
+        final exportData = importer.parseFile(_exportPath);
+
+        final result = await importer.executeImport(
+          db: db,
+          data: exportData,
+          memberRepo: DriftMemberRepository(db.membersDao, null),
+          sessionRepo: DriftFrontingSessionRepository(
+            db.frontingSessionsDao,
+            null,
+          ),
+          conversationRepo: DriftConversationRepository(
+            db.conversationsDao,
+            null,
+          ),
+          messageRepo: DriftChatMessageRepository(db.chatMessagesDao, null),
+          pollRepo: DriftPollRepository(
+            db.pollsDao,
+            db.pollOptionsDao,
+            db.pollVotesDao,
+            null,
+          ),
+          notesRepo: DriftNotesRepository(db.notesDao, null),
+          commentsRepo: DriftFrontSessionCommentsRepository(
+            db.frontSessionCommentsDao,
+            null,
+          ),
+          customFieldsRepo: DriftCustomFieldsRepository(
+            db.customFieldsDao,
+            null,
+          ),
+          groupsRepo: DriftMemberGroupsRepository(db.memberGroupsDao, null),
+          remindersRepo: DriftRemindersRepository(db.remindersDao, null),
+          settingsRepo: DriftSystemSettingsRepository(
+            db.systemSettingsDao,
+            null,
+          ),
+          categoriesRepo: DriftConversationCategoriesRepository(
+            db.conversationCategoriesDao,
+            null,
+          ),
+          spImportDao: db.spImportDao,
+          downloadAvatars: false,
+          avatarZipPath: _avatarZipPath,
+        );
+
+        expect(result.avatarsImportedFromZip, greaterThan(0));
+        final membersWithAvatars = (await db.membersDao.getAllMembers())
+            .where((member) => member.avatarImageData != null)
+            .toList();
+        expect(membersWithAvatars.length, result.avatarsImportedFromZip);
       },
       timeout: const Timeout(Duration(minutes: 2)),
     );

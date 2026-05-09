@@ -10,6 +10,8 @@ import 'remote_image_fetcher.dart';
 /// same guardrails instead of reinventing them:
 ///
 /// * 10-second request timeout (configurable via [timeout]).
+/// * Three attempts for transient failures (timeouts, I/O errors, 408, 429,
+///   5xx), with capped exponential backoff.
 /// * 5 MiB payload cap (configurable via [maxBytes]) — avatars are small;
 ///   larger responses almost always indicate a misconfigured URL.
 /// * Requires a `content-type: image/*` response header.
@@ -24,11 +26,17 @@ Future<Uint8List?> fetchAvatarBytes(
   http.Client? client,
   Duration timeout = const Duration(seconds: 10),
   int maxBytes = 5 * 1024 * 1024,
+  int maxAttempts = 3,
+  Duration initialRetryDelay = const Duration(milliseconds: 500),
+  Duration maxRetryDelay = const Duration(seconds: 4),
 }) async {
   return fetchRemoteImageBytes(
     url,
     client: client,
     timeout: timeout,
     maxBytes: maxBytes,
+    maxAttempts: maxAttempts,
+    initialRetryDelay: initialRetryDelay,
+    maxRetryDelay: maxRetryDelay,
   );
 }

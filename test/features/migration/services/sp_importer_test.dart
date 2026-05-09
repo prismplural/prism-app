@@ -1,9 +1,13 @@
+import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:archive/archive.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
-import 'package:prism_plurality/core/database/app_database.dart' show AppDatabase;
+import 'package:image/image.dart' as img;
+import 'package:prism_plurality/core/database/app_database.dart'
+    show AppDatabase;
 import 'package:prism_plurality/data/repositories/drift_conversation_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_fronting_session_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
@@ -41,8 +45,8 @@ class _FakeHttpClient extends http.BaseClient {
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
     calls.add(request.url.toString());
-    final response = _responses[request.url.toString()] ??
-        http.Response('not found', 404);
+    final response =
+        _responses[request.url.toString()] ?? http.Response('not found', 404);
     return http.StreamedResponse(
       Stream.value(response.bodyBytes),
       response.statusCode,
@@ -60,8 +64,7 @@ class _FakeMemberRepository implements MemberRepository {
   domain.Member? lastUpdatedMember;
 
   @override
-  Future<void> createMember(domain.Member member) async =>
-      _members.add(member);
+  Future<void> createMember(domain.Member member) async => _members.add(member);
 
   @override
   Future<void> updateMember(domain.Member member) async {
@@ -83,11 +86,9 @@ class _FakeMemberRepository implements MemberRepository {
       List.unmodifiable(_members);
 
   @override
-  Future<domain.Member?> getMemberById(String id) async =>
-      _members.cast<domain.Member?>().firstWhere(
-        (m) => m?.id == id,
-        orElse: () => null,
-      );
+  Future<domain.Member?> getMemberById(String id) async => _members
+      .cast<domain.Member?>()
+      .firstWhere((m) => m?.id == id, orElse: () => null);
 
   @override
   Future<List<domain.Member>> getMembersByIds(List<String> ids) async =>
@@ -109,11 +110,12 @@ class _FakeMemberRepository implements MemberRepository {
       Stream.value(_members.where((m) => m.isActive).toList());
 
   @override
-  Stream<domain.Member?> watchMemberById(String id) =>
-      Stream.value(_members.cast<domain.Member?>().firstWhere(
-        (m) => m?.id == id,
-        orElse: () => null,
-      ));
+  Stream<domain.Member?> watchMemberById(String id) => Stream.value(
+    _members.cast<domain.Member?>().firstWhere(
+      (m) => m?.id == id,
+      orElse: () => null,
+    ),
+  );
 
   @override
   Future<List<domain.Member>> getDeletedLinkedMembers() async => const [];
@@ -124,7 +126,7 @@ class _FakeMemberRepository implements MemberRepository {
 
   @override
   Future<({domain.Member member, bool wasCreated})>
-      ensureUnknownSentinelMember() => throw UnimplementedError();
+  ensureUnknownSentinelMember() => throw UnimplementedError();
 }
 
 class _FakeSessionRepository implements FrontingSessionRepository {
@@ -170,31 +172,32 @@ class _FakeSessionRepository implements FrontingSessionRepository {
   Future<domain.FrontingSession?> getActiveSession() async => null;
 
   @override
-  Future<domain.FrontingSession?> getSessionById(String id) async =>
-      sessions.cast<domain.FrontingSession?>().firstWhere(
-        (s) => s?.id == id,
-        orElse: () => null,
-      );
+  Future<domain.FrontingSession?> getSessionById(String id) async => sessions
+      .cast<domain.FrontingSession?>()
+      .firstWhere((s) => s?.id == id, orElse: () => null);
 
   @override
-  Future<List<domain.FrontingSession>> getRecentSessions({int limit = 20}) async =>
-      sessions.take(limit).toList();
+  Future<List<domain.FrontingSession>> getRecentSessions({
+    int limit = 20,
+  }) async => sessions.take(limit).toList();
 
   @override
-  Future<List<domain.FrontingSession>> getRecentSleepSessions({int limit = 10}) async =>
-      sessions.where((s) => s.isSleep).take(limit).toList();
+  Future<List<domain.FrontingSession>> getRecentSleepSessions({
+    int limit = 10,
+  }) async => sessions.where((s) => s.isSleep).take(limit).toList();
 
   @override
   Future<List<domain.FrontingSession>> getSessionsBetween(
     DateTime start,
     DateTime end,
-  ) async =>
-      sessions.where((s) =>
-        !s.startTime.isBefore(start) && !s.startTime.isAfter(end)).toList();
+  ) async => sessions
+      .where((s) => !s.startTime.isBefore(start) && !s.startTime.isAfter(end))
+      .toList();
 
   @override
-  Future<List<domain.FrontingSession>> getSessionsForMember(String memberId) async =>
-      sessions.where((s) => s.memberId == memberId).toList();
+  Future<List<domain.FrontingSession>> getSessionsForMember(
+    String memberId,
+  ) async => sessions.where((s) => s.memberId == memberId).toList();
 
   @override
   Future<int> getCount() async => sessions.length;
@@ -215,7 +218,8 @@ class _FakeSessionRepository implements FrontingSessionRepository {
   Stream<domain.FrontingSession?> watchActiveSession() => Stream.value(null);
 
   @override
-  Stream<domain.FrontingSession?> watchActiveSleepSession() => Stream.value(null);
+  Stream<domain.FrontingSession?> watchActiveSleepSession() =>
+      Stream.value(null);
 
   @override
   Stream<List<domain.FrontingSession>> watchActiveSessions() =>
@@ -234,8 +238,9 @@ class _FakeSessionRepository implements FrontingSessionRepository {
       Stream.value(sessions.take(limit).toList());
 
   @override
-  Stream<List<domain.FrontingSession>> watchRecentAllSessions({int limit = 30}) =>
-      Stream.value(sessions.take(limit).toList());
+  Stream<List<domain.FrontingSession>> watchRecentAllSessions({
+    int limit = 30,
+  }) => Stream.value(sessions.take(limit).toList());
 
   @override
   Stream<List<domain.FrontingSession>> watchSessionsOverlappingRange(
@@ -316,23 +321,37 @@ class _FakeConversationRepository implements ConversationRepository {
   }
 
   @override
-  Future<List<domain.Conversation>> getConversationsForMember(String memberId) async =>
+  Future<List<domain.Conversation>> getConversationsForMember(
+    String memberId,
+  ) async =>
       conversations.where((c) => c.participantIds.contains(memberId)).toList();
 
   @override
   Future<void> addParticipantId(String conversationId, String memberId) async {}
 
   @override
-  Future<void> addParticipantIds(String conversationId, List<String> memberIds) async {}
+  Future<void> addParticipantIds(
+    String conversationId,
+    List<String> memberIds,
+  ) async {}
 
   @override
-  Future<void> removeParticipantId(String conversationId, String memberId) async {}
+  Future<void> removeParticipantId(
+    String conversationId,
+    String memberId,
+  ) async {}
 
   @override
-  Future<void> setArchivedByMemberIds(String conversationId, List<String> memberIds) async {}
+  Future<void> setArchivedByMemberIds(
+    String conversationId,
+    List<String> memberIds,
+  ) async {}
 
   @override
-  Future<void> setMutedByMemberIds(String conversationId, List<String> memberIds) async {}
+  Future<void> setMutedByMemberIds(
+    String conversationId,
+    List<String> memberIds,
+  ) async {}
 
   @override
   Future<void> setLastReadTimestamps(
@@ -388,27 +407,38 @@ class _FakeChatMessageRepository implements ChatMessageRepository {
       messages.where((m) => m.conversationId == conversationId).toList();
 
   @override
-  Future<domain.ChatMessage?> getMessageById(String id) async =>
-      messages.cast<domain.ChatMessage?>().firstWhere(
-        (m) => m?.id == id,
-        orElse: () => null,
-      );
+  Future<domain.ChatMessage?> getMessageById(String id) async => messages
+      .cast<domain.ChatMessage?>()
+      .firstWhere((m) => m?.id == id, orElse: () => null);
 
   @override
   Future<domain.ChatMessage?> getLatestMessage(String conversationId) async =>
       null;
 
   @override
-  Future<List<({String messageId, String conversationId, String snippet, DateTime timestamp, String? authorId})>>
-      searchMessages(String query, {int limit = 20}) async => [];
+  Future<
+    List<
+      ({
+        String messageId,
+        String conversationId,
+        String snippet,
+        DateTime timestamp,
+        String? authorId,
+      })
+    >
+  >
+  searchMessages(String query, {int limit = 20}) async => [];
 
   @override
-  Stream<List<domain.ChatMessage>> watchMessagesForConversation(String conversationId) =>
-      Stream.value([]);
+  Stream<List<domain.ChatMessage>> watchMessagesForConversation(
+    String conversationId,
+  ) => Stream.value([]);
 
   @override
-  Stream<List<domain.ChatMessage>> watchRecentMessages(String conversationId, {required int limit}) =>
-      Stream.value([]);
+  Stream<List<domain.ChatMessage>> watchRecentMessages(
+    String conversationId, {
+    required int limit,
+  }) => Stream.value([]);
 
   @override
   Stream<domain.ChatMessage?> watchLatestMessage(String conversationId) =>
@@ -486,29 +516,28 @@ class _FakePollRepository implements PollRepository {
       polls.where((p) => p.isClosed).toList();
 
   @override
-  Future<domain.Poll?> getPollById(String id) async =>
-      polls.cast<domain.Poll?>().firstWhere(
-        (p) => p?.id == id,
-        orElse: () => null,
-      );
+  Future<domain.Poll?> getPollById(String id) async => polls
+      .cast<domain.Poll?>()
+      .firstWhere((p) => p?.id == id, orElse: () => null);
 
   @override
   Future<List<domain.PollOption>> getAllOptions() async =>
       List.unmodifiable(options);
 
   @override
-  Future<Map<String, List<domain.PollOption>>> getAllOptionsGroupedByPoll() async => {};
+  Future<Map<String, List<domain.PollOption>>>
+  getAllOptionsGroupedByPoll() async => {};
 
   @override
   Future<List<domain.PollOption>> getOptionsForPoll(String pollId) async =>
       options.where((o) => true).toList(); // simplified
 
   @override
-  Future<List<domain.PollVote>> getAllVotes() async =>
-      List.unmodifiable(votes);
+  Future<List<domain.PollVote>> getAllVotes() async => List.unmodifiable(votes);
 
   @override
-  Future<Map<String, List<domain.PollVote>>> getAllVotesGroupedByOption() async => {};
+  Future<Map<String, List<domain.PollVote>>>
+  getAllVotesGroupedByOption() async => {};
 
   @override
   Future<List<domain.PollVote>> getVotesForOption(String optionId) async =>
@@ -535,7 +564,6 @@ class _FakePollRepository implements PollRepository {
   Stream<List<domain.PollVote>> watchVotesForOption(String optionId) =>
       Stream.value([]);
 }
-
 
 // =============================================================================
 // Helpers
@@ -588,7 +616,8 @@ SpExportData _emptyExportData() => const SpExportData(
   _FakeConversationRepository conversationRepo,
   _FakeChatMessageRepository messageRepo,
   _FakePollRepository pollRepo,
-}) _makeFakeRepos() {
+})
+_makeFakeRepos() {
   return (
     memberRepo: _FakeMemberRepository(),
     sessionRepo: _FakeSessionRepository(),
@@ -601,6 +630,29 @@ SpExportData _emptyExportData() => const SpExportData(
 /// Build an in-memory AppDatabase with real Drift repositories.
 AppDatabase _makeDb() => AppDatabase(NativeDatabase.memory());
 
+Uint8List _jpegBytes(int r, int g, int b) {
+  final image = img.Image(width: 2, height: 2);
+  for (var y = 0; y < image.height; y++) {
+    for (var x = 0; x < image.width; x++) {
+      image.setPixelRgb(x, y, r, g, b);
+    }
+  }
+  return Uint8List.fromList(img.encodeJpg(image));
+}
+
+Future<String> _writeAvatarZip(Map<String, Uint8List> files) async {
+  final dir = await Directory.systemTemp.createTemp('sp-importer-avatar-zip-');
+  addTearDown(() => dir.delete(recursive: true));
+
+  final archive = Archive();
+  for (final entry in files.entries) {
+    archive.addFile(ArchiveFile.bytes(entry.key, entry.value));
+  }
+  final file = File('${dir.path}/avatars.zip');
+  await file.writeAsBytes(ZipEncoder().encode(archive));
+  return file.path;
+}
+
 // =============================================================================
 // Tests
 // =============================================================================
@@ -611,29 +663,31 @@ void main() {
   // ---------------------------------------------------------------------------
 
   group('happy path', () {
-    test('members + sessions + conversations imported with correct counts',
-        () async {
-      final repos = _makeFakeRepos();
-      final importer = SpImporter(httpClient: _FakeHttpClient());
+    test(
+      'members + sessions + conversations imported with correct counts',
+      () async {
+        final repos = _makeFakeRepos();
+        final importer = SpImporter(httpClient: _FakeHttpClient());
 
-      final result = await importer.executeImport(
-        db: _makeDb(),
-        data: _makeFullExportData(),
-        memberRepo: repos.memberRepo,
-        sessionRepo: repos.sessionRepo,
-        conversationRepo: repos.conversationRepo,
-        messageRepo: repos.messageRepo,
-        pollRepo: repos.pollRepo,
-        downloadAvatars: false,
-      );
+        final result = await importer.executeImport(
+          db: _makeDb(),
+          data: _makeFullExportData(),
+          memberRepo: repos.memberRepo,
+          sessionRepo: repos.sessionRepo,
+          conversationRepo: repos.conversationRepo,
+          messageRepo: repos.messageRepo,
+          pollRepo: repos.pollRepo,
+          downloadAvatars: false,
+        );
 
-      expect(result.membersImported, 2);
-      expect(result.sessionsImported, 1);
-      expect(result.conversationsImported, 1);
-      expect(result.messagesImported, 1);
-      expect(result.pollsImported, 0);
-      expect(result.avatarsDownloaded, 0);
-    });
+        expect(result.membersImported, 2);
+        expect(result.sessionsImported, 1);
+        expect(result.conversationsImported, 1);
+        expect(result.messagesImported, 1);
+        expect(result.pollsImported, 0);
+        expect(result.avatarsDownloaded, 0);
+      },
+    );
 
     test('empty export produces zero counts and no errors', () async {
       final repos = _makeFakeRepos();
@@ -658,63 +712,67 @@ void main() {
       expect(result.warnings, isEmpty);
     });
 
-    test('board imports auto-enable boards without leaking disclosure key',
-        () async {
-      final db = _makeDb();
-      final settingsRepo = FakeSystemSettingsRepository();
-      final importer = SpImporter(httpClient: _FakeHttpClient());
-      final data = SpExportData(
-        members: const [
-          SpMember(id: 'sp-a', name: 'Alice'),
-          SpMember(id: 'sp-b', name: 'Bob'),
-        ],
-        customFronts: const [],
-        frontHistory: const [],
-        groups: const [],
-        channels: const [],
-        messages: const [],
-        polls: const [],
-        boardMessages: [
-          SpBoardMessage(
-            id: 'board-1',
-            writtenBy: 'sp-a',
-            writtenFor: 'sp-b',
-            message: 'Imported board post',
-            writtenAt: DateTime(2025, 1, 1),
+    test(
+      'board imports auto-enable boards without leaking disclosure key',
+      () async {
+        final db = _makeDb();
+        final settingsRepo = FakeSystemSettingsRepository();
+        final importer = SpImporter(httpClient: _FakeHttpClient());
+        final data = SpExportData(
+          members: const [
+            SpMember(id: 'sp-a', name: 'Alice'),
+            SpMember(id: 'sp-b', name: 'Bob'),
+          ],
+          customFronts: const [],
+          frontHistory: const [],
+          groups: const [],
+          channels: const [],
+          messages: const [],
+          polls: const [],
+          boardMessages: [
+            SpBoardMessage(
+              id: 'board-1',
+              writtenBy: 'sp-a',
+              writtenFor: 'sp-b',
+              message: 'Imported board post',
+              writtenAt: DateTime(2025, 1, 1),
+            ),
+          ],
+        );
+
+        final repos = _makeFakeRepos();
+
+        final result = await importer.executeImport(
+          db: db,
+          data: data,
+          memberRepo: DriftMemberRepository(db.membersDao, null),
+          sessionRepo: repos.sessionRepo,
+          conversationRepo: repos.conversationRepo,
+          messageRepo: repos.messageRepo,
+          pollRepo: repos.pollRepo,
+          settingsRepo: settingsRepo,
+          boardPostsRepo: DriftMemberBoardPostsRepository(
+            db.memberBoardPostsDao,
+            db.membersDao,
+            null,
           ),
-        ],
-      );
+          downloadAvatars: false,
+        );
 
-      final repos = _makeFakeRepos();
-
-      final result = await importer.executeImport(
-        db: db,
-        data: data,
-        memberRepo: DriftMemberRepository(db.membersDao, null),
-        sessionRepo: repos.sessionRepo,
-        conversationRepo: repos.conversationRepo,
-        messageRepo: repos.messageRepo,
-        pollRepo: repos.pollRepo,
-        settingsRepo: settingsRepo,
-        boardPostsRepo: DriftMemberBoardPostsRepository(
-          db.memberBoardPostsDao,
-          db.membersDao,
-          null,
-        ),
-        downloadAvatars: false,
-      );
-
-      expect(result.boardPostsImported, 1);
-      expect(settingsRepo.settings.boardsEnabled, isTrue);
-      expect(
-        settingsRepo.settings.navBarOverflowItems.contains('boards'),
-        isTrue,
-      );
-      expect(
-        result.warnings.any((w) => w.contains('importDisclosureBoardsEnabled')),
-        isFalse,
-      );
-    });
+        expect(result.boardPostsImported, 1);
+        expect(settingsRepo.settings.boardsEnabled, isTrue);
+        expect(
+          settingsRepo.settings.navBarOverflowItems.contains('boards'),
+          isTrue,
+        );
+        expect(
+          result.warnings.any(
+            (w) => w.contains('importDisclosureBoardsEnabled'),
+          ),
+          isFalse,
+        );
+      },
+    );
 
     test('unknown member in front history produces a warning', () async {
       // SpFrontHistory referencing 'unknown-member-id' which has no matching
@@ -751,7 +809,9 @@ void main() {
 
       expect(result.warnings, isNotEmpty);
       expect(
-        result.warnings.any((w) => w.contains('no-such-member') || w.contains('not found')),
+        result.warnings.any(
+          (w) => w.contains('no-such-member') || w.contains('not found'),
+        ),
         isTrue,
       );
     });
@@ -807,14 +867,68 @@ void main() {
       expect(memberRepo.lastUpdatedMember!.avatarImageData, equals(fakeBytes));
     });
 
-    test('404 → member saved without avatar and avatarsDownloaded == 0', () async {
-      const avatarUrl = 'https://example.com/missing.png';
+    test(
+      'avatar ZIP overwrites remote avatar bytes when both are present',
+      () async {
+        const avatarUrl = 'https://example.com/avatar.png';
+        final remoteBytes = Uint8List.fromList([1, 2, 3, 4, 5]);
+        final zipBytes = _jpegBytes(220, 20, 20);
+        final zipPath = await _writeAvatarZip({'sp-a.jpg': zipBytes});
 
-      final client = _FakeHttpClient();
-      client.stubUrl(avatarUrl, http.Response('not found', 404));
+        final client = _FakeHttpClient();
+        client.stubUrl(
+          avatarUrl,
+          http.Response.bytes(
+            remoteBytes,
+            200,
+            headers: {'content-type': 'image/png'},
+          ),
+        );
+
+        const data = SpExportData(
+          members: [SpMember(id: 'sp-a', name: 'Alice', avatarUrl: avatarUrl)],
+          customFronts: [],
+          frontHistory: [],
+          groups: [],
+          channels: [],
+          messages: [],
+          polls: [],
+        );
+
+        final memberRepo = _FakeMemberRepository();
+        final importer = SpImporter(httpClient: client);
+        final db = _makeDb();
+        addTearDown(db.close);
+
+        final result = await importer.executeImport(
+          db: db,
+          data: data,
+          memberRepo: memberRepo,
+          sessionRepo: _FakeSessionRepository(),
+          conversationRepo: _FakeConversationRepository(),
+          messageRepo: _FakeChatMessageRepository(),
+          pollRepo: _FakePollRepository(),
+          spImportDao: db.spImportDao,
+          downloadAvatars: true,
+          avatarZipPath: zipPath,
+        );
+
+        final imported = (await memberRepo.getAllMembers()).single;
+        expect(result.avatarsDownloaded, 1);
+        expect(result.avatarsImportedFromZip, 1);
+        expect(imported.avatarImageData, zipBytes);
+      },
+    );
+
+    test('malformed avatar ZIP becomes a warning after JSON import', () async {
+      final zipFile = File('${Directory.systemTemp.path}/bad-sp-avatar.zip');
+      await zipFile.writeAsBytes([1, 2, 3, 4]);
+      addTearDown(() {
+        if (zipFile.existsSync()) zipFile.deleteSync();
+      });
 
       const data = SpExportData(
-        members: [SpMember(id: 'sp-a', name: 'Alice', avatarUrl: avatarUrl)],
+        members: [SpMember(id: 'sp-a', name: 'Alice')],
         customFronts: [],
         frontHistory: [],
         groups: [],
@@ -822,76 +936,288 @@ void main() {
         messages: [],
         polls: [],
       );
-
       final memberRepo = _FakeMemberRepository();
-      final importer = SpImporter(httpClient: client);
+      final db = _makeDb();
+      addTearDown(db.close);
 
-      final result = await importer.executeImport(
-        db: _makeDb(),
-        data: data,
-        memberRepo: memberRepo,
-        sessionRepo: _FakeSessionRepository(),
-        conversationRepo: _FakeConversationRepository(),
-        messageRepo: _FakeChatMessageRepository(),
-        pollRepo: _FakePollRepository(),
-        downloadAvatars: true,
-      );
+      final result = await SpImporter(httpClient: _FakeHttpClient())
+          .executeImport(
+            db: db,
+            data: data,
+            memberRepo: memberRepo,
+            sessionRepo: _FakeSessionRepository(),
+            conversationRepo: _FakeConversationRepository(),
+            messageRepo: _FakeChatMessageRepository(),
+            pollRepo: _FakePollRepository(),
+            spImportDao: db.spImportDao,
+            downloadAvatars: false,
+            avatarZipPath: zipFile.path,
+          );
 
-      expect(result.avatarsDownloaded, 0);
-      // Member was still imported.
       expect(result.membersImported, 1);
-      // No update was called (no avatar data to store).
-      expect(memberRepo.lastUpdatedMember, isNull);
-    });
-
-    test('200 + text/html → content-type guard rejects and emits warning',
-        () async {
-      const avatarUrl = 'https://example.com/redirect.html';
-
-      final client = _FakeHttpClient();
-      client.stubUrl(
-        avatarUrl,
-        http.Response.bytes(
-          Uint8List.fromList([60, 104, 116, 109, 108, 62]), // <html>
-          200,
-          headers: {'content-type': 'text/html; charset=utf-8'},
-        ),
-      );
-
-      const data = SpExportData(
-        members: [SpMember(id: 'sp-a', name: 'Alice', avatarUrl: avatarUrl)],
-        customFronts: [],
-        frontHistory: [],
-        groups: [],
-        channels: [],
-        messages: [],
-        polls: [],
-      );
-
-      final importer = SpImporter(httpClient: client);
-
-      final result = await importer.executeImport(
-        db: _makeDb(),
-        data: data,
-        memberRepo: _FakeMemberRepository(),
-        sessionRepo: _FakeSessionRepository(),
-        conversationRepo: _FakeConversationRepository(),
-        messageRepo: _FakeChatMessageRepository(),
-        pollRepo: _FakePollRepository(),
-        downloadAvatars: true,
-      );
-
-      expect(result.avatarsDownloaded, 0);
-      // After refactoring the per-URL HTTP guard into the shared
-      // fetchAvatarBytes helper, callers get a generic per-member "avatar
-      // download failed" warning. The content-type check is now covered
-      // end-to-end by avatar_fetcher_test.dart.
+      expect(result.avatarsImportedFromZip, 0);
       expect(
-        result.warnings.any((w) => w.toLowerCase().contains('avatar')),
+        result.warnings.any((w) => w.contains('Could not import avatar ZIP')),
         isTrue,
-        reason: 'Expected a per-member avatar-download warning',
+      );
+      expect((await memberRepo.getAllMembers()).single.name, 'Alice');
+    });
+
+    test(
+      '404 → member saved without avatar and avatarsDownloaded == 0',
+      () async {
+        const avatarUrl = 'https://example.com/missing.png';
+
+        final client = _FakeHttpClient();
+        client.stubUrl(avatarUrl, http.Response('not found', 404));
+
+        const data = SpExportData(
+          members: [SpMember(id: 'sp-a', name: 'Alice', avatarUrl: avatarUrl)],
+          customFronts: [],
+          frontHistory: [],
+          groups: [],
+          channels: [],
+          messages: [],
+          polls: [],
+        );
+
+        final memberRepo = _FakeMemberRepository();
+        final importer = SpImporter(httpClient: client);
+
+        final result = await importer.executeImport(
+          db: _makeDb(),
+          data: data,
+          memberRepo: memberRepo,
+          sessionRepo: _FakeSessionRepository(),
+          conversationRepo: _FakeConversationRepository(),
+          messageRepo: _FakeChatMessageRepository(),
+          pollRepo: _FakePollRepository(),
+          downloadAvatars: true,
+        );
+
+        expect(result.avatarsDownloaded, 0);
+        // Member was still imported.
+        expect(result.membersImported, 1);
+        // No update was called (no avatar data to store).
+        expect(memberRepo.lastUpdatedMember, isNull);
+      },
+    );
+
+    test(
+      '200 + text/html → content-type guard rejects and emits warning',
+      () async {
+        const avatarUrl = 'https://example.com/redirect.html';
+
+        final client = _FakeHttpClient();
+        client.stubUrl(
+          avatarUrl,
+          http.Response.bytes(
+            Uint8List.fromList([60, 104, 116, 109, 108, 62]), // <html>
+            200,
+            headers: {'content-type': 'text/html; charset=utf-8'},
+          ),
+        );
+
+        const data = SpExportData(
+          members: [SpMember(id: 'sp-a', name: 'Alice', avatarUrl: avatarUrl)],
+          customFronts: [],
+          frontHistory: [],
+          groups: [],
+          channels: [],
+          messages: [],
+          polls: [],
+        );
+
+        final importer = SpImporter(httpClient: client);
+
+        final result = await importer.executeImport(
+          db: _makeDb(),
+          data: data,
+          memberRepo: _FakeMemberRepository(),
+          sessionRepo: _FakeSessionRepository(),
+          conversationRepo: _FakeConversationRepository(),
+          messageRepo: _FakeChatMessageRepository(),
+          pollRepo: _FakePollRepository(),
+          downloadAvatars: true,
+        );
+
+        expect(result.avatarsDownloaded, 0);
+        // After refactoring the per-URL HTTP guard into the shared
+        // fetchAvatarBytes helper, callers get a generic per-member "avatar
+        // download failed" warning. The content-type check is now covered
+        // end-to-end by avatar_fetcher_test.dart.
+        expect(
+          result.warnings.any((w) => w.toLowerCase().contains('avatar')),
+          isTrue,
+          reason: 'Expected a per-member avatar-download warning',
+        );
+      },
+    );
+
+    test('avatar retry warning classifier leaves ZIP warnings intact', () {
+      expect(
+        ImportResult.isAvatarDownloadWarning('1 avatar(s) failed to download'),
+        isTrue,
+      );
+      expect(
+        ImportResult.isAvatarDownloadWarning(
+          'System avatar failed to download',
+        ),
+        isTrue,
+      );
+      expect(
+        ImportResult.isAvatarDownloadWarning(
+          'Could not import avatar ZIP: invalid archive',
+        ),
+        isFalse,
+      );
+      expect(
+        ImportResult.isAvatarDownloadWarning(
+          'No supported images were found in the avatar ZIP.',
+        ),
+        isFalse,
       );
     });
+
+    test(
+      'retryAvatarDownloads uses SP id map and preserves member edits',
+      () async {
+        const avatarUrl = 'https://example.com/flaky.png';
+        final fakeBytes = Uint8List.fromList([9, 8, 7, 6]);
+
+        final db = _makeDb();
+        addTearDown(db.close);
+
+        final client = _FakeHttpClient()
+          ..stubUrl(avatarUrl, http.Response('temporary miss', 404));
+        const data = SpExportData(
+          members: [SpMember(id: 'sp-a', name: 'Alice', avatarUrl: avatarUrl)],
+          customFronts: [],
+          frontHistory: [],
+          groups: [],
+          channels: [],
+          messages: [],
+          polls: [],
+        );
+
+        final memberRepo = _FakeMemberRepository();
+        final importer = SpImporter(httpClient: client);
+
+        final initial = await importer.executeImport(
+          db: db,
+          data: data,
+          memberRepo: memberRepo,
+          sessionRepo: _FakeSessionRepository(),
+          conversationRepo: _FakeConversationRepository(),
+          messageRepo: _FakeChatMessageRepository(),
+          pollRepo: _FakePollRepository(),
+          spImportDao: db.spImportDao,
+          downloadAvatars: true,
+        );
+        expect(initial.avatarsDownloaded, 0);
+        expect(initial.hasAvatarDownloadFailures, isTrue);
+
+        final imported = (await memberRepo.getAllMembers()).single;
+        await memberRepo.updateMember(imported.copyWith(name: 'Edited Alice'));
+
+        client.stubUrl(
+          avatarUrl,
+          http.Response.bytes(
+            fakeBytes,
+            200,
+            headers: {'content-type': 'image/png'},
+          ),
+        );
+
+        final retry = await importer.retryAvatarDownloads(
+          data: data,
+          memberRepo: memberRepo,
+          spImportDao: db.spImportDao,
+        );
+
+        final updated = (await memberRepo.getAllMembers()).single;
+        expect(retry.avatarsDownloaded, 1);
+        expect(retry.warnings, isEmpty);
+        expect(updated.name, 'Edited Alice');
+        expect(updated.avatarImageData, fakeBytes);
+      },
+    );
+
+    test(
+      'retryAvatarDownloads reports total mapped members with avatars',
+      () async {
+        const avatarUrlA = 'https://example.com/a.png';
+        const avatarUrlB = 'https://example.com/b.png';
+        final bytesA = Uint8List.fromList([1, 1, 1]);
+        final bytesB = Uint8List.fromList([2, 2, 2]);
+
+        final db = _makeDb();
+        addTearDown(db.close);
+
+        final client = _FakeHttpClient()
+          ..stubUrl(
+            avatarUrlA,
+            http.Response.bytes(
+              bytesA,
+              200,
+              headers: {'content-type': 'image/png'},
+            ),
+          )
+          ..stubUrl(avatarUrlB, http.Response('temporary miss', 404));
+        const data = SpExportData(
+          members: [
+            SpMember(id: 'sp-a', name: 'Alice', avatarUrl: avatarUrlA),
+            SpMember(id: 'sp-b', name: 'Bob', avatarUrl: avatarUrlB),
+          ],
+          customFronts: [],
+          frontHistory: [],
+          groups: [],
+          channels: [],
+          messages: [],
+          polls: [],
+        );
+
+        final memberRepo = _FakeMemberRepository();
+        final importer = SpImporter(httpClient: client);
+
+        final initial = await importer.executeImport(
+          db: db,
+          data: data,
+          memberRepo: memberRepo,
+          sessionRepo: _FakeSessionRepository(),
+          conversationRepo: _FakeConversationRepository(),
+          messageRepo: _FakeChatMessageRepository(),
+          pollRepo: _FakePollRepository(),
+          spImportDao: db.spImportDao,
+          downloadAvatars: true,
+        );
+        expect(initial.avatarsDownloaded, 1);
+
+        client
+          ..stubUrl(avatarUrlA, http.Response('temporary miss', 404))
+          ..stubUrl(
+            avatarUrlB,
+            http.Response.bytes(
+              bytesB,
+              200,
+              headers: {'content-type': 'image/png'},
+            ),
+          );
+
+        final retry = await importer.retryAvatarDownloads(
+          data: data,
+          memberRepo: memberRepo,
+          spImportDao: db.spImportDao,
+        );
+
+        final members = await memberRepo.getAllMembers();
+        expect(retry.avatarsDownloaded, 2);
+        expect(
+          members.where((member) => member.avatarImageData != null),
+          hasLength(2),
+        );
+      },
+    );
   });
 
   // ---------------------------------------------------------------------------
@@ -899,50 +1225,52 @@ void main() {
   // ---------------------------------------------------------------------------
 
   group('progress callback', () {
-    test('fires labels in sequence and progress is monotonically non-decreasing',
-        () async {
-      final progressLog = <(int, int, String)>[];
+    test(
+      'fires labels in sequence and progress is monotonically non-decreasing',
+      () async {
+        final progressLog = <(int, int, String)>[];
 
-      final repos = _makeFakeRepos();
-      final importer = SpImporter(httpClient: _FakeHttpClient());
+        final repos = _makeFakeRepos();
+        final importer = SpImporter(httpClient: _FakeHttpClient());
 
-      await importer.executeImport(
-        db: _makeDb(),
-        data: _makeFullExportData(),
-        memberRepo: repos.memberRepo,
-        sessionRepo: repos.sessionRepo,
-        conversationRepo: repos.conversationRepo,
-        messageRepo: repos.messageRepo,
-        pollRepo: repos.pollRepo,
-        downloadAvatars: false,
-        onProgress: (current, total, label) {
-          progressLog.add((current, total, label));
-        },
-      );
-
-      expect(progressLog, isNotEmpty);
-
-      // Should see at least a 'members' label.
-      expect(
-        progressLog.any((e) => e.$3.toLowerCase().contains('member')),
-        isTrue,
-        reason: 'Expected a progress label mentioning members',
-      );
-
-      // Current should never exceed total.
-      for (final (current, total, _) in progressLog) {
-        expect(current, lessThanOrEqualTo(total));
-      }
-
-      // Current values should be non-decreasing over the sequence.
-      for (var i = 1; i < progressLog.length; i++) {
-        expect(
-          progressLog[i].$1,
-          greaterThanOrEqualTo(progressLog[i - 1].$1),
-          reason: 'Progress current should not go backwards',
+        await importer.executeImport(
+          db: _makeDb(),
+          data: _makeFullExportData(),
+          memberRepo: repos.memberRepo,
+          sessionRepo: repos.sessionRepo,
+          conversationRepo: repos.conversationRepo,
+          messageRepo: repos.messageRepo,
+          pollRepo: repos.pollRepo,
+          downloadAvatars: false,
+          onProgress: (current, total, label) {
+            progressLog.add((current, total, label));
+          },
         );
-      }
-    });
+
+        expect(progressLog, isNotEmpty);
+
+        // Should see at least a 'members' label.
+        expect(
+          progressLog.any((e) => e.$3.toLowerCase().contains('member')),
+          isTrue,
+          reason: 'Expected a progress label mentioning members',
+        );
+
+        // Current should never exceed total.
+        for (final (current, total, _) in progressLog) {
+          expect(current, lessThanOrEqualTo(total));
+        }
+
+        // Current values should be non-decreasing over the sequence.
+        for (var i = 1; i < progressLog.length; i++) {
+          expect(
+            progressLog[i].$1,
+            greaterThanOrEqualTo(progressLog[i - 1].$1),
+            reason: 'Progress current should not go backwards',
+          );
+        }
+      },
+    );
   });
 
   // ---------------------------------------------------------------------------
@@ -955,12 +1283,24 @@ void main() {
       addTearDown(db.close);
 
       final memberRepo = DriftMemberRepository(db.membersDao, null);
-      final sessionRepo = DriftFrontingSessionRepository(db.frontingSessionsDao, null);
-      final conversationRepo = DriftConversationRepository(db.conversationsDao, null);
-      final pollRepo = DriftPollRepository(db.pollsDao, db.pollOptionsDao, db.pollVotesDao, null);
+      final sessionRepo = DriftFrontingSessionRepository(
+        db.frontingSessionsDao,
+        null,
+      );
+      final conversationRepo = DriftConversationRepository(
+        db.conversationsDao,
+        null,
+      );
+      final pollRepo = DriftPollRepository(
+        db.pollsDao,
+        db.pollOptionsDao,
+        db.pollVotesDao,
+        null,
+      );
 
       // The message repo will throw, which should roll back members too.
-      final throwingMessageRepo = _FakeChatMessageRepository()..throwOnCreate = true;
+      final throwingMessageRepo = _FakeChatMessageRepository()
+        ..throwOnCreate = true;
 
       final data = SpExportData(
         members: const [SpMember(id: 'sp-a', name: 'Alice')],
@@ -1008,79 +1348,95 @@ void main() {
       );
     });
 
-    test('clearExistingData + failure → pre-existing data is preserved (rollback includes wipe)',
-        () async {
-      final db = _makeDb();
-      addTearDown(db.close);
+    test(
+      'clearExistingData + failure → pre-existing data is preserved (rollback includes wipe)',
+      () async {
+        final db = _makeDb();
+        addTearDown(db.close);
 
-      final memberRepo = DriftMemberRepository(db.membersDao, null);
-      final sessionRepo = DriftFrontingSessionRepository(db.frontingSessionsDao, null);
-      final conversationRepo = DriftConversationRepository(db.conversationsDao, null);
-      final pollRepo = DriftPollRepository(db.pollsDao, db.pollOptionsDao, db.pollVotesDao, null);
-
-      // Seed one existing member via the real repo.
-      await memberRepo.createMember(domain.Member(
-        id: 'existing-1',
-        name: 'Existing',
-        createdAt: DateTime(2025, 1, 1),
-      ));
-
-      // Verify it's there before import.
-      final beforeImport = await db.membersDao.getAllMembers();
-      expect(beforeImport.length, 1);
-
-      // Message repo throws mid-import to trigger rollback.
-      final throwingMessageRepo = _FakeChatMessageRepository()..throwOnCreate = true;
-
-      final data = SpExportData(
-        members: const [SpMember(id: 'sp-new', name: 'New Member')],
-        customFronts: const [],
-        frontHistory: const [],
-        groups: const [],
-        channels: const [SpChannel(id: 'ch-1', name: 'General')],
-        messages: [
-          SpMessage(
-            id: 'msg-1',
-            channelId: 'ch-1',
-            content: 'Hi!',
-            timestamp: DateTime(2025, 1, 1),
-          ),
-        ],
-        polls: const [],
-      );
-
-      Object? caught;
-      try {
-        await SpImporter(httpClient: _FakeHttpClient()).executeImport(
-          db: db,
-          data: data,
-          memberRepo: memberRepo,
-          sessionRepo: sessionRepo,
-          conversationRepo: conversationRepo,
-          messageRepo: throwingMessageRepo,
-          pollRepo: pollRepo,
-          clearExistingData: true,
-          downloadAvatars: false,
+        final memberRepo = DriftMemberRepository(db.membersDao, null);
+        final sessionRepo = DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
         );
-      } catch (e) {
-        caught = e;
-      }
+        final conversationRepo = DriftConversationRepository(
+          db.conversationsDao,
+          null,
+        );
+        final pollRepo = DriftPollRepository(
+          db.pollsDao,
+          db.pollOptionsDao,
+          db.pollVotesDao,
+          null,
+        );
 
-      expect(caught, isNotNull);
+        // Seed one existing member via the real repo.
+        await memberRepo.createMember(
+          domain.Member(
+            id: 'existing-1',
+            name: 'Existing',
+            createdAt: DateTime(2025, 1, 1),
+          ),
+        );
 
-      // Because clearExistingData and the inserts are inside the SAME
-      // transaction, a rollback undoes the wipe too — the pre-existing member
-      // should still be present.
-      final afterImport = await db.membersDao.getAllMembers();
-      expect(
-        afterImport.length,
-        1,
-        reason:
-            'The wipe was inside the rolled-back transaction, so pre-existing '
-            'data should be restored',
-      );
-      expect(afterImport.first.id, 'existing-1');
-    });
+        // Verify it's there before import.
+        final beforeImport = await db.membersDao.getAllMembers();
+        expect(beforeImport.length, 1);
+
+        // Message repo throws mid-import to trigger rollback.
+        final throwingMessageRepo = _FakeChatMessageRepository()
+          ..throwOnCreate = true;
+
+        final data = SpExportData(
+          members: const [SpMember(id: 'sp-new', name: 'New Member')],
+          customFronts: const [],
+          frontHistory: const [],
+          groups: const [],
+          channels: const [SpChannel(id: 'ch-1', name: 'General')],
+          messages: [
+            SpMessage(
+              id: 'msg-1',
+              channelId: 'ch-1',
+              content: 'Hi!',
+              timestamp: DateTime(2025, 1, 1),
+            ),
+          ],
+          polls: const [],
+        );
+
+        Object? caught;
+        try {
+          await SpImporter(httpClient: _FakeHttpClient()).executeImport(
+            db: db,
+            data: data,
+            memberRepo: memberRepo,
+            sessionRepo: sessionRepo,
+            conversationRepo: conversationRepo,
+            messageRepo: throwingMessageRepo,
+            pollRepo: pollRepo,
+            clearExistingData: true,
+            downloadAvatars: false,
+          );
+        } catch (e) {
+          caught = e;
+        }
+
+        expect(caught, isNotNull);
+
+        // Because clearExistingData and the inserts are inside the SAME
+        // transaction, a rollback undoes the wipe too — the pre-existing member
+        // should still be present.
+        final afterImport = await db.membersDao.getAllMembers();
+        expect(
+          afterImport.length,
+          1,
+          reason:
+              'The wipe was inside the rolled-back transaction, so pre-existing '
+              'data should be restored',
+        );
+        expect(afterImport.first.id, 'existing-1');
+      },
+    );
   });
 
   // ---------------------------------------------------------------------------

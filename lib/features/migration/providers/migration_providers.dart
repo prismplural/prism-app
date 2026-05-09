@@ -16,6 +16,7 @@ import 'package:prism_plurality/features/migration/services/sp_parser.dart';
 
 /// Key used to track whether a previous SP import has been completed.
 const _spImportCompletedKey = 'sp_import_completed';
+const _unsetAvatarZipPath = Object();
 
 /// Current import state exposed to the UI.
 class MigrationState {
@@ -24,6 +25,7 @@ class MigrationState {
   final SpExportData? exportData;
   final ImportResult? result;
   final String? error;
+  final String? avatarZipPath;
   final int current;
   final int total;
   final String progressLabel;
@@ -39,6 +41,7 @@ class MigrationState {
     this.exportData,
     this.result,
     this.error,
+    this.avatarZipPath,
     this.current = 0,
     this.total = 0,
     this.progressLabel = '',
@@ -54,6 +57,7 @@ class MigrationState {
     SpExportData? exportData,
     ImportResult? result,
     String? error,
+    Object? avatarZipPath = _unsetAvatarZipPath,
     int? current,
     int? total,
     String? progressLabel,
@@ -66,6 +70,9 @@ class MigrationState {
       exportData: exportData ?? this.exportData,
       result: result ?? this.result,
       error: error ?? this.error,
+      avatarZipPath: identical(avatarZipPath, _unsetAvatarZipPath)
+          ? this.avatarZipPath
+          : avatarZipPath as String?,
       current: current ?? this.current,
       total: total ?? this.total,
       progressLabel: progressLabel ?? this.progressLabel,
@@ -112,7 +119,8 @@ class ImporterNotifier extends Notifier<MigrationState> {
       if (exportData.isEmpty) {
         state = state.copyWith(
           step: ImportState.error,
-          error: 'The selected file does not contain any recognized '
+          error:
+              'The selected file does not contain any recognized '
               'Simply Plural data. Please check that you exported '
               'from Simply Plural correctly.',
         );
@@ -134,6 +142,27 @@ class ImporterNotifier extends Notifier<MigrationState> {
         error: 'An unexpected error occurred while reading the file.',
       );
     }
+  }
+
+  /// Let the user pick the optional Simply Plural avatar ZIP export.
+  Future<void> selectAvatarZipFile() async {
+    final result = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['zip'],
+      withData: false,
+      withReadStream: false,
+    );
+
+    if (result == null || result.files.isEmpty) return;
+
+    final filePath = result.files.single.path;
+    if (filePath == null) return;
+
+    state = state.copyWith(avatarZipPath: filePath);
+  }
+
+  void clearAvatarZipFile() {
+    state = state.copyWith(avatarZipPath: null);
   }
 
   // ---------------------------------------------------------------------------
@@ -174,7 +203,8 @@ class ImporterNotifier extends Notifier<MigrationState> {
       _apiClient = null;
       state = state.copyWith(
         step: ImportState.error,
-        error: 'Invalid token. Make sure you copied the full token from '
+        error:
+            'Invalid token. Make sure you copied the full token from '
             'Simply Plural (Settings \u2192 Account \u2192 Tokens) and that '
             'it has Read permission.',
       );
@@ -183,7 +213,8 @@ class ImporterNotifier extends Notifier<MigrationState> {
       _apiClient = null;
       state = state.copyWith(
         step: ImportState.error,
-        error: 'Could not reach Simply Plural\u2019s servers. They may be '
+        error:
+            'Could not reach Simply Plural\u2019s servers. They may be '
             'temporarily unavailable. Try again in a few minutes, or use '
             'a file import instead.',
       );
@@ -192,7 +223,8 @@ class ImporterNotifier extends Notifier<MigrationState> {
       _apiClient = null;
       state = state.copyWith(
         step: ImportState.error,
-        error: 'Could not connect to Simply Plural. Check your internet '
+        error:
+            'Could not connect to Simply Plural. Check your internet '
             'connection and try again.',
       );
     }
@@ -234,19 +266,22 @@ class ImporterNotifier extends Notifier<MigrationState> {
     } on SpAuthError {
       state = state.copyWith(
         step: ImportState.error,
-        error: 'Your token was revoked or expired during the fetch. '
+        error:
+            'Your token was revoked or expired during the fetch. '
             'Please generate a new token in Simply Plural.',
       );
     } on TimeoutException {
       state = state.copyWith(
         step: ImportState.error,
-        error: 'Simply Plural\u2019s servers stopped responding. '
+        error:
+            'Simply Plural\u2019s servers stopped responding. '
             'Try again later or use a file import instead.',
       );
     } catch (_) {
       state = state.copyWith(
         step: ImportState.error,
-        error: 'Something went wrong while fetching your data. '
+        error:
+            'Something went wrong while fetching your data. '
             'Try again, or use a file import instead.',
       );
     }
@@ -326,6 +361,7 @@ class ImporterNotifier extends Notifier<MigrationState> {
         categoriesRepo: ref.read(conversationCategoriesRepositoryProvider),
         spImportDao: ref.read(databaseProvider).spImportDao,
         downloadAvatars: downloadAvatars,
+        avatarZipPath: state.avatarZipPath,
         clearExistingData: resetFirst,
         customFrontDispositions: ref.read(cfDispositionProvider),
         onProgress: (current, total, label) {
@@ -356,6 +392,64 @@ class ImporterNotifier extends Notifier<MigrationState> {
     }
   }
 
+  /// Retry only avatar downloads for the currently loaded SP export.
+  ///
+  /// This is intentionally same-session: Prism keeps SP entity ID mappings,
+  /// but it does not persist avatar source URLs after the import flow is
+  /// dismissed.
+  Future<void> retryAvatarDownloads() async {
+    final data = state.exportData;
+    final previous = state.result;
+    if (data == null || previous == null) return;
+
+    state = state.copyWith(
+      step: ImportState.downloadingAvatars,
+      current: 0,
+      total: 0,
+      progressLabel: 'Retrying avatar downloads\u2026',
+    );
+
+    try {
+      final retryResult = await _importer.retryAvatarDownloads(
+        data: data,
+        memberRepo: ref.read(memberRepositoryProvider),
+        settingsRepo: ref.read(systemSettingsRepositoryProvider),
+        spImportDao: ref.read(databaseProvider).spImportDao,
+        customFrontDispositions: ref.read(cfDispositionProvider),
+        onProgress: (current, total, label) {
+          state = state.copyWith(
+            current: current,
+            total: total,
+            progressLabel: label,
+          );
+        },
+      );
+
+      final retainedWarnings = previous.warnings
+          .where((warning) => !ImportResult.isAvatarDownloadWarning(warning))
+          .toList();
+      final mergedWarnings = [...retainedWarnings, ...retryResult.warnings];
+      final avatarsDownloaded =
+          retryResult.avatarsDownloaded > previous.avatarsDownloaded
+          ? retryResult.avatarsDownloaded
+          : previous.avatarsDownloaded;
+
+      state = state.copyWith(
+        step: ImportState.complete,
+        result: previous.copyWith(
+          avatarsDownloaded: avatarsDownloaded,
+          systemAvatarDownloaded:
+              previous.systemAvatarDownloaded ||
+              retryResult.systemAvatarDownloaded,
+          warnings: mergedWarnings,
+          duration: previous.duration + retryResult.duration,
+        ),
+      );
+    } catch (_) {
+      state = state.copyWith(step: ImportState.complete, result: previous);
+    }
+  }
+
   /// Reset to initial state and clean up resources.
   void reset() {
     _apiClient?.dispose();
@@ -365,8 +459,9 @@ class ImporterNotifier extends Notifier<MigrationState> {
   }
 }
 
-final importerProvider =
-    NotifierProvider<ImporterNotifier, MigrationState>(ImporterNotifier.new);
+final importerProvider = NotifierProvider<ImporterNotifier, MigrationState>(
+  ImporterNotifier.new,
+);
 
 /// Whether a previous SP import has been completed.
 final hasPreviousSpImportProvider = FutureProvider<bool>((ref) async {
@@ -417,8 +512,7 @@ class CfDispositionNotifier extends Notifier<CfDispositionState> {
       'cfIds': cfIds,
       'cfNames': cfNames,
       'fhLen': data.frontHistory.length,
-      'timers':
-          data.automatedTimers.length + data.repeatedTimers.length,
+      'timers': data.automatedTimers.length + data.repeatedTimers.length,
     };
     final bytes = utf8.encode(jsonEncode(payload));
     return sha256.convert(bytes).toString();
@@ -474,7 +568,8 @@ class CfDispositionNotifier extends Notifier<CfDispositionState> {
 
 final _cfDispositionStateProvider =
     NotifierProvider<CfDispositionNotifier, CfDispositionState>(
-        CfDispositionNotifier.new);
+      CfDispositionNotifier.new,
+    );
 
 /// Current per-CF disposition map, keyed by SP CF id.
 final cfDispositionProvider = Provider<Map<String, CfDisposition>>((ref) {

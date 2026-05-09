@@ -44,7 +44,9 @@ void main() {
     });
 
     test('returns null for non-200 responses', () async {
+      var calls = 0;
       final client = MockClient((request) async {
+        calls++;
         return http.Response.bytes(Uint8List.fromList([1]), 302);
       });
 
@@ -54,6 +56,7 @@ void main() {
       );
 
       expect(bytes, isNull);
+      expect(calls, 1);
     });
 
     test('returns null for empty bodies', () async {
@@ -121,9 +124,99 @@ void main() {
         'https://example.com/slow.png',
         client: client,
         timeout: const Duration(milliseconds: 20),
+        maxAttempts: 1,
       );
 
       expect(bytes, isNull);
+    });
+
+    test('retries transient HTTP responses', () async {
+      final body = Uint8List.fromList([4, 5, 6]);
+      var calls = 0;
+      final client = MockClient((request) async {
+        calls++;
+        if (calls == 1) {
+          return http.Response('temporarily unavailable', 503);
+        }
+        return http.Response.bytes(
+          body,
+          200,
+          headers: {'content-type': 'image/png'},
+        );
+      });
+
+      final bytes = await fetchRemoteImageBytes(
+        'https://example.com/flaky.png',
+        client: client,
+        initialRetryDelay: Duration.zero,
+      );
+
+      expect(bytes, body);
+      expect(calls, 2);
+    });
+
+    test('retries thrown client errors', () async {
+      final body = Uint8List.fromList([7, 8, 9]);
+      var calls = 0;
+      final client = MockClient((request) async {
+        calls++;
+        if (calls == 1) {
+          throw http.ClientException('connection reset', request.url);
+        }
+        return http.Response.bytes(
+          body,
+          200,
+          headers: {'content-type': 'image/png'},
+        );
+      });
+
+      final bytes = await fetchRemoteImageBytes(
+        'https://example.com/reset.png',
+        client: client,
+        initialRetryDelay: Duration.zero,
+      );
+
+      expect(bytes, body);
+      expect(calls, 2);
+    });
+
+    test('honors maxAttempts for transient failures', () async {
+      var calls = 0;
+      final client = MockClient((request) async {
+        calls++;
+        return http.Response('still down', 500);
+      });
+
+      final bytes = await fetchRemoteImageBytes(
+        'https://example.com/down.png',
+        client: client,
+        maxAttempts: 2,
+        initialRetryDelay: Duration.zero,
+      );
+
+      expect(bytes, isNull);
+      expect(calls, 2);
+    });
+
+    test('does not retry permanent image validation failures', () async {
+      var calls = 0;
+      final client = MockClient((request) async {
+        calls++;
+        return http.Response.bytes(
+          Uint8List.fromList([1, 2, 3]),
+          200,
+          headers: {'content-type': 'text/html'},
+        );
+      });
+
+      final bytes = await fetchRemoteImageBytes(
+        'https://example.com/page.html',
+        client: client,
+        initialRetryDelay: Duration.zero,
+      );
+
+      expect(bytes, isNull);
+      expect(calls, 1);
     });
 
     test('returns null for invalid or unsupported URLs', () async {

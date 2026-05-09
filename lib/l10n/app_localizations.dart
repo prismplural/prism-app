@@ -14707,6 +14707,162 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Cancel and remove this device'**
   String get onboardingPairingCancelAndRemove;
+
+  /// No description provided for @migrationAvatarZipTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Avatar ZIP (optional)'**
+  String get migrationAvatarZipTitle;
+
+  /// No description provided for @migrationAvatarZipSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Import photos from the paired Simply Plural avatar ZIP.'**
+  String get migrationAvatarZipSubtitle;
+
+  /// No description provided for @migrationAvatarZipSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'Selected: {fileName}'**
+  String migrationAvatarZipSelected(Object fileName);
+
+  /// No description provided for @migrationAvatarZipRemove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove avatar ZIP'**
+  String get migrationAvatarZipRemove;
+
+  /// No description provided for @migrationResultAvatarZipImported.
+  ///
+  /// In en, this message translates to:
+  /// **'Avatar ZIP images imported'**
+  String get migrationResultAvatarZipImported;
+
+  /// No description provided for @onboardingSimplyPluralAddAvatarZip.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Avatar ZIP (optional)'**
+  String get onboardingSimplyPluralAddAvatarZip;
+
+  /// No description provided for @onboardingSimplyPluralChangeAvatarZip.
+  ///
+  /// In en, this message translates to:
+  /// **'Change Avatar ZIP'**
+  String get onboardingSimplyPluralChangeAvatarZip;
+
+  /// No description provided for @onboardingSimplyPluralRemoveAvatarZip.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove Avatar ZIP'**
+  String get onboardingSimplyPluralRemoveAvatarZip;
+
+  /// No description provided for @onboardingSimplyPluralAvatarZipSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'Avatar ZIP: {fileName}'**
+  String onboardingSimplyPluralAvatarZipSelected(Object fileName);
+
+  /// No description provided for @dataManagementSimplyPluralAvatarZipRowTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Simply Plural Avatar ZIP'**
+  String get dataManagementSimplyPluralAvatarZipRowTitle;
+
+  /// No description provided for @dataManagementSimplyPluralAvatarZipRowSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Update photos for existing imported members'**
+  String get dataManagementSimplyPluralAvatarZipRowSubtitle;
+
+  /// No description provided for @spAvatarZipSheetTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Simply Plural Avatar ZIP'**
+  String get spAvatarZipSheetTitle;
+
+  /// No description provided for @spAvatarZipUpdateTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Update photos from ZIP'**
+  String get spAvatarZipUpdateTitle;
+
+  /// No description provided for @spAvatarZipDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Select the avatar ZIP exported by Simply Plural. Prism will match images to existing imported members and update only their photos.'**
+  String get spAvatarZipDescription;
+
+  /// No description provided for @spAvatarZipSelect.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Avatar ZIP'**
+  String get spAvatarZipSelect;
+
+  /// No description provided for @spAvatarZipImporting.
+  ///
+  /// In en, this message translates to:
+  /// **'Importing avatar ZIP...'**
+  String get spAvatarZipImporting;
+
+  /// No description provided for @spAvatarZipImportingDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Matching ZIP images to existing Simply Plural imports.'**
+  String get spAvatarZipImportingDescription;
+
+  /// No description provided for @spAvatarZipNoMatchesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No matching photos found'**
+  String get spAvatarZipNoMatchesTitle;
+
+  /// No description provided for @spAvatarZipCompleteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Photos updated'**
+  String get spAvatarZipCompleteTitle;
+
+  /// No description provided for @spAvatarZipNoMatchesMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Run the Simply Plural JSON import first, then try this ZIP again.'**
+  String get spAvatarZipNoMatchesMessage;
+
+  /// No description provided for @spAvatarZipUpdatedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Updated {count} member photo(s).'**
+  String spAvatarZipUpdatedMessage(Object count);
+
+  /// No description provided for @spAvatarZipImagesFound.
+  ///
+  /// In en, this message translates to:
+  /// **'Images found'**
+  String get spAvatarZipImagesFound;
+
+  /// No description provided for @spAvatarZipMemberPhotosUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Member photos updated'**
+  String get spAvatarZipMemberPhotosUpdated;
+
+  /// No description provided for @spAvatarZipSystemPhotoUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'System photo updated'**
+  String get spAvatarZipSystemPhotoUpdated;
+
+  /// No description provided for @spAvatarZipUnmatchedImages.
+  ///
+  /// In en, this message translates to:
+  /// **'Unmatched images'**
+  String get spAvatarZipUnmatchedImages;
+
+  /// No description provided for @spAvatarZipFailedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not import avatar ZIP'**
+  String get spAvatarZipFailedTitle;
 }
 
 class _AppLocalizationsDelegate

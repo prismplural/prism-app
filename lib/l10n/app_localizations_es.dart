@@ -9272,4 +9272,97 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get onboardingPairingCancelAndRemove =>
       'Cancelar y eliminar este dispositivo';
+
+  @override
+  String get migrationAvatarZipTitle => 'ZIP de avatares (opcional)';
+
+  @override
+  String get migrationAvatarZipSubtitle =>
+      'Importa fotos desde el ZIP de avatares de Simply Plural emparejado.';
+
+  @override
+  String migrationAvatarZipSelected(Object fileName) {
+    return 'Seleccionado: $fileName';
+  }
+
+  @override
+  String get migrationAvatarZipRemove => 'Quitar ZIP de avatares';
+
+  @override
+  String get migrationResultAvatarZipImported =>
+      'Imágenes del ZIP de avatares importadas';
+
+  @override
+  String get onboardingSimplyPluralAddAvatarZip =>
+      'Agregar ZIP de avatares (opcional)';
+
+  @override
+  String get onboardingSimplyPluralChangeAvatarZip => 'Cambiar ZIP de avatares';
+
+  @override
+  String get onboardingSimplyPluralRemoveAvatarZip => 'Quitar ZIP de avatares';
+
+  @override
+  String onboardingSimplyPluralAvatarZipSelected(Object fileName) {
+    return 'ZIP de avatares: $fileName';
+  }
+
+  @override
+  String get dataManagementSimplyPluralAvatarZipRowTitle =>
+      'ZIP de avatares de Simply Plural';
+
+  @override
+  String get dataManagementSimplyPluralAvatarZipRowSubtitle =>
+      'Actualiza fotos de miembros importados existentes';
+
+  @override
+  String get spAvatarZipSheetTitle => 'ZIP de avatares de Simply Plural';
+
+  @override
+  String get spAvatarZipUpdateTitle => 'Actualizar fotos desde ZIP';
+
+  @override
+  String get spAvatarZipDescription =>
+      'Selecciona el ZIP de avatares exportado por Simply Plural. Prism asociará las imágenes con miembros importados existentes y actualizará solo sus fotos.';
+
+  @override
+  String get spAvatarZipSelect => 'Seleccionar ZIP de avatares';
+
+  @override
+  String get spAvatarZipImporting => 'Importando ZIP de avatares...';
+
+  @override
+  String get spAvatarZipImportingDescription =>
+      'Asociando imágenes del ZIP con importaciones existentes de Simply Plural.';
+
+  @override
+  String get spAvatarZipNoMatchesTitle =>
+      'No se encontraron fotos coincidentes';
+
+  @override
+  String get spAvatarZipCompleteTitle => 'Fotos actualizadas';
+
+  @override
+  String get spAvatarZipNoMatchesMessage =>
+      'Ejecuta primero la importación JSON de Simply Plural y vuelve a intentar con este ZIP.';
+
+  @override
+  String spAvatarZipUpdatedMessage(Object count) {
+    return 'Se actualizaron $count foto(s) de miembros.';
+  }
+
+  @override
+  String get spAvatarZipImagesFound => 'Imágenes encontradas';
+
+  @override
+  String get spAvatarZipMemberPhotosUpdated => 'Fotos de miembros actualizadas';
+
+  @override
+  String get spAvatarZipSystemPhotoUpdated => 'Foto del sistema actualizada';
+
+  @override
+  String get spAvatarZipUnmatchedImages => 'Imágenes sin coincidencia';
+
+  @override
+  String get spAvatarZipFailedTitle => 'No se pudo importar el ZIP de avatares';
 }
