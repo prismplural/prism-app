@@ -12,6 +12,7 @@ import 'package:prism_plurality/features/chat/providers/category_providers.dart'
 import 'package:prism_plurality/features/chat/views/create_conversation_sheet.dart';
 import 'package:prism_plurality/features/chat/widgets/category_management_sheet.dart';
 import 'package:prism_plurality/features/chat/widgets/conversation_tile.dart';
+import 'package:prism_plurality/features/members/utils/member_search_groups.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
@@ -23,6 +24,8 @@ import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
+import 'package:prism_plurality/shared/widgets/member_avatar.dart';
+import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
@@ -554,33 +557,19 @@ class _ChatTopBar extends StatelessWidget implements PreferredSizeWidget {
       children: [
         PrismTopBar(
           title: context.l10n.chatTitle,
-          leading: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _OverflowMenuButton(speakingAs: speakingAs),
-              const SizedBox(width: 8),
-              PrismTopBarAction(
-                icon: AppIcons.search,
-                tooltip: context.l10n.chatSearchMessages,
-                onPressed: onSearchTap,
-              ),
-            ],
-          ),
+          leading: const _ChatMemberSelectorButton(),
           actions: [
-            if (hasArchived || showArchived)
-              PrismTopBarAction(
-                icon: showArchived
-                    ? AppIcons.inventoryRounded
-                    : AppIcons.inventoryOutlined,
-                tooltip: showArchived
-                    ? context.l10n.chatHideArchived
-                    : context.l10n.chatShowArchived,
-                onPressed: onArchiveTap,
-              ),
             PrismTopBarAction(
               icon: AppIcons.add,
               tooltip: context.l10n.chatNewConversation,
               onPressed: onCreateTap,
+            ),
+            _OverflowMenuButton(
+              speakingAs: speakingAs,
+              hasArchived: hasArchived,
+              showArchived: showArchived,
+              onSearchTap: onSearchTap,
+              onArchiveTap: onArchiveTap,
             ),
           ],
         ),
@@ -606,10 +595,175 @@ class _ChatTopBar extends StatelessWidget implements PreferredSizeWidget {
   }
 }
 
+class _ChatMemberSelectorButton extends ConsumerWidget {
+  const _ChatMemberSelectorButton();
+
+  static const _selectorKey = Key('chatSpeakingAsAppBarSelector');
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final membersAsync = ref.watch(userVisibleMembersProvider);
+    final speakingAs = ref.watch(speakingAsProvider);
+    final terms = watchTerminology(context, ref);
+
+    return membersAsync.when(
+      data: (members) {
+        final selected = speakingAs != null
+            ? members.where((member) => member.id == speakingAs).firstOrNull
+            : null;
+        final groups = watchMemberSearchGroups(ref, members);
+        final semanticLabel = selected != null
+            ? context.l10n.chatSpeakingAs(selected.name)
+            : context.l10n.chatChooseSpeakingMember(terms.singularLower);
+
+        return Semantics(
+          label: semanticLabel,
+          button: true,
+          enabled: members.isNotEmpty,
+          child: Tooltip(
+            message: semanticLabel,
+            child: GestureDetector(
+              key: _selectorKey,
+              behavior: HitTestBehavior.opaque,
+              onTap: members.isEmpty
+                  ? null
+                  : () => _openSearchSheet(
+                      context,
+                      ref,
+                      members,
+                      terms.singular,
+                      terms.plural,
+                      groups,
+                    ),
+              child: _ChatMemberSelectorTrigger(
+                selectedMember: selected,
+                enabled: members.isNotEmpty,
+              ),
+            ),
+          ),
+        );
+      },
+      loading: () => const _ChatMemberSelectorTrigger(enabled: false),
+      error: (_, _) => const _ChatMemberSelectorTrigger(enabled: false),
+    );
+  }
+
+  Future<void> _openSearchSheet(
+    BuildContext context,
+    WidgetRef ref,
+    List<Member> members,
+    String termSingular,
+    String termPlural,
+    List<MemberSearchGroup> groups,
+  ) async {
+    final result = await MemberSearchSheet.showSingle(
+      context,
+      members: members,
+      termPlural: termPlural,
+      title: context.l10n.selectMember(termSingular),
+      groups: groups,
+    );
+    if (!context.mounted) return;
+    if (result is MemberSearchResultSelected) {
+      ref.read(speakingAsProvider.notifier).setMember(result.memberId);
+    }
+  }
+}
+
+class _ChatMemberSelectorTrigger extends StatelessWidget {
+  const _ChatMemberSelectorTrigger({
+    this.selectedMember,
+    required this.enabled,
+  });
+
+  final Member? selectedMember;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    const hitSize = PrismTokens.topBarActionSize;
+    const pipSize = 14.0;
+    final member = selectedMember;
+
+    return SizedBox(
+      width: hitSize,
+      height: hitSize,
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.center,
+        children: [
+          if (member != null)
+            MemberAvatar(
+              avatarImageData: member.avatarImageData,
+              memberName: member.name,
+              emoji: member.emoji,
+              customColorEnabled: member.customColorEnabled,
+              customColorHex: member.customColorHex,
+              size: hitSize,
+            )
+          else
+            Container(
+              width: hitSize,
+              height: hitSize,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: theme.colorScheme.surfaceContainerHighest.withValues(
+                  alpha: enabled ? 1 : 0.55,
+                ),
+              ),
+              child: Icon(
+                AppIcons.personOutline,
+                size: 22,
+                color: theme.colorScheme.onSurfaceVariant.withValues(
+                  alpha: enabled ? 1 : 0.55,
+                ),
+              ),
+            ),
+          if (enabled)
+            Positioned(
+              right: 0,
+              bottom: 0,
+              child: Container(
+                width: pipSize,
+                height: pipSize,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surface,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.15),
+                    width: 0.5,
+                  ),
+                ),
+                child: Icon(
+                  AppIcons.expandMore,
+                  size: 11,
+                  color: theme.colorScheme.onSurfaceVariant.withValues(
+                    alpha: 0.85,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class _OverflowMenuButton extends ConsumerStatefulWidget {
-  const _OverflowMenuButton({required this.speakingAs});
+  const _OverflowMenuButton({
+    required this.speakingAs,
+    required this.hasArchived,
+    required this.showArchived,
+    required this.onSearchTap,
+    required this.onArchiveTap,
+  });
 
   final String? speakingAs;
+  final bool hasArchived;
+  final bool showArchived;
+  final VoidCallback onSearchTap;
+  final VoidCallback onArchiveTap;
 
   @override
   ConsumerState<_OverflowMenuButton> createState() =>
@@ -622,46 +776,89 @@ class _OverflowMenuButtonState extends ConsumerState<_OverflowMenuButton> {
   @override
   Widget build(BuildContext context) {
     final speakingAs = widget.speakingAs;
+    final actions = <Widget Function(BuildContext, VoidCallback)>[
+      (ctx, close) {
+        final popupTheme = Theme.of(ctx);
+        return PrismListRow(
+          dense: true,
+          leading: Icon(AppIcons.search, size: 20),
+          title: Text(
+            ctx.l10n.chatSearchMessages,
+            style: popupTheme.textTheme.bodyMedium,
+          ),
+          onTap: () {
+            close();
+            widget.onSearchTap();
+          },
+        );
+      },
+      if (widget.hasArchived || widget.showArchived)
+        (ctx, close) {
+          final popupTheme = Theme.of(ctx);
+          return PrismListRow(
+            dense: true,
+            leading: Icon(
+              widget.showArchived
+                  ? AppIcons.inventoryRounded
+                  : AppIcons.inventoryOutlined,
+              size: 20,
+            ),
+            title: Text(
+              widget.showArchived
+                  ? ctx.l10n.chatHideArchived
+                  : ctx.l10n.chatShowArchived,
+              style: popupTheme.textTheme.bodyMedium,
+            ),
+            onTap: () {
+              close();
+              widget.onArchiveTap();
+            },
+          );
+        },
+      (ctx, close) {
+        final popupTheme = Theme.of(ctx);
+        return PrismListRow(
+          dense: true,
+          leading: Icon(AppIcons.markEmailReadOutlined, size: 20),
+          title: Text(
+            ctx.l10n.chatMarkAllAsRead,
+            style: popupTheme.textTheme.bodyMedium,
+          ),
+          onTap: () {
+            close();
+            if (speakingAs != null) {
+              ref
+                  .read(chatNotifierProvider.notifier)
+                  .markAllConversationsAsRead(speakingAs);
+            }
+          },
+        );
+      },
+      (ctx, close) {
+        final popupTheme = Theme.of(ctx);
+        return PrismListRow(
+          dense: true,
+          leading: Icon(AppIcons.folderOutlined, size: 20),
+          title: Text(
+            ctx.l10n.chatManageCategories,
+            style: popupTheme.textTheme.bodyMedium,
+          ),
+          onTap: () {
+            close();
+            CategoryManagementSheet.show(context);
+          },
+        );
+      },
+    ];
+
     return BlurPopupAnchor(
       key: _popupKey,
       trigger: BlurPopupTrigger.manual,
-      width: 220,
-      maxHeight: 112,
-      itemCount: 2,
+      width: 240,
+      maxHeight: 224,
+      itemCount: actions.length,
       semanticLabel: context.l10n.moreOptions,
-      itemBuilder: (ctx, index, close) {
-        final popupTheme = Theme.of(ctx);
-        return switch (index) {
-          0 => PrismListRow(
-            dense: true,
-            leading: Icon(AppIcons.markEmailReadOutlined, size: 20),
-            title: Text(
-              ctx.l10n.chatMarkAllAsRead,
-              style: popupTheme.textTheme.bodyMedium,
-            ),
-            onTap: () {
-              close();
-              if (speakingAs != null) {
-                ref
-                    .read(chatNotifierProvider.notifier)
-                    .markAllConversationsAsRead(speakingAs);
-              }
-            },
-          ),
-          _ => PrismListRow(
-            dense: true,
-            leading: Icon(AppIcons.folderOutlined, size: 20),
-            title: Text(
-              ctx.l10n.chatManageCategories,
-              style: popupTheme.textTheme.bodyMedium,
-            ),
-            onTap: () {
-              close();
-              CategoryManagementSheet.show(context);
-            },
-          ),
-        };
-      },
+      itemBuilder: (ctx, index, close) => actions[index](ctx, close),
       child: PrismTopBarAction(
         icon: AppIcons.moreVert,
         tooltip: context.l10n.moreOptions,

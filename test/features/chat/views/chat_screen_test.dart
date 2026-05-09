@@ -7,23 +7,33 @@ import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/chat_message.dart' as domain;
 import 'package:prism_plurality/domain/models/conversation.dart';
 import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/domain/models/member_group.dart';
+import 'package:prism_plurality/domain/models/member_group_entry.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/domain/repositories/chat_message_repository.dart';
 import 'package:prism_plurality/features/chat/providers/category_providers.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/chat/views/chat_screen.dart';
+import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 
 import '../../../helpers/fake_repositories.dart';
 
-class _FixedSpeakingAsNotifier extends SpeakingAsNotifier {
-  _FixedSpeakingAsNotifier(this.memberId);
+class _TestSpeakingAsNotifier extends SpeakingAsNotifier {
+  _TestSpeakingAsNotifier(this._memberId);
 
-  final String? memberId;
+  String? _memberId;
 
   @override
-  String? build() => memberId;
+  String? build() => _memberId;
+
+  @override
+  void setMember(String? memberId) {
+    _memberId = memberId;
+    state = memberId;
+  }
 }
 
 class _EmptyChatMessageRepository implements ChatMessageRepository {
@@ -134,13 +144,20 @@ Widget _buildSubject({int? savedTabIndex}) {
   final alice = _member('alice', 'Alice');
   final bob = _member('bob', 'Bob');
   final carol = _member('carol', 'Carol');
-  final members = FakeMemberRepository()..seed([alice, bob, carol]);
+  final dave = _member('dave', 'Dave');
+  final members = FakeMemberRepository()..seed([alice, bob, carol, dave]);
   final conversations = FakeConversationRepository()
     ..conversations.addAll([
       _conversation(
         id: 'dm-1',
         at: now,
         participantIds: const ['alice', 'bob'],
+        isDirectMessage: true,
+      ),
+      _conversation(
+        id: 'dm-2',
+        at: now.subtract(const Duration(seconds: 30)),
+        participantIds: const ['carol', 'dave'],
         isDirectMessage: true,
       ),
       _conversation(
@@ -162,8 +179,14 @@ Widget _buildSubject({int? savedTabIndex}) {
         (ref) => Stream.value(const SystemSettings()),
       ),
       currentChatViewerProvider.overrideWithValue(alice),
-      speakingAsProvider.overrideWith(() => _FixedSpeakingAsNotifier('alice')),
+      speakingAsProvider.overrideWith(() => _TestSpeakingAsNotifier('alice')),
       conversationCategoriesProvider.overrideWith((ref) => Stream.value([])),
+      allGroupsProvider.overrideWith(
+        (ref) => Stream.value(const <MemberGroup>[]),
+      ),
+      allGroupEntriesProvider.overrideWith(
+        (ref) => Stream.value(const <MemberGroupEntry>[]),
+      ),
     ],
     child: const MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -215,5 +238,44 @@ void main() {
 
     expect(find.text('Bob'), findsOneWidget);
     expect(find.text('Planning'), findsNothing);
+  });
+
+  testWidgets(
+    'puts search in the overflow menu to make room for member picker',
+    (tester) async {
+      await tester.pumpWidget(_buildSubject());
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('chatSpeakingAsAppBarSelector')),
+        findsOneWidget,
+      );
+      expect(find.byTooltip('Search messages'), findsNothing);
+
+      await tester.tap(find.byTooltip('More options'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Search messages'), findsOneWidget);
+    },
+  );
+
+  testWidgets('appbar member picker changes the direct message viewer', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_buildSubject(savedTabIndex: 0));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Bob'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('chatSpeakingAsAppBarSelector')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(MemberSearchSheet), findsOneWidget);
+
+    await tester.tap(find.text('Carol'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Bob'), findsNothing);
+    expect(find.text('Dave'), findsOneWidget);
   });
 }
