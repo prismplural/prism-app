@@ -13,6 +13,7 @@ import 'package:prism_plurality/data/utils/sync_datetime.dart';
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
+import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_group_repair_run_gate.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 
@@ -196,9 +197,19 @@ class PkGroupsImporter with SyncRecordMixin {
   Future<PkGroupsImportResult> importGroups(
     List<PKGroup> pkGroups, {
     bool overwriteMetadata = false,
+    // Default pullOnly preserves current behavior. Step 7 of the plan
+    // wires the user's actual sync direction at top-level call sites
+    // so push-disabled users skip the destructive reconcile entirely.
+    PkSyncDirection direction = PkSyncDirection.pullOnly,
   }) async {
     var result = const PkGroupsImportResult();
     if (pkGroups.isEmpty) return result;
+    // Step 4 of docs/plans/pk-group-membership-push.md: pull-side work is
+    // gated on direction.pullEnabled. push-side work is the orchestrator's
+    // job (step 6) — this function never pushes. On pushOnly/disabled, we
+    // skip the entire pull pass: no metadata writes, no last_seen_from_pk_at
+    // updates, no destructive reconcile, no inserts.
+    if (!direction.pullEnabled) return result;
     final syncEnabled = await _pkGroupSyncV2Enabled();
 
     // Resolve members once up front so we know which PK UUIDs are locally
@@ -323,8 +334,15 @@ class PkGroupsImporter with SyncRecordMixin {
 
   /// R3 — insert-only re-attribution pass. Called after member mapping has
   /// applied so PK UUIDs that were previously unknown can now be resolved.
-  /// Never removes entries.
-  Future<PkGroupsImportResult> reattribute(PluralKitClient client) async {
+  /// Never removes entries. Always pull-only by construction (insertOnly).
+  /// The [direction] param is accepted for symmetry with [importGroups] but
+  /// must include pull (asserted); push is never invoked from here. Per
+  /// docs/plans/pk-group-membership-push.md step 4 / v3-patches-2 #6.
+  Future<PkGroupsImportResult> reattribute(
+    PluralKitClient client, {
+    PkSyncDirection direction = PkSyncDirection.pullOnly,
+  }) async {
+    if (!direction.pullEnabled) return const PkGroupsImportResult();
     final pkGroups = await client.getGroups(withMembers: true);
     if (pkGroups.isEmpty) return const PkGroupsImportResult();
     final syncEnabled = await _pkGroupSyncV2Enabled();
@@ -385,7 +403,19 @@ class PkGroupsImporter with SyncRecordMixin {
     };
 
     final authoritativeSet = authoritativePkMemberUuids.toSet();
-    final entries = await _dao.entriesForGroup(groupLocalId);
+    // Step 4 of docs/plans/pk-group-membership-push.md: read via the new DAO
+    // method so soft-deleted push_remove tombstones are visible. The vanilla
+    // entriesForGroup filters is_deleted=true out, which would let the insert
+    // branch revive a row the user explicitly removed (and queued for PK push).
+    final entries = await _dao.entriesForGroupForReconcile(groupLocalId);
+
+    // Member IDs whose entry is soft-deleted with push_remove pending. The
+    // insert branch skips these to honor the user's intent: PK still has the
+    // member but the user wants them gone, so don't re-insert locally.
+    final pendingRemovalMemberIds = <String>{
+      for (final e in entries)
+        if (e.isDeleted && e.pendingPkOp == 'push_remove') e.memberId,
+    };
 
     int inserted = 0;
     int removed = 0;
@@ -396,6 +426,14 @@ class PkGroupsImporter with SyncRecordMixin {
     await _db.transaction(() async {
       if (!insertOnly) {
         for (final entry in entries) {
+          if (entry.isDeleted) continue; // already a tombstone, nothing to remove
+          if (entry.pendingPkOp == 'push_add') {
+            // Locally-owned: user wants this in PK. The orchestrator will push
+            // it on the next round. Don't soft-delete just because PK doesn't
+            // have it yet — that would trigger the original data-loss bug
+            // this whole plan exists to fix.
+            continue;
+          }
           final member = memberById[entry.memberId];
           if (member == null) continue; // orphan row — leave alone.
           final pkUuid = member.pluralkitUuid;
@@ -425,6 +463,10 @@ class PkGroupsImporter with SyncRecordMixin {
           continue;
         }
         if (existingActiveMemberIds.contains(localMemberId)) continue;
+        // Skip insert when there's a soft-deleted push_remove tombstone for
+        // this member — user wants them out of PK, the orchestrator will
+        // push the remove. Re-inserting locally would race with that.
+        if (pendingRemovalMemberIds.contains(localMemberId)) continue;
 
         final entryId = deriveEntryId(groupPkUuid, pkMemberUuid);
         final existedBefore = entries.any((e) => e.id == entryId);

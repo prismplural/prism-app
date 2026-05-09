@@ -903,6 +903,10 @@ class PluralKitSyncService {
           await _groupsImporter.importGroups(
             export.groups,
             overwriteMetadata: true,
+            // File import is structurally pull-only (importing FROM a file
+            // INTO local), never push. Per docs/plans/pk-group-membership-push.md
+            // step 4 / v3-patches-2 #6.
+            direction: PkSyncDirection.pullOnly,
           );
         } catch (e) {
           debugPrint('[PK_FILE] group import failed (non-fatal): $e');
@@ -1008,6 +1012,7 @@ class PluralKitSyncService {
           await _groupsImporter.importGroups(
             export.groups,
             overwriteMetadata: true,
+            direction: PkSyncDirection.pullOnly,
           );
         } catch (e) {
           debugPrint('[PK_FILE_TOKEN] group import failed (non-fatal): $e');
@@ -1564,6 +1569,12 @@ class PluralKitSyncService {
       return await importer.importGroups(
         pkGroups,
         overwriteMetadata: overwriteMetadata,
+        // Step 4 of docs/plans/pk-group-membership-push.md: importer is
+        // pull-only by construction. Step 7 will replace this hardcoded
+        // pullOnly with the user's actual sync direction so push-disabled
+        // users skip the pull pass and pushOnly users skip pull entirely.
+        // Until then, hardcoded pullOnly preserves current behavior.
+        direction: PkSyncDirection.pullOnly,
       );
     } catch (e) {
       // Groups are not a first-class blocker for the rest of the sync — don't
