@@ -221,4 +221,63 @@ void main() {
           reason: '\\b must be Unicode-aware to bracket non-Latin scripts');
     });
   });
+
+  // The snippet window slices ±40/80 chars around the first match. A 39-char
+  // `@[uuid]` token can land partially across that boundary, leaving a stray
+  // `[uuid` or `uuid]` fragment that no mention regex on the render side can
+  // resolve. The window must snap outward to keep mention tokens whole.
+  group('snippet window snaps mention tokens', () {
+    // Asserts that no orphan UUID fragment leaked into the snippet. After
+    // stripping every full `@[uuid]` token, any remaining run of 4+ hex
+    // chars must be the tail/head of a bisected mention — fixtures contain
+    // no legitimate hex sequences of that length.
+    final mentionTokenPattern = RegExp(
+      r'@\[[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\]',
+    );
+    final hexFragmentPattern = RegExp(r'[0-9a-f]{4,}');
+    void expectNoBisectedToken(String snippet) {
+      final stripped = snippet.replaceAll(mentionTokenPattern, '');
+      expect(hexFragmentPattern.hasMatch(stripped), isFalse,
+          reason:
+              'snippet contains UUID fragment after stripping valid mentions: '
+              '"$snippet" -> "$stripped"');
+    }
+
+    test('mention preceding the match is kept whole', () async {
+      const aliceId = '11111111-2222-3333-4444-555555555555';
+      // Place the mention at the start so a 40-char left window would land
+      // mid-UUID without the snap. 30 chars of padding keeps `trampoline`
+      // close enough that the window starts inside the token.
+      final padding = 'x' * 30;
+      await dao.insertMessage(ChatMessagesCompanion.insert(
+        id: 'msg-mention-before',
+        content: '@[$aliceId] $padding trampoline tail',
+        timestamp: DateTime(2026, 5, 1, 9, 0),
+        conversationId: 'conv-1',
+        authorId: const Value('author-1'),
+      ));
+
+      final results = await dao.searchMessages('trampoline');
+      expect(results, hasLength(1));
+      expectNoBisectedToken(results.first.snippet);
+    });
+
+    test('mention following the match is kept whole', () async {
+      const bobId = '99999999-8888-7777-6666-aaaaaaaaaaaa';
+      // Right window is +80 chars from the match end; pad so the mention's
+      // closing `]` sits just past the boundary.
+      final padding = 'word ' * 14;
+      await dao.insertMessage(ChatMessagesCompanion.insert(
+        id: 'msg-mention-after',
+        content: 'pineapple $padding @[$bobId] tail',
+        timestamp: DateTime(2026, 5, 1, 9, 30),
+        conversationId: 'conv-1',
+        authorId: const Value('author-1'),
+      ));
+
+      final results = await dao.searchMessages('pineapple');
+      expect(results, hasLength(1));
+      expectNoBisectedToken(results.first.snippet);
+    });
+  });
 }

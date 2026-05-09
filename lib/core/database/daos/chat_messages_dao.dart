@@ -417,8 +417,24 @@ String _buildSafeSnippet(String rawContent, List<String> queryTokens) {
   const beforeChars = 40;
   const afterChars = 80;
   final first = matches.first;
-  final snipStart = (first.start - beforeChars).clamp(0, safe.length);
-  final snipEnd = (first.end + afterChars).clamp(0, safe.length);
+  var snipStart = (first.start - beforeChars).clamp(0, safe.length);
+  var snipEnd = (first.end + afterChars).clamp(0, safe.length);
+
+  // The window can land in the middle of a `@[uuid]` mention token. If we
+  // emit a partial token, the renderer can't resolve it to a member name and
+  // the user sees a stray `[uuid` or `uuid]` fragment. Snap the bounds
+  // outward so any partially-covered mention is included whole.
+  final mentionTokenRegex = RegExp(
+    r'@\[[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\]',
+  );
+  for (final mention in mentionTokenRegex.allMatches(safe)) {
+    if (mention.start < snipStart && mention.end > snipStart) {
+      snipStart = mention.start;
+    }
+    if (mention.start < snipEnd && mention.end > snipEnd) {
+      snipEnd = mention.end;
+    }
+  }
 
   final buf = StringBuffer();
   if (snipStart > 0) buf.write('...');

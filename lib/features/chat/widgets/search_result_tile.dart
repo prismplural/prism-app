@@ -1,20 +1,28 @@
 import 'package:flutter/material.dart';
 
+import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/chat/models/search_result.dart';
 import 'package:prism_plurality/features/chat/utils/chat_markdown_syntax.dart';
+import 'package:prism_plurality/features/chat/utils/mention_utils.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
-import 'package:prism_plurality/shared/theme/prism_shapes.dart';
-import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
 class SearchResultTile extends StatelessWidget {
   const SearchResultTile({
     super.key,
     required this.result,
     required this.onTap,
+    this.authorMap = const <String, Member>{},
   });
 
   final MessageSearchResult result;
   final VoidCallback onTap;
+
+  /// Members keyed by ID, used to resolve `@[uuid]` mention tokens in the
+  /// snippet to colored `@MemberName` chips. Defaults to an empty map so
+  /// tests and embeds without a member context render mentions as `@Unknown`
+  /// rather than the raw token.
+  final Map<String, Member> authorMap;
 
   @override
   Widget build(BuildContext context) {
@@ -58,11 +66,34 @@ class SearchResultTile extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Expanded(
+                        Flexible(
                           child: Text(
                             result.authorName ?? 'Unknown',
                             style: theme.textTheme.bodySmall?.copyWith(
                               fontWeight: FontWeight.w600,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Text(
+                          '  ·  ',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        if (result.conversationEmoji != null) ...[
+                          Text(
+                            result.conversationEmoji!,
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                          const SizedBox(width: 3),
+                        ],
+                        Flexible(
+                          child: Text(
+                            result.conversationTitle ?? 'Conversation',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -76,37 +107,6 @@ class SearchResultTile extends StatelessWidget {
                           ),
                         ),
                       ],
-                    ),
-                    const SizedBox(height: 2),
-                    // Conversation pill
-                    TintedGlassSurface(
-                      borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(8)),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (result.conversationEmoji != null) ...[
-                            Text(
-                              result.conversationEmoji!,
-                              style: const TextStyle(fontSize: 10),
-                            ),
-                            const SizedBox(width: 3),
-                          ],
-                          Flexible(
-                            child: Text(
-                              result.conversationTitle ?? 'Conversation',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
                     ),
                     const SizedBox(height: 4),
                     // Snippet with highlighted matches
@@ -135,26 +135,62 @@ class SearchResultTile extends StatelessWidget {
       color: theme.colorScheme.onSurface,
     );
 
-    final spans = <InlineSpan>[];
-    final regex = RegExp(r'\[([^\]]*)\]');
-    var lastEnd = 0;
+    // Mentions are detected first so the highlight scanner can ignore the
+    // `[uuid]` substring inside `@[uuid]` — otherwise a mention's UUID would
+    // get bolded as if it were a search hit.
+    final mentions = mentionRegex.allMatches(redacted).toList();
+    bool insideMention(int pos) {
+      for (final m in mentions) {
+        if (pos >= m.start && pos < m.end) return true;
+      }
+      return false;
+    }
 
-    for (final match in regex.allMatches(redacted)) {
-      if (match.start > lastEnd) {
+    final highlights = RegExp(r'\[([^\]]*)\]')
+        .allMatches(redacted)
+        .where((m) => !insideMention(m.start))
+        .toList();
+
+    final regions = <_SnippetRegion>[
+      for (final m in mentions)
+        _SnippetRegion.mention(m.start, m.end, m.group(1)!),
+      for (final h in highlights)
+        _SnippetRegion.highlight(h.start, h.end, h.group(1) ?? ''),
+    ]..sort((a, b) => a.start.compareTo(b.start));
+
+    final spans = <InlineSpan>[];
+    var cursor = 0;
+    for (final region in regions) {
+      if (region.start > cursor) {
         spans.add(TextSpan(
-          text: redacted.substring(lastEnd, match.start),
+          text: redacted.substring(cursor, region.start),
           style: baseStyle,
         ));
       }
-      spans.add(TextSpan(
-        text: match.group(1),
-        style: highlightStyle,
-      ));
-      lastEnd = match.end;
+      if (region.isMention) {
+        final member = authorMap[region.payload];
+        final name = member?.name ?? 'Unknown';
+        final mentionColor = (member != null &&
+                member.customColorEnabled &&
+                member.customColorHex != null)
+            ? AppColors.fromHex(member.customColorHex!)
+            : theme.colorScheme.primary;
+        spans.add(TextSpan(
+          text: '@$name',
+          style: baseStyle?.copyWith(
+            color: mentionColor,
+            fontWeight: FontWeight.w600,
+          ),
+          semanticsLabel: '@$name',
+        ));
+      } else {
+        spans.add(TextSpan(text: region.payload, style: highlightStyle));
+      }
+      cursor = region.end;
     }
-    if (lastEnd < redacted.length) {
+    if (cursor < redacted.length) {
       spans.add(TextSpan(
-        text: redacted.substring(lastEnd),
+        text: redacted.substring(cursor),
         style: baseStyle,
       ));
     }
@@ -177,4 +213,19 @@ class SearchResultTile extends StatelessWidget {
     if (diff.inDays < 365) return '${(diff.inDays / 7).floor()}w';
     return '${(diff.inDays / 365).floor()}y';
   }
+}
+
+class _SnippetRegion {
+  const _SnippetRegion._(this.start, this.end, this.payload, this.isMention);
+
+  factory _SnippetRegion.mention(int start, int end, String memberId) =>
+      _SnippetRegion._(start, end, memberId, true);
+
+  factory _SnippetRegion.highlight(int start, int end, String text) =>
+      _SnippetRegion._(start, end, text, false);
+
+  final int start;
+  final int end;
+  final String payload;
+  final bool isMention;
 }

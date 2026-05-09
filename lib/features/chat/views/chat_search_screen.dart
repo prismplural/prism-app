@@ -6,8 +6,10 @@ import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:prism_plurality/core/router/app_routes.dart';
+import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/chat/providers/chat_search_providers.dart';
 import 'package:prism_plurality/features/chat/widgets/search_result_tile.dart';
+import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
@@ -220,12 +222,23 @@ class _ChatSearchScreenState extends ConsumerState<ChatSearchScreen> {
                   );
                 }
 
+                // Used to resolve `@[uuid]` mention tokens in result snippets
+                // to colored member-name chips, mirroring the chat bubble.
+                final authorMap = ref.watch(
+                  allMembersProvider.select(
+                    (s) => <String, Member>{
+                      for (final m in s.value ?? const <Member>[]) m.id: m,
+                    },
+                  ),
+                );
+
                 return SliverList.builder(
                   itemCount: results.length,
                   itemBuilder: (context, index) {
                     final result = results[index];
                     return SearchResultTile(
                       result: result,
+                      authorMap: authorMap,
                       onTap: () {
                         context.go(
                           '${AppRoutePaths.chatConversation(result.conversationId)}'
