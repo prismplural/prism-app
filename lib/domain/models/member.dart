@@ -40,6 +40,7 @@ abstract class Member with _$Member {
     String? parentSystemId,
     String? pluralkitUuid,
     String? pluralkitId,
+    String? pluralkitDisplayName,
     @Default(false) bool markdownEnabled,
     String? displayName,
     String? birthday,

@@ -41,6 +41,7 @@ Future<void> _seedV12Db(File dbFile) async {
     );
 
     rawDb.execute('DROP INDEX IF EXISTS idx_comments_target_time');
+    rawDb.execute('ALTER TABLE members DROP COLUMN pluralkit_display_name');
     // v15 (Member Boards) — drop columns added by v14→v15 to simulate older state.
     rawDb.execute('ALTER TABLE members DROP COLUMN board_last_read_at');
     rawDb.execute('ALTER TABLE system_settings DROP COLUMN boards_enabled');
@@ -95,7 +96,7 @@ void main() {
         final version = await upgraded
             .customSelect('PRAGMA user_version')
             .getSingle();
-        expect(version.read<int>('user_version'), 20);
+        expect(version.read<int>('user_version'), 21);
       },
     );
   });

@@ -104,6 +104,8 @@ domain.Member _member({
   String? pronouns,
   String? bio,
   String? pluralkitId,
+  String? displayName,
+  String? pluralkitDisplayName,
   String? customColorHex,
   bool customColorEnabled = false,
   String? proxyTagsJson,
@@ -114,6 +116,8 @@ domain.Member _member({
     pronouns: pronouns,
     bio: bio,
     pluralkitId: pluralkitId,
+    displayName: displayName,
+    pluralkitDisplayName: pluralkitDisplayName,
     customColorHex: customColorHex,
     customColorEnabled: customColorEnabled,
     proxyTagsJson: proxyTagsJson,
@@ -217,6 +221,33 @@ void main() {
         {'prefix': 'A:', 'suffix': null},
       ]);
     });
+
+    test('create uses Prism Name for PK internal name', () async {
+      final member = _member(name: 'Ada', displayName: 'Ada Lovelace');
+
+      await pushService.pushMember(member, fakeClient);
+
+      final data = fakeClient.calls.first.args.last as Map<String, dynamic>;
+      expect(data['name'], 'Ada');
+    });
+
+    test(
+      'patch omits PK internal name and sends PluralKit Display Name',
+      () async {
+        final member = _member(
+          name: 'Prism Name',
+          displayName: 'Local Full Name',
+          pluralkitDisplayName: 'PK Display',
+          pluralkitId: 'pk123',
+        );
+
+        await pushService.pushMember(member, fakeClient);
+
+        final data = fakeClient.calls.first.args.last as Map<String, dynamic>;
+        expect(data.containsKey('name'), isFalse);
+        expect(data['display_name'], 'PK Display');
+      },
+    );
 
     test('includes empty proxy tag list for explicit local clear', () async {
       final member = _member(proxyTagsJson: '[]');

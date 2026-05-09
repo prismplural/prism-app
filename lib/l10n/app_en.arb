@@ -4233,13 +4233,21 @@
   "@memberBioEditorTooltip": {
     "description": "Tooltip for the button that opens the full-screen bio editor"
   },
-  "memberDisplayNameLabel": "Display name",
+  "memberDisplayNameLabel": "Full Name",
   "@memberDisplayNameLabel": {
-    "description": "Label for the member display-name (alias) text field"
+    "description": "Label for the Prism-only member full name text field"
   },
-  "memberDisplayNameHint": "Optional alias shown alongside the name",
+  "memberDisplayNameHint": "",
   "@memberDisplayNameHint": {
-    "description": "Hint text for the member display-name field"
+    "description": "Hint text for the Prism-only member full name field"
+  },
+  "memberPluralKitDisplayNameLabel": "PluralKit Display Name",
+  "@memberPluralKitDisplayNameLabel": {
+    "description": "Label for the PluralKit-synced member display name text field"
+  },
+  "memberPluralKitDisplayNameHint": "Synced with PluralKit when connected",
+  "@memberPluralKitDisplayNameHint": {
+    "description": "Hint text for the PluralKit-synced member display name field"
   },
   "memberBirthdayLabel": "Birthday",
   "@memberBirthdayLabel": {

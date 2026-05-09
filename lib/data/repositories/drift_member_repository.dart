@@ -262,6 +262,7 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
       'parent_system_id': m.parentSystemId,
       'pluralkit_uuid': m.pluralkitUuid,
       'pluralkit_id': m.pluralkitId,
+      'pluralkit_display_name': m.pluralkitDisplayName,
       'markdown_enabled': m.markdownEnabled,
       'display_name': m.displayName,
       'birthday': m.birthday,

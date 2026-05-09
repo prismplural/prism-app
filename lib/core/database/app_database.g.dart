@@ -188,6 +188,17 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _pluralkitDisplayNameMeta =
+      const VerificationMeta('pluralkitDisplayName');
+  @override
+  late final GeneratedColumn<String> pluralkitDisplayName =
+      GeneratedColumn<String>(
+        'pluralkit_display_name',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _displayNameMeta = const VerificationMeta(
     'displayName',
   );
@@ -478,6 +489,7 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
     parentSystemId,
     pluralkitUuid,
     pluralkitId,
+    pluralkitDisplayName,
     displayName,
     birthday,
     proxyTagsJson,
@@ -630,6 +642,15 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
         pluralkitId.isAcceptableOrUnknown(
           data['pluralkit_id']!,
           _pluralkitIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('pluralkit_display_name')) {
+      context.handle(
+        _pluralkitDisplayNameMeta,
+        pluralkitDisplayName.isAcceptableOrUnknown(
+          data['pluralkit_display_name']!,
+          _pluralkitDisplayNameMeta,
         ),
       );
     }
@@ -898,6 +919,10 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
         DriftSqlType.string,
         data['${effectivePrefix}pluralkit_id'],
       ),
+      pluralkitDisplayName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pluralkit_display_name'],
+      ),
       displayName: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}display_name'],
@@ -1012,6 +1037,7 @@ class Member extends DataClass implements Insertable<Member> {
   final String? parentSystemId;
   final String? pluralkitUuid;
   final String? pluralkitId;
+  final String? pluralkitDisplayName;
   final String? displayName;
   final String? birthday;
   final String? proxyTagsJson;
@@ -1051,6 +1077,7 @@ class Member extends DataClass implements Insertable<Member> {
     this.parentSystemId,
     this.pluralkitUuid,
     this.pluralkitId,
+    this.pluralkitDisplayName,
     this.displayName,
     this.birthday,
     this.proxyTagsJson,
@@ -1108,6 +1135,9 @@ class Member extends DataClass implements Insertable<Member> {
     }
     if (!nullToAbsent || pluralkitId != null) {
       map['pluralkit_id'] = Variable<String>(pluralkitId);
+    }
+    if (!nullToAbsent || pluralkitDisplayName != null) {
+      map['pluralkit_display_name'] = Variable<String>(pluralkitDisplayName);
     }
     if (!nullToAbsent || displayName != null) {
       map['display_name'] = Variable<String>(displayName);
@@ -1188,6 +1218,9 @@ class Member extends DataClass implements Insertable<Member> {
       pluralkitId: pluralkitId == null && nullToAbsent
           ? const Value.absent()
           : Value(pluralkitId),
+      pluralkitDisplayName: pluralkitDisplayName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pluralkitDisplayName),
       displayName: displayName == null && nullToAbsent
           ? const Value.absent()
           : Value(displayName),
@@ -1257,6 +1290,9 @@ class Member extends DataClass implements Insertable<Member> {
       parentSystemId: serializer.fromJson<String?>(json['parentSystemId']),
       pluralkitUuid: serializer.fromJson<String?>(json['pluralkitUuid']),
       pluralkitId: serializer.fromJson<String?>(json['pluralkitId']),
+      pluralkitDisplayName: serializer.fromJson<String?>(
+        json['pluralkitDisplayName'],
+      ),
       displayName: serializer.fromJson<String?>(json['displayName']),
       birthday: serializer.fromJson<String?>(json['birthday']),
       proxyTagsJson: serializer.fromJson<String?>(json['proxyTagsJson']),
@@ -1319,6 +1355,7 @@ class Member extends DataClass implements Insertable<Member> {
       'parentSystemId': serializer.toJson<String?>(parentSystemId),
       'pluralkitUuid': serializer.toJson<String?>(pluralkitUuid),
       'pluralkitId': serializer.toJson<String?>(pluralkitId),
+      'pluralkitDisplayName': serializer.toJson<String?>(pluralkitDisplayName),
       'displayName': serializer.toJson<String?>(displayName),
       'birthday': serializer.toJson<String?>(birthday),
       'proxyTagsJson': serializer.toJson<String?>(proxyTagsJson),
@@ -1363,6 +1400,7 @@ class Member extends DataClass implements Insertable<Member> {
     Value<String?> parentSystemId = const Value.absent(),
     Value<String?> pluralkitUuid = const Value.absent(),
     Value<String?> pluralkitId = const Value.absent(),
+    Value<String?> pluralkitDisplayName = const Value.absent(),
     Value<String?> displayName = const Value.absent(),
     Value<String?> birthday = const Value.absent(),
     Value<String?> proxyTagsJson = const Value.absent(),
@@ -1410,6 +1448,9 @@ class Member extends DataClass implements Insertable<Member> {
         ? pluralkitUuid.value
         : this.pluralkitUuid,
     pluralkitId: pluralkitId.present ? pluralkitId.value : this.pluralkitId,
+    pluralkitDisplayName: pluralkitDisplayName.present
+        ? pluralkitDisplayName.value
+        : this.pluralkitDisplayName,
     displayName: displayName.present ? displayName.value : this.displayName,
     birthday: birthday.present ? birthday.value : this.birthday,
     proxyTagsJson: proxyTagsJson.present
@@ -1481,6 +1522,9 @@ class Member extends DataClass implements Insertable<Member> {
       pluralkitId: data.pluralkitId.present
           ? data.pluralkitId.value
           : this.pluralkitId,
+      pluralkitDisplayName: data.pluralkitDisplayName.present
+          ? data.pluralkitDisplayName.value
+          : this.pluralkitDisplayName,
       displayName: data.displayName.present
           ? data.displayName.value
           : this.displayName,
@@ -1565,6 +1609,7 @@ class Member extends DataClass implements Insertable<Member> {
           ..write('parentSystemId: $parentSystemId, ')
           ..write('pluralkitUuid: $pluralkitUuid, ')
           ..write('pluralkitId: $pluralkitId, ')
+          ..write('pluralkitDisplayName: $pluralkitDisplayName, ')
           ..write('displayName: $displayName, ')
           ..write('birthday: $birthday, ')
           ..write('proxyTagsJson: $proxyTagsJson, ')
@@ -1609,6 +1654,7 @@ class Member extends DataClass implements Insertable<Member> {
     parentSystemId,
     pluralkitUuid,
     pluralkitId,
+    pluralkitDisplayName,
     displayName,
     birthday,
     proxyTagsJson,
@@ -1655,6 +1701,7 @@ class Member extends DataClass implements Insertable<Member> {
           other.parentSystemId == this.parentSystemId &&
           other.pluralkitUuid == this.pluralkitUuid &&
           other.pluralkitId == this.pluralkitId &&
+          other.pluralkitDisplayName == this.pluralkitDisplayName &&
           other.displayName == this.displayName &&
           other.birthday == this.birthday &&
           other.proxyTagsJson == this.proxyTagsJson &&
@@ -1702,6 +1749,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
   final Value<String?> parentSystemId;
   final Value<String?> pluralkitUuid;
   final Value<String?> pluralkitId;
+  final Value<String?> pluralkitDisplayName;
   final Value<String?> displayName;
   final Value<String?> birthday;
   final Value<String?> proxyTagsJson;
@@ -1742,6 +1790,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
     this.parentSystemId = const Value.absent(),
     this.pluralkitUuid = const Value.absent(),
     this.pluralkitId = const Value.absent(),
+    this.pluralkitDisplayName = const Value.absent(),
     this.displayName = const Value.absent(),
     this.birthday = const Value.absent(),
     this.proxyTagsJson = const Value.absent(),
@@ -1783,6 +1832,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
     this.parentSystemId = const Value.absent(),
     this.pluralkitUuid = const Value.absent(),
     this.pluralkitId = const Value.absent(),
+    this.pluralkitDisplayName = const Value.absent(),
     this.displayName = const Value.absent(),
     this.birthday = const Value.absent(),
     this.proxyTagsJson = const Value.absent(),
@@ -1826,6 +1876,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
     Expression<String>? parentSystemId,
     Expression<String>? pluralkitUuid,
     Expression<String>? pluralkitId,
+    Expression<String>? pluralkitDisplayName,
     Expression<String>? displayName,
     Expression<String>? birthday,
     Expression<String>? proxyTagsJson,
@@ -1868,6 +1919,8 @@ class MembersCompanion extends UpdateCompanion<Member> {
       if (parentSystemId != null) 'parent_system_id': parentSystemId,
       if (pluralkitUuid != null) 'pluralkit_uuid': pluralkitUuid,
       if (pluralkitId != null) 'pluralkit_id': pluralkitId,
+      if (pluralkitDisplayName != null)
+        'pluralkit_display_name': pluralkitDisplayName,
       if (displayName != null) 'display_name': displayName,
       if (birthday != null) 'birthday': birthday,
       if (proxyTagsJson != null) 'proxy_tags_json': proxyTagsJson,
@@ -1918,6 +1971,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
     Value<String?>? parentSystemId,
     Value<String?>? pluralkitUuid,
     Value<String?>? pluralkitId,
+    Value<String?>? pluralkitDisplayName,
     Value<String?>? displayName,
     Value<String?>? birthday,
     Value<String?>? proxyTagsJson,
@@ -1959,6 +2013,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
       parentSystemId: parentSystemId ?? this.parentSystemId,
       pluralkitUuid: pluralkitUuid ?? this.pluralkitUuid,
       pluralkitId: pluralkitId ?? this.pluralkitId,
+      pluralkitDisplayName: pluralkitDisplayName ?? this.pluralkitDisplayName,
       displayName: displayName ?? this.displayName,
       birthday: birthday ?? this.birthday,
       proxyTagsJson: proxyTagsJson ?? this.proxyTagsJson,
@@ -2036,6 +2091,11 @@ class MembersCompanion extends UpdateCompanion<Member> {
     }
     if (pluralkitId.present) {
       map['pluralkit_id'] = Variable<String>(pluralkitId.value);
+    }
+    if (pluralkitDisplayName.present) {
+      map['pluralkit_display_name'] = Variable<String>(
+        pluralkitDisplayName.value,
+      );
     }
     if (displayName.present) {
       map['display_name'] = Variable<String>(displayName.value);
@@ -2136,6 +2196,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
           ..write('parentSystemId: $parentSystemId, ')
           ..write('pluralkitUuid: $pluralkitUuid, ')
           ..write('pluralkitId: $pluralkitId, ')
+          ..write('pluralkitDisplayName: $pluralkitDisplayName, ')
           ..write('displayName: $displayName, ')
           ..write('birthday: $birthday, ')
           ..write('proxyTagsJson: $proxyTagsJson, ')
@@ -24208,6 +24269,7 @@ typedef $$MembersTableCreateCompanionBuilder =
       Value<String?> parentSystemId,
       Value<String?> pluralkitUuid,
       Value<String?> pluralkitId,
+      Value<String?> pluralkitDisplayName,
       Value<String?> displayName,
       Value<String?> birthday,
       Value<String?> proxyTagsJson,
@@ -24250,6 +24312,7 @@ typedef $$MembersTableUpdateCompanionBuilder =
       Value<String?> parentSystemId,
       Value<String?> pluralkitUuid,
       Value<String?> pluralkitId,
+      Value<String?> pluralkitDisplayName,
       Value<String?> displayName,
       Value<String?> birthday,
       Value<String?> proxyTagsJson,
@@ -24361,6 +24424,11 @@ class $$MembersTableFilterComposer
 
   ColumnFilters<String> get pluralkitId => $composableBuilder(
     column: $table.pluralkitId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pluralkitDisplayName => $composableBuilder(
+    column: $table.pluralkitDisplayName,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -24564,6 +24632,11 @@ class $$MembersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get pluralkitDisplayName => $composableBuilder(
+    column: $table.pluralkitDisplayName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get displayName => $composableBuilder(
     column: $table.displayName,
     builder: (column) => ColumnOrderings(column),
@@ -24746,6 +24819,11 @@ class $$MembersTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get pluralkitDisplayName => $composableBuilder(
+    column: $table.pluralkitDisplayName,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get displayName => $composableBuilder(
     column: $table.displayName,
     builder: (column) => column,
@@ -24897,6 +24975,7 @@ class $$MembersTableTableManager
                 Value<String?> parentSystemId = const Value.absent(),
                 Value<String?> pluralkitUuid = const Value.absent(),
                 Value<String?> pluralkitId = const Value.absent(),
+                Value<String?> pluralkitDisplayName = const Value.absent(),
                 Value<String?> displayName = const Value.absent(),
                 Value<String?> birthday = const Value.absent(),
                 Value<String?> proxyTagsJson = const Value.absent(),
@@ -24937,6 +25016,7 @@ class $$MembersTableTableManager
                 parentSystemId: parentSystemId,
                 pluralkitUuid: pluralkitUuid,
                 pluralkitId: pluralkitId,
+                pluralkitDisplayName: pluralkitDisplayName,
                 displayName: displayName,
                 birthday: birthday,
                 proxyTagsJson: proxyTagsJson,
@@ -24979,6 +25059,7 @@ class $$MembersTableTableManager
                 Value<String?> parentSystemId = const Value.absent(),
                 Value<String?> pluralkitUuid = const Value.absent(),
                 Value<String?> pluralkitId = const Value.absent(),
+                Value<String?> pluralkitDisplayName = const Value.absent(),
                 Value<String?> displayName = const Value.absent(),
                 Value<String?> birthday = const Value.absent(),
                 Value<String?> proxyTagsJson = const Value.absent(),
@@ -25019,6 +25100,7 @@ class $$MembersTableTableManager
                 parentSystemId: parentSystemId,
                 pluralkitUuid: pluralkitUuid,
                 pluralkitId: pluralkitId,
+                pluralkitDisplayName: pluralkitDisplayName,
                 displayName: displayName,
                 birthday: birthday,
                 proxyTagsJson: proxyTagsJson,

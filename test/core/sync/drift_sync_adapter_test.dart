@@ -503,6 +503,7 @@ void main() {
         customColorEnabled: false,
         pluralkitUuid: 'uuid-ada',
         pluralkitId: 'ada',
+        pluralkitDisplayName: 'Ada PK',
         displayName: 'Ada Lovelace',
         birthday: '1815-12-10',
         proxyTagsJson: '[{"prefix":"A:","suffix":null}]',
@@ -525,6 +526,7 @@ void main() {
       );
 
       final back = await roundTripMember(db, member);
+      expect(back['pluralkit_display_name'], 'Ada PK');
       expect(back['display_name'], 'Ada Lovelace');
       expect(back['birthday'], '1815-12-10');
       expect(back['proxy_tags_json'], '[{"prefix":"A:","suffix":null}]');
@@ -608,6 +610,7 @@ void main() {
       expect(back['pluralkit_sync_ignored'], isFalse);
       expect(back['pluralkit_uuid'], isNull);
       expect(back['pluralkit_id'], isNull);
+      expect(back['pluralkit_display_name'], isNull);
     },
   );
 
@@ -1125,6 +1128,7 @@ const _remoteCreatePayloads = <String, Map<String, dynamic>>{
     'parent_system_id': 'system-1',
     'pluralkit_uuid': 'pk-member-uuid',
     'pluralkit_id': 'abcde',
+    'pluralkit_display_name': 'Ada PK Display',
     'markdown_enabled': true,
     'display_name': 'Ada Display',
     'birthday': '2000-01-01',

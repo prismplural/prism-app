@@ -5387,17 +5387,29 @@ abstract class AppLocalizations {
   /// **'Edit bio'**
   String get memberBioEditorTooltip;
 
-  /// Label for the member display-name (alias) text field
+  /// Label for the Prism-only member full name text field
   ///
   /// In en, this message translates to:
-  /// **'Display name'**
+  /// **'Full Name'**
   String get memberDisplayNameLabel;
 
-  /// Hint text for the member display-name field
+  /// Hint text for the Prism-only member full name field
   ///
   /// In en, this message translates to:
-  /// **'Optional alias shown alongside the name'**
+  /// **''**
   String get memberDisplayNameHint;
+
+  /// Label for the PluralKit-synced member display name text field
+  ///
+  /// In en, this message translates to:
+  /// **'PluralKit Display Name'**
+  String get memberPluralKitDisplayNameLabel;
+
+  /// Hint text for the PluralKit-synced member display name field
+  ///
+  /// In en, this message translates to:
+  /// **'Synced with PluralKit when connected'**
+  String get memberPluralKitDisplayNameHint;
 
   /// Label for the member birthday field
   ///

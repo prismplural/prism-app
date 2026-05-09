@@ -511,6 +511,7 @@ class DataImportService {
                 customColorHex: h.customColorHex,
                 pluralkitUuid: h.pluralkitUuid,
                 pluralkitId: h.pluralkitId,
+                pluralkitDisplayName: h.pluralkitDisplayName,
                 markdownEnabled: h.markdownEnabled,
                 displayName: h.displayName,
                 birthday: h.birthday,

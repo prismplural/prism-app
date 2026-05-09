@@ -375,6 +375,7 @@ class V1Headmate {
     this.parentSystemId,
     this.pluralkitUuid,
     this.pluralkitId,
+    this.pluralkitDisplayName,
     this.markdownEnabled = false,
     this.displayName,
     this.birthday,
@@ -405,8 +406,9 @@ class V1Headmate {
   final String? parentSystemId;
   final String? pluralkitUuid;
   final String? pluralkitId;
+  final String? pluralkitDisplayName;
   final bool markdownEnabled;
-  // PluralKit Phase 2 fields (additive; older exports default to null/false)
+  // Additive member metadata; older exports default to null/false.
   final String? displayName;
   final String? birthday;
   final String? proxyTagsJson;
@@ -436,6 +438,8 @@ class V1Headmate {
     if (parentSystemId != null) 'parentSystemId': parentSystemId,
     if (pluralkitUuid != null) 'pluralkitUuid': pluralkitUuid,
     if (pluralkitId != null) 'pluralkitId': pluralkitId,
+    if (pluralkitDisplayName != null)
+      'pluralkitDisplayName': pluralkitDisplayName,
     'markdownEnabled': markdownEnabled,
     if (displayName != null) 'displayName': displayName,
     if (birthday != null) 'birthday': birthday,
@@ -469,6 +473,7 @@ class V1Headmate {
     parentSystemId: json['parentSystemId'] as String?,
     pluralkitUuid: json['pluralkitUuid'] as String?,
     pluralkitId: json['pluralkitId'] as String?,
+    pluralkitDisplayName: json['pluralkitDisplayName'] as String?,
     markdownEnabled: json['markdownEnabled'] as bool? ?? false,
     displayName: json['displayName'] as String?,
     birthday: json['birthday'] as String?,

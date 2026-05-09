@@ -88,6 +88,7 @@ Future<void> _seedV6Db(
     rawDb.execute('ALTER TABLE members DROP COLUMN profile_header_image_data');
     rawDb.execute('ALTER TABLE members DROP COLUMN pk_banner_image_data');
     rawDb.execute('ALTER TABLE members DROP COLUMN pk_banner_cached_url');
+    rawDb.execute('ALTER TABLE members DROP COLUMN pluralkit_display_name');
     rawDb.execute(
       'ALTER TABLE system_settings DROP COLUMN fronting_list_view_mode',
     );

@@ -3094,10 +3094,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memberBioEditorTooltip => 'Edit bio';
 
   @override
-  String get memberDisplayNameLabel => 'Display name';
+  String get memberDisplayNameLabel => 'Full Name';
 
   @override
-  String get memberDisplayNameHint => 'Optional alias shown alongside the name';
+  String get memberDisplayNameHint => '';
+
+  @override
+  String get memberPluralKitDisplayNameLabel => 'PluralKit Display Name';
+
+  @override
+  String get memberPluralKitDisplayNameHint =>
+      'Synced with PluralKit when connected';
 
   @override
   String get memberBirthdayLabel => 'Birthday';

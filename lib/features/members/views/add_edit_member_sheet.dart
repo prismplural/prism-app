@@ -65,6 +65,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
   late final TextEditingController _colorHexController;
   late final TextEditingController _nameStyleColorHexController;
   late final TextEditingController _displayNameController;
+  late final TextEditingController _pluralkitDisplayNameController;
   late final CustomFieldsEditorController _customFieldsEditorController;
   final List<_ProxyTagDraft> _proxyTagDrafts = [];
 
@@ -93,6 +94,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
   late final String _initialColorHex;
   late final String _initialNameStyleColorHex;
   late final String _initialDisplayName;
+  late final String _initialPluralKitDisplayName;
   late final String? _initialProxyTagsJson;
   late final bool _initialIsAdmin;
   late final bool _initialMarkdownEnabled;
@@ -126,6 +128,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
       _colorHexController.text != _initialColorHex ||
       _nameStyleColorHexController.text != _initialNameStyleColorHex ||
       _displayNameController.text != _initialDisplayName ||
+      _pluralkitDisplayNameController.text != _initialPluralKitDisplayName ||
       _proxyTagsJson() != _initialProxyTagsJson ||
       _isAdmin != _initialIsAdmin ||
       _markdownEnabled != _initialMarkdownEnabled ||
@@ -143,6 +146,14 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
       !_bytesEqual(_profileHeaderImageData, _initialProfileHeaderImageData) ||
       _birthday != _initialBirthday ||
       _birthdayHideYear != _initialBirthdayHideYear;
+
+  bool get _showPluralKitDisplayNameField {
+    final member = widget.member;
+    if (member == null) return false;
+    return _hasText(member.pluralkitUuid) ||
+        _hasText(member.pluralkitId) ||
+        _hasText(member.pluralkitDisplayName);
+  }
 
   @override
   void initState() {
@@ -163,6 +174,9 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
       text: _normalizeColorHexForField(m?.nameStyleColorHex),
     );
     _displayNameController = TextEditingController(text: m?.displayName ?? '');
+    _pluralkitDisplayNameController = TextEditingController(
+      text: m?.pluralkitDisplayName ?? '',
+    );
     _customFieldsEditorController = CustomFieldsEditorController();
     _proxyTagDrafts
       ..clear()
@@ -195,6 +209,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
     _initialColorHex = _colorHexController.text;
     _initialNameStyleColorHex = _nameStyleColorHexController.text;
     _initialDisplayName = _displayNameController.text;
+    _initialPluralKitDisplayName = _pluralkitDisplayNameController.text;
     _initialProxyTagsJson = _proxyTagsJson();
     _initialIsAdmin = _isAdmin;
     _initialMarkdownEnabled = _markdownEnabled;
@@ -229,6 +244,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
     _colorHexController.dispose();
     _nameStyleColorHexController.dispose();
     _displayNameController.dispose();
+    _pluralkitDisplayNameController.dispose();
     for (final draft in _proxyTagDrafts) {
       draft.dispose();
     }
@@ -267,6 +283,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
     final name = _nameController.text.trim();
     final emoji = _emojiController.text.trim();
     final displayName = _displayNameController.text.trim();
+    final pluralkitDisplayName = _pluralkitDisplayNameController.text.trim();
     final pronouns = _pronounsController.text.trim();
     final ageText = _ageController.text.trim();
     final age = ageText.isNotEmpty ? int.tryParse(ageText) : null;
@@ -290,6 +307,9 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
           birthday: birthdayWire,
           proxyTagsJson: _proxyTagsJson(),
           displayName: displayName.isNotEmpty ? displayName : null,
+          pluralkitDisplayName: pluralkitDisplayName.isNotEmpty
+              ? pluralkitDisplayName
+              : null,
           avatarImageData: _avatarImageData,
           customColorEnabled: _customColorEnabled,
           customColorHex: _customColorEnabled && colorHex.isNotEmpty
@@ -327,6 +347,8 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
     }
     return cleaned.toUpperCase();
   }
+
+  bool _hasText(String? value) => value != null && value.trim().isNotEmpty;
 
   String _colorToFieldHex(Color color) {
     final value = color.toARGB32() & 0xFFFFFF;
@@ -489,6 +511,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
               : null
         : null;
     final displayName = _displayNameController.text.trim();
+    final pluralkitDisplayName = _pluralkitDisplayNameController.text.trim();
     // Preserve PK's `YYYY-MM-DD` wire format so round-trips stay byte-identical;
     // `0004-MM-DD` is the "no year" sentinel that PK uses when the year is hidden.
     final birthdayWire = _birthday == null
@@ -512,6 +535,9 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
           customColorEnabled: _customColorEnabled,
           customColorHex: colorHex,
           displayName: displayName.isNotEmpty ? displayName : null,
+          pluralkitDisplayName: pluralkitDisplayName.isNotEmpty
+              ? pluralkitDisplayName
+              : null,
           birthday: birthdayWire,
           proxyTagsJson: proxyTagsJson,
           isAlwaysFronting: _isAlwaysFronting,
@@ -539,6 +565,9 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
           customColorHex: colorHex,
           isAlwaysFronting: _isAlwaysFronting,
           displayName: displayName.isNotEmpty ? displayName : null,
+          pluralkitDisplayName: pluralkitDisplayName.isNotEmpty
+              ? pluralkitDisplayName
+              : null,
           birthday: birthdayWire,
           proxyTagsJson: proxyTagsJson,
           profileHeaderSource: _profileHeaderSource,
@@ -988,6 +1017,16 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
                           textCapitalization: TextCapitalization.words,
                           onChanged: (_) => setState(() {}),
                         ),
+                        if (_showPluralKitDisplayNameField) ...[
+                          const SizedBox(height: 16),
+                          PrismTextField(
+                            controller: _pluralkitDisplayNameController,
+                            labelText: l10n.memberPluralKitDisplayNameLabel,
+                            hintText: l10n.memberPluralKitDisplayNameHint,
+                            textCapitalization: TextCapitalization.words,
+                            onChanged: (_) => setState(() {}),
+                          ),
+                        ],
                         const SizedBox(height: 24),
                         Text(
                           l10n.memberEditSectionAbout,

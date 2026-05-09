@@ -30,6 +30,7 @@ const String prismSyncSchema = '''
         "parent_system_id": "String",
         "pluralkit_uuid": "String",
         "pluralkit_id": "String",
+        "pluralkit_display_name": "String",
         "markdown_enabled": "Bool",
         "display_name": "String",
         "birthday": "String",

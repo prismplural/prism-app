@@ -87,9 +87,15 @@ class FakePluralKitClient implements PluralKitClient {
   @override
   Future<List<String>> getGroupMembers(String groupRef) async => const [];
   @override
-  Future<void> addMembersToGroup(String groupRef, List<String> memberRefs) async => throw UnimplementedError();
+  Future<void> addMembersToGroup(
+    String groupRef,
+    List<String> memberRefs,
+  ) async => throw UnimplementedError();
   @override
-  Future<void> removeMembersFromGroup(String groupRef, List<String> memberRefs) async => throw UnimplementedError();
+  Future<void> removeMembersFromGroup(
+    String groupRef,
+    List<String> memberRefs,
+  ) async => throw UnimplementedError();
   @override
   Future<PKSwitch?> getCurrentFronters() => throw UnimplementedError();
   @override
@@ -167,6 +173,7 @@ domain.Member _localMember({
   String? customColorHex,
   bool customColorEnabled = false,
   String? displayName,
+  String? pluralkitDisplayName,
   String? birthday,
   String? proxyTagsJson,
 }) {
@@ -180,6 +187,7 @@ domain.Member _localMember({
     customColorHex: customColorHex,
     customColorEnabled: customColorEnabled,
     displayName: displayName,
+    pluralkitDisplayName: pluralkitDisplayName,
     birthday: birthday,
     proxyTagsJson: proxyTagsJson,
     createdAt: DateTime(2026, 1, 1),
@@ -397,11 +405,12 @@ void main() {
   // -------------------------------------------------------------------------
 
   group('_applyPkChanges (via syncMembers, pullOnly)', () {
-    test('pulls name difference and writes via updateMember', () async {
+    test('does not pull PK internal name into Prism Name', () async {
       final local = _localMember(
         id: 'local-1',
         name: 'OldName',
         pluralkitId: 'pk001',
+        pluralkitUuid: 'uuid-pk001',
       );
       final pk = _pkMember(id: 'pk001', name: 'NewName');
 
@@ -415,39 +424,40 @@ void main() {
         client: fakeClient,
       );
 
-      expect(summary.membersPulled, 1);
-      expect(summary.membersSkipped, 0);
-      final calls = fakeRepo.calls
-          .where((c) => c.method == 'updateMember')
-          .toList();
-      expect(calls.length, 1);
-      final written = calls.first.args[0] as domain.Member;
-      expect(written.name, 'NewName');
+      expect(summary.membersPulled, 0);
+      expect(summary.membersSkipped, 1);
+      expect(fakeRepo.calls, isEmpty);
     });
 
-    test('pulls displayName', () async {
-      final local = _localMember(
-        id: 'local-1',
-        pluralkitId: 'pk001',
-        displayName: null,
-      );
-      final pk = _pkMember(id: 'pk001', displayName: 'Ali');
+    test(
+      'pulls PluralKit displayName into the PK display name field',
+      () async {
+        final local = _localMember(
+          id: 'local-1',
+          pluralkitId: 'pk001',
+          displayName: 'Local Full Name',
+          pluralkitDisplayName: null,
+        );
+        final pk = _pkMember(id: 'pk001', displayName: 'Ali');
 
-      await service.syncMembers(
-        localMembers: [local],
-        pkMembers: [pk],
-        fieldConfigs: {},
-        direction: PkSyncDirection.pullOnly,
-        lastSyncDate: null,
-        memberRepository: fakeRepo,
-        client: fakeClient,
-      );
+        await service.syncMembers(
+          localMembers: [local],
+          pkMembers: [pk],
+          fieldConfigs: {},
+          direction: PkSyncDirection.pullOnly,
+          lastSyncDate: null,
+          memberRepository: fakeRepo,
+          client: fakeClient,
+        );
 
-      final written =
-          fakeRepo.calls.firstWhere((c) => c.method == 'updateMember').args[0]
-              as domain.Member;
-      expect(written.displayName, 'Ali');
-    });
+        final written =
+            fakeRepo.calls.firstWhere((c) => c.method == 'updateMember').args[0]
+                as domain.Member;
+        expect(written.name, 'Alice');
+        expect(written.displayName, 'Local Full Name');
+        expect(written.pluralkitDisplayName, 'Ali');
+      },
+    );
 
     test('pulls birthday', () async {
       final local = _localMember(id: 'local-1', pluralkitId: 'pk001');
@@ -545,12 +555,12 @@ void main() {
     test(
       'push payload includes proxy_tags when pushing member changes',
       () async {
-        // A local displayName change forces a push. The request sent to
+        // A local PluralKit Display Name change forces a push. The request sent to
         // PK should carry the local proxy tags with the other pushed fields.
         final local = _localMember(
           id: 'local-1',
           pluralkitId: 'pk001',
-          displayName: 'NewDisplay',
+          pluralkitDisplayName: 'NewDisplay',
           proxyTagsJson: '[{"prefix":"LOCAL:","suffix":null}]',
         );
         final pk = _pkMember(
@@ -650,7 +660,8 @@ void main() {
         bio: 'hello',
         pluralkitId: 'pk001',
         pluralkitUuid: 'uuid-pk001',
-        displayName: 'SameDisplay',
+        displayName: 'Local Full Name',
+        pluralkitDisplayName: 'SameDisplay',
         birthday: '2020-01-15',
       );
       final pk = _pkMember(
@@ -706,7 +717,8 @@ void main() {
       final local = _localMember(
         id: 'local-1',
         pluralkitId: 'pk001',
-        displayName: 'LocalOnly',
+        displayName: 'Local Full Name',
+        pluralkitDisplayName: 'LocalOnly',
       );
       final pk = _pkMember(id: 'pk001', displayName: 'PkWins');
 
@@ -727,16 +739,17 @@ void main() {
         client: fakeClient,
       );
 
-      // displayName shouldn't have been pulled. The push path will fire
+      // PluralKit Display Name shouldn't have been pulled. The push path will fire
       // instead because local has a different value and push is enabled.
       // But that's fine — the point is memberRepository.updateMember was
-      // NOT called with a changed displayName.
+      // NOT called with a changed PluralKit Display Name.
       final updateMemberCalls = fakeRepo.calls.where(
         (c) => c.method == 'updateMember',
       );
       for (final c in updateMemberCalls) {
         final m = c.args[0] as domain.Member;
-        expect(m.displayName, 'LocalOnly');
+        expect(m.displayName, 'Local Full Name');
+        expect(m.pluralkitDisplayName, 'LocalOnly');
       }
     });
   });
@@ -858,59 +871,55 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
-  // Silent-rename migration — pre-phase-3 fallback (pk.displayName ?? pk.name)
+  // PluralKit display-name sync must not rewrite Prism Name or Full Name.
   // -------------------------------------------------------------------------
 
-  group('displayName migration from legacy local.name', () {
-    test(
-      'local.displayName null + local.name == pk.displayName → promote, do NOT rename',
-      () async {
-        // Pre-phase-3, local.name was set from pk.displayName (fallback).
-        // Phase 3 must promote that to displayName, not silently rename.
-        final local = _localMember(
-          id: 'local-1',
-          name: 'Alice ✨',
-          pluralkitId: 'pk001',
-          pluralkitUuid: 'uuid-pk001',
-          // displayName: null (legacy shape)
-        );
-        final pk = _pkMember(
-          id: 'pk001',
-          uuid: 'uuid-pk001',
-          name: 'alice',
-          displayName: 'Alice ✨',
-        );
+  group('PluralKit display name field split', () {
+    test('legacy local.name == pk.displayName writes PK field only', () async {
+      final local = _localMember(
+        id: 'local-1',
+        name: 'Alice ✨',
+        pluralkitId: 'pk001',
+        pluralkitUuid: 'uuid-pk001',
+        // displayName: null (legacy shape)
+      );
+      final pk = _pkMember(
+        id: 'pk001',
+        uuid: 'uuid-pk001',
+        name: 'alice',
+        displayName: 'Alice ✨',
+      );
 
-        await service.syncMembers(
-          localMembers: [local],
-          pkMembers: [pk],
-          fieldConfigs: {},
-          direction: PkSyncDirection.pullOnly,
-          lastSyncDate: null,
-          memberRepository: fakeRepo,
-          client: fakeClient,
-        );
+      await service.syncMembers(
+        localMembers: [local],
+        pkMembers: [pk],
+        fieldConfigs: {},
+        direction: PkSyncDirection.pullOnly,
+        lastSyncDate: null,
+        memberRepository: fakeRepo,
+        client: fakeClient,
+      );
 
-        final calls = fakeRepo.calls
-            .where((c) => c.method == 'updateMember')
-            .toList();
-        expect(calls, isNotEmpty);
-        final updated = calls.last.args[0] as domain.Member;
-        expect(
-          updated.displayName,
-          'Alice ✨',
-          reason: 'Legacy local.name must migrate into displayName',
-        );
-        expect(
-          updated.name,
-          'alice',
-          reason: 'local.name then follows pk.name',
-        );
-      },
-    );
+      final calls = fakeRepo.calls
+          .where((c) => c.method == 'updateMember')
+          .toList();
+      expect(calls, isNotEmpty);
+      final updated = calls.last.args[0] as domain.Member;
+      expect(
+        updated.pluralkitDisplayName,
+        'Alice ✨',
+        reason: 'PK display_name must land in the PK-specific field',
+      );
+      expect(updated.displayName, isNull);
+      expect(
+        updated.name,
+        'Alice ✨',
+        reason: 'Prism Name is local-only and must not follow pk.name',
+      );
+    });
 
     test(
-      'non-legacy case: local.displayName already set → normal pull',
+      'local Full Name already set stays local-only during normal pull',
       () async {
         final local = _localMember(
           id: 'local-1',
@@ -940,7 +949,8 @@ void main() {
             fakeRepo.calls.where((c) => c.method == 'updateMember').last.args[0]
                 as domain.Member;
         expect(updated.name, 'alice');
-        expect(updated.displayName, 'Alice 🌟');
+        expect(updated.displayName, 'Alice ✨');
+        expect(updated.pluralkitDisplayName, 'Alice 🌟');
       },
     );
   });

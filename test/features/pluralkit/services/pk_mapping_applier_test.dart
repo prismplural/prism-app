@@ -302,7 +302,9 @@ void main() {
       final applier = buildApplier(repo: repo, client: client);
       const pk = PKMember(id: 'abcde', uuid: 'u-import', name: 'Imported');
 
-      final results = await applier.apply([const PkImportDecision(pkMember: pk)]);
+      final results = await applier.apply([
+        const PkImportDecision(pkMember: pk),
+      ]);
 
       expect(results.single.outcome, PkApplyOutcome.failed);
       expect(
@@ -395,7 +397,7 @@ void main() {
       id: 'l1',
       name: '',
       createdAt: DateTime(2026),
-      // all other fields default: pronouns null, bio null, displayName null,
+      // all other fields default: pronouns null, bio null, Full Name null,
       // customColorEnabled false, birthday null, proxyTagsJson null.
     );
     final repo = FakeMemberRepo([local]);
@@ -420,8 +422,9 @@ void main() {
     expect(results.single.outcome, PkApplyOutcome.applied);
     final updated = (await repo.getMemberById('l1'))!;
     expect(updated.pluralkitUuid, 'u-link');
-    expect(updated.name, 'Alice');
-    expect(updated.displayName, 'Ali ✨');
+    expect(updated.name, 'Ali ✨');
+    expect(updated.displayName, isNull);
+    expect(updated.pluralkitDisplayName, 'Ali ✨');
     expect(updated.pronouns, 'she/her');
     expect(updated.bio, 'bio');
     expect(updated.birthday, '2020-01-15');
@@ -463,6 +466,7 @@ void main() {
     final updated = (await repo.getMemberById('l1'))!;
     expect(updated.name, 'MyAlice');
     expect(updated.displayName, 'MyDisplay');
+    expect(updated.pluralkitDisplayName, 'PKDisplay');
     expect(updated.pronouns, 'they/them');
     expect(updated.bio, 'my bio');
     expect(updated.birthday, '1990-05-05');

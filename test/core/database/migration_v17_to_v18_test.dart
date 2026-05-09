@@ -33,6 +33,7 @@ Future<void> _seedV17Db(File dbFile) async {
     rawDb.execute(
       'ALTER TABLE system_settings DROP COLUMN members_folder_member_visibility',
     );
+    rawDb.execute('ALTER TABLE members DROP COLUMN pluralkit_display_name');
     // v20: drop pending_pk_op so v19→v20 onUpgrade can re-add it.
     rawDb.execute(
       'ALTER TABLE member_group_entries DROP COLUMN pending_pk_op',
@@ -65,7 +66,7 @@ void main() {
         final version = await upgraded
             .customSelect('PRAGMA user_version')
             .getSingle();
-        expect(version.read<int>('user_version'), 20);
+        expect(version.read<int>('user_version'), 21);
 
         final cols = await upgraded
             .customSelect('PRAGMA table_info(system_settings)')

@@ -54,6 +54,7 @@ Future<void> _seedV11Db(File dbFile) async {
     rawDb.execute('ALTER TABLE members DROP COLUMN name_style_italic');
     rawDb.execute('ALTER TABLE members DROP COLUMN name_style_color_mode');
     rawDb.execute('ALTER TABLE members DROP COLUMN name_style_color_hex');
+    rawDb.execute('ALTER TABLE members DROP COLUMN pluralkit_display_name');
     // v15 (Member Boards) — drop columns added by v14→v15 to simulate older state.
     rawDb.execute('ALTER TABLE members DROP COLUMN board_last_read_at');
     rawDb.execute('ALTER TABLE system_settings DROP COLUMN boards_enabled');
@@ -115,7 +116,7 @@ void main() {
       expect(member.nameStyleColorHex, isNull);
 
       final version = await upgraded.customSelect('PRAGMA user_version').get();
-      expect(version.first.read<int>('user_version'), 20);
+      expect(version.first.read<int>('user_version'), 21);
     });
   });
 }

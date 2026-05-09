@@ -161,12 +161,19 @@ class PkPushService {
     PKMember? pkMember,
     required bool isPatch,
   }) {
-    final data = <String, dynamic>{'name': member.name};
+    final data = <String, dynamic>{};
+
+    // Prism Name and Full Name are local-only after the PK display-name split.
+    // PluralKit still requires an internal `name` for creates, so seed it
+    // from Prism Name.
+    if (!isPatch) {
+      data['name'] = member.name;
+    }
 
     _setOrClear(
       data,
       'display_name',
-      local: member.displayName,
+      local: member.pluralkitDisplayName,
       remote: pkMember?.displayName,
       isPatch: isPatch,
     );

@@ -1,5 +1,5 @@
 /// Regression tests: PluralKitSyncService._importMembers must persist every
-/// PK member field that Prism tracks — proxy tags, birthday, display name,
+/// PK member field that Prism tracks — proxy tags, birthday, PK display name,
 /// pronouns, bio, color, avatar-absent, PK IDs.
 ///
 /// Prior bug (fixed 2026-04-19): the main auto-sync import path dropped
@@ -105,10 +105,11 @@ void main() {
         expect(rows, hasLength(1));
         final row = rows.single;
 
-        // PK display_name collapsed into local name for display.
+        // New imports seed Prism Name from PK display_name for display.
         expect(row.name, 'Alice!');
-        // PK raw name stored as displayName subtitle (used by push + data export).
-        expect(row.displayName, 'alice');
+        // Prism Full Name is local-only; PK display_name is stored separately.
+        expect(row.displayName, isNull);
+        expect(row.pluralkitDisplayName, 'Alice!');
         expect(row.pronouns, 'she/her');
         expect(row.bio, 'A bio');
         expect(row.birthday, '2020-06-15');
@@ -182,9 +183,10 @@ void main() {
         await db.membersDao.insertMember(
           MembersCompanion.insert(
             id: 'local-half-linked',
-            name: 'Alice',
+            name: 'Local Alice',
             createdAt: DateTime(2026),
             pluralkitId: const Value('aaaaa'),
+            displayName: const Value('Local Full Name'),
           ),
         );
 
@@ -199,7 +201,12 @@ void main() {
           clientFactory: (_) => _mockClient(
             system: {'id': 'sys1', 'name': 'Test'},
             members: [
-              {'id': 'aaaaa', 'uuid': 'u-alice', 'name': 'Alice'},
+              {
+                'id': 'aaaaa',
+                'uuid': 'u-alice',
+                'name': 'alice',
+                'display_name': 'Remote Alice',
+              },
             ],
           ),
           bannerCacheService: _testBannerCacheService(),
@@ -210,6 +217,9 @@ void main() {
         final rows = await db.membersDao.getAllMembers();
         expect(rows, hasLength(1));
         expect(rows.single.id, 'local-half-linked');
+        expect(rows.single.name, 'Local Alice');
+        expect(rows.single.displayName, 'Local Full Name');
+        expect(rows.single.pluralkitDisplayName, 'Remote Alice');
         expect(rows.single.pluralkitId, 'aaaaa');
         expect(rows.single.pluralkitUuid, 'u-alice');
       },

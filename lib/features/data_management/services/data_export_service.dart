@@ -391,6 +391,7 @@ class DataExportService {
     parentSystemId: m.parentSystemId,
     pluralkitUuid: m.pluralkitUuid,
     pluralkitId: m.pluralkitId,
+    pluralkitDisplayName: m.pluralkitDisplayName,
     markdownEnabled: m.markdownEnabled,
     displayName: m.displayName,
     birthday: m.birthday,

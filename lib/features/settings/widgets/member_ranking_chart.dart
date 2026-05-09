@@ -180,7 +180,7 @@ class _MemberRankingChartState extends ConsumerState<MemberRankingChart> {
 
 String _displayName(Member? m) {
   if (m == null) return '...';
-  return m.displayName ?? m.name;
+  return m.name;
 }
 
 double _measureTextWidth(

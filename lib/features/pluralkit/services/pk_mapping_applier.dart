@@ -226,14 +226,12 @@ class PkMappingApplier {
     var updated = local.copyWith(
       pluralkitUuid: pk.uuid,
       pluralkitId: pk.id,
+      pluralkitDisplayName: pk.displayName,
       pluralkitSyncIgnored: false,
     );
 
-    if (_isDefaultName(local.name) && pk.name.isNotEmpty) {
-      updated = updated.copyWith(name: pk.name);
-    }
-    if (_isNullOrEmpty(local.displayName) && !_isNullOrEmpty(pk.displayName)) {
-      updated = updated.copyWith(displayName: pk.displayName);
+    if (_isDefaultName(local.name)) {
+      updated = updated.copyWith(name: pk.displayName ?? pk.name);
     }
     if (_isNullOrEmpty(local.pronouns) && !_isNullOrEmpty(pk.pronouns)) {
       updated = updated.copyWith(pronouns: pk.pronouns);
@@ -335,12 +333,12 @@ class PkMappingApplier {
 
     final member = domain.Member(
       id: _uuid.v4(),
-      name: d.pkMember.name,
+      name: d.pkMember.displayName ?? d.pkMember.name,
       pronouns: d.pkMember.pronouns,
       bio: d.pkMember.description,
       customColorHex: d.pkMember.color != null ? '#${d.pkMember.color}' : null,
       customColorEnabled: d.pkMember.color != null,
-      displayName: d.pkMember.displayName,
+      pluralkitDisplayName: d.pkMember.displayName,
       birthday: d.pkMember.birthday,
       proxyTagsJson: d.pkMember.proxyTagsJson,
       avatarImageData: avatarBytes,

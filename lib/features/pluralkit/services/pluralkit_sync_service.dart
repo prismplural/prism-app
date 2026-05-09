@@ -1675,8 +1675,6 @@ class PluralKitSyncService {
         if (localMember != null) {
           await _memberRepository.updateMember(
             localMember.copyWith(
-              name: pk.displayName ?? pk.name,
-              displayName: pk.displayName != null ? pk.name : null,
               pronouns: pk.pronouns,
               bio: pk.description,
               birthday: pk.birthday,
@@ -1695,6 +1693,7 @@ class PluralKitSyncService {
                   : localMember.profileHeaderSource,
               pluralkitUuid: pk.uuid,
               pluralkitId: pk.id,
+              pluralkitDisplayName: pk.displayName,
               avatarImageData: avatarData ?? localMember.avatarImageData,
             ),
           );
@@ -1704,7 +1703,6 @@ class PluralKitSyncService {
             domain.Member(
               id: _uuid.v4(),
               name: pk.displayName ?? pk.name,
-              displayName: pk.displayName != null ? pk.name : null,
               pronouns: pk.pronouns,
               bio: pk.description,
               birthday: pk.birthday,
@@ -1722,6 +1720,7 @@ class PluralKitSyncService {
               pkBannerCachedUrl: bannerCache.pkBannerCachedUrl,
               pluralkitUuid: pk.uuid,
               pluralkitId: pk.id,
+              pluralkitDisplayName: pk.displayName,
               avatarImageData: avatarData,
             ),
           );

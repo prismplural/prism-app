@@ -864,7 +864,7 @@ class _PluralKitGroupTesterScreenState
                 createdAt: now,
                 pluralkitUuid: drift.Value(member.uuid),
                 pluralkitId: drift.Value(member.id),
-                displayName: drift.Value(member.displayName),
+                pluralkitDisplayName: drift.Value(member.displayName),
                 birthday: drift.Value(member.birthday),
                 proxyTagsJson: drift.Value(member.proxyTagsJson),
               ),

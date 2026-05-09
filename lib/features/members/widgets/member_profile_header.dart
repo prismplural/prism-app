@@ -369,10 +369,11 @@ class _MemberHeaderMetadata extends StatelessWidget {
     final birthday = _birthdayDisplay(context, member);
     final shadows = applyTextShadow ? _onImageShadows : null;
 
-    final displayName = member.displayName?.trim();
-    final hasDisplayName = displayName != null && displayName.isNotEmpty;
-    final primaryTitle = hasDisplayName ? displayName : member.name;
-    final secondaryTitle = hasDisplayName ? member.name : null;
+    final fullName = member.displayName?.trim();
+    final hasFullName =
+        fullName != null && fullName.isNotEmpty && fullName != member.name;
+    final primaryTitle = member.name;
+    final secondaryTitle = hasFullName ? fullName : null;
 
     final pronouns = member.pronouns?.trim();
     final hasPronouns = pronouns != null && pronouns.isNotEmpty;

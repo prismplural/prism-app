@@ -233,10 +233,6 @@ class _NamePreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final displayName = member.displayName?.trim();
-    final name = displayName != null && displayName.isNotEmpty
-        ? displayName
-        : member.name;
     final style = resolveMemberNameTextStyle(
       context,
       member,
@@ -248,7 +244,7 @@ class _NamePreview extends StatelessWidget {
     return PrismSectionCard(
       padding: const EdgeInsets.all(16),
       child: Text(
-        name.isEmpty ? context.l10n.memberNameHint : name,
+        member.name.isEmpty ? context.l10n.memberNameHint : member.name,
         style: style,
         maxLines: 2,
         overflow: TextOverflow.ellipsis,

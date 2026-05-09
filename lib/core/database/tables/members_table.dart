@@ -19,7 +19,9 @@ class Members extends Table {
   // PluralKit fields
   TextColumn get pluralkitUuid => text().nullable()();
   TextColumn get pluralkitId => text().nullable()();
-  // PK `display_name` — shown as alias in PK, "markdown-capable nickname".
+  // PK `display_name` — remote-only field synced with PluralKit.
+  TextColumn get pluralkitDisplayName => text().nullable()();
+  // Prism full name. `name` is the Prism-visible member name.
   TextColumn get displayName => text().nullable()();
   // PK `birthday` raw wire string (YYYY-MM-DD). Sentinel `0004-MM-DD` means
   // the year is hidden. Stored as-is, parsed only for display.

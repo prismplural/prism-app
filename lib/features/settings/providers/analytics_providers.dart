@@ -568,7 +568,7 @@ void _addTimeBuckets(
 
 /// Generates insight cards from current and (optionally) prior period analytics.
 ///
-/// `names` maps memberId → display name (`displayName ?? name`). When a
+/// `names` maps memberId → Prism Name. When a
 /// referenced member is missing or has an empty name, headlines fall back to
 /// generic copy ("A member") so the card still surfaces.
 ///
@@ -762,9 +762,7 @@ final analyticsInsightsProvider = FutureProvider<List<AnalyticsInsight>>((
   final previous = await ref.watch(previousPeriodAnalyticsProvider.future);
   final members = await ref.watch(allMembersProvider.future);
   final terms = ref.watch(terminologySettingProvider);
-  final names = <String, String>{
-    for (final m in members) m.id: m.displayName ?? m.name,
-  };
+  final names = <String, String>{for (final m in members) m.id: m.name};
   final englishTerms = _analyticsTerms(
     terms.term,
     customSingular: terms.customSingular,

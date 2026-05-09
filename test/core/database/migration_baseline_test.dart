@@ -52,6 +52,7 @@ void _dropPostV3Schema(raw.Database db) {
     ['members', 'is_always_fronting'],
     ['members', 'pk_banner_url'],
     ['members', 'board_last_read_at'],
+    ['members', 'pluralkit_display_name'],
     ['fronting_sessions', 'pk_import_source'],
     ['fronting_sessions', 'pk_file_switch_id'],
     ['system_settings', 'fronting_list_view_mode'],
@@ -505,8 +506,8 @@ void main() {
           _dropPostV3Schema(rawDb);
           // v20: drop pending_pk_op so v19→v20 onUpgrade can re-add it.
           rawDb.execute(
-          'ALTER TABLE member_group_entries DROP COLUMN pending_pk_op',
-        );
+            'ALTER TABLE member_group_entries DROP COLUMN pending_pk_op',
+          );
           rawDb.execute('PRAGMA user_version = 3;');
           rawDb.execute('PRAGMA foreign_keys = ON;');
         } finally {

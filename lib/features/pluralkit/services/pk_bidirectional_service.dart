@@ -172,13 +172,9 @@ class PkBidirectionalService {
     PkFieldSyncConfig config,
     PkSyncDirection direction,
   ) {
-    if (_pushField(config.name, direction)) {
-      // name can't be null; still skip push when local is empty string.
-      if (local.name != pk.name && local.name.isNotEmpty) return true;
-    }
     if (_pushField(config.displayName, direction)) {
-      if (local.displayName != pk.displayName &&
-          !_wouldClear(local.displayName, pk.displayName)) {
+      if (local.pluralkitDisplayName != pk.displayName &&
+          !_wouldClear(local.pluralkitDisplayName, pk.displayName)) {
         return true;
       }
     }
@@ -247,31 +243,9 @@ class PkBidirectionalService {
     var updated = local;
     var changed = forceWrite;
 
-    // Pre-phase-3 the pull path wrote `pk.displayName ?? pk.name` into
-    // local.name (no separate displayName field). If an existing mapped
-    // member still has that legacy shape — local.displayName is null and
-    // local.name equals pk.displayName — promote local.name into displayName
-    // before touching name, so we don't silently rename to pk.name.
-    final needsDisplayNameMigration =
-        pk.displayName != null &&
-        local.displayName == null &&
-        local.name == pk.displayName;
-    if (needsDisplayNameMigration &&
-        _pullField(config.displayName, direction)) {
-      updated = updated.copyWith(displayName: pk.displayName);
-      changed = true;
-    }
-
-    if (_pullField(config.name, direction)) {
-      if (updated.name != pk.name) {
-        updated = updated.copyWith(name: pk.name);
-        changed = true;
-      }
-    }
-    if (_pullField(config.displayName, direction) &&
-        !needsDisplayNameMigration) {
-      if (updated.displayName != pk.displayName) {
-        updated = updated.copyWith(displayName: pk.displayName);
+    if (_pullField(config.displayName, direction)) {
+      if (updated.pluralkitDisplayName != pk.displayName) {
+        updated = updated.copyWith(pluralkitDisplayName: pk.displayName);
         changed = true;
       }
     }

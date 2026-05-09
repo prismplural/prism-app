@@ -103,6 +103,8 @@ Future<void> _seedV15TimestampCommentShapeDb(File dbFile) async {
       insert.close();
     }
 
+    rawDb.execute('ALTER TABLE members DROP COLUMN pluralkit_display_name');
+
     // v20: drop pending_pk_op so v19→v20 onUpgrade can re-add it.
 
     rawDb.execute(
@@ -136,7 +138,7 @@ void main() {
       final version = await upgraded
           .customSelect('PRAGMA user_version')
           .getSingle();
-      expect(version.read<int>('user_version'), 20);
+      expect(version.read<int>('user_version'), 21);
 
       final cols = await upgraded
           .customSelect("PRAGMA table_info('front_session_comments')")

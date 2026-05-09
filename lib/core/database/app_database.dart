@@ -96,7 +96,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 20;
+  int get schemaVersion => 21;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -568,6 +568,10 @@ class AppDatabase extends _$AppDatabase {
           memberGroupEntries.pendingPkOp,
         );
         current = 20;
+      }
+      if (current == 20 && to >= 21) {
+        await migrator.addColumn(members, members.pluralkitDisplayName);
+        current = 21;
       }
       if (current != to) {
         throw UnsupportedError(
