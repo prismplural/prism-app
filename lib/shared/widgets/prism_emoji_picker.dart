@@ -4,6 +4,7 @@ import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/foundation.dart' as foundation;
 import 'package:flutter/material.dart';
 
+import 'package:prism_plurality/shared/emoji/prism_emoji_set.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -74,6 +75,7 @@ class PrismEmojiPicker extends StatelessWidget {
     return Config(
       height: _kPickerHeight,
       checkPlatformCompatibility: false,
+      emojiSet: (_) => prismEmojiSet,
       viewOrderConfig: const ViewOrderConfig(
         top: EmojiPickerItem.searchBar,
         middle: EmojiPickerItem.categoryBar,
