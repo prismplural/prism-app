@@ -677,8 +677,19 @@ class PkGroupsImporter with SyncRecordMixin {
     for (final entry in pending) {
       final group = groupRowsById[entry.groupId];
       final member = membersById[entry.memberId];
-      final groupPkUuid = group?.pluralkitUuid;
-      final memberPkUuid = member?.pluralkitUuid;
+      // Prefer the entry's STORED PK UUIDs (the snapshot at edge-creation
+      // time) over the current group/member values. Otherwise a relink
+      // between intent set and push would target the wrong PK identifier:
+      // user adds member-with-uuid-A → entry.pkMemberUuid = A → user
+      // relinks to B → push reads CURRENT member.pluralkitUuid (B) and
+      // pushes B, leaving A in the PK group permanently. Codex review [P2].
+      // Empty-string is treated as "not set" and falls back to current.
+      final entryGroupPk = (entry.pkGroupUuid ?? '').trim();
+      final entryMemberPk = (entry.pkMemberUuid ?? '').trim();
+      final groupPkUuid =
+          entryGroupPk.isNotEmpty ? entryGroupPk : group?.pluralkitUuid;
+      final memberPkUuid =
+          entryMemberPk.isNotEmpty ? entryMemberPk : member?.pluralkitUuid;
 
       // Stale-link terminal policy (v3-patches #5): if either side lost
       // its PK link, clear pending and move on. The row stays in its
@@ -907,16 +918,20 @@ class PkGroupsImporter with SyncRecordMixin {
     } on PluralKitApiError catch (e) {
       if (e.statusCode == 404) {
         // PK group is gone — desired remove satisfied for every candidate.
-        final group = await _dao.findByPluralkitUuid(groupPkUuid);
-        if (group != null) {
-          await _dao.clearAllPendingPkOpForGroup(group.id);
-        }
-        // The rows are still soft-deleted locally; clearing pending leaves
-        // them as zombies. Hard-delete each one to converge with PK.
+        // Order matters per codex review [P3]: hard-delete the candidates
+        // FIRST while their pending_pk_op is still 'push_remove' (the
+        // guarded DELETE requires that value), THEN clear pending for any
+        // remaining entries in the group. Reversing the order makes the
+        // DELETE miss because the UPDATE clears the very condition the
+        // DELETE matches on.
         var removed = 0;
         for (final c in candidates) {
           final hits = await _dao.hardDeleteRemoveTombstoneGuarded(c.entryId);
           if (hits > 0) removed++;
+        }
+        final group = await _dao.findByPluralkitUuid(groupPkUuid);
+        if (group != null) {
+          await _dao.clearAllPendingPkOpForGroup(group.id);
         }
         return result.copyWith(removed: result.removed + removed);
       }

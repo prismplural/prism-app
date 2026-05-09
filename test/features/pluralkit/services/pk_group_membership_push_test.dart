@@ -480,30 +480,41 @@ void main() {
   });
 
   group('pushPendingGroupOps stale-link policy', () {
-    test('member lost PK link → pending cleared, no PK call', () async {
-      buildImporter([_member('m1')]); // no pkUuid
-      await _seedGroup(db, id: 'g1', pkUuid: 'pk-g1');
-      await _seedEntry(
-        db,
-        id: 'e1',
-        groupId: 'g1',
-        memberId: 'm1',
-        pkGroupUuid: 'pk-g1',
-        pkMemberUuid: 'pk-m1',
-        pendingPkOp: 'push_add',
-      );
+    test(
+      'BOTH stored entry.pkMemberUuid and current member.pluralkitUuid empty '
+      '→ stranded (genuine no-link case)',
+      () async {
+        // The orchestrator prefers entry.pkMemberUuid (snapshot) and falls
+        // back to current member.pluralkitUuid (codex review [P2] fix). The
+        // stranded branch only fires when neither source has a UUID — i.e.
+        // a row with no stored snapshot AND a local member that's never
+        // been linked to PK (or had its link cleared). Otherwise we have
+        // enough to push.
+        buildImporter([_member('m1')]); // current: no pkUuid
+        await _seedGroup(db, id: 'g1', pkUuid: 'pk-g1');
+        await _seedEntry(
+          db,
+          id: 'e1',
+          groupId: 'g1',
+          memberId: 'm1',
+          pkGroupUuid: 'pk-g1',
+          // Stored: also no pkMemberUuid. Genuinely orphaned edge.
+          pkMemberUuid: null,
+          pendingPkOp: 'push_add',
+        );
 
-      final result = await importer.pushPendingGroupOps(
-        client,
-        PkSyncDirection.bidirectional,
-      );
+        final result = await importer.pushPendingGroupOps(
+          client,
+          PkSyncDirection.bidirectional,
+        );
 
-      expect(result.stranded, 1);
-      expect(client.addCalls, isEmpty);
-      expect((await _findEntry(db, 'e1'))!.pendingPkOp, 'none');
-    });
+        expect(result.stranded, 1);
+        expect(client.addCalls, isEmpty);
+        expect((await _findEntry(db, 'e1'))!.pendingPkOp, 'none');
+      },
+    );
 
-    test('group lost PK link → pending cleared, no PK call', () async {
+    test('group lost PK link AND no stored snapshot → stranded', () async {
       buildImporter([_member('m1', pkUuid: 'pk-m1')]);
       await _seedGroup(db, id: 'g1'); // no pkUuid
       await _seedEntry(
@@ -511,7 +522,7 @@ void main() {
         id: 'e1',
         groupId: 'g1',
         memberId: 'm1',
-        pkGroupUuid: 'pk-g1',
+        pkGroupUuid: null, // stored snapshot also missing
         pkMemberUuid: 'pk-m1',
         pendingPkOp: 'push_add',
       );
@@ -525,6 +536,99 @@ void main() {
       expect(client.addCalls, isEmpty);
       expect((await _findEntry(db, 'e1'))!.pendingPkOp, 'none');
     });
+
+    test(
+      'current member lost PK link but entry has stored snapshot → STILL '
+      'pushes (the historical edge is preserved)',
+      () async {
+        // Companion to the [P2] regression test in the "stored vs current"
+        // group: with a stored UUID, an unlinked current member doesn't
+        // strand — we know what to push.
+        buildImporter([_member('m1')]); // current: unlinked
+        await _seedGroup(db, id: 'g1', pkUuid: 'pk-g1');
+        await _seedEntry(
+          db,
+          id: 'e1',
+          groupId: 'g1',
+          memberId: 'm1',
+          pkGroupUuid: 'pk-g1',
+          pkMemberUuid: 'pk-stored', // snapshot survives the unlink
+          pendingPkOp: 'push_add',
+        );
+
+        await importer.pushPendingGroupOps(
+          client,
+          PkSyncDirection.bidirectional,
+        );
+
+        expect(client.addCalls.single.refs, ['pk-stored']);
+        expect((await _findEntry(db, 'e1'))!.pendingPkOp, 'none');
+      },
+    );
+  });
+
+  group('pushPendingGroupOps stored vs current PK UUIDs', () {
+    test(
+      'push_remove uses entry.pkMemberUuid (snapshot) NOT current member.pluralkitUuid '
+      '— so a relink mid-pending does not delete the wrong PK member',
+      () async {
+        // Reproduces the codex implementation-review [P2] regression:
+        // 1. User added member-with-pk-A to group → entry stored pkMemberUuid=pk-A.
+        // 2. User removed → push_remove queued.
+        // 3. Before push runs, user relinks member to pk-B locally.
+        // 4. Push must call /members/remove with pk-A (the entry's snapshot),
+        //    NOT pk-B (the current member.pluralkitUuid). Otherwise pk-A is
+        //    stranded in the PK group permanently.
+        buildImporter([_member('m1', pkUuid: 'pk-B')]); // RELINKED to B
+        await _seedGroup(db, id: 'g1', pkUuid: 'pk-g1');
+        await _seedEntry(
+          db,
+          id: 'e1',
+          groupId: 'g1',
+          memberId: 'm1',
+          pkGroupUuid: 'pk-g1',
+          pkMemberUuid: 'pk-A', // entry snapshot from BEFORE the relink
+          pendingPkOp: 'push_remove',
+          isDeleted: true,
+        );
+
+        await importer.pushPendingGroupOps(
+          client,
+          PkSyncDirection.bidirectional,
+        );
+
+        // Wire body must contain pk-A, not pk-B.
+        expect(client.removeCalls, hasLength(1));
+        expect(client.removeCalls.single.refs, ['pk-A']);
+      },
+    );
+
+    test(
+      'push_add uses entry.pkMemberUuid snapshot when set, falls back to '
+      'current member.pluralkitUuid when entry has empty stored UUID',
+      () async {
+        // Two entries: one with stored UUID, one without. Both should push,
+        // with the correct UUID per row.
+        buildImporter([_member('m1', pkUuid: 'pk-current')]);
+        await _seedGroup(db, id: 'g1', pkUuid: 'pk-g1');
+        await _seedEntry(
+          db,
+          id: 'eStored',
+          groupId: 'g1',
+          memberId: 'm1',
+          pkGroupUuid: 'pk-g1',
+          pkMemberUuid: 'pk-stored',
+          pendingPkOp: 'push_add',
+        );
+
+        await importer.pushPendingGroupOps(
+          client,
+          PkSyncDirection.bidirectional,
+        );
+
+        expect(client.addCalls.single.refs, ['pk-stored']);
+      },
+    );
   });
 
   group('pushPendingGroupOps refetch 404', () {
@@ -554,6 +658,63 @@ void main() {
       expect(result.stranded, 1);
       expect((await _findEntry(db, 'e1'))!.pendingPkOp, 'none');
     });
+
+    test(
+      'PK group 404 during REMOVE-bucket refetch → hard-delete the tombstone '
+      'AND clear any other pending in the group (codex review [P3] order fix)',
+      () async {
+        // Seed two pending rows in the same PK group: one push_remove (the
+        // bucket we are pushing) and one push_add (an unrelated row that
+        // group-404 should also clear pending on).
+        buildImporter([
+          _member('m1', pkUuid: 'pk-m1'),
+          _member('m2', pkUuid: 'pk-m2'),
+        ]);
+        await _seedGroup(db, id: 'g1', pkUuid: 'pk-g1');
+        await _seedEntry(
+          db,
+          id: 'eRemove',
+          groupId: 'g1',
+          memberId: 'm1',
+          pkGroupUuid: 'pk-g1',
+          pkMemberUuid: 'pk-m1',
+          pendingPkOp: 'push_remove',
+          isDeleted: true,
+        );
+        await _seedEntry(
+          db,
+          id: 'eAddCohabit',
+          groupId: 'g1',
+          memberId: 'm2',
+          pkGroupUuid: 'pk-g1',
+          pkMemberUuid: 'pk-m2',
+          pendingPkOp: 'push_add',
+        );
+        // Force the remove POST to 4xx and the refetch to 404. Any add
+        // POSTs in this run must not interfere.
+        client.removeResponses.add(const PluralKitApiError(404, 'not found'));
+        client.getMembersResponses['pk-g1'] =
+            const PluralKitApiError(404, 'group gone');
+
+        final result = await importer.pushPendingGroupOps(
+          client,
+          PkSyncDirection.bidirectional,
+        );
+
+        // Pre-fix bug: clearAllPendingPkOpForGroup ran first, wiping the
+        // push_remove value the guarded DELETE matches on, so DELETE missed
+        // and removed=0 with the row left as a soft-deleted zombie.
+        // Post-fix: DELETE runs first (still push_remove ∧ is_deleted=true),
+        // THEN clearAllPendingPkOpForGroup tidies the rest.
+        expect(result.removed, 1);
+        expect(await _findEntry(db, 'eRemove'), isNull,
+            reason: 'tombstone must be hard-deleted, not stranded');
+        // The cohabit push_add row had its pending cleared by the
+        // clear-all step (group is gone, can't push to it).
+        final cohabit = await _findEntry(db, 'eAddCohabit');
+        expect(cohabit!.pendingPkOp, 'none');
+      },
+    );
   });
 
   group('pushPendingGroupOps mutex', () {

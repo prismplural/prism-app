@@ -1592,9 +1592,24 @@ class PluralKitSyncService {
       }
       // Push side: drain pending_pk_op intents to PK after pull-reconcile so
       // the snapshot push sees the user's current state. Step 7 of
-      // docs/plans/pk-group-membership-push.md.
+      // docs/plans/pk-group-membership-push.md. The push result isn't merged
+      // into PkGroupsImportResult yet (different shape, different lifecycle);
+      // log the summary for debugging until a UI surface exists. Codex
+      // review [P3].
       if (direction.pushEnabled) {
-        await importer.pushPendingGroupOps(client, direction);
+        final pushResult = await importer.pushPendingGroupOps(client, direction);
+        if (pushResult.added != 0 ||
+            pushResult.removed != 0 ||
+            pushResult.failed != 0 ||
+            pushResult.compensated != 0 ||
+            pushResult.stranded != 0) {
+          debugPrint(
+            '[PK push] group membership: '
+            'added=${pushResult.added} removed=${pushResult.removed} '
+            'failed=${pushResult.failed} compensated=${pushResult.compensated} '
+            'stranded=${pushResult.stranded}',
+          );
+        }
       }
       return pullResult;
     } catch (e) {
