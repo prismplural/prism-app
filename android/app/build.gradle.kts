@@ -77,6 +77,12 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            ndk {
+                // Keep function names for native Play Console symbolication.
+                // FULL gives line numbers but is much larger and can exceed
+                // Play's native symbols upload limit for Rust/Flutter builds.
+                debugSymbolLevel = "SYMBOL_TABLE"
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

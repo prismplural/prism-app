@@ -1,5 +1,8 @@
 default_platform(:ios)
 
+require "fileutils"
+require "shellwords"
+
 # Shared App Store Connect API key config
 # Requires env vars: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_FILEPATH
 def asc_api_key
@@ -46,6 +49,30 @@ def build_info_defines
     "--dart-define=BUILT_AT=#{built_at}",
     "--dart-define=PRISM_BETA_REGISTRATION_TOKEN=#{token}",
   ].join(" ")
+end
+
+def app_version
+  File.read(File.expand_path("../pubspec.yaml", __dir__)).match(/^version:\s*(\S+)/)&.captures&.first || "unknown"
+end
+
+def android_symbols_archive_dir
+  version = app_version.gsub(/[^0-9A-Za-z._+-]/, "_").tr("+", "_")
+  git_rev = `git rev-parse --short HEAD`.strip
+  built_at = Time.now.utc.strftime("%Y%m%dT%H%M%SZ")
+  root = ENV["PRISM_ANDROID_SYMBOLS_DIR"] || File.expand_path("~/.config/prism/android-symbols")
+  File.expand_path("#{version}-#{git_rev}-#{built_at}", root)
+end
+
+def copy_if_present(source, destination)
+  return nil unless source && File.exist?(source)
+
+  FileUtils.mkdir_p(File.dirname(destination))
+  FileUtils.cp(source, destination)
+  destination
+end
+
+def latest_file(pattern)
+  Dir[pattern].select { |path| File.file?(path) }.max_by { |path| File.mtime(path) }
 end
 
 platform :ios do
@@ -104,7 +131,11 @@ platform :android do
   desc "Build and upload to Play Store internal testing track"
   lane :internal do
     defines = build_info_defines
-    sh("cd .. && flutter build appbundle --release #{defines}")
+    symbols_dir = android_symbols_archive_dir
+    dart_symbols_dir = File.join(symbols_dir, "dart")
+    FileUtils.mkdir_p(dart_symbols_dir)
+
+    sh("cd .. && flutter build appbundle --release --split-debug-info=#{Shellwords.escape(dart_symbols_dir)} #{defines}")
 
     play_store_json_key = ENV["PLAY_STORE_JSON_KEY"]
     default_play_store_json_key = File.expand_path("~/.config/prism/play-store-key.json")
@@ -113,12 +144,45 @@ platform :android do
     end
     UI.user_error!("PLAY_STORE_JSON_KEY not set and #{default_play_store_json_key} not found") if play_store_json_key.nil? || play_store_json_key.empty?
 
-    upload_to_play_store(
+    aab_path = File.expand_path("../build/app/outputs/bundle/release/app-release.aab", __dir__)
+    native_symbols_zip = latest_file(File.expand_path("../build/app/outputs/native-debug-symbols/**/*.zip", __dir__))
+    r8_mapping = File.expand_path("../build/app/outputs/mapping/release/mapping.txt", __dir__)
+
+    archived_native_symbols = copy_if_present(native_symbols_zip, File.join(symbols_dir, "native-debug-symbols.zip"))
+    archived_r8_mapping = copy_if_present(r8_mapping, File.join(symbols_dir, "mapping.txt"))
+
+    dart_symbol_files = Dir[File.join(dart_symbols_dir, "*.symbols")].sort
+    UI.user_error!("No Flutter Dart symbol files found in #{dart_symbols_dir}") if dart_symbol_files.empty?
+    UI.important("No native debug symbols zip found under build/app/outputs/native-debug-symbols") unless archived_native_symbols
+    UI.important("No R8 mapping.txt found under build/app/outputs/mapping/release") unless archived_r8_mapping
+
+    File.write(
+      File.join(symbols_dir, "manifest.txt"),
+      [
+        "version=#{app_version}",
+        "git_rev=#{`git rev-parse --short HEAD`.strip}",
+        "git_describe=#{`git describe --always --dirty`.strip}",
+        "built_at=#{Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ")}",
+        "aab=#{aab_path}",
+        "dart_symbols_dir=#{dart_symbols_dir}",
+        "dart_symbols=#{dart_symbol_files.map { |path| File.basename(path) }.join(",")}",
+        "native_debug_symbols=#{archived_native_symbols || ""}",
+        "r8_mapping=#{archived_r8_mapping || ""}",
+      ].join("\n") + "\n"
+    )
+
+    mapping_paths = [native_symbols_zip, r8_mapping].compact.select { |path| File.exist?(path) }
+
+    upload_options = {
       track: "internal",
-      aab: File.expand_path("../build/app/outputs/bundle/release/app-release.aab", __dir__),
+      aab: aab_path,
       json_key: play_store_json_key,
       package_name: "com.prismplural.prism",
       release_status: "draft",
-    )
+    }
+    upload_options[:mapping_paths] = mapping_paths unless mapping_paths.empty?
+
+    upload_to_play_store(**upload_options)
+    UI.success("Archived Android symbol files at #{symbols_dir}")
   end
 end

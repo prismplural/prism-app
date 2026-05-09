@@ -2,6 +2,52 @@
 
 All notable changes to Prism will be documented in this file.
 
+## [0.8.1] - 2026-05-09
+
+### Added
+- Chat now has separate Direct Messages and Group Chats tabs, and opens to Group Chats by default.
+- Chat, Boards, fronting setup, Quick Front, wake-up, post author, and PluralKit mapping flows now use searchable member pickers in more places.
+- Habits now let you edit or delete individual completion records from a long-press menu.
+- Habit detail now has a Log Missed Completion action that opens the completion sheet on a past date by default.
+- Simply Plural import can apply avatars from exported avatar ZIP files after JSON import.
+- PluralKit sync can push local group membership additions and removals back to PluralKit when bidirectional group sync is enabled.
+- Linked members now have a separate PluralKit Display Name field, so Prism's local Name and Full Name are not overloaded with PluralKit's `display_name`.
+
+### Changed
+- The Chat top bar now has a searchable member selector for choosing who is speaking.
+- Boards member filtering and post author selection now use the shared member selector and can reach all visible members.
+- Group detail actions now live in the overflow menu, leaving more room in the header.
+- Chat category assignment now uses a compact dialog instead of a bottom sheet.
+- More overflow and popup menus use the shared Prism popup behavior, including automatic dismissal on navigation.
+- Light mode contrast, accent rendering, buttons, surfaces, and per-member profile accents have been tightened for readability.
+- Sync setup now hides the relay registration token field until a custom relay URL is entered.
+- Starting several co-fronters at once now applies the fronting changes in one batch.
+- PluralKit co-fronter pushes now send the full active fronter set as a multi-member switch.
+- PluralKit member creation now seeds the remote name from Full Name when available, while existing local Name and Full Name stay Prism-local.
+
+### Fixed
+- Chat no longer gets stuck behind stale DM overlays or a stale speaking-as selection.
+- The speaking-as picker no longer reopens the keyboard when you change who is speaking.
+- Chat search is faster and renders mention results as member chips.
+- Member picker search is easier to reach from Chat, fronting, Boards, onboarding, wake-up, and PluralKit mapping flows.
+- Fronting upgrade prompts no longer appear before Prism has loaded the current migration state.
+- Zooming back out on the fronting timeline keeps the visible history in bounds.
+- Fronting history periods no longer overlap after long deletions, and sleep gaps stay split in history.
+- Add-front discard prompts now appear only when notes would be lost.
+- Avatar crops keep their saved resolution instead of being degraded by later saves.
+- Member profile accent colors now honor the per-member accent setting more consistently.
+- Reminder rescheduling now cancels stale notification IDs when reminders change or disappear.
+- Simply Plural chat import now preserves reply quotes from exported reply threads.
+- Markdown bios preserve authored line breaks while still rendering links correctly.
+- Habit completion edits update only the intended fields, keep past-date schedules and notifications consistent, and preserve all-time best-streak math.
+- Dirty sheets now guard swipe dismissal more consistently across edit/create flows.
+- Tapping outside inputs dismisses the keyboard in more places.
+- Emoji picker search focus and filtering are stable again.
+- Manage-groups checkboxes stay hidden until membership data has loaded, and the sheet uses Prism's spinner.
+- PluralKit sync respects deleted/tombstoned current switches during polling.
+- PluralKit group sync cleans up removed groups more reliably across buckets.
+- PluralKit member import, export, local sync, and device sync preserve the new PluralKit Display Name field.
+
 ## [0.8.0] - 2026-05-07
 
 ### Added
