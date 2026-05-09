@@ -55,6 +55,7 @@ class BlurPopupAnchor extends StatefulWidget {
     this.width = 220,
     this.borderRadius = 16,
     this.semanticLabel,
+    this.onBeforeShow,
   });
 
   /// The trigger widget that opens the popup when tapped.
@@ -86,6 +87,12 @@ class BlurPopupAnchor extends StatefulWidget {
   /// Accessibility label announced by screen readers when the trigger is
   /// interactive ([BlurPopupTrigger.tap] or [BlurPopupTrigger.longPress]).
   final String? semanticLabel;
+
+  /// Called immediately before the popup is shown.
+  ///
+  /// Useful for callers that need to adjust focus before the overlay measures
+  /// its anchor and visible bounds.
+  final VoidCallback? onBeforeShow;
 
   @override
   State<BlurPopupAnchor> createState() => BlurPopupAnchorState();
@@ -123,6 +130,7 @@ class BlurPopupAnchorState extends State<BlurPopupAnchor>
 
   bool _showPopup() {
     if (_overlayEntry != null) return false; // already showing
+    widget.onBeforeShow?.call();
 
     final renderBox =
         _anchorKey.currentContext?.findRenderObject() as RenderBox?;

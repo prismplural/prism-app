@@ -145,4 +145,47 @@ void main() {
       );
     },
   );
+
+  testWidgets(
+    'speaking-as popup drops composer focus when keyboard is closed',
+    (tester) async {
+      await tester.pumpWidget(buildSubject());
+      await tester.pumpAndSettle();
+
+      final textFieldFinder = find.byType(TextField);
+      await tester.tap(textFieldFinder);
+      await tester.pump();
+
+      final textField = tester.widget<TextField>(textFieldFinder);
+      expect(textField.focusNode?.hasFocus, isTrue);
+      expect(tester.view.viewInsets.bottom, 0);
+
+      await tester.tap(find.byType(BlurPopupAnchor).first);
+      await tester.pump();
+
+      expect(textField.focusNode?.hasFocus, isFalse);
+    },
+  );
+
+  testWidgets('speaking-as popup keeps composer focus while keyboard is open', (
+    tester,
+  ) async {
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    addTearDown(tester.view.resetViewInsets);
+
+    await tester.pumpWidget(buildSubject());
+    await tester.pumpAndSettle();
+
+    final textFieldFinder = find.byType(TextField);
+    await tester.tap(textFieldFinder);
+    await tester.pump();
+
+    final textField = tester.widget<TextField>(textFieldFinder);
+    expect(textField.focusNode?.hasFocus, isTrue);
+
+    await tester.tap(find.byType(BlurPopupAnchor).first);
+    await tester.pump();
+
+    expect(textField.focusNode?.hasFocus, isTrue);
+  });
 }

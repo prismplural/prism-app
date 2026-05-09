@@ -265,6 +265,15 @@ class _MessageInputState extends ConsumerState<MessageInput> {
     return true;
   }
 
+  void _unfocusComposerIfKeyboardClosed() {
+    final mediaInset = MediaQuery.maybeOf(context)?.viewInsets.bottom ?? 0;
+    final viewInset = View.of(context).viewInsets.bottom;
+    final keyboardOpen = mediaInset > 0 || viewInset > 0;
+    if (!keyboardOpen) {
+      _focusNode.unfocus();
+    }
+  }
+
   Future<void> _handleInsertedContent(KeyboardInsertedContent content) async {
     if (!content.mimeType.toLowerCase().startsWith('image/')) return;
 
@@ -669,6 +678,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                   button: true,
                   child: BlurPopupAnchor(
                     preferredDirection: BlurPopupDirection.up,
+                    onBeforeShow: _unfocusComposerIfKeyboardClosed,
                     itemCount: members.length + 1,
                     itemBuilder: (popupContext, index, close) {
                       if (index == members.length) {
