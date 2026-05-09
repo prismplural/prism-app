@@ -28,6 +28,7 @@ import 'package:prism_plurality/domain/models/habit.dart';
 import 'package:prism_plurality/domain/models/habit_completion.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
+import 'package:prism_plurality/domain/models/reminder.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/domain/repositories/habit_repository.dart';
 import 'package:prism_plurality/domain/repositories/system_settings_repository.dart';
@@ -420,69 +421,104 @@ void main() {
       expect(deleted.authorId, isNull);
     });
 
-    test('member profile header fields survive export -> import', () async {
-      final createdAt = DateTime(2026, 4, 2, 9, 30).toUtc();
-      final prismHeader = Uint8List.fromList([10, 20, 30, 40]);
-      final pkBanner = Uint8List.fromList([50, 60, 70, 80]);
+    test(
+      'member profile customization fields survive export -> import',
+      () async {
+        final createdAt = DateTime(2026, 4, 2, 9, 30).toUtc();
+        final boardLastReadAt = DateTime(2026, 4, 2, 14, 45).toUtc();
+        final prismHeader = Uint8List.fromList([10, 20, 30, 40]);
+        final pkBanner = Uint8List.fromList([50, 60, 70, 80]);
 
-      await DriftMemberRepository(sourceDb.membersDao, null).createMember(
-        Member(
-          id: 'member-header',
-          name: 'Header Member',
-          emoji: '*',
-          createdAt: createdAt,
-          pkBannerUrl: 'https://cdn.example.com/member/banner.png',
-          profileHeaderSource: MemberProfileHeaderSource.pluralKit,
-          profileHeaderLayout: MemberProfileHeaderLayout.classicOverlap,
-          profileHeaderVisible: false,
-          profileHeaderImageData: prismHeader,
-          pkBannerImageData: pkBanner,
-          pkBannerCachedUrl: 'https://cdn.example.com/member/banner.png',
-        ),
-      );
+        await DriftMemberRepository(sourceDb.membersDao, null).createMember(
+          Member(
+            id: 'member-header',
+            name: 'Header Member',
+            emoji: '*',
+            createdAt: createdAt,
+            pkBannerUrl: 'https://cdn.example.com/member/banner.png',
+            profileHeaderSource: MemberProfileHeaderSource.pluralKit,
+            profileHeaderLayout: MemberProfileHeaderLayout.classicOverlap,
+            profileHeaderVisible: false,
+            nameStyleFont: MemberNameFont.mono,
+            nameStyleBold: false,
+            nameStyleItalic: true,
+            nameStyleColorMode: MemberNameColorMode.custom,
+            nameStyleColorHex: '#112233',
+            profileHeaderImageData: prismHeader,
+            pkBannerImageData: pkBanner,
+            pkBannerCachedUrl: 'https://cdn.example.com/member/banner.png',
+            isAlwaysFronting: true,
+          ),
+        );
+        await (sourceDb.update(
+          sourceDb.members,
+        )..where((m) => m.id.equals('member-header'))).write(
+          MembersCompanion(boardLastReadAt: drift.Value(boardLastReadAt)),
+        );
 
-      final export = await exportService.buildExport();
-      final exported = export.headmates.single;
-      expect(
-        exported.profileHeaderSource,
-        MemberProfileHeaderSource.pluralKit.index,
-      );
-      expect(
-        exported.profileHeaderLayout,
-        MemberProfileHeaderLayout.classicOverlap.index,
-      );
-      expect(exported.profileHeaderVisible, isFalse);
-      expect(exported.profileHeaderImageData, base64Encode(prismHeader));
-      expect(exported.pkBannerImageData, base64Encode(pkBanner));
-      expect(
-        exported.pkBannerCachedUrl,
-        'https://cdn.example.com/member/banner.png',
-      );
-      expect(exported.pkBannerUrl, 'https://cdn.example.com/member/banner.png');
+        final export = await exportService.buildExport();
+        final exported = export.headmates.single;
+        expect(
+          exported.profileHeaderSource,
+          MemberProfileHeaderSource.pluralKit.index,
+        );
+        expect(
+          exported.profileHeaderLayout,
+          MemberProfileHeaderLayout.classicOverlap.index,
+        );
+        expect(exported.profileHeaderVisible, isFalse);
+        expect(exported.nameStyleFont, MemberNameFont.mono.index);
+        expect(exported.nameStyleBold, isFalse);
+        expect(exported.nameStyleItalic, isTrue);
+        expect(exported.nameStyleColorMode, MemberNameColorMode.custom.index);
+        expect(exported.nameStyleColorHex, '#112233');
+        expect(exported.profileHeaderImageData, base64Encode(prismHeader));
+        expect(exported.pkBannerImageData, base64Encode(pkBanner));
+        expect(
+          exported.pkBannerCachedUrl,
+          'https://cdn.example.com/member/banner.png',
+        );
+        expect(
+          exported.pkBannerUrl,
+          'https://cdn.example.com/member/banner.png',
+        );
+        expect(exported.isAlwaysFronting, isTrue);
+        expect(exported.boardLastReadAt, boardLastReadAt.toIso8601String());
 
-      final result = await importService.importData(
-        const JsonEncoder().convert(export.toJson()),
-      );
-      expect(result.membersCreated, 1);
+        final result = await importService.importData(
+          const JsonEncoder().convert(export.toJson()),
+        );
+        expect(result.membersCreated, 1);
 
-      final imported = (await targetDb.membersDao.getAllMembers()).single;
-      expect(
-        imported.profileHeaderSource,
-        MemberProfileHeaderSource.pluralKit.index,
-      );
-      expect(
-        imported.profileHeaderLayout,
-        MemberProfileHeaderLayout.classicOverlap.index,
-      );
-      expect(imported.profileHeaderVisible, isFalse);
-      expect(imported.profileHeaderImageData, prismHeader);
-      expect(imported.pkBannerImageData, pkBanner);
-      expect(
-        imported.pkBannerCachedUrl,
-        'https://cdn.example.com/member/banner.png',
-      );
-      expect(imported.pkBannerUrl, 'https://cdn.example.com/member/banner.png');
-    });
+        final imported = (await targetDb.membersDao.getAllMembers()).single;
+        expect(
+          imported.profileHeaderSource,
+          MemberProfileHeaderSource.pluralKit.index,
+        );
+        expect(
+          imported.profileHeaderLayout,
+          MemberProfileHeaderLayout.classicOverlap.index,
+        );
+        expect(imported.profileHeaderVisible, isFalse);
+        expect(imported.nameStyleFont, MemberNameFont.mono.index);
+        expect(imported.nameStyleBold, isFalse);
+        expect(imported.nameStyleItalic, isTrue);
+        expect(imported.nameStyleColorMode, MemberNameColorMode.custom.index);
+        expect(imported.nameStyleColorHex, '#112233');
+        expect(imported.profileHeaderImageData, prismHeader);
+        expect(imported.pkBannerImageData, pkBanner);
+        expect(
+          imported.pkBannerCachedUrl,
+          'https://cdn.example.com/member/banner.png',
+        );
+        expect(
+          imported.pkBannerUrl,
+          'https://cdn.example.com/member/banner.png',
+        );
+        expect(imported.isAlwaysFronting, isTrue);
+        expect(imported.boardLastReadAt?.toUtc(), boardLastReadAt);
+      },
+    );
 
     test(
       'old member exports default profile header fields on import',
@@ -674,6 +710,8 @@ void main() {
             colorHex: '#FF0000',
             emoji: '\uD83C\uDF1F',
             displayOrder: 1,
+            groupType: 2,
+            filterRules: '{"match":"fronting"}',
             createdAt: now,
           ),
         );
@@ -763,6 +801,8 @@ void main() {
         expect(importedGroups.single.id, 'group-1');
         expect(importedGroups.single.name, 'Test Group');
         expect(importedGroups.single.description, 'A test group');
+        expect(importedGroups.single.groupType, 2);
+        expect(importedGroups.single.filterRules, '{"match":"fronting"}');
 
         // Assert member group entry restored
         final importedEntries = await targetGroupsRepo.getAllGroupEntries();
@@ -800,6 +840,66 @@ void main() {
         expect(c2.body, 'Second comment');
       },
     );
+
+    test('reminder schedule fields survive export -> import', () async {
+      final now = DateTime(2026, 4, 6, 10).toUtc();
+      await DriftRemindersRepository(sourceDb.remindersDao, null).create(
+        Reminder(
+          id: 'reminder-1',
+          name: 'Check in',
+          message: 'Hydrate',
+          trigger: ReminderTrigger.onFrontChange,
+          frequency: ReminderFrequency.weekly,
+          weeklyDays: const [1, 3, 5],
+          intervalDays: 7,
+          timeOfDay: '09:30',
+          delayHours: 2,
+          targetMemberId: 'member-target',
+          createdAt: now,
+          modifiedAt: now.add(const Duration(minutes: 1)),
+        ),
+      );
+
+      final result = await _roundtrip(exportService, importService);
+      expect(result.remindersCreated, 1);
+
+      final imported = await DriftRemindersRepository(
+        targetDb.remindersDao,
+        null,
+      ).watchAll().first;
+      expect(imported, hasLength(1));
+      final reminder = imported.single;
+      expect(reminder.frequency, ReminderFrequency.weekly);
+      expect(reminder.weeklyDays, [1, 3, 5]);
+      expect(reminder.intervalDays, 7);
+      expect(reminder.targetMemberId, 'member-target');
+    });
+
+    test('media source and preview URLs survive export -> import', () async {
+      await sourceDb.mediaAttachmentsDao.insertAttachment(
+        const MediaAttachmentsCompanion(
+          id: drift.Value('attachment-url'),
+          messageId: drift.Value('message-url'),
+          mediaId: drift.Value('media-url'),
+          mediaType: drift.Value('image'),
+          encryptionKeyB64: drift.Value('key'),
+          contentHash: drift.Value('content'),
+          plaintextHash: drift.Value('plain'),
+          mimeType: drift.Value('image/png'),
+          sizeBytes: drift.Value(100),
+          sourceUrl: drift.Value('https://cdn.example/source.png'),
+          previewUrl: drift.Value('https://cdn.example/preview.png'),
+        ),
+      );
+
+      final result = await _roundtrip(exportService, importService);
+      expect(result.mediaAttachmentsCreated, 1);
+
+      final imported = await targetDb.mediaAttachmentsDao.getAll();
+      expect(imported, hasLength(1));
+      expect(imported.single.sourceUrl, 'https://cdn.example/source.png');
+      expect(imported.single.previewUrl, 'https://cdn.example/preview.png');
+    });
 
     test(
       'idempotent import of groups, fields, and comments creates zero duplicates',

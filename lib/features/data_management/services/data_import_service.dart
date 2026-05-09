@@ -10,6 +10,7 @@ import 'package:prism_plurality/core/database/app_database.dart'
         AppDatabase,
         MediaAttachmentsCompanion,
         MemberBoardPostsCompanion,
+        MembersCompanion,
         PluralKitSyncStateCompanion;
 import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
 import 'package:prism_plurality/core/database/sqlite_constraint.dart';
@@ -288,6 +289,51 @@ class DataImportService {
     return MemberProfileHeaderLayout.compactBackground;
   }
 
+  static MemberNameFont _nameStyleFontFromExport(V1Headmate headmate) {
+    final raw = headmate.nameStyleFont;
+    const values = MemberNameFont.values;
+    if (raw != null && raw >= 0 && raw < values.length) {
+      return values[raw];
+    }
+    return MemberNameFont.standard;
+  }
+
+  static MemberNameColorMode _nameStyleColorModeFromExport(
+    V1Headmate headmate,
+  ) {
+    final raw = headmate.nameStyleColorMode;
+    const values = MemberNameColorMode.values;
+    if (raw != null && raw >= 0 && raw < values.length) {
+      return values[raw];
+    }
+    return MemberNameColorMode.standard;
+  }
+
+  static ReminderFrequency _reminderFrequencyFromExport(V1Reminder reminder) {
+    final raw = reminder.frequency;
+    if (raw != null) {
+      for (final value in ReminderFrequency.values) {
+        if (value.name == raw) return value;
+      }
+    }
+    if (reminder.intervalDays != null && reminder.intervalDays != 1) {
+      return ReminderFrequency.interval;
+    }
+    return ReminderFrequency.daily;
+  }
+
+  static List<int>? _weeklyDaysFromExport(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return null;
+      final values = decoded.whereType<int>().toList();
+      return values.isEmpty ? null : values;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Resolve raw file bytes to a JSON string and optional media blobs.
   ///
   /// PRISM3 encrypted files return both the JSON and any embedded media blobs.
@@ -493,6 +539,9 @@ class DataImportService {
             );
             continue;
           }
+          final boardLastReadAt = h.boardLastReadAt != null
+              ? DateTime.tryParse(h.boardLastReadAt!)
+              : null;
           try {
             await memberRepository.createMember(
               Member(
@@ -520,12 +569,25 @@ class DataImportService {
                 profileHeaderSource: _profileHeaderSourceFromExport(h),
                 profileHeaderLayout: _profileHeaderLayoutFromExport(h),
                 profileHeaderVisible: h.profileHeaderVisible ?? true,
+                nameStyleFont: _nameStyleFontFromExport(h),
+                nameStyleBold: h.nameStyleBold ?? true,
+                nameStyleItalic: h.nameStyleItalic ?? false,
+                nameStyleColorMode: _nameStyleColorModeFromExport(h),
+                nameStyleColorHex: h.nameStyleColorHex,
                 profileHeaderImageData: h.profileHeaderImageBytes,
                 pkBannerImageData: h.pkBannerImageBytes,
                 pkBannerCachedUrl: h.pkBannerCachedUrl,
                 pluralkitSyncIgnored: h.pluralkitSyncIgnored,
+                isAlwaysFronting: h.isAlwaysFronting,
               ),
             );
+            if (boardLastReadAt != null) {
+              await (db.update(
+                db.members,
+              )..where((m) => m.id.equals(h.id))).write(
+                MembersCompanion(boardLastReadAt: Value(boardLastReadAt)),
+              );
+            }
           } catch (e) {
             // Belt-and-braces: if a future code path introduces a hole the
             // dedup above missed, swallow the unique-constraint and skip
@@ -1748,6 +1810,8 @@ class DataImportService {
               emoji: g.emoji,
               displayOrder: g.displayOrder,
               parentGroupId: g.parentGroupId,
+              groupType: g.groupType,
+              filterRules: g.filterRules,
               createdAt: DateTime.parse(g.createdAt),
             ),
           );
@@ -1919,9 +1983,12 @@ class DataImportService {
                   r.trigger >= 0 && r.trigger < ReminderTrigger.values.length
                   ? ReminderTrigger.values[r.trigger]
                   : ReminderTrigger.scheduled,
+              frequency: _reminderFrequencyFromExport(r),
+              weeklyDays: _weeklyDaysFromExport(r.weeklyDays),
               intervalDays: r.intervalDays,
               timeOfDay: r.timeOfDay,
               delayHours: r.delayHours,
+              targetMemberId: r.targetMemberId,
               isActive: r.isActive,
               createdAt: DateTime.parse(r.createdAt),
               modifiedAt: DateTime.parse(r.modifiedAt),
@@ -1987,6 +2054,8 @@ class DataImportService {
               blurhash: Value(a.blurhash),
               waveformB64: Value(a.waveformB64),
               thumbnailMediaId: Value(a.thumbnailMediaId),
+              sourceUrl: Value(a.sourceUrl),
+              previewUrl: Value(a.previewUrl),
               isDeleted: Value(a.isDeleted),
             ),
           );

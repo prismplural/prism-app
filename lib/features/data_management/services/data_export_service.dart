@@ -138,7 +138,16 @@ class DataExportService {
         : const <String, _LegacySessionFields>{};
 
     // Convert to V3 models
-    final v1Headmates = members.map(_mapMember).toList();
+    final memberBoardLastReadAtById = {
+      for (final row in await db.select(db.members).get())
+        row.id: row.boardLastReadAt,
+    };
+    final v1Headmates = members
+        .map(
+          (m) =>
+              _mapMember(m, boardLastReadAt: memberBoardLastReadAtById[m.id]),
+        )
+        .toList();
     final v1Sessions = frontSessions
         .map((s) => _mapFrontSession(s, legacySessionFields[s.id]))
         .toList();
@@ -235,6 +244,8 @@ class DataExportService {
             blurhash: a.blurhash,
             waveformB64: a.waveformB64,
             thumbnailMediaId: a.thumbnailMediaId,
+            sourceUrl: a.sourceUrl,
+            previewUrl: a.previewUrl,
             isDeleted: a.isDeleted,
           ),
         )
@@ -372,7 +383,7 @@ class DataExportService {
 
   // -- Mapping helpers -------------------------------------------------------
 
-  V1Headmate _mapMember(Member m) => V1Headmate(
+  V1Headmate _mapMember(Member m, {DateTime? boardLastReadAt}) => V1Headmate(
     id: m.id,
     name: m.name,
     pronouns: m.pronouns,
@@ -400,6 +411,11 @@ class DataExportService {
     profileHeaderSource: m.profileHeaderSource.index,
     profileHeaderLayout: m.profileHeaderLayout.index,
     profileHeaderVisible: m.profileHeaderVisible,
+    nameStyleFont: m.nameStyleFont.index,
+    nameStyleBold: m.nameStyleBold,
+    nameStyleItalic: m.nameStyleItalic,
+    nameStyleColorMode: m.nameStyleColorMode.index,
+    nameStyleColorHex: m.nameStyleColorHex,
     profileHeaderImageData: m.profileHeaderImageData != null
         ? base64Encode(m.profileHeaderImageData!)
         : null,
@@ -408,6 +424,8 @@ class DataExportService {
         : null,
     pkBannerCachedUrl: m.pkBannerCachedUrl,
     pluralkitSyncIgnored: m.pluralkitSyncIgnored,
+    isAlwaysFronting: m.isAlwaysFronting,
+    boardLastReadAt: boardLastReadAt?.toUtc().toIso8601String(),
   );
 
   V1FrontSession _mapFrontSession(
@@ -644,6 +662,8 @@ class DataExportService {
     emoji: g.emoji,
     displayOrder: g.displayOrder,
     parentGroupId: g.parentGroupId,
+    groupType: g.groupType,
+    filterRules: g.filterRules,
     createdAt: g.createdAt.toUtc().toIso8601String(),
   );
 
@@ -701,9 +721,12 @@ class DataExportService {
     name: r.name,
     message: r.message,
     trigger: r.trigger.index,
+    frequency: r.frequency.name,
     intervalDays: r.intervalDays,
+    weeklyDays: r.weeklyDays != null ? jsonEncode(r.weeklyDays) : null,
     timeOfDay: r.timeOfDay,
     delayHours: r.delayHours,
+    targetMemberId: r.targetMemberId,
     isActive: r.isActive,
     createdAt: r.createdAt.toUtc().toIso8601String(),
     modifiedAt: r.modifiedAt.toUtc().toIso8601String(),

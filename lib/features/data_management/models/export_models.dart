@@ -384,10 +384,17 @@ class V1Headmate {
     this.profileHeaderSource,
     this.profileHeaderLayout,
     this.profileHeaderVisible,
+    this.nameStyleFont,
+    this.nameStyleBold,
+    this.nameStyleItalic,
+    this.nameStyleColorMode,
+    this.nameStyleColorHex,
     this.profileHeaderImageData,
     this.pkBannerImageData,
     this.pkBannerCachedUrl,
     this.pluralkitSyncIgnored = false,
+    this.isAlwaysFronting = false,
+    this.boardLastReadAt,
   });
 
   final String id;
@@ -416,10 +423,17 @@ class V1Headmate {
   final int? profileHeaderSource;
   final int? profileHeaderLayout;
   final bool? profileHeaderVisible;
+  final int? nameStyleFont;
+  final bool? nameStyleBold;
+  final bool? nameStyleItalic;
+  final int? nameStyleColorMode;
+  final String? nameStyleColorHex;
   final String? profileHeaderImageData; // base64
   final String? pkBannerImageData; // base64
   final String? pkBannerCachedUrl;
   final bool pluralkitSyncIgnored;
+  final bool isAlwaysFronting;
+  final String? boardLastReadAt;
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -449,11 +463,18 @@ class V1Headmate {
     if (profileHeaderLayout != null) 'profileHeaderLayout': profileHeaderLayout,
     if (profileHeaderVisible != null)
       'profileHeaderVisible': profileHeaderVisible,
+    if (nameStyleFont != null) 'nameStyleFont': nameStyleFont,
+    if (nameStyleBold != null) 'nameStyleBold': nameStyleBold,
+    if (nameStyleItalic != null) 'nameStyleItalic': nameStyleItalic,
+    if (nameStyleColorMode != null) 'nameStyleColorMode': nameStyleColorMode,
+    if (nameStyleColorHex != null) 'nameStyleColorHex': nameStyleColorHex,
     if (profileHeaderImageData != null)
       'profileHeaderImageData': profileHeaderImageData,
     if (pkBannerImageData != null) 'pkBannerImageData': pkBannerImageData,
     if (pkBannerCachedUrl != null) 'pkBannerCachedUrl': pkBannerCachedUrl,
     'pluralkitSyncIgnored': pluralkitSyncIgnored,
+    if (isAlwaysFronting) 'isAlwaysFronting': isAlwaysFronting,
+    if (boardLastReadAt != null) 'boardLastReadAt': boardLastReadAt,
   };
 
   factory V1Headmate.fromJson(Map<String, dynamic> json) => V1Headmate(
@@ -482,10 +503,17 @@ class V1Headmate {
     profileHeaderSource: json['profileHeaderSource'] as int?,
     profileHeaderLayout: json['profileHeaderLayout'] as int?,
     profileHeaderVisible: json['profileHeaderVisible'] as bool?,
+    nameStyleFont: json['nameStyleFont'] as int?,
+    nameStyleBold: json['nameStyleBold'] as bool?,
+    nameStyleItalic: json['nameStyleItalic'] as bool?,
+    nameStyleColorMode: json['nameStyleColorMode'] as int?,
+    nameStyleColorHex: json['nameStyleColorHex'] as String?,
     profileHeaderImageData: json['profileHeaderImageData'] as String?,
     pkBannerImageData: json['pkBannerImageData'] as String?,
     pkBannerCachedUrl: json['pkBannerCachedUrl'] as String?,
     pluralkitSyncIgnored: json['pluralkitSyncIgnored'] as bool? ?? false,
+    isAlwaysFronting: json['isAlwaysFronting'] as bool? ?? false,
+    boardLastReadAt: json['boardLastReadAt'] as String?,
   );
 
   /// Convert base64 profilePhotoData to Uint8List.
@@ -1596,6 +1624,8 @@ class V1MemberGroup {
     this.emoji,
     this.displayOrder = 0,
     this.parentGroupId,
+    this.groupType = 0,
+    this.filterRules,
     required this.createdAt,
   });
 
@@ -1606,6 +1636,8 @@ class V1MemberGroup {
   final String? emoji;
   final int displayOrder;
   final String? parentGroupId;
+  final int groupType;
+  final String? filterRules;
   final String createdAt;
 
   Map<String, dynamic> toJson() => {
@@ -1616,6 +1648,8 @@ class V1MemberGroup {
     if (emoji != null) 'emoji': emoji,
     'displayOrder': displayOrder,
     if (parentGroupId != null) 'parentGroupId': parentGroupId,
+    if (groupType != 0) 'groupType': groupType,
+    if (filterRules != null) 'filterRules': filterRules,
     'createdAt': createdAt,
   };
 
@@ -1627,6 +1661,8 @@ class V1MemberGroup {
     emoji: json['emoji'] as String?,
     displayOrder: json['displayOrder'] as int? ?? 0,
     parentGroupId: json['parentGroupId'] as String?,
+    groupType: json['groupType'] as int? ?? 0,
+    filterRules: json['filterRules'] as String?,
     createdAt: json['createdAt'] as String,
   );
 }
@@ -1918,9 +1954,12 @@ class V1Reminder {
     required this.name,
     required this.message,
     this.trigger = 0,
+    this.frequency,
     this.intervalDays,
+    this.weeklyDays,
     this.timeOfDay,
     this.delayHours,
+    this.targetMemberId,
     this.isActive = true,
     required this.createdAt,
     required this.modifiedAt,
@@ -1930,9 +1969,12 @@ class V1Reminder {
   final String name;
   final String message;
   final int trigger; // ReminderTrigger enum index
+  final String? frequency;
   final int? intervalDays;
+  final String? weeklyDays; // JSON-encoded int list
   final String? timeOfDay;
   final int? delayHours;
+  final String? targetMemberId;
   final bool isActive;
   final String createdAt;
   final String modifiedAt;
@@ -1942,9 +1984,12 @@ class V1Reminder {
     'name': name,
     'message': message,
     'trigger': trigger,
+    if (frequency != null) 'frequency': frequency,
     if (intervalDays != null) 'intervalDays': intervalDays,
+    if (weeklyDays != null) 'weeklyDays': weeklyDays,
     if (timeOfDay != null) 'timeOfDay': timeOfDay,
     if (delayHours != null) 'delayHours': delayHours,
+    if (targetMemberId != null) 'targetMemberId': targetMemberId,
     'isActive': isActive,
     'createdAt': createdAt,
     'modifiedAt': modifiedAt,
@@ -1955,9 +2000,12 @@ class V1Reminder {
     name: json['name'] as String,
     message: json['message'] as String,
     trigger: json['trigger'] as int? ?? 0,
+    frequency: json['frequency'] as String?,
     intervalDays: json['intervalDays'] as int?,
+    weeklyDays: json['weeklyDays'] as String?,
     timeOfDay: json['timeOfDay'] as String?,
     delayHours: json['delayHours'] as int?,
+    targetMemberId: json['targetMemberId'] as String?,
     isActive: json['isActive'] as bool? ?? true,
     createdAt: json['createdAt'] as String,
     modifiedAt: json['modifiedAt'] as String,
@@ -2051,6 +2099,8 @@ class V1MediaAttachment {
     this.blurhash = '',
     this.waveformB64 = '',
     this.thumbnailMediaId = '',
+    this.sourceUrl = '',
+    this.previewUrl = '',
     this.isDeleted = false,
   });
 
@@ -2069,6 +2119,8 @@ class V1MediaAttachment {
   final String blurhash;
   final String waveformB64;
   final String thumbnailMediaId;
+  final String sourceUrl;
+  final String previewUrl;
   final bool isDeleted;
 
   Map<String, dynamic> toJson() => {
@@ -2087,6 +2139,8 @@ class V1MediaAttachment {
     if (blurhash.isNotEmpty) 'blurhash': blurhash,
     if (waveformB64.isNotEmpty) 'waveformB64': waveformB64,
     if (thumbnailMediaId.isNotEmpty) 'thumbnailMediaId': thumbnailMediaId,
+    if (sourceUrl.isNotEmpty) 'sourceUrl': sourceUrl,
+    if (previewUrl.isNotEmpty) 'previewUrl': previewUrl,
     'isDeleted': isDeleted,
   };
 
@@ -2107,6 +2161,8 @@ class V1MediaAttachment {
         blurhash: json['blurhash'] as String? ?? '',
         waveformB64: json['waveformB64'] as String? ?? '',
         thumbnailMediaId: json['thumbnailMediaId'] as String? ?? '',
+        sourceUrl: json['sourceUrl'] as String? ?? '',
+        previewUrl: json['previewUrl'] as String? ?? '',
         isDeleted: json['isDeleted'] as bool? ?? false,
       );
 }
