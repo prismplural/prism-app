@@ -426,6 +426,16 @@ class FakeConversationRepository implements ConversationRepository {
   }
 
   @override
+  Future<List<Conversation>> getConversationsByIds(List<String> ids) async {
+    if (ids.isEmpty) return const <Conversation>[];
+    final wanted = ids.toSet();
+    return [
+      for (final c in conversations)
+        if (wanted.contains(c.id)) c,
+    ];
+  }
+
+  @override
   Future<List<Conversation>> getConversationsForMember(String memberId) async {
     return conversations
         .where((conversation) => conversation.participantIds.contains(memberId))

@@ -25,6 +25,11 @@ class ConversationsDao extends DatabaseAccessor<AppDatabase>
       (select(conversations)..where((c) => c.id.equals(id)))
           .getSingleOrNull();
 
+  Future<List<Conversation>> getConversationsByIds(List<String> ids) {
+    if (ids.isEmpty) return Future.value(const <Conversation>[]);
+    return (select(conversations)..where((c) => c.id.isIn(ids))).get();
+  }
+
   Stream<Conversation?> watchConversationById(String id) =>
       (select(conversations)..where((c) => c.id.equals(id)))
           .watchSingleOrNull();

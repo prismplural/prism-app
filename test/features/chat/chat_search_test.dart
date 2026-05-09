@@ -124,6 +124,50 @@ void main() {
       results = await dao.searchMessages('special');
       expect(results, isEmpty);
     });
+
+    test('removes from index when message becomes a system message', () async {
+      var results = await dao.searchMessages('special');
+      expect(results, hasLength(1));
+
+      await dao.updateMessage(const ChatMessagesCompanion(
+        id: Value('msg-2'),
+        isSystemMessage: Value(true),
+      ));
+
+      results = await dao.searchMessages('special');
+      expect(results, isEmpty,
+          reason: 'fts update trigger must fire on is_system_message flip');
+    });
+
+    test('updates fts conversation_id when message moves conversation',
+        () async {
+      await dao.updateMessage(const ChatMessagesCompanion(
+        id: Value('msg-2'),
+        conversationId: Value('conv-2'),
+      ));
+
+      final rows = await db.customSelect(
+        'SELECT conversation_id FROM chat_messages_fts '
+        "WHERE message_id = 'msg-2'",
+      ).get();
+      expect(rows, hasLength(1));
+      expect(rows.first.read<String>('conversation_id'), 'conv-2',
+          reason: 'fts update trigger must fire on conversation_id change');
+    });
+
+    test('drops single-char tokens to avoid range scans', () async {
+      // Multi-token query made entirely of 1-char terms returns empty
+      // rather than emitting three slow 1-char prefix scans.
+      final results = await dao.searchMessages('a b c');
+      expect(results, isEmpty);
+    });
+
+    test('keeps multi-char tokens even when one is single-char', () async {
+      // 'h' is dropped, 'hello' survives → matches the seeded message.
+      final results = await dao.searchMessages('h hello');
+      expect(results, hasLength(1));
+      expect(results.first.messageId, 'msg-1');
+    });
   });
 
   // FTS5 `snippet()` picks a window that can start or end inside a

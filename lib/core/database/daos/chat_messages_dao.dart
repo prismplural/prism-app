@@ -336,15 +336,20 @@ class ChatMessagesDao extends DatabaseAccessor<AppDatabase>
   }) async {
     // Split into tokens, quote each for safety, append * for prefix matching.
     // "hel" matches "hello", "wor" matches "world", etc.
+    //
+    // Single-char tokens are dropped: chat_messages_fts has prefix indexes
+    // at 2/3/4 chars, so 1-char prefix matches degrade to a dictionary
+    // range scan. A query like "a b c" stays cheap by emitting no FTS
+    // search at all rather than three slow scans.
     final rawTokens = query
         .trim()
         .split(RegExp(r'\s+'))
-        .where((t) => t.isNotEmpty)
+        .where((t) => t.length >= 2)
         .toList();
+    if (rawTokens.isEmpty) return [];
     final escaped = rawTokens
         .map((t) => '"${t.replaceAll('"', '""')}"*')
         .join(' ');
-    if (escaped.isEmpty) return [];
 
     // We build the match-highlighted snippet Dart-side from the *redacted*
     // full content instead of SQLite's `snippet(...)`. FTS5's snippet picks

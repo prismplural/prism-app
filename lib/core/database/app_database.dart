@@ -96,7 +96,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 18;
+  int get schemaVersion => 19;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -530,6 +530,32 @@ class AppDatabase extends _$AppDatabase {
           systemSettingsTable.membersShowPronouns,
         );
         current = 18;
+      }
+      if (current == 18 && to >= 19) {
+        // Rebuild chat_messages_fts with prefix='2 3 4' so prefix-match
+        // queries (every chat search) resolve in a single seek per term
+        // instead of a dictionary range scan. Wrap in a transaction:
+        // dropping the FTS table mid-migration without recovery would
+        // leave search broken until the next rebuild.
+        await transaction(() async {
+          await customStatement(
+            'DROP TRIGGER IF EXISTS chat_messages_fts_insert',
+          );
+          await customStatement(
+            'DROP TRIGGER IF EXISTS chat_messages_fts_update',
+          );
+          await customStatement(
+            'DROP TRIGGER IF EXISTS chat_messages_fts_delete',
+          );
+          await customStatement('DROP TABLE IF EXISTS chat_messages_fts');
+          await _createChatMessagesFtsArtifacts();
+          await customStatement(
+            'INSERT INTO chat_messages_fts (content, message_id, conversation_id) '
+            'SELECT content, id, conversation_id FROM chat_messages '
+            "WHERE is_deleted = 0 AND is_system_message = 0 AND content != ''",
+          );
+        });
+        current = 19;
       }
       if (current != to) {
         throw UnsupportedError(
@@ -1109,12 +1135,16 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<void> _createChatMessagesFtsArtifacts() async {
+    // prefix='2 3 4' indexes 2-, 3-, and 4-char prefix terms so that
+    // `"abc"*` queries — every chat search uses the prefix-match form —
+    // resolve via single seeks instead of dictionary range scans.
     await customStatement('''
       CREATE VIRTUAL TABLE IF NOT EXISTS chat_messages_fts USING fts5(
         content,
         message_id UNINDEXED,
         conversation_id UNINDEXED,
-        tokenize='unicode61 remove_diacritics 2'
+        tokenize='unicode61 remove_diacritics 2',
+        prefix='2 3 4'
       )
     ''');
     await customStatement('''
@@ -1129,7 +1159,10 @@ class AppDatabase extends _$AppDatabase {
     await customStatement('''
       CREATE TRIGGER IF NOT EXISTS chat_messages_fts_update
       AFTER UPDATE ON chat_messages
-      WHEN OLD.content != NEW.content OR OLD.is_deleted != NEW.is_deleted
+      WHEN OLD.content != NEW.content
+        OR OLD.is_deleted != NEW.is_deleted
+        OR OLD.is_system_message != NEW.is_system_message
+        OR OLD.conversation_id != NEW.conversation_id
       BEGIN
         DELETE FROM chat_messages_fts WHERE message_id = OLD.id;
         INSERT INTO chat_messages_fts(content, message_id, conversation_id)

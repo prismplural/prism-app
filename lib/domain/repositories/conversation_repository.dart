@@ -4,6 +4,7 @@ abstract class ConversationRepository {
   Future<List<domain.Conversation>> getAllConversations();
   Stream<List<domain.Conversation>> watchAllConversations();
   Future<domain.Conversation?> getConversationById(String id);
+  Future<List<domain.Conversation>> getConversationsByIds(List<String> ids);
   Stream<domain.Conversation?> watchConversationById(String id);
   Future<List<domain.Conversation>> getConversationsForMember(String memberId);
   Future<void> createConversation(domain.Conversation conversation);

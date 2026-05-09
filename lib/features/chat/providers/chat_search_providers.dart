@@ -19,7 +19,7 @@ final chatSearchQueryProvider =
 final chatSearchResultsProvider =
     FutureProvider.autoDispose<List<MessageSearchResult>>((ref) async {
       final query = ref.watch(chatSearchQueryProvider);
-      if (query.length < 2) return [];
+      if (query.length < 3) return [];
 
       final repo = ref.watch(chatMessageRepositoryProvider);
       final convRepo = ref.watch(conversationRepositoryProvider);
@@ -32,16 +32,14 @@ final chatSearchResultsProvider =
       final raw = await repo.searchMessages(query, limit: 50);
       if (raw.isEmpty) return [];
 
-      // Batch-fetch conversations and members to avoid N+1 sequential queries.
+      // Batch-fetch conversations and members in a single query each.
       final convIds = raw.map((r) => r.conversationId).toSet();
       final authorIds = raw.map((r) => r.authorId).whereType<String>().toSet();
 
-      final convFutures = convIds.map((id) async {
-        final c = await convRepo.getConversationById(id);
-        return MapEntry(id, c);
-      });
-      final convEntries = await Future.wait(convFutures);
-      final convMap = Map.fromEntries(convEntries);
+      final convs = convIds.isNotEmpty
+          ? await convRepo.getConversationsByIds(convIds.toList())
+          : const [];
+      final convMap = {for (final c in convs) c.id: c};
 
       final members = authorIds.isNotEmpty
           ? await memberRepo.getMembersByIds(authorIds.toList())

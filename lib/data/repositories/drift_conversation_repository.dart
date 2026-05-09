@@ -42,6 +42,15 @@ class DriftConversationRepository
   }
 
   @override
+  Future<List<domain.Conversation>> getConversationsByIds(
+    List<String> ids,
+  ) async {
+    if (ids.isEmpty) return const <domain.Conversation>[];
+    final rows = await _dao.getConversationsByIds(ids);
+    return rows.map(ConversationMapper.toDomain).toList();
+  }
+
+  @override
   Stream<domain.Conversation?> watchConversationById(String id) {
     return _dao
         .watchConversationById(id)

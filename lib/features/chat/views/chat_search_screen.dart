@@ -174,7 +174,7 @@ class _ChatSearchScreenState extends ConsumerState<ChatSearchScreen> {
                 ),
               ),
             )
-          else if (query.length < 2)
+          else if (query.length < 3)
             SliverFillRemaining(
               hasScrollBody: false,
               child: Center(
