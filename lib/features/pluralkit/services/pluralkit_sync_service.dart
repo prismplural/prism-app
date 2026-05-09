@@ -1597,7 +1597,10 @@ class PluralKitSyncService {
       // log the summary for debugging until a UI surface exists. Codex
       // review [P3].
       if (direction.pushEnabled) {
-        final pushResult = await importer.pushPendingGroupOps(client, direction);
+        final pushResult = await importer.pushPendingGroupOps(
+          client,
+          direction,
+        );
         if (pushResult.added != 0 ||
             pushResult.removed != 0 ||
             pushResult.failed != 0 ||
@@ -3151,10 +3154,22 @@ class PluralKitSyncService {
       final PKSwitch? current = await client.getCurrentFronters();
       if (current == null) return false;
 
-      // If we've already ingested this switch, skip the heavier path.
+      // If we've already ingested this switch, skip the heavier path. Include
+      // user tombstones: deleting the current PK-backed row is intentional
+      // local state, not evidence that the PK switch is new.
+      final currentSwitchId = current.id.trim();
       final sessions = await _frontingSessionRepository.getAllSessions();
-      final seen = sessions.any((s) => s.pluralkitUuid == current.id);
-      if (seen) return false;
+      final seenLive = sessions.any(
+        (s) => s.pluralkitUuid?.trim() == currentSwitchId,
+      );
+      if (seenLive) return false;
+
+      final deletedLinked = await _frontingSessionRepository
+          .getDeletedLinkedSessions();
+      final seenDeleted = deletedLinked.any(
+        (s) => s.pluralkitUuid?.trim() == currentSwitchId,
+      );
+      if (seenDeleted) return false;
 
       await syncRecentData(
         isManual: false,

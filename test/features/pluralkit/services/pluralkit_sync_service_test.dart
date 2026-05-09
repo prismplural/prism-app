@@ -8,6 +8,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/sqlite3.dart' show SqlExtendedError, SqliteException;
 
 import 'package:prism_plurality/core/database/app_database.dart';
+import 'package:prism_plurality/data/repositories/drift_fronting_session_repository.dart';
+import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart' as domain;
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
@@ -186,9 +188,15 @@ class FakePluralKitClient implements PluralKitClient {
   @override
   Future<List<String>> getGroupMembers(String groupRef) async => const [];
   @override
-  Future<void> addMembersToGroup(String groupRef, List<String> memberRefs) async => throw UnimplementedError();
+  Future<void> addMembersToGroup(
+    String groupRef,
+    List<String> memberRefs,
+  ) async => throw UnimplementedError();
   @override
-  Future<void> removeMembersFromGroup(String groupRef, List<String> memberRefs) async => throw UnimplementedError();
+  Future<void> removeMembersFromGroup(
+    String groupRef,
+    List<String> memberRefs,
+  ) async => throw UnimplementedError();
 
   PKSwitch? currentFrontersToReturn;
   int getCurrentFrontersCallCount = 0;
@@ -742,6 +750,82 @@ void main() {
       final client = await service.buildClientIfConnected();
       expect(client, isNull);
     });
+  });
+
+  group('pollFrontersOnly', () {
+    test(
+      'does not full-sync when current PK switch is a user tombstone already covered by cursor',
+      () async {
+        final db = _makeDb();
+        addTearDown(db.close);
+
+        final switchId = '00000000-0000-0000-0000-0000000000aa';
+        final switchTimestamp = DateTime.utc(2026, 5, 1, 12);
+
+        await db.pluralKitSyncDao.upsertSyncState(
+          PluralKitSyncStateCompanion(
+            id: const Value('pk_config'),
+            isConnected: const Value(true),
+            mappingAcknowledged: const Value(true),
+            lastSyncDate: Value(switchTimestamp),
+            switchCursorTimestamp: Value(switchTimestamp),
+            switchCursorId: Value(switchId),
+          ),
+        );
+
+        await db.frontingSessionsDao.insertSession(
+          FrontingSessionsCompanion.insert(
+            id: 'deleted-current-switch-row',
+            startTime: switchTimestamp,
+            memberId: const Value('local-member-id'),
+            pluralkitUuid: Value(switchId),
+            isDeleted: const Value(true),
+            deleteIntentEpoch: const Value(0),
+          ),
+        );
+
+        final fakeClient = FakePluralKitClient()
+          ..currentFrontersToReturn = PKSwitch(
+            id: switchId,
+            timestamp: switchTimestamp,
+            members: const ['pk001'],
+          )
+          ..switchesToReturn = [
+            PKSwitch(
+              id: switchId,
+              timestamp: switchTimestamp,
+              members: const ['pk001'],
+            ),
+          ];
+
+        final service = PluralKitSyncService(
+          memberRepository: DriftMemberRepository(
+            db.membersDao,
+            null,
+            pkSyncDao: db.pluralKitSyncDao,
+          ),
+          frontingSessionRepository: DriftFrontingSessionRepository(
+            db.frontingSessionsDao,
+            null,
+            pkSyncDao: db.pluralKitSyncDao,
+          ),
+          syncDao: db.pluralKitSyncDao,
+          secureStorage: const FlutterSecureStorage(),
+          tokenOverride: 'test-token',
+          clientFactory: (_) => fakeClient,
+        );
+        await service.loadState();
+
+        final ranFullSync = await service.pollFrontersOnly();
+
+        expect(ranFullSync, isFalse);
+        expect(
+          fakeClient.getSwitchesCallCount,
+          0,
+          reason: 'The tombstone means this current switch is already known.',
+        );
+      },
+    );
   });
 
   group('repair reference fetch', () {
