@@ -25,4 +25,12 @@ abstract class HabitRepository {
   );
   Future<void> createCompletion(domain.HabitCompletion completion);
   Future<void> deleteCompletion(String id);
+
+  /// Returns the completion by ID, or null if it's tombstoned/missing.
+  Future<domain.HabitCompletion?> getCompletionById(String id);
+
+  /// Updates an active completion. Returns the affected row count
+  /// (0 if tombstoned/missing, 1 on success). Sync emission only
+  /// fires when affected == 1, so a tombstoned row does NOT resurrect.
+  Future<int> updateCompletion(domain.HabitCompletion completion);
 }

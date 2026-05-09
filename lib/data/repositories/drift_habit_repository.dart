@@ -1,10 +1,12 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/core/database/daos/habits_dao.dart';
 import 'package:prism_plurality/data/mappers/habit_mapper.dart';
 import 'package:prism_plurality/data/mappers/habit_completion_mapper.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
+import 'package:prism_plurality/data/sync/field_diff.dart';
 import 'package:prism_plurality/domain/models/habit.dart' as domain;
 import 'package:prism_plurality/domain/models/habit_completion.dart' as domain;
 import 'package:prism_plurality/domain/repositories/habit_repository.dart';
@@ -143,6 +145,42 @@ class DriftHabitRepository with SyncRecordMixin implements HabitRepository {
     await _dao.deleteCompletion(id);
     await syncRecordDelete(_completionTable, id);
   }
+
+  @override
+  Future<domain.HabitCompletion?> getCompletionById(String id) async {
+    final row = await _dao.getCompletionByIdRow(id);
+    if (row == null || row.isDeleted) return null;
+    return HabitCompletionMapper.toDomain(row);
+  }
+
+  @override
+  Future<int> updateCompletion(domain.HabitCompletion next) async {
+    final existingRow = await _dao.getCompletionByIdRow(next.id);
+    if (existingRow == null || existingRow.isDeleted) return 0;
+    final previous = HabitCompletionMapper.toDomain(existingRow);
+
+    final companion = HabitCompletionMapper.toCompanion(next);
+    final affected = await _dao.updateCompletionById(next.id, companion);
+    if (affected != 1) return affected;
+
+    final changed = diffSyncFields(
+      _completionFields(previous),
+      _completionFields(next),
+    );
+    if (changed.isEmpty) return affected;
+    await syncRecordUpdate(_completionTable, next.id, changed);
+    return affected;
+  }
+
+  @visibleForTesting
+  Map<String, dynamic> debugCompletionUpdateDiff(
+    domain.HabitCompletion previous,
+    domain.HabitCompletion next,
+  ) =>
+      diffSyncFields(
+        _completionFields(previous),
+        _completionFields(next),
+      );
 
   Map<String, dynamic> _habitFields(domain.Habit h) {
     return {

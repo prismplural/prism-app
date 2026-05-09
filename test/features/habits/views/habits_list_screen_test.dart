@@ -493,4 +493,10 @@ class _FakeHabitRepository implements HabitRepository {
     controller.onCancel = sub.cancel;
     return controller.stream;
   }
+
+  @override
+  Future<HabitCompletion?> getCompletionById(String id) async => null;
+
+  @override
+  Future<int> updateCompletion(HabitCompletion completion) async => 0;
 }

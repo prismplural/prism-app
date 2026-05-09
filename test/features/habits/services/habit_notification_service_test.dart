@@ -675,4 +675,10 @@ class _FakeHabitRepository implements HabitRepository {
     DateTime start,
     DateTime end,
   ) => Stream.value([]);
+
+  @override
+  Future<HabitCompletion?> getCompletionById(String id) async => null;
+
+  @override
+  Future<int> updateCompletion(HabitCompletion completion) async => 0;
 }

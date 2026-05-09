@@ -186,4 +186,10 @@ class _FakeHabitRepository implements HabitRepository {
             .where((completion) => completion.habitId == habitId)
             .toList(),
       );
+
+  @override
+  Future<HabitCompletion?> getCompletionById(String id) async => null;
+
+  @override
+  Future<int> updateCompletion(HabitCompletion completion) async => 0;
 }
