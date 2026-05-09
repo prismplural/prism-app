@@ -1031,8 +1031,9 @@ void _stepFourTests({required AppDatabase Function() getDb}) {
         // We directly write the column since the importer's insert path
         // sets pending=none for pull-side inserts.
         await db.customStatement(
-          "UPDATE member_group_entries SET pending_pk_op = 'push_add' "
-          "WHERE group_id = (SELECT id FROM member_groups "
+          'UPDATE member_group_entries '
+          "SET pending_pk_op = 'push_add' "
+          'WHERE group_id = (SELECT id FROM member_groups '
           "WHERE pluralkit_uuid = 'pk-g-1') AND member_id = 'local-1'",
         );
 
@@ -1081,8 +1082,9 @@ void _stepFourTests({required AppDatabase Function() getDb}) {
 
         // Locally remove + queue push_remove (the tombstone state).
         await db.customStatement(
-          "UPDATE member_group_entries SET is_deleted = 1, "
-          "pending_pk_op = 'push_remove' WHERE member_id = 'local-1'",
+          'UPDATE member_group_entries '
+          "SET is_deleted = 1, pending_pk_op = 'push_remove' "
+          "WHERE member_id = 'local-1'",
         );
 
         // Re-import: PK still has the member. Old behavior (insert path
