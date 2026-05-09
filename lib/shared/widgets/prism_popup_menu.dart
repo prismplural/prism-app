@@ -1,40 +1,79 @@
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/blur_popup.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
+import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 
-/// A styled popup menu with consistent item layout.
+/// Top-bar overflow menu styled to match the rest of Prism.
 ///
-/// Items are rendered as [ListTile] rows with icon, label, and optional
-/// destructive styling. Wraps [PopupMenuButton].
-class PrismPopupMenu<T> extends StatelessWidget {
-  PrismPopupMenu({
+/// Renders a [PrismTopBarAction] anchor that opens a frosted-glass
+/// [BlurPopupAnchor] with one [PrismListRow] per [PrismMenuItem].
+class PrismPopupMenu<T> extends StatefulWidget {
+  const PrismPopupMenu({
     super.key,
     required this.items,
     this.onSelected,
-    IconData? icon,
+    this.icon,
     this.tooltip,
-    this.iconSize = 20.0,
-  }) : icon = icon ?? AppIcons.moreVert;
+    this.width = 220,
+    this.maxHeight = 320,
+    this.preferredDirection = BlurPopupDirection.down,
+  });
 
   final List<PrismMenuItem<T>> items;
   final ValueChanged<T>? onSelected;
-  final IconData icon;
+  final IconData? icon;
   final String? tooltip;
-  final double iconSize;
+  final double width;
+  final double maxHeight;
+  final BlurPopupDirection preferredDirection;
+
+  @override
+  State<PrismPopupMenu<T>> createState() => _PrismPopupMenuState<T>();
+}
+
+class _PrismPopupMenuState<T> extends State<PrismPopupMenu<T>> {
+  final GlobalKey<BlurPopupAnchorState> _popupKey = GlobalKey();
 
   @override
   Widget build(BuildContext context) {
-    return PopupMenuButton<T>(
-      tooltip: tooltip ?? context.l10n.moreOptions,
-      icon: Icon(icon, size: iconSize),
-      onSelected: onSelected,
-      itemBuilder: (_) => [
-        for (final item in items)
-          PopupMenuItem<T>(
-            value: item.value,
-            child: _MenuItemRow(item: item),
-          ),
-      ],
+    final tooltip = widget.tooltip ?? context.l10n.moreOptions;
+    return BlurPopupAnchor(
+      key: _popupKey,
+      trigger: BlurPopupTrigger.manual,
+      preferredDirection: widget.preferredDirection,
+      width: widget.width,
+      maxHeight: widget.maxHeight,
+      itemCount: widget.items.length,
+      semanticLabel: tooltip,
+      itemBuilder: (context, index, close) {
+        final item = widget.items[index];
+        final theme = Theme.of(context);
+        final iconColor = !item.enabled
+            ? theme.disabledColor
+            : item.destructive
+            ? theme.colorScheme.error
+            : theme.colorScheme.onSurface;
+        return PrismListRow(
+          dense: true,
+          enabled: item.enabled,
+          destructive: item.destructive,
+          leading: Icon(item.icon, size: 20, color: iconColor),
+          title: Text(item.label),
+          onTap: item.enabled
+              ? () {
+                  close();
+                  widget.onSelected?.call(item.value);
+                }
+              : null,
+        );
+      },
+      child: PrismTopBarAction(
+        icon: widget.icon ?? AppIcons.moreVert,
+        tooltip: tooltip,
+        onPressed: () => _popupKey.currentState?.show(),
+      ),
     );
   }
 }
@@ -46,31 +85,12 @@ class PrismMenuItem<T> {
     required this.label,
     required this.icon,
     this.destructive = false,
+    this.enabled = true,
   });
 
   final T value;
   final String label;
   final IconData icon;
   final bool destructive;
-}
-
-class _MenuItemRow<T> extends StatelessWidget {
-  const _MenuItemRow({required this.item});
-
-  final PrismMenuItem<T> item;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final color = item.destructive ? theme.colorScheme.error : null;
-
-    return ListTile(
-      leading: Icon(item.icon, color: color),
-      title: Text(
-        item.label,
-        style: color != null ? TextStyle(color: color) : null,
-      ),
-      contentPadding: EdgeInsets.zero,
-    );
-  }
+  final bool enabled;
 }
