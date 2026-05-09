@@ -28,15 +28,15 @@ void main() {
               (ref) => Stream.value(categories),
             ),
           ],
-          child: MaterialApp(
+          child: const MaterialApp(
             localizationsDelegates: AppLocalizations.localizationsDelegates,
-            supportedLocales: const [Locale('en')],
+            supportedLocales: [Locale('en')],
             home: MediaQuery(
-              data: const MediaQueryData(
+              data: MediaQueryData(
                 size: Size(390, 720),
                 viewPadding: EdgeInsets.only(bottom: 48),
               ),
-              child: const Scaffold(body: CategoryManagementSheet()),
+              child: Scaffold(body: CategoryManagementSheet()),
             ),
           ),
         ),
