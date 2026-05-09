@@ -12,6 +12,7 @@ import 'package:prism_plurality/domain/models/conversation.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/providers/member_stats_providers.dart';
+import 'package:prism_plurality/features/members/utils/member_accent_color.dart';
 import 'package:prism_plurality/features/members/views/add_edit_member_sheet.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -21,6 +22,7 @@ import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
@@ -93,15 +95,15 @@ class _MemberDetailBody extends ConsumerWidget {
     final l10n = context.l10n;
     final terms = watchTerminology(context, ref);
     final activeSessionsAsync = ref.watch(activeSessionsProvider);
+    final perMemberAccentColors = ref.watch(perMemberAccentColorsProvider);
     final isFronting =
         activeSessionsAsync.whenOrNull(data: _isFronting) ?? false;
 
-    final memberAccent =
-        (member.customColorEnabled &&
-            member.customColorHex != null &&
-            member.customColorHex!.isNotEmpty)
-        ? AppColors.fromHex(member.customColorHex!)
-        : null;
+    final memberAccent = resolveMemberAccentColor(
+      theme,
+      member,
+      perMemberAccentColors: perMemberAccentColors,
+    );
 
     Widget body = SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(24, 0, 24, NavBarInset.of(context)),
