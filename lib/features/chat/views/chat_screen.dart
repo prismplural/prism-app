@@ -32,6 +32,7 @@ import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/shared/widgets/sliver_pinned_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
+import 'package:prism_plurality/shared/widgets/prism_popup_menu.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 const _kLastChatSubTabKey = 'chat.last_sub_tab';
@@ -750,7 +751,9 @@ class _ChatMemberSelectorTrigger extends StatelessWidget {
   }
 }
 
-class _OverflowMenuButton extends ConsumerStatefulWidget {
+enum _ChatMenuAction { search, toggleArchived, markAllRead, manageCategories }
+
+class _OverflowMenuButton extends ConsumerWidget {
   const _OverflowMenuButton({
     required this.speakingAs,
     required this.hasArchived,
@@ -766,104 +769,55 @@ class _OverflowMenuButton extends ConsumerStatefulWidget {
   final VoidCallback onArchiveTap;
 
   @override
-  ConsumerState<_OverflowMenuButton> createState() =>
-      _OverflowMenuButtonState();
-}
-
-class _OverflowMenuButtonState extends ConsumerState<_OverflowMenuButton> {
-  final _popupKey = GlobalKey<BlurPopupAnchorState>();
-
-  @override
-  Widget build(BuildContext context) {
-    final speakingAs = widget.speakingAs;
-    final actions = <Widget Function(BuildContext, VoidCallback)>[
-      (ctx, close) {
-        final popupTheme = Theme.of(ctx);
-        return PrismListRow(
-          dense: true,
-          leading: Icon(AppIcons.search, size: 20),
-          title: Text(
-            ctx.l10n.chatSearchMessages,
-            style: popupTheme.textTheme.bodyMedium,
-          ),
-          onTap: () {
-            close();
-            widget.onSearchTap();
-          },
-        );
-      },
-      if (widget.hasArchived || widget.showArchived)
-        (ctx, close) {
-          final popupTheme = Theme.of(ctx);
-          return PrismListRow(
-            dense: true,
-            leading: Icon(
-              widget.showArchived
-                  ? AppIcons.inventoryRounded
-                  : AppIcons.inventoryOutlined,
-              size: 20,
-            ),
-            title: Text(
-              widget.showArchived
-                  ? ctx.l10n.chatHideArchived
-                  : ctx.l10n.chatShowArchived,
-              style: popupTheme.textTheme.bodyMedium,
-            ),
-            onTap: () {
-              close();
-              widget.onArchiveTap();
-            },
-          );
-        },
-      (ctx, close) {
-        final popupTheme = Theme.of(ctx);
-        return PrismListRow(
-          dense: true,
-          leading: Icon(AppIcons.markEmailReadOutlined, size: 20),
-          title: Text(
-            ctx.l10n.chatMarkAllAsRead,
-            style: popupTheme.textTheme.bodyMedium,
-          ),
-          onTap: () {
-            close();
-            if (speakingAs != null) {
-              ref
-                  .read(chatNotifierProvider.notifier)
-                  .markAllConversationsAsRead(speakingAs);
-            }
-          },
-        );
-      },
-      (ctx, close) {
-        final popupTheme = Theme.of(ctx);
-        return PrismListRow(
-          dense: true,
-          leading: Icon(AppIcons.folderOutlined, size: 20),
-          title: Text(
-            ctx.l10n.chatManageCategories,
-            style: popupTheme.textTheme.bodyMedium,
-          ),
-          onTap: () {
-            close();
-            CategoryManagementSheet.show(context);
-          },
-        );
-      },
-    ];
-
-    return BlurPopupAnchor(
-      key: _popupKey,
-      trigger: BlurPopupTrigger.manual,
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    return PrismPopupMenu<_ChatMenuAction>(
       width: 240,
       maxHeight: 224,
-      itemCount: actions.length,
-      semanticLabel: context.l10n.moreOptions,
-      itemBuilder: (ctx, index, close) => actions[index](ctx, close),
-      child: PrismTopBarAction(
-        icon: AppIcons.moreVert,
-        tooltip: context.l10n.moreOptions,
-        onPressed: () => _popupKey.currentState?.show(),
-      ),
+      items: [
+        PrismMenuItem(
+          value: _ChatMenuAction.search,
+          label: l10n.chatSearchMessages,
+          icon: AppIcons.search,
+        ),
+        if (hasArchived || showArchived)
+          PrismMenuItem(
+            value: _ChatMenuAction.toggleArchived,
+            label: showArchived
+                ? l10n.chatHideArchived
+                : l10n.chatShowArchived,
+            icon: showArchived
+                ? AppIcons.inventoryRounded
+                : AppIcons.inventoryOutlined,
+          ),
+        PrismMenuItem(
+          value: _ChatMenuAction.markAllRead,
+          label: l10n.chatMarkAllAsRead,
+          icon: AppIcons.markEmailReadOutlined,
+        ),
+        PrismMenuItem(
+          value: _ChatMenuAction.manageCategories,
+          label: l10n.chatManageCategories,
+          icon: AppIcons.folderOutlined,
+        ),
+      ],
+      onSelected: (action) {
+        switch (action) {
+          case _ChatMenuAction.search:
+            onSearchTap();
+          case _ChatMenuAction.toggleArchived:
+            onArchiveTap();
+          case _ChatMenuAction.markAllRead:
+            final id = speakingAs;
+            if (id != null) {
+              ref
+                  .read(chatNotifierProvider.notifier)
+                  .markAllConversationsAsRead(id);
+            }
+          case _ChatMenuAction.manageCategories:
+            CategoryManagementSheet.show(context);
+        }
+      },
     );
   }
 }
