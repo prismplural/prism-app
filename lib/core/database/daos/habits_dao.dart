@@ -132,4 +132,25 @@ class HabitsDao extends DatabaseAccessor<AppDatabase> with _$HabitsDaoMixin {
       (update(habitCompletions)..where((c) => c.id.equals(id))).write(
         const HabitCompletionsCompanion(isDeleted: Value(true)),
       );
+
+  /// Update an active habit completion by ID. Returns affected row count
+  /// (0 if the row is tombstoned or missing, 1 on success).
+  ///
+  /// The `is_deleted = false` predicate is the tombstone guard — Drift
+  /// `write` on a tombstoned row returns 0, letting the repository skip
+  /// sync emission and avoid resurrection.
+  Future<int> updateCompletionById(
+    String id,
+    HabitCompletionsCompanion companion,
+  ) =>
+      (update(habitCompletions)
+            ..where((c) => c.id.equals(id) & c.isDeleted.equals(false)))
+          .write(companion);
+
+  /// Single-row read by ID. Returns the raw Drift row (including a tombstoned
+  /// row); the repository layer is responsible for filtering on `isDeleted`
+  /// when mapping to the domain model.
+  Future<HabitCompletion?> getCompletionByIdRow(String id) =>
+      (select(habitCompletions)..where((c) => c.id.equals(id)))
+          .getSingleOrNull();
 }
