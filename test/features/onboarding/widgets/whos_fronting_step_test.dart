@@ -85,6 +85,31 @@ void main() {
     expect(find.text('Bea'), findsOneWidget);
   });
 
+  testWidgets('small systems also expose shared search', (tester) async {
+    await _pumpStep(
+      tester,
+      members: [
+        _member(id: 'alex', name: 'Alex'),
+        _member(id: 'bea', name: 'Bea'),
+      ],
+    );
+
+    await tester.tap(find.byKey(const Key('onboardingFrontingSearchButton')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(MemberSearchSheet), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), 'bea');
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('bea')));
+    await tester.pumpAndSettle();
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(WhosFrontingStep)),
+    );
+    expect(container.read(onboardingProvider).selectedFronterId, 'bea');
+  });
+
   testWidgets('large systems use shared search and update selection', (
     tester,
   ) async {

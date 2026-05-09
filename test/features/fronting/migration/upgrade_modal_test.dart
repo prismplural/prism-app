@@ -1075,17 +1075,9 @@ void main() {
     // carries that file as `exportFile`, then tapping Retry from the
     // failure step - the modal should land on `backupReady` (not back
     // on `password`).
-    //
-    // TODO(skylar): widget-level test hangs in `pumpAndSettle` for the
-    // intro -> mode picker transition under Riverpod 3 + the modal's
-    // inline ProviderScope. The underlying invariant is exercised by
-    // the `_retry preserves _backupFile when prior failure was post
-    // backup` unit test in `_state_machine` group below; revisit once
-    // the pumpAndSettle interaction is understood.
     testWidgets(
       'retry after post-backup failure preserves _backupFile and lands '
       'on backupReady (not password)',
-      skip: true, // flaky pumpAndSettle hang - see TODO above
       (tester) async {
         final tempDir = Directory.systemTemp.createTempSync(
           'prism-mig-retry-preserves-',
@@ -1097,8 +1089,10 @@ void main() {
         });
         // The fake runner pretends prepareBackup wrote this file. The
         // file must exist on disk so _retry's existsSync check passes.
+        // Use sync I/O; widget tests run under fake async, and awaiting
+        // dart:io file writes can hang without real event-loop progress.
         final realBackup = File('${tempDir.path}/preserved.prism');
-        await realBackup.writeAsBytes(const [0xab, 0xcd]);
+        realBackup.writeAsBytesSync(const [0xab, 0xcd]);
 
         // Custom fake that returns the real on-disk file from
         // prepareBackup (so `_backupFile` is non-null and

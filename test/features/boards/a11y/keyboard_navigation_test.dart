@@ -28,6 +28,7 @@ Member _member(String id, String name) =>
     Member(id: id, name: name, createdAt: _now, isActive: true);
 
 final _alice = _member('alice', 'Alice');
+const _allMembersLabel = 'All Headmates';
 
 MemberBoardPost _post(String id) => MemberBoardPost(
       id: id,
@@ -295,7 +296,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 350)); // animation settle
 
       // Verify Inbox is active by finding the avatar filter trigger's label.
-      expect(find.bySemanticsLabel(RegExp('All fronters')), findsWidgets);
+      expect(find.bySemanticsLabel(RegExp(_allMembersLabel)), findsWidgets);
     });
   });
 
@@ -380,10 +381,9 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 350));
 
-      // The filter bar has Semantics with label containing 'All fronters'.
-      // The _InboxFilterBar wraps in Semantics(label: '${boardsViewFilterAll}, $filterLabel').
+      // The filter button exposes the terminology-aware all-members label.
       expect(
-        find.bySemanticsLabel(RegExp('All fronters')),
+        find.bySemanticsLabel(RegExp(_allMembersLabel)),
         findsWidgets,
       );
     });

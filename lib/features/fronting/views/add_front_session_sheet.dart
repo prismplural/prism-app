@@ -87,9 +87,6 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
   final _notesKey = GlobalKey();
   late DateTime _startTime;
   DateTime? _endTime;
-  late DateTime _initialStartTime;
-  DateTime? _initialEndTime;
-  late bool _initialIsHistorical;
   bool _isHistorical = false;
   bool _saving = false;
 
@@ -129,9 +126,6 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
       _startTime = DateTime.now();
       _endTime = null;
     }
-    _initialStartTime = _startTime;
-    _initialEndTime = _endTime;
-    _initialIsHistorical = _isHistorical;
   }
 
   @override
@@ -511,22 +505,27 @@ class _MemberGridState extends ConsumerState<_MemberGrid> {
     // Always include the Unknown tile.
     final totalCount = widget.members.length + 1;
 
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        mainAxisSpacing: 4,
-        crossAxisSpacing: 4,
-        childAspectRatio: 0.94,
-      ),
-      itemCount: totalCount,
-      itemBuilder: (context, index) {
-        if (index == totalCount - 1) {
-          return _gridUnknownTile(theme);
-        }
-        return _gridMemberTile(theme, widget.members[index]);
-      },
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            mainAxisSpacing: 4,
+            crossAxisSpacing: 4,
+            childAspectRatio: 0.94,
+          ),
+          itemCount: totalCount,
+          itemBuilder: (context, index) {
+            if (index == totalCount - 1) {
+              return _gridUnknownTile(theme);
+            }
+            return _gridMemberTile(theme, widget.members[index]);
+          },
+        ),
+      ],
     );
   }
 

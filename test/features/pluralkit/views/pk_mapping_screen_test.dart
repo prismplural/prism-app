@@ -8,6 +8,7 @@ import 'package:prism_plurality/features/pluralkit/providers/pk_mapping_controll
 import 'package:prism_plurality/features/pluralkit/services/pk_mapping_applier.dart';
 import 'package:prism_plurality/features/pluralkit/views/pk_mapping_screen.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_select.dart';
 
 // ---------------------------------------------------------------------------
@@ -27,6 +28,7 @@ class _FakePkMappingController extends PkMappingController {
   int retryCallCount = 0;
   int dismissCallCount = 0;
 
+  final List<_PkDecisionCall> pkDecisionCalls = [];
   final List<_LocalDecisionCall> localDecisionCalls = [];
 
   @override
@@ -37,11 +39,13 @@ class _FakePkMappingController extends PkMappingController {
     applyCallCount++;
     final current = state.value;
     if (current == null) return;
-    state = AsyncData(current.copyWith(
-      isApplying: false,
-      applyProgress: 1.0,
-      lastResults: appliedResults ?? const [],
-    ));
+    state = AsyncData(
+      current.copyWith(
+        isApplying: false,
+        applyProgress: 1.0,
+        lastResults: appliedResults ?? const [],
+      ),
+    );
   }
 
   @override
@@ -56,10 +60,22 @@ class _FakePkMappingController extends PkMappingController {
   }
 
   @override
+  void setPkDecision(String pkUuid, PkMappingDecision decision) {
+    pkDecisionCalls.add(_PkDecisionCall(pkUuid, decision));
+    super.setPkDecision(pkUuid, decision);
+  }
+
+  @override
   void setLocalDecision(String localId, PkMappingDecision decision) {
     localDecisionCalls.add(_LocalDecisionCall(localId, decision));
     super.setLocalDecision(localId, decision);
   }
+}
+
+class _PkDecisionCall {
+  _PkDecisionCall(this.pkUuid, this.decision);
+  final String pkUuid;
+  final PkMappingDecision decision;
 }
 
 class _LocalDecisionCall {
@@ -87,29 +103,19 @@ class _ErroringPkMappingController extends PkMappingController {
 // Test helpers
 // ---------------------------------------------------------------------------
 
-domain.Member _local(
-  String id,
-  String name, {
-  String? pkUuid,
-}) =>
-    domain.Member(
-      id: id,
-      name: name,
-      createdAt: DateTime(2026),
-      pluralkitUuid: pkUuid,
-    );
+domain.Member _local(String id, String name, {String? pkUuid}) => domain.Member(
+  id: id,
+  name: name,
+  createdAt: DateTime(2026),
+  pluralkitUuid: pkUuid,
+);
 
-PKMember _pk(String uuid, String name, {String? id}) => PKMember(
-      id: id ?? uuid.substring(0, 5),
-      uuid: uuid,
-      name: name,
-    );
+PKMember _pk(String uuid, String name, {String? id}) =>
+    PKMember(id: id ?? uuid.substring(0, 5), uuid: uuid, name: name);
 
 Widget _wrap(PkMappingController controller) {
   return ProviderScope(
-    overrides: [
-      pkMappingControllerProvider.overrideWith(() => controller),
-    ],
+    overrides: [pkMappingControllerProvider.overrideWith(() => controller)],
     child: const MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: [Locale('en')],
@@ -141,7 +147,10 @@ void main() {
           pkMembers: [pkAlice, pkBob],
           localMembers: locals,
           decisionsByPkUuid: {
-            pkAlice.uuid: PkLinkDecision(localMemberId: 'l1', pkMember: pkAlice),
+            pkAlice.uuid: PkLinkDecision(
+              localMemberId: 'l1',
+              pkMember: pkAlice,
+            ),
             pkBob.uuid: PkImportDecision(pkMember: pkBob),
           },
         );
@@ -163,18 +172,78 @@ void main() {
               s.value == kPkRowImportSentinel &&
               s.items.any((i) => i.value == 'l1'),
         );
-        final bobL1Item =
-            bobSelect.items.firstWhere((i) => i.value == 'l1');
-        expect(bobL1Item.enabled, isFalse,
-            reason:
-                'Local l1 is already consumed by the Alice link — must be '
-                'disabled in Bob\'s dropdown');
+        final bobL1Item = bobSelect.items.firstWhere((i) => i.value == 'l1');
+        expect(
+          bobL1Item.enabled,
+          isFalse,
+          reason:
+              'Local l1 is already consumed by the Alice link — must be '
+              'disabled in Bob\'s dropdown',
+        );
 
         // Alice's select, by contrast, SHOULD have l1 enabled (she owns it).
         final aliceSelect = selects.firstWhere((s) => s.value == 'l1');
-        final aliceL1Item =
-            aliceSelect.items.firstWhere((i) => i.value == 'l1');
+        final aliceL1Item = aliceSelect.items.firstWhere(
+          (i) => i.value == 'l1',
+        );
         expect(aliceL1Item.enabled, isTrue);
+      },
+    );
+
+    testWidgets(
+      'link search opens searchable member sheet and applies selected local',
+      (tester) async {
+        final pkDana = _pk('pk-dana', 'Dana');
+        final locals = [
+          _local('l1', 'Alice'),
+          _local('l2', 'Bob'),
+          _local('l3', 'Dana Prime'),
+        ];
+
+        final state = PkMappingState(
+          pkMembers: [pkDana],
+          localMembers: locals,
+          decisionsByPkUuid: {pkDana.uuid: PkImportDecision(pkMember: pkDana)},
+          decisionsByLocalId: const {
+            'l1': PkPushNewDecision(localMemberId: 'l1'),
+            'l2': PkPushNewDecision(localMemberId: 'l2'),
+            'l3': PkPushNewDecision(localMemberId: 'l3'),
+          },
+        );
+
+        final controller = _FakePkMappingController(state);
+        await tester.pumpWidget(_wrap(controller));
+        await tester.pumpAndSettle();
+
+        await tester.tap(
+          find.byKey(const ValueKey('pkMappingLinkSearch-pk-dana')),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byType(MemberSearchSheet), findsOneWidget);
+
+        await tester.enterText(find.byType(TextField), 'prime');
+        await tester.pumpAndSettle();
+
+        final searchSheet = find.byType(MemberSearchSheet);
+        final danaPrimeResult = find.descendant(
+          of: searchSheet,
+          matching: find.text('Dana Prime'),
+        );
+        expect(danaPrimeResult, findsOneWidget);
+        expect(
+          find.descendant(of: searchSheet, matching: find.text('Alice')),
+          findsNothing,
+        );
+
+        await tester.tap(danaPrimeResult);
+        await tester.pumpAndSettle();
+
+        expect(controller.pkDecisionCalls, hasLength(1));
+        final call = controller.pkDecisionCalls.single;
+        expect(call.pkUuid, pkDana.uuid);
+        expect(call.decision, isA<PkLinkDecision>());
+        expect((call.decision as PkLinkDecision).localMemberId, 'l3');
       },
     );
 
@@ -191,9 +260,7 @@ void main() {
         final state = PkMappingState(
           pkMembers: [pkDana],
           localMembers: locals,
-          decisionsByPkUuid: {
-            pkDana.uuid: PkImportDecision(pkMember: pkDana),
-          },
+          decisionsByPkUuid: {pkDana.uuid: PkImportDecision(pkMember: pkDana)},
           decisionsByLocalId: {
             'l2': const PkPushNewDecision(localMemberId: 'l2'),
           },
@@ -209,15 +276,19 @@ void main() {
         final pkSelect = selects.first;
         final values = pkSelect.items.map((i) => i.value).toList();
         expect(values, contains('l2'));
-        expect(values, isNot(contains('l1')),
-            reason: 'Already-linked locals must not appear as link targets');
+        expect(
+          values,
+          isNot(contains('l1')),
+          reason: 'Already-linked locals must not appear as link targets',
+        );
       },
     );
   });
 
   group('PkMappingScreen — apply results', () {
-    testWidgets('per-item errors are surfaced in the results summary',
-        (tester) async {
+    testWidgets('per-item errors are surfaced in the results summary', (
+      tester,
+    ) async {
       final pkAlice = _pk('pk-alice', 'Alice');
       final pkBob = _pk('pk-bob', 'Bob');
       final locals = [_local('l1', 'Alice'), _local('l2', 'Bob')];
@@ -312,25 +383,29 @@ void main() {
   });
 
   group('PkMappingScreen — build error retry', () {
-    testWidgets(
-      'tapping Retry in the error view invokes controller.retry()',
-      (tester) async {
-        final controller = _ErroringPkMappingController();
-        await tester.pumpWidget(_wrap(controller));
-        await tester.pumpAndSettle();
+    testWidgets('tapping Retry in the error view invokes controller.retry()', (
+      tester,
+    ) async {
+      final controller = _ErroringPkMappingController();
+      await tester.pumpWidget(_wrap(controller));
+      await tester.pumpAndSettle();
 
-        // Error view should be visible with a Retry button.
-        expect(find.textContaining('Failed to load PluralKit members'),
-            findsOneWidget);
+      // Error view should be visible with a Retry button.
+      expect(
+        find.textContaining('Failed to load PluralKit members'),
+        findsOneWidget,
+      );
 
-        final retryFinder = find.text('Retry');
-        expect(retryFinder, findsOneWidget);
-        await tester.tap(retryFinder);
-        await tester.pumpAndSettle();
+      final retryFinder = find.text('Retry');
+      expect(retryFinder, findsOneWidget);
+      await tester.tap(retryFinder);
+      await tester.pumpAndSettle();
 
-        expect(controller.retryCallCount, greaterThanOrEqualTo(1),
-            reason: 'Retry tap must invoke controller.retry()');
-      },
-    );
+      expect(
+        controller.retryCallCount,
+        greaterThanOrEqualTo(1),
+        reason: 'Retry tap must invoke controller.retry()',
+      );
+    });
   });
 }

@@ -117,6 +117,20 @@ void main() {
 
         expect(find.byType(MemberSearchSheet), findsOneWidget);
       });
+
+      testWidgets('small member sets still expose search', (tester) async {
+        await tester.pumpWidget(
+          _buildSubject(
+            members: [_member('alice', 'Alice'), _member('bob', 'Bob')],
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('wakeUpMemberSearchButton')));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(MemberSearchSheet), findsOneWidget);
+      });
     });
 
     // ── 3. Selecting from the shared sheet updates the chosen member ────────

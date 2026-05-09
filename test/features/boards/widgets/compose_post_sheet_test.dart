@@ -21,6 +21,7 @@ import 'package:prism_plurality/features/members/providers/member_groups_provide
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 
 // ---------------------------------------------------------------------------
@@ -111,8 +112,7 @@ class _FakeRepository implements MemberBoardPostsRepository {
     DateTime? afterWrittenAt,
     String? afterId,
     int limit = 30,
-  }) =>
-      Stream.value(const []);
+  }) => Stream.value(const []);
 
   @override
   Stream<List<MemberBoardPost>> watchInboxPaginated(
@@ -120,8 +120,7 @@ class _FakeRepository implements MemberBoardPostsRepository {
     DateTime? afterWrittenAt,
     String? afterId,
     int limit = 30,
-  }) =>
-      Stream.value(const []);
+  }) => Stream.value(const []);
 
   @override
   Stream<List<MemberBoardPost>> watchPublicForMemberPaginated(
@@ -129,19 +128,16 @@ class _FakeRepository implements MemberBoardPostsRepository {
     DateTime? afterWrittenAt,
     String? afterId,
     int limit = 30,
-  }) =>
-      Stream.value(const []);
+  }) => Stream.value(const []);
 
   @override
   Stream<List<MemberBoardPost>> watchPublicForMemberRecent(
     String memberId, {
     int limit = 3,
-  }) =>
-      Stream.value(const []);
+  }) => Stream.value(const []);
 
   @override
-  Stream<MemberBoardPost?> watchPostById(String id) =>
-      Stream.value(_posts[id]);
+  Stream<MemberBoardPost?> watchPostById(String id) => Stream.value(_posts[id]);
 }
 
 // ---------------------------------------------------------------------------
@@ -170,9 +166,11 @@ Widget _buildSubject({
   String? editingPostId,
   MemberBoardPost? repoPost,
   _FakeBoardPostNotifier? notifier,
+  List<FrontingSession> activeSessions = const [],
 }) {
-  final repoPostMap =
-      repoPost != null ? {repoPost.id: repoPost} : <String, MemberBoardPost>{};
+  final repoPostMap = repoPost != null
+      ? {repoPost.id: repoPost}
+      : <String, MemberBoardPost>{};
   final fakeNotifier = notifier ?? _FakeBoardPostNotifier();
   final fakeRepo = _FakeRepository(repoPostMap);
 
@@ -184,12 +182,8 @@ Widget _buildSubject({
       speakingAsProvider.overrideWith(
         () => _FakeSpeakingAsNotifier(speakingAs),
       ),
-      activeSessionsProvider.overrideWith(
-        (ref) => Stream.value(const <FrontingSession>[]),
-      ),
-      activeMembersProvider.overrideWith(
-        (ref) => Stream.value(members),
-      ),
+      activeSessionsProvider.overrideWithValue(AsyncValue.data(activeSessions)),
+      activeMembersProvider.overrideWith((ref) => Stream.value(members)),
       userVisibleMembersProvider.overrideWith(
         (ref) => AsyncValue.data(members),
       ),
@@ -285,10 +279,7 @@ void main() {
       await tester.pumpWidget(_buildSubject(members: [_alice]));
       await _openSheet(tester);
 
-      await tester.enterText(
-        find.byType(TextField).last,
-        'Hello headmates!',
-      );
+      await tester.enterText(find.byType(TextField).last, 'Hello headmates!');
       await tester.pump();
 
       expect(find.text('Hello headmates!'), findsOneWidget);
@@ -308,6 +299,28 @@ void main() {
       expect(find.byType(PrismGlassIconButton), findsNWidgets(2));
     });
 
+    testWidgets('multiple active co-fronters open searchable author picker', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _buildSubject(
+          members: [_alice, _bob],
+          activeSessions: [
+            FrontingSession(
+              id: 'front-alice',
+              memberId: 'alice',
+              startTime: _now,
+            ),
+            FrontingSession(id: 'front-bob', memberId: 'bob', startTime: _now),
+          ],
+        ),
+      );
+      await _openSheet(tester);
+
+      expect(find.byType(MemberSearchSheet), findsOneWidget);
+      expect(find.text('Who is posting?'), findsOneWidget);
+    });
+
     testWidgets('close button dismisses the sheet', (tester) async {
       await tester.pumpWidget(_buildSubject(members: [_alice]));
       await _openSheet(tester);
@@ -321,7 +334,9 @@ void main() {
 
     // ── Member chip pre-fill ─────────────────────────────────────────────────
 
-    testWidgets('member chip shows headmate name when pre-filled', (tester) async {
+    testWidgets('member chip shows headmate name when pre-filled', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         _buildSubject(
           members: [_alice],
@@ -334,7 +349,9 @@ void main() {
       expect(find.text('Alice'), findsWidgets);
     });
 
-    testWidgets('audience is private when defaultAudience is private', (tester) async {
+    testWidgets('audience is private when defaultAudience is private', (
+      tester,
+    ) async {
       final notifier = _FakeBoardPostNotifier();
       await tester.pumpWidget(
         _buildSubject(
@@ -430,10 +447,7 @@ void main() {
       await tester.pump(); // Ensure post is loaded.
 
       // Edit the body.
-      await tester.enterText(
-        find.byType(TextField).last,
-        'Updated body',
-      );
+      await tester.enterText(find.byType(TextField).last, 'Updated body');
       await tester.pump();
 
       await tester.tap(find.byType(PrismGlassIconButton).last);
@@ -443,9 +457,9 @@ void main() {
       expect(notifier.updatedBody, 'Updated body');
     });
 
-    testWidgets(
-        'edit mode: can change audience from public to private',
-        (tester) async {
+    testWidgets('edit mode: can change audience from public to private', (
+      tester,
+    ) async {
       final notifier = _FakeBoardPostNotifier();
       // Post has a target member so the audience segmented button is enabled.
       final existingPost = MemberBoardPost(

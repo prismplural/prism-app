@@ -20,7 +20,6 @@ import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
-import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
@@ -305,31 +304,25 @@ class _ComposePostSheetBodyState extends ConsumerState<_ComposePostSheetBody> {
 
   Future<void> _showCoFronterPicker(List<Member> coFronters) async {
     final l10n = context.l10n;
-    final result = await PrismDialog.show<String?>(
-      context: context,
-      title: l10n.boardsComposeWhoIsPosting,
-      builder: (dialogCtx) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (final member in coFronters)
-            PrismListRow(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              leading: MemberAvatar(
-                memberName: member.name,
-                emoji: member.emoji,
-                avatarImageData: member.avatarImageData,
-                customColorEnabled: member.customColorEnabled,
-                customColorHex: member.customColorHex,
-                size: 36,
-              ),
-              title: Text(member.name),
-              onTap: () => Navigator.of(dialogCtx).pop(member.id),
-            ),
-        ],
-      ),
+    final terminology = ref.read(terminologySettingProvider);
+    final terms = resolveTerminology(
+      l10n,
+      terminology.term,
+      customSingular: terminology.customSingular,
+      customPlural: terminology.customPlural,
+      useEnglish: terminology.useEnglish,
     );
-    if (!mounted || result == null) return;
-    ref.read(speakingAsProvider.notifier).setMember(result);
+    final result = await MemberSearchSheet.showSingle(
+      context,
+      members: coFronters,
+      termPlural: terms.plural,
+      title: l10n.boardsComposeWhoIsPosting,
+      groups: readMemberSearchGroups(ref, coFronters),
+    );
+    if (!mounted) return;
+    if (result is MemberSearchResultSelected) {
+      ref.read(speakingAsProvider.notifier).setMember(result.memberId);
+    }
   }
 
   Future<void> _pickAuthor() async {

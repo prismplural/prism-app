@@ -96,16 +96,16 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
     await _handleSkip();
   }
 
-  Future<void> _showOthersPicker(
+  Future<void> _showMemberPicker(
     BuildContext context,
-    List<Member> others,
+    List<Member> candidates,
     List<MemberSearchGroup> groups,
   ) async {
     final termPlural = readTerminology(context, ref).plural;
 
     final result = await MemberSearchSheet.showSingle(
       context,
-      members: others,
+      members: candidates,
       termPlural: termPlural,
       groups: groups,
     );
@@ -225,12 +225,17 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
                   morningCounts,
                   take: 4,
                 );
-                final topIds = topMembers.map((member) => member.id).toSet();
-                final others = members
-                    .where((member) => !topIds.contains(member.id))
-                    .toList();
-                final otherSearchGroups = watchMemberSearchGroups(ref, others);
+                final searchGroups = watchMemberSearchGroups(ref, members);
                 final hasOthers = members.length > 4;
+                final selectedOutsideTop =
+                    _selectedMemberId != null &&
+                    !topMembers.any((m) => m.id == _selectedMemberId);
+                final selectedOutsideTopName = selectedOutsideTop
+                    ? members
+                          .where((m) => m.id == _selectedMemberId)
+                          .firstOrNull
+                          ?.name
+                    : null;
 
                 return Column(
                   mainAxisSize: MainAxisSize.min,
@@ -308,14 +313,12 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
                         );
                       }).toList(),
                     ),
-                    if (hasOthers) ...[
+                    if (members.isNotEmpty) ...[
                       const SizedBox(height: 4),
                       InkWell(
-                        onTap: () => _showOthersPicker(
-                          context,
-                          others,
-                          otherSearchGroups,
-                        ),
+                        key: const Key('wakeUpMemberSearchButton'),
+                        onTap: () =>
+                            _showMemberPicker(context, members, searchGroups),
                         borderRadius: BorderRadius.circular(
                           PrismShapes.of(context).radius(8),
                         ),
@@ -324,20 +327,17 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
+                              Icon(
+                                AppIcons.search,
+                                size: 16,
+                                color: theme.colorScheme.primary,
+                              ),
+                              const SizedBox(width: 6),
                               Text(
-                                _selectedMemberId != null &&
-                                        !topMembers.any(
-                                          (m) => m.id == _selectedMemberId,
-                                        )
-                                    ? (members
-                                              .where(
-                                                (m) =>
-                                                    m.id == _selectedMemberId,
-                                              )
-                                              .firstOrNull
-                                              ?.name ??
-                                          context.l10n.sleepWakeUpOthers)
-                                    : context.l10n.sleepWakeUpOthers,
+                                selectedOutsideTopName ??
+                                    (hasOthers
+                                        ? context.l10n.sleepWakeUpOthers
+                                        : context.l10n.search),
                                 style: theme.textTheme.bodyMedium?.copyWith(
                                   color: theme.colorScheme.primary,
                                 ),

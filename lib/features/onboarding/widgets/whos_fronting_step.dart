@@ -83,8 +83,9 @@ class WhosFrontingStep extends ConsumerWidget {
           );
         }
 
+        final searchGroups = watchMemberSearchGroups(ref, members);
+
         if (members.length >= _kOnboardingFrontingSearchThreshold) {
-          final searchGroups = watchMemberSearchGroups(ref, members);
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Column(
@@ -130,6 +131,23 @@ class WhosFrontingStep extends ConsumerWidget {
                 isDark: isDark,
               ),
               const SizedBox(height: 16),
+              Align(
+                alignment: Alignment.centerRight,
+                child: PrismButton(
+                  key: const Key('onboardingFrontingSearchButton'),
+                  label: context.l10n.search,
+                  icon: AppIcons.search,
+                  density: PrismControlDensity.compact,
+                  onPressed: () => _openSearchSheet(
+                    context,
+                    notifier,
+                    members,
+                    terms.plural,
+                    searchGroups,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
               Expanded(
                 child: GridView.builder(
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(

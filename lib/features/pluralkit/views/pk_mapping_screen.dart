@@ -10,7 +10,9 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
+import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
@@ -221,6 +223,30 @@ class _PkMemberRow extends ConsumerWidget {
   final PKMember pkMember;
   final PkMappingState state;
 
+  Future<void> _showLinkSearch(
+    BuildContext context,
+    WidgetRef ref,
+    List<domain.Member> members,
+  ) async {
+    final l10n = context.l10n;
+    final result = await MemberSearchSheet.showSingle(
+      context,
+      members: members,
+      termPlural: l10n.settingsTerminologyOptionMembers,
+      title: l10n.pkMappingOptionLink(pkMember.name),
+    );
+
+    if (!context.mounted) return;
+    if (result case MemberSearchResultSelected(:final memberId)) {
+      ref
+          .read(pkMappingControllerProvider.notifier)
+          .setPkDecision(
+            pkMember.uuid,
+            PkLinkDecision(localMemberId: memberId, pkMember: pkMember),
+          );
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
@@ -244,6 +270,10 @@ class _PkMemberRow extends ConsumerWidget {
       final d = entry.value;
       if (d is PkLinkDecision) consumedElsewhere.add(d.localMemberId);
     }
+
+    final linkableMembers = state.localMembers
+        .where((m) => !hasPluralKitLink(m) && !consumedElsewhere.contains(m.id))
+        .toList(growable: false);
 
     final items = <PrismSelectItem<String>>[
       PrismSelectItem(
@@ -330,6 +360,16 @@ class _PkMemberRow extends ConsumerWidget {
                     }
                   },
                 ),
+              ),
+              const SizedBox(width: 8),
+              PrismGlassIconButton(
+                key: ValueKey('pkMappingLinkSearch-${pkMember.uuid}'),
+                icon: AppIcons.search,
+                tooltip: l10n.search,
+                size: 40,
+                onPressed: linkableMembers.isEmpty
+                    ? null
+                    : () => _showLinkSearch(context, ref, linkableMembers),
               ),
             ],
           ),
