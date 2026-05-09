@@ -58,4 +58,43 @@ void main() {
       lessThan(140),
     );
   });
+
+  testWidgets('keeps emoji search focused when keyboard insets change', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    addTearDown(tester.view.resetViewInsets);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: PrismEmojiPicker(emoji: '🌸', onSelected: (_) {}),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byType(PrismEmojiPicker));
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.search));
+    await tester.pumpAndSettle();
+
+    final focusNode = tester
+        .widget<EditableText>(find.byType(EditableText))
+        .focusNode;
+
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    await tester.pump();
+
+    expect(find.byType(TextField), findsOneWidget);
+    expect(
+      tester.widget<EditableText>(find.byType(EditableText)).focusNode,
+      same(focusNode),
+    );
+  });
 }

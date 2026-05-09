@@ -16,6 +16,10 @@ import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 const double _kPickerHeight = 360.0;
 const double _kSearchPickerHeight = 124.0;
 
+// emoji_picker_flutter compares this callback by identity when config changes.
+// Keep it stable so keyboard inset rebuilds don't reset the search field.
+List<CategoryEmoji> _prismEmojiSetForLocale(Locale _) => prismEmojiSet;
+
 /// A tappable glass circle that shows the selected emoji or a `+` icon.
 /// Tapping opens a themed bottom sheet with the full emoji picker.
 class PrismEmojiPicker extends StatelessWidget {
@@ -75,7 +79,7 @@ class PrismEmojiPicker extends StatelessWidget {
     return Config(
       height: _kPickerHeight,
       checkPlatformCompatibility: false,
-      emojiSet: (_) => prismEmojiSet,
+      emojiSet: _prismEmojiSetForLocale,
       viewOrderConfig: const ViewOrderConfig(
         top: EmojiPickerItem.searchBar,
         middle: EmojiPickerItem.categoryBar,
@@ -102,6 +106,12 @@ class PrismEmojiPicker extends StatelessWidget {
         dividerColor: isDark
             ? AppColors.warmWhite.withValues(alpha: 0.06)
             : AppColors.warmBlack.withValues(alpha: 0.06),
+      ),
+      skinToneConfig: SkinToneConfig(
+        dialogBackgroundColor: isDark
+            ? AppColors.charcoalSurface.withValues(alpha: 0.96)
+            : AppColors.parchmentElevated.withValues(alpha: 0.96),
+        indicatorColor: theme.colorScheme.primary.withValues(alpha: 0.72),
       ),
       bottomActionBarConfig: const BottomActionBarConfig(enabled: false),
       searchViewConfig: SearchViewConfig(
